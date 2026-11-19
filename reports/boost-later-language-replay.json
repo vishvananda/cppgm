@@ -178,6 +178,7 @@
     {
       "project": "libs/mpi/test",
       "edition": 14,
+      "shared_python_runtime": "Boost.MPI's optional Python binding uses the host CPython library. The distribution's shared library supplies a PIE-compatible runtime with its packaged dependencies.",
       "proof": {
         "path": "runs/20261029T091706.264008Z-libs__mpi__test/review.json",
         "sha256": "3b6aaf00975ac5b3c4d05df4e5b37c90fac8e48f277f0a899dd5909a322f4d7d"

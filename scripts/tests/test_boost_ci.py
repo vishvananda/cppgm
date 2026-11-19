@@ -187,6 +187,11 @@ class ReviewTests(unittest.TestCase):
         self.assertEqual(boost_ci_toolchain.expand(['@' + str(response)]),
                          ['-std=c++11', '-c', 'file with spaces.cpp', '-o', 'output.o'])
 
+    def test_shared_python_keeps_the_library_order_and_other_static_libraries(self):
+        flags = ['-Wl,--start-group,-Bstatic', '-lboost_mpi', '-lpython3.14', '-ldl', '-Wl,--end-group']
+        self.assertEqual(boost_ci_toolchain.shared_python_link(flags),
+                         [*flags[:2], '-Wl,--push-state,-Bdynamic', flags[2], '-Wl,--pop-state', *flags[3:]])
+
     def test_gdb_launcher_keeps_the_executable_and_times_once_in_either_order(self):
         fake = self.root / 'fake-gdb'
         received = self.root / 'gdb-arguments.json'

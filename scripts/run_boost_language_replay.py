@@ -58,6 +58,9 @@ def validate_inventory(inventory):
                              'invalid supplementary B2 aliases')
         boost_ci.require(all(p in {'link=shared'} for p in group.get('b2_properties', [])),
                          'unreviewed project-specific B2 property')
+        if 'shared_python_runtime' in group:
+            reason = group['shared_python_runtime']
+            boost_ci.require(isinstance(reason, str) and reason, 'shared Python runtime needs a recorded reason')
 
 
 def replay_configurations(group):
@@ -132,7 +135,8 @@ def replay(boost, settings, role, case, group, args):
     case.mkdir()
     compiler, jam, environment = settings
     invocations = case / 'invocations.jsonl'
-    environment = dict(environment, BOOST_CI_INVOCATIONS=str(invocations))
+    environment = dict(environment, BOOST_CI_INVOCATIONS=str(invocations),
+                       BOOST_CI_SHARED_PYTHON='1' if group.get('shared_python_runtime') else '0')
     edition, project = group.get('replay_edition', group['edition']), group['project']
     targets = group.get('targets')
     # The XML target names include B2's .test suffix; explicit requests use

@@ -42,6 +42,19 @@ def route(arguments):
     return 'host-link-or-query', os.environ['BOOST_CI_HOST_CXX']
 
 
+def shared_python_link(arguments):
+    # B2 can place libpython in the static group even for runtime-link=shared.
+    # Change the search mode for that library while preserving the Boost
+    # archives, library order, and the configured Python ABI version.
+    forwarded = []
+    for argument in arguments:
+        if argument.startswith('-lpython'):
+            forwarded.extend(['-Wl,--push-state,-Bdynamic', argument, '-Wl,--pop-state'])
+        else:
+            forwarded.append(argument)
+    return forwarded
+
+
 def main():
     arguments = sys.argv[1:]
     expanded = expand(arguments)
@@ -49,6 +62,8 @@ def main():
     start = time.monotonic()
     before = resource.getrusage(resource.RUSAGE_CHILDREN)
     forwarded = arguments if kind in ('host-c', 'host-link-or-query') else expanded
+    if kind == 'host-link-or-query' and os.environ.get('BOOST_CI_SHARED_PYTHON') == '1':
+        forwarded = shared_python_link(expanded)
     process = subprocess.run([compiler, *forwarded], check=False)
     after = resource.getrusage(resource.RUSAGE_CHILDREN)
     record = dict(cwd=os.getcwd(), route=kind, compiler=compiler, args=expand(forwarded), requested_args=expanded,
