@@ -29,6 +29,8 @@ struct ConstObject
 	ConstValue* value;
 	const Type* type;
 	uint32_t generation;
+	// One-based position in the pending full-expression cleanup stack.
+	uint32_t temporary;
 };
 
 // A name bound in a frame: a variable or parameter designating its

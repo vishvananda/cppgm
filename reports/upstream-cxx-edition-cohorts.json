@@ -1581,8 +1581,8 @@
           "sha256": "59657deb214b943a8a5116bb8a0905b4ce88dfb9b46fb75830f7cdfa6d5e9943",
           "action": "compile",
           "expect": "accept",
-          "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "Temporary destruction and mutable-subobject lifetime during constant evaluation are pending."
+          "feature": "destruction of parameters after a constant call",
+          "pr": false
         },
         {
           "id": "constexpr-dtor5-gnu++20",
@@ -1590,8 +1590,8 @@
           "sha256": "59657deb214b943a8a5116bb8a0905b4ce88dfb9b46fb75830f7cdfa6d5e9943",
           "action": "compile",
           "expect": "accept",
-          "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "Temporary destruction and mutable-subobject lifetime during constant evaluation are pending."
+          "feature": "destruction of parameters after a constant call",
+          "pr": false
         },
         {
           "id": "constexpr-dtor6-c++20",
@@ -1599,8 +1599,8 @@
           "sha256": "6c7e2e05ed0f0d5bae2d34e617ccd90d161579457ed6d3fc909218617c7ea52c",
           "action": "compile",
           "expect": "accept",
-          "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "Temporary destruction during constant evaluation is pending."
+          "feature": "transient allocation ownership moved from a by-value parameter",
+          "pr": true
         },
         {
           "id": "constexpr-dtor6-gnu++20",
@@ -1608,8 +1608,8 @@
           "sha256": "6c7e2e05ed0f0d5bae2d34e617ccd90d161579457ed6d3fc909218617c7ea52c",
           "action": "compile",
           "expect": "accept",
-          "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "Temporary destruction during constant evaluation is pending."
+          "feature": "transient allocation ownership moved from a by-value parameter",
+          "pr": false
         },
         {
           "id": "constexpr-dtor7-c++20",
@@ -1617,8 +1617,8 @@
           "sha256": "a01ee7c7bc8578d78201aea023dfa148db13de3a2fcace4c2f828f829903576c",
           "action": "compile",
           "expect": "reject",
-          "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "Needs a valid counterpart for construction and destruction of the temporary before qualifying the rejection."
+          "feature": "leaked transient allocation when a parameter discards its pointer",
+          "pr": false
         },
         {
           "id": "constexpr-dtor7-gnu++20",
@@ -1626,8 +1626,8 @@
           "sha256": "a01ee7c7bc8578d78201aea023dfa148db13de3a2fcace4c2f828f829903576c",
           "action": "compile",
           "expect": "reject",
-          "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "Needs a valid counterpart for construction and destruction of the temporary before qualifying the rejection."
+          "feature": "leaked transient allocation when a parameter discards its pointer",
+          "pr": false
         },
         {
           "id": "constexpr-dtor8-c++20",
@@ -1635,8 +1635,8 @@
           "sha256": "f6fed6a5ea0a5bc0baede1f4f43874254fd56659d3ae4b6f169d68e5dda90e34",
           "action": "compile",
           "expect": "reject",
-          "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "Needs a valid counterpart for construction and destruction of the temporary before qualifying the rejection."
+          "feature": "repeated deallocation when a parameter destructor runs",
+          "pr": true
         },
         {
           "id": "constexpr-dtor8-gnu++20",
@@ -1644,8 +1644,8 @@
           "sha256": "f6fed6a5ea0a5bc0baede1f4f43874254fd56659d3ae4b6f169d68e5dda90e34",
           "action": "compile",
           "expect": "reject",
-          "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "Needs a valid counterpart for construction and destruction of the temporary before qualifying the rejection."
+          "feature": "repeated deallocation when a parameter destructor runs",
+          "pr": false
         },
         {
           "id": "constexpr-dtor9-c++20",
@@ -1653,8 +1653,8 @@
           "sha256": "45462ebb13b8896a0903155f8b43b1add631ffc524919a79b19a41a1c0ab227a",
           "action": "compile",
           "expect": "accept",
-          "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "Destruction of automatic objects during constant evaluation is pending."
+          "feature": "destruction of a class prvalue materialized for member access",
+          "pr": false
         },
         {
           "id": "constexpr-dtor9-gnu++20",
@@ -1662,8 +1662,8 @@
           "sha256": "45462ebb13b8896a0903155f8b43b1add631ffc524919a79b19a41a1c0ab227a",
           "action": "compile",
           "expect": "accept",
-          "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "Destruction of automatic objects during constant evaluation is pending."
+          "feature": "destruction of a class prvalue materialized for member access",
+          "pr": false
         },
         {
           "id": "constexpr-new15-c++20",

@@ -76,8 +76,8 @@ bool CopiesStorage(const FunctionEntity* function)
 
 bool ConstantInterpreter::temporary(const syntax::Expr& expr, ConstPlace& out)
 {
-	// 12.2p1: the temporary a class prvalue initializes (it lives until the
-	// evaluation leaves the statement or call that made it).
+	// [class.temporary]: queue the materialized object after construction,
+	// so its destruction precedes the argument temporaries it used.
 	const syntax::Expr* e = WithoutParentheses(&expr);
 	if (e->kind == syntax::ExprKind::Generic)
 		return temporary(*static_cast<const syntax::GenericExpr&>(*e).selected, out);
@@ -89,8 +89,13 @@ bool ConstantInterpreter::temporary(const syntax::Expr& expr, ConstPlace& out)
 	// constructor calls and temporary destruction still check eligibility.
 	if (array && !scalar_array(type) && !analyzer_.trait_literal_type(type))
 		return fail(e->location, "a nonliteral array temporary in a constant expression");
-	return new_object(type, out, e->location, prefix ? ObjectStorage::Prefix : ObjectStorage::Complete) &&
-		materialize(*e, out);
+	const ObjectStorage form = analyzer_.cxx20_ ? ObjectStorage::Temporary
+		: prefix                                ? ObjectStorage::Prefix
+												: ObjectStorage::Complete;
+	if (!new_object(type, out, e->location, form) || !materialize(*e, out))
+		return false;
+	register_temporary(out, e->location);
+	return true;
 }
 
 bool ConstantInterpreter::materialize(const syntax::Expr& expr, const ConstPlace& target)
@@ -253,11 +258,12 @@ bool ConstantInterpreter::initialize_from(
 		}
 		else
 		{
-			if (!new_object(returned, source, e->location))
+			if (!new_object(returned, source, e->location, ObjectStorage::Temporary))
 				return false;
 			result.target = &source;
 			if (!conversion_call(*e, e->facts, function, result))
 				return false;
+			register_temporary(source, e->location);
 		}
 		const Type* parameter = constructor->type->canonical->params[0];
 		if (after->argument != nullptr && after->argument->second == ValueConversion::DerivedToBase &&
@@ -318,7 +324,11 @@ bool ConstantInterpreter::construct(const Type* type, const ConstPlace& target, 
 			ConstPlace place = target;
 			place.offset += static_cast<int64_t>(offset);
 			place.type = element;
-			if (!constructor_call(constructor, place, syntax::Slice<syntax::Expr*>(), location))
+			// [class.temporary]: a default argument's temporaries end
+			// before the next array element's default constructor starts.
+			const size_t first = temporary_mark();
+			if (!constructor_call(constructor, place, syntax::Slice<syntax::Expr*>(), location) ||
+				!end_full_expression(first))
 				return false;
 		}
 		return true;
@@ -403,7 +413,8 @@ bool ConstantInterpreter::value_initialize(
 			ConstPlace place = target;
 			place.offset += static_cast<int64_t>(i * size);
 			place.type = type->element;
-			if (!value_initialize(type->element, place, constructor, location))
+			const size_t first = temporary_mark();
+			if (!value_initialize(type->element, place, constructor, location) || !end_full_expression(first))
 				return false;
 		}
 		return true;
@@ -505,11 +516,20 @@ bool ConstantInterpreter::initialize_scalar(
 		// of static storage duration's initializer initializes persists with
 		// the variable (12.2p5, `extend`), as a reference variable's does.
 		ConstPlace referent;
-		if (single == nullptr || !bind(*single, RecordedConversion(single), type, referent))
+		const Conversion* conversion = single != nullptr ? RecordedConversion(single) : nullptr;
+		const size_t first = extend ? temporary_mark() : 0;
+		if (single == nullptr || !bind(*single, conversion, type, referent))
 			return single != nullptr || fail(location, "a reference without an initializer");
-		if (extend && referent.root == RootKind::Object && static_variable_place(target) &&
-			binds_temporary(*single, RecordedConversion(single)) && !extend_temporary(referent, location))
-			return false;
+		if (extend && referent.root == RootKind::Object)
+		{
+			if (static_variable_place(target) && binds_temporary(*single, conversion))
+			{
+				if (!extend_temporary(referent, location))
+					return false;
+			}
+			else if (analyzer_.cxx20_ && initializes_local(target))
+				extend_local_temporary(referent, first, *single, conversion);
+		}
 		value = PointerTo(referent, type);
 	}
 	else if (single == nullptr)
@@ -565,13 +585,21 @@ bool ConstantInterpreter::list_object(
 		return fail(location, "a std::initializer_list without its array's address and size members");
 	const Type* array = list.facts->target;
 	ConstPlace elements;
-	if (!new_object(array, elements, location) || !aggregate(array, elements, list, location))
+	if (!new_object(array, elements, location, ObjectStorage::Tracked) || !aggregate(array, elements, list, location))
 		return false;
-	// 8.5.4p6: a list variable of static storage duration extends its
-	// backing array's lifetime. Argument-list temporaries remain local
-	// to this evaluation and cannot escape in a published value.
-	if (static_variable_place(target) && !extend_temporary(elements, location))
-		return false;
+	// [dcl.init.list]: direct list initialization extends the backing array
+	// as reference binding would. Copying a list view does not extend it.
+	if (static_variable_place(target))
+	{
+		if (!extend_temporary(elements, location))
+			return false;
+	}
+	else if (analyzer_.cxx20_)
+	{
+		register_temporary(elements, location);
+		if (initializes_local(target))
+			keep_local_temporary(elements);
+	}
 	elements.type = array->element;
 	const VariableEntity* members[2] = { static_cast<const VariableEntity*>(first->variable),
 		static_cast<const VariableEntity*>(second->variable) };
@@ -806,9 +834,8 @@ bool ConstantInterpreter::run_constructor(const FunctionEntity* constructor, con
 	const bool initialized = target.root == RootKind::Variable && target.entity == constructing_;
 	if (!initialized && !analyzer_.literal_type(home->type))
 		return fail(location, "a constructor of a class that is not a literal type in a constant expression");
-	// The arguments' temporaries end with the caller's full-expression,
-	// the parameters when the constructor returns (5.2.2p4), the callee's
-	// own objects with the call.
+	// The caller's full-expression owns the argument temporaries and the
+	// by-address parameters it destroys. The callee releases its own objects.
 	const size_t locals = locals_.size();
 	if (!bind_parameters(constructor, arguments, count, location))
 		return false;
@@ -829,8 +856,10 @@ bool ConstantInterpreter::run_constructor(const FunctionEntity* constructor, con
 	{
 		// 12.6.2p6: the target constructor on the object.
 		syntax::Initializer view = syntax::Initializer();
-		done = construct(
-			cls->type, target, MemInitializerView(constructor->delegation, view), constructor->delegate, location);
+		const size_t first = temporary_mark();
+		done = construct(cls->type, target, MemInitializerView(constructor->delegation, view), constructor->delegate,
+				   location) &&
+			end_full_expression(first);
 	}
 	else
 		done = subobjects(constructor, target, location);
@@ -942,7 +971,8 @@ bool ConstantInterpreter::subobjects(const FunctionEntity* constructor, const Co
 		const syntax::Initializer* written = MemInitializerView(init.mem_initializer, view);
 		if (written == nullptr && (init.constructor == nullptr || init.constructor->trivial))
 			continue;
-		if (!construct(base->type, place, written, init.constructor, location))
+		const size_t first = temporary_mark();
+		if (!construct(base->type, place, written, init.constructor, location) || !end_full_expression(first))
 			return false;
 	}
 	return true;
@@ -991,7 +1021,8 @@ bool ConstantInterpreter::member_initialization(const SubobjectInit& init, const
 	if (static_cast<const ClassEntity*>(variable->owner->entity)->key == TokenKind::KW_UNION &&
 		!variable->type->is_reference() && !locate(place, true, activated, location))
 		return false;
-	return construct(variable->type, place, written, init.constructor, location);
+	const size_t first = temporary_mark();
+	return construct(variable->type, place, written, init.constructor, location) && end_full_expression(first);
 }
 
 } // namespace sema

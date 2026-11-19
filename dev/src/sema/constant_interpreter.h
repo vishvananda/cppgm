@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "sema/constant_frames.h"
+#include "sema/constant_storage.h"
 #include "sema/constant_values.h"
 #include "sema/semantic_graph.h"
 #include "support/memory/arena.h"
@@ -15,8 +16,6 @@ namespace sema {
 
 class Analyzer;
 class ConstantMemo;
-struct ConstantStorage;
-struct ConstAllocation;
 struct Conversion;
 
 // The constant evaluator of semantics mode (5.19, 7.1.5): it
@@ -115,11 +114,40 @@ private:
 	{
 		Complete,
 		Prefix,
-		Scoped
+		Tracked,
+		Temporary
 	};
 	bool new_object(
 		const Type* type, ConstPlace& place, uint32_t location, ObjectStorage form = ObjectStorage::Complete);
 	void register_destruction(const ConstPlace& place, uint32_t location);
+	void queue_temporary(const ConstPlace& place, uint32_t location);
+	void register_temporary(const ConstPlace& place, uint32_t location)
+	{
+		if (cxx20_)
+			queue_temporary(place, location);
+	}
+	size_t temporary_mark() const { return cxx20_ && storage_ != nullptr ? storage_->temporaries.size() : 0; }
+	bool destroy_temporaries(size_t first);
+	bool end_full_expression(size_t first)
+	{
+		return !cxx20_ || storage_ == nullptr || storage_->temporaries.size() == first || destroy_temporaries(first);
+	}
+	bool discard_full_expression(const syntax::Expr& expr)
+	{
+		const size_t first = temporary_mark();
+		return discard(expr) && end_full_expression(first);
+	}
+	bool test_full_expression(const syntax::Expr& expr, bool& selected)
+	{
+		const size_t first = temporary_mark();
+		return truth(expr, selected) && end_full_expression(first);
+	}
+	void extend_local_temporary(
+		const ConstPlace& place, size_t first, const syntax::Expr& expr, const Conversion* conversion);
+	bool initializes_local(const ConstPlace& target) const;
+	void keep_local_temporary(const ConstPlace& place);
+	void forget_temporary(const ConstPlace& place);
+	bool destroy_object(const ConstPlace& place, uint32_t location);
 	bool destroy_locals(size_t first);
 	static bool scalar_array(const Type* type);
 	static ConstValue array_prefix(const Type* type);
@@ -415,6 +443,7 @@ private:
 		const uint32_t saved_;
 	};
 	bool incomplete_class_;
+	const bool cxx20_;
 	// The hypothetical destruction of a constexpr variable considers its
 	// non-mutable subobjects to begin their lifetimes in this evaluation.
 	bool checking_destruction_ = false;

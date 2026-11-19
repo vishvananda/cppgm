@@ -790,8 +790,10 @@ bool ConstantInterpreter::bind_parameters(
 		if (facts != nullptr && ClassOf(facts->type) != nullptr)
 		{
 			ConstPlace place;
-			if (!new_object(facts->type, place, location) || !initialize_from(*extra.expr, extra.conversion, place))
+			if (!new_object(facts->type, place, location, ObjectStorage::Temporary) ||
+				!initialize_from(*extra.expr, extra.conversion, place))
 				return false;
+			register_temporary(place, location);
 		}
 		else if (!converted(*extra.expr, extra.conversion, value))
 			return false;
@@ -840,7 +842,7 @@ bool ConstantInterpreter::bind_parameters(
 		ConstValue value;
 		if (const ClassEntity* cls = ClassOf(parameter))
 		{
-			if (!new_object(object, local.place, location))
+			if (!new_object(object, local.place, location, ObjectStorage::Temporary))
 				return false;
 			if (argument.bound)
 			{
@@ -861,6 +863,10 @@ bool ConstantInterpreter::bind_parameters(
 			}
 			else if (!initialize_from(*argument.expr, argument.conversion, local.place))
 				return false;
+			// Match the call boundary: a parameter with a nontrivial
+			// destructor is passed by address and destroyed by its caller.
+			if (cls->destructor != nullptr && !cls->destructor->trivial)
+				register_temporary(local.place, location);
 			bound.push_back(local);
 			continue;
 		}
@@ -887,14 +893,14 @@ bool ConstantInterpreter::bind_parameters(
 
 void ConstantInterpreter::end_parameters(const FunctionEntity* function, size_t first)
 {
-	// 5.2.2p4: a parameter's lifetime ends when its function returns; a
-	// reference or pointer to one dangles (its object's generation changes,
-	// its storage stays until the caller's statement ends).
+	// The caller's cleanup ends a by-address parameter with a nontrivial
+	// destructor. Other parameters' lifetimes end here.
 	const Type* type = function->type->canonical;
 	for (uint32_t i = 0; i < type->param_count && first + i < locals_.size(); ++i)
 	{
 		const ConstPlace& place = locals_[first + i].place;
-		if (!type->params[i]->is_reference() && place.root == RootKind::Object && place.object < objects_.size())
+		if (!type->params[i]->is_reference() && place.root == RootKind::Object && place.object < objects_.size() &&
+			objects_[place.object].temporary == 0)
 			objects_[place.object].generation = ++stacks_.generation;
 	}
 }
@@ -921,8 +927,8 @@ bool ConstantInterpreter::body(const FunctionEntity* function, Result& result, u
 
 bool ConstantInterpreter::compound(const syntax::CompoundStmt& block, Flow& flow)
 {
-	// Each statement's temporaries end with it; the block's variables with
-	// the block (6.7p2).
+	// Each statement releases its scratch here. Destruction of its
+	// temporaries follows its full-expressions, and variables end on block exit.
 	const Region scope = region();
 	bool done = true;
 	for (const syntax::Stmt* item : block.items)
@@ -992,7 +998,7 @@ bool ConstantInterpreter::execute(const syntax::Stmt& stmt, Flow& flow)
 	case syntax::StmtKind::Expression:
 	{
 		const syntax::Expr* expr = static_cast<const syntax::ExpressionStmt&>(stmt).expression;
-		return expr == nullptr || discard(*expr);
+		return expr == nullptr || discard_full_expression(*expr);
 	}
 	case syntax::StmtKind::Declaration:
 		return declaration(*static_cast<const syntax::DeclarationStmt&>(stmt).declaration);
@@ -1040,7 +1046,7 @@ bool ConstantInterpreter::execute(const syntax::Stmt& stmt, Flow& flow)
 				return false;
 			if (leave)
 				break;
-			if (!truth(*loop.condition, selected))
+			if (!test_full_expression(*loop.condition, selected))
 				return false;
 			if (!release(iteration))
 				return false;
@@ -1054,7 +1060,7 @@ bool ConstantInterpreter::execute(const syntax::Stmt& stmt, Flow& flow)
 		const syntax::ForStmt& loop = static_cast<const syntax::ForStmt&>(stmt);
 		bool done = loop.init_declaration != nullptr
 			? declaration(*loop.init_declaration)
-			: loop.init_expression == nullptr || discard(*loop.init_expression);
+			: loop.init_expression == nullptr || discard_full_expression(*loop.init_expression);
 		while (done)
 		{
 			const Region iteration = region();
@@ -1074,7 +1080,7 @@ bool ConstantInterpreter::execute(const syntax::Stmt& stmt, Flow& flow)
 			}
 			if (leave)
 				break;
-			if (loop.iteration != nullptr && !discard(*loop.iteration))
+			if (loop.iteration != nullptr && !discard_full_expression(*loop.iteration))
 			{
 				done = false;
 				break;
@@ -1100,10 +1106,13 @@ bool ConstantInterpreter::execute(const syntax::Stmt& stmt, Flow& flow)
 		flow = Flow::Continue;
 		return true;
 	case syntax::StmtKind::Return:
-		if (!returned(static_cast<const syntax::ValueStmt&>(stmt)))
+	{
+		const size_t first = temporary_mark();
+		if (!returned(static_cast<const syntax::ValueStmt&>(stmt)) || !end_full_expression(first))
 			return false;
 		flow = Flow::Return;
 		return true;
+	}
 	default:
 		return fail(stmt.location, "a statement that is not allowed in a constexpr function");
 	}
@@ -1132,7 +1141,7 @@ bool ConstantInterpreter::range_for(const syntax::RangeForStmt& stmt, Flow& flow
 	{
 		const Region iteration = region();
 		bool selected = false, leave = false;
-		if (!step(stmt.location) || !truth(*facts->condition, selected))
+		if (!step(stmt.location) || !test_full_expression(*facts->condition, selected))
 			return false;
 		if (!selected)
 			break;
@@ -1144,7 +1153,7 @@ bool ConstantInterpreter::range_for(const syntax::RangeForStmt& stmt, Flow& flow
 		// for-loop. Destroy it before evaluating the increment.
 		if (analyzer_.cxx20_ && !release(iteration))
 			return false;
-		if (!discard(*facts->increment) || !release(iteration))
+		if (!discard_full_expression(*facts->increment) || !release(iteration))
 			return false;
 	}
 	return release(statement);
@@ -1171,6 +1180,7 @@ bool ConstantInterpreter::switch_statement(const syntax::ConditionalLoopStmt& st
 	// 6.4.2: the condition's promoted value selects the case label (or the
 	// default label) execution resumes at.
 	const Region statement = region();
+	const size_t first = temporary_mark();
 	ConstValue value;
 	const syntax::Condition& written = stmt.condition;
 	if (written.declaration != nullptr)
@@ -1188,6 +1198,8 @@ bool ConstantInterpreter::switch_statement(const syntax::ConditionalLoopStmt& st
 			return false;
 	}
 	else if (!operand(*written.expression, value))
+		return false;
+	if (!end_full_expression(first))
 		return false;
 	if (value.kind != ValueKind::Integer)
 		return fail(stmt.location, "a switch condition that is not an integer");
@@ -1212,7 +1224,7 @@ bool ConstantInterpreter::condition(const syntax::Condition& written, bool& out,
 	// 6.4p2-p4: an expression, or a declared variable's value, contextually
 	// converted to bool.
 	if (written.declaration == nullptr)
-		return truth(*written.expression, out);
+		return test_full_expression(*written.expression, out);
 	const VariableEntity* variable = written.declaration->declared != nullptr
 		? static_cast<const VariableEntity*>(written.declaration->declared->entity)
 		: nullptr;
@@ -1256,6 +1268,7 @@ bool ConstantInterpreter::local_variable(
 	Local local = Local();
 	local.entity = variable;
 	const Type* type = variable->type;
+	const size_t first = temporary_mark();
 	if (type->is_reference())
 	{
 		const syntax::Expr* single = reference_initializer(initializer);
@@ -1264,26 +1277,29 @@ bool ConstantInterpreter::local_variable(
 		{
 			// A temporary std::initializer_list object the list initializes,
 			// bound and extended (8.5.4p3, 12.2p5: `auto&& __range = {...}`).
-			if (!new_object(single->facts->type, local.place, location) ||
-				!list_object(ClassOf(single->facts->type), local.place,
-					*static_cast<const syntax::BracedInitList*>(single), location))
+			if (!new_object(single->facts->type, local.place, location))
 				return false;
 			locals_.push_back(local);
-			return true;
+			return list_object(ClassOf(single->facts->type), local.place,
+					   *static_cast<const syntax::BracedInitList*>(single), location) &&
+				end_full_expression(first);
 		}
-		if (single == nullptr || !bind(*single, RecordedConversion(single), type, local.place))
+		const Conversion* conversion = single != nullptr ? RecordedConversion(single) : nullptr;
+		if (single == nullptr || !bind(*single, conversion, type, local.place))
 			return fail(location, "a reference variable outside constant evaluation");
+		if (analyzer_.cxx20_)
+			extend_local_temporary(local.place, first, *single, conversion);
 		locals_.push_back(local);
-		return true;
+		return end_full_expression(first);
 	}
-	if (!new_object(type, local.place, location, ObjectStorage::Scoped))
+	if (!new_object(type, local.place, location, ObjectStorage::Tracked))
 		return false;
 	locals_.push_back(local);
 	if (!construct(type, local.place, initializer, variable->constructor, location))
 		return false;
 	if (analyzer_.cxx20_)
 		register_destruction(local.place, location);
-	return true;
+	return end_full_expression(first);
 }
 
 bool ConstantInterpreter::returned(const syntax::ValueStmt& stmt)

@@ -38,6 +38,7 @@ struct ConstantStorage
 		uint32_t location;
 	};
 	std::vector<Destruction> destructions;
+	std::vector<Destruction> temporaries;
 	std::vector<ConstAllocation> heap;
 	uint64_t heap_values = 0;
 	uint32_t live_allocations = 0;

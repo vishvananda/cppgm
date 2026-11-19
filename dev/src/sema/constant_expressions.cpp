@@ -2671,13 +2671,15 @@ bool ConstantInterpreter::bind(
 				return to_base(out, ClassOf(referenced), e->location);
 			return true;
 		}
-		if (!new_object(ClassOf(returned) != nullptr ? returned : referenced, out, e->location))
+		if (!new_object(
+				ClassOf(returned) != nullptr ? returned : referenced, out, e->location, ObjectStorage::Temporary))
 			return false;
 		if (ClassOf(returned) != nullptr)
 		{
 			result.target = &out;
 			if (!conversion_call(*e, facts, function, result))
 				return false;
+			register_temporary(out, e->location);
 			if (conversion->after != nullptr && conversion->after->second == ValueConversion::DerivedToBase)
 				return to_base(out, ClassOf(referenced), e->location);
 			return true;
@@ -2690,12 +2692,15 @@ bool ConstantInterpreter::bind(
 	{
 		// A temporary of the referenced class made by the converting
 		// constructor (8.5.3p5, 13.3.3.1.2).
-		if (!new_object(conversion->result, out, e->location))
+		if (!new_object(conversion->result, out, e->location, ObjectStorage::Temporary))
 			return false;
 		Argument argument = Argument();
 		argument.expr = &expr;
 		argument.conversion = conversion->argument;
-		return run_constructor(conversion->constructor, out, &argument, 1, e->location);
+		if (!run_constructor(conversion->constructor, out, &argument, 1, e->location))
+			return false;
+		register_temporary(out, e->location);
+		return true;
 	}
 	if (conversion != nullptr && conversion->form == ConversionForm::Reference && conversion->temporary)
 	{

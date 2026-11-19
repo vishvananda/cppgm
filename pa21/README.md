@@ -199,6 +199,10 @@ To complete PA21, implement these goals:
    it exists, every potentially throwing call later in its scope, including
    one in a condition, unwinds through cleanup that destroys the elements in
    reverse order and the earlier automatic objects.
+   During C++20 constant evaluation, run the same element destruction at
+   scope exit for a named list. A temporary list passed to a call releases
+   its backing array at the end of the caller's full-expression. Copying a
+   list view preserves the identity and lifetime of its existing array.
 
 3. RTTI and `typeid`.
    The compiler should emit deterministic RTTI globals and lower both static and dynamic

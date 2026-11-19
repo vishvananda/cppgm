@@ -12,6 +12,81 @@ void ConstantInterpreter::register_destruction(const ConstPlace& place, uint32_t
 		class_storage().destructions.push_back({ place, location });
 }
 
+void ConstantInterpreter::queue_temporary(const ConstPlace& place, uint32_t location)
+{
+	auto& pending = class_storage().temporaries;
+	pending.push_back({ place, location });
+	objects_[place.object].temporary = static_cast<uint32_t>(pending.size());
+}
+
+void ConstantInterpreter::forget_temporary(const ConstPlace& place)
+{
+	Object& object = objects_[place.object];
+	if (object.temporary != 0)
+	{
+		storage_->temporaries[object.temporary - 1].place.root = RootKind::Null;
+		object.temporary = 0;
+	}
+}
+
+void ConstantInterpreter::extend_local_temporary(
+	const ConstPlace& place, size_t first, const syntax::Expr& expr, const Conversion* conversion)
+{
+	if (place.root != RootKind::Object || place.object >= objects_.size())
+		return;
+	const Object& object = objects_[place.object];
+	if (object.generation != place.generation || object.temporary <= first || !binds_temporary(expr, conversion))
+		return;
+	keep_local_temporary(place);
+}
+
+bool ConstantInterpreter::initializes_local(const ConstPlace& target) const
+{
+	// The named destination in this frame is bound before its initializer.
+	// A callee constructing its return value does not own that destination.
+	const size_t first = frames_.size() == first_frame_ ? first_local_ : frames_.back().first_local;
+	if (target.root != RootKind::Object || locals_.size() == first)
+		return false;
+	const Local& local = locals_.back();
+	return local.entity != nullptr && local.entity->kind == EntityKind::Variable &&
+		local.place.root == RootKind::Object && local.place.object == target.object &&
+		local.place.generation == target.generation;
+}
+
+void ConstantInterpreter::keep_local_temporary(const ConstPlace& place)
+{
+	// Extend the complete object, including when the binding names only one
+	// of its subobjects. Leave the slot so enclosing full-expression marks
+	// still refer to the same stack positions.
+	const auto& pending = storage_->temporaries[objects_[place.object].temporary - 1];
+	storage_->destructions.push_back(pending);
+	forget_temporary(place);
+}
+
+bool ConstantInterpreter::destroy_temporaries(size_t first)
+{
+	auto& pending = storage_->temporaries;
+	while (pending.size() > first)
+	{
+		const ConstantStorage::Destruction next = pending.back();
+		pending.pop_back();
+		if (next.place.root == RootKind::Null)
+			continue;
+		objects_[next.place.object].temporary = 0;
+		if (!destroy_object(next.place, next.location))
+			return false;
+	}
+	return true;
+}
+
+bool ConstantInterpreter::destroy_object(const ConstPlace& place, uint32_t location)
+{
+	if (!destroy(place, location))
+		return false;
+	objects_[place.object].generation = ++stacks_.generation;
+	return true;
+}
+
 bool ConstantInterpreter::destroy_locals(size_t first)
 {
 	auto& pending = storage_->destructions;
@@ -23,7 +98,7 @@ bool ConstantInterpreter::destroy_locals(size_t first)
 		const ConstantStorage::Destruction next = pending.back();
 		pending.pop_back();
 		if (done)
-			done = destroy(next.place, next.location);
+			done = destroy_object(next.place, next.location);
 	}
 	return done;
 }

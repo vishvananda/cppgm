@@ -55,7 +55,7 @@ ConstantInterpreter::ConstantInterpreter(Analyzer& analyzer)
 	  objects_(stacks_.objects), locals_(stacks_.locals), frames_(stacks_.frames), first_object_(objects_.size()),
 	  first_local_(locals_.size()), first_frame_(frames_.size()), enclosing_swaps_(suspend_swaps()), steps_(0),
 	  failure_location_(0), failure_(nullptr), constructing_(nullptr), constructing_value_(nullptr), seeking_(nullptr),
-	  source_site_(kNoSourceSite), incomplete_class_(false)
+	  source_site_(kNoSourceSite), incomplete_class_(false), cxx20_(analyzer.cxx20_)
 {
 	// The scratch arena keeps its first block across evaluations.
 	if (arena_.bytes_reserved() == 0)
@@ -201,10 +201,11 @@ bool ConstantInterpreter::new_object(const Type* type, ConstPlace& place, uint32
 		element = element->element;
 	const ClassEntity* cls = element->is_reference() ? nullptr : ClassOf(element);
 	if (cls != nullptr && cls->destructor != nullptr && !cls->destructor->trivial &&
-		(form != ObjectStorage::Scoped || !analyzer_.cxx20_ || !analyzer_.constexpr_destructor(cls, 0)))
+		(!analyzer_.cxx20_ || (form != ObjectStorage::Tracked && form != ObjectStorage::Temporary) ||
+			!analyzer_.constexpr_destructor(cls, 0)))
 		return fail(location, "an object with a non-trivial destructor in a constant expression");
 	size_of(type, location);
-	bool prefix = form == ObjectStorage::Prefix;
+	bool prefix = form == ObjectStorage::Prefix || (form == ObjectStorage::Temporary && type->kind == TypeKind::Array);
 	if (type->kind != TypeKind::Array && cls != nullptr)
 		prefix = CompactClass(cls);
 	if (!prefix && leaves(type, 0) > kValueBudget)
@@ -1767,7 +1768,7 @@ void RebaseTemporaryPointers(ConstValue& value, const ConstPlace& source, const 
 const ConstValue* ConstantInterpreter::publish(const ConstValue& value, uint32_t location)
 {
 	// The value copied into the semantic arena, where the unit's facts live.
-	if (!finish_allocations(location))
+	if (!end_full_expression(0) || !finish_allocations(location))
 		return nullptr;
 	if (!publishable(value))
 	{
@@ -1795,7 +1796,8 @@ const ConstValue* ConstantInterpreter::evaluate_immediate_construction(
 	++analyzer_.graph_.constant_evaluations;
 	ConstPlace object;
 	ConstValue value;
-	if (!new_object(type, object, location) || !construct(type, object, initializer, constructor, location) ||
+	if (!new_object(type, object, location, ObjectStorage::Tracked) ||
+		!construct(type, object, initializer, constructor, location) || !end_full_expression(0) ||
 		!read(object, value, location) || !complete(value))
 		return nullptr;
 	return !incomplete_class_ ? publish(value, location) : nullptr;
@@ -1811,7 +1813,7 @@ const ConstValue* ConstantInterpreter::evaluate_immediate_conversion(
 	ConstPlace object;
 	if (!returned->is_reference() && ClassOf(returned) != nullptr)
 	{
-		if (!new_object(returned, object, expr.location))
+		if (!new_object(returned, object, expr.location, ObjectStorage::Tracked))
 			return nullptr;
 		result.target = &object;
 	}
@@ -1830,7 +1832,7 @@ const ConstValue* ConstantInterpreter::evaluate_immediate_conversion(
 		value = PointerTo(result.place, analyzer_.types_.pointer(returned->element));
 	else if (ClassOf(returned) != nullptr)
 	{
-		if (!read(object, value, expr.location) || !complete(value))
+		if (!end_full_expression(0) || !read(object, value, expr.location) || !complete(value))
 			return nullptr;
 	}
 	else
@@ -1855,6 +1857,16 @@ const ConstValue* ConstantInterpreter::evaluate_immediate(const syntax::Expr& ex
 			return nullptr;
 		value = PointerTo(place, analyzer_.types_.pointer(expr.facts->type));
 	}
+	else if (ClassOf(expr.facts->type) != nullptr)
+	{
+		// The immediate invocation initializes a result used outside this
+		// evaluation. Only the other temporaries end here.
+		ConstPlace object;
+		if (!new_object(expr.facts->type, object, expr.location, ObjectStorage::Tracked) ||
+			!materialize(expr, object) || !end_full_expression(0) || !read(object, value, expr.location) ||
+			!complete(value))
+			return nullptr;
+	}
 	else if (!rvalue(expr, value) || !complete(value))
 		return nullptr;
 	return !incomplete_class_ ? publish(value, expr.location) : nullptr;
@@ -1867,7 +1879,8 @@ bool ConstantInterpreter::evaluate(const syntax::Expr& expr, bool converted, Con
 		return false;
 	if (out.kind == ValueKind::Indeterminate || out.kind == ValueKind::Array || out.kind == ValueKind::Class)
 		return fail(expr.location, "not a constant scalar value");
-	return finish_allocations(expr.location);
+	return (!analyzer_.cxx20_ || (end_full_expression(0) && valid_pointer(out, expr.location))) &&
+		finish_allocations(expr.location);
 }
 
 bool ConstantInterpreter::evaluate_after(const syntax::Expr& expr, const Conversion* conversion, ConstValue& out)
@@ -1877,7 +1890,8 @@ bool ConstantInterpreter::evaluate_after(const syntax::Expr& expr, const Convers
 		return false;
 	if (out.kind == ValueKind::Indeterminate || out.kind == ValueKind::Array || out.kind == ValueKind::Class)
 		return fail(expr.location, "not a constant scalar value");
-	return finish_allocations(expr.location);
+	return (!analyzer_.cxx20_ || (end_full_expression(0) && valid_pointer(out, expr.location))) &&
+		finish_allocations(expr.location);
 }
 
 const ConstValue* ConstantInterpreter::evaluate_initializer(const syntax::Expr& expr)
@@ -1912,6 +1926,7 @@ bool ConstantInterpreter::extend_temporary(ConstPlace& place, uint32_t location)
 	RebaseTemporaryPointers(*published, place, published);
 	if (!publishable(*published))
 		return fail(location, "a constant designates another object without static storage duration");
+	forget_temporary(place);
 	place.root = RootKind::Temporary;
 	place.entity = published;
 	place.object = 0;
@@ -1968,7 +1983,7 @@ bool ConstantInterpreter::initialize(const VariableEntity* variable, const synta
 	target.root = RootKind::Variable;
 	target.entity = variable;
 	target.type = type;
-	if (!construct(type, target, initializer, variable->constructor, location))
+	if (!construct(type, target, initializer, variable->constructor, location) || !end_full_expression(0))
 		return false;
 	if (!complete(*storage))
 		return fail(location, "a constexpr object leaves a subobject uninitialized");

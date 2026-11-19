@@ -402,6 +402,15 @@ operand before destroying the block's variables. Apply the ordinary
 constant-expression rules to operations the destructor actually executes.
 See N4861 `[stmt.dcl]`, `[stmt.iter]`, `[stmt.jump]` and `[stmt.return]`.
 
+Destroy materialized temporaries in reverse construction order at the end
+of their full-expression. An initializer, a condition, and a return operand
+each have their own boundary, including the conversions and initialization
+they perform. A local reference can extend the complete temporary's lifetime
+when it binds to the temporary or one of its subobjects. A call returning a
+reference does not extend its referent's lifetime. By-value class parameters
+passed by address with nontrivial destruction are destroyed with the caller's
+temporaries. See N4861 `[intro.execution]`, `[class.temporary]`, and `[expr.call]`.
+
 A C++20 constant expression may use `new` with a replaceable global
 allocation function. For scalar and array allocations, keep the new object's
 identity across calls and scopes within the evaluation. It must be released by
