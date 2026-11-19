@@ -35,3 +35,16 @@ their lifetimes in the check. The mutable member falls outside that
 permission, so the control requires rejection.
 [N4861 expr.const](https://timsong-cpp.github.io/cppwp/n4861/expr.const)
 [PA16 control](../pa16/tests/controls/100-cxx20-constexpr-variable-destructor-mutable-write-bad.t)
+
+## Access to elements of allocator storage
+
+With GCC 15.2 and libstdc++ 15, a constant expression could write
+`storage[1] = 8` directly after `std::allocator<int>::allocate(2)`.
+Clang 22.1.2 with libc++ rejected the same assignment. Both accepted
+allocation followed immediately by deallocation, and both rejected
+reading the unconstructed element before a write. C++20's allocator
+begins the array's lifetime and leaves its elements outside their
+lifetimes. A constant expression must begin an element's lifetime
+before accessing its value.
+[N4861 allocator.members](https://timsong-cpp.github.io/cppwp/n4861/allocator.members)
+[N4861 expr.const](https://timsong-cpp.github.io/cppwp/n4861/expr.const)
