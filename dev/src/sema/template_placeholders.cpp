@@ -713,10 +713,11 @@ bool Analyzer::decltype_words(const syntax::Expr* expr, Scope* scope)
 	}
 	case syntax::ExprKind::FunctionalCast:
 	{
-		// T(args) or T{...} (5.2.3): its canonical type, then its operands.
+		// T(args) or T{...}: key the type or deduced class template, then
+		// the operands. The operands may still require substitution.
 		const syntax::FunctionalCastExpr* cast = static_cast<const syntax::FunctionalCastExpr*>(expr);
 		Specifiers specifiers;
-		this->specifiers(cast->type, scope, specifiers, false);
+		this->specifiers(cast->type, scope, specifiers, false, cxx17_);
 		if (specifiers.type == nullptr)
 			return false;
 		words.push_back(Word(kWordNode,

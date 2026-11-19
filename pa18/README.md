@@ -244,6 +244,9 @@ Preserve C++17 `noexcept` function-type distinctions through substitution.
 When `noexcept` contains a deduced construction such as `View{value}`,
 its braced arguments can make the exception specification dependent.
 Deduce the class and compute the exception specification after substitution.
+An equivalent pair of constraints may contain the same deduced construction
+with renamed parameters. Resolve the class template and compare the operands
+before substituting a concrete specialization. See N4861 `[temp.over.link]`.
 See N4659 `[temp.arg.nontype]`, `[namespace.udecl]` and `[temp.deduct]`.
 
 ### Out Of Scope
