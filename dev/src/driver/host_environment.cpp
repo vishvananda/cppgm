@@ -212,6 +212,16 @@ std::string HostMacroText(const FeatureModes& modes, bool strict)
 		}
 		line = *end == '\n' ? end + 1 : end;
 	}
+	if (modes.language >= 20)
+	{
+		// The host probes run in C++11, where char8_t has no macro.
+		// Its size and alignment match unsigned char on this target,
+		// so it has the same lock-free classification as char.
+		if (text.find("#define __GCC_ATOMIC_CHAR_LOCK_FREE ") != std::string::npos)
+			text += "#define __GCC_ATOMIC_CHAR8_T_LOCK_FREE __GCC_ATOMIC_CHAR_LOCK_FREE\n";
+		if (text.find("#define __CLANG_ATOMIC_CHAR_LOCK_FREE ") != std::string::npos)
+			text += "#define __CLANG_ATOMIC_CHAR8_T_LOCK_FREE __CLANG_ATOMIC_CHAR_LOCK_FREE\n";
+	}
 	return text;
 }
 
@@ -491,7 +501,7 @@ void InstallationDirectories(const GccInstallation& built, const GccInstallation
 bool add_host_environment(
 	PreprocessorOptions& options, StandardIncludes includes, const std::string& gcc_install_dir, std::string& error)
 {
-	options.modes.language = options.language == SourceLanguage::C ? 0 : options.modes.language;
+	options.modes.language = options.cxx_edition;
 	options.hosted = true;
 	options.host_predefines = HostMacroText(options.modes, options.strict);
 	options.builtin_declarations = kBuiltinDeclarations;

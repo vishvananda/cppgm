@@ -25,7 +25,7 @@ fi
 if [ -f "${2%.t}.no-exceptions" ]; then
   test_args+=("-fno-exceptions")
 fi
-if [ -f "${2%.t}.cxx-standard" ] || [ -f "${2%.t}.c-standard" ] || [ -f "${2%.t}.flags" ]; then
+if [ -f "${2%.t}.cxx-standard" ] || [ -f "${2%.t}.c-standard" ]; then
   source_args=$(perl -I../scripts -MCppgmBatchWorker -e \
     'print "$_\n" for CppgmBatchWorker::source_args_for($ARGV[0]);' "$2")
   while IFS= read -r arg; do

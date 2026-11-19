@@ -150,6 +150,8 @@ bool ExprNamesOwn(const syntax::Expr* expr, const OwnNames& own, uint32_t depth)
 			if (specifier.kind == syntax::DeclSpecKind::Name && NameNamesOwn(*specifier.name, own, depth + 1))
 				return true;
 		}
+		if (cast->braced != nullptr)
+			return ExprNamesOwn(cast->braced, own, depth + 1);
 		for (const syntax::Expr* argument : cast->arguments)
 		{
 			if (ExprNamesOwn(argument, own, depth + 1))
@@ -157,6 +159,13 @@ bool ExprNamesOwn(const syntax::Expr* expr, const OwnNames& own, uint32_t depth)
 		}
 		return false;
 	}
+	case syntax::ExprKind::BracedInit:
+		for (const syntax::Expr* element : static_cast<const syntax::BracedInitList*>(expr)->elements)
+		{
+			if (ExprNamesOwn(element, own, depth + 1))
+				return true;
+		}
+		return false;
 	case syntax::ExprKind::PackExpansion:
 		return ExprNamesOwn(static_cast<const syntax::PackExpansionExpr*>(expr)->pattern, own, depth + 1);
 	case syntax::ExprKind::BuiltinTrait:

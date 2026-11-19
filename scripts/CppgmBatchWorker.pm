@@ -441,8 +441,9 @@ sub source_args_for
 	my ($test) = @_;
 	(my $base = $test) =~ s/\.(?:cpp|t(?:\.1)?)$//;
 	my @files = grep { -f $_ } ("$base.cxx-standard", "$base.c-standard");
-	my @flags = read_word_list("$base.flags");
-	return @flags if !@files;
+	# Without a language sidecar, the owning driver lane consumes any
+	# existing .flags. Preserve plain source/LowIR requests as before.
+	return () if !@files;
 	die "Conflicting language standards for $base\n" if @files != 1;
 	my $path = $files[0];
 	my $is_c = $path =~ /\.c-standard$/;
@@ -451,7 +452,7 @@ sub source_args_for
 	my $language = $is_c ? 'C' : 'C++';
 	die "Expected one $language standard in $path\n"
 		if @standards != 1 || $standards[0] !~ $pattern;
-	return ("-std=$standards[0]", @flags);
+	return ("-std=$standards[0]", read_word_list("$base.flags"));
 }
 
 sub open_worker

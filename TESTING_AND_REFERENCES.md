@@ -74,7 +74,8 @@ without running shell login scripts.
 The [language profile](LANGUAGE_PROFILE.md) is part of the ordinary assignment
 suites and cumulative reports. `NAME.cxx-standard` selects the same mode for
 implementation and reference requests, including persistent batch requests.
-Use `NAME.flags` for associated driver options such as `-pedantic-errors`.
+With a standard sidecar, use `NAME.flags` for associated options such as
+`-pedantic-errors`.
 Driver/runtime fixtures can also select a language mode in their existing
 `.flags` sidecar. No separate later-language target is needed.
 

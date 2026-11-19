@@ -30,7 +30,7 @@ class DraftHTML(HTMLParser):
 class OfflineDraftTests(unittest.TestCase):
     def test_pinned_drafts_and_assets_match_the_export_inventory(self):
         data = json.loads((ROOT / 'doc/language-drafts.json').read_text())
-        self.assertEqual([row['draft'] for row in data['references']], ['N4140', 'N4659'])
+        self.assertEqual([row['draft'] for row in data['references']], ['N4140', 'N4659', 'N4861'])
         inventory = set((ROOT / 'scripts/student_export_documents.txt').read_text().splitlines())
         for reference in data['references']:
             self.assertTrue(reference['source'].startswith('https://'))

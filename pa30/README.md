@@ -323,7 +323,8 @@ Optional sidecars include:
   include paths
 - `x.no-exceptions`: compile a `tests/compile` input with `-fno-exceptions`
 - `x.cxx-standard`: select the required language mode below
-- `x.flags`: additional compiler flags for a `tests/compile` or `tests/run` input
+- `x.flags`: additional compiler flags for `tests/run` or for a
+  `tests/compile` input with a language mode sidecar
 - `x.ref.impl.exit_status`, `x.ref.program.exit_status`, and
   `x.ref.program.stdout`: implementation and program-result references for
   `tests/run` host-link/run smokes
