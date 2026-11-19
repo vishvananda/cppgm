@@ -279,6 +279,10 @@ implemented language surface, including:
 - a member template called before its out-of-class definition is still
   instantiated from that definition (14.6.4.1), whatever the order of the call
   and the definition
+- an exception specification on a member template is instantiated when
+  needed. Completing its enclosing class preserves the specification for a
+  later use, including when its operand depends only on the class template's
+  arguments. See N4140 `[temp.inst]` and [CWG 1330](../doc/cwg/cwg-1330.txt).
 - a block-scope static in a function-template or member-template
   specialization whose substituted initializer is a constant expression is
   constant-initialized data with no guard, as in an ordinary function (PA16),

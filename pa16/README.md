@@ -223,10 +223,6 @@ surface inherited from PA15, including:
 - `constexpr` variables and constant initialization
 - floating-point `constexpr` evaluation over the implemented scalar language surface
 - `noexcept` constant expressions over the supported call/expression subset
-- an exception specification on a member template is instantiated when
-  needed. Completing its enclosing class preserves the specification for a
-  later use, including when its operand depends only on the class template's
-  arguments. See N4140 `[temp.inst]` and [CWG 1330](../doc/cwg/cwg-1330.txt).
 - object-valued, pointer-valued, and reference-valued constant evaluation where the earlier
   language/object-model milestones already define the underlying semantics
 - reuse of the constant evaluator for ordinary language semantics, template arguments, and
