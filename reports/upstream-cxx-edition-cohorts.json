@@ -543,6 +543,258 @@
           "expect": "reject",
           "feature": "invalid class template argument deduction",
           "pr": false
+        },
+        {
+          "id": "using-variadic1-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using-variadic1.C",
+          "sha256": "e55b2dd097c237e6caf9920f4d0de1a470fe62c5c74679084ea7efe9d0bb4800",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using-variadic1-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using-variadic1.C",
+          "sha256": "e55b2dd097c237e6caf9920f4d0de1a470fe62c5c74679084ea7efe9d0bb4800",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using-variadic1a-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using-variadic1a.C",
+          "sha256": "afd40c9afffe031dfc505f1dde9b499891114c3b36bd66a84c7026ef5c6ac10b",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using-variadic1a-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using-variadic1a.C",
+          "sha256": "afd40c9afffe031dfc505f1dde9b499891114c3b36bd66a84c7026ef5c6ac10b",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using-variadic1b-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using-variadic1b.C",
+          "sha256": "d5ad5fdd851ea6e2495a127131963898e36faa3e6235c0f55fd106a11e729a6c",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using-variadic1b-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using-variadic1b.C",
+          "sha256": "d5ad5fdd851ea6e2495a127131963898e36faa3e6235c0f55fd106a11e729a6c",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using-variadic1c-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using-variadic1c.C",
+          "sha256": "b25eb0b0b69395420e9d8eb1df5b9984e3e352a513bced4a9a4021fdd6b1753f",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using-variadic1c-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using-variadic1c.C",
+          "sha256": "b25eb0b0b69395420e9d8eb1df5b9984e3e352a513bced4a9a4021fdd6b1753f",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using-variadic2-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using-variadic2.C",
+          "sha256": "7041cfffeaaf5f6451e37606874036fba6030bf0f88472b19fd6257107d89248",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using-variadic2-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using-variadic2.C",
+          "sha256": "7041cfffeaaf5f6451e37606874036fba6030bf0f88472b19fd6257107d89248",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using-variadic3-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using-variadic3.C",
+          "sha256": "f6ef7535d444127051ff9fa701adee77db78a81cb41a222f2face84d17149e46",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using-variadic3-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using-variadic3.C",
+          "sha256": "f6ef7535d444127051ff9fa701adee77db78a81cb41a222f2face84d17149e46",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using1-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using1.C",
+          "sha256": "3b9c88f522856d82b507985bb62a9e192879a907da079e851afd6479b7c2d70a",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using1-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using1.C",
+          "sha256": "3b9c88f522856d82b507985bb62a9e192879a907da079e851afd6479b7c2d70a",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using2-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using2.C",
+          "sha256": "563c9cd5ac437887991d3ebd55b8d0ea04ec0bb5714ae8f63f548b4e0b6b2214",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": true
+        },
+        {
+          "id": "using2-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using2.C",
+          "sha256": "563c9cd5ac437887991d3ebd55b8d0ea04ec0bb5714ae8f63f548b4e0b6b2214",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using3-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using3.C",
+          "sha256": "31ee9ce8ae0ad46d185080db6bee5e464ba88edbe5aa28c3db012b069238d93e",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": true
+        },
+        {
+          "id": "using3-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using3.C",
+          "sha256": "31ee9ce8ae0ad46d185080db6bee5e464ba88edbe5aa28c3db012b069238d93e",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using4-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using4.C",
+          "sha256": "c92b0b9f39a9974a1dcda226dd758a36ac8d2fe0276e0ba1848aabb14b88ab9a",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using4-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using4.C",
+          "sha256": "c92b0b9f39a9974a1dcda226dd758a36ac8d2fe0276e0ba1848aabb14b88ab9a",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using5-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using5.C",
+          "sha256": "a7a0e567cd5f38a95e5f11aafd43a9a02014b73085c860763cb243b7f7f6f7d9",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using5-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using5.C",
+          "sha256": "a7a0e567cd5f38a95e5f11aafd43a9a02014b73085c860763cb243b7f7f6f7d9",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using7-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using7.C",
+          "sha256": "b1b503ee45a0e9d1844cde4b77234c8d63fd7ab529f5f5caf625e775eab06e10",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using7-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using7.C",
+          "sha256": "b1b503ee45a0e9d1844cde4b77234c8d63fd7ab529f5f5caf625e775eab06e10",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using8-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using8.C",
+          "sha256": "2959220beee5b50a834cfe1932879df84d8d7697ebd8a85be2de81146528f43f",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using8-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using8.C",
+          "sha256": "2959220beee5b50a834cfe1932879df84d8d7697ebd8a85be2de81146528f43f",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using9-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using9.C",
+          "sha256": "181b6f9709af9008a34c19fa685ef36653dd9834737d5003ea8d68bc5a9e8838",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
+        },
+        {
+          "id": "using9-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/using9.C",
+          "sha256": "181b6f9709af9008a34c19fa685ef36653dd9834737d5003ea8d68bc5a9e8838",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "using-declarator lists and pack expansion",
+          "pr": false
         }
       ]
     },
@@ -922,6 +1174,226 @@
           "expect": "accept",
           "feature": "comparison and narrowing conversions",
           "pr": false
+        },
+        {
+          "id": "using-enum-1-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/using-enum-1.C",
+          "sha256": "443a24c5df67cdef6609972b2ee81ff4ca6d8ea1a4eb85a5c1a51d7c43c8d99f",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "enumerator imports and using enum",
+          "pr": false
+        },
+        {
+          "id": "using-enum-1-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/using-enum-1.C",
+          "sha256": "443a24c5df67cdef6609972b2ee81ff4ca6d8ea1a4eb85a5c1a51d7c43c8d99f",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "enumerator imports and using enum",
+          "pr": false
+        },
+        {
+          "id": "using-enum-10-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/using-enum-10.C",
+          "sha256": "02b6f7ebe6185702539fd6388b7aca16711b9b9ef552df0eeb29a0a7243bf4c9",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "enumerator imports and using enum",
+          "pr": false,
+          "exclusion_reason": "GCC 15 reads a parenthesized qualified declarator-id at block scope as a construction. Clang 21 and 22 reject the declaration reading required by [stmt.ambig]."
+        },
+        {
+          "id": "using-enum-10-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/using-enum-10.C",
+          "sha256": "02b6f7ebe6185702539fd6388b7aca16711b9b9ef552df0eeb29a0a7243bf4c9",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "enumerator imports and using enum",
+          "pr": false,
+          "exclusion_reason": "GCC 15 reads a parenthesized qualified declarator-id at block scope as a construction. Clang 21 and 22 reject the declaration reading required by [stmt.ambig]."
+        },
+        {
+          "id": "using-enum-10a-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/using-enum-10a.C",
+          "sha256": "96a24a3a9a28ac384bc709b627bb983ae89a91a3a11ee2a772fdc95589785c3b",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "enumerator imports and using enum",
+          "pr": false,
+          "exclusion_reason": "GCC 15 reads a parenthesized qualified declarator-id at block scope as a construction. Clang 21 and 22 reject the declaration reading required by [stmt.ambig]."
+        },
+        {
+          "id": "using-enum-10a-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/using-enum-10a.C",
+          "sha256": "96a24a3a9a28ac384bc709b627bb983ae89a91a3a11ee2a772fdc95589785c3b",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "enumerator imports and using enum",
+          "pr": false,
+          "exclusion_reason": "GCC 15 reads a parenthesized qualified declarator-id at block scope as a construction. Clang 21 and 22 reject the declaration reading required by [stmt.ambig]."
+        },
+        {
+          "id": "using-enum-11-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/using-enum-11.C",
+          "sha256": "581c9bab17a26885e519eb20cc5b5564b449ffb029da5e14d9ce27c06a35e611",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "enumerator imports and using enum",
+          "pr": true
+        },
+        {
+          "id": "using-enum-11-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/using-enum-11.C",
+          "sha256": "581c9bab17a26885e519eb20cc5b5564b449ffb029da5e14d9ce27c06a35e611",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "enumerator imports and using enum",
+          "pr": false
+        },
+        {
+          "id": "using-enum-2-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/using-enum-2.C",
+          "sha256": "95dbc421d68e46f4c24bf6523f342f6f3b2dc68d531b8b35e0eaddf77cb01f18",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "enumerator imports and using enum",
+          "pr": false
+        },
+        {
+          "id": "using-enum-2-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/using-enum-2.C",
+          "sha256": "95dbc421d68e46f4c24bf6523f342f6f3b2dc68d531b8b35e0eaddf77cb01f18",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "enumerator imports and using enum",
+          "pr": false
+        },
+        {
+          "id": "using-enum-3-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/using-enum-3.C",
+          "sha256": "69f72e818c909006e2c4527841b2f2f24be9e69ce7e01b85b548b825890ff868",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "enumerator imports and using enum",
+          "pr": false
+        },
+        {
+          "id": "using-enum-3-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/using-enum-3.C",
+          "sha256": "69f72e818c909006e2c4527841b2f2f24be9e69ce7e01b85b548b825890ff868",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "enumerator imports and using enum",
+          "pr": false
+        },
+        {
+          "id": "using-enum-4-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/using-enum-4.C",
+          "sha256": "982566834209f407b144825c438c84d7509099a65b4e2a58d6667bca6e775f0c",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "enumerator imports and using enum",
+          "pr": true
+        },
+        {
+          "id": "using-enum-4-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/using-enum-4.C",
+          "sha256": "982566834209f407b144825c438c84d7509099a65b4e2a58d6667bca6e775f0c",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "enumerator imports and using enum",
+          "pr": false
+        },
+        {
+          "id": "using-enum-5-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/using-enum-5.C",
+          "sha256": "7706bc9c3694d74656e953361f01cd9cf5e32834e1251d8b7ef7e8001d18b10f",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "enumerator imports and using enum",
+          "pr": false
+        },
+        {
+          "id": "using-enum-5-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/using-enum-5.C",
+          "sha256": "7706bc9c3694d74656e953361f01cd9cf5e32834e1251d8b7ef7e8001d18b10f",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "enumerator imports and using enum",
+          "pr": false
+        },
+        {
+          "id": "using-enum-6-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/using-enum-6.C",
+          "sha256": "c68c7288f6074476f9c0d5a4708dc21066c7eb99989e1dc673dbb28372ea8e67",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "enumerator imports and using enum",
+          "pr": false
+        },
+        {
+          "id": "using-enum-6-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/using-enum-6.C",
+          "sha256": "c68c7288f6074476f9c0d5a4708dc21066c7eb99989e1dc673dbb28372ea8e67",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "enumerator imports and using enum",
+          "pr": false
+        },
+        {
+          "id": "using-enum-7-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/using-enum-7.C",
+          "sha256": "537313f24ce70c234e8c8aff27371b05a14b0fb970f228806597c4ce6d41a7e4",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "enumerator imports and using enum",
+          "pr": false
+        },
+        {
+          "id": "using-enum-7-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/using-enum-7.C",
+          "sha256": "537313f24ce70c234e8c8aff27371b05a14b0fb970f228806597c4ce6d41a7e4",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "enumerator imports and using enum",
+          "pr": false
+        },
+        {
+          "id": "using-enum-8-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/using-enum-8.C",
+          "sha256": "7fbc60795c1dc52f18e62f5612bf0f01982a6fc7161cd1ec03a993eec2f18973",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "enumerator imports and using enum",
+          "pr": false
+        },
+        {
+          "id": "using-enum-8-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/using-enum-8.C",
+          "sha256": "7fbc60795c1dc52f18e62f5612bf0f01982a6fc7161cd1ec03a993eec2f18973",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "enumerator imports and using enum",
+          "pr": false
+        },
+        {
+          "id": "using-enum-9-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/using-enum-9.C",
+          "sha256": "c32f3fe5f84cc0966217735f4b9ba92059fcb637d11b0a981cb4a5bef5f3bf38",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "enumerator imports and using enum",
+          "pr": false
+        },
+        {
+          "id": "using-enum-9-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/using-enum-9.C",
+          "sha256": "c32f3fe5f84cc0966217735f4b9ba92059fcb637d11b0a981cb4a5bef5f3bf38",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "enumerator imports and using enum",
+          "pr": false
         }
       ]
     },
@@ -1000,6 +1472,15 @@
           "action": "compile",
           "expect": "accept",
           "feature": "immediate functions, implied typename and constant initialization",
+          "pr": true
+        },
+        {
+          "id": "clang-9d7fd4b6609c71b209d6",
+          "path": "clang/test/SemaCXX/PR86790.cpp",
+          "sha256": "cbcf037366e48d4baa04d77cb8cc035fe2cb4247e5f8c1b76c66cfa7198af2d1",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "lookup through enum aliases and class members",
           "pr": true
         }
       ]

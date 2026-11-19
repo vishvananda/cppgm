@@ -21,6 +21,7 @@ def select(manifest, inventory, profile):
     reviewed = set()
     selected = []
     pending_cases = []
+    excluded_cases = []
     for entry in cohort['cases']:
         case_id = entry['id']
         if case_id in reviewed or case_id not in cases:
@@ -32,16 +33,18 @@ def select(manifest, inventory, profile):
                 raise ValueError(f'Reviewed configuration changed {field}: {case_id}')
         if entry.get('pending_reason'):
             pending_cases.append(dict(path=case['path'], id=case_id, reason=entry['pending_reason']))
+        elif entry.get('exclusion_reason'):
+            excluded_cases.append(dict(path=case['path'], id=case_id, reason=entry['exclusion_reason']))
         elif profile == 'full' or entry.get('pr'):
             selected.append(case)
     if not selected:
         raise ValueError('Reviewed CI cohort is empty: ' + key)
     pending = len(cases) - len(reviewed)
     return dict(manifest, cases=selected, cohort=profile, awaiting_review=pending,
-                exclusions=[*manifest['exclusions'], *pending_cases],
+                exclusions=[*manifest['exclusions'], *pending_cases, *excluded_cases],
                 coverage=manifest['coverage'] + f' Reviewed {profile} cohort. '
                 f'{pending} other projected configurations await review. '
-                f'{len(pending_cases)} reviewed gaps have source-pinned reasons.')
+                f'{len(pending_cases)} reviewed gaps and {len(excluded_cases)} reviewed exclusions have source-pinned reasons.')
 
 
 def main():
