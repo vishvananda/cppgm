@@ -286,6 +286,10 @@ lambda. A fold in the enclosing scope still expands that pack.
 See N4140 `[dcl.spec.auto]`, `[expr.prim.lambda]` and
 [generalized capture wording](../doc/cwg/paper-n3648.txt).
 
+In a C++17 fold inside a generic lambda, packs declared by the lambda
+expand when its call operator is instantiated. See N4659 `[expr.prim.fold]`
+and `[temp.variadic]`.
+
 C++17 `[*this]` copies the enclosing object, retaining its copy/destruction
 and const/mutable behavior. Evaluate supported constexpr closures and captureless
 function-pointer conversions with normal identity/lifetime rules; forbidden

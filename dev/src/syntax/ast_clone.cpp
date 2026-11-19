@@ -73,11 +73,7 @@ bool SyntaxCloner::component(const NameComponent& in, NameComponent& out, bool l
 	if (expander_ != nullptr && leading && in.kind == NameComponentKind::Identifier)
 	{
 		if (collecting_ != nullptr)
-		{
-			if (length(in.identifier) != -1 &&
-				std::find(collecting_->begin(), collecting_->end(), in.identifier) == collecting_->end())
-				collecting_->push_back(in.identifier);
-		}
+			collect_pack_name(in.identifier);
 		else if (const Identifier* element = renamed(in.identifier))
 		{
 			out.identifier = element;
@@ -180,6 +176,14 @@ int32_t SyntaxCloner::length(const Identifier* name) const
 	return expander_->pack_length(name);
 }
 
+void SyntaxCloner::collect_pack_name(const Identifier* name)
+{
+	const int32_t count = length(name);
+	if ((count >= 0 || (count == -2 && collecting_expansion_)) &&
+		std::find(collecting_->begin(), collecting_->end(), name) == collecting_->end())
+		collecting_->push_back(name);
+}
+
 const Identifier* SyntaxCloner::renamed(const Identifier* name) const
 {
 	for (const std::pair<const Identifier*, const Identifier*>& rename : renames_)
@@ -200,13 +204,16 @@ int32_t SyntaxCloner::pattern_packs(Copy copy_pattern, std::vector<const Identif
 	// when it names none, or a pack of a template declared in the copy
 	// (whose instantiations expand it).
 	std::vector<const Identifier*>* saved = collecting_;
+	const bool saved_expansion = collecting_expansion_;
 	std::vector<std::pair<const Identifier*, const Identifier*>> saved_renames;
 	saved_renames.swap(renames_);
 	collecting_ = &packs;
+	collecting_expansion_ = true;
 	const Arena::Mark mark = arena_.mark();
 	copy_pattern();
 	arena_.rewind(mark);
 	collecting_ = saved;
+	collecting_expansion_ = saved_expansion;
 	renames_.swap(saved_renames);
 	if (packs.empty())
 		return -1;
@@ -672,9 +679,8 @@ Slice<LambdaCapture> SyntaxCloner::captures(const Slice<LambdaCapture>& list)
 			continue;
 		if (collecting_ != nullptr)
 		{
-			if (!capture.pack && length(capture.name) != -1 &&
-				std::find(collecting_->begin(), collecting_->end(), capture.name) == collecting_->end())
-				collecting_->push_back(capture.name);
+			if (!capture.pack)
+				collect_pack_name(capture.name);
 			continue;
 		}
 		changes = changes ||

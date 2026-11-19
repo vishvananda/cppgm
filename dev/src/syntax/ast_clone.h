@@ -134,9 +134,13 @@ private:
 	void shadow(const Declarator* declarator, int32_t length);
 	void shadow_declared(const Decl* decl);
 	void shadow_template_packs(const TemplateParameterList* list);
+	void collect_pack_name(const Identifier* name);
 
 	Arena& arena_;
 	bool bodies_;
+	// Finding the packs of an expansion also keeps locally declared packs
+	// that can leave the expansion dependent.
+	bool collecting_expansion_ = false;
 	PackExpander* expander_;
 	// While copying one element of an expansion: each pack name of the
 	// pattern and the name of its element.
