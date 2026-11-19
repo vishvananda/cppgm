@@ -281,6 +281,8 @@ does not capture it.
 Use the lambda's parameter scope in its trailing return type. Substitution
 failure there can discard a generic call-operator candidate, just as for
 other function templates.
+A local type alias can hide an enclosing parameter pack inside a nested
+lambda. A fold in the enclosing scope still expands that pack.
 See N4140 `[dcl.spec.auto]`, `[expr.prim.lambda]` and
 [generalized capture wording](../doc/cwg/paper-n3648.txt).
 

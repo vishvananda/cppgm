@@ -1400,10 +1400,19 @@ Slice<Handler> SyntaxCloner::handlers(const Slice<Handler>& list)
 
 void SyntaxCloner::shadow_declared(const Decl* decl)
 {
-	if (decl == nullptr || decl->kind != DeclKind::Simple)
+	if (decl == nullptr)
 		return;
-	for (const InitDeclarator& declarator : static_cast<const SimpleDecl*>(decl)->declarators)
-		shadow(declarator.declarator, -1);
+	if (decl->kind == DeclKind::Simple)
+	{
+		for (const InitDeclarator& declarator : static_cast<const SimpleDecl*>(decl)->declarators)
+			shadow(declarator.declarator, -1);
+	}
+	else if (decl->kind == DeclKind::Alias && expander_ != nullptr)
+	{
+		const Identifier* name = static_cast<const AliasDecl*>(decl)->name;
+		if (length(name) >= 0)
+			shadows_.push_back(std::make_pair(name, -1));
+	}
 }
 
 Stmt* SyntaxCloner::stmt(const Stmt* stmt)
