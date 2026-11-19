@@ -406,8 +406,10 @@ Destroy materialized temporaries in reverse construction order at the end
 of their full-expression. An initializer, a condition, and a return operand
 each have their own boundary, including the conversions and initialization
 they perform. A local reference can extend the complete temporary's lifetime
-when it binds to the temporary or one of its subobjects. A call returning a
-reference does not extend its referent's lifetime. By-value class parameters
+when it binds to the temporary or one of its subobjects. A temporary bound
+to a reference member of that temporary can follow it into the same scope.
+A call returning a reference does not extend its referent's lifetime.
+By-value class parameters
 passed by address with nontrivial destruction are destroyed with the caller's
 temporaries. See N4861 `[intro.execution]`, `[class.temporary]`, and `[expr.call]`.
 

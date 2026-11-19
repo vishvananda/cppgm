@@ -1125,7 +1125,14 @@ bool ConstantInterpreter::discard(const syntax::Expr& expr)
 	if (facts == nullptr || facts->type == nullptr)
 		return fail(e->location, "an expression outside constant evaluation");
 	if ((facts->flags & kImmediateValue) != 0)
+	{
+		if (cxx20_ && facts->category == ValueCategory::PRValue && analyzer_.nontrivial_destruction(facts->type))
+		{
+			ConstPlace place;
+			return temporary(*e, place);
+		}
 		return true;
+	}
 	if (e->kind == syntax::ExprKind::Delete)
 		return deallocate_value(static_cast<const syntax::DeleteExpr&>(*e));
 	if (IsVoid(facts->type) && (facts->flags & kOperatorCall) != 0)

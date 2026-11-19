@@ -23,5 +23,17 @@ constexpr bool extended() {
   return log == 734;
 }
 
+constexpr bool nested() {
+  unsigned log = 1;
+  {
+    const Reference& ref = Reference{Stamp{&log, 5}};
+    if (log != 1 || ref.stamp.digit != 5)
+      return false;
+    log = 2;
+  }
+  return log == 25;
+}
+
 static_assert(extended());
+static_assert(nested());
 int main() {}

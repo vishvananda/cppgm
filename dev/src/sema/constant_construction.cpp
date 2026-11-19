@@ -527,8 +527,8 @@ bool ConstantInterpreter::initialize_scalar(
 				if (!extend_temporary(referent, location))
 					return false;
 			}
-			else if (analyzer_.cxx20_ && initializes_local(target))
-				extend_local_temporary(referent, first, *single, conversion);
+			else if (analyzer_.cxx20_)
+				extend_local_temporary(referent, first, *single, conversion, &target);
 		}
 		value = PointerTo(referent, type);
 	}
@@ -585,6 +585,7 @@ bool ConstantInterpreter::list_object(
 		return fail(location, "a std::initializer_list without its array's address and size members");
 	const Type* array = list.facts->target;
 	ConstPlace elements;
+	const size_t first_temporary = temporary_mark();
 	if (!new_object(array, elements, location, ObjectStorage::Tracked) || !aggregate(array, elements, list, location))
 		return false;
 	// [dcl.init.list]: direct list initialization extends the backing array
@@ -597,8 +598,7 @@ bool ConstantInterpreter::list_object(
 	else if (analyzer_.cxx20_)
 	{
 		register_temporary(elements, location);
-		if (initializes_local(target))
-			keep_local_temporary(elements);
+		extend_with_owner(elements, first_temporary, target);
 	}
 	elements.type = array->element;
 	const VariableEntity* members[2] = { static_cast<const VariableEntity*>(first->variable),

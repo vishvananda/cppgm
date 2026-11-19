@@ -9,13 +9,13 @@ namespace sema {
 void ConstantInterpreter::register_destruction(const ConstPlace& place, uint32_t location)
 {
 	if (analyzer_.nontrivial_destruction(place.type))
-		class_storage().destructions.push_back({ place, location });
+		class_storage().destructions.push_back({ place, location, PointerMap::kMissing, false });
 }
 
 void ConstantInterpreter::queue_temporary(const ConstPlace& place, uint32_t location)
 {
 	auto& pending = class_storage().temporaries;
-	pending.push_back({ place, location });
+	pending.push_back({ place, location, PointerMap::kMissing, false });
 	objects_[place.object].temporary = static_cast<uint32_t>(pending.size());
 }
 
@@ -29,15 +29,18 @@ void ConstantInterpreter::forget_temporary(const ConstPlace& place)
 	}
 }
 
-void ConstantInterpreter::extend_local_temporary(
-	const ConstPlace& place, size_t first, const syntax::Expr& expr, const Conversion* conversion)
+void ConstantInterpreter::extend_local_temporary(const ConstPlace& place, size_t first, const syntax::Expr& expr,
+	const Conversion* conversion, const ConstPlace* owner)
 {
 	if (place.root != RootKind::Object || place.object >= objects_.size())
 		return;
 	const Object& object = objects_[place.object];
 	if (object.generation != place.generation || object.temporary <= first || !binds_temporary(expr, conversion))
 		return;
-	keep_local_temporary(place);
+	if (owner == nullptr)
+		keep_local_temporary(place, first);
+	else
+		extend_with_owner(place, first, *owner);
 }
 
 bool ConstantInterpreter::initializes_local(const ConstPlace& target) const
@@ -53,14 +56,50 @@ bool ConstantInterpreter::initializes_local(const ConstPlace& target) const
 		local.place.generation == target.generation;
 }
 
-void ConstantInterpreter::keep_local_temporary(const ConstPlace& place)
+void ConstantInterpreter::extend_with_owner(const ConstPlace& place, size_t first, const ConstPlace& owner)
+{
+	if (initializes_local(owner))
+		keep_local_temporary(place, first);
+	else if (owner.root == RootKind::Object)
+	{
+		storage_->temporaries[objects_[place.object].temporary - 1].owner = owner.object;
+		storage_->has_dependent_temporaries = true;
+	}
+}
+
+void ConstantInterpreter::keep_local_temporary(const ConstPlace& place, size_t first)
 {
 	// Extend the complete object, including when the binding names only one
-	// of its subobjects. Leave the slot so enclosing full-expression marks
-	// still refer to the same stack positions.
-	const auto& pending = storage_->temporaries[objects_[place.object].temporary - 1];
-	storage_->destructions.push_back(pending);
-	forget_temporary(place);
+	// of its subobjects. Its dependent temporaries completed construction
+	// before it. Visit owners first, then preserve construction order in
+	// the lexical cleanup stack. Leave slots for the full-expression marks.
+	auto& pending = storage_->temporaries;
+	const size_t root = objects_[place.object].temporary - 1;
+	SmallList<size_t, 8> extended;
+	extended.push_back(root);
+	pending[root].retained = true;
+	if (storage_->has_dependent_temporaries)
+	{
+		for (size_t i = root; i-- > first;)
+		{
+			auto& entry = pending[i];
+			if (entry.place.root == RootKind::Null || entry.owner >= objects_.size())
+				continue;
+			const uint32_t owner = objects_[entry.owner].temporary;
+			if (owner != 0 && pending[owner - 1].retained)
+			{
+				entry.retained = true;
+				extended.push_back(i);
+			}
+		}
+	}
+	for (size_t i = extended.size(); i-- > 0;)
+	{
+		const size_t index = extended[i];
+		pending[index].retained = false;
+		storage_->destructions.push_back(pending[index]);
+		forget_temporary(pending[index].place);
+	}
 }
 
 bool ConstantInterpreter::destroy_temporaries(size_t first)

@@ -142,10 +142,11 @@ private:
 		const size_t first = temporary_mark();
 		return truth(expr, selected) && end_full_expression(first);
 	}
-	void extend_local_temporary(
-		const ConstPlace& place, size_t first, const syntax::Expr& expr, const Conversion* conversion);
+	void extend_local_temporary(const ConstPlace& place, size_t first, const syntax::Expr& expr,
+		const Conversion* conversion, const ConstPlace* owner = nullptr);
 	bool initializes_local(const ConstPlace& target) const;
-	void keep_local_temporary(const ConstPlace& place);
+	void extend_with_owner(const ConstPlace& place, size_t first, const ConstPlace& owner);
+	void keep_local_temporary(const ConstPlace& place, size_t first);
 	void forget_temporary(const ConstPlace& place);
 	bool destroy_object(const ConstPlace& place, uint32_t location);
 	bool destroy_locals(size_t first);

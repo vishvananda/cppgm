@@ -36,9 +36,14 @@ struct ConstantStorage
 	{
 		ConstPlace place;
 		uint32_t location;
+		// A reference member or list view in this object extended the
+		// temporary. The child follows it if that object is itself extended.
+		uint32_t owner;
+		bool retained;
 	};
 	std::vector<Destruction> destructions;
 	std::vector<Destruction> temporaries;
+	bool has_dependent_temporaries = false;
 	std::vector<ConstAllocation> heap;
 	uint64_t heap_values = 0;
 	uint32_t live_allocations = 0;
