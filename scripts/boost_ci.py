@@ -46,7 +46,8 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def review(xml_path, log_path, calls_path, project, expected, label='cppgm', native_path=None):
+def review(xml_path, log_path, calls_path, project, expected, label='cppgm', native_path=None,
+           selected_targets=None):
     tree = ET.parse(xml_path).getroot()
     boost = Path(tree.findtext('directory')).resolve()
     declarations = []
@@ -56,8 +57,13 @@ def review(xml_path, log_path, calls_path, project, expected, label='cppgm', nat
             target = target[len(str(boost)) + 1:]
         directory = target.split('//')[0]
         if directory == project or directory.startswith(project + '/'):
-            declarations.append((test, target))
-    require(len(declarations) == expected, f'{project}: expected {expected} declarations, got {len(declarations)}')
+            if selected_targets is None or target in selected_targets:
+                declarations.append((test, target))
+    if selected_targets is not None:
+        missing = selected_targets.difference(target for _, target in declarations)
+        require(not missing, f'{project}: missing test declarations: {sorted(missing)}')
+    if expected is not None:
+        require(len(declarations) == expected, f'{project}: expected {expected} declarations, got {len(declarations)}')
     require(not re.search(r'^\.\.\.failed updating \d+ targets?\.\.\.$', log_path.read_text(), re.M), 'B2 reported failed targets')
     calls = [json.loads(line) for line in calls_path.read_text().splitlines()]
     native = ([json.loads(line) for line in native_path.read_text().splitlines()]

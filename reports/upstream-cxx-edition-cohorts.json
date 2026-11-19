@@ -1,0 +1,1008 @@
+{
+  "schema": 1,
+  "cohorts": {
+    "gcc:14": {
+      "revision": "5115c7e447fc07457443df874bf57840e8316d5f",
+      "cases": [
+        {
+          "id": "digit-sep-c++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/digit-sep.C",
+          "sha256": "5ef40f72871c2252250781bbf40761203a68ddefbec7daf6e98b2e41e83c73be",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "digit separator spellings",
+          "pr": true
+        },
+        {
+          "id": "digit-sep-gnu++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/digit-sep.C",
+          "sha256": "5ef40f72871c2252250781bbf40761203a68ddefbec7daf6e98b2e41e83c73be",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "digit separator spellings",
+          "pr": true
+        },
+        {
+          "id": "digit-sep-neg-2-c++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/digit-sep-neg-2.C",
+          "sha256": "b078a882c82d95876a9243e21630034be481afb4aa26e72ef7fd905ce527dba5",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid separator placement",
+          "pr": true
+        },
+        {
+          "id": "digit-sep-neg-2-gnu++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/digit-sep-neg-2.C",
+          "sha256": "b078a882c82d95876a9243e21630034be481afb4aa26e72ef7fd905ce527dba5",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid separator placement",
+          "pr": true
+        },
+        {
+          "id": "auto-fn1-c++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/auto-fn1.C",
+          "sha256": "4a3c1c5263636567156766df96b6c79c91ec931c694713482a8dfd3ff6d8d794",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "deduced return types",
+          "pr": false
+        },
+        {
+          "id": "auto-fn1-gnu++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/auto-fn1.C",
+          "sha256": "4a3c1c5263636567156766df96b6c79c91ec931c694713482a8dfd3ff6d8d794",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "deduced return types",
+          "pr": false
+        },
+        {
+          "id": "auto-fn17-c++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/auto-fn17.C",
+          "sha256": "0d8fdd2ba104d2fcd0ff77cf0c2efd46cd5f9d8cc775155189f50191f3c42e01",
+          "action": "run",
+          "expect": "accept",
+          "feature": "deduced reference-returning function execution",
+          "pr": false
+        },
+        {
+          "id": "auto-fn17-gnu++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/auto-fn17.C",
+          "sha256": "0d8fdd2ba104d2fcd0ff77cf0c2efd46cd5f9d8cc775155189f50191f3c42e01",
+          "action": "run",
+          "expect": "accept",
+          "feature": "deduced reference-returning function execution",
+          "pr": false
+        },
+        {
+          "id": "auto-fn2-c++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/auto-fn2.C",
+          "sha256": "7e13b746dfa2056eff6f4b2af4b572f817527e99c0498b9215199900767e294c",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid deduced return",
+          "pr": false
+        },
+        {
+          "id": "auto-fn2-gnu++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/auto-fn2.C",
+          "sha256": "7e13b746dfa2056eff6f4b2af4b572f817527e99c0498b9215199900767e294c",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid deduced return",
+          "pr": false
+        },
+        {
+          "id": "constexpr-loop1-c++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/constexpr-loop1.C",
+          "sha256": "7fbb50df39e1ffa27adcd7c1ab0dcf807e528122b4eccdf3b23e22605be012d0",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "loop in a constexpr body",
+          "pr": true
+        },
+        {
+          "id": "constexpr-loop1-gnu++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/constexpr-loop1.C",
+          "sha256": "7fbb50df39e1ffa27adcd7c1ab0dcf807e528122b4eccdf3b23e22605be012d0",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "loop in a constexpr body",
+          "pr": true
+        },
+        {
+          "id": "constexpr-loop8-c++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/constexpr-loop8.C",
+          "sha256": "461004922aeef67761ad5f86a774a0caebd8996558ca86055806067bcb55f6bb",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid constexpr evaluation",
+          "pr": false
+        },
+        {
+          "id": "constexpr-loop8-gnu++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/constexpr-loop8.C",
+          "sha256": "461004922aeef67761ad5f86a774a0caebd8996558ca86055806067bcb55f6bb",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid constexpr evaluation",
+          "pr": false
+        },
+        {
+          "id": "constexpr-array2-c++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/constexpr-array2.C",
+          "sha256": "0a1c75444bd9b379c22031049639a390b7796dce79be1d450c953301110ddabd",
+          "action": "run",
+          "expect": "accept",
+          "feature": "constexpr array mutation and execution",
+          "pr": false
+        },
+        {
+          "id": "constexpr-array2-gnu++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/constexpr-array2.C",
+          "sha256": "0a1c75444bd9b379c22031049639a390b7796dce79be1d450c953301110ddabd",
+          "action": "run",
+          "expect": "accept",
+          "feature": "constexpr array mutation and execution",
+          "pr": false
+        },
+        {
+          "id": "lambda-init1-c++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/lambda-init1.C",
+          "sha256": "6a1e38da8e2f7349f5deed106f6c57410004fcf40695f338f6ab9a38a7c191d2",
+          "action": "run",
+          "expect": "accept",
+          "feature": "init-capture execution",
+          "pr": true
+        },
+        {
+          "id": "lambda-init1-gnu++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/lambda-init1.C",
+          "sha256": "6a1e38da8e2f7349f5deed106f6c57410004fcf40695f338f6ab9a38a7c191d2",
+          "action": "run",
+          "expect": "accept",
+          "feature": "init-capture execution",
+          "pr": true
+        },
+        {
+          "id": "lambda-generic-c++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/lambda-generic.C",
+          "sha256": "d1a8104e3d8f64224a71369918d0ea8d4b2b08a92127c2c3d937b69245d9065c",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "generic lambda syntax and deduction",
+          "pr": false
+        },
+        {
+          "id": "lambda-generic-gnu++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/lambda-generic.C",
+          "sha256": "d1a8104e3d8f64224a71369918d0ea8d4b2b08a92127c2c3d937b69245d9065c",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "generic lambda syntax and deduction",
+          "pr": false
+        },
+        {
+          "id": "lambda-generic-variadic-c++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/lambda-generic-variadic.C",
+          "sha256": "d556128711fb094895985ca9274c1b21d4658df61ec84a12b8dabe2288174062",
+          "action": "run",
+          "expect": "accept",
+          "feature": "generic variadic lambda execution",
+          "pr": false,
+          "pending_reason": "GCC accepts placeholders nested in template arguments in C++14; Clang diagnoses this GNU extension. It is outside the required language profile."
+        },
+        {
+          "id": "lambda-generic-variadic-gnu++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/lambda-generic-variadic.C",
+          "sha256": "d556128711fb094895985ca9274c1b21d4658df61ec84a12b8dabe2288174062",
+          "action": "run",
+          "expect": "accept",
+          "feature": "generic variadic lambda execution",
+          "pr": false,
+          "pending_reason": "GCC accepts placeholders nested in template arguments in C++14; Clang diagnoses this GNU extension. It is outside the required language profile."
+        }
+      ]
+    },
+    "clang:14": {
+      "revision": "2078da43e25a4623cab2d0d60decddf709aaea28",
+      "cases": [
+        {
+          "id": "clang-845137f9b9112ecd7516",
+          "path": "clang/test/CXX/dcl.dcl/dcl.spec/dcl.type/dcl.spec.auto/p5-cxx14.cpp",
+          "sha256": "0da5d02d6aecbdcee5329db9ae525e04583ebfce6670e72be5af11de837603a1",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "auto deduction across declarations",
+          "pr": false,
+          "pending_reason": "Strict native qualification rejects the storage-class specifier on an explicit specialization."
+        },
+        {
+          "id": "clang-213943abcdc3ff7b3d9d",
+          "path": "clang/test/SemaCXX/deduced-return-void.cpp",
+          "sha256": "b7e66fb38fddcb382467bb6b9ffc71579840aebe6c3e32a185c996e8f8e243c5",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid placeholder return conversion",
+          "pr": true
+        },
+        {
+          "id": "clang-3695f2de9d31f367ef9f",
+          "path": "clang/test/SemaCXX/vartemplate-lambda.cpp",
+          "sha256": "c6534e3522f452d39f04ea879cc059442da2fa0590db8964c45ad0003dbcdb65",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "variable template and lambda declaration",
+          "pr": false
+        },
+        {
+          "id": "clang-056e757ecd12e5a54cac",
+          "path": "clang/test/SemaCXX/cxx14-access.cpp",
+          "sha256": "8657b4a425cb66691e29cd592626ca5957b4d9b054dc00729ad665f3029ce2f0",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "access diagnostics in C++14",
+          "pr": false
+        },
+        {
+          "id": "clang-4552ec340fb6208fc59b",
+          "path": "clang/test/CXX/basic/basic.link/p6.cpp",
+          "sha256": "47aa5ebac23f43ce75d534f167011fc0e939b146677b48e9fa4f98577b15887b",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "constexpr blocks and extern declarations",
+          "pr": false,
+          "pending_reason": "Local extern declaration inside a constexpr block must resolve to its linkage-bearing declaration."
+        },
+        {
+          "id": "clang-40e86f3a58f60eaec376",
+          "path": "clang/test/SemaCXX/cdtor-fn-try-block.cpp",
+          "sha256": "19402d1aa9f180914c6a19bc4cd82b29751ae666f6c6a59fe9132b8b4f31f3b8",
+          "expect": "accept",
+          "action": "compile",
+          "feature": "C++14 explicit exception and function try-block configuration",
+          "pr": true
+        }
+      ]
+    },
+    "gcc:17": {
+      "revision": "5115c7e447fc07457443df874bf57840e8316d5f",
+      "cases": [
+        {
+          "id": "constexpr-if1-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/constexpr-if1.C",
+          "sha256": "d361790fd12f9477b0ca53d8c4a364f4f976b324763d6e0dc6f00112d5ba4f38",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "branch discard and return deduction",
+          "pr": true
+        },
+        {
+          "id": "constexpr-if1-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/constexpr-if1.C",
+          "sha256": "d361790fd12f9477b0ca53d8c4a364f4f976b324763d6e0dc6f00112d5ba4f38",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "branch discard and return deduction",
+          "pr": true
+        },
+        {
+          "id": "constexpr-if17-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/constexpr-if17.C",
+          "sha256": "00a6108eb351991291b81f92f49a2e94869e57f4676b7f09fba042419c540764",
+          "action": "run",
+          "expect": "accept",
+          "feature": "constexpr selection execution",
+          "pr": false
+        },
+        {
+          "id": "constexpr-if17-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/constexpr-if17.C",
+          "sha256": "00a6108eb351991291b81f92f49a2e94869e57f4676b7f09fba042419c540764",
+          "action": "run",
+          "expect": "accept",
+          "feature": "constexpr selection execution",
+          "pr": false
+        },
+        {
+          "id": "constexpr-if4-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/constexpr-if4.C",
+          "sha256": "bf95bd1614e2b029f3d1eff40bc0b972bfb95e6a12e3197f15976f2ef2388b59",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid constexpr condition",
+          "pr": true
+        },
+        {
+          "id": "constexpr-if4-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/constexpr-if4.C",
+          "sha256": "bf95bd1614e2b029f3d1eff40bc0b972bfb95e6a12e3197f15976f2ef2388b59",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid constexpr condition",
+          "pr": true
+        },
+        {
+          "id": "init-statement3-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/init-statement3.C",
+          "sha256": "46a60276166dbee963cef796b7d9249e697e0220d7192407612a1866ea685391",
+          "action": "run",
+          "expect": "accept",
+          "feature": "selection initializer execution",
+          "pr": true
+        },
+        {
+          "id": "init-statement3-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/init-statement3.C",
+          "sha256": "46a60276166dbee963cef796b7d9249e697e0220d7192407612a1866ea685391",
+          "action": "run",
+          "expect": "accept",
+          "feature": "selection initializer execution",
+          "pr": true
+        },
+        {
+          "id": "init-statement10-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/init-statement10.C",
+          "sha256": "de00b531033c51c943b9b34bbe7c1aec41fc68e4ce7bbc74765a92d412ff66d9",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid selection initializer",
+          "pr": false
+        },
+        {
+          "id": "init-statement10-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/init-statement10.C",
+          "sha256": "de00b531033c51c943b9b34bbe7c1aec41fc68e4ce7bbc74765a92d412ff66d9",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid selection initializer",
+          "pr": false
+        },
+        {
+          "id": "fold2-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/fold2.C",
+          "sha256": "d3701766f0db03e8df273933d7b84e286f8760fd4f760562976693b390504b4f",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "fold expression",
+          "pr": true
+        },
+        {
+          "id": "fold2-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/fold2.C",
+          "sha256": "d3701766f0db03e8df273933d7b84e286f8760fd4f760562976693b390504b4f",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "fold expression",
+          "pr": true
+        },
+        {
+          "id": "fold12-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/fold12.C",
+          "sha256": "20d488f503f2da4785505d20ed13727bb878b29b52161aaf0684bce8c4efd4a9",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid fold expression",
+          "pr": false
+        },
+        {
+          "id": "fold12-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/fold12.C",
+          "sha256": "20d488f503f2da4785505d20ed13727bb878b29b52161aaf0684bce8c4efd4a9",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid fold expression",
+          "pr": false
+        },
+        {
+          "id": "decomp1-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/decomp1.C",
+          "sha256": "07c275eba5d3e36edfb9063ab2dedc8cfd1df4fe2f43aff49b245271dedd593d",
+          "action": "run",
+          "expect": "accept",
+          "feature": "structured binding execution",
+          "pr": false,
+          "pending_reason": "Array decomposition by value needs backing-array copy initialization."
+        },
+        {
+          "id": "decomp1-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/decomp1.C",
+          "sha256": "07c275eba5d3e36edfb9063ab2dedc8cfd1df4fe2f43aff49b245271dedd593d",
+          "action": "run",
+          "expect": "accept",
+          "feature": "structured binding execution",
+          "pr": false,
+          "pending_reason": "Array decomposition by value needs backing-array copy initialization."
+        },
+        {
+          "id": "decomp3-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/decomp3.C",
+          "sha256": "c23c1f2673a12bf01ee82bf6f1d316fe1850ae685848e31fda2035aecd0ceb98",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid structured binding",
+          "pr": false
+        },
+        {
+          "id": "decomp3-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/decomp3.C",
+          "sha256": "c23c1f2673a12bf01ee82bf6f1d316fe1850ae685848e31fda2035aecd0ceb98",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid structured binding",
+          "pr": false
+        },
+        {
+          "id": "inline-var4-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/inline-var4.C",
+          "sha256": "8eb889b94ac8c4834db7190c4df56c2b70d714ea22f94dbc3424f835b22f6295",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "inline variable declarations",
+          "pr": false,
+          "pending_reason": "Dependent array-bound deduction through a reference non-type template parameter."
+        },
+        {
+          "id": "inline-var4-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/inline-var4.C",
+          "sha256": "8eb889b94ac8c4834db7190c4df56c2b70d714ea22f94dbc3424f835b22f6295",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "inline variable declarations",
+          "pr": false,
+          "pending_reason": "Dependent array-bound deduction through a reference non-type template parameter."
+        },
+        {
+          "id": "inline-var11-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/inline-var11.C",
+          "sha256": "1eb5e4bcfd22ff13d5ae485f20612e393960b88a927ee38d2069ca3c9cda5a0d",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid inline variable placement",
+          "pr": false
+        },
+        {
+          "id": "inline-var11-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/inline-var11.C",
+          "sha256": "1eb5e4bcfd22ff13d5ae485f20612e393960b88a927ee38d2069ca3c9cda5a0d",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid inline variable placement",
+          "pr": false
+        },
+        {
+          "id": "noexcept-type8-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/noexcept-type8.C",
+          "sha256": "137ea1d84fb114dd876dc64c40b49cca76b1416a7d5dd6112b94f1cc57574e8f",
+          "action": "run",
+          "expect": "accept",
+          "feature": "function type exception specification execution",
+          "pr": false
+        },
+        {
+          "id": "noexcept-type8-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/noexcept-type8.C",
+          "sha256": "137ea1d84fb114dd876dc64c40b49cca76b1416a7d5dd6112b94f1cc57574e8f",
+          "action": "run",
+          "expect": "accept",
+          "feature": "function type exception specification execution",
+          "pr": false
+        },
+        {
+          "id": "noexcept-type23-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/noexcept-type23.C",
+          "sha256": "be09aa92c4efdc055aaf3d1f5fc65bc15239a6d5ba1c43ac918652be4c46cc95",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid noexcept function type usage",
+          "pr": false
+        },
+        {
+          "id": "noexcept-type23-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/noexcept-type23.C",
+          "sha256": "be09aa92c4efdc055aaf3d1f5fc65bc15239a6d5ba1c43ac918652be4c46cc95",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid noexcept function type usage",
+          "pr": false
+        },
+        {
+          "id": "class-deduction1-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/class-deduction1.C",
+          "sha256": "7212b34a2b82bb1bc09a4b4b199fd5b9c1afece455e0ecd744b7cd37577f0053",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "class template argument deduction",
+          "pr": false
+        },
+        {
+          "id": "class-deduction1-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/class-deduction1.C",
+          "sha256": "7212b34a2b82bb1bc09a4b4b199fd5b9c1afece455e0ecd744b7cd37577f0053",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "class template argument deduction",
+          "pr": false
+        },
+        {
+          "id": "class-deduction10-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/class-deduction10.C",
+          "sha256": "c447eed64f590d114a2ab14b51995d5c873d81c7684a213731bf2160bce36fd5",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid class template argument deduction",
+          "pr": false
+        },
+        {
+          "id": "class-deduction10-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/class-deduction10.C",
+          "sha256": "c447eed64f590d114a2ab14b51995d5c873d81c7684a213731bf2160bce36fd5",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid class template argument deduction",
+          "pr": false
+        }
+      ]
+    },
+    "clang:17": {
+      "revision": "2078da43e25a4623cab2d0d60decddf709aaea28",
+      "cases": [
+        {
+          "id": "clang-b05c566f9f776ff3b4e0",
+          "path": "clang/test/CXX/dcl.dcl/dcl.spec/dcl.type/dcl.spec.auto/p3-1z.cpp",
+          "sha256": "5519feac8ff40cc960fe4fe34f40b25bcecdf22166ac4031cb42178371e781c2",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "placeholder type constraints",
+          "pr": true
+        },
+        {
+          "id": "clang-6d7f8498838a259edb35",
+          "path": "clang/test/CXX/expr/expr.prim/expr.prim.lambda/p15-star-this-capture.cpp",
+          "sha256": "b337c1624ff88748afac7de71c4f1b77c4e0a106b599dea618e75980a64134fd",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid star-this capture",
+          "pr": false
+        },
+        {
+          "id": "clang-20c13f001b2855632e64",
+          "path": "clang/test/CXX/expr/expr.prim/expr.prim.lambda/p9.cpp",
+          "sha256": "540583cd9ec93b3d4007d4981dade207999513e50e15584214c1df31e3314e21",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "C++17 closure semantics",
+          "pr": true
+        },
+        {
+          "id": "clang-f9f631799aa46f17ea38",
+          "path": "clang/test/SemaCXX/fold_expr_typo.cpp",
+          "sha256": "3b85a144c5891e551d05e176d2f48429d24b7939d46f004da33e2c51cecfec22",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "fold expression rejection",
+          "pr": true
+        },
+        {
+          "id": "clang-590f21201a7344a72183",
+          "path": "clang/test/SemaCXX/invalid-deduction-guide-as-template-candidates.cpp",
+          "sha256": "231fd8d42dddc9b282478e81c3789f3e73afe13dbb2f585fa5633dd0f13d2802",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "deduction guide rejection",
+          "pr": false
+        },
+        {
+          "id": "clang-9b9fb2008e3b4ec810a1",
+          "path": "clang/test/SemaCXX/recursive-lambda.cpp",
+          "sha256": "fa77a6aee366f502684a3191cd23818392842e1f9ce9290b783a57ca4e832d6f",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "recursive lambda semantics",
+          "pr": false
+        }
+      ]
+    },
+    "gcc:20": {
+      "revision": "5115c7e447fc07457443df874bf57840e8316d5f",
+      "cases": [
+        {
+          "id": "char8_t1-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/char8_t1.C",
+          "sha256": "0db88d03f8448b2333d95616b5516f02e459841d760af681a957bd21f158276e",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "distinct char8_t and UTF-8 literal types",
+          "pr": true
+        },
+        {
+          "id": "char8_t3-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/char8_t3.C",
+          "sha256": "597b5ed91d6cf638e6d08db0494817ea7fbe55a4062386114addb951ec2878ad",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid char8_t conversion",
+          "pr": true
+        },
+        {
+          "id": "char8_t3-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/char8_t3.C",
+          "sha256": "597b5ed91d6cf638e6d08db0494817ea7fbe55a4062386114addb951ec2878ad",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid char8_t conversion",
+          "pr": true
+        },
+        {
+          "id": "char8_t4-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/char8_t4.C",
+          "sha256": "88c6fa68a341eed89ec8aa65ba9d61e65d5e3a2eab0ddbe9d920b5b7b846ab61",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid UTF-8 literal usage",
+          "pr": false
+        },
+        {
+          "id": "char8_t4-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/char8_t4.C",
+          "sha256": "88c6fa68a341eed89ec8aa65ba9d61e65d5e3a2eab0ddbe9d920b5b7b846ab61",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid UTF-8 literal usage",
+          "pr": false
+        },
+        {
+          "id": "concepts-fn1-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/concepts-fn1.C",
+          "sha256": "dcbf7ad98f68d45567a4147ae8ec286a2450df059ee01694e6090d0acc9db0bc",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid constrained function call",
+          "pr": true
+        },
+        {
+          "id": "concepts-fn1-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/concepts-fn1.C",
+          "sha256": "dcbf7ad98f68d45567a4147ae8ec286a2450df059ee01694e6090d0acc9db0bc",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid constrained function call",
+          "pr": true
+        },
+        {
+          "id": "concepts-fn2-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/concepts-fn2.C",
+          "sha256": "4aa4d12284aed5c482ec6b2884e0f99de50de4f732c6e072559da7efd1663066",
+          "action": "run",
+          "expect": "accept",
+          "feature": "constrained overload execution",
+          "pr": true
+        },
+        {
+          "id": "concepts-fn2-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/concepts-fn2.C",
+          "sha256": "4aa4d12284aed5c482ec6b2884e0f99de50de4f732c6e072559da7efd1663066",
+          "action": "run",
+          "expect": "accept",
+          "feature": "constrained overload execution",
+          "pr": true
+        },
+        {
+          "id": "concepts-fn3-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/concepts-fn3.C",
+          "sha256": "514d79499938d55fc3ca99d13ddba0cebf0b13f841ce2f364d756cfea45e82a9",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid constrained overload",
+          "pr": false
+        },
+        {
+          "id": "concepts-fn3-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/concepts-fn3.C",
+          "sha256": "514d79499938d55fc3ca99d13ddba0cebf0b13f841ce2f364d756cfea45e82a9",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid constrained overload",
+          "pr": false
+        },
+        {
+          "id": "concepts-fn5-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/concepts-fn5.C",
+          "sha256": "f7f82c8288af816518edbe640f7b70411568d423dd4ab05857f9dc225f12aa72",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "concept declarations and function constraints",
+          "pr": false
+        },
+        {
+          "id": "concepts-fn5-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/concepts-fn5.C",
+          "sha256": "f7f82c8288af816518edbe640f7b70411568d423dd4ab05857f9dc225f12aa72",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "concept declarations and function constraints",
+          "pr": false
+        },
+        {
+          "id": "consteval1-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/consteval1.C",
+          "sha256": "2505ef96f6b01476dc4ede08934fbca1cb438f283af1a5a5751d2db1c45fa4a5",
+          "action": "run",
+          "expect": "accept",
+          "feature": "immediate function execution",
+          "pr": true
+        },
+        {
+          "id": "consteval2-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/consteval2.C",
+          "sha256": "443aaa3e075e27feb9d94b238df0d41474f69562e406125e8ce747d3750c163e",
+          "action": "run",
+          "expect": "accept",
+          "feature": "constant evaluation and execution",
+          "pr": false
+        },
+        {
+          "id": "consteval20-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/consteval20.C",
+          "sha256": "e37e4b92b750d5429772ed318076ea7c195e84e7a224cf011eb3b43a66194724",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid immediate function",
+          "pr": false
+        },
+        {
+          "id": "consteval20-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/consteval20.C",
+          "sha256": "e37e4b92b750d5429772ed318076ea7c195e84e7a224cf011eb3b43a66194724",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid immediate function",
+          "pr": false
+        },
+        {
+          "id": "consteval3-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/consteval3.C",
+          "sha256": "8847ab346f5b7d4c86e26be8cbb8bba3ac67c31de054e7bca9046201a1dee4d6",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid consteval declaration placement",
+          "pr": false
+        },
+        {
+          "id": "consteval3-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/consteval3.C",
+          "sha256": "8847ab346f5b7d4c86e26be8cbb8bba3ac67c31de054e7bca9046201a1dee4d6",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid consteval declaration placement",
+          "pr": false
+        },
+        {
+          "id": "constinit1-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constinit1.C",
+          "sha256": "75b19a7cb94b9e3f881815f2c65d3176a5dffb2465c212cbaa856016b923166e",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid constinit use",
+          "pr": false
+        },
+        {
+          "id": "constinit1-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constinit1.C",
+          "sha256": "75b19a7cb94b9e3f881815f2c65d3176a5dffb2465c212cbaa856016b923166e",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid constinit use",
+          "pr": false
+        },
+        {
+          "id": "constinit2-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constinit2.C",
+          "sha256": "907ec030f63c066cda356d004b88d2a64d61088449b2e45f77e7a6faf85b2694",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "constant initialization",
+          "pr": false
+        },
+        {
+          "id": "constinit2-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constinit2.C",
+          "sha256": "907ec030f63c066cda356d004b88d2a64d61088449b2e45f77e7a6faf85b2694",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "constant initialization",
+          "pr": false
+        },
+        {
+          "id": "constinit9-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constinit9.C",
+          "sha256": "307150cd9ef1937e263bf4ec77ca4fb4444cf31390a1d852b5f97b3191d0cefb",
+          "action": "run",
+          "expect": "accept",
+          "feature": "constant-initialized object execution",
+          "pr": false
+        },
+        {
+          "id": "constinit9-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constinit9.C",
+          "sha256": "307150cd9ef1937e263bf4ec77ca4fb4444cf31390a1d852b5f97b3191d0cefb",
+          "action": "run",
+          "expect": "accept",
+          "feature": "constant-initialized object execution",
+          "pr": false
+        },
+        {
+          "id": "spaceship-eq1-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/spaceship-eq1.C",
+          "sha256": "6160165dbfe6038c872cbd241dab5c3570f6501322d7077337bcb48a0f3b3b4b",
+          "action": "run",
+          "expect": "accept",
+          "feature": "defaulted comparison execution",
+          "pr": true
+        },
+        {
+          "id": "spaceship-eq1-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/spaceship-eq1.C",
+          "sha256": "6160165dbfe6038c872cbd241dab5c3570f6501322d7077337bcb48a0f3b3b4b",
+          "action": "run",
+          "expect": "accept",
+          "feature": "defaulted comparison execution",
+          "pr": true
+        },
+        {
+          "id": "spaceship-eq14-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/spaceship-eq14.C",
+          "sha256": "71d142bceaa90c24a8280ce650c5959a3b2301a8b5264c32a90f46e37771748d",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid rewritten equality candidate",
+          "pr": false
+        },
+        {
+          "id": "spaceship-eq14-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/spaceship-eq14.C",
+          "sha256": "71d142bceaa90c24a8280ce650c5959a3b2301a8b5264c32a90f46e37771748d",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid rewritten equality candidate",
+          "pr": false
+        },
+        {
+          "id": "spaceship-synth8-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/spaceship-synth8.C",
+          "sha256": "6933e6309239cdea03316ba336ee13c6e44e4a984a9a7ef522da106260486bdc",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "synthesized comparison",
+          "pr": false
+        },
+        {
+          "id": "spaceship-synth8-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/spaceship-synth8.C",
+          "sha256": "6933e6309239cdea03316ba336ee13c6e44e4a984a9a7ef522da106260486bdc",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "synthesized comparison",
+          "pr": false
+        },
+        {
+          "id": "spaceship-synth8a-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/spaceship-synth8a.C",
+          "sha256": "bb904e47a2c6397a74b1307afc6506d35d4c5e924bd075f7fd6d77a09033a0f6",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid synthesized comparison",
+          "pr": false
+        },
+        {
+          "id": "spaceship-synth8a-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/spaceship-synth8a.C",
+          "sha256": "bb904e47a2c6397a74b1307afc6506d35d4c5e924bd075f7fd6d77a09033a0f6",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid synthesized comparison",
+          "pr": false
+        },
+        {
+          "id": "spaceship-narrowing2-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/spaceship-narrowing2.C",
+          "sha256": "8107002aa6c475df2b708165518ab92a7c4c0b0ed950511691bcd3d368d6084a",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "comparison and narrowing conversions",
+          "pr": false
+        },
+        {
+          "id": "spaceship-narrowing2-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/spaceship-narrowing2.C",
+          "sha256": "8107002aa6c475df2b708165518ab92a7c4c0b0ed950511691bcd3d368d6084a",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "comparison and narrowing conversions",
+          "pr": false
+        }
+      ]
+    },
+    "clang:20": {
+      "revision": "2078da43e25a4623cab2d0d60decddf709aaea28",
+      "cases": [
+        {
+          "id": "clang-094ff99e746d2445b62c",
+          "path": "clang/test/SemaCXX/concepts-subsumption.cpp",
+          "sha256": "719f83a3c0f7975e86c41a8e4b3c7a9451911e3ad4eff63ea11bdf7c44e9436b",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "concept constraint subsumption",
+          "pr": false,
+          "pending_reason": "Constraint normalization times out when substituting a parameter pack."
+        },
+        {
+          "id": "clang-2f03c9f735b72428f8cc",
+          "path": "clang/test/Parser/friend-concept.cpp",
+          "sha256": "dd96d861b8150ffc4630f8c3796c0d3d5cc298741ff9a726406b7cc6c02c9d96",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid friend concept declaration",
+          "pr": true
+        },
+        {
+          "id": "clang-5a6120da2c2094b9477e",
+          "path": "clang/test/SemaCXX/consteval-return-void.cpp",
+          "sha256": "fa1bc3d6523ec12a66e8b7eef30520477c06117984cd272d04f1b72e64460314",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "immediate function rejection",
+          "pr": true
+        },
+        {
+          "id": "clang-83b8655dcb1ccc28ff79",
+          "path": "clang/test/SemaCXX/cxx2a-consteval-default-params.cpp",
+          "sha256": "18aca2fae8a2fa50ce06914df78bf89a962e24df27b1a31ce66568230ce239f5",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "immediate default argument evaluation",
+          "pr": false
+        },
+        {
+          "id": "clang-ef4842f1e34f5ae83e4e",
+          "path": "clang/test/SemaCXX/cxx2a-explicit-bool.cpp",
+          "sha256": "0ce155b410389e4dafeaf6b02608b4bdb32e7a48ecd66a1c78b9f2e064ae2ded",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "conditional explicit validity",
+          "pr": false
+        },
+        {
+          "id": "clang-1ee4c2226e5a4f56dae7",
+          "path": "clang/test/CXX/temp/temp.decls/temp.fct/temp.func.order/p2.cpp",
+          "sha256": "bd2d1fe3caff45c6b08450e7e3978aa4525e1f6dc9d0734c4dcc50d0b5613507",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "template partial ordering",
+          "pr": false,
+          "pending_reason": "Template partial ordering test requires an explicit deduction guide outside the accepted grammar."
+        },
+        {
+          "id": "clang-cd04c0a953eb83933c88",
+          "path": "clang/test/SemaCXX/gh138775.cpp",
+          "sha256": "a01cab75c48288ebfd1704ca0882a80b6ed8bedffdc0e3274974882294a37c07",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "immediate functions, implied typename and constant initialization",
+          "pr": true
+        },
+        {
+          "id": "clang-8b3dac7b1e5d32dfaeed",
+          "path": "clang/test/SemaCXX/gh138775.cpp",
+          "sha256": "a01cab75c48288ebfd1704ca0882a80b6ed8bedffdc0e3274974882294a37c07",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "immediate functions, implied typename and constant initialization",
+          "pr": true
+        }
+      ]
+    }
+  }
+}

@@ -1,10 +1,14 @@
 name: Upstream C++11 correctness
 
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_call:
+    inputs:
+      use-tests-build:
+        type: boolean
+        default: false
   workflow_dispatch:
+  schedule:
+    - cron: '33 5 * * 1'
 
 permissions:
   contents: read
@@ -32,7 +36,11 @@ jobs:
           - suite: gcc
             repository: gcc-mirror/gcc
             revision: 5115c7e447fc07457443df874bf57840e8316d5f
-            sparse: gcc/testsuite/g++.dg/cpp0x
+            sparse: |
+              gcc/testsuite/g++.dg/cpp0x
+              gcc/testsuite/g++.dg/cpp1y
+              gcc/testsuite/g++.dg/cpp1z
+              gcc/testsuite/g++.dg/cpp2a
             upstream: g++-15
             version: 15.2.0
           - suite: clang
@@ -147,13 +155,43 @@ jobs:
           (output/'manifest.json').write_text(json.dumps(records, indent=2)+'\n')
           PYCODE
 
-      - name: Build cppgm
+      - name: Restore same-revision compiler from Tests
+        if: inputs.use-tests-build
+        id: tested-build
+        continue-on-error: true
+        uses: actions/download-artifact@v7
+        with:
+          name: cppgm-build-ubuntu-26.04-gcc-${{ github.sha }}
+          path: tested-compiler
+
+      - name: Prepare cppgm
+        id: candidate
         run: |
+          set -euo pipefail
           ulimit -c 0
+          if [ '${{ steps.tested-build.outcome }}' = success ] &&
+             tar -xzf tested-compiler/cppgm-build.tar.gz dev/cppgm &&
+             dev/cppgm --version; then
+            cp tested-compiler/metadata.env "$RUNNER_TEMP/cxx11/environment/candidate-build.env"
+            exit 0
+          fi
           make -C dev -j2 cppgm CXX="$CXX" CPPGM_HOST_CXX="$CPPGM_HOST_CXX"
+
+      - name: Restore pinned discovery manifests
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ${{ runner.temp }}/cxx11/manifest.json
+            ${{ runner.temp }}/cxx11/cxx*/discovery.json
+          key: >-
+            upstream-manifests-v1-${{ matrix.suite }}-${{ matrix.revision }}-${{ env.UBUNTU_SNAPSHOT }}-${{
+              hashFiles('scripts/build_*_cxx11_ci_manifest.py', 'scripts/upstream_*.py', 'reports/*cxx11*.json') }}
 
       - name: Freeze language test manifest
         run: |
+          if [ -s "$RUNNER_TEMP/cxx11/manifest.json" ]; then
+            exit 0
+          fi
           set -euo pipefail
           if [ '${{ matrix.suite }}' = gcc ]; then
             python3 scripts/build_gcc_cxx11_ci_manifest.py \
@@ -191,6 +229,53 @@ jobs:
         if: always() && matrix.suite == 'clang'
         run: test '${{ steps.qualification.outcome }}' = success
 
+      - name: Check reviewed C++14, C++17 and C++20 cases
+        if: ${{ !cancelled() && steps.candidate.outcome == 'success' }}
+        env:
+          SUITE: ${{ matrix.suite }}
+          UPSTREAM: ${{ matrix.upstream }}
+          UPSTREAM_VERSION: ${{ matrix.version }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          profile=full
+          if [ "$EVENT" = pull_request ]; then
+            profile=pr
+          fi
+          failed=0
+          for edition in 14 17 20; do
+            output="$RUNNER_TEMP/cxx11/cxx$edition"
+            mkdir -p "$output"
+            if [ "$SUITE" = gcc ]; then
+              adapter=(scripts/build_gcc_cxx11_ci_manifest.py --gcc-root upstream-sources
+                       --dejagnu-library /usr/share/dejagnu)
+            else
+              adapter=(scripts/build_clang_cxx11_ci_manifest.py --llvm-root upstream-sources
+                       --verify-negatives --local-inputs)
+            fi
+            if [ ! -s "$output/discovery.json" ] &&
+               ! python3 "${adapter[@]}" --edition "$edition" --output "$output/discovery.json"; then
+              failed=1
+              continue
+            fi
+            if ! python3 scripts/select_upstream_cxx_cohort.py --profile "$profile" \
+                   --discovery "$output/discovery.json" --output "$output/manifest.json"; then
+              failed=1
+              continue
+            fi
+            if [ "$SUITE" = clang ]; then
+              python3 scripts/qualify_clang_cxx11_ci_manifest.py \
+                --manifest "$output/manifest.json" --source-root upstream-sources \
+                --upstream "$UPSTREAM" --upstream-version "$UPSTREAM_VERSION" \
+                --workers 2 --output "$output/qualification" || failed=1
+            fi
+            python3 scripts/run_cxx11_ci_suite.py --manifest "$output/manifest.json" \
+              --source-root upstream-sources --candidate dev/cppgm \
+              --upstream "$UPSTREAM" --upstream-version "$UPSTREAM_VERSION" \
+              --workers 2 --output "$output/run" || failed=1
+          done
+          exit "$failed"
+
       - name: Publish counts and elapsed-time ratio
         if: always()
         run: |
@@ -203,6 +288,14 @@ jobs:
           else
             echo 'The suite did not produce a complete timing report; see the failed setup/run step.' >> "$GITHUB_STEP_SUMMARY"
           fi
+          for edition in 14 17 20; do
+            for report in qualification run; do
+              summary="$RUNNER_TEMP/cxx11/cxx$edition/$report/summary.md"
+              if [ -f "$summary" ]; then
+                cat "$summary" >> "$GITHUB_STEP_SUMMARY"
+              fi
+            done
+          done
           tar -C "$RUNNER_TEMP" -czf "$RUNNER_TEMP/cxx11-${{ matrix.suite }}.tar.gz" cxx11
 
       - name: Retain manifest, commands, raw output and results for both compilers

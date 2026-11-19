@@ -220,6 +220,16 @@ jobs:
           if-no-files-found: error
           retention-days: ${{ matrix.id == 'ubuntu-26.04-gcc' && 14 || 1 }}
 
+  upstream-language:
+    needs: build
+    uses: ./.github/workflows/upstream-cxx11.yml
+    with:
+      use-tests-build: true
+
+  boost-language:
+    needs: build
+    uses: ./.github/workflows/boost-language.yml
+
   c-assignment:
     name: optional C frontend assignment
     needs: build
