@@ -46,6 +46,32 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def standalone_python_result(tree, actions, test, target, marker, boost):
+    sources = [Path(node.text) for node in test.findall('source')]
+    require(len(sources) == 1 and sources[0].suffix == '.py', f'unreviewed Python inputs for {target}')
+    source = (boost / sources[0]).resolve()
+    directory, _ = target.split('//')
+    require(source.is_relative_to(boost / directory), f'Python source outside the test project for {target}')
+    run_target = target.removesuffix('.test')
+    for name, dependency in [(target, run_target), (run_target, directory + '//' + source.name)]:
+        graph_nodes = [node for node in tree.findall('./targets/target') if node.findtext('name') == name]
+        require(len(graph_nodes) == 1 and
+                [node.text for node in graph_nodes[0].findall('dependencies/dependency')] == [dependency],
+                f'unreviewed Python dependencies for {target}')
+    capture = [a for a in actions if a.findtext('name') == 'python%python.capture-output' and
+               a.findtext('path') == str(marker.with_suffix(''))]
+    require(len(capture) == 1 and capture[0].attrib['status'] == '0', f'no actual Python execution for {target}')
+    command = capture[0].findtext('command', '')
+    require('PYTHONPATH=""' in command.split() and any(
+        len(args) >= 2 and Path(args[0]).name.startswith('python') and (boost / args[1]).resolve() == source
+        for line in command.splitlines() if line.lstrip().startswith('"')
+        for args in [shlex.split(line)]), f'unreviewed Python command for {target}')
+    output = marker.with_suffix('.output')
+    require(re.search(r'EXIT STATUS:\s*0\s*$', output.read_text(errors='replace')) is not None,
+            f'incorrect Python result for {target}')
+    return dict(native_status=0, output_sha256=digest(output))
+
+
 def review(xml_path, log_path, calls_path, project, expected, label='cppgm', native_path=None,
            selected_targets=None, inactive_tests=None):
     tree = ET.parse(xml_path).getroot()
@@ -88,7 +114,8 @@ def review(xml_path, log_path, calls_path, project, expected, label='cppgm', nat
     actions = tree.findall('action')
     for test, target in declarations:
         kind = test.attrib['type']
-        require(kind in ('COMPILE', 'COMPILE_FAIL', 'LINK', 'LINK_FAIL', 'RUN', 'RUN_FAIL'), f'unreviewed test kind {kind}')
+        require(kind in ('COMPILE', 'COMPILE_FAIL', 'LINK', 'LINK_FAIL', 'RUN', 'RUN_FAIL', 'RUN_PYD'),
+                f'unreviewed test kind {kind}')
         directory, name = target.split('//')
         expectation = 'testing%testing.expect-' + ('failure' if kind.endswith('_FAIL') else 'success')
         matching = [a for a in actions if a.findtext('name') == expectation and
@@ -102,10 +129,17 @@ def review(xml_path, log_path, calls_path, project, expected, label='cppgm', nat
         marker = Path(action.findtext('path'))
         require(action.attrib['status'] == '0' and marker.read_text().strip() == 'passed', f'failed {target}')
         compiled = by_directory.get(marker.parent.resolve(), [])
+        row = dict(target=target, kind=kind, marker_sha256=digest(marker), compiler_invocations=len(compiled))
+        if kind == 'RUN_PYD':
+            require(not compiled, f'unreviewed Python extension compilation for {target}')
+            row.update(sources=[], compile_cpu=0, compile_elapsed=0,
+                       **standalone_python_result(tree, actions, test, target, marker, boost))
+            rows.append(row)
+            counts[kind] += 1
+            continue
         require(compiled and all(c['route'] == label for c in compiled), f'no {label} compilation for {target}')
         require(any(c['returncode'] == 1 for c in compiled) if kind == 'COMPILE_FAIL' else
                 all(c['returncode'] == 0 for c in compiled), f'incorrect compilation result for {target}')
-        row = dict(target=target, kind=kind, marker_sha256=digest(marker), compiler_invocations=len(compiled))
         row.update(compile_cpu=sum(c.get('cpu_seconds', 0) for c in compiled),
                    compile_elapsed=sum(c.get('seconds', 0) for c in compiled),
                    sources=[c['args'] for c in compiled])

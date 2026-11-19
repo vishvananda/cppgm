@@ -36,15 +36,39 @@ def validate_inventory(inventory):
                              'invalid replay edition override')
         inactive_tests = group.get('inactive_tests', {})
         required = {*group.get('targets', []), *group.get('required_tests', [])}
+        later = group.get('later_tests', {})
+        later_targets = [target for targets in later.values() for target in targets]
         if inactive_tests:
             boost_ci.require(group.get('kind') == 'test' and not group.get('targets') and
                              all(isinstance(reason, str) and reason for reason in inactive_tests.values()) and
                              required.isdisjoint(inactive_tests), 'invalid registered test exclusions')
-        for target in required | inactive_tests.keys():
+        if later:
+            boost_ci.require(group.get('kind') == 'test' and not group.get('targets') and
+                             all(edition in {'17', '20'} and int(edition) > group.get('replay_edition', group['edition'])
+                                 and targets for edition, targets in later.items()) and
+                             len(later_targets) == len(set(later_targets)) and
+                             set(later_targets).isdisjoint(required | inactive_tests.keys()),
+                             'invalid later-edition test variants')
+        for target in required | inactive_tests.keys() | set(later_targets):
             boost_ci.require(re.fullmatch(r'libs/[A-Za-z0-9_/]+//[^/\s]+\.test', target) and
                              target.split('//')[0].startswith(project), 'invalid test declaration: ' + target)
+        if group.get('b2_aliases'):
+            boost_ci.require(group.get('kind') == 'test' and not group.get('targets') and
+                             all(re.fullmatch(r'[A-Za-z0-9_]+', alias) for alias in group['b2_aliases']),
+                             'invalid supplementary B2 aliases')
         boost_ci.require(all(p in {'link=shared'} for p in group.get('b2_properties', [])),
                          'unreviewed project-specific B2 property')
+
+
+def replay_configurations(group):
+    inactive = dict(group.get('inactive_tests', {}))
+    later = group.get('later_tests', {})
+    for edition, targets in later.items():
+        inactive.update({target: f'Run in the C++{edition} variant' for target in targets})
+    yield '', dict(group, inactive_tests=inactive)
+    for edition, targets in sorted(later.items()):
+        yield f'-cxx{edition}', dict(project=group['project'], edition=int(edition), targets=targets,
+                                     b2_properties=group.get('b2_properties', []))
 
 
 def recorded_edition(arguments):
@@ -76,6 +100,10 @@ def test_inventory(result, required, minimum):
     for test in result['tests']:
         editions = tuple(sorted({recorded_edition(args) for args in test['sources']}))
         name = test['target']
+        if test['kind'] == 'RUN_PYD' and not editions:
+            boost_ci.require(name not in required, f"required language test has no compilation for {name}")
+            observed[name, test['kind'], editions] += 1
+            continue
         boost_ci.require(editions and editions[0] > 0, f"unrecorded language mode for {name}: {editions}")
         # Whole projects may explicitly select an older mode for a test.
         # Require the recovered declarations at the edition they needed.
@@ -110,6 +138,7 @@ def replay(boost, settings, role, case, group, args):
     # The XML target names include B2's .test suffix; explicit requests use
     # the target names written in the original Jamfile.
     requested = [name.removesuffix('.test') for name in targets] if targets else [project]
+    requested.extend(project + '//' + alias for alias in group.get('b2_aliases', []))
     properties = {item.split('=')[0]: item for item in [
         'variant=debug', 'link=static', 'runtime-link=shared', 'threading=multi', 'pch=off',
         *group.get('b2_properties', []),
@@ -130,7 +159,7 @@ def replay(boost, settings, role, case, group, args):
     else:
         wanted = set(targets or group.get('required_tests', []))
         observed = test_inventory(result, wanted, edition)
-        boost_ci.require(any(editions[-1] >= edition for _, _, editions in observed),
+        boost_ci.require(any(editions and editions[-1] >= edition for _, _, editions in observed),
                          f'{project}: no test executed its original oracle at C++{edition} or later')
         boost_ci.require(wanted.issubset(test[0] for test in observed), f'{project}: required tests did not run')
     result['compiler'] = str(compiler)
@@ -198,17 +227,26 @@ def main():
                   selected=groups, results=[])
     for index, group in enumerate(groups):
         tag = f"{index:02d}-cxx{group['edition']}-{group['project'].replace('/', '-')}"
-        directory = output / tag
-        directory.mkdir()
         row = dict(group, path=tag, effective_edition=group.get('replay_edition', group['edition']))
+        outcomes = 0
+        variants = []
         try:
-            native = replay(boost, settings['gcc'], 'gcc', directory / 'gcc', group, args)
-            actual = replay(boost, settings['cppgm'], 'cppgm', directory / 'cppgm', group, args)
-            boost_ci.require(actual == native,
-                             f"native inventory differs: missing {list(native - actual)[:8]}, extra {list(actual - native)[:8]}")
-            row.update(status='passed', outcomes=sum(actual.values()))
+            for suffix, variant in replay_configurations(group):
+                directory = output / (tag + suffix)
+                directory.mkdir()
+                native = replay(boost, settings['gcc'], 'gcc', directory / 'gcc', variant, args)
+                actual = replay(boost, settings['cppgm'], 'cppgm', directory / 'cppgm', variant, args)
+                boost_ci.require(actual == native, f"native inventory differs in {directory.name}: "
+                                 f"missing {list(native - actual)[:8]}, extra {list(actual - native)[:8]}")
+                count = sum(actual.values())
+                outcomes += count
+                variants.append(dict(path=directory.name, outcomes=count,
+                                     edition=variant.get('replay_edition', variant['edition'])))
+            row.update(status='passed', outcomes=outcomes)
         except (ValueError, OSError, subprocess.SubprocessError) as error:
             row.update(status='failed', error=str(error))
+        if group.get('later_tests'):
+            row['variants'] = variants
         report['results'].append(row)
         write_json(output / 'results.json', report)
         print(tag, row['status'], row.get('outcomes', row.get('error')), flush=True)

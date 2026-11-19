@@ -119,6 +119,32 @@ class ReviewTests(unittest.TestCase):
         ET.SubElement(action, 'path').text = str(self.marker.with_suffix('.run'))
         self.assertEqual(self.check()['counts'], {'RUN': 1})
 
+    def test_standalone_python_requires_actual_execution_without_extension_dependencies(self):
+        self.fixture('RUN_PYD')
+        source = self.project + '/example.py'
+        self.tree.find('test/source').text = source
+        self.calls[0]['args'][-1] = str(self.root / 'unrelated.o')
+        target = self.project + '//example.test'
+        run_target = target.removesuffix('.test')
+        targets = ET.SubElement(self.tree, 'targets')
+        for name, dependency in [(target, run_target), (run_target, self.project + '//example.py')]:
+            entry = ET.SubElement(targets, 'target')
+            ET.SubElement(entry, 'name').text = name
+            dependencies = ET.SubElement(entry, 'dependencies')
+            ET.SubElement(dependencies, 'dependency').text = dependency
+        self.marker.with_suffix('.output').write_text('EXIT STATUS: 0\n')
+        with self.assertRaisesRegex(ValueError, 'no actual Python execution'):
+            self.check()
+        action = ET.SubElement(self.tree, 'action', status='0')
+        ET.SubElement(action, 'name').text = 'python%python.capture-output'
+        ET.SubElement(action, 'path').text = str(self.marker.with_suffix(''))
+        ET.SubElement(action, 'command').text = f'PYTHONPATH=""\n"/usr/bin/python3" "{source}"\n'
+        row, = self.check()['tests']
+        self.assertEqual((row['sources'], row['native_status']), ([], 0))
+        ET.SubElement(dependencies, 'dependency').text = self.project + '//extension'
+        with self.assertRaisesRegex(ValueError, 'unreviewed Python dependencies'):
+            self.check()
+
     def test_json_requires_debugger_execution(self):
         self.project = 'libs/json/test'
         self.fixture('RUN', name='_gdb-printers.test')

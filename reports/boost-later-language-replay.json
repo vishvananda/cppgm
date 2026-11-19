@@ -125,6 +125,13 @@
     {
       "project": "libs/histogram/test",
       "edition": 14,
+      "b2_aliases": ["all"],
+      "later_tests": {
+        "17": [
+          "libs/histogram/test//deduction_guides_test.test",
+          "libs/histogram/test//issue_290_test.test"
+        ]
+      },
       "proof": {
         "path": "runs/20261029T090601.714411Z-libs__histogram__test/review.json",
         "sha256": "edebb5e16508efd653f2561a4355c1ea544effbe82fa1016928c8bf27eb9fa96"
