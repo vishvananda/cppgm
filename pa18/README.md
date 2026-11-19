@@ -192,6 +192,10 @@ the implemented surface, including:
 - full function-template deduction over the intended C++11 subset
 - function-template partial ordering
 - substitution behavior and candidate dropping
+- when a return type uses a variable template, a dependent template argument
+  must name a template that matches its parameter. An invalid argument in
+  the immediate substitution context discards the candidate. See N4140
+  `[temp.arg.template]` and `[temp.deduct]`.
 - `enable_if`, `void_t`, and detected-idiom style SFINAE behavior
 - conversion function template deduction
 - conversion template ABI names retain the declared target pattern, including

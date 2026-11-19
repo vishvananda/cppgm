@@ -526,7 +526,7 @@ bool Analyzer::template_arguments(const syntax::NameComponent& component, Scope*
 		else if (templ != nullptr)
 			out.push_back(templ);
 		else if (parameter != nullptr && parameter->template_template && !expansion)
-			error(component.location, "a template template-argument that names no template");
+			return substitution_error(component.location, "a template template-argument that names no template");
 		else if (argument.pack)
 		{
 			expanded_argument(argument, scope, component.location, out);

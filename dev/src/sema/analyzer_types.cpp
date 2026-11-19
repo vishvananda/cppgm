@@ -748,6 +748,8 @@ LookupResult Analyzer::lookup_name(const syntax::Name& name, Scope* scope, Looku
 			return LookupResult();
 		if (specialization == nullptr)
 			specialization = variable_template_binding(result.binding, last, scope);
+		if (failed())
+			return LookupResult();
 		if (specialization == nullptr)
 			error(name.location, "a template-id that names no class or variable template");
 		result = LookupResult{ specialization, nullptr, false };

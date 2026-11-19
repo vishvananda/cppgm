@@ -69,8 +69,11 @@ Binding* Analyzer::variable_template_binding(const Binding* found, const syntax:
 		return nullptr;
 	const TemplateHead* head = templ->templ->head;
 	TypeList arguments;
-	template_arguments(component, scope, arguments, head);
+	if (!template_arguments(component, scope, arguments, head))
+		return nullptr;
 	default_template_arguments(head, arguments, component.location);
+	if (failed())
+		return nullptr;
 	// A member template's specialization has its declaration's access
 	// (14.5.2p2, 11p4), as its binding tells unqualified uses.
 	VariableEntity* specialization = variable_specialization(templ, arguments, component.location);
@@ -93,7 +96,12 @@ VariableEntity* Analyzer::variable_specialization(
 	// (14.7.3), which its caller gives it.
 	const TemplateHead* head = templ->templ->head;
 	TypeList arguments;
-	match_template_arguments(head, given.data(), static_cast<uint32_t>(given.size()), arguments, true, location);
+	if (!match_template_arguments(
+			head, given.data(), static_cast<uint32_t>(given.size()), arguments, soft_substitution_ == 0, location))
+	{
+		substitution_error(location, "variable template arguments do not match their parameters");
+		return nullptr;
+	}
 	if (cxx20_ && !template_constraints_satisfied(head, arguments, location))
 	{
 		substitution_error(location, "variable template constraints are not satisfied");
@@ -122,6 +130,11 @@ VariableEntity* Analyzer::variable_specialization(
 	const Type* type = declared || automatic ? nullptr
 		: partial != nullptr ? substitute(partial->type, substitution_of(partial->templ->head, deduced.data()))
 							 : substitute(templ->type, substitution_of(head, arguments.data()));
+	if (type == nullptr && !declared && !automatic)
+	{
+		substitution_error(location, "substitution failed in the variable template's type");
+		return nullptr;
+	}
 	VariableEntity* variable = new_entity<VariableEntity>(EntityKind::Variable, templ->name, templ->owner, type);
 	variable->is_static = templ->is_static;
 	// constexpr is the declaration's own (7.1.5p9): the partial
