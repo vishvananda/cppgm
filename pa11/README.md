@@ -397,7 +397,9 @@ PA11 supports the following in addition to the PA10 procedural subset:
   at the call site; the inheriting using-declaration's access has no effect.
   A friend of the base therefore retains that privilege when constructing the
   derived object. When argument conversions tie and their used parameter types
-  match, the constructor originating in the more-derived class wins. See the offline
+  match, the constructor originating in the more-derived class wins. The
+  base constructor uses the same by-value parameter object initialized by the
+  inheriting call. See the offline
   [P0136R1 wording](../doc/cwg/paper-p0136r1.txt) and
   [CWG2273 decision](../doc/cwg/cwg-2273.txt).
 - use of complete class types in:

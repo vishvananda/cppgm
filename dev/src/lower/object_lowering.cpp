@@ -2289,17 +2289,11 @@ void FunctionLowering::forward_parameters(
 	const uint32_t parameters = constructor->inherits_virtual ? 0 : inherited->param_count;
 	for (uint32_t i = 0; i < parameters && i < type->param_count && i < parameter_slots_.size(); ++i)
 	{
-		const sema::Type* parameter = type->params[i];
 		Place place = Place();
-		place.storage = lowir::Value::slot(parameter_slots_[i]);
-		if (!parameter->is_reference() && parameter->unqualified->kind == sema::TypeKind::Class)
-		{
-			arguments_.push_back(place.storage);
-			continue;
-		}
-		const lowir::Type slot_type = parameter->is_reference() ? program_.pointer_type()
-																: lowering_.storage_type(parameter);
-		arguments_.push_back(load(slot_type, place).value);
+		const lowir::SlotId slot = parameter_slots_[i];
+		place.storage = lowir::Value::slot(slot);
+		const lowir::Type slot_type = builder_.body().slots[slot].type;
+		arguments_.push_back(slot_type.is_object() ? place.storage : load(slot_type, place).value);
 	}
 	for (uint32_t i = type->param_count; i < parameters; ++i)
 	{

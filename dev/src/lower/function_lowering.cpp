@@ -204,14 +204,14 @@ void FunctionLowering::lower_definition()
 		const sema::Type* type = function_->type->canonical;
 		for (uint32_t i = 0; i < type->param_count; ++i)
 		{
-			const sema::Type* parameter = type->params[i];
-			const lowir::Type slot_type = parameter->is_reference() ? program_.pointer_type()
-																	: lowering_.storage_type(parameter);
-			const lowir::SlotId slot = implicit_copy ? new_slot(lowering_.other_name(), slot_type)
-													 : parameter_slot(index, slot_type);
 			RValue incoming;
 			incoming.value = lowir::Value::temp(builder_.parameter(index));
+			// Preserve the incoming pointer for a nontrivial by-value parameter.
+			// The inheriting call and the base use the same parameter object.
+			const lowir::Type slot_type = builder_.body().temps[incoming.value.index].type;
 			incoming.type = slot_type;
+			const lowir::SlotId slot = implicit_copy ? new_slot(lowering_.other_name(), slot_type)
+													 : parameter_slot(index, slot_type);
 			Place place = Place();
 			place.storage = lowir::Value::slot(slot);
 			store(slot_type, incoming, place);
