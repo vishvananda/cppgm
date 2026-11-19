@@ -84,7 +84,7 @@ class PolicyTests(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text('// RUN: -std=c++11\nint n;\n')
             parsed = {'RUN:': [SimpleNamespace(keyword='RUN:', command='native')]}
-            def project(command, native, tokens, implicit, llvm, context, warnings, standalone):
+            def project(command, native, tokens, implicit, llvm, context, warnings, standalone, edition):
                 if project.current == old:
                     return arguments()
                 if not standalone:
@@ -394,11 +394,21 @@ class PolicyTests(unittest.TestCase):
     def test_language_aliases_and_conflicts(self):
         for spelling, dialect in manifest.DIALECTS.items():
             row = manifest.project_arguments(['%clang_cc1', '-std='+spelling,
-                                               '-fsyntax-only', '%s'], set())
+                                               '-fsyntax-only', '%s'], set(), edition=int(dialect[-2:]))
             self.assertEqual(row['dialect'], dialect)
         for flags in [[], ['-std=c++17'], ['-std=c++11', '-std=gnu++11']]:
             with self.subTest(flags=flags), self.assertRaises(manifest.Excluded):
                 manifest.project_arguments(['%clang_cc1', *flags, '-fsyntax-only', '%s'], set())
+
+    def test_later_object_run_preserves_edition_and_diagnostic_flags(self):
+        args = ['%clang_cc1', '-std=c++2a', '-pedantic-errors', '-emit-obj', '-o', '%t', '%s']
+        row = manifest.project_arguments(args, set(), edition=20)
+        self.assertEqual(row['dialect'], 'c++20')
+        self.assertEqual(row['upstream_flags'], ['-cc1', '-pedantic-errors'])
+        self.assertEqual(row['candidate_flags'], ['-pedantic-errors'])
+        for incompatible in (['-fsyntax-only'], ['-o', '%t']):
+            with self.assertRaises(manifest.Excluded):
+                manifest.project_arguments([*args, *incompatible], set(), edition=20)
 
     def test_disabled_exception_errors_cannot_become_language_checks(self):
         args = ['%clang_cc1', '-std=c++11', '-fsyntax-only', '%s']

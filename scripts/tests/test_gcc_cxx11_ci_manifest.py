@@ -57,6 +57,24 @@ class GCCManifest(unittest.TestCase):
         self.assertEqual(project([directive('dg-do', 'compile'),
                                   directive('dg-error', 'error', '', ' target c++14 ')], 'int x;')[1], 'accept')
 
+    def test_later_edition_predicates_and_strict_rejection(self):
+        directives = [directive('dg-do', 'compile', ' target c++14 '),
+                      directive('dg-error', 'too early', '', ' target c++17_down '),
+                      directive('dg-require-effective-target', 'c++11')]
+        self.assertEqual(project(directives, 'int x;', 17, 'c++17')[1], 'reject')
+        self.assertEqual(project(directives, 'int x;', 20, 'c++20')[1], 'accept')
+        directives.append(directive('dg-require-effective-target', 'c++2a_only'))
+        with self.assertRaises(Excluded):
+            project(directives, 'int x;', 17, 'c++17')
+        self.assertEqual(project(directives, 'int x;', 20, 'c++20')[1], 'accept')
+
+    def test_declared_gnu_alias_outranks_the_edition_directory(self):
+        directives = [directive('dg-do', 'compile'), directive('dg-options', '-std=gnu++1y')]
+        self.assertEqual(project(directives, 'int x;', 14, 'gnu++14')[:3], ('compile', 'accept', []))
+        for edition, dialect in ((14, 'c++14'), (17, 'gnu++17')):
+            with self.assertRaises(Excluded):
+                project(directives, 'int x;', edition, dialect)
+
     def test_unknown_selector_dependency_and_runtime_checker_are_exclusions(self):
         for directives, source in [
                 ([directive('dg-do', 'compile', ' target int32plus ')], 'int x;'),

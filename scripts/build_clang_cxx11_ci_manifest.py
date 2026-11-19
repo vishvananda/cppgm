@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Freeze conservative C++11 language checks from pinned Clang RUNs.
+"""Freeze conservative language checks from pinned Clang RUNs.
 
 Selection never invokes either compiler. Native lit parses RUN structure, but
 this first cohort deliberately needs no generated site configuration or helper.
@@ -14,13 +14,12 @@ import subprocess
 import sys
 
 from upstream_clang_lit_metadata import native_parser
+from upstream_cxx_editions import ALIASES, DIALECTS, standard_pattern
 from upstream_clang_input_closure import configurations, prepare
 
 
 REVISION = '2078da43e25a4623cab2d0d60decddf709aaea28'
-DIALECTS = {'c++11': 'c++11', 'c++0x': 'c++11',
-            'gnu++11': 'gnu++11', 'gnu++0x': 'gnu++11'}
-STANDARD = re.compile(r'-std=(?:gnu\+\+|c\+\+)(?:11|0x)\b')
+LATER_ROOTS = ['clang/test/' + name for name in ('CXX', 'Parser', 'SemaCXX')]
 TARGETS = {'x86_64-pc-linux-gnu', 'x86_64-unknown-linux-gnu', 'x86_64-linux-gnu'}
 SUFFIXES = {'.cpp', '.cc', '.cxx', '.C'}
 DIAGNOSTIC = re.compile(r'\b[\w-]+-(?:error|warning|note|remark)(?:-re)?\b')
@@ -121,7 +120,7 @@ def required_errors(text, verification, allow_positive=False):
 
 
 def project_run(command, native, policy_tokens, implicit_cxx11=False, llvm_objects=False,
-                input_context=None, optional_warnings=False, standalone_llvm_only=False):
+                input_context=None, optional_warnings=False, standalone_llvm_only=False, edition=11):
     match = re.fullmatch(native.TestRunner.kPdbgRegex, command)
     body = match.group(2) if match else command
     tree = native.ShUtil.ShParser(body, win32Escapes=False, pipefail=True).parse()
@@ -146,7 +145,7 @@ def project_run(command, native, policy_tokens, implicit_cxx11=False, llvm_objec
     if standalone_llvm_only and '-emit-llvm-only' in args:
         return dict(project_llvm_only_arguments(args, tokens, implicit_cxx11, optional_warnings),
                     **extra)
-    return dict(project_arguments(args, tokens, implicit_cxx11, optional_warnings), **extra)
+    return dict(project_arguments(args, tokens, implicit_cxx11, optional_warnings, edition), **extra)
 
 
 def project_llvm_only_arguments(args, policy_tokens, implicit_cxx11=False, optional_warnings=False):
@@ -212,11 +211,13 @@ def project_llvm_arguments(args, check, policy_tokens, implicit_cxx11=False, opt
     return result
 
 
-def project_arguments(args, policy_tokens, implicit_cxx11=False, optional_warnings=False):
+def project_arguments(args, policy_tokens, implicit_cxx11=False, optional_warnings=False, edition=11):
     if not args or args[0] != '%clang_cc1':
         raise Excluded('Only an explicit native clang cc1 syntax action is mapped initially')
     standard = None
     syntax = False
+    native_object = False
+    output = False
     source_count = 0
     upstream, candidate, adaptations, verification = ['-cc1'], [], [], []
     exceptions = False
@@ -225,13 +226,21 @@ def project_arguments(args, policy_tokens, implicit_cxx11=False, optional_warnin
         value = args[i]
         i += 1
         if value.startswith('-std='):
-            if standard is not None or value[5:] not in DIALECTS:
-                raise Excluded('Conflicting or non-C++11 language standard')
-            standard = DIALECTS[value[5:]]
+            selected = DIALECTS.get(value[5:])
+            if standard is not None or selected not in {f'c++{edition}', f'gnu++{edition}'}:
+                raise Excluded(f'Conflicting or non-C++{edition} language standard')
+            standard = selected
         elif value == '%s':
             source_count += 1
         elif value == '-fsyntax-only':
             syntax = True
+        elif edition != 11 and value == '-emit-obj':
+            native_object = True
+        elif edition != 11 and value == '-o':
+            if output or i == len(args) or args[i] not in {'%t', '/dev/null', '-'}:
+                raise Excluded('Unmapped native object output')
+            output = True
+            i += 1
         elif value == '-verify' or value.startswith('-verify='):
             verification.append(value)
             adaptations.append('Native verifier annotations omitted; positive language acceptance only')
@@ -255,6 +264,9 @@ def project_arguments(args, policy_tokens, implicit_cxx11=False, optional_warnin
             adaptations.append('Reviewed optional warning control retained only for upstream: ' + value)
         elif value == '-pedantic':
             upstream.append(value)
+        elif edition != 11 and value == '-pedantic-errors':
+            upstream.append(value)
+            candidate.append(value)
         else:
             raise Excluded('Unmapped semantic/input/action option: ' + value)
     qualification = None
@@ -265,20 +277,30 @@ def project_arguments(args, policy_tokens, implicit_cxx11=False, optional_warnin
                                     'applicability/standard-specific triage, not cppgm defects')
         adaptations.append('RUN has no explicit standard; project into ISO C++11 with separate '
                            'strict native qualification, preserving active verifier prefixes')
-    if standard is None or not syntax or source_count != 1:
-        raise Excluded('Exactly one explicit C++11 source and syntax-only action are required')
+    if edition == 11:
+        if standard is None or not syntax or source_count != 1:
+            raise Excluded('Exactly one explicit C++11 source and syntax-only action are required')
+    elif standard is None or syntax == native_object or source_count != 1 or (output and not native_object):
+        raise Excluded(f'Exactly one explicit C++{edition} source and syntax or object action are required')
     if policy_tokens and not exceptions:
         raise Excluded('Native cc1 disabled-exception policy is not equivalent for these tokens')
-    adaptations.append('Syntax-only acceptance strengthened to relocatable object generation')
+    if syntax:
+        adaptations.append('Syntax-only acceptance strengthened to relocatable object generation')
     result = dict(dialect=standard, upstream_flags=upstream, candidate_flags=candidate,
                   adaptations=list(dict.fromkeys(adaptations)), verification=verification)
     if qualification:
         result['qualification'] = qualification
     if optional_warnings and any(v in OPTIONAL_WARNINGS for v in args) and not qualification:
-        result['qualification'] = dict(kind='local-input-cxx11',
-            additional_upstream_flags=['-pedantic-errors'],
-            status='Separate native11 qualification of optional warning-control projection')
+        result['qualification'] = local_qualification(edition, 'optional warning-control projection')
     return result
+
+
+def local_qualification(edition, reason):
+    status = (f'Separate strict native11 {reason} qualification' if reason == 'input/config projection' else
+              f'Separate native11 qualification of {reason}')
+    if edition != 11:
+        status = f'Separate strict native C++{edition} qualification of {reason}'
+    return dict(kind=f'local-input-cxx{edition}', additional_upstream_flags=['-pedantic-errors'], status=status)
 
 
 def local_configs(source, root):
@@ -305,9 +327,18 @@ def disposition_reason(name, digest, dispositions):
 
 
 def collect(root, parse_keywords, native, dispositions=None, adjudications=None, verify_negatives=False,
-            implicit_cxx11=False, llvm_objects=False, local_inputs=False, standalone_llvm_only=False):
-    files = subprocess.check_output(['git', 'ls-files', '-z', '--', 'clang/test'], cwd=root)
+            implicit_cxx11=False, llvm_objects=False, local_inputs=False, standalone_llvm_only=False, edition=11):
+    if edition != 11 and any((implicit_cxx11, llvm_objects, standalone_llvm_only)):
+        raise ValueError('C++11-specific projections require edition 11')
+    scope = ['clang/test'] if edition == 11 else LATER_ROOTS
+    files = subprocess.check_output(['git', 'ls-files', '-z', '--', *scope], cwd=root)
+    explicit = standard_pattern(edition)
     tracked = set(files.decode().split('\0'))
+    if local_inputs and edition != 11:
+        tracked.update(subprocess.check_output(
+            ['git', 'ls-files', '-z', '--', 'clang/test'], cwd=root).decode().split('\0'))
+    if edition != 11:
+        dispositions = {}
     cases, exclusions, grouped = [], [], {}
     for name in sorted(files.decode().split('\0')):
         if not name:
@@ -324,7 +355,7 @@ def collect(root, parse_keywords, native, dispositions=None, adjudications=None,
         data = path.read_bytes()
         digest = hashlib.sha256(data).hexdigest()
         text = data.decode('utf-8', errors='replace')
-        if not STANDARD.search(text) and not implicit_cxx11:
+        if not explicit.search(text) and not implicit_cxx11:
             continue
         reason = disposition_reason(name, digest, dispositions or {})
         if reason:
@@ -360,7 +391,7 @@ def collect(root, parse_keywords, native, dispositions=None, adjudications=None,
                            source_policy, SOURCE_PARTS, Excluded, input_cache)) if needs_inputs else None
                 projection = dict(project_run(directive.command, native, policy_tokens,
                                               implicit_cxx11, llvm_objects, context, local_inputs,
-                                              standalone_llvm_only))
+                                              standalone_llvm_only, edition))
                 oracle_text = projection.pop('_oracle_text', text)
                 standalone_qualification = None
                 if projection.get('projection_kind') == 'standalone-llvm-only-object-acceptance':
@@ -378,9 +409,7 @@ def collect(root, parse_keywords, native, dispositions=None, adjudications=None,
                     projection['adaptations'].append('Freeze local input/config closure and identical '
                                                      'include search directories for both compilers')
                     if 'qualification' not in projection:
-                        projection['qualification'] = dict(kind='local-input-cxx11',
-                            additional_upstream_flags=['-pedantic-errors'],
-                            status='Separate strict native11 input/config projection qualification')
+                        projection['qualification'] = local_qualification(edition, 'input/config projection')
                 if projection.get('projection_kind') == 'llvm-object-acceptance':
                     if DIAGNOSTIC.search(oracle_text):
                         raise Excluded('Diagnostic annotations in LLVM sources need active-oracle review')
@@ -438,15 +467,18 @@ def collect(root, parse_keywords, native, dispositions=None, adjudications=None,
                     projection['adaptations'].append('Source-pinned primary rule requires any normal '
                         'diagnostic; native warning-only annotations do not establish valid acceptance')
                 elif DIAGNOSTIC.search(oracle_text):
-                    discovered = required_errors(oracle_text, verification, allow_positive=local_inputs)
+                    discovered = required_errors(oracle_text, verification, allow_positive=local_inputs or edition != 11)
                     if not discovered['active_mandatory_error']:
                         projection.pop('verification', None)
                         projection['language_oracle'] = dict(discovered,
                             scope='Active verifier has no required error; warning/note spelling is not graded')
                         if 'qualification' not in projection:
-                            projection['qualification'] = dict(kind='local-input-cxx11',
-                                additional_upstream_flags=['-pedantic-errors'],
-                                status='Warning-only acceptance requires separate strict native11 qualification')
+                            if edition == 11:
+                                projection['qualification'] = dict(kind='local-input-cxx11',
+                                    additional_upstream_flags=['-pedantic-errors'],
+                                    status='Warning-only acceptance requires separate strict native11 qualification')
+                            else:
+                                projection['qualification'] = local_qualification(edition, 'warning-only acceptance')
                     else:
                         projection['language_oracle'] = dict(discovered)
                     key = 'llvm-project/' + name + '#' + str(index) + '#' + projection['dialect']
@@ -457,7 +489,8 @@ def collect(root, parse_keywords, native, dispositions=None, adjudications=None,
                         raise RuntimeError('Stale source-pinned negative adjudication: ' + name)
                     if adjudication and adjudication['expected'] != 'diagnose-invalid':
                         raise Excluded('Reviewed language rule does not require a diagnostic')
-                    expected = 'diagnostic' if discovered['active_mandatory_error'] else 'accept'
+                    expected = (('diagnostic' if edition == 11 else 'reject')
+                                if discovered['active_mandatory_error'] else 'accept')
                     if discovered['active_mandatory_error']:
                         projection['language_oracle'] = dict(adjudication=adjudication, **discovered)
                     if not adjudication and discovered['active_mandatory_error']:
@@ -481,6 +514,14 @@ def collect(root, parse_keywords, native, dispositions=None, adjudications=None,
                         expect=expected, original=[directive.command], **projection)
             grouped[key] = case
             cases.append(case)
+    if edition != 11:
+        return dict(schema=1, suite='clang', edition=edition, revision=REVISION, cases=cases,
+                    exclusions=exclusions, coverage=f'Explicit Clang C++{edition} syntax and object RUNs from '
+                    'Parser, SemaCXX and CXX.',
+                    limitations=['Object acceptance and required rejection grade the active RUN',
+                                 'Implicit modes, LLVM pipelines and runtime RUNs remain explicit gaps',
+                                 ('Audited local closures receive strict native qualification' if local_inputs else
+                                  'Local input closures are outside this projection')])
     return dict(schema=1, suite='clang', revision=REVISION,
                 coverage='Positive object acceptance and ' +
                          ('active-error required-diagnostic candidates' if verify_negatives else
@@ -520,6 +561,7 @@ def collect(root, parse_keywords, native, dispositions=None, adjudications=None,
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--llvm-root', type=Path, required=True)
+    parser.add_argument('--edition', type=int, choices=ALIASES, default=11)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--revision', default=REVISION, choices=[REVISION])
     parser.add_argument('--dispositions', type=Path,
@@ -556,7 +598,7 @@ def main(argv=None):
             raise ValueError('Stale primary standard source: ' + str(source))
     manifest = collect(root, parse_keywords, native, json.loads(args.dispositions.read_text()),
                        adjudications, args.verify_negatives, args.implicit_cxx11, args.llvm_object_projections,
-                       args.local_inputs, args.standalone_llvm_only_projections)
+                       args.local_inputs, args.standalone_llvm_only_projections, args.edition)
     subprocess.run(['git', 'diff', '--quiet', 'HEAD', '--', *tracked], cwd=root, check=True)
     if not manifest['cases']:
         raise ValueError('The conservative selection produced no cases')

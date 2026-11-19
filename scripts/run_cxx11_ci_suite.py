@@ -20,6 +20,7 @@ import subprocess
 import time
 
 from upstream_clang_language import elf_object
+from upstream_cxx_editions import ALIASES
 from upstream_source_projection import projection_identity, project_source
 from upstream_dg_proxy import execute, sha256, write_json
 
@@ -31,6 +32,10 @@ LIMITS = dict(timeout_seconds=30, cpu_seconds=30, address_space_bytes=2 * 1024 *
 def validate_manifest(manifest, root):
     if manifest['schema'] != 1 or manifest['suite'] not in {'gcc', 'clang'}:
         raise ValueError('Unknown suite/schema')
+    edition = manifest.get('edition', 11)
+    if edition not in ALIASES:
+        raise ValueError('Unsupported manifest edition')
+    dialects = {f'c++{edition}', f'gnu++{edition}'}
     if not manifest['cases']:
         raise ValueError('An empty manifest cannot pass CI')
     seen = set()
@@ -78,9 +83,9 @@ def validate_manifest(manifest, root):
             selected = next((p.resolve() for p in searched if p.is_file()), None)
             if selected != (root / edge['resolved']).resolve():
                 raise ValueError('Include resolution changed: ' + edge['spelling'])
-        if case['dialect'] not in {'c++11', 'gnu++11'} or case['action'] not in {'compile', 'run'}:
+        if case['dialect'] not in dialects or case['action'] not in {'compile', 'run'}:
             raise ValueError('Unsupported dialect/action')
-        if case['expect'] not in {'accept', 'diagnostic'}:
+        if case['expect'] not in {'accept', 'diagnostic', 'reject'}:
             raise ValueError('Unknown language expectation')
         if case['action'] == 'run' and case['expect'] != 'accept':
             raise ValueError('A required diagnostic has no defined runtime oracle')
@@ -136,6 +141,10 @@ def run_case(arguments):
         if classification not in {'success', 'rejection'}:
             return finish('compiler-abnormal')
         if case['expect'] == 'diagnostic':
+            return finish('passed' if diagnostic.strip() else 'diagnostic-missing')
+        if case['expect'] == 'reject':
+            if classification != 'rejection':
+                return finish('unexpected-acceptance')
             return finish('passed' if diagnostic.strip() else 'diagnostic-missing')
         if classification != 'success':
             return finish('compile-failed')
@@ -209,7 +218,7 @@ def comparison(cppgm, upstream, total):
 
 
 def markdown(report):
-    lines = ['### ' + report['suite'].upper() + ' C++11 language checks', '',
+    lines = [f"### {report['suite'].upper()} C++{report.get('edition', 11)} language checks", '',
              '| Compiler | Executed / selected | Passed | Suite elapsed (s) |',
              '|---|---:|---:|---:|']
     for role in ['cppgm', 'upstream']:
@@ -219,11 +228,22 @@ def markdown(report):
               '(lower is faster). ' + report['comparison']['interpretation'] + '.', '',
               report['coverage'], '',
               f"Selected: {report['selection']['acceptance']} acceptance, "
-              f"{report['selection']['required_diagnostic']} required-diagnostic configurations; "
+              f"{report['selection']['required_diagnostic']} required-diagnostic configurations"
+              + (f", {report['selection']['required_rejection']} required rejections; " if 'edition' in report else '; ')
+              +
               f"{report['selection']['runtime']} acceptance configurations include linking/execution.", '',
               f"{report['excluded']} source/RUN exclusions are recorded in manifest.json; they are not passes.",
               f"Workers: {report['workers']}; order: cppgm, upstream; fresh output files, OS caches unchanged.",
               'Setup and builds excluded; compilation, required linking/execution and result checks included.', '']
+    if 'edition' in report:
+        lines += ['| Compiler | Dialect | Expected outcome | Passed / selected |', '|---|---|---|---:|']
+        for role in ('cppgm', 'upstream'):
+            observed = Counter((row['dialect'], row['expect']) for row in report[role]['results']
+                               if row['status'] == 'passed')
+            for dialect, expectations in sorted(report['selection']['by_dialect'].items()):
+                for expect, selected in sorted(expectations.items()):
+                    lines.append(f'| {role} | {dialect} | {expect} | {observed[dialect, expect]} / {selected} |')
+        lines.append('')
     return '\n'.join(lines)
 
 
@@ -263,7 +283,7 @@ def main():
     script_directory = Path(__file__).resolve().parent
     scripts = {name: sha256(script_directory / name) for name in
                ['run_cxx11_ci_suite.py', 'upstream_dg_proxy.py', 'upstream_clang_language.py',
-                'upstream_source_projection.py']}
+                'upstream_source_projection.py', 'upstream_cxx_editions.py']}
     report = dict(schema=1, suite=manifest['suite'], revision=manifest['revision'],
                   manifest_sha256=sha256(args.manifest), binaries=binaries,
                   runner_scripts=scripts, source_projections=projections,
@@ -276,6 +296,13 @@ def main():
                   environment={name: os.environ.get(name) for name in
                                ['CPPGM_HOST_CXX', 'CPPGM_STDLIB_FLAGS', 'CPATH',
                                 'CPLUS_INCLUDE_PATH', 'LIBRARY_PATH', 'LD_LIBRARY_PATH']})
+    if 'edition' in manifest:
+        report['edition'] = manifest['edition']
+        report['selection']['required_rejection'] = sum(c['expect'] == 'reject' for c in manifest['cases'])
+        report['selection']['by_dialect'] = {}
+        for case in manifest['cases']:
+            expected = report['selection']['by_dialect'].setdefault(case['dialect'], {})
+            expected[case['expect']] = expected.get(case['expect'], 0) + 1
     for role in ['cppgm', 'upstream']:
         report[role] = run_suite(manifest['cases'], root, binaries[role]['path'],
                                  binaries['upstream']['path'], role, output / role, args.workers, prepared_sources)

@@ -15,6 +15,7 @@ from upstream_dg_proxy import sha256, write_json
 
 
 def qualification_cases(manifest):
+    edition = manifest.get('edition', 11)
     cases = []
     for case in manifest['cases']:
         policy = case.get('qualification')
@@ -37,7 +38,10 @@ def qualification_cases(manifest):
                       and (policy['additional_upstream_flags'] == ['-pedantic-errors']
                            or (policy['additional_upstream_flags'] == ['-pedantic-errors', '-Wno-comment']
                                and policy.get('source_policy_issue'))))
-        if not (strict or extension or vendor_attribute or reviewed_iso or standalone):
+        later = (edition != 11 and policy['kind'] == f'local-input-cxx{edition}'
+                 and case['dialect'] in {f'c++{edition}', f'gnu++{edition}'}
+                 and policy['additional_upstream_flags'] == ['-pedantic-errors'])
+        if not (strict or extension or vendor_attribute or reviewed_iso or standalone or later):
             raise ValueError('Unknown strict native qualification policy')
         cases.append(dict(case, upstream_flags=[*case['upstream_flags'], *policy['additional_upstream_flags']]))
     return cases
@@ -65,6 +69,7 @@ def main(argv=None):
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     cases = qualification_cases(manifest)
+    edition = manifest.get('edition', 11)
     write_json(output / 'qualification-manifest.json', dict(manifest, cases=cases))
     result = run_suite(cases, root, binary['path'], binary['path'], 'upstream',
                        output / 'strict-native', args.workers)
@@ -85,9 +90,15 @@ def main(argv=None):
                                  'triage; do not infer cppgm defects, promote warnings to mandatory errors, '
                                  'or automatically change positive expectations. The normal paired run '
                                  'must still execute the unchanged fixed manifest.')
+    title = 'Clang implicit-mode C++11 qualification'
+    if edition != 11:
+        title = f'Clang C++{edition} qualification'
+        report['edition'] = edition
+        report['interpretation'] = ('Strict native qualification of frozen input closures and warning-only RUNs. '
+                                    'Results leave case expectations and the paired manifest unchanged.')
     write_json(output / 'results.json', report)
     (output / 'summary.md').write_text(
-        '### Clang implicit-mode C++11 qualification\n\n'
+        f'### {title}\n\n'
         f"Native qualified: {result['passed']} / {len(cases)}; executed {result['executed']}.\n\n"
         + report['interpretation'] + '\n')
     print(json.dumps(dict(passed=passed, qualified=result['passed'], selected=len(cases),

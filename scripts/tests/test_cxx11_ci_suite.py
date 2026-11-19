@@ -31,6 +31,8 @@ if '-c' in args or '-emit-obj' in args:
     if 'INTERNAL' in source:
         print('internal compiler error', file=sys.stderr)
         sys.exit(70)
+    if 'WARNING' in source:
+        print('successful compile with warning', file=sys.stderr)
     if 'REJECT' in source:
         print('different diagnostic wording', file=sys.stderr)
         sys.exit(1)
@@ -254,6 +256,13 @@ class Suite(unittest.TestCase):
         result = self.run_one(self.case('REJECT', expect='diagnostic'))
         self.assertEqual(result['status'], 'passed')
         self.assertEqual(len(result['stages']), 1)
+
+    def test_warning_cannot_pass_a_required_rejection(self):
+        self.assertEqual(self.run_one(self.case('WARNING', expect='reject'))['status'],
+                         'unexpected-acceptance')
+
+    def test_rejection_with_diagnostic_passes(self):
+        self.assertEqual(self.run_one(self.case('REJECT', expect='reject'))['status'], 'passed')
 
     def test_internal_error_cannot_satisfy_diagnostic(self):
         self.assertEqual(self.run_one(self.case('INTERNAL', expect='diagnostic'))['status'], 'compiler-abnormal')
