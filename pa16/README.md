@@ -385,6 +385,10 @@ inline static constexpr members. Lambda constant evaluation is introduced with
 closures in PA20. Read N4140 `[dcl.constexpr]` and `[expr.const]`, then N4659's
 corresponding clauses for the required later rules.
 
+A trivial constexpr copy from a static constexpr member can initialize the
+destination from its evaluated value. The destination has its own storage,
+even when the source member supplies only an in-class initializer.
+
 ### C++20 literal types and transient allocation
 
 A class may be a literal type with a constexpr destructor. For a defaulted

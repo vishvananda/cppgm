@@ -1602,6 +1602,30 @@ void FunctionLowering::local_object(const sema::VariableEntity* variable, const 
 	const syntax::Expr* source = initializer != nullptr && initializer->kind == syntax::InitializerKind::Assign
 		? WithoutParentheses(initializer->expression)
 		: nullptr;
+	if (!static_local_ && variable->is_constexpr && source != nullptr && source->kind == syntax::ExprKind::Id &&
+		source->facts != nullptr && source->facts->entity != nullptr &&
+		source->facts->entity->kind == sema::EntityKind::Variable)
+	{
+		// A trivial constexpr copy can use the evaluated value of a static
+		// constexpr member whose in-class initializer supplies no storage.
+		const auto* origin = static_cast<const sema::VariableEntity*>(source->facts->entity);
+		if (origin->is_static && origin->is_constexpr && !origin->defined && variable->constructor != nullptr &&
+			copies_storage(variable->constructor) && !needs_destruction(type))
+		{
+			const sema::ConstValue* value = lowering_.evaluated_value(variable);
+			const lowir::SymbolId symbol = value != nullptr ? lowering_.constant_temporary(value, location)
+															: lowir::kNoId;
+			if (symbol != lowir::kNoId)
+			{
+				if (terminated_)
+					this->place(new_block(lowir::BlockKind::Unreachable));
+				Place constant = Place();
+				constant.storage = lowir::Value::symbol(symbol);
+				copy_object(type, address_of(constant), address_of(place), location);
+				return;
+			}
+		}
+	}
 	// `T x = e` of an aggregate T by a conversion function whose result is
 	// no indirect class result: the course plans a staging object for the
 	// converted value beside the variable, though the result initializes
