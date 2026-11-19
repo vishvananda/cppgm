@@ -262,6 +262,10 @@ implemented language surface, including:
 - partial-specialization ordering and specialization selection
 - current-specialization identity in the supported class-template and
   specialization cases
+- overload resolution for enum operands in class-template arguments.
+  Evaluate a constant argument with its selected operator, and preserve
+  any dependence on template parameters until substitution. See N3485
+  `[over.match.oper]` and `[temp.arg.nontype]`.
 - explicit-instantiation declarations and definitions over the supported surface
 - an explicit-instantiation declaration for a class specialization suppresses
   non-inline instantiation but keeps a locally used in-class inline or defaulted

@@ -60,6 +60,7 @@ private:
 	bool operand_type(const syntax::Expr& expr, const Type*& type);
 	bool to_bool(const Constant& value, uint32_t location, bool& result);
 	Constant boolean(bool value) const;
+	bool needs_enum_overload(const Constant& operand) const;
 	void check_integral(const Constant& value, uint32_t location);
 	bool fail(uint32_t location, const char* why);
 

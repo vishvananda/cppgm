@@ -129,6 +129,13 @@ bool ConstantEvaluator::type_of(const syntax::Expr& expr, const Type*& type)
 	return typed;
 }
 
+bool ConstantEvaluator::needs_enum_overload(const Constant& operand) const
+{
+	// In a template pattern, let the typed expression handle overload
+	// resolution when an integral fold encounters an enumeration operand.
+	return operand.type->unqualified->kind == TypeKind::Enum && analyzer_.semantic() && analyzer_.template_depth_ != 0;
+}
+
 void ConstantEvaluator::check_integral(const Constant& value, uint32_t location)
 {
 	if (IsScopedEnumeration(value.type))
@@ -449,13 +456,19 @@ bool ConstantEvaluator::logical(const syntax::BinaryExpr& node, const Constant& 
 		if (!typed && analyzer_.template_depth_ != 0 && analyzer_.instantiation_dependent(*node.right, scope_))
 			return false;
 		if (typed)
+		{
+			if (needs_enum_overload(right))
+				return fail(node.location, "an operator on an enumeration needs overload resolution");
 			check_integral(right, node.right->location);
+		}
 		failure_ = failure;
 		value = boolean(left_value);
 		return true;
 	}
 	if (!eval(*node.right, right))
 		return false;
+	if (needs_enum_overload(right))
+		return fail(node.location, "an operator on an enumeration needs overload resolution");
 	bool right_value = false;
 	to_bool(right, node.right->location, right_value);
 	value = boolean(right_value);
@@ -464,11 +477,15 @@ bool ConstantEvaluator::logical(const syntax::BinaryExpr& node, const Constant& 
 
 bool ConstantEvaluator::combine(const syntax::BinaryExpr& node, const Constant& left, Constant& value)
 {
+	if (needs_enum_overload(left))
+		return fail(node.location, "an operator on an enumeration needs overload resolution");
 	if (node.op == TokenKind::OP_LAND || node.op == TokenKind::OP_LOR)
 		return logical(node, left, value);
 	Constant right;
 	if (!eval(*node.right, right))
 		return false;
+	if (needs_enum_overload(right))
+		return fail(node.location, "an operator on an enumeration needs overload resolution");
 	if (node.op == TokenKind::OP_COMMA)
 	{
 		value = right;
@@ -544,6 +561,8 @@ bool ConstantEvaluator::unary(const syntax::UnaryExpr& expr, Constant& value)
 	Constant operand;
 	if (!eval(*expr.operand, operand))
 		return false;
+	if (needs_enum_overload(operand))
+		return fail(expr.location, "an operator on an enumeration needs overload resolution");
 	if (expr.op == TokenKind::OP_LNOT)
 	{
 		bool truth = false;
