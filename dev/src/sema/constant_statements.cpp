@@ -112,7 +112,13 @@ bool ConstantInterpreter::call(const syntax::CallExpr& expr, Result& result)
 	const ExprFacts* facts = expr.facts;
 	const syntax::Expr* callee = WithoutParentheses(expr.callee);
 	if ((facts->flags & kPseudoDestructor) != 0)
-		return fail(expr.location, "a pseudo-destructor call in a constant expression");
+	{
+		if (!cxx20_)
+			return fail(expr.location, "a pseudo-destructor call in a constant expression");
+		ConstPlace object;
+		return member_base(static_cast<const syntax::MemberExpr&>(*callee), &object) &&
+			end_lifetime(object, expr.location);
+	}
 	SmallList<Argument, 4> arguments;
 	for (const syntax::Expr* written : expr.arguments)
 	{
@@ -154,8 +160,13 @@ bool ConstantInterpreter::call(const syntax::CallExpr& expr, Result& result)
 		else if (callee->kind == syntax::ExprKind::Member &&
 			!member_object(static_cast<const syntax::MemberExpr&>(*callee)))
 			return false;
-		if (function->destructor && function->trivial)
-			return true;
+		if (function->destructor)
+		{
+			if (cxx20_)
+				return end_lifetime(object, expr.location);
+			if (function->trivial)
+				return true;
+		}
 		return invoke(function, member ? &object : nullptr, arguments.data(), count, result, expr.location);
 	}
 	if ((callee->facts->flags & kBoundMember) != 0)
@@ -473,6 +484,9 @@ bool ConstantInterpreter::invoke(const FunctionEntity* function, const ConstPlac
 	const FunctionEntity* declaration = function;
 	if (function->denotes != nullptr)
 		function = function->denotes;
+	if (cxx20_ && function->is_operator && function->owner == analyzer_.graph_.global &&
+		(function->operator_token == TokenKind::KW_NEW || function->operator_token == TokenKind::KW_DELETE))
+		return allocator_operation(function, arguments, count, result, location);
 	if (function->builtin != BuiltinFunction::None)
 		return builtin(function, arguments, count, result, location);
 	if (function->conversion && function->is_constexpr && function->owner->kind == ScopeKind::Class)
@@ -493,6 +507,14 @@ bool ConstantInterpreter::invoke(const FunctionEntity* function, const ConstPlac
 		if (result.target == nullptr)
 			return fail(location, "a constructor call without its object");
 		return run_constructor(function, *result.target, arguments, count, location);
+	}
+	if (cxx20_ && object != nullptr && (object->root == RootKind::Allocation || object->root == RootKind::Object))
+	{
+		ConstValue* storage = nullptr;
+		if (!locate(*object, false, storage, location))
+			return false;
+		if (storage->kind == ValueKind::OutsideLifetime)
+			return fail(location, "a call on an object outside its lifetime");
 	}
 	if (IsAssignment(function->copy_kind) && !UserProvidedFunction(function) && object != nullptr && count >= 1)
 	{

@@ -8,12 +8,19 @@
 
 namespace sema {
 
+enum class ConstAllocationKind : uint8_t
+{
+	Object,
+	Array,
+	Allocator
+};
+
 struct ConstAllocation
 {
 	ConstValue* value;
 	const Type* type;
 	uint32_t generation;
-	bool array;
+	ConstAllocationKind kind;
 };
 
 // Storage taken only when an evaluation needs class templates, allocations

@@ -1072,8 +1072,10 @@ bool ConstantInterpreter::read(const ConstPlace& place, ConstValue& out, uint32_
 	ConstValue* value = nullptr;
 	if (!locate(place, false, value, location))
 		return false;
-	if (value->kind == ValueKind::Indeterminate)
-		return fail(location, "a read of an object that is not initialized");
+	if (value->kind <= ValueKind::OutsideLifetime)
+		return fail(location,
+			value->kind == ValueKind::OutsideLifetime ? "a read outside an object's lifetime"
+													  : "a read of an object that is not initialized");
 	out = *value;
 	return valid_pointer(out, location);
 }
@@ -1099,6 +1101,8 @@ bool ConstantInterpreter::write(const ConstPlace& place, const ConstValue& value
 	ConstValue* target = nullptr;
 	if (!locate(place, true, target, location))
 		return false;
+	if (target->kind == ValueKind::OutsideLifetime)
+		return fail(location, "a write outside an object's lifetime");
 	if (target->kind == ValueKind::Array || target->kind == ValueKind::Class)
 		copy_into(*target, value);
 	else
@@ -1638,7 +1642,7 @@ bool ConstantInterpreter::complete_elements(const ConstValue& value) const
 {
 	// 7.1.5p9: every scalar subobject of a constexpr object is initialized
 	// (a union's active member; unnamed bit-fields hold no value).
-	if (value.kind == ValueKind::Indeterminate)
+	if (value.kind <= ValueKind::OutsideLifetime)
 		return false;
 	if (value.kind != ValueKind::Array && value.kind != ValueKind::Class)
 		return true;
@@ -1681,6 +1685,8 @@ void ConstantInterpreter::immediate_value(const ConstValue& source, ConstValue& 
 
 bool ConstantInterpreter::publishable(const ConstValue& value) const
 {
+	if (value.kind == ValueKind::OutsideLifetime)
+		return false;
 	// Shared templates contain only unknown or zero values, never an
 	// address of an evaluation object. Writes always detach them first.
 	if ((value.flags & kSharedElements) != 0)

@@ -151,6 +151,23 @@ bool ConstantInterpreter::destroy(const ConstPlace& place, uint32_t location)
 	return run_destruction(place, location);
 }
 
+bool ConstantInterpreter::end_lifetime(const ConstPlace& place, uint32_t location)
+{
+	// Check the currently active object before writing its slot. In
+	// particular, an explicit destruction cannot activate a union member.
+	ConstValue* slot = nullptr;
+	if (!locate(place, false, slot, location))
+		return false;
+	if (slot->kind == ValueKind::OutsideLifetime)
+		return fail(location, "destruction outside an object's lifetime");
+	if (!locate(place, true, slot, location) || !destroy(place, location) || !locate(place, true, slot, location))
+		return false;
+	*slot = ConstValue{};
+	slot->kind = ValueKind::OutsideLifetime;
+	slot->type = place.type;
+	return true;
+}
+
 bool ConstantInterpreter::run_destruction(const ConstPlace& place, uint32_t location)
 {
 	// [class.dtor]: the destructor body precedes its non-variant members and
@@ -174,8 +191,11 @@ bool ConstantInterpreter::run_destruction(const ConstPlace& place, uint32_t loca
 	const FunctionEntity* destructor = cls->destructor;
 	if (destructor == nullptr || destructor->trivial)
 		return true;
-	if (!step(location))
+	ConstValue* slot = nullptr;
+	if (!step(location) || !locate(place, false, slot, location))
 		return false;
+	if (slot->kind == ValueKind::OutsideLifetime)
+		return fail(location, "destruction outside an object's lifetime");
 	ConstPlace self = place;
 	self.type = cls->type;
 	if (!destructor->implicit && !destructor->defaulted)

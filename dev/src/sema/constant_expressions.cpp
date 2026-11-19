@@ -2379,7 +2379,13 @@ bool ConstantInterpreter::cast(const syntax::Expr& expr, const syntax::Expr& ope
 	// even of a null pointer.
 	if (value.kind == ValueKind::Pointer && IsPointer(type) && IsVoid(value.type->element) &&
 		!IsVoid(type->unqualified->element) && type->unqualified->element->kind != TypeKind::Function)
-		return fail(expr.location, "a cast from void* in a constant expression");
+	{
+		if (!allocator_cast(value, type->unqualified, expr.location))
+			return fail(expr.location, "a cast from void* in a constant expression");
+		value.type = type->unqualified;
+		out = value;
+		return true;
+	}
 	if (value.kind == ValueKind::Pointer && IsPointer(type) && value.root != RootKind::Null &&
 		!IsVoid(type->unqualified->element) &&
 		analyzer_.conversions_.without_cv(type->unqualified->element) !=

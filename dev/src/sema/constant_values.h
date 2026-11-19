@@ -24,6 +24,8 @@ enum class ValueKind : uint8_t
 	// An object not yet initialized (8.5p6-p11 leave it indeterminate):
 	// reading it is not a constant expression.
 	Indeterminate,
+	// Typed storage before its object's lifetime begins or after it ends.
+	OutsideLifetime,
 	// An integral or enumeration value (bits as Constant keeps them).
 	Integer,
 	// A floating value in its type's precision.

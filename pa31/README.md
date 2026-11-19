@@ -117,8 +117,8 @@ header together with a semantic check — a trait, `decltype`, `sizeof`, or
 so a test cannot pass by skipping or stubbing the include.
 
 Optional `x.no-exceptions` and `x.cxx-standard` sidecars disable exceptions or
-select the language mode for a compile test. The standard sidecar currently
-accepts `c++11` and `c++14`.
+select the language mode for a compile test. The standard sidecar accepts
+`c++11`, `c++14`, `c++17`, and `c++20`.
 
 ### Required Implementation Surface
 
@@ -129,6 +129,13 @@ To complete PA31, support:
   during `-c` compilation
 - representative C++20 uses of `<concepts>`, `<compare>`, and `<atomic>`
   through the earlier assignments' constraint, comparison, and atomic rules
+- constant evaluation of C++20 `<memory>`, `<vector>`, and `<algorithm>`.
+  `std::allocator<T>::allocate` starts the lifetime of the backing array.
+  Each element starts its own lifetime when constructed. Accept
+  `std::construct_at` for matching mutable storage created during the
+  evaluation, and use the lifetime rules from PA16 for `std::destroy_at`.
+  Require deallocation before evaluation ends. See N4861 `[expr.const]`,
+  `[allocator.members]`, and `[specialized.construct]`.
 
 The PA31 tests do not require:
 

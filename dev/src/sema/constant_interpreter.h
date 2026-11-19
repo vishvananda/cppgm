@@ -238,6 +238,13 @@ private:
 	bool finish_allocations(uint32_t location);
 	bool allocation_value(const syntax::NewExpr& expr, ConstValue& out);
 	bool deallocate_value(const syntax::DeleteExpr& expr);
+	bool allocate_storage(const Type* type, ConstAllocationKind kind, ConstPlace& place, uint32_t location);
+	const Type* allocator_element(TokenKind operation) const;
+	bool allocator_operation(
+		const FunctionEntity* function, const Argument* arguments, uint32_t count, Result& result, uint32_t location);
+	bool allocator_cast(const ConstValue& value, const Type* target, uint32_t location);
+	bool placement_value(const syntax::NewExpr& expr, ConstValue& out);
+	bool end_lifetime(const ConstPlace& place, uint32_t location);
 
 	// ---------------------------------------------------- expressions
 	bool decay_reference(ConstPlace place, const Type* type, ConstValue& out, uint32_t location);

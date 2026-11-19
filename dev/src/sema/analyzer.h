@@ -1169,7 +1169,7 @@ private:
 
 	// ------------ std::initializer_list (analyzer_initializer_lists.cpp)
 	bool is_initializer_list_template(const ClassEntity* templ) const;
-	bool in_std(const ClassEntity* entity) const;
+	bool in_std(const Entity* entity) const;
 	const ClassEntity* implementation_template(const char* name, uint32_t parameters);
 	const Type* initializer_list_element(const Type* type) const;
 	ClassEntity* declared_initializer_list(uint32_t location);

@@ -422,6 +422,13 @@ Run the destructor body before destroying members and bases in reverse
 construction order. Array elements are destroyed last first. See N4861
 `[expr.const]`, `[expr.new]`, `[expr.delete]` and `[class.dtor]`.
 
+An explicit destructor call in a C++20 constant expression follows the
+same destruction order. A scalar pseudo-destructor call also ends its
+object's lifetime. Track the lifetime separately from the storage so
+accesses after destruction fail. Reject ordinary placement `new` in a
+C++20 constant expression. The hosted `std::construct_at` exception is
+exercised in PA31. See N4861 `[basic.life]`, `[expr.call]` and `[expr.const]`.
+
 ### Out Of Scope
 
 The following are explicitly out of scope for PA16:

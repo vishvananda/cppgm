@@ -38,7 +38,7 @@ const ClassEntity* Analyzer::implementation_template(const char* name, uint32_t 
 	return found;
 }
 
-bool Analyzer::in_std(const ClassEntity* entity) const
+bool Analyzer::in_std(const Entity* entity) const
 {
 	// Declared in namespace std (or an inline namespace of it).
 	if (entity->owner == nullptr)
