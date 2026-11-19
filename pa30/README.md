@@ -381,9 +381,8 @@ Honor scoped `diagnostic push`, `diagnostic ignored`, and `diagnostic pop`
 for the edition warning groups, including through `_Pragma`. Use
 `-pedantic-errors` to require rejection for active extension diagnostics.
 Ordinary language errors still diagnose inside a suppressed scope.
-In C++20 mode, expose `__cpp_concepts` and compile representative uses of the
-host `<concepts>` declarations through the course's constraint and overload
-rules.
+In C++20 mode, expose `__cpp_concepts`. PA31 exercises the hosted `<concepts>`
+declarations through the course's constraint and overload rules.
 
 ### Hosted ABI Name Guidance
 

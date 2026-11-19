@@ -242,6 +242,10 @@ PA15 supports the following in addition to the PA14 subset:
   bindings that feed lookup, template arguments, or `static_assert`
 - dependent qualified type/value lookups at the practical level needed by the supported
   metaprogramming subset
+- in a template argument such as `Choice<bool(T::value)>`, the functional
+  cast competes with a function type. The argument can name either a type or
+  a value, so treat the dependent value as the operand of the cast. See N4861
+  `[temp.res]`.
 - `static_assert` declarations whose condition is in the supported integral constant subset,
   including conditions that remain template-dependent until instantiation
 - inline virtual members required by a concrete class-template vtable are

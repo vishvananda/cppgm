@@ -481,6 +481,11 @@ PA12 supports the following in addition to the PA11 subset:
   statement, including braceless nested statements
 - non-template conversion operators that participate in the existing overload
   and conversion machinery
+- single-element scalar list initialization preserves the direct or copy
+  initialization context when choosing conversion functions. Direct-list
+  initialization can select an explicit conversion function. Check narrowing
+  after selecting the conversion in either form. See N3485 `[dcl.init.list]`
+  and [CWG 1756](../doc/cwg/cwg-1756.txt).
 - class results copy-initialized through conversion operators from conditional
   glvalues, preserving the selected operand and the result calling convention
 

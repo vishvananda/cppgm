@@ -127,6 +127,8 @@ To complete PA31, support:
 - compiling the heaviest hosted standard-library headers within that time limit
 - the template, trait, and overload-resolution depth those headers exercise
   during `-c` compilation
+- representative C++20 uses of `<concepts>`, `<compare>`, and `<atomic>`
+  through the earlier assignments' constraint, comparison, and atomic rules
 
 The PA31 tests do not require:
 
