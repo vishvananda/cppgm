@@ -1902,9 +1902,6 @@ Binding* Analyzer::declare_function(const Specifiers& specifiers, const Declarat
 {
 	if (specifiers.is_constinit)
 		error(location, "__constinit on a function declaration");
-	if (!cxx20_ && specifiers.is_constexpr && info.name != nullptr &&
-		info.name->last().kind == syntax::NameComponentKind::Destructor)
-		error(location, "a constexpr destructor requires C++20");
 	if (specifiers.is_consteval && info.name != nullptr &&
 		(info.name->last().kind == syntax::NameComponentKind::Destructor ||
 			(info.name->last().kind == syntax::NameComponentKind::Operator &&
@@ -2708,6 +2705,8 @@ void Analyzer::special_member(const syntax::SpecialMemberDecl& decl, Scope* scop
 	if (owner == nullptr || owner->kind != ScopeKind::Class)
 		error(decl.location, "constructor, destructor or conversion function outside its class");
 	const syntax::NameComponent& last = name.last();
+	if (!cxx20_ && specifiers.is_constexpr && last.kind == syntax::NameComponentKind::Destructor)
+		error(decl.location, "a constexpr destructor requires C++20");
 	const Type* result = types_.fundamental(FundamentalType::Void);
 	// A conversion-type-id is looked up like the names after the
 	// declarator-id (3.4.3p3, 3.4.5p7).
