@@ -264,6 +264,15 @@
           "action": "compile",
           "feature": "C++14 explicit exception and function try-block configuration",
           "pr": true
+        },
+        {
+          "id": "clang-fae86ad44d7462354dfc",
+          "path": "clang/test/CXX/temp/temp.decls/temp.class.spec/p8-1y.cpp",
+          "sha256": "9d1e31faf8e0eb3820a5a1d7b2e6d97e375a8b3b91eb63d881d0d1d437fd77a4",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "variable-template partial specialization must specialize an argument",
+          "pr": true
         }
       ]
     },
@@ -853,6 +862,33 @@
           "action": "compile",
           "expect": "accept",
           "feature": "recursive lambda semantics",
+          "pr": false
+        },
+        {
+          "id": "clang-4ef2f0ed040ab0e7185d",
+          "path": "clang/test/SemaCXX/PR41139.cpp",
+          "sha256": "807b1e56994df3cc00e9892e0d673ba8e47e6f271e82164ff2ffb0525190579c",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "class template argument deduction from a constructor's function-pointer parameter",
+          "pr": true
+        },
+        {
+          "id": "clang-0e948db2b7d08c2bdf8f",
+          "path": "clang/test/SemaCXX/dependent-noexcept-uninstantiated.cpp",
+          "sha256": "b50c20294f822d1dab2c010be64ac2f4e4af0a752fcb438c227b7ea770d720b4",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "later-edition template argument deduction",
+          "pending_reason": "Deduction from a member function pointer target does not select the member template with an undeduced auto result."
+        },
+        {
+          "id": "clang-acd26658643ad0017a4b",
+          "path": "clang/test/SemaCXX/lambda-expressions-gh56071.cpp",
+          "sha256": "f574815a3c9c1ff5396a914e4f6951cf9032db933ccb3198d5e592aafd19ae95",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "generic lambda return deduction inside a fold expression",
           "pr": false
         }
       ]
@@ -1914,6 +1950,51 @@
           "expect": "reject",
           "feature": "lookup through enum aliases and class members",
           "pr": true
+        },
+        {
+          "id": "clang-700d88fd441df14c848e",
+          "path": "clang/test/SemaCXX/GH106182.cpp",
+          "sha256": "24ed7dcd341d4fa9d60b21ef81e6a5ff23ed7a24745ec1f28f78232867515437",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "later-edition template argument deduction",
+          "pending_reason": "Class template argument deduction for a template-template parameter used in an associated constraint is pending."
+        },
+        {
+          "id": "clang-22a453c53be84c2b8834",
+          "path": "clang/test/SemaCXX/P1155.cpp",
+          "sha256": "f603865deb53422e1c824373b0f333e63cab1bbc6d11c28238deb80c4666f9eb",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "implicit moves in throw and return expressions",
+          "pr": false
+        },
+        {
+          "id": "clang-2ecded94786b05bfce4c",
+          "path": "clang/test/SemaCXX/PR68885.cpp",
+          "sha256": "1a109aafa2e184a7c7ad200470ed98f1cdfcdf81a74ed8813399c1dff53a5d66",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "constraints order partial specializations with decltype(auto) template parameters",
+          "pr": true
+        },
+        {
+          "id": "clang-0005277e2681fa76c6fc",
+          "path": "clang/test/SemaCXX/cxx2a-explicit-bool-deferred.cpp",
+          "sha256": "3573e78e3ee5622168be9437098c43ecd3fd6f4954dcf748b832f28f345b3853",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "conditional explicit substitution after associated constraints",
+          "pr": true
+        },
+        {
+          "id": "clang-80f5354937021531e60b",
+          "path": "clang/test/SemaCXX/gh53815.cpp",
+          "sha256": "661e92a1d862053ddba5a405bd48e6fc728fc7cdb7f960418c07fd805f734557",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "invalid generic call-operator selection inside a requires expression",
+          "pr": false
         }
       ]
     }
