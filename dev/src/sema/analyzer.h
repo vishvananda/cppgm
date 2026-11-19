@@ -1261,6 +1261,7 @@ private:
 	ExprFacts* vector_permute_builtin(const syntax::CallExpr& expr, uint8_t variant, Scope* scope);
 	ExprFacts* vector_index_shuffle_builtin(const syntax::CallExpr& expr, Scope* scope);
 	ExprFacts* overflow_builtin(const syntax::CallExpr& expr, uint8_t variant, Scope* scope);
+	ExprFacts* typed_overflow_builtin(const syntax::CallExpr& expr, uint8_t variant, Scope* scope);
 	ExprFacts* allocation_builtin(const syntax::CallExpr& expr, bool allocate, Scope* scope);
 	// The C library's nan, nanf or nanl (by `variant`) called as
 	// __builtin_nan[f|l] of an operand that is no string literal is.

@@ -858,6 +858,16 @@ each argument once, store the wrapped result and return an unsigned byte
 equal to zero or one according to whether the operation carried or borrowed.
 Accept GCC's `sbb` and Clang's `subborrow` builtin spellings.
 
+### Integer overflow builtins with fixed argument types
+
+The signed and unsigned forms of the overflow-checking builtins use the
+integer type selected by their names. For example, both operands of
+`__builtin_uaddll_overflow` convert to `unsigned long long`, and its third
+argument points to that type. Apply the argument conversions before
+computing the exact result. Store the result converted to the destination
+type and return whether the conversion changed its value.
+[GCC integer overflow builtins](https://gcc.gnu.org/onlinedocs/gcc/Integer-Overflow-Builtins.html)
+
 ### Design Notes (Non-Normative)
 
 Hosted compatibility is easiest to approach as a sequence of small compatibility

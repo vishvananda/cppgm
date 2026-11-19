@@ -956,7 +956,9 @@ RValue FunctionLowering::overflow_intrinsic(const syntax::CallExpr& expr, sema::
 	const RValue a = operand(*expr.arguments[0], ConversionContext::Argument);
 	const RValue b = operand(*expr.arguments[1], ConversionContext::Argument);
 	const bool predicate = (expr.facts->value & sema::kOverflowPredicate) != 0;
-	const sema::Type* result_type = expr.arguments[2]->facts->type->unqualified;
+	const sema::ExprFacts* result_facts = expr.arguments[2]->facts;
+	const sema::Type* result_type =
+		(result_facts->conversion != nullptr ? result_facts->conversion->result : result_facts->type)->unqualified;
 	Place target = Place();
 	if (predicate)
 		discard(*expr.arguments[2]);

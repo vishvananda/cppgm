@@ -248,6 +248,8 @@ ExprFacts* Analyzer::builtin_operation(const syntax::CallExpr& expr, const Funct
 		return floating_builtin(expr, *builtin, scope);
 	case GnuBuiltin::Overflow:
 		return overflow_builtin(expr, variant, scope);
+	case GnuBuiltin::TypedOverflow:
+		return typed_overflow_builtin(expr, variant, scope);
 	case GnuBuiltin::VectorLanes:
 		return vector_lane_builtin(expr, variant, scope);
 	case GnuBuiltin::VectorShiftBytes:
@@ -1509,6 +1511,29 @@ ExprFacts* Analyzer::overflow_builtin(const syntax::CallExpr& expr, uint8_t vari
 	facts->value = static_cast<uint64_t>(Intrinsic::AddOverflow) + (predicate ? variant - 3 : variant);
 	if (predicate)
 		facts->value |= kOverflowPredicate | (static_cast<uint64_t>(result_width) << kOverflowResultWidthShift);
+	return facts;
+}
+
+ExprFacts* Analyzer::typed_overflow_builtin(const syntax::CallExpr& expr, uint8_t variant, Scope* scope)
+{
+	// The suffixed forms perform normal argument conversions to their
+	// declared types before the generic checked arithmetic operation.
+	if (expr.arguments.size != 3)
+		error(expr.location, "an overflow builtin takes three arguments");
+	static const FundamentalType kWords[] = { FundamentalType::Int, FundamentalType::LongInt,
+		FundamentalType::LongLongInt, FundamentalType::UnsignedInt, FundamentalType::UnsignedLongInt,
+		FundamentalType::UnsignedLongLongInt };
+	const Type* word = types_.fundamental(kWords[variant % 6]);
+	const Type* parameters[] = { word, word, types_.pointer(word) };
+	for (uint32_t i = 0; i < expr.arguments.size; ++i)
+	{
+		if (typed_value(*expr.arguments[i], scope) == nullptr)
+			return nullptr;
+		convert(*expr.arguments[i], parameters[i], false);
+	}
+	ExprFacts* facts = new_facts(expr, types_.fundamental(FundamentalType::Bool), ValueCategory::PRValue);
+	facts->flags |= kIntrinsic;
+	facts->value = static_cast<uint64_t>(Intrinsic::AddOverflow) + variant / 6;
 	return facts;
 }
 
