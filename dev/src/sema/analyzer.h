@@ -1312,11 +1312,11 @@ private:
 	void renew_association();
 	Candidate best_viable(const syntax::Slice<syntax::Expr*>& arguments, uint32_t location,
 		std::vector<FunctionEntity*>& set, ExprFacts* object, bool substitution = false,
-		const ClassEntity* constructed = nullptr);
+		const ClassEntity* constructed = nullptr, bool list_second_phase = false);
 	void note_added_default_arguments(const FunctionEntity* function, const syntax::ParameterClause& clause);
 	bool default_argument_visible(const FunctionEntity* function, uint32_t index) const;
 	Resolution resolve(const syntax::Slice<syntax::Expr*>& arguments, std::vector<FunctionEntity*>& set,
-		ExprFacts* object, Candidate& chosen, const ClassEntity* constructed = nullptr);
+		ExprFacts* object, Candidate& chosen, const ClassEntity* constructed = nullptr, bool list_second_phase = false);
 	static bool PerfectSequence(const Conversion& conversion, const ExprFacts* argument);
 	bool implicit_sequence(const syntax::Expr& argument, const Type* parameter, Conversion& out);
 	bool object_sequence(const ExprFacts* object, const FunctionEntity* function, bool ranking, Conversion& out);

@@ -134,13 +134,14 @@ struct DeferredBody
 // How constructors are considered for a class object's initialization:
 // direct-initialization (13.3.1.3), copy-initialization by the converting
 // constructors (13.3.1.3), from an expression of another type (13.3.1.4:
-// the argument by standard conversions only, 13.3.3.1p4), and copy-list-
-// initialization (13.3.1.7).
+// the argument by standard conversions only, 13.3.3.1p4), and direct- and
+// copy-list-initialization (13.3.1.7).
 enum class ConstructionKind : uint8_t
 {
 	Direct,
 	Copy,
 	Converting,
+	DirectList,
 	CopyList
 };
 

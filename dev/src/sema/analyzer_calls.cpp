@@ -1193,12 +1193,13 @@ int Analyzer::compare_candidates(const Candidate& a, const Candidate& b, uint32_
 }
 
 Candidate Analyzer::best_viable(const syntax::Slice<syntax::Expr*>& call_arguments, uint32_t location,
-	std::vector<FunctionEntity*>& set, ExprFacts* object, bool substitution, const ClassEntity* constructed)
+	std::vector<FunctionEntity*>& set, ExprFacts* object, bool substitution, const ClassEntity* constructed,
+	bool list_second_phase)
 {
 	// `substitution`: a failure may be a substitution's (see
 	// soft_substitution_), a candidate of no function then.
 	Candidate chosen = Candidate();
-	switch (resolve(call_arguments, set, object, chosen, constructed))
+	switch (resolve(call_arguments, set, object, chosen, constructed, list_second_phase))
 	{
 	case Resolution::NoViable:
 		if (!substitution)
@@ -1249,13 +1250,17 @@ bool Analyzer::default_argument_visible(const FunctionEntity* function, uint32_t
 }
 
 Resolution Analyzer::resolve(const syntax::Slice<syntax::Expr*>& call_arguments, std::vector<FunctionEntity*>& set,
-	ExprFacts* object, Candidate& chosen, const ClassEntity* constructed)
+	ExprFacts* object, Candidate& chosen, const ClassEntity* constructed, bool list_second_phase)
 {
 	// 13.3.2-13.3.3: the viable candidates, then the one better than every
 	// other; a failure is a result, not an error.
 	const uint32_t arguments = call_arguments.size;
 	const bool with_object = object != nullptr;
 	const uint32_t slots = arguments + (with_object ? 1 : 0);
+	const syntax::BracedInitList* nested = list_second_phase && arguments == 1 &&
+			call_arguments[0]->kind == syntax::ExprKind::BracedInit
+		? static_cast<const syntax::BracedInitList*>(call_arguments[0])
+		: nullptr;
 	// A template-id call's explicit arguments are this resolution's alone.
 	const TypeList* explicit_arguments = explicit_arguments_;
 	explicit_arguments_ = nullptr;
@@ -1346,7 +1351,21 @@ Resolution Analyzer::resolve(const syntax::Slice<syntax::Expr*>& call_arguments,
 			{
 				Conversion& slot = sequences_[first + (with_object ? 1 : 0) + i];
 				if (i < parameters)
-					viable = implicit_sequence(*call_arguments[i], type->params[i], slot);
+				{
+					const Type* parameter = type->params[i];
+					if (nested != nullptr &&
+						ClassOf(parameter->is_reference() ? parameter->element : parameter) == constructed)
+					{
+						// CWG 2076: the sole inner list can call a constructor
+						// taking this class only via a standard conversion.
+						viable = nested->elements.size == 1 &&
+							nested->elements[0]->kind != syntax::ExprKind::BracedInit &&
+							same_class_source(constructed, *nested->elements[0]) &&
+							conversions_.implicit(operand_of(nested->elements[0]->facts), parameter, false, slot);
+					}
+					else
+						viable = implicit_sequence(*call_arguments[i], parameter, slot);
+				}
 				else
 				{
 					slot = Conversion();

@@ -1057,9 +1057,11 @@ FunctionEntity* Analyzer::select_constructor(ClassEntity* entity, const syntax::
 		}
 		const ClassEntity* saved_direct = direct_class_;
 		const bool saved_standard = standard_only_;
-		direct_class_ = kind == ConstructionKind::Direct && arguments.size == 1 ? entity : nullptr;
+		const bool direct = kind == ConstructionKind::Direct || kind == ConstructionKind::DirectList;
+		const bool list = kind == ConstructionKind::DirectList || kind == ConstructionKind::CopyList;
+		direct_class_ = direct && arguments.size == 1 ? entity : nullptr;
 		standard_only_ = kind == ConstructionKind::Converting;
-		chosen = best_viable(arguments, location, set, nullptr, true, entity);
+		chosen = best_viable(arguments, location, set, nullptr, true, entity, list);
 		conversion_result = elided_direct_sequence(chosen) != nullptr;
 		direct_class_ = saved_direct;
 		standard_only_ = saved_standard;
@@ -1229,7 +1231,7 @@ FunctionEntity* Analyzer::initialize_class(ClassEntity* entity, const Type* type
 				return nullptr;
 		}
 		// 13.3.1.7p1: an initializer-list constructor takes the list first.
-		const ConstructionKind kind = init.kind == syntax::InitializerKind::Braced ? ConstructionKind::Direct
+		const ConstructionKind kind = init.kind == syntax::InitializerKind::Braced ? ConstructionKind::DirectList
 																				   : ConstructionKind::CopyList;
 		if (FunctionEntity* constructor = select_list_constructor(entity, facts, *list, kind, scope, location))
 		{

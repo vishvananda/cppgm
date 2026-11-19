@@ -537,10 +537,19 @@ void Analyzer::constructor_candidates(ClassEntity* entity, const syntax::Slice<s
 			(source == entity || !source->complete || source->has_conversion_functions ||
 				conversions_.is_base_of(entity, source));
 	}
-	const bool copies = possible_copy && arguments.size == 1 && kind != ConstructionKind::Converting &&
-		(kind == ConstructionKind::Direct ||
-			(kind == ConstructionKind::CopyList && arguments[0]->kind != syntax::ExprKind::BracedInit) ||
-			same_class_source(entity, *arguments[0]));
+	const syntax::Expr* copy_source = arguments.size == 1 ? arguments[0] : nullptr;
+	if (copy_source != nullptr && copy_source->kind == syntax::ExprKind::BracedInit &&
+		(kind == ConstructionKind::DirectList || kind == ConstructionKind::CopyList))
+	{
+		const auto& nested = static_cast<const syntax::BracedInitList&>(*copy_source);
+		copy_source = nested.elements.size == 1 && nested.elements[0]->kind != syntax::ExprKind::BracedInit &&
+				same_class_source(entity, *nested.elements[0])
+			? nested.elements[0]
+			: nullptr;
+	}
+	const bool copies = possible_copy && copy_source != nullptr && kind != ConstructionKind::Converting &&
+		(kind == ConstructionKind::Direct || kind == ConstructionKind::DirectList ||
+			kind == ConstructionKind::CopyList || same_class_source(entity, *copy_source));
 	if (copies)
 		implicit_copy_members(entity);
 	const uint32_t mark = ++candidate_epoch_;

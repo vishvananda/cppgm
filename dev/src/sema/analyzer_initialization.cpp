@@ -1424,7 +1424,7 @@ const FunctionEntity* Analyzer::list_constructor(const syntax::BracedInitList& l
 	{
 		set.clear();
 		constructor_candidates(cls, list.elements, ConstructionKind::CopyList, set);
-		if (!set.empty() && resolve(list.elements, set, nullptr, chosen, cls) == Resolution::Selected)
+		if (!set.empty() && resolve(list.elements, set, nullptr, chosen, cls, true) == Resolution::Selected)
 			found = chosen.function;
 	}
 	candidates_.swap(saved_candidates);

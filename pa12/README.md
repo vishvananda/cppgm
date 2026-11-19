@@ -486,6 +486,10 @@ PA12 supports the following in addition to the PA11 subset:
   initialization can select an explicit conversion function. Check narrowing
   after selecting the conversion in either form. See N3485 `[dcl.init.list]`
   and [CWG 1756](../doc/cwg/cwg-1756.txt).
+- In the second phase of constructor selection for `X{{...}}` or
+  `X x = {{...}}`, use only standard conversions when the inner list would
+  initialize a parameter of type `X` or a reference to `X`. See
+  [CWG 2076](../doc/cwg/cwg-2076.txt).
 - class results copy-initialized through conversion operators from conditional
   glvalues, preserving the selected operand and the result calling convention
 
