@@ -251,6 +251,10 @@ PA14 supports the following in addition to the PA13 subset:
   and recognize explicit template calls when ordinary function overloads in the
   same namespace lookup set share their name with a template introduced by a
   using-directive, including transitive directives
+- when a namespace introduces a class or enumeration with a using-declaration
+  and also declares an alias for the same type and name, retain the name's first
+  declaration point for template lookup. See N4140 `[dcl.typedef]`,
+  `[namespace.udecl]` and `[temp.res]`.
 - basic template argument deduction for direct supported function-template calls
   from ordinary argument types, without function-template partial ordering or
   SFINAE

@@ -278,7 +278,17 @@ void NameLookup::declare(const Scope* scope, Binding* binding, bool tag_only)
 	case BindingKind::TypeAlias:
 	case BindingKind::Namespace:
 	case BindingKind::NamespaceAlias:
-		KeepOrdinal(binding, entry->type);
+	{
+		const Binding* previous = entry->type;
+		KeepOrdinal(binding, previous);
+		// A namespace can first import a class or enum and later name the
+		// same type with an alias, or vice versa. Its visibility starts at
+		// the first declaration even though these bindings have different entities.
+		if (previous != nullptr && previous->kind != binding->kind &&
+			(previous->kind == BindingKind::TypeAlias || binding->kind == BindingKind::TypeAlias) &&
+			scope->kind == ScopeKind::Namespace && !previous->invisible && previous->ordinal < binding->ordinal &&
+			DesignateOne(previous, binding))
+			binding->ordinal = previous->ordinal;
 		KeepOrdinal(binding, entry->tag);
 		if (!tag_only && (!binding->invisible || entry->type == nullptr))
 			entry->type = binding;
@@ -287,6 +297,7 @@ void NameLookup::declare(const Scope* scope, Binding* binding, bool tag_only)
 			(!binding->invisible || entry->tag == nullptr))
 			entry->tag = binding;
 		return;
+	}
 	case BindingKind::Function:
 		break;
 	default:
