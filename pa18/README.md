@@ -201,6 +201,10 @@ the implemented surface, including:
 - conversion template ABI names retain the declared target pattern, including
   explicit specializations and cv/reference target arguments
 - constructor template deduction and overload participation
+- a default template argument retains dependence on both operands of a
+  logical operator. Short-circuit evaluation can skip an operand after
+  substitution. Check a constructor template's dependent default when the
+  candidate needs it. See N4140 `[temp.dep.constexpr]` and `[temp.deduct]`.
 - non-deduced contexts and explicit template-id deduction edge cases
 - CWG 1391: after deduction and defaults, conversions to originally
   nondependent call parameters are checked before signature substitution

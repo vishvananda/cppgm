@@ -444,16 +444,18 @@ bool ConstantEvaluator::logical(const syntax::BinaryExpr& node, const Constant& 
 	if (decided)
 	{
 		// The right operand is not evaluated (5.14p1, 5.15p1): not even
-		// its constancy matters. In a template definition one that cannot
-		// be typed and names a dependent entity or type is value-dependent,
-		// and so is the whole expression (14.6.2.3p1: `false && sizeof(X)
-		// == 4` in a member template of an instance); its instantiations
-		// evaluate it. A call of a function that is no constexpr one is not.
+		// its constancy matters. In a template definition a dependent right
+		// operand still makes the whole expression dependent (14.6.2.3p1),
+		// even when it has a known integral type and can be typed below.
+		const uint64_t dependent = analyzer_.names_.dependent_uses();
+		const uint64_t values = analyzer_.names_.value_parameter_uses();
 		++skipping_;
 		const char* failure = failure_;
 		const bool typed = eval(*node.right, right);
 		--skipping_;
-		if (!typed && analyzer_.template_depth_ != 0 && analyzer_.instantiation_dependent(*node.right, scope_))
+		if (analyzer_.template_depth_ != 0 &&
+			(analyzer_.names_.dependent_uses() != dependent || analyzer_.names_.value_parameter_uses() != values ||
+				(!typed && analyzer_.instantiation_dependent(*node.right, scope_))))
 			return false;
 		if (typed)
 		{
