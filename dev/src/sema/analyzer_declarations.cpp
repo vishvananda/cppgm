@@ -846,17 +846,21 @@ void Analyzer::declare_declarator(
 	// A function declared with a placeholder return type (C++14's
 	// 7.1.6.4p2: its own function declarator; a definition later deduces
 	// it, see function_definition).
-	auto_declarator_ = (specifiers.type == auto_placeholder_ || specifiers.type == decltype_auto_placeholder_) &&
-		!specifiers.is_typedef;
-	placeholder_suffix_ = !specifiers.is_typedef ? syntax::OwnFunctionSuffix(init.declarator) : nullptr;
 	const Type* base_type = specifiers.deduction != nullptr
 		? deduce_class_declaration(specifiers, init, scope, location)
 		: specifiers.type;
 	if (base_type == nullptr)
 		return;
+	// An unevaluated operand in the declarator can instantiate another
+	// function body to deduce that function's return type.
+	const bool saved_auto = auto_declarator_;
+	const syntax::DeclaratorSuffix* saved_suffix = placeholder_suffix_;
+	auto_declarator_ = (specifiers.type == auto_placeholder_ || specifiers.type == decltype_auto_placeholder_) &&
+		!specifiers.is_typedef;
+	placeholder_suffix_ = !specifiers.is_typedef ? syntax::OwnFunctionSuffix(init.declarator) : nullptr;
 	DeclaratorInfo info = declarator(init.declarator, base_type, scope, location, &specifiers);
-	auto_declarator_ = false;
-	placeholder_suffix_ = nullptr;
+	auto_declarator_ = saved_auto;
+	placeholder_suffix_ = saved_suffix;
 	// A deferred reserved builtin call in an array bound (see
 	// deferrable_statement).
 	if (deferred_reserved_call())
@@ -2660,12 +2664,14 @@ void Analyzer::function_definition(const syntax::FunctionDecl& decl, Scope* scop
 	const Type* declared = specifiers.type == auto_placeholder_ && specifiers.cv != 0
 		? types_.qualified(auto_placeholder_, specifiers.cv)
 		: specifiers.type;
+	const bool saved_auto = auto_declarator_;
+	const syntax::DeclaratorSuffix* saved_suffix = placeholder_suffix_;
 	auto_declarator_ = (specifiers.type == auto_placeholder_ || specifiers.type == decltype_auto_placeholder_) &&
 		!specifiers.is_typedef;
 	placeholder_suffix_ = !specifiers.is_typedef ? syntax::OwnFunctionSuffix(decl.declarator) : nullptr;
 	const DeclaratorInfo info = declarator(decl.declarator, declared, scope, decl.location, &specifiers);
-	auto_declarator_ = false;
-	placeholder_suffix_ = nullptr;
+	auto_declarator_ = saved_auto;
+	placeholder_suffix_ = saved_suffix;
 	if (info.type->kind != TypeKind::Function || info.name == nullptr)
 		error(decl.location, "function definition of a non-function");
 	Binding* binding = declare_function(specifiers, info, scope, true, decl.location);
@@ -2714,9 +2720,10 @@ void Analyzer::special_member(const syntax::SpecialMemberDecl& decl, Scope* scop
 	else if (last.kind == syntax::NameComponentKind::Destructor &&
 		(last.destructor_decltype || last.identifier != owner->entity->name))
 		error(decl.location, "destructor name does not match its class");
+	const syntax::DeclaratorSuffix* saved_suffix = placeholder_suffix_;
 	placeholder_suffix_ = syntax::OwnFunctionSuffix(decl.declarator);
 	const DeclaratorInfo info = declarator(decl.declarator, result, scope, decl.location);
-	placeholder_suffix_ = nullptr;
+	placeholder_suffix_ = saved_suffix;
 	// 12.3.2p1: a conversion function has no parameters.
 	if (last.kind == syntax::NameComponentKind::Conversion &&
 		(info.type->canonical->param_count != 0 || info.type->canonical->variadic))

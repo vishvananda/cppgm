@@ -157,10 +157,11 @@ VariableEntity* Decomposer::object()
 		variable->name = nullptr;
 		return variable;
 	}
+	const bool saved_auto = analyzer_.auto_declarator_;
 	analyzer_.auto_declarator_ = true;
 	DeclaratorInfo info = analyzer_.declarator(
 		declarator.declarator, specifiers_.type, scope_, decl_.location, &specifiers_);
-	analyzer_.auto_declarator_ = false;
+	analyzer_.auto_declarator_ = saved_auto;
 	const bool reference = info.type->is_reference();
 	info.type = analyzer_.deduced_type(specifiers_, info.type, declarator.initializer, scope_, info.location);
 	// An array initializer without a ref-qualifier makes e an array whose

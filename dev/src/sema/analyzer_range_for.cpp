@@ -220,10 +220,11 @@ void Analyzer::range_for_names(const syntax::RangeForStmt& loop, Scope* block)
 		{
 			// 7.1.6.4p6: the declared type with auto replaced by U deduced
 			// from the element lvalue.
+			const bool saved_auto = auto_declarator_;
 			auto_declarator_ = true;
 			const Type* declared =
 				declarator(loop.declarator, auto_placeholder_, block, loop.location, &specifiers).type;
-			auto_declarator_ = false;
+			auto_declarator_ = saved_auto;
 			TypeList deduced;
 			deduced.push_back(nullptr);
 			if (!holds_auto(declared) ||
