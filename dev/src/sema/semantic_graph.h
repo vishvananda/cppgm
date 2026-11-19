@@ -83,6 +83,7 @@ struct Binding
 	bool value_dependent : 1;
 	// A typedef with a GNU alignment (in Analyzer::alias_alignments_).
 	bool aligned_alias : 1;
+	bool introduced_by_using : 1;
 	// Type lines: the class-key or enum-key this declaration wrote (and
 	// whether it was a scoped enumeration's).
 	TokenKind key;

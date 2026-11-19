@@ -1790,6 +1790,23 @@
       }
     },
     {
+      "issue": 2621,
+      "title": "Kind of lookup for using enum declarations",
+      "status": "C++23",
+      "role": "course-reference",
+      "file": "cwg-2621.txt",
+      "source_url": "https://cplusplus.github.io/CWG/issues/2621.html",
+      "snapshot_url": "https://raw.githubusercontent.com/cplusplus/CWG/38a43db15e384602a0c5debc3f7f22be32e186a1/issues/2621.html",
+      "source_html_sha256": "c542314b0cfda27e64084625fb20fd2763636dcb309b23c8df690924b09b7cb0",
+      "text_sha256": "b666cd3aad269679493ed029cca5a1e6a55f3dbda89290a89ed6921b5040b880",
+      "adopted_papers": [],
+      "text_renderer": {
+        "path": "scripts/cwg_html_text.py",
+        "sha256": "9f54db3aee8c6beec374ecea9a96ae5172f584cfcaf793c2d41dbf775afc43aa",
+        "historical_edits": "del/ins, s/u, marked blocks and source-defined stddel/stdins retained, not applied"
+      }
+    },
+    {
       "issue": 2627,
       "title": "Bit-fields and narrowing conversions",
       "status": "C++23",

@@ -217,6 +217,8 @@ CWG 2476 | CD7 | cwg-2476.txt
 CWG 2549 | CD7 | cwg-2549.txt
   Implicitly moving the operand of a throw-expression in unevaluated contexts
   Local paper: paper-p0527r1.txt, paper-p1155r3.txt, paper-p1825r0.txt, paper-p2266r2.txt
+CWG 2621 | C++23 | cwg-2621.txt
+  Kind of lookup for using enum declarations
 CWG 2627 | C++23 | cwg-2627.txt
   Bit-fields and narrowing conversions
 CWG 2631 | C++23 | cwg-2631.txt

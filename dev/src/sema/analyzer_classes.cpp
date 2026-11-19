@@ -1444,6 +1444,7 @@ void Analyzer::enumerators(EnumEntity* entity, const syntax::EnumSpecifier& spec
 		constant->value = Constant{ ConvertIntegral(constant->value.bits, kind), entity->type };
 	}
 	enumerator_scratch_.resize(base);
+	entity->definition = &specifier;
 }
 
 Constant Analyzer::next_enumerator_value(

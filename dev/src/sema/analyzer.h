@@ -265,6 +265,8 @@ private:
 	void namespace_alias(const syntax::NamespaceAliasDecl& decl, Scope* scope);
 	void using_directive(const syntax::UsingDecl& decl, Scope* scope);
 	void using_declaration(const syntax::UsingDecl& decl, Scope* scope);
+	void using_declarator(const syntax::UsingDecl& decl, Scope* scope);
+	void using_enum(const syntax::UsingDecl& decl, Scope* scope);
 	void introduce(Binding* target, Scope* scope, uint32_t location);
 	void introduce_functions(const std::vector<Binding*>& functions, Scope* scope, uint32_t location);
 	void check_template_parameter_name(Scope* scope, const Identifier* name, uint32_t location);

@@ -163,6 +163,7 @@ private:
 	Decl* parse_namespace();
 	void enter_namespace(const NamespaceDecl& ns);
 	Decl* parse_using();
+	UsingDecl* parse_using_declarator(uint32_t start);
 	Decl* parse_static_assert();
 	Decl* parse_template_declaration(DeclContext context);
 	Decl* parse_explicit_instantiation(DeclContext context);

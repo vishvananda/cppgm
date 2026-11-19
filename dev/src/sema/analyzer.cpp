@@ -569,6 +569,14 @@ void Analyzer::using_directive(const syntax::UsingDecl& decl, Scope* scope)
 
 void Analyzer::using_declaration(const syntax::UsingDecl& decl, Scope* scope)
 {
+	if (decl.using_enum)
+		return using_enum(decl, scope);
+	for (const syntax::UsingDecl* part = &decl; part != nullptr; part = part->following)
+		using_declarator(*part, scope);
+}
+
+void Analyzer::using_declarator(const syntax::UsingDecl& decl, Scope* scope)
+{
 	if (decl.expanded_pack)
 	{
 		syntax::UsingDecl element = decl;
@@ -577,7 +585,7 @@ void Analyzer::using_declaration(const syntax::UsingDecl& decl, Scope* scope)
 		for (syntax::Name* target : decl.expanded)
 		{
 			element.target = target;
-			using_declaration(element, scope);
+			using_declarator(element, scope);
 		}
 		return;
 	}
@@ -657,14 +665,26 @@ void Analyzer::using_declaration(const syntax::UsingDecl& decl, Scope* scope)
 		error(decl.location, "a using-declaration cannot name a namespace");
 	// 7.3.3p7-p8: before C++20, scoped enumerators cannot be imported,
 	// and class members require a member-declaration (P1099R5).
-	if (result.binding->kind == BindingKind::Enumerator && IsScopedEnumeration(result.binding->type))
+	const bool enumerator = result.binding->kind == BindingKind::Enumerator;
+	if (!cxx20_ && enumerator && IsScopedEnumeration(result.binding->type))
 		error(decl.location, "a using-declaration cannot name a scoped enumerator");
 	const Scope* owner_scope = result.binding->entity->owner;
 	const bool class_member = (prefix.scope != nullptr && prefix.scope->kind == ScopeKind::Class) ||
 		(result.binding->kind == BindingKind::Enumerator && owner_scope != nullptr &&
 			owner_scope->kind == ScopeKind::Class);
-	if (class_member && declaration_scope(scope)->kind != ScopeKind::Class)
-		error(decl.location, "a class-member using-declaration outside a class");
+	if (class_member && (!cxx20_ || !enumerator))
+	{
+		Scope* receiving = declaration_scope(scope);
+		if (receiving->kind != ScopeKind::Class)
+			error(decl.location, "a class-member using-declaration outside a class");
+		if (cxx20_ && !has_dependent_bases(receiving))
+		{
+			const auto* base = static_cast<const ClassEntity*>(prefix.scope->entity);
+			const auto* derived = static_cast<const ClassEntity*>(receiving->entity);
+			if (!conversions_.is_base_of(base, derived))
+				error(decl.location, "a member using-declaration must name a base class or an enumerator");
+		}
+	}
 	// 7.3.3p17: each declaration it introduces is accessible where it
 	// appears, named in the class its nested-name-specifier names (11.2p5).
 	// Within a templated class of a dependent base the classes the point's
@@ -702,6 +722,27 @@ void Analyzer::using_declaration(const syntax::UsingDecl& decl, Scope* scope)
 	for (const Binding* function : functions)
 		check_access(function, naming, nullptr, scope, decl.location);
 	introduce_functions(functions, scope, decl.location);
+}
+
+void Analyzer::using_enum(const syntax::UsingDecl& decl, Scope* scope)
+{
+	// [enum.udecl], CWG 2621. Ordinary lookup permits aliases, including
+	// an alias template-id that designates a particular enumeration.
+	const LookupResult result = lookup_name(*decl.target, scope, LookupFilter::Ordinary);
+	if (!result.found())
+		return;
+	const Type* type = binding_type(result.binding, decl.target->location);
+	if (type->unqualified->kind != TypeKind::Enum || dependent_type(type))
+		error(decl.location, "using enum requires a non-dependent enumeration type");
+	const auto* enumeration = static_cast<const EnumEntity*>(type->unqualified->entity);
+	if (enumeration->definition == nullptr)
+		error(decl.location, "using enum requires an enumeration definition");
+	const Scope* source = enumeration->scoped ? enumeration->scope : enumeration->owner;
+	for (const syntax::Enumerator& member : enumeration->definition->enumerators)
+	{
+		const NameEntry* entry = names_.find(source, member.name);
+		introduce(entry->value, scope, decl.location);
+	}
 }
 
 void Analyzer::introduce_functions(const std::vector<Binding*>& functions, Scope* scope, uint32_t location)
@@ -780,6 +821,17 @@ void Analyzer::introduce(Binding* target, Scope* scope, uint32_t location)
 		const Binding* value = entry->value;
 		const bool same_value = value != nullptr && value->entity == target->entity;
 		const bool same_type = entry->type != nullptr && entry->type->entity == target->entity;
+		// [namespace.udecl]: only a class rejects a repeated import of
+		// the same declaration. For overloads, compare every imported entity.
+		if (cxx17_ && where->kind == ScopeKind::Class)
+		{
+			if ((same_value && value->introduced_by_using) || (same_type && entry->type->introduced_by_using))
+				error(location, "a using-declaration redeclares a member");
+			if (target->kind == BindingKind::Function)
+				for (const FunctionList* function = entry->functions; function != nullptr; function = function->next)
+					if (function->binding->entity == target->entity && function->binding->introduced_by_using)
+						error(location, "a using-declaration redeclares a member");
+		}
 		// 14p5: a class template's name is unique in its scope, also among
 		// the declarations using-declarations introduce.
 		const bool type_target = target->kind == BindingKind::Type || target->kind == BindingKind::TypeAlias;
@@ -838,6 +890,7 @@ void Analyzer::introduce(Binding* target, Scope* scope, uint32_t location)
 		using_names_[target->name->id] = true;
 	}
 	Binding* binding = new_binding(target->kind, target->name, target->entity, target->type);
+	binding->introduced_by_using = true;
 	binding->key = target->key;
 	binding->scoped = target->scoped;
 	binding->label = target->label;

@@ -43,6 +43,7 @@ enum class ScopeKind : uint8_t
 };
 
 struct Scope;
+struct EnumSpecifier;
 
 struct ScopeEdge
 {
@@ -103,6 +104,11 @@ struct Scope
 	uint32_t visit;
 	// Enclosing scopes (0 for the global namespace).
 	uint32_t depth;
+};
+
+struct EnumScope : Scope
+{
+	const EnumSpecifier* definition;
 };
 
 struct NameBinding
@@ -179,6 +185,7 @@ public:
 
 	// A new scope below the current one, made current.
 	Scope* push(ScopeKind kind, const Identifier* name);
+	Scope* push_enum(const Identifier* name, const EnumSpecifier* definition);
 	// A class scope made at the class's first declaration, placed below the
 	// current scope and made current as push does: its definition's
 	// template parameters and enclosing scopes (nothing is below it yet).
@@ -253,6 +260,7 @@ public:
 	NameBinding own(Scope* scope, const Identifier* name) const;
 
 private:
+	Scope* push_scope(Scope* scope, ScopeKind kind, const Identifier* name);
 	struct LogEntry
 	{
 		// A binding's previous contents (by key: slots move when the table

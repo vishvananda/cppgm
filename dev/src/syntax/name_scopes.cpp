@@ -130,7 +130,18 @@ void NameScopes::grow()
 
 Scope* NameScopes::push(ScopeKind kind, const Identifier* name)
 {
-	Scope* scope = arena_.allocate_array<Scope>(1);
+	return push_scope(arena_.allocate_array<Scope>(1), kind, name);
+}
+
+Scope* NameScopes::push_enum(const Identifier* name, const EnumSpecifier* definition)
+{
+	EnumScope* scope = arena_.allocate_array<EnumScope>(1);
+	scope->definition = definition;
+	return push_scope(scope, ScopeKind::Enum, name);
+}
+
+Scope* NameScopes::push_scope(Scope* scope, ScopeKind kind, const Identifier* name)
+{
 	scope->kind = kind;
 	scope->memo = false;
 	scope->specialization = false;

@@ -180,10 +180,16 @@ void AstDumper::declaration(const Decl& decl)
 	}
 	case DeclKind::UsingDirective:
 	case DeclKind::UsingDeclaration:
-		open(decl.kind == DeclKind::UsingDirective ? "using-directive" : "using-declaration");
-		line("target", RenderName(*static_cast<const UsingDecl&>(decl).target));
+	{
+		const UsingDecl& using_decl = static_cast<const UsingDecl&>(decl);
+		open(decl.kind == DeclKind::UsingDirective ? "using-directive"
+				: using_decl.using_enum            ? "using-enum-declaration"
+												   : "using-declaration");
+		for (const UsingDecl* part = &using_decl; part != nullptr; part = part->following)
+			line("target", RenderName(*part->target));
 		close();
 		break;
+	}
 	case DeclKind::Concept:
 	{
 		const ConceptDecl& definition = static_cast<const ConceptDecl&>(decl);

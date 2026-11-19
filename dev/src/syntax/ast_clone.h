@@ -125,6 +125,7 @@ private:
 	Slice<const std::pair<const Identifier*, uint32_t>> copied_parameter_packs(size_t first);
 	Slice<BaseSpecifier> bases(const Slice<BaseSpecifier>& list);
 	UsingDecl* using_declaration(const UsingDecl* declaration);
+	UsingDecl* using_declarator(const UsingDecl* declaration);
 	LambdaExpr* lambda(const LambdaExpr* lambda);
 	TemplateParameterList* lambda_template_parameters(const TemplateParameterList* list);
 	size_t shadow_lambda_parameters(const TemplateParameterList* list);

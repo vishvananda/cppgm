@@ -8,6 +8,7 @@
 struct Identifier;
 
 namespace syntax {
+struct EnumSpecifier;
 struct Expr;
 struct FunctionBody;
 struct Initializer;
@@ -341,6 +342,7 @@ struct EnumEntity : Entity
 	// The enumerators' lookup scope (scoped enumerations); unscoped
 	// enumerators are declared in the enclosing scope.
 	Scope* scope;
+	const syntax::EnumSpecifier* definition;
 	// A member enumeration of a templated class defined out of it, or of an
 	// instance (null otherwise; sema/template_records.h).
 	EnumTemplateFacts* templ;

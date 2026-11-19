@@ -26,6 +26,7 @@ extension follows the source-location rules in [PA30](pa30/README.md).
 | Implied `typename` in type-only contexts | C++20 | PA14 dependent names; PA15 non-type parameter types |
 | Abbreviated function templates, constrained placeholders (`C auto`, `C decltype(auto)`) | C++20 | PA5 syntax; PA20 parameter invention and deduction checks |
 | Nested namespaces, attribute using-prefixes | C++17 | PA5 syntax, PA6 lookup; vendor effects PA30 |
+| Using-enum declarations and individual scoped-enumerator imports | C++20 | PA4 feature macros, PA5 syntax, PA6 lookup |
 | Contextual conversions, aggregate member defaults | C++14+ | PA11/PA12; constexpr PA16 |
 | Bit-field default member initializers | C++20 | PA12 bit-field width and initialization; PA11 default member initialization |
 | Public aggregate bases, direct prvalue result objects, inline variables, aligned allocation | C++17 | PA11/PA12; constexpr PA16; multi-TU PA25; host ABI PA32 |
@@ -33,7 +34,8 @@ extension follows the source-location rules in [PA30](pa30/README.md).
 | Immediate functions (`consteval`), constant-initialization declarations (`constinit`) | C++20 | PA2–PA5 tokens and syntax; PA6 declaration validity; PA16 evaluation; PA20 immediate lambdas |
 | Relaxed constexpr bodies | C++14 rules, existing C++11 extension | PA16 |
 | Variable templates | C++14, extension in GNU C++11 | PA17 |
-| Template-template `typename`, placeholder non-type parameters, class deduction/guides, using packs | C++17 | PA17 declarations, PA18 deduction; multiple-base/member-pointer combinations PA22 |
+| Template-template `typename`, placeholder non-type parameters, class deduction/guides | C++17 | PA17 declarations, PA18 deduction; multiple-base/member-pointer combinations PA22 |
+| Using-declarator lists and pack expansion | C++17 | PA5 syntax, PA6 lookup, PA17 pack expansion |
 | Selection initializer statements | C++17 | PA10 |
 | `if constexpr` | C++17 | PA19, after substitution and constant evaluation |
 | `decltype(auto)`, generic lambdas, initialized captures | C++14+ | PA20; failure cleanup PA21 |

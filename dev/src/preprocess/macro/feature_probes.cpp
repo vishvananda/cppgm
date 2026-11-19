@@ -53,7 +53,7 @@ const LanguageFeature kLanguageMacros[] = { { "alias_templates", "200704L", 11 }
 	{ "static_assert", "201411L", 17 }, { "structured_bindings", "201606L", 17 }, { "template_auto", "201606L", 17 },
 	{ "template_template_args", "201611L", 17 }, { "variadic_using", "201611L", 17 }, { "char8_t", "202207L", 20 },
 	{ "concepts", "201907L", 20 }, { "consteval", "201811L", 20 }, { "constinit", "201907L", 20 },
-	{ "impl_three_way_comparison", "201907L", 20 } };
+	{ "impl_three_way_comparison", "201907L", 20 }, { "using_enum", "201907L", 20 } };
 
 } // namespace
 

@@ -363,6 +363,39 @@ Decl* Parser::parse_using()
 			scopes_.add_using_directive(scopes_.current(), info.scope);
 		return directive;
 	}
+	if (accept(TokenKind::KW_ENUM))
+	{
+		if (!cxx20_ || is_template)
+		{
+			fail();
+			return nullptr;
+		}
+		UsingDecl* declaration = make<UsingDecl>(DeclKind::UsingDeclaration, start);
+		declaration->using_enum = true;
+		declaration->typename_keyword = false;
+		declaration->if_exists = false;
+		NameInfo info;
+		declaration->target = parse_name(NameMode::Type, info);
+		if (declaration->target == nullptr || declaration->target->last().kind != NameComponentKind::Identifier ||
+			!expect(TokenKind::OP_SEMICOLON))
+			return nullptr;
+		if (info.scope != nullptr && info.scope->kind == ScopeKind::Enum)
+		{
+			const auto* enumeration = static_cast<const EnumScope*>(info.scope);
+			if (enumeration->definition == nullptr)
+			{
+				// An alias can still name the opaque declaration's scope after
+				// a later definition replaces its original binding.
+				const NameBinding updated = scopes_.own(enumeration->parent, enumeration->name);
+				if (updated.scope != nullptr && updated.scope->kind == ScopeKind::Enum)
+					enumeration = static_cast<const EnumScope*>(updated.scope);
+			}
+			if (enumeration->definition != nullptr)
+				for (const Enumerator& member : enumeration->definition->enumerators)
+					scopes_.declare(scopes_.current(), member.name, NameBinding{ NameCategory::Value, false, nullptr });
+		}
+		return declaration;
+	}
 	if (at_identifier() && (at(TokenKind::OP_ASS, 1) || at_attribute(1)))
 	{
 		AliasDecl* alias = make<AliasDecl>(DeclKind::Alias, start);
@@ -406,6 +439,25 @@ Decl* Parser::parse_using()
 		scopes_.declare(declaration_scope(), alias->name, binding);
 		return alias;
 	}
+	UsingDecl* first = parse_using_declarator(start);
+	if (first == nullptr)
+		return nullptr;
+	UsingDecl* last = first;
+	while (at(TokenKind::OP_COMMA))
+	{
+		if (!cxx17_)
+			require_cxx_extension(location(), 17, "a list of using-declarators requires C++17");
+		next();
+		last->following = parse_using_declarator(location());
+		if (last->following == nullptr)
+			return nullptr;
+		last = last->following;
+	}
+	return expect(TokenKind::OP_SEMICOLON) ? first : nullptr;
+}
+
+UsingDecl* Parser::parse_using_declarator(uint32_t start)
+{
 	UsingDecl* declaration = make<UsingDecl>(DeclKind::UsingDeclaration, start);
 	declaration->typename_keyword = accept(TokenKind::KW_TYPENAME);
 	declaration->if_exists = false;
@@ -414,7 +466,7 @@ Decl* Parser::parse_using()
 	declaration->pack = accept(TokenKind::OP_DOTS);
 	// GNU attributes after the name (Clang's using_if_exists).
 	Attribute* attributes = nullptr;
-	if (declaration->target == nullptr || !collect_attributes(attributes) || !expect(TokenKind::OP_SEMICOLON))
+	if (declaration->target == nullptr || !collect_attributes(attributes))
 		return nullptr;
 	for (const Attribute* attribute = attributes; attribute != nullptr; attribute = attribute->next)
 		declaration->if_exists = declaration->if_exists || attribute->kind == AttributeKind::UsingIfExists;

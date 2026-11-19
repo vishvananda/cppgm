@@ -1641,6 +1641,19 @@ ClassSpecifier* SyntaxCloner::class_specifier(const ClassSpecifier* specifier)
 
 UsingDecl* SyntaxCloner::using_declaration(const UsingDecl* declaration)
 {
+	UsingDecl* head = nullptr;
+	UsingDecl** link = &head;
+	for (const UsingDecl* part = declaration; part != nullptr; part = part->following)
+	{
+		*link = using_declarator(part);
+		link = &(*link)->following;
+	}
+	*link = nullptr;
+	return head;
+}
+
+UsingDecl* SyntaxCloner::using_declarator(const UsingDecl* declaration)
+{
 	UsingDecl* result = copy(declaration);
 	result->target = name(declaration->target);
 	if (!declaration->pack || expander_ == nullptr)

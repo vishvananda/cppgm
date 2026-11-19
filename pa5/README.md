@@ -236,6 +236,15 @@ not combine it with individually scoped attributes in that same list.
 Retain language-mode distinctions, including an empty using-prefix list.
 GNU attribute effects remain hosted compatibility work. N4659
 `[namespace.def]` and `[dcl.attr.grammar]` govern these syntax checks.
+Accept a comma-separated list of using-declarators in C++17 and later. Each
+entry has its own qualified name and optional pack expansion. See N4659
+`[namespace.udecl]`.
+
+In C++20, parse `using enum` with a single qualified or unqualified enum
+name or alias template-id. Retain the target as a name and permit the
+declaration in the same scopes as a using-declaration. See N4861
+`[enum.udecl]` and [CWG 2621](../doc/cwg/cwg-2621.txt). PA6 resolves the target
+and declares its enumerators.
 
 ### Out Of Scope
 

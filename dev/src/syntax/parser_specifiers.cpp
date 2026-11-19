@@ -1378,6 +1378,7 @@ EnumSpecifier* Parser::parse_enum_specifier(TypeIdContext context)
 		attribute = following;
 	}
 	const Identifier* simple_name = nullptr;
+	Scope* qualified_owner = nullptr;
 	if (at_identifier() || at(TokenKind::OP_COLON2))
 	{
 		NameInfo info;
@@ -1389,6 +1390,10 @@ EnumSpecifier* Parser::parse_enum_specifier(TypeIdContext context)
 			return nullptr;
 		if (!specifier->name->qualified() && !specifier->name->last().has_arguments)
 			simple_name = specifier->name->last().identifier;
+		else if (cxx20_ && info.prefix == PrefixState::Known &&
+			(info.prefix_scope->kind == ScopeKind::Namespace || info.prefix_scope->kind == ScopeKind::Class) &&
+			specifier->name->last().kind == NameComponentKind::Identifier && !specifier->name->last().has_arguments)
+			qualified_owner = info.prefix_scope;
 	}
 	if (context == TypeIdContext::TrailingReturn && at(TokenKind::OP_COLON))
 	{
@@ -1427,17 +1432,26 @@ EnumSpecifier* Parser::parse_enum_specifier(TypeIdContext context)
 			const NameBinding existing = scopes_.own(scope, simple_name);
 			if (existing.category != NameCategory::Type && existing.category != NameCategory::Value &&
 				existing.category != NameCategory::FunctionTemplate)
-				scopes_.declare(
-					scope, simple_name, NameBinding{ NameCategory::Type, false, nullptr, false, c_source_ });
+			{
+				Scope* opaque = nullptr;
+				if (cxx20_)
+				{
+					scopes_.set_current(scope);
+					opaque = scopes_.push_enum(simple_name, nullptr);
+					scopes_.set_current(enclosing);
+				}
+				scopes_.declare(scope, simple_name, NameBinding{ NameCategory::Type, false, opaque, false, c_source_ });
+			}
 		}
 		return specifier;
 	}
 	specifier->has_body = true;
-	Scope* scope = scopes_.push(ScopeKind::Enum, simple_name);
+	const Identifier* defined_name = qualified_owner != nullptr ? specifier->name->last().identifier : simple_name;
+	Scope* scope = scopes_.push_enum(defined_name, specifier);
 	scopes_.set_current(enclosing);
-	Scope* members = declaration_scope();
-	if (simple_name != nullptr)
-		scopes_.declare(members, simple_name, NameBinding{ NameCategory::Type, false, scope, false, c_source_ });
+	Scope* members = qualified_owner != nullptr ? qualified_owner : declaration_scope();
+	if (defined_name != nullptr)
+		scopes_.declare(members, defined_name, NameBinding{ NameCategory::Type, false, scope, false, c_source_ });
 	next();
 	ListFrame<Enumerator> enumerators(enumerators_);
 	while (!at(TokenKind::OP_RBRACE))

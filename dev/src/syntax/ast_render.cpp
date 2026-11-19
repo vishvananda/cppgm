@@ -1176,10 +1176,17 @@ void SyntaxRenderer::declaration(const Decl& decl)
 	case DeclKind::UsingDeclaration:
 	{
 		const UsingDecl& declaration = static_cast<const UsingDecl&>(decl);
-		text(declaration.typename_keyword ? "usingtypename " : "using");
-		name(*declaration.target, true);
-		if (declaration.pack)
-			text("...");
+		text("using");
+		for (const UsingDecl* part = &declaration; part != nullptr; part = part->following)
+		{
+			if (part != &declaration)
+				text(",");
+			if (part->using_enum || part->typename_keyword)
+				text(part->using_enum ? "enum " : "typename ");
+			name(*part->target, true);
+			if (part->pack)
+				text("...");
+		}
 		text(";");
 		break;
 	}

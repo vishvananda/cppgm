@@ -72,7 +72,9 @@ struct UsingDecl : Decl
 	// keeps its expanded names together, preserving class-member positions.
 	bool pack = false;
 	bool expanded_pack = false;
+	bool using_enum = false;
 	Slice<Name*> expanded{ nullptr, 0 };
+	UsingDecl* following = nullptr;
 };
 
 struct AliasDecl : Decl
