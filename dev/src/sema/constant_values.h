@@ -74,7 +74,9 @@ enum class RootKind : uint8_t
 	// P2280R4: a reference/implicit object outside this evaluation may
 	// designate an unspecified object. Its type/lifetime can propagate,
 	// but its stored values and address are not constant results.
-	Unknown
+	Unknown,
+	// Dynamic storage created and released within a C++20 evaluation.
+	Allocation
 };
 
 // ConstValue::flags.

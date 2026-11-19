@@ -3,6 +3,7 @@
 #include "preprocess/preprocessor.h"
 #include "sema/aggregates.h"
 #include "sema/constant_interpreter.h"
+#include "sema/vtable_records.h"
 
 // The declaration rules of constexpr (7.1.5, 3.9p10): literal types, and
 // what a constexpr function, constructor or variable requires of its
@@ -171,8 +172,8 @@ bool Analyzer::literal_type(const Type* type)
 {
 	// 3.9p10: a scalar, a reference (C++11: to a literal type; as C++14 and
 	// the implementations have it, any), an array of a literal type, or a
-	// class with a trivial destructor that is an aggregate or has a
-	// constexpr constructor other than a copy or move constructor, whose
+	// class with a trivial (C++20: constexpr) destructor that is an
+	// aggregate or has a constexpr non-copy/move constructor, whose
 	// bases and non-static data members are of non-volatile literal types.
 	// void is none (C++11). A type that depends on template parameters is
 	// taken as one.
@@ -197,7 +198,7 @@ bool Analyzer::literal_type(const Type* type)
 	if (!require_complete(cls) || cls->scope == nullptr)
 		return false;
 	cls->literal_state = 3;
-	bool literal = cls->destructor == nullptr || cls->destructor->trivial;
+	bool literal = cxx20_ ? constexpr_destructor(cls, 0) : cls->destructor == nullptr || cls->destructor->trivial;
 	for (const BaseClass* base = cls->bases; literal && base != nullptr; base = base->next)
 		literal = !base->is_virtual && literal_type(base->base->type);
 	for (const DataMember* member = cls->members; literal && member != nullptr; member = member->next)
@@ -348,6 +349,29 @@ SubobjectValues Analyzer::copied_subobject_values(const Type* type, uint32_t dep
 	if (result != SubobjectValues::Unknown)
 		cls->subobject_values = result;
 	return result;
+}
+
+bool Analyzer::constexpr_destructor(const ClassEntity* cls, uint32_t depth)
+{
+	if (cls == nullptr)
+		return true;
+	if (depth > kInstantiationDepthLimit || !require_complete(cls))
+		return false;
+	const FunctionEntity* destructor = cls->destructor;
+	if (destructor == nullptr || destructor->trivial)
+		return true;
+	// [dcl.constexpr]: explicit and implicitly defined constexpr
+	// destructors require a constexpr destructor for each class subobject.
+	if (destructor->deleted || !(destructor->is_constexpr || destructor->implicit || destructor->defaulted) ||
+		VirtualBaseCount(cls) != 0)
+		return false;
+	for (const BaseClass* base = cls->bases; base != nullptr; base = base->next)
+		if (base->is_virtual || !constexpr_destructor(ClassOf(base->base->type), depth + 1))
+			return false;
+	for (const DataMember* member = cls->members; member != nullptr; member = member->next)
+		if (!constexpr_destructor(ObjectClassOf(member->variable->type), depth + 1))
+			return false;
+	return true;
 }
 
 bool Analyzer::constexpr_constructor(const FunctionEntity* constructor, uint32_t depth)
@@ -695,6 +719,12 @@ void Analyzer::check_constexpr_function(const FunctionEntity* function, const Ty
 		return;
 	if (strict_cxx11_ && !function->defaulted && function->body != nullptr && function->body->body != nullptr)
 		check_cxx11_constexpr_body(*function->body->body, function->constructor);
+	if (cxx20_ && function->destructor)
+	{
+		if (!constexpr_destructor(static_cast<const ClassEntity*>(function->owner->entity), 0))
+			error(location, "a constexpr destructor requires constexpr subobject destruction");
+		return;
+	}
 	const Type* canonical = type->canonical;
 	if (!function->constructor)
 	{
@@ -832,8 +862,8 @@ void Analyzer::check_defaulted_constexpr(FunctionEntity* function, uint32_t loca
 	// if its implicit declaration would be: a default constructor as 12.1p6
 	// and a copy or move constructor as 12.8p13 make it; an assignment
 	// operator never is in C++11 (7.1.5p3: a C++11 constexpr body is one
-	// return statement), under -std=c++14 as its 12.8p26 makes it; a
-	// destructor never is.
+	// return statement), under -std=c++14 as its 12.8p26 makes it.
+	// C++20 permits a defaulted constexpr destructor.
 	if (!function->is_constexpr || function->deleted ||
 		(function->is_operator && IsComparisonOperatorToken(function->operator_token)))
 		return;
@@ -842,6 +872,8 @@ void Analyzer::check_defaulted_constexpr(FunctionEntity* function, uint32_t loca
 		implicit_constexpr = constexpr_copy(function, 0);
 	else if (!function->constructor && function->copy_kind != CopyKind::None)
 		implicit_constexpr = constexpr_assignment(function, 0);
+	else if (function->destructor && cxx20_)
+		implicit_constexpr = constexpr_destructor(static_cast<const ClassEntity*>(function->owner->entity), 0);
 	else if (function->constructor)
 	{
 		if (function->inits == nullptr)

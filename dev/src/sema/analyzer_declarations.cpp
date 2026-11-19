@@ -1898,6 +1898,9 @@ Binding* Analyzer::declare_function(const Specifiers& specifiers, const Declarat
 {
 	if (specifiers.is_constinit)
 		error(location, "__constinit on a function declaration");
+	if (!cxx20_ && specifiers.is_constexpr && info.name != nullptr &&
+		info.name->last().kind == syntax::NameComponentKind::Destructor)
+		error(location, "a constexpr destructor requires C++20");
 	if (specifiers.is_consteval && info.name != nullptr &&
 		(info.name->last().kind == syntax::NameComponentKind::Destructor ||
 			(info.name->last().kind == syntax::NameComponentKind::Operator &&

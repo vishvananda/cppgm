@@ -378,6 +378,20 @@ inline static constexpr members. Lambda constant evaluation is introduced with
 closures in PA20. Read N4140 `[dcl.constexpr]` and `[expr.const]`, then N4659's
 corresponding clauses for the required later rules.
 
+### C++20 literal types and transient allocation
+
+A class may be a literal type with a constexpr destructor. For a defaulted
+destructor, determine eligibility from the base and member destructors.
+A destructor declared constexpr must satisfy the C++20 requirements for
+its subobjects. See N4861 `[basic.types]` and `[dcl.constexpr]`.
+
+A C++20 constant expression may use `new` with a replaceable global
+allocation function. For scalar and array allocations, keep the new object's
+identity across calls and scopes within the evaluation. It must be released by
+the matching form of `delete` before the evaluation completes. Diagnose an
+attempt to access deallocated storage or to preserve its address in the result.
+See N4861 `[expr.const]`, `[expr.new]` and `[expr.delete]`.
+
 ### Out Of Scope
 
 The following are explicitly out of scope for PA16:

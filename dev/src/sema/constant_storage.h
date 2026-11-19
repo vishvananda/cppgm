@@ -8,6 +8,14 @@
 
 namespace sema {
 
+struct ConstAllocation
+{
+	ConstValue* value;
+	const Type* type;
+	uint32_t generation;
+	bool array;
+};
+
 // Allocated only when an evaluation actually needs shared class/part
 // templates or storage that a callee writes into a caller's object.
 struct ConstantStorage
@@ -24,6 +32,9 @@ struct ConstantStorage
 		Arena::Mark mark;
 	};
 	std::vector<Allocation> allocations;
+	std::vector<ConstAllocation> heap;
+	uint64_t heap_values = 0;
+	uint32_t live_allocations = 0;
 };
 
 } // namespace sema

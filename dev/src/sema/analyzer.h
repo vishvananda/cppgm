@@ -1711,6 +1711,7 @@ private:
 	bool trait_assignable(
 		const Type* target, const Type* source, uint32_t location, Scope* scope, bool& nothrow, bool& trivial);
 	bool integer_pack_argument(const syntax::TemplateArgument& argument, Scope* scope, TypeList& out);
+	bool constexpr_destructor(const ClassEntity* cls, uint32_t depth);
 	bool constexpr_constructor(const FunctionEntity* constructor, uint32_t depth);
 	bool constexpr_default(const FunctionEntity* constructor, uint32_t depth);
 	bool constexpr_default_plan(const FunctionEntity* constructor, uint32_t depth);

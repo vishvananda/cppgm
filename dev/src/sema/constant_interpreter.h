@@ -16,6 +16,7 @@ namespace sema {
 class Analyzer;
 class ConstantMemo;
 struct ConstantStorage;
+struct ConstAllocation;
 struct Conversion;
 
 // The constant evaluator of semantics mode (5.19, 7.1.5): it
@@ -190,6 +191,12 @@ private:
 	bool static_variable_place(const ConstPlace& place) const;
 	const ConstValue* provisional_value(const VariableEntity* variable);
 	bool extend_temporary(ConstPlace& place, uint32_t location);
+
+	// ------------------------------------------------ dynamic storage
+	ConstAllocation* allocation_at(const ConstPlace& place, uint32_t location);
+	bool finish_allocations(uint32_t location);
+	bool allocation_value(const syntax::NewExpr& expr, ConstValue& out);
+	bool deallocate_value(const syntax::DeleteExpr& expr);
 
 	// ---------------------------------------------------- expressions
 	bool decay_reference(ConstPlace place, const Type* type, ConstValue& out, uint32_t location);

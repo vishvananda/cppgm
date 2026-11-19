@@ -357,6 +357,15 @@ bool ConstantInterpreter::root_storage(
 {
 	switch (place.root)
 	{
+	case RootKind::Allocation:
+	{
+		const ConstAllocation* allocation = allocation_at(place, location);
+		if (allocation == nullptr)
+			return false;
+		storage = allocation->value;
+		type = allocation->type;
+		return true;
+	}
 	case RootKind::Object:
 		if (place.object >= objects_.size() || objects_[place.object].generation != place.generation)
 			return fail(location, "an access to an object whose lifetime has ended");
@@ -430,6 +439,14 @@ bool ConstantInterpreter::root_type(const ConstPlace& place, const Type*& type, 
 	// too (5.19p4).
 	switch (place.root)
 	{
+	case RootKind::Allocation:
+	{
+		const ConstAllocation* allocation = allocation_at(place, location);
+		if (allocation == nullptr)
+			return false;
+		type = allocation->type;
+		return true;
+	}
 	case RootKind::Object:
 		if (place.object >= objects_.size() || objects_[place.object].generation != place.generation)
 			return fail(location, "an access to an object whose lifetime has ended");
@@ -1021,7 +1038,8 @@ bool ConstantInterpreter::read(const ConstPlace& place, ConstValue& out, uint32_
 	if (((place.flags & kMutableSubobject) != 0 || aggregate) &&
 		(!analyzer_.cxx14_ ||
 			!((place.root == RootKind::Object && place.object >= first_object_) ||
-				(place.root == RootKind::Variable && place.entity == constructing_))))
+				(place.root == RootKind::Variable && place.entity == constructing_) ||
+				place.root == RootKind::Allocation)))
 	{
 		if ((place.flags & kMutableSubobject) != 0)
 			return fail(location, "a read of a mutable subobject in a constant expression");
@@ -1048,7 +1066,11 @@ bool ConstantInterpreter::valid_pointer(const ConstValue& value, uint32_t locati
 	// 3.7.4.2p4, 3.8: a pointer to an object of the evaluation whose
 	// lifetime has ended is an invalid pointer value; using it is not a
 	// constant expression.
-	if (value.kind != ValueKind::Pointer || value.root != RootKind::Object)
+	if (value.kind != ValueKind::Pointer)
+		return true;
+	if (value.root == RootKind::Allocation)
+		return allocation_at(PlaceOf(value, value.type->element), location) != nullptr;
+	if (value.root != RootKind::Object)
 		return true;
 	if (value.count >= objects_.size() || objects_[value.count].generation != value.extra)
 		return fail(location, "a pointer to an object whose lifetime has ended");
@@ -1651,7 +1673,8 @@ bool ConstantInterpreter::publishable(const ConstValue& value) const
 	// a thread-local object's address is each thread's own, 3.7.2).
 	if (value.kind == ValueKind::Pointer)
 	{
-		if (value.root == RootKind::Object || value.root == RootKind::Parameter || value.root == RootKind::Unknown)
+		if (value.root == RootKind::Object || value.root == RootKind::Parameter || value.root == RootKind::Unknown ||
+			value.root == RootKind::Allocation)
 			return false;
 		if (value.root == RootKind::Function)
 			return !static_cast<const FunctionEntity*>(value.address.entity)->is_consteval;
@@ -1728,6 +1751,8 @@ void RebaseTemporaryPointers(ConstValue& value, const ConstPlace& source, const 
 const ConstValue* ConstantInterpreter::publish(const ConstValue& value, uint32_t location)
 {
 	// The value copied into the semantic arena, where the unit's facts live.
+	if (!finish_allocations(location))
+		return nullptr;
 	if (!publishable(value))
 	{
 		fail(location, "a constant designates an object without static storage duration");
@@ -1738,6 +1763,12 @@ const ConstValue* ConstantInterpreter::publish(const ConstValue& value, uint32_t
 	std::vector<ConstValue*> payloads;
 	CopyValue(*copy, value, analyzer_.arena_, &shared, &payloads);
 	return copy;
+}
+
+bool ConstantInterpreter::finish_allocations(uint32_t location)
+{
+	return storage_ == nullptr || storage_->live_allocations == 0 ||
+		fail(location, "constant evaluation did not deallocate allocated storage");
 }
 
 // ------------------------------------------------------------- entry points
@@ -1820,7 +1851,7 @@ bool ConstantInterpreter::evaluate(const syntax::Expr& expr, bool converted, Con
 		return false;
 	if (out.kind == ValueKind::Indeterminate || out.kind == ValueKind::Array || out.kind == ValueKind::Class)
 		return fail(expr.location, "not a constant scalar value");
-	return true;
+	return finish_allocations(expr.location);
 }
 
 bool ConstantInterpreter::evaluate_after(const syntax::Expr& expr, const Conversion* conversion, ConstValue& out)
@@ -1830,7 +1861,7 @@ bool ConstantInterpreter::evaluate_after(const syntax::Expr& expr, const Convers
 		return false;
 	if (out.kind == ValueKind::Indeterminate || out.kind == ValueKind::Array || out.kind == ValueKind::Class)
 		return fail(expr.location, "not a constant scalar value");
-	return true;
+	return finish_allocations(expr.location);
 }
 
 const ConstValue* ConstantInterpreter::evaluate_initializer(const syntax::Expr& expr)
@@ -1903,6 +1934,12 @@ bool ConstantInterpreter::initialize(const VariableEntity* variable, const synta
 	const ClassEntity* cls = type->kind == TypeKind::Array ? nullptr : ClassOf(type);
 	if (cls != nullptr)
 		analyzer_.require_complete(cls);
+	if (analyzer_.cxx20_ && variable->is_constexpr)
+	{
+		const ClassEntity* object = Analyzer::ObjectClassOf(type);
+		if (object != nullptr && object->destructor != nullptr && !object->destructor->trivial)
+			return fail(location, "non-trivial constant destruction is not supported");
+	}
 	const bool prefix = CompactClass(cls);
 	if (!prefix && leaves(type, 0) > kValueBudget)
 		return fail(location, "constant evaluation exceeds its storage budget");
@@ -1931,7 +1968,7 @@ bool ConstantInterpreter::initialize(const VariableEntity* variable, const synta
 		HeldAsConstant(*storage))
 	{
 		out = storage;
-		return true;
+		return finish_allocations(location);
 	}
 	out = publish(*storage, location);
 	return out != nullptr;

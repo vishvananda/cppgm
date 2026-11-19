@@ -415,6 +415,8 @@ bool ConstantInterpreter::rvalue(const syntax::Expr& expr, ConstValue& out)
 			return cast(*e, *call_expr.arguments[0], out);
 		return call_value(*e, out);
 	}
+	case syntax::ExprKind::New:
+		return allocation_value(static_cast<const syntax::NewExpr&>(*e), out);
 	case syntax::ExprKind::Cast:
 		return cast(*e, *static_cast<const syntax::CastExpr&>(*e).operand, out);
 	case syntax::ExprKind::FunctionalCast:
@@ -1124,6 +1126,8 @@ bool ConstantInterpreter::discard(const syntax::Expr& expr)
 		return fail(e->location, "an expression outside constant evaluation");
 	if ((facts->flags & kImmediateValue) != 0)
 		return true;
+	if (e->kind == syntax::ExprKind::Delete)
+		return deallocate_value(static_cast<const syntax::DeleteExpr&>(*e));
 	if (IsVoid(facts->type) && (facts->flags & kOperatorCall) != 0)
 	{
 		Result result = Result();
