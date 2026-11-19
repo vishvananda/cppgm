@@ -1378,6 +1378,9 @@ Expr* Parser::parse_lambda()
 	}
 	next();
 	lambda->captures = captures.take(arena_);
+	// Names in the declarator and body can see lambda parameters. Keep
+	// them out of the enclosing statement's type/value disambiguation.
+	const ConflictScope lambda_conflicts(conflicts_);
 	Scope* saved = scopes_.current();
 	Scope* body_scope = saved;
 	const bool saved_template = pending_template_;

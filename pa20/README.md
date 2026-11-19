@@ -278,6 +278,9 @@ In nested generic lambdas, a qualified name such as `decltype(arg)::value`
 can depend on the inner lambda's parameter type. Resolve the member when
 that call operator is instantiated. Naming an outer parameter in `decltype`
 does not capture it.
+Use the lambda's parameter scope in its trailing return type. Substitution
+failure there can discard a generic call-operator candidate, just as for
+other function templates.
 See N4140 `[dcl.spec.auto]`, `[expr.prim.lambda]` and
 [generalized capture wording](../doc/cwg/paper-n3648.txt).
 
