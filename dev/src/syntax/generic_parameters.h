@@ -10,6 +10,7 @@ namespace syntax {
 // The owning function suffix, rather than a function in a return type or
 // pointer declarator. Shared by declaration analysis and abbreviation.
 const DeclaratorSuffix* OwnFunctionSuffix(const Declarator* declarator);
+bool HasInventedFunctionParameter(const ParameterDeclaration& parameter);
 bool HasInventedFunctionParameters(const ParameterClause* parameters);
 
 struct InventedFunctionParameters

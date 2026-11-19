@@ -583,6 +583,9 @@ type-constraint as a `<name>`, one space, then `auto` or `decltype(auto)`.
 Keep its concept name and explicit arguments, and distinguish the
 two deduction rules. Generic and abbreviated parameters later use these parsed
 facts to introduce constrained template parameters without parsing them again.
+In `auto...` and `C auto...`, retain the ellipsis on the abstract parameter
+declarator. A comma before the ellipsis in `auto, ...` makes it the function's
+varargs ellipsis. See N4861 `[dcl.fct]` and `[dcl.spec.auto]`.
 
 ### C++20 explicit lambda template heads
 

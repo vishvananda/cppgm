@@ -46,13 +46,20 @@ const DeclaratorSuffix* OwnFunctionSuffix(const Declarator* declarator)
 	return own != nullptr && own->kind == DeclaratorSuffixKind::Function ? own : nullptr;
 }
 
+bool HasInventedFunctionParameter(const ParameterDeclaration& parameter)
+{
+	for (const DeclSpecifier& specifier : parameter.specifiers)
+		if (Placeholder(specifier))
+			return true;
+	return false;
+}
+
 bool HasInventedFunctionParameters(const ParameterClause* parameters)
 {
 	if (parameters != nullptr)
 		for (const ParameterDeclaration* parameter : parameters->parameters)
-			for (const DeclSpecifier& specifier : parameter->specifiers)
-				if (Placeholder(specifier))
-					return true;
+			if (HasInventedFunctionParameter(*parameter))
+				return true;
 	return false;
 }
 

@@ -384,6 +384,8 @@ in parameter order, including packs, without adding a template nesting level.
 Use the same invention for generic lambdas. Keep the written syntax available;
 only the normalized signature needs a copy, and the body remains shared.
 Abbreviated function names are template names for later explicit template calls.
+An unnamed `auto...` parameter still introduces a type parameter pack.
+Deduction from a call can supply zero or more elements.
 
 ### C++20 constrained placeholders
 

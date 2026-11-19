@@ -229,8 +229,10 @@ private:
 	bool parse_handlers(ListFrame<Handler>& handlers);
 
 	// ------------------------------------------------------- declarators
-	Declarator* parse_declarator(DeclaratorMode mode, bool type_only = false);
-	bool parse_declarator_into(DeclaratorMode mode, Declarator* declarator, bool type_only);
+	Declarator* parse_declarator(
+		DeclaratorMode mode, bool type_only = false, const ParameterDeclaration* parameter = nullptr);
+	bool parse_declarator_into(
+		DeclaratorMode mode, Declarator* declarator, bool type_only, const ParameterDeclaration* parameter = nullptr);
 	bool parse_ptr_operator(ListFrame<PtrOperator>& pointers, Attribute** inline_attributes);
 	bool parse_declarator_suffixes(
 		DeclaratorMode mode, Declarator* declarator, bool named, Scope* member_of, bool type_only = false);

@@ -3,6 +3,7 @@
 #include <cstring>
 
 #include "lex/identifier_table.h"
+#include "syntax/generic_parameters.h"
 
 namespace syntax {
 
@@ -252,18 +253,19 @@ bool Parser::nested_declarator_ahead(DeclaratorMode mode)
 	return false;
 }
 
-Declarator* Parser::parse_declarator(DeclaratorMode mode, bool type_only)
+Declarator* Parser::parse_declarator(DeclaratorMode mode, bool type_only, const ParameterDeclaration* parameter)
 {
 	Declarator* declarator = make<Declarator>();
 	*declarator = Declarator();
 	declarator->abstract = mode != DeclaratorMode::Named && mode != DeclaratorMode::Parameter;
 	declarator->location = location();
-	if (!parse_declarator_into(mode, declarator, type_only))
+	if (!parse_declarator_into(mode, declarator, type_only, parameter))
 		return nullptr;
 	return declarator;
 }
 
-bool Parser::parse_declarator_into(DeclaratorMode mode, Declarator* declarator, bool type_only)
+bool Parser::parse_declarator_into(
+	DeclaratorMode mode, Declarator* declarator, bool type_only, const ParameterDeclaration* parameter)
 {
 	NestingGuard nesting(*this);
 	{
@@ -281,10 +283,11 @@ bool Parser::parse_declarator_into(DeclaratorMode mode, Declarator* declarator, 
 	if (mode == DeclaratorMode::New)
 		return parse_declarator_suffixes(mode, declarator, false, nullptr, type_only);
 	// At the end of a parameter-declaration-clause, `...` expands this
-	// parameter only if its type names an unexpanded template parameter
-	// pack; otherwise it is the clause's ellipsis (8.3.5p14).
+	// parameter if its type names an unexpanded template parameter pack,
+	// including a pack invented by a placeholder (N4861 [dcl.fct]).
 	if (at(TokenKind::OP_DOTS) &&
-		(mode != DeclaratorMode::Parameter || !at(TokenKind::OP_RPAREN, 1) || pack_mentions_ > parameter_mentions_))
+		(mode != DeclaratorMode::Parameter || !at(TokenKind::OP_RPAREN, 1) || pack_mentions_ > parameter_mentions_ ||
+			(cxx14_ && parameter != nullptr && HasInventedFunctionParameter(*parameter))))
 	{
 		declarator->pack = PackPosition::BeforeName;
 		next();
@@ -297,7 +300,7 @@ bool Parser::parse_declarator_into(DeclaratorMode mode, Declarator* declarator, 
 		*nested = Declarator();
 		nested->abstract = declarator->abstract;
 		nested->location = location();
-		if (!parse_declarator_into(mode, nested, type_only) || !expect(TokenKind::OP_RPAREN))
+		if (!parse_declarator_into(mode, nested, type_only, parameter) || !expect(TokenKind::OP_RPAREN))
 			return false;
 		declarator->nested = nested;
 		// The suffixes after `)` follow the nested declarator-id too.
@@ -559,7 +562,7 @@ ParameterDeclaration* Parser::parse_parameter_declaration(bool definite, bool ty
 	Declarator* declarator = nullptr;
 	{
 		Tentative tentative(*this);
-		declarator = parse_declarator(DeclaratorMode::Parameter, type_only);
+		declarator = parse_declarator(DeclaratorMode::Parameter, type_only, parameter);
 		if (declarator != nullptr)
 			tentative.commit();
 	}
