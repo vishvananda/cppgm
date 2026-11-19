@@ -1780,7 +1780,7 @@
           "action": "compile",
           "expect": "accept",
           "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "Standard construct_at placement and union lifetime changes during constant evaluation are pending."
+          "pr": false
         },
         {
           "id": "constexpr-new23-gnu++20",
@@ -1789,7 +1789,7 @@
           "action": "compile",
           "expect": "accept",
           "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "Standard construct_at placement and union lifetime changes during constant evaluation are pending."
+          "pr": false
         },
         {
           "id": "constexpr-new24-c++20",

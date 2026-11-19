@@ -48,3 +48,20 @@ lifetimes. A constant expression must begin an element's lifetime
 before accessing its value.
 [N4861 allocator.members](https://timsong-cpp.github.io/cppwp/n4861/allocator.members)
 [N4861 expr.const](https://timsong-cpp.github.io/cppwp/n4861/expr.const)
+
+## Read after explicit destruction
+
+GCC 15.2 accepted reading a union member whose lifetime ended in an
+explicit pseudo-destructor call. Clang 22.1.2 and cppgm reject that read.
+The PA16 control follows the lifetime rule in N4861.
+[N4861 basic.life](https://timsong-cpp.github.io/cppwp/n4861/basic.life)
+[PA16 control](../pa16/tests/controls/100-cxx20-constexpr-read-after-destruction-bad.t)
+
+## Value initialization through bounded array construction
+
+GCC 15.2 and cppgm pass GCC's `constexpr-new23.C` in strict and GNU C++20
+mode. The original test checks replacement of an initialized array and
+activation of a different array member of a union. Clang 21.1.8 failed the
+first check. The bounded-array form of `std::construct_at` follows the
+library issue resolution already implemented by libstdc++ 15.
+[LWG 3436](https://cplusplus.github.io/LWG/issue3436)
