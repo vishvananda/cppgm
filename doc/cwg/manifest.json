@@ -1180,6 +1180,23 @@
       "text_sha256": "a8e5e8e2bfb5be825f4cfa9cb2632f0c91304bab67a6be562730a587c66a4a70"
     },
     {
+      "issue": 1756,
+      "title": "Direct-list-initialization of a non-class object",
+      "status": "CD4",
+      "role": "course-reference",
+      "file": "cwg-1756.txt",
+      "source_url": "https://cplusplus.github.io/CWG/issues/1756.html",
+      "snapshot_url": "https://raw.githubusercontent.com/cplusplus/CWG/38a43db15e384602a0c5debc3f7f22be32e186a1/issues/1756.html",
+      "source_html_sha256": "a90fa1eddba63136028ece028bfcec29ba66bbcd95e6b229c82b5bd8bb01cdd4",
+      "text_sha256": "4e02e696163945f80f739a4d58f31c52401a2ae2fda7192044c175a95660c026",
+      "adopted_papers": [],
+      "text_renderer": {
+        "path": "scripts/cwg_html_text.py",
+        "sha256": "9f54db3aee8c6beec374ecea9a96ae5172f584cfcaf793c2d41dbf775afc43aa",
+        "historical_edits": "del/ins, s/u, marked blocks and source-defined stddel/stdins retained, not applied"
+      }
+    },
+    {
       "issue": 1792,
       "title": "Incorrect example of explicit specialization of member enumeration",
       "status": "NAD",

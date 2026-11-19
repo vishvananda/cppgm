@@ -1375,14 +1375,14 @@ private:
 	void default_initialize(VariableEntity* variable, const Type* type, uint32_t location);
 	void check_const_default(ClassEntity* entity, const FunctionEntity* constructor, uint32_t location);
 	bool nontrivial_destruction(const Type* type);
-	void list_initialize(const syntax::BracedInitList& list, const Type* type, Scope* scope);
+	void list_initialize(const syntax::BracedInitList& list, const Type* type, Scope* scope, bool direct = false);
 	bool direct_enum_list(const syntax::BracedInitList& list, const Type* type, Scope* scope);
 	void aggregate_initialize(const syntax::BracedInitList& list, ClassEntity* entity, Scope* scope);
 	void aggregate_members(const syntax::BracedInitList& list, uint32_t& next, ClassEntity* entity, Scope* scope);
 	bool aggregate_default_member(const DataMember* member);
 	void aggregate_element(const syntax::BracedInitList& list, uint32_t& next, const Type* type, Scope* scope,
 		bool complete_object = true);
-	void initialize_element(const syntax::Expr& element, const Type* type, Scope* scope);
+	void initialize_element(const syntax::Expr& element, const Type* type, Scope* scope, bool direct = false);
 	FunctionEntity* implicit_constructor(ClassEntity* entity);
 	FunctionEntity* queried_default_constructor(ClassEntity* entity);
 	bool check_member_initializer_constructor(const FunctionEntity* constructor, uint32_t location);

@@ -351,6 +351,11 @@ PA11 supports the following in addition to the PA10 procedural subset:
 - non-static default member initializers for the supported scalar and supported
   class/aggregate subobject construction forms, with explicit constructor member-initializers
   taking precedence
+- single-element scalar list initialization preserves the direct or copy
+  initialization context when choosing conversion functions. Direct-list
+  initialization can select an explicit conversion function. Check narrowing
+  after selecting the conversion in either form. See N3485 `[dcl.init.list]`
+  and [CWG 1756](../doc/cwg/cwg-1756.txt).
 - local-class default member initializers that use an enclosing integral
   constant expression without odr-using the enclosing automatic object
 - a local class declared in a constructor's or destructor's body is one class

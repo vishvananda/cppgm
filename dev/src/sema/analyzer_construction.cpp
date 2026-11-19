@@ -1534,7 +1534,7 @@ FunctionEntity* Analyzer::initialize_object(
 		break;
 	case syntax::InitializerKind::Braced:
 		if (!direct_enum_list(static_cast<const syntax::BracedInitList&>(*init.expression), type, scope))
-			list_initialize(static_cast<const syntax::BracedInitList&>(*init.expression), type, scope);
+			list_initialize(static_cast<const syntax::BracedInitList&>(*init.expression), type, scope, !c_source_);
 		return nullptr;
 	case syntax::InitializerKind::Parenthesized:
 		if (init.arguments.empty())

@@ -407,7 +407,7 @@ bool Analyzer::direct_enum_list(const syntax::BracedInitList& list, const Type* 
 	return true;
 }
 
-void Analyzer::list_initialize(const syntax::BracedInitList& list, const Type* type, Scope* scope)
+void Analyzer::list_initialize(const syntax::BracedInitList& list, const Type* type, Scope* scope, bool direct)
 {
 	if (c_source_ && (list.designators != nullptr || list.array_designators != nullptr))
 		c_designated_list(list, type, scope);
@@ -535,7 +535,7 @@ void Analyzer::list_initialize(const syntax::BracedInitList& list, const Type* t
 	const syntax::Expr& element = *list.elements[0];
 	if (element.kind == syntax::ExprKind::BracedInit)
 		error(element.location, "unsupported nested braced initializer");
-	initialize_element(element, type, scope);
+	initialize_element(element, type, scope, direct);
 	new_facts(list, type, ValueCategory::LValue);
 }
 
@@ -801,13 +801,13 @@ bool Analyzer::array_new_list(
 	return true;
 }
 
-void Analyzer::initialize_element(const syntax::Expr& element, const Type* type, Scope* scope)
+void Analyzer::initialize_element(const syntax::Expr& element, const Type* type, Scope* scope, bool direct)
 {
-	// One scalar (or reference) copy-list-initialized from one element,
-	// typed once (a call's braced argument's were, see braced_argument).
+	// CWG 1467 and 1756: a scalar keeps the list's direct or copy
+	// initialization context. An argument's elements may already be typed.
 	if (element.facts == nullptr && typed(element, scope) == nullptr)
 		return;
-	const Conversion* conversion = convert(element, type, false);
+	const Conversion* conversion = convert(element, type, direct);
 	check_narrowing(element, conversion, type, scope);
 }
 
