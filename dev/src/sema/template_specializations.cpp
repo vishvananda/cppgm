@@ -299,6 +299,7 @@ Binding* Analyzer::explicit_function_specialization(const Specifiers& specifiers
 	function->instantiated = false;
 	function->is_constexpr = specifiers.is_constexpr;
 	function->is_consteval = specifiers.is_consteval;
+	function->placeholder_result = holds_auto(info.type->element);
 	function->defined = function->defined || definition || deleted;
 	if (info.parameters != nullptr)
 		function->parameters = info.parameters;
@@ -619,6 +620,20 @@ FunctionEntity* Analyzer::deduce_for_declaration(
 	const TemplateHead* head = HeadOf(primary);
 	if (head == nullptr)
 		return nullptr;
+	const Type* declared = type->canonical;
+	const Type* written = primary->placeholder_result && primary->templ->definition_type != nullptr
+		? primary->templ->definition_type->canonical
+		: primary->type->canonical;
+	// [dcl.spec.auto]: a specialization repeats the written placeholder.
+	// Once checked, it contributes no template arguments to deduction.
+	const bool placeholder = holds_auto(declared->element);
+	if (placeholder ? written->element != declared->element : holds_auto(written->element))
+		return nullptr;
+	if (placeholder)
+	{
+		declared = signature_of(declared);
+		written = signature_of(written);
+	}
 	TypeList arguments(head->count, nullptr);
 	TypeList converted;
 	// A trailing parameter pack given no explicit argument is deduced
@@ -629,8 +644,7 @@ FunctionEntity* Analyzer::deduce_for_declaration(
 	for (size_t i = 0; i < converted.size(); ++i)
 		arguments[i] = converted[i];
 	const uint32_t depth = head->count != 0 ? head->parameters[0]->depth : 0;
-	const Type* declared = type->canonical;
-	const Type* pattern = declaration_pattern(primary->type->canonical, declared, depth);
+	const Type* pattern = declaration_pattern(written, declared, depth);
 	// Deduction may extend a pack given explicit arguments (14.8.1p9): it is
 	// deduced whole, and must begin with them.
 	for (size_t i = 0; i < converted.size(); ++i)
@@ -661,8 +675,7 @@ FunctionEntity* Analyzer::deduce_for_declaration(
 		const Entity* saved = substitution_context_;
 		substitution_context_ = nullptr;
 		SoftSubstitution soft(*this);
-		const Type* substituted = substitute(
-			primary->type->canonical, Substitution{ depth, arguments.data(), head->count, nullptr });
+		const Type* substituted = substitute(written, Substitution{ depth, arguments.data(), head->count, nullptr });
 		substitution_context_ = saved;
 		if (soft.failed() || substituted == nullptr ||
 			!deduce_type(
@@ -672,8 +685,10 @@ FunctionEntity* Analyzer::deduce_for_declaration(
 	if (!complete_deduction(primary, arguments))
 		return nullptr;
 	FunctionEntity* function = specialize(primary, arguments);
-	return function != nullptr && declaration_pattern(function->type->canonical, declared, depth) == declared ? function
-																											  : nullptr;
+	if (function == nullptr)
+		return nullptr;
+	const Type* specialized = placeholder ? signature_of(function->type) : function->type->canonical;
+	return declaration_pattern(specialized, declared, depth) == declared ? function : nullptr;
 }
 
 const Type* Analyzer::declaration_pattern(const Type* pattern, const Type* declared, uint32_t depth)

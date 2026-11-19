@@ -265,7 +265,9 @@ braced placeholder deduction and invalid declarator combinations. Deleted
 placeholder-return declarations need no nonexistent body. A use that requires
 an undeduced return type from an unavailable definition is rejected. Deducing
 another function's return type inside a parameter's `decltype` leaves the
-enclosing function's own return type available for deduction. Initialized captures
+enclosing function's own return type available for deduction. An explicit
+specialization must repeat the function template's written return placeholder.
+Deduce the specialization's return type from its own definition. Initialized captures
 deduce from the enclosing scope; their new name is available in the body,
 not its own initializer. Support the existing assignment and parenthesized
 forms, generic parameter packs and nested capture propagation.
