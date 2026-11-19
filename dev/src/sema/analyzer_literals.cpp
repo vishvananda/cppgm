@@ -194,6 +194,8 @@ ExprFacts* Analyzer::literal_call(const syntax::LiteralExpr& expr, FunctionEntit
 	// A user-defined literal's call of the literal operator chosen (its
 	// value and category are the call's, 5.2.2p10).
 	check_not_deleted(function, expr.location);
+	if (!require_deduced(function, expr.location))
+		return nullptr;
 	odr_use(function, true);
 	if (!function->nothrow)
 		++potentially_throwing_;
