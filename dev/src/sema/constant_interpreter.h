@@ -191,6 +191,9 @@ private:
 	bool static_variable_place(const ConstPlace& place) const;
 	const ConstValue* provisional_value(const VariableEntity* variable);
 	bool extend_temporary(ConstPlace& place, uint32_t location);
+	bool destroy(const ConstPlace& place, uint32_t location);
+	bool run_destruction(const ConstPlace& place, uint32_t location);
+	bool check_constant_destruction(const ConstPlace& target, const ConstValue& value, uint32_t location);
 
 	// ------------------------------------------------ dynamic storage
 	ConstAllocation* allocation_at(const ConstPlace& place, uint32_t location);
@@ -402,6 +405,9 @@ private:
 		const uint32_t saved_;
 	};
 	bool incomplete_class_;
+	// The hypothetical destruction of a constexpr variable considers its
+	// non-mutable subobjects to begin their lifetimes in this evaluation.
+	bool checking_destruction_ = false;
 	// GNU constant_p conditionals permit foldable reference casts in the
 	// selected expression. A called function starts its own strict context.
 	bool folding_ = false;

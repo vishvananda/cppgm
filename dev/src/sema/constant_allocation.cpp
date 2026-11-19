@@ -95,9 +95,14 @@ bool ConstantInterpreter::deallocate_value(const syntax::DeleteExpr& expr)
 	const Type* allocated = expr.array ? allocation->type->element : allocation->type;
 	if (allocated->unqualified != pointed->unqualified)
 		return fail(expr.location, "constant deallocation through an unrelated pointer type");
-	if (const ClassEntity* cls = Analyzer::ObjectClassOf(allocated))
-		if (cls->destructor != nullptr && !cls->destructor->trivial)
-			return fail(expr.location, "non-trivial constant destruction is not supported");
+	ConstPlace object = PlaceOf(pointer, allocation->type);
+	object.flags &= ~kPastEnd;
+	if (!destroy(object, expr.location))
+		return false;
+	// The destructor can add an allocation and move the table's entries.
+	allocation = allocation_at(object, expr.location);
+	if (allocation == nullptr)
+		return false;
 	allocation->value = nullptr;
 	--storage_->live_allocations;
 	return true;

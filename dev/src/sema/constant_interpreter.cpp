@@ -381,6 +381,11 @@ bool ConstantInterpreter::root_storage(
 		const VariableEntity* variable = static_cast<const VariableEntity*>(place.entity);
 		if (variable == constructing_)
 		{
+			if (write && checking_destruction_ &&
+				((place.flags & kMutableSubobject) != 0 ||
+					(Analyzer::ObjectClassOf(place.type) != nullptr &&
+						analyzer_.mutable_subobjects(place.type) != SubobjectMutability::None)))
+				return fail(location, "a modification of a mutable subobject during constant destruction");
 			storage = constructing_value_;
 			type = variable->type;
 			return true;
@@ -1038,7 +1043,7 @@ bool ConstantInterpreter::read(const ConstPlace& place, ConstValue& out, uint32_
 	if (((place.flags & kMutableSubobject) != 0 || aggregate) &&
 		(!analyzer_.cxx14_ ||
 			!((place.root == RootKind::Object && place.object >= first_object_) ||
-				(place.root == RootKind::Variable && place.entity == constructing_) ||
+				(place.root == RootKind::Variable && place.entity == constructing_ && !checking_destruction_) ||
 				place.root == RootKind::Allocation)))
 	{
 		if ((place.flags & kMutableSubobject) != 0)
@@ -1934,12 +1939,6 @@ bool ConstantInterpreter::initialize(const VariableEntity* variable, const synta
 	const ClassEntity* cls = type->kind == TypeKind::Array ? nullptr : ClassOf(type);
 	if (cls != nullptr)
 		analyzer_.require_complete(cls);
-	if (analyzer_.cxx20_ && variable->is_constexpr)
-	{
-		const ClassEntity* object = Analyzer::ObjectClassOf(type);
-		if (object != nullptr && object->destructor != nullptr && !object->destructor->trivial)
-			return fail(location, "non-trivial constant destruction is not supported");
-	}
 	const bool prefix = CompactClass(cls);
 	if (!prefix && leaves(type, 0) > kValueBudget)
 		return fail(location, "constant evaluation exceeds its storage budget");
@@ -1962,6 +1961,9 @@ bool ConstantInterpreter::initialize(const VariableEntity* variable, const synta
 		return false;
 	if (!complete(*storage))
 		return fail(location, "a constexpr object leaves a subobject uninitialized");
+	if (analyzer_.cxx20_ && variable->is_constexpr && analyzer_.nontrivial_destruction(type) &&
+		!check_constant_destruction(target, *storage, location))
+		return false;
 	// An integer a Constant holds is the caller's to record; any other
 	// value is published (a 128-bit one beyond a Constant's too).
 	if (transient && storage->kind == ValueKind::Integer && (storage->flags & kValueZeroed) == 0 &&
@@ -1972,6 +1974,29 @@ bool ConstantInterpreter::initialize(const VariableEntity* variable, const synta
 	}
 	out = publish(*storage, location);
 	return out != nullptr;
+}
+
+bool ConstantInterpreter::check_constant_destruction(
+	const ConstPlace& target, const ConstValue& value, uint32_t location)
+{
+	// [dcl.constexpr], [expr.const]: destruction is a separate hypothetical
+	// evaluation. Keep the initializer's value, including self-pointers,
+	// unchanged for publication and let the destructor work on its own copy.
+	if (!finish_allocations(location))
+		return false;
+	ConstantInterpreter evaluation(analyzer_);
+	ConstValue copy;
+	CopyValue(copy, value, evaluation.arena_, nullptr, nullptr);
+	evaluation.constructing_ = constructing_;
+	evaluation.constructing_value_ = &copy;
+	evaluation.checking_destruction_ = true;
+	const bool done = evaluation.destroy(target, location) && evaluation.finish_allocations(location);
+	incomplete_class_ = incomplete_class_ || evaluation.incomplete_class_;
+	if (done)
+		return true;
+	if (evaluation.failure_ != nullptr)
+		return fail(evaluation.failure_location_, evaluation.failure_);
+	return fail(location, "a constexpr variable has nonconstant destruction");
 }
 
 } // namespace sema
