@@ -47,7 +47,7 @@ def digest(path):
 
 
 def review(xml_path, log_path, calls_path, project, expected, label='cppgm', native_path=None,
-           selected_targets=None):
+           selected_targets=None, inactive_tests=None):
     tree = ET.parse(xml_path).getroot()
     boost = Path(tree.findtext('directory')).resolve()
     declarations = []
@@ -59,9 +59,13 @@ def review(xml_path, log_path, calls_path, project, expected, label='cppgm', nat
         if directory == project or directory.startswith(project + '/'):
             if selected_targets is None or target in selected_targets:
                 declarations.append((test, target))
+    declared_targets = {target for _, target in declarations}
     if selected_targets is not None:
-        missing = selected_targets.difference(target for _, target in declarations)
+        missing = selected_targets.difference(declared_targets)
         require(not missing, f'{project}: missing test declarations: {sorted(missing)}')
+    inactive_tests = inactive_tests or {}
+    unknown = inactive_tests.keys() - declared_targets
+    require(not unknown, f'{project}: missing registered test exclusions: {sorted(unknown)}')
     if expected is not None:
         require(len(declarations) == expected, f'{project}: expected {expected} declarations, got {len(declarations)}')
     require(not re.search(r'^\.\.\.failed updating \d+ targets?\.\.\.$', log_path.read_text(), re.M), 'B2 reported failed targets')
@@ -90,6 +94,9 @@ def review(xml_path, log_path, calls_path, project, expected, label='cppgm', nat
         matching = [a for a in actions if a.findtext('name') == expectation and
                     '/boost/bin.v2/' + directory + '/' + name + '/' in (a.findtext('path') or '') and
                     Path(a.findtext('path')).name == name]
+        if target in inactive_tests:
+            require(not matching, f'{target} now runs in the default project')
+            continue
         require(len(matching) == 1, f'missing or duplicate expectation for {target}')
         action = matching[0]
         marker = Path(action.findtext('path'))
@@ -123,8 +130,11 @@ def review(xml_path, log_path, calls_path, project, expected, label='cppgm', nat
                            native_command=executed[0]['command'], native_cwd=executed[0]['cwd'])
         rows.append(row)
         counts[kind] += 1
-    return dict(project=project, declarations=len(declarations), passed=len(rows), counts=dict(counts), tests=rows,
-                xml_sha256=digest(xml_path), invocations_sha256=digest(calls_path))
+    result = dict(project=project, declarations=len(declarations), passed=len(rows), counts=dict(counts), tests=rows,
+                  xml_sha256=digest(xml_path), invocations_sha256=digest(calls_path))
+    if inactive_tests:
+        result['inactive_tests'] = inactive_tests
+    return result
 
 
 def setup(boost, output, label='cppgm', gdb_executable='/usr/bin/gdb'):

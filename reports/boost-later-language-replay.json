@@ -72,7 +72,10 @@
         "path": "runs/20261029T090403.725099Z-libs__gil__test/review.json",
         "sha256": "67235ca13248d1c7d246b23a8608533e74abf6c2eb75947d78ce99c31793b91f"
       },
-      "kind": "test"
+      "kind": "test",
+      "inactive_tests": {
+        "libs/gil/test/legacy//performance.test": "The pinned legacy Jamfile registers this test under the explicit perf alias. The default project does not request that alias."
+      }
     },
     {
       "project": "libs/graph/build",

@@ -34,7 +34,13 @@ def validate_inventory(inventory):
             boost_ci.require(group['replay_edition'] in (14, 17, 20) and
                              group['replay_edition'] >= group['edition'] and group.get('replay_reason'),
                              'invalid replay edition override')
-        for target in [*group.get('targets', []), *group.get('required_tests', [])]:
+        inactive_tests = group.get('inactive_tests', {})
+        required = {*group.get('targets', []), *group.get('required_tests', [])}
+        if inactive_tests:
+            boost_ci.require(group.get('kind') == 'test' and not group.get('targets') and
+                             all(isinstance(reason, str) and reason for reason in inactive_tests.values()) and
+                             required.isdisjoint(inactive_tests), 'invalid registered test exclusions')
+        for target in required | inactive_tests.keys():
             boost_ci.require(re.fullmatch(r'libs/[A-Za-z0-9_/]+//[^/\s]+\.test', target) and
                              target.split('//')[0].startswith(project), 'invalid test declaration: ' + target)
         boost_ci.require(all(p in {'link=shared'} for p in group.get('b2_properties', [])),
@@ -116,7 +122,7 @@ def replay(boost, settings, role, case, group, args):
     b2_run(command, boost, environment, log, args.timeout)
     selected = set(targets) if targets else None
     result = boost_ci.review(case / 'b2.xml', log, invocations, project, None, role,
-                             selected_targets=selected)
+                             selected_targets=selected, inactive_tests=group.get('inactive_tests'))
     if group.get('kind') == 'build':
         observed = source_compilations(invocations, project, boost, role)
         boost_ci.require(observed and min(edition_key for _, edition_key in observed) >= edition,
