@@ -480,7 +480,14 @@ sub try_set_process_group
 	my ($pid) = @_;
 	return 0 if !defined($pid) || $pid <= 0;
 	return 1 if setpgid($pid, $pid);
-	return 0 if $!{EACCES} || $!{EPERM} || $!{ESRCH};
+	# The command child can establish its own group and exec before we get
+	# here. Keep tracking that group so a timeout also kills descendants.
+	if ($!{EACCES} || $!{EPERM})
+	{
+		my $group = getpgrp($pid);
+		return defined($group) && $group == $pid;
+	}
+	return 0 if $!{ESRCH};
 	die "Unable to set worker process group for $pid: $!";
 }
 
