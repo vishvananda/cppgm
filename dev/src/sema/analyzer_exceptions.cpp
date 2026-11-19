@@ -414,8 +414,10 @@ void Analyzer::pending_noexcept(FunctionEntity* function, const syntax::Declarat
 	noexcept_index_.set(function, static_cast<uint32_t>(noexcepts_.size()));
 	// A class template instance's member waits for its need (14.7.1p1 as
 	// DR 1330 extends it); others are evaluated by the end of the unit.
-	const bool unit = template_depth_ == 0 && !function->templated && class_instantiations_.empty();
-	noexcepts_.push_back(PendingNoexcept{ operand, scope, parameters, function, unit, definition_point() });
+	const bool in_class_instantiation = !class_instantiations_.empty();
+	const bool unit = template_depth_ == 0 && !function->templated && !in_class_instantiation;
+	noexcepts_.push_back(
+		PendingNoexcept{ operand, scope, parameters, function, unit, in_class_instantiation, definition_point() });
 	function->noexcept_pending = true;
 	function->nothrow = false;
 }
@@ -437,9 +439,10 @@ void Analyzer::check_pending_exceptions()
 	check_exception_overrides(0, true);
 	for (size_t i = 0; i < noexcepts_.size(); ++i)
 	{
-		if (noexcepts_[i].unit && noexcepts_[i].function->noexcept_pending)
-			function_nothrow(noexcepts_[i].function);
-		else if (!noexcepts_[i].unit && noexcepts_[i].function->templated)
+		const PendingNoexcept& pending = noexcepts_[i];
+		if (pending.unit && pending.function->noexcept_pending)
+			function_nothrow(pending.function);
+		else if (!pending.unit && !pending.in_class_instantiation && pending.function->templated)
 			check_fixed_template_noexcept(i);
 	}
 	check_pending_exception_comparisons();
@@ -472,8 +475,8 @@ void Analyzer::check_fixed_template_noexcept(size_t index)
 	// 14.6p8, p10: a function template's noexcept-specification whose
 	// expression names nothing dependent is the same in every
 	// specialization: it is checked where it appears (a constant
-	// expression, 15.4p1), used or not. A member template of a templated
-	// class waits for the class's instances.
+	// expression, 15.4p1), used or not. For a templated class, a member
+	// template's operand can depend on the class's arguments (CWG 1330).
 	const PendingNoexcept pending = noexcepts_[index];
 	FunctionEntity* function = pending.function;
 	Scope* scope = pending.scope;

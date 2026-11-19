@@ -2654,6 +2654,9 @@ private:
 		// (check_pending_exceptions).
 		FunctionEntity* function;
 		bool unit;
+		// Members formed by class instantiation wait for their use, even
+		// when only the enclosing class's arguments affect the operand.
+		bool in_class_instantiation;
 		// Its declaration's context (14.6.4.2 for a template's or an
 		// instance member's): the declaration ordinal where it is.
 		uint32_t ordinal;
