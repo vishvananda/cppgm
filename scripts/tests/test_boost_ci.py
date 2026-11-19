@@ -59,6 +59,14 @@ class ReviewTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'incorrect compilation'):
             self.check()
 
+    def test_failed_b2_target_is_reported_before_binary_xml_output(self):
+        xml = self.root / 'b2.xml'
+        xml.write_bytes(b'<build>test output: \xff\x00</build>')
+        log = self.root / 'b2.log'
+        log.write_bytes(b'test output: \xff\x00\n...failed updating 1 target...\n')
+        with self.assertRaisesRegex(ValueError, 'B2 reported failed targets'):
+            boost_ci.review(xml, log, self.root / 'invocations.jsonl', self.project, 1)
+
     def test_compiler_crash_is_not_an_expected_rejection(self):
         for code in [-11, 70, 139]:
             with self.subTest(code=code):

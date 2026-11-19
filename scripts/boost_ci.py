@@ -144,7 +144,12 @@ def mpi_result(actions, target, marker):
 
 def review(xml_path, log_path, calls_path, project, expected, label='cppgm', native_path=None,
            selected_targets=None, inactive_tests=None):
-    tree = ET.parse(xml_path).getroot()
+    log = log_path.read_text(errors='replace')
+    require(not re.search(r'^\.\.\.failed updating \d+ targets?\.\.\.$', log, re.M), 'B2 reported failed targets')
+    try:
+        tree = ET.parse(xml_path).getroot()
+    except ET.ParseError as error:
+        raise ValueError(f'invalid B2 XML in {xml_path}: {error}') from error
     boost = Path(tree.findtext('directory')).resolve()
     declarations = []
     for test in tree.findall('test'):
@@ -164,7 +169,6 @@ def review(xml_path, log_path, calls_path, project, expected, label='cppgm', nat
     require(not unknown, f'{project}: missing registered test exclusions: {sorted(unknown)}')
     if expected is not None:
         require(len(declarations) == expected, f'{project}: expected {expected} declarations, got {len(declarations)}')
-    require(not re.search(r'^\.\.\.failed updating \d+ targets?\.\.\.$', log_path.read_text(), re.M), 'B2 reported failed targets')
     calls = [json.loads(line) for line in calls_path.read_text().splitlines()]
     native = ([json.loads(line) for line in native_path.read_text().splitlines()]
               if native_path is not None and native_path.exists() else [])
