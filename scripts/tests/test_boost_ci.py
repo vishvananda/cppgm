@@ -119,6 +119,28 @@ class ReviewTests(unittest.TestCase):
         ET.SubElement(action, 'path').text = str(self.marker.with_suffix('.run'))
         self.assertEqual(self.check()['counts'], {'RUN': 1})
 
+    def test_mpi_requires_a_successful_launch_at_the_declared_rank_count(self):
+        self.fixture('RUN_MPI', name='example-4.test')
+        run = self.marker.with_name('example-4-run')
+        output = run.with_suffix('.output')
+        output.write_text('EXIT STATUS: 0\n')
+        with self.assertRaisesRegex(ValueError, 'no actual MPI execution'):
+            self.check()
+        action = ET.SubElement(self.tree, 'action', status='0')
+        ET.SubElement(action, 'name').text = 'mpi%mpi.capture-output'
+        ET.SubElement(action, 'path').text = str(run)
+        command = ET.SubElement(action, 'command')
+        executable = self.marker.with_suffix('')
+        command.text = f'mpirun --oversubscribe -np 2 "{executable}" > "{output}"'
+        with self.assertRaisesRegex(ValueError, 'incorrect MPI launch'):
+            self.check()
+        command.text = f'mpirun --oversubscribe -np 4 "{executable}" > "{output}"'
+        row, = self.check()['tests']
+        self.assertEqual((row['mpi_ranks'], row['native_status']), (4, 0))
+        output.write_text('EXIT STATUS: 1\n')
+        with self.assertRaisesRegex(ValueError, 'incorrect MPI result'):
+            self.check()
+
     def test_standalone_python_requires_actual_execution_without_extension_dependencies(self):
         self.fixture('RUN_PYD')
         source = self.project + '/example.py'

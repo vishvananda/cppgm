@@ -72,6 +72,36 @@ def standalone_python_result(tree, actions, test, target, marker, boost):
     return dict(native_status=0, output_sha256=digest(output))
 
 
+def mpi_result(actions, target, marker):
+    # The pinned mpi-test rule appends the requested rank count to the
+    # target and uses a separate launch receipt for that variant.
+    ranks = marker.stem.rsplit('-', 1)[-1]
+    require(ranks.isdecimal() and int(ranks) > 0, f'no MPI rank count for {target}')
+    run = marker.with_name(marker.stem + '-run')
+    capture = [a for a in actions if a.findtext('name') == 'mpi%mpi.capture-output' and
+               a.findtext('path') == str(run)]
+    require(len(capture) == 1 and capture[0].attrib['status'] == '0', f'no actual MPI execution for {target}')
+    executable = str(marker.with_suffix(''))
+    launches = []
+    for line in capture[0].findtext('command', '').splitlines():
+        invocation, separator, _ = line.partition(' > ')
+        if not separator:
+            continue
+        arguments = shlex.split(invocation)
+        if not arguments or Path(arguments[0]).name not in {'mpirun', 'mpiexec', 'orterun'}:
+            continue
+        for option in ('-np', '-n'):
+            if option in arguments:
+                index = arguments.index(option)
+                if arguments[index + 1:index + 2] == [ranks] and executable in arguments[index + 2:]:
+                    launches.append(arguments)
+    require(len(launches) == 1, f'incorrect MPI launch for {target}')
+    output = run.with_suffix('.output')
+    require(re.search(r'EXIT STATUS:\s*0\s*$', output.read_text(errors='replace')) is not None,
+            f'incorrect MPI result for {target}')
+    return dict(native_status=0, mpi_ranks=int(ranks), native_command=launches[0], output_sha256=digest(output))
+
+
 def review(xml_path, log_path, calls_path, project, expected, label='cppgm', native_path=None,
            selected_targets=None, inactive_tests=None):
     tree = ET.parse(xml_path).getroot()
@@ -114,7 +144,7 @@ def review(xml_path, log_path, calls_path, project, expected, label='cppgm', nat
     actions = tree.findall('action')
     for test, target in declarations:
         kind = test.attrib['type']
-        require(kind in ('COMPILE', 'COMPILE_FAIL', 'LINK', 'LINK_FAIL', 'RUN', 'RUN_FAIL', 'RUN_PYD'),
+        require(kind in ('COMPILE', 'COMPILE_FAIL', 'LINK', 'LINK_FAIL', 'RUN', 'RUN_FAIL', 'RUN_PYD', 'RUN_MPI'),
                 f'unreviewed test kind {kind}')
         directory, name = target.split('//')
         expectation = 'testing%testing.expect-' + ('failure' if kind.endswith('_FAIL') else 'success')
@@ -143,6 +173,8 @@ def review(xml_path, log_path, calls_path, project, expected, label='cppgm', nat
         row.update(compile_cpu=sum(c.get('cpu_seconds', 0) for c in compiled),
                    compile_elapsed=sum(c.get('seconds', 0) for c in compiled),
                    sources=[c['args'] for c in compiled])
+        if kind == 'RUN_MPI':
+            row.update(mpi_result(actions, target, marker))
         if kind in ('RUN', 'RUN_FAIL'):
             output = marker.with_suffix('.output')
             status = re.search(r'EXIT STATUS:\s*(\d+)\s*$', output.read_text(errors='replace'))

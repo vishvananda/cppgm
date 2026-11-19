@@ -80,6 +80,9 @@ jobs:
           replay=()
           if [ "$FULL" != true ]; then
             replay+=(--smoke)
+          else
+            printf '%s\n' 'using mpi : : : mpirun --allow-run-as-root --oversubscribe -np ;' > "$RUNNER_TEMP/boost-mpi.jam"
+            replay+=(--extra-user-config "$RUNNER_TEMP/boost-mpi.jam")
           fi
           if [ "$FULL" = true ] && [ "$EDITION" != all ]; then
             replay+=(--edition "$EDITION")
