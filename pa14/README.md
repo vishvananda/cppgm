@@ -459,3 +459,7 @@ the parameters of a member function and of a function declared with a
 qualified name, the target of an alias-declaration, a trailing return type, a
 `new` type and the target type of a named cast. A block-scope declaration
 still needs `typename`, and so does every such name in an earlier mode.
+In a template argument such as `Choice<bool(T::value)>`, the functional
+cast competes with a function type. The argument does not supply a type-only
+context, so treat the dependent value as the operand of the cast.
+See N4861 `[temp.res]`.

@@ -28,7 +28,7 @@ our @EXPORT_OK = qw(
   print_test_run_summary
   read_env_file
   read_word_list
-  standard_args_for
+  source_args_for
   resolve_host_command
   result_suffix
   run_result_name
@@ -436,12 +436,13 @@ sub app_args_for
 	return shellwords($ENV{CPPGM_APP_ARGS} || '');
 }
 
-sub standard_args_for
+sub source_args_for
 {
 	my ($test) = @_;
 	(my $base = $test) =~ s/\.(?:cpp|t(?:\.1)?)$//;
 	my @files = grep { -f $_ } ("$base.cxx-standard", "$base.c-standard");
-	return () if !@files;
+	my @flags = read_word_list("$base.flags");
+	return @flags if !@files;
 	die "Conflicting language standards for $base\n" if @files != 1;
 	my $path = $files[0];
 	my $is_c = $path =~ /\.c-standard$/;
@@ -450,7 +451,7 @@ sub standard_args_for
 	my $language = $is_c ? 'C' : 'C++';
 	die "Expected one $language standard in $path\n"
 		if @standards != 1 || $standards[0] !~ $pattern;
-	return "-std=$standards[0]";
+	return ("-std=$standards[0]", @flags);
 }
 
 sub open_worker

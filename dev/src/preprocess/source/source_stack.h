@@ -42,6 +42,7 @@ struct SourceFrame
 	int32_t search_index;
 	// The next token starts a line.
 	bool at_line_start;
+	uint8_t extension_warnings_on_entry = 0;
 	// The guard candidate and the number of conditional groups open outside
 	// its #ifndef.
 	GuardState guard_state;
@@ -112,6 +113,8 @@ public:
 	void set_hosted(bool enabled) { hosted_ = enabled; }
 	void set_conditional_escapes(bool on) { conditional_escapes_ = on; }
 	void set_cxx20(bool on) { cxx20_ = on; }
+	bool digit_separators() const { return digit_separators_; }
+	bool binary_exponents() const { return binary_exponents_; }
 	void set_number_syntax(bool separators, bool exponents)
 	{
 		digit_separators_ = separators;

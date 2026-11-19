@@ -93,8 +93,8 @@ uint32_t SourceFiles::enter(SourceFile* file, std::string presumed_name, uint32_
 	const uint64_t end = uint64_t(next_base_) + file->buffer().size() + 1;
 	if (end > std::numeric_limits<uint32_t>::max())
 		throw PreprocessError(0, "the translation unit exceeds the source location space");
-	inclusions_.push_back(
-		SourceInclusion{ next_base_, parent, file, std::move(presumed_name), 0, nullptr, 0, included_at });
+	inclusions_.push_back(SourceInclusion{
+		next_base_, parent, file, std::move(presumed_name), 0, nullptr, 0, included_at, {}, kNoLocation });
 	next_base_ = static_cast<uint32_t>(end);
 	return static_cast<uint32_t>(inclusions_.size() - 1);
 }

@@ -4,13 +4,13 @@ namespace syntax {
 
 SyntaxUnit::SyntaxUnit(const PreprocessorOptions& options, const std::string& path, bool syntax_only)
 	: preprocessor_(options, path), post_tokens_(preprocessor_, &preprocessor_.identifiers(), options.literals,
-										options.target, options.gnu_c(), options.cplusplus == "202002L"),
+										options.target, options.gnu_c(), options.cxx_edition >= 20),
 	  tokens_(post_tokens_, spellings_),
-	  parser_(tokens_, preprocessor_.identifiers(), arena_, options.hosted, options.cplusplus != "201103L",
-		  options.cplusplus >= "201703L", options.language == SourceLanguage::C, syntax_only,
-		  options.cplusplus == "202002L"),
+	  parser_(tokens_, preprocessor_.identifiers(), arena_, options.hosted, options.cxx_edition >= 14,
+		  options.cxx_edition >= 17, options.language == SourceLanguage::C, syntax_only, options.cxx_edition >= 20),
 	  tree_(nullptr)
 {
+	parser_.set_source_positions(preprocessor_);
 	tokens_.observe_pack(preprocessor_.pack_state());
 	tokens_.set_prelude(preprocessor_.builtin_begin(), preprocessor_.builtin_end());
 }

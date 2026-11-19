@@ -146,16 +146,7 @@ Expr* Parser::finish_assignment_expression(Expr* left)
 	if (left == nullptr)
 		return nullptr;
 	if (at(TokenKind::OP_QMARK))
-	{
-		ConditionalExpr* expr = make<ConditionalExpr>(ExprKind::Conditional, left->location);
-		next();
-		expr->condition = left;
-		expr->then_expr = parse_expression();
-		if (expr->then_expr == nullptr || !expect(TokenKind::OP_COLON))
-			return nullptr;
-		expr->else_expr = parse_assignment_expression();
-		return expr->else_expr == nullptr ? nullptr : expr;
-	}
+		return conditional_after(left);
 	if (tok().kind == ParseTokenKind::Simple && IsAssignmentOperator(tok().simple) && !at(TokenKind::OP_DOTS, 1))
 	{
 		BinaryExpr* expr = make<BinaryExpr>(ExprKind::Assign, left->location);
@@ -167,6 +158,24 @@ Expr* Parser::finish_assignment_expression(Expr* left)
 		return expr->right == nullptr ? nullptr : expr;
 	}
 	return left;
+}
+
+Expr* Parser::parse_conditional_expression()
+{
+	Expr* condition = parse_binary(kLogicalOrPrecedence);
+	return condition != nullptr && at(TokenKind::OP_QMARK) ? conditional_after(condition) : condition;
+}
+
+Expr* Parser::conditional_after(Expr* condition)
+{
+	ConditionalExpr* expr = make<ConditionalExpr>(ExprKind::Conditional, condition->location);
+	next();
+	expr->condition = condition;
+	expr->then_expr = parse_expression();
+	if (expr->then_expr == nullptr || !expect(TokenKind::OP_COLON))
+		return nullptr;
+	expr->else_expr = parse_assignment_expression();
+	return expr->else_expr == nullptr ? nullptr : expr;
 }
 
 int Parser::binary_precedence(TokenKind& op, uint32_t& width)
@@ -417,7 +426,11 @@ Expr* Parser::parse_fold_rest(uint32_t start, Expr* left)
 		// naming an unexpanded pack -- is known where it is expanded.
 		fold->init = operand;
 	}
-	return expect(TokenKind::OP_RPAREN) ? fold : nullptr;
+	if (!expect(TokenKind::OP_RPAREN))
+		return nullptr;
+	if (!cxx17_)
+		require_cxx_extension(start, 17, "fold expressions are a C++17 extension");
+	return fold;
 }
 
 Expr* Parser::parse_left_fold(uint32_t start)
@@ -438,6 +451,8 @@ Expr* Parser::parse_left_fold(uint32_t start)
 	fold->pattern = parse_cast_expression();
 	if (fold->pattern == nullptr || !expect(TokenKind::OP_RPAREN))
 		return nullptr;
+	if (!cxx17_)
+		require_cxx_extension(start, 17, "fold expressions are a C++17 extension");
 	return fold;
 }
 
@@ -1298,6 +1313,8 @@ bool Parser::invent_lambda_parameters(LambdaExpr& lambda)
 	}
 	if (invented.head != nullptr)
 	{
+		if (!cxx14_)
+			require_cxx_extension(lambda.location, 14, "generic lambdas require C++14", false);
 		lambda.template_parameters = invented.head;
 		lambda.generic_parameters = invented.parameters;
 	}
@@ -1349,6 +1366,8 @@ Expr* Parser::parse_lambda()
 			next();
 			if ((hosted_ || cxx14_) && (at(TokenKind::OP_ASS) || at(TokenKind::OP_LBRACE) || at(TokenKind::OP_LPAREN)))
 			{
+				if (!cxx14_)
+					require_cxx_extension(location(), 14, "lambda init-capture is a C++14 extension");
 				capture.initializer = parse_initializer(true);
 				if (capture.initializer == nullptr)
 					return nullptr;
@@ -1375,6 +1394,8 @@ Expr* Parser::parse_lambda()
 			scopes_.set_current(saved);
 			return nullptr;
 		}
+		if (!cxx20_)
+			require_cxx_extension(lambda->location, 20, "lambda template parameters are a C++20 extension");
 		lambda->explicit_template_parameter_count = lambda->template_parameters->parameters.size;
 		if (accept(TokenKind::KW_REQUIRES))
 		{
@@ -1383,6 +1404,13 @@ Expr* Parser::parse_lambda()
 			if (lambda->constraints->head == nullptr)
 				return nullptr;
 		}
+	}
+	// The front attribute sequence appertains to the call operator.
+	if (at_attribute())
+	{
+		require_cxx_extension(location(), 23, "front attributes on a lambda are a C++23 extension");
+		if (!collect_attributes(lambda->attributes))
+			return nullptr;
 	}
 	lambda->clause_token = static_cast<uint32_t>(tokens_.unit_position());
 	if (at(TokenKind::OP_LPAREN))

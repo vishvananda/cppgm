@@ -252,6 +252,7 @@ struct BitFieldDeclarator
 {
 	Declarator* declarator;
 	Expr* width;
+	Initializer* initializer;
 };
 
 struct BitFieldDecl : Decl

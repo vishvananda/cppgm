@@ -1,5 +1,6 @@
 #include "sema/analyzer.h"
 
+#include "preprocess/preprocessor.h"
 #include "sema/aggregates.h"
 #include "sema/constant_interpreter.h"
 
@@ -16,6 +17,51 @@ namespace {
 bool UserProvidedMember(const FunctionEntity* function)
 {
 	return !function->implicit && !function->defaulted && !function->deleted;
+}
+
+bool DefinesType(const syntax::DeclSpecifier& specifier)
+{
+	return specifier.kind == syntax::DeclSpecKind::Class ||
+		(specifier.kind == syntax::DeclSpecKind::Enum && specifier.enum_specifier->has_body);
+}
+
+// N3485 [dcl.constexpr] permits these auxiliary declarations before C++14.
+bool Cxx11ConstexprDeclaration(const syntax::Decl& decl)
+{
+	switch (decl.kind)
+	{
+	case syntax::DeclKind::StaticAssert:
+	case syntax::DeclKind::UsingDeclaration:
+	case syntax::DeclKind::UsingDirective:
+		return true;
+	case syntax::DeclKind::Alias:
+		for (const auto& specifier : static_cast<const syntax::AliasDecl&>(decl).type->specifiers)
+			if (DefinesType(specifier))
+				return false;
+		return true;
+	case syntax::DeclKind::Simple:
+	{
+		bool is_typedef = false;
+		for (const auto& specifier : static_cast<const syntax::SimpleDecl&>(decl).specifiers)
+		{
+			if (DefinesType(specifier))
+				return false;
+			is_typedef |= specifier.kind == syntax::DeclSpecKind::Keyword && specifier.keyword == TokenKind::KW_TYPEDEF;
+		}
+		return is_typedef;
+	}
+	default:
+		return false;
+	}
+}
+
+// Clang classifies loops and switch statements as hard grammar
+// requirements in C++11. Warn about the remaining relaxed forms so
+// system headers and scoped pragmas can admit them.
+bool Cxx11ConstexprHardRequirement(syntax::StmtKind kind)
+{
+	return kind == syntax::StmtKind::Switch || kind == syntax::StmtKind::While || kind == syntax::StmtKind::Do ||
+		kind == syntax::StmtKind::For || kind == syntax::StmtKind::RangeFor;
 }
 
 // Whether a constructor's plan initializes the subobject: a mem-initializer
@@ -593,6 +639,43 @@ const ClassEntity* Analyzer::ObjectClassOf(const Type* type)
 	return ClassOf(type);
 }
 
+void Analyzer::check_cxx11_constexpr_body(const syntax::CompoundStmt& body, bool constructor)
+{
+	bool returned = false;
+	bool relaxed = false;
+	const char* message = "a relaxed constexpr function body requires C++14";
+	for (const syntax::Stmt* statement : body.items)
+	{
+		switch (statement->kind)
+		{
+		case syntax::StmtKind::Return:
+		{
+			const bool first = !constructor && !returned;
+			returned = true;
+			if (first)
+				continue;
+			break;
+		}
+		case syntax::StmtKind::Expression:
+			if (static_cast<const syntax::ExpressionStmt*>(statement)->expression == nullptr)
+				continue;
+			break;
+		case syntax::StmtKind::Declaration:
+			if (Cxx11ConstexprDeclaration(*static_cast<const syntax::DeclarationStmt*>(statement)->declaration))
+				continue;
+			break;
+		default:
+			break;
+		}
+		relaxed = true;
+		const bool suppressible = !Cxx11ConstexprHardRequirement(statement->kind);
+		if (positions_ == nullptr || !positions_->allow_cxx_extension(statement->location, 14, message, suppressible))
+			error(statement->location, message);
+	}
+	if (!constructor && !returned && !relaxed)
+		error(body.location, "a C++11 constexpr function requires a return statement");
+}
+
 void Analyzer::check_constexpr_function(const FunctionEntity* function, const Type* type, uint32_t location)
 {
 	// Lambda return types may still be deduced here. Their explicit or
@@ -610,6 +693,8 @@ void Analyzer::check_constexpr_function(const FunctionEntity* function, const Ty
 		(function->owner != nullptr && function->owner->kind == ScopeKind::Class &&
 			(templated_class(function->owner) || WithinInstance(function->owner))))
 		return;
+	if (strict_cxx11_ && !function->defaulted && function->body != nullptr && function->body->body != nullptr)
+		check_cxx11_constexpr_body(*function->body->body, function->constructor);
 	const Type* canonical = type->canonical;
 	if (!function->constructor)
 	{

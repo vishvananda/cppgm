@@ -216,6 +216,8 @@ struct SourceOutputInvocation
 	unsigned pic_level = 0;
 	unsigned pie_level = 0;
 	bool strict_aliasing = true;
+	ExtensionWarnings extension_warnings = ExtensionWarnings::Disabled;
+	bool warn_system_headers = false;
 	bool exceptions = true;
 	bool rtti = true;
 	vector<string> include_paths;
@@ -315,6 +317,8 @@ SourceOutputInvocation parse_source_output_invocation(const vector<string>& args
 				invocation.standard = args[i].substr(5);
 			continue;
 		}
+		if (driver::diagnostic_option(args[i], invocation.extension_warnings, invocation.warn_system_headers))
+			continue;
 		if (args[i] == "-matomics" || args[i] == "-mno-atomics")
 		{
 			invocation.wasm_atomics = args[i] == "-matomics";
@@ -776,6 +780,8 @@ PreprocessorOptions source_preprocessor_options(const SourceOutputInvocation& in
 	options.quote_include_paths = invocation.quote_include_paths;
 	options.system_include_paths = invocation.system_include_paths;
 	options.command_line = invocation.command_line;
+	options.extension_warnings = invocation.extension_warnings;
+	options.warn_system_headers = invocation.warn_system_headers;
 	driver::configure_source_language(invocation.language, invocation.standard, options);
 	options.plain_char_unsigned = invocation.plain_char_unsigned < 0 ? invocation.target == native::Target::AArch64Linux
 																	 : invocation.plain_char_unsigned != 0;
@@ -955,9 +961,7 @@ int run_emit_types_mode(vector<string> args)
 				sema::Analyzer analyzer(graph, unit.identifiers());
 				analyzer.set_source_language(options.language, options.gnu_c());
 				analyzer.set_hosted(options.hosted);
-				analyzer.set_cxx14(options.language != SourceLanguage::C && options.cplusplus != "201103L");
-				analyzer.set_cxx17(options.cplusplus >= "201703L");
-				analyzer.set_cxx20(options.cplusplus == "202002L");
+				analyzer.set_cxx_edition(options.cxx_edition, options.diagnose_cxx_extensions());
 				analyzer.set_exceptions(options.modes.exceptions);
 				analyzer.set_source_positions(&unit.positions());
 				analyzer.analyze(unit.tree());
@@ -1040,9 +1044,7 @@ int run_emit_semantics_mode(vector<string> args)
 				sema::Analyzer analyzer(graph, unit.identifiers(), sema::AnalysisMode::Semantics);
 				analyzer.set_source_language(options.language, options.gnu_c());
 				analyzer.set_hosted(options.hosted);
-				analyzer.set_cxx14(options.language != SourceLanguage::C && options.cplusplus != "201103L");
-				analyzer.set_cxx17(options.cplusplus >= "201703L");
-				analyzer.set_cxx20(options.cplusplus == "202002L");
+				analyzer.set_cxx_edition(options.cxx_edition, options.diagnose_cxx_extensions());
 				analyzer.set_exceptions(options.modes.exceptions);
 				analyzer.set_source_positions(&unit.positions());
 				analyzer.analyze(unit.tree());
@@ -1199,9 +1201,7 @@ int run_emit_lowir_mode(vector<string> args)
 			sema::Analyzer analyzer(graph, unit.identifiers(), sema::AnalysisMode::Semantics);
 			analyzer.set_source_language(options.language, options.gnu_c());
 			analyzer.set_hosted(options.hosted);
-			analyzer.set_cxx14(options.language != SourceLanguage::C && options.cplusplus != "201103L");
-			analyzer.set_cxx17(options.cplusplus >= "201703L");
-			analyzer.set_cxx20(options.cplusplus == "202002L");
+			analyzer.set_cxx_edition(options.cxx_edition, options.diagnose_cxx_extensions());
 			analyzer.set_exceptions(options.modes.exceptions);
 			analyzer.set_source_positions(&unit.positions());
 			try

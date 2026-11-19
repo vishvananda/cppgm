@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <iosfwd>
+#include <map>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -20,6 +21,13 @@
 #include "support/memory/arena.h"
 #include "support/telemetry.h"
 #include "target_model.h"
+
+enum class ExtensionWarnings : uint8_t
+{
+	Disabled,
+	Pedantic,
+	Errors
+};
 
 // Values of the predefined macros that come from outside the translation
 // unit ([cpp.predefined] 16.8, directives.md).
@@ -66,14 +74,17 @@ struct PreprocessorOptions
 	// macros: part of what is compiled, not of what -E writes.
 	std::string builtin_declarations;
 	FeatureModes modes;
-	// __cplusplus's value (201103L, 201402L, 201703L or 202002L).
-	std::string cplusplus = "201103L";
+	// The decoded language edition used by the frontend, or zero for C.
+	uint8_t cxx_edition = 11;
 	// __STDC_VERSION__ for C source.
 	const char* c_version = "201710L";
 	// The strict ISO dialect (-std=c++11, c++14, c++17): the host's
 	// predefined macros for it (__STRICT_ANSI__) instead of the GNU
 	// dialect's (gnu++11 ..., and the default).
 	bool strict = false;
+	ExtensionWarnings extension_warnings = ExtensionWarnings::Disabled;
+	bool warn_system_headers = false;
+	bool diagnose_cxx_extensions() const { return strict || extension_warnings != ExtensionWarnings::Disabled; }
 	bool gnu_c() const { return language == SourceLanguage::C && !strict; }
 	// -D and -U as #define and #undef lines, then each -include file as an
 	// #include "file" line, read after the predefined macros; a source
@@ -90,8 +101,11 @@ public:
 	virtual uint64_t line_of(uint32_t location) const = 0;
 	// The 1-based byte column in its physical line.
 	virtual uint64_t column_of(uint32_t location) const = 0;
-	// Whether the location is in a system header (SourceInclusion::system).
+	// Whether the location is in a system header.
 	virtual bool in_system_header(uint32_t location) const = 0;
+	// Called only for recognized syntax that predates its introducing edition.
+	virtual bool allow_cxx_extension(
+		uint32_t location, uint8_t edition, const char* message, bool suppressible_in_headers = true) const = 0;
 
 protected:
 	~SourcePositions() {}
@@ -157,6 +171,8 @@ public:
 	uint64_t line_of(uint32_t location) const override;
 	uint64_t column_of(uint32_t location) const override;
 	bool in_system_header(uint32_t location) const override;
+	bool allow_cxx_extension(
+		uint32_t location, uint8_t edition, const char* message, bool suppressible_in_headers) const override;
 
 	// The translation unit's interned identifiers, shared with the parser.
 	IdentifierTable& identifiers() { return identifiers_; }
@@ -209,7 +225,7 @@ private:
 	uint64_t presumed_line(uint32_t location) override;
 	TokenSpelling presumed_file_literal(uint32_t location) override;
 	bool can_include(const std::string& name, bool angle, bool next) override;
-	bool has_feature(const char* spelling, uint32_t length) override;
+	bool has_feature(const char* spelling, uint32_t length, bool extension) override;
 	uint32_t builtin_version(const char* spelling, uint32_t length) override;
 	bool has_target_attribute(const char* spelling, uint32_t length) override;
 	bool continue_macro_arguments() override;
@@ -218,7 +234,7 @@ private:
 
 	void define_builtin_macros();
 	void run_pragma_operator(const PPToken& pragma);
-	void run_pragma(const char* text, uint32_t length);
+	void run_pragma(const char* text, uint32_t length, uint32_t location);
 	void mark_once();
 
 	// Directives (preprocessor_directives.cpp).
@@ -243,6 +259,10 @@ private:
 	SourceFile* find_include(const std::string& name, bool angle, bool next, std::string& path, int32_t& index);
 	void run_line(const PPToken& directive);
 	void run_pragma_directive();
+	void run_language_pragma(uint32_t location);
+	void apply_language_pragma(uint32_t location, const PPToken& name, const PPToken& action, const PPToken& warning);
+	static bool language_pragma_family(const PPToken& token);
+	static uint8_t extension_group(uint8_t edition) { return static_cast<uint8_t>(1u << ((edition - 11) / 3)); }
 	void run_pack_pragma(const PPToken& directive);
 	void apply_pack_pragma(const std::vector<PPToken>& operands);
 	void read_replaced_line(std::vector<PPToken>& tokens);
@@ -292,4 +312,11 @@ private:
 	// #pragma pack: the packing in effect and the pushed ones.
 	uint32_t pack_;
 	std::vector<uint32_t> pack_stack_;
+	ExtensionWarnings extension_warnings_;
+	bool warn_system_headers_;
+	uint8_t ignored_extension_groups_ = 0;
+	std::vector<uint8_t> saved_extension_groups_;
+	// A sparse location history, with inherited settings recorded on entry
+	// and a changed setting recorded at resumption of an including file.
+	std::map<uint32_t, uint8_t> extension_group_changes_;
 };

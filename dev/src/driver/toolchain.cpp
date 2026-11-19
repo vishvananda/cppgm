@@ -52,15 +52,25 @@ void language_standard(const std::string& standard, PreprocessorOptions& options
 	if (c99 || standard == "c17" || standard == "gnu17")
 	{
 		options.language = SourceLanguage::C;
-		options.cplusplus.clear();
+		options.cxx_edition = 0;
 		options.c_version = c99 ? "199901L" : "201710L";
 		options.strict = standard == "c99" || standard == "c17";
 		return;
 	}
 	options.language = SourceLanguage::Cxx;
 	const LanguageMode mode = ReadLanguageMode(standard);
-	options.cplusplus = mode.cplusplus;
+	options.cxx_edition = mode.edition;
 	options.strict = mode.strict;
+}
+
+static NumberDialect hosted_number_dialect(const PreprocessorOptions& options)
+{
+	const bool pedantic = options.extension_warnings == ExtensionWarnings::Errors;
+	if (options.cxx_edition == 11)
+		return pedantic ? NumberDialect::StrictHostedCxx11 : NumberDialect::HostedCxx11;
+	if (options.cxx_edition == 14 && pedantic)
+		return NumberDialect::StrictHostedCxx14;
+	return NumberDialect::Gnu;
 }
 
 void configure_source_language(const std::string& language, const std::string& standard, PreprocessorOptions& options)
@@ -80,6 +90,28 @@ void configure_source_language(const std::string& language, const std::string& s
 		throw InvocationError("unsupported language: " + language);
 	if (!language.empty() && (language == "c") != (options.language == SourceLanguage::C))
 		throw InvocationError("language standard does not match -x " + language);
+	if (options.language == SourceLanguage::Cxx)
+		options.literals = hosted_number_dialect(options);
+}
+
+bool diagnostic_option(
+	const std::string& arg, ExtensionWarnings& warnings, bool& system_headers, bool* ignore_narrowing)
+{
+	if (arg == "-pedantic-errors")
+		warnings = ExtensionWarnings::Errors;
+	else if (arg == "-pedantic")
+	{
+		if (warnings != ExtensionWarnings::Errors)
+			warnings = ExtensionWarnings::Pedantic;
+	}
+	else if (arg == "-Wsystem-headers" || arg == "-Wno-system-headers")
+		system_headers = arg == "-Wsystem-headers";
+	else if (ignore_narrowing != nullptr &&
+		(arg == "-Wno-narrowing" || arg == "-Wnarrowing" || arg == "-Werror=narrowing"))
+		*ignore_narrowing = arg == "-Wno-narrowing";
+	else
+		return false;
+	return true;
 }
 
 bool float_contract_option(const std::string& option, bool* enabled)
@@ -569,8 +601,9 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 			char_signedness_explicit = true;
 			invocation.preprocessor.plain_char_unsigned = arg == "-funsigned-char" || arg == "-fno-signed-char";
 		}
-		else if (arg == "-Wno-narrowing" || arg == "-Wnarrowing" || arg == "-Werror=narrowing")
-			invocation.ignore_narrowing = arg == "-Wno-narrowing";
+		else if (diagnostic_option(arg, invocation.preprocessor.extension_warnings,
+					 invocation.preprocessor.warn_system_headers, &invocation.ignore_narrowing))
+			continue;
 		else if (arg == "--stats")
 			invocation.stats = true;
 		else if (arg == "--stats-functions")
@@ -802,10 +835,8 @@ bool lower_source(const std::string& path, const Invocation& invocation, lower::
 		analyzer.set_source_language(invocation.preprocessor.language, invocation.preprocessor.gnu_c());
 		analyzer.set_hosted(invocation.preprocessor.hosted);
 		analyzer.set_host_objects(lowering.host_objects());
-		analyzer.set_cxx14(
-			invocation.preprocessor.language != SourceLanguage::C && invocation.preprocessor.cplusplus != "201103L");
-		analyzer.set_cxx17(invocation.preprocessor.cplusplus >= "201703L");
-		analyzer.set_cxx20(invocation.preprocessor.cplusplus == "202002L");
+		analyzer.set_cxx_edition(
+			invocation.preprocessor.cxx_edition, invocation.preprocessor.diagnose_cxx_extensions());
 		analyzer.set_exceptions(invocation.preprocessor.modes.exceptions);
 		analyzer.set_ignore_narrowing(invocation.ignore_narrowing);
 		analyzer.set_source_positions(&unit.positions());
@@ -1253,7 +1284,7 @@ bool wasm_assembly(const Input& input, const Invocation& invocation, wasm::LinkI
 	PreprocessorOptions options = invocation.preprocessor;
 	options.assembler = true;
 	options.language = SourceLanguage::C;
-	options.cplusplus.clear();
+	options.cxx_edition = 0;
 	options.builtin_declarations.clear();
 	try
 	{
@@ -1474,9 +1505,7 @@ bool preprocess_tokens(
 	Preprocessor& preprocessor, const std::string& path, const Invocation& invocation, PostTokenWriter& output)
 {
 	// The stream types literals as the course's preprocessor does.
-	PostTokenizer tokens(preprocessor, nullptr,
-		invocation.preprocessor.literals == NumberDialect::Gnu ? NumberDialect::GnuStream
-															   : invocation.preprocessor.literals,
+	PostTokenizer tokens(preprocessor, nullptr, NumberStreamDialect(invocation.preprocessor.literals),
 		invocation.target, invocation.preprocessor.gnu_c());
 	for (;;)
 	{

@@ -1,6 +1,7 @@
 #include "syntax/parser.h"
 
 #include "lex/identifier_table.h"
+#include "preprocess/preprocessor.h"
 
 namespace syntax {
 
@@ -8,6 +9,14 @@ Parser::Parser(ParseTokenStream& tokens, IdentifierTable& identifiers, Arena& ar
 	bool cxx17, bool c_source, bool lexical_hints, bool cxx20)
 	: ParserState(tokens, identifiers, arena, hosted, cxx14, cxx17, c_source, lexical_hints, cxx20)
 {}
+
+void Parser::require_cxx_extension(
+	uint32_t location, uint8_t edition, const char* message, bool suppressible_in_headers)
+{
+	if (source_positions_ != nullptr &&
+		!source_positions_->allow_cxx_extension(location, edition, message, suppressible_in_headers))
+		throw ParseError(location, message);
+}
 
 TranslationUnit* Parser::parse_translation_unit()
 {

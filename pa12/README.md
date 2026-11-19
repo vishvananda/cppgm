@@ -521,6 +521,14 @@ The core contract can use minimal declarations of `std::align_val_t` and the
 allocation functions; PA33 adds the real host `<new>` integration.
 See N4659 `[basic.align]`, `[expr.new]`, `[expr.delete]` and `[dcl.fct.spec]`.
 
+### C++20 bit-field initializers
+
+A named bit-field can have a brace-or-equal default member initializer.
+Read the longest conditional expression as the width, then parse the
+initializer if present. Apply the ordinary default member initialization and
+override rules from PA11, including the declared enumeration type for an enum
+bit-field. See N4861 `[class.bit]`.
+
 ### C++20 comparisons
 
 Resolve user-defined `<=>` and rewritten comparison candidates using the
@@ -533,6 +541,10 @@ comparison category and its static constants. Integer, enumeration and
 object-pointer comparisons yield `std::strong_ordering`; floating-point
 comparisons yield `std::partial_ordering`, including unordered results.
 Apply the arithmetic, narrowing and pointer restrictions of C++20.
+A narrower bit-field contributes the range represented by its width when
+checking an integral conversion for narrowing. For example, all values of
+an unsigned five-bit field fit in `int`. See N4861 `[expr.spaceship]` and
+[CWG 2627](../doc/cwg/cwg-2627.txt).
 
 Defaulted comparisons compare base and member subobjects in declaration
 order, expanding arrays in index order. Generate counted loops for arrays.

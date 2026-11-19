@@ -323,7 +323,7 @@ Optional sidecars include:
   include paths
 - `x.no-exceptions`: compile a `tests/compile` input with `-fno-exceptions`
 - `x.cxx-standard`: select the required language mode below
-- `x.flags`: additional compiler flags for a `tests/run` input
+- `x.flags`: additional compiler flags for a `tests/compile` or `tests/run` input
 - `x.ref.impl.exit_status`, `x.ref.program.exit_status`, and
   `x.ref.program.stdout`: implementation and program-result references for
   `tests/run` host-link/run smokes
@@ -370,9 +370,19 @@ owning earlier assignments. Hosted headers consume those same type, deduction,
 constant-evaluation and closure rules. A language-only reducer belongs in its
 earlier lesson; host include/builtin/ABI consumers stay here or in PA32.
 The supplied `.cxx-standard` sidecars select required modes in normal tests.
-Later header concessions such as conditional `explicit(bool)`, alias-declaration
-initializers and `no_unique_address` remain bounded compatibility extensions;
-they do not imply full C++20/23 coverage.
+An edition extension such as `if constexpr` or conditional `explicit(bool)`
+can appear in a system header under an earlier mode. Preserve the translation
+unit's edition and feature macros when suppressing its extension diagnostic.
+System status follows `-isystem`, nested includes from system headers, and
+`#pragma GCC system_header` or `#pragma clang system_header` from the pragma
+onward. `-Wsystem-headers` restores the default diagnostics for these locations.
+Honor scoped `diagnostic push`, `diagnostic ignored`, and `diagnostic pop`
+for the edition warning groups, including through `_Pragma`. Use
+`-pedantic-errors` to require rejection for active extension diagnostics.
+Ordinary language errors still diagnose inside a suppressed scope.
+In C++20 mode, expose `__cpp_concepts` and compile representative uses of the
+host `<concepts>` declarations through the course's constraint and overload
+rules.
 
 ### Hosted ABI Name Guidance
 
@@ -554,10 +564,9 @@ To complete PA30, implement hosted compatibility for:
   headers, including post-declarator parameter
   attributes, explicit specializations of primary-template member functions,
   placeholder-return declarations without a body, such as a deleted overload
-  declared `auto` (a C++14 declaration form required by PA20; it remains
-  out of scope, and like PA20's deduced return types it is accepted in every
-  language mode), non-standard hex-float compile acceptance on ordinary
-  floating types,
+  declared `auto` in C++14 or later, the default GNU C++11 course
+  return-deduction extension from PA20, and GNU hexadecimal floating
+  literals on ordinary floating types,
   and `[[no_unique_address]]` empty-member layout through generated copy operations
 - the standard `[[noreturn]]` attribute takes no argument and appertains only
   to the declarator-id of a function declaration (7.6.3p1): a variable,

@@ -1518,7 +1518,12 @@ const Type* Analyzer::apply_suffix(const syntax::DeclaratorSuffix& suffix, const
 	// deduced_result), on a declaration's own function declarator. CWG
 	// 2476 also permits a placeholder in an initialized variable's or
 	// new-expression's function-pointer type, deduced from its initializer.
-	if (!auto_declarator_ && holds_auto(type) && &suffix != placeholder_suffix_ && type != decltype_auto_placeholder_)
+	if (auto_declarator_)
+	{
+		if (strict_cxx11_ && &suffix == placeholder_suffix_ && holds_auto(type))
+			error(location, "a deduced function return type requires C++14");
+	}
+	else if (holds_auto(type) && &suffix != placeholder_suffix_ && type != decltype_auto_placeholder_)
 		error(location, "auto return type without a trailing return type");
 	if (type->kind == TypeKind::Function || type->kind == TypeKind::Array)
 	{

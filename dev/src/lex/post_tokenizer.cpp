@@ -10,7 +10,7 @@ PostTokenizer::PostTokenizer(PPTokenCursor& input, IdentifierTable* identifiers,
 	  cxx20_(cxx20), target_(target), lookahead_(nullptr), token_(), split_suffix_(), split_suffix_begin_(0),
 	  split_suffix_end_(0), after_operator_(false), scalar_()
 {
-	strings_.set_reserved_suffixes(literals == NumberDialect::Gnu);
+	strings_.set_reserved_suffixes(HasNumberSyntax(literals, number_syntax::ReservedSuffix));
 	strings_.set_conditional_escapes(conditional_escapes);
 }
 
@@ -175,8 +175,7 @@ void PostTokenizer::convert_number(const PPToken& pp)
 void PostTokenizer::convert_character(const PPToken& pp)
 {
 	const CharacterLiteralValue value = EvaluateCharacterLiteral(pp.spelling, pp.length,
-		(literals_ == NumberDialect::Gnu || literals_ == NumberDialect::GnuStream) ? CharacterDialect::Gnu
-																				   : CharacterDialect::Course,
+		HasNumberSyntax(literals_, number_syntax::GnuCharacter) ? CharacterDialect::Gnu : CharacterDialect::Course,
 		conditional_escapes_, cxx20_);
 	if (!value.valid)
 		return;
@@ -219,8 +218,9 @@ bool PostTokenizer::split_literal_operator_suffix(const PPToken& first)
 	// and validates its suffix.
 	// The identifier's source range starts at the earliest
 	// offset it can have; splices may lie in between.
-	if (literals_ != NumberDialect::Gnu || !after_operator_ || token_.kind == PostTokenKind::Invalid ||
-		strings_.encoding_prefix() != EncodingPrefix::None || token_.elements != 1)
+	if (!HasNumberSyntax(literals_, number_syntax::ReservedSuffix) || !after_operator_ ||
+		token_.kind == PostTokenKind::Invalid || strings_.encoding_prefix() != EncodingPrefix::None ||
+		token_.elements != 1)
 	{
 		return false;
 	}

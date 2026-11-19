@@ -1270,6 +1270,9 @@ Binding* Analyzer::declare_variable(const Specifiers& specifiers, const Declarat
 {
 	if (specifiers.is_consteval)
 		error(location, "consteval requires a function declaration");
+	if (specifiers.is_inline && !cxx17_ && positions_ != nullptr &&
+		!positions_->allow_cxx_extension(location, 17, "inline variables are a C++17 extension"))
+		error(location, "inline variables are a C++17 extension");
 	const Type* type = info.type;
 	// A constexpr object is const (7.1.5p9).
 	if (specifiers.is_constexpr)
@@ -1414,7 +1417,12 @@ Binding* Analyzer::declare_variable(const Specifiers& specifiers, const Declarat
 	// definition outside its class gives its initializer.
 	if (template_scope_ != nullptr && scope == template_scope_ && !qualified &&
 		(where->kind == ScopeKind::Namespace || (where->kind == ScopeKind::Class && specifiers.is_static)))
+	{
+		if (!cxx14_ && positions_ != nullptr &&
+			!positions_->allow_cxx_extension(location, 14, "variable templates are a C++14 extension"))
+			error(location, "variable templates are a C++14 extension");
 		declare_variable_template(variable, initializer, scope, scope, location);
+	}
 	else if (template_scope_ != nullptr && scope == template_scope_ && qualified &&
 		variable_template_of(names_.qualified(where, name.key, LookupFilter::Ordinary).binding) != nullptr)
 		declare_variable_template(variable, initializer, scope, info.after, location);
@@ -2897,7 +2905,7 @@ void Analyzer::bit_field_declaration(const syntax::BitFieldDecl& decl, Scope* sc
 		}
 		if (width == 0 && template_depth_ == 0)
 			error(decl.location, "named bit-field of width zero");
-		Binding* binding = declare_variable(specifiers, info, nullptr, scope, decl.location);
+		Binding* binding = declare_variable(specifiers, info, field.initializer, scope, decl.location);
 		if (owner->last_member != nullptr && owner->last_member->variable == binding->entity)
 		{
 			owner->last_member->width = width;

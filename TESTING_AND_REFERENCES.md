@@ -74,8 +74,9 @@ without running shell login scripts.
 The [language profile](LANGUAGE_PROFILE.md) is part of the ordinary assignment
 suites and cumulative reports. `NAME.cxx-standard` selects the same mode for
 implementation and reference requests, including persistent batch requests.
-Driver/runtime fixtures can retain their existing `.flags` mode selection.
-No separate later-language target is needed.
+Use `NAME.flags` for associated driver options such as `-pedantic-errors`.
+Driver/runtime fixtures can also select a language mode in their existing
+`.flags` sidecar. No separate later-language target is needed.
 
 LowIR controls can state `accept`, `reject` or `exit N` in `NAME.expect`.
 `accept` validates generated LowIR with the supplied reader without requiring

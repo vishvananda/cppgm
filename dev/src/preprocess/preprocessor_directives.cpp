@@ -3,6 +3,7 @@
 
 #include "preprocess/preprocessor.h"
 
+#include <algorithm>
 #include <cstring>
 
 #include "lex/string_concatenation.h"
@@ -547,9 +548,17 @@ void Preprocessor::include_file(const PPToken& directive, const std::string& nam
 	if (source_.depth() > kMaxIncludeDepth)
 		throw PreprocessError(directive.begin, "#include nested too deeply");
 	++includes_;
-	const bool beside_system = source_.current_inclusion().system;
+	const bool system = source_.current_inclusion().is_system(directive.begin) ||
+		(index >= 0 && static_cast<size_t>(index) >= system_paths_);
 	source_.enter(file, path, conditionals_.size(), index, directive.begin);
-	source_.current_inclusion().system = index >= 0 ? static_cast<size_t>(index) >= system_paths_ : beside_system;
+	SourceInclusion& inclusion = source_.current_inclusion();
+	if (system)
+		inclusion.system_from = inclusion.base;
+	if (ignored_extension_groups_ != 0)
+	{
+		source_.current().extension_warnings_on_entry = ignored_extension_groups_;
+		extension_group_changes_[inclusion.base] = ignored_extension_groups_;
+	}
 }
 
 // ---- line control, pragmas ---------------------------------------------------------------------
@@ -594,6 +603,79 @@ void Preprocessor::run_line(const PPToken& directive)
 	}
 }
 
+namespace {
+
+bool PragmaWord(const PPToken& token, const char* word)
+{
+	const size_t length = std::strlen(word);
+	return token.kind == PPTokenKind::Identifier && token.length == length &&
+		std::memcmp(token.spelling, word, length) == 0;
+}
+
+} // namespace
+
+bool Preprocessor::language_pragma_family(const PPToken& token)
+{
+	return PragmaWord(token, "GCC") || PragmaWord(token, "clang");
+}
+
+void Preprocessor::run_language_pragma(uint32_t location)
+{
+	const PPToken name = source_.next_in_line();
+	if (name.kind == PPTokenKind::NewLine)
+		return;
+	const PPToken action = source_.next_in_line();
+	if (action.kind == PPTokenKind::NewLine)
+	{
+		apply_language_pragma(location, name, action, action);
+		return;
+	}
+	const PPToken warning = source_.next_in_line();
+	apply_language_pragma(location, name, action, warning);
+	if (warning.kind != PPTokenKind::NewLine)
+		source_.skip_line();
+}
+
+void Preprocessor::apply_language_pragma(
+	uint32_t location, const PPToken& name, const PPToken& action, const PPToken& warning)
+{
+	if (PragmaWord(name, "system_header"))
+	{
+		SourceInclusion& inclusion = files_.inclusion_at(location);
+		if (inclusion.parent != kNoInclusion)
+			inclusion.system_from = std::min(inclusion.system_from, location);
+		return;
+	}
+	if (extension_warnings_ == ExtensionWarnings::Disabled || !PragmaWord(name, "diagnostic"))
+		return;
+
+	const uint8_t previous = ignored_extension_groups_;
+	if (PragmaWord(action, "push"))
+		saved_extension_groups_.push_back(previous);
+	else if (PragmaWord(action, "pop") && !saved_extension_groups_.empty())
+	{
+		ignored_extension_groups_ = saved_extension_groups_.back();
+		saved_extension_groups_.pop_back();
+	}
+	else if (PragmaWord(action, "ignored"))
+	{
+		std::string option;
+		if (DecodeOrdinaryString(warning, option))
+		{
+			if (option == "-Wc++14-extensions")
+				ignored_extension_groups_ |= extension_group(14);
+			else if (option == "-Wc++17-extensions")
+				ignored_extension_groups_ |= extension_group(17);
+			else if (option == "-Wc++20-extensions")
+				ignored_extension_groups_ |= extension_group(20);
+			else if (option == "-Wc++23-extensions")
+				ignored_extension_groups_ |= extension_group(23);
+		}
+	}
+	if (ignored_extension_groups_ != previous)
+		extension_group_changes_[location] = ignored_extension_groups_;
+}
+
 void Preprocessor::run_pragma_directive()
 {
 	const PPToken& first = source_.next_in_line();
@@ -604,6 +686,11 @@ void Preprocessor::run_pragma_directive()
 	else if (first.kind == PPTokenKind::Identifier && first.length == 4 && std::memcmp(first.spelling, "pack", 4) == 0)
 	{
 		run_pack_pragma(first);
+		return;
+	}
+	else if (language_pragma_family(first))
+	{
+		run_language_pragma(first.begin);
 		return;
 	}
 	source_.skip_line();
@@ -676,8 +763,8 @@ bool Preprocessor::continue_macro_arguments()
 	// contexts, with the same definitions and translation-unit state.
 	MacroExpander directive(arena_, identifiers_, names_, *this, macro_state_);
 	directive.set_input(&source_);
-	directive.set_binary_exponents(hosted_);
-	directive.set_digit_separators(hosted_);
+	directive.set_binary_exponents(source_.binary_exponents());
+	directive.set_digit_separators(source_.digit_separators());
 	directive.set_hosted_recursion(hosted_);
 	struct Restore
 	{

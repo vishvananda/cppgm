@@ -42,7 +42,7 @@ bool compile_native_assembly(
 	PreprocessorOptions options = base;
 	options.assembler = true;
 	options.language = SourceLanguage::C;
-	options.cplusplus.clear();
+	options.cxx_edition = 0;
 	options.builtin_declarations.clear();
 	try
 	{

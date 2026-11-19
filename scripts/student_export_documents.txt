@@ -123,6 +123,7 @@ doc/cwg/cwg-2397.txt
 doc/cwg/cwg-2476.txt
 doc/cwg/cwg-2518.txt
 doc/cwg/cwg-2549.txt
+doc/cwg/cwg-2627.txt
 doc/cwg/cwg-2631.txt
 doc/cwg/cwg-2735.txt
 doc/cwg/cwg-2746.txt
@@ -199,6 +200,7 @@ doc/n4140.html
 doc/n4140.txt
 doc/n4659.pdf
 doc/n4659.txt
+doc/n4861.pdf
 doc/wasm/BasicCABI.md
 doc/wasm/Linking.md
 doc/wasm/README.md

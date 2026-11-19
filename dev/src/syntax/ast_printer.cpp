@@ -293,6 +293,8 @@ void AstDumper::declaration(const Decl& decl)
 			if (member.declarator != nullptr)
 				declarator(*member.declarator);
 			expression(*member.width);
+			if (member.initializer != nullptr)
+				initializer(*member.initializer);
 			close();
 		}
 		close();

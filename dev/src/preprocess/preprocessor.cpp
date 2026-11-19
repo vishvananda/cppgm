@@ -1,5 +1,7 @@
 #include "preprocess/preprocessor.h"
 
+#include <iostream>
+
 #include <algorithm>
 #include <cstring>
 #include <iterator>
@@ -31,6 +33,21 @@ void AppendQuoted(std::string& text, const std::string& contents)
 // The predefined macros with fixed values (directives.md), as #define
 // directives the translation unit reads first. __x86_64__ and __linux__
 // describe the target, as the course reference defines them.
+const char* CxxVersionMacro(uint8_t edition)
+{
+	switch (edition)
+	{
+	case 20:
+		return "202002L";
+	case 17:
+		return "201703L";
+	case 14:
+		return "201402L";
+	default:
+		return "201103L";
+	}
+}
+
 std::string PredefinedText(const PreprocessorOptions& options, const FeatureModes& modes)
 {
 	std::string text = "#define __CPPGM__ 201303L\n";
@@ -40,7 +57,9 @@ std::string PredefinedText(const PreprocessorOptions& options, const FeatureMode
 		text += std::string("#define __STDC__ 1\n#define __STDC_VERSION__ ") + options.c_version +
 			"\n#define __STDC_NO_VLA__ 1\n#define __STDC_NO_THREADS__ 1\n";
 	else
-		text += "#define __cplusplus " + options.cplusplus + "\n";
+		text += std::string("#define __cplusplus ") + CxxVersionMacro(options.cxx_edition) + "\n";
+	if (options.strict)
+		text += "#define __STRICT_ANSI__ 1\n";
 	text += std::string("#define __STDC_HOSTED__ ") + (options.target == target_model::Target::Wasm32 ? "0\n" : "1\n") +
 		"#define __x86_64__ 1\n#define __linux__ 1\n";
 	text += "#define __CPPGM_AUTHOR__ ";
@@ -70,7 +89,7 @@ std::string PredefinedText(const PreprocessorOptions& options, const FeatureMode
 	const char* features[] = { "__SSE3__", "__SSSE3__", "__SSE4_1__", "__SSE4_2__" };
 	for (unsigned i = 0; i < options.sse_level; ++i)
 		text += std::string("#define ") + features[i] + " 1\n";
-	if (options.cplusplus >= "201703L")
+	if (options.cxx_edition >= 17)
 		text += "#define __STDCPP_DEFAULT_NEW_ALIGNMENT__ " +
 			std::to_string(target_model::default_new_alignment(options.target)) +
 			"UL\n#define __cpp_aligned_new 201606L\n"
@@ -114,7 +133,7 @@ bool Preprocessor::MacroQuery::is_defined(const char* spelling, uint32_t length)
 }
 
 Preprocessor::Preprocessor(const PreprocessorOptions& options, const std::string& path, std::istream* input)
-	: identifiers_(arena_, options.language, options.cplusplus == "202002L"), names_(identifiers_),
+	: identifiers_(arena_, options.language, options.cxx_edition >= 20), names_(identifiers_),
 	  source_(files_, identifiers_, arena_, names_, *this),
 	  expander_(arena_, identifiers_, names_, *this, macro_state_), directive_expander_(&expander_),
 	  macro_query_(identifiers_), evaluator_(macro_query_, options.literals, options.plain_char_unsigned),
@@ -122,23 +141,24 @@ Preprocessor::Preprocessor(const PreprocessorOptions& options, const std::string
 	  command_line_end_(0), host_predefines_begin_(0), host_predefines_end_(0), builtin_begin_(0), builtin_end_(0),
 	  missing_headers_note_(options.missing_headers_note), hosted_(options.hosted), assembler_(options.assembler),
 	  modes_(options.modes), wasm_attributes_(target_model::is_wasm(options.target)), directives_(0),
-	  skipped_directives_(0), includes_(0), guarded_skips_(0), finished_(false), pack_(0)
+	  skipped_directives_(0), includes_(0), guarded_skips_(0), finished_(false), pack_(0),
+	  extension_warnings_(options.strict && options.extension_warnings == ExtensionWarnings::Disabled
+			  ? ExtensionWarnings::Pedantic
+			  : options.extension_warnings),
+	  warn_system_headers_(options.warn_system_headers)
 {
-	modes_.language = options.language == SourceLanguage::C ? 0
-		: options.cplusplus == "202002L"                    ? 20
-		: options.cplusplus == "201703L"                    ? 17
-		: options.cplusplus == "201402L"                    ? 14
-															: 11;
+	modes_.language = options.cxx_edition;
+	modes_.pedantic_errors = options.extension_warnings == ExtensionWarnings::Errors;
 	expander_.set_input(&source_);
 	source_.set_hosted(hosted_);
 	source_.set_conditional_escapes(options.gnu_c());
-	source_.set_cxx20(options.cplusplus == "202002L");
+	source_.set_cxx20(options.cxx_edition >= 20);
 	expander_.set_conditional_escapes(options.gnu_c());
-	expander_.set_cxx20(options.cplusplus == "202002L");
+	expander_.set_cxx20(options.cxx_edition >= 20);
 	evaluator_.set_conditional_escapes(options.gnu_c());
-	evaluator_.set_cxx20(options.cplusplus == "202002L");
-	const bool separators = hosted_ || options.literals != NumberDialect::Cxx11;
-	const bool exponents = hosted_ || options.literals == NumberDialect::Cxx17;
+	evaluator_.set_cxx20(options.cxx_edition >= 20);
+	const bool separators = HasNumberSyntax(options.literals, number_syntax::Separators);
+	const bool exponents = HasNumberSyntax(options.literals, number_syntax::HexFloat);
 	source_.set_number_syntax(separators, exponents);
 	expander_.set_binary_exponents(exponents);
 	expander_.set_digit_separators(separators);
@@ -312,14 +332,13 @@ void Preprocessor::run_pragma_operator(const PPToken& pragma)
 		}
 		text.push_back(c);
 	}
-	run_pragma(text.data(), static_cast<uint32_t>(text.size()));
+	run_pragma(text.data(), static_cast<uint32_t>(text.size()), location);
 }
 
-void Preprocessor::run_pragma(const char* text, uint32_t length)
+void Preprocessor::run_pragma(const char* text, uint32_t length, uint32_t location)
 {
 	// The characters are processed through translation phase 3 and executed
-	// as a #pragma directive: `once` and `pack` are recognized, other
-	// pragmas ignored ([cpp.pragma] 16.6).
+	// as a #pragma directive ([cpp.pragma] 16.6).
 	const SourceBuffer buffer = SourceBuffer::ForTokenText(std::string(text, length));
 	PPLexerOptions options;
 	options.header_names_on_request = true;
@@ -346,6 +365,20 @@ void Preprocessor::run_pragma(const char* text, uint32_t length)
 						operands.push_back(*operand);
 				}
 				apply_pack_pragma(operands);
+			}
+			else if (language_pragma_family(token))
+			{
+				auto operand = [&lexer]() {
+					const PPToken* next;
+					do
+						next = &lexer.next();
+					while (next->kind == PPTokenKind::WhitespaceSequence);
+					return *next;
+				};
+				const PPToken name = operand();
+				const PPToken action = operand();
+				const PPToken warning = operand();
+				apply_language_pragma(location, name, action, warning);
 			}
 			return;
 		}
@@ -389,7 +422,31 @@ std::string Preprocessor::file_of(uint32_t location) const
 
 bool Preprocessor::in_system_header(uint32_t location) const
 {
-	return files_.inclusion_at(location).system;
+	return files_.inclusion_at(location).is_system(location);
+}
+
+bool Preprocessor::allow_cxx_extension(
+	uint32_t location, uint8_t edition, const char* message, bool suppressible_in_headers) const
+{
+	if (extension_warnings_ == ExtensionWarnings::Disabled)
+		return true;
+	if (!suppressible_in_headers)
+		return false;
+	const SourceInclusion& inclusion = files_.inclusion_at(location);
+	if (!warn_system_headers_ && inclusion.is_system(location))
+		return true;
+	const auto after = extension_group_changes_.upper_bound(location);
+	if (after != extension_group_changes_.begin())
+	{
+		const auto state = std::prev(after);
+		const uint8_t group = extension_group(edition);
+		if (state->first >= inclusion.base && (state->second & group) != 0)
+			return true;
+	}
+	if (extension_warnings_ == ExtensionWarnings::Errors)
+		return false;
+	std::cerr << describe(location, message) << '\n';
+	return true;
 }
 
 uint64_t Preprocessor::line_of(uint32_t location) const
@@ -429,9 +486,9 @@ TokenSpelling Preprocessor::presumed_file_literal(uint32_t location)
 	return TokenSpelling{ inclusion.file_literal, inclusion.file_literal_length };
 }
 
-bool Preprocessor::has_feature(const char* spelling, uint32_t length)
+bool Preprocessor::has_feature(const char* spelling, uint32_t length, bool extension)
 {
-	return IsProvidedFeature(spelling, length, modes_);
+	return IsProvidedFeature(spelling, length, modes_, extension);
 }
 
 uint32_t Preprocessor::builtin_version(const char* spelling, uint32_t length)
@@ -452,6 +509,12 @@ void Preprocessor::leaving_file(const SourceFrame& frame)
 		throw PreprocessError(conditionals_.back().location, "unterminated conditional directive");
 	if (frame.guard_state == GuardState::Closed)
 		frame.file->set_guard(frame.guard);
+	if (frame.extension_warnings_on_entry != ignored_extension_groups_)
+	{
+		const uint32_t included_at = files_.inclusion(frame.inclusion).included_at;
+		if (included_at != kNoLocation)
+			extension_group_changes_[included_at + 1] = ignored_extension_groups_;
+	}
 }
 
 // ---- reporting ------------------------------------------------------------------------------

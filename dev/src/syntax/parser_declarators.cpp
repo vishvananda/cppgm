@@ -252,18 +252,18 @@ bool Parser::nested_declarator_ahead(DeclaratorMode mode)
 	return false;
 }
 
-Declarator* Parser::parse_declarator(DeclaratorMode mode)
+Declarator* Parser::parse_declarator(DeclaratorMode mode, bool type_only)
 {
 	Declarator* declarator = make<Declarator>();
 	*declarator = Declarator();
 	declarator->abstract = mode != DeclaratorMode::Named && mode != DeclaratorMode::Parameter;
 	declarator->location = location();
-	if (!parse_declarator_into(mode, declarator))
+	if (!parse_declarator_into(mode, declarator, type_only))
 		return nullptr;
 	return declarator;
 }
 
-bool Parser::parse_declarator_into(DeclaratorMode mode, Declarator* declarator)
+bool Parser::parse_declarator_into(DeclaratorMode mode, Declarator* declarator, bool type_only)
 {
 	NestingGuard nesting(*this);
 	{
@@ -279,7 +279,7 @@ bool Parser::parse_declarator_into(DeclaratorMode mode, Declarator* declarator)
 	if (mode == DeclaratorMode::Conversion)
 		return true;
 	if (mode == DeclaratorMode::New)
-		return parse_declarator_suffixes(mode, declarator, false, nullptr);
+		return parse_declarator_suffixes(mode, declarator, false, nullptr, type_only);
 	// At the end of a parameter-declaration-clause, `...` expands this
 	// parameter only if its type names an unexpanded template parameter
 	// pack; otherwise it is the clause's ellipsis (8.3.5p14).
@@ -297,7 +297,7 @@ bool Parser::parse_declarator_into(DeclaratorMode mode, Declarator* declarator)
 		*nested = Declarator();
 		nested->abstract = declarator->abstract;
 		nested->location = location();
-		if (!parse_declarator_into(mode, nested) || !expect(TokenKind::OP_RPAREN))
+		if (!parse_declarator_into(mode, nested, type_only) || !expect(TokenKind::OP_RPAREN))
 			return false;
 		declarator->nested = nested;
 		// The suffixes after `)` follow the nested declarator-id too.
@@ -328,7 +328,7 @@ bool Parser::parse_declarator_into(DeclaratorMode mode, Declarator* declarator)
 		// `()` and `(...)` make the parameter's declarator abstract.
 		declarator->abstract = true;
 	}
-	const bool parsed = parse_declarator_suffixes(mode, declarator, NamesDirectly(declarator), member_of);
+	const bool parsed = parse_declarator_suffixes(mode, declarator, NamesDirectly(declarator), member_of, type_only);
 	declarator_member_of_ = member_of;
 	return parsed;
 }
@@ -343,7 +343,8 @@ Scope* Parser::member_lookup_scope(Scope* member_of)
 	return scope;
 }
 
-bool Parser::parse_declarator_suffixes(DeclaratorMode mode, Declarator* declarator, bool named, Scope* member_of)
+bool Parser::parse_declarator_suffixes(
+	DeclaratorMode mode, Declarator* declarator, bool named, Scope* member_of, bool type_only)
 {
 	ListFrame<DeclaratorSuffix> suffixes(suffixes_);
 	// Array bounds after a qualified declarator-id see its class's or
@@ -408,14 +409,17 @@ bool Parser::parse_declarator_suffixes(DeclaratorMode mode, Declarator* declarat
 			// it can be one (8.2p1); otherwise it is left for an initializer.
 			// Only a named declarator's clause competes with an initializer;
 			// an operator or special member name decides for the clause.
-			const bool definite = mode != DeclaratorMode::Named || special_member_clause_ ||
-				declaration_scope()->kind == ScopeKind::Class ||
+			const bool class_member = mode == DeclaratorMode::Named && declaration_scope()->kind == ScopeKind::Class;
+			const bool definite = mode != DeclaratorMode::Named || special_member_clause_ || class_member ||
 				(declarator->name != nullptr && declarator->name->last().kind != NameComponentKind::Identifier);
-			// C++20 [temp.res]p4: a qualified declarator-id's parameters are
-			// type-only contexts.
-			const bool type_only = declarator->name != nullptr && declarator->name->qualified();
+			// A parameter clause can be unambiguous once chosen even when
+			// it is still competing with a functional cast. Only contexts
+			// specified in [temp.res] imply typename for dependent names.
+			const bool parameter_type_only = type_only || class_member ||
+				(declarator->name != nullptr && declarator->name->qualified());
 			Tentative tentative(*this);
-			suffix.parameters = parse_parameter_clause(suffixes.size() == 0 ? member_of : nullptr, definite, type_only);
+			suffix.parameters = parse_parameter_clause(
+				suffixes.size() == 0 ? member_of : nullptr, definite, parameter_type_only);
 			if (suffix.parameters == nullptr && abandoning_lists_)
 				return false;
 			if (suffix.parameters == nullptr)
@@ -555,7 +559,7 @@ ParameterDeclaration* Parser::parse_parameter_declaration(bool definite, bool ty
 	Declarator* declarator = nullptr;
 	{
 		Tentative tentative(*this);
-		declarator = parse_declarator(DeclaratorMode::Parameter);
+		declarator = parse_declarator(DeclaratorMode::Parameter, type_only);
 		if (declarator != nullptr)
 			tentative.commit();
 	}
@@ -563,7 +567,7 @@ ParameterDeclaration* Parser::parse_parameter_declaration(bool definite, bool ty
 	{
 		if (abandoning_lists_)
 			return nullptr;
-		declarator = parse_declarator(DeclaratorMode::Abstract);
+		declarator = parse_declarator(DeclaratorMode::Abstract, type_only);
 		if (declarator == nullptr)
 			return nullptr;
 	}
@@ -720,7 +724,7 @@ TypeId* Parser::parse_type_id(DeclaratorMode mode, bool definite, SpecifierInfo*
 	{
 		ListFrame<DeclSpecifier> specifiers(specs_);
 		const uint8_t saved_definite = definite_type_;
-		definite_type_ = definite ? kDefiniteType : 0;
+		definite_type_ = definite ? kDefiniteType | (cxx20_ ? kTypeOnly : 0) : 0;
 		const bool parsed = parse_type_specifier_seq(specifiers, info, context);
 		definite_type_ = saved_definite;
 		if (!parsed)
@@ -729,7 +733,7 @@ TypeId* Parser::parse_type_id(DeclaratorMode mode, bool definite, SpecifierInfo*
 	}
 	if (specified != nullptr)
 		*specified = info;
-	return finish_type_id(type, info, mode);
+	return finish_type_id(type, info, mode, definite && cxx20_);
 }
 
 TypeId* Parser::parse_type_id_from_name(Name* name, const NameInfo& name_info, uint32_t start)
@@ -764,16 +768,16 @@ TypeId* Parser::parse_type_id_from_name(Name* name, const NameInfo& name_info, u
 			return nullptr;
 		type->specifiers = specifiers.take(arena_);
 	}
-	return finish_type_id(type, info, DeclaratorMode::Abstract);
+	return finish_type_id(type, info, DeclaratorMode::Abstract, false);
 }
 
-TypeId* Parser::finish_type_id(TypeId* type, const SpecifierInfo& info, DeclaratorMode mode)
+TypeId* Parser::finish_type_id(TypeId* type, const SpecifierInfo& info, DeclaratorMode mode, bool type_only)
 {
 	Declarator* declarator = make<Declarator>();
 	*declarator = Declarator();
 	declarator->abstract = true;
 	declarator->location = location();
-	if (!parse_declarator_into(mode, declarator))
+	if (!parse_declarator_into(mode, declarator, type_only))
 		return nullptr;
 	if (!declarator_is_empty(declarator))
 		type->declarator = declarator;

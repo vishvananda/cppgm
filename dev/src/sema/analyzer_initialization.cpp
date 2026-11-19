@@ -811,6 +811,23 @@ void Analyzer::initialize_element(const syntax::Expr& element, const Type* type,
 	check_narrowing(element, conversion, type, scope);
 }
 
+namespace {
+
+bool BitFieldRangeFits(const ExprFacts& facts, IntegralKind source, IntegralKind target)
+{
+	// CWG 2627 [dcl.init.list]: use the represented range of a narrower
+	// bit-field, with the signedness of its type (or underlying enum type).
+	if ((facts.flags & kBitField) == 0 || facts.entity == nullptr || facts.entity->kind != EntityKind::Variable)
+		return false;
+	const DataMember* member = static_cast<const VariableEntity*>(facts.entity)->data_member;
+	if (member == nullptr || !member->bit_field || member->width >= source.bits ||
+		(source.is_signed && !target.is_signed))
+		return false;
+	return target.bits > member->width || (target.bits == member->width && target.is_signed == source.is_signed);
+}
+
+} // namespace
+
 bool Analyzer::check_narrowing(
 	const syntax::Expr& element, const Conversion* conversion, const Type* type, Scope* scope)
 {
@@ -914,8 +931,9 @@ bool Analyzer::check_narrowing(
 				--from.bits;
 			}
 		}
-		if (to.bits < from.bits || (to.bits == from.bits && to.is_signed != from.is_signed) ||
-			(!to.is_signed && from.is_signed))
+		if ((to.bits < from.bits || (to.bits == from.bits && to.is_signed != from.is_signed) ||
+				(!to.is_signed && from.is_signed)) &&
+			(before != nullptr || !BitFieldRangeFits(*facts, from, to)))
 		{
 			Constant value;
 			narrowing = !narrowing_constant(element, before, scope, &value, nullptr) || !Representable(value, to);

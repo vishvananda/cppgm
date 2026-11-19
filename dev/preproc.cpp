@@ -89,8 +89,8 @@ bool PreprocessSource(const PreprocessorOptions& options, const string& path, Po
 		Preprocessor preprocessor(options, path);
 		try
 		{
-			PostTokenizer tokens(preprocessor, nullptr, options.literals, options.target, options.gnu_c(),
-				options.cplusplus == "202002L");
+			PostTokenizer tokens(
+				preprocessor, nullptr, options.literals, options.target, options.gnu_c(), options.cxx_edition >= 20);
 			for (;;)
 			{
 				const PostToken& token = tokens.next();
@@ -154,7 +154,7 @@ int main(int argc, char** argv)
 		if (!args.empty() && args[0].compare(0, 5, "-std=") == 0)
 		{
 			const LanguageMode mode = ReadLanguageMode(args[0].substr(5));
-			options.cplusplus = mode.cplusplus;
+			options.cxx_edition = mode.edition;
 			options.strict = mode.strict;
 			options.literals = mode.literals;
 			args.erase(args.begin());

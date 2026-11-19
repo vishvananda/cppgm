@@ -39,8 +39,8 @@ void SourceStack::enter(SourceFile* file, std::string presumed_name, std::size_t
 	options.cxx20 = cxx20_;
 	options.location_base = frame->base;
 	options.header_names_on_request = true;
-	options.binary_exponents = hosted_ || binary_exponents_;
-	options.digit_separators = hosted_ || digit_separators_;
+	options.binary_exponents = binary_exponents_;
+	options.digit_separators = digit_separators_;
 	options.legacy_comment_bytes = hosted_;
 	options.lone_quotes = hosted_;
 	options.gnu_escapes = hosted_;

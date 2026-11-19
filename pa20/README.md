@@ -255,8 +255,11 @@ an odr-use. Preserve observable copy initialization; a non-odr-use in the body
 still reads the original constant object under [CWG2083](../doc/cwg/cwg-2083.txt).
 
 
-C++14 adds `decltype(auto)` variables/returns, generic lambda parameters and
-initialized captures. Preserve the difference between a named expression and
+C++14 adds deduced function returns, `decltype(auto)` variables and returns,
+generic lambda parameters, and initialized captures. The default GNU C++11
+course mode retains visible-body return deduction as an extension. In ISO
+C++11 a function written with `auto` needs a trailing return type, including
+when the declaration appears in a system header. Preserve the difference between a named expression and
 its parenthesized lvalue in `decltype(auto)`. Diagnose inconsistent returns,
 braced placeholder deduction and invalid declarator combinations. Deleted
 placeholder-return declarations need no nonexistent body. A use that requires
@@ -272,6 +275,10 @@ and const/mutable behavior. Evaluate supported constexpr closures and captureles
 function-pointer conversions with normal identity/lifetime rules; forbidden
 constexpr operations still fail. See N4659 `[expr.prim.lambda]`,
 [P0018R3](../doc/cwg/paper-p0018r3.txt) and [P0170R1](../doc/cwg/paper-p0170r1.txt).
+
+Hosted code may use a front attribute sequence after a lambda's capture
+list or template head. Parse it as an attribute on the call operator. This
+C++23 form uses PA30's extension diagnostic in earlier modes.
 
 Structured bindings support the existing array, member and tuple-protocol
 forms, including references and local tuple-trait declarations without the STL.

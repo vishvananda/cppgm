@@ -5,6 +5,8 @@
 
 #include "syntax/parser_regions.h"
 
+class SourcePositions;
+
 namespace syntax {
 
 // The PA5 parser: recursive descent over the shared source grammar
@@ -26,8 +28,13 @@ public:
 
 	// The translation unit, or null after a syntax error.
 	TranslationUnit* parse_translation_unit();
+	void set_source_positions(const SourcePositions& positions) { source_positions_ = &positions; }
 
 private:
+	void require_cxx_extension(
+		uint32_t location, uint8_t edition, const char* message, bool suppressible_in_headers = true);
+	const SourcePositions* source_positions_ = nullptr;
+
 	enum class DeclContext : uint8_t
 	{
 		Namespace,
@@ -221,10 +228,11 @@ private:
 	bool parse_handlers(ListFrame<Handler>& handlers);
 
 	// ------------------------------------------------------- declarators
-	Declarator* parse_declarator(DeclaratorMode mode);
-	bool parse_declarator_into(DeclaratorMode mode, Declarator* declarator);
+	Declarator* parse_declarator(DeclaratorMode mode, bool type_only = false);
+	bool parse_declarator_into(DeclaratorMode mode, Declarator* declarator, bool type_only);
 	bool parse_ptr_operator(ListFrame<PtrOperator>& pointers, Attribute** inline_attributes);
-	bool parse_declarator_suffixes(DeclaratorMode mode, Declarator* declarator, bool named, Scope* member_of);
+	bool parse_declarator_suffixes(
+		DeclaratorMode mode, Declarator* declarator, bool named, Scope* member_of, bool type_only = false);
 	ParameterClause* parse_parameter_clause(Scope* member_of, bool definite, bool type_only = false);
 	ParameterDeclaration* parse_c_identifier_parameter();
 	bool parse_c_parameter_declarations(Declarator* declarator);
@@ -245,7 +253,7 @@ private:
 	// name_starts_here); the name is not parsed twice when the
 	// alternative is an expression.
 	TypeId* parse_type_id_from_name(Name* name, const NameInfo& name_info, uint32_t start);
-	TypeId* finish_type_id(TypeId* type, const SpecifierInfo& info, DeclaratorMode mode);
+	TypeId* finish_type_id(TypeId* type, const SpecifierInfo& info, DeclaratorMode mode, bool type_only);
 	bool continue_type_specifier_seq(
 		ListFrame<DeclSpecifier>& list, SpecifierInfo& info, TypeIdContext context = TypeIdContext::General);
 	bool nested_declarator_ahead(DeclaratorMode mode);
@@ -364,10 +372,12 @@ private:
 	// ------------------------------------------------------- expressions
 	Expr* parse_expression();
 	Expr* parse_assignment_expression();
+	Expr* parse_conditional_expression();
 	Expr* parse_initializer_clause();
 	Expr* parse_binary(int min_precedence);
 	Expr* parse_binary_rest(Expr* left, int min_precedence);
 	Expr* finish_assignment_expression(Expr* left);
+	Expr* conditional_after(Expr* condition);
 	Expr* finish_expression(Expr* left);
 	// Continuations of an expression whose primary expression is parsed.
 	Expr* continue_assignment_expression(Expr* primary);

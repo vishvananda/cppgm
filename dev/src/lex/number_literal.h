@@ -35,14 +35,42 @@ struct NumberLiteral
 // q/Q naming __float128 as in GCC; or that dialect with the course's
 // preprocessor stream conventions (cppgm -E). Numeric types agree in
 // both GNU modes; strict C++11 tools still reject GNU literal forms.
+namespace number_syntax {
+
+enum Feature : uint8_t
+{
+	Binary = 1 << 0,
+	Separators = 1 << 1,
+	HexFloat = 1 << 2,
+	ExtendedFloat = 1 << 3,
+	ReservedSuffix = 1 << 4,
+	GnuCharacter = 1 << 5,
+	Hosted = ExtendedFloat | ReservedSuffix | GnuCharacter
+};
+
+} // namespace number_syntax
+
 enum class NumberDialect : uint8_t
 {
-	Cxx11,
-	Cxx14,
-	Cxx17,
-	Gnu,
-	GnuStream
+	Cxx11 = 0,
+	Cxx14 = number_syntax::Binary | number_syntax::Separators,
+	Cxx17 = static_cast<uint8_t>(Cxx14) | number_syntax::HexFloat,
+	Gnu = static_cast<uint8_t>(Cxx17) | number_syntax::Hosted,
+	GnuStream = static_cast<uint8_t>(Gnu) & ~number_syntax::ReservedSuffix,
+	HostedCxx11 = static_cast<uint8_t>(Gnu) & ~number_syntax::Separators,
+	StrictHostedCxx11 = number_syntax::Hosted,
+	StrictHostedCxx14 = static_cast<uint8_t>(Cxx14) | number_syntax::Hosted
 };
+
+inline bool HasNumberSyntax(NumberDialect dialect, number_syntax::Feature feature)
+{
+	return (static_cast<uint8_t>(dialect) & feature) != 0;
+}
+
+inline NumberDialect NumberStreamDialect(NumberDialect dialect)
+{
+	return static_cast<NumberDialect>(static_cast<uint8_t>(dialect) & ~number_syntax::ReservedSuffix);
+}
 
 // Classifies a pp-number spelling. An integer literal also gets its value
 // and its type from [lex.icon] 2.14.2 Table 6; one that no type in its list

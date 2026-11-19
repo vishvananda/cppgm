@@ -109,10 +109,10 @@ struct SourceInclusion
 	uint32_t file_literal_length;
 	uint32_t included_at;
 	std::vector<SourceLineState> earlier;
-	// A system header (GCC's and Clang's notion): found in a system
-	// directory (hosted mode's -isystem and host directories), or beside
-	// the system header that included it.
-	bool system;
+	// System status starts at the first byte of a header reached through a
+	// system path or includer, or after a system_header pragma in the file.
+	uint32_t system_from;
+	bool is_system(uint32_t location) const { return location >= system_from; }
 };
 
 // The files of one translation unit and its location space. Each file is

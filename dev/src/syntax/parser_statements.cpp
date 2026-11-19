@@ -655,6 +655,24 @@ bool Parser::parse_selection_head(Stmt*& init, Condition& condition)
 	// otherwise parsed as the condition and, if a `;` follows, taken as the
 	// init-statement (an expression).
 	init = nullptr;
+	// If no declaration can start here, the first expression is either
+	// the condition or the initializer. Parse it once and use its delimiter.
+	bool declaration = false;
+	const bool may_declare = at_attribute() || at(TokenKind::KW_USING) || statement_starts_declaration(declaration);
+	if (!may_declare && !at(TokenKind::OP_SEMICOLON))
+	{
+		const uint32_t start = location();
+		condition.declaration = nullptr;
+		condition.expression = parse_expression();
+		if (condition.expression == nullptr)
+			return false;
+		if (!accept(TokenKind::OP_SEMICOLON))
+			return true;
+		ExpressionStmt* statement = make<ExpressionStmt>(StmtKind::Expression, start);
+		statement->expression = condition.expression;
+		init = statement;
+		return parse_condition(condition);
+	}
 	int depth = 0;
 	bool found = false;
 	bool stopped = false;
@@ -678,12 +696,10 @@ bool Parser::parse_selection_head(Stmt*& init, Condition& condition)
 		else if (token.is(TokenKind::OP_RPAREN) || token.is(TokenKind::OP_RSQUARE) || token.is(TokenKind::OP_RBRACE))
 			--depth;
 	}
-	bool declaration = false;
 	const uint64_t position = tokens_.absolute_position();
 	const auto failed = std::lower_bound(failed_selection_inits_.begin(), failed_selection_inits_.end(), position);
 	const bool tried = failed != failed_selection_inits_.end() && *failed == position;
-	if (!found && stopped && !tried &&
-		(at_attribute() || at(TokenKind::KW_USING) || statement_starts_declaration(declaration)))
+	if (!found && stopped && !tried && may_declare)
 	{
 		{
 			Tentative attempt(*this);
@@ -738,6 +754,7 @@ bool Parser::parse_selection_head(Stmt*& init, Condition& condition)
 		Decl* alias = parse_using();
 		if (alias == nullptr || alias->kind != DeclKind::Alias)
 			return false;
+		require_cxx_extension(start, 23, "a selection alias initializer is a C++23 extension");
 		DeclarationStmt* declaration = make<DeclarationStmt>(StmtKind::Declaration, start);
 		declaration->declaration = alias;
 		init = declaration;
@@ -788,6 +805,8 @@ Stmt* Parser::with_selection_init(Stmt* init, Stmt* stmt, uint32_t start)
 {
 	if (init == nullptr || stmt == nullptr)
 		return stmt;
+	if (!cxx17_ && !c_source_)
+		require_cxx_extension(init->location, 17, "a selection initializer is a C++17 extension");
 	CompoundStmt* block = make<CompoundStmt>(StmtKind::Compound, start);
 	block->selection_init = true;
 	Stmt** items = arena_.allocate_array<Stmt*>(2);
@@ -803,7 +822,13 @@ Stmt* Parser::parse_if()
 	IfStmt* stmt = make<IfStmt>(StmtKind::If, start);
 	stmt->else_branch = nullptr;
 	next();
-	stmt->is_constexpr = accept(TokenKind::KW_CONSTEXPR);
+	stmt->is_constexpr = at(TokenKind::KW_CONSTEXPR);
+	if (stmt->is_constexpr)
+	{
+		if (!cxx17_)
+			require_cxx_extension(location(), 17, "if constexpr is a C++17 extension");
+		next();
+	}
 	Scope* saved = scopes_.current();
 	scopes_.push(ScopeKind::Block, nullptr);
 	Stmt* init = nullptr;

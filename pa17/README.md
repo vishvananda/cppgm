@@ -241,7 +241,7 @@ PA17 owns the template declaration graph and specialization model over the
 implemented language surface, including:
 
 - alias templates
-- variable templates (a C++14 feature, which the course accepts in C++11, as
+- variable templates (a C++14 feature, which the course accepts in GNU C++11, as
   clang and g++ do with a warning); each specialization is its own object, its
   symbol carrying the template arguments (`_Z5widthIiE`,
   `_ZN5store5countIcEE`, `_ZN5table5countIiEE`); a static data member template

@@ -1320,6 +1320,8 @@ void SyntaxRenderer::declaration(const Decl& decl)
 				declarator(*field.declarators[i].declarator);
 			text(":");
 			expression(*field.declarators[i].width);
+			if (field.declarators[i].initializer != nullptr)
+				initializer(*field.declarators[i].initializer);
 		}
 		text(";");
 		break;

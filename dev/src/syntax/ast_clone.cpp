@@ -1821,6 +1821,7 @@ Decl* SyntaxCloner::decl(const Decl* decl)
 			{
 				items[i].declarator = declarator(items[i].declarator);
 				items[i].width = expr(items[i].width);
+				items[i].initializer = initializer(items[i].initializer);
 			}
 			result->declarators = Slice<BitFieldDeclarator>{ items, field->declarators.size };
 		}

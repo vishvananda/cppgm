@@ -362,9 +362,15 @@ one-past-array checks; a pointer to a destroyed temporary is not publishable.
 The existing relaxed constexpr body subset remains required: local variables,
 assignments, branches and bounded loops can participate when every evaluated
 operation satisfies the constant-expression rules. Retain lifetime, forbidden
-body-operation and nonconstant-evaluation diagnostics. This course extension
-is also available in its existing C++11 tests; selecting C++14/17 must not
-change those earlier expectations.
+body-operation and nonconstant-evaluation diagnostics. The default GNU C++11
+course mode retains the relaxed body rules. In ISO C++11, apply N3485
+`[dcl.constexpr]` to the written body. An ordinary definition needs exactly one
+return statement and may also contain the allowed empty statements and
+declarations. A constructor body may contain those same auxiliary statements
+and declarations. Some later statements, such as an extra return or a local
+variable declaration, can be admitted by the C++14 extension diagnostic.
+A loop still requires C++14 when compiling with strict language diagnostics.
+See PA30 for the system-header and diagnostic pragma controls.
 
 Apply the selected edition's aggregate initialization and C++17 result-object
 rules during constant evaluation, including default member initializers and

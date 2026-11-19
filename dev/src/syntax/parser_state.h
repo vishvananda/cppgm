@@ -346,9 +346,8 @@ protected:
 		// A definite type-id (an alias, a cast's target ...): an undeclared
 		// name is a type.
 		kDefiniteType = 1,
-		// A C++20 type-only context that is not definite (a declaration's own
-		// specifiers at namespace or class scope): only a qualified name that
-		// depends on a template parameter is assumed to name a type.
+		// A C++20 type-only context, possibly also a definite type-id.
+		// A dependent qualified name can denote a type without typename.
 		kTypeOnly = 2
 	};
 	uint8_t definite_type_;

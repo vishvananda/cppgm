@@ -9,7 +9,8 @@ struct FeatureModes
 {
 	bool exceptions = true;
 	bool rtti = true;
-	unsigned language = 11;
+	uint8_t language = 11;
+	bool pedantic_errors = false;
 };
 
 // Clang's `__has_feature ( identifier )` and `__has_extension`: whether
@@ -17,11 +18,9 @@ struct FeatureModes
 // `cxx_exceptions` ...) or, by its trait-feature name (`is_pod`,
 // `has_trivial_copy`, `underlying_type`), the type trait `__name` the parser
 // recognizes (lex/gnu_builtins.h). `__name__` spells the same feature. The
-// C++14 extensions this implementation accepts in C++11 mode (binary
-// literals, variable templates) are both features and extensions, as the
-// course reference reports them; features it lacks (modules, blocks) are
-// neither.
-bool IsProvidedFeature(const char* spelling, uint32_t length, const FeatureModes& modes);
+// Edition extensions use the translation unit's default language policy.
+// Header warning suppression is local and cannot advertise a feature.
+bool IsProvidedFeature(const char* spelling, uint32_t length, const FeatureModes& modes, bool extension);
 
 // SD-6 feature-test macros for the selected language standard. These describe
 // this implementation, independently of the compiler that built it.

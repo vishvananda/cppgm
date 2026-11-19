@@ -1165,7 +1165,7 @@ void MacroExpander::replace_identifier_probe(BuiltinMacro probe)
 		if (operand.kind != PPTokenKind::Identifier && !IsIdentifierLikeOperator(operand))
 			throw PreprocessError(operator_token.begin, "expected an identifier operand");
 		if (probe == BuiltinMacro::HasFeature || probe == BuiltinMacro::HasExtension)
-			answer = environment_.has_feature(operand.spelling, operand.length);
+			answer = environment_.has_feature(operand.spelling, operand.length, probe == BuiltinMacro::HasExtension);
 	}
 	current_ = operator_token;
 	set_number(answer ? "1" : "0", 1);

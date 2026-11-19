@@ -154,8 +154,9 @@ uint32_t DigitsEnd(const char* text, uint32_t length, uint32_t begin, unsigned r
 	{
 		if (IsHexDigit(text[end]) && static_cast<unsigned>(HexDigitValue(text[end])) < radix)
 			continue;
-		if (dialect != NumberDialect::Cxx11 && text[end] == '\'' && end != begin && end + 1 < length &&
-			IsHexDigit(text[end + 1]) && static_cast<unsigned>(HexDigitValue(text[end + 1])) < radix)
+		if (text[end] == '\'' && HasNumberSyntax(dialect, number_syntax::Separators) && end != begin &&
+			end + 1 < length && IsHexDigit(text[end + 1]) &&
+			static_cast<unsigned>(HexDigitValue(text[end + 1])) < radix)
 			continue;
 		break;
 	}
@@ -174,7 +175,8 @@ NumberLiteral ClassifyInteger(const char* text, uint32_t length, uint32_t digits
 		// Phase 7 does not range-check a user-defined-integer-literal: the
 		// literal operator selected later receives its characters or its
 		// value (2.14.8p3), so any range check belongs to that call.
-		if (IsUserDefinedSuffix(text + digits_end, length - digits_end, dialect == NumberDialect::Gnu))
+		if (IsUserDefinedSuffix(
+				text + digits_end, length - digits_end, HasNumberSyntax(dialect, number_syntax::ReservedSuffix)))
 		{
 			result.kind = NumberLiteralKind::UserDefinedInteger;
 			result.suffix_begin = digits_end;
@@ -228,8 +230,8 @@ NumberLiteral ClassifyHexadecimal(const char* text, uint32_t length, NumberDiale
 		end = DigitsEnd(text, length, begin, 16, dialect);
 		fraction_digits = end - begin;
 	}
-	if (dialect != NumberDialect::Cxx11 && dialect != NumberDialect::Cxx14 && end < length &&
-		(text[end] == 'p' || text[end] == 'P') && integer_digits + fraction_digits != 0)
+	if (end < length && HasNumberSyntax(dialect, number_syntax::HexFloat) && (text[end] == 'p' || text[end] == 'P') &&
+		integer_digits + fraction_digits != 0)
 	{
 		uint32_t exponent = end + 1;
 		if (exponent < length && (text[exponent] == '+' || text[exponent] == '-'))
@@ -301,20 +303,21 @@ NumberLiteral ClassifyFloating(const char* text, uint32_t length, uint32_t value
 		result.type = FundamentalType::LongDouble;
 	}
 	else if (suffix_length == 1 && (text[value_end] == 'q' || text[value_end] == 'Q') &&
-		(dialect == NumberDialect::Gnu || dialect == NumberDialect::GnuStream))
+		HasNumberSyntax(dialect, number_syntax::ExtendedFloat))
 	{
 		// GNU's `q` and `Q` name __float128 in both compilation and the
 		// typed preprocessor stream; `l` and `L` name long double.
 		result.kind = NumberLiteralKind::Floating;
 		result.type = FundamentalType::GnuFloat128;
 	}
-	else if ((dialect == NumberDialect::Gnu || dialect == NumberDialect::GnuStream) &&
+	else if (HasNumberSyntax(dialect, number_syntax::ExtendedFloat) &&
 		ExtendedFloatingSuffix(text + value_end, suffix_length, result.type))
 	{
 		// C++23's (and GCC's) f16, f32, f64, f128, f32x, f64x.
 		result.kind = NumberLiteralKind::Floating;
 	}
-	else if (IsUserDefinedSuffix(text + value_end, suffix_length, dialect == NumberDialect::Gnu))
+	else if (IsUserDefinedSuffix(
+				 text + value_end, suffix_length, HasNumberSyntax(dialect, number_syntax::ReservedSuffix)))
 	{
 		result.kind = NumberLiteralKind::UserDefinedFloating;
 	}
@@ -327,7 +330,8 @@ NumberLiteral ClassifyNumber(const char* text, uint32_t length, NumberDialect di
 {
 	if (length >= 2 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X'))
 		return ClassifyHexadecimal(text, length, dialect, target);
-	if (dialect != NumberDialect::Cxx11 && length >= 2 && text[0] == '0' && (text[1] == 'b' || text[1] == 'B'))
+	if (length >= 2 && text[0] == '0' && (text[1] == 'b' || text[1] == 'B') &&
+		HasNumberSyntax(dialect, number_syntax::Binary))
 		return ClassifyBinary(text, length, dialect, target);
 
 	uint32_t pos = DigitsEnd(text, length, 0, 10, dialect);

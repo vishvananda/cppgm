@@ -9,8 +9,10 @@ The driver default remains GNU C++11. `-std=c++11`, `-std=c++14`, `-std=c++17`,
 C++20 profile is bounded to the features listed here; it does not claim full
 conformance to that standard. A required later
 feature need only work in its stated mode; earlier-mode negative checks remain
-required. The existing variable-template, relaxed constexpr and visible-body
-return-deduction extensions remain available in the course's C++11 mode.
+required. The variable-template, relaxed constexpr and visible-body return-deduction
+extensions remain course compatibility features in GNU C++11. ISO source
+uses the edition specified by each rule. Hosted use of a suppressible
+extension follows the source-location rules in [PA30](pa30/README.md).
 
 | Feature | Mode | Owning lessons |
 | --- | --- | --- |
@@ -25,11 +27,12 @@ return-deduction extensions remain available in the course's C++11 mode.
 | Abbreviated function templates, constrained placeholders (`C auto`, `C decltype(auto)`) | C++20 | PA5 syntax; PA20 parameter invention and deduction checks |
 | Nested namespaces, attribute using-prefixes | C++17 | PA5 syntax, PA6 lookup; vendor effects PA30 |
 | Contextual conversions, aggregate member defaults | C++14+ | PA11/PA12; constexpr PA16 |
+| Bit-field default member initializers | C++20 | PA12 bit-field width and initialization; PA11 default member initialization |
 | Public aggregate bases, direct prvalue result objects, inline variables, aligned allocation | C++17 | PA11/PA12; constexpr PA16; multi-TU PA25; host ABI PA32 |
 | Fold expressions | C++17 | PA15; composed deduction PA18/PA19 |
 | Immediate functions (`consteval`), constant-initialization declarations (`constinit`) | C++20 | PA2–PA5 tokens and syntax; PA6 declaration validity; PA16 evaluation; PA20 immediate lambdas |
 | Relaxed constexpr bodies | C++14 rules, existing C++11 extension | PA16 |
-| Variable templates | C++14, existing C++11 extension | PA17 |
+| Variable templates | C++14, extension in GNU C++11 | PA17 |
 | Template-template `typename`, placeholder non-type parameters, class deduction/guides, using packs | C++17 | PA17 declarations, PA18 deduction; multiple-base/member-pointer combinations PA22 |
 | Selection initializer statements | C++17 | PA10 |
 | `if constexpr` | C++17 | PA19, after substitution and constant evaluation |

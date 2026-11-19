@@ -34,8 +34,9 @@
 // in ELF objects), --stats,
 // -mpopcnt/-mno-popcnt (explicit population-count ISA and __POPCNT__),
 // -Wno-narrowing (suppress list-narrowing diagnostics outside SFINAE;
-// -Wnarrowing/-Werror=narrowing restore them); -O*, -g*, other -W*,
-// other -f* and -m*, -pedantic(-errors), -w, -pipe and dependency-file
+// -Wnarrowing/-Werror=narrowing restore them), -pedantic(-errors),
+// -Wsystem-headers; -O*, -g*, other -W*,
+// other -f* and -m*, -w, -pipe and dependency-file
 // options are accepted and do not change the output.
 //
 // Objects: -c writes a course object for an output named *.obj (the
@@ -51,6 +52,10 @@ int run_toolchain(const std::vector<std::string>& args, const PreprocessorOption
 // Select the supported language mode and the host macro dialect.
 void language_standard(const std::string& standard, PreprocessorOptions& options);
 void configure_source_language(const std::string& language, const std::string& standard, PreprocessorOptions& options);
+
+// Select how to report C++ language extension diagnostics.
+bool diagnostic_option(
+	const std::string& option, ExtensionWarnings& warnings, bool& system_headers, bool* ignore_narrowing = nullptr);
 
 // Enable an SSE extension and its prerequisites, or disable it and dependents.
 bool sse_option(const std::string& option, uint8_t& level);

@@ -205,6 +205,8 @@ Decl* Parser::parse_structured_binding(Slice<DeclSpecifier> specifiers, const Sp
 	object.initializer = parse_initializer(true);
 	if (object.initializer == nullptr || !expect(TokenKind::OP_SEMICOLON))
 		return nullptr;
+	if (!cxx17_)
+		require_cxx_extension(start, 17, "structured bindings are a C++17 extension");
 	SimpleDecl* decl = make<SimpleDecl>(DeclKind::Simple, start);
 	decl->specifiers = specifiers;
 	decl->attributes = pending_attributes_;
@@ -301,6 +303,8 @@ Decl* Parser::parse_namespace()
 			scopes_.set_current(enclosing);
 			return nullptr;
 		}
+		if (!cxx17_ && innermost == ns)
+			require_cxx_extension(start, 17, "nested namespace definitions are a C++17 extension");
 		NamespaceDecl* nested = make<NamespaceDecl>(DeclKind::Namespace, location());
 		nested->name = tok().identifier;
 		nested->is_inline = false;
@@ -452,6 +456,8 @@ Decl* Parser::parse_static_assert()
 	}
 	if (!expect(TokenKind::OP_RPAREN) || !expect(TokenKind::OP_SEMICOLON))
 		return nullptr;
+	if (!assertion->has_message && !cxx17_)
+		require_cxx_extension(assertion->location, 17, "static_assert without a message is a C++17 extension");
 	return assertion;
 }
 
@@ -738,6 +744,7 @@ bool Parser::try_special_member(DeclContext context, Decl*& decl)
 	Tentative tentative(*this);
 	const uint32_t start = location();
 	ListFrame<DeclSpecifier> specifiers(specs_);
+	uint32_t conditional_explicit = 0;
 	// Keep tentative attributes separate from the retained prefix: rollback
 	// releases their nodes. Join the chains only after committing.
 	pending_attributes_ = nullptr;
@@ -758,6 +765,7 @@ bool Parser::try_special_member(DeclContext context, Decl*& decl)
 			specifier.operand = parse_decltype_operand();
 			if (specifier.operand == nullptr)
 				return false;
+			conditional_explicit = specifier.location;
 		}
 		specifiers.push(specifier);
 	}
@@ -781,6 +789,8 @@ bool Parser::try_special_member(DeclContext context, Decl*& decl)
 	if (decl == nullptr)
 		return tentative.committed();
 	tentative.commit();
+	if (!cxx20_ && conditional_explicit != 0)
+		require_cxx_extension(conditional_explicit, 20, "conditional explicit is a C++20 extension");
 	if (leading_attributes_ != nullptr)
 	{
 		Attribute* tail = leading_attributes_;
@@ -1150,9 +1160,18 @@ Decl* Parser::parse_bit_field_rest(Slice<DeclSpecifier> specifiers, Declarator* 
 		}
 		if (!expect(TokenKind::OP_COLON))
 			return nullptr;
-		member.width = parse_assignment_expression();
+		// [class.bit]: the longest conditional-expression forms the width.
+		member.width = parse_conditional_expression();
 		if (member.width == nullptr)
 			return nullptr;
+		if (!c_source_ && member.declarator != nullptr && (at(TokenKind::OP_ASS) || at(TokenKind::OP_LBRACE)))
+		{
+			if (!cxx20_)
+				require_cxx_extension(location(), 20, "a bit-field default member initializer requires C++20");
+			member.initializer = parse_initializer(false);
+			if (member.initializer == nullptr)
+				return nullptr;
+		}
 		members.push(member);
 		if (!accept(TokenKind::OP_COMMA))
 			break;

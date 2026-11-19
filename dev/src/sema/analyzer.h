@@ -73,12 +73,13 @@ public:
 	// -std=c++14 or later (hosted -c): the C++11 rules its headers' mode
 	// gates contradict are dropped -- a constexpr non-static member function
 	// is not implicitly const (7.1.5p8 in C++11) and may return void (N3652).
-	void set_cxx14(bool on) { cxx14_ = on; }
-	void set_cxx17(bool on) { cxx17_ = on; }
-	void set_cxx20(bool on)
+	void set_cxx_edition(uint8_t edition, bool diagnose_extensions)
 	{
-		cxx20_ = on;
-		if (on)
+		cxx14_ = edition >= 14;
+		cxx17_ = edition >= 17;
+		cxx20_ = edition >= 20;
+		strict_cxx11_ = edition == 11 && diagnose_extensions;
+		if (cxx20_)
 			types_.enable_char8();
 	}
 	// -fno-exceptions (hosted -c): allocation and deallocation functions'
@@ -1726,6 +1727,7 @@ private:
 	void check_defaulted_constexpr(FunctionEntity* function, uint32_t location);
 	void check_defaulted_constexprs();
 	static const ClassEntity* ObjectClassOf(const Type* type);
+	void check_cxx11_constexpr_body(const syntax::CompoundStmt& body, bool constructor);
 	void check_constexpr_function(const FunctionEntity* function, const Type* type, uint32_t location);
 	void finish_constexpr_lambda(FunctionEntity* function, const BodyContext& body, uint32_t location);
 	void constexpr_lambda_local(
@@ -1873,6 +1875,7 @@ private:
 	bool cxx14_ = false;
 	bool cxx17_ = false;
 	bool cxx20_ = false;
+	bool strict_cxx11_ = false;
 	PointerMap class_deduction_index_;
 	struct ClassDeductionSet
 	{
