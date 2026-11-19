@@ -1008,6 +1008,7 @@ DeclaratorInfo Analyzer::declarator(const syntax::Declarator* declarator, const 
 	// Names after a qualified declarator-id are looked up in the scope it
 	// names (3.4.3p3); the ptr-operators precede it.
 	Scope* after = scope;
+	Scope* friend_namespace = nullptr;
 	if (info.name != nullptr && info.name->qualified())
 	{
 		const NamePrefix prefix = name_prefix(*info.name, scope, true);
@@ -1017,9 +1018,8 @@ DeclaratorInfo Analyzer::declarator(const syntax::Declarator* declarator, const 
 		// A friend declaration naming a namespace's function: its names
 		// are looked up as in the class granting friendship (as g++ and
 		// Clang do; 3.4.1p10's rule for a class's member function).
-		if (specifiers != nullptr && specifiers->is_friend && prefix.scope != nullptr &&
-			prefix.scope->kind == ScopeKind::Namespace)
-			after = scope;
+		if (specifiers != nullptr && specifiers->is_friend && prefix.scope->kind == ScopeKind::Namespace)
+			friend_namespace = prefix.scope;
 		else
 			after = qualified_lookup_scope(prefix.scope, scope);
 	}
@@ -1098,7 +1098,15 @@ DeclaratorInfo Analyzer::declarator(const syntax::Declarator* declarator, const 
 			}
 			if (&suffix != last && HasVirtSpecifier(suffix))
 				error(current->location, "a virt-specifier inside a declarator");
+			// A qualified namespace friend looks up names in the granting
+			// class but compares dependent types with declarations in the
+			// named namespace.
+			Scope* const saved_home = placeholder_home_;
+			if (friend_namespace != nullptr)
+				placeholder_home_ = friend_namespace;
 			type = apply_suffix(suffix, type, after, current->location, &suffix == member_suffix ? member : nullptr);
+			if (friend_namespace != nullptr)
+				placeholder_home_ = saved_home;
 			if (failed())
 				return info;
 			// In C++11 the nested function's exception specification is not

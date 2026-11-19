@@ -253,7 +253,11 @@ implemented language surface, including:
 - access checking for member class templates, alias templates, and nested type
   paths, including inherited access and template-template arguments
 - friend templates in the supported class-template/function-template subset, including a
-  friend type template-id whose non-type argument is a dependent constant expression
+  friend type template-id whose non-type argument is a dependent constant expression.
+  Match a qualified friend template to its namespace declaration even when a
+  dependent return type uses a variable template. Keep name lookup in the
+  context of the class granting friendship. See N4140 `[temp.friend]` and
+  `[temp.over.link]`.
 - class partial specialization
 - partial-specialization ordering and specialization selection
 - current-specialization identity in the supported class-template and
