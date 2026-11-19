@@ -1394,6 +1394,438 @@
           "expect": "reject",
           "feature": "enumerator imports and using enum",
           "pr": false
+        },
+        {
+          "id": "constexpr-dtor1-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor1.C",
+          "sha256": "0c2ce162d5735516a69365e0155f408d5c969e51daf0562b09d4add017bfadb0",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "constexpr destructor declaration",
+          "pr": false
+        },
+        {
+          "id": "constexpr-dtor1-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor1.C",
+          "sha256": "0c2ce162d5735516a69365e0155f408d5c969e51daf0562b09d4add017bfadb0",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "constexpr destructor declaration",
+          "pr": false
+        },
+        {
+          "id": "constexpr-dtor10-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor10.C",
+          "sha256": "08ade3c4ceafed45732a6d71caf568a31db152caeae545386620d6dd9b21ba4e",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "Destruction of automatic objects during constant evaluation is pending."
+        },
+        {
+          "id": "constexpr-dtor10-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor10.C",
+          "sha256": "08ade3c4ceafed45732a6d71caf568a31db152caeae545386620d6dd9b21ba4e",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "Destruction of automatic objects during constant evaluation is pending."
+        },
+        {
+          "id": "constexpr-dtor11-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor11.C",
+          "sha256": "0cc4ce327282c9421b482a2465611f5fed2919a1054b9459741dd07eed200f92",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "The candidate rejects the abbreviated variadic call before testing immediate temporary destruction."
+        },
+        {
+          "id": "constexpr-dtor11-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor11.C",
+          "sha256": "0cc4ce327282c9421b482a2465611f5fed2919a1054b9459741dd07eed200f92",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "The candidate rejects the abbreviated variadic call before testing immediate temporary destruction."
+        },
+        {
+          "id": "constexpr-dtor12-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor12.C",
+          "sha256": "7bdd36d94cda7407fb9fa27b4355b00f3a0a9ffea747584e4b20ea7a523782c6",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "derived and base destruction share transient storage",
+          "pr": true
+        },
+        {
+          "id": "constexpr-dtor12-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor12.C",
+          "sha256": "7bdd36d94cda7407fb9fa27b4355b00f3a0a9ffea747584e4b20ea7a523782c6",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "derived and base destruction share transient storage",
+          "pr": false
+        },
+        {
+          "id": "constexpr-dtor16-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor16.C",
+          "sha256": "1624d9c67a44164dc738b0da8352d0814dc65349a6bb8fa57e422a995b42e670",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "The candidate rejects constexpr virtual destructors in general. The required rejection concerns virtual bases."
+        },
+        {
+          "id": "constexpr-dtor16-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor16.C",
+          "sha256": "1624d9c67a44164dc738b0da8352d0814dc65349a6bb8fa57e422a995b42e670",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "The candidate rejects constexpr virtual destructors in general. The required rejection concerns virtual bases."
+        },
+        {
+          "id": "constexpr-dtor17-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor17.C",
+          "sha256": "3473b81c625cdf8c870766149b086355d0812fae627764c254d010e609db6845",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "The candidate rejects the constexpr constructor before it reaches local array destruction."
+        },
+        {
+          "id": "constexpr-dtor17-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor17.C",
+          "sha256": "3473b81c625cdf8c870766149b086355d0812fae627764c254d010e609db6845",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "The candidate rejects the constexpr constructor before it reaches local array destruction."
+        },
+        {
+          "id": "constexpr-dtor2-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor2.C",
+          "sha256": "ecaad767ee3ccf66fe78960fc40b04792cace96234b5ea4aab94cde0d0dfd749",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "Destruction of automatic and temporary objects during constant evaluation is pending."
+        },
+        {
+          "id": "constexpr-dtor2-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor2.C",
+          "sha256": "ecaad767ee3ccf66fe78960fc40b04792cace96234b5ea4aab94cde0d0dfd749",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "Destruction of automatic and temporary objects during constant evaluation is pending."
+        },
+        {
+          "id": "constexpr-dtor4-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor4.C",
+          "sha256": "a7a81183a4a23a389df451c89caaaa5096986c1db8f493d662f64dcaa2692cc2",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "reject a constructor used before its definition",
+          "pr": false
+        },
+        {
+          "id": "constexpr-dtor4-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor4.C",
+          "sha256": "a7a81183a4a23a389df451c89caaaa5096986c1db8f493d662f64dcaa2692cc2",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "reject a constructor used before its definition",
+          "pr": false
+        },
+        {
+          "id": "constexpr-dtor5-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor5.C",
+          "sha256": "59657deb214b943a8a5116bb8a0905b4ce88dfb9b46fb75830f7cdfa6d5e9943",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "Temporary destruction and mutable-subobject lifetime during constant evaluation are pending."
+        },
+        {
+          "id": "constexpr-dtor5-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor5.C",
+          "sha256": "59657deb214b943a8a5116bb8a0905b4ce88dfb9b46fb75830f7cdfa6d5e9943",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "Temporary destruction and mutable-subobject lifetime during constant evaluation are pending."
+        },
+        {
+          "id": "constexpr-dtor6-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor6.C",
+          "sha256": "6c7e2e05ed0f0d5bae2d34e617ccd90d161579457ed6d3fc909218617c7ea52c",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "Temporary destruction during constant evaluation is pending."
+        },
+        {
+          "id": "constexpr-dtor6-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor6.C",
+          "sha256": "6c7e2e05ed0f0d5bae2d34e617ccd90d161579457ed6d3fc909218617c7ea52c",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "Temporary destruction during constant evaluation is pending."
+        },
+        {
+          "id": "constexpr-dtor7-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor7.C",
+          "sha256": "a01ee7c7bc8578d78201aea023dfa148db13de3a2fcace4c2f828f829903576c",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "Needs a valid counterpart for construction and destruction of the temporary before qualifying the rejection."
+        },
+        {
+          "id": "constexpr-dtor7-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor7.C",
+          "sha256": "a01ee7c7bc8578d78201aea023dfa148db13de3a2fcace4c2f828f829903576c",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "Needs a valid counterpart for construction and destruction of the temporary before qualifying the rejection."
+        },
+        {
+          "id": "constexpr-dtor8-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor8.C",
+          "sha256": "f6fed6a5ea0a5bc0baede1f4f43874254fd56659d3ae4b6f169d68e5dda90e34",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "Needs a valid counterpart for construction and destruction of the temporary before qualifying the rejection."
+        },
+        {
+          "id": "constexpr-dtor8-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor8.C",
+          "sha256": "f6fed6a5ea0a5bc0baede1f4f43874254fd56659d3ae4b6f169d68e5dda90e34",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "Needs a valid counterpart for construction and destruction of the temporary before qualifying the rejection."
+        },
+        {
+          "id": "constexpr-dtor9-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor9.C",
+          "sha256": "45462ebb13b8896a0903155f8b43b1add631ffc524919a79b19a41a1c0ab227a",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "Destruction of automatic objects during constant evaluation is pending."
+        },
+        {
+          "id": "constexpr-dtor9-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-dtor9.C",
+          "sha256": "45462ebb13b8896a0903155f8b43b1add631ffc524919a79b19a41a1c0ab227a",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "Destruction of automatic objects during constant evaluation is pending."
+        },
+        {
+          "id": "constexpr-new15-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-new15.C",
+          "sha256": "6e2094679400467b5a31b118b4b9a25b26de1099eb9ddfb09d0cb0e810b10f77",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "reject mismatched constant allocation and deallocation",
+          "pr": true
+        },
+        {
+          "id": "constexpr-new15-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-new15.C",
+          "sha256": "6e2094679400467b5a31b118b4b9a25b26de1099eb9ddfb09d0cb0e810b10f77",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "reject mismatched constant allocation and deallocation",
+          "pr": false
+        },
+        {
+          "id": "constexpr-new17-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-new17.C",
+          "sha256": "753d3675b18d059d68e677195c3ab02fda76a0020b6abbae9e364c62fe44dce3",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "independent allocation identities",
+          "pr": false
+        },
+        {
+          "id": "constexpr-new17-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-new17.C",
+          "sha256": "753d3675b18d059d68e677195c3ab02fda76a0020b6abbae9e364c62fe44dce3",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "independent allocation identities",
+          "pr": false
+        },
+        {
+          "id": "constexpr-new18-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-new18.C",
+          "sha256": "c29fb04c9484ed15f0042d210fb9c4f30a22581533a5fe608550cc4e8777ecba",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "Destruction of automatic objects and by-value parameters during constant evaluation is pending."
+        },
+        {
+          "id": "constexpr-new18-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-new18.C",
+          "sha256": "c29fb04c9484ed15f0042d210fb9c4f30a22581533a5fe608550cc4e8777ecba",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "Destruction of automatic objects and by-value parameters during constant evaluation is pending."
+        },
+        {
+          "id": "constexpr-new19-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-new19.C",
+          "sha256": "f799803806d28d3b8b6b482d96263951e56f02da571c56f8936834ec422b5d3c",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "constant allocation across scalar and aggregate calls",
+          "pr": false
+        },
+        {
+          "id": "constexpr-new19-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-new19.C",
+          "sha256": "f799803806d28d3b8b6b482d96263951e56f02da571c56f8936834ec422b5d3c",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "constant allocation across scalar and aggregate calls",
+          "pr": false
+        },
+        {
+          "id": "constexpr-new21-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-new21.C",
+          "sha256": "11c0aac160cf3ad1adfa1370b447f7cf504a56f19e9b2988c75d68685d927dd2",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "The candidate rejects constexpr virtual destructors."
+        },
+        {
+          "id": "constexpr-new21-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-new21.C",
+          "sha256": "11c0aac160cf3ad1adfa1370b447f7cf504a56f19e9b2988c75d68685d927dd2",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "The candidate rejects constexpr virtual destructors."
+        },
+        {
+          "id": "constexpr-new22-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-new22.C",
+          "sha256": "adc03b1eb91549bc6f051289276b4e7d3771c67c0afb136a3bc217eedaf11c5a",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "GCC zero-length arrays",
+          "exclusion_reason": "The source tests the GCC zero-length array extension as the allocated element type."
+        },
+        {
+          "id": "constexpr-new22-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-new22.C",
+          "sha256": "adc03b1eb91549bc6f051289276b4e7d3771c67c0afb136a3bc217eedaf11c5a",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "GCC zero-length arrays",
+          "exclusion_reason": "The source tests the GCC zero-length array extension as the allocated element type."
+        },
+        {
+          "id": "constexpr-new23-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-new23.C",
+          "sha256": "32ceb123ec340994ae8966cfd445f90bf561cc4fe1dd99e906896d40c0167e3d",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "Standard construct_at placement and union lifetime changes during constant evaluation are pending."
+        },
+        {
+          "id": "constexpr-new23-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-new23.C",
+          "sha256": "32ceb123ec340994ae8966cfd445f90bf561cc4fe1dd99e906896d40c0167e3d",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "Standard construct_at placement and union lifetime changes during constant evaluation are pending."
+        },
+        {
+          "id": "constexpr-new24-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-new24.C",
+          "sha256": "fe3453c03a257264cc3ebb9640b19b8dd889563f3bf8724ec2d5e43e0e63a67e",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "reject a pointer-derived bound in constant evaluation",
+          "pr": false
+        },
+        {
+          "id": "constexpr-new24-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-new24.C",
+          "sha256": "fe3453c03a257264cc3ebb9640b19b8dd889563f3bf8724ec2d5e43e0e63a67e",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "reject a pointer-derived bound in constant evaluation",
+          "pr": false
+        },
+        {
+          "id": "constexpr-new25-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-new25.C",
+          "sha256": "8cb77ec7f7ab6df32750bb0d7289dabf36adbf15cfdae0a6af1471eb792b235b",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "reject a pointer conversion in a constant initializer",
+          "pr": false
+        },
+        {
+          "id": "constexpr-new25-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-new25.C",
+          "sha256": "8cb77ec7f7ab6df32750bb0d7289dabf36adbf15cfdae0a6af1471eb792b235b",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "reject a pointer conversion in a constant initializer",
+          "pr": false
+        },
+        {
+          "id": "constexpr-new26-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-new26.C",
+          "sha256": "2156fb543eeee76221df2cf2f55a2b30b75ad4cc6df6048d0e2f828778367be1",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "reject a pointer to deallocated storage",
+          "pr": false
+        },
+        {
+          "id": "constexpr-new26-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-new26.C",
+          "sha256": "2156fb543eeee76221df2cf2f55a2b30b75ad4cc6df6048d0e2f828778367be1",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "reject a pointer to deallocated storage",
+          "pr": false
+        },
+        {
+          "id": "constexpr-new7-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-new7.C",
+          "sha256": "8fc75b5d03d32a23b07826162472bfb66298568992e869cfcd14c03faef8b2c6",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "The candidate accepts the unused constexpr definitions containing ordinary allocation calls."
+        },
+        {
+          "id": "constexpr-new7-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/constexpr-new7.C",
+          "sha256": "8fc75b5d03d32a23b07826162472bfb66298568992e869cfcd14c03faef8b2c6",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "C++20 constant destruction or allocation",
+          "pending_reason": "The candidate accepts the unused constexpr definitions containing ordinary allocation calls."
         }
       ]
     },
