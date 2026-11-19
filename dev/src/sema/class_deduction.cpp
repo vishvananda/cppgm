@@ -112,7 +112,7 @@ const Type* Analyzer::deduce_class_type(ClassEntity* templ, const syntax::Slice<
 	Candidate chosen = Candidate();
 	Resolution resolution = Resolution::NoViable;
 	bool skip_list = false;
-	if (list != nullptr && arguments.size == 1)
+	if (list != nullptr && arguments.size == 1 && arguments[0]->kind != syntax::ExprKind::BracedInit)
 	{
 		ClassEntity* source = const_cast<ClassEntity*>(ClassOf(arguments[0]->facts->type));
 		skip_list = source != nullptr && class_deduction_copy_source(templ, source);
@@ -125,8 +125,9 @@ const Type* Analyzer::deduce_class_type(ClassEntity* templ, const syntax::Slice<
 		{
 			if (initializer_list_constructor(guide))
 				first_phase.push_back(guide);
-			if (guide->templ->deduction_guide != DeductionGuideKind::Constructor &&
-				guide->templ->deduction_guide != DeductionGuideKind::TemplateConstructor)
+			if (guide->templ == nullptr ||
+				(guide->templ->deduction_guide != DeductionGuideKind::Constructor &&
+					guide->templ->deduction_guide != DeductionGuideKind::TemplateConstructor))
 				continue;
 			const Type* type = guide->type->canonical;
 			bool defaults = true;
