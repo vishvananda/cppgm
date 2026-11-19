@@ -915,27 +915,6 @@ bool Analyzer::constexpr_definition(const FunctionEntity* function)
 		return true;
 	if (function->instantiated)
 	{
-		// A member of an instance whose definition is being instantiated (or
-		// the member template whose specialization this is) learns its
-		// pattern now (the rest of the class links later).
-		const FunctionEntity* member = function->primary != nullptr ? function->primary : function;
-		const ClassEntity* owner = member->owner != nullptr && member->owner->kind == ScopeKind::Class
-			? static_cast<const ClassEntity*>(member->owner->entity)
-			: nullptr;
-		if (PatternOf(member) == nullptr && member->primary == nullptr && owner != nullptr && owner->templ != nullptr)
-		{
-			// The members analyzed since the last such link (each member
-			// once per instantiation).
-			for (size_t i = class_instantiations_.size(); i-- > 0;)
-			{
-				ClassInstantiation& record = class_instantiations_[i];
-				if (record.entity != owner)
-					continue;
-				link_member_patterns(*record.pattern, *record.copy, record.linked, record.declared);
-				record.linked = std::max(record.linked, record.declared);
-				break;
-			}
-		}
 		instantiate_definition(function);
 		return function->scope != nullptr && function->body != nullptr;
 	}

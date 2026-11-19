@@ -265,7 +265,10 @@ braced placeholder deduction and invalid declarator combinations. Deleted
 placeholder-return declarations need no nonexistent body. A use that requires
 an undeduced return type from an unavailable definition is rejected. Deducing
 another function's return type inside a parameter's `decltype` leaves the
-enclosing function's own return type available for deduction. An explicit
+enclosing function's own return type available for deduction. A static data
+member initializer in a class template specialization can require the return
+type of a member function. Instantiate that member when its return type is
+needed, using the specialization's template arguments. An explicit
 specialization must repeat the function template's written return placeholder.
 Deduce the specialization's return type from its own definition. Initialized captures
 deduce from the enclosing scope; their new name is available in the body,

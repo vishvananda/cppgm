@@ -3203,6 +3203,24 @@ uint32_t Analyzer::class_definition_context(const Scope* scope)
 	return limit;
 }
 
+void Analyzer::link_declared_member_patterns(const FunctionEntity* function)
+{
+	// Deducing a return type or evaluating a constexpr call can demand a
+	// definition while its class is still being instantiated. Link the
+	// members already declared in that class to their patterns.
+	const FunctionEntity* member = function->primary != nullptr ? function->primary : function;
+	if (PatternOf(member) != nullptr || member->primary != nullptr)
+		return;
+	for (auto i = class_instantiations_.rbegin(); i != class_instantiations_.rend(); ++i)
+	{
+		if (i->entity->scope != member->owner)
+			continue;
+		link_member_patterns(*i->pattern, *i->copy, i->linked, i->declared);
+		i->linked = std::max(i->linked, i->declared);
+		return;
+	}
+}
+
 bool Analyzer::instantiate_definition(const FunctionEntity* entity)
 {
 	FunctionEntity* function = const_cast<FunctionEntity*>(entity);
@@ -3212,6 +3230,8 @@ bool Analyzer::instantiate_definition(const FunctionEntity* entity)
 		return true;
 	if (function->instantiation == FactState::InProgress)
 		return true;
+	if (!class_instantiations_.empty())
+		link_declared_member_patterns(function);
 	// The template's definition: the pattern member's (in its class or out
 	// of it), or the function template's.
 	Scope* copied_owner = function->owner->kind == ScopeKind::Class ? function->owner

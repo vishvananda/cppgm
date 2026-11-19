@@ -189,6 +189,7 @@ public:
 	bool plan_nothrow(const FunctionEntity* constructor);
 	static uint32_t definition_context(const FunctionEntity* definition);
 	static uint32_t class_definition_context(const Scope* scope);
+	void link_declared_member_patterns(const FunctionEntity* function);
 	// An instance's static data member's definition (14.7.1p1), on demand:
 	// false when its pattern has none.
 	bool instantiate_variable(const VariableEntity* variable);

@@ -472,8 +472,7 @@ void Analyzer::class_body(ClassEntity* entity, const syntax::ClassSpecifier& spe
 	unnamed_class_depth_ += unnamed ? 1 : 0;
 	if (!class_instantiations_.empty() && class_instantiations_.back().copy == &specifier)
 	{
-		// An instance's members, the number analyzed before each kept for
-		// constexpr_definition's links.
+		// Record which members completed before an early definition demand.
 		for (uint32_t i = 0; i < specifier.members.size; ++i)
 		{
 			class_instantiations_.back().declared = i;
