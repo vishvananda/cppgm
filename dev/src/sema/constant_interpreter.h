@@ -111,7 +111,16 @@ private:
 
 	// -------------------------------------------- objects and places
 	ConstValue skeleton(const Type* type, bool owned = false);
-	bool new_object(const Type* type, ConstPlace& place, uint32_t location, bool prefix = false);
+	enum class ObjectStorage : uint8_t
+	{
+		Complete,
+		Prefix,
+		Scoped
+	};
+	bool new_object(
+		const Type* type, ConstPlace& place, uint32_t location, ObjectStorage form = ObjectStorage::Complete);
+	void register_destruction(const ConstPlace& place, uint32_t location);
+	bool destroy_locals(size_t first);
 	static bool scalar_array(const Type* type);
 	static ConstValue array_prefix(const Type* type);
 	bool zero_array_tail(const Type* type, uint32_t depth);
@@ -347,6 +356,7 @@ private:
 	void resume_swaps(size_t active);
 	void end_parameters(const FunctionEntity* function, size_t first);
 	bool execute(const syntax::Stmt& stmt, Flow& flow);
+	bool execute_substatement(const syntax::Stmt& stmt, Flow& flow);
 	bool compound(const syntax::CompoundStmt& block, Flow& flow);
 	bool declaration(const syntax::Decl& decl);
 	bool local_variable(const VariableEntity* variable, const syntax::Initializer* initializer, uint32_t location);
@@ -357,7 +367,7 @@ private:
 	bool returned(const syntax::ValueStmt& stmt);
 	bool local(const Entity* entity, ConstPlace& out) const;
 	Region region() const;
-	void release(const Region& region);
+	bool release(const Region& region);
 
 	Analyzer& analyzer_;
 	// The evaluation's values (Analyzer::constant_scratch_ from `mark_`,

@@ -1,9 +1,32 @@
 #include "sema/constant_interpreter.h"
 
 #include "sema/analyzer.h"
+#include "sema/constant_storage.h"
 #include "support/small_list.h"
 
 namespace sema {
+
+void ConstantInterpreter::register_destruction(const ConstPlace& place, uint32_t location)
+{
+	if (analyzer_.nontrivial_destruction(place.type))
+		class_storage().destructions.push_back({ place, location });
+}
+
+bool ConstantInterpreter::destroy_locals(size_t first)
+{
+	auto& pending = storage_->destructions;
+	bool done = failure_ == nullptr;
+	while (!pending.empty() && pending.back().place.object >= first)
+	{
+		// A destructor call can grow this vector. It must finish with its own
+		// locals destroyed, leaving the next object of the original scope.
+		const ConstantStorage::Destruction next = pending.back();
+		pending.pop_back();
+		if (done)
+			done = destroy(next.place, next.location);
+	}
+	return done;
+}
 
 bool ConstantInterpreter::destroy(const ConstPlace& place, uint32_t location)
 {

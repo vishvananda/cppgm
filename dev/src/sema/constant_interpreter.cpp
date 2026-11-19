@@ -191,18 +191,20 @@ ConstValue ConstantInterpreter::skeleton(const Type* type, bool owned)
 	return value;
 }
 
-bool ConstantInterpreter::new_object(const Type* type, ConstPlace& place, uint32_t location, bool prefix)
+bool ConstantInterpreter::new_object(const Type* type, ConstPlace& place, uint32_t location, ObjectStorage form)
 {
 	// 5.19p2: an object the evaluation makes (a temporary, parameter or
-	// variable) is of a class whose destructor is trivial, as a literal
-	// type's (3.9p10): no destructor that is not constexpr runs.
+	// variable) needs a trivial destructor through C++17. In C++20, allow
+	// a constexpr destructor when the object's lifetime is tracked.
 	const Type* element = type;
 	while (element->kind == TypeKind::Array)
 		element = element->element;
 	const ClassEntity* cls = element->is_reference() ? nullptr : ClassOf(element);
-	if (cls != nullptr && cls->destructor != nullptr && !cls->destructor->trivial)
+	if (cls != nullptr && cls->destructor != nullptr && !cls->destructor->trivial &&
+		(form != ObjectStorage::Scoped || !analyzer_.cxx20_ || !analyzer_.constexpr_destructor(cls, 0)))
 		return fail(location, "an object with a non-trivial destructor in a constant expression");
 	size_of(type, location);
+	bool prefix = form == ObjectStorage::Prefix;
 	if (type->kind != TypeKind::Array && cls != nullptr)
 		prefix = CompactClass(cls);
 	if (!prefix && leaves(type, 0) > kValueBudget)
@@ -229,7 +231,7 @@ ConstantInterpreter::Region ConstantInterpreter::region() const
 	return Region{ objects_.size(), locals_.size(), arena_.mark(), storage_ ? storage_->allocations.size() : 0 };
 }
 
-void ConstantInterpreter::release(const Region& region)
+bool ConstantInterpreter::release(const Region& region)
 {
 	// The region's objects end, and their storage is reused: nothing made
 	// in the region outlives it (a result initializes an object made
@@ -237,14 +239,21 @@ void ConstantInterpreter::release(const Region& region)
 	// scratch is rewound within the block the region began in only, so a
 	// region crossing into a new block does not free and take it again at
 	// every iteration.
-	if (storage_ != nullptr && storage_->allocations.size() != region.mutable_allocations)
-		release_mutable(region);
+	bool done = true;
+	if (storage_ != nullptr)
+	{
+		if (!storage_->destructions.empty())
+			done = destroy_locals(region.objects);
+		if (storage_->allocations.size() != region.mutable_allocations)
+			release_mutable(region);
+	}
 	if (objects_.size() > region.objects)
 		objects_.resize(region.objects);
 	if (locals_.size() > region.locals)
 		locals_.resize(region.locals);
 	if (arena_.mark().head == region.mark.head)
 		arena_.rewind(region.mark);
+	return done;
 }
 
 size_t ConstantInterpreter::suspend_swaps()

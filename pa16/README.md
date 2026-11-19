@@ -388,6 +388,13 @@ separately and preserve the value computed by its initializer. The object
 and its non-mutable subobjects begin their lifetimes in that check. See
 N4861 `[basic.types]`, `[dcl.constexpr]` and `[expr.const]`.
 
+During evaluation, destroy automatic variables on scope exit in reverse
+initialization order. This includes exits through `break`, `continue`, and
+`return`, and the scope of an unbraced substatement. Evaluate a return
+operand before destroying the block's variables. Apply the ordinary
+constant-expression rules to operations the destructor actually executes.
+See N4861 `[stmt.dcl]`, `[stmt.iter]`, `[stmt.jump]` and `[stmt.return]`.
+
 A C++20 constant expression may use `new` with a replaceable global
 allocation function. For scalar and array allocations, keep the new object's
 identity across calls and scopes within the evaluation. It must be released by

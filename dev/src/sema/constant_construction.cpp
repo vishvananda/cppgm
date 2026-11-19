@@ -89,7 +89,8 @@ bool ConstantInterpreter::temporary(const syntax::Expr& expr, ConstPlace& out)
 	// constructor calls and temporary destruction still check eligibility.
 	if (array && !scalar_array(type) && !analyzer_.trait_literal_type(type))
 		return fail(e->location, "a nonliteral array temporary in a constant expression");
-	return new_object(type, out, e->location, prefix) && materialize(*e, out);
+	return new_object(type, out, e->location, prefix ? ObjectStorage::Prefix : ObjectStorage::Complete) &&
+		materialize(*e, out);
 }
 
 bool ConstantInterpreter::materialize(const syntax::Expr& expr, const ConstPlace& target)
@@ -842,8 +843,7 @@ bool ConstantInterpreter::run_constructor(const FunctionEntity* constructor, con
 	resume_swaps(swaps);
 	frames_.pop_back();
 	end_parameters(constructor, locals);
-	release(callee);
-	return done;
+	return release(callee) && done;
 }
 
 bool ConstantInterpreter::argument_place(

@@ -534,8 +534,7 @@ bool ConstantInterpreter::invoke(const FunctionEntity* function, const ConstPlac
 	else
 		done = invoke_body(function, object, locals, result, location);
 	end_parameters(function, locals);
-	release(callee);
-	return done && valid_pointer(result.value, location);
+	return release(callee) && done && valid_pointer(result.value, location);
 }
 
 bool ConstantInterpreter::invoke_body(
@@ -934,13 +933,26 @@ bool ConstantInterpreter::compound(const syntax::CompoundStmt& block, Flow& flow
 			done = false;
 			break;
 		}
-		if (!Declares(item))
-			release(statement);
+		if (!Declares(item) && !release(statement))
+		{
+			done = false;
+			break;
+		}
 		if (flow != Flow::Next)
 			break;
 	}
-	release(scope);
-	return done;
+	return release(scope) && done;
+}
+
+bool ConstantInterpreter::execute_substatement(const syntax::Stmt& stmt, Flow& flow)
+{
+	// A single substatement has its own block scope. An explicit compound
+	// already releases its declarations in compound().
+	if (!analyzer_.cxx20_ || !Declares(&stmt))
+		return execute(stmt, flow);
+	const Region scope = region();
+	const bool done = execute(stmt, flow);
+	return release(scope) && done;
 }
 
 bool ConstantInterpreter::execute(const syntax::Stmt& stmt, Flow& flow)
@@ -990,11 +1002,10 @@ bool ConstantInterpreter::execute(const syntax::Stmt& stmt, Flow& flow)
 		bool selected = false;
 		bool done = condition(branch.condition, selected, stmt.location);
 		if (done && selected)
-			done = execute(*branch.then_branch, flow);
+			done = execute_substatement(*branch.then_branch, flow);
 		else if (done && syntax::LiveElse(branch) != nullptr)
-			done = execute(*branch.else_branch, flow);
-		release(statement);
-		return done;
+			done = execute_substatement(*branch.else_branch, flow);
+		return release(statement) && done;
 	}
 	case syntax::StmtKind::While:
 	{
@@ -1011,12 +1022,12 @@ bool ConstantInterpreter::execute(const syntax::Stmt& stmt, Flow& flow)
 				break;
 			if (!loop_body(*loop.body, flow, leave))
 				return false;
-			release(iteration);
+			if (!release(iteration))
+				return false;
 			if (leave)
 				break;
 		}
-		release(statement);
-		return true;
+		return release(statement);
 	}
 	case syntax::StmtKind::Do:
 	{
@@ -1031,12 +1042,12 @@ bool ConstantInterpreter::execute(const syntax::Stmt& stmt, Flow& flow)
 				break;
 			if (!truth(*loop.condition, selected))
 				return false;
-			release(iteration);
+			if (!release(iteration))
+				return false;
 			if (!selected)
 				break;
 		}
-		release(statement);
-		return true;
+		return release(statement);
 	}
 	case syntax::StmtKind::For:
 	{
@@ -1068,10 +1079,10 @@ bool ConstantInterpreter::execute(const syntax::Stmt& stmt, Flow& flow)
 				done = false;
 				break;
 			}
-			release(iteration);
+			if (!release(iteration))
+				return false;
 		}
-		release(statement);
-		return done;
+		return release(statement) && done;
 	}
 	case syntax::StmtKind::Switch:
 		return switch_statement(static_cast<const syntax::ConditionalLoopStmt&>(stmt), flow);
@@ -1129,17 +1140,19 @@ bool ConstantInterpreter::range_for(const syntax::RangeForStmt& stmt, Flow& flow
 			return false;
 		if (leave)
 			break;
-		if (!discard(*facts->increment))
+		// The range declaration belongs to the body of the equivalent
+		// for-loop. Destroy it before evaluating the increment.
+		if (analyzer_.cxx20_ && !release(iteration))
 			return false;
-		release(iteration);
+		if (!discard(*facts->increment) || !release(iteration))
+			return false;
 	}
-	release(statement);
-	return true;
+	return release(statement);
 }
 
 bool ConstantInterpreter::loop_body(const syntax::Stmt& body, Flow& flow, bool& leave)
 {
-	if (!execute(body, flow))
+	if (!execute_substatement(body, flow))
 		return false;
 	if (flow == Flow::Break)
 	{
@@ -1186,13 +1199,12 @@ bool ConstantInterpreter::switch_statement(const syntax::ConditionalLoopStmt& st
 	if (target != nullptr)
 	{
 		seeking_ = target;
-		done = execute(*stmt.body, flow);
+		done = execute_substatement(*stmt.body, flow);
 		seeking_ = nullptr;
 		if (flow == Flow::Break)
 			flow = Flow::Next;
 	}
-	release(statement);
-	return done;
+	return release(statement) && done;
 }
 
 bool ConstantInterpreter::condition(const syntax::Condition& written, bool& out, uint32_t location)
@@ -1264,10 +1276,14 @@ bool ConstantInterpreter::local_variable(
 		locals_.push_back(local);
 		return true;
 	}
-	if (!new_object(type, local.place, location))
+	if (!new_object(type, local.place, location, ObjectStorage::Scoped))
 		return false;
 	locals_.push_back(local);
-	return construct(type, local.place, initializer, variable->constructor, location);
+	if (!construct(type, local.place, initializer, variable->constructor, location))
+		return false;
+	if (analyzer_.cxx20_)
+		register_destruction(local.place, location);
+	return true;
 }
 
 bool ConstantInterpreter::returned(const syntax::ValueStmt& stmt)

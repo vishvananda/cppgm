@@ -16,8 +16,8 @@ struct ConstAllocation
 	bool array;
 };
 
-// Allocated only when an evaluation actually needs shared class/part
-// templates or storage that a callee writes into a caller's object.
+// Storage taken only when an evaluation needs class templates, allocations
+// or objects with destructors.
 struct ConstantStorage
 {
 	Arena immutable_arena;
@@ -32,6 +32,12 @@ struct ConstantStorage
 		Arena::Mark mark;
 	};
 	std::vector<Allocation> allocations;
+	struct Destruction
+	{
+		ConstPlace place;
+		uint32_t location;
+	};
+	std::vector<Destruction> destructions;
 	std::vector<ConstAllocation> heap;
 	uint64_t heap_values = 0;
 	uint32_t live_allocations = 0;

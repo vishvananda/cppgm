@@ -1419,8 +1419,8 @@
           "sha256": "08ade3c4ceafed45732a6d71caf568a31db152caeae545386620d6dd9b21ba4e",
           "action": "compile",
           "expect": "accept",
-          "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "Destruction of automatic objects during constant evaluation is pending."
+          "feature": "constant destruction of a const automatic class object",
+          "pr": false
         },
         {
           "id": "constexpr-dtor10-gnu++20",
@@ -1428,8 +1428,8 @@
           "sha256": "08ade3c4ceafed45732a6d71caf568a31db152caeae545386620d6dd9b21ba4e",
           "action": "compile",
           "expect": "accept",
-          "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "Destruction of automatic objects during constant evaluation is pending."
+          "feature": "constant destruction of a const automatic class object",
+          "pr": false
         },
         {
           "id": "constexpr-dtor11-c++20",
@@ -1509,8 +1509,8 @@
           "sha256": "ecaad767ee3ccf66fe78960fc40b04792cace96234b5ea4aab94cde0d0dfd749",
           "action": "compile",
           "expect": "accept",
-          "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "Destruction of automatic and temporary objects during constant evaluation is pending."
+          "feature": "constant destruction of static and automatic class objects",
+          "pr": true
         },
         {
           "id": "constexpr-dtor2-gnu++20",
@@ -1518,8 +1518,8 @@
           "sha256": "ecaad767ee3ccf66fe78960fc40b04792cace96234b5ea4aab94cde0d0dfd749",
           "action": "compile",
           "expect": "accept",
-          "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "Destruction of automatic and temporary objects during constant evaluation is pending."
+          "feature": "constant destruction of static and automatic class objects",
+          "pr": false
         },
         {
           "id": "constexpr-dtor4-c++20",
