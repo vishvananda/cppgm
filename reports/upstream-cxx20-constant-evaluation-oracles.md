@@ -65,3 +65,11 @@ activation of a different array member of a union. Clang 21.1.8 failed the
 first check. The bounded-array form of `std::construct_at` follows the
 library issue resolution already implemented by libstdc++ 15.
 [LWG 3436](https://cplusplus.github.io/LWG/issue3436)
+
+## Unused definitions containing allocation calls
+
+GCC 15.2 accepted the unused constexpr definitions in `constexpr-new7.C`
+in both C++20 dialects. The source requests rejection, so these cases
+are excluded from the GCC cohort. The PA16 placement control evaluates the
+call in a required constant expression and both reference compilers reject it.
+[PA16 control](../pa16/tests/controls/100-cxx20-constexpr-ordinary-placement-new-bad.t)

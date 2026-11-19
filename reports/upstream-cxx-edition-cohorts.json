@@ -1473,8 +1473,8 @@
           "sha256": "0cc4ce327282c9421b482a2465611f5fed2919a1054b9459741dd07eed200f92",
           "action": "compile",
           "expect": "accept",
-          "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "The candidate rejects the abbreviated variadic call before testing immediate temporary destruction."
+          "feature": "immediate temporary destruction after a call with an empty abbreviated parameter pack",
+          "pr": false
         },
         {
           "id": "constexpr-dtor11-gnu++20",
@@ -1482,8 +1482,8 @@
           "sha256": "0cc4ce327282c9421b482a2465611f5fed2919a1054b9459741dd07eed200f92",
           "action": "compile",
           "expect": "accept",
-          "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "The candidate rejects the abbreviated variadic call before testing immediate temporary destruction."
+          "feature": "immediate temporary destruction after a call with an empty abbreviated parameter pack",
+          "pr": false
         },
         {
           "id": "constexpr-dtor12-c++20",
@@ -1707,8 +1707,8 @@
           "sha256": "c29fb04c9484ed15f0042d210fb9c4f30a22581533a5fe608550cc4e8777ecba",
           "action": "compile",
           "expect": "accept",
-          "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "Destruction of automatic objects and by-value parameters during constant evaluation is pending."
+          "feature": "constexpr destruction of automatic objects and by-value parameters",
+          "pr": false
         },
         {
           "id": "constexpr-new18-gnu++20",
@@ -1716,8 +1716,8 @@
           "sha256": "c29fb04c9484ed15f0042d210fb9c4f30a22581533a5fe608550cc4e8777ecba",
           "action": "compile",
           "expect": "accept",
-          "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "Destruction of automatic objects and by-value parameters during constant evaluation is pending."
+          "feature": "constexpr destruction of automatic objects and by-value parameters",
+          "pr": false
         },
         {
           "id": "constexpr-new19-c++20",
@@ -1852,7 +1852,7 @@
           "action": "compile",
           "expect": "reject",
           "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "The candidate accepts the unused constexpr definitions containing ordinary allocation calls."
+          "exclusion_reason": "GCC 15.2 accepts the unused constexpr definitions, so the pinned reference does not satisfy the source's rejection oracle."
         },
         {
           "id": "constexpr-new7-gnu++20",
@@ -1861,7 +1861,7 @@
           "action": "compile",
           "expect": "reject",
           "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "The candidate accepts the unused constexpr definitions containing ordinary allocation calls."
+          "exclusion_reason": "GCC 15.2 accepts the unused constexpr definitions, so the pinned reference does not satisfy the source's rejection oracle."
         }
       ]
     },
