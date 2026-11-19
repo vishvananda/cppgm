@@ -453,6 +453,7 @@ void Parser::advance_prefix(
 	const bool dependent = (guesses & NameBinding::kDependent) != 0;
 	const bool was_dependent = info.prefix == PrefixState::Dependent;
 	const bool dependent_prefix = info.prefix_dependent;
+	const bool specialized_prefix = info.prefix_specialization;
 	info.prefix_specialization = false;
 	info.prefix_dependent = false;
 	info.prefix_approximate = false;
@@ -482,10 +483,13 @@ void Parser::advance_prefix(
 	else if (binding.category == NameCategory::Type || binding.category == NameCategory::TypeTemplate ||
 		was_dependent || dependent)
 	{
+		// A concrete specialization's member alias may have a scope known
+		// only to semantic analysis. Its name is still nondependent here.
 		if (!was_dependent)
 			info.prefix_uncertain = !in_template_definition() ||
-				(component.has_arguments && !dependent_arguments && !dependent_prefix &&
-					binding.category == NameCategory::TypeTemplate);
+				(!dependent_arguments && !dependent_prefix &&
+					(specialized_prefix ||
+						(component.has_arguments && binding.category == NameCategory::TypeTemplate)));
 		info.prefix = PrefixState::Dependent;
 		info.prefix_scope = nullptr;
 	}
