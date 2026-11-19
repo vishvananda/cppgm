@@ -61,6 +61,10 @@ def validate_inventory(inventory):
         if 'shared_python_runtime' in group:
             reason = group['shared_python_runtime']
             boost_ci.require(isinstance(reason, str) and reason, 'shared Python runtime needs a recorded reason')
+        if 'python39' in group:
+            boost_ci.require(group['kind'] == 'test' and 'link=shared' in group.get('b2_properties', []) and
+                             isinstance(group['python39'], str) and group['python39'] and required,
+                             'Python 3.9 replay needs shared linking and a required test')
 
 
 def replay_configurations(group):
@@ -88,7 +92,7 @@ def source_compilations(calls, project, root, label):
         if call['route'] != label or '-c' not in call['args'] or call['returncode'] != 0:
             continue
         for spelling in call['args']:
-            if spelling.startswith('-') or Path(spelling).suffix not in {'.cpp', '.cc', '.cxx', '.C'}:
+            if spelling.startswith('-') or Path(spelling).suffix not in boost_ci.CXX_SUFFIXES:
                 continue
             path = (Path(call['cwd']) / spelling).resolve()
             if path.is_relative_to(root / prefix):
@@ -147,6 +151,15 @@ def replay(boost, settings, role, case, group, args):
         'variant=debug', 'link=static', 'runtime-link=shared', 'threading=multi', 'pch=off',
         *group.get('b2_properties', []),
     ]}
+    if group.get('python39'):
+        prefix = args.python39
+        boost_ci.require(prefix is not None, f'{project} needs --python39 with the CPython 3.9.25 prefix')
+        header = prefix / 'include/python3.9/Python.h'
+        boost_ci.require(header.is_file(), f'missing CPython 3.9 header: {header}')
+        properties['python'] = 'python=3.9'
+        properties['force-include'] = f'force-include={header}'
+        library_path = [str(prefix / 'lib'), environment.get('LD_LIBRARY_PATH', '')]
+        environment.update(LD_LIBRARY_PATH=':'.join(filter(None, library_path)), PYTHONDONTWRITEBYTECODE='1')
     command = [str(boost / 'b2'), *requested, '--ignore-site-config', '--user-config=' + str(jam),
                f'toolset=gcc-{role}', f'cxxstd={edition}', 'cxxstd-dialect=iso', '-j' + str(args.jobs),
                *properties.values(), '--build-dir=' + str(case / 'build'), '-a', '-d2', '--reconfigure',
@@ -171,13 +184,18 @@ def replay(boost, settings, role, case, group, args):
     return observed
 
 
-def compiler_setup(boost, output, role, compiler, reference, config):
+def compiler_setup(boost, output, role, compiler, reference, config, python39=None):
     directory = output / ('setup-' + role)
     directory.mkdir()
     jam = boost_ci.setup(boost, directory, role)
     if config:
         with jam.open('a') as stream:
             stream.write('\n' + config.read_text() + '\n')
+    if python39 is not None:
+        interpreter = python39 / 'bin/python3.9'
+        boost_ci.require(os.access(interpreter, os.X_OK), f'missing CPython 3.9 interpreter: {interpreter}')
+        with jam.open('a') as stream:
+            stream.write(f'\nusing python : 3.9 : "{interpreter}" ;\n')
     host_cc = shutil.which('gcc')
     boost_ci.require(host_cc is not None, 'missing GCC C compiler')
     environment = dict(os.environ, BOOST_CI_COMPILER=str(compiler), BOOST_CI_HOST_CXX=str(reference),
@@ -193,6 +211,7 @@ def main():
     parser.add_argument('--reference', default='g++')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--extra-user-config', type=Path)
+    parser.add_argument('--python39', type=Path, help='CPython 3.9.25 installation prefix for the Parameter.Python test')
     parser.add_argument('--project', action='append')
     parser.add_argument('--edition', type=int, choices=(14, 17, 20))
     parser.add_argument('--smoke', action='store_true')
@@ -201,6 +220,8 @@ def main():
     args = parser.parse_args()
     if min(args.jobs, args.timeout) < 1:
         parser.error('jobs and timeout must be positive')
+    if args.python39 is not None:
+        args.python39 = args.python39.resolve()
     manifest = Path(__file__).resolve().parents[1] / 'reports/boost-later-language-replay.json'
     inventory = json.loads(manifest.read_text())
     validate_inventory(inventory)
@@ -223,7 +244,7 @@ def main():
     # change one of the compilers during a multi-project replay.
     candidate = shutil.copy2(args.compiler, output / 'cppgm')
     roles = {'gcc': Path(reference), 'cppgm': Path(candidate)}
-    settings = {role: compiler_setup(boost, output, role, executable, reference, args.extra_user_config)
+    settings = {role: compiler_setup(boost, output, role, executable, reference, args.extra_user_config, args.python39)
                 for role, executable in roles.items()}
     report = dict(boost=inventory['boost'], archive_sha256=boost_ci.ARCHIVE_SHA256,
                   inventory_sha256=boost_ci.digest(manifest),

@@ -181,6 +181,49 @@ class ReviewTests(unittest.TestCase):
         command.text = '/generated/boost-ci-gdb --batch-silent -x _test.py ./program'
         self.assertEqual(self.check()['passed'], 1)
 
+    def test_python_extension_must_link_the_candidate_object_and_execute(self):
+        self.fixture('RUN_PYD')
+        source = self.project + '/example.py'
+        native = self.project + '/example.cpp'
+        self.tree.find('test/source').text = source
+        ET.SubElement(self.tree.find('test'), 'source').text = native
+        self.calls[0]['args'][1] = native
+        target = self.project + '//example.test'
+        run_target = target.removesuffix('.test')
+        module = 'example_ext.so'
+        targets = ET.SubElement(self.tree, 'targets')
+        for name, required in [(target, [run_target]),
+                               (run_target, [self.project + '//example.py', self.project + '//' + module])]:
+            entry = ET.SubElement(targets, 'target')
+            ET.SubElement(entry, 'name').text = name
+            dependencies = ET.SubElement(entry, 'dependencies')
+            for dependency in required:
+                ET.SubElement(dependencies, 'dependency').text = dependency
+        extension = self.marker.with_name(module)
+        extension.touch()
+        link = ET.SubElement(self.tree, 'action', status='0')
+        ET.SubElement(link, 'name').text = 'gcc%gcc.link.dll'
+        ET.SubElement(link, 'path').text = str(extension)
+        action = ET.SubElement(self.tree, 'action', status='0')
+        ET.SubElement(action, 'name').text = 'python%python.capture-output'
+        ET.SubElement(action, 'path').text = str(self.marker.with_suffix(''))
+        command = ET.SubElement(action, 'command')
+        command.text = f'PYTHONPATH="{self.marker.parent}"\n"/usr/bin/python3" "{source}"\n'
+        self.marker.with_suffix('.output').write_text('EXIT STATUS: 0\n')
+        with self.assertRaisesRegex(ValueError, 'no recorded extension link'):
+            self.check()
+        self.calls.append(dict(cwd=str(self.root), route='host-link-or-query',
+                               args=['unrelated.o', '-o', str(extension)], returncode=0))
+        with self.assertRaisesRegex(ValueError, 'extension link did not use'):
+            self.check()
+        self.calls[-1]['args'][0] = self.calls[0]['args'][-1]
+        row, = self.check()['tests']
+        self.assertEqual((row['sources'], row['python_extensions'], row['native_status']),
+                         ([self.calls[0]['args']], [module], 0))
+        command.text = command.text.replace(str(self.marker.parent), '/unrelated')
+        with self.assertRaisesRegex(ValueError, 'unreviewed Python command'):
+            self.check()
+
     def test_cpp_response_files_are_expanded(self):
         response = self.root / 'args.rsp'
         response.write_text('-std=c++11 -c "file with spaces.cpp" -o output.o')

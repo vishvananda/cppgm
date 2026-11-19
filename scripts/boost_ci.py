@@ -35,6 +35,7 @@ SUITES = {
     'libs/xpressive/test': 51,
 }
 ARCHIVE_SHA256 = '5c1d40cb8e19adbf740a4ec2da35b3e58f3f5804b1dce44deb53df72193cbc6c'
+CXX_SUFFIXES = {'.cpp', '.cc', '.cxx', '.C'}
 
 
 def require(condition, message):
@@ -46,30 +47,69 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def standalone_python_result(tree, actions, test, target, marker, boost):
-    sources = [Path(node.text) for node in test.findall('source')]
-    require(len(sources) == 1 and sources[0].suffix == '.py', f'unreviewed Python inputs for {target}')
-    source = (boost / sources[0]).resolve()
+def python_dependencies(tree, name, target):
+    nodes = [node for node in tree.findall('./targets/target') if node.findtext('name') == name]
+    require(len(nodes) == 1, f'unreviewed Python dependencies for {target}')
+    return {node.text for node in nodes[0].findall('dependencies/dependency')}
+
+
+def python_extensions(actions, target, marker, modules, sources, compiled, links):
+    compiled_sources = {(Path(call['cwd']) / arg).resolve() for call in compiled for arg in call['args']
+                        if not arg.startswith('-') and Path(arg).suffix in CXX_SUFFIXES}
+    require(compiled_sources == sources, f'incorrect Python extension sources for {target}')
+    objects = {(Path(call['cwd']) / call['args'][call['args'].index('-o') + 1]).resolve() for call in compiled}
+    used_objects = set()
+    for module in modules:
+        extension = marker.parent / module
+        linked = [action for action in actions if action.findtext('name') == 'gcc%gcc.link.dll' and
+                  action.findtext('path') == str(extension)]
+        require(len(linked) == 1 and linked[0].attrib['status'] == '0' and extension.is_file(),
+                f'no successful extension link for {target}: {module}')
+        receipts = links.get(extension.resolve(), [])
+        require(len(receipts) == 1 and receipts[0]['returncode'] == 0,
+                f'no recorded extension link for {target}: {module}')
+        call = receipts[0]
+        used_objects.update((Path(call['cwd']) / arg).resolve() for arg in call['args']
+                            if not arg.startswith('-') and Path(arg).suffix == '.o')
+    require(used_objects == objects, f'extension link did not use the recorded objects for {target}')
+
+
+def python_test_result(tree, actions, test, target, marker, boost, compiled, links):
+    inputs = [(boost / node.text).resolve() for node in test.findall('source')]
+    scripts = [path for path in inputs if path.suffix == '.py']
+    cxx_sources = {path for path in inputs if path.suffix in CXX_SUFFIXES}
+    require(len(scripts) == 1 and len(inputs) == len(cxx_sources) + 1, f'unreviewed Python inputs for {target}')
+    source = scripts[0]
     directory, _ = target.split('//')
-    require(source.is_relative_to(boost / directory), f'Python source outside the test project for {target}')
+    require(all(path.is_relative_to(boost / directory) for path in inputs),
+            f'Python source outside the test project for {target}')
     run_target = target.removesuffix('.test')
-    for name, dependency in [(target, run_target), (run_target, directory + '//' + source.name)]:
-        graph_nodes = [node for node in tree.findall('./targets/target') if node.findtext('name') == name]
-        require(len(graph_nodes) == 1 and
-                [node.text for node in graph_nodes[0].findall('dependencies/dependency')] == [dependency],
-                f'unreviewed Python dependencies for {target}')
+    require(python_dependencies(tree, target, target) == {run_target}, f'unreviewed Python dependencies for {target}')
+    dependencies = python_dependencies(tree, run_target, target)
+    script_dependency = directory + '//' + source.name
+    require(script_dependency in dependencies, f'unreviewed Python dependencies for {target}')
+    extensions = dependencies - {script_dependency}
+    require(bool(cxx_sources) == bool(extensions) and all(
+        dep.startswith(directory + '//') and re.fullmatch(r'[^/]+\.so', dep.split('//')[-1]) for dep in extensions),
+        f'unreviewed Python dependencies for {target}')
+    modules = sorted(dep.split('//')[-1] for dep in extensions)
+    python_extensions(actions, target, marker, modules, cxx_sources, compiled, links)
     capture = [a for a in actions if a.findtext('name') == 'python%python.capture-output' and
                a.findtext('path') == str(marker.with_suffix(''))]
     require(len(capture) == 1 and capture[0].attrib['status'] == '0', f'no actual Python execution for {target}')
     command = capture[0].findtext('command', '')
-    require('PYTHONPATH=""' in command.split() and any(
+    # B2 sets PYTHONPATH to the libraries built for this test. Match the
+    # value, even when a scratch directory contains spaces.
+    search_path = re.search(r'^\s*PYTHONPATH="([^"\n]*)"\s*$', command, re.M)
+    require(search_path is not None and
+            (str(marker.parent) in search_path[1].split(':') if modules else search_path[1] == '') and any(
         len(args) >= 2 and Path(args[0]).name.startswith('python') and (boost / args[1]).resolve() == source
         for line in command.splitlines() if line.lstrip().startswith('"')
         for args in [shlex.split(line)]), f'unreviewed Python command for {target}')
     output = marker.with_suffix('.output')
     require(re.search(r'EXIT STATUS:\s*0\s*$', output.read_text(errors='replace')) is not None,
             f'incorrect Python result for {target}')
-    return dict(native_status=0, output_sha256=digest(output))
+    return dict(native_status=0, output_sha256=digest(output), python_extensions=modules)
 
 
 def mpi_result(actions, target, marker):
@@ -130,13 +170,18 @@ def review(xml_path, log_path, calls_path, project, expected, label='cppgm', nat
               if native_path is not None and native_path.exists() else [])
     require(calls and all(c['returncode'] in (0, 1) for c in calls), 'compiler crash or invalid compiler status')
     by_directory = {}
+    links = {}
     for call in calls:
         arguments = call['args']
-        if '-c' not in arguments or '-o' not in arguments:
+        if '-o' not in arguments:
             continue
         product = Path(arguments[arguments.index('-o') + 1])
         if not product.is_absolute():
             product = Path(call['cwd']) / product
+        if '-c' not in arguments:
+            if call['route'] == 'host-link-or-query' and product.suffix == '.so':
+                links.setdefault(product.resolve(), []).append(call)
+            continue
         for parent in product.resolve().parents:
             by_directory.setdefault(parent, []).append(call)
     counts = Counter()
@@ -160,19 +205,15 @@ def review(xml_path, log_path, calls_path, project, expected, label='cppgm', nat
         require(action.attrib['status'] == '0' and marker.read_text().strip() == 'passed', f'failed {target}')
         compiled = by_directory.get(marker.parent.resolve(), [])
         row = dict(target=target, kind=kind, marker_sha256=digest(marker), compiler_invocations=len(compiled))
-        if kind == 'RUN_PYD':
-            require(not compiled, f'unreviewed Python extension compilation for {target}')
-            row.update(sources=[], compile_cpu=0, compile_elapsed=0,
-                       **standalone_python_result(tree, actions, test, target, marker, boost))
-            rows.append(row)
-            counts[kind] += 1
-            continue
-        require(compiled and all(c['route'] == label for c in compiled), f'no {label} compilation for {target}')
+        require((compiled or kind == 'RUN_PYD') and all(c['route'] == label for c in compiled),
+                f'no {label} compilation for {target}')
         require(any(c['returncode'] == 1 for c in compiled) if kind == 'COMPILE_FAIL' else
                 all(c['returncode'] == 0 for c in compiled), f'incorrect compilation result for {target}')
         row.update(compile_cpu=sum(c.get('cpu_seconds', 0) for c in compiled),
                    compile_elapsed=sum(c.get('seconds', 0) for c in compiled),
                    sources=[c['args'] for c in compiled])
+        if kind == 'RUN_PYD':
+            row.update(python_test_result(tree, actions, test, target, marker, boost, compiled, links))
         if kind == 'RUN_MPI':
             row.update(mpi_result(actions, target, marker))
         if kind in ('RUN', 'RUN_FAIL'):

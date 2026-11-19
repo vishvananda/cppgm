@@ -240,7 +240,10 @@
         "path": "runs/20261029T092157.271996Z-libs__parameter_python__test/review.json",
         "sha256": "a5d9f57c2b3bc4e9521bfb54313b27f3b660ad8d7c2bb4bd82f1321fd192bbc4"
       },
-      "kind": "test"
+      "kind": "test",
+      "b2_properties": ["link=shared"],
+      "python39": "The original replay uses CPython 3.9.25 for the extension's writable Py_TYPE API and includes Python.h before system headers.",
+      "required_tests": ["libs/parameter_python/test//python_test.test"]
     },
     {
       "project": "libs/python/build",
