@@ -99,6 +99,13 @@ indeterminate; a required constant object or an indeterminate read still fails
 constant evaluation. Keep constructor eligibility separate from the initialized
 values of each actual object.
 
+In C++20, a constexpr constructor may also leave a trivially
+default-initialized member indeterminate. Track that state during
+evaluation. A later assignment can initialize it before a read, and a
+transient object's unread member may stay indeterminate. A required
+constant object still needs initialized values for its subobjects. See
+N4861 `[dcl.constexpr]` and `[expr.const]`.
+
 ### Constant initialization of nonliteral objects
 
 A constexpr member function's enclosing class need not be a literal type

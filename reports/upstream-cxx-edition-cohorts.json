@@ -1527,8 +1527,8 @@
           "sha256": "3473b81c625cdf8c870766149b086355d0812fae627764c254d010e609db6845",
           "action": "compile",
           "expect": "accept",
-          "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "The candidate rejects the constexpr constructor before it reaches local array destruction."
+          "feature": "trivial default-initialization of array members in constexpr constructors",
+          "pr": false
         },
         {
           "id": "constexpr-dtor17-gnu++20",
@@ -1536,8 +1536,8 @@
           "sha256": "3473b81c625cdf8c870766149b086355d0812fae627764c254d010e609db6845",
           "action": "compile",
           "expect": "accept",
-          "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "The candidate rejects the constexpr constructor before it reaches local array destruction."
+          "feature": "trivial default-initialization of array members in constexpr constructors",
+          "pr": false
         },
         {
           "id": "constexpr-dtor2-c++20",

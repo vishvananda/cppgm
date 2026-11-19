@@ -851,8 +851,9 @@ void Analyzer::check_constexpr_subobject(const SubobjectInit& init, bool variant
 	if (init.mem_initializer != nullptr || init.default_initializer != nullptr)
 		return;
 	// Default-initialized: a class member by its (constexpr) default
-	// constructor; a scalar one is left uninitialized.
-	if (ObjectClassOf(type) == nullptr || type->is_reference())
+	// constructor. C++20 permits trivial default-initialization here;
+	// evaluation still rejects an indeterminate read or result.
+	if (type->is_reference() || (!cxx20_ && ObjectClassOf(type) == nullptr))
 		error(location, "a constexpr constructor leaves a non-static data member uninitialized");
 }
 

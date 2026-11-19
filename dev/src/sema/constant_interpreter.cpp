@@ -601,7 +601,7 @@ ConstantInterpreter::StorageView ConstantInterpreter::descend(
 			element = &value->elements[index];
 		else
 		{
-			if ((value->flags & (kArrayPrefix | kArrayTailZero)) != (kArrayPrefix | kArrayTailZero) || index >= count)
+			if (index >= count || (value->flags & kArrayPrefix) == 0)
 				return StorageView();
 			if (write)
 			{
@@ -609,6 +609,8 @@ ConstantInterpreter::StorageView ConstantInterpreter::descend(
 					return StorageView();
 				element = &value->elements[index];
 			}
+			else if ((value->flags & kArrayTailZero) == 0)
+				return StorageView();
 		}
 		return descend(element, type->element, offset - static_cast<int64_t>(index * size), wanted, write, depth + 1);
 	}
