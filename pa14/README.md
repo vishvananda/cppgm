@@ -239,9 +239,6 @@ PA14 supports the following in addition to the PA13 subset:
 - current-instantiation lookup in the supported class-template cases
 - `typename` and `template` disambiguators where they are needed by the PA14
   dependent-name subset
-- a member type alias of a concrete specialization can qualify a member
-  template without a `template` disambiguator, including inside another
-  template definition. See N4140 `[temp.names]` and `[temp.dep.type]`.
 - explicit template-id use for supported class templates and function templates
 - explicit type arguments using the ordinary PA6 declarator/type forms,
   including function types

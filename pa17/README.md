@@ -280,6 +280,9 @@ implemented language surface, including:
 - an explicit definition of a member template for a concrete class-template
   specialization replaces the definition instantiated from the primary and may
   not itself be defined more than once
+- a member type alias of a concrete specialization can qualify a member
+  template without a `template` disambiguator, including inside another
+  template definition. See N4140 `[temp.names]` and `[temp.dep.type]`.
 - a member template called before its out-of-class definition is still
   instantiated from that definition (14.6.4.1), whatever the order of the call
   and the definition
