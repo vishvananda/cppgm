@@ -1674,6 +1674,32 @@ void Analyzer::record_inherited_constructor(FunctionEntity* inheriting)
 	const Type* own = inheriting->type->canonical;
 	const Type* declared = root->type->canonical;
 	inheriting->inherits_full = own->param_count == declared->param_count && own->variadic == declared->variadic;
+	const auto* derived = static_cast<const ClassEntity*>(inheriting->owner->entity);
+	const auto* base = static_cast<const ClassEntity*>(inheriting->inherited->owner->entity);
+	const BaseClass* edge = base_specifier(derived, base);
+	inheriting->inherits_virtual = inheriting->inherited->inherits_virtual || (edge != nullptr && edge->is_virtual);
+}
+
+FunctionEntity* Analyzer::inherited_base_constructor(const FunctionEntity* constructor, const BaseClass* base)
+{
+	// P0136 [class.inhctor.init]: the most-derived class uses the inherited
+	// constructor for each virtual base on its forwarding path. The base
+	// entries of intervening classes omit those virtual initializations.
+	const auto* target = static_cast<const ClassEntity*>(base->base);
+	for (const FunctionEntity* current = constructor; current->inherited != nullptr; current = current->inherited)
+	{
+		FunctionEntity* next = current->inherited;
+		if (next->owner == target->scope)
+		{
+			const auto* owner = static_cast<const ClassEntity*>(current->owner->entity);
+			const BaseClass* edge = base_specifier(owner, target);
+			if (edge == base || (edge != nullptr && edge->is_virtual && base->is_virtual))
+				return next;
+		}
+		if (!base->is_virtual || !next->inherits_virtual)
+			break;
+	}
+	return nullptr;
 }
 
 FunctionEntity* Analyzer::inherited_specialization(
@@ -1877,6 +1903,9 @@ void Analyzer::constructor_plan(FunctionEntity* constructor, ClassEntity* entity
 	for (uint32_t i = 0; i < count; ++i)
 	{
 		SubobjectInit& init = inits[i];
+		FunctionEntity* inherited = init.base != nullptr && constructor->inherited != nullptr
+			? inherited_base_constructor(constructor, init.base)
+			: nullptr;
 		base_object_ = init.base != nullptr ? entity : nullptr;
 		expression_scope_ = scope;
 		if (init.base != nullptr && init.mem_initializer != nullptr)
@@ -1892,13 +1921,12 @@ void Analyzer::constructor_plan(FunctionEntity* constructor, ClassEntity* entity
 			if (!failed() && reference_member_temporary(base->type, view))
 				error(written.location, "a temporary bound to a reference subobject in a base initializer (CWG1696)");
 		}
-		else if (init.base != nullptr && constructor->inherited != nullptr &&
-			static_cast<const ClassEntity*>(init.base->base)->scope == constructor->inherited->owner)
+		else if (inherited != nullptr)
 		{
 			// 12.9p8: the inherited constructor with the parameters. The
 			// inheriting constructor has its access (12.9p4), checked where
 			// it is used: a private one is declared, not an error.
-			init.constructor = constructor->inherited;
+			init.constructor = inherited;
 			init.forwards = true;
 		}
 		else if (init.base != nullptr)

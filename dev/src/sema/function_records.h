@@ -528,6 +528,9 @@ struct FunctionEntity : Entity
 	// Itanium 5.1.4.3 names CI1/CI2 of that constructor's class; see
 	// SemanticGraph::inherited_root). Set when sema declares it.
 	bool inherits_full;
+	// A virtual base lies on the inheritance path to the declaring constructor.
+	// Only the most-derived constructor passes the inherited arguments to it.
+	bool inherits_virtual;
 	// The declaration ordinal where its definition is (a template's
 	// definition context, 14.6.4.2; see Analyzer::definition_point).
 	uint32_t definition_ordinal;

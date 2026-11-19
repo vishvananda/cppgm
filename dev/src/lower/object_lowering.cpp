@@ -356,6 +356,11 @@ void FunctionLowering::construct(const sema::Type* type, lowir::Value object, co
 	// with its arguments, value-initializes (`()` and `{}`), initializes an
 	// aggregate member by member, or lets a class prvalue initialize the
 	// object itself.
+	if (variant == EntryVariant::Base && constructor != nullptr && constructor->inherits_virtual)
+	{
+		forward_parameters(constructor, object, location);
+		return;
+	}
 	const syntax::Slice<syntax::Expr*> none = syntax::Slice<syntax::Expr*>();
 	if (init == nullptr)
 	{
@@ -2169,7 +2174,9 @@ void FunctionLowering::construct_base(const sema::SubobjectInit& init, uint32_t 
 		hidden_base_ = HiddenBase{ true,
 			init.base->is_virtual ? lowering_.vtt_virtual_index(entity, base)
 								  : lowering_.vtt_base_index(entity, init.base) };
-	if (init.forwards)
+	// An inherited virtual initialization belongs to the most-derived
+	// constructor, including evaluation of the inherited arguments.
+	if (init.forwards || (init.constructor != nullptr && init.constructor->inherits_virtual))
 	{
 		forward_parameters(init.constructor, subobject_address(init.base, nullptr, location), location);
 		hidden_base_.active = false;
@@ -2273,12 +2280,14 @@ void FunctionLowering::forward_parameters(
 	// 12.9p8: the inherited base constructor (its base entry) with this
 	// constructor's parameters as its arguments (a class object by value
 	// passed as its slot), then the default arguments of the parameters
-	// this constructor omits (12.9p1).
+	// this constructor omits (12.9p1). An entry that skips virtual
+	// construction takes only its hidden parameters.
 	const size_t base = arguments_.size();
 	arguments_.push_back(object);
 	const sema::Type* type = function_->type->canonical;
 	const sema::Type* inherited = constructor->type->canonical;
-	for (uint32_t i = 0; i < type->param_count && i < parameter_slots_.size(); ++i)
+	const uint32_t parameters = constructor->inherits_virtual ? 0 : inherited->param_count;
+	for (uint32_t i = 0; i < parameters && i < type->param_count && i < parameter_slots_.size(); ++i)
 	{
 		const sema::Type* parameter = type->params[i];
 		Place place = Place();
@@ -2292,7 +2301,7 @@ void FunctionLowering::forward_parameters(
 																: lowering_.storage_type(parameter);
 		arguments_.push_back(load(slot_type, place).value);
 	}
-	for (uint32_t i = type->param_count; i < inherited->param_count; ++i)
+	for (uint32_t i = type->param_count; i < parameters; ++i)
 	{
 		if (constructor->default_arguments == nullptr || constructor->default_arguments[i] == nullptr)
 			throw LoweringError(location, "an inherited constructor without an argument for a parameter");

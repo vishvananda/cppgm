@@ -636,7 +636,7 @@ void Analyzer::using_declarator(const syntax::UsingDecl& decl, Scope* scope)
 		// ordinary member lookup could reach an indirect or virtual base.
 		// A dependent base list is checked when its specialization repeats
 		// this declaration, just as ordinary dependent member using-declarations.
-		if (!templated_class(where) && direct_base(derived, base) == nullptr)
+		if (!templated_class(where) && base_specifier(derived, base) == nullptr)
 			error(decl.location, "a constructor using-declaration must name a direct base");
 		derived->inherits_constructors = base;
 		return;

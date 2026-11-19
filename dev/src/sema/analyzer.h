@@ -1413,6 +1413,7 @@ private:
 	bool destructor_deleted(const ClassEntity* entity);
 	void declare_inherited_constructors(ClassEntity* entity);
 	void record_inherited_constructor(FunctionEntity* inheriting);
+	FunctionEntity* inherited_base_constructor(const FunctionEntity* constructor, const BaseClass* base);
 	bool excluded_inherited_constructor(const FunctionEntity* function, const ClassEntity* constructed);
 	void implicit_default_facts(ClassEntity* entity, FunctionEntity* constructor);
 	FunctionEntity* default_constructor(ClassEntity* entity, uint32_t location);

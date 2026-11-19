@@ -3233,7 +3233,9 @@ lowir::SignatureId ProgramLowering::function_signature(
 	const sema::Type* type = function->type->canonical;
 	lowir::Signature signature = lowir::Signature();
 	signature.first_parameter = static_cast<uint32_t>(program_.parameters.size());
-	signature.parameter_count = type->param_count;
+	const bool omit_inherited = variant == EntryVariant::Base && function->inherits_virtual;
+	const uint32_t parameters = omit_inherited ? 0 : type->param_count;
+	signature.parameter_count = parameters;
 	const sema::Type* result = type->element;
 	const bool indirect = indirect_result(function);
 	if (indirect)
@@ -3273,7 +3275,7 @@ lowir::SignatureId ProgramLowering::function_signature(
 	const sema::Binding* binding = named && function->scope != nullptr ? function->scope->bindings : nullptr;
 	const bool implicit_copy = named && function->implicit && function->copy_kind != sema::CopyKind::None &&
 		type->param_count == 1;
-	for (uint32_t i = 0; i < type->param_count; ++i)
+	for (uint32_t i = 0; i < parameters; ++i)
 	{
 		while (binding != nullptr && binding->kind != sema::BindingKind::Parameter)
 			binding = binding->next;
@@ -3301,7 +3303,7 @@ lowir::SignatureId ProgramLowering::function_signature(
 	signature.boundary.result_classes = incomplete_result || indirect ? 0 : result_classes(result);
 	if (target_model::needs_aggregate_shape(program_.target) && signature.result.is_object())
 		signature.boundary.result_shape = aggregate_shape(result);
-	if (type->variadic)
+	if (type->variadic && !omit_inherited)
 		signature.boundary.arity = ir_model::CAM_VARIADIC;
 	if (function_nothrow(function))
 		signature.boundary.unwind = ir_model::CUM_NO;

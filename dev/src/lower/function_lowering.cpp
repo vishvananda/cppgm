@@ -196,7 +196,7 @@ void FunctionLowering::lower_definition()
 		++index;
 		++parameter_index;
 	}
-	if (function_->scope == nullptr)
+	if (function_->scope == nullptr && !(base_entry_ && function_->inherits_virtual))
 	{
 		// An implicit copy or move function's parameter and an inheriting
 		// constructor's (12.9) have no declarations of their own: slots by
