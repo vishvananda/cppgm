@@ -18,6 +18,7 @@
     {
       "project": "libs/cobalt/test",
       "edition": 20,
+      "clang_reference": "GCC 15.2 crashes during code generation for the original race, left_race, generator and channel tests. Clang 21 with the same libstdc++ builds and runs the full project.",
       "proof": {
         "path": "runs/20261029T084649.271046Z-libs__cobalt__test/review.json",
         "sha256": "1d04f61c630b2bac70714c382a8d1f507f0d62b3654f65eef1ed4d93562841c0"

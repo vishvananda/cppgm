@@ -65,6 +65,9 @@ def validate_inventory(inventory):
             boost_ci.require(group['kind'] == 'test' and 'link=shared' in group.get('b2_properties', []) and
                              isinstance(group['python39'], str) and group['python39'] and required,
                              'Python 3.9 replay needs shared linking and a required test')
+        if 'clang_reference' in group:
+            boost_ci.require(isinstance(group['clang_reference'], str) and group['clang_reference'],
+                             'a Clang reference needs a recorded reason')
 
 
 def replay_configurations(group):
@@ -209,6 +212,7 @@ def main():
     parser.add_argument('--archive', type=Path, required=True)
     parser.add_argument('--compiler', type=Path, default=Path('dev/cppgm'))
     parser.add_argument('--reference', default='g++')
+    parser.add_argument('--clang-reference', default='clang++-21', help='Native compiler for cases with a GCC failure')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--extra-user-config', type=Path)
     parser.add_argument('--python39', type=Path, help='CPython 3.9.25 installation prefix for the Parameter.Python test')
@@ -232,6 +236,10 @@ def main():
     boost_ci.require(boost_ci.digest(args.archive) == boost_ci.ARCHIVE_SHA256, 'Boost archive checksum mismatch')
     reference = shutil.which(args.reference)
     boost_ci.require(reference is not None and os.access(args.compiler, os.X_OK), 'missing cppgm or reference compiler')
+    clang = None
+    if any(group.get('clang_reference') for group in groups):
+        clang = shutil.which(args.clang_reference)
+        boost_ci.require(clang is not None, 'missing Clang reference compiler')
     output = args.output.resolve()
     output.mkdir(parents=True)
     with tarfile.open(args.archive) as archive:
@@ -246,6 +254,18 @@ def main():
     roles = {'gcc': Path(reference), 'cppgm': Path(candidate)}
     settings = {role: compiler_setup(boost, output, role, executable, reference, args.extra_user_config, args.python39)
                 for role, executable in roles.items()}
+    if clang is not None:
+        # Keep the same B2 properties, library headers and link driver.
+        # Only replace the native C++ compiler for the cases GCC cannot run.
+        libgcc = Path(subprocess.check_output([reference, '-print-libgcc-file-name'], text=True).strip())
+        boost_ci.require(libgcc.is_absolute() and libgcc.is_file(), f'missing GCC installation for Clang: {libgcc}')
+        launcher = output / 'clang-reference'
+        command = shlex.join([clang, f'--gcc-install-dir={libgcc.parent}'])
+        launcher.write_text(f'#!/bin/sh\nexec {command} "$@"\n')
+        launcher.chmod(0o755)
+        roles['reference'] = Path(clang)
+        settings['reference'] = compiler_setup(boost, output, 'reference', launcher, reference,
+                                                args.extra_user_config, args.python39)
     report = dict(boost=inventory['boost'], archive_sha256=boost_ci.ARCHIVE_SHA256,
                   inventory_sha256=boost_ci.digest(manifest),
                   compiler_sha256={role: boost_ci.digest(executable) for role, executable in roles.items()},
@@ -253,13 +273,14 @@ def main():
     for index, group in enumerate(groups):
         tag = f"{index:02d}-cxx{group['edition']}-{group['project'].replace('/', '-')}"
         row = dict(group, path=tag, effective_edition=group.get('replay_edition', group['edition']))
+        native_role = 'reference' if group.get('clang_reference') else 'gcc'
         outcomes = 0
         variants = []
         try:
             for suffix, variant in replay_configurations(group):
                 directory = output / (tag + suffix)
                 directory.mkdir()
-                native = replay(boost, settings['gcc'], 'gcc', directory / 'gcc', variant, args)
+                native = replay(boost, settings[native_role], native_role, directory / native_role, variant, args)
                 actual = replay(boost, settings['cppgm'], 'cppgm', directory / 'cppgm', variant, args)
                 boost_ci.require(actual == native, f"native inventory differs in {directory.name}: "
                                  f"missing {list(native - actual)[:8]}, extra {list(actual - native)[:8]}")

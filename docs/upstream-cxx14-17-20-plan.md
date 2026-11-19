@@ -402,7 +402,9 @@ even with GCC in C++14.
    dependencies and original B2 outcome in a maintainer manifest, so CI can
    reproduce the check without the old local workspace. Qualify each case
    in a fresh B2 build with the pinned native compiler and dependency
-   configuration. Start whole projects at their recorded minimum and
+   configuration. Use Clang 21 with the same libstdc++ and B2 properties for
+   Cobalt's test project. GCC 15.2 crashes during code generation on four of
+   its original sources. Start whole projects at their recorded minimum and
    follow original per-target requirements for newer variants. Keep the
    original special link and run settings, including the uBLAS Tensor
    shared-link test and the mixed-edition MSM groups.
