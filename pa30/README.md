@@ -848,6 +848,16 @@ with 128-bit operations, so programs run without AVX.
 has the operand type of the builtin's width, and a zero operand gives that
 width. The operand converts to that type and is evaluated once.
 
+### x86 carry and borrow
+
+The `_addcarry_u32`, `_addcarry_u64`, `_subborrow_u32` and `_subborrow_u64`
+header functions use builtins with an unsigned byte input flag, two unsigned
+operands of the indicated width and a pointer to an output of that width.
+A nonzero input flag supplies one more unit to add or subtract. Evaluate
+each argument once, store the wrapped result and return an unsigned byte
+equal to zero or one according to whether the operation carried or borrowed.
+Accept GCC's `sbb` and Clang's `subborrow` builtin spellings.
+
 ### Design Notes (Non-Normative)
 
 Hosted compatibility is easiest to approach as a sequence of small compatibility

@@ -1330,6 +1330,7 @@ private:
 	RValue gnu_intrinsic(const syntax::CallExpr& expr, sema::Intrinsic kind);
 	RValue bit_count(sema::Intrinsic kind, RValue x);
 	RValue overflow_intrinsic(const syntax::CallExpr& expr, sema::Intrinsic kind);
+	RValue carry_intrinsic(const syntax::CallExpr& expr, bool subtract);
 	// Clear only the sign bit of an f32/f64 builtin argument.
 	RValue absolute_float(const RValue& value);
 	RValue sign_bit(const RValue& x);

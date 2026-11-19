@@ -448,6 +448,9 @@ RValue FunctionLowering::gnu_intrinsic(const syntax::CallExpr& expr, sema::Intri
 	case sema::Intrinsic::SubOverflow:
 	case sema::Intrinsic::MulOverflow:
 		return overflow_intrinsic(expr, kind);
+	case sema::Intrinsic::AddCarry:
+	case sema::Intrinsic::SubBorrow:
+		return carry_intrinsic(expr, kind == sema::Intrinsic::SubBorrow);
 	case sema::Intrinsic::GenericCountLeadingZeros:
 	case sema::Intrinsic::GenericCountTrailingZeros:
 	case sema::Intrinsic::GenericPopCount:
@@ -1024,6 +1027,28 @@ RValue FunctionLowering::overflow_intrinsic(const syntax::CallExpr& expr, sema::
 											 : integer(i128, 0);
 	const RValue below = compare(lowir::ComparePredicate::Lt, i128, r, low);
 	return binary(lowir::BinaryOp::Or, i64, compare(lowir::ComparePredicate::Gt, i128, r, high), below);
+}
+
+RValue FunctionLowering::carry_intrinsic(const syntax::CallExpr& expr, bool subtract)
+{
+	const RValue input = operand(*expr.arguments[0], ConversionContext::Argument);
+	const RValue left = operand(*expr.arguments[1], ConversionContext::Argument);
+	const RValue right = operand(*expr.arguments[2], ConversionContext::Argument);
+	Place target{};
+	target.storage = operand(*expr.arguments[3], ConversionContext::Argument).value;
+	const lowir::Type word = left.type;
+	const RValue flag = compare(lowir::ComparePredicate::Ne, input.type, input, integer(input.type, 0));
+	const RValue carry = word == flag.type ? flag : convert_op(lowir::ConvertOp::Trunc, word, flag);
+	const lowir::BinaryOp operation = subtract ? lowir::BinaryOp::Sub : lowir::BinaryOp::Add;
+	const RValue partial = binary(operation, word, left, right);
+	const RValue result = binary(operation, word, partial, carry);
+	store(word, result, target);
+	const RValue first = subtract ? compare(lowir::ComparePredicate::Ult, word, left, right)
+								  : compare(lowir::ComparePredicate::Ult, word, partial, left);
+	const RValue second = subtract ? compare(lowir::ComparePredicate::Ult, word, partial, carry)
+								   : compare(lowir::ComparePredicate::Ult, word, result, partial);
+	const RValue out = binary(lowir::BinaryOp::Or, first.type, first, second);
+	return convert_op(lowir::ConvertOp::Trunc, lowering_.storage_type(expr.facts->type), out);
 }
 
 RValue FunctionLowering::wide_overflow(sema::Intrinsic kind, const RValue& a, const sema::IntegralKind& left_kind,

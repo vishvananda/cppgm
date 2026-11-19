@@ -501,6 +501,24 @@ ExprFacts* Analyzer::gnu_intrinsic(const syntax::CallExpr& expr, GnuBuiltin buil
 		facts->value = static_cast<uint64_t>(Intrinsic::AddressOf);
 		break;
 	}
+	case GnuBuiltin::Carry:
+	{
+		if (count != 4)
+			error(expr.location, "a carry or borrow builtin takes four arguments");
+		const Type* flag = types_.fundamental(FundamentalType::UnsignedChar);
+		const Type* word = types_.fundamental(
+			(variant & 1) != 0 ? FundamentalType::UnsignedLongLongInt : FundamentalType::UnsignedInt);
+		const Type* arguments[] = { flag, word, word, types_.pointer(word) };
+		for (uint32_t i = 0; i < count; ++i)
+		{
+			if (typed_value(*expr.arguments[i], scope) == nullptr)
+				return nullptr;
+			convert(*expr.arguments[i], arguments[i], false);
+		}
+		facts = new_facts(expr, flag, ValueCategory::PRValue);
+		facts->value = static_cast<uint64_t>(variant < 2 ? Intrinsic::AddCarry : Intrinsic::SubBorrow);
+		break;
+	}
 	case GnuBuiltin::BitReverse:
 	case GnuBuiltin::BitCount:
 	{

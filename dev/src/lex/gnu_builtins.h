@@ -103,6 +103,7 @@ enum class GnuBuiltin : uint8_t
 	// vector's.
 	VectorLanewise,
 	Overflow,
+	Carry, // x86 unsigned 32/64-bit add-carry, then subtract-borrow
 	OperatorNew,
 	OperatorDelete,
 	Atomic,

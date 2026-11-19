@@ -240,6 +240,8 @@ enum class Intrinsic : uint8_t
 	AddOverflow,
 	SubOverflow,
 	MulOverflow,
+	AddCarry,
+	SubBorrow,
 	// __builtin_is_constant_evaluated(): true only in a constant
 	// evaluation (false when lowered).
 	IsConstantEvaluated,
