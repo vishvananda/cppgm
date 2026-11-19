@@ -397,7 +397,11 @@ void Analyzer::scan_nested_lambda(const syntax::LambdaExpr& lambda, Scope* scope
 	}
 	Scope* inner = new_scope(ScopeKind::Block, scope, scope, nullptr, nullptr);
 	inner->dumped = false;
-	const Type* placeholder = types_.fundamental(FundamentalType::Int);
+	// The capture scan sees dependent names in the nested lambda. Its
+	// instantiated body supplies their types, including in decltype(x)::name.
+	auto* unknown = new_entity<TemplateParameterEntity>(EntityKind::TemplateParameter, nullptr, inner, nullptr);
+	const Type* placeholder = types_.named(TypeKind::TemplateParameter, unknown);
+	unknown->type = placeholder;
 	for (const syntax::LambdaCapture& capture : lambda.captures)
 		if (capture.initializer != nullptr)
 		{

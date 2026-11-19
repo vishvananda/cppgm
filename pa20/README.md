@@ -271,6 +271,10 @@ Deduce the specialization's return type from its own definition. Initialized cap
 deduce from the enclosing scope; their new name is available in the body,
 not its own initializer. Support the existing assignment and parenthesized
 forms, generic parameter packs and nested capture propagation.
+In nested generic lambdas, a qualified name such as `decltype(arg)::value`
+can depend on the inner lambda's parameter type. Resolve the member when
+that call operator is instantiated. Naming an outer parameter in `decltype`
+does not capture it.
 See N4140 `[dcl.spec.auto]`, `[expr.prim.lambda]` and
 [generalized capture wording](../doc/cwg/paper-n3648.txt).
 
