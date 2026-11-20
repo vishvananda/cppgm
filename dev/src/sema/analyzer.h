@@ -865,6 +865,7 @@ private:
 		uint32_t location, const Substitution* selection = nullptr);
 	const Type* matched_template_pack(const TemplateParameterEntity* parameter, const Type* const* given,
 		uint32_t count, const TypeList& earlier, bool fatal, uint32_t location);
+	const Type* deduced_value_placeholder(const Type* target, const Type* source);
 	const Type* converted_value(const TemplateParameterEntity* parameter, const Type* argument, const TypeList& earlier,
 		bool fatal, uint32_t location, const Type* element = nullptr);
 	static const TemplateHead* SoleTemplateHead(const FunctionList* functions);

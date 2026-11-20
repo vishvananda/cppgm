@@ -1953,8 +1953,7 @@
           "action": "compile",
           "expect": "accept",
           "feature": "template partial ordering",
-          "pr": false,
-          "pending_reason": "Template partial ordering test requires an explicit deduction guide outside the accepted grammar."
+          "pr": true
         },
         {
           "id": "clang-cd04c0a953eb83933c88",

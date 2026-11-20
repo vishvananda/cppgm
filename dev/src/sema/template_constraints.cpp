@@ -48,7 +48,7 @@ const syntax::Expr* Analyzer::current_template_constraint() const
 bool Analyzer::HasTypeConstraints(const syntax::TemplateParameterList& list)
 {
 	for (const syntax::TemplateParameter* parameter : list.parameters)
-		if (parameter->kind == syntax::TemplateParameterKind::ConstrainedType)
+		if (syntax::TypeParameterConstraint(*parameter) != nullptr)
 			return true;
 	return false;
 }
@@ -68,7 +68,9 @@ void Analyzer::attach_template_constraint(
 		const syntax::Name* name = syntax::TypeParameterConstraint(*list.parameters[i]);
 		if (name == nullptr)
 			continue;
-		concept_constraint(*name, head->parameters[i]->type->canonical, parameters);
+		const TemplateParameterEntity* parameter = head->parameters[i];
+		const Type* type = parameter->non_type ? synthesized_type(i) : parameter->type->canonical;
+		concept_constraint(*name, type, parameters);
 		constraints.push_back(TypeConstraint{ name, i });
 	}
 	predicate->type_constraints = arena_.copy_array(constraints.data(), constraints.size());
@@ -85,12 +87,21 @@ bool Analyzer::type_constraints_satisfied(const ConstraintPredicate* predicate, 
 	{
 		const TypeConstraint& constraint = predicate->type_constraints[i];
 		const Type* argument = arguments[constraint.index];
+		const Type* value_type = predicate->head->parameters[constraint.index]->value_type;
 		const uint32_t count = argument->kind == TypeKind::Pack ? argument->param_count : 1;
 		for (uint32_t element = 0; element < count; ++element)
 		{
 			syntax::SyntaxCloner cloner(arena_, true);
 			const syntax::Name* name = cloner.name(constraint.name);
 			const Type* type = argument->kind == TypeKind::Pack ? argument->params[element] : argument;
+			if (value_type != nullptr)
+			{
+				if (type->kind != TypeKind::Value)
+					return false;
+				type = deduced_value_placeholder(value_type, type->element);
+				if (type == nullptr)
+					return false;
+			}
 			if (concept_constraint(*name, type, frame) == ConstraintStatus::Unsatisfied || failed())
 				return false;
 		}

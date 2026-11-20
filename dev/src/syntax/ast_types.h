@@ -354,7 +354,15 @@ struct TemplateParameterList
 
 inline const Name* TypeParameterConstraint(const TemplateParameter& parameter)
 {
-	return parameter.kind == TemplateParameterKind::ConstrainedType ? parameter.specifiers[0].name : nullptr;
+	if (parameter.kind == TemplateParameterKind::ConstrainedType)
+		return parameter.specifiers[0].name;
+	if (parameter.kind == TemplateParameterKind::NonType)
+	{
+		for (const DeclSpecifier& specifier : parameter.specifiers)
+			if (specifier.kind == DeclSpecKind::ConstrainedAuto)
+				return specifier.name;
+	}
+	return nullptr;
 }
 
 inline bool IsParameterPack(const TemplateParameter& parameter)

@@ -185,6 +185,8 @@ private:
 		ListFrame<DeclSpecifier>& list, SpecifierInfo& info, bool definite = false, bool type_only = false);
 	bool parse_decl_specifiers(ListFrame<DeclSpecifier>& list, SpecifierInfo& info);
 	bool at_constinit_specifier();
+	bool at_constrained_placeholder();
+	void constrained_placeholder(DeclSpecifier& specifier, Name* constraint);
 	void type_attributes(Attribute*& attributes, ListFrame<DeclSpecifier>& list);
 	void leading_type_attributes(const Attribute* attributes, ListFrame<DeclSpecifier>& list);
 	// An attribute-specifier-seq, alignas and GNU __attribute__, keeping

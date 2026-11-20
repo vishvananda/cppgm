@@ -1000,6 +1000,17 @@ const Type* Analyzer::matched_template_element(const TemplateParameterEntity* pa
 	return argument;
 }
 
+const Type* Analyzer::deduced_value_placeholder(const Type* target, const Type* source)
+{
+	if (target == decltype_auto_placeholder_)
+		return source;
+	TypeList deduced(1, nullptr);
+	if (!deduce_argument(replaced_auto(target, auto_placeholder_, 0), source->is_reference() ? source->element : source,
+			source->is_reference() ? ValueCategory::LValue : ValueCategory::PRValue, 0, deduced))
+		return nullptr;
+	return deduced[0];
+}
+
 const Type* Analyzer::converted_value(const TemplateParameterEntity* parameter, const Type* argument,
 	const TypeList& earlier, bool fatal, uint32_t location, const Type* element)
 {
@@ -1009,19 +1020,10 @@ const Type* Analyzer::converted_value(const TemplateParameterEntity* parameter, 
 	const Type* target = element != nullptr ? element : parameter->value_type;
 	if (holds_auto(target))
 	{
-		if (target == decltype_auto_placeholder_)
-			target = argument->element;
-		else
-		{
-			TypeList deduced(1, nullptr);
-			const Type* source = argument->element;
-			if (!deduce_argument(replaced_auto(target, auto_placeholder_, 0),
-					source->is_reference() ? source->element : source,
-					source->is_reference() ? ValueCategory::LValue : ValueCategory::PRValue, 0, deduced) ||
-				deduced[0] == nullptr)
-				return nullptr;
-			target = replaced_auto(target, deduced[0], 0);
-		}
+		const Type* replacement = deduced_value_placeholder(target, argument->element);
+		if (replacement == nullptr)
+			return nullptr;
+		target = replaced_auto(target, replacement, 0);
 	}
 	if (dependent_type(target))
 	{

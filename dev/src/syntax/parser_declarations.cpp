@@ -671,7 +671,8 @@ TemplateParameter* Parser::parse_template_parameter()
 	}
 	const bool type_key = at(TokenKind::KW_CLASS) || at(TokenKind::KW_TYPENAME);
 	Name* constraint = type_key ? nullptr : parse_type_constraint();
-	const bool type_parameter = constraint != nullptr ||
+	const bool constrained_value = constraint != nullptr && at_constrained_placeholder();
+	const bool type_parameter = (constraint != nullptr && !constrained_value) ||
 		(type_key &&
 			(at(TokenKind::OP_DOTS, 1) || at(TokenKind::OP_COMMA, 1) || at(TokenKind::OP_GT, 1) ||
 				at(TokenKind::OP_ASS, 1) ||
@@ -713,7 +714,22 @@ TemplateParameter* Parser::parse_template_parameter()
 	SpecifierInfo info;
 	{
 		ListFrame<DeclSpecifier> specifiers(specs_);
-		if (!parse_decl_specifier_seq(specifiers, info, false, true))
+		if (constrained_value)
+		{
+			DeclSpecifier specifier = {};
+			specifier.location = constraint->location;
+			constrained_placeholder(specifier, constraint);
+			specifiers.push(specifier);
+			info = SpecifierInfo();
+			info.has_type = true;
+			const uint8_t saved_definite = definite_type_;
+			definite_type_ = kTypeOnly;
+			const bool parsed = parse_decl_specifiers(specifiers, info);
+			definite_type_ = saved_definite;
+			if (!parsed)
+				return nullptr;
+		}
+		else if (!parse_decl_specifier_seq(specifiers, info, false, true))
 			return nullptr;
 		if (specifiers.size() == 0)
 		{

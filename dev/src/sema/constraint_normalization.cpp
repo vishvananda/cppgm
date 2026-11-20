@@ -268,7 +268,8 @@ const ConstraintNode* Analyzer::normalized_constraint(const ConstraintPredicate*
 	for (uint32_t i = 0; i < predicate->type_constraint_count; ++i)
 	{
 		const TypeConstraint& constraint = predicate->type_constraints[i];
-		if (predicate->head->parameters[constraint.index]->pack)
+		const TemplateParameterEntity* parameter = predicate->head->parameters[constraint.index];
+		if (parameter->pack)
 		{
 			// In C++20 the fold introduced by a constrained pack is one
 			// atomic expression at this declaration, not the expanded
@@ -278,7 +279,10 @@ const ConstraintNode* Analyzer::normalized_constraint(const ConstraintPredicate*
 			append(node);
 		}
 		else
-			append(normalize_type_constraint(*constraint.name, arguments[constraint.index], frame));
+		{
+			const Type* type = parameter->non_type ? synthesized_type(constraint.index) : arguments[constraint.index];
+			append(normalize_type_constraint(*constraint.name, type, frame));
+		}
 	}
 	if (predicate->definition != nullptr)
 		append(normalize_constraint(*predicate->definition, frame));

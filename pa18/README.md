@@ -316,6 +316,12 @@ disjunctions. Keep that case tractable when determining which overload is
 more constrained. See N4861 `[temp.constr.normal]` and
 `[temp.constr.order]`.
 
+A concept can constrain the deduced type of a non-type parameter,
+as in `template<Small auto N>`. Treat the parameter as a value and
+evaluate the concept for the deduced type. Include the type-constraint
+when comparing partial specializations. See N4861 `[temp.param]` and
+`[temp.constr]`.
+
 An equivalent pair of constraints may contain the same deduced construction
 with renamed parameters. Resolve the class template and compare the operands
 before substituting a concrete specialization. See N4861 `[temp.over.link]`.

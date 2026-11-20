@@ -123,6 +123,23 @@ bool Parser::parse_decl_specifier_seq(
 	return parsed;
 }
 
+bool Parser::at_constrained_placeholder()
+{
+	return at(TokenKind::KW_AUTO) ||
+		(at(TokenKind::KW_DECLTYPE) && at(TokenKind::OP_LPAREN, 1) && at(TokenKind::KW_AUTO, 2) &&
+			at(TokenKind::OP_RPAREN, 3));
+}
+
+void Parser::constrained_placeholder(DeclSpecifier& specifier, Name* constraint)
+{
+	specifier.kind = DeclSpecKind::ConstrainedAuto;
+	specifier.keyword = tok().simple;
+	specifier.name = constraint;
+	const unsigned count = specifier.keyword == TokenKind::KW_AUTO ? 1 : 4;
+	for (unsigned i = 0; i < count; ++i)
+		next();
+}
+
 bool Parser::gnu_attribute(const char* spelling, Attribute& attribute, bool& kept)
 {
 	if (std::strcmp(spelling, "constructor") == 0 || std::strcmp(spelling, "__constructor__") == 0)
@@ -838,18 +855,8 @@ bool Parser::parse_named_type_specifier(ListFrame<DeclSpecifier>& list, Specifie
 		specifier.kind = DeclSpecKind::Decltype;
 		specifier.operand = name->last().decltype_operand;
 	}
-	else if (cxx20_ && !typename_keyword && name_info.category == NameCategory::Concept &&
-		(at(TokenKind::KW_AUTO) ||
-			(at(TokenKind::KW_DECLTYPE) && at(TokenKind::OP_LPAREN, 1) && at(TokenKind::KW_AUTO, 2) &&
-				at(TokenKind::OP_RPAREN, 3))))
-	{
-		specifier.kind = DeclSpecKind::ConstrainedAuto;
-		specifier.keyword = tok().simple;
-		specifier.name = name;
-		const unsigned count = specifier.keyword == TokenKind::KW_AUTO ? 1 : 4;
-		for (unsigned i = 0; i < count; ++i)
-			next();
-	}
+	else if (cxx20_ && !typename_keyword && name_info.category == NameCategory::Concept && at_constrained_placeholder())
+		constrained_placeholder(specifier, name);
 	else
 	{
 		name->typename_keyword = typename_keyword;
