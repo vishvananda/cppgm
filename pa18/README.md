@@ -310,6 +310,12 @@ matching potentially throwing pointer type. See N4659
 When `noexcept` contains a deduced construction such as `View{value}`,
 its braced arguments can make the exception specification dependent.
 Deduce the class and compute the exception specification after substitution.
+Subsumption compares the identities and parameter mappings of atomic
+constraints. A conjunction can reuse a concept containing many
+disjunctions. Keep that case tractable when determining which overload is
+more constrained. See N4861 `[temp.constr.normal]` and
+`[temp.constr.order]`.
+
 An equivalent pair of constraints may contain the same deduced construction
 with renamed parameters. Resolve the class template and compare the operands
 before substituting a concrete specialization. See N4861 `[temp.over.link]`.

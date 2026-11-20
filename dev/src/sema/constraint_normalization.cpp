@@ -49,6 +49,104 @@ bool FormValue(const ConstraintNode* node, const PointerMap& atoms)
 	return result;
 }
 
+struct ConstraintStep
+{
+	ConstraintNodeKind kind;
+	uint32_t left;
+	uint32_t right;
+	uint8_t roles;
+	uint8_t variable;
+};
+
+uint32_t AppendConstraint(const ConstraintNode* root, SmallList<ConstraintStep, 32>& steps, PointerMap& indices)
+{
+	SmallList<const ConstraintNode*, 16> pending;
+	pending.push_back(root);
+	while (!pending.empty())
+	{
+		const ConstraintNode* node = pending.back();
+		if (indices.find(node) != PointerMap::kMissing)
+		{
+			pending.pop_back();
+			continue;
+		}
+		uint32_t left = 0, right = 0;
+		if (node->kind != ConstraintNodeKind::Atom)
+		{
+			left = indices.find(node->left);
+			right = indices.find(node->right);
+			if (left == PointerMap::kMissing || right == PointerMap::kMissing)
+			{
+				pending.push_back(left == PointerMap::kMissing ? node->left : node->right);
+				continue;
+			}
+		}
+		indices.set(node, static_cast<uint32_t>(steps.size()));
+		steps.push_back(ConstraintStep{ node->kind, left, right, 0, 0 });
+		pending.pop_back();
+	}
+	return indices.find(root);
+}
+
+bool TryBitwiseSubsumption(const ConstraintNode* first, const ConstraintNode* second, bool& subsumes)
+{
+	// A counterexample makes the first form true and the second false.
+	// The forms are monotone in their atoms. Set first-only atoms true
+	// and second-only atoms false; only shared atoms need enumeration.
+	constexpr uint8_t kMaxVariables = 20;
+	constexpr uint8_t kFirst = 1, kSecond = 2;
+	SmallList<ConstraintStep, 32> steps;
+	PointerMap indices;
+	const uint32_t premise = AppendConstraint(first, steps, indices);
+	const uint32_t conclusion = AppendConstraint(second, steps, indices);
+	steps[premise].roles |= kFirst;
+	steps[conclusion].roles |= kSecond;
+	uint8_t variables = 0;
+	for (size_t i = steps.size(); i-- != 0;)
+	{
+		ConstraintStep& step = steps[i];
+		if (step.kind != ConstraintNodeKind::Atom)
+		{
+			steps[step.left].roles |= step.roles;
+			steps[step.right].roles |= step.roles;
+		}
+		else if (step.roles == (kFirst | kSecond))
+		{
+			step.variable = variables++;
+			if (variables > kMaxVariables)
+				return false;
+		}
+	}
+	// Each word evaluates the postordered graph for 64 assignments.
+	constexpr uint64_t kPatterns[] = { 0xaaaaaaaaaaaaaaaaULL, 0xccccccccccccccccULL, 0xf0f0f0f0f0f0f0f0ULL,
+		0xff00ff00ff00ff00ULL, 0xffff0000ffff0000ULL, 0xffffffff00000000ULL };
+	const uint32_t batches = 1u << (variables > 6 ? variables - 6 : 0);
+	SmallList<uint64_t, 32> values(steps.size(), 0);
+	for (uint32_t batch = 0; batch < batches; ++batch)
+	{
+		for (size_t i = 0; i < steps.size(); ++i)
+		{
+			const ConstraintStep& step = steps[i];
+			if (step.kind == ConstraintNodeKind::Conjunction)
+				values[i] = values[step.left] & values[step.right];
+			else if (step.kind == ConstraintNodeKind::Disjunction)
+				values[i] = values[step.left] | values[step.right];
+			else if (step.roles != (kFirst | kSecond))
+				values[i] = step.roles == kFirst ? ~uint64_t(0) : 0;
+			else
+				values[i] = step.variable < 6 ? kPatterns[step.variable]
+											  : uint64_t(0) - ((batch >> (step.variable - 6)) & 1u);
+		}
+		if ((values[premise] & ~values[conclusion]) != 0)
+		{
+			subsumes = false;
+			return true;
+		}
+	}
+	subsumes = true;
+	return true;
+}
+
 bool Subsumes(const ConstraintNode* first, const ConstraintNode* second)
 {
 	if (second == nullptr || first == second)
@@ -79,6 +177,7 @@ bool Subsumes(const ConstraintNode* first, const ConstraintNode* second)
 	PointerMap atoms;
 	work.push_back(Pending{ first, end });
 	uint32_t next = 0;
+	uint32_t clauses = 0;
 	for (;;)
 	{
 		while (next != end)
@@ -109,6 +208,14 @@ bool Subsumes(const ConstraintNode* first, const ConstraintNode* second)
 			return false;
 		if (choices.empty())
 			return true;
+		// Small forms finish with the streaming algorithm. Larger forms
+		// can have many more clauses than there are assignments to shared atoms.
+		if (clauses < 128 && ++clauses == 128)
+		{
+			bool result;
+			if (TryBitwiseSubsumption(first, second, result))
+				return result;
+		}
 		const Choice choice = choices.back();
 		choices.pop_back();
 		while (trail.size() != choice.atoms)

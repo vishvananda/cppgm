@@ -1908,8 +1908,7 @@
           "action": "compile",
           "expect": "accept",
           "feature": "concept constraint subsumption",
-          "pr": false,
-          "pending_reason": "Constraint normalization times out when substituting a parameter pack."
+          "pr": true
         },
         {
           "id": "clang-2f03c9f735b72428f8cc",
