@@ -266,6 +266,8 @@ uint64_t Selector::plan_phis()
 		if (entry == kNoId || body_.instructions[entry].op != Opcode::Phi)
 			continue;
 		const auto& first = body_.instructions[entry];
+		if (shared_entry_moves(block))
+			continue;
 		bool snapshot = !level_;
 		if (level_)
 			for (uint32_t k = 0; k < first.extra_count; k += 2)
@@ -291,6 +293,57 @@ uint64_t Selector::plan_phis()
 	std::sort(snapshot_edges_.begin(), snapshot_edges_.end());
 	std::sort(frame_phi_blocks_.begin(), frame_phi_blocks_.end());
 	return maximum;
+}
+
+// When every edge into a block moves the same registers, the block makes the
+// moves once at its top. Its incoming edges then need no code or blocks.
+bool Selector::shared_entry_moves(BlockId block)
+{
+	const auto& first = body_.instructions[body_.blocks[block].first];
+	if (!level_ || first.extra_count < 4 ||
+		(out_.exceptions &&
+			(out_.exceptions->entry_selectors[block] ||
+				out_.exceptions->analysis.eh_landing_index_[out_.exceptions->layout_of[block]] != kNoId)))
+		return false;
+	const auto location = [&](TempId t) -> uint32_t { return vectors_[t] != kNoId ? 32 + vectors_[t] : registers_[t]; };
+	const BlockId from = body_.operands[first.extra_first].index;
+	uint32_t sources = 0;
+	unsigned moves = 0;
+	for (auto i = body_.blocks[block].first; i != kNoId && body_.instructions[i].op == Opcode::Phi;
+		i = body_.instructions[i].next)
+	{
+		const auto& phi = body_.instructions[i];
+		const Value source = phis_.incoming(body_, i, from);
+		const bool none = same_home(phi.result, source);
+		const bool movable = source.is(ValueKind::Temp) && !rematerialized(source.index) && !memory_value(phi.type) &&
+			location(source.index) != kNoId && location(phi.result) != kNoId;
+		if (!none && (!movable || ++moves == 32))
+			return false;
+		for (uint32_t k = 2; k < first.extra_count; k += 2)
+		{
+			const Value other = phis_.incoming(body_, i, body_.operands[first.extra_first + k].index);
+			if (none ? !same_home(phi.result, other)
+					 : !other.is(ValueKind::Temp) || rematerialized(other.index) ||
+						location(other.index) != location(source.index))
+				return false;
+		}
+		if (!none && registers_[source.index] != kNoId)
+			sources |= 1u << registers_[source.index];
+	}
+	if (!moves)
+		return false;
+	if (entry_moves_.empty())
+		entry_moves_.assign(body_.blocks.size(), kNoId);
+	entry_moves_[block] = from;
+	if (!entry_regs_.empty())
+		entry_regs_[block] |= sources;
+	return true;
+}
+
+void Selector::entry_moves(BlockId block)
+{
+	if (!entry_moves_.empty() && entry_moves_[block] != kNoId)
+		parallel_edge(entry_moves_[block], block);
 }
 
 void Selector::register_edge(BlockId from, BlockId to)
@@ -321,6 +374,8 @@ bool Selector::empty_edge(BlockId block, BlockId to)
 	const auto first = body_.blocks[to].first;
 	if (out_.exceptions && out_.exceptions->entry_selectors[to])
 		return false;
+	if (!entry_moves_.empty() && entry_moves_[to] != kNoId)
+		return true;
 	for (auto i = first; i != kNoId && body_.instructions[i].op == Opcode::Phi; i = body_.instructions[i].next)
 	{
 		const auto& phi = body_.instructions[i];
@@ -336,7 +391,8 @@ bool Selector::empty_edge(BlockId block, BlockId to)
 bool Selector::backedge_moves(BlockId from, BlockId to, BlockId other, unsigned condition)
 {
 	if (entry_regs_.empty() || out_.labels[to] == kNoId || !empty_edge(from, other) || condition == 15 ||
-		(out_.exceptions && out_.exceptions->entry_selectors[to]))
+		(out_.exceptions && out_.exceptions->entry_selectors[to]) ||
+		(!entry_moves_.empty() && entry_moves_[to] != kNoId))
 		return false;
 	machine::ScalarTransfer moves[2];
 	unsigned count = 0;
@@ -416,10 +472,13 @@ void Selector::conditional_edges(BlockId block, const lowir::Instruction& branch
 
 void Selector::edge(BlockId from, BlockId to, bool last)
 {
-	if (!level_ || std::binary_search(snapshot_edges_.begin(), snapshot_edges_.end(), std::make_pair(to, from)))
-		copy_edge(from, to);
-	else
-		register_edge(from, to);
+	if (entry_moves_.empty() || entry_moves_[to] == kNoId)
+	{
+		if (!level_ || std::binary_search(snapshot_edges_.begin(), snapshot_edges_.end(), std::make_pair(to, from)))
+			copy_edge(from, to);
+		else
+			register_edge(from, to);
+	}
 	if (out_.exceptions && out_.exceptions->entry_selectors[to] != 0)
 	{
 		constant(9, out_.exceptions->entry_selectors[to]);

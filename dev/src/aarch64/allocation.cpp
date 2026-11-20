@@ -302,16 +302,14 @@ std::vector<uint32_t> allocation_order(const Program& program, const FunctionBod
 	return order;
 }
 
-// A straight-line function only needs the end of each register's last use.
-// When a register has holes, query the same interference tree used on x86.
 // Phi transfers whose two ends never overlap can use one register. Join
 // them into groups, forward transfers first, while no two members of a group
 // overlap. A group crosses a call when one of its members does.
 class PhiGroups
 {
 public:
-	PhiGroups(const FunctionBody& body, const std::vector<LiveRange>& ranges, const Segments& segments,
-		const std::vector<PhiCopy>& copies, const std::vector<uint32_t>& calls)
+	PhiGroups(const FunctionBody& body, const std::vector<uint32_t>& aliases, const std::vector<LiveRange>& ranges,
+		const Segments& segments, const std::vector<PhiCopy>& copies, const std::vector<uint32_t>& calls)
 	{
 		if (copies.empty() || segments.empty())
 			return;
@@ -327,11 +325,14 @@ public:
 		std::stable_partition(
 			order.begin(), order.end(), [&](uint32_t c) { return position[copies[c].from] < position[copies[c].to]; });
 		root_.assign(count, kNoId);
-		std::vector<uint32_t> span_of(count, kNoId);
+		std::vector<uint32_t> span_of(count, kNoId), target(copies.size());
 		std::vector<Segments> spans;
+		for (uint32_t c = 0; c < copies.size(); ++c)
+			target[c] = copies[c].phi;
+		split_inputs(body, aliases, ranges, segments, copies, position, range_of, target);
 		for (uint32_t c : order)
 		{
-			uint32_t ends[] = { copies[c].source, copies[c].phi };
+			uint32_t ends[] = { copies[c].source, target[c] };
 			if (range_of[ends[0]] == kNoId || range_of[ends[1]] == kNoId)
 				continue;
 			for (auto& end : ends)
@@ -379,6 +380,8 @@ public:
 			}
 	}
 	bool crosses_call(TempId root) const { return crosses_[root]; }
+	// A phi whose inputs share a register without it.
+	bool split(TempId id) const { return !split_.empty() && split_[id]; }
 	bool empty() const { return root_.empty(); }
 	TempId root(TempId id) const { return root_.empty() ? kNoId : root_[id]; }
 	// The range indices of a group's members.
@@ -410,11 +413,124 @@ private:
 		return false;
 	}
 
+	// A scalar loop phi that overlaps every value it takes on a back edge, or
+	// every input of the phi of a merge block that it takes, needs a copy on
+	// that edge. When the copy needs its own block there, join the inputs
+	// instead: every edge then makes the same copy, which the loop header
+	// makes once while the branches go to it directly.
+	void split_inputs(const FunctionBody& body, const std::vector<uint32_t>& aliases,
+		const std::vector<LiveRange>& ranges, const Segments& segments, const std::vector<PhiCopy>& copies,
+		const std::vector<uint32_t>& position, const std::vector<uint32_t>& range_of, std::vector<uint32_t>& target)
+	{
+		std::vector<uint32_t> by_phi(copies.size());
+		for (uint32_t c = 0; c < copies.size(); ++c)
+			by_phi[c] = c;
+		std::stable_sort(
+			by_phi.begin(), by_phi.end(), [&](uint32_t a, uint32_t b) { return copies[a].phi < copies[b].phi; });
+		const auto span = [&](TempId t) {
+			Segments out;
+			each_interval(ranges[range_of[t]], segments, [&](uint32_t a, uint32_t b) { out.push_back({ a, b }); });
+			std::sort(out.begin(), out.end());
+			return out;
+		};
+		const auto inputs_of = [&](TempId phi) {
+			const auto lower = std::lower_bound(
+				by_phi.begin(), by_phi.end(), phi, [&](uint32_t c, TempId t) { return copies[c].phi < t; });
+			auto upper = lower;
+			while (upper != by_phi.end() && copies[*upper].phi == phi)
+				++upper;
+			return std::make_pair(lower, upper);
+		};
+		// A conditional branch, or a block of phis and its jump, needs a
+		// block or a jump for the copy.
+		const auto needs_block = [&](BlockId block) {
+			const auto end = body.blocks[block].last;
+			if (end == kNoId || body.instructions[end].op != Opcode::Jump)
+				return end != kNoId;
+			for (auto i = body.blocks[block].first; i != end; i = body.instructions[i].next)
+				if (body.instructions[i].op != Opcode::Phi)
+					return false;
+			return true;
+		};
+		const auto back = [&](uint32_t c) { return position[copies[c].from] >= position[copies[c].to]; };
+		// The header makes the copy only when its other phis need none: each
+		// takes temps that can share its register.
+		const auto others_join = [&](BlockId header, TempId split) {
+			for (auto i = body.blocks[header].first; i != kNoId && body.instructions[i].op == Opcode::Phi;
+				i = body.instructions[i].next)
+			{
+				const auto& phi = body.instructions[i];
+				if (phi.result == split)
+					continue;
+				if (range_of[phi.result] == kNoId)
+					return false;
+				const auto own = span(phi.result);
+				for (uint32_t k = 0; k < phi.extra_count; k += 2)
+				{
+					const auto v = body.operands[phi.extra_first + k + 1];
+					if (!v.is(ValueKind::Temp))
+						return false;
+					const auto t = representative(aliases, v.index);
+					if (t != phi.result && (range_of[t] == kNoId || overlap(own, span(t))))
+						return false;
+				}
+			}
+			return true;
+		};
+		std::vector<TempId> seen;
+		for (auto first = by_phi.begin(); first != by_phi.end();)
+		{
+			const TempId phi = copies[*first].phi;
+			const auto last = inputs_of(phi).second;
+			const auto range = std::make_pair(first, last);
+			first = last;
+			if (range_of[phi] == kNoId || body.temps[phi].type.is_float() || body.temps[phi].type.is_vector())
+				continue;
+			bool forward = false, block = false, valid = true;
+			TempId joined = kNoId;
+			const auto own = span(phi);
+			seen.clear();
+			for (auto c = range.first; valid && c != range.second; ++c)
+			{
+				const auto source = copies[*c].source;
+				valid = range_of[source] != kNoId && source != phi;
+				if (!valid || std::find(seen.begin(), seen.end(), source) != seen.end())
+					continue;
+				seen.push_back(source);
+				forward |= !back(*c);
+				if (back(*c))
+				{
+					block |= needs_block(copies[*c].from);
+					joined = joined == kNoId ? source : joined;
+					if (overlap(own, span(source)))
+						continue;
+					const auto merged = inputs_of(source);
+					valid = merged.first != merged.second;
+					for (auto m = merged.first; valid && m != merged.second; ++m)
+						valid = copies[*m].to == copies[*c].from && copies[*m].source != phi &&
+							range_of[copies[*m].source] != kNoId && overlap(own, span(copies[*m].source));
+				}
+			}
+			for (size_t a = 0; valid && a < seen.size(); ++a)
+				for (size_t b = a + 1; valid && b < seen.size(); ++b)
+					valid = !overlap(span(seen[a]), span(seen[b]));
+			if (!valid || !forward || !block || !others_join(copies[*range.first].to, phi))
+				continue;
+			if (split_.empty())
+				split_.assign(body.temps.size(), 0);
+			split_[phi] = 1;
+			for (auto c = range.first; c != range.second; ++c)
+				target[*c] = joined;
+		}
+	}
+
 	std::vector<TempId> root_;
 	std::vector<uint32_t> first_, members_;
-	std::vector<uint8_t> crosses_;
+	std::vector<uint8_t> crosses_, split_;
 };
 
+// A straight-line function only needs the end of each register's last use.
+// When a register has holes, query the same interference tree used on x86.
 class RegisterBank
 {
 public:
@@ -495,9 +611,9 @@ private:
 class GroupRegisters
 {
 public:
-	GroupRegisters(const FunctionBody& body, const std::vector<LiveRange>& ranges, const Segments& segments,
-		const std::vector<PhiCopy>& copies, const std::vector<uint32_t>& calls)
-		: ranges_(ranges), groups_(body, ranges, segments, copies, calls),
+	GroupRegisters(const FunctionBody& body, const std::vector<uint32_t>& aliases, const std::vector<LiveRange>& ranges,
+		const Segments& segments, const std::vector<PhiCopy>& copies, const std::vector<uint32_t>& calls)
+		: ranges_(ranges), groups_(body, aliases, ranges, segments, copies, calls),
 		  regs_(groups_.empty() ? 0 : body.temps.size(), kNoId), assigned_(groups_.empty() ? 0 : ranges.size())
 	{}
 	void start(uint32_t index)
@@ -512,6 +628,8 @@ public:
 	{
 		const auto group = groups_.root(range.id);
 		const unsigned group_reg = group == kNoId ? kNoId : regs_[group];
+		if (groups_.split(range.id))
+			preferred = alternate = kNoId;
 		uint32_t partners = 0;
 		if (group_reg != kNoId)
 		{
@@ -750,7 +868,7 @@ void Selector::allocate()
 	// as the function, cost less to save around than a preserved register.
 	const uint64_t cold_budget = single ? ~uint64_t(0)
 										: (block_weights_.empty() ? 0 : block_weights_[body_.layout.front()] / 2);
-	GroupRegisters groups(body_, ranges, segments, facts.copies, calls);
+	GroupRegisters groups(body_, aliases_, ranges, segments, facts.copies, calls);
 	constexpr uint32_t high_caller_simd = 0xfffc0000; // v18 through v31, clear of argument and scratch registers.
 	RegisterBank general(segments, slots), simd(segments, slots);
 	std::vector<uint32_t> simd_web_regs;
