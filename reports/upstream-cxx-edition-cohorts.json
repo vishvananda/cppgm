@@ -280,6 +280,42 @@
       "revision": "5115c7e447fc07457443df874bf57840e8316d5f",
       "cases": [
         {
+          "id": "udlit-utf8char-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/udlit-utf8char.C",
+          "sha256": "357ceda41bde419bd37694bf6fee3bc17a8f04b030e9123825b06b8975621702",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "UTF-8 character literal operator argument",
+          "pr": true
+        },
+        {
+          "id": "udlit-utf8char-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/udlit-utf8char.C",
+          "sha256": "357ceda41bde419bd37694bf6fee3bc17a8f04b030e9123825b06b8975621702",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "UTF-8 character literal operator argument",
+          "pr": true
+        },
+        {
+          "id": "utf8-neg-c++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/utf8-neg.C",
+          "sha256": "d530396a72770f74e08a1ffdc8a5cbbbd42b097e898fa328280e95e93b38ba9b",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid UTF-8 character literal",
+          "pr": true
+        },
+        {
+          "id": "utf8-neg-gnu++17",
+          "path": "gcc/testsuite/g++.dg/cpp1z/utf8-neg.C",
+          "sha256": "d530396a72770f74e08a1ffdc8a5cbbbd42b097e898fa328280e95e93b38ba9b",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid UTF-8 character literal",
+          "pr": true
+        },
+        {
           "id": "constexpr-if1-c++17",
           "path": "gcc/testsuite/g++.dg/cpp1z/constexpr-if1.C",
           "sha256": "d361790fd12f9477b0ca53d8c4a364f4f976b324763d6e0dc6f00112d5ba4f38",
