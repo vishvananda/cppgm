@@ -1577,11 +1577,16 @@ FunctionEntity* Analyzer::initialize_object(
 
 void Analyzer::declare_inherited_constructors(ClassEntity* entity)
 {
+	for (InheritedConstructorBase* base = entity->inherits_constructors; base != nullptr; base = base->next)
+		inherit_base_constructors(entity, base->base);
+}
+
+void Analyzer::inherit_base_constructors(ClassEntity* entity, ClassEntity* base)
+{
 	// 12.9p1-p4: each constructor of the named base but a copy or move
 	// constructor (and its forms without trailing default arguments) gives
 	// the class a constructor of the same parameters, access and
 	// deletedness, unless the class declares one of that signature.
-	ClassEntity* base = entity->inherits_constructors;
 	const NameEntry* entry = base->scope != nullptr ? names_.find(base->scope, constructor_key_) : nullptr;
 	std::vector<const Binding*> inherited;
 	for (const FunctionList* node = entry != nullptr ? entry->functions : nullptr; node != nullptr; node = node->next)
@@ -1618,7 +1623,18 @@ void Analyzer::declare_inherited_constructors(ClassEntity* entity)
 				types_.fundamental(FundamentalType::Void), type->params, count, false, 0, RefQualifier::None);
 			const FunctionList* same = names_.overload(entity->scope, constructor_key_, signature);
 			if (same != nullptr && same->binding->entity->owner == entity->scope)
-				continue;
+			{
+				const auto* existing = static_cast<const FunctionEntity*>(same->binding->entity);
+				if (existing->inherited == nullptr)
+					continue;
+				const FunctionEntity* root = graph_.inherited_root(constructor);
+				if (root == nullptr)
+					root = constructor;
+				const auto* home = static_cast<const ClassEntity*>(root->owner->entity);
+				// A single shared base subobject supplies this constructor once.
+				if (graph_.inherited_root(existing) == root && (base_path_facts(home, entity, 0) & kBasePathCount) == 1)
+					continue;
+			}
 			FunctionEntity* inheriting = new_entity<FunctionEntity>(
 				EntityKind::Function, constructor_key_, entity->scope, signature);
 			inheriting->label = entity->name != nullptr ? entity->name->spelling : entity->label;
@@ -1702,6 +1718,35 @@ FunctionEntity* Analyzer::inherited_base_constructor(const FunctionEntity* const
 	return nullptr;
 }
 
+ClassEntity* Analyzer::inherited_template_base(
+	const ClassEntity* entity, const FunctionEntity* primary, uint32_t location)
+{
+	const InheritedConstructorBase* bases = entity->inherits_constructors;
+	if (bases == nullptr || bases->next == nullptr)
+		return bases != nullptr ? bases->base : nullptr;
+	const auto* home = static_cast<const ClassEntity*>(primary->owner->entity);
+	ClassEntity* selected = nullptr;
+	for (auto* base = bases; base != nullptr; base = base->next)
+	{
+		const NameEntry* constructors = names_.find(base->base->scope, constructor_key_);
+		for (const FunctionList* item = constructors != nullptr ? constructors->functions : nullptr; item != nullptr;
+			item = item->next)
+		{
+			if (item->binding->entity != primary)
+				continue;
+			if (selected != nullptr && (base_path_facts(home, entity, location) & kBasePathCount) != 1)
+			{
+				substitution_error(location, "a constructor is inherited through more than one base subobject");
+				return nullptr;
+			}
+			if (selected == nullptr)
+				selected = base->base;
+			break;
+		}
+	}
+	return selected;
+}
+
 FunctionEntity* Analyzer::inherited_specialization(
 	ClassEntity* entity, FunctionEntity* specialization, uint32_t arguments, uint32_t location)
 {
@@ -1718,7 +1763,9 @@ FunctionEntity* Analyzer::inherited_specialization(
 	// the ones it inherits, 12.9p1) is forwarded through the base's
 	// inheriting constructor, which initializes the base (12.9p8).
 	FunctionEntity* forwarded = specialization;
-	ClassEntity* base = entity->inherits_constructors;
+	ClassEntity* base = inherited_template_base(entity, specialization->primary, location);
+	if (base == nullptr && entity->inherits_constructors != nullptr)
+		return nullptr;
 	if (base != nullptr && base->scope != nullptr && specialization->owner != base->scope)
 		forwarded = inherited_specialization(base, specialization, arguments, location);
 	if (forwarded == nullptr)

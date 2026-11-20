@@ -176,6 +176,12 @@ enum class SubobjectValues : uint8_t
 	Present
 };
 
+struct InheritedConstructorBase
+{
+	ClassEntity* base;
+	InheritedConstructorBase* next;
+};
+
 struct ClassEntity : Entity
 {
 	// The class-key of the first declaration, which the type's spelling uses.
@@ -316,8 +322,8 @@ struct ClassEntity : Entity
 	// Only GNU aligned attributes request it: one weaker than the class's
 	// natural alignment is ignored (GCC) rather than ill-formed (7.6.2p5).
 	bool alignment_request_gnu;
-	// The base whose constructors a using-declaration inherits (12.9).
-	ClassEntity* inherits_constructors;
+	// The direct bases whose constructors using-declarations inherit.
+	InheritedConstructorBase* inherits_constructors;
 	// Semantics mode, a polymorphic class once complete: its virtual
 	// facts (null for another class).
 	VirtualFacts* virtuals;

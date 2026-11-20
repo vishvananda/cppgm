@@ -640,7 +640,15 @@ void Analyzer::using_declarator(const syntax::UsingDecl& decl, Scope* scope)
 		// this declaration, just as ordinary dependent member using-declarations.
 		if (!templated_class(where) && base_specifier(derived, base) == nullptr)
 			error(decl.location, "a constructor using-declaration must name a direct base");
-		derived->inherits_constructors = base;
+		InheritedConstructorBase** link = &derived->inherits_constructors;
+		while (*link != nullptr)
+		{
+			if ((*link)->base == base)
+				return;
+			link = &(*link)->next;
+		}
+		*link = arena_.allocate_array<InheritedConstructorBase>(1);
+		**link = InheritedConstructorBase{ base, nullptr };
 		return;
 	}
 	LookupResult result = LookupResult();

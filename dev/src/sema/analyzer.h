@@ -1454,6 +1454,8 @@ private:
 	bool implicit_destructor_nothrow(const ClassEntity* entity);
 	bool destructor_deleted(const ClassEntity* entity);
 	void declare_inherited_constructors(ClassEntity* entity);
+	void inherit_base_constructors(ClassEntity* entity, ClassEntity* base);
+	ClassEntity* inherited_template_base(const ClassEntity* entity, const FunctionEntity* primary, uint32_t location);
 	void record_inherited_constructor(FunctionEntity* inheriting);
 	FunctionEntity* inherited_base_constructor(const FunctionEntity* constructor, const BaseClass* base);
 	bool excluded_inherited_constructor(const FunctionEntity* function, const ClassEntity* constructed);
