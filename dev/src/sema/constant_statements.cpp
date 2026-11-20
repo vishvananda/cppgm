@@ -216,6 +216,8 @@ bool ConstantInterpreter::operator_call(const syntax::Expr& expr, Result& result
 	// int parameter takes zero (13.5.7).
 	const syntax::Expr* e = WithoutParentheses(&expr);
 	const FunctionEntity* function = static_cast<const FunctionEntity*>(e->facts->entity);
+	if ((e->facts->flags & kVirtualCall) != 0)
+		return fail(e->location, "a virtual function call in a constant expression");
 	if ((e->facts->flags & kUserLiteral) != 0)
 		return e->kind == syntax::ExprKind::Literal
 			? user_literal(static_cast<const syntax::LiteralExpr&>(*e), result)

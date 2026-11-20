@@ -125,8 +125,8 @@ void Analyzer::virtual_declaration(
 		error(location, "a function marked override overrides no base class member function");
 	if (is_final && !function->is_virtual)
 		error(location, "a function marked final is not virtual");
-	// 7.1.5p3: a constexpr function is not virtual (nor overrides one).
-	if (function->is_virtual && function->is_constexpr)
+	// C++20 [dcl.constexpr] allows constexpr functions to be virtual.
+	if (function->is_virtual && function->is_constexpr && (!cxx20_ || function->is_consteval))
 		error(location, "a constexpr virtual function");
 }
 
