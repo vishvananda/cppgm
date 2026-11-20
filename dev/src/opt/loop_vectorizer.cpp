@@ -1686,7 +1686,7 @@ bool LoopVectorizer::read_dependences()
 void LoopVectorizer::read_packed_counters()
 {
 	narrow_counters_.clear();
-	if (!target_model::is_aarch64(c_.program.target) || lanes_ != 2)
+	if (target_model::is_wasm(c_.program.target) || lanes_ != 2)
 		return;
 	for (const Induction& iv : inductions_)
 	{
