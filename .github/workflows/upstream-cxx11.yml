@@ -283,7 +283,7 @@ jobs:
           exit "$failed"
 
       - name: Run hosted GCC and libstdc++ compliance cases
-        if: matrix.suite == 'gcc'
+        if: ${{ !cancelled() && steps.candidate.outcome == 'success' && matrix.suite == 'gcc' }}
         env:
           UPSTREAM: ${{ matrix.upstream }}
           UPSTREAM_VERSION: ${{ matrix.version }}

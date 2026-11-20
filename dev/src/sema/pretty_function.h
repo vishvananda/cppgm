@@ -6,7 +6,6 @@ namespace sema {
 
 struct FunctionEntity;
 struct SemanticGraph;
-struct Type;
 
 // GCC's __PRETTY_FUNCTION__ in Clang's form: the function's
 // declaration with its qualified name -- `static `/`virtual `, the result
@@ -23,8 +22,8 @@ struct Type;
 // trailing ones equal to their defaults), and the signature is the
 // specialization's, not the template's (`f(int) [T = int]`, Clang's and
 // GCC's `f(T) [T = int]`).
-std::string PrettyFunctionName(const FunctionEntity* function, const SemanticGraph& graph);
-void AppendPrettyTypeName(const Type* type, std::string& out);
+std::string PrettyFunctionName(
+	const FunctionEntity* function, const SemanticGraph& graph, bool source_location = false);
 // The function's name as __func__ holds it (8.4.1p8): an operator function's
 // and a conversion function's with GCC's and Clang's spacing (`operator
 // new[]`, `operator const char *`).

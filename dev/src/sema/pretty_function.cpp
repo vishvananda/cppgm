@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "lex/identifier_table.h"
+#include "sema/entity_records.h"
 #include "sema/function_records.h"
 #include "sema/integral_arithmetic.h"
 #include "sema/semantic_graph.h"
@@ -81,7 +82,7 @@ void AppendParameters(const Type* function, std::string& out)
 		out += function->ref == RefQualifier::LValue ? " &" : " &&";
 }
 
-void AppendArgument(const Type* argument, std::string& out);
+void AppendArgument(const Type* argument, std::string& out, bool source_location = false);
 
 // A class's name in its scope: its template arguments after a
 // specialization's.
@@ -251,7 +252,37 @@ void AppendValue(const Type* type, uint64_t bits, std::string& out)
 	}
 }
 
-void AppendArgument(const Type* argument, std::string& out)
+void AppendSubobject(const SubobjectAddress& address, std::string& out, bool qualified)
+{
+	if (address.name_path_size >= kUnnamedSubobjectPath)
+	{
+		out += " + " + std::to_string(address.offset) + " bytes";
+		return;
+	}
+	for (uint32_t i = 0; i < address.name_path_size; ++i)
+	{
+		const SubobjectNameStep& step = address.name_path[i];
+		if (step.member == nullptr)
+		{
+			out += '[' + std::to_string(step.index) + ']';
+			continue;
+		}
+		const auto* variable = step.member->variable;
+		out += '.';
+		if (qualified && variable->owner->entity->name != nullptr)
+		{
+			AppendType(variable->owner->entity->type, std::string(), out);
+			out += "::";
+		}
+		out += variable->name->spelling;
+	}
+	if (address.one_past)
+		out += " + 1";
+}
+
+// Source location uses GCC-style qualified field spellings for direct
+// subobject arguments. Keep the established __PRETTY_FUNCTION__ spelling.
+void AppendArgument(const Type* argument, std::string& out, bool source_location)
 {
 	switch (argument->kind)
 	{
@@ -265,14 +296,15 @@ void AppendArgument(const Type* argument, std::string& out)
 			}
 			const SubobjectAddress* address = SubobjectOf(argument);
 			const bool pointer = !argument->element->is_reference();
+			const bool qualified = source_location && address != nullptr;
 			if (pointer)
-				out += address != nullptr ? "(& " : "&";
+				out += qualified ? "(& " : "&";
 			AppendScope(argument->entity->owner, out);
 			out += argument->entity->name != nullptr ? argument->entity->name->spelling : "";
 			if (address != nullptr)
 			{
-				out += address->spelling;
-				if (pointer)
+				AppendSubobject(*address, out, qualified);
+				if (qualified && pointer)
 					out += ')';
 			}
 			return;
@@ -289,7 +321,7 @@ void AppendArgument(const Type* argument, std::string& out)
 		{
 			if (i != 0)
 				out += ", ";
-			AppendArgument(argument->params[i], out);
+			AppendArgument(argument->params[i], out, source_location);
 		}
 		out += '>';
 		return;
@@ -407,7 +439,8 @@ void AppendType(const Type* type, std::string inner, std::string& out)
 }
 
 // The template parameters a specialization binds, with its arguments.
-void AppendBindings(const TemplateHead* head, const Type* const* arguments, uint32_t count, std::string& out)
+void AppendBindings(
+	const TemplateHead* head, const Type* const* arguments, uint32_t count, std::string& out, bool source_location)
 {
 	for (uint32_t i = 0; head != nullptr && arguments != nullptr && i < head->count && i < count; ++i)
 	{
@@ -417,7 +450,7 @@ void AppendBindings(const TemplateHead* head, const Type* const* arguments, uint
 		out += out.empty() ? "" : ", ";
 		out += parameter->name->spelling;
 		out += " = ";
-		AppendArgument(arguments[i], out);
+		AppendArgument(arguments[i], out, source_location);
 	}
 }
 
@@ -440,12 +473,7 @@ std::string PredefinedFunctionName(const FunctionEntity* function)
 	return label;
 }
 
-void AppendPrettyTypeName(const Type* type, std::string& out)
-{
-	AppendType(type, std::string(), out);
-}
-
-std::string PrettyFunctionName(const FunctionEntity* function, const SemanticGraph& graph)
+std::string PrettyFunctionName(const FunctionEntity* function, const SemanticGraph& graph, bool source_location)
 {
 	std::string text;
 	if (function->is_static && function->member)
@@ -484,13 +512,13 @@ std::string PrettyFunctionName(const FunctionEntity* function, const SemanticGra
 	for (size_t i = classes.size(); i-- > 0;)
 	{
 		const ClassTemplateFacts* facts = classes[i]->templ;
-		AppendBindings(facts->pattern->templ->head, facts->arguments, facts->argument_count, bindings);
+		AppendBindings(facts->pattern->templ->head, facts->arguments, facts->argument_count, bindings, source_location);
 	}
 	if (function->primary != nullptr && !function->explicit_specialization && ArgumentsOf(function) != nullptr &&
 		HeadOf(function->primary) != nullptr)
 	{
 		const TemplateHead* head = HeadOf(function->primary);
-		AppendBindings(head, ArgumentsOf(function), head->count, bindings);
+		AppendBindings(head, ArgumentsOf(function), head->count, bindings, source_location);
 	}
 	if (!bindings.empty())
 		text += " [" + bindings + "]";

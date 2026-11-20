@@ -114,7 +114,7 @@ hosted headers depend on:
   and default member initializers at the point of use. See
   `[support.srcloc.cons]` in the [C++20 draft](../doc/n4861.pdf) and
   [CWG2631](../doc/cwg/cwg-2631.txt).
-  In the predefined function name, a subobject pointer template argument
+  In the source location function name, a subobject pointer template argument
   includes the declaring class of each named field. For example,
   `(& record.Record::counter)` ends with the qualified member name.
 - In C++20 hosted mode, `__builtin_coro_resume`, `__builtin_coro_destroy`,

@@ -1272,8 +1272,9 @@ const Type* Analyzer::decltype_type(const syntax::Expr& operand, Scope* scope)
 				return nullptr;
 			auto* function = static_cast<FunctionEntity*>(set != nullptr ? set->binding->entity : binding->entity);
 			if (last.has_arguments && template_depth_ != 0 &&
-				(names_.dependent_uses() != uses || names_.value_parameter_uses() != values ||
-					dependent_type(function->type)))
+				(dependent_type(function->type) ||
+					((cxx14_ || function->placeholder_result) &&
+						(names_.dependent_uses() != uses || names_.value_parameter_uses() != values))))
 				return dependent_decltype(operand, scope);
 			if ((set != nullptr && set->next != nullptr) || function->templated)
 			{

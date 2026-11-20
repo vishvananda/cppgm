@@ -328,12 +328,12 @@
           "pr": true
         },
         {
-          "id": "clang-8b0ac11dd82b285dfb35",
-          "path": "clang/test/SemaCXX/warn-c++1z-extensions.cpp",
-          "sha256": "162d0a23559fb84cc0457ba1c57c2132109f133f43d0b02a6ea4d85bbd14b0df",
+          "id": "clang-adb8b6f128011c7a351b",
+          "path": "clang/test/CXX/dcl.decl/dcl.meaning/dcl.array/p3.cpp",
+          "sha256": "93e546d78af80923b7b9deca6b9ef18fcb16e6d5e3f37c717587f71d7245b2b4",
           "action": "compile",
-          "expect": "accept",
-          "feature": "C++17 extension diagnostics in C++14 mode",
+          "expect": "reject",
+          "feature": "array declarator constraints",
           "pr": true
         }
       ]

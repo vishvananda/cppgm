@@ -17,6 +17,19 @@ struct UnionSelection
 	bool operator==(const UnionSelection& other) const;
 };
 
+// One named field or an array index on the path through the storage root.
+struct SubobjectNameStep
+{
+	const DataMember* member;
+	uint64_t index;
+};
+
+enum : uint32_t
+{
+	kUndescribedSubobject = uint32_t(-1),
+	kUnnamedSubobjectPath = uint32_t(-2)
+};
+
 // A C++20 template argument's designation within its storage root. The
 // referent type and union selections also specify its Itanium encoding.
 struct SubobjectAddress
@@ -26,8 +39,9 @@ struct SubobjectAddress
 	int64_t offset;
 	bool one_past;
 	const Type* storage;
-	// A source-like suffix for diagnostics and predefined function names.
-	mutable const char* spelling;
+	// The path used when a specialization's function name is requested.
+	mutable const SubobjectNameStep* name_path;
+	mutable uint32_t name_path_size;
 
 	bool whole_object() const { return referent == storage && variant == nullptr && offset == 0 && !one_past; }
 	bool operator==(const SubobjectAddress& other) const;

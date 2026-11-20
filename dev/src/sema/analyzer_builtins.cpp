@@ -1768,7 +1768,7 @@ ConstValue Analyzer::source_location_value(const Type* pointer, uint32_t locatio
 	ConstValue* fields = arena_.allocate_array<ConstValue>(4);
 	fields[source_location_fields_[0]->ordinal] = string_address(source_file(location));
 	fields[source_location_fields_[1]->ordinal] = string_address(
-		function != nullptr ? PrettyFunctionName(function, graph_) : std::string());
+		function != nullptr ? PrettyFunctionName(function, graph_, true) : std::string());
 	const uint64_t coordinates[] = { source_line(location),
 		positions_ != nullptr ? positions_->column_of(location) : 0 };
 	for (unsigned i = 0; i < 2; ++i)

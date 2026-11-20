@@ -2,7 +2,6 @@
 
 #include "lex/identifier_table.h"
 #include "sema/constant_interpreter.h"
-#include "sema/pretty_function.h"
 
 // Non-type template arguments of pointer, reference and pointer to member
 // type (14.3.2):
@@ -71,7 +70,7 @@ const Entity* NamedAddressConstant(const ConstValue& value)
 }
 
 bool DescribeSubobject(Analyzer& analyzer, const Type* type, const SubobjectAddress& address, int64_t start,
-	const UnionSelection* const* variants, size_t remaining, std::string& out, uint32_t depth)
+	const UnionSelection* const* variants, size_t remaining, SmallList<SubobjectNameStep, 4>& out, uint32_t depth)
 {
 	if (depth > 128 || start > address.offset)
 		return false;
@@ -90,7 +89,7 @@ bool DescribeSubobject(Analyzer& analyzer, const Type* type, const SubobjectAddr
 		const uint64_t index = static_cast<uint64_t>(address.offset - start) / stride;
 		if (index >= type->bound)
 			return false;
-		out += '[' + std::to_string(index) + ']';
+		out.push_back(SubobjectNameStep{ nullptr, index });
 		if (DescribeSubobject(analyzer, type->element, address, start + static_cast<int64_t>(index * stride), variants,
 				remaining, out, depth + 1))
 			return true;
@@ -117,15 +116,7 @@ bool DescribeSubobject(Analyzer& analyzer, const Type* type, const SubobjectAddr
 		if (member->bit_field || member->variable->type->is_reference())
 			continue;
 		if (member->variable->name != nullptr)
-		{
-			out += '.';
-			if (cls->name != nullptr)
-			{
-				AppendPrettyTypeName(cls->type, out);
-				out += "::";
-			}
-			out += member->variable->name->spelling;
-		}
+			out.push_back(SubobjectNameStep{ member, 0 });
 		const int64_t offset = start + static_cast<int64_t>(member->offset / 8);
 		if (DescribeSubobject(analyzer, member->variable->type, address, offset, variants,
 				remaining - (is_union ? 1 : 0), out, depth + 1))
@@ -200,7 +191,7 @@ const Type* Analyzer::constant_template_address(const ConstValue& value)
 	const UnionSelection* variant = reinterpret_cast<const UnionSelection*>(static_cast<uintptr_t>(value.high));
 	const bool one_past = (value.flags & kPastEnd) != 0;
 	const SubobjectAddress address{ referent, variant, value.address.offset, one_past, entity->type->unqualified,
-		nullptr };
+		nullptr, kUndescribedSubobject };
 	if (!erased && address.whole_object())
 		return types_.address(type, entity);
 	return subobject_template_address(type, entity, address);
@@ -210,7 +201,7 @@ const Type* Analyzer::subobject_template_address(const Type* type, Entity* root,
 {
 	const Type* argument = types_.subobject_address(type, root, address);
 	const SubobjectAddress* description = SubobjectOf(argument);
-	if (description->spelling != nullptr)
+	if (description->name_path_size != kUndescribedSubobject)
 		return argument;
 	SmallList<const UnionSelection*, 4> variants;
 	for (const UnionSelection* variant = address.variant; variant != nullptr; variant = variant->outer)
@@ -222,15 +213,14 @@ const Type* Analyzer::subobject_template_address(const Type* type, Entity* root,
 		if (object_layout(address.referent, size, alignment))
 			element.offset -= static_cast<int64_t>(size);
 	}
-	std::string path;
+	SmallList<SubobjectNameStep, 4> path;
 	if (DescribeSubobject(*this, address.storage, element, 0, variants.data(), variants.size(), path, 0))
 	{
-		if (address.one_past)
-			path += " + 1";
+		description->name_path = arena_.copy_array(path.data(), path.size());
+		description->name_path_size = static_cast<uint32_t>(path.size());
 	}
 	else
-		path = " + " + std::to_string(address.offset) + " bytes";
-	description->spelling = arena_.copy_string(path.data(), path.size());
+		description->name_path_size = kUnnamedSubobjectPath;
 	return argument;
 }
 
@@ -544,7 +534,8 @@ const Type* Analyzer::converted_address(const Type* target, const Type* argument
 		const SubobjectAddress* array = SubobjectOf(argument);
 		return subobject_template_address(target, entity,
 			SubobjectAddress{ source->element->element->unqualified, array != nullptr ? array->variant : nullptr,
-				array != nullptr ? array->offset : 0, false, entity->type->unqualified, nullptr });
+				array != nullptr ? array->offset : 0, false, entity->type->unqualified, nullptr,
+				kUndescribedSubobject });
 	}
 	if (source->kind != TypeKind::MemberPointer)
 		if (const SubobjectAddress* subobject = SubobjectOf(argument))
