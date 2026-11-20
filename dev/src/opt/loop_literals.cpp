@@ -14,6 +14,9 @@ namespace {
 // The most literals one loop keeps in registers: the rest stay in memory.
 constexpr size_t kHeld = 8;
 constexpr size_t kHeldAddresses = 4;
+// The largest loop, in instructions, that holds a literal a move or two
+// rebuilds: a larger one is short of registers for its own values.
+constexpr size_t kCheapHeldLoop = 96;
 
 // A loop without calls on its usual paths reads its floating literals from registers: each is
 // copied once before the outermost such loop, and a register costs no load
@@ -35,7 +38,7 @@ private:
 		Type type;
 	};
 
-	bool held_literal(const Instruction& inst, Value v) const;
+	bool held_literal(const Instruction& inst, uint32_t k, Value v) const;
 	bool has_call(const Loop& loop) const;
 	bool reads_literal(const Loop& loop) const;
 	bool same_literal(Value a, Value b) const;
@@ -48,19 +51,47 @@ private:
 	LoopForest forest_;
 	std::vector<Held> held_;
 	bool across_call_ = false;
+	bool cheap_held_ = false; // a literal a move rebuilds may be held
 };
 
-bool LoopLiterals::held_literal(const Instruction& inst, Value v) const
+// An A64 ADD, SUB, CMP or CMN immediate: twelve bits, shifted by twelve or not,
+// of the value's magnitude at the operation's width.
+bool arm_add_immediate(uint64_t raw, unsigned width)
+{
+	const int64_t value = width == 32 ? static_cast<int32_t>(raw) : static_cast<int64_t>(raw);
+	const uint64_t magnitude = value < 0 ? uint64_t(0) - uint64_t(value) : uint64_t(value);
+	const unsigned shift = (magnitude & 4095) == 0 ? 12 : 0;
+	return (magnitude >> shift) <= 4095;
+}
+
+// Operand `k` of `inst` is a literal the instruction reads from a register,
+// which the selector would otherwise build on every pass.
+bool LoopLiterals::held_literal(const Instruction& inst, uint32_t k, Value v) const
 {
 	if (v.is(ValueKind::Float))
 		return !across_call_ && (v.float_kind == TypeKind::F32 || v.float_kind == TypeKind::F64) &&
 			body_.literals[v.index].low != 0;
-	if (!v.is(ValueKind::Integer) || !target_model::is_aarch64(c_.program.target) || inst.op != Opcode::Binary)
+	if (!v.is(ValueKind::Integer) || !target_model::is_aarch64(c_.program.target))
 		return false;
-	const auto op = static_cast<BinaryOp>(inst.sub);
 	const auto width = integer_bits(inst.type.kind());
 	const uint64_t raw = body_.literals[v.index].low;
-	if ((width == 32 || width == 64) && (op == BinaryOp::Xor || op == BinaryOp::Or || op == BinaryOp::And))
+	const bool wide = width == 32 || width == 64;
+	// A move or two rebuilds a select, compare or addition literal: it is held
+	// only where registers are not short (no call, a small loop). CSEL reads
+	// XZR for a zero, and CSINC builds a one.
+	if (inst.op == Opcode::Select)
+		return cheap_held_ && (k == 1 || k == 2) && width != 0 && width <= 64 && raw != 0 && raw != 1;
+	// CMP and CMN take an immediate on the right only.
+	if (inst.op == Opcode::Compare)
+		return cheap_held_ && wide && (k == 0 ? raw != 0 : !arm_add_immediate(raw, width));
+	if (inst.op != Opcode::Binary)
+		return false;
+	const auto op = static_cast<BinaryOp>(inst.sub);
+	if (wide && (op == BinaryOp::Add || (op == BinaryOp::Sub && k == 1)))
+		return cheap_held_ && !arm_add_immediate(raw, width);
+	if (wide && op == BinaryOp::Sub)
+		return cheap_held_ && raw != 0;
+	if (wide && (op == BinaryOp::Xor || op == BinaryOp::Or || op == BinaryOp::And))
 	{
 		uint32_t field = 0;
 		return raw && !aarch64::logical_immediate(raw, width, field);
@@ -111,8 +142,8 @@ bool LoopLiterals::reads_literal(const Loop& loop) const
 		for (InstId i = body_.blocks[b].first; i != kNoId && !found; i = body_.instructions[i].next)
 		{
 			const Instruction& inst = body_.instructions[i];
-			if (inst.op != Opcode::Store)
-				for_each_operand(body_, inst, [&](const Value& v) { found = found || held_literal(inst, v); });
+			for (uint32_t k = 0; k < 3 + inst.extra_count && inst.op != Opcode::Store && !found; ++k)
+				found = held_literal(inst, k, k < 3 ? inst.ops[k] : body_.operands[inst.extra_first + k - 3]);
 		}
 	return found;
 }
@@ -134,7 +165,7 @@ bool LoopLiterals::hold(uint32_t loop, BlockId pre)
 			{
 				const uint32_t first = body_.instructions[i].extra_first;
 				const Value v = k < 3 ? body_.instructions[i].ops[k] : body_.operands[first + k - 3];
-				if (!held_literal(body_.instructions[i], v))
+				if (!held_literal(body_.instructions[i], k, v))
 					continue;
 				// (A phi's input from outside is read once.)
 				if (k >= 3 && body_.instructions[i].op == Opcode::Phi &&
@@ -230,6 +261,11 @@ bool LoopLiterals::run()
 			continue;
 		}
 		across_call_ = has_call(forest_.loops[loop]);
+		size_t size = across_call_ || !target_model::is_aarch64(c_.program.target) ? kCheapHeldLoop + 1 : 0;
+		for (BlockId b : forest_.loops[loop].blocks)
+			for (InstId i = body_.blocks[b].first; i != kNoId && size <= kCheapHeldLoop; i = body_.instructions[i].next)
+				++size;
+		cheap_held_ = size <= kCheapHeldLoop;
 		if (across_call_ && !target_model::is_aarch64(c_.program.target))
 			continue;
 		// A retained integer mask can reside in a saved GPR. Floating
