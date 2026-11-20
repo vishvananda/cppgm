@@ -205,6 +205,9 @@ PA7 passes consume, including:
   declarator-id (`T... values`); an ellipsis after the last parameter, with or
   without a comma (`f(int, ...)`, `g(char value...)`), is the parameter
   clause's own and dumps under `parameter-clause`
+  An unnamed pointer or reference parameter can name a nested type
+  through `decltype(object)::`. Keep the qualified name and the
+  abstract declarator in the AST for later type lookup.
 - structured `type-id` syntax in casts, `new`, `typeid`, `alignof`,
   `sizeof(type)`, and `noexcept`
 - compound statements, selection statements, iteration statements, labels,

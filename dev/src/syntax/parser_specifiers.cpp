@@ -863,9 +863,15 @@ bool Parser::parse_named_type_specifier(ListFrame<DeclSpecifier>& list, Specifie
 		// __real__ z))` is a functional cast's parenthesized operand).
 		const bool dependent = name_info.prefix != PrefixState::Unqualified &&
 			template_parameter_mentions_ != parameters;
+		// In a parameter list, an unnamed pointer or reference after a
+		// decltype-qualified name has no competing binary-expression syntax.
 		if (!type && name_info.category == NameCategory::None &&
 			(((definite_type_ & kDefiniteType) != 0 && (!dependent || name_info.prefix_uncertain)) ||
-				(at_identifier() && !at_identifier(final_) && !at_identifier(override_)) || at(TokenKind::KW_OPERATOR)))
+				(at_identifier() && !at_identifier(final_) && !at_identifier(override_)) ||
+				at(TokenKind::KW_OPERATOR) ||
+				(name->components[0].kind == NameComponentKind::Decltype &&
+					(at(TokenKind::OP_STAR) || at(TokenKind::OP_AMP) || at(TokenKind::OP_LAND)) &&
+					(at(TokenKind::OP_RPAREN, 1) || at(TokenKind::OP_COMMA, 1)))))
 		{
 			const uint8_t gnu = !name->global && name->components.size == 1 &&
 					name->last().kind == NameComponentKind::Identifier
