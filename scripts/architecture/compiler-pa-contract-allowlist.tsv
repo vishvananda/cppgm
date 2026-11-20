@@ -85,7 +85,6 @@ comment	dev/src/sema/analyzer.h	PA16	handout or fixture cross-reference in a com
 comment	dev/src/sema/analyzer.h	PA30	handout or fixture cross-reference in a comment
 comment	dev/src/sema/analyzer.h	PA6	handout or fixture cross-reference in a comment
 comment	dev/src/sema/analyzer.h	PA7	handout or fixture cross-reference in a comment
-comment	dev/src/sema/analyzer_bindings.cpp	PA30	handout or fixture cross-reference in a comment
 comment	dev/src/sema/analyzer_bodies.cpp	PA6	handout or fixture cross-reference in a comment
 comment	dev/src/sema/analyzer_builtins.cpp	PA27	handout or fixture cross-reference in a comment
 comment	dev/src/sema/analyzer_constexpr.cpp	PA16	handout or fixture cross-reference in a comment
