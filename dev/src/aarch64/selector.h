@@ -184,6 +184,10 @@ private:
 	void edge(lowir::BlockId from, lowir::BlockId to, bool last = false);
 	bool shared_entry_moves(lowir::BlockId block);
 	void entry_moves(lowir::BlockId block);
+	void plan_forwarding(const std::vector<lowir::BlockId>& layout);
+	lowir::BlockId next_emitted(const std::vector<lowir::BlockId>& layout, size_t index) const;
+	bool forwarded(lowir::BlockId block) const { return !forwarded_.empty() && forwarded_[block] != lowir::kNoId; }
+	void bind_forwarded();
 	void select(const lowir::Instruction& inst, lowir::BlockId block);
 	void atomic(const lowir::Instruction& inst);
 	void switch_edges(const lowir::Instruction& inst, lowir::BlockId block);
@@ -261,7 +265,7 @@ private:
 	std::vector<uint8_t> increments_; // increments made by the selection reading them (integer.cpp)
 	std::vector<std::pair<lowir::BlockId, lowir::BlockId>> snapshot_edges_;
 	std::vector<lowir::BlockId> frame_phi_blocks_;
-	std::vector<lowir::BlockId> entry_moves_;
+	std::vector<lowir::BlockId> entry_moves_, forwarded_;
 	std::vector<CallLayout> calls_;
 	std::vector<uint32_t> call_indices_;
 	Argument result_ = {};

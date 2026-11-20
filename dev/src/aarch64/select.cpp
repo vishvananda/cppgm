@@ -508,11 +508,14 @@ void Selector::run()
 	const auto placed = order_blocks();
 	const auto& layout = placed.empty() ? body_.layout : placed;
 	auto elided = entry_elided_.begin();
+	plan_forwarding(layout);
 	for (size_t index = 0; index < layout.size(); ++index)
 	{
 		const BlockId block = layout[index];
+		if (forwarded(block))
+			continue;
 		// A landing prologue can precede its LowIR block label.
-		fallthrough_ = level_ && index + 1 < layout.size() ? layout[index + 1] : kNoId;
+		fallthrough_ = level_ ? next_emitted(layout, index) : kNoId;
 		if (out_.exceptions && fallthrough_ != kNoId)
 		{
 			const auto next = out_.exceptions->layout_of[fallthrough_];
@@ -651,6 +654,7 @@ void Selector::run()
 			select(inst, block);
 		}
 	}
+	bind_forwarded();
 	if (level_ && !named_.darwin && body_.code_labels.empty())
 		pair_accesses(out_, frame_code_.prologue_end, bit_tests_, orders_memory(body_));
 	if (level_ && !dynamic_stack_ && body_.code_labels.empty())

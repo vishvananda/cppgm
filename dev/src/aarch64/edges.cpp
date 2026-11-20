@@ -346,6 +346,69 @@ void Selector::entry_moves(BlockId block)
 		parallel_edge(entry_moves_[block], block);
 }
 
+// A block of phis and a jump whose edges all need no code is not emitted.
+// Its label is its successor's, so its predecessors branch there directly.
+void Selector::plan_forwarding(const std::vector<BlockId>& layout)
+{
+	if (!level_ || !body_.code_labels.empty())
+		return;
+	for (size_t k = 1; k < layout.size(); ++k)
+	{
+		const BlockId block = layout[k];
+		const auto last = body_.blocks[block].last;
+		if (last == kNoId || body_.instructions[last].op != Opcode::Jump)
+			continue;
+		const BlockId to = body_.instructions[last].ops[0].index;
+		if (to == block || (!entry_moves_.empty() && entry_moves_[block] != kNoId))
+			continue;
+		if (out_.exceptions)
+		{
+			const auto& plan = *out_.exceptions;
+			const auto b = plan.layout_of[block];
+			if (plan.entry_selectors[block] || plan.analysis.eh_landing_index_[b] != kNoId ||
+				!plan.analysis.blocks_[b].reachable)
+				continue;
+		}
+		const auto first = body_.blocks[block].first;
+		bool empty = empty_edge(block, to);
+		for (auto i = first; empty && i != last; i = body_.instructions[i].next)
+			empty = body_.instructions[i].op == Opcode::Phi;
+		const auto& phi = body_.instructions[first];
+		for (uint32_t p = 0; empty && phi.op == Opcode::Phi && p < phi.extra_count; p += 2)
+			empty = empty_edge(body_.operands[phi.extra_first + p].index, block);
+		if (!empty)
+			continue;
+		if (forwarded_.empty())
+			forwarded_.assign(body_.blocks.size(), kNoId);
+		// An empty loop of forwarding blocks keeps its last jump.
+		auto end = to;
+		while (forwarded(end) && end != block)
+			end = forwarded_[end];
+		if (end != block)
+			forwarded_[block] = to;
+	}
+}
+
+BlockId Selector::next_emitted(const std::vector<BlockId>& layout, size_t index) const
+{
+	while (++index < layout.size())
+		if (!forwarded(layout[index]))
+			return layout[index];
+	return kNoId;
+}
+
+void Selector::bind_forwarded()
+{
+	for (BlockId block = 0; block < forwarded_.size(); ++block)
+		if (forwarded_[block] != kNoId)
+		{
+			auto to = forwarded_[block];
+			while (forwarded(to))
+				to = forwarded_[to];
+			out_.labels[block] = out_.labels[to];
+		}
+}
+
 void Selector::register_edge(BlockId from, BlockId to)
 {
 	for (auto i = body_.blocks[to].first; i != kNoId && body_.instructions[i].op == Opcode::Phi;
