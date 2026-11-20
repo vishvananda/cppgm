@@ -8,6 +8,12 @@
 
 namespace aarch64 {
 
+namespace {
+constexpr uint32_t kNoLabel = lowir::kNoId;
+// The most instructions before its conditional branch a copied test holds.
+constexpr uint32_t kShortTest = 4;
+} // namespace
+
 void Function::emit(Op op, unsigned rd, unsigned rn, unsigned rm, uint32_t field)
 {
 	code.push_back(Instruction{ op, rd, rn, rm, field, Fixup::None, 0 });
@@ -124,6 +130,81 @@ void share_edge_moves(Function& f)
 				ins.target = redirect[ins.target];
 }
 
+// The jumps of a table an ADR addresses, which stay one instruction wide.
+static void mark_tables(const Function& f, std::vector<uint8_t>& table)
+{
+	for (const auto& inst : f.code)
+		if (inst.op == Op::Adr && inst.fixup == Fixup::Block)
+		{
+			if (table.empty())
+				table.resize(f.code.size());
+			for (auto i = f.labels[inst.target]; i < f.code.size() && f.code[i].op == Op::B && !table[i]; ++i)
+				table[i] = 1;
+		}
+}
+
+static bool conditional_branch(const Instruction& ins)
+{
+	return ins.fixup == Fixup::Block &&
+		(ins.op == Op::BCond || ins.op == Op::Cbz || ins.op == Op::Cbnz || ins.op == Op::CbzW || ins.op == Op::CbnzW ||
+			ins.op == Op::Tbz || ins.op == Op::Tbnz);
+}
+
+// An instruction a copy may repeat elsewhere: no label or symbol reference,
+// no control transfer, exclusive access, barrier or system instruction.
+static bool repeatable(const Instruction& ins)
+{
+	if (ins.fixup != Fixup::None)
+		return false;
+	switch (ins.op)
+	{
+	case Op::Br:
+	case Op::Blr:
+	case Op::Ret:
+	case Op::Svc:
+	case Op::Brk:
+	case Op::Adrp:
+	case Op::Ldar:
+	case Op::Stlr:
+	case Op::Ldxr:
+	case Op::Stxr:
+	case Op::Clrex:
+	case Op::Dmb:
+	case Op::ReadThreadPointer:
+		return false;
+	default:
+		return true;
+	}
+}
+
+struct TestCopy
+{
+	uint32_t at, test, length, fall; // the jump, the test's first pc, its instructions, the fall-through label
+};
+
+// The copy of a short test that replaces the jump at `pc`, when one of the
+// test's destinations is the instruction after the jump.
+static bool find_test_copy(const Function& f, const std::vector<uint8_t>& blocked, uint32_t pc, TestCopy& copy)
+{
+	const uint32_t n = static_cast<uint32_t>(f.code.size());
+	const uint32_t test = f.labels[f.code[pc].target];
+	if (test >= n || test == pc || test == pc + 1)
+		return false;
+	uint32_t length = 0;
+	while (test + length < n && !blocked[test + length] && length <= kShortTest && repeatable(f.code[test + length]))
+		++length;
+	const uint32_t branch = test + length;
+	if (length > kShortTest || branch + 1 >= n || blocked[branch] || !conditional_branch(f.code[branch]))
+		return false;
+	const auto& after = f.code[branch + 1];
+	const bool jumps = after.op == Op::B && after.fixup == Fixup::Block;
+	const uint32_t fall = jumps ? f.labels[after.target] : branch + 1;
+	if (f.labels[f.code[branch].target] != pc + 1 && fall != pc + 1)
+		return false;
+	copy = TestCopy{ pc, test, length, jumps ? after.target : kNoLabel };
+	return true;
+}
+
 // Redirect jumps after register allocation, where a phi transfer may have
 // assigned the constant tested at the start of the target. Table entries
 // remain one instruction wide even when their destination is adjacent.
@@ -140,14 +221,7 @@ void simplify_branches(Function& f)
 	for (uint32_t pad : f.pads)
 		if (pad != lowir::kNoId)
 			anchored[pad / 4] = 1;
-	for (const auto& inst : f.code)
-		if (inst.op == Op::Adr && inst.fixup == Fixup::Block)
-		{
-			if (table.empty())
-				table.resize(f.code.size());
-			for (auto i = f.labels[inst.target]; i < f.code.size() && f.code[i].op == Op::B && !table[i]; ++i)
-				table[i] = 1;
-		}
+	mark_tables(f, table);
 	const unsigned n = f.code.size();
 	std::vector<unsigned> removed;
 	for (unsigned pc = 0; pc < n; ++pc)
@@ -240,6 +314,79 @@ void simplify_branches(Function& f)
 	}
 	if (!removed.empty())
 		remove_instructions(f, removed);
+}
+
+// A jump to a short test takes a copy of the test when the copy can fall
+// through to one of its destinations; simplify_branches then inverts the
+// copy's branch over the jump that follows it. The copy computes the same
+// registers and flags at the same frame state, so it holds no frame event,
+// landing pad or table entry. TBZ and TBNZ reach 8192 instructions, so a
+// function that grows past that keeps its jumps when it holds one.
+void copy_short_tests(Function& f)
+{
+	const uint32_t n = static_cast<uint32_t>(f.code.size());
+	if (n < 3 || n >= (1u << 17))
+		return;
+	std::vector<uint8_t> blocked(n + 1), table;
+	for (const auto& event : f.frame_events)
+		blocked[event.pc / 4] = 1;
+	for (uint32_t pad : f.pads)
+		if (pad != lowir::kNoId)
+			blocked[pad / 4] = 1;
+	mark_tables(f, table);
+	std::vector<TestCopy> copies;
+	uint32_t growth = 0;
+	bool bit_tests = false;
+	for (uint32_t pc = 0; pc < n; ++pc)
+	{
+		const auto& ins = f.code[pc];
+		bit_tests |= ins.op == Op::Tbz || ins.op == Op::Tbnz;
+		TestCopy copy;
+		if (ins.op != Op::B || ins.fixup != Fixup::Block || (!table.empty() && table[pc]) ||
+			!find_test_copy(f, blocked, pc, copy))
+			continue;
+		copies.push_back(copy);
+		growth += copy.length + 1;
+	}
+	if (copies.empty() || (bit_tests && n + growth >= 8192))
+		return;
+	std::vector<uint32_t> moved(n + 1);
+	std::vector<Instruction> code;
+	code.reserve(n + growth);
+	size_t next = 0;
+	for (uint32_t pc = 0; pc < n; ++pc)
+	{
+		moved[pc] = static_cast<uint32_t>(code.size());
+		if (next == copies.size() || copies[next].at != pc)
+		{
+			code.push_back(f.code[pc]);
+			continue;
+		}
+		const auto& copy = copies[next++];
+		code.insert(code.end(), f.code.begin() + copy.test, f.code.begin() + copy.test + copy.length + 1);
+		uint32_t fall = copy.fall;
+		if (fall == kNoLabel)
+		{
+			fall = static_cast<uint32_t>(f.labels.size());
+			f.labels.push_back(copy.test + copy.length + 1);
+		}
+		code.push_back(Instruction{ Op::B, 0, 0, 0, 0, Fixup::Block, fall });
+	}
+	moved[n] = static_cast<uint32_t>(code.size());
+	f.code.swap(code);
+	for (auto& label : f.labels)
+		if (label != lowir::kNoId)
+			label = moved[label];
+	for (auto& event : f.frame_events)
+		event.pc = 4 * moved[event.pc / 4];
+	for (auto& site : f.sites)
+	{
+		site.begin = 4 * moved[site.begin / 4];
+		site.end = 4 * moved[site.end / 4];
+	}
+	for (auto& pad : f.pads)
+		if (pad != lowir::kNoId)
+			pad = 4 * moved[pad / 4];
 }
 
 // Favor backward paths that touch fewer 64-byte instruction-cache lines.

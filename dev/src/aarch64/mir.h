@@ -88,6 +88,7 @@ struct BitTest
 };
 void fold_bit_tests(Function& function, const std::vector<BitTest>& tests);
 void share_edge_moves(Function& function);
+void copy_short_tests(Function& function);
 void simplify_branches(Function& function);
 
 void place_short_loops(const Function& function, native::object::Section& text);

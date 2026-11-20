@@ -630,7 +630,10 @@ void Selector::run()
 		body_.code_labels.empty() && program_.symbols[symbol_].metadata.tls_for == kNoId)
 		shrink_wrap(out_, frame_code_);
 	if (level_ >= 2 && !dynamic_stack_ && body_.code_labels.empty())
+	{
+		copy_short_tests(out_);
 		simplify_branches(out_);
+	}
 }
 
 } // namespace aarch64

@@ -35,7 +35,7 @@ private:
 	std::vector<uint32_t> slot_mentions_;
 	uint32_t result_reg_ = lowir::kNoId;
 	void plan_slots();
-	std::vector<lowir::BlockId> order_blocks() const;
+	std::vector<lowir::BlockId> order_blocks();
 	std::vector<uint64_t> block_weights_;
 	void prepare_exceptions();
 	void landing(lowir::BlockId block);
