@@ -884,6 +884,7 @@
     {
       "project": "libs/pfr/test",
       "edition": 20,
+      "smoke": true,
       "proof": {
         "path": "validation/20261029-pfr127-language/core_name-gate.json",
         "sha256": "89b4b18bbec6239d58ab44eae1595147d42354687354e6329460bc6142c82a85"

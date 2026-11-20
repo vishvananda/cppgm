@@ -254,6 +254,23 @@ def prepare_geometry_rtree(boost):
                           '        entries_type entries(temp_entry_allocator);')
 
 
+def prepare_pfr_names(boost):
+    # The original B2 probes test both pointer forms. cppgm uses its own
+    # signature spelling and advertises the standard feature macro separately.
+    config = boost / 'boost/pfr/config.hpp'
+    gate = '#       if (defined(__cpp_nontype_template_args)'
+    replace_replay_source(config, gate,
+                          '#       if defined(__CPPGM__)\n'
+                          '#           define BOOST_PFR_CORE_NAME_ENABLED 1\n'
+                          '#       elif (defined(__cpp_nontype_template_args)')
+    parser = '#ifndef BOOST_PFR_CORE_NAME_PARSING\n#   if defined(_MSC_VER)'
+    replace_replay_source(config, parser,
+                          '#ifndef BOOST_PFR_CORE_NAME_PARSING\n'
+                          '#   if defined(__CPPGM__)\n'
+                          '#       define BOOST_PFR_CORE_NAME_PARSING (0, 1, backward("."))\n'
+                          '#   elif defined(_MSC_VER)')
+
+
 def prepare_replay_sources(boost, groups):
     projects = {group['project'] for group in groups}
     if projects & {'libs/geometry/index/test', 'libs/geometry/test'}:
@@ -309,6 +326,8 @@ def prepare_replay_sources(boost, groups):
         for spelling in ('struct Foo', 'void()'):
             replace_replay_source(jamfile, f'BOOST_PFR_RUN_TEST_ON="{spelling}"',
                                   rf'BOOST_PFR_RUN_TEST_ON="\"{spelling}\""')
+        if any(group['project'] == 'libs/pfr/test' and group['edition'] == 20 for group in groups):
+            prepare_pfr_names(boost)
     if 'libs/yap/test' in projects:
         # The unary operator tests use uint32_t directly.
         replace_replay_source(boost / 'libs/yap/test/operators_unary.cpp', '#include <sstream>\n',
