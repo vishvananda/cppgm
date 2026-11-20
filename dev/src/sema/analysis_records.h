@@ -79,6 +79,7 @@ struct BodyContext
 	// (labels, jumps, bypassed initializations) are checked; the rest wait
 	// for its instantiations.
 	bool pattern;
+	bool static_local_initializer;
 	// A lambda's body whose return statements deduce its result (5.1.2p4,
 	// as CWG 975 extends it to any body), or a function's whose declared
 	// return type holds auto (the course's extension, C++14's 7.1.6.4p9):

@@ -916,6 +916,26 @@ void Analyzer::declare_declarator(
 		init.declared = binding;
 		return;
 	}
+	// N4861 [expr.await]: a block-scope static or thread-local
+	// initializer cannot suspend. Include placeholder type deduction,
+	// which may type the initializer before the variable is defined.
+	BodyContext* initializing_static = cxx20_ && !function && init.initializer != nullptr &&
+			(specifiers.is_static || specifiers.is_thread_local) && body_ != nullptr && body_->coroutine != nullptr &&
+			declaration_scope(scope)->kind == ScopeKind::Block
+		? body_
+		: nullptr;
+	struct RestoreInitializer
+	{
+		BodyContext* body;
+		bool saved;
+		~RestoreInitializer()
+		{
+			if (body != nullptr)
+				body->static_local_initializer = saved;
+		}
+	} restore{ initializing_static, initializing_static != nullptr && initializing_static->static_local_initializer };
+	if (initializing_static != nullptr)
+		initializing_static->static_local_initializer = true;
 	const Type* declared_auto = info.type->kind != TypeKind::Function && holds_auto(info.type) ? info.type : nullptr;
 	if (declared_auto != nullptr)
 	{

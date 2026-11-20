@@ -389,6 +389,9 @@ ExprFacts* Analyzer::coroutine_operation(const syntax::CoroutineExpr& expr, Scop
 	const CoroutineFacts& coroutine = *body_->coroutine;
 	if (expr.operation != TokenKind::KW_CO_RETURN)
 	{
+		if (body_->static_local_initializer)
+			return substitution_error(location, "a coroutine cannot suspend in a static or thread-local initializer"),
+				   nullptr;
 		for (const Scope* parent = scope; parent != nullptr && parent->kind != ScopeKind::Function;
 			parent = parent->parent)
 			if (parent->exception_handler)

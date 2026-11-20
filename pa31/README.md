@@ -143,6 +143,7 @@ To complete PA31, support:
   alone. A promise with `get_return_object_on_allocation_failure` needs a
   non-throwing allocator and a static failure operation.
   Resolve the promise and awaiter calls using normal overload resolution.
+  Reject suspension in a block-scope static or thread-local initializer.
   Use the type and value category of `await_resume()` for the await expression.
   Type-check the promise's coroutine handle and the resumption of the
   continuation when `await_suspend()` returns a handle.
