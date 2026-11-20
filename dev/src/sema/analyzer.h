@@ -407,6 +407,7 @@ private:
 	bool members_accept(const syntax::BracedInitList& list, uint32_t& next, const ClassEntity* cls);
 	bool elements_accept(const syntax::BracedInitList& list, uint32_t& next, const Type* array);
 	bool element_accepts(const syntax::BracedInitList& list, uint32_t& next, const Type* type);
+	bool subaggregate_conversion(const Type* type, const syntax::Expr& element, Conversion& conversion);
 	const FunctionEntity* list_constructor(const syntax::BracedInitList& list, ClassEntity* cls);
 	void list_argument(const syntax::BracedInitList& list, const Type* parameter, Scope* scope, uint32_t location);
 	ExprFacts* member_pointer_call(

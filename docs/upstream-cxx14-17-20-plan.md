@@ -472,6 +472,13 @@ even with GCC in C++14.
   B2 reports the C++14 generator as a standalone Python test. Its
   original source dependency, execution receipt and requested build
   mode are required evidence for that declaration.
+- The three PFR `huge_count.cpp` variants exposed runaway template work
+  on both main and the edition branch. A converting initializer was
+  applied to the children of a nested aggregate, so PFR's field-count
+  search kept doubling its index sequence. With the aggregate conversion
+  fixed, all three original configurations compile in under 50 ms using
+  less than 17 MiB peak RSS on the same host. Keep the remaining PFR replay
+  bounded while investigating its other failures.
 
 ## Measure before promoting the changes
 

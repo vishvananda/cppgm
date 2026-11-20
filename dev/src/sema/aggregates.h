@@ -77,9 +77,9 @@ inline bool IsSubaggregate(const Type* type)
 }
 
 // 8.5.1p11: an element that is an expression initializes a subaggregate
-// member itself when it has the member's class or, for a character array,
-// is a string literal; otherwise the member's elements come from the
-// enclosing list (brace elision). The element's facts must be known.
+// member itself when it has the member's class, the analysis recorded a
+// conversion to that class, or it is a string literal for a character array.
+// Otherwise the member's elements come from the enclosing list.
 inline bool InitializesSubaggregate(const Type* member, const syntax::Expr& element)
 {
 	const syntax::Expr* e = &element;
@@ -91,7 +91,11 @@ inline bool InitializesSubaggregate(const Type* member, const syntax::Expr& elem
 	if (member->kind == TypeKind::Array)
 		return IsCharacterArrayElement(member->element) && e->kind == syntax::ExprKind::Literal &&
 			type->kind == TypeKind::Array;
-	return ClassOf(type) != nullptr && ClassOf(type) == ClassOf(member);
+	const ClassEntity* cls = ClassOf(member);
+	const Conversion* conversion = element.facts != nullptr ? element.facts->conversion : nullptr;
+	return cls != nullptr &&
+		(ClassOf(type) == cls ||
+			(conversion != nullptr && conversion->target != nullptr && ClassOf(conversion->target) == cls));
 }
 
 // GCC's list of a complex value's two parts, `{re, im}`: each part a

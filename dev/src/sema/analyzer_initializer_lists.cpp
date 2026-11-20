@@ -224,8 +224,9 @@ const Type* Analyzer::initializer_list_array(const syntax::BracedInitList& list,
 	for (uint32_t next = 0; next < list.elements.size;)
 	{
 		const syntax::Expr& item = *list.elements[next];
+		Conversion conversion = Conversion();
 		if (item.kind != syntax::ExprKind::BracedInit && IsSubaggregate(element) && item.facts != nullptr &&
-			!InitializesSubaggregate(element, item))
+			!InitializesSubaggregate(element, item) && !subaggregate_conversion(element, item, conversion))
 			error(item.location, "an initializer_list element that does not convert to its element type");
 		aggregate_element(list, next, element, scope);
 		if (failed())

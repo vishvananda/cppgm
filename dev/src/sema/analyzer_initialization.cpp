@@ -630,6 +630,16 @@ bool Analyzer::aggregate_default_member(const DataMember* member)
 	return true;
 }
 
+bool Analyzer::subaggregate_conversion(const Type* type, const syntax::Expr& element, Conversion& conversion)
+{
+	const ClassEntity* cls = ClassOf(type);
+	if (cls == nullptr)
+		return false;
+	// [dcl.init.aggr]: an expression that can initialize the member
+	// consumes one clause. Only descend into its members otherwise.
+	return same_class_source(cls, element) || user_conversion(element.facts, type, conversion) || conversion.ambiguous;
+}
+
 void Analyzer::aggregate_element(
 	const syntax::BracedInitList& list, uint32_t& next, const Type* type, Scope* scope, bool complete_object)
 {
@@ -688,7 +698,9 @@ void Analyzer::aggregate_element(
 		++next;
 		return;
 	}
-	if (IsSubaggregate(type) && !InitializesSubaggregate(type, element))
+	Conversion conversion = Conversion();
+	if (IsSubaggregate(type) && !InitializesSubaggregate(type, element) &&
+		!subaggregate_conversion(type, element, conversion))
 	{
 		if (type->kind == TypeKind::Array)
 		{
@@ -729,8 +741,12 @@ void Analyzer::aggregate_element(
 			record_copy(cls, object, element, element.location, false, nullptr, complete_object);
 			return;
 		}
-		Conversion conversion = Conversion();
-		if (!user_conversion(element.facts, object, conversion))
+		if (conversion.ambiguous)
+		{
+			substitution_error(element.location, "ambiguous conversion to the member's class");
+			return;
+		}
+		if (conversion.constructor == nullptr && !user_conversion(element.facts, object, conversion))
 		{
 			substitution_error(element.location, "no conversion to the member's class");
 			return;
@@ -744,9 +760,9 @@ void Analyzer::aggregate_element(
 	}
 	// A scalar or reference from the element typed above; a direct
 	// aggregate construction's own element may narrow (see class_prvalue).
-	const Conversion* conversion = convert(element, type, false);
+	const Conversion* converted = convert(element, type, false);
 	if (&list != aggregate_arguments_)
-		check_narrowing(element, conversion, type, scope);
+		check_narrowing(element, converted, type, scope);
 }
 
 bool Analyzer::array_new_list(
@@ -1325,13 +1341,16 @@ bool Analyzer::designated_list(
 			(scope == nullptr ? element->facts != nullptr : typed(*element, scope) != nullptr) &&
 			!InitializesSubaggregate(type, *element))
 		{
-			syntax::BracedInitList* braced = static_cast<syntax::BracedInitList*>(
-				arena_.allocate(sizeof(syntax::BracedInitList), alignof(syntax::BracedInitList)));
-			*braced = syntax::BracedInitList();
-			braced->kind = syntax::ExprKind::BracedInit;
-			braced->location = element->location;
-			braced->elements = syntax::Slice<syntax::Expr*>{ list.elements.data + i, 1 };
-			element = braced;
+			Conversion conversion = Conversion();
+			if (scope == nullptr || !subaggregate_conversion(type, *element, conversion))
+			{
+				syntax::BracedInitList* braced = arena_.allocate_array<syntax::BracedInitList>(1);
+				*braced = syntax::BracedInitList();
+				braced->kind = syntax::ExprKind::BracedInit;
+				braced->location = element->location;
+				braced->elements = syntax::Slice<syntax::Expr*>{ list.elements.data + i, 1 };
+				element = braced;
+			}
 		}
 		if (scope != nullptr && failed())
 			return false;
@@ -1401,8 +1420,13 @@ bool Analyzer::element_accepts(const syntax::BracedInitList& list, uint32_t& nex
 		return elements_accept(own, inner, type) && inner == own.elements.size;
 	}
 	if (IsSubaggregate(type) && !InitializesSubaggregate(type, element))
-		return type->kind == TypeKind::Array ? elements_accept(list, next, type)
-											 : members_accept(list, next, ClassOf(type));
+	{
+		if (!subaggregate_conversion(type, element, ignored))
+			return type->kind == TypeKind::Array ? elements_accept(list, next, type)
+												 : members_accept(list, next, ClassOf(type));
+		++next;
+		return true;
+	}
 	++next;
 	return type->kind == TypeKind::Array || implicit_sequence(element, type, ignored);
 }
