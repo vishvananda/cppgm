@@ -447,13 +447,13 @@ private:
 	const FunctionEntity* source_site_function_ = nullptr;
 	const FunctionEntity* source_function() const;
 	const ConstValue* immediate_result(const syntax::Expr& expr);
-	// Sets the site for its lifetime unless one is set (or `site` is
-	// kNoSourceSite).
+	// Preserve the outermost default-use site while evaluating arguments.
+	// Entering the called function restores that body's lexical positions.
 	struct SourceSite
 	{
-		SourceSite(uint32_t& current, uint32_t site) : current_(current), saved_(current)
+		SourceSite(uint32_t& current, uint32_t site, bool entering_body = false) : current_(current), saved_(current)
 		{
-			if (current == kNoSourceSite)
+			if (entering_body || current == kNoSourceSite)
 				current = site;
 		}
 		~SourceSite() { current_ = saved_; }

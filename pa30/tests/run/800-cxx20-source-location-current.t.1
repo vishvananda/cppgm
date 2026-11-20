@@ -29,6 +29,17 @@ consteval unsigned quotient(std::source_location location = std::source_location
 #line 400 "fixture.cpp"
 unsigned receive(unsigned result = quotient()) { return result; }
 
+#line 500 "fixture.cpp"
+consteval std::source_location in_body() {
+  return std::source_location::current();
+}
+
+constexpr unsigned body_line(std::source_location location = in_body()) {
+  return location.line();
+}
+
+static_assert(body_line() == 501);
+
 int main() {
 #line 300 "fixture.cpp"
   auto current = get();
@@ -40,5 +51,7 @@ int main() {
   if (runtime_aggregate.member.line() != 310 || runtime_aggregate.member.function_name()[0] == '\0')
     return 2;
 #line 410 "fixture.cpp"
-  return receive() == 10 ? 0 : 3;
+  if (receive() != 10)
+    return 3;
+  return body_line() == 501 ? 0 : 4;
 }

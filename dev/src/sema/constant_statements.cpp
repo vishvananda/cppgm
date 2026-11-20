@@ -606,6 +606,7 @@ bool ConstantInterpreter::invoke_body(
 	const uint32_t source_uses = source_site_uses_;
 	frames_.push_back(frame);
 	const size_t swaps = suspend_swaps();
+	const SourceSite lexical_site(source_site_, kNoSourceSite, true);
 	const bool done = body(function, result, location);
 	resume_swaps(swaps);
 	const size_t peak = frames_.back().peak_depth;

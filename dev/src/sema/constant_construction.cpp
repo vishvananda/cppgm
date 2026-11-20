@@ -843,6 +843,7 @@ bool ConstantInterpreter::run_constructor(const FunctionEntity* constructor, con
 	const size_t locals = locals_.size();
 	if (!bind_parameters(constructor, arguments, count, location))
 		return false;
+	const SourceSite lexical_site(source_site_, kNoSourceSite, true);
 	Folding folding(folding_, false);
 	Region callee = region();
 	callee.locals = locals;
