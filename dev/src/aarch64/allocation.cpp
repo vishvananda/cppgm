@@ -466,16 +466,17 @@ private:
 				++end;
 			return std::make_pair(first_copy[phi], end);
 		};
-		// A conditional branch, or a block of phis and its jump, needs a
-		// block or a jump for the copy.
-		const auto needs_block = [&](BlockId block) {
+		// A block of phis and its jump needs a jump for the copy, and a
+		// conditional branch a block, unless the copy can run before the
+		// branch; two such branches need two blocks.
+		const auto needs_block = [&](BlockId block) -> uint32_t {
 			const auto end = body.blocks[block].last;
 			if (end == kNoId || body.instructions[end].op != Opcode::Jump)
 				return end != kNoId;
 			for (auto i = body.blocks[block].first; i != end; i = body.instructions[i].next)
 				if (body.instructions[i].op != Opcode::Phi)
-					return false;
-			return true;
+					return 0;
+			return 2;
 		};
 		const auto back = [&](uint32_t c) { return position[copies[c].from] >= position[copies[c].to]; };
 		// The header makes the copy only when its other phis need none: each
@@ -510,18 +511,19 @@ private:
 			if (range_of[phi] == kNoId || body.temps[phi].type.is_float() || body.temps[phi].type.is_vector())
 				continue;
 			// Every source needs a range, and some transfer must come from
-			// before the loop and some back edge need a block.
-			bool forward = false, block = false, valid = true;
+			// before the loop and the back edges need two blocks or a jump.
+			bool forward = false, valid = true;
+			uint32_t block = 0;
 			for (uint32_t c = first; valid && c < last; ++c)
 			{
 				valid = range_of[copies[c].source] != kNoId && copies[c].source != phi;
 				forward |= !back(c);
-				block |= back(c) && needs_block(copies[c].from);
+				block += back(c) ? needs_block(copies[c].from) : 0;
 			}
-			if (!valid || !forward || !block)
+			if (!valid || !forward || block < 2)
 				continue;
 			// Each source counts at its first transfer.
-			forward = block = false;
+			forward = false;
 			TempId joined = kNoId;
 			seen.clear();
 			for (uint32_t c = first; valid && c < last; ++c)
@@ -533,7 +535,6 @@ private:
 				forward |= !back(c);
 				if (!back(c))
 					continue;
-				block |= needs_block(copies[c].from);
 				joined = joined == kNoId ? source : joined;
 				if (spans.overlap(phi, source))
 					continue;
@@ -546,7 +547,7 @@ private:
 			for (size_t a = 0; valid && a < seen.size(); ++a)
 				for (size_t b = a + 1; valid && b < seen.size(); ++b)
 					valid = !spans.overlap(seen[a], seen[b]);
-			if (!valid || !forward || !block || !others_join(copies[first].to, phi))
+			if (!valid || !forward || !others_join(copies[first].to, phi))
 				continue;
 			if (split_.empty())
 				split_.assign(body.temps.size(), 0);
