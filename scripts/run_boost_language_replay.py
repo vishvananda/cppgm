@@ -254,6 +254,12 @@ def prepare_replay_sources(boost, groups):
         match = '#if defined(BOOST_HANA_CONFIG_CLANG)'
         replace_replay_source(boost / 'boost/hana/experimental/type_name.hpp', match,
                               match + ' || defined(__CPPGM__)')
+    if 'libs/pfr/test' in projects:
+        # Keep quotes in the GCC action so each type is one macro argument.
+        jamfile = boost / 'libs/pfr/test/core/Jamfile.v2'
+        for spelling in ('struct Foo', 'void()'):
+            replace_replay_source(jamfile, f'BOOST_PFR_RUN_TEST_ON="{spelling}"',
+                                  rf'BOOST_PFR_RUN_TEST_ON="\"{spelling}\""')
     if 'libs/yap/test' in projects:
         # The unary operator tests use uint32_t directly.
         replace_replay_source(boost / 'libs/yap/test/operators_unary.cpp', '#include <sstream>\n',
