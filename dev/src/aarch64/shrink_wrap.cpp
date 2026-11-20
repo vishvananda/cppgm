@@ -897,13 +897,12 @@ uint32_t Wrapper::frameless_target(uint32_t label)
 
 void Wrapper::frameless_transfer(uint32_t s, size_t at)
 {
-	if (region_.region[s])
-	{
-		if (!next_is(at, Kind::Region, s))
-			jump_to(label_for(Kind::Region, s));
-	}
-	else if (region_.copied[s] && graph_.short_return[s])
+	if (region_.region[s] && next_is(at, Kind::Region, s))
+		return;
+	if ((region_.region[s] || region_.copied[s]) && graph_.short_return[s])
 		emit_frameless(s, at);
+	else if (region_.region[s])
+		jump_to(label_for(Kind::Region, s));
 	else if (region_.copied[s])
 	{
 		if (!next_is(at, Kind::Copy, s))
