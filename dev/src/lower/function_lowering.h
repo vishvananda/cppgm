@@ -160,10 +160,10 @@ private:
 	void bind_coroutine_storage(const sema::Entity* entity, lowir::Value address);
 	lowir::Value prepare_coroutine_result(const syntax::Expr& expression);
 	Place coroutine_place(lowir::Value frame, uint64_t offset);
-	void initialize_coroutine_awaiter(const sema::CoroutineAwait& await, const Place& slot);
 	void emit_coroutine_suspend(const sema::CoroutineAwait& await, lowir::Value frame, uint64_t state_offset,
 		uint32_t state, lowir::BlockId resumed, lowir::BlockId suspended);
-	void finish_coroutine_awaiter(const sema::CoroutineAwait& await, const Place& slot);
+	const syntax::Expr& suspend_coroutine(const sema::CoroutineAwait& await, CoroutineBody& body, bool final);
+	void lower_coroutine_implicit_await(const sema::CoroutineAwait& await, CoroutineBody& body, bool final);
 	const syntax::Expr& lower_coroutine_await(const syntax::Expr& expr);
 	void dispatch_coroutine(const CoroutineBody& body, lowir::BlockId invalid, bool resume);
 

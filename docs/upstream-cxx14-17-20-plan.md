@@ -463,7 +463,9 @@ even with GCC in C++14.
   final suspension, body suspension, resumption, and destruction with
   exceptions disabled. The PA32 and PA37 runtime checks cover abandoning
   a live local at a yield and retaining an intermediate value across a
-  second await. The original Cobalt runtime tests also need exception
+  second await. They also check destruction of the awaiter and the
+  operand of an overloaded `operator co_await` across initial and final
+  suspension. The original Cobalt runtime tests also need exception
   handling, which remains a prerequisite for the compiler's feature macro.
 - PA18 exercises class argument equivalence, class deduction, address
   identity, and rejection in C++17. The Linux x86-64 mixed object check

@@ -43,8 +43,6 @@ public:
 	uint64_t promise;
 	uint64_t raw_allocation;
 	uint64_t state;
-	uint64_t initial_awaiter;
-	uint64_t final_awaiter;
 	std::vector<FrameParameter> parameters;
 
 private:

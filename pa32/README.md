@@ -279,8 +279,10 @@ To complete PA32, implement hosted link/runtime behavior for:
   than once. Keep objects and intermediate expression values alive across
   each suspension. Resuming continues the expression from the selected
   `await_resume` call. Destroying a frame suspended in the body destroys its
-  live objects in reverse order. See N4861 `[dcl.fct.def.coroutine]` and
-  `[expr.await]`.
+  live objects in reverse order. Apply the same lifetime rules to the
+  temporary awaiter and operand at initial and final suspension, including
+  when overload resolution selects an `operator co_await`. See N4861
+  `[dcl.fct.def.coroutine]` and `[expr.await]`.
 
 If hosted header code compiles but the emitted objects do not link or run
 correctly, fix the hosted symbol emission, ABI spelling, object ownership, or
