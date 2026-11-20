@@ -11,7 +11,12 @@ import subprocess
 import tarfile
 
 TOOLS = ['cppgm', 'pptoken', 'posttoken', 'ppexpr', 'preproc', 'abimangle', 'lowir', 'lowiropt', 'lowir2native']
-PLATFORMS = {'linux-x86_64': 'libcppgm_lowir.so', 'macos-x86_64': 'libcppgm_lowir.dylib'}
+PLATFORMS = {
+    'linux-x86_64': 'libcppgm_lowir.so',
+    'linux-aarch64': 'libcppgm_lowir.so',
+    'macos-x86_64': 'libcppgm_lowir.dylib',
+    'macos-arm64': 'libcppgm_lowir.dylib',
+}
 VERSION = re.compile(r'v[0-9]+\.[0-9]+\.[0-9]+(?:-(?:rc|beta|alpha)[0-9]+)?')
 # The tag the Release workflow gives a pull request's packages.
 TRIAL_TAG = 'v0.0.0'
@@ -133,6 +138,7 @@ if __name__ == '__main__':
     parser.add_argument('--platform', required=True, choices=sorted(PLATFORMS))
     parser.add_argument('--host', required=True, help="the host compiler's version line")
     parser.add_argument('--stage', default=STAGE, help='the object root of scripts/build_release_tools.sh')
+    parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[1], help='the source and build tree')
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
-    print(package(Path(__file__).resolve().parents[1], args.tag, args.platform, args.output, args.host, args.stage))
+    print(package(args.root, args.tag, args.platform, args.output, args.host, args.stage))

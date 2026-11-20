@@ -263,9 +263,9 @@ make -C cppgm/dev cppgm CXX=g++ CPPGM_HOST_CXX=g++
 To build with Clang, pass `CXX=clang++ CPPGM_HOST_CXX=clang++`. `CC` does not
 select the C++ host compiler. Use one host toolchain for a whole build.
 
-Each [release](https://github.com/vishvananda/cppgm/releases) has packages of
-the tools and the LowIR library for Linux x86-64 and Intel macOS, the tools as
-WASI modules, and two source downloads. Choose `cppgm-<tag>-source.tar.gz`
+The [releases](https://github.com/vishvananda/cppgm/releases) provide the tools
+and LowIR library for Linux x86-64, Linux AArch64, Intel macOS and Apple Silicon,
+plus WASI modules and two source downloads. Choose `cppgm-<tag>-source.tar.gz`
 to build the tools and library, or `cppgm-<tag>-source-with-tests.tar.gz`
 to build them and run the assignment suites. See
 [reference and version exports](TESTING_AND_REFERENCES.md#reference-and-version-exports).

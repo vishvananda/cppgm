@@ -2,6 +2,7 @@
 """Check a platform package: its files, the packaged compiler on a program, and the LowIR library on a client."""
 import argparse
 from pathlib import Path
+import struct
 import subprocess
 import sys
 import tarfile
@@ -9,6 +10,14 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import package_release
+
+# Binary magic, machine field offset and value for the native 64-bit object formats.
+ARCHITECTURES = {
+    'linux-x86_64': (b'\x7fELF\x02\x01', 18, '<H', 62),
+    'linux-aarch64': (b'\x7fELF\x02\x01', 18, '<H', 183),
+    'macos-x86_64': (b'\xcf\xfa\xed\xfe', 4, '<I', 0x01000007),
+    'macos-arm64': (b'\xcf\xfa\xed\xfe', 4, '<I', 0x0100000c),
+}
 
 PROGRAM = '''#include <cstdio>
 #include <string>
@@ -53,6 +62,15 @@ def required(platform):
                 'README.md'])
 
 
+def check_architecture(path, platform):
+    magic, offset, layout, machine = ARCHITECTURES[platform]
+    with path.open('rb') as binary:
+        header = binary.read(offset + struct.calcsize(layout))
+    if len(header) != offset + struct.calcsize(layout) or not header.startswith(magic) or \
+            struct.unpack_from(layout, header, offset)[0] != machine:
+        raise ValueError('%s does not target %s' % (path, platform))
+
+
 def check(archive, host_cxx, cc, work):
     stem = archive.name[:-len('.tar.gz')]
     platform = next((p for p in package_release.PLATFORMS if stem.endswith('-' + p)), None)
@@ -68,6 +86,9 @@ def check(archive, host_cxx, cc, work):
             raise ValueError('unexpected package contents: missing %s, other %s' % (sorted(wanted - listed), other))
         tar.extractall(work, **(dict(filter='data') if hasattr(tarfile, 'data_filter') else {}))
     root = work / stem
+    for tool in package_release.TOOLS:
+        check_architecture(root / 'bin' / tool, platform)
+    check_architecture(root / 'lib' / package_release.PLATFORMS[platform], platform)
     version = run([root / 'bin/cppgm', '--version'])
     # `cppgm <release> (...)`: the release of the tag, which the library states too.
     release = version.split()[1] if version.startswith('cppgm ') else ''
@@ -76,6 +97,7 @@ def check(archive, host_cxx, cc, work):
     (work / 'program.cpp').write_text(PROGRAM)
     # The packaged compiler makes the object; the host compiler links it with its standard library.
     run([root / 'bin/cppgm', '-std=c++17', '-O2', '-c', work / 'program.cpp', '-o', work / 'program.o'])
+    check_architecture(work / 'program.o', platform)
     run([host_cxx, work / 'program.o', '-o', work / 'program'])
     if run([work / 'program']) != 'sum=10\n':
         raise ValueError('the program built by the packaged compiler printed other text')

@@ -15,6 +15,7 @@ on:
       - 'dev/lowir_library.mk'
       - 'pa35/Makefile'
       - 'scripts/export_release_source.py'
+      - 'scripts/tests/test_package_release.py'
       - 'scripts/tests/test_release_source.py'
       - 'BUILDING.md'
       - 'scripts/select_macos_llvm.sh'
@@ -39,9 +40,20 @@ jobs:
       bundle: cppgm-${{ github.ref_name }}-wasm32-wasip1.tar.gz
 
   linux:
-    name: Linux x86-64 tools, library and source packages
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    name: ${{ matrix.platform }} tools and library
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            runner: ubuntu-24.04
+          - platform: linux-aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    env:
+      PLATFORM: ${{ matrix.platform }}
+      INCEPTION_EXTRA_CC_FLAGS: ${{ matrix.platform == 'linux-aarch64' && '-fno-strict-aliasing' || '' }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -52,6 +64,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends binutils build-essential git gzip perl tar
       - name: Export both source packages
+        if: matrix.platform == 'linux-x86_64'
         run: |
           set -euo pipefail
           # A pull request has no release tag: its trial tag names the checked-out commit.
@@ -60,6 +73,7 @@ jobs:
           python3 scripts/tests/test_package_release.py
           python3 scripts/export_release_source.py --tag "$VERSION_TAG" --output "$RUNNER_TEMP/upload"
       - name: Build from the source-only download
+        if: matrix.platform == 'linux-x86_64'
         run: |
           set -euo pipefail
           tar -xzf "$RUNNER_TEMP/upload/cppgm-${VERSION_TAG}-source.tar.gz" -C "$RUNNER_TEMP"
@@ -67,23 +81,31 @@ jobs:
           make CXX=g++ CPPGM_HOST_CXX=g++
           dev/cppgm --version
           make -n -C dev lowir-library >/dev/null
-      - name: Run the packaged PA1 suite and build the self-compiled release
+      - name: Run the packaged PA1 suite
+        if: matrix.platform == 'linux-x86_64'
         run: |
           set -euo pipefail
           # Both archives use the same source paths and timestamps. Reuse the stage-one build.
           tar -xzf "$RUNNER_TEMP/upload/cppgm-${VERSION_TAG}-source-with-tests.tar.gz" -C "$RUNNER_TEMP"
           cd "$RUNNER_TEMP/cppgm-$VERSION_TAG"
           make -C pa1 test
+      - name: Build and check the native release package
+        run: |
+          set -euo pipefail
+          if [[ "$PLATFORM" == linux-x86_64 ]]; then
+            cd "$RUNNER_TEMP/cppgm-$VERSION_TAG"
+          fi
           bash scripts/build_release_tools.sh g++
-          # The package records the revision of the checkout that supplied the archives.
+          # Record the checkout that supplied the source, including for a source archive.
           export GIT_DIR="$GITHUB_WORKSPACE/.git"
-          python3 scripts/package_release.py --tag "$VERSION_TAG" --platform linux-x86_64 \
+          python3 "$GITHUB_WORKSPACE/scripts/package_release.py" --root "$PWD" --tag "$VERSION_TAG" --platform "$PLATFORM" \
             --host "$(g++ --version | sed -n 1p)" --output "$RUNNER_TEMP/upload"
-          python3 scripts/check_release_package.py \
-            "$RUNNER_TEMP/upload/cppgm-${VERSION_TAG}-linux-x86_64.tar.gz" --host-cxx g++ --cc gcc
+          python3 "$GITHUB_WORKSPACE/scripts/check_release_package.py" \
+            "$RUNNER_TEMP/upload/cppgm-${VERSION_TAG}-${PLATFORM}.tar.gz" --host-cxx g++ --cc gcc
       # The package was built with GCC 13's headers. Ubuntu 26.04 has another GCC version: the packaged
       # compiler must find that version's headers.
       - name: Check the package on a system with another GCC version
+        if: matrix.platform == 'linux-x86_64'
         run: |
           set -euo pipefail
           docker run --rm -v "$RUNNER_TEMP/upload:/upload:ro" -v "$PWD/scripts:/scripts:ro" \
@@ -93,36 +115,48 @@ jobs:
               python3 /scripts/check_release_package.py "$PACKAGE" --host-cxx g++ --cc gcc'
       - uses: actions/upload-artifact@v6
         with:
-          name: release-linux-and-source
+          name: release-native-${{ matrix.platform }}
           path: ${{ runner.temp }}/upload/
           if-no-files-found: error
 
   macos:
-    name: Intel macOS tools and library
-    runs-on: macos-26-intel
+    name: ${{ matrix.platform }} tools and library
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-x86_64
+            runner: macos-26-intel
+          - platform: macos-arm64
+            runner: macos-15
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     env:
       CPPGM_STDLIB_FLAGS: ''
+      CPPGM_HOST_CXX: clang++
+      PLATFORM: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Install Homebrew LLVM Intel bottle
+        if: matrix.platform == 'macos-x86_64'
         run: bash scripts/install_macos_llvm.sh 21
       - name: Select Homebrew LLVM
+        if: matrix.platform == 'macos-x86_64'
         run: bash scripts/select_macos_llvm.sh 21
       - name: Build the tools and the LowIR library with cppgm
         run: bash scripts/build_release_tools.sh "$CPPGM_HOST_CXX"
       - name: Package and check the release files
         run: |
           set -euo pipefail
-          python3 scripts/package_release.py --tag "$VERSION_TAG" --platform macos-x86_64 \
-            --host "$("$CXX" --version | sed -n 1p)" --output "$RUNNER_TEMP/upload"
+          python3 scripts/package_release.py --tag "$VERSION_TAG" --platform "$PLATFORM" \
+            --host "$("$CPPGM_HOST_CXX" --version | sed -n 1p)" --output "$RUNNER_TEMP/upload"
           python3 scripts/check_release_package.py \
-            "$RUNNER_TEMP/upload/cppgm-${VERSION_TAG}-macos-x86_64.tar.gz" --host-cxx "$CXX" --cc cc
+            "$RUNNER_TEMP/upload/cppgm-${VERSION_TAG}-${PLATFORM}.tar.gz" --host-cxx "$CPPGM_HOST_CXX" --cc cc
       - uses: actions/upload-artifact@v6
         with:
-          name: release-macos
+          name: release-native-${{ matrix.platform }}
           path: ${{ runner.temp }}/upload/
           if-no-files-found: error
 
@@ -139,12 +173,9 @@ jobs:
           path: wasi
       - uses: actions/download-artifact@v7
         with:
-          name: release-linux-and-source
+          pattern: release-native-*
           path: release
-      - uses: actions/download-artifact@v7
-        with:
-          name: release-macos
-          path: release
+          merge-multiple: true
       - name: Publish the version's complete release once
         env:
           GH_TOKEN: ${{ github.token }}
@@ -160,7 +191,7 @@ jobs:
           fi
           sha256sum *.tar.gz *.json > SHA256SUMS
           cat > release-notes.md <<'NOTES'
-          This release includes the native tools and LowIR library for Linux x86-64 and Intel macOS, all nine tools as WASI modules, and two source downloads.
+          This release includes the native tools and LowIR library for Linux x86-64 and AArch64, Intel macOS and Apple Silicon, all nine tools as WASI modules, and two source downloads.
 
           Choose `cppgm-<tag>-source.tar.gz` to build the compiler, tools and library. Choose `cppgm-<tag>-source-with-tests.tar.gz` for the same code with the complete assignment suites, reference outputs, runners and course documentation. Each download can be used on its own.
 

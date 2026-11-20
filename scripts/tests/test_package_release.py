@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 import shutil
+import struct
 import subprocess
 import sys
 import tarfile
@@ -188,11 +189,34 @@ class PackageRelease(unittest.TestCase):
             (root / 'dev/.lowir-library-toolchain').write_text('../obj/release/bin/selfhost/cppgm-self\ng++\n')
             release.package(root, 'v0.9.0', 'linux-x86_64', root / 'b', 'g++ 13')
 
-    def test_workflow_releases_semantic_versions_for_three_targets(self):
+    def test_architecture_checks_reject_mislabeled_binaries(self):
+        def elf(machine):
+            return b'\x7fELF\x02\x01' + bytes(12) + struct.pack('<H', machine)
+
+        def macho(machine):
+            return b'\xcf\xfa\xed\xfe' + struct.pack('<I', machine)
+
+        headers = {'linux-x86_64': elf(62), 'linux-aarch64': elf(183),
+                   'macos-x86_64': macho(0x01000007), 'macos-arm64': macho(0x0100000c)}
+        with tempfile.TemporaryDirectory() as directory:
+            binary = Path(directory, 'binary')
+            for target, header in headers.items():
+                binary.write_bytes(header)
+                checker.check_architecture(binary, target)
+                for other in headers.keys() - {target}:
+                    with self.assertRaisesRegex(ValueError, 'does not target ' + other):
+                        checker.check_architecture(binary, other)
+                binary.write_bytes(header[:-1])
+                with self.assertRaisesRegex(ValueError, 'does not target ' + target):
+                    checker.check_architecture(binary, target)
+
+    def test_workflow_releases_semantic_versions_with_four_native_packages_and_wasi(self):
         workflow = (ROOT / '.github/workflows/release.yml').read_text()
         self.assertIn("tags: ['v[0-9]+.[0-9]+.[0-9]+', 'v[0-9]+.[0-9]+.[0-9]+-*']", workflow)
         self.assertNotIn("'v[0-9]*'", workflow)
-        for part in ('--platform linux-x86_64', '--platform macos-x86_64', 'export-wasm-references.yml',
+        for part in ('platform: linux-x86_64', 'platform: linux-aarch64', 'platform: macos-x86_64',
+                     'platform: macos-arm64', 'runner: ubuntu-24.04-arm', 'runner: macos-15',
+                     'export-wasm-references.yml',
                      'scripts/export_release_source.py', 'scripts/check_release_package.py', 'macos-26-intel',
                      'bash scripts/build_release_tools.sh g++', 'bash scripts/build_release_tools.sh "$CPPGM_HOST_CXX"',
                      'gh release create'):
