@@ -518,6 +518,19 @@ void Selector::conditional_edges(BlockId block, const lowir::Instruction& branch
 		edge(block, no, true);
 		return;
 	}
+	// When neither edge needs code, the jump goes on the less frequent one:
+	// by weight, or else, when both go back, the edge that does not go to
+	// the nearer of the two, which is the inner loop's header.
+	const bool both_behind = out_.labels[yes] != kNoId && out_.labels[no] != kNoId;
+	if (level_ && yes != fallthrough_ && no != fallthrough_ &&
+		(block_weights_.empty() ? both_behind && out_.labels[yes] > out_.labels[no]
+								: block_weights_[yes] > block_weights_[no]) &&
+		empty_edge(block, yes) && empty_edge(block, no))
+	{
+		out_.reference(inverse, Fixup::Block, yes, inverse_operand);
+		edge(block, no, true);
+		return;
+	}
 	if (level_ && empty_edge(block, no))
 	{
 		out_.reference(test, Fixup::Block, no, operand);
