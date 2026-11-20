@@ -4,56 +4,56 @@ All original oracles passed for all three compilers. Seconds are child CPU, one 
 
 | Test | Kind | Compile cppgm | GCC | Clang | Test cppgm | GCC | Clang |
 |---|---|---:|---:|---:|---:|---:|---:|
-| array.test | RUN | 0.779979 | 4.260220 | 3.767387 | 0.002259 | 0.001986 | 0.002022 |
-| basic_parser.test | RUN | 4.874340 | 103.578561 | 66.046482 | 0.405518 | 0.181436 | 0.424740 |
-| conversion.test | RUN | 0.529697 | 1.576246 | 1.877859 | 0.001387 | 0.001279 | 0.001277 |
-| doc_background.test | RUN | 0.525836 | 1.529007 | 1.832565 | 0.001495 | 0.001260 | 0.001101 |
-| doc_forward_conversion.test | RUN | 0.555987 | 1.834511 | 2.050735 | 0.001590 | 0.001355 | 0.001230 |
-| doc_parsing.test | RUN | 0.584288 | 1.701872 | 1.886601 | 0.001446 | 0.001377 | 0.001403 |
-| doc_quick_look.test | RUN | 0.732863 | 2.063654 | 2.526272 | 0.001323 | 0.001148 | 0.001323 |
-| doc_serializing.test | RUN | 0.511043 | 1.506490 | 1.699347 | 0.001338 | 0.001256 | 0.001349 |
-| doc_storage_ptr.test | RUN | 0.512925 | 1.557595 | 1.761135 | 0.001246 | 0.001115 | 0.001188 |
-| doc_uses_allocator.test | RUN | 0.504795 | 1.530785 | 1.754111 | 0.001358 | 0.001236 | 0.001328 |
-| doc_using_numbers.test | RUN | 0.579246 | 1.589178 | 1.903481 | 0.001569 | 0.001363 | 0.001420 |
-| double.test | RUN | 0.608121 | 2.704651 | 2.181054 | 1.233115 | 1.210909 | 1.289913 |
-| error.test | RUN | 0.438872 | 1.540825 | 1.509128 | 0.001272 | 0.001426 | 0.001455 |
-| fwd.test | RUN | 0.489606 | 1.486798 | 1.852839 | 0.001403 | 0.001249 | 0.001267 |
-| json.test | RUN | 0.512637 | 1.665259 | 1.995770 | 0.001290 | 0.001350 | 0.001418 |
-| kind.test | RUN | 0.372845 | 1.406886 | 1.405958 | 0.001486 | 0.001420 | 0.001660 |
-| memory_resource.test | RUN | 0.530569 | 1.824933 | 1.946341 | 0.001508 | 0.001235 | 0.001438 |
-| monotonic_resource.test | RUN | 0.495206 | 1.706934 | 1.799894 | 0.001987 | 0.001811 | 0.001896 |
-| natvis.test | RUN | 0.514608 | 1.647957 | 1.779606 | 0.001510 | 0.001269 | 0.001566 |
-| null_resource.test | RUN | 0.429960 | 1.366180 | 1.456221 | 0.001367 | 0.001332 | 0.001330 |
-| object.test | RUN | 0.917601 | 5.047026 | 4.307937 | 0.005220 | 0.004368 | 0.006210 |
-| parse.test | RUN | 0.563981 | 2.515118 | 2.121847 | 0.001816 | 0.001762 | 0.001916 |
-| parser.test | RUN | 0.541973 | 2.135053 | 1.971719 | 0.001430 | 0.001562 | 0.001654 |
-| pilfer.test | RUN | 0.285433 | 0.956363 | 0.976433 | 0.001355 | 0.001344 | 0.001159 |
-| pointer.test | RUN | 0.639701 | 2.887747 | 2.579012 | 0.001632 | 0.001496 | 0.001677 |
-| result_for.test | RUN | 0.517289 | 1.705742 | 1.877276 | 0.001233 | 0.001211 | 0.001432 |
-| serialize.test | RUN | 0.528217 | 1.776404 | 1.863050 | 0.001344 | 0.001306 | 0.001554 |
-| serializer.test | RUN | 0.882799 | 5.178005 | 4.204038 | 0.002196 | 0.002182 | 0.002206 |
-| snippets.test | RUN | 1.392083 | 7.579987 | 6.484841 | 0.001696 | 0.001469 | 0.001688 |
-| static_resource.test | RUN | 0.505428 | 1.640000 | 1.736349 | 0.001402 | 0.001422 | 0.001502 |
-| storage_ptr.test | RUN | 0.522195 | 1.699808 | 1.890370 | 0.001366 | 0.001327 | 0.001442 |
-| stream_parser.test | RUN | 0.657276 | 3.213015 | 2.713812 | 0.069150 | 0.070081 | 0.072220 |
-| string.test | RUN | 1.259198 | 8.110219 | 6.936488 | 0.002245 | 0.002018 | 0.002324 |
-| string_view.test | RUN | 0.307097 | 1.029194 | 1.005321 | 0.001199 | 0.001359 | 0.001427 |
-| value.test | RUN | 1.182361 | 8.946142 | 5.746058 | 0.002858 | 0.002545 | 0.003328 |
-| value_from.test | RUN | 1.089901 | 5.156403 | 4.974276 | 0.001512 | 0.001613 | 0.001655 |
-| value_stack.test | RUN | 0.494933 | 1.543789 | 1.745741 | 0.001376 | 0.001445 | 0.001350 |
-| value_to.test | RUN | 2.610936 | 17.073614 | 12.859056 | 0.002691 | 0.002118 | 0.002710 |
-| value_ref.test | RUN | 0.572156 | 2.284369 | 2.180921 | 0.001315 | 0.001278 | 0.001499 |
-| utf8.test | RUN | 0.425233 | 1.456096 | 1.438616 | 0.001317 | 0.001272 | 0.001343 |
-| visit.test | RUN | 0.573715 | 2.354154 | 2.048556 | 0.001363 | 0.001292 | 0.001353 |
-| d2s_intrinsics_test.test | RUN | 0.420197 | 1.373267 | 1.433665 | 0.001460 | 0.001249 | 0.001400 |
-| d2s_table_test.test | RUN | 0.439486 | 1.514588 | 1.519248 | 0.001379 | 0.001316 | 0.001380 |
-| d2s_test.test | RUN | 0.457956 | 1.847403 | 1.685967 | 0.001559 | 0.001316 | 0.001456 |
-| parse_into.test | RUN | 17.506069 | 134.500583 | 85.409151 | 0.002724 | 0.002252 | 0.002495 |
-| limits.test | RUN | 1.898077 | 11.811628 | 8.203310 | 0.001767 | 0.001568 | 0.001663 |
-| header_only.test | RUN | 1.301322 | 9.085888 | 6.133447 | 0.001154 | 0.001336 | 0.001312 |
-| no_exceptions.test | RUN | 1.833172 | 10.091572 | 7.787239 | 0.001389 | 0.001281 | 0.001514 |
-| intrusive_macros.test | RUN | 1.528411 | 9.884867 | 6.735354 | 0.001214 | 0.001252 | 0.001429 |
-| _gdb-printers.test | RUN | 0.233710 | 0.669173 | 0.765359 | 0.155692 | 0.249875 | 0.178022 |
+| array.test | RUN | 1.096883 | 6.073058 | 5.107665 | 0.002671 | 0.002788 | 0.002968 |
+| basic_parser.test | RUN | 6.518303 | 145.399487 | 84.780244 | 0.625004 | 0.271632 | 0.869944 |
+| conversion.test | RUN | 0.738822 | 2.209591 | 2.482642 | 0.001668 | 0.001798 | 0.001754 |
+| doc_background.test | RUN | 0.735159 | 2.221400 | 2.450165 | 0.001604 | 0.001532 | 0.001564 |
+| doc_forward_conversion.test | RUN | 0.785503 | 2.584945 | 2.796025 | 0.001692 | 0.001788 | 0.001818 |
+| doc_parsing.test | RUN | 0.772117 | 2.417978 | 2.583551 | 0.001817 | 0.001654 | 0.001799 |
+| doc_quick_look.test | RUN | 1.010477 | 2.899150 | 3.416966 | 0.001728 | 0.001874 | 0.001591 |
+| doc_serializing.test | RUN | 0.693154 | 2.133765 | 2.335541 | 0.001709 | 0.001737 | 0.001633 |
+| doc_storage_ptr.test | RUN | 0.688402 | 2.204363 | 2.373659 | 0.001849 | 0.001811 | 0.001836 |
+| doc_uses_allocator.test | RUN | 0.702568 | 2.144889 | 2.387118 | 0.001886 | 0.001746 | 0.001685 |
+| doc_using_numbers.test | RUN | 0.780437 | 2.171741 | 2.572239 | 0.001712 | 0.001779 | 0.001758 |
+| double.test | RUN | 0.838771 | 3.795490 | 3.125345 | 1.834482 | 1.654932 | 1.871612 |
+| error.test | RUN | 0.598580 | 2.138529 | 1.840799 | 0.001779 | 0.001878 | 0.001654 |
+| fwd.test | RUN | 0.692542 | 2.189035 | 2.386973 | 0.001752 | 0.001924 | 0.001708 |
+| json.test | RUN | 0.743278 | 2.546293 | 2.678411 | 0.001770 | 0.001827 | 0.001707 |
+| kind.test | RUN | 0.569040 | 1.949394 | 1.938104 | 0.001634 | 0.001914 | 0.001733 |
+| memory_resource.test | RUN | 0.772281 | 2.563315 | 2.566443 | 0.001749 | 0.001836 | 0.001822 |
+| monotonic_resource.test | RUN | 0.698091 | 2.452206 | 2.406357 | 0.002671 | 0.002597 | 0.002618 |
+| natvis.test | RUN | 0.718744 | 2.266998 | 2.402763 | 0.001642 | 0.001873 | 0.001775 |
+| null_resource.test | RUN | 0.594703 | 2.002964 | 1.936187 | 0.001832 | 0.001870 | 0.001931 |
+| object.test | RUN | 1.276713 | 7.080111 | 5.681415 | 0.007241 | 0.006420 | 0.007062 |
+| parse.test | RUN | 0.787785 | 3.555066 | 2.911162 | 0.002438 | 0.002569 | 0.002554 |
+| parser.test | RUN | 0.743200 | 2.988809 | 2.690782 | 0.002000 | 0.002074 | 0.002026 |
+| pilfer.test | RUN | 0.398056 | 1.358052 | 1.322778 | 0.001711 | 0.001836 | 0.001777 |
+| pointer.test | RUN | 0.888727 | 4.115670 | 3.398600 | 0.002034 | 0.002148 | 0.001952 |
+| result_for.test | RUN | 0.720454 | 2.430402 | 2.483470 | 0.001582 | 0.001825 | 0.001811 |
+| serialize.test | RUN | 0.748091 | 2.502703 | 2.429188 | 0.001840 | 0.001887 | 0.001882 |
+| serializer.test | RUN | 1.220077 | 7.281322 | 5.794362 | 0.003097 | 0.002972 | 0.003048 |
+| snippets.test | RUN | 1.927111 | 10.313668 | 8.563373 | 0.002092 | 0.001947 | 0.002150 |
+| static_resource.test | RUN | 0.694454 | 2.223900 | 2.297579 | 0.002006 | 0.002028 | 0.001888 |
+| storage_ptr.test | RUN | 0.733496 | 2.410387 | 2.561904 | 0.001827 | 0.001940 | 0.001880 |
+| stream_parser.test | RUN | 0.901765 | 4.517082 | 3.645017 | 0.107498 | 0.133361 | 0.098469 |
+| string.test | RUN | 1.755885 | 11.421727 | 9.228976 | 0.003132 | 0.002745 | 0.003148 |
+| string_view.test | RUN | 0.447200 | 1.443967 | 1.311764 | 0.001862 | 0.001844 | 0.001812 |
+| value.test | RUN | 1.614778 | 12.223075 | 7.647037 | 0.003907 | 0.003732 | 0.004615 |
+| value_from.test | RUN | 1.498581 | 7.112655 | 6.306381 | 0.001898 | 0.002020 | 0.002052 |
+| value_stack.test | RUN | 0.691954 | 2.205043 | 2.386225 | 0.002254 | 0.001870 | 0.001850 |
+| value_to.test | RUN | 3.569200 | 21.828458 | 16.122275 | 0.003324 | 0.003328 | 0.002997 |
+| value_ref.test | RUN | 0.814550 | 3.178684 | 3.039614 | 0.001900 | 0.001866 | 0.001843 |
+| utf8.test | RUN | 0.585325 | 2.070507 | 2.034463 | 0.001698 | 0.001770 | 0.001776 |
+| visit.test | RUN | 0.795323 | 3.283227 | 2.831136 | 0.001664 | 0.001824 | 0.001815 |
+| d2s_intrinsics_test.test | RUN | 0.577653 | 1.926387 | 1.950624 | 0.001792 | 0.001702 | 0.001674 |
+| d2s_table_test.test | RUN | 0.604635 | 2.125376 | 2.043706 | 0.001782 | 0.001776 | 0.001840 |
+| d2s_test.test | RUN | 0.633582 | 2.596637 | 2.323913 | 0.001884 | 0.001982 | 0.001837 |
+| parse_into.test | RUN | 23.054738 | 176.530435 | 108.314095 | 0.003170 | 0.003144 | 0.002902 |
+| limits.test | RUN | 2.607720 | 16.163742 | 11.659000 | 0.002089 | 0.002500 | 0.002106 |
+| header_only.test | RUN | 1.765791 | 12.322266 | 7.729035 | 0.001750 | 0.001829 | 0.001792 |
+| no_exceptions.test | RUN | 2.507571 | 14.104376 | 10.222566 | 0.001730 | 0.001841 | 0.001812 |
+| intrusive_macros.test | RUN | 2.078431 | 13.426774 | 9.366715 | 0.001653 | 0.001941 | 0.001746 |
+| _gdb-printers.test | RUN | 0.318141 | 0.937262 | 1.105514 | 0.206034 | 0.346572 | 0.233150 |
 
 ## Native runtime replay
 
@@ -61,63 +61,63 @@ Child CPU of successful native tests, with process startup included; GDB and exp
 
 | Reference | CPU speedup ↑ | Paired blocks | A/A speedup |
 |---|---:|---|---:|
-| gcc | 0.895× | 0.888×, 0.902× | 1.002× |
-| clang | 1.147× | 1.138×, 1.156× | 0.998× |
+| gcc | 0.901× | 0.904×, 0.899× | 0.992× |
+| clang | 1.144× | 1.149×, 1.138× | 0.985× |
 
-† A/A drift or paired-block spread exceeds 5%; small differences are unresolved. 1375 native tests in the full cohort; 1363 have byte-identical output throughout. [Raw replay evidence in CI artifacts](https://github.com/vishvananda/cppgm/actions/runs/44656576225).
+† A/A drift or paired-block spread exceeds 5%; small differences are unresolved. 1375 native tests in the full cohort; 1361 have byte-identical output throughout. [Raw replay evidence in CI artifacts](https://github.com/vishvananda/cppgm/actions/runs/44667760294).
 
 | Test | Repeats | CPU cppgm | GCC | Clang | Output check |
 |---|---:|---:|---:|---:|---|
-| array.test | 10 | 0.001394s | 0.001274s | 0.001332s | byte equality observed |
-| basic_parser.test | 1 | 0.287211s | 0.186149s | 0.432099s | native test oracle; output varies |
-| conversion.test | 10 | 0.000759s | 0.000765s | 0.000746s | byte equality observed |
-| d2s_intrinsics_test.test | 10 | 0.000758s | 0.000770s | 0.000728s | byte equality observed |
-| d2s_table_test.test | 10 | 0.000776s | 0.000772s | 0.000759s | byte equality observed |
-| d2s_test.test | 10 | 0.000824s | 0.000813s | 0.000775s | byte equality observed |
-| doc_background.test | 10 | 0.000788s | 0.000767s | 0.000748s | byte equality observed |
-| doc_forward_conversion.test | 10 | 0.000807s | 0.000793s | 0.000777s | byte equality observed |
-| doc_parsing.test | 10 | 0.000819s | 0.000814s | 0.000786s | byte equality observed |
-| doc_quick_look.test | 10 | 0.000785s | 0.000783s | 0.000748s | byte equality observed |
-| doc_serializing.test | 10 | 0.000797s | 0.000765s | 0.000728s | byte equality observed |
-| doc_storage_ptr.test | 10 | 0.000786s | 0.000787s | 0.000750s | byte equality observed |
-| doc_uses_allocator.test | 10 | 0.000786s | 0.000761s | 0.000747s | byte equality observed |
-| doc_using_numbers.test | 10 | 0.000788s | 0.000772s | 0.000735s | byte equality observed |
-| double.test | 1 | 0.834975s | 0.808162s | 0.871998s | native test oracle; output varies |
-| error.test | 10 | 0.000894s | 0.000884s | 0.000860s | byte equality observed |
-| fwd.test | 10 | 0.000769s | 0.000779s | 0.000763s | byte equality observed |
-| header_only.test | 10 | 0.000773s | 0.000763s | 0.000759s | byte equality observed |
-| intrusive_macros.test | 10 | 0.000804s | 0.000796s | 0.000784s | byte equality observed |
-| json.test | 10 | 0.000790s | 0.000779s | 0.000767s | byte equality observed |
-| kind.test | 10 | 0.000812s | 0.000800s | 0.000772s | byte equality observed |
-| limits.test | 10 | 0.000954s | 0.000930s | 0.000915s | byte equality observed |
-| memory_resource.test | 10 | 0.000792s | 0.000781s | 0.000765s | byte equality observed |
-| monotonic_resource.test | 10 | 0.001172s | 0.001158s | 0.001147s | byte equality observed |
-| natvis.test | 10 | 0.000809s | 0.000804s | 0.000787s | byte equality observed |
-| no_exceptions.test | 10 | 0.000793s | 0.000780s | 0.000783s | byte equality observed |
-| null_resource.test | 10 | 0.000819s | 0.000815s | 0.000800s | byte equality observed |
-| object.test | 6 | 0.003398s | 0.002854s | 0.003311s | native test oracle; output varies |
-| parse.test | 10 | 0.001134s | 0.001126s | 0.001097s | byte equality observed |
-| parse_into.test | 8 | 0.001960s | 0.001805s | 0.001746s | native test oracle; output varies |
-| parser.test | 10 | 0.000897s | 0.000871s | 0.000861s | byte equality observed |
-| pilfer.test | 10 | 0.000771s | 0.000752s | 0.000739s | byte equality observed |
-| pointer.test | 10 | 0.000940s | 0.000918s | 0.000901s | byte equality observed |
-| result_for.test | 10 | 0.000776s | 0.000771s | 0.000748s | byte equality observed |
-| serialize.test | 10 | 0.000821s | 0.000820s | 0.000783s | byte equality observed |
-| serializer.test | 10 | 0.001384s | 0.001385s | 0.001349s | byte equality observed |
-| snippets.test | 10 | 0.000946s | 0.000922s | 0.000904s | byte equality observed |
-| static_resource.test | 10 | 0.000847s | 0.000827s | 0.000811s | byte equality observed |
-| storage_ptr.test | 10 | 0.000820s | 0.000814s | 0.000789s | byte equality observed |
-| stream_parser.test | 1 | 0.042963s | 0.040105s | 0.043166s | native test oracle; output varies |
-| string.test | 10 | 0.001406s | 0.001239s | 0.001344s | byte equality observed |
-| string_view.test | 10 | 0.000774s | 0.000774s | 0.000740s | byte equality observed |
-| utf8.test | 10 | 0.000772s | 0.000766s | 0.000752s | byte equality observed |
-| value.test | 9 | 0.001729s | 0.001610s | 0.001990s | native test oracle; output varies |
-| value_from.test | 10 | 0.000920s | 0.000908s | 0.000895s | byte equality observed |
-| value_ref.test | 10 | 0.000821s | 0.000830s | 0.000800s | byte equality observed |
-| value_stack.test | 10 | 0.000806s | 0.000799s | 0.000765s | byte equality observed |
-| value_to.test | 9 | 0.001457s | 0.001463s | 0.001431s | native test oracle; output varies |
-| visit.test | 10 | 0.000803s | 0.000796s | 0.000774s | byte equality observed |
+| array.test | 10 | 0.001779s | 0.001614s | 0.001783s | native test oracle; output varies |
+| basic_parser.test | 1 | 0.413571s | 0.287881s | 0.652357s | native test oracle; output varies |
+| conversion.test | 10 | 0.000975s | 0.000983s | 0.000978s | byte equality observed |
+| d2s_intrinsics_test.test | 10 | 0.000988s | 0.000986s | 0.000998s | byte equality observed |
+| d2s_table_test.test | 10 | 0.001017s | 0.001009s | 0.001020s | byte equality observed |
+| d2s_test.test | 10 | 0.001075s | 0.001077s | 0.001072s | byte equality observed |
+| doc_background.test | 10 | 0.001019s | 0.001009s | 0.001021s | byte equality observed |
+| doc_forward_conversion.test | 10 | 0.001034s | 0.001067s | 0.001057s | byte equality observed |
+| doc_parsing.test | 10 | 0.001065s | 0.001068s | 0.001085s | byte equality observed |
+| doc_quick_look.test | 10 | 0.001063s | 0.001054s | 0.001032s | byte equality observed |
+| doc_serializing.test | 10 | 0.001056s | 0.001038s | 0.001031s | byte equality observed |
+| doc_storage_ptr.test | 10 | 0.001028s | 0.001043s | 0.001039s | byte equality observed |
+| doc_uses_allocator.test | 10 | 0.001028s | 0.001034s | 0.001016s | byte equality observed |
+| doc_using_numbers.test | 10 | 0.001061s | 0.001032s | 0.001022s | byte equality observed |
+| double.test | 1 | 1.160942s | 1.099435s | 1.161134s | native test oracle; output varies |
+| error.test | 10 | 0.001154s | 0.001113s | 0.001132s | byte equality observed |
+| fwd.test | 10 | 0.001038s | 0.001017s | 0.001030s | byte equality observed |
+| header_only.test | 10 | 0.001020s | 0.000991s | 0.001000s | byte equality observed |
+| intrusive_macros.test | 10 | 0.001094s | 0.001048s | 0.001064s | byte equality observed |
+| json.test | 10 | 0.001065s | 0.001017s | 0.001044s | byte equality observed |
+| kind.test | 10 | 0.001088s | 0.001038s | 0.001060s | byte equality observed |
+| limits.test | 10 | 0.001294s | 0.001211s | 0.001230s | byte equality observed |
+| memory_resource.test | 10 | 0.001070s | 0.001042s | 0.001061s | byte equality observed |
+| monotonic_resource.test | 10 | 0.001582s | 0.001520s | 0.001535s | native test oracle; output varies |
+| natvis.test | 10 | 0.001082s | 0.001042s | 0.001061s | byte equality observed |
+| no_exceptions.test | 10 | 0.001067s | 0.001026s | 0.001054s | byte equality observed |
+| null_resource.test | 10 | 0.001094s | 0.001072s | 0.001094s | byte equality observed |
+| object.test | 5 | 0.004541s | 0.003790s | 0.004494s | native test oracle; output varies |
+| parse.test | 10 | 0.001499s | 0.001489s | 0.001482s | byte equality observed |
+| parse_into.test | 7 | 0.002472s | 0.002386s | 0.002299s | native test oracle; output varies |
+| parser.test | 10 | 0.001201s | 0.001175s | 0.001182s | byte equality observed |
+| pilfer.test | 10 | 0.001029s | 0.001032s | 0.001025s | byte equality observed |
+| pointer.test | 10 | 0.001235s | 0.001240s | 0.001262s | byte equality observed |
+| result_for.test | 10 | 0.001017s | 0.001034s | 0.001032s | byte equality observed |
+| serialize.test | 10 | 0.001075s | 0.001100s | 0.001076s | byte equality observed |
+| serializer.test | 10 | 0.001854s | 0.001840s | 0.001826s | byte equality observed |
+| snippets.test | 10 | 0.001241s | 0.001230s | 0.001233s | byte equality observed |
+| static_resource.test | 10 | 0.001136s | 0.001112s | 0.001088s | byte equality observed |
+| storage_ptr.test | 10 | 0.001086s | 0.001082s | 0.001088s | byte equality observed |
+| stream_parser.test | 1 | 0.058570s | 0.079288s | 0.058824s | native test oracle; output varies |
+| string.test | 9 | 0.001872s | 0.001617s | 0.001842s | byte equality observed |
+| string_view.test | 10 | 0.001033s | 0.001022s | 0.001037s | byte equality observed |
+| utf8.test | 10 | 0.001023s | 0.001022s | 0.001039s | byte equality observed |
+| value.test | 6 | 0.002351s | 0.002185s | 0.002799s | native test oracle; output varies |
+| value_from.test | 10 | 0.001217s | 0.001216s | 0.001214s | byte equality observed |
+| value_ref.test | 10 | 0.001130s | 0.001091s | 0.001090s | byte equality observed |
+| value_stack.test | 10 | 0.001078s | 0.001070s | 0.001058s | byte equality observed |
+| value_to.test | 9 | 0.001976s | 0.001945s | 0.001960s | native test oracle; output varies |
+| visit.test | 10 | 0.001079s | 0.001068s | 0.001057s | byte equality observed |
 
-[Raw outcomes, commands and timing observations in CI artifacts](https://github.com/vishvananda/cppgm/actions/runs/44656576225).
+[Raw outcomes, commands and timing observations in CI artifacts](https://github.com/vishvananda/cppgm/actions/runs/44667760294).
 
 [Comparison records](../results.json) · [Host and toolchains](../metadata.json)
