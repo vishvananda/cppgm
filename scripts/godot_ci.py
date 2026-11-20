@@ -9,15 +9,20 @@ from pathlib import Path
 import re
 import shlex
 import shutil
+import signal
+import statistics
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 
 import benchmark_hosts
 import benchmark_timing as timing
 import index_cpp_benchmarks as measure
 import index_cpp_ci as common
 import public_benchmarks
+from run_ab_compile_benchmark import load_snapshot
 import simdjson_ci as paired
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,6 +30,7 @@ COMMIT = 'ed1daf0bf001b61586d9930840f2f1394092c079'  # 4.7.2-stable
 UPSTREAM = 'https://github.com/godotengine/godot.git'
 LABELS = ('cppgm', 'gcc', 'clang')
 WORKLOADS = ('dispatch', 'arrays', 'strings', 'geometry', 'scene')
+PASS_KEYS = ('measured_wall', 'cpu')
 BUILD_FLAGS = [
     'platform=linuxbsd', 'target=template_release', 'arch=x86_64', 'optimize=speed',
     'debug_symbols=no', 'lto=none', 'use_static_cpp=no', 'disable_path_overrides=no',
@@ -80,6 +86,108 @@ def parse_output(text, name, count, repeats):
     if not isinstance(elapsed, (int, float)) or not math.isfinite(elapsed) or elapsed <= 0:
         raise ValueError('invalid Godot workload time')
     return result
+
+
+def timed_run(command, prefix, cpus, timeout, wrapper=()):
+    """Run one pinned process. CPU time is its own resource usage from wait4, in microseconds."""
+    environment = dict(os.environ, LC_ALL='C')
+    environment.pop('TEST', None)
+    prefix = str(prefix)
+    invocation = [*wrapper, 'taskset', '-c', cpus, *map(str, command)]
+    before = load_snapshot()
+    expired = threading.Event()
+    with open(prefix + '.stdout', 'w') as output, open(prefix + '.stderr', 'w') as error:
+        started = time.perf_counter()
+        # setarch and taskset exec the program, so the waited process is Godot itself.
+        process = subprocess.Popen(invocation, stdout=output, stderr=error, env=environment,
+                                   start_new_session=True)
+
+        def stop():
+            expired.set()
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        timer = threading.Timer(timeout, stop)
+        timer.start()
+        try:
+            _, status, usage = os.wait4(process.pid, 0)
+        finally:
+            timer.cancel()
+        wall = time.perf_counter() - started
+        process.returncode = os.waitstatus_to_exitcode(status)
+    row = dict(command=invocation, status='timeout' if expired.is_set() else process.returncode, wall=wall,
+               load_before=before, load_after=load_snapshot(), stdout=prefix + '.stdout',
+               stderr=prefix + '.stderr', time_source='wait4')
+    if row['status'] == 0:
+        row.update(cpu=usage.ru_utime + usage.ru_stime, user_cpu=usage.ru_utime, system_cpu=usage.ru_stime,
+                   timed_wall=wall, max_rss_kib=usage.ru_maxrss)
+    return row
+
+
+ADDR_NO_RANDOMIZE = 0x0040000
+
+
+def address_space_probe(machine=None):
+    """Find once whether setarch -R works here. Docker's default seccomp profile refuses it."""
+    wrapper = ['setarch', machine or platform.machine(), '-R']
+    probe = [sys.executable, '-I', '-c', 'print(open("/proc/self/personality").read())']
+    try:
+        result = subprocess.run([*wrapper, *probe], capture_output=True, text=True, timeout=60)
+        if result.returncode != 0:
+            detail = (result.stderr.strip() or 'exit status ' + str(result.returncode))[-500:]
+        elif int(result.stdout.strip(), 16) & ADDR_NO_RANDOMIZE:
+            return dict(fixed_layout=True, wrapper=wrapper, detail='personality ' + result.stdout.strip())
+        else:
+            detail = 'personality ' + result.stdout.strip() + ' lacks ADDR_NO_RANDOMIZE'
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        detail = repr(error)
+    return dict(fixed_layout=False, wrapper=[], detail=detail)
+
+
+def read_value(path):
+    try:
+        return Path(path).read_text(errors='replace').strip()
+    except OSError:
+        return None
+
+
+def host_state(runtime_cpu, root=Path('/')):
+    """Record the measuring CPU and kernel state that one CPU model name does not fix."""
+    match = re.match(r'\d+', str(runtime_cpu))
+    number = match.group() if match else '0'
+    blocks = [dict(tuple(part.strip() for part in line.split(':', 1)) for line in block.splitlines() if ':' in line)
+              for block in (read_value(root / 'proc/cpuinfo') or '').split('\n\n')]
+    block = next((b for b in blocks if b.get('processor') == number), blocks[0])
+    cpu = root / 'sys/devices/system/cpu'
+    try:
+        names = sorted(path.name for path in (cpu / 'vulnerabilities').iterdir())
+    except OSError:
+        names = []
+    return dict(kernel_release=platform.release(), kernel_version=platform.version(),
+                cpu_vendor=block.get('vendor_id'), cpu_family=block.get('cpu family'),
+                cpu_model_number=block.get('model'), cpu_stepping=block.get('stepping'),
+                microcode=read_value(cpu / ('cpu' + number) / 'microcode/version') or block.get('microcode'),
+                vulnerabilities={name: read_value(cpu / 'vulnerabilities' / name) for name in names},
+                transparent_hugepage=read_value(root / 'sys/kernel/mm/transparent_hugepage/enabled'),
+                transparent_hugepage_defrag=read_value(root / 'sys/kernel/mm/transparent_hugepage/defrag'),
+                randomize_va_space=read_value(root / 'proc/sys/kernel/randomize_va_space'))
+
+
+def pass_times(rows):
+    """Median and least seconds per pass (one call over all iterations) of each binary, workload and time."""
+    values = {}
+    for row in rows:
+        if not str(row.get('phase', '')).startswith(('AA-', 'AB-')) or row.get('status') != 0:
+            continue
+        repeats = row.get('repeats') or int(row['command'][-1])
+        for key in PASS_KEYS:
+            if isinstance(row.get(key), (int, float)) and math.isfinite(row[key]):
+                values.setdefault(row['workload'], {}).setdefault(row['label'], {}).setdefault(key, []).append(
+                    row[key] / repeats)
+    return {name: {label: {key: dict(median=statistics.median(times), least=min(times), observations=len(times))
+                           for key, times in metrics.items()} for label, metrics in labels.items()}
+            for name, labels in values.items()}
 
 
 def build(args, directory, source, compilers, cpus):

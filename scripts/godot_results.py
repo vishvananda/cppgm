@@ -5,7 +5,11 @@ import hashlib
 import json
 import math
 from pathlib import Path
+import re
 import statistics
+import subprocess
+import sys
+import tempfile
 
 import benchmark_report
 import godot_ci as producer
@@ -107,6 +111,143 @@ def normalize(artifact, environment, run_url, details_url, raw_url):
     return dict(schema=1, records=records, validations=[validation])
 
 
+RUN_URL = re.compile(r'/actions/runs/([0-9]+)')
+MOVED = .05
+
+
+def published_history(directory):
+    """Earlier published results under godot/<host>/ and godot/history/<revision>/<host>/, newest first."""
+    entries, seen = [], set()
+    for path in sorted([*directory.glob('*/results.json'), *directory.glob('history/*/*/results.json')]):
+        try:
+            document = json.loads(path.read_text())
+            report = path.with_name('report.md')
+            runs = RUN_URL.findall(report.read_text()) if report.is_file() else []
+        except (OSError, ValueError):
+            continue
+        key = json.dumps(document, sort_keys=True)
+        if not isinstance(document, dict) or key in seen:
+            continue
+        seen.add(key)
+        metadata = document.get('metadata') if isinstance(document.get('metadata'), dict) else {}
+        order = (str(metadata.get('measured_at', '')), max(map(int, runs), default=0))
+        entries.append((order, path.relative_to(directory).as_posix(), document))
+    return [(name, document) for _, name, document in sorted(entries, key=lambda e: e[0], reverse=True)]
+
+
+def git_history(repository, ref, prefix='godot'):
+    """Read published history from a Git ref, such as origin/benchmark-badges, without a checkout."""
+    def git(*arguments):
+        return subprocess.run(['git', '-C', str(repository), *arguments], capture_output=True, check=True).stdout
+    names = git('ls-tree', '-r', '--name-only', ref, prefix + '/').decode().splitlines()
+    wanted = [name for name in names if re.fullmatch(re.escape(prefix) + r'/(?:history/[0-9a-f]{40}/)?[^/]+/'
+                                                    r'(?:results\.json|report\.md)', name)]
+    with tempfile.TemporaryDirectory() as temporary:
+        for name in wanted:
+            path = Path(temporary) / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(git('show', ref + ':' + name))
+        return published_history(Path(temporary) / prefix)
+
+
+def compared_key(document):
+    """The work time the badge uses, or work wall time for results that predate the choice."""
+    return document.get('badge_metric', 'measured_wall')
+
+
+def reference_drift(document, earlier, observations=None, threshold=MOVED):
+    """Compare each reference binary's time per pass with its latest earlier run on the same CPU model."""
+    times = document.get('time_per_pass') or (producer.pass_times(observations) if observations else {})
+    metadata = document['metadata']
+    key = compared_key(document)
+    references, moved = {}, []
+    for ref in ('gcc', 'clang'):
+        binary = document.get('binary_hashes', {}).get(ref)
+        for name in producer.WORKLOADS:
+            row = dict(state='not recorded')
+            current = times.get(name, {}).get(ref, {}).get(key, {}).get('median')
+            older = 0
+            for source, previous in earlier:
+                if previous == document:
+                    continue
+                past = previous.get('metadata') or {}
+                if (current is None or binary is None or past.get('cpu') != metadata['cpu']
+                        or (previous.get('binary_hashes') or {}).get(ref) != binary):
+                    continue
+                value = ((previous.get('time_per_pass') or {}).get(name, {}).get(ref, {}).get(key) or {}).get('median')
+                if not isinstance(value, (int, float)) or value <= 0:
+                    older += 1
+                    continue
+                change = current / value - 1
+                row = dict(state='moved' if abs(change) > threshold else 'steady', current_seconds=current,
+                           previous_seconds=value, change=change, previous_revision=past.get('revision'),
+                           previous=source)
+                if row['state'] == 'moved':
+                    moved.append(dict(reference=ref, workload=name, change=change, previous_seconds=value,
+                                      current_seconds=current))
+                break
+            else:
+                if current is not None:
+                    row = dict(state='no earlier run', current_seconds=current)
+            if older:
+                row['skipped_without_time_per_pass'] = older
+            references.setdefault(ref, {})[name] = row
+    return dict(schema=1, metric=key, threshold=threshold, revision=metadata['revision'],
+                measured_at=metadata.get('measured_at'), cpu=metadata['cpu'],
+                binary_hashes={ref: document.get('binary_hashes', {}).get(ref) for ref in ('gcc', 'clang')},
+                references=references, moved=moved)
+
+
+def drift_markdown(drift):
+    names = dict(gcc='GCC', clang='Clang')
+    text = ('\n## Reference binaries against earlier runs\n\n'
+            f"Each reference binary's `{drift['metric']}` time per pass is compared with the latest earlier run "
+            'that has the same binary SHA-256 and the same CPU model. A change above '
+            f"{drift['threshold']:.0%} reads **reference moved**. The ratio of that workload then shows a change "
+            'of the reference binary or of the runner, not of cppgm.\n\n'
+            '| Workload | Reference | This run (ms) | Earlier run (ms) | Change | Earlier revision | State |\n'
+            '|---|---|---:|---:|---:|---|---|\n')
+    for ref in ('gcc', 'clang'):
+        for name in producer.WORKLOADS:
+            row = drift['references'][ref][name]
+            def ms(field):
+                return f'{row[field] * 1e3:.2f}' if field in row else '-'
+            change = f"{row['change']:+.1%}" if 'change' in row else '-'
+            revision = f"`{row['previous_revision'][:9]}`" if row.get('previous_revision') else '-'
+            state = '**reference moved**' if row['state'] == 'moved' else row['state']
+            if row.get('skipped_without_time_per_pass'):
+                state += f" ({row['skipped_without_time_per_pass']} earlier without time per pass)"
+            text += (f'| {name} | {names[ref]} | {ms("current_seconds")} | {ms("previous_seconds")} | {change} | '
+                     f'{revision} | {state} |\n')
+    return text
+
+
+def drift_main(args):
+    artifact = args.artifact
+    document = json.loads((artifact / 'results.json').read_text())
+    path = artifact / 'runtime-observations.jsonl'
+    observations = [json.loads(line) for line in path.read_text().splitlines()] if path.is_file() else None
+    earlier = []
+    for item in args.earlier:
+        previous = json.loads((item / 'results.json').read_text())
+        rows = item / 'runtime-observations.jsonl'
+        if not previous.get('time_per_pass') and rows.is_file():
+            previous = dict(previous, time_per_pass=producer.pass_times(
+                [json.loads(line) for line in rows.read_text().splitlines()]))
+        earlier.append((str(item), previous))
+    try:
+        if args.history_ref:
+            earlier += git_history(args.repository, args.history_ref)
+        if args.history:
+            earlier += published_history(args.history)
+    except (OSError, subprocess.CalledProcessError) as error:
+        print(f'Published history unavailable: {error!r}', file=sys.stderr)
+    drift = reference_drift(document, earlier, observations)
+    if args.output:
+        args.output.write_text(json.dumps(drift, indent=2) + '\n')
+    print(drift_markdown(drift))
+
+
 def generate(artifact, output, environment, run_url, details_url, raw_url):
     catalog = json.loads((producer.ROOT / 'benchmarks/catalog.json').read_text())
     document = normalize(artifact, environment, run_url, details_url, raw_url)
@@ -114,6 +255,17 @@ def generate(artifact, output, environment, run_url, details_url, raw_url):
 
 
 def main():
+    if sys.argv[1:2] == ['drift']:
+        parser = argparse.ArgumentParser(description=reference_drift.__doc__, prog='godot_results.py drift')
+        parser.add_argument('artifact', type=Path)
+        parser.add_argument('--earlier', type=Path, nargs='*', default=[],
+                            help='earlier run artifacts, newest first; searched before published history')
+        parser.add_argument('--history', type=Path, help='published godot/ directory of the badge branch')
+        parser.add_argument('--history-ref', help='Git ref of the badge branch, such as origin/benchmark-badges')
+        parser.add_argument('--repository', type=Path, default=producer.ROOT)
+        parser.add_argument('--output', type=Path, help='write the comparison as JSON')
+        drift_main(parser.parse_args(sys.argv[2:]))
+        return
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('artifact', type=Path)
     parser.add_argument('--output', type=Path, required=True)
