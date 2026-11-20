@@ -62,7 +62,7 @@ bool native_table(const std::vector<std::pair<int64_t, uint32_t>>& cases, uint32
 	const bool many = targets > kNativeSwitchTargets ||
 		(clusters >= kNativeSwitchClusters && !(span < 64 && targets == 1));
 	// GCC's native speed ratio permits at most ten entries per case.
-	return many && dense_switch(cases, 4096, 10, 5);
+	return many && dense_switch(cases, 4096, 10, kNativeSwitchClusters);
 }
 
 } // namespace machine

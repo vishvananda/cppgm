@@ -1,6 +1,7 @@
 #include <algorithm>
 
 #include "lowir/builder.h"
+#include "machine/switch_plan.h"
 #include "opt/passes.h"
 #include "opt/scalar_fold.h"
 
@@ -283,9 +284,8 @@ struct Test
 // The most blocks one switch replaces, and the most case values.
 const uint32_t kRegionBlocks = 24;
 const uint64_t kMaxCases = 256;
-// The fewest runs that take a jump table whatever their targets (the
-// selector's kJumpTableClusters).
-const uint64_t kTableRuns = 6;
+// The fewest runs that take a jump table whatever their targets.
+const uint64_t kTableRuns = machine::kNativeSwitchClusters;
 // The most blocks that only pass phi values on between a test and the
 // block its edge leads to.
 const size_t kPassing = 4;

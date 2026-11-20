@@ -12,7 +12,11 @@ struct CaseCluster
 	uint32_t target;
 };
 
-// Native case clusters compete with a bounded indirect branch table.
+// Native case clusters compete with a bounded indirect branch table: a
+// dense switch of more targets, or of at least kNativeSwitchClusters runs
+// (unless they all go to one target within 64 values, a bit test), jumps
+// through a table. Six keeps the compares of a switch of up to five runs;
+// four is LLVM's smallest jump table.
 constexpr uint32_t kNativeSwitchTargets = 5;
 constexpr uint32_t kNativeSwitchClusters = 6;
 bool native_table(const std::vector<std::pair<int64_t, uint32_t>>& cases, uint32_t clusters, uint32_t targets);

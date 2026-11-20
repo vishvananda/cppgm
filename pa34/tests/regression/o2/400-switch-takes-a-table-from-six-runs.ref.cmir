@@ -1,0 +1,189 @@
+machine_ir x86_64 <host-target>
+
+startup
+    call @main [args=()]
+    mov rdi, rax
+    exit
+
+function @convert
+  abi
+    param %k -> rdi : i32
+    param %x -> rsi : i64
+    return i64 -> rax
+  frame
+    stack_size N
+    scratch_bytes 0
+    frame_pointer keep
+    epilogues duplicated
+
+  block ^entry
+    cmp.i32 rdi, 1
+    je ^one
+    cmp.i32 rdi, 2
+    je ^two
+    cmp.i32 rdi, 3
+    je ^three
+    cmp.i32 rdi, 4
+    je ^four
+
+  block ^zero
+    mov rax, 0
+    ret rax
+
+  block ^four
+    lea rax, [rsi-<off0>]
+    ret rax
+
+  block ^three
+    mov rax, rsi
+    xor rax, 7
+    ret rax
+
+  block ^two
+    lea rax, [rsi+rsi*4]
+    ret rax
+
+  block ^one
+    lea rax, [rsi+rsi*2]
+    ret rax
+
+function @member
+  abi
+    param %k -> rdi : i32
+    param %x -> rsi : i64
+    return i64 -> rax
+  frame
+    stack_size N
+    scratch_bytes 0
+    frame_pointer keep
+    epilogues duplicated
+
+  block ^entry
+    lea <gpr0>, [rdi-<off0>]
+    cmp.i64 <gpr0>, 8
+    ja ^no
+    mov <gpr1>, 277
+    bt.i64 <gpr1>, <gpr0>
+    jae ^no
+
+  block ^yes
+    lea rax, [rsi+rsi*2]
+    ret rax
+
+  block ^no
+    ret rsi
+
+function @six
+  abi
+    param %k -> rdi : i32
+    param %x -> rsi : i64
+    return i64 -> rax
+  frame
+    stack_size N
+    scratch_bytes 0
+    frame_pointer keep
+    epilogues duplicated
+
+  block ^entry
+    lea <gpr0>, [rdi-<off0>]
+    cmp.i64 <gpr0>, 5
+    ja ^zero
+    jump_table <gpr0>, [^one, ^two, ^three, ^four, ^one, ^two]
+
+  block ^zero
+    mov rax, 0
+    ret rax
+
+  block ^two
+    lea rax, [rsi+rsi*4]
+    ret rax
+
+  block ^one
+    lea rax, [rsi+rsi*2]
+    ret rax
+
+  block ^four
+    lea rax, [rsi-<off0>]
+    ret rax
+
+  block ^three
+    mov rax, rsi
+    xor rax, 7
+    ret rax
+
+function @main
+  abi
+    return i32 -> rax
+  frame
+    stack_size N
+    scratch_bytes 0
+    frame_pointer keep
+    epilogues duplicated
+    preserve <gpr2> <gpr3> <gpr4> <gpr5> <gpr6>
+
+  block ^entry
+    mov rdi, 1
+    mov rsi, 10
+    call @convert [args=(rsi,rdi)]
+    mov <gpr2>, rax
+    mov rdi, 2
+    mov rsi, 10
+    call @convert [args=(rsi,rdi)]
+    mov <gpr5>, rax
+    mov rdi, 3
+    mov rsi, 10
+    call @convert [args=(rsi,rdi)]
+    mov <gpr6>, rax
+    mov rdi, 4
+    mov rsi, 10
+    call @convert [args=(rsi,rdi)]
+    mov <gpr4>, rax
+    mov rdi, 5
+    mov rsi, 10
+    call @convert [args=(rsi,rdi)]
+    mov <gpr3>, rax
+    mov rdi, 0
+    mov rsi, 10
+    call @convert [args=(rsi,rdi)]
+    add <gpr2>, <gpr5>
+    add <gpr6>, <gpr4>
+    add <gpr3>, rax
+    add <gpr2>, <gpr6>
+    add <gpr2>, <gpr3>
+    cmp.i64 <gpr2>, 92
+    sete <gpr2>
+    mov rdi, 3
+    mov rsi, 10
+    call @member [args=(rsi,rdi)]
+    mov <gpr5>, rax
+    mov rdi, 4
+    mov rsi, 10
+    call @member [args=(rsi,rdi)]
+    mov <gpr6>, rax
+    mov rdi, 9
+    mov rsi, 10
+    call @member [args=(rsi,rdi)]
+    add <gpr5>, <gpr6>
+    add <gpr5>, rax
+    cmp.i64 <gpr5>, 70
+    sete <gpr5>
+    mov rdi, 6
+    mov rsi, 10
+    call @six [args=(rsi,rdi)]
+    mov <gpr6>, rax
+    mov rdi, 7
+    mov rsi, 10
+    call @six [args=(rsi,rdi)]
+    mov <gpr4>, rax
+    mov rdi, 5
+    mov rsi, 10
+    call @six [args=(rsi,rdi)]
+    add <gpr6>, <gpr4>
+    add <gpr6>, rax
+    cmp.i64 <gpr6>, 80
+    sete <gpr6>
+    and.u8 <gpr2>, <gpr5>
+    test.u8 <gpr2>, <gpr6>
+    sete rax
+    movzx rax, rax
+    ret rax
