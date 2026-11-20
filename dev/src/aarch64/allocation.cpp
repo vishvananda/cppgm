@@ -100,11 +100,16 @@ double simd_spill_priority(const FunctionBody& body, const LiveRange& range, con
 	return static_cast<double>(weight) * std::sqrt(reference_length / std::max(1u, slots));
 }
 
-// Give each scalar phi web's call-crossing members first choice of homes.
-// Otherwise a hot join can reserve a caller register the other members
-// cannot use, leaving transfers on its incoming edges and backedge.
+// Let each scalar phi web's call-crossing members choose before its other
+// members. Otherwise a hot join can reserve a caller register the crossing
+// members cannot use, leaving transfers on its incoming edges and backedge.
+// With spill priorities, a crossing member takes the priority of the web's
+// heaviest other member when that is higher, so a cold web still leaves the
+// preserved registers to hotter values. Without them, the crossing members
+// simply choose first.
 void prioritize_call_webs(const FunctionBody& body, const std::vector<LiveRange>& ranges, const Segments& segments,
-	const std::vector<uint32_t>& calls, std::vector<uint32_t>& order)
+	const std::vector<uint32_t>& calls, machine::PhiWebs& webs, const std::vector<double>& priority,
+	std::vector<uint32_t>& order)
 {
 	std::vector<uint8_t> constrained(ranges.size());
 	for (uint32_t index : order)
@@ -120,7 +125,23 @@ void prioritize_call_webs(const FunctionBody& body, const std::vector<LiveRange>
 			constrained[index] |= call != calls.end() && *call < last;
 		});
 	}
-	std::stable_partition(order.begin(), order.end(), [&](uint32_t index) { return constrained[index]; });
+	if (priority.empty())
+	{
+		std::stable_partition(order.begin(), order.end(), [&](uint32_t index) { return constrained[index]; });
+		return;
+	}
+	std::vector<double> heaviest(body.temps.size(), 0.0), key(priority);
+	for (uint32_t index : order)
+		if (ranges[index].affinity != kNoId && !constrained[index])
+		{
+			auto& web = heaviest[webs.root(ranges[index].id)];
+			web = std::max(web, priority[index]);
+		}
+	for (uint32_t index : order)
+		if (constrained[index])
+			key[index] = std::max(key[index], heaviest[webs.root(ranges[index].id)]);
+	std::stable_sort(order.begin(), order.end(),
+		[&](uint32_t a, uint32_t b) { return key[a] != key[b] ? key[a] > key[b] : constrained[a] > constrained[b]; });
 }
 
 // Give scalar SIMD phis and their backedge values first choice over short
@@ -466,6 +487,7 @@ void Selector::allocate()
 	const uint32_t slots = 2 * (body_.instructions.size() + body_.layout.size()) + 3;
 	const auto outgoing = call_registers();
 	std::vector<uint32_t> order;
+	std::vector<double> priority;
 	const auto simd_pressure = register_pressure(body_, ranges, segments, calls, slots, 8, Bank::Simd);
 	if (simd_pressure != RegisterPressure::Fits ||
 		register_pressure(body_, ranges, segments, calls, slots, dynamic_stack_ ? 9 : 10, Bank::General) !=
@@ -473,25 +495,23 @@ void Selector::allocate()
 	{
 		const auto weight = spill_weights(program_, body_, cfg, aliases_, block_weights_);
 		order.resize(ranges.size());
+		priority.reserve(ranges.size());
 		for (uint32_t i = 0; i < order.size(); ++i)
-			order[i] = i;
-		if (simd_pressure == RegisterPressure::Saturated)
 		{
-			std::vector<double> priority;
-			priority.reserve(ranges.size());
-			for (const auto& range : ranges)
-				priority.push_back(simd_spill_priority(body_, range, segments, weight[range.id]));
-			std::stable_sort(
-				order.begin(), order.end(), [&](uint32_t a, uint32_t b) { return priority[a] > priority[b]; });
+			order[i] = i;
+			const auto& range = ranges[i];
+			priority.push_back(simd_pressure == RegisterPressure::Saturated
+					? simd_spill_priority(body_, range, segments, weight[range.id])
+					: static_cast<double>(weight[range.id]));
 		}
-		else
-			std::stable_sort(order.begin(), order.end(),
-				[&](uint32_t a, uint32_t b) { return weight[ranges[a].id] > weight[ranges[b].id]; });
+		std::stable_sort(order.begin(), order.end(), [&](uint32_t a, uint32_t b) { return priority[a] > priority[b]; });
+		if (level_ >= 2 && !calls.empty() && !webs.empty())
+			prioritize_call_webs(body_, ranges, segments, calls, webs, priority, order);
 	}
 	if (level_ >= 3 && !segments.empty() && !webs.empty())
 		prioritize_loop_webs(body_, cfg, ranges, aliases_, order);
-	if (level_ >= 2 && !order.empty() && !calls.empty() && !webs.empty())
-		prioritize_call_webs(body_, ranges, segments, calls, order);
+	if (level_ >= 2 && priority.empty() && !order.empty() && !calls.empty() && !webs.empty())
+		prioritize_call_webs(body_, ranges, segments, calls, webs, priority, order);
 	const bool split_calls = level_ >= 2 && !out_.exceptions && !named_.darwin && !dynamic_stack_ &&
 		body_.code_labels.empty() && calls.size() <= 64;
 	if (split_calls && calls.size() > 1 && block_weights_.empty() && !cfg.succ_first.empty())
