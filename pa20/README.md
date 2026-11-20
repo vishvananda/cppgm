@@ -238,6 +238,9 @@ To complete PA20, implement these goals:
    ordinary reference loop declarations such as `const int&` and `const auto&`. A
    materialized class prvalue used as the range remains alive through the loop and is
    destroyed when the complete range-for statement ends.
+   C++17 deduces the hidden iterator and sentinel separately, so `begin()`
+   and `end()` can yield different types. The loop compares the two and
+   increments and dereferences only the iterator. See N4659 `[stmt.ranged]`.
 
 The test suite also exercises a small remaining ordinary-language closure cluster here:
 direct braced-init expressions, direct aggregate construction, supported integral / enum

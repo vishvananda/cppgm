@@ -714,11 +714,11 @@ void Analyzer::range_for_equivalent(const syntax::RangeForStmt& loop, Scope* blo
 			}
 			ends[i] = call;
 		}
-		// `auto __begin = begin-expr, __end = end-expr;`: one declaration,
-		// so both deduce one type (7.1.6.4p7).
+		// C++11 declares both with one auto type. C++17 [stmt.ranged]
+		// gives the iterator and sentinel separate declarations.
 		facts->begin = implicit_variable(kBeginKey, auto_placeholder_, ends[0], block, location);
 		facts->end = implicit_variable(kEndKey, auto_placeholder_, ends[1], block, location);
-		if (facts->begin->declared->entity->type->canonical != facts->end->declared->entity->type->canonical)
+		if (!cxx17_ && facts->begin->declared->entity->type->canonical != facts->end->declared->entity->type->canonical)
 			error(location, "a range's begin and end deduce different types (7.1.6.4p7)");
 		syntax::BinaryExpr* condition = implicit_node<syntax::BinaryExpr>(location);
 		condition->kind = syntax::ExprKind::Binary;
