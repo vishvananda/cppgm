@@ -1,0 +1,103 @@
+global @limit : i32 = 3
+global @cells : obj<64x4> = zero
+
+function @two(%m : i32, %p : ptr) -> i32 [no_inline=yes] {
+  block ^entry:
+    %lim = load i32 @limit
+    %more = cmp gt i32 %lim, 0
+    branch %more, ^loop_preheader_11, ^b_head
+
+  block ^b_head:
+    %t3 = phi i32 [^entry: %lim, ^a_body: %t41]
+    %go = cmp gt i32 %t3, 0
+    branch %go, ^loop_preheader_2, ^done
+
+  block ^loop_preheader_2:
+    jump ^c_pre
+
+  block ^c_pre:
+    %t5 = phi i32 [^b_latch: %j1, ^loop_preheader_2: 0]
+    %t6 = phi i32 [^b_latch: %c2, ^loop_preheader_2: %t3]
+    %jj = binary mul i32 %t5, 2
+    %in = cmp gt i32 %jj, 0
+    branch %in, ^loop_preheader_4, ^b_latch
+
+  block ^loop_preheader_4:
+    %t9 = cmp uge i32 %jj, 4
+    %t10 = binary and i64 %in, %t9
+    branch %t10, ^loop_preheader_5, ^loop_preheader_8
+
+  block ^loop_preheader_5:
+    %t11 = binary add i32 %jj, -4
+    %t12 = vector fromi32 %t5
+    %t13 = vector pshufd %t12, 0
+    jump ^wide_loop_6
+
+  block ^wide_loop_6:
+    %t14 = phi i64 [^loop_preheader_5: 0, ^wide_loop_6: %t19]
+    %t15 = binary mul i64 %t14, 4
+    %t16 = index i8 @cells, %t15
+    %t17 = load v128 %t16
+    %t18 = vector paddd %t17, %t13
+    store v128 %t18, %t16
+    %t19 = binary add nowrap i64 %t14, 4
+    %t20 = convert trunc exact i32 i64 %t19
+    %t21 = cmp le i32 %t20, %t11
+    branch %t21, ^wide_loop_6, ^loop_exit_7
+
+  block ^loop_exit_7:
+    %t22 = cmp lt i32 %t20, %jj
+    branch %t22, ^loop_preheader_8, ^b_latch
+
+  block ^loop_preheader_8:
+    %t23 = phi i32 [^loop_preheader_4: 0, ^loop_exit_7: %t20]
+    %t24 = convert sext i64 i32 %t23
+    jump ^c_body
+
+  block ^c_body:
+    %t25 = phi i64 [^c_body: %t30, ^loop_preheader_8: %t24]
+    %ko = binary mul i64 %t25, 4
+    %ka = index i8 @cells, %ko
+    %kv = load i32 %ka
+    %kn = binary add i32 %kv, %t5
+    store i32 %kn, %ka
+    %t30 = binary add nowrap i64 %t25, 1
+    %k1 = convert trunc exact i32 i64 %t30
+    %t32 = cmp lt i32 %k1, %jj
+    branch %t32, ^c_body, ^b_latch
+
+  block ^b_latch:
+    %j1 = binary add i32 %t5, 1
+    %c2 = binary add i32 %m, %t6
+    %t35 = cmp lt i32 %j1, %c2
+    branch %t35, ^c_pre, ^done
+
+  block ^loop_preheader_11:
+    jump ^a_body
+
+  block ^a_body:
+    %t36 = phi i32 [^a_body: %i1, ^loop_preheader_11: 0]
+    %iw = convert sext i64 i32 %t36
+    %io = binary mul i64 %iw, 4
+    %ia = index i8 %p, %io
+    store i32 %t36, %ia
+    %i1 = binary add i32 %t36, 1
+    %t41 = load i32 @limit
+    %t42 = cmp lt i32 %i1, %t41
+    branch %t42, ^a_body, ^b_head
+
+  block ^done:
+    %r = load i32 @cells
+    return i32 %r
+}
+function @main() -> i32 [role=entry] {
+  block ^entry:
+    %v = call i32 @two(0, @cells)
+    %a3 = index i8 @cells, 12
+    %w = load i32 %a3
+    %c0 = cmp eq i32 %v, 3
+    %c3 = cmp eq i32 %w, 2
+    %c = binary and i1 %c0, %c3
+    %status = select i32 %c, 0, 1
+    return i32 %status
+}

@@ -306,11 +306,22 @@ void StoreMotion::find_loaded_locations(uint32_t loop)
 	}
 }
 
-// A block on each edge out of the loop.
+// A block on each edge out of the loop, placed before its target, or, when
+// a block defining a location's root (which the block's stores use) comes
+// later (the target is an outer loop's header), after that block and the
+// exiting block.
 std::vector<BlockId> StoreMotion::exit_blocks(uint32_t loop)
 {
 	std::vector<BlockId> exits;
 	const std::vector<BlockId> blocks = forest_.loops[loop].blocks;
+	std::vector<BlockId> defining;
+	for (const Location& location : locations_)
+	{
+		const Value root = location.at.root;
+		const InstId def = root.is(ValueKind::Temp) ? body_.temps[root.index].def : kNoId;
+		if (def != kNoId && def < c_.block_of.size() && c_.block_of[def] != kNoId)
+			defining.push_back(c_.block_of[def]);
+	}
 	for (BlockId b : blocks)
 	{
 		std::vector<BlockId> targets;
@@ -325,6 +336,14 @@ std::vector<BlockId> StoreMotion::exit_blocks(uint32_t loop)
 			jump.ops[0] = Value::block(target);
 			insert_after(body_, exit, kNoId, append_instruction(body_, jump));
 			auto at = std::find(body_.layout.begin(), body_.layout.end(), target);
+			auto last = body_.layout.begin();
+			for (BlockId d : defining)
+				last = std::max(last, std::find(body_.layout.begin(), body_.layout.end(), d));
+			if (last >= at && last != body_.layout.end())
+			{
+				const auto from = std::find(body_.layout.begin(), body_.layout.end(), b);
+				at = (from != body_.layout.end() ? std::max(last, from) : last) + 1;
+			}
 			body_.layout.insert(at, exit);
 			for_each_successor(body_, body_.instructions[body_.blocks[b].last], [&](BlockId& t) {
 				if (t == target)

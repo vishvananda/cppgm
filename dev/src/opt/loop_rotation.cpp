@@ -104,8 +104,15 @@ private:
 	std::vector<uint32_t> owner_;    // per instruction: the candidate whose header defines it
 	std::vector<uint8_t> touched_;   // per block: this round's rotation may change it
 	std::vector<BlockId> preheader_; // per block: the preheader to place after it
-	// A header, and a block of an edge's own to place before it.
-	std::vector<std::pair<BlockId, BlockId>> entries_;
+	// A block of an edge's own: placed before the header it enters, or after
+	// the block it leaves when that comes later (a latch), whose values its
+	// stores read.
+	struct Entry
+	{
+		BlockId header, edge, from;
+	};
+	std::vector<Entry> entries_;
+	std::vector<uint32_t> position_; // per block: its place in the layout before this round
 };
 
 } // namespace
@@ -268,7 +275,7 @@ void LoopRotation::rotate(const Candidate& candidate)
 				target = edge;
 		});
 		edges.push_back(std::make_pair(from, edge));
-		entries_.push_back(std::make_pair(h, edge));
+		entries_.push_back(Entry{ h, edge, from });
 		return edge;
 	};
 	// Demote the header's values, the phis last: what a phi takes from the
@@ -395,12 +402,22 @@ void LoopRotation::place_preheaders()
 {
 	std::vector<BlockId> layout;
 	layout.reserve(body_.layout.size() + candidates_.size() + entries_.size());
+	if (!entries_.empty())
+	{
+		position_.assign(body_.blocks.size(), kNoId);
+		for (size_t k = 0; k < body_.layout.size(); ++k)
+			position_[body_.layout[k]] = static_cast<uint32_t>(k);
+	}
+	auto late = [&](const Entry& e) { return position_[e.from] != kNoId && position_[e.from] >= position_[e.header]; };
 	for (BlockId b : body_.layout)
 	{
-		for (const std::pair<BlockId, BlockId>& e : entries_)
-			if (e.first == b)
-				layout.push_back(e.second);
+		for (const Entry& e : entries_)
+			if (e.header == b && !late(e))
+				layout.push_back(e.edge);
 		layout.push_back(b);
+		for (const Entry& e : entries_)
+			if (e.from == b && late(e))
+				layout.push_back(e.edge);
 		if (preheader_[b] != kNoId)
 			layout.push_back(preheader_[b]);
 	}
