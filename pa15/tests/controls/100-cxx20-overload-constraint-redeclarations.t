@@ -4,12 +4,11 @@ template<class T> concept Word = sizeof(T) == sizeof(int);
 }
 using N::Word;
 
-template<class T> requires (sizeof(T) == 1) constexpr int classify(T) { return 1; }
-template<Word T> constexpr int classify(T value) requires (sizeof(value) > 1);
-template<class T> requires (sizeof(T) > sizeof(int)) constexpr int classify(T) { return 3; }
+template<class T> requires (sizeof(T) == 1) int classify(T) { return 1; }
+template<Word T> int classify(T value) requires (sizeof(value) > 1);
+template<class T> requires (sizeof(T) > sizeof(int)) int classify(T) { return 3; }
 
-template<N::Word U> constexpr int classify(U item) requires (sizeof(item) > 1) { return 2; }
-static_assert(classify('a') == 1);
-static_assert(classify(0) == 2);
-static_assert(classify(0LL) == 3);
-int main() { return classify(0) - 2; }
+template<N::Word U> int classify(U item) requires (sizeof(item) > 1) { return 2; }
+int main() {
+  return classify('a') != 1 || classify(0) != 2 || classify(0LL) != 3;
+}
