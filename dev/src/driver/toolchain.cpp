@@ -457,8 +457,11 @@ void configure_mode_macros(Invocation& invocation, bool optimize_size, unsigned 
 
 void configure_preprocessor(Invocation& invocation, StandardIncludes includes, const std::string& gcc_install_dir)
 {
-	const bool preprocess_only = invocation.preprocess_only ||
-		invocation.dependencies.mode == MakeDependencies::Mode::Only;
+	const MakeDependencies& dependencies = invocation.dependencies;
+	if (dependencies.mode == MakeDependencies::Mode::None &&
+		(dependencies.phony || !dependencies.file.empty() || !dependencies.targets.empty()))
+		throw InvocationError("-MF, -MT, -MQ and -MP require a dependency generation mode");
+	const bool preprocess_only = invocation.preprocess_only || dependencies.mode == MakeDependencies::Mode::Only;
 	if (!preprocess_only && (invocation.dump_macros || invocation.trace_includes))
 		throw InvocationError("-dM and -H require -E");
 	for (const Input& input : invocation.inputs)
@@ -703,10 +706,6 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 	if (invocation.inputs.empty())
 		throw InvocationError("no input files");
 	lowir_output(invocation, assembly_output);
-	const MakeDependencies& dependencies = invocation.dependencies;
-	if (dependencies.mode == MakeDependencies::Mode::None &&
-		(dependencies.phony || !dependencies.file.empty() || !dependencies.targets.empty()))
-		throw InvocationError("-MF, -MT, -MQ and -MP require a dependency generation mode");
 	// GCC's -pthread defines _REENTRANT ahead of every -D and -U wherever
 	// it is written (the host link adds the thread library; link mode's
 	// runtime needs nothing).
