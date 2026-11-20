@@ -56,6 +56,16 @@ struct FallbackTask {
   };
 };
 
-inline FallbackTask fallback(int) {
+struct MoveOnly {
+  MoveOnly(const MoveOnly&) = delete;
+  MoveOnly(MoveOnly&&);
+};
+
+struct Immovable {
+  Immovable(const Immovable&) = delete;
+  Immovable(Immovable&&) = delete;
+};
+
+inline FallbackTask fallback(MoveOnly, Immovable&) {
   co_return;
 }

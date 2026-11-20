@@ -134,6 +134,8 @@ To complete PA31, support:
   the implicit object parameter of a non-static member. Try the promise
   constructor with the implicit object and the parameter copies as lvalues.
   Try default initialization if none of those constructors is viable.
+  Initialize a class parameter's frame copy from an xvalue of the incoming
+  object. A reference parameter's frame copy binds to the same referent.
   Resolve the promise and awaiter calls using normal overload resolution.
   Use the type and value category of `await_resume()` for the await expression.
   See `[dcl.fct.def.coroutine]`, `[expr.await]`, and `[stmt.return.coroutine]`.

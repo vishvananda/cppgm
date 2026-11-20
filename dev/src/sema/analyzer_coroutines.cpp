@@ -82,15 +82,48 @@ const Type* Analyzer::coroutine_promise_type(const FunctionEntity* function, Sco
 	return require_complete(ClassOf(promise)) ? promise : nullptr;
 }
 
-syntax::Expr* Analyzer::coroutine_variable_use(const Entity* variable, ValueCategory category, uint32_t location)
+syntax::Expr* Analyzer::coroutine_variable_use(
+	const Entity* variable, ValueCategory category, uint32_t location, const Type* type)
 {
 	syntax::IdExpr* expr = CoroutineExpression<syntax::IdExpr>(arena_, syntax::ExprKind::Id, location);
 	expr->name = implicit_name(variable->name, location);
-	const Type* type = variable->type->is_reference() ? variable->type->element : variable->type;
+	if (type == nullptr)
+		type = variable->type->is_reference() ? variable->type->element : variable->type;
 	ExprFacts* facts = new_facts(*expr, type, category);
 	facts->flags = kImplicit;
 	facts->entity = variable;
 	return expr;
+}
+
+bool Analyzer::coroutine_parameter_copies(CoroutineFacts& coroutine, Scope* scope, uint32_t location)
+{
+	SmallList<CoroutineParameterCopy, 4> copies;
+	for (const Binding* binding = scope->bindings; binding != nullptr; binding = binding->next)
+	{
+		if (binding->kind != BindingKind::Parameter || ClassOf(binding->type) == nullptr)
+			continue;
+		// N4861 [dcl.fct.def.coroutine]. Reference copies bind to the
+		// same referent. Class copies initialize from the incoming object,
+		// which has no top-level cv-qualification.
+		syntax::Expr* source = coroutine_variable_use(
+			binding->entity, ValueCategory::XValue, location, binding->type->unqualified);
+		syntax::Initializer* initializer = arena_.allocate_array<syntax::Initializer>(1);
+		*initializer = syntax::Initializer();
+		initializer->kind = syntax::InitializerKind::Parenthesized;
+		initializer->location = location;
+		initializer->arguments = { arena_.copy_array(&source, 1), 1 };
+		const FunctionEntity* constructor = initialize_object(binding->type, *initializer, scope, location);
+		check_destruction(binding->type, scope, location);
+		if (failed())
+			return false;
+		copies.push_back(CoroutineParameterCopy{ binding->entity, constructor, initializer });
+	}
+	if (!copies.empty())
+	{
+		coroutine.parameter_copies = arena_.copy_array(copies.data(), copies.size());
+		coroutine.parameter_copy_count = static_cast<uint32_t>(copies.size());
+	}
+	return true;
 }
 
 bool Analyzer::coroutine_promise_initializer(
@@ -255,7 +288,8 @@ const CoroutineFacts* Analyzer::analyze_coroutine(const FunctionEntity* function
 	*facts = CoroutineFacts();
 	VariableEntity* object = new_entity<VariableEntity>(EntityKind::Variable, special_key("<promise>"), scope, promise);
 	facts->promise = object;
-	if (!coroutine_promise_initializer(function, object, *facts, scope, location))
+	if (!coroutine_parameter_copies(*facts, scope, location) ||
+		!coroutine_promise_initializer(function, object, *facts, scope, location))
 		return nullptr;
 	facts->handle = new_entity<VariableEntity>(
 		EntityKind::Variable, special_key("<coroutine-handle>"), scope, handle->type);
