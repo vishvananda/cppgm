@@ -128,6 +128,5 @@ comment	dev/src/syntax/ast_types.h	pa33	handout or fixture cross-reference in a 
 comment	dev/src/syntax/parser.h	PA5	handout or fixture cross-reference in a comment
 comment	dev/src/syntax/parser.h	pa5	handout or fixture cross-reference in a comment
 comment	dev/src/syntax/parser_state.cpp	PA5	handout or fixture cross-reference in a comment
-comment	dev/src/syntax/parser_statements.cpp	PA30	handout or fixture cross-reference in a comment
 comment	dev/src/types/fundamental_type.h	PA30	handout or fixture cross-reference in a comment
 comment	dev/src/types/fundamental_type.h	PA35	handout or fixture cross-reference in a comment
