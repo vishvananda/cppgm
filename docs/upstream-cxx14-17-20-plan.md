@@ -436,6 +436,8 @@ even with GCC in C++14.
    that load shared libraries are enabled.
    Use shared linking for Boost.Python's recovered tests. Build the
    extension module objects as PIC so the Python interpreter can load them.
+   Export the NumPy long-double dtype instantiations and let the
+   auto_ptr runner discover the tests in the module it imports.
 2. **Require actual cppgm builds and test execution.** Reuse the B2 runner
    with separate build roots by compiler and edition. Verify the actual
    C++ invocations use the candidate compiler and recorded standard. Each

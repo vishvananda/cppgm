@@ -352,6 +352,15 @@ def prepare_replay_sources(boost, groups):
         policy = '#define BOOST_MATH_OVERFLOW_ERROR_POLICY ignore_error'
         replace_replay_source(boost / 'libs/math/test/test_spherical_harmonic.hpp', policy,
                               '#undef BOOST_MATH_OVERFLOW_ERROR_POLICY\n' + policy)
+    if 'libs/python/test' in projects:
+        # Export the long-double dtype instances like the other dtype instances.
+        dtype = boost / 'libs/python/src/numpy/dtype.cpp'
+        for name in ('get_float_dtype', 'get_complex_dtype'):
+            declaration = f'template dtype {name}<'
+            replace_replay_source(dtype, declaration, f'template BOOST_NUMPY_DECL dtype {name}<')
+        # The auto_ptr runner imports this module and calls its test function.
+        replace_replay_source(boost / 'libs/python/test/polymorphism2.py', '   unittest.main()',
+                              '   unittest.main(module=__name__)')
     if 'libs/mpi/build' in projects:
         # Backport boostorg/mpi#180 and #181 for the optional Python module.
         # Its indexing suite must compile even though request equality raises.
