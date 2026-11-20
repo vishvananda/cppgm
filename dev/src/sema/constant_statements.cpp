@@ -745,7 +745,7 @@ bool ConstantInterpreter::library_comparison(
 bool ConstantInterpreter::library_floating(
 	const FunctionEntity* function, const Argument* arguments, uint32_t count, Result& result, uint32_t location)
 {
-	// GCC folds __builtin_fma, copysign, fmax and fmin[f|l] of constants
+	// GCC folds __builtin_fma, sin, copysign, fmax and fmin[f|l] of constants
 	// (C99 7.12.11.1, 7.12.12.2-3: a NaN operand of fmax or fmin yields
 	// the other). False when the call is none of them.
 	const char* name = function->label;
@@ -759,6 +759,17 @@ bool ConstantInterpreter::library_floating(
 		: length;
 	if (base == 3 && std::strncmp(name, "fma", 3) == 0)
 		return library_fma(function->type->canonical->element->unqualified, arguments, count, result, location);
+	if (base == 3 && std::strncmp(name, "sin", 3) == 0)
+	{
+		ConstValue input;
+		if (count != 1 || !converted(*arguments[0].expr, arguments[0].conversion, input) ||
+			!convert_scalar(input, function->type->canonical->element->unqualified, location))
+			return true;
+		result.value = ConstantSine(input);
+		if (result.value.kind == ValueKind::Indeterminate)
+			return fail(location, "a sine outside its constant range or supported precision"), true;
+		return true;
+	}
 	const bool copysign = std::strncmp(name, "copysign", 8) == 0 && (length == 8 || length == 9);
 	const bool maximum = base == 4 && std::strncmp(name, "fmax", 4) == 0;
 	const bool minimum = base == 4 && std::strncmp(name, "fmin", 4) == 0;

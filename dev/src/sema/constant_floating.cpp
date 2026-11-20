@@ -1,5 +1,8 @@
 #include "sema/constant_floating.h"
 
+#include <cmath>
+
+#include "lex/extended_float.h"
 #include "sema/floating/binary128.h"
 #include "sema/integral_arithmetic.h"
 
@@ -25,6 +28,40 @@ ConstValue Binary128FromHost(const Type* type, long double value)
 bool Binary128Zero(const ConstValue& value)
 {
 	return binary128::zero(bits(value));
+}
+
+ConstValue ConstantSine(const ConstValue& value)
+{
+	const Type* type = value.type;
+	if (value.kind == ValueKind::Binary128)
+	{
+		if (Binary128Zero(value))
+			return value;
+		long double input;
+		if (binary128::finite(bits(value)) && binary128::to_host(bits(value), 113, 16383, input))
+			return Binary128FromHost(type, std::sin(input));
+		return ConstValue();
+	}
+	if (value.kind != ValueKind::Floating || !std::isfinite(value.floating))
+		return ConstValue();
+
+	switch (FloatingRepresentation(type->fundamental, type->target))
+	{
+	case FundamentalType::Float:
+		return FloatingValue(type, std::sin(static_cast<float>(value.floating)));
+	case FundamentalType::Double:
+		return FloatingValue(type, std::sin(static_cast<double>(value.floating)));
+	case FundamentalType::LongDouble:
+#if __LDBL_MANT_DIG__ == 113
+		return FloatingValue(type, RoundExtended80(std::sin(value.floating)));
+#elif __LDBL_MANT_DIG__ == 64
+		return FloatingValue(type, std::sin(value.floating));
+#else
+		return ConstValue();
+#endif
+	default:
+		return ConstValue();
+	}
 }
 
 bool ConvertBinary128(ConstValue& value, const Type* target)

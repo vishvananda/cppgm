@@ -374,6 +374,12 @@ In constant expressions, support the GNU builtins `__builtin_fmaf`,
 product and sum with one rounding to the result type. An overflow or an
 inexact underflow cannot produce a constant expression.
 
+Support `__builtin_sinf`, `__builtin_sin`, and `__builtin_sinl` in constant
+expressions for finite operands. Compute the sine in the target floating-point
+format when the host math library supplies the needed precision. Preserve a
+signed zero. Infinite and NaN operands require a diagnostic in a required
+constant expression.
+
 Constant evaluation of binary128 values must use their target precision and
 range, including arithmetic, comparisons, casts and static initialization.
 Preserve signed zero, subnormals and the bits of supported NaN builtins;
