@@ -1158,7 +1158,7 @@ private:
 	void odr_use_constant_operand(const syntax::Expr& expr);
 	const Type* captured_type(const Entity* entity, const Type* type);
 	void capture_this(uint32_t location);
-	void finish_captures(LambdaFrame& frame);
+	void finish_captures(LambdaFrame& frame, const Scope* initialized_scope);
 	void closure_conversion(const ClassEntity* closure, bool conversion_function = true);
 	const Type* deduced_result(ExprFacts* facts, uint32_t location, const syntax::Expr* operand = nullptr);
 	const Type* return_deduction(ExprFacts* facts, uint32_t location, const syntax::Expr* operand);

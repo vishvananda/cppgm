@@ -263,8 +263,11 @@ still reads the original constant object under [CWG2083](../doc/cwg/cwg-2083.txt
 
 C++14 adds deduced function returns, `decltype(auto)` variables and returns,
 generic lambda parameters, and initialized captures. The default GNU C++11
-course mode retains visible-body return deduction as an extension. In ISO
-C++11 a function written with `auto` needs a trailing return type, including
+course mode retains visible-body return deduction as an extension. A nested
+lambda captures the enclosing closure's initialized object, by copy or by
+reference as written. Its initializer is evaluated when the enclosing
+closure is created.
+In ISO C++11 a function written with `auto` needs a trailing return type, including
 when the declaration appears in a system header. Preserve the difference between a named expression and
 its parenthesized lvalue in `decltype(auto)`. Diagnose inconsistent returns,
 braced placeholder deduction and invalid declarator combinations. Deleted

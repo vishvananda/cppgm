@@ -146,7 +146,7 @@ ExprFacts* Analyzer::lambda_expression(const syntax::LambdaExpr& expr, Scope* sc
 	potentially_throwing_ = saved_throwing;
 	soft_substitution_ = saved_soft;
 	callee_name_ = saved_callee;
-	finish_captures(frame);
+	finish_captures(frame, capture_scope != scope ? capture_scope : nullptr);
 	// Its special members, once its members are known (a capture by copy's
 	// class makes them non-trivial).
 	if (semantic())
@@ -194,6 +194,7 @@ ExprFacts* Analyzer::templated_lambda(
 	frame.expr = &expr;
 	frame.this_captured = false;
 	Scope* capture_scope = explicit_captures(frame, scope);
+	const Scope* initialized_scope = capture_scope != scope ? capture_scope : nullptr;
 	facts->call = templated_closure_call(closure, expr, capture_scope, frame);
 	closure->complete = true;
 	if (semantic())
@@ -203,14 +204,15 @@ ExprFacts* Analyzer::templated_lambda(
 	// while their capture frames are still being constructed.
 	for (const Entity* entity : frame.captures)
 	{
-		if (entity->kind == EntityKind::Variable && static_cast<const VariableEntity*>(entity)->init_capture)
+		if (entity->owner == initialized_scope && entity->kind == EntityKind::Variable &&
+			static_cast<const VariableEntity*>(entity)->init_capture)
 			continue;
 		if (!capture_variable(entity, expr.location))
 			error(expr.location, "a lambda captures an automatic variable outside its enclosing function");
 	}
 	if (frame.this_captured)
 		capture_this(expr.location);
-	finish_captures(frame);
+	finish_captures(frame, initialized_scope);
 	if (semantic())
 	{
 		declare_destructor(closure, expr.location);
@@ -926,7 +928,7 @@ void Analyzer::capture_this(uint32_t location)
 	}
 }
 
-void Analyzer::finish_captures(LambdaFrame& frame)
+void Analyzer::finish_captures(LambdaFrame& frame, const Scope* initialized_scope)
 {
 	// p14-p15 in the course's form: a pointer member holding a captured
 	// `this` first, then a member per captured entity, in the order
@@ -962,7 +964,9 @@ void Analyzer::finish_captures(LambdaFrame& frame)
 		const VariableEntity* variable = entity->kind == EntityKind::Variable
 			? static_cast<const VariableEntity*>(entity)
 			: nullptr;
-		const bool initialized = variable != nullptr && variable->init_capture;
+		// A nested lambda captures an initialized capture's existing
+		// object. Only the lambda that declared it evaluates its initializer.
+		const bool initialized = variable != nullptr && variable->owner == initialized_scope && variable->init_capture;
 		captures[i] = Capture{ entity, member,
 			initialized ? variable->constructor
 				: copy  ? capture_constructor(closure, type, frame.expr->location)
