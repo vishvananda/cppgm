@@ -1246,7 +1246,10 @@ const Type* Analyzer::alias_specialization(const AliasTemplateEntity* alias, Typ
 		substitution_error(location, "template arguments that do not match the alias template's parameters");
 		return nullptr;
 	}
-	if (cxx20_ && !template_constraints_satisfied(head, canonical, location))
+	const ConstraintPredicate* predicate = cxx20_ ? template_constraint(head) : nullptr;
+	const ConstraintStatus status = predicate != nullptr ? predicate_result(predicate, canonical, location)
+														 : ConstraintStatus::Satisfied;
+	if (status == ConstraintStatus::Unsatisfied)
 	{
 		substitution_error(location, "alias template constraints are not satisfied");
 		return nullptr;
@@ -1298,13 +1301,13 @@ const Type* Analyzer::alias_specialization(const AliasTemplateEntity* alias, Typ
 	substitution_location_ = enclosing_location;
 	if (type == nullptr)
 		return nullptr;
-	// CWG 1558: a dependent argument the aliased type drops is still
-	// substituted where the template-id is: the stand-in's specialization
-	// keeps it (the aliased type deduced and named in its place).
-	bool dropped = pack_element;
-	for (uint32_t i = 0; i < canonical.size() && i < 64 && !dropped; ++i)
-		dropped = (alias->discarded >> i & 1) != 0 && dependent_type(canonical[i]);
-	if (dropped)
+	// Recheck dependent constraints when substituting the alias, even if
+	// its underlying type uses every argument. The stand-in also retains
+	// dependent arguments the underlying type discards (CWG 1558).
+	bool keep_alias = pack_element || status == ConstraintStatus::Dependent;
+	for (uint32_t i = 0; i < canonical.size() && i < 64 && !keep_alias; ++i)
+		keep_alias = (alias->discarded >> i & 1) != 0 && dependent_type(canonical[i]);
+	if (keep_alias)
 	{
 		ClassEntity* specialization = class_specialization(alias_stand_in(alias), canonical, location);
 		if (alias_index_.find(specialization) == PointerMap::kMissing)

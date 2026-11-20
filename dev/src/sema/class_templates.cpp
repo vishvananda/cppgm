@@ -2253,8 +2253,8 @@ const Type* Analyzer::substitute_class(const Type* type, const Substitution& sub
 		return type;
 	if (facts->role == TemplateRole::Specialization && facts->dependent && IsStandIn(facts->pattern))
 		return substitute_stand_in(type, substitution);
-	// An alias template-id with unresolved argument positions or dropped
-	// dependent arguments (CWG 1558): formed again after substitution.
+	// Form an alias template-id again to resolve argument positions,
+	// substitute discarded dependent arguments or check dependent constraints.
 	if (facts->role == TemplateRole::Specialization && facts->pattern->templ->alias_stand_in)
 	{
 		TypeList given;

@@ -407,6 +407,9 @@ unsatisfied alias or variable specialization before publishing it. A partial
 specialization may keep the primary's argument pattern when its constraints
 make it more specialized. Preserve distinct constrained partials with equal
 patterns and use normalized atomic subsumption to order viable matches.
+Check a dependent alias template-id's constraints when its arguments become
+known, including through another alias template. See N4861 `[temp.alias]`
+and `[temp.constr.decl]`.
 Equivalent redeclarations may rename parameters. Constrained hidden friends
 remain hidden until their own namespace declaration makes them visible. A
 friend function defined in a class template may end with a requires-clause
