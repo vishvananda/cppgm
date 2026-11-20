@@ -2042,6 +2042,19 @@
         "sha256": "9f54db3aee8c6beec374ecea9a96ae5172f584cfcaf793c2d41dbf775afc43aa",
         "historical_edits": "deletions/insertions preserved, not applied"
       }
+    },
+    {
+      "issue": 3003,
+      "title": "Naming a deducible template for class template argument deduction",
+      "status": "review",
+      "role": "course-reference",
+      "file": "cwg-3003.txt",
+      "source_url": "https://cplusplus.github.io/CWG/issues/3003.html",
+      "snapshot_url": "https://raw.githubusercontent.com/cplusplus/CWG/38a43db15e384602a0c5debc3f7f22be32e186a1/issues/3003.html",
+      "source_html_sha256": "f17bc4f78e1f0b9d218a20cfea57dda306531cfaa721fbae8c1059f2ca700f55",
+      "text_sha256": "4e3c27908642859ea80974d07928fe167b084c7a6e8566813f00330bc630206c",
+      "adopted_papers": [],
+      "text_format": "course summary"
     }
   ],
   "supplemental_papers": [

@@ -2958,10 +2958,12 @@ ExprFacts* Analyzer::functional_cast(const syntax::FunctionalCastExpr& expr, Sco
 
 	// 5.2.3: T(e) is the cast (T)e; T() and T{} value-initialize.
 	Specifiers specifiers;
-	ClassEntity* deduction = cxx17_ ? deduction_template(expr.type, scope) : nullptr;
+	const Type* deduction = cxx17_ ? deduction_template(expr.type, scope) : nullptr;
+	if (deduction != nullptr && deduction->kind == TypeKind::TemplateTemplateParameter)
+		return new_facts(expr, dependent_decltype(expr, scope), ValueCategory::PRValue);
 	if (deduction != nullptr)
-		specifiers.type = deduce_class_type(deduction, expr.braced != nullptr ? expr.braced->elements : expr.arguments,
-			scope, expr.location, false, expr.braced);
+		specifiers.type = deduce_class_type(static_cast<ClassEntity*>(deduction->entity),
+			expr.braced != nullptr ? expr.braced->elements : expr.arguments, scope, expr.location, false, expr.braced);
 	else
 		this->specifiers(expr.type, scope, specifiers, false);
 	if (failed())

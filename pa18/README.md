@@ -244,6 +244,11 @@ Preserve explicitness, defaults and the copy-deduction/list-initialization
 rules; diagnose equivalent guides and invalid result specializations.
 See N4659 `[over.match.class.deduct]` and `[temp.deduct.guide]`.
 
+A deduction use that names a template template parameter depends on its
+argument. When that argument is a class template, use its guides after
+substitution. This follows GCC and Clang for the class-template case in
+[CWG 3003](../doc/cwg/cwg-3003.txt).
+
 Placeholder non-type parameters (`auto`, `auto*`, `auto&`, `decltype(auto)`)
 deduce type and value while retaining object/function identity, references
 and heterogeneous packs. The resulting argument must still be a permitted

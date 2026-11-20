@@ -695,7 +695,7 @@ private:
 	Scope* constraint_prototype(const DeclaratorInfo&);
 	Scope* constraint_trailing_scope(const ConstraintPredicate*, const TypeList&);
 	bool atomic_constraint_satisfied(const syntax::Expr& expr, Scope* scope);
-	ClassEntity* deduction_template(const syntax::Slice<syntax::DeclSpecifier>& type, Scope* scope);
+	const Type* deduction_template(const syntax::Slice<syntax::DeclSpecifier>& type, Scope* scope);
 	const Type* deduce_class_type(ClassEntity* templ, const syntax::Slice<syntax::Expr*>& arguments, Scope* scope,
 		uint32_t location, bool copy_initialization = false, const syntax::BracedInitList* list = nullptr);
 	bool class_deduction_copy_source(ClassEntity* templ, ClassEntity* source);

@@ -47,12 +47,12 @@ const Type* Analyzer::deduce_class_declaration(
 		type = dependent_decltype(*cast, scope);
 	}
 	else
-		type = deduce_class_type(specifiers.deduction, arguments, scope, location,
+		type = deduce_class_type(static_cast<ClassEntity*>(specifiers.deduction->entity), arguments, scope, location,
 			initializer.kind == syntax::InitializerKind::Assign, list);
 	return type != nullptr ? types_.qualified(type, specifiers.cv) : nullptr;
 }
 
-ClassEntity* Analyzer::deduction_template(const syntax::Slice<syntax::DeclSpecifier>& type, Scope* scope)
+const Type* Analyzer::deduction_template(const syntax::Slice<syntax::DeclSpecifier>& type, Scope* scope)
 {
 	if (type.size != 1 || type[0].kind != syntax::DeclSpecKind::Name)
 		return nullptr;
@@ -60,13 +60,15 @@ ClassEntity* Analyzer::deduction_template(const syntax::Slice<syntax::DeclSpecif
 	if (name.last().has_arguments)
 		return nullptr;
 	const LookupResult found = lookup_name(name, scope, LookupFilter::Ordinary);
-	if (!found.found() || found.ambiguous || found.binding->kind != BindingKind::Type ||
-		found.binding->entity == nullptr || found.binding->entity->kind != EntityKind::Class)
+	if (!found.found() || found.ambiguous)
 		return nullptr;
-	ClassEntity* cls = static_cast<ClassEntity*>(found.binding->entity);
-	return cls->templ != nullptr && cls->templ->role == TemplateRole::Template &&
-			found.binding->declared_in != cls->scope
-		? cls
+	const Type* templ = template_name_type(found.binding, false);
+	// GCC and Clang also accept a deduced type naming a template
+	// template-parameter (CWG 3003). Its argument provides the guides
+	// when the enclosing template is instantiated.
+	return templ != nullptr &&
+			(templ->kind == TypeKind::TemplateTemplateParameter || templ->entity->kind == EntityKind::Class)
+		? templ
 		: nullptr;
 }
 

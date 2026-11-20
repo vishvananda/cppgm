@@ -273,7 +273,7 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 					syntax::Slice<syntax::DeclSpecifier>{ const_cast<syntax::DeclSpecifier*>(&specifier), 1 }, scope);
 			if (__builtin_expect(out.deduction != nullptr, 0))
 			{
-				named = types_.named(TypeKind::Template, out.deduction);
+				named = out.deduction;
 				out.type_specifier = &specifier;
 				break;
 			}

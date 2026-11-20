@@ -138,6 +138,7 @@ doc/cwg/cwg-2994.txt
 doc/cwg/issue-2251.txt
 doc/cwg/issue-2374.txt
 doc/cwg/manifest.json
+doc/cwg/cwg-3003.txt
 doc/cwg/paper-n1626.txt
 doc/cwg/paper-n3638.txt
 doc/cwg/paper-n3648.txt
