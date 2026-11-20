@@ -9,11 +9,11 @@
 // passing a block that needs the frame (a call, SP, the frame record, the
 // link register, a floating or vector register, or an instruction not
 // modelled here) and that no such block reaches back run frameless when one
-// of them returns. Their uses of callee-saved registers take caller
-// registers the region never names (an argument register when the entry
-// copies it there first); each edge out of the region goes through a copy
-// of the prologue that also copies those registers back and performs the
-// entry's stores to the frame. The region's returns lose their restores.
+// of them returns. A callee-saved register they use must be the entry's
+// copy of an argument register, which they use in its place; each edge out
+// of the region goes through a copy of the prologue that also makes those
+// copies and performs the entry's stores to the frame. The region's returns
+// lose their restores.
 // The region comes first; the framed blocks keep their order after it.
 // Frameless code has the CIE's rules and framed code the prologue's,
 // restated where the code ahead leaves the other state; framed blocks keep
@@ -28,9 +28,6 @@ using machine::ShrinkPlan;
 constexpr uint32_t kCopyBudget = 64;
 constexpr uint32_t kReturnCopyCap = 4;
 constexpr uint32_t kMinimalCopyBudgets[3] = { 16, 8, 4 };
-// Caller registers that can stand in for a callee-saved one: the selector's
-// scratch registers first, IP0 and IP1 last.
-constexpr unsigned kStandIns[] = { 9, 10, 11, 12, 13, 14, 15, 8, 7, 6, 5, 4, 3, 2, 1, 0, 16, 17 };
 
 enum Field : uint8_t
 {
@@ -443,8 +440,7 @@ private:
 	struct Sunk
 	{
 		uint32_t pc;
-		unsigned count, data[2], spare[2];
-		bool kept[2];
+		unsigned count, data[2];
 	};
 	// The new code's pieces, in order: the region's blocks, the frameless
 	// copies a branch enters, the prologue copies and the framed blocks.
@@ -466,7 +462,7 @@ private:
 	void find_sunk();
 	void classify();
 	bool plan(ShrinkPlan mode, uint32_t minimal_budget);
-	bool stand_ins(const std::vector<uint8_t>& to_exit);
+	bool renames(const std::vector<uint8_t>& to_exit);
 	void order_items();
 	uint32_t label_for(Kind kind, uint32_t index);
 	uint32_t target_block(uint32_t label) const { return block_of_[f_.labels[label]]; }
@@ -496,7 +492,6 @@ private:
 	machine::ShrinkRegion region_;
 	std::vector<Sunk> sunk_;
 	std::vector<uint32_t> sunk_at_; // pc -> index in sunk_, or kNoId
-	uint32_t prologue_names_ = 0;
 	unsigned rename_[32];
 	std::vector<std::pair<unsigned, unsigned>> copies_; // (callee-saved, its stand-in)
 	// Rewriting.
@@ -633,7 +628,7 @@ void Wrapper::find_sunk()
 		const bool pair = ins.op == Op::StpX || ins.op == Op::StpW;
 		if (epilogue_[pc] || ins.fixup != Fixup::None || ins.rn != 31 || (!single && !pair))
 			continue;
-		Sunk store = { pc, pair ? 2u : 1u, { ins.rd, reg_of(ins, kRa) }, { 31, 31 }, { false, false } };
+		Sunk store = { pc, pair ? 2u : 1u, { ins.rd, reg_of(ins, kRa) } };
 		bool plain = true;
 		for (unsigned k = 0; k < store.count; ++k)
 			plain = plain && store.data[k] != 18 && store.data[k] != 29 && store.data[k] != 30;
@@ -667,10 +662,14 @@ void Wrapper::classify()
 	}
 }
 
-// Callee-saved registers the region names take caller registers it never
-// names (nor an incoming argument, nor the prologue), as do moved stores
-// whose registers the region writes on the way to an exit.
-bool Wrapper::stand_ins(const std::vector<uint8_t>& to_exit)
+// Each callee-saved register the region names must be one it sets just
+// once on the way to an exit, first thing it does with it, from an incoming
+// register it never writes: that register takes its place (a leaf block may
+// write it again when no leaf block names the incoming register itself).
+// Any other register in its place would cost the framed paths a copy, which
+// measured worse. The registers of the entry's moved stores must reach the
+// exits unchanged.
+bool Wrapper::renames(const std::vector<uint8_t>& to_exit)
 {
 	uint32_t names = 0, written = 0, leaf_names = 0;
 	uint32_t writes[32] = {}, exit_writes[32] = {};
@@ -702,52 +701,27 @@ bool Wrapper::stand_ins(const std::vector<uint8_t>& to_exit)
 	for (unsigned r = 0; r < 32; ++r)
 		rename_[r] = r;
 	copies_.clear();
-	uint32_t taken = names | frame_.incoming | prologue_names_;
-	auto stand_in = [&]() -> unsigned {
-		for (unsigned r : kStandIns)
-			if (!(taken & (1u << r)))
-			{
-				taken |= 1u << r;
-				return r;
-			}
-		return lowir::kNoId;
-	};
 	for (unsigned c = 19; c <= 28; ++c)
 	{
 		if (!(names & (1u << c)))
 			continue;
-		// One the region sets just once on the way to an exit, first thing
-		// it does with it, from an incoming register it never writes: that
-		// register stands in (a leaf block may write it again when no leaf
-		// block names the incoming register itself).
 		uint32_t at = first_[0];
 		while (at < end_[0] && (epilogue_[at] || !(registers(f_.code[at], true, true) & (1u << c))))
 			++at;
-		if (at < end_[0] && exit_writes[c] == 1)
-		{
-			const Instruction& ins = f_.code[at];
-			const unsigned source = ins.rm;
-			if (is_move(ins) && ins.rd == c && source < 31 && (frame_.incoming & (1u << source)) &&
-				writes[source] == 0 && (writes[c] == 1 || !(leaf_names & (1u << source))))
-			{
-				rename_[c] = source;
-				copies_.push_back({ c, source });
-				continue;
-			}
-		}
-		rename_[c] = stand_in();
-		if (rename_[c] == lowir::kNoId)
+		if (at == end_[0] || exit_writes[c] != 1)
 			return false;
-		copies_.push_back({ c, rename_[c] });
+		const Instruction& ins = f_.code[at];
+		const unsigned source = ins.rm;
+		if (!is_move(ins) || ins.rd != c || source >= 31 || !(frame_.incoming & (1u << source)) ||
+			writes[source] != 0 || (writes[c] != 1 && (leaf_names & (1u << source))))
+			return false;
+		rename_[c] = source;
+		copies_.push_back({ c, source });
 	}
-	for (auto& store : sunk_)
+	for (const auto& store : sunk_)
 		for (unsigned k = 0; k < store.count; ++k)
-		{
-			store.kept[k] = store.data[k] < 31 && (written & (1u << store.data[k]));
-			store.spare[k] = store.kept[k] ? stand_in() : 31;
-			if (store.spare[k] == lowir::kNoId)
+			if (store.data[k] < 31 && (written & (1u << store.data[k])))
 				return false;
-		}
 	return true;
 }
 
@@ -757,7 +731,7 @@ bool Wrapper::plan(ShrinkPlan mode, uint32_t minimal_budget)
 		return false;
 	std::vector<uint8_t> to_exit;
 	machine::exit_reaching(graph_, region_, to_exit);
-	return stand_ins(to_exit);
+	return renames(to_exit);
 }
 
 // The region's blocks; the copies a conditional branch enters (a short
@@ -899,9 +873,8 @@ void Wrapper::frameless_transfer(uint32_t s, size_t at)
 		jump_to(label_for(Kind::Prologue, exit_of_[s]));
 }
 
-// A region block or a copy, renamed, with no frame and no restores. The
-// entry's moved stores leave their value in a spare register when the
-// region may change it before an exit.
+// A region block or a copy, renamed, with no frame, no restores and none of
+// the entry's moved stores.
 void Wrapper::emit_frameless(uint32_t b, size_t at)
 {
 	for (uint32_t pc = first_[b]; pc < end_[b]; ++pc)
@@ -910,14 +883,7 @@ void Wrapper::emit_frameless(uint32_t b, size_t at)
 			continue;
 		Instruction ins = f_.code[pc];
 		if (b == 0 && sunk_at_[pc] != lowir::kNoId)
-		{
-			const Sunk& store = sunk_[sunk_at_[pc]];
-			for (unsigned k = 0; k < store.count; ++k)
-				if (store.kept[k])
-					code_.push_back(
-						Instruction{ Op::Orr, store.spare[k], 31, rename_[store.data[k]], 0, Fixup::None, 0 });
 			continue;
-		}
 		if (pc + 1 == end_[b] && ins.op == Op::B && ins.fixup == Fixup::Block)
 		{
 			frameless_transfer(target_block(ins.target), at);
@@ -955,14 +921,7 @@ void Wrapper::emit_prologue(uint32_t exit, size_t at)
 	for (const auto& copy : copies_)
 		code_.push_back(Instruction{ Op::Orr, copy.first, 31, copy.second, 0, Fixup::None, 0 });
 	for (const auto& store : sunk_)
-	{
-		Instruction ins = f_.code[store.pc];
-		if (store.kept[0])
-			ins.rd = store.spare[0];
-		if (store.count == 2 && store.kept[1])
-			set_reg(ins, kRa, store.spare[1]);
-		code_.push_back(ins);
-	}
+		code_.push_back(f_.code[store.pc]);
 	framed_state_ = true;
 	const uint32_t s = region_.exits[exit];
 	if (!next_is(at, Kind::Framed, s))
@@ -1056,8 +1015,6 @@ bool Wrapper::run()
 	machine::framed_blocks(graph_, framed_);
 	if (framed_[0])
 		return false;
-	for (uint32_t pc = 0; pc < p_; ++pc)
-		prologue_names_ |= registers(f_.code[pc], true, true);
 	if (!plan(ShrinkPlan::Wide, 0) && !plan(ShrinkPlan::Narrow, 0) &&
 		!plan(ShrinkPlan::Minimal, kMinimalCopyBudgets[0]) && !plan(ShrinkPlan::Minimal, kMinimalCopyBudgets[1]) &&
 		!plan(ShrinkPlan::Minimal, kMinimalCopyBudgets[2]))

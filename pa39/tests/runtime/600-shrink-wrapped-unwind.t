@@ -12,8 +12,8 @@ extern "C" long early_or_call(long n, long m) {
     return a + b + c + d;
 }
 
-// The loop runs before the frame. What it leaves for the calls moves to
-// callee-saved registers when the frame is set up.
+// The loop keeps its sum in a callee-saved register for the calls, so the
+// frame comes before it.
 extern "C" long sum_then_call(const long* p, long n) {
     long s = 0;
     for (long i = 0; i < n; ++i) s += p[i] * 3;
