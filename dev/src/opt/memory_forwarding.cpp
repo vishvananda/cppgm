@@ -49,7 +49,8 @@ struct Known
 {
 	Value value;
 	uint32_t generation;
-	bool typed; // from an IF_TYPED access
+	bool typed;   // from an IF_TYPED access
+	bool written; // from a store, or copied from one (not from a load)
 	Type type;
 	AddressFacts at; // the address's facts (fixed during the walk)
 	uint64_t bytes;  // storage_bytes(type)
@@ -110,6 +111,16 @@ uint64_t type_key(Type t)
 	__builtin_memcpy(&bits, &t, sizeof bits);
 	return bits;
 }
+
+// One stored value of a range the facts tile (MemoryForwarding::tile_parts):
+// its offset from the range's start, its type and the value.
+struct MovedPart
+{
+	uint64_t offset;
+	Type type;
+	Value value;
+	bool written;
+};
 
 // Memory contents known at each point of a dominator-tree walk: the value a
 // nonvolatile load read or a store wrote, by address and type, and the
@@ -185,13 +196,16 @@ private:
 	void remember_extension(const Instruction& store);
 	Value packed_literal(const Instruction& load, const AddressFacts& at);
 	void remember(Value address, Type type, Value value, bool typed);
-	void remember_at(const AddressFacts& f, const Key& key, Type type, Value value, bool typed);
+	void remember_at(const AddressFacts& f, const Key& key, Type type, Value value, bool typed, bool written);
 	void copy_facts(const Instruction& copy);
 	bool reuse_call(const Instruction& call);
 	void note_call_write(Value destination, uint64_t bytes);
 	void process(BlockId block);
 	InstId known_copy(BlockId block, InstId prev, InstId id);
+	size_t tile_parts(const AddressFacts& at, uint64_t bytes, bool floats, MovedPart* parts) const;
 	InstId field_copy(BlockId block, InstId prev, InstId id);
+	InstId moved_load(BlockId block, InstId prev, InstId id, const AddressFacts& at);
+	InstId store_parts(BlockId block, InstId after, Value dst, const MovedPart* parts, size_t count, uint32_t location);
 	void drop_unread_writes();
 	void drop_overwritten_stores();
 	bool may_read_slot(const Instruction& inst, uint32_t slot, uint64_t bytes) const;
@@ -308,6 +322,11 @@ private:
 	bool result_escaped_ = true;
 	bool changed_ = false;
 	bool replaced_ = false; // some repl_ entry is set
+	// Use counts of the temps, counted when moved_load first asks in a run
+	// and kept by its own rewrites (the walk's other edits change no count
+	// of a load it has not reached).
+	std::vector<uint32_t> uses_;
+	bool uses_counted_ = false;
 };
 
 struct MemoryForwarding::Pool
@@ -675,7 +694,7 @@ const size_t kMaxFacts = 64;
 void MemoryForwarding::remember(Value address, Type type, Value value, bool typed)
 {
 	const AddressFacts f = facts_of(address);
-	remember_at(f, key_of(f, address, type), type, value, typed);
+	remember_at(f, key_of(f, address, type), type, value, typed, true);
 }
 
 // The narrow scalar of a sign or zero extension occupies the first
@@ -702,14 +721,15 @@ void MemoryForwarding::remember_extension(const Instruction& store)
 		note_zero(store.ops[1], wide - bytes, bytes);
 }
 
-void MemoryForwarding::remember_at(const AddressFacts& f, const Key& key, Type type, Value value, bool typed)
+void MemoryForwarding::remember_at(
+	const AddressFacts& f, const Key& key, Type type, Value value, bool typed, bool written)
 {
 	const uint32_t* at = index_.find(key);
 	Known* found = at != nullptr ? &facts_[*at].known : nullptr;
 	const bool live = found != nullptr && found->generation == generation_;
 	if (!live && live_.size() >= kMaxFacts)
 		invalidate_all();
-	const Known fact = { value, generation_, typed, type, f, storage_bytes(type) };
+	const Known fact = { value, generation_, typed, written, type, f, storage_bytes(type) };
 	uint32_t entry;
 	if (found != nullptr)
 	{
@@ -720,7 +740,7 @@ void MemoryForwarding::remember_at(const AddressFacts& f, const Key& key, Type t
 	else
 	{
 		entry = static_cast<uint32_t>(facts_.size());
-		undo_.push_back(std::make_pair(entry, Known{ Value::none(), 0, false, type, AddressFacts(), 0 }));
+		undo_.push_back(std::make_pair(entry, Known{ Value::none(), 0, false, false, type, AddressFacts(), 0 }));
 		facts_.push_back(Fact{ key, fact });
 		index_.insert(key, entry);
 	}
@@ -1119,7 +1139,7 @@ void MemoryForwarding::process(BlockId block)
 				{
 					inst.op = Opcode::Copy;
 					inst.ops[0] = other->value;
-					remember_at(at, key, inst.type, Value::temp(inst.result), (inst.flags & IF_TYPED) != 0);
+					remember_at(at, key, inst.type, Value::temp(inst.result), (inst.flags & IF_TYPED) != 0, false);
 					++c_.stats.loads_reused;
 					changed_ = true;
 					prev = i;
@@ -1138,7 +1158,13 @@ void MemoryForwarding::process(BlockId block)
 				i = next;
 				continue;
 			}
-			remember_at(at, key, inst.type, Value::temp(inst.result), (inst.flags & IF_TYPED) != 0);
+			const InstId moved = live_.empty() ? kNoId : moved_load(block, prev, i, at);
+			if (moved != kNoId)
+			{
+				i = moved; // the instructions up to the new stores, examined next
+				continue;
+			}
+			remember_at(at, key, inst.type, Value::temp(inst.result), (inst.flags & IF_TYPED) != 0, false);
 		}
 		else if (inst.op == Opcode::Store)
 		{
@@ -1239,7 +1265,7 @@ void MemoryForwarding::copy_facts(const Instruction& copy)
 			continue;
 		AddressFacts at = dst;
 		at.offset += delta;
-		remember_at(at, key_of(at, Value::none(), f.type), f.type, f.value, f.typed);
+		remember_at(at, key_of(at, Value::none(), f.type), f.type, f.value, f.typed, f.written);
 	}
 	const size_t ranges = zeros_.size();
 	for (size_t k = 0; k < ranges; ++k)
@@ -1387,56 +1413,54 @@ InstId MemoryForwarding::known_copy(BlockId block, InstId prev, InstId id)
 	return first;
 }
 
-// A small copy whose source the facts tile exactly -- each byte in one
-// stored integer, pointer or vector value, a temp or a literal, at most
-// kWholeCopyStores of them -- becomes stores of those values: a pair
-// built from a variable and copied out (push_back(make_pair(b, 0u))) no
-// longer reloads the temporary whole right after its narrower stores,
-// which store forwarding cannot serve.
-InstId MemoryForwarding::field_copy(BlockId block, InstId prev, InstId id)
+// The live facts that tile bytes [at.offset, at.offset + bytes) of at's
+// object exactly, each byte in one stored integer, pointer or vector value
+// (floating too when `floats`), a temp of the fact's type or a literal, in
+// order: their count, at most kWholeCopyStores; 0 when they do not tile.
+size_t MemoryForwarding::tile_parts(const AddressFacts& at, uint64_t bytes, bool floats, MovedPart* parts) const
 {
-	const Instruction copy = body_.instructions[id];
-	const uint64_t bytes = static_cast<uint64_t>(copy.immediate);
-	const AddressFacts src = facts_of(copy.ops[0]);
-	if ((copy.flags & IF_VOLATILE) != 0 || bytes == 0 || bytes > 8 * kWholeCopyStores || src.base == ValueKind::None)
-		return kNoId;
-	struct Part
-	{
-		uint64_t offset;
-		Type type;
-		Value value;
-	};
-	std::vector<Part> parts;
+	size_t count = 0;
 	for (uint32_t entry : live_)
 	{
 		const Known& found = facts_[entry].known;
+		const bool real = floats && (found.type.kind() == TypeKind::F32 || found.type.kind() == TypeKind::F64);
 		if (found.generation != generation_ ||
-			!(found.value.is(ValueKind::Integer) || found.value.is(ValueKind::Temp)) ||
-			!(found.type.is_pointer() || found.type.is_vector() ||
+			!(found.value.is(ValueKind::Integer) || found.value.is(ValueKind::Temp) ||
+				(real && found.value.is(ValueKind::Float))) ||
+			!(real || found.type.is_pointer() || found.type.is_vector() ||
 				(found.type.is_integer() && found.type.kind() != TypeKind::I128)) ||
 			(found.value.is(ValueKind::Temp) && !(body_.temps[found.value.index].type == found.type)))
 			continue;
-		const int64_t offset = found.at.offset - src.offset;
-		if (found.at.base != src.base || found.at.index != src.index || offset < 0 ||
+		const int64_t offset = found.at.offset - at.offset;
+		if (found.at.base != at.base || found.at.index != at.index || offset < 0 ||
 			offset + static_cast<int64_t>(found.bytes) > static_cast<int64_t>(bytes))
 			continue;
-		parts.push_back(Part{ static_cast<uint64_t>(offset), found.type, found.value });
+		if (count == kWholeCopyStores)
+			return 0;
+		size_t k = count++;
+		for (; k > 0 && parts[k - 1].offset > static_cast<uint64_t>(offset); --k)
+			parts[k] = parts[k - 1];
+		parts[k] = MovedPart{ static_cast<uint64_t>(offset), found.type, found.value, found.written };
 	}
-	std::sort(parts.begin(), parts.end(), [](const Part& a, const Part& b) { return a.offset < b.offset; });
 	uint64_t next = 0;
-	for (const Part& part : parts)
+	for (size_t k = 0; k < count; ++k)
 	{
-		if (part.offset != next)
-			return kNoId;
-		next += storage_bytes(part.type);
+		if (parts[k].offset != next)
+			return 0;
+		next += storage_bytes(parts[k].type);
 	}
-	if (next != bytes || parts.size() > kWholeCopyStores)
-		return kNoId;
-	const Value dst = copy.ops[1];
+	return next == bytes ? count : 0;
+}
+
+// Stores of `parts` at their offsets from `dst`, inserted after `after`;
+// the last one inserted.
+InstId MemoryForwarding::store_parts(
+	BlockId block, InstId after, Value dst, const MovedPart* parts, size_t count, uint32_t location)
+{
 	const AddressFacts dst_facts = facts_of(dst);
-	InstId after = id;
-	for (const Part& part : parts)
+	for (size_t k = 0; k < count; ++k)
 	{
+		const MovedPart& part = parts[k];
 		Value address = dst;
 		if (part.offset != 0)
 		{
@@ -1444,7 +1468,7 @@ InstId MemoryForwarding::field_copy(BlockId block, InstId prev, InstId id)
 			index.sub = ir_model::IPK_FIELD;
 			index.ops[0] = dst;
 			index.ops[1] = integer_value(body_, integer_literal(static_cast<int64_t>(part.offset)));
-			index.location = copy.location;
+			index.location = location;
 			const InstId at = append_instruction(body_, index);
 			const TempId t = append_temp(body_, body_.pointer_type(), at);
 			body_.instructions[at].result = t;
@@ -1462,16 +1486,116 @@ InstId MemoryForwarding::field_copy(BlockId block, InstId prev, InstId id)
 		Instruction store = make_instruction(Opcode::Store, part.type);
 		store.ops[0] = part.value;
 		store.ops[1] = address;
-		store.location = copy.location;
+		store.location = location;
 		const InstId at = append_instruction(body_, store);
 		insert_after(body_, block, after, at);
 		after = at;
 	}
+	return after;
+}
+
+// A small copy whose source the facts tile exactly (tile_parts, no
+// floating values) becomes stores of those values: a pair built from a
+// variable and copied out (push_back(make_pair(b, 0u))) no longer reloads
+// the temporary whole right after its narrower stores, which store
+// forwarding cannot serve.
+InstId MemoryForwarding::field_copy(BlockId block, InstId prev, InstId id)
+{
+	const Instruction copy = body_.instructions[id];
+	const uint64_t bytes = static_cast<uint64_t>(copy.immediate);
+	const AddressFacts src = facts_of(copy.ops[0]);
+	if ((copy.flags & IF_VOLATILE) != 0 || bytes == 0 || bytes > 8 * kWholeCopyStores || src.base == ValueKind::None)
+		return kNoId;
+	MovedPart parts[kWholeCopyStores];
+	const size_t count = tile_parts(src, bytes, false, parts);
+	if (count == 0)
+		return kNoId;
+	store_parts(block, id, copy.ops[1], parts, count, copy.location);
 	++c_.stats.loads_reused;
 	changed_ = true;
 	const InstId first = body_.instructions[id].next;
 	unlink_after(body_, block, prev, id);
 	return first;
+}
+
+// A load whose one use is a store of its value just after it (a memory
+// move) and whose bytes the facts tile with narrower values, or with one
+// value of another type (tile_parts, floating values too), at least one of
+// them stored, becomes stores of those values where the store writes: a
+// result built from its fields in a temporary and copied out as integers
+// (a call through a member pointer, inlined once the caller's pointer was
+// known) is written where it goes, not reloaded whole right after its
+// narrower stores, which store forwarding cannot serve; the temporary's
+// writes then die unread. (Bytes only loaded before forward from memory to
+// the wide load, and the destination's later wide reads would rebuild it.)
+const unsigned kMoveScan = 8; // instructions searched after the load for the store
+
+InstId MemoryForwarding::moved_load(BlockId block, InstId prev, InstId id, const AddressFacts& at)
+{
+	const Instruction load = body_.instructions[id];
+	const Type type = load.type;
+	const bool scalar = type.is_pointer() || type.kind() == TypeKind::F32 || type.kind() == TypeKind::F64 ||
+		(type.is_integer() && type.kind() != TypeKind::I128 && type.kind() != TypeKind::I1);
+	if (at.base == ValueKind::None || (load.flags & IF_TYPED) != 0 || !(scalar || type.is_vector()))
+		return kNoId;
+	MovedPart parts[kWholeCopyStores];
+	const size_t count = tile_parts(at, storage_bytes(type), true, parts);
+	if (count == 0 || (count == 1 && parts[0].type == type))
+		return kNoId;
+	bool written = false;
+	for (size_t k = 0; k < count; ++k)
+		written = written || parts[k].written;
+	if (!written)
+		return kNoId;
+	const Value value = Value::temp(load.result);
+	auto reads = [&](const Instruction& inst) {
+		bool found = false;
+		for_each_operand(body_, inst, [&](const Value& v) { found = found || v == value; });
+		return found;
+	};
+	InstId before = id, use = load.next;
+	for (unsigned n = 0; use != kNoId && !reads(body_.instructions[use]); ++n)
+	{
+		if (n == kMoveScan)
+			return kNoId;
+		before = use;
+		use = body_.instructions[use].next;
+	}
+	if (use == kNoId)
+		return kNoId;
+	const Instruction store = body_.instructions[use];
+	if (store.op != Opcode::Store || (store.flags & IF_VOLATILE) != 0 || !(store.ops[0] == value) ||
+		store.ops[1] == value || !(store.type == type))
+		return kNoId;
+	if (!uses_counted_)
+	{
+		count_uses(body_, uses_);
+		uses_counted_ = true;
+	}
+	if (load.result >= uses_.size() || uses_[load.result] != 1)
+		return kNoId;
+	Value dst = store.ops[1];
+	while (dst.is(ValueKind::Temp) && dst.index < repl_.size() && !repl_[dst.index].is(ValueKind::None))
+		dst = repl_[dst.index];
+	const InstId last = store_parts(block, use, dst, parts, count, store.location);
+	// (The counts the rewrite moves: the store's and the load's operands
+	// go, the new instructions' come.)
+	uses_.resize(body_.temps.size(), 0);
+	auto count_operands = [&](const Instruction& inst, int step) {
+		for_each_operand(body_, inst, [&](const Value& v) {
+			if (v.is(ValueKind::Temp) && v.index < uses_.size())
+				uses_[v.index] = static_cast<uint32_t>(static_cast<int>(uses_[v.index]) + step);
+		});
+	};
+	for (InstId k = body_.instructions[use].next; k != body_.instructions[last].next; k = body_.instructions[k].next)
+		count_operands(body_.instructions[k], 1);
+	count_operands(store, -1);
+	count_operands(load, -1);
+	unlink_after(body_, block, before, use);
+	unlink_after(body_, block, prev, id);
+	++c_.stats.loads_reused;
+	changed_ = true;
+	return prev == kNoId ? body_.blocks[block].first : body_.instructions[prev].next;
 }
 
 // Writes to a private slot nothing reads (no load or copy from it, and no
@@ -1870,6 +1994,7 @@ void MemoryForwarding::replay_arms()
 bool MemoryForwarding::run()
 {
 	store_blocks_.clear();
+	uses_counted_ = false;
 	c_.ensure_cfg();
 	if (cfg_.rpo.empty())
 		return false;

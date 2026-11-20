@@ -1,0 +1,93 @@
+function @cross(%r : ptr, %a : ptr, %b : ptr) -> void [no_inline=yes] {
+  block ^entry:
+    %a4 = index i8 [projection=field] %a, 4
+    %a8 = index i8 [projection=field] %a, 8
+    %b4 = index i8 [projection=field] %b, 4
+    %b8 = index i8 [projection=field] %b, 8
+    %ax = load f32 %a
+    %ay = load f32 %a4
+    %az = load f32 %a8
+    %bx = load f32 %b
+    %by = load f32 %b4
+    %bz = load f32 %b8
+    %p1 = binary mul f32 %ay, %bz
+    %q1 = binary mul f32 %az, %by
+    %x = binary sub f32 %p1, %q1
+    %p2 = binary mul f32 %az, %bx
+    %q2 = binary mul f32 %ax, %bz
+    %y = binary sub f32 %p2, %q2
+    %p3 = binary mul f32 %ax, %by
+    %q3 = binary mul f32 %ay, %bx
+    %z = binary sub f32 %p3, %q3
+    %r8 = index i8 [projection=field] %r, 8
+    store f32 %x, %r8
+    %t21 = index i8 [projection=field] %r, 12
+    store f32 %y, %t21
+    %r16 = index i8 [projection=field] %r, 16
+    store f32 %z, %r16
+    return void
+}
+function @pair(%r : ptr, %a : i32, %b : i32) -> void [no_inline=yes] {
+  block ^entry:
+    store i32 %a, %r
+    %t1 = index i8 [projection=field] %r, 4
+    store i32 %b, %t1
+    return void
+}
+function @kept(%r : ptr, %x : f32, %y : f32) -> i64 [no_inline=yes] {
+  block ^entry:
+    %t1 = copy u32 %x
+    %t2 = convert zext i64 u32 %t1
+    %t3 = copy u32 %y
+    %t4 = convert zext i64 u32 %t3
+    %t5 = binary shl i64 %t4, 32
+    %t6 = binary or i64 %t2, %t5
+    store i64 %t6, %r
+    return i64 %t6
+}
+function @main() -> i32 [role=entry] {
+  slot $a : obj<12x4>
+  slot $b : obj<12x4>
+  slot $out : obj<24x8>
+  slot $words : obj<8x8>
+
+  block ^entry:
+    %a = addr $a
+    %a4 = index i8 [projection=field] %a, 4
+    %a8 = index i8 [projection=field] %a, 8
+    store f32 1f, %a
+    store f32 2f, %a4
+    store f32 3f, %a8
+    %b = addr $b
+    %b4 = index i8 [projection=field] %b, 4
+    %b8 = index i8 [projection=field] %b, 8
+    store f32 4f, %b
+    store f32 5f, %b4
+    store f32 6f, %b8
+    %out = addr $out
+    call void @cross(%out, %a, %b)
+    %o8 = index i8 [projection=field] %out, 8
+    %o12 = index i8 [projection=field] %out, 12
+    %o16 = index i8 [projection=field] %out, 16
+    %x = load f32 %o8
+    %y = load f32 %o12
+    %z = load f32 %o16
+    %xo = cmp eq f32 %x, -3f
+    %yo = cmp eq f32 %y, 6f
+    %zo = cmp eq f32 %z, -3f
+    %w = addr $words
+    call void @pair(%w, 7, -2)
+    %pw = load i64 %w
+    %po = cmp eq i64 %pw, -8589934585
+    %k = call i64 @kept(%w, 1f, 2f)
+    %kw = load i64 %w
+    %ke = cmp eq i64 %k, %kw
+    %kv = cmp eq i64 %k, 4611686019492741120
+    %c1 = binary and i1 %xo, %yo
+    %c2 = binary and i1 %zo, %c1
+    %c3 = binary and i1 %po, %c2
+    %c5 = binary and i1 %ke, %c3
+    %c6 = binary and i1 %kv, %c5
+    %status = select i32 %c6, 0, 1
+    return i32 %status
+}
