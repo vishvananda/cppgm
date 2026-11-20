@@ -11,6 +11,8 @@ template declaration and specialization model so the compiler knows:
 - what specializations exist
 - which specialization is selected
 - which declarations/definitions own the selected specialization
+- how a failed substitution removes a function template from consideration
+  when selecting the target of an explicit instantiation
 
 PA17 still produces LowIR. It does not introduce a new output format.
 

@@ -341,7 +341,13 @@ FunctionEntity* Analyzer::declared_specialization(const DeclaratorInfo& info, Sc
 		FunctionEntity* primary = static_cast<FunctionEntity*>(node->binding->entity);
 		if (!primary->templated)
 			continue;
-		FunctionEntity* candidate = deduce_for_declaration(primary, explicit_arguments, info.type);
+		FunctionEntity* candidate = nullptr;
+		{
+			SoftSubstitution soft(*this);
+			candidate = deduce_for_declaration(primary, explicit_arguments, info.type);
+			if (soft.failed())
+				candidate = nullptr;
+		}
 		if (candidate == nullptr || candidate == function)
 			continue;
 		if (function != nullptr)
