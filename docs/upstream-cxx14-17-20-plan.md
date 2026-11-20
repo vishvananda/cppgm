@@ -468,7 +468,11 @@ even with GCC in C++14.
   and adjusted pointers to members before claiming complete support.
 - Native Boost.PFR executes 135 declarations in C++14 and 195 across the
   C++14 and C++17 configurations. Eighty-eight additional declarations in
-  the frozen inventory depend on the upstream C++26 configurations.
+  the frozen core inventory require C++26 reflection or structured binding
+  packs. The replay manifest keeps all 283 declarations and selects 135
+  for C++14 and the additional 60 for C++17. GCC and cppgm passed both
+  variants. Explicit quote preservation gives the incomplete-type cases
+  their original type argument as one compiler argument.
   B2 reports the C++14 generator as a standalone Python test. Its
   original source dependency, execution receipt and requested build
   mode are required evidence for that declaration.
@@ -483,6 +487,13 @@ even with GCC in C++14.
   and run. The frontend preserves the explicit bound through type aliases
   and deduction. The PA11 layout controls cover their zero-byte extent,
   ordinary empty classes and flexible members of unknown bound.
+- PFR's empty-member conversions and dependent exception specifications
+  now run or reject as expected in the original core tests. The PA12 and
+  PA18 controls cover the observable effects and the rejection respectively.
+  GCC also passes the 19 original C++20 field-name declarations. Both GCC
+  and Clang accept their standalone named-subobject address probes. cppgm
+  still rejects both probes, which prevents B2 from running those 19 tests.
+  See [P1907R1](../doc/cwg/paper-p1907r1.txt) for the C++20 address rule.
 
 ## Measure before promoting the changes
 

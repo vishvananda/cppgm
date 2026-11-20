@@ -35,21 +35,25 @@ def validate_inventory(inventory):
                              group['replay_edition'] >= group['edition'] and group.get('replay_reason'),
                              'invalid replay edition override')
         inactive_tests = group.get('inactive_tests', {})
-        required = {*group.get('targets', []), *group.get('required_tests', [])}
+        selected = set(group.get('targets', []))
+        required = set(group.get('required_tests', []))
         later = group.get('later_tests', {})
         later_targets = [target for targets in later.values() for target in targets]
         if inactive_tests:
-            boost_ci.require(group.get('kind') == 'test' and not group.get('targets') and
+            boost_ci.require((group.get('kind') == 'test' or selected) and
                              all(isinstance(reason, str) and reason for reason in inactive_tests.values()) and
                              required.isdisjoint(inactive_tests), 'invalid registered test exclusions')
         if later:
-            boost_ci.require(group.get('kind') == 'test' and not group.get('targets') and
+            boost_ci.require((group.get('kind') == 'test' or selected) and
                              all(edition in {'17', '20'} and int(edition) > group.get('replay_edition', group['edition'])
                                  and targets for edition, targets in later.items()) and
                              len(later_targets) == len(set(later_targets)) and
                              set(later_targets).isdisjoint(required | inactive_tests.keys()),
                              'invalid later-edition test variants')
-        for target in required | inactive_tests.keys() | set(later_targets):
+        classified = inactive_tests.keys() | set(later_targets)
+        if selected:
+            boost_ci.require(classified < selected, 'edition variants must partition the selected declarations')
+        for target in required | selected | classified:
             boost_ci.require(re.fullmatch(r'libs/[A-Za-z0-9_/]+//[^/\s]+\.test', target) and
                              target.split('//')[0].startswith(project), 'invalid test declaration: ' + target)
         if group.get('b2_aliases'):
@@ -59,7 +63,7 @@ def validate_inventory(inventory):
         replay_properties = {'link=shared'}
         if project == 'libs/safe_numerics/test':
             replay_properties.add('variant=release')
-        if required == {'libs/spirit/test/x3//x3_attribute_type_check.test'}:
+        if required | selected == {'libs/spirit/test/x3//x3_attribute_type_check.test'}:
             replay_properties.add('cxxflags=-include boost/type_traits/decay.hpp')
         boost_ci.require(all(p in replay_properties for p in group.get('b2_properties', [])),
                          'unreviewed project-specific B2 property')
@@ -80,7 +84,11 @@ def replay_configurations(group):
     later = group.get('later_tests', {})
     for edition, targets in later.items():
         inactive.update({target: f'Run in the C++{edition} variant' for target in targets})
-    yield '', dict(group, inactive_tests=inactive)
+    if 'targets' in group:
+        targets = [target for target in group['targets'] if target not in inactive]
+        yield '', dict(group, targets=targets, inactive_tests={})
+    else:
+        yield '', dict(group, inactive_tests=inactive)
     for edition, targets in sorted(later.items()):
         yield f'-cxx{edition}', dict(project=group['project'], edition=int(edition), targets=targets,
                                      b2_properties=group.get('b2_properties', []))
