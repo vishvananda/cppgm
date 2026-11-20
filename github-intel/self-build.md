@@ -1,12 +1,12 @@
 # Compiler build and codegen benchmarks: Intel (GitHub)
 
-Measured compiler: [`0bf4bdfe0`](https://github.com/vishvananda/cppgm/commit/0bf4bdfe0b8e6703ee3dafe7ac8c410e2097974a) · [CI run](https://github.com/vishvananda/cppgm/actions/runs/44774088589) · [Raw rebuild results](selfhost.json)
+Measured compiler: [`897807fd4`](https://github.com/vishvananda/cppgm/commit/897807fd4b8c8a50f234a4480f91abe56a7760a8) · [CI run](https://github.com/vishvananda/cppgm/actions/runs/44780058957) · [Raw rebuild results](selfhost.json)
 
 Speed is reference CPU time divided by cppgm CPU time; higher is better.
 
-CPU: Intel(R) Xeon(R) 6975P-C.
+CPU: INTEL(R) XEON(R) PLATINUM 8573C.
 
-Measured compiler: 0bf4bdfe0b8e6703ee3dafe7ac8c410e2097974a.
+Measured compiler: 897807fd4b8c8a50f234a4480f91abe56a7760a8.
 
 GCC: g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0.
 
@@ -16,8 +16,8 @@ Build jobs: 4.
 
 | Measure | vs GCC ↑ | vs Clang ↑ |
 | --- | ---: | ---: |
-| Building cppgm | 4.20× | 3.83× |
-| Self-built compiler speed | 0.99× | 1.01× |
+| Building cppgm | 4.12× | 3.72× |
+| Self-built compiler speed | 1.00× | 1.01× |
 
 Building cppgm compares toolchains compiling the same sources. Self-built compiler speed compares fixed native-built and self-built cppgm binaries rebuilding identical inputs in paired ABBA/BAAB blocks. Every rebuild must produce identical objects and compiler binaries.
 
@@ -25,10 +25,10 @@ Building cppgm compares toolchains compiling the same sources. Self-built compil
 
 | Compiler doing the rebuild | CPU seconds |
 | --- | ---: |
-| GCC | 576.470 |
-| Clang | 525.760 |
-| GCC-built cppgm | 137.160 |
-| Self-built cppgm | 138.780 |
+| GCC | 791.970 |
+| Clang | 714.360 |
+| GCC-built cppgm | 192.030 |
+| Self-built cppgm | 194.370 |
 
 These are the initial bootstrap builds. GCC and Clang are each measured once.
 
@@ -36,22 +36,22 @@ These are the initial bootstrap builds. GCC and Clang are each measured once.
 
 | Block | GCC-built cppgm (s) | Self-built cppgm (s) | Self-built speed ↑ |
 | ---: | ---: | ---: | ---: |
-| 1 | 136.671 | 137.294 | 1.00× |
-| 2 | 136.505 | 137.914 | 0.99× |
+| 1 | 192.436 | 192.976 | 1.00× |
+| 2 | 192.549 | 193.063 | 1.00× |
 
 Each block averages its two observations per compiler. The badge uses the median block ratio; calibration and every observation are retained in the raw results.
 
-GCC-built A/A CPU ratio: 1.008. A/A variation limits conclusions about small differences.
+GCC-built A/A CPU ratio: 1.001. A/A variation limits conclusions about small differences.
 
 #### Paired codegen measurements vs Clang-built compiler
 
 | Block | Clang-built cppgm (s) | Self-built cppgm (s) | Self-built speed ↑ |
 | ---: | ---: | ---: | ---: |
-| 1 | 137.260 | 136.464 | 1.01× |
-| 2 | 137.138 | 135.564 | 1.01× |
+| 1 | 194.791 | 193.097 | 1.01× |
+| 2 | 194.246 | 192.851 | 1.01× |
 
 Each block averages its two observations per compiler. The badge uses the median block ratio; calibration and every observation are retained in the raw results.
 
-Clang-built A/A CPU ratio: 0.994. A/A variation limits conclusions about small differences.
+Clang-built A/A CPU ratio: 0.997. A/A variation limits conclusions about small differences.
 
 [Public program results](report.md) have their own measured revision.
