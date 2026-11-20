@@ -1,21 +1,39 @@
 #include "aarch64/selector.h"
+#include "aarch64/error.h"
 #include "machine/parallel_register_moves.h"
 
 #include <algorithm>
 namespace aarch64 {
 using namespace lowir;
 
-bool Selector::parallel_edge(BlockId from, BlockId to)
+namespace {
+// A scalar may move among either register bank and its frame home.
+// Register locations name all their bits, even when a move uses fewer.
+constexpr uint32_t simd_base = 32, frame_location = 64;
+constexpr unsigned limit = 32;
+bool simd(uint32_t loc)
 {
-	// A scalar may move among either register bank and its frame home.
-	// Register locations name all their bits, even when a move uses fewer.
-	constexpr uint32_t simd_base = 32, frame_location = 64;
-	constexpr unsigned limit = 32;
+	return loc >= simd_base && loc < frame_location;
+}
+}
+
+struct Selector::EdgeMoves
+{
 	machine::ScalarTransfer moves[limit];
 	Value sources[limit];
 	TempId results[limit];
 	unsigned count = 0;
-	const auto simd = [&](uint32_t loc) { return loc >= simd_base && loc < frame_location; };
+};
+
+// The moves of an edge's phis among registers and frame homes. False when
+// a value needs the snapshot path: plan_phis reserves the snapshot area
+// for exactly those edges.
+bool Selector::edge_moves(BlockId from, BlockId to, EdgeMoves& edge)
+{
+	auto& moves = edge.moves;
+	auto& sources = edge.sources;
+	auto& results = edge.results;
+	unsigned& count = edge.count;
 	const auto location = [&](TempId t) {
 		return vectors_[t] != kNoId  ? simd_base + vectors_[t]
 			: registers_[t] != kNoId ? registers_[t]
@@ -46,10 +64,25 @@ bool Selector::parallel_edge(BlockId from, BlockId to)
 			(phi.type.kind() != TypeKind::V128 || (!simd(dst) && !vector_home_known(phi.result)) ||
 				(src != machine::kTransferLiteral && !simd(src) && !vector_home_known(source.index))))
 			return false;
+		for (unsigned i = 0; i < count; ++i)
+			if (moves[i].destination == dst)
+				return false;
 		sources[count] = source;
 		results[count] = phi.result;
 		moves[count++] = { dst, src };
 	}
+	return true;
+}
+
+bool Selector::parallel_edge(BlockId from, BlockId to)
+{
+	EdgeMoves edge;
+	if (!edge_moves(from, to, edge))
+		return false;
+	auto& moves = edge.moves;
+	auto& sources = edge.sources;
+	auto& results = edge.results;
+	const unsigned count = edge.count;
 	const auto read = [&](unsigned reg, uint32_t loc, unsigned bytes) {
 		if (loc >= frame_location)
 			access(false, reg, frame_base(), loc - frame_location, bytes);
@@ -131,6 +164,8 @@ void Selector::copy_edge(BlockId from, BlockId to)
 	// Snapshot all sources before committing any destination of this parallel copy.
 	uint32_t offset = phi_area_;
 	const InstId first = body_.blocks[to].first;
+	if (level_ && !std::binary_search(frame_phi_blocks_.begin(), frame_phi_blocks_.end(), to))
+		throw AArch64Error("AArch64 phi transfer needs a snapshot area the frame did not reserve");
 	for (InstId i = first; i != kNoId && body_.instructions[i].op == Opcode::Phi; i = body_.instructions[i].next)
 	{
 		const Type type = body_.instructions[i].type;
@@ -238,18 +273,23 @@ uint64_t Selector::plan_phis()
 				const auto from = body_.operands[first.extra_first + k].index;
 				if (needs_snapshot(from, block))
 				{
+					// Register moves make most such transfers; only the
+					// rest read and write the snapshot area.
 					snapshot_edges_.emplace_back(block, from);
-					snapshot = true;
+					EdgeMoves moves;
+					snapshot |= !edge_moves(from, block, moves);
 				}
 			}
 		if (!snapshot)
 			continue;
+		frame_phi_blocks_.push_back(block);
 		uint64_t bytes = 0;
 		for (auto i = entry; i != kNoId && body_.instructions[i].op == Opcode::Phi; i = body_.instructions[i].next)
 			bytes += (storage_bytes(body_.instructions[i].type) + 7) & ~uint64_t(7);
 		maximum = std::max(maximum, bytes);
 	}
 	std::sort(snapshot_edges_.begin(), snapshot_edges_.end());
+	std::sort(frame_phi_blocks_.begin(), frame_phi_blocks_.end());
 	return maximum;
 }
 

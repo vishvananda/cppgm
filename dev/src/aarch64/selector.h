@@ -148,6 +148,8 @@ private:
 	bool needs_snapshot(lowir::BlockId from, lowir::BlockId to);
 	uint64_t plan_phis();
 	void register_edge(lowir::BlockId from, lowir::BlockId to);
+	struct EdgeMoves;
+	bool edge_moves(lowir::BlockId from, lowir::BlockId to, EdgeMoves& edge);
 	bool parallel_edge(lowir::BlockId from, lowir::BlockId to);
 	void copy_edge(lowir::BlockId from, lowir::BlockId to);
 	void edge(lowir::BlockId from, lowir::BlockId to, bool last = false);
@@ -221,6 +223,7 @@ private:
 	std::vector<BitTest> bit_tests_;
 	std::vector<lowir::InstId> entry_elided_;
 	std::vector<std::pair<lowir::BlockId, lowir::BlockId>> snapshot_edges_;
+	std::vector<lowir::BlockId> frame_phi_blocks_;
 	std::vector<CallLayout> calls_;
 	std::vector<uint32_t> call_indices_;
 	Argument result_ = {};
