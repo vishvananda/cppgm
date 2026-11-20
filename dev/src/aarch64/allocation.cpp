@@ -684,9 +684,11 @@ public:
 		if (!assigned_.empty())
 			assigned_[index] = 1;
 	}
-	// A member takes its group's register first; the first member of a group
-	// that crosses a call chooses a preserved one, unless it is a parameter.
-	unsigned choose(RegisterBank& bank, const LiveRange& range, uint32_t allowed, uint32_t preserved,
+	// A member takes its group's register first. The first member of a group
+	// that crosses a call, unless it is a parameter, tries the registers
+	// `first_choice` gives for the group before the others.
+	template<typename FirstChoice>
+	unsigned choose(RegisterBank& bank, const LiveRange& range, uint32_t allowed, FirstChoice first_choice,
 		unsigned preferred, unsigned alternate, bool across_call, bool parameter)
 	{
 		const auto group = groups_.root(range.id);
@@ -701,7 +703,7 @@ public:
 		}
 		unsigned reg = kNoId;
 		if (group != kNoId && group_reg == kNoId && !across_call && !parameter && groups_.crosses_call(group))
-			reg = bank.assign(range, preserved, preferred, alternate, partners);
+			reg = bank.assign(range, first_choice(group), preferred, alternate, partners);
 		if (reg == kNoId)
 			reg = bank.assign(range, allowed, preferred, alternate, partners);
 		if (reg != kNoId && group != kNoId && group_reg == kNoId)
@@ -713,6 +715,11 @@ public:
 			});
 		}
 		return reg;
+	}
+	template<typename F>
+	void each_member(TempId root, F f) const
+	{
+		groups_.each_member(root, f);
 	}
 
 private:
@@ -937,6 +944,34 @@ void Selector::allocate()
 	std::vector<uint32_t> simd_web_regs;
 	uint32_t saved_fp = 0;
 	uint32_t saved = dynamic_stack_ ? 1u << 28 : 0;
+	// A group whose members cross only rare calls saves caller registers
+	// around them, so it starts in a preserved register only when one is
+	// saved already.
+	std::vector<uint8_t> cold_groups;
+	const auto first_choice = [&](TempId group) -> uint32_t {
+		const uint32_t all = (dynamic_stack_ ? 0x1ffu : 0x3ffu) << 19;
+		if (!cold_calls)
+			return all;
+		if (cold_groups.empty())
+			cold_groups.assign(count, 0);
+		if (!cold_groups[group])
+		{
+			bool cold = true;
+			groups.each_member(group, [&](uint32_t index) {
+				bool crosses = false;
+				each_interval(ranges[index], segments, [&](uint32_t a, uint32_t b) {
+					const auto call = std::lower_bound(calls.begin(), calls.end(), a);
+					crosses |= call != calls.end() && *call < b;
+				});
+				cold = cold &&
+					(!crosses ||
+						(!live_into(ranges[index], segments, facts.landings) &&
+							cold_crossings(ranges[index], segments, calls, cold_budget)));
+			});
+			cold_groups[group] = cold ? 1 : 2;
+		}
+		return cold_groups[group] == 1 ? all & saved : all;
+	};
 	for (uint32_t i = 0; i < ranges.size(); ++i)
 	{
 		const auto& range = ranges[order.empty() ? i : order[i]];
@@ -1042,7 +1077,7 @@ void Selector::allocate()
 		const unsigned alternate = root == kNoId ? kNoId : web_regs[root];
 		const bool parameter = range.id < body_.parameter_count;
 		auto reg = groups.choose(
-			general, range, caller | preserved, preserved, preferred, alternate, across_call, parameter);
+			general, range, caller | preserved, first_choice, preferred, alternate, across_call, parameter);
 		// Out of registers, saving a caller register around the calls the
 		// range crosses can still cost less than its spills and reloads.
 		if (reg == kNoId && across_call && !crossed && cold_calls && !weight.empty() &&
@@ -1050,7 +1085,8 @@ void Selector::allocate()
 		{
 			crossed = cold_crossings(range, segments, calls, weight[range.id] / 2);
 			if (crossed)
-				reg = groups.choose(general, range, crossing, 0, preferred, alternate, across_call, parameter);
+				reg = groups.choose(
+					general, range, crossing, [](TempId) { return 0u; }, preferred, alternate, across_call, parameter);
 			if (reg == kNoId)
 				crossed = 0;
 		}
