@@ -16,7 +16,8 @@
     ],
     "functions": {
       "decode": {
-        "conditional_branches": 4
+        "conditional_branches": 4,
+        "sp_uses": 0
       }
     }
   }

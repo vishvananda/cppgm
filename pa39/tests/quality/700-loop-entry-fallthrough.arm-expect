@@ -16,7 +16,7 @@
     ],
     "functions": {
       "render": {
-        "instructions": 160,
+        "instructions": 166,
         "conditional_branches": 19
       }
     }
