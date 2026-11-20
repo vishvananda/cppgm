@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <sys/stat.h>
 #include <utility>
 #include <vector>
@@ -193,6 +194,7 @@ struct Invocation
 	bool visibility_inlines_hidden = false;
 	// -fsyntax-only: each source analyzed, nothing lowered or written.
 	bool syntax_only = false;
+	uint64_t constexpr_step_limit = sema::Analyzer::default_constexpr_step_limit;
 	bool ignore_narrowing = false;
 	bool debug_info = false;
 	bool debug_types = false;
@@ -269,6 +271,23 @@ int optimization_level(const std::string& arg)
 			throw InvocationError("unsupported option: " + arg);
 	const unsigned long n = std::strtoul(level.c_str(), nullptr, 10);
 	return n > 3 ? 3 : static_cast<int>(n);
+}
+
+uint64_t constexpr_step_limit(const std::string& option)
+{
+	const size_t first = option.find('=') + 1;
+	const uint64_t max = std::numeric_limits<uint64_t>::max();
+	uint64_t value = 0;
+	if (first == option.size())
+		throw InvocationError("missing operation limit in " + option);
+	for (size_t i = first; i < option.size(); ++i)
+	{
+		const unsigned digit = static_cast<unsigned>(option[i] - '0');
+		if (digit > 9 || value > (max - digit) / 10)
+			throw InvocationError("invalid operation limit in " + option);
+		value = value * 10 + digit;
+	}
+	return value;
 }
 
 // The value of an option given as `-X value` or `-Xvalue`; false when
@@ -576,6 +595,8 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 		}
 		else if (starts_with(arg, "-std="))
 			invocation.standard = arg.substr(5);
+		else if (starts_with(arg, "-fconstexpr-ops-limit="))
+			invocation.constexpr_step_limit = constexpr_step_limit(arg);
 		else if (starts_with(arg, "-stdlib="))
 		{
 			if (!host_stdlib_selected(arg.substr(8)))
@@ -844,6 +865,7 @@ bool lower_source(const std::string& path, const Invocation& invocation, lower::
 		analyzer.set_cxx_edition(
 			invocation.preprocessor.cxx_edition, invocation.preprocessor.diagnose_cxx_extensions());
 		analyzer.set_exceptions(invocation.preprocessor.modes.exceptions);
+		analyzer.set_constexpr_step_limit(invocation.constexpr_step_limit);
 		analyzer.set_ignore_narrowing(invocation.ignore_narrowing);
 		analyzer.set_source_positions(&unit.positions());
 		try

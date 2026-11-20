@@ -12,9 +12,9 @@ ConstValue ConstantInterpreter::prefix_skeleton(const Type* type, uint32_t depth
 
 ConstValue ConstantInterpreter::prefix_value(const Type* type, uint32_t depth, bool zero)
 {
-	if (subobjects_too_deep(depth) || steps_ >= kStepBudget)
+	if (subobjects_too_deep(depth) || steps_ >= step_limit_)
 	{
-		steps_ = kStepBudget;
+		steps_ = step_limit_;
 		return ConstValue();
 	}
 	if (type->kind == TypeKind::Array)
@@ -41,6 +41,8 @@ ConstValue ConstantInterpreter::prefix_value(const Type* type, uint32_t depth, b
 			value.count = IsComplex(type) ? 2 : static_cast<uint32_t>(type->unqualified->bound);
 			value.elements = class_storage().immutable_arena.allocate_array<ConstValue>(value.count);
 			const ConstValue element = prefix_value(type->unqualified->element, depth + 1, zero);
+			if (steps_ >= step_limit_)
+				return ConstValue();
 			for (uint32_t i = 0; i < value.count; ++i)
 				value.elements[i] = element;
 			value.flags = kSharedElements;
@@ -59,9 +61,9 @@ ConstValue ConstantInterpreter::prefix_value(const Type* type, uint32_t depth, b
 	value.kind = ValueKind::Class;
 	value.type = type->unqualified;
 	value.count = cls->base_count + cls->member_count;
-	if (value.count > kValueBudget || steps_ + value.count >= kStepBudget)
+	if (value.count > kValueBudget || value.count >= step_limit_ - steps_)
 	{
-		steps_ = kStepBudget;
+		steps_ = step_limit_;
 		return ConstValue();
 	}
 	++steps_;
@@ -94,6 +96,8 @@ ConstValue ConstantInterpreter::prefix_value(const Type* type, uint32_t depth, b
 		if ((!is_union || member == first) && !(member->bit_field && member->variable->name == nullptr))
 			zero_class = zero_class && zero_child(child);
 	}
+	if (steps_ >= step_limit_)
+		return ConstValue();
 	if (zero_class)
 		value.flags |= kClassZero;
 	classes.set(cls, static_cast<uint32_t>(class_storage().values.size()));

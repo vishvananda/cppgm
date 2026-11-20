@@ -70,6 +70,8 @@ public:
 	void set_hosted(bool on) { hosted_ = on; }
 	void set_host_objects(bool on) { host_objects_ = on; }
 	bool hosted() const { return hosted_; }
+	static constexpr uint64_t default_constexpr_step_limit = uint64_t(1) << 24;
+	void set_constexpr_step_limit(uint64_t limit) { constexpr_step_limit_ = limit; }
 	void set_number_dialect(NumberDialect dialect) { number_dialect_ = dialect; }
 	// -std=c++14 or later (hosted -c): the C++11 rules its headers' mode
 	// gates contradict are dropped -- a constexpr non-static member function
@@ -1929,6 +1931,7 @@ private:
 	bool hosted_ = false;
 	bool host_objects_ = false;
 	uint8_t cxx_edition_ = 11;
+	uint64_t constexpr_step_limit_ = default_constexpr_step_limit;
 	NumberDialect number_dialect_ = NumberDialect::Gnu;
 	bool cxx14_ = false;
 	bool cxx17_ = false;

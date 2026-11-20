@@ -104,7 +104,6 @@ private:
 	// (a chain of member classes, as deep as the program declares them)
 	// that the stack budget no longer holds.
 	static const uint32_t kSubobjectDepth = 256;
-	static const uint64_t kStepBudget = uint64_t(1) << 24;
 	static const uint64_t kValueBudget = uint64_t(1) << 22;
 	// Expanding an implicit tail must fail softly before a speculative
 	// evaluation allocates a large dense object.
@@ -429,6 +428,7 @@ private:
 	const size_t first_frame_;
 	// The swaps an enclosing evaluation had applied (resumed at the end).
 	const size_t enclosing_swaps_;
+	const uint64_t step_limit_;
 	uint64_t steps_;
 	std::unique_ptr<ConstantMemo> memo_;
 	uint32_t failure_location_;

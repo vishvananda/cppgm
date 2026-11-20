@@ -358,6 +358,12 @@ these literals. ISO C++ modes leave those suffixes to the ordinary
 user-defined literal rules. The standard `l` and `L` suffixes denote
 `long double`. [GCC floating-type extensions](https://gcc.gnu.org/onlinedocs/gcc/Floating-Types.html)
 
+Support `-fconstexpr-ops-limit=<n>` when compiling hosted C++. It sets the
+work limit for one constant evaluation. Use a finite default and reset the
+work counter between evaluations. A required evaluation that exceeds the
+selected limit must issue a diagnostic.
+[GCC dialect options](https://gcc.gnu.org/onlinedocs/gcc-15.2.0/gcc/C_002b_002b-Dialect-Options.html)
+
 In constant expressions, support the GNU builtins `__builtin_fmaf`,
 `__builtin_fma`, and `__builtin_fmal` for finite operands. Evaluate the
 product and sum with one rounding to the result type. An overflow or an

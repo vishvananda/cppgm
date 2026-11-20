@@ -1329,6 +1329,7 @@ int run_cppgm(const vector<string>& raw_args)
 				"  -S -emit-lowir      write the LowIR that -c compiles, after the LowIR optimizer\n"
 				"                      (default output: <input>.lowir)\n"
 				"  -fno-lowir-passes   compile without the LowIR optimizer; the back end runs at the -O level\n"
+				"  -fconstexpr-ops-limit=<n>  set the work limit for one constant evaluation\n"
 				"  -Oz                optimize for smaller code\n"
 				"  -flto              fold identical Wasm functions; on AArch64, use full source LTO\n"
 				"  -flto=full         optimize consecutive sources together on Wasm, Linux x86-64 and AArch64\n"

@@ -74,7 +74,7 @@ bool ConstantInterpreter::expand_array(ConstValue& array, const Type* type, uint
 		return fail(location, "constant evaluation exceeds its storage budget");
 	retain_mutable_allocation();
 	ConstValue dense = skeleton(type, true);
-	if (steps_ >= kStepBudget)
+	if (steps_ >= step_limit_)
 		return fail(location, "constant evaluation exceeds its storage budget");
 	for (uint32_t i = 0; i < dense.count; ++i)
 	{
@@ -106,7 +106,7 @@ ConstValue* ConstantInterpreter::zero_storage(const Type* type)
 	}
 	else
 		*zero = prefix_value(type, 0, true);
-	if (steps_ >= kStepBudget)
+	if (steps_ >= step_limit_)
 		return nullptr;
 	return zero;
 }
@@ -124,7 +124,7 @@ bool ConstantInterpreter::aggregate_array(
 		const uint64_t remaining = next < list.elements.size ? list.elements.size - next : 0;
 		count = std::min(count, remaining);
 		const uint64_t capacity = std::min(type->bound, remaining + 1);
-		if (capacity > kValueBudget || steps_ + capacity > kStepBudget)
+		if (capacity > kValueBudget || capacity > step_limit_ - steps_)
 			return fail(location, "constant evaluation exceeds its storage budget");
 		value->count = 0;
 		// Outside a call, scratch already spans the whole initialization.
@@ -150,7 +150,7 @@ bool ConstantInterpreter::aggregate_array(
 		{
 			value->elements[index] = prefix_skeleton(type->element, 0);
 			value->count = static_cast<uint32_t>(index + 1);
-			if (steps_ >= kStepBudget)
+			if (steps_ >= step_limit_)
 				return fail(location, "constant evaluation exceeds its storage budget");
 		}
 		ConstPlace place = target;

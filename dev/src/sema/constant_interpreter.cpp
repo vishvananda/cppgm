@@ -53,9 +53,10 @@ bool StaticStorage(const VariableEntity* variable)
 ConstantInterpreter::ConstantInterpreter(Analyzer& analyzer)
 	: analyzer_(analyzer), arena_(analyzer.constant_scratch_), stacks_(analyzer.constant_stacks_),
 	  objects_(stacks_.objects), locals_(stacks_.locals), frames_(stacks_.frames), first_object_(objects_.size()),
-	  first_local_(locals_.size()), first_frame_(frames_.size()), enclosing_swaps_(suspend_swaps()), steps_(0),
-	  failure_location_(0), failure_(nullptr), constructing_(nullptr), constructing_value_(nullptr), seeking_(nullptr),
-	  source_site_(kNoSourceSite), incomplete_class_(false), cxx20_(analyzer.cxx20_)
+	  first_local_(locals_.size()), first_frame_(frames_.size()), enclosing_swaps_(suspend_swaps()),
+	  step_limit_(analyzer.constexpr_step_limit_), steps_(0), failure_location_(0), failure_(nullptr),
+	  constructing_(nullptr), constructing_value_(nullptr), seeking_(nullptr), source_site_(kNoSourceSite),
+	  incomplete_class_(false), cxx20_(analyzer.cxx20_)
 {
 	// The scratch arena keeps its first block across evaluations.
 	if (arena_.bytes_reserved() == 0)
@@ -87,14 +88,15 @@ bool ConstantInterpreter::fail(uint32_t location, const char* why)
 
 bool ConstantInterpreter::step(uint32_t location)
 {
-	if (++steps_ > kStepBudget)
+	if (steps_ >= step_limit_)
 		return fail(location, "constant evaluation exceeds its step budget");
+	++steps_;
 	return stack_left(location);
 }
 
 bool ConstantInterpreter::reuse_call(uint64_t steps, size_t depth, uint32_t location)
 {
-	if (steps > kStepBudget - steps_)
+	if (steps_ > step_limit_ || steps > step_limit_ - steps_)
 		return fail(location, "constant evaluation exceeds its step budget");
 	if (depth > kCallDepth - (frames_.size() - first_frame_))
 		return fail(location, "constexpr calls nested too deeply");
@@ -133,6 +135,8 @@ ConstValue ConstantInterpreter::skeleton(const Type* type, bool owned)
 	ConstValue value = ConstValue();
 	value.kind = ValueKind::Indeterminate;
 	value.type = type->unqualified;
+	if (steps_ >= step_limit_)
+		return value;
 	++steps_;
 	if (type->is_reference())
 		return value;
@@ -163,9 +167,9 @@ ConstValue ConstantInterpreter::skeleton(const Type* type, bool owned)
 		value.kind = ValueKind::Array;
 		value.type = type;
 		const uint64_t bound = type->bound;
-		if (bound > kValueBudget || steps_ + bound > kStepBudget)
+		if (bound > kValueBudget || bound > step_limit_ - steps_)
 		{
-			steps_ = kStepBudget;
+			steps_ = step_limit_;
 			value.count = 0;
 			value.elements = nullptr;
 			return value;
@@ -212,7 +216,7 @@ bool ConstantInterpreter::new_object(const Type* type, ConstPlace& place, uint32
 		return fail(location, "constant evaluation exceeds its storage budget");
 	ConstValue* value = static_cast<ConstValue*>(arena_.allocate(sizeof(ConstValue), alignof(ConstValue)));
 	*value = prefix ? prefix_skeleton(type, 0) : skeleton(type);
-	if (steps_ >= kStepBudget)
+	if (steps_ >= step_limit_)
 		return fail(location, "constant evaluation exceeds its storage budget");
 	Object object = Object();
 	object.value = value;
@@ -2056,7 +2060,7 @@ bool ConstantInterpreter::initialize(const VariableEntity* variable, const synta
 	// subobject during constant evaluation.
 	if (static_zero && initializer == nullptr && (variable->constructor == nullptr || variable->constructor->trivial))
 		zero_into(*storage);
-	if (steps_ >= kStepBudget)
+	if (steps_ >= step_limit_)
 		return fail(location, "constant evaluation exceeds its storage budget");
 	constructing_ = variable;
 	constructing_value_ = storage;
