@@ -109,6 +109,8 @@ hosted headers depend on:
   pointers, rounded up to the requested constant alignment. The constant
   direction operand selects handle-to-promise or promise-to-handle.
   Resume and destroy calls participate in ordinary exception unwinding.
+  `__builtin_coro_noop()` yields a handle that stays suspended and whose
+  resume and destroy operations have no effect.
   See `[coroutine.handle]` for the library contract. [C++20 draft](../doc/n4861.pdf)
 
 The tests assume a Linux shell environment with `make`, `bash`, `perl`, and a

@@ -56,6 +56,7 @@ enum class GnuBuiltin : uint8_t
 	FrameAddress,
 	CoroDestroy,
 	CoroDone,
+	CoroNoop,
 	CoroPromise,
 	CoroResume,
 	WasmMemory, // size or grow, variants 0 and 1; memory index must be zero

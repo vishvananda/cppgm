@@ -771,6 +771,7 @@ public:
 	// The runtime's trap (__builtin_trap): a call that neither returns nor
 	// throws, which the native back end encodes as a trap instruction.
 	lowir::SymbolId trap_function();
+	lowir::SymbolId noop_coroutine_frame();
 	// The runtime's memset (`object=cppgm_builtin_memset`, the C library's
 	// in a host object), as the optimizer's fill loops declare it.
 	lowir::SymbolId memset_function();
@@ -2008,6 +2009,7 @@ private:
 	std::vector<lowir::SymbolId> complex_helpers_;
 	lowir::SymbolId dso_handle_ = lowir::kNoId;
 	lowir::SymbolId guard_functions_[3] = { lowir::kNoId, lowir::kNoId, lowir::kNoId };
+	lowir::SymbolId noop_coroutine_ = lowir::kNoId;
 	// Object mode: the unit's thread-local initialization function, its
 	// per-thread guard and the ordered variables' initializations it runs,
 	// in definition order (see unit_thread_local_init).

@@ -1,5 +1,6 @@
 #if !__has_builtin(__builtin_coro_resume) || !__has_builtin(__builtin_coro_destroy) || \
-    !__has_builtin(__builtin_coro_done) || !__has_builtin(__builtin_coro_promise)
+    !__has_builtin(__builtin_coro_done) || !__has_builtin(__builtin_coro_promise) || \
+    !__has_builtin(__builtin_coro_noop)
 #error expected coroutine handle builtins
 #endif
 
@@ -7,6 +8,7 @@ static_assert(!noexcept(__builtin_coro_resume(nullptr)));
 static_assert(!noexcept(__builtin_coro_destroy(nullptr)));
 static_assert(noexcept(__builtin_coro_done(nullptr)));
 static_assert(noexcept(__builtin_coro_promise(nullptr, alignof(int), false)));
+static_assert(noexcept(__builtin_coro_noop()));
 
 struct Frame {
   void (*resume)(void*);
@@ -50,6 +52,12 @@ int main() {
   AlignedFrame aligned{nullptr, nullptr, 0};
   void* promise = __builtin_coro_promise(&aligned, 64, false);
   if (promise != &aligned.promise || __builtin_coro_promise(promise, 64, true) != &aligned) return 5;
+
+  void* noop = __builtin_coro_noop();
+  if (!noop || __builtin_coro_done(noop)) return 8;
+  __builtin_coro_resume(noop);
+  __builtin_coro_destroy(noop);
+  if (__builtin_coro_done(noop)) return 9;
 
   int cleanups = 0;
   frame.resume = fail;

@@ -240,9 +240,65 @@ lowir::Value FunctionLowering::va_list_tag(const syntax::Expr& list)
 	return address(list);
 }
 
+lowir::SymbolId ProgramLowering::noop_coroutine_frame()
+{
+	if (noop_coroutine_ != lowir::kNoId)
+		return noop_coroutine_;
+	// The no-op coroutine never finishes. Its two entries both name a
+	// function which returns immediately. The empty promise follows them.
+	const lowir::Type pointer = program_.pointer_type();
+	const lowir::SymbolId entry = new_symbol("cppgm_noop_coroutine_entry");
+	lowir::Signature signature = {};
+	signature.first_parameter = static_cast<uint32_t>(program_.parameters.size());
+	signature.parameter_count = 1;
+	signature.result = lowir::Type::scalar(lowir::TypeKind::Void);
+	signature.boundary.unwind = ir_model::CUM_NO;
+	lowir::Parameter parameter = {};
+	parameter.name = intern("frame", 5);
+	parameter.type = pointer;
+	program_.parameters.push_back(parameter);
+	program_.declare_function(entry, lowir::SymbolKind::FunctionDefinition, program_.add_signature(signature));
+	program_.symbols[entry].metadata.binding = ir_model::SBM_INTERNAL;
+	{
+		lowir::FunctionBuilder builder(program_, entry);
+		const lowir::BlockId start = builder.add_block(entry_name());
+		builder.place_block(start);
+		builder.set_insertion_block(start);
+		builder.ret(signature.result, lowir::Value::none());
+		if (!streaming())
+			builder.finish();
+	}
+	release_definition(entry);
+	++counters_.functions;
+
+	noop_coroutine_ = new_symbol("cppgm_noop_coroutine_frame");
+	lowir::Global global = {};
+	global.init = lowir::GlobalInit::Data;
+	global.first_item = static_cast<uint32_t>(program_.data_items.size());
+	global.item_count = 3;
+	lowir::DataItem address = {};
+	address.kind = lowir::DataItemKind::Address;
+	address.type = pointer;
+	address.address = entry;
+	data_item(address);
+	data_item(address);
+	lowir::DataItem promise = {};
+	promise.kind = lowir::DataItemKind::Zero;
+	promise.amount = 1;
+	data_item(promise);
+	const unsigned word = pointer.pointer_bytes();
+	state_storage_type(global, 2 * word + 1, word);
+	program_.declare_global(noop_coroutine_, lowir::SymbolKind::GlobalDefinition, global);
+	program_.symbols[noop_coroutine_].metadata.binding = ir_model::SBM_INTERNAL;
+	++counters_.globals;
+	return noop_coroutine_;
+}
+
 RValue FunctionLowering::coroutine_handle(const syntax::CallExpr& expr, sema::Intrinsic kind)
 {
 	const lowir::Type pointer = program_.pointer_type();
+	if (kind == sema::Intrinsic::CoroNoop)
+		return RValue{ lowir::Value::symbol(lowering_.noop_coroutine_frame()), pointer };
 	const bool invokes = kind == sema::Intrinsic::CoroResume || kind == sema::Intrinsic::CoroDestroy;
 	const size_t base = arguments_.size();
 	if (invokes)
@@ -314,6 +370,7 @@ RValue FunctionLowering::gnu_intrinsic(const syntax::CallExpr& expr, sema::Intri
 		return wasm_float_minmax(expr);
 	case sema::Intrinsic::CoroDestroy:
 	case sema::Intrinsic::CoroDone:
+	case sema::Intrinsic::CoroNoop:
 	case sema::Intrinsic::CoroPromise:
 	case sema::Intrinsic::CoroResume:
 		return coroutine_handle(expr, kind);

@@ -40,6 +40,7 @@ const struct
 	{ "__builtin_constant_p", { GnuBuiltin::ConstantP, 0, nullptr, 0 } },
 	{ "__builtin_coro_destroy", { GnuBuiltin::CoroDestroy, 0, "vv*", 0 } },
 	{ "__builtin_coro_done", { GnuBuiltin::CoroDone, 0, nullptr, 0 } },
+	{ "__builtin_coro_noop", { GnuBuiltin::CoroNoop, 0, "v*", 0 } },
 	{ "__builtin_coro_promise", { GnuBuiltin::CoroPromise, 0, nullptr, 0 } },
 	{ "__builtin_coro_resume", { GnuBuiltin::CoroResume, 0, "vv*", 0 } },
 	{ "__builtin_ctz", { GnuBuiltin::BitCount, 6, nullptr, 0 } },

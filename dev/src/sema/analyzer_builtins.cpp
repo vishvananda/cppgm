@@ -273,6 +273,7 @@ ExprFacts* Analyzer::builtin_operation(const syntax::CallExpr& expr, const Funct
 		return source_location_builtin(expr, variant, scope);
 	case GnuBuiltin::CoroDestroy:
 	case GnuBuiltin::CoroDone:
+	case GnuBuiltin::CoroNoop:
 	case GnuBuiltin::CoroPromise:
 	case GnuBuiltin::CoroResume:
 		return coroutine_handle_builtin(expr, builtin, scope);
@@ -1000,16 +1001,20 @@ ExprFacts* Analyzer::control_intrinsic(const syntax::CallExpr& expr, GnuBuiltin 
 ExprFacts* Analyzer::coroutine_handle_builtin(const syntax::CallExpr& expr, const FunctionEntity* builtin, Scope* scope)
 {
 	const GnuBuiltin op = builtin->gnu_builtin;
+	const bool noop = op == GnuBuiltin::CoroNoop;
 	const bool promise = op == GnuBuiltin::CoroPromise;
-	if (expr.arguments.size != (promise ? 3u : 1u))
+	if (expr.arguments.size != (noop ? 0u : promise ? 3u : 1u))
 		return substitution_error(expr.location, "wrong number of arguments to a coroutine builtin"), nullptr;
 	const Type* void_type = types_.fundamental(FundamentalType::Void);
 	const Type* pointer = types_.pointer(void_type);
-	if (typed_value(*expr.arguments[0], scope) == nullptr)
-		return nullptr;
-	convert(*expr.arguments[0], pointer, false);
-	if (failed())
-		return nullptr;
+	if (!noop)
+	{
+		if (typed_value(*expr.arguments[0], scope) == nullptr)
+			return nullptr;
+		convert(*expr.arguments[0], pointer, false);
+		if (failed())
+			return nullptr;
+	}
 	uint64_t extra = 0;
 	if (promise)
 	{
@@ -1030,16 +1035,17 @@ ExprFacts* Analyzer::coroutine_handle_builtin(const syntax::CallExpr& expr, cons
 		extra = (offset << 1) | (from_promise.bits != 0 || high != 0 ? 1u : 0u);
 	}
 	const bool done = op == GnuBuiltin::CoroDone;
-	const Type* result = promise ? pointer : done ? types_.fundamental(FundamentalType::Bool) : void_type;
+	const Type* result = noop || promise ? pointer : done ? types_.fundamental(FundamentalType::Bool) : void_type;
 	ExprFacts* facts = new_facts(expr, result, ValueCategory::PRValue);
 	facts->flags |= kIntrinsic;
 	facts->entity = builtin;
-	const Intrinsic kind = promise      ? Intrinsic::CoroPromise
+	const Intrinsic kind = noop         ? Intrinsic::CoroNoop
+		: promise                       ? Intrinsic::CoroPromise
 		: done                          ? Intrinsic::CoroDone
 		: op == GnuBuiltin::CoroDestroy ? Intrinsic::CoroDestroy
 										: Intrinsic::CoroResume;
 	facts->value = static_cast<uint64_t>(kind) | (extra << 8);
-	if (!promise && !done)
+	if (!noop && !promise && !done)
 		++potentially_throwing_;
 	return facts;
 }

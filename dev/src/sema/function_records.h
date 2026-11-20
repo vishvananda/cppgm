@@ -301,6 +301,7 @@ enum class Intrinsic : uint8_t
 	WasmFloatMinMax,
 	CoroDestroy,
 	CoroDone,
+	CoroNoop,
 	CoroPromise,
 	CoroResume
 };
