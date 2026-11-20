@@ -269,9 +269,10 @@ void Selector::prepare_frame()
 }
 
 // The local of a value in memory holds the address of its object.
+// Initialize it in the same definition order used to assign the locals.
 void Selector::reserve_objects()
 {
-	for (uint32_t i = 0; i < objects_.size(); ++i)
+	for (TempId i : temp_order_)
 	{
 		if (places_.slot_of[i] != kNoId)
 		{
