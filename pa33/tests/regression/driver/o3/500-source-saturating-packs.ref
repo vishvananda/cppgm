@@ -35,48 +35,48 @@ global @__vector_literal_00007fff00007fff00007fff00007fff : obj<16x16> [storage=
 
 function @train(%t : ptr, %w : ptr, %err : i32) -> void [binding=internal, object=_ZL5trainPKsPsii, no_inline=yes] {
   block ^entry:
-    %t1 = index i8 %w, 90
-    %t2 = index i8 %t, 90
-    %t3 = cmp ule ptr %t1, %t
-    %t4 = cmp ule ptr %t2, %w
-    %t5 = binary or i64 %t3, %t4
-    branch %t5, ^loop_preheader_1, ^loop_preheader_3
+    %t1 = binary mul i32 %err, 2
+    %t2 = index i8 %w, 90
+    %t3 = index i8 %t, 90
+    %t4 = cmp ule ptr %t2, %t
+    %t5 = cmp ule ptr %t3, %w
+    %t6 = binary or i64 %t4, %t5
+    branch %t6, ^loop_preheader_1, ^loop_preheader_3
 
   block ^loop_preheader_1:
-    %t6 = vector fromi32 %err
-    %t7 = vector pshufd %t6, 0
-    %t8 = addr @__vector_literal_00000001000000010000000100000001
-    %t9 = load v128 %t8
-    %t10 = vector psrlqi %t7, 32
+    %t7 = vector fromi32 %t1
+    %t8 = vector pshufd %t7, 0
+    %t9 = addr @__vector_literal_00000001000000010000000100000001
+    %t10 = load v128 %t9
+    %t11 = vector psrlqi %t8, 32
     jump ^wide_loop_2
 
   block ^wide_loop_2:
-    %t11 = phi i64 [^loop_preheader_1: 0, ^wide_loop_2: %t35]
-    %t12 = index inbounds i16 [projection=array_element] %w, %t11
-    %t13 = load i64 %t12
-    %t14 = vector fromi64 %t13
-    %t15 = index inbounds i16 [projection=array_element] %t, %t11
-    %t16 = load i64 %t15
-    %t17 = vector fromi64 %t16
-    %t18 = vector punpcklwd %t17, %t17
-    %t19 = vector psradi %t18, 16
-    %t20 = vector pmuludq %t7, %t19
-    %t21 = vector psrlqi %t19, 32
-    %t22 = vector pmuludq %t10, %t21
-    %t23 = vector pshufd %t20, 8
-    %t24 = vector pshufd %t22, 8
-    %t25 = vector punpckldq %t23, %t24
-    %t26 = vector pslldi %t25, 1
+    %t12 = phi i64 [^loop_preheader_1: 0, ^wide_loop_2: %t35]
+    %t13 = index inbounds i16 [projection=array_element] %w, %t12
+    %t14 = load i64 %t13
+    %t15 = vector fromi64 %t14
+    %t16 = index inbounds i16 [projection=array_element] %t, %t12
+    %t17 = load i64 %t16
+    %t18 = vector fromi64 %t17
+    %t19 = vector punpcklwd %t18, %t18
+    %t20 = vector psradi %t19, 16
+    %t21 = vector pmuludq %t20, %t8
+    %t22 = vector psrlqi %t20, 32
+    %t23 = vector pmuludq %t22, %t11
+    %t24 = vector pshufd %t21, 8
+    %t25 = vector pshufd %t23, 8
+    %t26 = vector punpckldq %t24, %t25
     %t27 = vector psradi %t26, 16
-    %t28 = vector paddd %t27, %t9
+    %t28 = vector paddd %t27, %t10
     %t29 = vector psradi %t28, 1
-    %t30 = vector punpcklwd %t14, %t14
+    %t30 = vector punpcklwd %t15, %t15
     %t31 = vector psradi %t30, 16
     %t32 = vector paddd %t29, %t31
     %t33 = vector packssdw %t32, %t32
     %t34 = vector toi64 %t33
-    store i64 %t34, %t12
-    %t35 = binary add nowrap i64 %t11, 4
+    store i64 %t34, %t13
+    %t35 = binary add nowrap i64 %t12, 4
     %t36 = convert trunc exact i32 i64 %t35
     %t37 = cmp lt i32 %t36, 41
     branch %t37, ^wide_loop_2, ^loop_preheader_3
@@ -87,29 +87,28 @@ function @train(%t : ptr, %w : ptr, %err : i32) -> void [binding=internal, objec
     jump ^for_body_4
 
   block ^for_body_4:
-    %t40 = phi i64 [^for_body_4: %t58, ^loop_preheader_3: %t39]
+    %t40 = phi i64 [^for_body_4: %t57, ^loop_preheader_3: %t39]
     %t41 = index inbounds i16 [projection=array_element] %w, %t40
     %t42 = load typed i16 %t41
     %t43 = convert sext i32 i16 %t42
     %t44 = index inbounds i16 [projection=array_element] %t, %t40
     %t45 = load typed i16 %t44
     %t46 = convert sext i32 i16 %t45
-    %t47 = binary mul nowrap i32 %err, %t46
-    %t48 = binary mul nowrap i32 %t47, 2
-    %t49 = binary shr i32 %t48, 16
-    %t50 = binary add nowrap i32 %t49, 1
-    %t51 = binary shr i32 %t50, 1
-    %t52 = binary add nowrap i32 %t51, %t43
-    %t53 = cmp lt i32 %t52, -32768
-    %t54 = select i32 %t53, -32768, %t52
-    %t55 = cmp gt i32 %t54, 32767
-    %t56 = select i32 %t55, 32767, %t54
-    %t57 = convert trunc i16 i32 %t56
-    store typed i16 %t57, %t41
-    %t58 = binary add nowrap i64 %t40, 1
-    %t59 = convert trunc exact i32 i64 %t58
-    %t60 = cmp lt i32 %t59, 45
-    branch %t60, ^for_body_4, ^for_end_5
+    %t47 = binary mul i32 %t46, %t1
+    %t48 = binary shr i32 %t47, 16
+    %t49 = binary add nowrap i32 %t48, 1
+    %t50 = binary shr i32 %t49, 1
+    %t51 = binary add nowrap i32 %t50, %t43
+    %t52 = cmp lt i32 %t51, -32768
+    %t53 = select i32 %t52, -32768, %t51
+    %t54 = cmp gt i32 %t53, 32767
+    %t55 = select i32 %t54, 32767, %t53
+    %t56 = convert trunc i16 i32 %t55
+    store typed i16 %t56, %t41
+    %t57 = binary add nowrap i64 %t40, 1
+    %t58 = convert trunc exact i32 i64 %t57
+    %t59 = cmp lt i32 %t58, 45
+    branch %t59, ^for_body_4, ^for_end_5
 
   block ^for_end_5:
     return void

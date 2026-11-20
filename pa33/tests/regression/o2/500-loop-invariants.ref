@@ -271,6 +271,9 @@ function @nested_certain_division(%n : i64, %a : i64, %b : i64) -> i64 [no_inlin
 function @guarded_division(%n : i64, %a : i64, %b : i64, %f : i64) -> i64 [no_inline=yes] {
   block ^entry:
     %q5 = binary div i64 %a, 3
+    %q8 = binary add i64 %a, %a
+    %x6 = binary add i64 %q8, %a
+    %x1 = binary add i64 %x6, %q5
     jump ^head
 
   block ^head:
@@ -286,21 +289,18 @@ function @guarded_division(%n : i64, %a : i64, %b : i64, %f : i64) -> i64 [no_in
   block ^divide:
     %q1 = binary div i64 %a, %b
     %q2 = binary udiv i64 %a, %b
-    %t8 = binary mul i64 %b, %q1
-    %q3 = binary sub i64 %a, %t8
-    %t10 = binary mul i64 %b, %q2
-    %q4 = binary sub i64 %a, %t10
+    %t11 = binary mul i64 %b, %q1
+    %t12 = binary mul i64 %b, %q2
     %q6 = binary div i64 %a, -1
     %q7 = binary udiv i64 %a, 0
-    %t14 = binary mul i64 %q6, -1
-    %q8 = binary sub i64 %a, %t14
-    %x1 = binary add i64 %q1, %q2
-    %x2 = binary add i64 %q3, %x1
-    %x3 = binary add i64 %q4, %x2
-    %x4 = binary add i64 %q5, %x3
-    %x5 = binary add i64 %q6, %x4
-    %x6 = binary add i64 %q7, %x5
-    %x7 = binary add i64 %q8, %x6
+    %t15 = binary mul i64 %q6, -1
+    %q3 = binary add i64 %q1, %x1
+    %x2 = binary add i64 %q3, %q2
+    %q4 = binary sub i64 %x2, %t11
+    %x3 = binary sub i64 %q4, %t12
+    %x4 = binary add i64 %x3, %q6
+    %x5 = binary add i64 %x4, %q7
+    %x7 = binary sub i64 %x5, %t15
     jump ^tail
 
   block ^tail:

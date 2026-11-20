@@ -1,0 +1,475 @@
+declare function @note(%x : i64) -> void
+
+global @cells : obj<512x8> = {
+  zero 512
+}
+global @mask : i64 = 1023
+
+function @sum_chain(%n : i64, %a : i64, %b : i64, %c : i64) -> i64 [no_inline=yes] {
+  block ^entry:
+    %z = binary add i64 %a, %b
+    %y = binary add i64 %c, %z
+    %t3 = binary and i64 %n, -8
+    %t4 = cmp gt i64 %t3, 0
+    branch %t4, ^unrolled_1, ^wide_tail_2
+
+  block ^unrolled_1:
+    %t5 = phi i64 [^unrolled_1: %t30, ^entry: 0]
+    %t6 = phi i64 [^unrolled_1: %t29, ^entry: 0]
+    %t7 = binary add i64 %y, %t5
+    %t8 = binary add i64 %t6, %t7
+    %t9 = binary add nowrap i64 %t5, 1
+    %t10 = binary add i64 %y, %t9
+    %t11 = binary add i64 %t8, %t10
+    %t12 = binary add nowrap i64 %t5, 2
+    %t13 = binary add i64 %y, %t12
+    %t14 = binary add i64 %t11, %t13
+    %t15 = binary add nowrap i64 %t5, 3
+    %t16 = binary add i64 %y, %t15
+    %t17 = binary add i64 %t14, %t16
+    %t18 = binary add nowrap i64 %t5, 4
+    %t19 = binary add i64 %y, %t18
+    %t20 = binary add i64 %t17, %t19
+    %t21 = binary add nowrap i64 %t5, 5
+    %t22 = binary add i64 %y, %t21
+    %t23 = binary add i64 %t20, %t22
+    %t24 = binary add nowrap i64 %t5, 6
+    %t25 = binary add i64 %y, %t24
+    %t26 = binary add i64 %t23, %t25
+    %t27 = binary add nowrap i64 %t5, 7
+    %t28 = binary add i64 %y, %t27
+    %t29 = binary add i64 %t26, %t28
+    %t30 = binary add nowrap i64 %t5, 8
+    %t31 = cmp ne i64 %t3, %t30
+    branch %t31, ^unrolled_1, ^wide_tail_2
+
+  block ^wide_tail_2:
+    %t32 = phi i64 [^entry: 0, ^unrolled_1: %t30]
+    %t33 = phi i64 [^entry: 0, ^unrolled_1: %t29]
+    jump ^head
+
+  block ^head:
+    %i = phi i64 [^wide_tail_2: %t32, ^body: %next]
+    %s = phi i64 [^wide_tail_2: %t33, ^body: %t]
+    %more = cmp lt i64 %i, %n
+    branch %more, ^body, ^done
+
+  block ^body:
+    %x = binary add i64 %i, %y
+    %t = binary add i64 %s, %x
+    %next = binary add nowrap i64 %i, 1
+    jump ^head
+
+  block ^done:
+    return i64 %s
+}
+function @difference_chain(%n : i32, %a : i32, %b : i32) -> i32 [no_inline=yes] {
+  block ^entry:
+    %y = binary sub i32 5, %a
+    %x = binary sub i32 %y, %b
+    %t3 = binary and i32 %n, -8
+    %t4 = cmp gt i32 %t3, 0
+    branch %t4, ^unrolled_1, ^wide_tail_2
+
+  block ^unrolled_1:
+    %t5 = phi i32 [^unrolled_1: %t30, ^entry: 0]
+    %t6 = phi i32 [^unrolled_1: %t29, ^entry: 0]
+    %t7 = binary add i32 %x, %t6
+    %t8 = binary xor i32 %t5, %t7
+    %t9 = binary add nowrap i32 %t5, 1
+    %t10 = binary add i32 %x, %t8
+    %t11 = binary xor i32 %t9, %t10
+    %t12 = binary add nowrap i32 %t5, 2
+    %t13 = binary add i32 %x, %t11
+    %t14 = binary xor i32 %t12, %t13
+    %t15 = binary add nowrap i32 %t5, 3
+    %t16 = binary add i32 %x, %t14
+    %t17 = binary xor i32 %t15, %t16
+    %t18 = binary add nowrap i32 %t5, 4
+    %t19 = binary add i32 %x, %t17
+    %t20 = binary xor i32 %t18, %t19
+    %t21 = binary add nowrap i32 %t5, 5
+    %t22 = binary add i32 %x, %t20
+    %t23 = binary xor i32 %t21, %t22
+    %t24 = binary add nowrap i32 %t5, 6
+    %t25 = binary add i32 %x, %t23
+    %t26 = binary xor i32 %t24, %t25
+    %t27 = binary add nowrap i32 %t5, 7
+    %t28 = binary add i32 %x, %t26
+    %t29 = binary xor i32 %t27, %t28
+    %t30 = binary add nowrap i32 %t5, 8
+    %t31 = cmp ne i32 %t3, %t30
+    branch %t31, ^unrolled_1, ^wide_tail_2
+
+  block ^wide_tail_2:
+    %t32 = phi i32 [^entry: 0, ^unrolled_1: %t30]
+    %t33 = phi i32 [^entry: 0, ^unrolled_1: %t29]
+    jump ^head
+
+  block ^head:
+    %i = phi i32 [^wide_tail_2: %t32, ^body: %next]
+    %s = phi i32 [^wide_tail_2: %t33, ^body: %t]
+    %more = cmp lt i32 %i, %n
+    branch %more, ^body, ^done
+
+  block ^body:
+    %z = binary add i32 %s, %x
+    %t = binary xor i32 %i, %z
+    %next = binary add nowrap i32 %i, 1
+    jump ^head
+
+  block ^done:
+    return i32 %s
+}
+function @indexed_offset(%n : i32, %a : i32, %b : i32) -> i64 [no_inline=yes] {
+  block ^entry:
+    %t1 = binary and i32 %n, -4
+    %t2 = cmp gt i32 %t1, 0
+    branch %t2, ^loop_preheader_1, ^wide_tail_3
+
+  block ^loop_preheader_1:
+    %t3 = index i64 @cells, %a
+    %t4 = index i64 %t3, %b
+    jump ^unrolled_2
+
+  block ^unrolled_2:
+    %t5 = phi i64 [^unrolled_2: %t22, ^loop_preheader_1: 0]
+    %t6 = phi i64 [^unrolled_2: %t21, ^loop_preheader_1: 0]
+    %t7 = index i64 %t4, %t5
+    %t8 = load i64 %t7
+    %t9 = binary add i64 %t6, %t8
+    %t10 = index i64 %t4, %t5
+    %t11 = index i64 %t10, 1
+    %t12 = load i64 %t11
+    %t13 = binary add i64 %t9, %t12
+    %t14 = index i64 %t4, %t5
+    %t15 = index i64 %t14, 2
+    %t16 = load i64 %t15
+    %t17 = binary add i64 %t13, %t16
+    %t18 = index i64 %t4, %t5
+    %t19 = index i64 %t18, 3
+    %t20 = load i64 %t19
+    %t21 = binary add i64 %t17, %t20
+    %t22 = binary add nowrap i64 %t5, 4
+    %t23 = convert trunc exact i32 i64 %t22
+    %t24 = cmp ne i32 %t1, %t23
+    branch %t24, ^unrolled_2, ^wide_tail_3
+
+  block ^wide_tail_3:
+    %t25 = phi i32 [^entry: 0, ^unrolled_2: %t23]
+    %t26 = phi i64 [^entry: 0, ^unrolled_2: %t21]
+    %t27 = convert sext i64 i32 %t25
+    %t28 = index i64 @cells, %a
+    %t29 = index i64 %t28, %b
+    jump ^head
+
+  block ^head:
+    %t30 = phi i64 [^wide_tail_3: %t27, ^body: %t37]
+    %s = phi i64 [^wide_tail_3: %t26, ^body: %t]
+    %i = convert trunc exact i32 i64 %t30
+    %more = cmp lt i32 %i, %n
+    branch %more, ^body, ^done
+
+  block ^body:
+    %p = index i64 %t29, %t30
+    %v = load i64 %p
+    %t = binary add i64 %s, %v
+    %t37 = binary add nowrap i64 %t30, 1
+    jump ^head
+
+  block ^done:
+    return i64 %s
+}
+function @counter_step(%n : i32, %a : i32, %b : i32) -> i32 [no_inline=yes] {
+  block ^entry:
+    jump ^head
+
+  block ^head:
+    %i = phi i32 [^entry: 0, ^body: %next]
+    %s = phi i32 [^entry: 0, ^body: %t]
+    %more = cmp lt i32 %i, %n
+    branch %more, ^body, ^done
+
+  block ^body:
+    %t = binary xor i32 %i, %s
+    %x = binary add nowrap i32 %a, %i
+    %next = binary add nowrap i32 %b, %x
+    jump ^head
+
+  block ^done:
+    return i32 %s
+}
+function @subtracted_counter(%n : i64, %a : i64, %b : i64) -> i64 [no_inline=yes] {
+  block ^entry:
+    %x = binary sub i64 %a, %b
+    %t2 = binary and i64 %n, -8
+    %t3 = cmp gt i64 %t2, 0
+    branch %t3, ^unrolled_1, ^wide_tail_2
+
+  block ^unrolled_1:
+    %t4 = phi i64 [^unrolled_1: %t29, ^entry: 0]
+    %t5 = phi i64 [^unrolled_1: %t28, ^entry: 0]
+    %t6 = binary sub i64 %x, %t4
+    %t7 = binary xor i64 %t5, %t6
+    %t8 = binary add nowrap i64 %t4, 1
+    %t9 = binary sub i64 %x, %t8
+    %t10 = binary xor i64 %t7, %t9
+    %t11 = binary add nowrap i64 %t4, 2
+    %t12 = binary sub i64 %x, %t11
+    %t13 = binary xor i64 %t10, %t12
+    %t14 = binary add nowrap i64 %t4, 3
+    %t15 = binary sub i64 %x, %t14
+    %t16 = binary xor i64 %t13, %t15
+    %t17 = binary add nowrap i64 %t4, 4
+    %t18 = binary sub i64 %x, %t17
+    %t19 = binary xor i64 %t16, %t18
+    %t20 = binary add nowrap i64 %t4, 5
+    %t21 = binary sub i64 %x, %t20
+    %t22 = binary xor i64 %t19, %t21
+    %t23 = binary add nowrap i64 %t4, 6
+    %t24 = binary sub i64 %x, %t23
+    %t25 = binary xor i64 %t22, %t24
+    %t26 = binary add nowrap i64 %t4, 7
+    %t27 = binary sub i64 %x, %t26
+    %t28 = binary xor i64 %t25, %t27
+    %t29 = binary add nowrap i64 %t4, 8
+    %t30 = cmp ne i64 %t2, %t29
+    branch %t30, ^unrolled_1, ^wide_tail_2
+
+  block ^wide_tail_2:
+    %t31 = phi i64 [^entry: 0, ^unrolled_1: %t29]
+    %t32 = phi i64 [^entry: 0, ^unrolled_1: %t28]
+    jump ^head
+
+  block ^head:
+    %i = phi i64 [^wide_tail_2: %t31, ^body: %next]
+    %s = phi i64 [^wide_tail_2: %t32, ^body: %t]
+    %more = cmp lt i64 %i, %n
+    branch %more, ^body, ^done
+
+  block ^body:
+    %y = binary sub i64 %x, %i
+    %t = binary xor i64 %s, %y
+    %next = binary add nowrap i64 %i, 1
+    jump ^head
+
+  block ^done:
+    return i64 %s
+}
+function @subtracted_invariants(%n : i64, %a : i64, %b : i64) -> i64 [no_inline=yes] {
+  block ^entry:
+    %x = binary add i64 %a, %b
+    %t2 = binary and i64 %n, -8
+    %t3 = cmp gt i64 %t2, 0
+    branch %t3, ^unrolled_1, ^wide_tail_2
+
+  block ^unrolled_1:
+    %t4 = phi i64 [^unrolled_1: %t29, ^entry: 0]
+    %t5 = phi i64 [^unrolled_1: %t28, ^entry: 0]
+    %t6 = binary sub i64 %t4, %x
+    %t7 = binary xor i64 %t5, %t6
+    %t8 = binary add nowrap i64 %t4, 1
+    %t9 = binary sub i64 %t8, %x
+    %t10 = binary xor i64 %t7, %t9
+    %t11 = binary add nowrap i64 %t4, 2
+    %t12 = binary sub i64 %t11, %x
+    %t13 = binary xor i64 %t10, %t12
+    %t14 = binary add nowrap i64 %t4, 3
+    %t15 = binary sub i64 %t14, %x
+    %t16 = binary xor i64 %t13, %t15
+    %t17 = binary add nowrap i64 %t4, 4
+    %t18 = binary sub i64 %t17, %x
+    %t19 = binary xor i64 %t16, %t18
+    %t20 = binary add nowrap i64 %t4, 5
+    %t21 = binary sub i64 %t20, %x
+    %t22 = binary xor i64 %t19, %t21
+    %t23 = binary add nowrap i64 %t4, 6
+    %t24 = binary sub i64 %t23, %x
+    %t25 = binary xor i64 %t22, %t24
+    %t26 = binary add nowrap i64 %t4, 7
+    %t27 = binary sub i64 %t26, %x
+    %t28 = binary xor i64 %t25, %t27
+    %t29 = binary add nowrap i64 %t4, 8
+    %t30 = cmp ne i64 %t2, %t29
+    branch %t30, ^unrolled_1, ^wide_tail_2
+
+  block ^wide_tail_2:
+    %t31 = phi i64 [^entry: 0, ^unrolled_1: %t29]
+    %t32 = phi i64 [^entry: 0, ^unrolled_1: %t28]
+    jump ^head
+
+  block ^head:
+    %i = phi i64 [^wide_tail_2: %t31, ^body: %next]
+    %s = phi i64 [^wide_tail_2: %t32, ^body: %t]
+    %more = cmp lt i64 %i, %n
+    branch %more, ^body, ^done
+
+  block ^body:
+    %y = binary sub i64 %i, %x
+    %t = binary xor i64 %s, %y
+    %next = binary add nowrap i64 %i, 1
+    jump ^head
+
+  block ^done:
+    return i64 %s
+}
+function @product_with_call(%n : i64, %a : i64, %b : i64) -> i64 [no_inline=yes] {
+  block ^entry:
+    %x = binary mul i64 %a, %b
+    jump ^head
+
+  block ^head:
+    %i = phi i64 [^entry: 0, ^body: %next]
+    %s = phi i64 [^entry: 0, ^body: %t]
+    %more = cmp lt i64 %i, %n
+    branch %more, ^body, ^done
+
+  block ^body:
+    %y = binary mul i64 %i, %x
+    call void @note(%y)
+    %u = binary add i64 %a, %i
+    %v = binary add i64 %b, %u
+    %w = binary add i64 %s, %v
+    %t = binary add i64 %y, %w
+    %next = binary add nowrap i64 %i, 1
+    jump ^head
+
+  block ^done:
+    return i64 %s
+}
+function @shared_step(%n : u32, %a : u32, %b : u32) -> u32 [no_inline=yes] {
+  block ^entry:
+    %t1 = binary and u32 %n, 4294967292
+    %t2 = cmp gt u32 %t1, 0
+    branch %t2, ^unrolled_1, ^wide_tail_2
+
+  block ^unrolled_1:
+    %t3 = phi u32 [^unrolled_1: %t24, ^entry: 0]
+    %t4 = phi u32 [^unrolled_1: %t23, ^entry: 0]
+    %t5 = binary xor u32 %a, %t3
+    %t6 = binary xor u32 %b, %t5
+    %t7 = binary and u32 %t5, %t6
+    %t8 = binary add u32 %t4, %t7
+    %t9 = binary add u32 %t3, 1
+    %t10 = binary xor u32 %a, %t9
+    %t11 = binary xor u32 %b, %t10
+    %t12 = binary and u32 %t10, %t11
+    %t13 = binary add u32 %t8, %t12
+    %t14 = binary add u32 %t3, 2
+    %t15 = binary xor u32 %a, %t14
+    %t16 = binary xor u32 %b, %t15
+    %t17 = binary and u32 %t15, %t16
+    %t18 = binary add u32 %t13, %t17
+    %t19 = binary add u32 %t3, 3
+    %t20 = binary xor u32 %a, %t19
+    %t21 = binary xor u32 %b, %t20
+    %t22 = binary and u32 %t20, %t21
+    %t23 = binary add u32 %t18, %t22
+    %t24 = binary add u32 %t3, 4
+    %t25 = cmp ne u32 %t1, %t24
+    branch %t25, ^unrolled_1, ^wide_tail_2
+
+  block ^wide_tail_2:
+    %t26 = phi u32 [^entry: 0, ^unrolled_1: %t24]
+    %t27 = phi u32 [^entry: 0, ^unrolled_1: %t23]
+    jump ^head
+
+  block ^head:
+    %i = phi u32 [^wide_tail_2: %t26, ^body: %next]
+    %s = phi u32 [^wide_tail_2: %t27, ^body: %t]
+    %more = cmp lt u32 %i, %n
+    branch %more, ^body, ^done
+
+  block ^body:
+    %x = binary xor u32 %a, %i
+    %y = binary xor u32 %b, %x
+    %z = binary and u32 %x, %y
+    %t = binary add u32 %s, %z
+    %next = binary add u32 %i, 1
+    jump ^head
+
+  block ^done:
+    return u32 %s
+}
+function @masked_load(%n : i64, %a : i64, %b : i64) -> i64 [no_inline=yes] {
+  block ^entry:
+    %y = binary or i64 %a, %b
+    %t2 = binary and i64 %n, -4
+    %t3 = cmp gt i64 %t2, 0
+    branch %t3, ^unrolled_1, ^wide_tail_2
+
+  block ^unrolled_1:
+    %t4 = phi i64 [^unrolled_1: %t25, ^entry: 0]
+    %t5 = phi i64 [^unrolled_1: %t24, ^entry: 0]
+    %t6 = load volatile i64 @mask
+    %t7 = binary or i64 %y, %t4
+    %t8 = binary or i64 %t6, %t7
+    %t9 = binary add i64 %t5, %t8
+    %t10 = binary add nowrap i64 %t4, 1
+    %t11 = load volatile i64 @mask
+    %t12 = binary or i64 %y, %t10
+    %t13 = binary or i64 %t11, %t12
+    %t14 = binary add i64 %t9, %t13
+    %t15 = binary add nowrap i64 %t4, 2
+    %t16 = load volatile i64 @mask
+    %t17 = binary or i64 %y, %t15
+    %t18 = binary or i64 %t16, %t17
+    %t19 = binary add i64 %t14, %t18
+    %t20 = binary add nowrap i64 %t4, 3
+    %t21 = load volatile i64 @mask
+    %t22 = binary or i64 %y, %t20
+    %t23 = binary or i64 %t21, %t22
+    %t24 = binary add i64 %t19, %t23
+    %t25 = binary add nowrap i64 %t4, 4
+    %t26 = cmp ne i64 %t2, %t25
+    branch %t26, ^unrolled_1, ^wide_tail_2
+
+  block ^wide_tail_2:
+    %t27 = phi i64 [^entry: 0, ^unrolled_1: %t25]
+    %t28 = phi i64 [^entry: 0, ^unrolled_1: %t24]
+    jump ^head
+
+  block ^head:
+    %i = phi i64 [^wide_tail_2: %t27, ^body: %next]
+    %s = phi i64 [^wide_tail_2: %t28, ^body: %t]
+    %more = cmp lt i64 %i, %n
+    branch %more, ^body, ^done
+
+  block ^body:
+    %m = load volatile i64 @mask
+    %x = binary or i64 %i, %y
+    %z = binary or i64 %x, %m
+    %t = binary add i64 %s, %z
+    %next = binary add nowrap i64 %i, 1
+    jump ^head
+
+  block ^done:
+    return i64 %s
+}
+function @main() -> i32 [role=entry] {
+  block ^entry:
+    %a = call i64 @sum_chain(17, 9223372036854775700, 90, -3)
+    %b = call i32 @difference_chain(13, 1000, -100)
+    %h = call i32 @counter_step(100, 9, -2)
+    %k = call i64 @indexed_offset(40, 100, 7)
+    %c = call i64 @subtracted_counter(9, 5, -7)
+    %d = call i64 @subtracted_invariants(11, -9223372036854775807, 4)
+    %e = call i64 @product_with_call(7, 3037000500, 3037000500)
+    %f = call u32 @shared_step(10, 12345, 678)
+    %g = call i64 @masked_load(12, 4096, 65536)
+    %bh = binary xor i32 %b, %h
+    %b64 = convert sext i64 i32 %bh
+    %f64 = convert zext i64 u32 %f
+    %ab = binary xor i64 %a, %b64
+    %abc = binary xor i64 %c, %ab
+    %abcd = binary xor i64 %d, %abc
+    %abcde = binary xor i64 %e, %abcd
+    %abcdef = binary xor i64 %f64, %abcde
+    %abcdefg = binary xor i64 %g, %abcdef
+    %all = binary xor i64 %k, %abcdefg
+    %folded = binary shr i64 %all, 32
+    %mixed = binary xor i64 %all, %folded
+    %low = convert trunc i32 i64 %mixed
+    %code = binary and i32 %low, 127
+    return i32 %code
+}

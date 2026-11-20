@@ -3,6 +3,8 @@
 #include "opt/passes.h"
 #include "opt/scalar_fold.h"
 
+#include <algorithm>
+
 namespace opt {
 
 using namespace lowir;
@@ -27,6 +29,16 @@ private:
 	bool worth_moving(const Instruction& inst, bool calls) const;
 	void find_feeders(uint32_t loop);
 	bool sweep(uint32_t loop, bool apply);
+	struct Term
+	{
+		Value value;
+		bool negative; // subtracted
+	};
+	bool chain_link(Value v, BinaryOp family, Type type, BlockId block);
+	bool read_chain(uint32_t loop, InstId root, BlockId block);
+	bool widened(uint32_t loop, InstId root) const;
+	Value combine(const std::vector<Term>& terms, BinaryOp family, size_t& next, bool& negative);
+	bool reassociate(uint32_t loop, bool calls, bool apply);
 
 	FunctionContext& c_;
 	FunctionBody& body_;
@@ -35,7 +47,32 @@ private:
 	std::vector<uint8_t> in_register_; // per temp: some use needs it in a register
 	std::vector<uint8_t> feeds_;       // per temp of the loop at hand: could leave (1), a costly one reads it (2)
 	std::vector<TempId> fed_;          // the temps feeds_ marks
+	// reassociate's state: use counts, per instruction the walk that read it
+	// as part of a chain, a chain's operands and instructions (its root
+	// first), and the block's regrouped chains' instructions in their new
+	// order.
+	std::vector<uint32_t> uses_;
+	std::vector<uint32_t> read_;
+	uint32_t walk_ = 0;
+	std::vector<Term> terms_, invariants_, variants_;
+	std::vector<InstId> links_, order_, block_insts_;
+	std::vector<std::pair<size_t, size_t>> chains_; // per regrouped chain of the block: its range of order_
+	std::vector<uint32_t> chain_;                   // per instruction: 1 + its regrouped chain, or 0
 };
+
+// The operation family of a chain step: addition and subtraction form one;
+// multiplication, and, or and xor are each their own. Integers only: their
+// arithmetic wraps, so every grouping of a chain gives the same bits.
+bool chain_family(const Instruction& inst, BinaryOp& family)
+{
+	if (inst.op != Opcode::Binary || inst.result == kNoId || !inst.type.is_integer() ||
+		inst.type.kind() == TypeKind::I128)
+		return false;
+	const BinaryOp op = static_cast<BinaryOp>(inst.sub);
+	family = op == BinaryOp::Sub ? BinaryOp::Add : op;
+	return op == BinaryOp::Add || op == BinaryOp::Sub || op == BinaryOp::Mul || op == BinaryOp::And ||
+		op == BinaryOp::Or || op == BinaryOp::Xor;
+}
 
 bool LoopMotion::invariant(uint32_t loop, Value v) const
 {
@@ -210,6 +247,222 @@ void LoopMotion::find_feeders(uint32_t loop)
 	}
 }
 
+// Whether `v` is an inner step of a chain: computed in `block` by the
+// family's operation on `type`, for its one reader alone.
+bool LoopMotion::chain_link(Value v, BinaryOp family, Type type, BlockId block)
+{
+	if (!v.is(ValueKind::Temp) || v.index < body_.parameter_count)
+		return false;
+	const InstId def = body_.temps[v.index].def;
+	BinaryOp op = BinaryOp::Add;
+	if (def == kNoId || c_.block_of[def] != block || !chain_family(body_.instructions[def], op) || op != family ||
+		body_.instructions[def].type != type)
+		return false;
+	// (Counted when the first candidate needs them: most loops have none.)
+	if (uses_.size() != body_.temps.size())
+		count_uses(body_, uses_);
+	return uses_[v.index] == 1;
+}
+
+// A reader in the loop extends the chain's value: an index, an integer
+// extension, or the phi of a counter that steps by the chain.
+bool LoopMotion::widened(uint32_t loop, InstId root) const
+{
+	const Value value = Value::temp(body_.instructions[root].result);
+	const bool step = variants_.size() == 1 && variants_[0].value.is(ValueKind::Temp);
+	for (BlockId b : forest_.loops[loop].blocks)
+		for (InstId i = body_.blocks[b].first; i != kNoId; i = body_.instructions[i].next)
+		{
+			const Instruction& inst = body_.instructions[i];
+			const auto op = static_cast<ConvertOp>(inst.sub);
+			if ((inst.op == Opcode::Index && inst.ops[1] == value) ||
+				(inst.op == Opcode::Convert && inst.ops[0] == value &&
+					(op == ConvertOp::SExt || op == ConvertOp::ZExt)))
+				return true;
+			if (inst.op == Opcode::Phi && step && inst.result == variants_[0].value.index)
+				for (uint32_t k = 1; k < inst.extra_count; k += 2)
+					if (body_.operands[inst.extra_first + k] == value)
+						return true;
+		}
+	return false;
+}
+
+// Reads the chain `root` ends into terms_ (its operands, left to right,
+// each marked when it is subtracted) and links_ (its instructions, the
+// root first), marking them read. False beyond kChainTerms operands, and
+// when its invariant operands do not need regrouping: fewer than two,
+// literals only (value simplification folds those), or nothing else, and
+// when a narrow value that widens would lose its steps' no-wrap facts.
+bool LoopMotion::read_chain(uint32_t loop, InstId root, BlockId block)
+{
+	constexpr size_t kChainTerms = 16;
+	const Instruction& last = body_.instructions[root];
+	BinaryOp family = BinaryOp::Add;
+	chain_family(last, family);
+	terms_.clear();
+	links_.clear();
+	std::pair<InstId, bool> stack[kChainTerms];
+	size_t depth = 0;
+	stack[depth++] = { root, false };
+	bool fits = true;
+	while (depth > 0)
+	{
+		const auto at = stack[--depth];
+		const Instruction& inst = body_.instructions[at.first];
+		read_[at.first] = walk_;
+		links_.push_back(at.first);
+		const bool subtract = static_cast<BinaryOp>(inst.sub) == BinaryOp::Sub;
+		// (The right operand first: the stack then yields the left one.)
+		for (unsigned side = 2; side-- > 0;)
+		{
+			const bool negative = at.second != (side == 1 && subtract);
+			const Value v = inst.ops[side];
+			if (fits && chain_link(v, family, last.type, block) && depth < kChainTerms)
+				stack[depth++] = { body_.temps[v.index].def, negative };
+			else
+				terms_.push_back({ v, negative });
+			fits = fits && terms_.size() + depth <= kChainTerms;
+		}
+	}
+	if (!fits)
+		return false;
+	std::reverse(terms_.begin(), terms_.end());
+	invariants_.clear();
+	variants_.clear();
+	bool named = false;
+	for (const Term& term : terms_)
+	{
+		const bool fixed = invariant(loop, term.value);
+		(fixed ? invariants_ : variants_).push_back(term);
+		named = named || (fixed && !term.value.is_literal());
+	}
+	// (Two invariants that one instruction combines already leave the loop.)
+	if (invariants_.size() < 2 || variants_.empty() || !named || links_.size() < 2)
+		return false;
+	// A regrouped step cannot keep a no-wrap fact (the invariants' own sum
+	// may wrap). A narrow value that widens needs it, or it would extend on
+	// every pass.
+	bool no_wrap = false;
+	for (InstId link : links_)
+		no_wrap = no_wrap || (body_.instructions[link].flags & IF_NO_WRAP) != 0;
+	return !no_wrap || last.type.kind() == TypeKind::I64 || !widened(loop, root);
+}
+
+// Folds `terms` left to right with the chain's next instructions, starting
+// at the first term that is added. Returns the result; `negative` when all
+// of the terms are subtracted (the result is then their sum).
+Value LoopMotion::combine(const std::vector<Term>& terms, BinaryOp family, size_t& next, bool& negative)
+{
+	size_t first = 0;
+	while (first < terms.size() && terms[first].negative)
+		++first;
+	negative = first == terms.size();
+	if (negative)
+		first = 0;
+	Value sum = terms[first].value;
+	for (size_t k = 0; k < terms.size(); ++k)
+	{
+		if (k == first)
+			continue;
+		const InstId id = links_[next++];
+		Instruction& step = body_.instructions[id];
+		step.sub = static_cast<uint8_t>(terms[k].negative && !negative ? BinaryOp::Sub : family);
+		step.ops[0] = sum;
+		step.ops[1] = terms[k].value;
+		step.flags &= static_cast<uint8_t>(~(IF_NO_WRAP | IF_EXACT));
+		order_.push_back(id);
+		sum = Value::temp(step.result);
+	}
+	return sum;
+}
+
+// A chain of one integer operation in a loop (x + v1 + v2, x * v1 * v2,
+// each step's result read only by the next) whose operands include two or
+// more values the loop does not compute: those combine first, and their
+// combination then leaves the loop (x + (v1 + v2)). The chain keeps its
+// instructions, placed just before its root (its last one): the invariants'
+// combination, then the loop's own operands in their order, the
+// combination joining the first of them. Regrouped steps lose their
+// no-wrap facts. Without `apply`: whether any chain would change.
+bool LoopMotion::reassociate(uint32_t loop, bool calls, bool apply)
+{
+	bool any = false;
+	for (BlockId b : forest_.loops[loop].blocks)
+	{
+		// A chain's steps mark the links they read; the steps with a link
+		// that no later step reads are the roots.
+		++walk_;
+		block_insts_.clear();
+		for (InstId i = body_.blocks[b].first; i != kNoId; i = body_.instructions[i].next)
+		{
+			const Instruction& inst = body_.instructions[i];
+			BinaryOp family = BinaryOp::Add;
+			if (!chain_family(inst, family))
+				continue;
+			bool linked = false;
+			for (unsigned side = 0; side < 2; ++side)
+				if (chain_link(inst.ops[side], family, inst.type, b))
+				{
+					read_[body_.temps[inst.ops[side].index].def] = walk_;
+					linked = true;
+				}
+			if (linked)
+				block_insts_.push_back(i);
+		}
+		order_.clear();
+		chains_.clear();
+		for (size_t k = block_insts_.size(); k-- > 0;)
+		{
+			const InstId i = block_insts_[k];
+			BinaryOp family = BinaryOp::Add;
+			if (read_[i] == walk_ || !worth_moving(body_.instructions[i], calls) || !read_chain(loop, i, b))
+				continue;
+			chain_family(body_.instructions[i], family);
+			if (!apply)
+				return true;
+			// The root last: it keeps its result for its readers.
+			std::rotate(links_.begin(), links_.begin() + 1, links_.end());
+			const size_t start = order_.size();
+			size_t next = 0;
+			bool negative = false;
+			const Value fixed = combine(invariants_, family, next, negative);
+			variants_.insert(variants_.begin() + 1, Term{ fixed, negative });
+			combine(variants_, family, next, negative);
+			chains_.push_back({ start, order_.size() });
+			for (size_t at = start; at < order_.size(); ++at)
+				chain_[order_[at]] = static_cast<uint32_t>(chains_.size());
+		}
+		if (chains_.empty())
+			continue;
+		any = true;
+		// The block again, each regrouped chain's steps just before its root
+		// (the last of them).
+		InstId prev = kNoId;
+		auto append = [&](InstId i) {
+			if (prev == kNoId)
+				body_.blocks[b].first = i;
+			else
+				body_.instructions[prev].next = i;
+			prev = i;
+		};
+		for (InstId i = body_.blocks[b].first, after = kNoId; i != kNoId; i = after)
+		{
+			after = body_.instructions[i].next;
+			const uint32_t chain = chain_[i];
+			if (chain == 0)
+				append(i);
+			else if (order_[chains_[chain - 1].second - 1] == i)
+				for (size_t at = chains_[chain - 1].first; at < chains_[chain - 1].second; ++at)
+					append(order_[at]);
+		}
+		body_.instructions[prev].next = kNoId;
+		body_.blocks[b].last = prev;
+		for (InstId i : order_)
+			chain_[i] = 0;
+	}
+	return any;
+}
+
 // Moves what the loop's blocks hold to its preheader, repeating while a move
 // frees another. Without `apply`: whether anything would move.
 bool LoopMotion::sweep(uint32_t loop, bool apply)
@@ -226,10 +479,14 @@ bool LoopMotion::sweep(uint32_t loop, bool apply)
 		find_feeders(loop);
 	const BlockId pre = l.preheader;
 	InstId tail = apply ? previous_in_block(body_, pre, body_.blocks[pre].last) : kNoId;
+	if (!apply && reassociate(loop, calls, false))
+		return true;
 	bool any = false;
 	for (bool moved = true; moved;)
 	{
+		// (Chains regrouped now leave in this round.)
 		moved = false;
+		any = (apply && reassociate(loop, calls, true)) || any;
 		for (BlockId b : l.blocks)
 		{
 			// Everything before a point of the header runs whenever the
@@ -283,6 +540,9 @@ bool LoopMotion::run()
 		return false;
 	c_.entry_block_of(hoist_loop_invariants);
 	note_register_uses();
+	uses_.clear();
+	read_.assign(body_.instructions.size(), 0);
+	chain_.assign(body_.instructions.size(), 0);
 	// A preheader for each loop with something to move, then the loops are
 	// found again. (A loop's preheader changes only its header's entry edge.)
 	bool changed = false;
@@ -301,6 +561,9 @@ bool LoopMotion::run()
 		find_loops(body_, cfg_, forest_);
 		map_instruction_blocks(body_, c_.block_of);
 		c_.invalidate_block_of();
+		uses_.clear();
+		read_.resize(body_.instructions.size(), 0);
+		chain_.resize(body_.instructions.size(), 0);
 	}
 	// Innermost first: what moves into an inner preheader may leave the loop
 	// around it too.
