@@ -594,7 +594,9 @@ Retain one copy of each distinct run and compile-fail declaration.
 GCC 15 rejects four of the original reverse-mode autodiff compile cases
 for `sinc_pi` and `sinhc_pi` with Multiprecision types. Clang 21 compiles
 all four with the original flags, working directory, and libstdc++.
-Use Clang as the reference for the complete Math test project.
+Use Clang for these four native compile inputs and GCC for the other
+Math tests. Compare both compilers against all original Boost.Build targets
+and outcomes.
 
 ## Measure before promoting the changes
 

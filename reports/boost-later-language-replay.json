@@ -180,6 +180,12 @@
       "project": "libs/math/test",
       "edition": 14,
       "clang_reference": "GCC 15 rejects four reverse-mode sinc_pi and sinhc_pi compile-test configurations with Multiprecision types. Clang 21 compiles all four with the original flags and the same libstdc++.",
+      "clang_reference_sources": [
+        "libs/math/test/test_reverse_mode_autodiff_special_functions_compile/sinc_pi/test_reverse_mode_autodiff_sinc_pi_compile_test_ET_OFF_multiprecision_float_types.cpp",
+        "libs/math/test/test_reverse_mode_autodiff_special_functions_compile/sinc_pi/test_reverse_mode_autodiff_sinc_pi_compile_test_ET_ON_multiprecision_float_types.cpp",
+        "libs/math/test/test_reverse_mode_autodiff_special_functions_compile/sinhc_pi/test_reverse_mode_autodiff_sinhc_pi_compile_test_ET_OFF_multiprecision_float_types.cpp",
+        "libs/math/test/test_reverse_mode_autodiff_special_functions_compile/sinhc_pi/test_reverse_mode_autodiff_sinhc_pi_compile_test_ET_ON_multiprecision_float_types.cpp"
+      ],
       "proof": {
         "path": "runs/20261029T091514.880189Z-libs__math__test/review.json",
         "sha256": "1fcf6aa6e93d8c0abfdc0931910eb43ee51ef6be8946a0b7c947940a96bdd128"

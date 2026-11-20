@@ -77,6 +77,13 @@ def validate_inventory(inventory):
         if 'clang_reference' in group:
             boost_ci.require(isinstance(group['clang_reference'], str) and group['clang_reference'],
                              'a Clang reference needs a recorded reason')
+        if 'clang_reference_sources' in group:
+            sources = group['clang_reference_sources']
+            boost_ci.require(group.get('clang_reference') and isinstance(sources, list) and sources and
+                             all(isinstance(source, str) and re.fullmatch(r'libs/[A-Za-z0-9_/]+\.cpp', source) and
+                                 source.startswith(project + '/') for source in sources) and
+                             len(set(sources)) == len(sources),
+                             'invalid sources for an alternate Clang reference')
 
 
 def replay_configurations(group):
@@ -449,14 +456,21 @@ def main():
     for index, group in enumerate(groups):
         tag = f"{index:02d}-cxx{group['edition']}-{group['project'].replace('/', '-')}"
         row = dict(group, path=tag, effective_edition=group.get('replay_edition', group['edition']))
-        native_role = 'reference' if group.get('clang_reference') else 'gcc'
+        alternate_sources = group.get('clang_reference_sources', [])
+        native_role = 'reference' if group.get('clang_reference') and not alternate_sources else 'gcc'
+        native_settings = settings[native_role]
+        if alternate_sources:
+            compiler, jam, environment = native_settings
+            spellings = [*alternate_sources, *(str(boost / name) for name in alternate_sources)]
+            native_settings = (compiler, jam, dict(environment, BOOST_CI_ALTERNATE_COMPILER=str(launcher),
+                                                   BOOST_CI_ALTERNATE_SOURCES='\n'.join(spellings)))
         outcomes = 0
         variants = []
         try:
             for suffix, variant in replay_configurations(group):
                 directory = output / (tag + suffix)
                 directory.mkdir()
-                native = replay(boost, settings[native_role], native_role, directory / native_role, variant, args)
+                native = replay(boost, native_settings, native_role, directory / native_role, variant, args)
                 actual = replay(boost, settings['cppgm'], 'cppgm', directory / 'cppgm', variant, args)
                 boost_ci.require(actual == native, f"native inventory differs in {directory.name}: "
                                  f"missing {list(native - actual)[:8]}, extra {list(actual - native)[:8]}")

@@ -38,7 +38,13 @@ def route(arguments):
     if '-c' in arguments or '-E' in arguments or language in ('c++', 'c++-header') or any(
         Path(a).suffix in ('.cpp', '.cc', '.cxx', '.C') for a in sources
     ):
-        return os.environ.get('BOOST_CI_LABEL', 'cppgm'), os.environ['BOOST_CI_COMPILER']
+        compiler = os.environ['BOOST_CI_COMPILER']
+        alternate = os.environ.get('BOOST_CI_ALTERNATE_COMPILER')
+        if alternate:
+            routed_sources = set(os.environ['BOOST_CI_ALTERNATE_SOURCES'].splitlines())
+            if routed_sources.intersection(sources):
+                compiler = alternate
+        return os.environ.get('BOOST_CI_LABEL', 'cppgm'), compiler
     return 'host-link-or-query', os.environ['BOOST_CI_HOST_CXX']
 
 
