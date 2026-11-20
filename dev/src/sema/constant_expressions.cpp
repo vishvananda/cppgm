@@ -837,6 +837,25 @@ bool ConstantInterpreter::glvalue(const syntax::Expr& expr, ConstPlace& out)
 				through_naming(self, analyzer_.member_naming_class(*e), e->location) &&
 				member_place(self, static_cast<const VariableEntity*>(facts->entity), out, e->location);
 		}
+		if (facts->non_odr_value && facts->entity != nullptr && facts->entity->kind == EntityKind::Variable)
+		{
+			const auto* variable = static_cast<const VariableEntity*>(facts->entity);
+			// A non-odr-use can read the enclosing constant without looking
+			// in the closure, even when the closure captured that constant.
+			if (const ConstValue* value = analyzer_.variable_value(variable))
+			{
+				if (variable->type->is_reference())
+					out = PlaceOf(*value, facts->type);
+				else
+				{
+					out = ConstPlace();
+					out.root = RootKind::Variable;
+					out.entity = variable;
+					out.type = facts->type;
+				}
+				return true;
+			}
+		}
 		return entity_place(facts->entity, facts->type, out, e->location);
 	case syntax::ExprKind::Literal:
 		if (facts->type->kind != TypeKind::Array || (facts->flags & kUserLiteral) != 0)

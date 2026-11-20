@@ -259,6 +259,8 @@ Follow adopted [P0588R1](../doc/cwg/paper-p0588r1.txt) for implicit captures:
 a potentially evaluated reference can require a capture even when it is not
 an odr-use. Preserve observable copy initialization; a non-odr-use in the body
 still reads the original constant object under [CWG2083](../doc/cwg/cwg-2083.txt).
+This applies to a constant pointer used by a C++17 constexpr call, including
+a call through a closure parameter in a template argument.
 
 
 C++14 adds deduced function returns, `decltype(auto)` variables and returns,

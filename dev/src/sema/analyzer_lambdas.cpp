@@ -599,11 +599,11 @@ void Analyzer::local_name(const syntax::Expr& expr, ExprFacts* facts, const Enti
 			facts->value = published->bits;
 		}
 	}
-	// A member/array value read or a discarded glvalue is classified by
-	// its final context. P0588 still captures potentially referenced
-	// entities under a capture-default; no-ODR body uses name the original.
-	const bool original = variable != nullptr && published != nullptr &&
-		(variable->type->is_reference() || (!IsScalar(variable->type) && variable->is_constexpr));
+	// The surrounding conversion decides whether a constexpr object is
+	// read as a value or its storage is used. P0588 still captures
+	// potentially referenced entities under a capture-default.
+	const bool original = published != nullptr &&
+		(variable->type->is_reference() || (facts->flags & kStaticConstant) == 0);
 	facts->potential_result = original;
 	const bool capture = original || (!integer && !scalar) ||
 		(body_ != nullptr && body_->lambda != nullptr && body_->lambda->expr->has_default);

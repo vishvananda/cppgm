@@ -96,7 +96,16 @@ bool ConstantInterpreter::bind_closure_captures(
 		const Capture& capture = closure->captures[i];
 		Local local = Local();
 		local.entity = capture.entity;
-		if (!member_place(object, capture.member, local.place, location))
+		if ((object.root == RootKind::Unknown || object.root == RootKind::Parameter) &&
+			capture.member->type->is_reference())
+		{
+			// An unknown closure can be called without reading its stored
+			// reference captures. A use that reads one still needs its value.
+			local.place.root = RootKind::Unknown;
+			local.place.entity = capture.entity;
+			local.place.type = capture.member->type->element;
+		}
+		else if (!member_place(object, capture.member, local.place, location))
 			return false;
 		locals_.push_back(local);
 	}
