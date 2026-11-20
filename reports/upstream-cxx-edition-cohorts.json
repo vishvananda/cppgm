@@ -253,8 +253,7 @@
           "action": "compile",
           "expect": "accept",
           "feature": "constexpr blocks and extern declarations",
-          "pr": false,
-          "pending_reason": "Local extern declaration inside a constexpr block must resolve to its linkage-bearing declaration."
+          "pr": true
         },
         {
           "id": "clang-40e86f3a58f60eaec376",

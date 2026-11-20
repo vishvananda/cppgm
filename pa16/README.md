@@ -377,6 +377,9 @@ declarations. A constructor body may contain those same auxiliary statements
 and declarations. Some later statements, such as an extra return or a local
 variable declaration, can be admitted by the C++14 extension diagnostic.
 A loop still requires C++14 when compiling with strict language diagnostics.
+A block-scope `extern` declaration in a C++14 constexpr function can name
+an object with linkage. Taking its address can be a constant expression.
+The declaration starts no local object lifetime.
 See PA30 for the system-header and diagnostic pragma controls.
 
 Apply the selected edition's aggregate initialization and C++17 result-object

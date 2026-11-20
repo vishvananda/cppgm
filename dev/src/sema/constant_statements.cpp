@@ -1286,10 +1286,12 @@ bool ConstantInterpreter::declaration(const syntax::Decl& decl)
 bool ConstantInterpreter::local_variable(
 	const VariableEntity* variable, const syntax::Initializer* initializer, uint32_t location)
 {
+	// A block-scope extern can redeclare a namespace-scope entity.
+	// There is no definition or lifetime to start in this frame.
+	if (variable->is_extern || variable->owner->kind == ScopeKind::Namespace)
+		return true;
 	// 7.1.5p3 (C++14): a variable of automatic storage duration; not a
 	// static or thread_local one.
-	if (variable->is_extern)
-		return true;
 	if (variable->is_static || variable->is_thread_local)
 		return fail(location, "a static or thread_local variable in a constant expression");
 	Local local = Local();
