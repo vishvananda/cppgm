@@ -94,11 +94,11 @@ void FunctionLowering::bind_coroutine_storage(const sema::Entity* entity, lowir:
 	locals_.push_back(binding);
 }
 
-lowir::Value FunctionLowering::prepare_coroutine_result(const syntax::Expr& expression)
+lowir::Value FunctionLowering::prepare_coroutine_result(const syntax::Expr& expression, CoroutineStartup* startup)
 {
 	const size_t first = cleanups_.size();
 	const bool region = begin_full_expression(&expression);
-	lowir::Value value;
+	lowir::Value value = lowir::Value::none();
 	const sema::Type* result = function_->type->canonical->element;
 	const sema::ClassEntity* shape = sema::ClassOf(result);
 	if (shape != nullptr)
@@ -112,6 +112,8 @@ lowir::Value FunctionLowering::prepare_coroutine_result(const syntax::Expr& expr
 			destination = address_of(holder);
 		}
 		initialize_result(expression, expression.facts->conversion, shape, destination, expression.location);
+		if (startup != nullptr)
+			remember_coroutine_object(*startup, result, value.is(lowir::ValueKind::Slot) ? value : result_destination_);
 	}
 	else if (sema::IsVoid(result))
 		discard(expression);
@@ -165,7 +167,13 @@ void FunctionLowering::lower_coroutine_implicit_await(
 {
 	const size_t first = cleanups_.size();
 	const bool region = begin_full_expression(await.source, true);
-	discard(suspend_coroutine(await, body, final));
+	const syntax::Expr& resume = suspend_coroutine(await, body, final);
+	if (!final && lowering_.exceptions())
+	{
+		const lowir::Type byte = lowir::Type::scalar(lowir::TypeKind::U8);
+		store(byte, integer(byte, 1), coroutine_place(body.address, body.layout.initial_resumed));
+	}
+	discard(resume);
 	destroy_temporaries(first);
 	end_full_expression(region);
 }
@@ -196,11 +204,21 @@ const syntax::Expr& FunctionLowering::suspend_coroutine(
 
 	const lowir::BlockId resume = new_block(lowir::BlockKind::IfEnd);
 	const lowir::BlockId destroy = new_block(lowir::BlockKind::IfElse);
+	const bool exceptions = lowering_.exceptions();
+	const lowir::BlockId suspended = exceptions ? new_block(lowir::BlockKind::IfElse) : body.suspend;
 	const uint32_t state = static_cast<uint32_t>(body.suspensions.size());
-	body.suspensions.push_back(CoroutineSuspension{ final ? lowir::kNoId : resume, destroy });
-	emit_coroutine_suspend(await, body.address, body.layout.state, state, resume, body.suspend);
+	body.suspensions.push_back(
+		CoroutineSuspension{ final && !exceptions ? lowir::kNoId : resume, destroy, suspended, final });
+	emit_coroutine_suspend(await, body.address, body.layout.state, state, resume, suspended);
+	if (exceptions)
+	{
+		// Use conceptual continuation edges so the exception-state analysis
+		// can see the lexical stack at both routes of a suspension.
+		place(suspended);
+		branch(integer(lowir::Type::scalar(lowir::TypeKind::I64), 1), resume, destroy);
+	}
 	place(destroy);
-	destroy_cleanups(0);
+	destroy_cleanups(0, false, 0);
 	jump(body.destroy);
 	place(resume);
 	return *await.resume;
@@ -249,12 +267,12 @@ void FunctionLowering::coroutine_return(const syntax::Expr& call)
 	discard(call);
 	destroy_temporaries(first);
 	end_full_expression(region);
-	destroy_cleanups(0);
+	destroy_cleanups(0, false, 0);
 	jump(coroutine_final_suspend_);
 }
 
-void FunctionLowering::lower_coroutine_actor(
-	CoroutineFrameLayout& frame, const sema::CoroutineFacts& facts, const syntax::CompoundStmt& body)
+void FunctionLowering::lower_coroutine_actor(lowir::SymbolId symbol, CoroutineFrameLayout& frame,
+	const sema::CoroutineFacts& facts, const syntax::CompoundStmt& body)
 {
 	const lowir::Value self = lowir::Value::temp(builder_.parameter(0));
 	const lowir::Type word = lowir::Type::scalar(lowir::TypeKind::U32);
@@ -292,14 +310,26 @@ void FunctionLowering::lower_coroutine_actor(
 	};
 	branch(is_action(CoroutineAction::Start), create, resume_or_destroy);
 	place(resume_or_destroy);
-	branch(is_action(CoroutineAction::Resume), resume_suspended, destroy_suspended);
+	const bool exceptions = lowering_.exceptions();
+	branch(is_action(CoroutineAction::Resume), exceptions ? invalid : resume_suspended,
+		exceptions ? invalid : destroy_suspended);
 
 	place(create);
+	coroutine_body_ = &context;
+	syntax::CompoundStmt caught = {};
+	caught.location = location;
+	syntax::Handler handler = {};
+	handler.body = &caught;
+	handler.exception.ellipsis = true;
+	syntax::TryStmt attempt = {};
+	attempt.handlers = { &handler, 1 };
+	size_t enclosing = SIZE_MAX;
+	if (exceptions)
+		enclosing = begin_try(attempt);
 	lower_coroutine_implicit_await(*facts.initial, context, false);
 
 	{
 		LexicalScope lexical(*this);
-		coroutine_body_ = &context;
 		for (const syntax::Stmt* item : body.items)
 			statement(*item);
 		if (!terminated_)
@@ -310,8 +340,13 @@ void FunctionLowering::lower_coroutine_actor(
 				terminate(lowir::make_instruction(lowir::Opcode::Unreachable, result_type_));
 		}
 		leave_scope(0, body);
-		coroutine_body_ = nullptr;
 	}
+	if (exceptions)
+	{
+		end_try(enclosing, &facts);
+		jump(coroutine_final_suspend_);
+	}
+	coroutine_body_ = nullptr;
 
 	place(coroutine_final_suspend_);
 	store(pointer, integer(pointer, 0), coroutine_place(self, frame.resume));
@@ -322,10 +357,6 @@ void FunctionLowering::lower_coroutine_actor(
 	place(suspend);
 	terminate(ret);
 
-	place(resume_suspended);
-	dispatch_coroutine(context, invalid, true);
-	place(destroy_suspended);
-	dispatch_coroutine(context, invalid, false);
 	place(invalid);
 	terminate(lowir::make_instruction(lowir::Opcode::Unreachable, result_type_));
 
@@ -339,6 +370,18 @@ void FunctionLowering::lower_coroutine_actor(
 	free_coroutine_frame(facts, allocation, size);
 	terminate(ret);
 	place_late_blocks();
+	if (exceptions)
+	{
+		reconnect_coroutine_exception_regions(program_, symbol, builder_, context);
+		lowir::FunctionBody& function = builder_.body();
+		lowir::Instruction& branch = function.instructions[function.blocks[resume_or_destroy].last];
+		branch.ops[1] = lowir::Value::block(resume_suspended);
+		branch.ops[2] = lowir::Value::block(destroy_suspended);
+	}
+	place(resume_suspended);
+	dispatch_coroutine(context, invalid, true);
+	place(destroy_suspended);
+	dispatch_coroutine(context, invalid, false);
 	relocate_coroutine_storage(program_, builder_, frame);
 	// Slot locations describe stack storage. Line and scope information
 	// still applies after moving the variables to the frame.
@@ -378,7 +421,7 @@ void FunctionLowering::lower_coroutine(const sema::CoroutineFacts& facts, const 
 	{
 		FunctionLowering worker(lowering_, actor, nullptr);
 		worker.function_ = function_;
-		worker.lower_coroutine_actor(layout, facts, body);
+		worker.lower_coroutine_actor(actor, layout, facts, body);
 	}
 	for (lowir::SymbolId entry : { actor, resume, destroy_entry })
 	{
@@ -417,6 +460,18 @@ void FunctionLowering::lower_coroutine(const sema::CoroutineFacts& facts, const 
 	save_pointer(layout.raw_allocation, allocation);
 	save_pointer(layout.resume, lowir::Value::symbol(resume));
 	save_pointer(layout.destroy, lowir::Value::symbol(destroy_entry));
+	CoroutineStartup startup;
+	if (lowering_.exceptions())
+	{
+		const lowir::Type byte = lowir::Type::scalar(lowir::TypeKind::U8);
+		store(byte, integer(byte, 0), coroutine_place(frame, layout.initial_resumed));
+		startup.landing = new_block(lowir::BlockKind::ConstructionCleanup);
+		startup.completed = generated_slot(lowir::SlotKind::Plain, word);
+		Place completed = {};
+		completed.storage = lowir::Value::slot(startup.completed);
+		store(word, integer(word, 0), completed);
+		emit_marker(lowir::Opcode::EhCleanup, startup.landing);
+	}
 
 	uint32_t next_copy = 0;
 	for (const FrameParameter& parameter : layout.parameters)
@@ -434,6 +489,7 @@ void FunctionLowering::lower_coroutine(const sema::CoroutineFacts& facts, const 
 			const sema::CoroutineParameterCopy& selected = facts.parameter_copies[next_copy++];
 			construct(type, target.storage, selected.initializer, selected.constructor, EntryVariant::Complete,
 				body.location);
+			remember_coroutine_object(startup, type, lowir::Value::none(), parameter.offset);
 		}
 		else if (type->is_reference())
 		{
@@ -452,13 +508,18 @@ void FunctionLowering::lower_coroutine(const sema::CoroutineFacts& facts, const 
 	bind_coroutine_storage(facts.promise, promise.storage);
 	construct(facts.promise->type, promise.storage, facts.promise_initializer, facts.promise->constructor,
 		EntryVariant::Complete, body.location);
-	ret.ops[0] = prepare_coroutine_result(*facts.return_object);
+	remember_coroutine_object(startup, facts.promise->type, lowir::Value::none(), layout.promise);
+	ret.ops[0] = prepare_coroutine_result(*facts.return_object, &startup);
 	const size_t first = arguments_.size();
 	arguments_.push_back(frame);
 	arguments_.push_back(integer(word, static_cast<uint32_t>(CoroutineAction::Start)).value);
-	emit_call(void_type, lowir::Value::symbol(actor), first, lowir::kNoId, false);
+	emit_call(void_type, lowir::Value::symbol(actor), first, lowir::kNoId, lowering_.exceptions());
+	if (startup.landing != lowir::kNoId)
+		emit_marker(lowir::Opcode::EhEnd, lowir::kNoId);
 	terminate(ret);
+	unwind_coroutine_startup(startup, facts, layout, frame, allocation, bytes);
 	place_late_blocks();
+	place_terminate_landing();
 	if (!lowering_.streaming())
 		builder_.finish();
 }

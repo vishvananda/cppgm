@@ -283,6 +283,13 @@ To complete PA32, implement hosted link/runtime behavior for:
   temporary awaiter and operand at initial and final suspension, including
   when overload resolution selects an `operator co_await`. See N4861
   `[dcl.fct.def.coroutine]` and `[expr.await]`.
+- Coroutine exceptions. If construction or the initial await fails before
+  the first `await_resume`, propagate the exception to the caller after
+  destroying completed frame objects and releasing the allocation. From
+  the first `await_resume` onward, a body exception can reach a matching
+  handler in the coroutine or, if it escapes the body, the promise's
+  `unhandled_exception`. Resumption inside a `try` block must restore
+  its exception handling and preserve the lifetimes of its live objects.
 
 If hosted header code compiles but the emitted objects do not link or run
 correctly, fix the hosted symbol emission, ABI spelling, object ownership, or

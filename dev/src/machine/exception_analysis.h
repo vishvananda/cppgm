@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdexcept>
+#include <utility>
 #include "lowir/program.h"
 #include "machine/exception_tables.h"
 #include "support/flat_map.h"
@@ -53,6 +54,7 @@ public:
 	std::vector<uint8_t> eh_live_;      // per block: 0 never entered, 1 reached, 2 a call's landing
 	bool eh_raw_ = false;               // the pads keep the raw filter
 	bool eh_selects(uint32_t block, uint32_t index) const;
+	bool suspended_regions(uint32_t block, std::vector<std::pair<lowir::Opcode, lowir::BlockId>>& regions) const;
 
 private:
 	struct ExceptionWordHash

@@ -43,6 +43,7 @@ public:
 	uint64_t promise;
 	uint64_t raw_allocation;
 	uint64_t state;
+	uint64_t initial_resumed = 0;
 	std::vector<FrameParameter> parameters;
 
 private:
@@ -58,6 +59,8 @@ struct CoroutineSuspension
 {
 	lowir::BlockId resume;
 	lowir::BlockId destroy;
+	lowir::BlockId suspended;
+	bool final;
 };
 
 struct CoroutineBody
@@ -68,5 +71,21 @@ struct CoroutineBody
 	lowir::BlockId destroy;
 	std::vector<CoroutineSuspension> suspensions;
 };
+
+struct CoroutineStartup
+{
+	struct Object
+	{
+		lowir::Value storage;
+		const sema::Type* type;
+		uint64_t offset;
+	};
+	lowir::BlockId landing = lowir::kNoId;
+	lowir::SlotId completed = lowir::kNoId;
+	std::vector<Object> objects;
+};
+
+void reconnect_coroutine_exception_regions(
+	lowir::Program& program, lowir::SymbolId symbol, lowir::FunctionBuilder& builder, CoroutineBody& frame);
 
 } // namespace lower

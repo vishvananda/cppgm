@@ -98,7 +98,7 @@ void FunctionLowering::lower_definition()
 		(body->body->function_body_syntax & syntax::kCoroutineOperation) != 0)
 	{
 		coroutine = lowering_.graph().coroutine(function_);
-		if (coroutine != nullptr && (lowering_.exceptions() || body->try_block != nullptr))
+		if (coroutine != nullptr && body->try_block != nullptr)
 			throw LoweringError(body->body->location, "this coroutine definition requires exception lowering");
 	}
 	if (function_->naked)

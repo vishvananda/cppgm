@@ -174,7 +174,7 @@ size_t FunctionLowering::begin_try(const syntax::TryStmt& stmt)
 	return enclosing;
 }
 
-void FunctionLowering::end_try(size_t enclosing)
+void FunctionLowering::end_try(size_t enclosing, const sema::CoroutineFacts* coroutine)
 {
 	const EhContext context = eh_contexts_.back();
 	const syntax::TryStmt& stmt = *context.statement;
@@ -215,7 +215,7 @@ void FunctionLowering::end_try(size_t enclosing)
 		branch(compare(lowir::ComparePredicate::Eq, i32, selector, integer(i32, handler_selector(stmt.handlers[i]))),
 			body, next);
 		place(body);
-		handler(stmt, stmt.handlers[i], exception, landing, context);
+		handler(stmt, stmt.handlers[i], exception, landing, context, coroutine);
 		place(landing);
 		handler_landing(context);
 		place(next);
@@ -225,7 +225,7 @@ void FunctionLowering::end_try(size_t enclosing)
 }
 
 void FunctionLowering::handler(const syntax::TryStmt& stmt, const syntax::Handler& written, const RValue& exception,
-	lowir::BlockId landing, const EhContext& attempt)
+	lowir::BlockId landing, const EhContext& attempt, const sema::CoroutineFacts* coroutine)
 {
 	// 15.3p16: the catch begins (__cxa_begin_catch yields the adjusted
 	// exception object, a pointer's value for a pointer) and its variable
@@ -279,7 +279,10 @@ void FunctionLowering::handler(const syntax::TryStmt& stmt, const syntax::Handle
 	const size_t depth = cleanups_.size();
 	if (variable != nullptr)
 		catch_variable(variable, caught, record, written.body->location);
-	compound(*written.body);
+	if (coroutine != nullptr)
+		lower_coroutine_exception(*coroutine);
+	else
+		compound(*written.body);
 	leave_scope(depth);
 	// 15.3p15: a constructor's or destructor's function-try-block handler
 	// rethrows when control reaches its end.

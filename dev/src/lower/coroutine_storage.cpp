@@ -26,6 +26,8 @@ CoroutineFrameLayout::CoroutineFrameLayout(ProgramLowering& lowering, const sema
 	raw_allocation = reserve(word, word);
 	const lowir::Type state_type = lowir::Type::scalar(lowir::TypeKind::U32);
 	state = reserve(lowir::storage_bytes(state_type), lowir::data_alignment(state_type));
+	if (lowering.exceptions())
+		initial_resumed = reserve(1, 1);
 	if (facts.object != nullptr)
 		parameters.push_back(FrameParameter{ facts.object, facts.object->type, reserve(word, word) });
 	for (const sema::Binding* binding = function->scope->bindings; binding != nullptr; binding = binding->next)

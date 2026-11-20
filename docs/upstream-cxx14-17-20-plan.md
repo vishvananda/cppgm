@@ -465,8 +465,15 @@ even with GCC in C++14.
   a live local at a yield and retaining an intermediate value across a
   second await. They also check destruction of the awaiter and the
   operand of an overloaded `operator co_await` across initial and final
-  suspension. The original Cobalt runtime tests also need exception
-  handling, which remains a prerequisite for the compiler's feature macro.
+  suspension. Exception-enabled PA32 and PA37 tests check the startup
+  cleanup boundary, resumption inside a user `try` block, a throwing
+  `await_suspend`, and forwarding an uncaught exception to the promise.
+  With the coroutine feature macro forced, the pinned Cobalt replay
+  emits objects for 41 of 60 original translation units. Remaining
+  errors include function-try-blocks, lexical lowering of some local
+  entities, and exception paths that merge inside a resumed expression.
+  The original runtime tests remain the gate for enabling the feature
+  macro.
 - PA18 exercises class argument equivalence, class deduction, address
   identity, and rejection in C++17. The Linux x86-64 mixed object check
   resolves both a specialization and its parameter object across cppgm,

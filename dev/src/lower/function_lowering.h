@@ -82,6 +82,7 @@ enum class ConversionContext : uint8_t
 
 class CoroutineFrameLayout;
 struct CoroutineBody;
+struct CoroutineStartup;
 
 class FunctionLowering
 {
@@ -150,20 +151,25 @@ public:
 
 private:
 	void lower_coroutine(const sema::CoroutineFacts& facts, const syntax::CompoundStmt& body);
-	void lower_coroutine_actor(
-		CoroutineFrameLayout& frame, const sema::CoroutineFacts& facts, const syntax::CompoundStmt& body);
+	void lower_coroutine_actor(lowir::SymbolId symbol, CoroutineFrameLayout& frame, const sema::CoroutineFacts& facts,
+		const syntax::CompoundStmt& body);
 	void coroutine_return(const syntax::CoroutineExpr& expr);
 	void coroutine_return(const syntax::Expr& call);
 	lowir::SymbolId coroutine_entry(const char* suffix, bool with_action);
 	lowir::Value allocate_coroutine_frame(const sema::CoroutineFacts& facts, uint64_t bytes, uint32_t location);
 	void free_coroutine_frame(const sema::CoroutineFacts& facts, lowir::Value allocation, lowir::Value bytes);
 	void bind_coroutine_storage(const sema::Entity* entity, lowir::Value address);
-	lowir::Value prepare_coroutine_result(const syntax::Expr& expression);
+	lowir::Value prepare_coroutine_result(const syntax::Expr& expression, CoroutineStartup* startup = nullptr);
+	void remember_coroutine_object(
+		CoroutineStartup& startup, const sema::Type* type, lowir::Value address, uint64_t offset = 0);
+	void unwind_coroutine_startup(const CoroutineStartup& startup, const sema::CoroutineFacts& facts,
+		const CoroutineFrameLayout& layout, lowir::Value frame, lowir::Value allocation, uint64_t bytes);
 	Place coroutine_place(lowir::Value frame, uint64_t offset);
 	void emit_coroutine_suspend(const sema::CoroutineAwait& await, lowir::Value frame, uint64_t state_offset,
 		uint32_t state, lowir::BlockId resumed, lowir::BlockId suspended);
 	const syntax::Expr& suspend_coroutine(const sema::CoroutineAwait& await, CoroutineBody& body, bool final);
 	void lower_coroutine_implicit_await(const sema::CoroutineAwait& await, CoroutineBody& body, bool final);
+	void lower_coroutine_exception(const sema::CoroutineFacts& facts);
 	const syntax::Expr& lower_coroutine_await(const syntax::Expr& expr);
 	void dispatch_coroutine(const CoroutineBody& body, lowir::BlockId invalid, bool resume);
 
@@ -1878,14 +1884,14 @@ private:
 	// innermost try returned) and, after the code it guards, closed with
 	// its dispatch and handlers.
 	size_t begin_try(const syntax::TryStmt& stmt);
-	void end_try(size_t enclosing);
+	void end_try(size_t enclosing, const sema::CoroutineFacts* coroutine = nullptr);
 	// A function-try-block (15.3p4): the try statement the parser made
 	// around the whole function body, whose handlers, for a constructor
 	// or destructor, rethrow when control reaches their end (15.3p15).
 	bool function_try_block() const { return function_->body != nullptr && function_->body->try_block != nullptr; }
 	size_t begin_function_try();
 	void handler(const syntax::TryStmt& stmt, const syntax::Handler& written, const RValue& exception,
-		lowir::BlockId landing, const EhContext& attempt);
+		lowir::BlockId landing, const EhContext& attempt, const sema::CoroutineFacts* coroutine);
 	void catch_variable(
 		const sema::VariableEntity* variable, const RValue& caught, const Place& record, uint32_t location);
 	void call_end_catch(bool unwinding = false);

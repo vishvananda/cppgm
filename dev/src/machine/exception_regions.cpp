@@ -505,6 +505,24 @@ bool ExceptionAnalysis::eh_resume_only(uint32_t b) const
 	return block.first != kNoId && block.first == block.last && body_->instructions[block.first].op == Opcode::Resume;
 }
 
+bool ExceptionAnalysis::suspended_regions(
+	uint32_t block, std::vector<std::pair<lowir::Opcode, lowir::BlockId>>& regions) const
+{
+	uint32_t node = eh_in_[block];
+	if (node == kNoId)
+		return false;
+	regions.clear();
+	for (; node != 0; node = eh_nodes_[node].parent)
+	{
+		const EhNode& region = eh_nodes_[node];
+		if (region.active || region.tail_hi != 0)
+			eh_fail("a coroutine cannot suspend while handling an exception");
+		const Opcode op = region.cleanup ? Opcode::EhCleanup : Opcode::EhTry;
+		regions.emplace_back(op, blocks_[region.landing].id);
+	}
+	return true;
+}
+
 void ExceptionAnalysis::eh_fail(const char* what) const
 {
 	throw ExceptionError(std::string(what) + " (in @" + program_->spelling(program_->symbols[symbol_].name) + ")");
