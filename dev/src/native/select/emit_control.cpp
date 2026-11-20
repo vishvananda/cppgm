@@ -143,8 +143,15 @@ void FunctionSelector::select(lowir::SymbolId symbol, Function& out, uint32_t ex
 		drop_redundant_constants(out);
 		hoist_zeroes(out);
 		forward_float_homes(out);
-		forward_frame_copies(out, frame_objects_);
-		stats_.dead_frame_stores += drop_dead_frame_stores(out, frame_objects_);
+		// A folded frame displacement can lie outside its source object
+		// while its dynamic index still addresses that object. Passes
+		// that recover objects from displacements alone cannot prove
+		// privacy in such a frame.
+		if (!frame_pinned_)
+		{
+			forward_frame_copies(out, frame_objects_);
+			stats_.dead_frame_stores += drop_dead_frame_stores(out, frame_objects_);
+		}
 		drop_unused_frame(out);
 		if (!frame_pinned_)
 		{
@@ -166,7 +173,8 @@ void FunctionSelector::select(lowir::SymbolId symbol, Function& out, uint32_t ex
 		drop_redundant_constants(out);
 		hoist_zeroes(out);
 		forward_float_homes(out);
-		forward_frame_copies(out, frame_objects_);
+		if (!frame_pinned_)
+			forward_frame_copies(out, frame_objects_);
 	}
 	if (level_ >= 2)
 		narrow_variable_divides(out);
