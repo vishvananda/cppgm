@@ -106,6 +106,12 @@ transient object's unread member may stay indeterminate. A required
 constant object still needs initialized values for its subobjects. See
 N4861 `[dcl.constexpr]` and `[expr.const]`.
 
+In C++14 and later, a defaulted union copy or move in a constant expression
+copies the source's active member. A defaulted assignment may change which
+member of the destination is active. The old member ends its lifetime, and
+the copy does not read any inactive member. See N4659 `[class.copy.assign]`
+and N4861 `[class.copy.assign]`.
+
 ### Constant initialization of nonliteral objects
 
 A constexpr member function's enclosing class need not be a literal type

@@ -906,6 +906,16 @@ bool ConstantInterpreter::argument_place(
 bool ConstantInterpreter::copy_subobjects(
 	const FunctionEntity* function, const ConstPlace& target, const ConstPlace& source, uint32_t location)
 {
+	const ClassEntity* cls = ClassOf(target.type);
+	if (cls != nullptr && cls->key == TokenKind::KW_UNION)
+	{
+		// A defaulted union copy preserves the source representation and
+		// active member ([class.copy.assign]). Inactive variants have no
+		// values to read, and the old destination member ends its lifetime.
+		ConstValue value;
+		return read(source, value, location) && write(target, value, location);
+	}
+
 	// An implicitly defined copy or move constructor or assignment
 	// operator: each base and member from the source's by the function the
 	// analysis selected for it, a scalar's value copied (12.8p15, p28).
