@@ -470,10 +470,10 @@ even with GCC in C++14.
   `await_suspend`, and forwarding an uncaught exception to the promise.
   The pinned Cobalt replay emits objects for all 60 original translation
   units. The original Boost.Build replay matched all 26 native library
-  configurations and 32 runtime configurations with the coroutine macro
-  forced during qualification. The compiler now defines
+  configurations and 32 runtime configurations using the compiler's
   `__cpp_impl_coroutine=201902L` in C++20 mode. PA4 checks the macro and
-  its absence in C++17. PA32 checks function try blocks, member
+  its absence in C++17. PA31 and PA32 cover P1825 implicit move for
+  `co_return`, lvalue fallback, and rejection of a deleted winner. PA32 checks function try blocks, member
   allocation, captureless lambdas, and startup failure in a `noexcept`
   coroutine. PA32 and PA37 cover cleanup during a resumed initializer.
 - PA18 exercises class argument equivalence, class deduction, address
