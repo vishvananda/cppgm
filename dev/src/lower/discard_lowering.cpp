@@ -198,6 +198,9 @@ void FunctionLowering::discard(const syntax::Expr& expr)
 		e->kind != syntax::ExprKind::Call;
 	switch (e->kind)
 	{
+	case syntax::ExprKind::Coroutine:
+		discard(lower_coroutine_await(*e));
+		return;
 	case syntax::ExprKind::Throw:
 		throw_expression(static_cast<const syntax::ThrowExpr&>(*e));
 		return;

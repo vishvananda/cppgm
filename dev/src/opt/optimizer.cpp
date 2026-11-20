@@ -47,6 +47,8 @@ void count_program(const Program& program, uint64_t& instructions, uint64_t& blo
 void scalar_rounds(FunctionContext& context);
 bool narrow_fields(FunctionContext& context);
 
+} // namespace
+
 // A scalar temporary passed to a by_address (or indirect_result) parameter
 // stands for storage holding its value (lowir.md: such an argument denotes
 // addressable storage), which the back end makes for the call. Propagation
@@ -80,11 +82,13 @@ void materialize_storage_arguments(Program& program, FunctionBody& body)
 		}
 }
 
+namespace {
+
 void materialize_storage_arguments(Program& program)
 {
 	for (const Function& function : program.functions)
 		if (function.body != nullptr)
-			materialize_storage_arguments(program, *function.body);
+			opt::materialize_storage_arguments(program, *function.body);
 }
 
 // A switch compares its cases at its selector's type (the back end's

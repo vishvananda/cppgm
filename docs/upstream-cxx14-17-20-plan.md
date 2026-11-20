@@ -460,9 +460,11 @@ even with GCC in C++14.
   analysis with the coroutine feature macro forced for the diagnostic
   probe. PA31 covers promise lookup, awaiter overload resolution and
   invalid coroutine forms. PA32 executes frame construction, initial and
-  final suspension, resumption, and destruction with exceptions disabled.
-  Cobalt still exercises suspension inside the user body and exception
-  handling. Both remain prerequisites for the compiler's feature macro.
+  final suspension, body suspension, resumption, and destruction with
+  exceptions disabled. The PA32 and PA37 runtime checks cover abandoning
+  a live local at a yield and retaining an intermediate value across a
+  second await. The original Cobalt runtime tests also need exception
+  handling, which remains a prerequisite for the compiler's feature macro.
 - PA18 exercises class argument equivalence, class deduction, address
   identity, and rejection in C++17. The Linux x86-64 mixed object check
   resolves both a specialization and its parameter object across cppgm,

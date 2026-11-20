@@ -275,7 +275,12 @@ To complete PA32, implement hosted link/runtime behavior for:
   Destroying an initially or finally suspended frame ends the promise's
   lifetime, ends the parameter copies' lifetimes and releases the allocation.
   When allocation returns null and the promise provides a failure operation,
-  return its result. See N4861 `[dcl.fct.def.coroutine]` and `[expr.await]`.
+  return its result. `co_await` and `co_yield` in the body can suspend more
+  than once. Keep objects and intermediate expression values alive across
+  each suspension. Resuming continues the expression from the selected
+  `await_resume` call. Destroying a frame suspended in the body destroys its
+  live objects in reverse order. See N4861 `[dcl.fct.def.coroutine]` and
+  `[expr.await]`.
 
 If hosted header code compiles but the emitted objects do not link or run
 correctly, fix the hosted symbol emission, ABI spelling, object ownership, or

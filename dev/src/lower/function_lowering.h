@@ -81,6 +81,7 @@ enum class ConversionContext : uint8_t
 };
 
 class CoroutineFrameLayout;
+struct CoroutineBody;
 
 class FunctionLowering
 {
@@ -155,7 +156,7 @@ private:
 	void coroutine_return(const syntax::Expr& call);
 	lowir::SymbolId coroutine_entry(const char* suffix, bool with_action);
 	lowir::Value allocate_coroutine_frame(const sema::CoroutineFacts& facts, uint64_t bytes, uint32_t location);
-	void free_coroutine_frame(const sema::CoroutineFacts& facts, lowir::Value allocation, uint64_t bytes);
+	void free_coroutine_frame(const sema::CoroutineFacts& facts, lowir::Value allocation, lowir::Value bytes);
 	void bind_coroutine_storage(const sema::Entity* entity, lowir::Value address);
 	lowir::Value prepare_coroutine_result(const syntax::Expr& expression);
 	Place coroutine_place(lowir::Value frame, uint64_t offset);
@@ -163,6 +164,8 @@ private:
 	void emit_coroutine_suspend(const sema::CoroutineAwait& await, lowir::Value frame, uint64_t state_offset,
 		uint32_t state, lowir::BlockId resumed, lowir::BlockId suspended);
 	void finish_coroutine_awaiter(const sema::CoroutineAwait& await, const Place& slot);
+	const syntax::Expr& lower_coroutine_await(const syntax::Expr& expr);
+	void dispatch_coroutine(const CoroutineBody& body, lowir::BlockId invalid, bool resume);
 
 	// The debug location of the construct being lowered (a statement, an
 	// expression): the instructions it emits carry it (ProgramLowering::
@@ -1970,6 +1973,7 @@ private:
 	ProgramLowering& lowering_;
 	lowir::Program& program_;
 	const sema::FunctionEntity* function_;
+	CoroutineBody* coroutine_body_ = nullptr;
 	lowir::BlockId coroutine_final_suspend_ = lowir::kNoId;
 	// A non-static member function's `this` (9.3.2), held in a slot of its
 	// own; kNoId elsewhere.

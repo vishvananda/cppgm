@@ -1,112 +1,17 @@
 #include "lower/function_lowering.h"
 
-#include <algorithm>
-
+#include "lower/coroutine_frame.h"
 #include "sema/conversions.h"
 #include "sema/coroutine_records.h"
 #include "sema/expression_facts.h"
 
 namespace lower {
 
-static uint64_t AlignFrameOffset(uint64_t offset, uint64_t alignment)
-{
-	return (offset + alignment - 1) & ~(alignment - 1);
-}
-
 enum class CoroutineAction : uint32_t
 {
 	Start,
 	Resume,
 	Destroy
-};
-
-struct FrameParameter
-{
-	const sema::Entity* entity;
-	const sema::Type* type;
-	uint64_t offset;
-};
-
-// The first two entries and the promise offset are also used by the
-// coroutine handle builtins. Remaining storage is private to this function.
-class CoroutineFrameLayout
-{
-public:
-	CoroutineFrameLayout(ProgramLowering& lowering, const sema::FunctionEntity* function,
-		const sema::CoroutineFacts& facts, uint32_t location)
-		: location_(location), limit_(lowering.program().pointer_type().pointer_bytes() == 4 ? INT32_MAX : INT64_MAX)
-	{
-		const uint64_t word = lowering.program().pointer_type().pointer_bytes();
-		resume = reserve(word, word);
-		destroy = reserve(word, word);
-		promise = reserve(
-			lowering.size_of(facts.promise->type, location), lowering.alignment_of(facts.promise->type, location));
-		raw_allocation = reserve(word, word);
-		const lowir::Type state_type = lowir::Type::scalar(lowir::TypeKind::U32);
-		state = reserve(lowir::storage_bytes(state_type), lowir::data_alignment(state_type));
-		initial_awaiter = reserve_type(lowering, facts.initial->awaiter->type);
-		final_awaiter = reserve_type(lowering, facts.final->awaiter->type);
-		if (facts.object != nullptr)
-			parameters.push_back(FrameParameter{ facts.object, facts.object->type, reserve(word, word) });
-		for (const sema::Binding* binding = function->scope->bindings; binding != nullptr; binding = binding->next)
-		{
-			if (binding->kind != sema::BindingKind::Parameter)
-				continue;
-			const sema::Type* type = binding->type;
-			parameters.push_back(FrameParameter{ binding->entity, type, reserve_type(lowering, type) });
-		}
-	}
-
-	uint64_t reserve_type(ProgramLowering& lowering, const sema::Type* type)
-	{
-		if (type->is_reference())
-		{
-			const uint64_t word = lowering.program().pointer_type().pointer_bytes();
-			return reserve(word, word);
-		}
-		return reserve(lowering.size_of(type, location_), lowering.alignment_of(type, location_));
-	}
-
-	uint64_t reserve(uint64_t size, uint64_t alignment)
-	{
-		if (alignment > limit_ || end_ > limit_ - (alignment - 1))
-			throw LoweringError(location_, "coroutine frame alignment exceeds PTRDIFF_MAX");
-		const uint64_t offset = AlignFrameOffset(end_, alignment);
-		if (size > limit_ - offset)
-			throw LoweringError(location_, "coroutine frame size exceeds PTRDIFF_MAX");
-		end_ = offset + size;
-		alignment_ = std::max(alignment_, alignment);
-		return offset;
-	}
-
-	uint64_t alignment() const { return alignment_; }
-	uint64_t allocation_bytes(ProgramLowering& lowering) const
-	{
-		const uint64_t extra = over_aligned(lowering) ? alignment_ - 1 : 0;
-		if (extra > limit_ - end_)
-			throw LoweringError(location_, "coroutine frame allocation exceeds PTRDIFF_MAX");
-		return end_ + extra;
-	}
-
-	bool over_aligned(ProgramLowering& lowering) const
-	{
-		return alignment_ > target_model::default_new_alignment(lowering.program().target);
-	}
-
-	uint64_t resume;
-	uint64_t destroy;
-	uint64_t promise;
-	uint64_t raw_allocation;
-	uint64_t state;
-	uint64_t initial_awaiter;
-	uint64_t final_awaiter;
-	std::vector<FrameParameter> parameters;
-
-private:
-	uint32_t location_;
-	uint64_t limit_;
-	uint64_t end_ = 0;
-	uint64_t alignment_ = 1;
 };
 
 lowir::SymbolId FunctionLowering::coroutine_entry(const char* suffix, bool with_action)
@@ -156,7 +61,8 @@ lowir::Value FunctionLowering::allocate_coroutine_frame(
 	return result;
 }
 
-void FunctionLowering::free_coroutine_frame(const sema::CoroutineFacts& facts, lowir::Value allocation, uint64_t bytes)
+void FunctionLowering::free_coroutine_frame(
+	const sema::CoroutineFacts& facts, lowir::Value allocation, lowir::Value bytes)
 {
 	const sema::FunctionEntity* function = facts.deallocate;
 	const size_t first = arguments_.size();
@@ -164,7 +70,7 @@ void FunctionLowering::free_coroutine_frame(const sema::CoroutineFacts& facts, l
 	begin_call(throwing);
 	arguments_.push_back(allocation);
 	if (function->type->canonical->param_count == 2)
-		arguments_.push_back(integer(AbiWordType(program_.target), bytes).value);
+		arguments_.push_back(bytes);
 	lowering_.demand(function, EntryVariant::Complete);
 	const lowir::Value target = lowir::Value::symbol(lowering_.function_symbol(function));
 	emit_call(lowir::Type::scalar(lowir::TypeKind::Void), target, first, lowir::kNoId, throwing);
@@ -288,6 +194,61 @@ void FunctionLowering::finish_coroutine_awaiter(const sema::CoroutineAwait& awai
 		destroy(await.awaiter->type, address_of(slot), await.resume->location);
 }
 
+const syntax::Expr& FunctionLowering::lower_coroutine_await(const syntax::Expr& expression)
+{
+	if (coroutine_body_ == nullptr || expression.facts->coroutine_await == nullptr)
+		throw LoweringError(expression.location, "a suspension requires a coroutine frame");
+	CoroutineBody& body = *coroutine_body_;
+	const sema::CoroutineAwait& await = *expression.facts->coroutine_await;
+	lowir::Value storage;
+	if (await.awaiter->type->is_reference())
+	{
+		const lowir::Type pointer = program_.pointer_type();
+		const lowir::Value referent = address(*await.source);
+		Place slot = {};
+		slot.storage = lowir::Value::slot(generated_slot(lowir::SlotKind::Tmpref, pointer));
+		store(pointer, RValue{ referent, pointer }, slot);
+		storage = address_of(slot);
+	}
+	else
+		storage = temporary_object(*await.source);
+	bind_coroutine_storage(await.awaiter, storage);
+
+	const lowir::BlockId resume = new_block(lowir::BlockKind::IfEnd);
+	const lowir::BlockId destroy = new_block(lowir::BlockKind::IfElse);
+	const uint32_t state = static_cast<uint32_t>(body.suspensions.size());
+	body.suspensions.push_back(CoroutineSuspension{ resume, destroy });
+	emit_coroutine_suspend(await, body.address, body.layout.state, state, resume, body.suspend);
+	place(destroy);
+	destroy_cleanups(0);
+	jump(body.destroy);
+	place(resume);
+	return *await.resume;
+}
+
+void FunctionLowering::dispatch_coroutine(const CoroutineBody& body, lowir::BlockId invalid, bool resume)
+{
+	const lowir::Type word = lowir::Type::scalar(lowir::TypeKind::U32);
+	const RValue state = load(word, coroutine_place(body.address, body.layout.state));
+	std::vector<lowir::Value> cases;
+	for (uint32_t i = 0; i < body.suspensions.size(); ++i)
+	{
+		const CoroutineSuspension& point = body.suspensions[i];
+		const lowir::BlockId target = resume ? point.resume : point.destroy;
+		if (target == lowir::kNoId)
+			continue;
+		cases.push_back(integer(word, i).value);
+		cases.push_back(lowir::Value::block(target));
+	}
+	lowir::Instruction select = lowir::make_instruction(
+		lowir::Opcode::Switch, lowir::Type::scalar(lowir::TypeKind::Void));
+	select.ops[0] = state.value;
+	select.ops[1] = lowir::Value::block(invalid);
+	select.extra_first = builder_.add_operands(cases.data(), static_cast<uint32_t>(cases.size()));
+	select.extra_count = static_cast<uint32_t>(cases.size());
+	terminate(select);
+}
+
 void FunctionLowering::coroutine_return(const syntax::CoroutineExpr& expr)
 {
 	if (expr.operand != nullptr && expr.operand->facts != nullptr && sema::IsVoid(expr.operand->facts->type))
@@ -340,6 +301,7 @@ void FunctionLowering::lower_coroutine_actor(
 	const Place final = coroutine_place(self, frame.final_awaiter);
 	const lowir::BlockId create = new_block(lowir::BlockKind::IfThen);
 	const lowir::BlockId resume_or_destroy = new_block(lowir::BlockKind::IfElse);
+	const lowir::BlockId resume_suspended = new_block(lowir::BlockKind::IfThen);
 	const lowir::BlockId resume = new_block(lowir::BlockKind::IfThen);
 	const lowir::BlockId suspend = new_block(lowir::BlockKind::IfEnd);
 	const lowir::BlockId finish = new_block(lowir::BlockKind::IfEnd);
@@ -347,14 +309,18 @@ void FunctionLowering::lower_coroutine_actor(
 	const lowir::BlockId destroy_initial = new_block(lowir::BlockKind::IfThen);
 	const lowir::BlockId destroy_final = new_block(lowir::BlockKind::IfElse);
 	const lowir::BlockId destroy_frame = new_block(lowir::BlockKind::IfEnd);
+	const lowir::BlockId invalid = new_block(lowir::BlockKind::IfElse);
 	coroutine_final_suspend_ = new_block(lowir::BlockKind::IfEnd);
+	CoroutineBody context{ frame, self, suspend, destroy_frame, {} };
+	context.suspensions.push_back(CoroutineSuspension{ resume, destroy_initial });
+	context.suspensions.push_back(CoroutineSuspension{ lowir::kNoId, destroy_final });
 
 	const auto is_action = [&](CoroutineAction expected) {
 		return compare(lowir::ComparePredicate::Eq, word, action, integer(word, static_cast<uint32_t>(expected)));
 	};
 	branch(is_action(CoroutineAction::Start), create, resume_or_destroy);
 	place(resume_or_destroy);
-	branch(is_action(CoroutineAction::Resume), resume, destroy_suspended);
+	branch(is_action(CoroutineAction::Resume), resume_suspended, destroy_suspended);
 
 	place(create);
 	initialize_coroutine_awaiter(*facts.initial, initial);
@@ -364,6 +330,7 @@ void FunctionLowering::lower_coroutine_actor(
 
 	{
 		LexicalScope lexical(*this);
+		coroutine_body_ = &context;
 		for (const syntax::Stmt* item : body.items)
 			statement(*item);
 		if (!terminated_)
@@ -374,6 +341,7 @@ void FunctionLowering::lower_coroutine_actor(
 				terminate(lowir::make_instruction(lowir::Opcode::Unreachable, result_type_));
 		}
 		leave_scope(0, body);
+		coroutine_body_ = nullptr;
 	}
 
 	place(coroutine_final_suspend_);
@@ -388,9 +356,12 @@ void FunctionLowering::lower_coroutine_actor(
 	place(suspend);
 	terminate(ret);
 
+	place(resume_suspended);
+	dispatch_coroutine(context, invalid, true);
 	place(destroy_suspended);
-	const RValue state = load(word, coroutine_place(self, frame.state));
-	branch(compare(lowir::ComparePredicate::Eq, word, state, integer(word, 0)), destroy_initial, destroy_final);
+	dispatch_coroutine(context, invalid, false);
+	place(invalid);
+	terminate(lowir::make_instruction(lowir::Opcode::Unreachable, result_type_));
 	place(destroy_initial);
 	if (!facts.initial->awaiter->type->is_reference())
 		destroy(facts.initial->awaiter->type, address_of(initial), location);
@@ -406,9 +377,21 @@ void FunctionLowering::lower_coroutine_actor(
 		if (sema::ClassOf(parameter->type) != nullptr)
 			destroy(parameter->type, coroutine_place(self, parameter->offset).storage, location);
 	const lowir::Value allocation = load(pointer, coroutine_place(self, frame.raw_allocation)).value;
-	free_coroutine_frame(facts, allocation, frame.allocation_bytes(lowering_));
+	const lowir::Value size = builder_.integer(0);
+	free_coroutine_frame(facts, allocation, size);
 	terminate(ret);
 	place_late_blocks();
+	if (context.suspensions.size() > 2)
+	{
+		relocate_coroutine_storage(program_, builder_, frame);
+		// Slot locations describe stack storage. Line and scope information
+		// still applies after moving the variables to the frame.
+		if (program_.debug && debug_function_ < program_.debug->functions.size())
+			program_.debug->functions[debug_function_].locals.clear();
+	}
+	// Spills extend the frame after the dispatcher is placed. The factory
+	// and deallocation both use the final allocation size.
+	builder_.body().literals[size.index].low = frame.allocation_bytes(lowering_);
 	if (!lowering_.streaming())
 		builder_.finish();
 }

@@ -461,6 +461,8 @@ RValue FunctionLowering::rvalue(const syntax::Expr& expr)
 	}
 	switch (e->kind)
 	{
+	case syntax::ExprKind::Coroutine:
+		return rvalue(lower_coroutine_await(*e));
 	case syntax::ExprKind::Literal:
 		return literal(static_cast<const syntax::LiteralExpr&>(*e));
 	case syntax::ExprKind::LabelAddress:
@@ -674,6 +676,8 @@ Place FunctionLowering::glvalue(const syntax::Expr& expr)
 	}
 	switch (e->kind)
 	{
+	case syntax::ExprKind::Coroutine:
+		return glvalue(lower_coroutine_await(*e));
 	case syntax::ExprKind::Id:
 		if ((facts->flags & sema::kImplicitThis) != 0 && facts->entity != nullptr &&
 			facts->entity->kind == sema::EntityKind::Variable &&

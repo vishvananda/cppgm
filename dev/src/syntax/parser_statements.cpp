@@ -789,8 +789,7 @@ bool Parser::coroutine_operator(const Identifier* keyword)
 Expr* Parser::coroutine_operation(TokenKind kind, Expr* operand, uint32_t location)
 {
 	if (cxx20_)
-		function_body_syntax_ |= kind == TokenKind::KW_CO_RETURN ? kCoroutineOperation
-																 : kCoroutineOperation | kCoroutineSuspension;
+		function_body_syntax_ |= kCoroutineOperation;
 	CoroutineExpr* expr = make<CoroutineExpr>(ExprKind::Coroutine, location);
 	expr->operation = kind;
 	expr->operand = operand;
