@@ -42,6 +42,7 @@ void configure_aarch64_environment(PreprocessorOptions& options)
 						 "#define __GCC_ATOMIC_TEST_AND_SET_TRUEVAL 1\n#define __GCC_ATOMIC_INT_LOCK_FREE 2\n"
 						 "#define __ATOMIC_RELAXED 0\n#define __ATOMIC_CONSUME 1\n#define __ATOMIC_ACQUIRE 2\n"
 						 "#define __ATOMIC_RELEASE 3\n#define __ATOMIC_ACQ_REL 4\n#define __ATOMIC_SEQ_CST 5\n"
+						 "#define __GCC_CONSTRUCTIVE_SIZE 64\n"
 						 "#define __LP64__ 1\n#define _LP64 1\n#define __CHAR_BIT__ 8\n"
 						 "#define __SIZEOF_POINTER__ 8\n#define __SIZEOF_LONG__ 8\n#define __SIZEOF_LONG_LONG__ 8\n"
 						 "#define __SIZEOF_SHORT__ 2\n#define __SIZEOF_INT__ 4\n#define __SIZEOF_INT128__ 16\n"
@@ -62,6 +63,7 @@ void configure_aarch64_environment(PreprocessorOptions& options)
 				  "#define __WCHAR_MAX__ 2147483647\n#define __SIZEOF_LONG_DOUBLE__ 8\n"
 				  "#define __INT64_TYPE__ long long int\n#define __UINT64_TYPE__ long long unsigned int\n";
 		macros += kBinary64LongDoublePredefines;
+		macros += "#define __GCC_DESTRUCTIVE_SIZE 128\n";
 	}
 	else
 	{
@@ -75,6 +77,7 @@ void configure_aarch64_environment(PreprocessorOptions& options)
 			"#define __SIZEOF_LONG_DOUBLE__ 16\n"
 			"#define __INT64_TYPE__ long int\n#define __UINT64_TYPE__ long unsigned int\n";
 		macros += kBinary128NumericPredefines;
+		macros += "#define __GCC_DESTRUCTIVE_SIZE 256\n";
 		if (options.language != SourceLanguage::C)
 			macros += "#define _GNU_SOURCE 1\n#define __GNUG__ 4\n#define __GXX_WEAK__ 1\n";
 	}
