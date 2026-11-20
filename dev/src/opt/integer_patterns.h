@@ -33,6 +33,12 @@ bool simplify_pointer_distance(lowir::FunctionBody& body, IntegerPatternFacts& f
 	lowir::InstId& previous, lowir::InstId instruction);
 bool simplify_floor_correction(
 	FunctionContext& context, lowir::BlockId block, lowir::InstId& previous, lowir::InstId instruction);
+// Two truncating divisions by positive literals, rewritten in place as one
+// by their product when it is a value of the type: x / a / b is x / (a * b).
+// An unsigned quotient below the sign bit (of an unsigned right shift by
+// k >= 1 or division by a >= 2) divided by b is an unsigned quotient:
+// (x >> k) / b is x / (b << k).
+bool merge_divisions(lowir::FunctionBody& body, lowir::Instruction& instruction);
 // Whether the test of a branch edge that every path into `block` takes shows
 // the signed value `v` at least zero: v itself above a literal of at least
 // -1, or the value v is one less than above a literal of at least zero (a

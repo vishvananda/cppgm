@@ -1,0 +1,43 @@
+function @signed_chain(%x : i32) -> i32 {
+  block ^entry:
+    %d = binary div i32 %x, 120
+    return i32 %d
+}
+function @unsigned_chain(%x : u32) -> u32 {
+  block ^entry:
+    %b = binary udiv u32 %x, 42
+    return u32 %b
+}
+function @long_chain(%x : i64) -> i64 {
+  block ^entry:
+    %b = binary div i64 %x, 1000000000
+    return i64 %b
+}
+function @shifted(%x : i32) -> i32 {
+  block ^entry:
+    %b = binary udiv i32 %x, 40
+    return i32 %b
+}
+function @unsigned_quotient(%x : i32) -> i32 {
+  block ^entry:
+    %b = binary udiv i32 %x, 12
+    return i32 %b
+}
+function @negative(%x : i32) -> i32 {
+  block ^entry:
+    %a = binary div i32 %x, -2
+    %b = binary div i32 %a, 3
+    return i32 %b
+}
+function @past(%x : i32) -> i32 {
+  block ^entry:
+    %a = binary div i32 %x, 65536
+    %b = binary div i32 %a, 65536
+    return i32 %b
+}
+function @signed_quotient(%x : i32) -> i32 {
+  block ^entry:
+    %a = binary div i32 %x, 3
+    %b = binary udiv i32 %a, 4
+    return i32 %b
+}

@@ -1108,6 +1108,43 @@ bool simplify_integer_arithmetic(FunctionBody& body, const std::vector<uint32_t>
 		: patterns.variable_power_division(block, previous, instruction);
 }
 
+bool merge_divisions(FunctionBody& body, Instruction& inst)
+{
+	const BinaryOp op = static_cast<BinaryOp>(inst.sub);
+	if (inst.op != Opcode::Binary || (op != BinaryOp::Div && op != BinaryOp::UDiv) || !inst.type.is_integer() ||
+		!inst.ops[0].is(ValueKind::Temp) || inst.ops[0].index < body.parameter_count ||
+		body.temps[inst.ops[0].index].def == kNoId)
+		return false;
+	const Instruction& def = body.instructions[body.temps[inst.ops[0].index].def];
+	const BinaryOp inner = static_cast<BinaryOp>(def.sub);
+	const unsigned width = lowir::integer_bits(inst.type.kind());
+	Constant cx, cy;
+	Literal a, b;
+	if (def.op != Opcode::Binary || def.type != inst.type || width == 0 || width > 64 ||
+		!literal_constant(body, def.ops[1], cx) || !literal_constant(body, inst.ops[1], cy) ||
+		!integer_bits(inst.type, cx, a) || !integer_bits(inst.type, cy, b) || a.high != 0 || b.high != 0)
+		return false;
+	const uint64_t all = width == 64 ? ~uint64_t(0) : (uint64_t(1) << width) - 1;
+	uint64_t factor = a.low;
+	bool unsigned_quotient = true;
+	if (inner == BinaryOp::UShr && a.low != 0 && a.low < width)
+		factor = uint64_t(1) << a.low;
+	else if (inner != BinaryOp::UDiv || (op == BinaryOp::Div && a.low < 2))
+	{
+		if (inner != BinaryOp::Div || op != BinaryOp::Div)
+			return false;
+		unsigned_quotient = false;
+	}
+	const uint64_t high = unsigned_quotient ? all : all >> 1;
+	if (factor == 0 || b.low == 0 || factor > high || b.low > high || factor > high / b.low)
+		return false;
+	inst.sub = static_cast<uint8_t>(unsigned_quotient ? BinaryOp::UDiv : BinaryOp::Div);
+	inst.ops[0] = def.ops[0];
+	inst.ops[1] = integer_value(body, Literal{ factor * b.low, 0 });
+	inst.flags &= static_cast<uint8_t>(~(IF_NO_WRAP | IF_EXACT));
+	return true;
+}
+
 // C++ signed division truncates toward zero. Some callers correct both the
 // quotient and the remainder to give a nonnegative remainder. For a positive
 // power of two, arithmetic shift and low-bit extraction give that pair
