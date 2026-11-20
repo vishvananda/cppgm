@@ -1,4 +1,5 @@
 """Render live README badges from the retained, validated benchmark results."""
+from html import escape
 import json
 import math
 from pathlib import Path
@@ -8,6 +9,8 @@ import public_benchmarks
 from publish_benchmark_badges import badge_svg
 
 HOSTS = {'epyc': 'EPYC', 'intel': 'Intel', 'github-intel': 'CI Intel'}
+MOVED_MARK = '†'
+NEUTRAL = '475569'
 
 
 def geometric(values):
@@ -24,8 +27,10 @@ def metrics(workload, document):
         if workload == 'godot':
             builds = document['compilation']
             values['build-' + reference] = builds[reference]['cpu'] / builds['cppgm']['cpu']
+            # Results without a recorded badge metric predate it and used process CPU time.
+            key = document.get('badge_metric', 'cpu')
             values['runtime-' + reference] = geometric(
-                row[reference]['cpu']['speed'] for row in document['runtime'].values())
+                row[reference][key]['speed'] for row in document['runtime'].values())
         elif workload == 'simdjson':
             for mode in ('scalar', 'sse'):
                 row = document['modes'][mode]
@@ -42,10 +47,36 @@ def metrics(workload, document):
     return values
 
 
-def svg(label, caption, value):
-    return badge_svg(dict(label=label, left_label=caption,
-                          message=f'{value:.2f}×' if value is not None else 'n/m',
-                          color=public_benchmarks.badge_color(value) if value is not None else '475569'))
+def svg(label, caption, value, moved=''):
+    message = f'{value:.2f}×' if value is not None else 'n/m'
+    color = public_benchmarks.badge_color(value) if value is not None else NEUTRAL
+    if not moved or value is None:
+        return badge_svg(dict(label=label, left_label=caption, message=message, color=color))
+    # A reference binary's own time moved: keep the value, mark it and drop the performance color.
+    # The data attributes carry the state through later freshness renders.
+    image = badge_svg(dict(label=label + '; reference moved: ' + moved, left_label=caption,
+                           message=message + MOVED_MARK, color=NEUTRAL))
+    attributes = ''.join(f' data-{name}="{escape(text, quote=True)}"' for name, text in
+                         [('original-label', label), ('original-message', message), ('original-color', color),
+                          ('reference-moved', moved)])
+    return image.replace('<svg ', '<svg' + attributes + ' ', 1)
+
+
+def reference_moved(directory, document):
+    """Workloads whose reference binary moved, per reference, from the drift file of the same run."""
+    path = directory / 'reference-drift.json'
+    try:
+        drift = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+    metadata = document['metadata']
+    if (drift.get('revision'), drift.get('measured_at')) != (metadata['revision'], metadata.get('measured_at')):
+        return {}
+    moved = {}
+    for row in drift.get('moved', []):
+        moved.setdefault(row['reference'], []).append(
+            f"{row['workload']} {row['previous_seconds'] * 1e3:.2f} to {row['current_seconds'] * 1e3:.2f} ms per pass")
+    return {reference: ', '.join(rows) for reference, rows in moved.items()}
 
 
 def library_badges(directory, workload):
@@ -55,7 +86,7 @@ def library_badges(directory, workload):
              for phase in (compile_phase, 'runtime') for ref in ('gcc', 'clang')]
     for host, caption in HOSTS.items():
         path = directory / host / 'results.json'
-        values, provenance = {}, ''
+        values, provenance, moved = {}, '', {}
         if path.is_file():
             document = json.loads(path.read_text())
             metadata = document['metadata']
@@ -63,9 +94,12 @@ def library_badges(directory, workload):
                 raise ValueError('live badges require validated clean benchmark results')
             values = metrics(workload, document)
             provenance = '; ' + metadata['cpu'] + '; revision ' + metadata['revision']
+            if workload == 'godot':
+                moved = {'runtime-' + reference: text
+                         for reference, text in reference_moved(directory / host, document).items()}
         for name in names:
             (directory / (host + '-' + name + '.svg')).write_text(
-                svg(workload + ' ' + name + provenance, caption, values.get(name)))
+                svg(workload + ' ' + name + provenance, caption, values.get(name), moved.get(name, '')))
 
 
 def public_badges(target, refresh_host=None):

@@ -105,11 +105,18 @@ def render(path, caption, metadata, age):
         note = f"{cpu}; measured {metadata['revision']}; {detail}"
     attributes = (f' data-original-label="{escape(label, quote=True)}"'
                   f' data-original-message="{escape(message, quote=True)}"')
-    display = message + ('*' if stale else '')
+    # A moved reference binary (library_benchmark_badges) keeps its mark and neutral color.
+    moved = root.get('data-reference-moved')
+    display = message + ('†' if moved else '') + ('*' if stale else '')
+    shown = '475569' if moved else color
+    if moved:
+        attributes += f' data-reference-moved="{escape(moved, quote=True)}"'
+        label += '; reference moved: ' + moved
     if hidden:
+        display, shown = 'stale', '475569'
+    if shown != color:
         attributes += f' data-original-color="{escape(color, quote=True)}"'
-        display, color = 'stale', '475569'
-    data = dict(label=label + note, left_label=caption, message=display, color=color)
+    data = dict(label=label + note, left_label=caption, message=display, color=shown)
     return badge_svg(data).replace('<svg ', '<svg' + attributes + ' ', 1)
 
 

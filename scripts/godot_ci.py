@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build unmodified pinned Godot and compare checked headless workloads."""
 import argparse
+import datetime
 import json
 import math
 import os
@@ -31,6 +32,8 @@ UPSTREAM = 'https://github.com/godotengine/godot.git'
 LABELS = ('cppgm', 'gcc', 'clang')
 WORKLOADS = ('dispatch', 'arrays', 'strings', 'geometry', 'scene')
 PASS_KEYS = ('measured_wall', 'cpu')
+BADGE_KEY = 'measured_wall'  # work time from the script; it excludes engine start-up and exit
+DRIFT_FILE = 'reference-drift.json'
 BUILD_FLAGS = [
     'platform=linuxbsd', 'target=template_release', 'arch=x86_64', 'optimize=speed',
     'debug_symbols=no', 'lto=none', 'use_static_cpp=no', 'disable_path_overrides=no',
@@ -224,7 +227,7 @@ def build(args, directory, source, compilers, cpus):
     return observations, builds
 
 
-def runtime(args, directory, binaries):
+def runtime(args, directory, binaries, wrapper=()):
     project = directory / 'project'
     project.mkdir()
     for name in ('project.godot', 'workload.gd'):
@@ -233,7 +236,7 @@ def runtime(args, directory, binaries):
     cache.mkdir()
     (cache / 'global_script_class_cache.cfg').write_text('list=[]\n')
     hashes = {label: timing.sha(path) for label, path in binaries.items()}
-    results, checks = {}, {}
+    results, checks, rows = {}, {}, []
     serial = 0
     for name in WORKLOADS:
         count, repeats = 100000, 1
@@ -242,10 +245,12 @@ def runtime(args, directory, binaries):
             nonlocal serial
             prefix = directory / f'runtime-{serial:04}-{label}'
             serial += 1
-            row = measure.run([binaries[label], '--headless', '--path', project, '--script', 'workload.gd',
-                               '--', name, str(count), str(repeats)], prefix, args.runtime_cpu,
-                              args.runtime_timeout, counters=False)
-            row.update(label=label, workload=name, phase=phase, block=block, position=position)
+            row = timed_run([binaries[label], '--headless', '--path', project, '--script', 'workload.gd',
+                             '--', name, str(count), str(repeats)], prefix, args.runtime_cpu,
+                            args.runtime_timeout, wrapper)
+            row.update(label=label, workload=name, phase=phase, block=block, position=position,
+                       iterations=count, repeats=repeats)
+            rows.append(row)
             try:
                 if row['status'] != 0:
                     raise ValueError('Godot process failed: ' + str(prefix))
@@ -266,7 +271,7 @@ def runtime(args, directory, binaries):
                          for ref in ('gcc', 'clang')}
     if hashes != {label: timing.sha(path) for label, path in binaries.items()}:
         raise ValueError('a measured Godot executable changed')
-    return results, checks, hashes
+    return results, checks, hashes, pass_times(rows)
 
 
 def validate(document):
@@ -286,6 +291,10 @@ def validate(document):
                     if (not value['blocks'] or any(not math.isfinite(v) or v <= 0
                                                   for v in [value['speed'], *value['blocks']])):
                         raise ValueError('invalid Godot timing evidence')
+    for name, labels in (document.get('time_per_pass') or {}).items():
+        for metrics in labels.values():
+            if any(not math.isfinite(v[k]) or v[k] <= 0 for v in metrics.values() for k in ('median', 'least')):
+                raise ValueError('invalid Godot time per pass')
     if set(document['compilation']) != set(LABELS):
         raise ValueError('missing full build evidence')
     for row in document['compilation'].values():
@@ -293,7 +302,28 @@ def validate(document):
             raise ValueError('failed or invalid full build')
 
 
-def report(document):
+def method(document):
+    metadata, text = document['metadata'], ''
+    if 'time_source' in metadata:
+        space = metadata.get('address_space') or {}
+        layout = ('fixed with `' + ' '.join(space['wrapper']) + '`' if space.get('fixed_layout')
+                  else 'randomized (`setarch -R` refused: ' + str(space.get('detail', 'not probed')) + ')')
+        text = (f"\nA GCC pilot sets the repeats for at least {metadata['seconds']:g} s of work per observation. "
+                f"Process CPU time is {metadata['time_source']}. Address-space layout: {layout}. "
+                f"The badge uses `{document.get('badge_metric', 'cpu')}`.\n")
+    times = document.get('time_per_pass')
+    if times:
+        key = document.get('badge_metric', 'measured_wall')
+        text += (f'\nMedian `{key}` time per pass (one call over 100,000 iterations), in milliseconds:\n\n'
+                 '| Workload | ' + ' | '.join(LABELS) + ' |\n|---|' + '---:|' * len(LABELS) + '\n')
+        for name in WORKLOADS:
+            cells = [times.get(name, {}).get(label, {}).get(key) for label in LABELS]
+            text += '| ' + name + ' | ' + ' | '.join(f"{cell['median'] * 1e3:.2f}" if cell else '-'
+                                                     for cell in cells) + ' |\n'
+    return text
+
+
+def report(document, drift=None):
     text = '# Godot headless benchmarks\n\n'
     if document['status'] != 'complete':
         return text + '**Incomplete:** ' + document.get('error', 'running') + '\n'
@@ -326,6 +356,10 @@ def report(document):
                     if abs(speed - 1) > .02:
                         warnings.append(f'{name} {ref} {key} {phase}: {speed:.3f}×')
     text += '\nA/A variation above 2%: ' + ('; '.join(warnings) if warnings else 'none') + '. Every observation is retained.\n'
+    text += method(document)
+    if drift is not None:
+        import godot_results
+        text += godot_results.drift_markdown(drift)
     text += '\n## Toolchains\n\n' + '\n'.join(f'- {label}: {text.splitlines()[0]}'
                     for label, text in metadata['toolchains'].items()) + '\n'
     return text + ('\n[Results](results.json) · [Provenance and build flags](metadata.json) · '
@@ -345,8 +379,12 @@ def run(args):
         hashes = {label: timing.sha(path) for label, path in compilers.items()}
         library = Path(subprocess.check_output([str(compilers['gcc']), '-print-file-name=libstdc++.so'],
                                                text=True).strip()).resolve(strict=True)
+        space = address_space_probe()
         metadata = dict(**benchmark_hosts.source_metadata(getattr(args, 'repo_root', ROOT)),
+                        measured_at=datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds'),
                         cpu=public_benchmarks.cpu_model(), cpus=cpus, runtime_cpu=args.runtime_cpu,
+                        host=host_state(args.runtime_cpu), address_space=space, seconds=args.seconds,
+                        time_source='user plus system time from wait4 resource usage, in microseconds',
                         flags=BUILD_FLAGS, compiler_hashes=hashes,
                         jobs=args.jobs, system=dict(platform=platform.platform(),
                                                   os_release=Path('/etc/os-release').read_text(),
@@ -362,12 +400,13 @@ def run(args):
             fetch(source)
         source_check(source)
         compilation, binaries = build(args, directory, source, compilers, cpus)
-        measurements, correctness, binary_hashes = runtime(args, directory, binaries)
+        measurements, correctness, binary_hashes, times = runtime(args, directory, binaries, space['wrapper'])
         source_check(source)
         if hashes != {label: timing.sha(path) for label, path in compilers.items()}:
             raise ValueError('a compiler changed during measurement')
         document.update(status='complete', metadata=metadata, compilation=compilation,
-                        runtime=measurements, correctness=correctness, binary_hashes=binary_hashes)
+                        runtime=measurements, correctness=correctness, binary_hashes=binary_hashes,
+                        time_per_pass=times, badge_metric=BADGE_KEY)
         validate(document)
     except BaseException as error:
         document.update(status='failed', error=repr(error))
@@ -391,6 +430,9 @@ def publish(args):
     import godot_results
     base = 'https://github.com/vishvananda/cppgm/blob/benchmark-badges/godot/'
     history = 'history/' + args.revision + '/' + platform
+    # Read the earlier runs before this publication adds its own.
+    drift = godot_results.reference_drift(document, godot_results.published_history(args.target / 'godot'))
+    payloads[DRIFT_FILE] = (json.dumps(drift, indent=2) + '\n').encode()
     with tempfile.TemporaryDirectory() as temporary:
         normalized = Path(temporary) / 'standard'
         godot_results.generate(args.artifact, normalized, benchmark_hosts.environment(platform),
@@ -400,7 +442,7 @@ def publish(args):
             for name, value in payloads.items():
                 (dest / name).write_bytes(value)
             shutil.copytree(normalized, dest / 'standard', dirs_exist_ok=True)
-            (dest / 'report.md').write_text(report(document) + '\n[Shared comparison tables](standard/summary.md) · '
+            (dest / 'report.md').write_text(report(document, drift) + '\n[Shared comparison tables](standard/summary.md) · '
                                            '[Versioned records](standard/records.json) · '
                                            '[CI run and artifacts](' + args.run_url + ')\n')
     benchmark_hosts.library_index(args.target / 'godot', 'Godot benchmark hosts')
@@ -424,7 +466,7 @@ def main():
     runner.add_argument('--runtime-cpu', default=str(min(os.sched_getaffinity(0))))
     runner.add_argument('--blocks', type=int, default=3)
     runner.add_argument('--aa-blocks', type=int, default=1)
-    runner.add_argument('--seconds', type=float, default=.5)
+    runner.add_argument('--seconds', type=float, default=3)
     runner.add_argument('--build-timeout', type=int, default=7200)
     runner.add_argument('--runtime-timeout', type=int, default=120)
     publisher = commands.add_parser('publish')
