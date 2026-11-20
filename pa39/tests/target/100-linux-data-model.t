@@ -2,6 +2,9 @@
 #error wrong architecture
 #endif
 static_assert(sizeof(void*) == 8 && sizeof(long) == 8, "LP64");
+static_assert(__is_same(__INT8_TYPE__, signed char) && __is_same(__UINT8_TYPE__, unsigned char), "8-bit header types");
+static_assert(__is_same(__INT16_TYPE__, short) && __is_same(__UINT16_TYPE__, unsigned short), "16-bit header types");
+static_assert(__is_same(__INT32_TYPE__, int) && __is_same(__UINT32_TYPE__, unsigned int), "32-bit header types");
 static_assert(__is_same(__INT64_TYPE__, long) && __is_same(__UINT64_TYPE__, unsigned long), "64-bit header types");
 static_assert(sizeof(__builtin_va_list) == 32, "variadic register save state");
 static_assert(char(-1) > 0 && wchar_t(-1) > 0, "unsigned character types");
