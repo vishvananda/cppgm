@@ -142,7 +142,8 @@ A member using-declaration imports the base overload set. A derived member
 template hides an imported member template with the same parameter types,
 template head and qualifiers, including equivalent dependent parameter
 types. Apply this rule in either declaration order and keep base overloads
-with different parameter types.
+with different parameter types. See `[namespace.udecl]` in the
+[C++17 draft](../doc/n4659.pdf).
 
 ### Partial-specialization ordering
 

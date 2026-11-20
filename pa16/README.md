@@ -114,7 +114,8 @@ and N4861 `[class.copy.assign]`.
 
 When a defaulted copy or move constructor initializes an array member,
 apply the selected constructor to each class element in order. This also
-applies to elements of a multidimensional member array.
+applies to elements of a multidimensional member array. See
+`[class.copy.ctor]` in the [C++17 draft](../doc/n4659.pdf).
 
 ### Constant initialization of nonliteral objects
 
