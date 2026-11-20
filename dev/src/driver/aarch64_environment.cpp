@@ -8,7 +8,7 @@ namespace driver {
 void configure_aarch64_environment(PreprocessorOptions& options)
 {
 	const bool darwin = target_model::is_darwin(options.target);
-	const bool native_darwin = darwin && options.target == native::host_target();
+	const bool native_darwin = darwin && options.target == native::host_target() && !options.host_predefines.empty();
 	if (!native_darwin)
 		options.host_predefines.clear();
 	options.hosted = true;
@@ -29,7 +29,12 @@ void configure_aarch64_environment(PreprocessorOptions& options)
 			"} typedef std::__va_list __builtin_va_list;\n" + builtin_template_declarations();
 	// Retain Apple Clang's header configuration for native compilation.
 	if (native_darwin)
+	{
+		options.command_line.insert(0,
+			"#undef __x86_64__\n#undef __SSE__\n#undef __SSE2__\n"
+			"#undef __linux__\n#undef __linux\n#undef __ELF__\n#undef __gnu_linux__\n");
 		return;
+	}
 	std::string macros = "#undef __x86_64__\n#undef __SSE__\n#undef __SSE2__\n"
 						 "#define __aarch64__ 1\n#define __AARCH64EL__ 1\n#define __ARM_ARCH 8\n#define __ARM_NEON 1\n"
 						 "#define __ARM_PCS_AAPCS64 1\n"

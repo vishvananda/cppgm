@@ -1,7 +1,8 @@
 # Intel macOS
 
-The optional macOS target uses x86-64 Mach-O objects and executables. It does
-not support Apple Silicon. Linux x86-64 remains the required course target.
+The Intel macOS target uses x86-64 Mach-O objects and executables. For Apple
+Silicon, see [PA39](../pa39/README.md#build-for-apple-silicon). Linux x86-64
+remains the required course target.
 
 On an Intel Mac, select your installed Homebrew LLVM formula and keep that
 toolchain throughout the build:
