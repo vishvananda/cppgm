@@ -344,6 +344,10 @@ bool issue_long_latency(FunctionContext& context);
 // O2+: an `int` counter that indexes memory, and the sums of it that do, read
 // from a 64-bit counter (opt/counter_widening.cpp).
 bool widen_counters(FunctionContext& context);
+// O2+, after the loop passes: a recurrence narrower than 32 bits that its loop
+// only adds to, multiplies, masks and shifts left stays wide through the loop,
+// truncated where it is read outside (opt/counter_widening.cpp).
+bool widen_accumulators(FunctionContext& context);
 // O2+: a call of the function itself in tail position becomes a jump to its
 // entry.
 bool eliminate_tail_recursion(FunctionContext& context);

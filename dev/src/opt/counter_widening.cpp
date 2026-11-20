@@ -1,6 +1,7 @@
 #include "lowir/builder.h"
 #include "opt/loops.h"
 #include "opt/passes.h"
+#include "opt/scalar_fold.h"
 
 namespace opt {
 
@@ -526,11 +527,486 @@ bool CounterWidening::run()
 	return changed_;
 }
 
+// The most instructions one widened recurrence takes.
+const size_t kWebMembers = 64;
+
+// A recurrence narrower than 32 bits that its loop only adds to, subtracts,
+// multiplies, masks, negates and shifts left by a literal keeps the same low
+// bits at a wider width: each of those reads only the low bits of its
+// operands. Registers hold narrow values normalized, so each narrow step costs
+// a normalization, and each extension and truncation between the narrow value
+// and wider arithmetic on it one more. Held wide through the loop, the
+// recurrence needs none of them; what reads it outside the loop reads a
+// truncation.
+class AccumulatorWidening
+{
+public:
+	explicit AccumulatorWidening(FunctionContext& context) : c_(context), body_(context.body), cfg_(context.cfg) {}
+
+	bool run();
+
+private:
+	// A member's part: a narrow phi or step retyped wide, a wide step kept,
+	// or a conversion between the two that goes. (Trunc reads a wide member
+	// and gives a narrow value; Extend the reverse.)
+	enum Role : uint8_t
+	{
+		kOutside,
+		kNarrow,
+		kWide,
+		kTrunc,
+		kExtend
+	};
+	struct Exit
+	{
+		InstId user;
+		TempId member;
+	};
+	struct Made
+	{
+		Value from;
+		BlockId block; // where it stands, or the user it stands before
+		Value result;
+	};
+
+	Role role_of(Value v) const;
+	bool narrow_valued(Value v) const;
+	bool low_bits_step(const Instruction& inst) const;
+	bool fits_wide(Type type);
+	Value truncated_source(Value v) const;
+	bool join(uint32_t loop, InstId user, TempId from);
+	bool collect(uint32_t loop, InstId phi);
+	bool narrow_operand(uint32_t loop, Value v, BlockId from, int& gain);
+	bool worth(uint32_t loop);
+	Value resolve(Value v) const;
+	Value convert(ConvertOp op, Type type, Value v, BlockId block, InstId after);
+	Value at_block_end(std::vector<Made>& made, ConvertOp op, Type type, Value v, BlockId block);
+	Value wide_operand(uint32_t loop, Value v, BlockId from);
+	void rewrite(uint32_t loop);
+
+	FunctionContext& c_;
+	FunctionBody& body_;
+	Cfg& cfg_;
+	LoopForest forest_;
+	std::vector<uint32_t> first_, users_; // per temp: its readers (linked on entry)
+	std::vector<uint8_t> role_, touched_; // per instruction on entry
+	std::vector<InstId> members_;
+	std::vector<Exit> exits_;
+	std::vector<Made> extended_, defined_, truncated_;
+	Type narrow_ = Type::scalar(TypeKind::Void), wide_ = Type::scalar(TypeKind::Void);
+	bool has_wide_ = false;
+};
+
+AccumulatorWidening::Role AccumulatorWidening::role_of(Value v) const
+{
+	if (!v.is(ValueKind::Temp) || v.index < body_.parameter_count)
+		return kOutside;
+	const InstId def = body_.temps[v.index].def;
+	return def < role_.size() ? static_cast<Role>(role_[def]) : kOutside;
+}
+
+bool AccumulatorWidening::narrow_valued(Value v) const
+{
+	const Role role = role_of(v);
+	return role == kNarrow || role == kTrunc;
+}
+
+bool AccumulatorWidening::low_bits_step(const Instruction& inst) const
+{
+	if (inst.op == Opcode::Unary)
+		return static_cast<UnaryOp>(inst.sub) == UnaryOp::Neg || static_cast<UnaryOp>(inst.sub) == UnaryOp::BitNot;
+	if (inst.op != Opcode::Binary)
+		return false;
+	switch (static_cast<BinaryOp>(inst.sub))
+	{
+	case BinaryOp::Add:
+	case BinaryOp::Sub:
+	case BinaryOp::Mul:
+	case BinaryOp::And:
+	case BinaryOp::Or:
+	case BinaryOp::Xor:
+		return true;
+	case BinaryOp::Shl:
+		return inst.ops[1].is(ValueKind::Integer) &&
+			body_.literals[inst.ops[1].index].low < integer_bits(narrow_.kind());
+	default:
+		return false;
+	}
+}
+
+// One wide type serves the recurrence: 32 or 64 bits.
+bool AccumulatorWidening::fits_wide(Type type)
+{
+	if (has_wide_)
+		return type == wide_;
+	const TypeKind kind = type.kind();
+	if (kind != TypeKind::I32 && kind != TypeKind::U32 && kind != TypeKind::I64)
+		return false;
+	wide_ = type;
+	has_wide_ = true;
+	return true;
+}
+
+// The wide value whose truncation `v` is, if the recurrence's wide type
+// is its type; none otherwise.
+Value AccumulatorWidening::truncated_source(Value v) const
+{
+	if (!v.is(ValueKind::Temp) || v.index < body_.parameter_count || body_.temps[v.index].def == kNoId)
+		return Value::none();
+	const Instruction& def = body_.instructions[body_.temps[v.index].def];
+	if (def.op != Opcode::Convert || static_cast<ConvertOp>(def.sub) != ConvertOp::Trunc ||
+		!def.ops[0].is(ValueKind::Temp) || body_.temps[def.ops[0].index].type != wide_)
+		return Value::none();
+	return def.ops[0];
+}
+
+// `user` reads member `from`: it joins the recurrence, or reads it after
+// the loop.
+bool AccumulatorWidening::join(uint32_t loop, InstId user, TempId from)
+{
+	if (role_[user] != kOutside)
+		return true;
+	const BlockId block = c_.block_of[user];
+	if (block == kNoId)
+		return false;
+	const Instruction& inst = body_.instructions[user];
+	const bool narrow = narrow_valued(Value::temp(from));
+	// (A reader after the loop is found by value; one an earlier recurrence
+	// rewrote may have readers that users_ lacks.)
+	if (!in_loop(forest_, loop, block))
+	{
+		if (!narrow)
+			return false;
+		exits_.push_back(Exit{ user, from });
+		return true;
+	}
+	if (touched_[user])
+		return false;
+	Role role = kOutside;
+	const bool convert = inst.op == Opcode::Convert;
+	const ConvertOp op = static_cast<ConvertOp>(inst.sub);
+	if (narrow && inst.type == narrow_ && (inst.op == Opcode::Phi || low_bits_step(inst)))
+		role = kNarrow;
+	else if (narrow && convert && (op == ConvertOp::SExt || op == ConvertOp::ZExt) && fits_wide(inst.type))
+		role = kExtend;
+	else if (!narrow && convert && op == ConvertOp::Trunc && inst.type == narrow_)
+		role = kTrunc;
+	else if (!narrow && inst.type == wide_ && low_bits_step(inst))
+		role = kWide;
+	if (role == kOutside || members_.size() == kWebMembers)
+		return false;
+	role_[user] = role;
+	members_.push_back(user);
+	return true;
+}
+
+bool AccumulatorWidening::collect(uint32_t loop, InstId phi)
+{
+	members_.assign(1, phi);
+	exits_.clear();
+	narrow_ = body_.instructions[phi].type;
+	has_wide_ = false;
+	role_[phi] = kNarrow;
+	for (size_t n = 0; n < members_.size(); ++n)
+	{
+		const TempId t = body_.instructions[members_[n]].result;
+		for (uint32_t u = first_[t]; u < first_[t + 1]; ++u)
+			if (!join(loop, users_[u], t))
+				return false;
+	}
+	return true;
+}
+
+// Whether a narrow member can read `v`, which is not one, wide (`from`, a
+// phi input's block, or kNoId for a step's operand); a truncation it reads
+// in place of its source adds to `gain`.
+bool AccumulatorWidening::narrow_operand(uint32_t loop, Value v, BlockId from, int& gain)
+{
+	if (narrow_valued(v) || v.is(ValueKind::Integer))
+		return true;
+	if (!v.is(ValueKind::Temp))
+		return false;
+	if (!has_wide_ && v.index >= body_.parameter_count && body_.temps[v.index].def != kNoId)
+	{
+		const Instruction& def = body_.instructions[body_.temps[v.index].def];
+		if (def.op == Opcode::Convert && static_cast<ConvertOp>(def.sub) == ConvertOp::Trunc &&
+			def.ops[0].is(ValueKind::Temp))
+			fits_wide(body_.temps[def.ops[0].index].type);
+	}
+	if (!truncated_source(v).is(ValueKind::None))
+	{
+		++gain;
+		return true;
+	}
+	// (Extended once outside the loop.)
+	if (from != kNoId)
+		return !in_loop(forest_, loop, from);
+	const InstId def = v.index < body_.parameter_count ? kNoId : body_.temps[v.index].def;
+	if (def != kNoId && def >= touched_.size())
+		return false;
+	return def == kNoId || (c_.block_of[def] != kNoId && !in_loop(forest_, loop, c_.block_of[def]));
+}
+
+// What the narrow operands need, against the normalizations, extensions and
+// truncations the recurrence no longer makes. A truncation read after the
+// loop from a block in it stands in that block.
+bool AccumulatorWidening::worth(uint32_t loop)
+{
+	int gain = 0;
+	for (InstId id : members_)
+	{
+		const Instruction& inst = body_.instructions[id];
+		const Role role = static_cast<Role>(role_[id]);
+		gain += role != kWide && inst.op != Opcode::Phi;
+		if (role != kNarrow)
+			continue;
+		if (inst.op == Opcode::Phi)
+		{
+			for (uint32_t k = 0; k < inst.extra_count; k += 2)
+				if (!narrow_operand(loop, body_.operands[inst.extra_first + k + 1],
+						body_.operands[inst.extra_first + k].index, gain))
+					return false;
+			continue;
+		}
+		for (unsigned k = 0; k < (inst.op == Opcode::Unary ? 1u : 2u); ++k)
+			if (!narrow_operand(loop, inst.ops[k], kNoId, gain))
+				return false;
+	}
+	if (!has_wide_)
+		fits_wide(Type::scalar(
+			narrow_.kind() == TypeKind::I8 || narrow_.kind() == TypeKind::I16 ? TypeKind::I32 : TypeKind::U32));
+	for (const Exit& exit : exits_)
+	{
+		const Instruction& user = body_.instructions[exit.user];
+		for (uint32_t k = 0; user.op == Opcode::Phi && k < user.extra_count; k += 2)
+			if (body_.operands[user.extra_first + k + 1] == Value::temp(exit.member) &&
+				in_loop(forest_, loop, body_.operands[user.extra_first + k].index))
+				--gain;
+	}
+	return gain > 0;
+}
+
+// The wide value of member `v`: a conversion's source's.
+Value AccumulatorWidening::resolve(Value v) const
+{
+	for (Role role = role_of(v); role == kTrunc || role == kExtend; role = role_of(v))
+		v = body_.instructions[body_.temps[v.index].def].ops[0];
+	return v;
+}
+
+Value AccumulatorWidening::convert(ConvertOp op, Type type, Value v, BlockId block, InstId after)
+{
+	Instruction inst = make_instruction(Opcode::Convert, type);
+	inst.sub = static_cast<uint8_t>(op);
+	set_convert_source_type(inst, op == ConvertOp::Trunc ? wide_ : narrow_);
+	inst.ops[0] = v;
+	const InstId id = append_instruction(body_, inst);
+	const TempId result = append_temp(body_, type, id);
+	body_.instructions[id].result = result;
+	insert_after(body_, block, after, id);
+	return Value::temp(result);
+}
+
+// `v` converted once before `block`'s terminator.
+Value AccumulatorWidening::at_block_end(std::vector<Made>& made, ConvertOp op, Type type, Value v, BlockId block)
+{
+	for (const Made& m : made)
+		if (m.from == v && m.block == block)
+			return m.result;
+	const Value result = convert(op, type, v, block, previous_in_block(body_, block, body_.blocks[block].last));
+	made.push_back(Made{ v, block, result });
+	return result;
+}
+
+// What a narrow member reads in place of non-member `v` (as worth()
+// allowed it).
+Value AccumulatorWidening::wide_operand(uint32_t loop, Value v, BlockId from)
+{
+	if (v.is(ValueKind::Integer))
+		return integer_value(body_, normalize_integer(wide_, normalize_integer(narrow_, body_.literals[v.index])));
+	const Value source = truncated_source(v);
+	if (!source.is(ValueKind::None))
+		return source;
+	const bool sign = narrow_.kind() == TypeKind::I8 || narrow_.kind() == TypeKind::I16;
+	const ConvertOp op = sign ? ConvertOp::SExt : ConvertOp::ZExt;
+	const InstId def = v.index < body_.parameter_count ? kNoId : body_.temps[v.index].def;
+	// (Its new reader is not in users_.)
+	if (def != kNoId)
+		touched_[def] = 1;
+	if (from != kNoId || forest_.loops[loop].preheader != kNoId)
+		return at_block_end(extended_, op, wide_, v, from != kNoId ? from : forest_.loops[loop].preheader);
+	// Without a preheader: after the definition (its block's phis), or at
+	// the entry for a parameter.
+	const BlockId block = def == kNoId ? body_.layout.front() : c_.block_of[def];
+	for (const Made& m : defined_)
+		if (m.from == v)
+			return m.result;
+	InstId after = def;
+	if (def == kNoId || body_.instructions[def].op == Opcode::Phi)
+	{
+		after = kNoId;
+		for (InstId i = body_.blocks[block].first; i != kNoId && body_.instructions[i].op == Opcode::Phi;
+			i = body_.instructions[i].next)
+			after = i;
+	}
+	const Value result = convert(op, wide_, v, block, after);
+	defined_.push_back(Made{ v, block, result });
+	return result;
+}
+
+void AccumulatorWidening::rewrite(uint32_t loop)
+{
+	extended_.clear();
+	defined_.clear();
+	truncated_.clear();
+	for (InstId id : members_)
+	{
+		const Role role = static_cast<Role>(role_[id]);
+		touched_[id] = 1;
+		if (role == kTrunc || role == kExtend)
+			continue;
+		const bool narrow = role == kNarrow;
+		// (A conversion made here moves the instructions.)
+		const Opcode op = body_.instructions[id].op;
+		const uint32_t first = body_.instructions[id].extra_first, count = body_.instructions[id].extra_count;
+		if (op == Opcode::Phi)
+			for (uint32_t k = 0; k < count; k += 2)
+			{
+				const Value v = body_.operands[first + k + 1];
+				const Value wide = role_of(v) != kOutside ? resolve(v)
+														  : wide_operand(loop, v, body_.operands[first + k].index);
+				body_.operands[first + k + 1] = wide;
+			}
+		else
+			for (unsigned k = 0; k < (op == Opcode::Unary ? 1u : 2u); ++k)
+			{
+				const Value v = body_.instructions[id].ops[k];
+				const Value wide = role_of(v) != kOutside ? resolve(v) : narrow ? wide_operand(loop, v, kNoId) : v;
+				body_.instructions[id].ops[k] = wide;
+			}
+		Instruction& changed = body_.instructions[id];
+		changed.flags &= static_cast<uint8_t>(~(IF_NO_WRAP | IF_EXACT));
+		if (narrow)
+		{
+			changed.type = wide_;
+			body_.temps[changed.result].type = wide_;
+		}
+	}
+	for (const Exit& exit : exits_)
+	{
+		touched_[exit.user] = 1;
+		const Value member = Value::temp(exit.member);
+		const Value wide = resolve(member);
+		if (body_.instructions[exit.user].op == Opcode::Phi)
+		{
+			for (uint32_t k = 0; k < body_.instructions[exit.user].extra_count; k += 2)
+			{
+				const uint32_t at = body_.instructions[exit.user].extra_first + k;
+				if (body_.operands[at + 1] == member)
+					body_.operands[at + 1] = at_block_end(
+						truncated_, ConvertOp::Trunc, narrow_, wide, body_.operands[at].index);
+			}
+			continue;
+		}
+		Value truncated = Value::none();
+		const BlockId block = c_.block_of[exit.user];
+		for (unsigned k = 0; k < 3; ++k)
+			if (body_.instructions[exit.user].ops[k] == member)
+			{
+				if (truncated.is(ValueKind::None))
+					truncated = convert(
+						ConvertOp::Trunc, narrow_, wide, block, previous_in_block(body_, block, exit.user));
+				body_.instructions[exit.user].ops[k] = truncated;
+			}
+		for (uint32_t k = 0; k < body_.instructions[exit.user].extra_count; ++k)
+			if (body_.operands[body_.instructions[exit.user].extra_first + k] == member)
+			{
+				if (truncated.is(ValueKind::None))
+					truncated = convert(
+						ConvertOp::Trunc, narrow_, wide, block, previous_in_block(body_, block, exit.user));
+				body_.operands[body_.instructions[exit.user].extra_first + k] = truncated;
+			}
+	}
+	// (Nothing reads the conversions now.)
+	for (InstId id : members_)
+		if (role_[id] == kTrunc || role_[id] == kExtend)
+		{
+			const BlockId block = c_.block_of[id];
+			unlink_after(body_, block, previous_in_block(body_, block, id), id);
+		}
+}
+
+bool AccumulatorWidening::run()
+{
+	bool any = false;
+	for (BlockId b : body_.layout)
+		for (InstId i = body_.blocks[b].first; i != kNoId && body_.instructions[i].op == Opcode::Phi && !any;
+			i = body_.instructions[i].next)
+		{
+			const TypeKind kind = body_.instructions[i].type.kind();
+			any = kind == TypeKind::I8 || kind == TypeKind::I16 || kind == TypeKind::U8 || kind == TypeKind::U16;
+		}
+	if (!any)
+		return false;
+	c_.ensure_cfg();
+	find_loops(body_, cfg_, forest_);
+	if (forest_.loops.empty())
+		return false;
+	c_.entry_block_of(widen_accumulators);
+	const FunctionBody& body = body_;
+	first_.assign(body.temps.size() + 1, 0);
+	for (BlockId b : body.layout)
+		for (InstId i = body.blocks[b].first; i != kNoId; i = body.instructions[i].next)
+			for_each_operand(body, body.instructions[i], [&](const Value& v) {
+				if (v.is(ValueKind::Temp))
+					++first_[v.index + 1];
+			});
+	for (size_t t = 1; t < first_.size(); ++t)
+		first_[t] += first_[t - 1];
+	users_.resize(first_.back());
+	std::vector<uint32_t> fill(first_.begin(), first_.end() - 1);
+	for (BlockId b : body.layout)
+		for (InstId i = body.blocks[b].first; i != kNoId; i = body.instructions[i].next)
+			for_each_operand(body, body.instructions[i], [&](const Value& v) {
+				if (v.is(ValueKind::Temp))
+					users_[fill[v.index]++] = i;
+			});
+	role_.assign(body_.instructions.size(), kOutside);
+	touched_.assign(body_.instructions.size(), 0);
+	bool changed = false;
+	// (Outer loops first: an inner loop's recurrence widens with its outer one.)
+	for (uint32_t loop = 0; loop < forest_.loops.size(); ++loop)
+		for (InstId i = body_.blocks[forest_.loops[loop].header].first;
+			i != kNoId && body_.instructions[i].op == Opcode::Phi; i = body_.instructions[i].next)
+		{
+			const TypeKind kind = body_.instructions[i].type.kind();
+			if ((kind != TypeKind::I8 && kind != TypeKind::I16 && kind != TypeKind::U8 && kind != TypeKind::U16) ||
+				touched_[i])
+				continue;
+			if (collect(loop, i) && worth(loop))
+			{
+				rewrite(loop);
+				changed = true;
+			}
+			for (InstId id : members_)
+				role_[id] = kOutside;
+		}
+	if (changed)
+		c_.invalidate_block_of();
+	return changed;
+}
+
 } // namespace
 
 bool widen_counters(FunctionContext& context)
 {
 	CounterWidening pass(context);
+	return pass.run();
+}
+
+bool widen_accumulators(FunctionContext& context)
+{
+	AccumulatorWidening pass(context);
 	return pass.run();
 }
 

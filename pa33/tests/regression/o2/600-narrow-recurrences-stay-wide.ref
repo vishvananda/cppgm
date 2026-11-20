@@ -1,0 +1,323 @@
+function @truncated_steps(%n : i32) -> i16 [no_inline=yes] {
+  block ^entry:
+    %t1 = binary and i32 %n, -8
+    %t2 = cmp gt i32 %t1, 0
+    branch %t2, ^unrolled_1, ^wide_tail_2
+
+  block ^unrolled_1:
+    %t3 = phi i32 [^unrolled_1: %t28, ^entry: 0]
+    %t4 = phi i32 [^unrolled_1: %t27, ^entry: 5]
+    %t5 = binary mul i32 %t3, 3
+    %t6 = binary add i32 %t4, %t5
+    %t7 = binary add nowrap i32 %t3, 1
+    %t8 = binary mul i32 %t7, 3
+    %t9 = binary add i32 %t6, %t8
+    %t10 = binary add nowrap i32 %t3, 2
+    %t11 = binary mul i32 %t10, 3
+    %t12 = binary add i32 %t9, %t11
+    %t13 = binary add nowrap i32 %t3, 3
+    %t14 = binary mul i32 %t13, 3
+    %t15 = binary add i32 %t12, %t14
+    %t16 = binary add nowrap i32 %t3, 4
+    %t17 = binary mul i32 %t16, 3
+    %t18 = binary add i32 %t15, %t17
+    %t19 = binary add nowrap i32 %t3, 5
+    %t20 = binary mul i32 %t19, 3
+    %t21 = binary add i32 %t18, %t20
+    %t22 = binary add nowrap i32 %t3, 6
+    %t23 = binary mul i32 %t22, 3
+    %t24 = binary add i32 %t21, %t23
+    %t25 = binary add nowrap i32 %t3, 7
+    %t26 = binary mul i32 %t25, 3
+    %t27 = binary add i32 %t24, %t26
+    %t28 = binary add nowrap i32 %t3, 8
+    %t29 = cmp ne i32 %t1, %t28
+    %t30 = convert trunc i16 i32 %t27
+    branch %t29, ^unrolled_1, ^wide_tail_2
+
+  block ^wide_tail_2:
+    %t31 = phi i32 [^entry: 0, ^unrolled_1: %t28]
+    %t32 = phi i16 [^entry: 5, ^unrolled_1: %t30]
+    %t33 = convert sext i32 i16 %t32
+    jump ^head
+
+  block ^head:
+    %i = phi i32 [^wide_tail_2: %t31, ^body: %next]
+    %s = phi i32 [^wide_tail_2: %t33, ^body: %t]
+    %more = cmp lt i32 %i, %n
+    branch %more, ^body, ^done
+
+  block ^body:
+    %w = binary mul i32 %i, 3
+    %t = binary add i32 %s, %w
+    %next = binary add nowrap i32 %i, 1
+    jump ^head
+
+  block ^done:
+    %t40 = convert trunc i16 i32 %s
+    %r = binary xor i16 %t40, 1
+    return i16 %r
+}
+function @extended_sum(%n : i32) -> i16 [no_inline=yes] {
+  block ^entry:
+    %t1 = binary and i32 %n, -4
+    %t2 = cmp gt i32 %t1, 0
+    branch %t2, ^unrolled_1, ^wide_tail_2
+
+  block ^unrolled_1:
+    %t3 = phi i32 [^unrolled_1: %t14, ^entry: 0]
+    %t4 = phi i32 [^unrolled_1: %t13, ^entry: 0]
+    %t5 = phi i32 [^unrolled_1: %t12, ^entry: -3]
+    %t6 = binary add i32 %t3, %t5
+    %t7 = binary add nowrap i32 %t3, 7000
+    %t8 = binary add i32 %t7, %t6
+    %t9 = binary add nowrap i32 %t3, 14000
+    %t10 = binary add i32 %t9, %t8
+    %t11 = binary add nowrap i32 %t3, 21000
+    %t12 = binary add i32 %t11, %t10
+    %t13 = binary add nowrap i32 %t4, 4
+    %t14 = binary add nowrap i32 %t3, 28000
+    %t15 = cmp ne i32 %t1, %t13
+    %t16 = convert trunc i16 i32 %t12
+    branch %t15, ^unrolled_1, ^wide_tail_2
+
+  block ^wide_tail_2:
+    %t17 = phi i32 [^entry: 0, ^unrolled_1: %t14]
+    %t18 = phi i32 [^entry: 0, ^unrolled_1: %t13]
+    %t19 = phi i16 [^entry: -3, ^unrolled_1: %t16]
+    %t20 = convert sext i32 i16 %t19
+    jump ^head
+
+  block ^head:
+    %t21 = phi i32 [^wide_tail_2: %t17, ^body: %t27]
+    %i = phi i32 [^wide_tail_2: %t18, ^body: %next]
+    %s = phi i32 [^wide_tail_2: %t20, ^body: %sum]
+    %more = cmp lt i32 %i, %n
+    branch %more, ^body, ^done
+
+  block ^body:
+    %sum = binary add i32 %s, %t21
+    %next = binary add nowrap i32 %i, 1
+    %t27 = binary add nowrap i32 %t21, 7000
+    jump ^head
+
+  block ^done:
+    %t28 = convert trunc i16 i32 %s
+    return i16 %t28
+}
+function @shifted_bytes(%n : i32, %c : u8) -> u8 [no_inline=yes] {
+  block ^entry:
+    %t1 = convert zext u32 u8 %c
+    %t2 = binary and i32 %n, -4
+    %t3 = cmp gt i32 %t2, 0
+    %t4 = convert zext u32 u8 %c
+    branch %t3, ^unrolled_1, ^wide_tail_2
+
+  block ^unrolled_1:
+    %t5 = phi i32 [^unrolled_1: %t27, ^entry: 0]
+    %t6 = phi u32 [^unrolled_1: %t26, ^entry: %t4]
+    %t7 = binary shl u32 %t6, 3
+    %t8 = binary mul u32 %t7, 5
+    %t9 = unary bitnot u32 %t6
+    %t10 = binary sub u32 %t8, %t9
+    %t11 = binary xor u32 %t1, %t10
+    %t12 = binary shl u32 %t11, 3
+    %t13 = binary mul u32 %t12, 5
+    %t14 = unary bitnot u32 %t11
+    %t15 = binary sub u32 %t13, %t14
+    %t16 = binary xor u32 %t1, %t15
+    %t17 = binary shl u32 %t16, 3
+    %t18 = binary mul u32 %t17, 5
+    %t19 = unary bitnot u32 %t16
+    %t20 = binary sub u32 %t18, %t19
+    %t21 = binary xor u32 %t1, %t20
+    %t22 = binary shl u32 %t21, 3
+    %t23 = binary mul u32 %t22, 5
+    %t24 = unary bitnot u32 %t21
+    %t25 = binary sub u32 %t23, %t24
+    %t26 = binary xor u32 %t1, %t25
+    %t27 = binary add nowrap i32 %t5, 4
+    %t28 = cmp ne i32 %t2, %t27
+    %t29 = convert trunc u8 u32 %t26
+    branch %t28, ^unrolled_1, ^wide_tail_2
+
+  block ^wide_tail_2:
+    %t30 = phi i32 [^entry: 0, ^unrolled_1: %t27]
+    %t31 = phi u8 [^entry: %c, ^unrolled_1: %t29]
+    %t32 = convert zext u32 u8 %t31
+    %t33 = convert zext u32 u8 %c
+    jump ^head
+
+  block ^head:
+    %i = phi i32 [^wide_tail_2: %t30, ^body: %next]
+    %s = phi u32 [^wide_tail_2: %t32, ^body: %t]
+    %more = cmp lt i32 %i, %n
+    branch %more, ^body, ^done
+
+  block ^body:
+    %a = binary shl u32 %s, 3
+    %b = binary mul u32 %a, 5
+    %k = unary bitnot u32 %s
+    %d = binary sub u32 %b, %k
+    %t = binary xor u32 %t33, %d
+    %next = binary add nowrap i32 %i, 1
+    jump ^head
+
+  block ^done:
+    %t43 = convert trunc u8 u32 %s
+    return u8 %t43
+}
+function @compared_sum(%n : i32) -> i32 [no_inline=yes] {
+  block ^entry:
+    %t1 = binary and i32 %n, -4
+    %t2 = cmp gt i32 %t1, 0
+    branch %t2, ^unrolled_1, ^wide_tail_2
+
+  block ^unrolled_1:
+    %t3 = phi i32 [^unrolled_1: %t31, ^entry: 0]
+    %t4 = phi i32 [^unrolled_1: %t30, ^entry: 0]
+    %t5 = phi i16 [^unrolled_1: %t26, ^entry: 0]
+    %t6 = phi i32 [^unrolled_1: %t29, ^entry: 0]
+    %t7 = convert trunc i16 i32 %t3
+    %t8 = binary add i16 %t5, %t7
+    %t9 = cmp lt i16 %t8, 0
+    %t10 = convert zext i32 i1 %t9
+    %t11 = binary add nowrap i32 %t6, %t10
+    %t12 = binary add i32 %t3, 9001
+    %t13 = convert trunc i16 i32 %t12
+    %t14 = binary add i16 %t8, %t13
+    %t15 = cmp lt i16 %t14, 0
+    %t16 = convert zext i32 i1 %t15
+    %t17 = binary add nowrap i32 %t11, %t16
+    %t18 = binary add i32 %t3, 18002
+    %t19 = convert trunc i16 i32 %t18
+    %t20 = binary add i16 %t14, %t19
+    %t21 = cmp lt i16 %t20, 0
+    %t22 = convert zext i32 i1 %t21
+    %t23 = binary add nowrap i32 %t17, %t22
+    %t24 = binary add i32 %t3, 27003
+    %t25 = convert trunc i16 i32 %t24
+    %t26 = binary add i16 %t20, %t25
+    %t27 = cmp lt i16 %t26, 0
+    %t28 = convert zext i32 i1 %t27
+    %t29 = binary add nowrap i32 %t23, %t28
+    %t30 = binary add nowrap i32 %t4, 4
+    %t31 = binary add i32 %t3, 36004
+    %t32 = cmp ne i32 %t1, %t30
+    branch %t32, ^unrolled_1, ^wide_tail_2
+
+  block ^wide_tail_2:
+    %t33 = phi i32 [^entry: 0, ^unrolled_1: %t31]
+    %t34 = phi i32 [^entry: 0, ^unrolled_1: %t30]
+    %t35 = phi i16 [^entry: 0, ^unrolled_1: %t26]
+    %t36 = phi i32 [^entry: 0, ^unrolled_1: %t29]
+    jump ^head
+
+  block ^head:
+    %t37 = phi i32 [^wide_tail_2: %t33, ^body: %t48]
+    %i = phi i32 [^wide_tail_2: %t34, ^body: %next]
+    %s = phi i16 [^wide_tail_2: %t35, ^body: %t]
+    %c = phi i32 [^wide_tail_2: %t36, ^body: %count]
+    %more = cmp lt i32 %i, %n
+    branch %more, ^body, ^done
+
+  block ^body:
+    %q = convert trunc i16 i32 %t37
+    %t = binary add i16 %s, %q
+    %below = cmp lt i16 %t, 0
+    %one = convert zext i32 i1 %below
+    %count = binary add nowrap i32 %c, %one
+    %next = binary add nowrap i32 %i, 1
+    %t48 = binary add i32 %t37, 9001
+    jump ^head
+
+  block ^done:
+    %e = convert sext i32 i16 %s
+    %r = binary add i32 %c, %e
+    return i32 %r
+}
+function @divided_sum(%n : i32) -> i16 [no_inline=yes] {
+  block ^entry:
+    %t1 = binary and i32 %n, -8
+    %t2 = cmp gt i32 %t1, 0
+    branch %t2, ^unrolled_1, ^wide_tail_2
+
+  block ^unrolled_1:
+    %t3 = phi i32 [^unrolled_1: %t36, ^entry: 0]
+    %t4 = phi i16 [^unrolled_1: %t35, ^entry: 1]
+    %t5 = binary div i16 %t4, 3
+    %t6 = convert trunc i16 i32 %t3
+    %t7 = binary add i16 %t5, %t6
+    %t8 = binary add nowrap i32 %t3, 1
+    %t9 = binary div i16 %t7, 3
+    %t10 = convert trunc i16 i32 %t8
+    %t11 = binary add i16 %t9, %t10
+    %t12 = binary add nowrap i32 %t3, 2
+    %t13 = binary div i16 %t11, 3
+    %t14 = convert trunc i16 i32 %t12
+    %t15 = binary add i16 %t13, %t14
+    %t16 = binary add nowrap i32 %t3, 3
+    %t17 = binary div i16 %t15, 3
+    %t18 = convert trunc i16 i32 %t16
+    %t19 = binary add i16 %t17, %t18
+    %t20 = binary add nowrap i32 %t3, 4
+    %t21 = binary div i16 %t19, 3
+    %t22 = convert trunc i16 i32 %t20
+    %t23 = binary add i16 %t21, %t22
+    %t24 = binary add nowrap i32 %t3, 5
+    %t25 = binary div i16 %t23, 3
+    %t26 = convert trunc i16 i32 %t24
+    %t27 = binary add i16 %t25, %t26
+    %t28 = binary add nowrap i32 %t3, 6
+    %t29 = binary div i16 %t27, 3
+    %t30 = convert trunc i16 i32 %t28
+    %t31 = binary add i16 %t29, %t30
+    %t32 = binary add nowrap i32 %t3, 7
+    %t33 = binary div i16 %t31, 3
+    %t34 = convert trunc i16 i32 %t32
+    %t35 = binary add i16 %t33, %t34
+    %t36 = binary add nowrap i32 %t3, 8
+    %t37 = cmp ne i32 %t1, %t36
+    branch %t37, ^unrolled_1, ^wide_tail_2
+
+  block ^wide_tail_2:
+    %t38 = phi i32 [^entry: 0, ^unrolled_1: %t36]
+    %t39 = phi i16 [^entry: 1, ^unrolled_1: %t35]
+    jump ^head
+
+  block ^head:
+    %i = phi i32 [^wide_tail_2: %t38, ^body: %next]
+    %s = phi i16 [^wide_tail_2: %t39, ^body: %t]
+    %more = cmp lt i32 %i, %n
+    branch %more, ^body, ^done
+
+  block ^body:
+    %h = binary div i16 %s, 3
+    %w = convert trunc i16 i32 %i
+    %t = binary add i16 %h, %w
+    %next = binary add nowrap i32 %i, 1
+    jump ^head
+
+  block ^done:
+    return i16 %s
+}
+function @main() -> i32 [role=entry] {
+  block ^entry:
+    %a = call i16 @truncated_steps(1000)
+    %b = call i16 @extended_sum(777)
+    %c = call u8 @shifted_bytes(300, 201)
+    %d = call i32 @compared_sum(500)
+    %e = call i16 @divided_sum(90)
+    %a32 = convert sext i32 i16 %a
+    %b32 = convert sext i32 i16 %b
+    %c32 = convert zext i32 u8 %c
+    %e32 = convert sext i32 i16 %e
+    %ab = binary xor i32 %a32, %b32
+    %abc = binary xor i32 %c32, %ab
+    %abcd = binary xor i32 %d, %abc
+    %all = binary xor i32 %e32, %abcd
+    %folded = binary shr i32 %all, 16
+    %mixed = binary xor i32 %all, %folded
+    %code = binary and i32 %mixed, 127
+    return i32 %code
+}
