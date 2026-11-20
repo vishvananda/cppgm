@@ -86,6 +86,8 @@ dedicated Intel, in that order. Green through red indicates the speedup, with
 red at 0.50× or below. `n/m` means unmeasured and `n/a` means inapplicable.
 An asterisk marks a measurement at least 10 commits behind `main` or outside
 its history. At 100 commits behind, a gray `stale` badge replaces the speedup.
+A gray Godot runtime badge with a dagger (`†`) means the reference binary's own
+time moved by more than 5% since its last run on the same processor.
 [Measurement age](https://github.com/vishvananda/cppgm/blob/benchmark-badges/freshness.md)
 
 ### Application and library benchmarks on x86-64
