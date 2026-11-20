@@ -68,6 +68,11 @@ class ReviewTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'B2 reported failed targets'):
             boost_ci.review(xml, log, self.root / 'invocations.jsonl', self.project, 1)
 
+    def test_zero_failed_b2_targets_keeps_the_reviewed_outcome(self):
+        self.fixture()
+        self.log.write_text('...failed updating 0 target...\n')
+        self.assertEqual(self.check()['passed'], 1)
+
     def test_compiler_crash_is_not_an_expected_rejection(self):
         for code in [-11, 70, 139]:
             with self.subTest(code=code):

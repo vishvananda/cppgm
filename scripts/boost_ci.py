@@ -149,7 +149,8 @@ def mpi_result(actions, target, marker):
 def review(xml_path, log_path, calls_path, project, expected, label='cppgm', native_path=None,
            selected_targets=None, inactive_tests=None):
     log = log_path.read_text(errors='replace')
-    require(not re.search(r'^\.\.\.failed updating \d+ targets?\.\.\.$', log, re.M), 'B2 reported failed targets')
+    require(not re.search(r'^\.\.\.failed updating [1-9]\d* targets?\.\.\.$', log, re.M),
+            'B2 reported failed targets')
     try:
         tree = ET.parse(xml_path).getroot()
     except ET.ParseError as error:
