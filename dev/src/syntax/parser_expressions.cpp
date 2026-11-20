@@ -1195,10 +1195,14 @@ Expr* Parser::primary_from_name(Name* name, NameInfo& info, uint32_t start, bool
 	// A name followed by braces can only be a type construction (5.2.3):
 	// retain it even before lookup knows its type, as in a member initializer
 	// using an alias declared later in its complete-class context.
-	const bool known_type = typename_keyword || lone_decltype || info.category == NameCategory::Type ||
-		info.category == NameCategory::TypeTemplate;
-	if ((at(TokenKind::OP_LPAREN) && known_type) ||
-		(at(TokenKind::OP_LBRACE) && info.category != NameCategory::Concept && !constraint_operand))
+	// A primary template's member provides a lookup hint, but a dependent
+	// qualifier outside the current instantiation requires typename for a
+	// functional cast. Retain the call even if the hint was a type.
+	const bool functional_cast = at(TokenKind::OP_LPAREN) &&
+		(typename_keyword || lone_decltype ||
+			((info.category == NameCategory::Type || info.category == NameCategory::TypeTemplate) &&
+				(!info.prefix_dependent || current_instantiation(info.prefix_scope))));
+	if (functional_cast || (at(TokenKind::OP_LBRACE) && info.category != NameCategory::Concept && !constraint_operand))
 	{
 		FunctionalCastExpr* cast = make<FunctionalCastExpr>(ExprKind::FunctionalCast, start);
 		DeclSpecifier* type = make<DeclSpecifier>();
