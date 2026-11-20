@@ -248,6 +248,14 @@ def main():
     with tarfile.open(args.archive) as archive:
         archive.extractall(output / 'source', filter='data')
     boost = output / 'source' / 'boost_1_92_0'
+    if any(group['project'] == 'libs/gil/test' for group in groups):
+        # GIL gives the compile and run alternatives the same default target.
+        # Give the compile test its own name so B2 can run both original tests.
+        jamfile = boost / 'libs/gil/test/core/io/Jamfile'
+        jam = jamfile.read_text()
+        boost_ci.require(jam.count('compile path_spec.cpp ;') == 1 and jam.count('run path_spec.cpp ;') == 1,
+                         'GIL path_spec test declarations changed')
+        jamfile.write_text(jam.replace('compile path_spec.cpp ;', 'compile path_spec.cpp : : path_spec_compile ;'))
     with (output / 'bootstrap.log').open('w') as log:
         subprocess.run(['./bootstrap.sh', '--with-toolset=gcc'], cwd=boost, stdout=log,
                        stderr=subprocess.STDOUT, check=True)

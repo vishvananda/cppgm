@@ -411,6 +411,11 @@ even with GCC in C++14.
    `x3_attribute_type_check` source omits the header that defines
    `boost::decay_t`. Replay the recorded native control with
    `boost/type_traits/decay.hpp` preincluded for this target under both compilers.
+   GIL's compile and run tests of `path_spec.cpp` share a default B2 target
+   name. Give the compile test its own name in the extracted Jamfile to
+   execute both original test definitions. The default GIL format test
+   needs the JPEG, PNG, TIFF and zlib development packages. Replay GIL
+   with shared linking so libtiff supplies its codec dependencies.
 2. **Require actual cppgm builds and test execution.** Reuse the B2 runner
    with separate build roots by compiler and edition. Verify the actual
    C++ invocations use the candidate compiler and recorded standard. Each
