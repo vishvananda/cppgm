@@ -102,9 +102,9 @@ hosted headers depend on:
   callers that omit frame pointers cannot be traversed reliably. Inlining
   uses the containing activation's frame. The query is not a C++ constant
   expression, and `__has_builtin` advertises it through the builtin registry
-- Compile the host library's C++20 `<source_location>`. Expose
-  `__builtin_source_location()` through `__has_builtin` and use the
-  library record's file, function, line and column fields. Honor `#line`
+- Expose `__builtin_source_location()` through `__has_builtin`. Read
+  the four named fields of the record in the
+  [builtin contract](https://clang.llvm.org/docs/LanguageExtensions.html#source-location-builtins). Honor `#line`
   and evaluate location-sensitive immediate calls in default arguments
   and default member initializers at the point of use. See
   `[support.srcloc.cons]` in the [C++20 draft](../doc/n4861.pdf) and

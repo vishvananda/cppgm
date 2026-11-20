@@ -1721,7 +1721,7 @@ const Type* Analyzer::source_location_record(uint32_t location)
 		return substitution_error(location, "invalid std::source_location::__impl for __builtin_source_location"),
 			   nullptr;
 	const Type* text = types_.pointer(types_.qualified(types_.fundamental(FundamentalType::Char), kConst));
-	const Type* number = types_.fundamental(FundamentalType::UnsignedInt);
+	// The four field names are the published Clang builtin contract.
 	const char* const fields[] = { "_M_file_name", "_M_function_name", "_M_line", "_M_column" };
 	uint8_t seen = 0;
 	for (const DataMember* member = record->members; member != nullptr; member = member->next)
@@ -1731,9 +1731,9 @@ const Type* Analyzer::source_location_record(uint32_t location)
 		while (name != nullptr && field < 4 && std::strcmp(name->spelling, fields[field]) != 0)
 			++field;
 		if (member->bit_field || name == nullptr || field == 4 || (seen & (1u << field)) != 0 ||
-			member->variable->type != (field < 2 ? text : number))
+			(field < 2 ? member->variable->type != text : !IsIntegralType(member->variable->type->unqualified)))
 			return substitution_error(location, "invalid fields in std::source_location::__impl"), nullptr;
-		source_location_fields_[field] = static_cast<uint8_t>(member->ordinal);
+		source_location_fields_[field] = member;
 		seen |= static_cast<uint8_t>(1u << field);
 	}
 	// Both standard libraries derive their parameter type from this builtin.
@@ -1745,7 +1745,6 @@ const Type* Analyzer::source_location_record(uint32_t location)
 ConstValue Analyzer::source_location_value(const Type* pointer, uint32_t location, const FunctionEntity* function)
 {
 	const Type* text = types_.pointer(types_.qualified(types_.fundamental(FundamentalType::Char), kConst));
-	const Type* number = types_.fundamental(FundamentalType::UnsignedInt);
 	const auto string_address = [&](const std::string& spelling) {
 		ConstPlace place = ConstPlace();
 		place.root = RootKind::Literal;
@@ -1753,12 +1752,19 @@ ConstValue Analyzer::source_location_value(const Type* pointer, uint32_t locatio
 		return PointerTo(place, text);
 	};
 	ConstValue* fields = arena_.allocate_array<ConstValue>(4);
-	fields[source_location_fields_[0]] = string_address(source_file(location));
-	fields[source_location_fields_[1]] = string_address(
-		function != nullptr ? PredefinedFunctionName(function) : std::string());
-	fields[source_location_fields_[2]] = IntegerValue(number, source_line(location));
-	fields[source_location_fields_[3]] = IntegerValue(
-		number, positions_ != nullptr ? positions_->column_of(location) : 0);
+	fields[source_location_fields_[0]->ordinal] = string_address(source_file(location));
+	fields[source_location_fields_[1]->ordinal] = string_address(
+		function != nullptr ? PrettyFunctionName(function, graph_) : std::string());
+	const uint64_t coordinates[] = { source_line(location),
+		positions_ != nullptr ? positions_->column_of(location) : 0 };
+	for (unsigned i = 0; i < 2; ++i)
+	{
+		const DataMember* member = source_location_fields_[i + 2];
+		const Type* type = member->variable->type;
+		IntegralKind kind;
+		IntegralKindOf(type, kind);
+		fields[member->ordinal] = IntegerValue(type, ConvertIntegral(coordinates[i], kind));
+	}
 	ConstValue* record = arena_.allocate_array<ConstValue>(1);
 	*record = ConstValue();
 	record->kind = ValueKind::Class;

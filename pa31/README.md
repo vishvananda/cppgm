@@ -129,6 +129,9 @@ To complete PA31, support:
   during `-c` compilation
 - representative C++20 uses of `<concepts>`, `<compare>`, and `<atomic>`
   through the earlier assignments' constraint, comparison, and atomic rules
+- compile `<source_location>` with the PA30 builtin. Check presumed file
+  and line numbers and the point of use for default arguments and default
+  member initializers.
 - Classify coroutine definitions from the operations in their own parsed
   bodies. Resolve the promise through `std::coroutine_traits`, including
   the implicit object parameter of a non-static member. Try the promise

@@ -46,7 +46,7 @@ extension follows the source-location rules in [PA30](pa30/README.md).
 | `[*this]`, constexpr closures, structured bindings, fixed-enum direct lists | C++17 | PA20; failure cleanup PA21 |
 | `noexcept` function-type identity/conversion | C++17 | PA6/PA7; ABI PA9; deduction PA18; host checks PA32 |
 | General GNU source assembly and shared LowIR assembly | GNU extension | PA8 transport; PA29 binding, integrated encoding and object behavior |
-| Hosted source locations (`<source_location>`) | C++20 | PA30 builtin and location-sensitive default initialization |
+| Hosted source locations (`<source_location>`) | C++20 | PA30 builtin and PA31 hosted compile tests |
 | Hosted coroutines (`co_await`, `co_yield`, `co_return`, `<coroutine>`) | C++20 | PA4 feature macro; PA5 syntax; PA30 handle builtins; PA31 promise and awaiter checking; PA32 frame lifetime and unwinding; PA37 WASI runtime |
 | Standard-library consumers (`optional`, `variant`, `string_view`, deduction guides) | Required selected modes | PA31/PA32; use host headers, no STL implementation required |
 

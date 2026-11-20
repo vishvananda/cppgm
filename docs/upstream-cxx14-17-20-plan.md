@@ -569,11 +569,12 @@ both default capture kinds and a runtime reference capture.
 
 ### Hosted source location validation
 
-PA30 compiles `<source_location>` with the installed libstdc++ and libc++.
-The test covers presumed source locations after `#line`, constexpr and
-runtime default member initialization, default arguments, and an immediate
-invocation whose default use determines its validity. The same program
-runs on WASI at O0 and O2.
+PA30 supplies the builtin using the record described in the
+[Clang builtin contract](https://clang.llvm.org/docs/LanguageExtensions.html#source-location-builtins).
+PA31 compiles `<source_location>` with libstdc++ and libc++. Its fixture covers
+presumed source locations after `#line`, default member initialization,
+default arguments, and an immediate invocation whose default use determines
+its validity. The same program runs on WASI at O0 and O2.
 
 ### Boost.Math test discovery
 

@@ -2736,7 +2736,7 @@ private:
 	FunctionEntity* library_nans_[3] = {};
 	// text_literal's literals, by the text interned as an identifier.
 	const Type* source_location_type_ = nullptr;
-	uint8_t source_location_fields_[4] = {};
+	const DataMember* source_location_fields_[4] = {};
 	PointerMap source_immediate_index_;
 	std::vector<ExprFacts> source_immediates_;
 	PointerMap text_literal_index_;
