@@ -461,6 +461,8 @@ PA12 supports the following in addition to the PA11 subset:
   default member initializer; at most one variant may have a default member
   initializer; a namespace-scope anonymous union must be `static` in a named
   or the global namespace but not in an unnamed one (9.5p5)
+- a GNU zero-length array variant contributes its alignment and zero bytes
+  to the union's layout
 - conditional class-value cases in the supported copy/move subset, including
   cv-combined glvalue operands, lvalue/prvalue conversion, and destruction of a
   containing branch temporary only after its selected member result has been

@@ -6,9 +6,6 @@ struct Leaf {
 struct Nested {
   Leaf member;
 };
-union Choice {
-  double items[0];
-};
 struct OrdinaryEmpty {};
 struct WithTail {
   char prefix;
@@ -20,7 +17,6 @@ int main() {
   Leaf sequence[3]{};
   return sizeof(ZeroLength) != 0 || sizeof(local.member.values) != 0 ||
          sizeof(Leaf) != 0 || sizeof(Nested) != 0 || sizeof(sequence) != 0 ||
-         alignof(Nested) != alignof(int) || sizeof(Choice) != 0 ||
-         alignof(Choice) != alignof(double) || sizeof(OrdinaryEmpty) != 1 ||
+         alignof(Nested) != alignof(int) || sizeof(OrdinaryEmpty) != 1 ||
          sizeof(WithTail) != alignof(int);
 }
