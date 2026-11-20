@@ -271,7 +271,7 @@ std::vector<unsigned> incoming_registers(
 std::vector<uint32_t> allocation_order(const Program& program, const FunctionBody& body, opt::Cfg& cfg,
 	const std::vector<uint32_t>& aliases, std::vector<uint64_t>& block_weights, const std::vector<LiveRange>& ranges,
 	const Segments& segments, const std::vector<uint32_t>& calls, machine::PhiWebs& webs, uint32_t slots,
-	unsigned level, unsigned general_registers)
+	unsigned level, unsigned general_registers, std::vector<uint64_t>& weight)
 {
 	std::vector<uint32_t> order;
 	std::vector<double> priority;
@@ -280,7 +280,7 @@ std::vector<uint32_t> allocation_order(const Program& program, const FunctionBod
 		register_pressure(body, ranges, segments, calls, slots, general_registers, Bank::General) !=
 			RegisterPressure::Fits)
 	{
-		const auto weight = spill_weights(program, body, cfg, aliases, block_weights);
+		weight = spill_weights(program, body, cfg, aliases, block_weights);
 		order.resize(ranges.size());
 		priority.reserve(ranges.size());
 		for (uint32_t i = 0; i < order.size(); ++i)
@@ -737,8 +737,9 @@ void Selector::allocate()
 	const auto incoming = incoming_registers(program_, signature_, body_, named_.darwin, free_x8);
 	const uint32_t slots = 2 * (body_.instructions.size() + body_.layout.size()) + 3;
 	const auto outgoing = call_registers();
+	std::vector<uint64_t> weight;
 	const auto order = allocation_order(program_, body_, cfg, aliases_, block_weights_, ranges, segments, calls, webs,
-		slots, level_, dynamic_stack_ ? 9 : 10);
+		slots, level_, dynamic_stack_ ? 9 : 10, weight);
 	const bool split_calls = level_ >= 2 && !named_.darwin && !dynamic_stack_ && body_.code_labels.empty() &&
 		calls.size() <= 64;
 	if (split_calls && calls.size() > 1 && block_weights_.empty() && !cfg.succ_first.empty())
@@ -861,6 +862,17 @@ void Selector::allocate()
 		const bool parameter = range.id < body_.parameter_count;
 		auto reg = groups.choose(
 			general, range, caller | preserved, preserved, preferred, alternate, across_call, parameter);
+		// Out of registers, saving a caller register around the calls the
+		// range crosses can still cost less than its spills and reloads.
+		if (reg == kNoId && across_call && !crossed && cold_calls && !weight.empty() &&
+			!live_into(range, segments, facts.landings))
+		{
+			crossed = cold_crossings(range, segments, calls, weight[range.id] / 2);
+			if (crossed)
+				reg = groups.choose(general, range, crossing, 0, preferred, alternate, across_call, parameter);
+			if (reg == kNoId)
+				crossed = 0;
+		}
 		registers_[range.id] = reg;
 		if (across_call && reg < 15 && !(kept & (1u << reg)))
 		{
