@@ -763,6 +763,7 @@ void Analyzer::introduce_functions(const std::vector<Binding*>& functions, Scope
 	// rather than searching its overload set for each imported template.
 	Scope* where = declaration_scope(scope);
 	FlatMap<MemberTemplateKey, bool, MemberTemplateHash> hidden;
+	SmallList<MemberTemplateKey, 8> declared_templates;
 	bool templates = false;
 	if (where->kind == ScopeKind::Class)
 		for (const Binding* binding : functions)
@@ -778,7 +779,10 @@ void Analyzer::introduce_functions(const std::vector<Binding*>& functions, Scope
 		const Type* signature = function->conversion ? function->signature : signature_of(function->signature);
 		const MemberTemplateKey key = { signature, HeadOf(function)->shape };
 		if (hidden.find(key) == nullptr)
+		{
 			hidden.insert(key, true);
+			declared_templates.push_back(key);
+		}
 	}
 	for (size_t i = functions.size(); i-- > 0;)
 	{
@@ -786,7 +790,11 @@ void Analyzer::introduce_functions(const std::vector<Binding*>& functions, Scope
 		if (hidden.size() != 0 && function->templated && function->owner != where && HeadOf(function) != nullptr)
 		{
 			const Type* signature = function->conversion ? function->signature : signature_of(function->signature);
-			if (hidden.find({ signature, HeadOf(function)->shape }) != nullptr)
+			const Type* shape = HeadOf(function)->shape;
+			if (hidden.find({ signature, shape }) != nullptr ||
+				std::any_of(declared_templates.begin(), declared_templates.end(), [&](const MemberTemplateKey& own) {
+					return own.head == shape && same_ordering_type(own.signature, signature, true);
+				}))
 				continue;
 		}
 		introduce(functions[i], scope, location);

@@ -1452,7 +1452,7 @@ bool Analyzer::arguments_at_least_as_specialized(const TemplateHead* head, const
 	return true;
 }
 
-bool Analyzer::same_ordering_type(const Type* first, const Type* second)
+bool Analyzer::same_ordering_type(const Type* first, const Type* second, bool member_hiding)
 {
 	// A pending expression retains its complete substitution, including
 	// unused parameters. Ordering compares its typed operand instead: the
@@ -1478,7 +1478,14 @@ bool Analyzer::same_ordering_type(const Type* first, const Type* second)
 		const TemplateParameterEntity* a = static_cast<const TemplateParameterEntity*>(first->entity);
 		const TemplateParameterEntity* b = static_cast<const TemplateParameterEntity*>(second->entity);
 		if (a->qualifier != nullptr && b->qualifier != nullptr)
-			return a->name == b->name && same_ordering_type(a->qualifier, b->qualifier);
+			return a->name == b->name && same_ordering_type(a->qualifier, b->qualifier, member_hiding);
+		// A using-declaration compares the parameter types of different
+		// classes. The keys record each operand's resolved names, while their
+		// first two words carry its surrounding declaration for instantiation.
+		if (member_hiding && a->pending == nullptr && b->pending == nullptr && a->key != nullptr && b->key != nullptr &&
+			a->key[0] == b->key[0] && ((a->key[1] ^ b->key[1]) & 1) == 0 && ((a->key[2] ^ b->key[2]) & 1) == 0)
+			return DecltypeKey{ a->key + 3, static_cast<uint32_t>(a->key[0] - 2) } ==
+				DecltypeKey{ b->key + 3, static_cast<uint32_t>(b->key[0] - 2) };
 		// Only a key computed for the substituted operand is comparable.
 		// Arguments containing further placeholders may use a context's key
 		// rather than the final operand's, and must retain their identity.
@@ -1503,7 +1510,7 @@ bool Analyzer::same_ordering_type(const Type* first, const Type* second)
 			return false;
 		for (uint32_t i = 0; i < a->argument_count; ++i)
 		{
-			if (!same_ordering_type(a->arguments[i], b->arguments[i]))
+			if (!same_ordering_type(a->arguments[i], b->arguments[i], member_hiding))
 				return false;
 		}
 		return true;
@@ -1517,11 +1524,12 @@ bool Analyzer::same_ordering_type(const Type* first, const Type* second)
 	case TypeKind::MemberPointer:
 	case TypeKind::Function:
 	case TypeKind::Pack:
-		if (!same_ordering_type(first->element, second->element) || !same_ordering_type(first->owner, second->owner))
+		if (!same_ordering_type(first->element, second->element, member_hiding) ||
+			!same_ordering_type(first->owner, second->owner, member_hiding))
 			return false;
 		for (uint32_t i = 0; i < first->param_count; ++i)
 		{
-			if (!same_ordering_type(first->params[i], second->params[i]))
+			if (!same_ordering_type(first->params[i], second->params[i], member_hiding))
 				return false;
 		}
 		return true;

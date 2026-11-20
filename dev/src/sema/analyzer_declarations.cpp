@@ -2327,13 +2327,16 @@ FunctionEntity* Analyzer::earlier_function(const DeclaredName& name, Scope* wher
 		{
 			const Type* shape = template_shape(
 				template_entities_.data(), static_cast<uint32_t>(template_entities_.size()));
-			for (const FunctionList* node = entry->functions; node != nullptr && same == nullptr; node = node->next)
+			const Type* parameters = name.kind == syntax::NameComponentKind::Conversion ? signature
+																						: signature_of(signature);
+			for (const FunctionList* node = entry->functions; node != nullptr; node = node->next)
 			{
 				const FunctionEntity* other = static_cast<const FunctionEntity*>(node->binding->entity);
-				if (other->owner != where && other->templated &&
-					signature_of(other->signature) == signature_of(signature) && HeadOf(other) != nullptr &&
-					HeadOf(other)->shape == shape)
-					same = node;
+				if (other->owner != where && other->templated && HeadOf(other) != nullptr &&
+					HeadOf(other)->shape == shape &&
+					same_ordering_type(
+						parameters, other->conversion ? other->signature : signature_of(other->signature), true))
+					names_.remove_function(where, name.key, other);
 			}
 		}
 		if (same != nullptr && same->binding->entity->owner != where)

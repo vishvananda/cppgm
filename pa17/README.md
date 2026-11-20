@@ -138,6 +138,12 @@ declaration has no concrete binding until template deduction.  Naming a
 variable template without its required template arguments is invalid; lookup
 does not fall through to a hidden base data member.
 
+A member using-declaration imports the base overload set. A derived member
+template hides an imported member template with the same parameter types,
+template head and qualifiers, including equivalent dependent parameter
+types. Apply this rule in either declaration order and keep base overloads
+with different parameter types.
+
 ### Partial-specialization ordering
 
 When deduction skips a dependent member type or expression, ordering still
