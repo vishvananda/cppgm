@@ -1340,6 +1340,9 @@
       },
       "targets": [
         "libs/spirit/test/x3//x3_attribute_type_check.test"
+      ],
+      "b2_properties": [
+        "cxxflags=-include boost/type_traits/decay.hpp"
       ]
     },
     {

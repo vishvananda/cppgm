@@ -56,7 +56,10 @@ def validate_inventory(inventory):
             boost_ci.require(group.get('kind') == 'test' and not group.get('targets') and
                              all(re.fullmatch(r'[A-Za-z0-9_]+', alias) for alias in group['b2_aliases']),
                              'invalid supplementary B2 aliases')
-        boost_ci.require(all(p in {'link=shared'} for p in group.get('b2_properties', [])),
+        replay_properties = {'link=shared'}
+        if required == {'libs/spirit/test/x3//x3_attribute_type_check.test'}:
+            replay_properties.add('cxxflags=-include boost/type_traits/decay.hpp')
+        boost_ci.require(all(p in replay_properties for p in group.get('b2_properties', [])),
                          'unreviewed project-specific B2 property')
         if 'shared_python_runtime' in group:
             reason = group['shared_python_runtime']

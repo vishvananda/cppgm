@@ -407,7 +407,10 @@ even with GCC in C++14.
    its original sources. Start whole projects at their recorded minimum and
    follow original per-target requirements for newer variants. Keep the
    original special link and run settings, including the uBLAS Tensor
-   shared-link test and the mixed-edition MSM groups.
+   shared-link test and the mixed-edition MSM groups. The original Spirit
+   `x3_attribute_type_check` source omits the header that defines
+   `boost::decay_t`. Replay the recorded native control with
+   `boost/type_traits/decay.hpp` preincluded for this target under both compilers.
 2. **Require actual cppgm builds and test execution.** Reuse the B2 runner
    with separate build roots by compiler and edition. Verify the actual
    C++ invocations use the candidate compiler and recorded standard. Each
