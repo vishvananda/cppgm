@@ -358,6 +358,11 @@ these literals. ISO C++ modes leave those suffixes to the ordinary
 user-defined literal rules. The standard `l` and `L` suffixes denote
 `long double`. [GCC floating-type extensions](https://gcc.gnu.org/onlinedocs/gcc/Floating-Types.html)
 
+If the host probe defines `__SIZEOF_FLOAT128__` for the native target, preserve
+it in the hosted environment. Libraries use it to discover the GNU
+`__float128` type even in ISO C++ mode, where the GNU literal suffixes are
+disabled.
+
 Support `-fconstexpr-ops-limit=<n>` when compiling hosted C++. It sets the
 work limit for one constant evaluation. Use a finite default and reset the
 work counter between evaluations. A required evaluation that exceeds the

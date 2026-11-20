@@ -131,14 +131,14 @@ bool OwnMacro(const char* name, size_t length)
 	return false;
 }
 
-// The host macros announcing extension types whose values this
-// implementation does not compute (__float80), whose limits are literals
-// of a suffix it does not read (GCC's __BFLT16_* constants, BF16; Clang
-// announces __bf16 by none) or whose constants its analysis does not
-// evaluate (the binary16 and binary128 types: their limits are literals
-// hosted headers use in constant expressions), or that it does not
-// specialize hosted templates for (the other _FloatN types), which hosted
-// headers would otherwise specialize templates for.
+bool Named(const char* name, size_t length, const char* spelling)
+{
+	return std::strlen(spelling) == length && std::memcmp(name, spelling, length) == 0;
+}
+
+// Hosted libraries use the _FloatN limit families to enable their extended
+// floating-point interfaces. Keep those interfaces filtered separately from
+// __SIZEOF_FLOAT128__, which advertises the supported GNU type __float128.
 bool UnsupportedTypeMacro(const char* name, size_t length)
 {
 	static const char* const kPrefixes[] = { "__BFLT16_", "__FLT16_", "__FLT32_", "__FLT64_", "__FLT128_", "__FLT32X_",
@@ -149,18 +149,7 @@ bool UnsupportedTypeMacro(const char* name, size_t length)
 		if (length >= size && std::memcmp(name, prefix, size) == 0)
 			return true;
 	}
-	static const char* const kSizes[] = { "__SIZEOF_FLOAT128__", "__SIZEOF_FLOAT80__" };
-	for (const char* size : kSizes)
-	{
-		if (std::strlen(size) == length && std::memcmp(size, name, length) == 0)
-			return true;
-	}
-	return false;
-}
-
-bool Named(const char* name, size_t length, const char* spelling)
-{
-	return std::strlen(spelling) == length && std::memcmp(spelling, name, length) == 0;
+	return Named(name, length, "__SIZEOF_FLOAT80__");
 }
 
 // A C translation unit has no C++ host macros.
