@@ -120,7 +120,8 @@ void FunctionLowering::lower_definition()
 		? lowering_.graph().throw_specification(function_)
 		: nullptr;
 	if (!inert_destructor && (specification != nullptr || lowering_.function_nothrow(function_)) &&
-		definition_may_throw() && (!deleting_ || deleting_inlines_body(body != nullptr ? body->body->location : 0)))
+		(coroutine != nullptr ? lowering_.exceptions() : definition_may_throw()) &&
+		(!deleting_ || deleting_inlines_body(body != nullptr ? body->body->location : 0)))
 	{
 		unexpected_specification_ = specification;
 		terminate_landing_ = new_block(lowir::BlockKind::FunctionExceptionLanding);

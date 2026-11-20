@@ -42,8 +42,20 @@ const syntax::Expr* WithoutParentheses(const syntax::Expr* expr)
 	return expr;
 }
 
-void AwaitEvaluations(const sema::CoroutineAwait* await, std::vector<const syntax::Expr*>& work)
+void CoroutineEvaluations(
+	const syntax::CoroutineExpr& expression, const sema::ExprFacts* facts, std::vector<const syntax::Expr*>& work)
 {
+	if (facts == nullptr)
+		return;
+	if (expression.operation == TokenKind::KW_CO_RETURN)
+	{
+		const syntax::Expr* operand = expression.operand;
+		if (operand != nullptr && operand->facts != nullptr && sema::IsVoid(operand->facts->type))
+			work.push_back(operand);
+		work.push_back(facts->replacement);
+		return;
+	}
+	const sema::CoroutineAwait* await = facts->coroutine_await;
 	if (await == nullptr)
 		return;
 	work.push_back(await->resume);
@@ -165,8 +177,7 @@ bool FunctionLowering::may_throw(const syntax::Expr* root)
 			found = true;
 			break;
 		case syntax::ExprKind::Coroutine:
-			if (facts != nullptr)
-				AwaitEvaluations(facts->coroutine_await, work);
+			CoroutineEvaluations(static_cast<const syntax::CoroutineExpr&>(*e), facts, work);
 			break;
 		case syntax::ExprKind::Binary:
 		case syntax::ExprKind::Assign:
@@ -604,7 +615,7 @@ bool FunctionLowering::branched_regions(const syntax::Expr* root)
 		case syntax::ExprKind::Coroutine:
 			// The ready and suspend paths must close any construction
 			// region before the resumption may open one of its own.
-			found = facts != nullptr && facts->coroutine_await != nullptr;
+			found = static_cast<const syntax::CoroutineExpr&>(*e).operation != TokenKind::KW_CO_RETURN;
 			break;
 		case syntax::ExprKind::Throw:
 			push(static_cast<const syntax::ThrowExpr*>(e)->operand, branched);
@@ -1246,7 +1257,7 @@ bool FunctionLowering::creates_temporaries(
 		switch (e->kind)
 		{
 		case syntax::ExprKind::Coroutine:
-			AwaitEvaluations(facts->coroutine_await, work);
+			CoroutineEvaluations(static_cast<const syntax::CoroutineExpr&>(*e), facts, work);
 			break;
 		case syntax::ExprKind::Binary:
 		case syntax::ExprKind::Assign:

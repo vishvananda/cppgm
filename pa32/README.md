@@ -297,6 +297,8 @@ To complete PA32, implement hosted link/runtime behavior for:
   calls its coroutine call operator with a default-constructed closure.
   If resumption throws while initializing a local, unwind the objects
   already constructed in the surrounding scope.
+  An exception escaping a `noexcept` coroutine call runs the startup
+  cleanup before calling `std::terminate`.
 
 If hosted header code compiles but the emitted objects do not link or run
 correctly, fix the hosted symbol emission, ABI spelling, object ownership, or
