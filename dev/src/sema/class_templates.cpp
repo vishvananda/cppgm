@@ -3243,9 +3243,10 @@ bool Analyzer::instantiate_definition(const FunctionEntity* entity)
 	const FunctionEntity* definition = own_copy ? function
 		: PatternOf(function) != nullptr        ? PatternOf(function)
 												: function->primary;
-	// A member explicitly defaulted out of its class template (8.4.2p5):
-	// the implicit definition's, synthesized for the instance's class.
-	if (definition != nullptr && definition->synthesized && definition->body == nullptr &&
+	// A member explicitly defaulted out of its class template (8.4.2p5)
+	// needs a definition synthesized here. In-class defaults already
+	// participate in the instance's special-member analysis.
+	if (definition != nullptr && definition->synthesized && !definition->defaulted && definition->body == nullptr &&
 		PatternOf(function) != nullptr)
 	{
 		function->instantiation = FactState::InProgress;

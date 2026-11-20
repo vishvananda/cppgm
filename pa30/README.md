@@ -484,6 +484,9 @@ To complete PA30, implement hosted compatibility for:
   `__has_declspec_attribute`, answer no rather than failing
 - GNU `always_inline` direct calls in host objects substitute the available
   body at every optimization level, including constructors and destructors.
+  A defaulted member of a class template still follows the rules for the
+  location of its original `= default`. Instantiating a call preserves the
+  special-member semantics of an in-class default.
   A bounded constant stack request outside every control-flow cycle can use
   fixed local storage before substitution. Preserve distinct allocations in
   loops; a dynamic request still needs its own stack lifetime.
