@@ -325,7 +325,7 @@ void NameLookup::declare(const Scope* scope, Binding* binding, bool tag_only)
 	else if (indexed_template)
 		slot = template_overloads_.find(key);
 	if (function->owner == scope && slot != nullptr && *slot != nullptr && (*slot)->binding->entity != function)
-		slot = template_variant(key, *slot, function);
+		slot = overload_variant(key, function);
 	// A function only friend declarations declared has a node the overload
 	// index finds but no set holds (argument-dependent lookup finds it
 	// through its befriending classes, see befriend); its first visible
@@ -339,54 +339,99 @@ void NameLookup::declare(const Scope* scope, Binding* binding, bool tag_only)
 		if (node->binding->invisible)
 		{
 			node->binding = binding;
-			node->next = entry->functions;
-			entry->functions = node;
+			prepend_function(entry, node, scope);
 			return;
 		}
 		KeepOrdinal(binding, node->binding);
 		node->binding = binding;
 		return;
 	}
-	FunctionList* node = static_cast<FunctionList*>(arena_.allocate(sizeof(FunctionList), alignof(FunctionList)));
-	node->binding = binding;
-	node->next = nullptr;
+	FunctionList* node = new_function_node(scope, binding);
 	if (!binding->invisible)
-	{
-		node->next = entry->functions;
-		entry->functions = node;
-	}
+		prepend_function(entry, node, scope);
 	if (slot != nullptr)
 		*slot = node;
 	else if (indexed_template)
 		template_overloads_.insert(key, node);
 }
 
-FunctionList** NameLookup::template_variant(
-	const TemplateOverloadKey& key, FunctionList* previous, const FunctionEntity* function)
+static bool IsImportedFunction(const Scope* scope, const Binding* binding)
 {
-	// Only a collision adds a secondary list. Hidden friends stay in this
-	// signature's index without becoming visible in its name's overload set.
-	TemplateOverloadVariant** found = template_variants_.find(key);
-	if (found == nullptr)
+	// A legacy using-declaration can update its own class's binding. The
+	// node for that declaration keeps the ordinary overload representation.
+	return binding->introduced_by_using && binding->entity->owner != scope;
+}
+
+void NameLookup::prepend_function(NameEntry* entry, FunctionList* node, const Scope* scope)
+{
+	node->next = entry->functions;
+	entry->functions = node;
+	if (scope->using_members && node->next != nullptr && IsImportedFunction(scope, node->next->binding))
+		static_cast<ImportedFunction*>(node->next)->previous = node;
+}
+
+FunctionList* NameLookup::new_function_node(const Scope* scope, Binding* binding)
+{
+	if (scope->kind != ScopeKind::Class || !IsImportedFunction(scope, binding))
 	{
-		TemplateOverloadVariant* first = arena_.allocate_array<TemplateOverloadVariant>(1);
-		*first = TemplateOverloadVariant{ previous, nullptr };
-		template_variants_.insert(key, first);
-		found = template_variants_.find(key);
+		FunctionList* node = arena_.allocate_array<FunctionList>(1);
+		*node = FunctionList{ binding, nullptr };
+		return node;
 	}
-	for (TemplateOverloadVariant* variant = *found; variant != nullptr; variant = variant->next)
-		if (variant->node->binding->entity == function)
-			return &variant->node;
-	TemplateOverloadVariant* variant = arena_.allocate_array<TemplateOverloadVariant>(1);
-	*variant = TemplateOverloadVariant{ nullptr, *found };
-	*found = variant;
+	const ImportedFunctionKey key = { key_of(scope, binding->name), binding->entity };
+	ImportedFunction** earlier = imported_functions_.find(key);
+	ImportedFunction* imported = arena_.allocate_array<ImportedFunction>(1);
+	imported->binding = binding;
+	imported->next = nullptr;
+	imported->previous = nullptr;
+	imported->same_entity = earlier != nullptr ? *earlier : nullptr;
+	if (earlier != nullptr)
+		*earlier = imported;
+	else
+		imported_functions_.insert(key, imported);
+	return imported;
+}
+
+size_t NameLookup::ImportedFunctionHash::operator()(const ImportedFunctionKey& key) const
+{
+	return static_cast<size_t>(key.name ^ Mix64(reinterpret_cast<uintptr_t>(key.entity)));
+}
+
+bool NameLookup::imported_function(const Scope* scope, const Binding* binding) const
+{
+	const auto* function = static_cast<const FunctionEntity*>(binding->entity);
+	if (function->owner == scope)
+	{
+		const Type* shape = function->templated && HeadOf(function) != nullptr ? HeadOf(function)->shape : nullptr;
+		const FunctionList* node = overload(scope, binding->name, function->signature, shape);
+		return node != nullptr && node->binding->entity == function && node->binding->introduced_by_using;
+	}
+	ImportedFunction* const* found = const_cast<NameLookup*>(this)->imported_functions_.find(
+		ImportedFunctionKey{ key_of(scope, binding->name), binding->entity });
+	return found != nullptr && *found != nullptr;
+}
+
+FunctionList** NameLookup::overload_variant(const TemplateOverloadKey& key, const FunctionEntity* function)
+{
+	// A variant is always registered in its owning scope. Its entity can
+	// find its binding without searching any of the sibling variants.
+	if (OverloadVariant** earlier = variants_by_entity_.find(function))
+		return &(*earlier)->node;
+	OverloadVariant** head = overload_variants_.find(key);
+	OverloadVariant* variant = arena_.allocate_array<OverloadVariant>(1);
+	*variant = OverloadVariant{ nullptr, head == nullptr ? nullptr : *head };
+	if (head == nullptr)
+		overload_variants_.insert(key, variant);
+	else
+		*head = variant;
+	variants_by_entity_.insert(function, variant);
 	return &variant->node;
 }
 
-const NameLookup::TemplateOverloadVariant* NameLookup::template_overload_variants(
+const NameLookup::OverloadVariant* NameLookup::overload_variants(
 	const Scope* scope, const Identifier* name, const Type* signature, const Type* shape) const
 {
-	TemplateOverloadVariant* const* found = const_cast<NameLookup*>(this)->template_variants_.find(
+	OverloadVariant* const* found = const_cast<NameLookup*>(this)->overload_variants_.find(
 		TemplateOverloadKey{ scope, name, signature, shape });
 	return found == nullptr ? nullptr : *found;
 }
@@ -413,18 +458,22 @@ void NameLookup::remove_function(const Scope* scope, const Identifier* name, con
 {
 	invalidate_members(scope, name);
 	NameEntry* entry = this->entry(scope, name);
-	for (FunctionList** link = &entry->functions; *link != nullptr; link = &(*link)->next)
+	ImportedFunction** imported = imported_functions_.find(ImportedFunctionKey{ key_of(scope, name), function });
+	if (imported != nullptr && *imported != nullptr)
 	{
-		if ((*link)->binding->entity == function)
-		{
-			*link = (*link)->next;
-			break;
-		}
+		ImportedFunction* removed = *imported;
+		*imported = removed->same_entity;
+		FunctionList* previous = removed->previous;
+		FunctionList* next = removed->next;
+		(previous != nullptr ? previous->next : entry->functions) = next;
+		if (next != nullptr && IsImportedFunction(scope, next->binding))
+			static_cast<ImportedFunction*>(next)->previous = previous;
 	}
 	if (entry->value != nullptr && entry->value->entity == function)
 		entry->value = entry->functions != nullptr ? entry->functions->binding : nullptr;
 	const FunctionEntity* removed = static_cast<const FunctionEntity*>(function);
-	if (OverloadSlot* slot = overload_slot(scope, name, removed->signature, false))
+	OverloadSlot* slot = removed->templated ? nullptr : overload_slot(scope, name, removed->signature, false);
+	if (slot != nullptr && slot->node != nullptr && slot->node->binding->entity == function)
 		slot->node = nullptr;
 }
 

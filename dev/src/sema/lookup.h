@@ -98,6 +98,7 @@ public:
 	// Drops a function from the overload set of `name` in `scope` (a base
 	// member hidden by a member of the same signature, 7.3.3p15).
 	void remove_function(const Scope* scope, const Identifier* name, const Entity* function);
+	bool imported_function(const Scope*, const Binding*) const;
 	// The function of `name` declared or introduced in `scope` with this
 	// signature (FunctionEntity::signature); with a template head's shape
 	// (TemplateHead::shape), the function template declared there with this
@@ -106,12 +107,12 @@ public:
 	// non-templates are indexed apart).
 	const FunctionList* overload(
 		const Scope* scope, const Identifier* name, const Type* signature, const Type* shape = nullptr) const;
-	struct TemplateOverloadVariant
+	struct OverloadVariant
 	{
 		FunctionList* node;
-		TemplateOverloadVariant* next;
+		OverloadVariant* next;
 	};
-	const TemplateOverloadVariant* template_overload_variants(
+	const OverloadVariant* overload_variants(
 		const Scope*, const Identifier*, const Type* signature, const Type* shape) const;
 
 	LookupResult unqualified(Scope* scope, const Identifier* name, LookupFilter filter);
@@ -217,7 +218,31 @@ private:
 	{
 		size_t operator()(const TemplateOverloadKey& key) const;
 	};
-	FunctionList** template_variant(const TemplateOverloadKey&, FunctionList*, const FunctionEntity*);
+	FunctionList** overload_variant(const TemplateOverloadKey&, const FunctionEntity*);
+	struct FunctionHash
+	{
+		size_t operator()(const FunctionEntity* function) const { return reinterpret_cast<uintptr_t>(function); }
+	};
+
+	// Only class imports need an identity index and reverse links for
+	// duplicate checks and hiding. Ordinary overload nodes stay compact.
+	struct ImportedFunction : FunctionList
+	{
+		FunctionList* previous;
+		ImportedFunction* same_entity;
+	};
+	struct ImportedFunctionKey
+	{
+		uint64_t name;
+		const Entity* entity;
+		bool operator==(const ImportedFunctionKey& other) const { return name == other.name && entity == other.entity; }
+	};
+	struct ImportedFunctionHash
+	{
+		size_t operator()(const ImportedFunctionKey& key) const;
+	};
+	static void prepend_function(NameEntry*, FunctionList*, const Scope*);
+	FunctionList* new_function_node(const Scope*, Binding*);
 
 	// Member lookup in a complete class, bases included (10.2): a complete
 	// class's bases no longer change, so each (class, name, filter) result
@@ -312,7 +337,9 @@ private:
 	std::vector<OverloadSlot, ZeroedAllocator<OverloadSlot>> overloads_;
 	uint32_t overload_count_;
 	FlatMap<TemplateOverloadKey, FunctionList*, TemplateOverloadHash> template_overloads_;
-	FlatMap<TemplateOverloadKey, TemplateOverloadVariant*, TemplateOverloadHash> template_variants_;
+	FlatMap<TemplateOverloadKey, OverloadVariant*, TemplateOverloadHash> overload_variants_;
+	FlatMap<const FunctionEntity*, OverloadVariant*, FunctionHash> variants_by_entity_;
+	FlatMap<ImportedFunctionKey, ImportedFunction*, ImportedFunctionHash> imported_functions_;
 	std::vector<MemberSlot, ZeroedAllocator<MemberSlot>> members_;
 	uint32_t member_count_;
 	// Indexed by Identifier::id (and possibly shorter): the names declared

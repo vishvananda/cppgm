@@ -147,12 +147,44 @@ bool TryBitwiseSubsumption(const ConstraintNode* first, const ConstraintNode* se
 	return true;
 }
 
+bool IncludesOperand(const ConstraintNode* form, const ConstraintNode* operand, ConstraintNodeKind connective)
+{
+	if (form->kind != connective)
+		return false;
+	if (form->left == operand || form->right == operand)
+		return true;
+	if (form->left->kind != connective && form->right->kind != connective)
+		return false;
+	SmallList<const ConstraintNode*, 16> pending;
+	PointerMap visited;
+	pending.push_back(form);
+	while (!pending.empty())
+	{
+		const ConstraintNode* node = pending.back();
+		pending.pop_back();
+		if (node == operand)
+			return true;
+		if (node->kind == connective && visited.find(node) == PointerMap::kMissing)
+		{
+			visited.set(node, 0);
+			pending.push_back(node->right);
+			pending.push_back(node->left);
+		}
+	}
+	return false;
+}
+
 bool Subsumes(const ConstraintNode* first, const ConstraintNode* second)
 {
 	if (second == nullptr || first == second)
 		return true;
 	if (first == nullptr)
 		return false;
+	// Shared concept mappings can prove implication directly through a
+	// conjunction or disjunction, without expanding the shared operand.
+	if (IncludesOperand(first, second, ConstraintNodeKind::Conjunction) ||
+		IncludesOperand(second, first, ConstraintNodeKind::Disjunction))
+		return true;
 	// Stream the first form's DNF clauses. Testing the second form with
 	// just one clause's atoms set is equivalent to checking that clause
 	// against every clause of the second form's CNF. No expanded CNF or

@@ -11,23 +11,6 @@ namespace sema {
 
 namespace {
 
-struct MemberTemplateKey
-{
-	const Type* signature;
-	const Type* head;
-	bool operator==(const MemberTemplateKey& other) const { return signature == other.signature && head == other.head; }
-};
-
-struct MemberTemplateHash
-{
-	size_t operator()(const MemberTemplateKey& key) const
-	{
-		const uint64_t hash = reinterpret_cast<uintptr_t>(key.signature) * 0x9e3779b97f4a7c15ull ^
-			reinterpret_cast<uintptr_t>(key.head);
-		return static_cast<size_t>(hash ^ (hash >> 32));
-	}
-};
-
 bool IsNamespaceBinding(const Binding* binding)
 {
 	return binding != nullptr &&
@@ -720,7 +703,7 @@ void Analyzer::using_declarator(const syntax::UsingDecl& decl, Scope* scope)
 	const Type* conversion = nullptr;
 	if (last.kind == syntax::NameComponentKind::Conversion)
 		conversion = type_id(*last.conversion, scope)->canonical;
-	std::vector<Binding*> functions;
+	SmallList<Binding*, 8> functions;
 	for (FunctionList* function = result.functions; function != nullptr; function = function->next)
 	{
 		if (!function->binding->invisible &&
@@ -755,49 +738,99 @@ void Analyzer::using_enum(const syntax::UsingDecl& decl, Scope* scope)
 	}
 }
 
-void Analyzer::introduce_functions(const std::vector<Binding*>& functions, Scope* scope, uint32_t location)
+const Type* Analyzer::member_template_signature(const FunctionEntity* function)
 {
-	// 7.3.3p15: a derived member hides a base member with the same
-	// parameter list and qualifiers, independently of its return type.
-	// Index the class's own member templates once for this using-declaration,
-	// rather than searching its overload set for each imported template.
+	// A conversion target is part of its name (12.3.2p1).
+	return function->conversion ? function->signature : signature_of(function->signature);
+}
+
+void Analyzer::introduce_functions(const SmallList<Binding*, 8>& functions, Scope* scope, uint32_t location)
+{
+	// A derived member hides a base member template with the same parameter
+	// list, qualifiers and template-head shape, regardless of return type.
+	// Seed the index from existing declarations only on the first import.
 	Scope* where = declaration_scope(scope);
-	FlatMap<MemberTemplateKey, bool, MemberTemplateHash> hidden;
-	SmallList<MemberTemplateKey, 8> declared_templates;
-	bool templates = false;
-	if (where->kind == ScopeKind::Class)
-		for (const Binding* binding : functions)
-			templates = templates || static_cast<const FunctionEntity*>(binding->entity)->templated;
-	const NameEntry* entry = templates && where->kind == ScopeKind::Class ? names_.find(where, functions.front()->name)
-																		  : nullptr;
-	for (const FunctionList* node = entry != nullptr ? entry->functions : nullptr; node != nullptr; node = node->next)
+	const Identifier* name = functions[0]->name;
+	const bool templates = where->kind == ScopeKind::Class &&
+		std::any_of(functions.begin(), functions.end(),
+			[](const Binding* binding) { return static_cast<const FunctionEntity*>(binding->entity)->templated; });
+	const MemberTemplateKey initialized = { where, name, nullptr, 0 };
+	if (templates && member_templates_.find(initialized) == nullptr)
 	{
-		const FunctionEntity* function = static_cast<const FunctionEntity*>(node->binding->entity);
-		if (function->owner != where || !function->templated || HeadOf(function) == nullptr)
-			continue;
-		// A conversion target is part of the function's name (12.3.2p1).
-		const Type* signature = function->conversion ? function->signature : signature_of(function->signature);
-		const MemberTemplateKey key = { signature, HeadOf(function)->shape };
-		if (hidden.find(key) == nullptr)
-		{
-			hidden.insert(key, true);
-			declared_templates.push_back(key);
-		}
+		member_templates_.insert(initialized, MemberTemplateSet{});
+		if (const NameEntry* entry = names_.find(where, name))
+			for (const FunctionList* node = entry->functions; node != nullptr; node = node->next)
+				index_member_template(where, node->binding);
 	}
 	for (size_t i = functions.size(); i-- > 0;)
 	{
-		const FunctionEntity* function = static_cast<const FunctionEntity*>(functions[i]->entity);
-		if (hidden.size() != 0 && function->templated && function->owner != where && HeadOf(function) != nullptr)
+		const auto* function = static_cast<const FunctionEntity*>(functions[i]->entity);
+		if (templates && function->templated && function->owner != where && HeadOf(function) != nullptr)
 		{
-			const Type* signature = function->conversion ? function->signature : signature_of(function->signature);
-			const Type* shape = HeadOf(function)->shape;
-			if (hidden.find({ signature, shape }) != nullptr ||
-				std::any_of(declared_templates.begin(), declared_templates.end(), [&](const MemberTemplateKey& own) {
-					return own.head == shape && same_ordering_type(own.signature, signature, true);
-				}))
-				continue;
+			const Type* signature = member_template_signature(function);
+			const MemberTemplateKey key = { where, name, HeadOf(function)->shape,
+				member_template_type_hash(signature) };
+			if (const MemberTemplateSet* set = member_templates_.find(key))
+			{
+				const MemberTemplate* own = set->own;
+				while (own != nullptr && !same_ordering_type(own->signature, signature, true))
+					own = own->next;
+				if (own != nullptr)
+					continue;
+			}
 		}
 		introduce(functions[i], scope, location);
+	}
+}
+
+size_t Analyzer::MemberTemplateHash::operator()(const MemberTemplateKey& key) const
+{
+	return (reinterpret_cast<uintptr_t>(key.scope) * 0x9e3779b97f4a7c15ull ^ reinterpret_cast<uintptr_t>(key.name)) *
+		0x100000001b3ull ^
+		reinterpret_cast<uintptr_t>(key.head) ^ key.signature;
+}
+
+void Analyzer::index_member_template(const Scope* scope, const Binding* binding)
+{
+	const auto* function = static_cast<const FunctionEntity*>(binding->entity);
+	if (!function->templated || HeadOf(function) == nullptr ||
+		member_templates_.find(MemberTemplateKey{ scope, binding->name, nullptr, 0 }) == nullptr)
+		return;
+	const Type* signature = member_template_signature(function);
+	const MemberTemplateKey key = { scope, binding->name, HeadOf(function)->shape,
+		member_template_type_hash(signature) };
+	MemberTemplateSet* set = member_templates_.find(key);
+	if (set == nullptr)
+	{
+		member_templates_.insert(key, MemberTemplateSet{});
+		set = member_templates_.find(key);
+	}
+	MemberTemplate*& list = function->owner == scope ? set->own : set->imported;
+	MemberTemplate* entry = arena_.allocate_array<MemberTemplate>(1);
+	*entry = MemberTemplate{ signature, function, list };
+	list = entry;
+}
+
+void Analyzer::hide_imported_member_templates(
+	const Scope* scope, const Identifier* name, const Type* signature, const Type* shape)
+{
+	if (member_templates_.find(MemberTemplateKey{ scope, name, nullptr, 0 }) == nullptr)
+		return;
+	const MemberTemplateKey key = { scope, name, shape, member_template_type_hash(signature) };
+	MemberTemplateSet* set = member_templates_.find(key);
+	if (set == nullptr)
+		return;
+	MemberTemplate** link = &set->imported;
+	while (*link != nullptr)
+	{
+		const MemberTemplate* candidate = *link;
+		if (same_ordering_type(signature, candidate->signature, true))
+		{
+			names_.remove_function(scope, name, candidate->function);
+			*link = candidate->next;
+		}
+		else
+			link = &(*link)->next;
 	}
 }
 
@@ -845,10 +878,8 @@ void Analyzer::introduce(Binding* target, Scope* scope, uint32_t location)
 		{
 			if ((same_value && value->introduced_by_using) || (same_type && entry->type->introduced_by_using))
 				error(location, "a using-declaration redeclares a member");
-			if (target->kind == BindingKind::Function)
-				for (const FunctionList* function = entry->functions; function != nullptr; function = function->next)
-					if (function->binding->entity == target->entity && function->binding->introduced_by_using)
-						error(location, "a using-declaration redeclares a member");
+			if (target->kind == BindingKind::Function && names_.imported_function(where, target))
+				error(location, "a using-declaration redeclares a member");
 		}
 		// 14p5: a class template's name is unique in its scope, also among
 		// the declarations using-declarations introduce.
@@ -891,12 +922,8 @@ void Analyzer::introduce(Binding* target, Scope* scope, uint32_t location)
 		else if (!same_value && value != nullptr)
 			error(location, "using-declaration conflicts with an earlier declaration");
 	}
-	// A class a base's member template is introduced into: its own member
-	// templates' redeclarations search its overload sets for such (see
-	// declare_function).
-	if (where->kind == ScopeKind::Class && target->kind == BindingKind::Function &&
-		static_cast<const FunctionEntity*>(target->entity)->templated)
-		introduced_templates_.set(where, 1);
+	if (where->kind == ScopeKind::Class && target->kind == BindingKind::Function)
+		index_member_template(where, target);
 	// A member a lookup may find through declarations of different access
 	// (see accessible_declarations).
 	if (where->kind == ScopeKind::Class && target->name != nullptr)

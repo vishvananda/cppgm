@@ -83,6 +83,114 @@ bool Analyzer::function_constraints_equivalent(const FunctionEntity* function, c
 	return result;
 }
 
+bool Analyzer::equivalent_function_constraints(
+	const FunctionEntity* function, bool templated, const DeclaratorInfo& info)
+{
+	return (!templated ||
+			   template_constraints_equivalent(
+				   HeadOf(function), current_template_constraint(), template_list_, template_scope_)) &&
+		function_constraints_equivalent(function, info);
+}
+
+uint64_t Analyzer::constraint_redeclaration_hash(const ConstraintPredicate* earlier, const DeclaratorInfo* next)
+{
+	// Reuse the same resolved structural words as constraint equivalence.
+	// The head and the trailing clause retain their separate roles.
+	const size_t base = decltype_words_.size();
+	const syntax::Expr* head = next != nullptr ? current_template_constraint()
+		: earlier != nullptr                   ? earlier->definition
+											   : nullptr;
+	const syntax::Expr* trailing = next != nullptr ? syntax::RequiresClause(next->function_suffix)
+		: earlier != nullptr                       ? earlier->trailing
+												   : nullptr;
+	Scope* scope = next != nullptr ? template_scope_ : earlier != nullptr ? earlier->parameters : nullptr;
+	bool known = constraint_words(head, scope);
+	const auto append_type = [&](uint32_t index, const syntax::Name* name) {
+		decltype_words_.push_back(index);
+		return constraint_name_words(*name, scope);
+	};
+	if (next != nullptr && template_list_ != nullptr)
+	{
+		for (uint32_t i = 0; known && i < template_list_->parameters.size; ++i)
+			if (const syntax::Name* name = syntax::TypeParameterConstraint(*template_list_->parameters[i]))
+				known = append_type(i, name);
+	}
+	else if (earlier != nullptr)
+	{
+		for (uint32_t i = 0; known && i < earlier->type_constraint_count; ++i)
+		{
+			const TypeConstraint& type = earlier->type_constraints[i];
+			known = append_type(type.index, type.name);
+		}
+	}
+	if (known && trailing != nullptr)
+	{
+		BodyContext context = BodyContext();
+		BodyContext* saved = body_;
+		body_ = &context;
+		known = constraint_words(trailing, next != nullptr ? constraint_prototype(*next) : earlier->prototype);
+		body_ = saved;
+	}
+	const uint64_t hash = known ? static_cast<uint64_t>(DecltypeHash()(DecltypeKey{ decltype_words_.data() + base,
+									  static_cast<uint32_t>(decltype_words_.size() - base) })) |
+			1
+								: 0;
+	decltype_words_.resize(base);
+	return hash;
+}
+
+const FunctionList* Analyzer::constrained_overload_variant(const FunctionList* primary,
+	const NameLookup::OverloadVariant* variants, const Scope* where, bool templated, const DeclaratorInfo& info)
+{
+	const auto equivalent = [&](const FunctionList* node) {
+		const auto* function = static_cast<const FunctionEntity*>(node->binding->entity);
+		return function->owner == where && equivalent_function_constraints(function, templated, info);
+	};
+	// Namespace declarations can use a stable lexical key. Incomplete
+	// classes may still acquire members used in a trailing constraint.
+	if (templated && where->kind == ScopeKind::Namespace && class_depth_ == 0)
+	{
+		const uint64_t hash = constraint_redeclaration_hash(nullptr, &info);
+		if (hash != 0)
+		{
+			uint32_t group = constraint_overload_groups_.find(primary);
+			if (group == PointerMap::kMissing)
+			{
+				group = static_cast<uint32_t>(indexed_constraint_overloads_.size());
+				constraint_overload_groups_.set(primary, group);
+				indexed_constraint_overloads_.push_back(nullptr);
+			}
+			const NameLookup::OverloadVariant* indexed = indexed_constraint_overloads_[group];
+			for (const NameLookup::OverloadVariant* variant = variants; variant != indexed; variant = variant->next)
+			{
+				const auto* function = static_cast<const FunctionEntity*>(variant->node->binding->entity);
+				const ConstraintOverloadKey key = { primary,
+					constraint_redeclaration_hash(function_constraint(function), nullptr) };
+				ConstraintOverload** bucket = constraint_overloads_.find(key);
+				ConstraintOverload* entry = arena_.allocate_array<ConstraintOverload>(1);
+				*entry = ConstraintOverload{ variant->node, bucket != nullptr ? *bucket : nullptr };
+				if (bucket != nullptr)
+					*bucket = entry;
+				else
+					constraint_overloads_.insert(key, entry);
+			}
+			indexed_constraint_overloads_[group] = variants;
+			for (uint64_t key : { hash, uint64_t(0) })
+				if (ConstraintOverload* const* bucket = constraint_overloads_.find(
+						ConstraintOverloadKey{ primary, key }))
+					for (const ConstraintOverload* candidate = *bucket; candidate != nullptr;
+						candidate = candidate->next)
+						if (equivalent(candidate->node))
+							return candidate->node;
+			return nullptr;
+		}
+	}
+	for (const NameLookup::OverloadVariant* variant = variants; variant != nullptr; variant = variant->next)
+		if (equivalent(variant->node))
+			return variant->node;
+	return nullptr;
+}
+
 Scope* Analyzer::constraint_trailing_scope(const ConstraintPredicate* predicate, const TypeList& arguments)
 {
 	return predicate->head == nullptr

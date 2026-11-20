@@ -276,7 +276,11 @@ private:
 	void using_declarator(const syntax::UsingDecl& decl, Scope* scope);
 	void using_enum(const syntax::UsingDecl& decl, Scope* scope);
 	void introduce(Binding* target, Scope* scope, uint32_t location);
-	void introduce_functions(const std::vector<Binding*>& functions, Scope* scope, uint32_t location);
+	const Type* member_template_signature(const FunctionEntity*);
+	uint32_t member_template_type_hash(const Type*);
+	void index_member_template(const Scope*, const Binding*);
+	void hide_imported_member_templates(const Scope*, const Identifier*, const Type* signature, const Type* shape);
+	void introduce_functions(const SmallList<Binding*, 8>& functions, Scope* scope, uint32_t location);
 	void check_template_parameter_name(Scope* scope, const Identifier* name, uint32_t location);
 	void alias_declaration(const syntax::AliasDecl& decl, Scope* scope);
 	void template_declaration(const syntax::TemplateDecl& decl, Scope* scope);
@@ -401,6 +405,7 @@ private:
 		Scope* scope, Scope* where, const Type* signature, bool templated, uint32_t location);
 	const Type* signature_of(const Type* function);
 	Binding* friend_specialization(const DeclaratorInfo& info, Scope* scope, uint32_t location);
+	void check_function_qualifiers(const Scope*, const Identifier*, const Type*, bool is_static, uint32_t location);
 	void check_member_overload(
 		Scope* scope, const Identifier* key, const Type* type, bool is_static, uint32_t location);
 	void braced_argument(const syntax::BracedInitList& list, Scope* scope);
@@ -713,6 +718,10 @@ private:
 	bool constraint_name_words(const syntax::Name& name, Scope* scope);
 	const ConstraintPredicate* function_constraint(const FunctionEntity*) const;
 	void attach_function_constraint(FunctionEntity*, const DeclaratorInfo&, const ClassEntity* befriending);
+	const FunctionList* constrained_overload_variant(
+		const FunctionList*, const NameLookup::OverloadVariant*, const Scope*, bool templated, const DeclaratorInfo&);
+	uint64_t constraint_redeclaration_hash(const ConstraintPredicate*, const DeclaratorInfo*);
+	bool equivalent_function_constraints(const FunctionEntity*, bool templated, const DeclaratorInfo&);
 	bool function_constraints_equivalent(const FunctionEntity*, const DeclaratorInfo&);
 	bool function_constraints_satisfied(const FunctionEntity*);
 	bool function_constraints_subsume(const FunctionEntity*, const FunctionEntity*);
@@ -2052,9 +2061,39 @@ private:
 	// Placeholders by that equivalence key, and the representative of each
 	// placeholder that has an earlier equivalent (declared_type's).
 	FlatMap<DecltypeKey, TemplateParameterEntity*, DecltypeHash> decltype_equivalents_;
-	// The class scopes a using-declaration introduced a base's member
-	// template into (see introduce).
-	PointerMap introduced_templates_;
+	// Member hiding compares only same-name signatures. The fingerprint
+	// strips expression provenance used for instantiation, and a match is
+	// confirmed against the typed operands.
+	struct MemberTemplateKey
+	{
+		const Scope* scope;
+		const Identifier* name;
+		const Type* head;
+		uint32_t signature;
+		bool operator==(const MemberTemplateKey& other) const
+		{
+			return scope == other.scope && name == other.name && head == other.head && signature == other.signature;
+		}
+	};
+	struct MemberTemplateHash
+	{
+		size_t operator()(const MemberTemplateKey&) const;
+	};
+	struct MemberTemplate
+	{
+		const Type* signature;
+		const FunctionEntity* function;
+		MemberTemplate* next;
+	};
+	struct MemberTemplateSet
+	{
+		MemberTemplate* own;
+		MemberTemplate* imported;
+	};
+	// A null head marks an initialized name. Only a class using-declaration
+	// starts a name's index, after seeding it with the members already declared.
+	PointerMap member_template_type_hashes_;
+	FlatMap<MemberTemplateKey, MemberTemplateSet, MemberTemplateHash> member_templates_;
 	// The members of complete copies of member-specifications (an
 	// instance's member class templates) paired with the class template's
 	// member template's members of the same position, a class at a time
@@ -2915,6 +2954,32 @@ private:
 	std::vector<ConstraintPredicate*> template_constraints_;
 	FlatMap<DecltypeKey, const ConstraintNode*, DecltypeHash> constraint_atoms_;
 	FlatMap<SpecializationKey, ConstraintNormalization*, SpecializationHash> constraint_normalizations_;
+	// For same-signature namespace overloads, index structural constraint
+	// keys lazily. Zero reserves a bucket for operands that cannot be keyed.
+	struct ConstraintOverloadKey
+	{
+		const FunctionList* primary;
+		uint64_t hash;
+		bool operator==(const ConstraintOverloadKey& other) const
+		{
+			return primary == other.primary && hash == other.hash;
+		}
+	};
+	struct ConstraintOverloadHash
+	{
+		size_t operator()(const ConstraintOverloadKey& key) const
+		{
+			return reinterpret_cast<uintptr_t>(key.primary) * 0x9e3779b97f4a7c15ull ^ key.hash;
+		}
+	};
+	struct ConstraintOverload
+	{
+		const FunctionList* node;
+		ConstraintOverload* next;
+	};
+	PointerMap constraint_overload_groups_;
+	std::vector<const NameLookup::OverloadVariant*> indexed_constraint_overloads_;
+	FlatMap<ConstraintOverloadKey, ConstraintOverload*, ConstraintOverloadHash> constraint_overloads_;
 	FlatMap<EntityPair, bool, EntityPairHash> constraint_subsumptions_;
 	PointerMap template_clause_index_;
 	std::vector<const syntax::Expr*> template_clauses_;

@@ -1452,6 +1452,87 @@ bool Analyzer::arguments_at_least_as_specialized(const TemplateHead* head, const
 	return true;
 }
 
+uint32_t Analyzer::member_template_type_hash(const Type* type)
+{
+	if (type == nullptr)
+		return 0;
+	type = type->canonical;
+	const uint32_t cached = member_template_type_hashes_.find(type);
+	if (cached != PointerMap::kMissing)
+		return cached;
+	check_stack(0);
+	// Equal operands under member hiding must hash together even when the
+	// complete type retains different instantiation contexts.
+	uint64_t hash = static_cast<uint8_t>(type->kind);
+	const auto mix = [&](uint64_t part) { hash = (hash ^ part) * 0x100000001b3ull; };
+	mix(type->cv | (type->function_cv << 8) | (static_cast<uint8_t>(type->ref) << 16) | (type->variadic << 24));
+	mix(type->bound);
+	mix(type->param_count);
+	switch (type->kind)
+	{
+	case TypeKind::TemplateParameter:
+	{
+		const auto* param = static_cast<const TemplateParameterEntity*>(type->entity);
+		if (param->qualifier != nullptr)
+		{
+			mix(reinterpret_cast<uintptr_t>(param->name));
+			mix(member_template_type_hash(param->qualifier));
+		}
+		else if (param->key != nullptr)
+		{
+			const uint64_t* key = param->key;
+			if (param->pending == nullptr)
+			{
+				mix(key[1] & 1);
+				mix(key[2] & 1);
+				mix(DecltypeHash()(DecltypeKey{ key + 3, static_cast<uint32_t>(key[0] - 2) }));
+			}
+			else
+				mix(DecltypeHash()(DecltypeKey{ key + 1, static_cast<uint32_t>(key[0]) }));
+		}
+		else
+			mix(reinterpret_cast<uintptr_t>(type));
+		break;
+	}
+	case TypeKind::Class:
+	{
+		const auto* facts = static_cast<const ClassEntity*>(type->entity)->templ;
+		if (facts == nullptr || facts->role != TemplateRole::Specialization)
+		{
+			mix(reinterpret_cast<uintptr_t>(type));
+			break;
+		}
+		mix(reinterpret_cast<uintptr_t>(facts->pattern));
+		mix(reinterpret_cast<uintptr_t>(facts->enclosing));
+		mix(facts->argument_count);
+		for (uint32_t i = 0; i < facts->argument_count; ++i)
+			mix(member_template_type_hash(facts->arguments[i]));
+		break;
+	}
+	case TypeKind::Pointer:
+	case TypeKind::LValueReference:
+	case TypeKind::RValueReference:
+	case TypeKind::Expansion:
+	case TypeKind::Array:
+	case TypeKind::Vector:
+	case TypeKind::MemberPointer:
+	case TypeKind::Function:
+	case TypeKind::Pack:
+		mix(member_template_type_hash(type->element));
+		mix(member_template_type_hash(type->owner));
+		for (uint32_t i = 0; i < type->param_count; ++i)
+			mix(member_template_type_hash(type->params[i]));
+		break;
+	default:
+		mix(reinterpret_cast<uintptr_t>(type));
+		break;
+	}
+	const uint32_t folded = static_cast<uint32_t>(hash ^ (hash >> 32));
+	const uint32_t result = folded == PointerMap::kMissing ? 0 : folded;
+	member_template_type_hashes_.set(type, result);
+	return result;
+}
+
 bool Analyzer::same_ordering_type(const Type* first, const Type* second, bool member_hiding)
 {
 	// A pending expression retains its complete substitution, including

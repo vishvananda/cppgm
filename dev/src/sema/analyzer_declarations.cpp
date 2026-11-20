@@ -1904,6 +1904,20 @@ FunctionEntity* Analyzer::c_redeclared_function(FunctionEntity* previous, const 
 	return earlier;
 }
 
+void Analyzer::check_function_qualifiers(
+	const Scope* where, const Identifier* key, const Type* type, bool is_static, uint32_t location)
+{
+	// 8.3.5p6, 12.1p4, 12.4p2: a ref-qualifier only on a non-static member
+	// function other than a constructor or destructor.
+	if (type->ref != RefQualifier::None &&
+		(where->kind != ScopeKind::Class || is_static || key == constructor_key_ || key == destructor_key_))
+		error(location, "a ref-qualifier on a function that is not a non-static member function");
+	// 8.3.5p6, 9.4.1p2, 12.1p4, 12.4p2: likewise a cv-qualifier-seq.
+	if (type->function_cv != 0 &&
+		(where->kind != ScopeKind::Class || is_static || key == constructor_key_ || key == destructor_key_))
+		error(location, "a cv-qualifier on a function that is not a non-static member function");
+}
+
 Binding* Analyzer::declare_function(const Specifiers& specifiers, const DeclaratorInfo& info, Scope* scope,
 	bool definition, uint32_t location, bool deleted)
 {
@@ -2081,17 +2095,7 @@ Binding* Analyzer::declare_function(const Specifiers& specifiers, const Declarat
 	if (friend_block != nullptr && specifiers.is_friend && function == nullptr)
 		error(location, "a local class's friend names no function declared in its innermost block");
 	bool first = false;
-	// 8.3.5p6, 12.1p4, 12.4p2: a ref-qualifier only on a non-static member
-	// function other than a constructor or destructor.
-	if (info.type->canonical->ref != RefQualifier::None &&
-		(where->kind != ScopeKind::Class || specifiers.is_static || name.key == constructor_key_ ||
-			name.key == destructor_key_))
-		error(location, "a ref-qualifier on a function that is not a non-static member function");
-	// 8.3.5p6, 9.4.1p2, 12.1p4, 12.4p2: likewise a cv-qualifier-seq.
-	if (info.type->canonical->function_cv != 0 &&
-		(where->kind != ScopeKind::Class || specifiers.is_static || name.key == constructor_key_ ||
-			name.key == destructor_key_))
-		error(location, "a cv-qualifier on a function that is not a non-static member function");
+	check_function_qualifiers(where, name.key, info.type->canonical, specifiers.is_static, location);
 	if (function == nullptr && where->kind == ScopeKind::Class && !templated)
 		check_member_overload(where, name.key, info.type, specifiers.is_static, location);
 	// 3.6.1p3: a program that declares main inline, static or constexpr is
@@ -2178,7 +2182,11 @@ Binding* Analyzer::declare_function(const Specifiers& specifiers, const Declarat
 	if (pattern_friend)
 		binding->declared_in = where;
 	else
+	{
 		declare_in(where, binding);
+		if (first && templated && where->using_members)
+			index_member_template(where, binding);
+	}
 	// A friend no visible declaration declared is found through its
 	// class only (3.4.2p4).
 	if (invisible && befriending != nullptr && !pattern_friend)
@@ -2276,68 +2284,24 @@ FunctionEntity* Analyzer::earlier_function(const DeclaredName& name, Scope* wher
 		// template parameter count, and the same function type up to
 		// parameter names) redeclares the template; the overload index keys
 		// templates by both and holds only the scope's own.
-		const FunctionList* same = templated
-			? names_.overload(where, name.key, signature,
-				  template_shape(template_entities_.data(), static_cast<uint32_t>(template_entities_.size())))
-			: names_.overload(where, name.key, signature);
-		if (cxx20_ && templated)
+		const Type* shape = templated
+			? template_shape(template_entities_.data(), static_cast<uint32_t>(template_entities_.size()))
+			: nullptr;
+		const FunctionList* same = names_.overload(where, name.key, signature, shape);
+		if (cxx20_ && same != nullptr &&
+			!equivalent_function_constraints(
+				static_cast<const FunctionEntity*>(same->binding->entity), templated, info))
 		{
-			const Type* shape = template_shape(
-				template_entities_.data(), static_cast<uint32_t>(template_entities_.size()));
-			const auto equivalent = [&](const FunctionList* node) {
-				const FunctionEntity* other = static_cast<const FunctionEntity*>(node->binding->entity);
-				// The return type is part of a function template's signature.
-				if (!other->templated || other->owner != where || other->signature != signature ||
-					HeadOf(other) == nullptr || HeadOf(other)->shape != shape)
-					return false;
-				return template_constraints_equivalent(
-						   HeadOf(other), current_template_constraint(), template_list_, template_scope_) &&
-					function_constraints_equivalent(other, info);
-			};
-			if (same != nullptr && !equivalent(same))
-				same = nullptr;
-			for (const NameLookup::TemplateOverloadVariant* variant =
-					 names_.template_overload_variants(where, name.key, signature, shape);
-				same == nullptr && variant != nullptr; variant = variant->next)
-				if (equivalent(variant->node))
-					same = variant->node;
-			for (const FunctionList* node = entry->functions; same == nullptr && node != nullptr; node = node->next)
-				if (equivalent(node))
-					same = node;
+			const NameLookup::OverloadVariant* variants = names_.overload_variants(where, name.key, signature, shape);
+			same = variants == nullptr ? nullptr : constrained_overload_variant(same, variants, where, templated, info);
 		}
-		if (cxx20_ && !templated)
+		// A derived member template hides a base's imported member template
+		// with the same parameter list, qualifiers and template-head shape.
+		if (same == nullptr && templated && where->using_members)
 		{
-			if (same != nullptr &&
-				!function_constraints_equivalent(static_cast<const FunctionEntity*>(same->binding->entity), info))
-				same = nullptr;
-			for (const FunctionList* node = entry->functions; same == nullptr && node != nullptr; node = node->next)
-			{
-				const FunctionEntity* other = static_cast<const FunctionEntity*>(node->binding->entity);
-				if (!other->templated && other->owner == where && other->signature == signature &&
-					function_constraints_equivalent(other, info))
-					same = node;
-			}
-		}
-		// The index holds a scope's own templates only: a base's member
-		// template a using-declaration introduced, of the same
-		// parameter-type-list, qualifiers and an equivalent template-head
-		// (searched in a class some using-declaration introduced one into).
-		if (same == nullptr && templated && where->kind == ScopeKind::Class &&
-			introduced_templates_.find(where) != PointerMap::kMissing)
-		{
-			const Type* shape = template_shape(
-				template_entities_.data(), static_cast<uint32_t>(template_entities_.size()));
 			const Type* parameters = name.kind == syntax::NameComponentKind::Conversion ? signature
 																						: signature_of(signature);
-			for (const FunctionList* node = entry->functions; node != nullptr; node = node->next)
-			{
-				const FunctionEntity* other = static_cast<const FunctionEntity*>(node->binding->entity);
-				if (other->owner != where && other->templated && HeadOf(other) != nullptr &&
-					HeadOf(other)->shape == shape &&
-					same_ordering_type(
-						parameters, other->conversion ? other->signature : signature_of(other->signature), true))
-					names_.remove_function(where, name.key, other);
-			}
+			hide_imported_member_templates(where, name.key, parameters, shape);
 		}
 		if (same != nullptr && same->binding->entity->owner != where)
 		{
