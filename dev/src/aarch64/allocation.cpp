@@ -547,7 +547,7 @@ private:
 			for (size_t a = 0; valid && a < seen.size(); ++a)
 				for (size_t b = a + 1; valid && b < seen.size(); ++b)
 					valid = !spans.overlap(seen[a], seen[b]);
-			if (!valid || !forward || !others_join(copies[first].to, phi))
+			if (!valid || !forward || joined == kNoId || !others_join(copies[first].to, phi))
 				continue;
 			if (split_.empty())
 				split_.assign(body.temps.size(), 0);
