@@ -2466,7 +2466,8 @@ RValue FunctionLowering::call(const syntax::CallExpr& expr, lowir::Value destina
 			? lowering_.graph().closure_facts(sema::ClassOf(function->owner->entity->type))
 			: nullptr;
 		const bool invoked = closure != nullptr && closure->call == function && closure->invoker != nullptr &&
-			callee_expr->kind == syntax::ExprKind::Lambda;
+			callee_expr->kind == syntax::ExprKind::Lambda &&
+			(function->body->body->function_body_syntax & syntax::kCoroutineOperation) == 0;
 		if (invoked)
 		{
 			// A captureless lambda-expression called: through the address

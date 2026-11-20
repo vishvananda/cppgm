@@ -535,4 +535,31 @@ void FunctionLowering::lower_coroutine(const sema::CoroutineFacts& facts, const 
 		builder_.finish();
 }
 
+void FunctionLowering::lower_coroutine_invoker(const sema::FunctionEntity* call)
+{
+	// The function-pointer conversion invokes the original call operator
+	// with a default-constructed captureless closure. The closure also
+	// supplies the implicit object for the coroutine's promise and allocator.
+	const size_t first = arguments_.size();
+	uint32_t parameter = 0;
+	if (lowering_.indirect_result(call))
+		arguments_.push_back(lowir::Value::temp(builder_.parameter(parameter++)));
+	const lowir::Type closure = lowering_.storage_type(call->owner->entity->type);
+	Place object = {};
+	object.storage = lowir::Value::slot(generated_slot(lowir::SlotKind::Plain, closure));
+	const lowir::Value receiver = address_of(object);
+	arguments_.push_back(receiver);
+	for (; parameter < builder_.body().parameter_count; ++parameter)
+		arguments_.push_back(lowir::Value::temp(builder_.parameter(parameter)));
+	lowir::SignatureId signature = lowir::kNoId;
+	const lowir::Value target = member_callee(call, receiver, false, signature);
+	const lowir::Value result = emit_call(result_type_, target, first, signature, call_may_throw(call));
+	lowir::Instruction ret = lowir::make_instruction(lowir::Opcode::Return, result_type_);
+	if (result_type_.kind() != lowir::TypeKind::Void)
+		ret.ops[0] = result;
+	terminate(ret);
+	if (!lowering_.streaming())
+		builder_.finish();
+}
+
 } // namespace lower

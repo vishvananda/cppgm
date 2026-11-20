@@ -151,6 +151,7 @@ public:
 
 private:
 	void lower_coroutine(const sema::CoroutineFacts& facts, const syntax::CompoundStmt& body);
+	void lower_coroutine_invoker(const sema::FunctionEntity* call);
 	void lower_coroutine_actor(lowir::SymbolId symbol, CoroutineFrameLayout& frame, const sema::CoroutineFacts& facts,
 		const syntax::CompoundStmt& body);
 	void coroutine_return(const syntax::CoroutineExpr& expr);

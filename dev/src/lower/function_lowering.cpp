@@ -96,7 +96,16 @@ void FunctionLowering::lower_definition()
 	const sema::CoroutineFacts* coroutine = nullptr;
 	if (body != nullptr && body->body != nullptr &&
 		(body->body->function_body_syntax & syntax::kCoroutineOperation) != 0)
+	{
 		coroutine = lowering_.graph().coroutine(function_);
+		if (coroutine == nullptr && function_->member && function_->is_static)
+		{
+			const sema::ClosureFacts* closure = lowering_.graph().closure_facts(
+				sema::ClassOf(function_->owner->entity->type));
+			if (closure != nullptr && closure->invoker == function_)
+				return lower_coroutine_invoker(closure->call);
+		}
+	}
 	if (function_->naked)
 		return lower_naked_definition();
 	const bool inert_destructor = function_->destructor &&

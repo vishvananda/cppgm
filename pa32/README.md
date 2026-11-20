@@ -293,6 +293,8 @@ To complete PA32, implement hosted link/runtime behavior for:
   A function-try-block covers the user body after initial suspension.
   A member coroutine's class allocator sees the incoming object before
   frame construction. The body uses the same object on resumption.
+  A captureless coroutine lambda converted to a function pointer still
+  calls its coroutine call operator with a default-constructed closure.
 
 If hosted header code compiles but the emitted objects do not link or run
 correctly, fix the hosted symbol emission, ABI spelling, object ownership, or
