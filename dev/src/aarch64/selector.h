@@ -115,6 +115,7 @@ private:
 	void transfer(bool load, const Argument& arg, lowir::Value object, lowir::Type type);
 	void float_instruction(const lowir::Instruction& inst);
 	void float_compare(const lowir::Instruction& inst);
+	unsigned float_flags(const lowir::Instruction& inst);
 	bool float_consumer(const lowir::Instruction& inst, lowir::BlockId block);
 	lowir::InstId conditional_float_increment(const lowir::Instruction& inst);
 	lowir::InstId contracted_float_sum(const lowir::Instruction& inst);

@@ -625,26 +625,56 @@ bool Selector::compare_consumer(const lowir::Instruction& inst, BlockId block, b
 	return true;
 }
 
-// An integer increment or a pointer index preserves NZCV. Keep the
-// comparison's original operand reads, which may precede a register being
-// reused by the increment.
+// An integer increment or decrement, or a pointer index, preserves NZCV for
+// the branch or select after it. Keep the comparison's original operand
+// reads, which may precede a register being reused by the step.
 InstId Selector::compare_before_increment(const lowir::Instruction& inst, BlockId block)
 {
+	const bool fp = inst.type.kind() == TypeKind::F32 || inst.type.kind() == TypeKind::F64;
 	if (inst.next == kNoId || uses_[inst.result] != 1 ||
-		!(inst.type.is_pointer() || (inst.type.is_integer() && integer_bits(inst.type.kind()) <= 64)))
+		!(fp || inst.type.is_pointer() || (inst.type.is_integer() && integer_bits(inst.type.kind()) <= 64)))
 		return kNoId;
 	const auto& step = body_.instructions[inst.next];
-	const bool increment = step.op == Opcode::Binary && step.sub == static_cast<unsigned>(BinaryOp::Add) &&
+	const bool increment = step.op == Opcode::Binary &&
+		(step.sub == static_cast<unsigned>(BinaryOp::Add) || step.sub == static_cast<unsigned>(BinaryOp::Sub)) &&
 		step.type.is_integer() && integer_bits(step.type.kind()) <= 64;
 	if ((!increment && step.op != Opcode::Index) || step.next == kNoId)
 		return kNoId;
 	const auto& branch = body_.instructions[step.next];
-	if (branch.op != Opcode::Branch || !(branch.ops[0] == Value::temp(inst.result)))
+	const bool chooses = direct_select(branch, inst.result);
+	if ((!chooses && branch.op != Opcode::Branch) || !(branch.ops[0] == Value::temp(inst.result)))
 		return kNoId;
-	compare_flags(inst);
+	unsigned condition = 0;
+	if (fp)
+		condition = float_flags(inst);
+	else
+	{
+		compare_flags(inst);
+		condition = conditions[inst.sub];
+	}
+	// Selecting between a value and its sole increment by one is CSINC.
+	const unsigned bits = integer_bits(step.type.kind());
+	if (chooses && increment && step.sub == static_cast<unsigned>(BinaryOp::Add) && (bits == 32 || bits == 64) &&
+		branch.type == step.type && uses_[step.result] == 1 && step.ops[0].is(ValueKind::Temp) &&
+		step.ops[1].is(ValueKind::Integer) && body_.literals[step.ops[1].index].low == 1)
+	{
+		const Value next = Value::temp(step.result);
+		const bool on_true = branch.ops[1] == next && branch.ops[2] == step.ops[0];
+		if (on_true || (branch.ops[2] == next && branch.ops[1] == step.ops[0]))
+		{
+			const unsigned source = operand_register(step.ops[0], step.type, 10);
+			const unsigned dest = registers_[branch.result] == kNoId ? 9 : registers_[branch.result];
+			out_.emit(bits == 32 ? Op::CsincW : Op::Csinc, dest, source, source, (condition ^ on_true) << 12);
+			save(dest, branch.result, true);
+			return step.next;
+		}
+	}
 	if (increment || address_sequence(inst.next) == kNoId)
 		select(step, block);
-	conditional_edges(block, branch, Op::BCond, conditions[inst.sub] ^ 1);
+	if (chooses)
+		choose(branch, condition);
+	else
+		conditional_edges(block, branch, Op::BCond, condition ^ 1);
 	return step.next;
 }
 

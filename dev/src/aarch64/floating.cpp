@@ -110,6 +110,12 @@ void Selector::float_compare(const lowir::Instruction& inst)
 		out_.emit(Op::Fcmp, 0, a, right == inst.ops[0] ? a : fp_operand(right, inst.type, 17), precision);
 }
 
+unsigned Selector::float_flags(const lowir::Instruction& inst)
+{
+	float_compare(inst);
+	return kFloatConditions[inst.sub];
+}
+
 // A sole adjacent consumer can read the floating comparison's flags.
 bool Selector::float_consumer(const lowir::Instruction& inst, BlockId block)
 {

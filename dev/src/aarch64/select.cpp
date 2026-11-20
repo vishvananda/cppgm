@@ -606,7 +606,7 @@ void Selector::run()
 				auto last = !fp && level_ >= 3 ? compare_select_pair(inst) : kNoId;
 				if (!fp && last == kNoId)
 					last = compare_pair(inst, block);
-				if (!fp && last == kNoId && level_ >= 3)
+				if (last == kNoId)
 					last = compare_before_increment(inst, block);
 				if (last != kNoId || (fp ? float_consumer(inst, block) : compare_consumer(inst, block)))
 				{
