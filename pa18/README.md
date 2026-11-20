@@ -191,8 +191,8 @@ the implemented surface, including:
 
 - full function-template deduction over the intended C++11 subset
 - function-template partial ordering
-  In the supported template-template deduction case, a shorter
-  template-id matches the trailing defaults of a longer template.
+  From C++14, a shorter template-id can match the trailing defaults of a
+  longer template in the supported template-template deduction case.
   During partial ordering, compare the concrete template pattern using
   its substituted trailing arguments. See N4659 `[temp.deduct.type]`
   and the matching example in [CWG 2398](../doc/cwg/cwg-2398.txt).

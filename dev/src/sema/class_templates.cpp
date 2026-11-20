@@ -991,7 +991,7 @@ const Type* Analyzer::matched_template_element(const TemplateParameterEntity* pa
 		return argument;
 	const TemplateHead* own = TemplateHeadOf(argument);
 	if (own != nullptr && parameter->template_head != nullptr &&
-		!template_heads_match(parameter->template_head, own, selection, true))
+		!template_heads_match(parameter->template_head, own, selection, cxx14_))
 	{
 		if (fatal)
 			error(location, "a template template-argument whose template parameters do not match");
