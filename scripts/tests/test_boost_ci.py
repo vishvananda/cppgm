@@ -215,6 +215,7 @@ class ReviewTests(unittest.TestCase):
         native = self.project + '/example.cpp'
         self.tree.find('test/source').text = source
         ET.SubElement(self.tree.find('test'), 'source').text = native
+        ET.SubElement(self.tree.find('test'), 'source').text = self.project + '/imported_helper.py'
         self.calls[0]['args'][1] = native
         target = self.project + '//example.test'
         run_target = target.removesuffix('.test')

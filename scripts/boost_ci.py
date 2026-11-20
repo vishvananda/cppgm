@@ -76,10 +76,9 @@ def python_extensions(actions, target, marker, modules, sources, compiled, links
 
 def python_test_result(tree, actions, test, target, marker, boost, compiled, links):
     inputs = [(boost / node.text).resolve() for node in test.findall('source')]
-    scripts = [path for path in inputs if path.suffix == '.py']
+    scripts = {path for path in inputs if path.suffix == '.py'}
     cxx_sources = {path for path in inputs if path.suffix in CXX_SUFFIXES}
-    require(len(scripts) == 1 and len(inputs) == len(cxx_sources) + 1, f'unreviewed Python inputs for {target}')
-    source = scripts[0]
+    require(scripts and len(inputs) == len(cxx_sources) + len(scripts), f'unreviewed Python inputs for {target}')
     directory, _ = target.split('//')
     # A standalone generator may live beside its library's test project.
     # B2 must still name that exact source as the generator's dependency.
@@ -89,10 +88,12 @@ def python_test_result(tree, actions, test, target, marker, boost, compiled, lin
     run_target = target.removesuffix('.test')
     require(python_dependencies(tree, target, target) == {run_target}, f'unreviewed Python dependencies for {target}')
     dependencies = python_dependencies(tree, run_target, target)
-    script_dependencies = {dep for dep in dependencies if dep.startswith(directory + '//') and
-                           (boost / directory / dep.split('//', 1)[1]).resolve() == source}
-    require(len(script_dependencies) == 1, f'unreviewed Python dependencies for {target}')
-    extensions = dependencies - script_dependencies
+    script_dependencies = {dep: (boost / directory / dep.split('//', 1)[1]).resolve()
+                           for dep in dependencies if dep.startswith(directory + '//') and dep.endswith('.py')}
+    entries = set(script_dependencies.values())
+    require(len(entries) == 1 and entries.issubset(scripts), f'unreviewed Python dependencies for {target}')
+    source, = entries
+    extensions = dependencies - script_dependencies.keys()
     require(bool(cxx_sources) == bool(extensions) and all(
         dep.startswith(directory + '//') and re.fullmatch(r'[^/]+\.so', dep.split('//')[-1]) for dep in extensions),
         f'unreviewed Python dependencies for {target}')
@@ -113,7 +114,8 @@ def python_test_result(tree, actions, test, target, marker, boost, compiled, lin
     output = marker.with_suffix('.output')
     require(re.search(r'EXIT STATUS:\s*0\s*$', output.read_text(errors='replace')) is not None,
             f'incorrect Python result for {target}')
-    return dict(native_status=0, output_sha256=digest(output), python_extensions=modules)
+    return dict(native_status=0, output_sha256=digest(output), python_extensions=modules,
+                python_sources=sorted(str(path.relative_to(boost)) for path in scripts))
 
 
 def mpi_result(actions, target, marker):
