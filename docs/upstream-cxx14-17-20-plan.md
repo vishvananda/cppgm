@@ -473,9 +473,10 @@ even with GCC in C++14.
   configurations and 32 runtime configurations using the compiler's
   `__cpp_impl_coroutine=201902L` in C++20 mode. PA4 checks the macro and
   its absence in C++17. PA31 and PA32 cover P1825 implicit move for
-  `co_return`, lvalue fallback, and rejection of a deleted winner. PA32 checks function try blocks, member
-  allocation, captureless lambdas, and startup failure in a `noexcept`
-  coroutine. PA32 and PA37 cover cleanup during a resumed initializer.
+  `co_return`, lvalue fallback, and rejection of a deleted winner. PA32
+  checks function try blocks, member allocation, captureless lambdas,
+  and startup failure in a `noexcept` coroutine. PA32 and PA37 cover
+  cleanup during a resumed initializer.
 - PA18 exercises class argument equivalence, class deduction, address
   identity, and rejection in C++17. The Linux x86-64 mixed object check
   resolves both a specialization and its parameter object across cppgm,
@@ -557,6 +558,22 @@ cppgm. Boost.Graph Parallel matches on all 25 cases with the documented
 MPI configuration and bounds fixes. Boost.GIL matches GCC on all 146 cases,
 including its all-formats test with the JPEG, PNG and TIFF development headers
 installed.
+
+### Boost.Decimal and Boost.MSM validation
+
+GCC and cppgm matched all 205 original Boost.Decimal test configurations.
+All seven original C++20 Boost.MSM cases completed their run oracles after
+fixing constexpr calls through an unknown closure parameter. Its non-odr-use
+of an enclosing constant pointer reads the original value. PA20 checks
+both default capture kinds and a runtime reference capture.
+
+### Hosted source location validation
+
+PA30 compiles `<source_location>` with the installed libstdc++ and libc++.
+The test covers presumed source locations after `#line`, constexpr and
+runtime default member initialization, default arguments, and an immediate
+invocation whose default use determines its validity. The same program
+runs on WASI at O0 and O2.
 
 ### Boost.Math test discovery
 
