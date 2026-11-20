@@ -143,6 +143,8 @@ To complete PA31, support:
   non-throwing allocator and a static failure operation.
   Resolve the promise and awaiter calls using normal overload resolution.
   Use the type and value category of `await_resume()` for the await expression.
+  Type-check the promise's coroutine handle and the resumption of the
+  continuation when `await_suspend()` returns a handle.
   See `[dcl.fct.def.coroutine]`, `[expr.await]`, and `[stmt.return.coroutine]`.
 - constant evaluation of C++20 `<memory>`, `<vector>`, and `<algorithm>`.
   `std::allocator<T>::allocate` starts the lifetime of the backing array.

@@ -33,6 +33,7 @@ struct CoroutineAwait
 	const syntax::Expr* ready;
 	const syntax::Expr* suspend;
 	const syntax::Expr* resume;
+	const syntax::Expr* transfer;
 };
 
 // The implicit expressions of the complete coroutine definition. Ordinary
@@ -51,6 +52,7 @@ struct CoroutineFacts
 	syntax::Slice<syntax::Expr*> allocation_arguments;
 	const syntax::Expr* return_on_allocation_failure;
 	const VariableEntity* handle;
+	const syntax::Expr* make_handle;
 	const syntax::Expr* return_object;
 	const syntax::Expr* unhandled_exception;
 	const syntax::Expr* return_void;

@@ -251,7 +251,7 @@ const CoroutineAwait* Analyzer::coroutine_await(
 	if (ready == nullptr)
 		return nullptr;
 	convert_to_bool(*ready);
-	const syntax::Expr* suspend = invoke(
+	syntax::Expr* suspend = invoke(
 		"await_suspend", coroutine_variable_use(coroutine.handle, ValueCategory::PRValue, location));
 	if (suspend == nullptr)
 		return nullptr;
@@ -266,8 +266,19 @@ const CoroutineAwait* Analyzer::coroutine_await(
 	const syntax::Expr* resume = invoke("await_resume", nullptr);
 	if (resume == nullptr)
 		return nullptr;
+	const syntax::Expr* transfer_call = nullptr;
+	if (transfer)
+	{
+		// [expr.await] resumes the handle returned by await_suspend.
+		// The next coroutine runs on behalf of the current resumer.
+		const uint32_t throwing = potentially_throwing_;
+		transfer_call = coroutine_member_call(suspend, special_key("resume"), nullptr, scope, location);
+		potentially_throwing_ = throwing;
+		if (transfer_call == nullptr)
+			return nullptr;
+	}
 	CoroutineAwait* facts = arena_.allocate_array<CoroutineAwait>(1);
-	*facts = CoroutineAwait{ source, awaiter, ready, suspend, resume };
+	*facts = CoroutineAwait{ source, awaiter, ready, suspend, resume, transfer_call };
 	return facts;
 }
 
@@ -293,6 +304,12 @@ const CoroutineFacts* Analyzer::analyze_coroutine(const FunctionEntity* function
 		return nullptr;
 	facts->handle = new_entity<VariableEntity>(
 		EntityKind::Variable, special_key("<coroutine-handle>"), scope, handle->type);
+	// [expr.await] passes the library handle made from the live promise.
+	facts->make_handle = coroutine_member_call(coroutine_variable_use(facts->handle, ValueCategory::LValue, location),
+		special_key("from_promise"), coroutine_variable_use(facts->promise, ValueCategory::LValue, location), scope,
+		location);
+	if (facts->make_handle == nullptr)
+		return nullptr;
 	const auto invoke = [&](const Identifier* name) {
 		return coroutine_member_call(
 			coroutine_variable_use(facts->promise, ValueCategory::LValue, location), name, nullptr, scope, location);
