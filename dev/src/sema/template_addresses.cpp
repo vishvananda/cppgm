@@ -42,6 +42,24 @@ bool LinkedEntity(const Entity* entity)
 	return owner == ScopeKind::Namespace || owner == ScopeKind::Class || variable->is_extern;
 }
 
+const Entity* NamedAddressConstant(const ConstValue& value)
+{
+	if (value.kind != ValueKind::Pointer || (value.root != RootKind::Variable && value.root != RootKind::Function) ||
+		value.address.offset != 0 || (value.flags & (kPastEnd | kInvalidView)) != 0)
+		return nullptr;
+	const Entity* entity = static_cast<const Entity*>(value.address.entity);
+	if (entity == nullptr || !LinkedEntity(entity))
+		return nullptr;
+	if (value.root == RootKind::Function)
+		return entity;
+	// Reject C++17 subobject pointers even at offset zero. The permitted
+	// array-to-pointer conversion designates the first array element.
+	const Type* object = entity->type->unqualified;
+	const Type* pointee = value.type->element->unqualified;
+	return pointee == object || (object->kind == TypeKind::Array && pointee == object->element->unqualified) ? entity
+																											 : nullptr;
+}
+
 } // namespace
 
 bool AddressParameterType(const Type* type)
@@ -201,6 +219,14 @@ const Type* Analyzer::address_argument(const syntax::Expr& expr, const Type* tar
 		return types_.address(value.type->unqualified->canonical, nullptr);
 	if (value.kind == ValueKind::MemberPointer && value.address.entity == nullptr)
 		return types_.address(value.type->unqualified->canonical, nullptr);
+	if (const Entity* designated = cxx17_ ? NamedAddressConstant(value) : nullptr)
+	{
+		if (designated->kind == EntityKind::Variable &&
+			static_cast<const VariableEntity*>(designated)->templ != nullptr)
+			demand_variable(static_cast<const VariableEntity*>(designated));
+		note_argument_demand(designated);
+		return types_.address(value.type->unqualified->canonical, const_cast<Entity*>(designated));
+	}
 	// N4268 (C++17): a member-pointer argument can be a constant
 	// expression, including a constexpr variable or call. Preserve the
 	// canonical member identity when no this-adjustment is required.

@@ -252,7 +252,10 @@ substitution. This follows GCC and Clang for the class-template case in
 Placeholder non-type parameters (`auto`, `auto*`, `auto&`, `decltype(auto)`)
 deduce type and value while retaining object/function identity, references
 and heterogeneous packs. The resulting argument must still be a permitted
-C++17 template argument. Trailing-return function-pointer parameter types
+C++17 template argument. An evaluated pointer to a named object or function
+keeps that identity, including an array's address after array-to-pointer
+conversion. See N4659 `[temp.arg.nontype]`.
+Trailing-return function-pointer parameter types
 are distinct from a placeholder whose argument type is deduced.
 Pack-expanded using declarations import the corresponding names; diagnose a
 missing pack. Multiple-base object-model observations remain in PA22.
