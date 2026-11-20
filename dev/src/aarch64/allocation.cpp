@@ -696,7 +696,13 @@ public:
 		if (groups_.split(range.id))
 			preferred = alternate = kNoId;
 		uint32_t partners = 0;
-		if (group_reg != kNoId)
+		// A member whose phi partner in the group already holds another
+		// register keeps that partner's register first.
+		const bool apart = preferred != kNoId && preferred != group_reg && range.affinity != kNoId &&
+			groups_.root(range.affinity) == group;
+		if (group_reg != kNoId && apart)
+			partners = 1u << group_reg;
+		else if (group_reg != kNoId)
 		{
 			partners = preferred < 32 ? 1u << preferred : 0;
 			preferred = group_reg;
