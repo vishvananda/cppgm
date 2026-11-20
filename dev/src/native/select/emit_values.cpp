@@ -1361,6 +1361,31 @@ void FunctionSelector::emit_float_select(const Instruction& inst)
 	Value t = resolve(inst.ops[1]), f = resolve(inst.ops[2]);
 	const TypeKind kind = inst.type.kind();
 	const bool wide = kind == TypeKind::F64;
+	const TypeKind word = wide ? TypeKind::I64 : TypeKind::U32;
+	const auto bits = [&](Operand from, Reg into, Reg lanes) {
+		if (from.kind == OperandKind::Mem)
+		{
+			emit2(Op::Load, word, Operand::make_reg(into), from);
+			return;
+		}
+		if (from.kind != OperandKind::Reg)
+		{
+			load_into(lanes, from, kind);
+			from = Operand::make_reg(lanes);
+		}
+		emit2(Op::Vector, TypeKind::V128, Operand::make_reg(into), from).sub = static_cast<uint8_t>(
+			wide ? lowir::VectorOp::Toi64 : lowir::VectorOp::Toi32);
+	};
+	const auto choose = [&](Cond cc) {
+		Inst& mov = emit2(Op::Cmov, TypeKind::Void, Operand::make_reg(kEmitScratch), Operand::make_reg(kSelectScratch));
+		mov.sub = cc;
+	};
+	const auto finish_bits = [&](Reg d) {
+		emit2(Op::Vector, TypeKind::V128, Operand::make_reg(d), Operand::make_reg(kEmitScratch)).sub =
+			static_cast<uint8_t>(wide ? lowir::VectorOp::Fromi64 : lowir::VectorOp::Fromi32);
+		finish_result(inst, d);
+	};
+
 	const Instruction* test = cond.kind == ValueKind::Temp && (temps_[cond.index].flags & TF_FUSED)
 		? &body_->instructions[body_->temps[cond.index].def]
 		: nullptr;
@@ -1422,6 +1447,21 @@ void FunctionSelector::emit_float_select(const Instruction& inst)
 			other = Operand::make_reg(kOtherLanes);
 		}
 		const Reg d = result_reg(inst, dying_reg(t), kNoReg, 1u << other.reg);
+		if (d == other.reg)
+		{
+			// An assigned result or the spill scratch may overlap the
+			// false operand. Test the mask and select the scalar bits
+			// before writing the overlapping register.
+			const Operand scratch = Operand::make_reg(kSelectScratch);
+			emit2(Op::Vector, TypeKind::V128, scratch, Operand::make_reg(kMaskLanes)).sub = static_cast<uint8_t>(
+				lowir::VectorOp::Toi32);
+			emit2(Op::Test, TypeKind::U32, scratch, scratch);
+			bits(other, kEmitScratch, kMaskLanes);
+			bits(rm_operand(t, inst.type, kSelectScratch), kSelectScratch, kOtherLanes);
+			choose(CC_NE);
+			finish_bits(d);
+			return;
+		}
 		load_into(d, rm_operand(t, inst.type, kSelectScratch), kind);
 		const auto lanes = [&](lowir::VectorOp op, const Operand& with) {
 			emit3(Op::Vector, TypeKind::V128, Operand::make_reg(d), Operand::make_reg(d), with).sub =
@@ -1444,32 +1484,12 @@ void FunctionSelector::emit_float_select(const Instruction& inst)
 		finish_result(inst, d);
 		return;
 	}
-	const TypeKind word = wide ? TypeKind::I64 : TypeKind::U32;
-	const auto bits = [&](Value v, Reg into, Reg lanes) {
-		Operand from = rm_operand(v, inst.type, into);
-		if (from.kind == OperandKind::Mem)
-		{
-			emit2(Op::Load, word, Operand::make_reg(into), from);
-			return;
-		}
-		if (from.kind != OperandKind::Reg)
-		{
-			load_into(lanes, from, kind);
-			from = Operand::make_reg(lanes);
-		}
-		emit2(Op::Vector, TypeKind::V128, Operand::make_reg(into), from).sub = static_cast<uint8_t>(
-			wide ? lowir::VectorOp::Toi64 : lowir::VectorOp::Toi32);
-	};
-	// (A literal's lanes are loaded through the first scratch register:
-	// the second value's bits go there last.)
-	bits(f, kEmitScratch, kMaskLanes);
-	bits(t, kSelectScratch, kOtherLanes);
-	Inst& mov = emit2(Op::Cmov, TypeKind::Void, Operand::make_reg(kEmitScratch), Operand::make_reg(kSelectScratch));
-	mov.sub = cc;
-	const Reg d = result_reg(inst);
-	emit2(Op::Vector, TypeKind::V128, Operand::make_reg(d), Operand::make_reg(kEmitScratch)).sub = static_cast<uint8_t>(
-		wide ? lowir::VectorOp::Fromi64 : lowir::VectorOp::Fromi32);
-	finish_result(inst, d);
+	// A literal's lanes are loaded through the first scratch register.
+	// Move the other value's bits into that register last.
+	bits(rm_operand(f, inst.type, kEmitScratch), kEmitScratch, kMaskLanes);
+	bits(rm_operand(t, inst.type, kSelectScratch), kSelectScratch, kOtherLanes);
+	choose(cc);
+	finish_bits(result_reg(inst));
 }
 
 void FunctionSelector::emit_select(const Instruction& inst)
