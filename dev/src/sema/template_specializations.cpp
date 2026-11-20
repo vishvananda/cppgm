@@ -892,6 +892,17 @@ void Analyzer::check_partial_arguments(const TemplateHead* primary, const Templa
 	const uint32_t depth = head->count != 0 ? head->parameters[0]->depth : 0;
 	SmallList<uint8_t, 8> deduced(head->count, 0);
 	deduced_parameters(arguments, count, true, depth, deduced);
+	// N4659 [temp.deduct.type]: deduction of a value can also deduce
+	// earlier parameters in its declared type, such as an array bound.
+	if (cxx17_)
+	{
+		for (uint32_t i = head->count; i-- != 0;)
+		{
+			const Type* type = head->parameters[i]->value_type;
+			if (deduced[i] != 0 && type != nullptr && !head->parameters[i]->pack && !holds_auto(type))
+				deduced_parameters(type, depth, deduced);
+		}
+	}
 	for (uint32_t i = 0; i < head->count; ++i)
 	{
 		if (deduced[i] == 0)
@@ -1327,6 +1338,19 @@ bool Analyzer::deduce_partial_arguments(const TemplateHead* head, const Type* co
 	{
 		if (!deduce_type(pattern[i], arguments[i], depth, deduced, false))
 			return false;
+	}
+	// A canonical parameter in the pattern gives its position, while the
+	// head gives the type against which to match the deduced value.
+	if (cxx17_)
+	{
+		for (uint32_t i = head->count; i-- != 0;)
+		{
+			const Type* type = head->parameters[i]->value_type;
+			const Type* value = deduced[i];
+			if (type != nullptr && value != nullptr && value->kind == TypeKind::Value && !holds_auto(type) &&
+				dependent_type(type) && !deduce_type(type, value->element, depth, deduced, false))
+				return false;
+		}
 	}
 	for (uint32_t i = 0; i < head->count; ++i)
 	{

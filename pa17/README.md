@@ -54,6 +54,14 @@ the same source-file ordering and `-o` relaxations as the earlier source-to-LowI
 milestones. Preserve PA7's dump mode. Native driver behavior and optimized
 LowIR output are not required in PA17.
 
+### Types of non-type arguments in partial specialization
+
+In C++17, a deduced non-type argument also supplies deductions for
+parameters in its declared type. A reference to an array can supply its
+bound, and a value can supply an earlier type parameter. Use the type of
+the argument and retain the usual matching and substitution checks. See
+N4659 `[temp.deduct.type]`.
+
 ### Member templates of explicit class specializations
 
 An explicitly specialized class has its own member-template declarations.

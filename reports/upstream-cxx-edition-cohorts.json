@@ -485,8 +485,7 @@
           "action": "compile",
           "expect": "accept",
           "feature": "inline variable declarations",
-          "pr": false,
-          "pending_reason": "Dependent array-bound deduction through a reference non-type template parameter."
+          "pr": true
         },
         {
           "id": "inline-var4-gnu++17",
@@ -495,8 +494,7 @@
           "action": "compile",
           "expect": "accept",
           "feature": "inline variable declarations",
-          "pr": false,
-          "pending_reason": "Dependent array-bound deduction through a reference non-type template parameter."
+          "pr": true
         },
         {
           "id": "inline-var11-c++17",
