@@ -314,6 +314,9 @@ struct ParameterDeclaration
 	Declarator* declarator;
 	Initializer* default_argument;
 	uint32_t location;
+	// A requires-expression parameter's type can remain dependent for
+	// lookup after substitution supplies its concrete type.
+	mutable bool requirement_type_dependent = false;
 };
 
 enum class TemplateParameterKind : uint8_t

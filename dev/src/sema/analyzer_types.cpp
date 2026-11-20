@@ -1626,7 +1626,7 @@ void Analyzer::prototype_dependence(Scope* scope, const Type* pattern, const syn
 	}
 }
 
-void Analyzer::declare_parameter(
+Binding* Analyzer::declare_parameter(
 	Scope* prototype, const syntax::ParameterClause& clause, uint32_t index, const Type* type)
 {
 	const syntax::Name* id = DeclaratorId(clause.parameters[index]->declarator);
@@ -1641,6 +1641,7 @@ void Analyzer::declare_parameter(
 		declare_in(prototype, binding);
 	if (name != nullptr && semantic())
 		note_nothrow_target(parameter, type, clause.parameters[index]->declarator, prototype);
+	return binding;
 }
 
 const Type* Analyzer::parameter_type(const syntax::ParameterDeclaration& parameter, Scope* scope)

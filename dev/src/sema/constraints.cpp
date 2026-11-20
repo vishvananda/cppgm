@@ -76,7 +76,8 @@ bool Analyzer::requirement_parameters(const syntax::RequiresExpr& expr, Scope*& 
 		TypeList parameters;
 		for (uint32_t i = 0; i < clause.parameters.size; ++i)
 		{
-			const Type* type = parameter_type(*clause.parameters[i], local);
+			const syntax::ParameterDeclaration& declaration = *clause.parameters[i];
+			const Type* type = parameter_type(declaration, local);
 			if (type == nullptr || failed())
 				return false;
 			const bool sole_unnamed = clause.parameters.size == 1 &&
@@ -87,10 +88,10 @@ bool Analyzer::requirement_parameters(const syntax::RequiresExpr& expr, Scope*& 
 			{
 				if (sole_unnamed && !clause.dependent_sole)
 					break;
-				return substitution_error(clause.parameters[i]->location, "void requires-expression parameter");
+				return substitution_error(declaration.location, "void requires-expression parameter");
 			}
 			const Type* object = parameter_object_type(type);
-			const syntax::Name* name = syntax::NameOfDeclarator(clause.parameters[i]->declarator);
+			const syntax::Name* name = syntax::NameOfDeclarator(declaration.declarator);
 			if (name != nullptr)
 			{
 				const Identifier* identifier = name->last().identifier;
@@ -100,7 +101,10 @@ bool Analyzer::requirement_parameters(const syntax::RequiresExpr& expr, Scope*& 
 				if (previous != nullptr && previous->value != nullptr)
 					error(name->location, "duplicate requires-expression parameter");
 			}
-			declare_parameter(local, clause, i, object);
+			if (template_depth_ != 0 && dependent_type(object))
+				declaration.requirement_type_dependent = true;
+			Binding* binding = declare_parameter(local, clause, i, object);
+			binding->dependent = declaration.requirement_type_dependent;
 			if (!expr.parameter_packs.empty())
 				parameters.push_back(object);
 		}

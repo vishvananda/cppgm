@@ -497,7 +497,8 @@ private:
 	const Type* parameter_object_type(const Type* type);
 	void prototype_dependence(Scope* scope, const Type* pattern, const syntax::ParameterClause& clause,
 		const std::pair<const Identifier*, uint32_t>* packs, size_t count);
-	void declare_parameter(Scope* prototype, const syntax::ParameterClause& clause, uint32_t index, const Type* type);
+	Binding* declare_parameter(
+		Scope* prototype, const syntax::ParameterClause& clause, uint32_t index, const Type* type);
 	Scope* qualified_lookup_scope(Scope* qualifier, Scope* scope);
 	bool member_hides_parameter(Scope* qualifier, const Identifier* name);
 	const Type* parameter_type(const syntax::ParameterDeclaration& parameter, Scope* scope);

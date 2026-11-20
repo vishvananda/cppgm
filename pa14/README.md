@@ -437,6 +437,10 @@ false; an invalid requirement outside a templated declaration is an error.
 Check in source order and stop once satisfaction is known. Constraint `&&` and
 `||` short-circuit substitution as well as evaluation. Later template and
 constant-evaluation assignments apply these rules to their added source forms.
+Keep the original type dependence of local parameters when checking a
+substituted requirement. A call or operator with dependent operands can
+find declarations from associated namespaces at instantiation. See N4861
+`[expr.prim.req]`, `[temp.dep.expr]` and `[temp.dep.candidate]`.
 
 ### C++20 named concepts
 
