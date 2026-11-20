@@ -502,6 +502,17 @@ even with GCC in C++14.
   outcomes. PA30 checks both the characters and size of the instantiated
   signature in array extents.
 
+### Boost.MPI validation
+
+Boost 1.92's default MPI build includes its Python module when Python is
+configured. Boost.Python instantiates request comparisons while binding
+that module. Both GCC and Clang reproduce the missing operator. The replay
+applies both upstream fixes to the pinned source before either compiler
+runs. GCC and cppgm then build the same 60 MPI C++ source configurations,
+and both resulting Python modules load and construct a request list.
+[Comparison definition](https://github.com/boostorg/mpi/pull/180) ·
+[Namespace correction](https://github.com/boostorg/mpi/pull/181)
+
 ## Measure before promoting the changes
 
 - Use the existing compile-performance tooling with immutable baseline and

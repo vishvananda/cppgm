@@ -262,6 +262,19 @@ def prepare_replay_sources(boost, groups):
         match = '#if defined(BOOST_HANA_CONFIG_CLANG)'
         replace_replay_source(boost / 'boost/hana/experimental/type_name.hpp', match,
                               match + ' || defined(__CPPGM__)')
+    if 'libs/mpi/build' in projects:
+        # Backport boostorg/mpi#180 and #181 for the optional Python module.
+        # Its indexing suite must compile even though request equality raises.
+        directory = boost / 'libs/mpi/src/python'
+        end = '\n} } }\n\n#endif\n'
+        declaration = '\n  bool operator==(request_with_value const&, request_with_value const&);\n'
+        replace_replay_source(directory / 'request_with_value.hpp', end, declaration + end)
+        entry = 'namespace boost { namespace mpi { namespace python {\n'
+        definition = ('\nbool operator==(request_with_value const&, request_with_value const&) {\n'
+                      '  PyErr_SetString(PyExc_NotImplementedError, "mpi requests are not comparable");\n'
+                      '  throw error_already_set();\n'
+                      '}\n')
+        replace_replay_source(directory / 'py_request.cpp', entry, entry + definition)
     if 'libs/pfr/test' in projects:
         # Keep quotes in the GCC action so each type is one macro argument.
         jamfile = boost / 'libs/pfr/test/core/Jamfile.v2'
