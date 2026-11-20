@@ -987,10 +987,10 @@ private:
 	static const syntax::Name* PlainTemplateName(const syntax::TemplateArgument& argument, bool* expansion = nullptr);
 	static const TemplateHead* TemplateHeadOf(const Type* templ);
 	void template_head_packs(const TemplateHead* head, TypeList& bound);
-	bool template_heads_match(
-		const TemplateHead* parameter, const TemplateHead* argument, const Substitution* selection = nullptr);
-	bool template_parameters_match(
-		const TemplateParameterEntity* p, const TemplateParameterEntity* a, const Substitution* selection = nullptr);
+	bool template_heads_match(const TemplateHead* parameter, const TemplateHead* argument,
+		const Substitution* selection, bool match_argument);
+	bool template_parameters_match(const TemplateParameterEntity* p, const TemplateParameterEntity* a,
+		const Substitution* selection = nullptr, bool match_argument = false);
 	const Type* dependent_template_name(const Type* qualifier, const Identifier* name);
 	ClassEntity* stand_in_template(const TemplateParameterEntity* name);
 	static bool IsStandIn(const ClassEntity* entity)
@@ -2324,6 +2324,9 @@ private:
 	// The element of a pack expansion's pattern a deduction is matching,
 	// which each bound pack (TypeKind::BoundPack) the pattern names stands
 	// for (-1 outside one; see deduce_elements).
+	// During partial ordering, trailing arguments supply defaults to a
+	// deduced template-template parameter. Indexed by its parameter.
+	TypeList* ordering_template_defaults_ = nullptr;
 	int32_t deduced_element_ = -1;
 	// The template whose deduction's substitution runs (a function
 	// template, or a partial specialization being matched): the context in

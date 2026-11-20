@@ -991,7 +991,7 @@ const Type* Analyzer::matched_template_element(const TemplateParameterEntity* pa
 		return argument;
 	const TemplateHead* own = TemplateHeadOf(argument);
 	if (own != nullptr && parameter->template_head != nullptr &&
-		!template_heads_match(parameter->template_head, own, selection))
+		!template_heads_match(parameter->template_head, own, selection, true))
 	{
 		if (fatal)
 			error(location, "a template template-argument whose template parameters do not match");
@@ -1350,6 +1350,16 @@ uint32_t Analyzer::qualifier_arguments(const TemplateHead* head, const Type* con
 		const Type* bound = index == 0 || !dependent_type(unbound)
 			? unbound
 			: substitute(unbound, Substitution{ depth, arguments, index, nullptr });
+		if (bound != nullptr && bound->canonical != arguments[index]->canonical && head->parameters[index]->non_type &&
+			bound->kind == TypeKind::Value)
+		{
+			// Compare the default after the same conversion used to form
+			// the specialization, e.g. int 1 as an unsigned parameter.
+			TypeList preceding;
+			for (uint32_t i = 0; i < index; ++i)
+				preceding.push_back(arguments[i]);
+			bound = converted_value(head->parameters[index], bound, preceding, false, 0);
+		}
 		if (bound == nullptr || bound->canonical != arguments[index]->canonical)
 			break;
 		--count;

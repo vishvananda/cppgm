@@ -1418,6 +1418,14 @@ bool Analyzer::compute_function_order(
 	const TemplateHead* other = HeadOf(second);
 	if (head == nullptr || other == nullptr || other->count == 0)
 		return false;
+	TypeList template_defaults;
+	struct RestoreTemplateDefaults
+	{
+		TypeList*& active;
+		TypeList* saved;
+		~RestoreTemplateDefaults() { active = saved; }
+	} restore{ ordering_template_defaults_, ordering_template_defaults_ };
+	ordering_template_defaults_ = &template_defaults;
 	TypeList unique(head->count, nullptr);
 	for (uint32_t i = 0; i < head->count; ++i)
 		unique[i] = synthesized_argument(head->parameters[i], i);

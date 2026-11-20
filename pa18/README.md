@@ -191,6 +191,11 @@ the implemented surface, including:
 
 - full function-template deduction over the intended C++11 subset
 - function-template partial ordering
+  In the supported template-template deduction case, a shorter
+  template-id matches the trailing defaults of a longer template.
+  During partial ordering, compare the concrete template pattern using
+  its substituted trailing arguments. See N4659 `[temp.deduct.type]`
+  and the matching example in [CWG 2398](../doc/cwg/cwg-2398.txt).
 - substitution behavior and candidate dropping
 - when a return type uses a variable template, a dependent template argument
   must name a template that matches its parameter. An invalid argument in

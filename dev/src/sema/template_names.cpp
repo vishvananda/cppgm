@@ -268,8 +268,8 @@ const Type* Analyzer::matched_template_pack(const TemplateParameterEntity* param
 	return types_.pack(elements.data(), static_cast<uint32_t>(elements.size()));
 }
 
-bool Analyzer::template_parameters_match(
-	const TemplateParameterEntity* p, const TemplateParameterEntity* a, const Substitution* selection)
+bool Analyzer::template_parameters_match(const TemplateParameterEntity* p, const TemplateParameterEntity* a,
+	const Substitution* selection, bool match_argument)
 {
 	// 14.3.3p3: template parameters of one kind; non-type parameters of
 	// equivalent types (one naming a parameter of its own list names the
@@ -279,7 +279,7 @@ bool Analyzer::template_parameters_match(
 		return false;
 	if (p->template_template)
 		return p->template_head == nullptr || a->template_head == nullptr ||
-			template_heads_match(p->template_head, a->template_head, selection);
+			template_heads_match(p->template_head, a->template_head, selection, match_argument);
 	if (!p->non_type)
 		return true;
 	const Type* first = selection != nullptr ? substitute(p->value_type, *selection) : p->value_type;
@@ -313,7 +313,7 @@ bool Analyzer::template_parameters_match(
 }
 
 bool Analyzer::template_heads_match(
-	const TemplateHead* parameter, const TemplateHead* argument, const Substitution* selection)
+	const TemplateHead* parameter, const TemplateHead* argument, const Substitution* selection, bool match_argument)
 {
 	// 14.3.3p3: each parameter of the argument template's list matches the
 	// template template-parameter's at its position; a parameter pack of the
@@ -363,16 +363,25 @@ bool Analyzer::template_heads_match(
 		TemplateHead head = *parameter;
 		head.count = static_cast<uint32_t>(parameters.size());
 		head.parameters = parameters.data();
-		return template_heads_match(&head, argument, selection);
+		return template_heads_match(&head, argument, selection, match_argument);
 	}
 	uint32_t next = 0;
 	for (uint32_t i = 0; i < argument->count; ++i)
 	{
 		const TemplateParameterEntity* a = argument->parameters[i];
 		if (next == parameter->count)
-			return false;
+		{
+			// CWG150: a template argument can supply additional defaulted
+			// parameters when used with the parameter's shorter list.
+			if (!match_argument)
+				return false;
+			for (; i < argument->count; ++i)
+				if (!HasDefault(argument, i))
+					return false;
+			return true;
+		}
 		const TemplateParameterEntity* p = parameter->parameters[next];
-		bool matching = template_parameters_match(p, a, selection);
+		bool matching = template_parameters_match(p, a, selection, match_argument);
 		if (!matching && p->non_type && a->non_type && !p->template_template && !a->template_template)
 		{
 			// 14.3.3p3: corresponding parameters of the two lists denote
@@ -789,9 +798,10 @@ bool Analyzer::deduce_stand_in(const ClassTemplateFacts* pattern, const Type* a,
 	const ClassTemplateFacts* actual = static_cast<const ClassEntity*>(a->entity)->templ;
 	if (actual == nullptr || actual->role != TemplateRole::Specialization)
 		return false;
+	const TemplateParameterEntity* name = pattern->pattern->templ->template_name;
 	const Type* templ = IsStandIn(actual->pattern) ? actual->pattern->templ->template_name->type
 												   : types_.named(TypeKind::Template, actual->pattern);
-	if (!deduce_type(pattern->pattern->templ->template_name->type, templ, depth, arguments, false))
+	if (!deduce_type(name->type, templ, depth, arguments, false))
 		return false;
 	TypeList given;
 	uint32_t count = actual->argument_count;
@@ -801,8 +811,29 @@ bool Analyzer::deduce_stand_in(const ClassTemplateFacts* pattern, const Type* a,
 		// Once TT deduces the actual template, TT<V> supplies that
 		// template's omitted defaults. Extra actual arguments match only
 		// when they equal those defaults, not arbitrary trailing types.
-		const uint32_t required = qualifier_arguments(actual->pattern->templ->head, actual->arguments, count);
-		if (required <= pattern->argument_count)
+		const TemplateHead* head = actual->pattern->templ->head;
+		if (ordering_template_defaults_ != nullptr && name->depth == depth && name->index < arguments.size() &&
+			count <= head->count)
+		{
+			// When ordering a concrete template against a template
+			// parameter, the wider pattern's substituted arguments can
+			// supply defaults. Repeated deductions must agree.
+			uint32_t first = count;
+			while (first > pattern->argument_count && HasDefault(head, first - 1))
+				--first;
+			if (first == pattern->argument_count)
+			{
+				const Type* tail = types_.pack(actual->arguments + first, count - first);
+				ordering_template_defaults_->resize(arguments.size());
+				const Type*& defaults = (*ordering_template_defaults_)[name->index];
+				if (defaults != nullptr && defaults != tail)
+					return false;
+				defaults = tail;
+				count = first;
+			}
+		}
+		if (count > pattern->argument_count &&
+			qualifier_arguments(head, actual->arguments, count) <= pattern->argument_count)
 			count = pattern->argument_count;
 	}
 	flattened_arguments(actual->arguments, count, given);

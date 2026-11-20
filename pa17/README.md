@@ -249,7 +249,10 @@ implemented language surface, including:
   `_ZN5store5countIcEE`, `_ZN5table5countIiEE`); a static data member template
   may be defined outside its class, an ordinary class or a class template, and
   the definition's initializer is analyzed in the class's scope
-- template-template parameters and template-template argument matching
+- template-template parameters and template-template argument matching.
+  A class template argument may supply trailing defaults for a shorter
+  compatible parameter list. See [CWG 150](../doc/cwg/cwg-0150.txt) and
+  N4659 `[temp.arg.template]`.
 - member templates, including templated member operators and templated call
   operators
 - access checking for member class templates, alias templates, and nested type
