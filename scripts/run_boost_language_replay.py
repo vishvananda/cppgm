@@ -35,6 +35,7 @@ def validate_inventory(inventory):
                              group['replay_edition'] >= group['edition'] and group.get('replay_reason'),
                              'invalid replay edition override')
         inactive_tests = group.get('inactive_tests', {})
+        host_c_tests = group.get('host_c_tests', {})
         selected = set(group.get('targets', []))
         required = set(group.get('required_tests', []))
         later = group.get('later_tests', {})
@@ -53,7 +54,12 @@ def validate_inventory(inventory):
         classified = inactive_tests.keys() | set(later_targets)
         if selected:
             boost_ci.require(classified < selected, 'edition variants must partition the selected declarations')
-        for target in required | selected | classified:
+        if host_c_tests:
+            boost_ci.require(group.get('kind') == 'test' and not selected and
+                             all(isinstance(reason, str) and reason for reason in host_c_tests.values()) and
+                             classified.isdisjoint(host_c_tests) and required.isdisjoint(host_c_tests),
+                             'invalid host C test callers')
+        for target in required | selected | classified | host_c_tests.keys():
             boost_ci.require(re.fullmatch(r'libs/[A-Za-z0-9_/]+//[^/\s]+\.test', target) and
                              target.split('//')[0].startswith(project), 'invalid test declaration: ' + target)
         if group.get('b2_aliases'):
@@ -130,6 +136,10 @@ def test_inventory(result, required, minimum):
     for test in result['tests']:
         editions = tuple(sorted({recorded_edition(args) for args in test['sources']}))
         name = test['target']
+        if test.get('host_c'):
+            boost_ci.require(editions == (0,) and name not in required, f'unexpected C caller: {name}')
+            observed[name, test['kind'], ()] += 1
+            continue
         if test['kind'] == 'RUN_PYD' and not editions:
             if name in required:
                 boost_ci.require(test.get('b2_cxxstd', 0) >= minimum,
@@ -193,7 +203,8 @@ def replay(boost, settings, role, case, group, args):
     b2_run(command, boost, environment, log, args.timeout)
     selected = set(targets) if targets else None
     result = boost_ci.review(case / 'b2.xml', log, invocations, project, None, role,
-                             selected_targets=selected, inactive_tests=group.get('inactive_tests'))
+                             selected_targets=selected, inactive_tests=group.get('inactive_tests'),
+                             host_c_tests=group.get('host_c_tests', {}))
     if group.get('kind') == 'build':
         observed = source_compilations(invocations, project, boost, role)
         boost_ci.require(observed and min(edition_key for _, edition_key in observed) >= edition,
@@ -419,6 +430,7 @@ def main():
     parser.add_argument('--extra-user-config', type=Path)
     parser.add_argument('--python39', type=Path, help='CPython 3.9.25 installation prefix for the Parameter.Python test')
     parser.add_argument('--project', action='append')
+    parser.add_argument('--exclude-project', action='append', default=[])
     parser.add_argument('--edition', type=int, choices=(14, 17, 20))
     parser.add_argument('--smoke', action='store_true')
     parser.add_argument('--jobs', type=int, default=2)
@@ -433,6 +445,7 @@ def main():
     validate_inventory(inventory)
     groups = [g for g in [*inventory['projects'], *inventory['test_groups']]
               if (not args.smoke or g.get('smoke')) and (not args.project or g['project'] in args.project)
+              and g['project'] not in args.exclude_project
               and (args.edition is None or g['edition'] == args.edition)]
     boost_ci.require(groups, 'no selected Boost replay groups')
     boost_ci.require(boost_ci.digest(args.archive) == boost_ci.ARCHIVE_SHA256, 'Boost archive checksum mismatch')

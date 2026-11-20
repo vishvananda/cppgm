@@ -9,7 +9,7 @@ on:
         type: boolean
         default: false
       edition:
-        description: Edition to replay on a full run
+        description: Minimum edition of the recovered projects to replay
         type: choice
         options: [all, '14', '17', '20']
         default: all
@@ -19,10 +19,16 @@ permissions:
 
 jobs:
   replay:
+    name: Replay ${{ matrix.scope }}
     runs-on: ubuntu-24.04
     container:
       image: ubuntu:26.04
     timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        scope: ${{ fromJSON(inputs.full && (inputs.edition == 'all' || inputs.edition == '14') && '["remaining", "geometry", "math", "multiprecision"]' || '["remaining"]') }}
     steps:
       - name: Install compiler and Boost.Build dependencies
         env:
@@ -30,7 +36,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
-            ca-certificates curl g++-15 gcc-15 git make python3
+            ca-certificates curl g++ g++-15 gcc-15 git make python3
           if [ "$FULL" = true ]; then
             apt-get install -y --no-install-recommends \
               libssl-dev libgmp-dev libmpfr-dev libopenmpi-dev openmpi-bin \
@@ -74,7 +80,7 @@ jobs:
           echo "5c1d40cb8e19adbf740a4ec2da35b3e58f3f5804b1dce44deb53df72193cbc6c  $archive" | sha256sum --check
 
       - name: Build the Python interpreter for Parameter.Python
-        if: inputs.full && (inputs.edition == 'all' || inputs.edition == '14')
+        if: inputs.full && matrix.scope == 'remaining' && (inputs.edition == 'all' || inputs.edition == '14')
         shell: bash
         run: |
           apt-get install -y --no-install-recommends xz-utils
@@ -95,18 +101,27 @@ jobs:
         env:
           FULL: ${{ inputs.full || false }}
           EDITION: ${{ inputs.edition || 'all' }}
+          REPLAY_SCOPE: ${{ matrix.scope }}
         run: |
           replay=()
           if [ "$FULL" != true ]; then
             replay+=(--smoke)
           else
             printf '%s\n' 'using mpi : : : mpirun --allow-run-as-root --oversubscribe -np ;' > "$RUNNER_TEMP/boost-mpi.jam"
-            replay+=(--extra-user-config "$RUNNER_TEMP/boost-mpi.jam")
+            replay+=(--extra-user-config "$RUNNER_TEMP/boost-mpi.jam" --timeout 12600)
+            case "$REPLAY_SCOPE" in
+              remaining)
+                replay+=(--exclude-project libs/geometry/test --exclude-project libs/math/test --exclude-project libs/multiprecision/test)
+                ;;
+              *)
+                replay+=(--project "libs/$REPLAY_SCOPE/test")
+                ;;
+            esac
           fi
           if [ "$FULL" = true ] && [ "$EDITION" != all ]; then
             replay+=(--edition "$EDITION")
           fi
-          if [ "$FULL" = true ] && { [ "$EDITION" = all ] || [ "$EDITION" = 14 ]; }; then
+          if [ "$FULL" = true ] && [ "$REPLAY_SCOPE" = remaining ] && { [ "$EDITION" = all ] || [ "$EDITION" = 14 ]; }; then
             replay+=(--python39 "$RUNNER_TEMP/boost-python39")
           fi
           python3 scripts/run_boost_language_replay.py \
@@ -118,7 +133,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: boost-language-${{ github.sha }}
+          name: boost-language-${{ matrix.scope }}-${{ github.sha }}
           path: |
             ${{ runner.temp }}/boost-language/results.json
             ${{ runner.temp }}/boost-language/[0-9]*/*/results.json

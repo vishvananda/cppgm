@@ -164,7 +164,7 @@ def mpi_result(actions, target, marker):
 
 
 def review(xml_path, log_path, calls_path, project, expected, label='cppgm', native_path=None,
-           selected_targets=None, inactive_tests=None):
+           selected_targets=None, inactive_tests=None, host_c_tests=()):
     log = log_path.read_text(errors='replace')
     require(not re.search(r'^\.\.\.failed updating [1-9]\d* targets?\.\.\.$', log, re.M),
             'B2 reported failed targets')
@@ -189,6 +189,7 @@ def review(xml_path, log_path, calls_path, project, expected, label='cppgm', nat
     inactive_tests = inactive_tests or {}
     unknown = inactive_tests.keys() - declared_targets
     require(not unknown, f'{project}: missing registered test exclusions: {sorted(unknown)}')
+    require(set(host_c_tests) <= declared_targets, f'{project}: missing registered C callers')
     if expected is not None:
         require(len(declarations) == expected, f'{project}: expected {expected} declarations, got {len(declarations)}')
     calls = [json.loads(line) for line in calls_path.read_text().splitlines()]
@@ -237,8 +238,16 @@ def review(xml_path, log_path, calls_path, project, expected, label='cppgm', nat
             evidence, compiled = {}, by_directory.get(marker.parent.resolve(), [])
         row = dict(target=target, kind=kind, marker_sha256=digest(marker), compiler_invocations=len(compiled),
                    **evidence)
-        require((compiled or kind == 'RUN_PYD') and all(c['route'] == label for c in compiled),
-                f'no {label} compilation for {target}')
+        if target in host_c_tests:
+            declared = {(boost / node.text).resolve() for node in test.findall('source')}
+            recorded = {(Path(c['cwd']) / arg).resolve() for c in compiled for arg in c['args']
+                        if not arg.startswith('-') and Path(arg).suffix == '.c'}
+            require(kind == 'RUN' and declared and declared == recorded and
+                    all(c['route'] == 'host-c' for c in compiled), f'incorrect host C caller for {target}')
+            row['host_c'] = True
+        else:
+            require((compiled or kind == 'RUN_PYD') and all(c['route'] == label for c in compiled),
+                    f'no {label} compilation for {target}')
         require(any(c['returncode'] == 1 for c in compiled) if kind == 'COMPILE_FAIL' else
                 all(c['returncode'] == 0 for c in compiled), f'incorrect compilation result for {target}')
         row.update(compile_cpu=sum(c.get('cpu_seconds', 0) for c in compiled),

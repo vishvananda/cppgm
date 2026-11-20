@@ -606,6 +606,25 @@ The spherical harmonic test specifies an overflow policy after including a
 header that supplies a default. Undefine the earlier macro before that
 test definition for both compilers.
 
+The native C++14 Math project activates 1,111 original test configurations.
+Another 86 execute at C++17. The two pure C callers are compiled with the host
+C compiler and exercise the corresponding Boost.Math C++ libraries from each
+build. The receipts require the original C source, recorded C invocation, and
+successful executable. The replay inventory records which other targets need
+optional FFTW, Eigen, extended floating-point interfaces or a sanitizer build.
+
+The Multiprecision project activates 525 tests at C++14. Replay another 27 at
+C++17 and `git_issue_509` at C++20. The inventory records the opt-in
+`specfun` aliases and rounding stress test separately from targets that need
+optional numeric libraries, the GNU `Q` literal probe or Intel quad support.
+The `__float128` type size macro comes from the hosted GCC or Clang probe in
+ISO mode. GNU literal suffix rules still follow the selected language mode.
+
+Full manual CI dispatch gives Geometry, Math, and Multiprecision separate
+jobs so their native compilation and run oracles receive the full job
+deadline. The remaining recovered projects and declarations share a job.
+[Boost language workflow](../.github/workflows/boost-language.yml)
+
 ## Measure before promoting the changes
 
 - Use the existing compile-performance tooling with immutable baseline and
