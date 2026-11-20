@@ -3220,7 +3220,10 @@ ExprFacts* Analyzer::explicit_conversion(
 		// the constructor the operand selects (explicit ones included).
 		ClassEntity* entity = static_cast<ClassEntity*>(goal->entity);
 		if (!require_complete(entity) || entity->scope == nullptr)
-			error(expr.location, "a cast to an incomplete class type");
+		{
+			substitution_error(expr.location, "a cast to an incomplete class type", true);
+			return nullptr;
+		}
 		if (!check_abstract_object(goal, expr.location))
 			return nullptr;
 		expression_scope_ = scope;

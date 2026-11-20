@@ -925,7 +925,10 @@ ExprFacts* Analyzer::conditional(const syntax::ConditionalExpr& expr, Scope* sco
 			return new_facts(expr, type, ValueCategory::PRValue);
 		}
 		if (!IsVoid(t2) || !IsVoid(t3))
-			error(expr.location, "only one operand of ?: is void");
+		{
+			substitution_error(expr.location, "only one operand of ?: is void");
+			return nullptr;
+		}
 		return new_facts(expr, types_.fundamental(FundamentalType::Void), ValueCategory::PRValue);
 	}
 	// p4: glvalues of one category and type; p3 with cv-qualified
