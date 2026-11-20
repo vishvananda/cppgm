@@ -14,10 +14,11 @@
 // copies it there first); each edge out of the region goes through a copy
 // of the prologue that also copies those registers back and performs the
 // entry's stores to the frame. The region's returns lose their restores.
-// The region comes first, so the code before the first prologue copy keeps
-// the CIE's rules; a later copy starts from them again. Framed blocks keep
-// their order and their epilogues' unwind rules. Nothing in the region
-// calls, so nothing unwinds through it.
+// The region comes first; the framed blocks keep their order after it.
+// Frameless code has the CIE's rules and framed code the prologue's,
+// restated where the code ahead leaves the other state; framed blocks keep
+// their epilogues' unwind rules. Nothing in the region calls, so nothing
+// unwinds through it.
 namespace aarch64 {
 
 namespace {
@@ -479,6 +480,7 @@ private:
 	void emit_frameless(uint32_t b, size_t at);
 	void emit_prologue(uint32_t exit, size_t at);
 	void emit_framed(uint32_t b, size_t at);
+	void set_state(bool framed);
 	bool finish();
 
 	Function& f_;
@@ -940,15 +942,9 @@ void Wrapper::emit_frameless(uint32_t b, size_t at)
 // callee-saved registers back from their stand-ins, the entry's stores.
 void Wrapper::emit_prologue(uint32_t exit, size_t at)
 {
+	set_state(false);
 	const uint32_t base = static_cast<uint32_t>(4 * code_.size());
 	prologue_placed_[exit] = static_cast<uint32_t>(code_.size());
-	if (framed_state_)
-	{
-		events_.push_back(FrameEvent{ base, FrameRule::Offset, 31, 0 });
-		for (uint32_t e = 0; e < frame_.prologue_events; ++e)
-			if (f_.frame_events[e].rule == FrameRule::Save)
-				events_.push_back(FrameEvent{ base, FrameRule::Restore, f_.frame_events[e].reg, 0 });
-	}
 	code_.insert(code_.end(), f_.code.begin(), f_.code.begin() + p_);
 	for (uint32_t e = 0; e < frame_.prologue_events; ++e)
 	{
@@ -976,6 +972,7 @@ void Wrapper::emit_prologue(uint32_t exit, size_t at)
 
 void Wrapper::emit_framed(uint32_t b, size_t at)
 {
+	set_state(true);
 	const uint32_t base = static_cast<uint32_t>(code_.size());
 	placed_[b] = base;
 	code_.insert(code_.end(), f_.code.begin() + first_[b], f_.code.begin() + end_[b]);
@@ -991,6 +988,26 @@ void Wrapper::emit_framed(uint32_t b, size_t at)
 	if (falls_[b] && !next_is(at, Kind::Framed, b + 1))
 		jump_to(label_for(Kind::Framed, b + 1));
 	straight_ = static_cast<uint32_t>(code_.size());
+}
+
+// The unwind rules where a piece starts that the code ahead of it leaves in
+// the other state: the CIE's for frameless code, the prologue's for framed.
+void Wrapper::set_state(bool framed)
+{
+	if (framed_state_ == framed)
+		return;
+	const uint32_t pc = static_cast<uint32_t>(4 * code_.size());
+	if (!framed)
+		events_.push_back(FrameEvent{ pc, FrameRule::Offset, 31, 0 });
+	for (uint32_t e = 0; e < frame_.prologue_events; ++e)
+	{
+		const FrameEvent& event = f_.frame_events[e];
+		if (framed)
+			events_.push_back(FrameEvent{ pc, event.rule, event.reg, event.offset });
+		else if (event.rule == FrameRule::Save)
+			events_.push_back(FrameEvent{ pc, FrameRule::Restore, event.reg, 0 });
+	}
+	framed_state_ = framed;
 }
 
 // Labels at their new places, branches within reach, then the new code.
@@ -1058,6 +1075,7 @@ bool Wrapper::run()
 		const Item item = items_[at];
 		if (item.kind == Kind::Region || item.kind == Kind::Copy)
 		{
+			set_state(false);
 			(item.kind == Kind::Region ? placed_ : copy_placed_)[item.index] = static_cast<uint32_t>(code_.size());
 			straight_ = static_cast<uint32_t>(code_.size());
 			emit_frameless(item.index, at);
