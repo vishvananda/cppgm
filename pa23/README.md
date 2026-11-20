@@ -12,6 +12,9 @@ earlier single-vptr, non-virtual-base ABI:
 
 PA23 still produces LowIR. It does not introduce a new output format.
 
+In C++20, a class with a virtual base cannot declare a constexpr
+destructor. See N4861 `[dcl.constexpr]`.
+
 ### Prerequisites
 
 You should complete Programming Assignment 22 before starting this assignment.

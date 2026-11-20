@@ -397,7 +397,9 @@ even when the source member supplies only an in-class initializer.
 A class may be a literal type with a constexpr destructor. For a defaulted
 destructor, determine eligibility from the base and member destructors.
 A destructor declared constexpr must satisfy the C++20 requirements for
-its subobjects. For a constexpr variable, check hypothetical destruction
+its subobjects. A virtual destructor can be constexpr and run when
+deleting an object allocated during the same constant evaluation. For a
+constexpr variable, check hypothetical destruction
 separately and preserve the value computed by its initializer. The object
 and its non-mutable subobjects begin their lifetimes in that check. See
 N4861 `[basic.types]`, `[dcl.constexpr]` and `[expr.const]`.

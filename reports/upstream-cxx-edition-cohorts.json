@@ -1543,7 +1543,7 @@
           "action": "compile",
           "expect": "reject",
           "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "The candidate rejects constexpr virtual destructors in general. The required rejection concerns virtual bases."
+          "pr": true
         },
         {
           "id": "constexpr-dtor16-gnu++20",
@@ -1552,7 +1552,7 @@
           "action": "compile",
           "expect": "reject",
           "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "The candidate rejects constexpr virtual destructors in general. The required rejection concerns virtual bases."
+          "pr": true
         },
         {
           "id": "constexpr-dtor17-c++20",
@@ -1777,7 +1777,7 @@
           "action": "compile",
           "expect": "accept",
           "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "The candidate rejects constexpr virtual destructors."
+          "pr": true
         },
         {
           "id": "constexpr-new21-gnu++20",
@@ -1786,7 +1786,7 @@
           "action": "compile",
           "expect": "accept",
           "feature": "C++20 constant destruction or allocation",
-          "pending_reason": "The candidate rejects constexpr virtual destructors."
+          "pr": true
         },
         {
           "id": "constexpr-new22-c++20",
