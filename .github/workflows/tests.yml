@@ -260,6 +260,7 @@ jobs:
 
   wasm-inception:
     name: optional WASI and Chromium inception
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 180

@@ -1,8 +1,9 @@
 # Optional WASI and browser inception
 
 This optional maintainer lane is part of PA37. It does not change the student
-report or ship in the student export. The `Tests` workflow runs it once with
-the Ubuntu 24.04 GCC host compiler, independently of the normal report.
+report or ship in the student export. The `Tests` workflow runs it on pushes
+to `main` and on manual dispatch. It reuses the Ubuntu 24.04 GCC host compiler
+build.
 
 The native compiler builds W1. W1 then compiles all frozen compiler sources
 and links W2; W2 repeats that work to produce W3. Every corresponding object and
