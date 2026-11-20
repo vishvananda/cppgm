@@ -77,7 +77,8 @@ struct Function
 };
 
 void emit_unwind(const Function& function, uint32_t symbol, uint32_t shared_section,
-	const std::vector<uint32_t>& symbols, native::object::ObjectFile& object, bool darwin);
+	const std::vector<uint32_t>& symbols, std::vector<uint32_t>& section_symbols, native::object::ObjectFile& object,
+	bool darwin);
 uint32_t external_symbol(native::object::ObjectFile& object, const char* name);
 void dump_function(const Function& function, const lowir::Program& program, const char* name, std::string& dump);
 

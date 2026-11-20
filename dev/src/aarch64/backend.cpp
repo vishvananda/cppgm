@@ -163,6 +163,7 @@ void compile_object(Program& program, obj::ObjectFile& object, int level, bool p
 	const uint32_t eh = object.add_section(".eh_frame", obj::SectionKind::Rodata, 8);
 	const bool darwin = target_model::is_darwin(program.target);
 	std::vector<obj::Group> weak_groups;
+	std::vector<uint32_t> section_symbols;
 	for (SymbolId id : program.order)
 	{
 		const auto& src = program.symbols[id];
@@ -195,7 +196,7 @@ void compile_object(Program& program, obj::ObjectFile& object, int level, bool p
 		encode(function, symbols, section, resume);
 		sym.size = section.bytes.size() - sym.value;
 		const auto unwind = comdat ? kNoId : eh;
-		emit_unwind(function, symbols[id], unwind, symbols, object, darwin);
+		emit_unwind(function, symbols[id], unwind, symbols, section_symbols, object, darwin);
 		if (comdat)
 		{
 			obj::Group group;

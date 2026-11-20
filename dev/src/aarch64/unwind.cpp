@@ -72,7 +72,7 @@ uint32_t exception_table(
 }
 
 void emit_unwind(const Function& function, uint32_t symbol, uint32_t shared_section,
-	const std::vector<uint32_t>& symbols, obj::ObjectFile& object, bool darwin)
+	const std::vector<uint32_t>& symbols, std::vector<uint32_t>& section_symbols, obj::ObjectFile& object, bool darwin)
 {
 	const uint32_t lsda = exception_table(function, symbols, object, darwin);
 	const bool handler = lsda != lowir::kNoId;
@@ -150,7 +150,23 @@ void emit_unwind(const Function& function, uint32_t symbol, uint32_t shared_sect
 	description.code_bytes = function.code.size() * 4;
 	description.lsda_encoding = handler ? 0x1b : 0xff;
 	native::encode_fde(description, rules.data(), rules.size(), section.bytes, pc_field, lsda_field);
-	section.relocations.push_back(obj::Relocation{ pc_field, Prel32, symbol, 0 });
+	// An ELF FDE names its code by section symbol and offset, as GNU as
+	// does: a global symbol may bind to another definition, and ld refuses
+	// a PC-relative reference to one in a shared object. Mach-O resolves
+	// the field by address either way.
+	uint32_t target = symbol;
+	int64_t addend = 0;
+	if (!darwin)
+	{
+		const uint32_t code = object.symbols[symbol].section;
+		addend = object.symbols[symbol].value;
+		if (code >= section_symbols.size())
+			section_symbols.resize(object.sections.size(), lowir::kNoId);
+		if (section_symbols[code] == lowir::kNoId)
+			section_symbols[code] = section_symbol(object, code);
+		target = section_symbols[code];
+	}
+	section.relocations.push_back(obj::Relocation{ pc_field, Prel32, target, addend });
 	if (handler)
 		section.relocations.push_back(obj::Relocation{ lsda_field, Prel32, lsda, 0 });
 	section.size = section.bytes.size();
