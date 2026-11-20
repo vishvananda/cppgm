@@ -96,11 +96,7 @@ void FunctionLowering::lower_definition()
 	const sema::CoroutineFacts* coroutine = nullptr;
 	if (body != nullptr && body->body != nullptr &&
 		(body->body->function_body_syntax & syntax::kCoroutineOperation) != 0)
-	{
 		coroutine = lowering_.graph().coroutine(function_);
-		if (coroutine != nullptr && body->try_block != nullptr)
-			throw LoweringError(body->body->location, "this coroutine definition requires exception lowering");
-	}
 	if (function_->naked)
 		return lower_naked_definition();
 	const bool inert_destructor = function_->destructor &&

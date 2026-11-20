@@ -290,6 +290,9 @@ To complete PA32, implement hosted link/runtime behavior for:
   handler in the coroutine or, if it escapes the body, the promise's
   `unhandled_exception`. Resumption inside a `try` block must restore
   its exception handling and preserve the lifetimes of its live objects.
+  A function-try-block covers the user body after initial suspension.
+  A member coroutine's class allocator sees the incoming object before
+  frame construction. The body uses the same object on resumption.
 
 If hosted header code compiles but the emitted objects do not link or run
 correctly, fix the hosted symbol emission, ABI spelling, object ownership, or

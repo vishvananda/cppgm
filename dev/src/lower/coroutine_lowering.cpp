@@ -328,18 +328,27 @@ void FunctionLowering::lower_coroutine_actor(lowir::SymbolId symbol, CoroutineFr
 		enclosing = begin_try(attempt);
 	lower_coroutine_implicit_await(*facts.initial, context, false);
 
+	const auto finish_body = [&] {
+		if (terminated_)
+			return;
+		if (facts.return_void != nullptr)
+			coroutine_return(*facts.return_void);
+		else
+			terminate(lowir::make_instruction(lowir::Opcode::Unreachable, result_type_));
+	};
+	const syntax::TryStmt* function_try = function_->body->try_block;
+	const size_t source_enclosing = function_try != nullptr ? begin_try(*function_try) : SIZE_MAX;
 	{
 		LexicalScope lexical(*this);
 		for (const syntax::Stmt* item : body.items)
 			statement(*item);
-		if (!terminated_)
-		{
-			if (facts.return_void != nullptr)
-				coroutine_return(*facts.return_void);
-			else
-				terminate(lowir::make_instruction(lowir::Opcode::Unreachable, result_type_));
-		}
+		finish_body();
 		leave_scope(0, body);
+	}
+	if (function_try != nullptr)
+	{
+		end_try(source_enclosing);
+		finish_body();
 	}
 	if (exceptions)
 	{
@@ -432,6 +441,8 @@ void FunctionLowering::lower_coroutine(const sema::CoroutineFacts& facts, const 
 	// A class allocator can inspect the incoming arguments before copying
 	// them into the frame. Keep the original allocation for deallocation.
 	const uint64_t bytes = layout.allocation_bytes(lowering_);
+	if (facts.object != nullptr)
+		bind_coroutine_storage(facts.object, lowir::Value::slot(this_slot_));
 	const lowir::Value allocation = allocate_coroutine_frame(facts, bytes, body.location);
 	lowir::Instruction ret = lowir::make_instruction(lowir::Opcode::Return, result_type_);
 	if (facts.return_on_allocation_failure != nullptr)
