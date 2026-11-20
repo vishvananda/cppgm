@@ -34,3 +34,54 @@ conditional checks its expansion's value. The final C++ declaration is tiny,
 so a full compile measures the macro workload without a large parser, semantic
 or backend workload obscuring it. Use sizes 8000, 16000 and 32000; compare GCC
 on exactly the same generated input as well as comparing compiler snapshots.
+
+## C++14, C++17 and C++20
+
+The edition inputs cover the feature families in [LANGUAGE_PROFILE.md](../../LANGUAGE_PROFILE.md).
+Each generated unit has fixed setup and a requested number of declarations,
+evaluations, or suspensions. The hosted cases include the selected standard
+library headers. Use the same host standard library for native compiler
+comparisons. [The scaling report](../../docs/performance/cxx-edition-scaling.md)
+lists the edition and workload for each measurement.
+
+Generate inputs at 32, 64, 128 and 256 units and keep each input's hash.
+Use 512, 1024, 2048 and 4096 for distinct overload signatures and the
+two member-template hiding stress cases. Use 128, 256, 512 and 1024 for
+`constraint-head-overloads` and `constraint-trailing-overloads`, which hold
+the type signature fixed. Use 8, 12, 16 and 18 for `shared-constraint`.
+There each unit adds one disjunction to the shared concept used by two
+overloads. The legacy implementation may take substantially longer at
+larger sizes. For `constexpr-heap-loop`, use 512, 1024, 2048 and 4096
+allocations inside one evaluation. The other constexpr inputs use independent
+evaluations.
+
+```sh
+work=$(mktemp -d)
+for size in 32 64 128 256; do
+  input="$work/constraints-$size.cpp"
+  python3 benchmarks/frontend_scaling/generate.py constraints-cxx20 "$size" > "$input"
+  sha256sum "$input"
+  perf stat -x, -e instructions:u,cycles:u,branch-misses:u \
+    /path/to/cppgm-candidate -std=c++20 -fsyntax-only "$input"
+  perf stat -x, -e instructions:u,cycles:u,branch-misses:u \
+    /path/to/cppgm-candidate -std=c++20 -O0 -c "$input" -o "$work/candidate.o"
+done
+/path/to/cppgm-candidate --stats -std=c++20 -O0 -c "$input" -o "$work/candidate.o"
+```
+
+For a candidate comparison, capture A/A and interleave A/B in ABBA and BAAB
+order with immutable binaries. Keep raw observations. Use the existing
+[compile A/B runner](../../scripts/run_ab_compile_benchmark.py) for elapsed
+and CPU time, peak RSS and byte equality. It compares objects exactly by
+default. For GCC or Clang comparisons, use the same source, edition, standard
+library and output kind. Compiler-specific object bytes can differ. The
+inputs use compile-time assertions for their semantics, and
+`coroutine-suspensions` also checks execution when linked and run.
+
+Subtract counts at consecutive sizes and divide by the added units to see
+whether marginal work grows. For example, the instruction increment from 128
+to 256 should be about twice the increment from 64 to 128 for linear work.
+Use the syntax-only counts to distinguish semantic growth from object
+generation, and collect `--stats` in a separate invocation. A useful
+older-language control is to compile `overload-declarations` as both C++17
+and C++20, since its source is identical and neither needs a constraint.

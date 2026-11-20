@@ -1,17 +1,22 @@
 #!/usr/bin/env python3
-"""Generate C++11 inputs that expose frontend complexity as their size grows."""
+"""Generate C++ inputs that expose frontend complexity as their size grows."""
 import argparse
+
+from editions import EDITIONS, source
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('case', choices=['parameter-bases', 'plain-templates',
                                         'independent-defaults', 'chained-defaults',
-                                        'nested-chained-defaults', 'macro-replacements'])
+                                        'nested-chained-defaults', 'macro-replacements', *EDITIONS])
     parser.add_argument('size', type=int)
     args = parser.parse_args()
     if args.size < 1:
         parser.error('size must be positive')
+    if args.case in EDITIONS:
+        print(source(args.case, args.size), end='')
+        return
     if args.case == 'macro-replacements':
         print('#define EMPTY()')
         print('#define CAT_(a,b) a##b')

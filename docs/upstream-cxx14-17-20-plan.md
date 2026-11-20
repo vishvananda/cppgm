@@ -644,6 +644,12 @@ deadline. The remaining recovered projects and declarations share a job.
   hosted-header compatibility runs qualify the combined batch.
   [Compile A/B runner](../scripts/run_ab_compile_benchmark.py) ·
   [Hardware-counter gate](../scripts/validate_perf_regression.py)
+- Measure the edition features directly with the
+  [frontend scaling inputs](../benchmarks/frontend_scaling/README.md). Take
+  syntax-only and object measurements on the same sources and vary the number
+  of declarations or demands to expose repeated work. Compare GCC and Clang
+  where the existing baseline cannot accept the new input. Keep this corpus
+  separate from the frozen self-compile epoch.
 - Land the harness generalization separately from the mode fixes. The first
   compiler batch should establish the header audit and shared diagnostic
   policy, then prove them with `if constexpr`, conditional `explicit` and
