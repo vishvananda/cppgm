@@ -230,14 +230,201 @@ bool guarded_call(const FunctionBody& body, const opt::Cfg& cfg, BlockId site)
 	return false;
 }
 
+// The register each parameter arrives in, when it stays there. An indirect
+// result parameter takes x8.
+std::vector<unsigned> incoming_registers(
+	const Program& program, const lowir::Signature& signature, const FunctionBody& body, bool darwin, bool& free_x8)
+{
+	std::vector<unsigned> incoming(body.parameter_count, kNoId);
+	Arguments args(darwin);
+	for (TempId id = 0; id < body.parameter_count; ++id)
+	{
+		const auto& param = program.parameters_of(signature)[id];
+		if (param.pass == ir_model::PPM_INDIRECT_RESULT)
+		{
+			free_x8 = false;
+			continue;
+		}
+		const auto arg = args.next(param.type, param.shape);
+		if ((arg.bank == Bank::General && !memory_value(param.type)) ||
+			(arg.bank == Bank::Simd && (param.type.kind() == TypeKind::V128 || !memory_value(param.type))))
+			incoming[id] = arg.first;
+	}
+	return incoming;
+}
+
+// The order in which ranges choose homes: by spill priority when the
+// registers may not suffice, with the phi web adjustments above; empty
+// (program order) otherwise.
+std::vector<uint32_t> allocation_order(const Program& program, const FunctionBody& body, opt::Cfg& cfg,
+	const std::vector<uint32_t>& aliases, std::vector<uint64_t>& block_weights, const std::vector<LiveRange>& ranges,
+	const Segments& segments, const std::vector<uint32_t>& calls, machine::PhiWebs& webs, uint32_t slots,
+	unsigned level, unsigned general_registers)
+{
+	std::vector<uint32_t> order;
+	std::vector<double> priority;
+	const auto simd_pressure = register_pressure(body, ranges, segments, calls, slots, 8, Bank::Simd);
+	if (simd_pressure != RegisterPressure::Fits ||
+		register_pressure(body, ranges, segments, calls, slots, general_registers, Bank::General) !=
+			RegisterPressure::Fits)
+	{
+		const auto weight = spill_weights(program, body, cfg, aliases, block_weights);
+		order.resize(ranges.size());
+		priority.reserve(ranges.size());
+		for (uint32_t i = 0; i < order.size(); ++i)
+		{
+			order[i] = i;
+			const auto& range = ranges[i];
+			priority.push_back(simd_pressure == RegisterPressure::Saturated
+					? simd_spill_priority(body, range, segments, weight[range.id])
+					: static_cast<double>(weight[range.id]));
+		}
+		std::stable_sort(order.begin(), order.end(), [&](uint32_t a, uint32_t b) { return priority[a] > priority[b]; });
+		if (level >= 2 && !calls.empty() && !webs.empty())
+			prioritize_call_webs(body, ranges, segments, calls, webs, priority, order);
+	}
+	if (level >= 3 && !segments.empty() && !webs.empty())
+		prioritize_loop_webs(body, cfg, ranges, aliases, order);
+	if (level >= 2 && priority.empty() && !order.empty() && !calls.empty() && !webs.empty())
+		prioritize_call_webs(body, ranges, segments, calls, webs, priority, order);
+	return order;
+}
+
 // A straight-line function only needs the end of each register's last use.
 // When a register has holes, query the same interference tree used on x86.
+// Phi transfers whose two ends never overlap can use one register. Join
+// them into groups, forward transfers first, while no two members of a group
+// overlap. A group crosses a call when one of its members does.
+class PhiGroups
+{
+public:
+	PhiGroups(const FunctionBody& body, const std::vector<LiveRange>& ranges, const Segments& segments,
+		const std::vector<PhiCopy>& copies, const std::vector<uint32_t>& calls)
+	{
+		if (copies.empty() || segments.empty())
+			return;
+		const size_t count = body.temps.size();
+		std::vector<uint32_t> range_of(count, kNoId), position(body.blocks.size(), 0), order(copies.size());
+		for (uint32_t i = 0; i < ranges.size(); ++i)
+			if (ranges[i].first != kNoId)
+				range_of[ranges[i].id] = i;
+		for (uint32_t k = 0; k < body.layout.size(); ++k)
+			position[body.layout[k]] = k;
+		for (uint32_t c = 0; c < copies.size(); ++c)
+			order[c] = c;
+		std::stable_partition(
+			order.begin(), order.end(), [&](uint32_t c) { return position[copies[c].from] < position[copies[c].to]; });
+		root_.assign(count, kNoId);
+		std::vector<uint32_t> span_of(count, kNoId);
+		std::vector<Segments> spans;
+		for (uint32_t c : order)
+		{
+			uint32_t ends[] = { copies[c].source, copies[c].phi };
+			if (range_of[ends[0]] == kNoId || range_of[ends[1]] == kNoId)
+				continue;
+			for (auto& end : ends)
+			{
+				if (root_[end] == kNoId)
+				{
+					root_[end] = end;
+					span_of[end] = spans.size();
+					spans.emplace_back();
+					each_interval(ranges[range_of[end]], segments,
+						[&](uint32_t a, uint32_t b) { spans.back().push_back({ a, b }); });
+					std::sort(spans.back().begin(), spans.back().end());
+				}
+				end = find(end);
+			}
+			if (ends[0] == ends[1] || overlap(spans[span_of[ends[0]]], spans[span_of[ends[1]]]))
+				continue;
+			const auto keep = std::min(ends[0], ends[1]), gone = std::max(ends[0], ends[1]);
+			auto& kept = spans[span_of[keep]];
+			auto& lost = spans[span_of[gone]];
+			Segments joined;
+			joined.reserve(kept.size() + lost.size());
+			std::merge(kept.begin(), kept.end(), lost.begin(), lost.end(), std::back_inserter(joined));
+			kept = std::move(joined);
+			lost = Segments();
+			root_[gone] = keep;
+		}
+		first_.assign(count + 1, 0);
+		for (TempId t = 0; t < count; ++t)
+			if (root_[t] != kNoId)
+				++first_[(root_[t] = find(t)) + 1];
+		for (size_t t = 0; t < count; ++t)
+			first_[t + 1] += first_[t];
+		members_.resize(first_[count]);
+		crosses_.assign(count, 0);
+		std::vector<uint32_t> fill(first_.begin(), first_.end() - 1);
+		for (TempId t = 0; t < count; ++t)
+			if (root_[t] != kNoId)
+			{
+				members_[fill[root_[t]]++] = range_of[t];
+				each_interval(ranges[range_of[t]], segments, [&](uint32_t a, uint32_t b) {
+					const auto call = std::lower_bound(calls.begin(), calls.end(), a);
+					crosses_[root_[t]] |= call != calls.end() && *call < b;
+				});
+			}
+	}
+	bool crosses_call(TempId root) const { return crosses_[root]; }
+	bool empty() const { return root_.empty(); }
+	TempId root(TempId id) const { return root_.empty() ? kNoId : root_[id]; }
+	// The range indices of a group's members.
+	template<typename F>
+	void each_member(TempId root, F f) const
+	{
+		for (uint32_t k = first_[root]; k < first_[root + 1]; ++k)
+			f(members_[k]);
+	}
+
+private:
+	TempId find(TempId t)
+	{
+		while (root_[t] != t)
+			t = root_[t] = root_[root_[t]];
+		return t;
+	}
+	static bool overlap(const Segments& a, const Segments& b)
+	{
+		for (size_t i = 0, j = 0; i < a.size() && j < b.size();)
+		{
+			if (a[i].first <= b[j].second && b[j].first <= a[i].second)
+				return true;
+			if (a[i].second < b[j].second)
+				++i;
+			else
+				++j;
+		}
+		return false;
+	}
+
+	std::vector<TempId> root_;
+	std::vector<uint32_t> first_, members_;
+	std::vector<uint8_t> crosses_;
+};
+
 class RegisterBank
 {
 public:
 	RegisterBank(const Segments& segments, uint32_t slots) : segments_(segments), slots_(slots) {}
 	uint32_t live_at(uint32_t slot) const { return initialized_ ? tree_.regs(slot, slot) : 0; }
-	unsigned assign(const LiveRange& range, uint32_t allowed, unsigned preferred, unsigned alternate = kNoId)
+	// Ask later ranges without a usable preference to leave `reg` free over
+	// `range`, which would remove one of its phi transfers.
+	void hint(const LiveRange& range, unsigned reg)
+	{
+		if (segments_.empty())
+			return;
+		if (!hinted_)
+		{
+			hints_.build_regs(slots_);
+			hinted_ = true;
+		}
+		each_interval(range, segments_, [&](uint32_t a, uint32_t b) { hints_.add_regs(a, b, 1u << reg); });
+	}
+	// Without a usable preference, a register in `partners` comes next;
+	// those are the registers of the range's phi partners.
+	unsigned assign(
+		const LiveRange& range, uint32_t allowed, unsigned preferred, unsigned alternate = kNoId, uint32_t partners = 0)
 	{
 		if (!allowed)
 			return kNoId;
@@ -263,7 +450,8 @@ public:
 			return kNoId;
 		const unsigned reg = preferred != kNoId && (allowed & (1u << preferred)) ? preferred
 			: alternate != kNoId && (allowed & (1u << alternate))                ? alternate
-																				 : __builtin_ctz(allowed);
+			: (allowed & partners)                                               ? __builtin_ctz(allowed & partners)
+																				 : unhinted(range, allowed, partners);
 		if (segments_.empty())
 			until_[reg] = range.last + 1;
 		else
@@ -272,10 +460,22 @@ public:
 	}
 
 private:
+	// The lowest register of the lowest one's class that no other range's
+	// hint holds over `range`, else the lowest register.
+	unsigned unhinted(const LiveRange& range, uint32_t allowed, uint32_t partners) const
+	{
+		const unsigned lowest = __builtin_ctz(allowed);
+		if (!hinted_)
+			return lowest;
+		uint32_t open = lowest < 19 ? allowed & ((1u << 19) - 1) : allowed;
+		each_interval(range, segments_, [&](uint32_t a, uint32_t b) { open &= ~(hints_.regs(a, b) & ~partners); });
+		return open ? __builtin_ctz(open) : lowest;
+	}
+
 	const Segments& segments_;
 	uint32_t slots_, until_[32] = {};
-	machine::PressureTree tree_;
-	bool initialized_ = false;
+	machine::PressureTree tree_, hints_;
+	bool initialized_ = false, hinted_ = false;
 };
 } // namespace
 
@@ -461,63 +661,31 @@ void Selector::allocate()
 	Segments segments;
 	opt::Cfg cfg;
 	machine::PhiWebs webs;
+	std::vector<PhiCopy> copies;
 	aliases_ = scalar_aliases(body_);
-	auto ranges = live_ranges(
-		program_, body_, out_.exceptions.get(), uses_, calls, segments, cfg, webs, entry_regs_, aliases_, level_ >= 3);
+	auto ranges = live_ranges(program_, body_, out_.exceptions.get(), uses_, calls, segments, cfg, webs, entry_regs_,
+		aliases_, level_ >= 3, copies);
 	std::vector<uint32_t> web_regs(webs.empty() ? 0 : count, kNoId);
 	std::stable_sort(
 		ranges.begin(), ranges.end(), [](const LiveRange& a, const LiveRange& b) { return a.first < b.first; });
 	// x9-x11, x15-x17 and v16-v17 are selector scratch; x18 is platform-reserved.
-	std::vector<unsigned> incoming(body_.parameter_count, kNoId);
-	Arguments args(named_.darwin);
 	bool free_x8 = !named_.darwin && !result_.indirect && !out_.exceptions;
-	for (TempId id = 0; id < body_.parameter_count; ++id)
-	{
-		const auto& param = program_.parameters_of(signature_)[id];
-		if (param.pass == ir_model::PPM_INDIRECT_RESULT)
-		{
-			free_x8 = false;
-			continue;
-		}
-		const auto arg = args.next(param.type, param.shape);
-		if ((arg.bank == Bank::General && !memory_value(param.type)) ||
-			(arg.bank == Bank::Simd && (param.type.kind() == TypeKind::V128 || !memory_value(param.type))))
-			incoming[id] = arg.first;
-	}
+	const auto incoming = incoming_registers(program_, signature_, body_, named_.darwin, free_x8);
 	const uint32_t slots = 2 * (body_.instructions.size() + body_.layout.size()) + 3;
 	const auto outgoing = call_registers();
-	std::vector<uint32_t> order;
-	std::vector<double> priority;
-	const auto simd_pressure = register_pressure(body_, ranges, segments, calls, slots, 8, Bank::Simd);
-	if (simd_pressure != RegisterPressure::Fits ||
-		register_pressure(body_, ranges, segments, calls, slots, dynamic_stack_ ? 9 : 10, Bank::General) !=
-			RegisterPressure::Fits)
-	{
-		const auto weight = spill_weights(program_, body_, cfg, aliases_, block_weights_);
-		order.resize(ranges.size());
-		priority.reserve(ranges.size());
-		for (uint32_t i = 0; i < order.size(); ++i)
-		{
-			order[i] = i;
-			const auto& range = ranges[i];
-			priority.push_back(simd_pressure == RegisterPressure::Saturated
-					? simd_spill_priority(body_, range, segments, weight[range.id])
-					: static_cast<double>(weight[range.id]));
-		}
-		std::stable_sort(order.begin(), order.end(), [&](uint32_t a, uint32_t b) { return priority[a] > priority[b]; });
-		if (level_ >= 2 && !calls.empty() && !webs.empty())
-			prioritize_call_webs(body_, ranges, segments, calls, webs, priority, order);
-	}
-	if (level_ >= 3 && !segments.empty() && !webs.empty())
-		prioritize_loop_webs(body_, cfg, ranges, aliases_, order);
-	if (level_ >= 2 && priority.empty() && !order.empty() && !calls.empty() && !webs.empty())
-		prioritize_call_webs(body_, ranges, segments, calls, webs, priority, order);
+	const auto order = allocation_order(program_, body_, cfg, aliases_, block_weights_, ranges, segments, calls, webs,
+		slots, level_, dynamic_stack_ ? 9 : 10);
 	const bool split_calls = level_ >= 2 && !out_.exceptions && !named_.darwin && !dynamic_stack_ &&
 		body_.code_labels.empty() && calls.size() <= 64;
 	if (split_calls && calls.size() > 1 && block_weights_.empty() && !cfg.succ_first.empty())
 		block_frequencies(program_, body_, cfg, block_weights_);
 	const bool single = split_calls && calls.size() == 1 && guarded_call(body_, cfg, calls_.front().block);
 	const bool cold_calls = split_calls && (single || !block_weights_.empty());
+	// A group's first member to get a register asks the later ones, and the
+	// ranges assigned in between, to leave it to them.
+	const PhiGroups groups(body_, ranges, segments, copies, calls);
+	std::vector<uint32_t> group_regs(groups.empty() ? 0 : count, kNoId);
+	std::vector<uint8_t> assigned(group_regs.empty() ? 0 : ranges.size());
 	constexpr uint32_t high_caller_simd = 0xfffc0000; // v18 through v31, clear of argument and scratch registers.
 	RegisterBank general(segments, slots), simd(segments, slots);
 	std::vector<uint32_t> simd_web_regs;
@@ -528,6 +696,8 @@ void Selector::allocate()
 		const auto& range = ranges[order.empty() ? i : order[i]];
 		if (range.first == kNoId)
 			continue;
+		if (!assigned.empty())
+			assigned[order.empty() ? i : order[i]] = 1;
 		bool at_call = false, across_call = false;
 		uint32_t kept = !out_.exceptions && !leaf_registers_.empty() ? (0xfcu | (7u << 12)) : 0;
 		if (!calls.empty())
@@ -622,8 +792,35 @@ void Selector::allocate()
 		if (preferred == kNoId && at_call && !across_call && outgoing[range.id].preferred < 8)
 			preferred = outgoing[range.id].preferred;
 		const auto root = range.affinity == kNoId ? kNoId : webs.root(range.id);
-		const auto reg = general.assign(range, caller | preserved, preferred, root == kNoId ? kNoId : web_regs[root]);
+		const auto group = groups.root(range.id);
+		const unsigned group_reg = group == kNoId ? kNoId : group_regs[group];
+		uint32_t partner_regs = 0;
+		if (group_reg != kNoId)
+		{
+			partner_regs = preferred < 32 ? 1u << preferred : 0;
+			preferred = group_reg;
+		}
+		// The first member of a group that crosses a call chooses for it,
+		// unless it arrives in an argument register.
+		const uint32_t first_choice = group != kNoId && group_reg == kNoId && !across_call &&
+				range.id >= body_.parameter_count && groups.crosses_call(group)
+			? preserved
+			: 0;
+		auto reg = first_choice
+			? general.assign(range, first_choice, preferred, root == kNoId ? kNoId : web_regs[root], partner_regs)
+			: kNoId;
+		if (reg == kNoId)
+			reg = general.assign(
+				range, caller | preserved, preferred, root == kNoId ? kNoId : web_regs[root], partner_regs);
 		registers_[range.id] = reg;
+		if (reg != kNoId && group != kNoId && group_reg == kNoId)
+		{
+			group_regs[group] = reg;
+			groups.each_member(group, [&](uint32_t index) {
+				if (!assigned[index])
+					general.hint(ranges[index], reg);
+			});
+		}
 		if (across_call && reg < 15 && !(kept & (1u << reg)))
 		{
 			if (argument_spills_.empty())

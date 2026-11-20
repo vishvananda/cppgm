@@ -319,7 +319,8 @@ std::vector<uint32_t> scalar_aliases(const FunctionBody& body)
 std::vector<LiveRange> live_ranges(const Program& program, const FunctionBody& body,
 	const machine::ExceptionLayout* exceptions, std::vector<uint32_t>& uses, std::vector<uint32_t>& calls,
 	std::vector<std::pair<uint32_t, uint32_t>>& segments, opt::Cfg& cfg, machine::PhiWebs& webs,
-	std::vector<uint32_t>& entries, const std::vector<uint32_t>& aliases, bool separate_shared_inputs)
+	std::vector<uint32_t>& entries, const std::vector<uint32_t>& aliases, bool separate_shared_inputs,
+	std::vector<PhiCopy>& copies)
 {
 	FunctionLiveness plan(body);
 	uses.assign(body.temps.size(), 0);
@@ -404,6 +405,7 @@ std::vector<LiveRange> live_ranges(const Program& program, const FunctionBody& b
 						webs.join(id, phi.result);
 						plan.ranges[id].affinity = phi.result;
 						plan.ranges[phi.result].affinity = id;
+						copies.push_back(PhiCopy{ id, phi.result, pred, b });
 					}
 					plan.reads[id].incoming = true;
 				}

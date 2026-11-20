@@ -20,6 +20,10 @@ public:
 	// their pending adds as it climbs, then the shared ones to the root.
 	int32_t max(uint32_t first, uint32_t last) const;
 	void add(uint32_t first, uint32_t last, int32_t delta, uint32_t regs = 0);
+	// Only the register sets over `slots` slots, without counts: `add_regs`
+	// and `regs` then work, `max` and `add` do not.
+	void build_regs(size_t slots);
+	void add_regs(uint32_t first, uint32_t last, uint32_t regs);
 	// The registers some add's range meeting [first, last] carried: those
 	// below the range's canonical nodes and those covering their ancestors
 	// (any node meeting the range lies within one of them or holds one).

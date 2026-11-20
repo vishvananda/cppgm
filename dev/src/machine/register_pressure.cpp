@@ -103,6 +103,44 @@ void PressureTree::add(uint32_t first, uint32_t last, int32_t delta, uint32_t re
 		pull(left);
 }
 
+void PressureTree::build_regs(size_t slots)
+{
+	size_ = 1;
+	while (size_ < slots)
+		size_ <<= 1;
+	cover_.assign(2 * size_, 0);
+	below_.assign(2 * size_, 0);
+}
+
+void PressureTree::add_regs(uint32_t first, uint32_t last, uint32_t regs)
+{
+	if (first > last)
+		return;
+	if (last >= size_)
+		last = static_cast<uint32_t>(size_ - 1);
+	size_t l = first + size_, r = last + size_;
+	const size_t l0 = l, r0 = r;
+	while (l <= r)
+	{
+		if (l & 1)
+		{
+			cover_[l] |= regs;
+			below_[l++] |= regs;
+		}
+		if (!(r & 1))
+		{
+			cover_[r] |= regs;
+			below_[r--] |= regs;
+		}
+		l >>= 1;
+		r >>= 1;
+	}
+	for (size_t left = l0 >> 1; left != 0; left >>= 1)
+		below_[left] |= regs;
+	for (size_t right = r0 >> 1; right != 0; right >>= 1)
+		below_[right] |= regs;
+}
+
 uint32_t PressureTree::regs(uint32_t first, uint32_t last) const
 {
 	if (first > last || last >= size_)
