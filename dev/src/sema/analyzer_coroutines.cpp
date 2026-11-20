@@ -310,16 +310,34 @@ const CoroutineFacts* Analyzer::analyze_coroutine(const FunctionEntity* function
 		if (!IsVoid(facts->return_void->facts->type))
 			return substitution_error(location, "coroutine return_void must return void"), nullptr;
 	}
-	syntax::Expr* return_object = invoke(special_key("get_return_object"));
-	if (return_object == nullptr)
+	const auto check_result = [&](syntax::Expr* value) {
+		syntax::ValueStmt returned = syntax::ValueStmt();
+		returned.kind = syntax::StmtKind::Return;
+		returned.location = location;
+		returned.value = value;
+		return_statement(returned, scope);
+		return !failed();
+	};
+	syntax::Expr* result = invoke(special_key("get_return_object"));
+	if (result == nullptr || !check_result(result))
 		return nullptr;
-	facts->return_object = return_object;
-	syntax::ValueStmt returned = syntax::ValueStmt();
-	returned.kind = syntax::StmtKind::Return;
-	returned.location = location;
-	returned.value = return_object;
-	return_statement(returned, scope);
-	if (failed())
+	facts->return_object = result;
+	const Identifier* failure = special_key("get_return_object_on_allocation_failure");
+	const LookupResult found_failure = names_.qualified(promise_scope, failure, LookupFilter::Ordinary);
+	if (found_failure.found() || found_failure.ambiguous)
+	{
+		syntax::Expr* call = invoke(failure);
+		if (call == nullptr)
+			return nullptr;
+		const Entity* callee = call->facts->entity;
+		if (callee == nullptr || callee->kind != EntityKind::Function ||
+			!static_cast<const FunctionEntity*>(callee)->is_static)
+			return substitution_error(location, "a coroutine allocation failure operation must be static"), nullptr;
+		if (!check_result(call))
+			return nullptr;
+		facts->return_on_allocation_failure = call;
+	}
+	if (!coroutine_allocation(*facts, scope, location))
 		return nullptr;
 	facts->unhandled_exception = exceptions_ ? invoke(special_key("unhandled_exception")) : nullptr;
 	if (exceptions_ && facts->unhandled_exception == nullptr)

@@ -136,6 +136,11 @@ To complete PA31, support:
   Try default initialization if none of those constructors is viable.
   Initialize a class parameter's frame copy from an xvalue of the incoming
   object. A reference parameter's frame copy binds to the same referent.
+  Look up allocation and deallocation in the promise class, with global
+  lookup as the fallback when the name is absent. Try a class allocator
+  with the frame size and the incoming arguments before trying the size
+  alone. A promise with `get_return_object_on_allocation_failure` needs a
+  non-throwing allocator and a static failure operation.
   Resolve the promise and awaiter calls using normal overload resolution.
   Use the type and value category of `await_resume()` for the await expression.
   See `[dcl.fct.def.coroutine]`, `[expr.await]`, and `[stmt.return.coroutine]`.

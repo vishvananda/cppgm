@@ -44,8 +44,14 @@ inline Task Owner::run(int n) const & {
   co_return n + ordinary();
 }
 
+struct MoveOnly;
+struct Immovable;
+
 struct FallbackTask {
   struct promise_type {
+    static void* operator new(decltype(sizeof(0)), MoveOnly&, Immovable&) noexcept;
+    static void operator delete(void*, decltype(sizeof(0))) noexcept;
+    static FallbackTask get_return_object_on_allocation_failure() noexcept;
     promise_type();
     promise_type(int&&) = delete;
     FallbackTask get_return_object();

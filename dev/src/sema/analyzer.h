@@ -464,6 +464,8 @@ private:
 	bool coroutine_promise_initializer(const FunctionEntity* function, VariableEntity* promise,
 		CoroutineFacts& coroutine, Scope* scope, uint32_t location);
 	bool coroutine_parameter_copies(CoroutineFacts& coroutine, Scope* scope, uint32_t location);
+	bool coroutine_allocation(CoroutineFacts& coroutine, Scope* scope, uint32_t location);
+	bool coroutine_deallocation(CoroutineFacts& coroutine, Scope* scope, uint32_t location);
 	syntax::Expr* coroutine_member_call(
 		syntax::Expr* object, const Identifier* name, syntax::Expr* argument, Scope* scope, uint32_t location);
 	const CoroutineAwait* coroutine_await(

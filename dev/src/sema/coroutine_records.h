@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "syntax/ast_names.h"
+
 namespace syntax {
 struct Expr;
 struct Initializer;
@@ -42,6 +44,12 @@ struct CoroutineFacts
 	const syntax::Initializer* promise_initializer;
 	const CoroutineParameterCopy* parameter_copies;
 	uint32_t parameter_copy_count;
+	const FunctionEntity* allocate;
+	const FunctionEntity* deallocate;
+	// Explicit arguments following the size. Default arguments belong to
+	// the selected allocation function.
+	syntax::Slice<syntax::Expr*> allocation_arguments;
+	const syntax::Expr* return_on_allocation_failure;
 	const VariableEntity* handle;
 	const syntax::Expr* return_object;
 	const syntax::Expr* unhandled_exception;
