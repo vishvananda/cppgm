@@ -603,6 +603,15 @@ inline FunctionEntity* PatternOf(const FunctionEntity* function)
 	return function->templ != nullptr ? function->templ->pattern : nullptr;
 }
 
+inline bool InlineOnlyDefinition(const FunctionEntity* function, bool c_source)
+{
+	if (function->gnu_inline || (function->primary != nullptr && function->primary->gnu_inline))
+		return true;
+	const FunctionEntity* pattern = PatternOf(function);
+	return (pattern != nullptr && pattern->gnu_inline) ||
+		(c_source && function->is_inline && !function->internal_linkage && !function->c_external_definition);
+}
+
 // A closure type's capture (5.1.2p14-p15): the variable or parameter
 // captured, and the closure's unnamed member: a reference bound to it (the
 // course's form of the unspecified members of a capture by reference), or

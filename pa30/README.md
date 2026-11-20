@@ -610,6 +610,9 @@ To complete PA30, implement hosted compatibility for:
   keeps only its own declarations'; a call through a pointer states none, and
   a call of such a function does not end its block. PA33's `-O0` driver lane
   compares the fact
+- default visibility for unannotated imports whose GNU inline body is
+  available only for inlining, even when the compilation uses
+  `-fvisibility=hidden` or `-fvisibility-inlines-hidden`.
 - semantic validation of primary-source GNU inline function bodies even when
   emission is deferred; an unimplemented reserved compiler builtin may defer
   its wrapper, but ordinary lookup and type errors in an unused wrapper must

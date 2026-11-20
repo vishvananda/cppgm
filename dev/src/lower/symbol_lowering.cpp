@@ -2658,7 +2658,8 @@ ir_model::SymbolVisibility ProgramLowering::function_visibility(const sema::Func
 	// The inline option affects addresses of emitted inline functions
 	// and can be overridden on the function itself. Class visibility is
 	// still used for non-inline members and explicit instantiations.
-	const bool emitted = function->defined && !function->extern_instantiation;
+	const bool emitted = function->defined && !function->extern_instantiation &&
+		!sema::InlineOnlyDefinition(function, analyzer_->c_source());
 	// A hidden weak copy could hide a public definition emitted by the
 	// explicit instantiation in another object.
 	if (visibility_inlines_hidden_ && !analyzer_->c_source() && function->is_inline && emitted &&

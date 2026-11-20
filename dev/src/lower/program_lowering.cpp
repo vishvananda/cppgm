@@ -1001,12 +1001,9 @@ void ProgramLowering::demand_entry(const sema::FunctionEntity* function, EntryVa
 	// name the external definition, which the declaration's object (its
 	// asm label) denotes. Emitting it would define that name here: glibc's
 	// C++ overloads of strchr wrap __builtin_strchr, a call of `strchr`.
-	const sema::FunctionEntity* pattern = sema::PatternOf(function);
-	if (function->gnu_inline || (function->primary != nullptr && function->primary->gnu_inline) ||
-		(pattern != nullptr && pattern->gnu_inline))
-		return;
-	// An ISO C inline-only definition does not provide the external symbol.
-	if (analyzer_->c_source() && function->is_inline && !function->internal_linkage && !function->c_external_definition)
+	// An ISO C inline-only definition also leaves the external symbol to
+	// another translation unit.
+	if (sema::InlineOnlyDefinition(function, analyzer_->c_source()))
 		return;
 	// A template's specialization (or an instance's member) is defined
 	// where odr-used, its body instantiated on this demand (14.7.1p2).
