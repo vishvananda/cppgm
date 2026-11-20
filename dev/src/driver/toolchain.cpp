@@ -1541,7 +1541,8 @@ bool preprocess_unit(const Input& source, const Invocation& invocation, std::ost
 			assembly_options = invocation.preprocessor;
 			assembly_options.assembler = true;
 			assembly_options.language = SourceLanguage::C;
-			assembly_options.cplusplus.clear();
+			assembly_options.cxx_edition = 0;
+			assembly_options.builtin_declarations.clear();
 		}
 		Preprocessor preprocessor(
 			source.kind == Input::Kind::Assembly ? assembly_options : invocation.preprocessor, path, stream);

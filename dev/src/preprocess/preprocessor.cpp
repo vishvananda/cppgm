@@ -233,15 +233,15 @@ std::vector<std::string> Preprocessor::dependency_headers(bool include_system) c
 {
 	std::vector<std::string> headers;
 	std::unordered_set<std::string> seen;
-	std::vector<bool> excluded(files_.inclusion_count());
-	for (uint32_t i = 0; i < excluded.size(); ++i)
+	for (uint32_t i = 0; i < files_.inclusion_count(); ++i)
 	{
 		const SourceInclusion& inclusion = files_.inclusion(i);
-		if (inclusion.parent == kNoInclusion)
+		// Dependencies use how the file was reached. A later pragma keeps
+		// this file in the rule and marks its subsequent includes as system.
+		if (inclusion.parent == kNoInclusion || (!include_system && inclusion.is_system(inclusion.base)))
 			continue;
-		excluded[i] = !include_system && (inclusion.system || excluded[inclusion.parent]);
 		const std::string& path = inclusion.file->path();
-		if (!excluded[i] && seen.insert(path).second)
+		if (seen.insert(path).second)
 			headers.push_back(path);
 	}
 	return headers;

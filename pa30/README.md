@@ -190,7 +190,9 @@ New or newly required in PA30:
   - `-MD` and `-MMD` also write a make rule during compilation. The default
     depfile is named for the output, with a `.d` suffix.
   - `-M` and `-MD` include system headers. `-MM` and `-MMD` omit system
-    headers and headers reached solely through them.
+    headers and headers reached solely through them. A system-header pragma
+    also excludes subsequent includes from that file. The file itself keeps
+    the status it had when it was included.
   - `-MT <target>` supplies a make target as written. `-MQ <target>`
     quotes make-special characters. `-MP` adds an empty rule for each
     header so a removed header does not break an older dependency file.
