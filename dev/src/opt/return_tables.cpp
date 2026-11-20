@@ -29,6 +29,8 @@ struct Case
 	Result result;
 };
 
+// `bits`: an integer result's bits; for a pointer result the symbol whose
+// address it is, plus one (0 is null).
 struct PhiIncoming
 {
 	uint32_t position;
@@ -44,7 +46,7 @@ struct PhiTable
 	Type selector, result;
 	const std::vector<PhiIncoming>& inputs;
 	const std::vector<uint64_t>& values;
-	bool powers, byte;
+	bool powers, byte, nonnull;
 };
 
 class ReturnTables
@@ -59,6 +61,8 @@ private:
 	bool available(Value value, BlockId block);
 	bool candidate(BlockId block);
 	bool phi_candidate(BlockId block);
+	bool value_bits(Type type, Value value, uint64_t& bits) const;
+	bool arm_bits(const Instruction& phi, BlockId arm, uint64_t& bits) const;
 	bool partition_phi(BlockId from, const Instruction& term, Type selector, BlockId join, InstId phi,
 		const std::vector<PhiIncoming>& inputs);
 	void rewrite_phi_table(const Instruction& term, const PhiTable& facts);
@@ -160,6 +164,15 @@ SymbolId ReturnTables::table(const std::vector<uint64_t>& values, Type type)
 	for (uint64_t value : values)
 	{
 		DataItem item = DataItem();
+		if (type.is_pointer())
+		{
+			item.kind = value == 0 ? DataItemKind::Zero : DataItemKind::Address;
+			item.type = type;
+			item.address = value == 0 ? kNoId : static_cast<SymbolId>(value - 1);
+			item.amount = value == 0 ? static_cast<int64_t>(bytes) : 0;
+			p_.data_items.push_back(item);
+			continue;
+		}
 		item.kind = DataItemKind::Scalar;
 		item.type = type;
 		item.constant.kind = ValueKind::Integer;
@@ -424,6 +437,47 @@ bool ReturnTables::partition_phi(BlockId from, const Instruction& term, Type sel
 	return true;
 }
 
+// The bits a phi of `type` takes from `value` in a table: an integer
+// literal's, or for a pointer the symbol whose address it is plus one, or 0
+// for null.
+bool ReturnTables::value_bits(Type type, Value value, uint64_t& bits) const
+{
+	if (type.is_integer() && type.kind() != TypeKind::I128)
+	{
+		if (!value.is(ValueKind::Integer))
+			return false;
+		bits = normalize_integer(type, b_.literals[value.index]).low;
+		return true;
+	}
+	if (!type.is_pointer())
+		return false;
+	if (value.is(ValueKind::Symbol))
+	{
+		bits = static_cast<uint64_t>(value.index) + 1;
+		return true;
+	}
+	bits = 0;
+	return value.is(ValueKind::Integer) &&
+		normalize_integer(Type::scalar(TypeKind::I64), b_.literals[value.index]).low == 0;
+}
+
+// The bits an arm gives the phi: a jump, or for a pointer result the
+// address of a symbol and a jump.
+bool ReturnTables::arm_bits(const Instruction& phi, BlockId arm, uint64_t& bits) const
+{
+	Value value = phi_incoming(b_, phi, arm);
+	const InstId first = b_.blocks[arm].first;
+	if (first != b_.blocks[arm].last)
+	{
+		const Instruction& addr = b_.instructions[first];
+		if (!phi.type.is_pointer() || addr.op != Opcode::Addr || !value.is(ValueKind::Temp) ||
+			addr.result != value.index)
+			return false;
+		value = addr.ops[0];
+	}
+	return value_bits(phi.type, value, bits);
+}
+
 bool ReturnTables::phi_candidate(BlockId block)
 {
 	const InstId terminal = b_.blocks[block].last;
@@ -449,7 +503,8 @@ bool ReturnTables::phi_candidate(BlockId block)
 			(c_.cfg.flags[target] & (BF_ADDRESS | BF_HANDLER | BF_EH)))
 			continue;
 		const Block& arm = b_.blocks[target];
-		if (arm.first == kNoId || arm.first != arm.last || b_.instructions[arm.last].op != Opcode::Jump)
+		if (arm.first == kNoId || b_.instructions[arm.last].op != Opcode::Jump ||
+			(arm.first != arm.last && b_.instructions[arm.first].next != arm.last))
 			continue;
 		const BlockId merge = b_.instructions[arm.last].ops[0].index;
 		const InstId first = b_.blocks[merge].first;
@@ -458,17 +513,14 @@ bool ReturnTables::phi_candidate(BlockId block)
 			(join != kNoId && merge != join))
 			continue;
 		const Instruction& incoming = b_.instructions[first];
-		if (!incoming.type.is_integer() || incoming.type.kind() == TypeKind::I128)
-			continue;
-		const Value value = phi_incoming(b_, incoming, target);
-		if (!value.is(ValueKind::Integer) || !b_.operands[term.extra_first + k].is(ValueKind::Integer))
+		uint64_t bits = 0;
+		if (!b_.operands[term.extra_first + k].is(ValueKind::Integer) || !arm_bits(incoming, target, bits))
 			continue;
 		join = merge;
 		phi = first;
 		result = incoming.type;
-		inputs.push_back(PhiIncoming{ k, target,
-			normalize_integer(selector, b_.literals[b_.operands[term.extra_first + k].index]).low,
-			normalize_integer(result, b_.literals[value.index]).low });
+		inputs.push_back(PhiIncoming{
+			k, target, normalize_integer(selector, b_.literals[b_.operands[term.extra_first + k].index]).low, bits });
 	}
 	// Case values that go to the join with no arm between give the value the
 	// phi takes from the switch's block. With them in the table that edge is
@@ -476,10 +528,10 @@ bool ReturnTables::phi_candidate(BlockId block)
 	// the table's elements keeps its edge.)
 	const Value direct = join == kNoId || term.ops[1].index == join ? Value::none()
 																	: phi_incoming(b_, b_.instructions[phi], block);
-	if (direct.is(ValueKind::Integer))
+	uint64_t bits = 0;
+	if (!direct.is(ValueKind::None) && value_bits(result, direct, bits))
 	{
-		const uint64_t bits = normalize_integer(result, b_.literals[direct.index]).low;
-		bool byte = true, powers = true;
+		bool byte = result.is_integer(), powers = result.is_integer();
 		for (const PhiIncoming& in : inputs)
 		{
 			byte = byte && in.bits <= 127;
@@ -499,7 +551,8 @@ bool ReturnTables::phi_candidate(BlockId block)
 		[&](const PhiIncoming& a, const PhiIncoming& b) { return (a.key ^ bias) < (b.key ^ bias); });
 	const uint64_t first = inputs.front().key, span = inputs.back().key - first;
 	if (span >= 512 || span + 1 > inputs.size() * 2)
-		return target_model::is_aarch64(p_.target) && partition_phi(block, term, selector, join, phi, inputs);
+		return target_model::is_aarch64(p_.target) && result.is_integer() &&
+			partition_phi(block, term, selector, join, phi, inputs);
 	// LowIR switches choose their first matching arm. Reject repeated keys
 	// in the candidate window, including arms that are not table candidates.
 	// The accepted span has at most 512 entries, so the bitmap is bounded.
@@ -517,12 +570,17 @@ bool ReturnTables::phi_candidate(BlockId block)
 			return false;
 		seen[delta / 64] |= bit;
 	}
-	bool varies = false, byte = true, powers = true;
+	// (A pointer table holds addresses, and its load is not null when each is
+	// that of a symbol this program defines.)
+	const bool pointer = result.is_pointer();
+	bool varies = false, byte = !pointer, powers = !pointer, nonnull = pointer;
 	for (const PhiIncoming& in : inputs)
 	{
 		varies = varies || in.bits != inputs.front().bits;
 		byte = byte && in.bits <= 127;
 		powers = powers && in.bits != 0 && (in.bits & (in.bits - 1)) == 0;
+		const SymbolKind kind = in.bits == 0 || !pointer ? SymbolKind::Unresolved : p_.symbols[in.bits - 1].kind;
+		nonnull = nonnull && (kind == SymbolKind::GlobalDefinition || kind == SymbolKind::FunctionDefinition);
 	}
 	if (!varies)
 		return false;
@@ -530,7 +588,7 @@ bool ReturnTables::phi_candidate(BlockId block)
 	for (const PhiIncoming& in : inputs)
 		values[static_cast<size_t>(in.key - first)] = powers ? static_cast<uint64_t>(__builtin_ctzll(in.bits))
 															 : in.bits;
-	const PhiTable facts{ block, join, phi, selector, result, inputs, values, powers, byte };
+	const PhiTable facts{ block, join, phi, selector, result, inputs, values, powers, byte, nonnull };
 	rewrite_phi_table(term, facts);
 	++c_.stats.folded;
 	return true;
@@ -590,6 +648,13 @@ void ReturnTables::rewrite_phi_table(const Instruction& term, const PhiTable& fa
 			set_convert_source_type(cast, element);
 		}
 		value = emit(lookup, after, cast, result);
+	}
+	if (facts.nonnull)
+	{
+		Instruction copy = make_instruction(Opcode::Copy, result);
+		copy.flags = IF_NONNULL;
+		copy.ops[0] = value;
+		value = emit(lookup, after, copy, result);
 	}
 	if (powers)
 	{

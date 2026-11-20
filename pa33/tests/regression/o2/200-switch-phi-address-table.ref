@@ -1,0 +1,91 @@
+global @one [storage=readonly, binding=internal] = {
+  i32 11
+  i32 0
+}
+global @two [storage=readonly, binding=internal] = {
+  i32 22
+  i32 0
+}
+global @three [storage=readonly, binding=internal] = {
+  i32 33
+  i32 0
+}
+global @five [storage=readonly, binding=internal] = {
+  i32 55
+  i32 0
+}
+global @__switch_results_0 : obj<40x8> [storage=readonly, binding=internal] = {
+  ptr addr @one
+  ptr addr @two
+  ptr addr @three
+  zero 8
+  ptr addr @five
+}
+global @__switch_results_1 : obj<48x8> [storage=readonly, binding=internal] = {
+  ptr addr @one
+  zero 8
+  ptr addr @three
+  ptr addr @five
+  zero 8
+  ptr addr @two
+}
+
+function @first(%k : i32) -> i32 [no_inline=yes] {
+  block ^entry:
+    switch %k, ^empty, 1:^switch_case_2, 2:^switch_case_2, 3:^switch_case_2, 5:^switch_case_2
+
+  block ^empty:
+    return i32 -1
+
+  block ^switch_case_2:
+    %t1 = convert sext i64 i32 %k
+    %t2 = binary sub i64 %t1, 1
+    %t3 = index ptr @__switch_results_0, %t2
+    %t4 = load ptr %t3
+    %t5 = copy nonnull ptr %t4
+    %v = load i32 %t5
+    return i32 %v
+}
+function @maybe(%k : i32) -> i32 [no_inline=yes] {
+  block ^entry:
+    switch %k, ^other, 1:^switch_case_3, 2:^empty, 3:^switch_case_3, 4:^switch_case_3, 6:^switch_case_3
+
+  block ^other:
+    return i32 -2
+
+  block ^empty:
+    return i32 -1
+
+  block ^switch_case_3:
+    %t1 = convert sext i64 i32 %k
+    %t2 = binary sub i64 %t1, 1
+    %t3 = index ptr @__switch_results_1, %t2
+    %t4 = load ptr %t3
+    %t5 = copy nonnull ptr %t4
+    %v = load i32 %t5
+    return i32 %v
+}
+function @main() -> i32 [role=entry] {
+  block ^entry:
+    %a = call i32 @first(1)
+    %b = call i32 @first(3)
+    %c = call i32 @first(4)
+    %d = call i32 @first(5)
+    %e = call i32 @first(9)
+    %ab = binary add i32 %a, %b
+    %cd = binary add i32 %c, %d
+    %abcd = binary add i32 %ab, %cd
+    %first_sum = binary add i32 %e, %abcd
+    %first_ok = cmp eq i32 %first_sum, 97
+    %f = call i32 @maybe(1)
+    %g = call i32 @maybe(2)
+    %h = call i32 @maybe(4)
+    %i = call i32 @maybe(7)
+    %fg = binary add i32 %f, %g
+    %hi = binary add i32 %h, %i
+    %maybe_sum = binary add i32 %fg, %hi
+    %maybe_ok = cmp eq i32 %maybe_sum, 63
+    %all = binary and i64 %first_ok, %maybe_ok
+    %status = select i32 %all, 0, 1
+    return i32 %status
+}
