@@ -576,6 +576,8 @@ void Selector::run()
 				InstId last = inst.op != Opcode::Convert ? address_sequence(i)
 					: inst.type.kind() == TypeKind::I128 ? wide_high_product(inst)
 														 : truncated_operand(inst, block);
+				if (last == kNoId && inst.op == Opcode::Convert && inst.type.kind() == TypeKind::I64)
+					last = widening_product(inst);
 				if (last == kNoId && inst.op == Opcode::Binary)
 				{
 					const auto op = static_cast<BinaryOp>(inst.sub);

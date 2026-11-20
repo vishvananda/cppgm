@@ -1,0 +1,63 @@
+{
+  "source": true,
+  "units": [
+    "700-widening-products.t.1"
+  ],
+  "llvm_interop": true,
+  "commands": [
+    {
+      "exit": 37,
+      "stdout": ""
+    }
+  ],
+  "quality": {
+    "levels": [1, 2, 3],
+    "functions": {
+      "smul": {
+        "instructions": 4
+      },
+      "umul": {
+        "instructions": 4
+      },
+      "smadd": {
+        "instructions": 4
+      },
+      "smsub": {
+        "instructions": 4
+      },
+      "umadd": {
+        "instructions": 4
+      },
+      "umsub": {
+        "instructions": 4
+      },
+      "square": {
+        "instructions": 3
+      },
+      "thousand": {
+        "instructions": 4
+      },
+      "eight": {
+        "instructions": 3
+      },
+      "add_eight": {
+        "instructions": 3
+      },
+      "sub_four": {
+        "instructions": 3
+      },
+      "add_two": {
+        "instructions": 3
+      },
+      "top_bit": {
+        "instructions": 3
+      },
+      "past_int": {
+        "instructions": 3
+      },
+      "int_min": {
+        "instructions": 4
+      }
+    }
+  }
+}
