@@ -1,0 +1,45 @@
+# A null test of a merge of a known address and null, whose value the loop
+# after it reads, is decided on each edge into the merge: the loop's header
+# is entered from the test alone (its other predecessor is its back edge),
+# so the null edge goes to the exit and the address enters the loop.
+global @items [storage=readonly, binding=internal] = {
+  i32 3
+  i32 4
+  i32 5
+  i32 0
+}
+
+function @count(%p0 : ptr, %pick : i32) -> i32 [no_inline=yes] {
+  block ^entry:
+    %c = cmp eq i32 %pick, 0
+    branch %c, ^join, ^some
+  block ^some:
+    %q = copy nonnull ptr %p0
+    jump ^join
+  block ^join:
+    %p = phi ptr [^entry: 0, ^some: %q]
+    branch %p, ^loop, ^done
+  block ^loop:
+    %n = phi i32 [^join: 0, ^body: %n1]
+    %i = phi i64 [^join: 0, ^body: %i1]
+    %at = index inbounds i32 %p, %i
+    %v = load i32 %at
+    branch %v, ^body, ^done
+  block ^body:
+    %n1 = binary add i32 %n, %v
+    %i1 = binary add i64 %i, 1
+    jump ^loop
+  block ^done:
+    %r = phi i32 [^join: -1, ^loop: %n]
+    return i32 %r
+}
+
+function @main() -> i32 {
+  block ^entry:
+    %a = call i32 @count(@items, 1)
+    %b = call i32 @count(@items, 0)
+    %sum = binary add i32 %a, %b
+    %ok = cmp eq i32 %sum, 11
+    %status = select i32 %ok, 0, 1
+    return i32 %status
+}

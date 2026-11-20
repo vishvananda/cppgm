@@ -787,7 +787,8 @@ void JumpThreading::find_use_dominators()
 	}
 }
 
-// The successor of m entered from m alone whose dominance region holds
+// The successor of m entered from m alone (its other predecessors, a loop's
+// back edges, are in its dominance region) whose dominance region holds
 // every use of m's value t past m; kNoId when none.
 BlockId JumpThreading::successor_holding(BlockId m, TempId t) const
 {
@@ -796,7 +797,12 @@ BlockId JumpThreading::successor_holding(BlockId m, TempId t) const
 		return kNoId;
 	while (x != kNoId && x != m && cfg_.idom[x] != m)
 		x = cfg_.idom[x];
-	return x == kNoId || x == m || cfg_.pred_count(x) != 1 ? kNoId : x;
+	if (x == kNoId || x == m)
+		return kNoId;
+	for (uint32_t k = cfg_.pred_first[x]; k < cfg_.pred_first[x + 1]; ++k)
+		if (cfg_.preds[k] != m && !cfg_.dominates(x, cfg_.preds[k]))
+			return kNoId;
+	return x;
 }
 
 // A block that only computes its branch or switch selector from phis: a
@@ -2702,13 +2708,28 @@ bool JumpThreading::nonzero_phis()
 	}
 	if (phis.empty() || phis.size() > kNonzeroPhis)
 		return false;
+	// (The address of a slot or of a symbol this program defines, and a copy
+	// that says it is not null, are not.)
+	auto defined = [&](Value v) {
+		return v.is(ValueKind::Slot) ||
+			(v.is(ValueKind::Symbol) &&
+				(c_.program.symbols[v.index].kind == SymbolKind::GlobalDefinition ||
+					c_.program.symbols[v.index].kind == SymbolKind::FunctionDefinition));
+	};
 	auto input_holds = [&](Value v, BlockId p, BlockId to) {
 		Constant c;
 		if (literal_constant(body_, v, c))
 			return c.kind == ValueKind::Integer && (c.bits.low != 0 || c.bits.high != 0);
+		if (v.is(ValueKind::Symbol))
+			return defined(v);
 		if (!v.is(ValueKind::Temp))
 			return false;
 		if (nonzero[v.index] || entered_nonzero(v, p, to))
+			return true;
+		const InstId def = body_.temps[v.index].def;
+		if (def != kNoId && body_.instructions[def].op == Opcode::Copy && (body_.instructions[def].flags & IF_NONNULL))
+			return true;
+		if (def != kNoId && body_.instructions[def].op == Opcode::Addr && defined(body_.instructions[def].ops[0]))
 			return true;
 		BlockId d = p;
 		for (uint32_t depth = 0; depth < kDominatorFactDepth && d != kNoId; ++depth)

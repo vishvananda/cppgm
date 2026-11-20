@@ -1,0 +1,63 @@
+# A phi whose inputs are each the address of a symbol the program defines,
+# of a slot, or a copy that says it is not null, is not null: its null test
+# goes (here the test of a string pointer before its length is taken).
+global @yes [storage=readonly, binding=internal] = {
+  i8 121
+  i8 101
+  i8 115
+  i8 0
+}
+global @no [storage=readonly, binding=internal] = {
+  i8 110
+  i8 111
+  i8 0
+}
+
+function @name(%flag : i32, %other : ptr) -> i8 [no_inline=yes] {
+  block ^entry:
+    %c = cmp eq i32 %flag, 0
+    branch %c, ^first, ^next
+  block ^next:
+    %d = cmp eq i32 %flag, 1
+    branch %d, ^second, ^third
+  block ^first:
+    %pa = addr @yes
+    call void @touch(%pa)
+    jump ^join
+  block ^second:
+    %pb = addr @no
+    call void @touch(%pb)
+    jump ^join
+  block ^third:
+    %pc = copy nonnull ptr %other
+    call void @touch(%pc)
+    jump ^join
+  block ^join:
+    %p = phi ptr [^first: %pa, ^second: %pb, ^third: %pc]
+    %z = cmp eq ptr %p, 0
+    branch %z, ^null, ^use
+  block ^null:
+    return i8 -1
+  block ^use:
+    %v = load i8 %p
+    return i8 %v
+}
+
+function @touch(%p : ptr) -> void [no_inline=yes] {
+  block ^entry:
+    return void
+}
+
+function @main() -> i32 {
+  block ^entry:
+    %a = call i8 @name(0, @no)
+    %b = call i8 @name(1, @no)
+    %c = call i8 @name(2, @yes)
+    %ab = cmp eq i8 %a, 121
+    %bb = cmp eq i8 %b, 110
+    %cb = cmp eq i8 %c, 121
+    %both = binary and i64 %ab, %bb
+    %all = binary and i64 %both, %cb
+    %status = select i32 %all, 0, 1
+    return i32 %status
+}
