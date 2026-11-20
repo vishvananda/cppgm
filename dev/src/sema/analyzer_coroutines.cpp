@@ -88,7 +88,12 @@ syntax::Expr* Analyzer::coroutine_variable_use(
 	syntax::IdExpr* expr = CoroutineExpression<syntax::IdExpr>(arena_, syntax::ExprKind::Id, location);
 	expr->name = implicit_name(variable->name, location);
 	if (type == nullptr)
+	{
 		type = variable->type->is_reference() ? variable->type->element : variable->type;
+		if (variable->kind == EntityKind::Parameter &&
+			(variable->type->kind == TypeKind::Array || variable->type->kind == TypeKind::Function))
+			type = types_.adjusted_parameter(type);
+	}
 	ExprFacts* facts = new_facts(*expr, type, category);
 	facts->flags = kImplicit;
 	facts->entity = variable;

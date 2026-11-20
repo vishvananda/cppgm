@@ -136,6 +136,7 @@ To complete PA31, support:
   Try default initialization if none of those constructors is viable.
   Initialize a class parameter's frame copy from an xvalue of the incoming
   object. A reference parameter's frame copy binds to the same referent.
+  Use the adjusted pointer types for array and function parameters.
   Look up allocation and deallocation in the promise class, with global
   lookup as the fallback when the name is absent. Try a class allocator
   with the frame size and the incoming arguments before trying the size

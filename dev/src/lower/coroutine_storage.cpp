@@ -35,6 +35,8 @@ CoroutineFrameLayout::CoroutineFrameLayout(ProgramLowering& lowering, const sema
 		if (binding->kind != sema::BindingKind::Parameter)
 			continue;
 		const sema::Type* type = binding->type;
+		if (type->kind == sema::TypeKind::Array || type->kind == sema::TypeKind::Function)
+			type = lowering.graph().types.adjusted_parameter(type);
 		parameters.push_back(FrameParameter{ binding->entity, type, reserve_type(lowering, type) });
 	}
 }
