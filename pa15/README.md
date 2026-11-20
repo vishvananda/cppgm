@@ -371,6 +371,11 @@ requires-clause in its template head is an error.
 Keep different constrained overloads distinct, even when their function types
 agree. Equivalent
 redeclarations may rename parameters or qualify the same concept differently.
+Requirements may explicitly call an operator by name, including a qualified
+operator on a dependent type. Preserve the operator in comparisons of
+redeclarations and resolve the call at substitution as usual, including
+argument-dependent lookup for an unqualified call. See N4861
+`[expr.prim.req]`, `[temp.over.link]` and `[basic.lookup.argdep]`.
 Substitute a head clause only as satisfaction reaches its operands, including
 when enclosing class-template instantiations bind packs. For ordering, normalize named concepts
 to their original atomic expressions with canonical parameter mappings.

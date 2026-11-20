@@ -184,7 +184,7 @@ bool Analyzer::name_words(
 	std::vector<uint64_t>& words = decltype_words_;
 	const size_t name_start = words.size();
 	const Entity* concept_entity = nullptr;
-	if (constraint_keying_ && resolve)
+	if (constraint_keying_ && resolve && name.last().kind == syntax::NameComponentKind::Identifier)
 	{
 		const LookupResult found = lookup_name(name, scope, LookupFilter::Ordinary);
 		if (found.found() && !found.ambiguous && found.binding->kind == BindingKind::Concept)
