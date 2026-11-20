@@ -92,6 +92,15 @@ void copy_short_tests(Function& function);
 void simplify_branches(Function& function);
 void conditional_compares(Function& function, const std::vector<uint64_t>& block_frequency);
 
+// A block's two-way branch: its destination blocks and the estimated
+// executions of each edge.
+struct BranchEstimate
+{
+	uint32_t yes = lowir::kNoId, no = lowir::kNoId;
+	uint64_t to_yes = 0, to_no = 0;
+};
+void orient_branches(Function& function, const std::vector<BranchEstimate>& estimates);
+
 // An NZCV value for which the A64 condition `condition` (EQ to LE) holds.
 inline unsigned nzcv_satisfying(unsigned condition)
 {

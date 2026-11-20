@@ -345,6 +345,74 @@ static bool conditional_form(const Instruction& compare, unsigned condition, uns
 	}
 }
 
+// A conditional branch and the jump after it, with neither destination
+// next, take the block's two edges: the conditional branch takes the edge
+// estimated to run more often, so the extra jump runs on the other.
+void orient_branches(Function& f, const std::vector<BranchEstimate>& estimates)
+{
+	const uint32_t n = static_cast<uint32_t>(f.code.size());
+	const uint32_t blocks = static_cast<uint32_t>(std::min(estimates.size(), f.labels.size()));
+	if (n < 2 || n >= (1u << 18) || !blocks)
+		return;
+	bool pairs = false;
+	for (uint32_t pc = 0; pc + 1 < n && !pairs; ++pc)
+		pairs = f.code[pc + 1].op == Op::B && f.code[pc + 1].fixup == Fixup::Block && conditional_branch(f.code[pc]);
+	if (!pairs)
+		return;
+	std::vector<uint8_t> anchored(n + 1), table;
+	std::vector<uint32_t> block_at(n + 1, lowir::kNoId);
+	for (auto pc : f.labels)
+		if (pc < anchored.size())
+			anchored[pc] = 1;
+	for (const auto& event : f.frame_events)
+		anchored[event.pc / 4] = 1;
+	for (uint32_t pad : f.pads)
+		if (pad != lowir::kNoId)
+			anchored[pad / 4] = 1;
+	mark_tables(f, table);
+	for (uint32_t block = 0; block < blocks; ++block)
+		if (f.labels[block] < n)
+			block_at[f.labels[block]] = block;
+	uint32_t current = lowir::kNoId;
+	for (uint32_t pc = 0; pc + 1 < n; ++pc)
+	{
+		if (block_at[pc] != lowir::kNoId)
+			current = block_at[pc];
+		auto& cond = f.code[pc];
+		auto& jump = f.code[pc + 1];
+		if (current == lowir::kNoId || anchored[pc + 1] || (!table.empty() && table[pc + 1]) || jump.op != Op::B ||
+			jump.fixup != Fixup::Block || cond.fixup != Fixup::Block || (cond.op == Op::BCond && cond.rd >= 14))
+			continue;
+		const auto& e = estimates[current];
+		const uint32_t taken = cond.target, other = jump.target;
+		if (!((taken == e.yes && other == e.no) || (taken == e.no && other == e.yes)) || f.labels[taken] == pc + 2 ||
+			f.labels[other] == pc + 2 || (other == e.yes ? e.to_yes : e.to_no) <= (taken == e.yes ? e.to_yes : e.to_no))
+			continue;
+		switch (cond.op)
+		{
+		case Op::BCond:
+			cond.rd ^= 1;
+			break;
+		case Op::Cbz:
+			cond.op = Op::Cbnz;
+			break;
+		case Op::Cbnz:
+			cond.op = Op::Cbz;
+			break;
+		case Op::CbzW:
+			cond.op = Op::CbnzW;
+			break;
+		case Op::CbnzW:
+			cond.op = Op::CbzW;
+			break;
+		default:
+			continue;
+		}
+		cond.target = other;
+		jump.target = taken;
+	}
+}
+
 // A conditional branch followed by a compare and a second conditional
 // branch becomes one branch when both send their taken edge to the same
 // place, or when the first skips to the instruction after the second:

@@ -36,7 +36,8 @@ private:
 	uint32_t result_reg_ = lowir::kNoId;
 	void plan_slots();
 	std::vector<lowir::BlockId> order_blocks();
-	std::vector<uint64_t> block_frequency_; // estimated executions by block, from order_blocks
+	std::vector<uint64_t> block_frequency_;        // estimated executions by block, from order_blocks
+	std::vector<BranchEstimate> branch_estimates_; // by block, from order_blocks
 	std::vector<uint64_t> block_weights_;
 	void prepare_exceptions();
 	void landing(lowir::BlockId block);

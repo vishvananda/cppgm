@@ -226,22 +226,36 @@ bool short_test(const FunctionBody& body, BlockId b, EmptyEdge& empty)
 // branches cheapest, so a loop tested at its top repeats through its
 // conditional branch: the latch is placed above the test, or the test at
 // the bottom where the block entering the loop takes a copy of it.
-template<typename EmptyEdge>
+template<typename EmptyEdge, typename EarlyMoves>
 class Placement
 {
 public:
-	Placement(const Program& program, const FunctionBody& body, EmptyEdge empty)
-		: program_(program), body_(body), empty_(empty), n_(static_cast<uint32_t>(body.layout.size()))
+	Placement(const Program& program, const FunctionBody& body, EmptyEdge empty, EarlyMoves early)
+		: program_(program), body_(body), empty_(empty), early_(early), n_(static_cast<uint32_t>(body.layout.size()))
 	{}
 
-	// The order, and in `frequency` each block's estimated executions.
-	std::vector<BlockId> order(std::vector<uint64_t>& frequency)
+	// The order, and by block its estimated executions and those of its
+	// two-way branch's edges.
+	std::vector<BlockId> order(std::vector<uint64_t>& frequency, std::vector<BranchEstimate>& branches)
 	{
 		if (!describe())
 			return {};
 		frequency.assign(body_.blocks.size(), 0);
+		branches.assign(body_.blocks.size(), BranchEstimate{});
 		for (uint32_t pos = 0; pos < n_; ++pos)
-			frequency[body_.layout[pos]] = frequency_[pos];
+		{
+			const auto b = body_.layout[pos];
+			frequency[b] = frequency_[pos];
+			const auto& term = body_.instructions[body_.blocks[b].last];
+			if (term.op != Opcode::Branch || term.ops[1].index == term.ops[2].index)
+				continue;
+			const uint64_t to_yes = frequency_[pos] * shares_[graph_.succ_first[pos]] / 1000;
+			auto& estimate = branches[b];
+			estimate.yes = term.ops[1].index;
+			estimate.no = term.ops[2].index;
+			estimate.to_yes = to_yes;
+			estimate.to_no = frequency_[pos] - to_yes;
+		}
 		copyable_.assign(n_, 0);
 		for (uint32_t pos = 1; pos < n_; ++pos)
 			copyable_[pos] = short_test(body_, body_.layout[pos], empty_) ? 1 : 2;
@@ -332,16 +346,28 @@ private:
 		const uint32_t yes = graph_.succs[slot], no = graph_.succs[slot + 1];
 		const uint64_t to_yes = f * shares_[slot] / 1000, to_no = f - to_yes;
 		const bool empty_yes = empty_(b, body_.layout[yes]), empty_no = empty_(b, body_.layout[no]);
+		// A back edge's moves can run before a branch whose other edge
+		// falls through without moves.
+		const auto early = [&](uint32_t k, uint32_t to, uint32_t other) {
+			return loops_.back[k] && early_(b, body_.layout[to], body_.layout[other]);
+		};
 		if (next == yes)
-			return empty_no ? to_no : f + to_no;
+			return empty_no || (empty_yes && early(slot + 1, no, yes)) ? to_no : f + to_no;
 		if (next == no)
-			return empty_yes ? to_yes : f + to_yes;
-		return empty_no ? f + to_yes : 2 * f;
+			return empty_yes || (empty_no && early(slot, yes, no)) ? to_yes : f + to_yes;
+		// Neither follows: the branch goes to an empty edge's destination,
+		// the more frequent one when both are empty (orient_branches), and
+		// the other edge jumps after its moves (simplify_branches turns a
+		// branch over the jump to an empty edge into one branch).
+		if (empty_yes && empty_no)
+			return f + std::min(to_yes, to_no);
+		return empty_no ? f + to_yes : empty_yes ? f + to_no : 2 * f;
 	}
 
 	const Program& program_;
 	const FunctionBody& body_;
 	EmptyEdge empty_;
+	EarlyMoves early_;
 	uint32_t n_;
 	std::vector<LayoutBlock> blocks_;
 	machine::PlacementGraph graph_;
@@ -351,11 +377,11 @@ private:
 	std::vector<uint8_t> copyable_; // by position: 1 a short test, 2 not
 };
 
-template<typename EmptyEdge>
-std::vector<BlockId> predicted_order(
-	const Program& program, const FunctionBody& body, EmptyEdge empty, std::vector<uint64_t>& frequency)
+template<typename EmptyEdge, typename EarlyMoves>
+std::vector<BlockId> predicted_order(const Program& program, const FunctionBody& body, EmptyEdge empty,
+	EarlyMoves early, std::vector<uint64_t>& frequency, std::vector<BranchEstimate>& branches)
 {
-	return Placement<EmptyEdge>(program, body, empty).order(frequency);
+	return Placement<EmptyEdge, EarlyMoves>(program, body, empty, early).order(frequency, branches);
 }
 
 bool can_fall_through(const FunctionBody& body, BlockId from, BlockId to)
@@ -381,8 +407,28 @@ std::vector<BlockId> Selector::order_blocks()
 {
 	if (level_ >= 2 && body_.layout.size() >= 4 && body_.code_labels.empty())
 	{
+		// backedge_moves' register test: at most two register moves whose
+		// destinations are dead into `other`.
+		const auto early = [this](BlockId from, BlockId to, BlockId other) {
+			if (entry_regs_.empty() || (out_.exceptions && out_.exceptions->entry_selectors[to]))
+				return false;
+			unsigned count = 0;
+			for (InstId i = body_.blocks[to].first; i != kNoId && body_.instructions[i].op == Opcode::Phi;
+				i = body_.instructions[i].next)
+			{
+				const Value incoming = phis_.incoming(body_, i, from);
+				const auto dst = registers_[body_.instructions[i].result];
+				if (same_home(body_.instructions[i].result, incoming))
+					continue;
+				if (count++ == 2 || !incoming.is(ValueKind::Temp) || dst == kNoId ||
+					registers_[incoming.index] == kNoId || (entry_regs_[other] & (1u << dst)))
+					return false;
+			}
+			return count != 0;
+		};
 		auto order = predicted_order(
-			program_, body_, [this](BlockId from, BlockId to) { return empty_edge(from, to); }, block_frequency_);
+			program_, body_, [this](BlockId from, BlockId to) { return empty_edge(from, to); }, early, block_frequency_,
+			branch_estimates_);
 		if (!order.empty())
 			return order;
 	}
