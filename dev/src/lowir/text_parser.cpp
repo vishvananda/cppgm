@@ -1033,10 +1033,10 @@ void Parser::parse_parameter_metadata(Parameter& parameter)
 		}
 		else if (index == MetadataKey::Shape)
 		{
-			if (!parameter.type.is_object())
-				fail("aggregate parameter shape requires an object type");
 			if (!at(TokenKind::Word) || !aggregate_shape_from_spelling(token().text, token().length, &parameter.shape))
 				fail("invalid aggregate parameter shape");
+			if (!valid_parameter_shape(parameter.type, parameter.shape, program_.target))
+				fail("aggregate parameter shape requires an object type");
 		}
 		const uint64_t bit = key_bit(index);
 		if (index == MetadataKey::Classes)

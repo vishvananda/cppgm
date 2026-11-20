@@ -825,6 +825,7 @@ public:
 	// the course's (course_classes).
 	uint8_t object_classes(const sema::Type* type);
 	ir_model::AggregateShape aggregate_shape(const sema::Type* type);
+	bool aarch64_member_pointer_pair(const sema::Type* type) const;
 	// The same for a direct result (`result_classes=`).
 	uint8_t result_classes(const sema::Type* type);
 	// lowir.md "Object ABI Conventions": the classes a course boundary

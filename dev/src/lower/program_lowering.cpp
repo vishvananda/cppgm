@@ -1295,7 +1295,8 @@ lowir::SymbolId ProgramLowering::aggregate_helper(const sema::ClassEntity* entit
 		parameter.type = variable->type->kind == sema::TypeKind::Array || variable->type->is_reference()
 			? program_.pointer_type()
 			: storage_type(variable->type);
-		if (target_model::needs_aggregate_shape(program_.target) && parameter.type.is_object())
+		if (target_model::needs_aggregate_shape(program_.target) &&
+			(parameter.type.is_object() || aarch64_member_pointer_pair(variable->type)))
 			parameter.shape = aggregate_shape(variable->type);
 		// A reference member's referent is passed by its address, as a
 		// reference parameter's is (with its complete object's size).

@@ -17,6 +17,13 @@ using lowir::shape;
 
 } // namespace
 
+bool ProgramLowering::aarch64_member_pointer_pair(const sema::Type* type) const
+{
+	const sema::Type* bare = type->unqualified;
+	return bare->kind == sema::TypeKind::MemberPointer && bare->element->kind == sema::TypeKind::Function &&
+		target_model::is_aarch64(program_.target);
+}
+
 ir_model::AggregateShape ProgramLowering::aggregate_shape(const sema::Type* type)
 {
 	type = type->unqualified;
@@ -41,6 +48,8 @@ ir_model::AggregateShape ProgramLowering::aggregate_shape(const sema::Type* type
 	}
 	if (type->kind != sema::TypeKind::Class)
 	{
+		if (aarch64_member_pointer_pair(type))
+			return shape(AggregateElement::Mixed);
 		if (SoftFloatOf(type) == SoftFloat::Quad ||
 			(type->kind == sema::TypeKind::Fundamental &&
 				FloatingRepresentation(type->fundamental, type->target) == FundamentalType::Float128))

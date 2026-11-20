@@ -37,6 +37,15 @@ bool valid_aggregate_shape(Type type, ir_model::AggregateShape shape)
 	return type.is_object() && ((shape.element > AggregateElement::Mixed) == (shape.count != 0));
 }
 
+bool valid_parameter_shape(Type type, ir_model::AggregateShape shape, target_model::Target target)
+{
+	// AArch64's i128 argument can carry the source layout of a
+	// two-word member function pointer. The scalar's storage is unchanged.
+	return valid_aggregate_shape(type, shape) ||
+		(target_model::is_aarch64(target) && type.kind() == TypeKind::I128 &&
+			shape.element == ir_model::AggregateElement::Mixed && shape.count == 0 && shape.reserved == 0);
+}
+
 bool valid_this_return(const Program& program, const Signature& signature)
 {
 	return !signature.boundary.this_return ||

@@ -1518,7 +1518,8 @@ RValue FunctionLowering::builtin_trait_value(const syntax::BuiltinTraitExpr& tra
 	}
 	// An i128 is read as the object of its bytes its caller passes (see
 	// variadic_wide_object; object mode).
-	const bool wide = type.kind() == lowir::TypeKind::I128 && lowering_.object_mode();
+	const bool wide = type.kind() == lowir::TypeKind::I128 &&
+		(lowering_.object_mode() || lowering_.aarch64_member_pointer_pair(facts->type));
 	const lowir::Type read = wide ? variadic_wide_type(facts->type) : type;
 	lowir::Instruction inst = lowir::make_instruction(lowir::Opcode::VaArg, read);
 	inst.ops[0] = va_list_tag(*trait.operand);
@@ -2928,6 +2929,20 @@ void FunctionLowering::push_converted(
 			: apply_converted(argument, conversion, rvalue(argument), ConversionContext::Argument);
 		if (parameter != nullptr)
 			value = fit(value, parameter);
+		if (parameter == nullptr && value.type.kind() == lowir::TypeKind::I128)
+		{
+			const sema::Type* type = conversion != nullptr && conversion->target != nullptr
+				? conversion->target
+				: WithoutParentheses(&argument)->facts->type;
+			if (lowering_.aarch64_member_pointer_pair(type))
+			{
+				// Keep the pair's eight-byte alignment at the unnamed
+				// boundary, even after folding its value to a literal.
+				variadic_argument_fact(0, lowir::TypeKind::Void, lowering_.aggregate_shape(type));
+				arguments_.push_back(variadic_wide_object(value, type));
+				return;
+			}
+		}
 		// A binary16, binary128, complex or vector value or a member
 		// function pointer passed to `...` (5.2.2p7 promotes none of them):
 		// the classes of a parameter of its type (object mode, psABI 3.2.3;

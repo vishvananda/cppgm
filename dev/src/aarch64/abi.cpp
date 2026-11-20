@@ -44,7 +44,10 @@ Argument Arguments::next(Type type, ir_model::AggregateShape shape, bool unnamed
 	if (darwin && shape.element == ir_model::AggregateElement::Empty)
 		return Argument{ Bank::General, 0, 0, 0, false };
 	unsigned& used = arg.bank == Bank::Simd ? simd : general;
-	const unsigned alignment = arg.indirect ? 8 : std::min(16u, data_alignment(type));
+	// A member function pointer is an eight-aligned pair of words.
+	// Its declared argument carries the pair shape on its i128 value.
+	const bool pair = type.kind() == TypeKind::I128 && shape.element == ir_model::AggregateElement::Mixed;
+	const unsigned alignment = arg.indirect || pair ? 8 : std::min(16u, data_alignment(type));
 	if (!darwin && arg.bank == Bank::General && alignment == 16)
 		used = (used + 1) & ~1u;
 	if (!(darwin && unnamed) && used + arg.pieces <= 8)

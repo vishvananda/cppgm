@@ -567,7 +567,7 @@ bool Validator::check_links()
 			return fail("this_return requires a void boundary with a first pointer parameter on a supporting target");
 		for (uint32_t i = 0; i < signature.parameter_count; ++i)
 		{
-			if (!valid_aggregate_shape(parameters[i].type, parameters[i].shape))
+			if (!valid_parameter_shape(parameters[i].type, parameters[i].shape, program_.target))
 				return fail("invalid aggregate parameter shape", parameters[i].name);
 			if (parameters[i].pass >= ir_model::kParamPassingModeCount ||
 				parameters[i].alias >= ir_model::kParamAliasModeCount)

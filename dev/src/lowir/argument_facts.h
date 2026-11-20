@@ -20,6 +20,7 @@ inline uint64_t object_classes_bytes(Type type)
 // on a v128.
 bool valid_object_classes(Type type, uint8_t classes);
 bool valid_aggregate_shape(Type type, ir_model::AggregateShape shape);
+bool valid_parameter_shape(Type type, ir_model::AggregateShape shape, target_model::Target target);
 bool valid_this_return(const Program& program, const Signature& signature);
 
 // Returns a diagnostic for malformed per-argument metadata, or null.

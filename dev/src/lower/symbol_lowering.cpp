@@ -3293,7 +3293,8 @@ lowir::Parameter ProgramLowering::parameter_for(const sema::Type* type, lowir::N
 	}
 	parameter.type = storage_type(type);
 	parameter.classes = object_classes(type);
-	if (target_model::needs_aggregate_shape(program_.target) && parameter.type.is_object())
+	if (target_model::needs_aggregate_shape(program_.target) &&
+		(parameter.type.is_object() || aarch64_member_pointer_pair(type)))
 		parameter.shape = aggregate_shape(type);
 	// An X87 or COMPLEX_X87 parameter is passed in memory (psABI 3.2.3):
 	// lowir.md's `memory`.
