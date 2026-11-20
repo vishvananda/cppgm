@@ -1259,7 +1259,7 @@ private:
 	ExprFacts* call(const syntax::CallExpr& expr, Scope* scope, ExprFacts* move_argument = nullptr);
 	bool member_template_arguments(
 		const syntax::MemberExpr& access, const ExprFacts* callee, Scope* scope, TypeList& explicit_arguments);
-	ExprFacts* template_callee(const syntax::IdExpr& named, const syntax::Expr* callee, Scope* scope,
+	ExprFacts* template_callee(const syntax::IdExpr& named, const syntax::CallExpr& call, Scope* scope,
 		TypeList& explicit_arguments, bool& undeclared);
 	ExprFacts* template_id_call(
 		const syntax::CallExpr& expr, ExprFacts* callee, const TypeList& explicit_arguments, const ClassEntity* naming);

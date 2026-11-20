@@ -85,7 +85,7 @@ const Type* Analyzer::result_category(const Type* result, ValueCategory& categor
 	return result->unqualified->kind == TypeKind::Class ? result : result->unqualified;
 }
 
-ExprFacts* Analyzer::template_callee(const syntax::IdExpr& named, const syntax::Expr* callee, Scope* scope,
+ExprFacts* Analyzer::template_callee(const syntax::IdExpr& named, const syntax::CallExpr& call, Scope* scope,
 	TypeList& explicit_arguments, bool& undeclared)
 {
 	// The function templates a template-id callee names, as an overload set
@@ -96,13 +96,15 @@ ExprFacts* Analyzer::template_callee(const syntax::IdExpr& named, const syntax::
 	// (14.8.1p8's note), C++20's rule (P0846) as the course reference and
 	// Clang accept it.
 	const syntax::Name& name = *named.name;
-	const LookupResult result = name.last().kind == syntax::NameComponentKind::Operator ||
-			name.last().kind == syntax::NameComponentKind::LiteralOperator
-		? operator_function_lookup(name, scope)
-		: name.qualified() ? lookup_name(name, scope, LookupFilter::Ordinary)
-						   : unqualified(scope, name.last().identifier, LookupFilter::Ordinary);
+	const syntax::NameComponent& last = name.last();
+	const bool operator_name = last.kind == syntax::NameComponentKind::Operator ||
+		last.kind == syntax::NameComponentKind::LiteralOperator;
+	const LookupResult result = call.adl_only ? LookupResult()
+		: operator_name                       ? operator_function_lookup(name, scope)
+		: name.qualified()                    ? lookup_name(name, scope, LookupFilter::Ordinary)
+											  : unqualified(scope, last.identifier, LookupFilter::Ordinary);
 	undeclared = false;
-	if (!failed() && !result.found() && callee == &named && !name.qualified() &&
+	if (!failed() && !result.found() && call.callee == &named && !name.qualified() &&
 		name.last().kind == syntax::NameComponentKind::Identifier)
 	{
 		undeclared = template_arguments(name.last(), scope, explicit_arguments, nullptr);
@@ -138,7 +140,8 @@ ExprFacts* Analyzer::template_callee(const syntax::IdExpr& named, const syntax::
 	facts->entity = head->binding->entity;
 	facts->functions = head;
 	facts->flags |= kOverloadSet;
-	for (const syntax::Expr* node = callee; node != &named; node = static_cast<const syntax::ParenExpr*>(node)->inner)
+	for (const syntax::Expr* node = call.callee; node != &named;
+		node = static_cast<const syntax::ParenExpr*>(node)->inner)
 		node->facts = facts;
 	return facts;
 }
@@ -235,7 +238,7 @@ ExprFacts* Analyzer::call_form(const syntax::CallExpr& expr, Scope* scope, ExprF
 	const uint64_t callee_uses = names_.dependent_uses();
 	const bool template_call = bare && named != nullptr &&
 		(kind == syntax::NameComponentKind::Identifier || operator_name) && named->name->last().has_arguments &&
-		(callee = template_callee(*named, expr.callee, scope, explicit_arguments, undeclared)) != nullptr;
+		(callee = template_callee(*named, expr, scope, explicit_arguments, undeclared)) != nullptr;
 	// A member function template named by a template-id through an object
 	// (`o.f<A>(args)`, `p->template f<A>(args)`, `o.operator()<A>()`,
 	// 14.2p1): its explicit arguments, once the member is found.
@@ -265,7 +268,8 @@ ExprFacts* Analyzer::call_form(const syntax::CallExpr& expr, Scope* scope, ExprF
 		// makes a functional cast, a function name a call that argument-
 		// dependent lookup may extend.
 		const Identifier* name = name_key(named->name->last());
-		LookupResult result = operator_name ? operator_function_lookup(*named->name, scope)
+		LookupResult result = expr.adl_only ? LookupResult()
+			: operator_name                 ? operator_function_lookup(*named->name, scope)
 			: named->name->qualified()      ? lookup_name(*named->name, scope, LookupFilter::Ordinary)
 											: unqualified(scope, name, LookupFilter::Ordinary);
 		if (failed())

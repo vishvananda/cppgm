@@ -51,6 +51,8 @@ enum class ExprKind : uint8_t
 struct Expr
 {
 	ExprKind kind;
+	// A dependent call in a template signature can begin with empty ordinary lookup.
+	mutable bool adl_only = false;
 	uint32_t location;
 	// Set once by semantic analysis (in semantics mode): what the
 	// expression means. The tree is otherwise immutable (but see

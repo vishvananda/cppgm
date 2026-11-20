@@ -230,6 +230,10 @@ the implemented surface, including:
 - an argument that names a set of overloaded functions participates in
   deduction the same way whether the called template was found by ordinary
   lookup or only by argument-dependent lookup
+- a dependent unqualified call in a declaration uses ordinary lookup at
+  its declaration point. If that lookup finds nothing, a later member
+  declaration does not hide a function found through argument-dependent
+  lookup during substitution
 - dependent-call, dependent-alias, and no-eager-instantiation behavior when the
   primary assertion is a single PA18-owned feature rather than a broad
   multi-feature composition

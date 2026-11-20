@@ -217,8 +217,15 @@ bool Analyzer::name_words(
 			words.push_back(PointerWord(component.identifier));
 		else
 		{
-			const LookupResult found = names_.unqualified(
-				scope, component.identifier, name.qualified() ? LookupFilter::Prefix : LookupFilter::Ordinary);
+			const LookupResult found = call != nullptr && call->adl_only
+				? LookupResult()
+				: names_.unqualified(
+					  scope, component.identifier, name.qualified() ? LookupFilter::Prefix : LookupFilter::Ordinary);
+			// Later class members can be visible during substitution. Keep
+			// an empty declaration-time ordinary lookup empty.
+			if (call != nullptr && !call->adl_only && !found.found() && template_depth_ != 0 &&
+				this->dependent_arguments(*call, scope))
+				call->adl_only = true;
 			// A parameter without a type: its substitution failed (see
 			// substituted_scope).
 			if (found.ambiguous ||
