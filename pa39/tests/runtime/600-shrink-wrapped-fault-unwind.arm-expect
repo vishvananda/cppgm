@@ -1,5 +1,6 @@
 {
   "source": true,
+  "target": "aarch64-linux-gnu",
   "units": [
     "600-shrink-wrapped-fault-unwind.t.1"
   ],
