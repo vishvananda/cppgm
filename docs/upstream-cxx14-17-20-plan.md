@@ -434,6 +434,8 @@ even with GCC in C++14.
    the release variant so its performance test reaches its run oracle.
    Use shared linking for Serialization's recovered tests so the tests
    that load shared libraries are enabled.
+   Use shared linking for Boost.Python's recovered tests. Build the
+   extension module objects as PIC so the Python interpreter can load them.
 2. **Require actual cppgm builds and test execution.** Reuse the B2 runner
    with separate build roots by compiler and edition. Verify the actual
    C++ invocations use the candidate compiler and recorded standard. Each

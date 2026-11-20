@@ -921,6 +921,9 @@
     {
       "project": "libs/python/test",
       "edition": 14,
+      "b2_properties": [
+        "link=shared"
+      ],
       "proof": {
         "path": "validation/20261029-python143-reviewed/language.json",
         "sha256": "7c5f2795ce8160d0251357a6557ff6e400100d417793a21df1d261de051d89e6"
