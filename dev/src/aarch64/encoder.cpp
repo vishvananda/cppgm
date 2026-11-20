@@ -320,8 +320,9 @@ void simplify_branches(Function& f)
 // through to one of its destinations; simplify_branches then inverts the
 // copy's branch over the jump that follows it. The copy computes the same
 // registers and flags at the same frame state, so it holds no frame event,
-// landing pad or table entry. TBZ and TBNZ reach 8192 instructions, so a
-// function that grows past that keeps its jumps when it holds one.
+// landing pad or table entry. TBZ and TBNZ reach 8192 instructions and the
+// other conditional branches 2^18, so a function that would grow past the
+// reach of a branch it holds keeps its jumps.
 void copy_short_tests(Function& f)
 {
 	const uint32_t n = static_cast<uint32_t>(f.code.size());
@@ -348,7 +349,7 @@ void copy_short_tests(Function& f)
 		copies.push_back(copy);
 		growth += copy.length + 1;
 	}
-	if (copies.empty() || (bit_tests && n + growth >= 8192))
+	if (copies.empty() || n + growth >= (1u << 18) || (bit_tests && n + growth >= 8192))
 		return;
 	std::vector<uint32_t> moved(n + 1);
 	std::vector<Instruction> code;
