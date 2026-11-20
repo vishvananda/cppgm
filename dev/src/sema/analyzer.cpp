@@ -852,14 +852,13 @@ void Analyzer::introduce(Binding* target, Scope* scope, uint32_t location)
 						  ? names_.overload(where, target->name, introduced->signature, HeadOf(introduced)->shape)
 						  : nullptr)
 				: names_.overload(where, target->name, introduced->signature);
-			if (same != nullptr && same->binding->entity != introduced)
+			// Two using-declarations may introduce distinct functions with the
+			// same signature. A call that selects both is ambiguous.
+			if (same != nullptr && same->binding->entity != introduced && same->binding->entity->owner == where)
 			{
-				if (where->kind == ScopeKind::Class && same->binding->entity->owner == where)
+				if (where->kind == ScopeKind::Class)
 					return;
-				// Two base members may both be introduced; overload resolution
-				// diagnoses ambiguity only when that signature is called.
-				if (where->kind != ScopeKind::Class)
-					error(location, "using-declaration conflicts with a function of the same signature");
+				error(location, "using-declaration conflicts with a function of the same signature");
 			}
 		}
 		else if (target->kind == BindingKind::Type || target->kind == BindingKind::TypeAlias)
