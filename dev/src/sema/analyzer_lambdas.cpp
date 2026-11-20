@@ -1018,6 +1018,10 @@ void Analyzer::closure_conversion(const ClassEntity* entity, bool conversion_fun
 		return;
 	ClassEntity* closure = const_cast<ClassEntity*>(entity);
 	const FunctionEntity* call = facts->call;
+	// C++17 [expr.prim.lambda.closure] gives the conversion a pointer
+	// to a non-throwing function when the call operator is non-throwing.
+	if (cxx17_)
+		function_nothrow(call);
 	const Type* operator_type = call->type->canonical;
 	const Type* function_type = types_.function(operator_type->element, operator_type->params,
 		operator_type->param_count, operator_type->variadic, 0, RefQualifier::None, operator_type->owner);

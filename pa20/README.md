@@ -231,6 +231,9 @@ To complete PA20, implement these goals:
    `inline_hint=yes`, and `unwind=no` when the lambda is declared `noexcept`
    or `throw()`; a lambda-expression called directly states its call
    operator's `unwind=no` on the call signature.
+   In C++17, conversion of a captureless non-throwing lambda yields a
+   pointer to a non-throwing function. Preserve that type before applying
+   other conversions at the use site. See N4659 `[expr.prim.lambda.closure]`.
 
 4. Range-for lowering.
    Range-for over arrays and supported user-defined `begin` / `end`
