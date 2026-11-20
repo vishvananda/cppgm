@@ -352,11 +352,11 @@ The default preprocessor references are intentionally host-agnostic. The test ha
 pin local host macro values such as platform-specific integer or floating-point
 limits.
 
-GNU `q`/`Q` floating suffixes denote `__float128`, as specified in
-[GCC's floating-type extensions](https://gcc.gnu.org/onlinedocs/gcc/Floating-Types.html),
-in both normal compilation and the typed `cppgm -E` stream. Emit binary128
-bytes for these literals; `l`/`L` still denote `long double`. This PA30
-extension does not change the strict C++11 literal grammar of PA2–PA4.
+In GNU C++ modes, `q` and `Q` floating suffixes denote `__float128` in
+compilation and in the typed `cppgm -E` stream. Emit binary128 bytes for
+these literals. ISO C++ modes leave those suffixes to the ordinary
+user-defined literal rules. The standard `l` and `L` suffixes denote
+`long double`. [GCC floating-type extensions](https://gcc.gnu.org/onlinedocs/gcc/Floating-Types.html)
 
 Constant evaluation of binary128 values must use their target precision and
 range, including arithmetic, comparisons, casts and static initialization.

@@ -4,8 +4,9 @@
 #include <string>
 #include <vector>
 
-#include "sema/analysis_records.h"
+#include "lex/number_literal.h"
 #include "lex/source_language.h"
+#include "sema/analysis_records.h"
 #include "sema/analyzer_keys.h"
 #include "sema/constant_frames.h"
 #include "sema/constant_values.h"
@@ -26,7 +27,6 @@
 class SourcePositions;
 
 class IdentifierTable;
-struct NumberLiteral;
 struct CharacterLiteralValue;
 
 namespace sema {
@@ -70,6 +70,7 @@ public:
 	void set_hosted(bool on) { hosted_ = on; }
 	void set_host_objects(bool on) { host_objects_ = on; }
 	bool hosted() const { return hosted_; }
+	void set_number_dialect(NumberDialect dialect) { number_dialect_ = dialect; }
 	// -std=c++14 or later (hosted -c): the C++11 rules its headers' mode
 	// gates contradict are dropped -- a constexpr non-static member function
 	// is not implicitly const (7.1.5p8 in C++11) and may return void (N3652).
@@ -1928,6 +1929,7 @@ private:
 	bool hosted_ = false;
 	bool host_objects_ = false;
 	uint8_t cxx_edition_ = 11;
+	NumberDialect number_dialect_ = NumberDialect::Gnu;
 	bool cxx14_ = false;
 	bool cxx17_ = false;
 	bool cxx20_ = false;

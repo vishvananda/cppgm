@@ -91,7 +91,12 @@ void configure_source_language(const std::string& language, const std::string& s
 	if (!language.empty() && (language == "c") != (options.language == SourceLanguage::C))
 		throw InvocationError("language standard does not match -x " + language);
 	if (options.language == SourceLanguage::Cxx)
+	{
 		options.literals = hosted_number_dialect(options);
+		if (options.strict)
+			options.literals = static_cast<NumberDialect>(
+				static_cast<uint8_t>(options.literals) & ~number_syntax::QuadSuffix);
+	}
 }
 
 bool diagnostic_option(
@@ -832,6 +837,8 @@ bool lower_source(const std::string& path, const Invocation& invocation, lower::
 		graph.names.reserve(unit.counters().bindings);
 		sema::Analyzer analyzer(graph, unit.identifiers(), sema::AnalysisMode::Semantics);
 		analyzer.set_source_language(invocation.preprocessor.language, invocation.preprocessor.gnu_c());
+		if (invocation.preprocessor.language == SourceLanguage::Cxx)
+			analyzer.set_number_dialect(invocation.preprocessor.literals);
 		analyzer.set_hosted(invocation.preprocessor.hosted);
 		analyzer.set_host_objects(lowering.host_objects());
 		analyzer.set_cxx_edition(

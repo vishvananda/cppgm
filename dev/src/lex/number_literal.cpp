@@ -303,7 +303,7 @@ NumberLiteral ClassifyFloating(const char* text, uint32_t length, uint32_t value
 		result.type = FundamentalType::LongDouble;
 	}
 	else if (suffix_length == 1 && (text[value_end] == 'q' || text[value_end] == 'Q') &&
-		HasNumberSyntax(dialect, number_syntax::ExtendedFloat))
+		HasNumberSyntax(dialect, number_syntax::QuadSuffix))
 	{
 		// GNU's `q` and `Q` name __float128 in both compilation and the
 		// typed preprocessor stream; `l` and `L` name long double.

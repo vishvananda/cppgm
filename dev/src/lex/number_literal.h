@@ -45,7 +45,8 @@ enum Feature : uint8_t
 	ExtendedFloat = 1 << 3,
 	ReservedSuffix = 1 << 4,
 	GnuCharacter = 1 << 5,
-	Hosted = ExtendedFloat | ReservedSuffix | GnuCharacter
+	QuadSuffix = 1 << 6,
+	Hosted = ExtendedFloat | ReservedSuffix | GnuCharacter | QuadSuffix
 };
 
 } // namespace number_syntax
