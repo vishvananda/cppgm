@@ -28,6 +28,14 @@ struct PhiCopy
 	lowir::BlockId from, to;
 };
 
+// What the allocator reads beside the ranges: the phi transfers two homes
+// can share, and the first position of each landing pad, in order.
+struct RangeFacts
+{
+	std::vector<PhiCopy> copies;
+	std::vector<uint32_t> landings;
+};
+
 std::vector<uint32_t> scalar_aliases(const lowir::FunctionBody& body);
 inline uint32_t representative(const std::vector<uint32_t>& aliases, uint32_t id)
 {
@@ -38,7 +46,7 @@ std::vector<LiveRange> live_ranges(const lowir::Program& program, const lowir::F
 	const machine::ExceptionLayout* exceptions, std::vector<uint32_t>& uses, std::vector<uint32_t>& calls,
 	std::vector<std::pair<uint32_t, uint32_t>>& segments, opt::Cfg& cfg, machine::PhiWebs& webs,
 	std::vector<uint32_t>& entries, const std::vector<uint32_t>& aliases, bool separate_shared_inputs,
-	std::vector<PhiCopy>& copies);
+	RangeFacts& facts);
 
 void block_frequencies(
 	const lowir::Program& program, const lowir::FunctionBody& body, opt::Cfg& cfg, std::vector<uint64_t>& weights);

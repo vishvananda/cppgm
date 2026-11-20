@@ -229,7 +229,7 @@ private:
 	std::vector<uint32_t> argument_spills_, simd_call_spills_, remat_slots_;
 	void protect_simd_at_calls(unsigned reg, uint64_t calls);
 	uint64_t cold_crossings(const LiveRange& range, const std::vector<std::pair<uint32_t, uint32_t>>& segments,
-		const std::vector<uint32_t>& calls, bool guarded) const;
+		const std::vector<uint32_t>& calls, uint64_t budget) const;
 	bool rematerialize_frame_address(lowir::TempId id);
 	bool rematerialized(lowir::TempId id) const { return !remat_slots_.empty() && remat_slots_[id] != lowir::kNoId; }
 	void epilogue(const lowir::Instruction& inst);

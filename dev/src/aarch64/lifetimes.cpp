@@ -320,7 +320,7 @@ std::vector<LiveRange> live_ranges(const Program& program, const FunctionBody& b
 	const machine::ExceptionLayout* exceptions, std::vector<uint32_t>& uses, std::vector<uint32_t>& calls,
 	std::vector<std::pair<uint32_t, uint32_t>>& segments, opt::Cfg& cfg, machine::PhiWebs& webs,
 	std::vector<uint32_t>& entries, const std::vector<uint32_t>& aliases, bool separate_shared_inputs,
-	std::vector<PhiCopy>& copies)
+	RangeFacts& facts)
 {
 	FunctionLiveness plan(body);
 	uses.assign(body.temps.size(), 0);
@@ -405,7 +405,7 @@ std::vector<LiveRange> live_ranges(const Program& program, const FunctionBody& b
 						webs.join(id, phi.result);
 						plan.ranges[id].affinity = phi.result;
 						plan.ranges[phi.result].affinity = id;
-						copies.push_back(PhiCopy{ id, phi.result, pred, b });
+						facts.copies.push_back(PhiCopy{ id, phi.result, pred, b });
 					}
 					plan.reads[id].incoming = true;
 				}
@@ -423,6 +423,13 @@ std::vector<LiveRange> live_ranges(const Program& program, const FunctionBody& b
 		entries.resize(body.blocks.size());
 		for (BlockId block : body.layout)
 			entries[block] = plan.spans[block].first;
+	}
+	if (exceptions)
+	{
+		for (BlockId block : exceptions->landing_blocks)
+			if (block != kNoId)
+				facts.landings.push_back(plan.spans[block].first);
+		std::sort(facts.landings.begin(), facts.landings.end());
 	}
 	return std::move(plan.ranges);
 }

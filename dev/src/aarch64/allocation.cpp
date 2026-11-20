@@ -230,6 +230,18 @@ bool guarded_call(const FunctionBody& body, const opt::Cfg& cfg, BlockId site)
 	return false;
 }
 
+// Whether the range is live at one of the sorted positions.
+bool live_into(const LiveRange& range, const Segments& segments, const std::vector<uint32_t>& positions)
+{
+	bool live = false;
+	if (!positions.empty())
+		each_interval(range, segments, [&](uint32_t a, uint32_t b) {
+			const auto it = std::lower_bound(positions.begin(), positions.end(), a);
+			live |= it != positions.end() && *it <= b;
+		});
+	return live;
+}
+
 // The register each parameter arrives in, when it stays there. An indirect
 // result parameter takes x8.
 std::vector<unsigned> incoming_registers(
@@ -477,6 +489,58 @@ private:
 	machine::PressureTree tree_, hints_;
 	bool initialized_ = false, hinted_ = false;
 };
+// The phi groups' registers as ranges choose theirs. A group's first member
+// to get a register asks the later ones, and the ranges assigned in between,
+// to leave it to them.
+class GroupRegisters
+{
+public:
+	GroupRegisters(const FunctionBody& body, const std::vector<LiveRange>& ranges, const Segments& segments,
+		const std::vector<PhiCopy>& copies, const std::vector<uint32_t>& calls)
+		: ranges_(ranges), groups_(body, ranges, segments, copies, calls),
+		  regs_(groups_.empty() ? 0 : body.temps.size(), kNoId), assigned_(groups_.empty() ? 0 : ranges.size())
+	{}
+	void start(uint32_t index)
+	{
+		if (!assigned_.empty())
+			assigned_[index] = 1;
+	}
+	// A member takes its group's register first; the first member of a group
+	// that crosses a call chooses a preserved one, unless it is a parameter.
+	unsigned choose(RegisterBank& bank, const LiveRange& range, uint32_t allowed, uint32_t preserved,
+		unsigned preferred, unsigned alternate, bool across_call, bool parameter)
+	{
+		const auto group = groups_.root(range.id);
+		const unsigned group_reg = group == kNoId ? kNoId : regs_[group];
+		uint32_t partners = 0;
+		if (group_reg != kNoId)
+		{
+			partners = preferred < 32 ? 1u << preferred : 0;
+			preferred = group_reg;
+		}
+		unsigned reg = kNoId;
+		if (group != kNoId && group_reg == kNoId && !across_call && !parameter && groups_.crosses_call(group))
+			reg = bank.assign(range, preserved, preferred, alternate, partners);
+		if (reg == kNoId)
+			reg = bank.assign(range, allowed, preferred, alternate, partners);
+		if (reg != kNoId && group != kNoId && group_reg == kNoId)
+		{
+			regs_[group] = reg;
+			groups_.each_member(group, [&](uint32_t index) {
+				if (!assigned_[index])
+					bank.hint(ranges_[index], reg);
+			});
+		}
+		return reg;
+	}
+
+private:
+	const std::vector<LiveRange>& ranges_;
+	PhiGroups groups_;
+	std::vector<uint32_t> regs_;
+	std::vector<uint8_t> assigned_;
+};
+
 } // namespace
 
 // A scalar dying at a call may already occupy its outgoing register. The
@@ -604,7 +668,7 @@ void Selector::protect_simd_at_calls(unsigned reg, uint64_t calls)
 }
 
 uint64_t Selector::cold_crossings(
-	const LiveRange& range, const Segments& segments, const std::vector<uint32_t>& calls, bool guarded) const
+	const LiveRange& range, const Segments& segments, const std::vector<uint32_t>& calls, uint64_t budget) const
 {
 	uint64_t crossed = 0, cost = 0;
 	each_interval(range, segments, [&](uint32_t a, uint32_t b) {
@@ -612,11 +676,11 @@ uint64_t Selector::cold_crossings(
 		{
 			const auto k = static_cast<unsigned>(it - calls.begin());
 			crossed |= uint64_t(1) << k;
-			if (!guarded)
+			if (!block_weights_.empty())
 				cost += block_weights_[calls_[k].block];
 		}
 	});
-	return guarded || cost <= block_weights_[body_.layout.front()] / 2 ? crossed : 0;
+	return cost <= budget ? crossed : 0;
 }
 
 // A fixed frame address is one add at the use. Computing it twice can
@@ -661,10 +725,10 @@ void Selector::allocate()
 	Segments segments;
 	opt::Cfg cfg;
 	machine::PhiWebs webs;
-	std::vector<PhiCopy> copies;
+	RangeFacts facts;
 	aliases_ = scalar_aliases(body_);
 	auto ranges = live_ranges(program_, body_, out_.exceptions.get(), uses_, calls, segments, cfg, webs, entry_regs_,
-		aliases_, level_ >= 3, copies);
+		aliases_, level_ >= 3, facts);
 	std::vector<uint32_t> web_regs(webs.empty() ? 0 : count, kNoId);
 	std::stable_sort(
 		ranges.begin(), ranges.end(), [](const LiveRange& a, const LiveRange& b) { return a.first < b.first; });
@@ -675,17 +739,17 @@ void Selector::allocate()
 	const auto outgoing = call_registers();
 	const auto order = allocation_order(program_, body_, cfg, aliases_, block_weights_, ranges, segments, calls, webs,
 		slots, level_, dynamic_stack_ ? 9 : 10);
-	const bool split_calls = level_ >= 2 && !out_.exceptions && !named_.darwin && !dynamic_stack_ &&
-		body_.code_labels.empty() && calls.size() <= 64;
+	const bool split_calls = level_ >= 2 && !named_.darwin && !dynamic_stack_ && body_.code_labels.empty() &&
+		calls.size() <= 64;
 	if (split_calls && calls.size() > 1 && block_weights_.empty() && !cfg.succ_first.empty())
 		block_frequencies(program_, body_, cfg, block_weights_);
 	const bool single = split_calls && calls.size() == 1 && guarded_call(body_, cfg, calls_.front().block);
 	const bool cold_calls = split_calls && (single || !block_weights_.empty());
-	// A group's first member to get a register asks the later ones, and the
-	// ranges assigned in between, to leave it to them.
-	const PhiGroups groups(body_, ranges, segments, copies, calls);
-	std::vector<uint32_t> group_regs(groups.empty() ? 0 : count, kNoId);
-	std::vector<uint8_t> assigned(group_regs.empty() ? 0 : ranges.size());
+	// A guarded single call, or calls that together run at most half as often
+	// as the function, cost less to save around than a preserved register.
+	const uint64_t cold_budget = single ? ~uint64_t(0)
+										: (block_weights_.empty() ? 0 : block_weights_[body_.layout.front()] / 2);
+	GroupRegisters groups(body_, ranges, segments, facts.copies, calls);
 	constexpr uint32_t high_caller_simd = 0xfffc0000; // v18 through v31, clear of argument and scratch registers.
 	RegisterBank general(segments, slots), simd(segments, slots);
 	std::vector<uint32_t> simd_web_regs;
@@ -696,8 +760,7 @@ void Selector::allocate()
 		const auto& range = ranges[order.empty() ? i : order[i]];
 		if (range.first == kNoId)
 			continue;
-		if (!assigned.empty())
-			assigned[order.empty() ? i : order[i]] = 1;
+		groups.start(order.empty() ? i : order[i]);
 		bool at_call = false, across_call = false;
 		uint32_t kept = !out_.exceptions && !leaf_registers_.empty() ? (0xfcu | (7u << 12)) : 0;
 		if (!calls.empty())
@@ -734,9 +797,9 @@ void Selector::allocate()
 				reg = simd.assign(range, kPreservedSimd, preferred, alternate);
 			// Keep scalar arithmetic in its register bank. With only rare
 			// calls to cross, save the live scalar lanes on those paths.
-			if (reg == kNoId && across_call && cold_calls)
+			if (reg == kNoId && across_call && cold_calls && !live_into(range, segments, facts.landings))
 			{
-				const uint64_t crossed = cold_crossings(range, segments, calls, single);
+				const uint64_t crossed = cold_crossings(range, segments, calls, cold_budget);
 				if (crossed)
 					reg = simd.assign(range, high_caller_simd, preferred, alternate);
 				if (reg != kNoId)
@@ -778,49 +841,27 @@ void Selector::allocate()
 		uint32_t caller = across_call ? kept : arguments | (7u << 12) | (!at_call && free_x8 ? 1u << 8 : 0);
 		// Keep an incoming scalar in its ABI register when its live range
 		// crosses only cold calls. The saved slot belongs to this register.
-		uint64_t crossed = across_call && cold_calls ? cold_crossings(range, segments, calls, single) : 0;
+		// A value a landing pad reads stays in its home at every call.
+		uint64_t crossed = across_call && cold_calls && !live_into(range, segments, facts.landings)
+			? cold_crossings(range, segments, calls, cold_budget)
+			: 0;
+		uint32_t crossing = 7u << 12;
+		if (across_call && range.id < incoming.size() && incoming[range.id] < 8)
+			crossing |= outgoing[range.id].allowed & (1u << incoming[range.id]);
+		else if (across_call && range.first != 0)
+			crossing |= outgoing[range.id].allowed & 0xffu;
 		if (crossed)
-		{
-			caller |= 7u << 12;
-			if (range.id < incoming.size() && incoming[range.id] < 8)
-				caller |= outgoing[range.id].allowed & (1u << incoming[range.id]);
-			else if (range.first != 0)
-				caller |= outgoing[range.id].allowed & 0xffu;
-		}
+			caller |= crossing;
 		const uint32_t preserved = (dynamic_stack_ ? 0x1ffu : 0x3ffu) << 19;
 		unsigned preferred = range.affinity == kNoId ? kNoId : registers_[range.affinity];
 		if (preferred == kNoId && at_call && !across_call && outgoing[range.id].preferred < 8)
 			preferred = outgoing[range.id].preferred;
 		const auto root = range.affinity == kNoId ? kNoId : webs.root(range.id);
-		const auto group = groups.root(range.id);
-		const unsigned group_reg = group == kNoId ? kNoId : group_regs[group];
-		uint32_t partner_regs = 0;
-		if (group_reg != kNoId)
-		{
-			partner_regs = preferred < 32 ? 1u << preferred : 0;
-			preferred = group_reg;
-		}
-		// The first member of a group that crosses a call chooses for it,
-		// unless it arrives in an argument register.
-		const uint32_t first_choice = group != kNoId && group_reg == kNoId && !across_call &&
-				range.id >= body_.parameter_count && groups.crosses_call(group)
-			? preserved
-			: 0;
-		auto reg = first_choice
-			? general.assign(range, first_choice, preferred, root == kNoId ? kNoId : web_regs[root], partner_regs)
-			: kNoId;
-		if (reg == kNoId)
-			reg = general.assign(
-				range, caller | preserved, preferred, root == kNoId ? kNoId : web_regs[root], partner_regs);
+		const unsigned alternate = root == kNoId ? kNoId : web_regs[root];
+		const bool parameter = range.id < body_.parameter_count;
+		auto reg = groups.choose(
+			general, range, caller | preserved, preserved, preferred, alternate, across_call, parameter);
 		registers_[range.id] = reg;
-		if (reg != kNoId && group != kNoId && group_reg == kNoId)
-		{
-			group_regs[group] = reg;
-			groups.each_member(group, [&](uint32_t index) {
-				if (!assigned[index])
-					general.hint(ranges[index], reg);
-			});
-		}
 		if (across_call && reg < 15 && !(kept & (1u << reg)))
 		{
 			if (argument_spills_.empty())
