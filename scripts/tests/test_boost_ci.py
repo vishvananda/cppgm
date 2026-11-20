@@ -22,8 +22,9 @@ class ReviewTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.project = 'libs/type_erasure/test'
 
-    def fixture(self, kind='COMPILE', returncode=0, route='cppgm', name='example.test'):
-        build = self.root / 'build/boost/bin.v2' / self.project / name / 'gcc-cppgm/debug'
+    def fixture(self, kind='COMPILE', returncode=0, route='cppgm', name='example.test',
+                build_prefix='build/boost/bin.v2'):
+        build = self.root / build_prefix / self.project / name / 'gcc-cppgm/debug'
         build.mkdir(parents=True, exist_ok=True)
         marker = build / name
         marker.write_text('passed\n')
@@ -95,6 +96,11 @@ class ReviewTests(unittest.TestCase):
         self.project = 'libs/asio/test/execution'
         self.fixture()
         self.project = 'libs/asio/test'
+        self.assertEqual(self.check()['passed'], 1)
+
+    def test_project_own_build_directory_keeps_its_marker(self):
+        self.project = 'libs/gil/test/extension/io'
+        self.fixture(name='simple_all_formats.test', build_prefix='build')
         self.assertEqual(self.check()['passed'], 1)
 
     def test_similarly_named_sibling_is_not_included(self):

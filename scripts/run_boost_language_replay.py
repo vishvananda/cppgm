@@ -273,6 +273,10 @@ def prepare_pfr_names(boost):
 
 def prepare_replay_sources(boost, groups):
     projects = {group['project'] for group in groups}
+    if 'libs/graph/test' in projects:
+        # isomorphism.cpp opens the test graphs relative to B2's run directory.
+        for name in ('github-428-0.dot', 'github-428-1.dot'):
+            shutil.copy2(boost / 'libs/graph/test' / name, boost / name)
     if projects & {'libs/geometry/index/test', 'libs/geometry/test'}:
         prepare_geometry_rtree(boost)
     if 'libs/gil/test' in projects:

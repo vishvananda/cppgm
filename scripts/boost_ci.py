@@ -203,7 +203,7 @@ def review(xml_path, log_path, calls_path, project, expected, label='cppgm', nat
         directory, name = target.split('//')
         expectation = 'testing%testing.expect-' + ('failure' if kind.endswith('_FAIL') else 'success')
         matching = [a for a in actions if a.findtext('name') == expectation and
-                    '/boost/bin.v2/' + directory + '/' + name + '/' in (a.findtext('path') or '') and
+                    '/' + directory + '/' + name + '/' in (a.findtext('path') or '') and
                     Path(a.findtext('path')).name == name]
         if target in inactive_tests:
             require(not matching, f'{target} now runs in the default project')
