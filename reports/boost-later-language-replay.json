@@ -179,6 +179,7 @@
     {
       "project": "libs/math/test",
       "edition": 14,
+      "clang_reference": "GCC 15 rejects four reverse-mode sinc_pi and sinhc_pi compile-test configurations with Multiprecision types. Clang 21 compiles all four with the original flags and the same libstdc++.",
       "proof": {
         "path": "runs/20261029T091514.880189Z-libs__math__test/review.json",
         "sha256": "1fcf6aa6e93d8c0abfdc0931910eb43ee51ef6be8946a0b7c947940a96bdd128"

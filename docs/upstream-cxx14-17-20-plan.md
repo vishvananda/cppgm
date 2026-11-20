@@ -469,9 +469,10 @@ even with GCC in C++14.
   cleanup boundary, resumption inside a user `try` block, a throwing
   `await_suspend`, and forwarding an uncaught exception to the promise.
   With the coroutine feature macro forced, the pinned Cobalt replay
-  emits objects for 41 of 60 original translation units. Remaining
-  errors include function-try-blocks, lexical lowering of some local
-  entities, and exception paths that merge inside a resumed expression.
+  emits objects for 50 of 60 original translation units. The function
+  try block, member allocation, and captureless lambda cases have PA32
+  runtime checks. The remaining failures include exception paths that
+  merge inside a resumed expression and calls to inline library functions.
   The original runtime tests remain the gate for enabling the feature
   macro.
 - PA18 exercises class argument equivalence, class deduction, address
@@ -563,6 +564,11 @@ request both successful and failing runs of the same source and arguments.
 Replay the upstream removal of those duplicate run-fail declarations.
 Retain one copy of each distinct run and compile-fail declaration.
 [Boost.Math fix](https://github.com/boostorg/math/commit/0aa599b200b435777d41d56983d22bdaf7f29b99)
+
+GCC 15 rejects four of the original reverse-mode autodiff compile cases
+for `sinc_pi` and `sinhc_pi` with Multiprecision types. Clang 21 compiles
+all four with the original flags, working directory, and libstdc++.
+Use Clang as the reference for the complete Math test project.
 
 ## Measure before promoting the changes
 
