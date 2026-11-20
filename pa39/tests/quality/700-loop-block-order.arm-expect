@@ -32,7 +32,7 @@
         "back_jumps": 1
       },
       "decode": {
-        "back_jumps": 1
+        "back_jumps": 2
       }
     }
   }

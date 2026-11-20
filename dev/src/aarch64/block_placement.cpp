@@ -152,15 +152,20 @@ uint32_t true_share(const FunctionBody& body, const lowir::Instruction& branch, 
 	if (definition != kNoId)
 	{
 		const auto& cmp = body.instructions[definition];
+		const auto pred = static_cast<ComparePredicate>(cmp.sub);
+		const bool equality = pred == ComparePredicate::Eq || pred == ComparePredicate::Ne;
 		if (cmp.op == Opcode::Compare && cmp.ops[1].is(ValueKind::Integer))
 		{
-			const auto pred = static_cast<ComparePredicate>(cmp.sub);
 			const bool zero = !body.literals[cmp.ops[1].index].low;
 			if (cmp.type.is_pointer() && zero)
 				return pred == ComparePredicate::Eq ? 128 : pred == ComparePredicate::Ne ? 872 : 500;
-			if (!zero && (pred == ComparePredicate::Eq || pred == ComparePredicate::Ne))
+			if (!zero && equality)
 				return pred == ComparePredicate::Eq ? 320 : 680;
 		}
+		// Two values compared for equality are more often different.
+		if (cmp.op == Opcode::Compare && equality && cmp.ops[0].is(ValueKind::Temp) && cmp.ops[1].is(ValueKind::Temp) &&
+			(cmp.type.is_pointer() || cmp.type.is_integer()))
+			return pred == ComparePredicate::Eq ? 320 : 680;
 	}
 	if (yes.terminator != no.terminator && (yes.terminator == Opcode::Branch || no.terminator == Opcode::Branch) &&
 		loops.innermost[position] == machine::kNoBlock)
