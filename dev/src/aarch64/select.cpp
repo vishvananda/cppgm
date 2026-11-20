@@ -477,6 +477,12 @@ void Selector::run()
 		out_.emit(Op::AddI, 28, 31);
 		out_.frame_rule(FrameRule::Register, 28);
 	}
+	frame_code_.prologue_end = static_cast<uint32_t>(out_.code.size());
+	frame_code_.prologue_events = static_cast<uint32_t>(out_.frame_events.size());
+	if (result_.indirect)
+		frame_code_.incoming |= 1u << 8;
+	if (result_.bank == Bank::General && !result_.indirect)
+		frame_code_.returned = ((1u << result_.pieces) - 1) << result_.first;
 	if (result_reg_ != kNoId)
 		move(result_reg_, 8);
 	else if (result_pointer_ != kNoId)
@@ -485,9 +491,11 @@ void Selector::run()
 	for (unsigned i = 0; i < body_.parameter_count; ++i)
 	{
 		const auto& param = program_.parameters_of(signature_)[i];
-		parameter(i,
-			param.pass == ir_model::PPM_INDIRECT_RESULT ? Argument{ Bank::General, 8, 1, 8, false }
-														: named_.next(param.type, param.shape));
+		const Argument arg = param.pass == ir_model::PPM_INDIRECT_RESULT ? Argument{ Bank::General, 8, 1, 8, false }
+																		 : named_.next(param.type, param.shape);
+		if (arg.bank == Bank::General)
+			frame_code_.incoming |= ((1u << arg.pieces) - 1) << arg.first;
+		parameter(i, arg);
 	}
 	const auto placed = order_blocks();
 	const auto& layout = placed.empty() ? body_.layout : placed;
@@ -615,6 +623,12 @@ void Selector::run()
 	// choosing the shorter reach of TBZ or TBNZ.
 	if (!bit_tests_.empty())
 		fold_bit_tests(out_, bit_tests_);
+	// Exception regions, a frame record, a dynamic or variadic frame and
+	// Darwin's compact unwind keep the prologue at the entry.
+	if (level_ && !minimize_size_ && frame_ && slow_entry == kNoId && !named_.darwin && !out_.exceptions &&
+		!dynamic_stack_ && frame_pointer_ == kNoId && variadic_area_ == kNoId && tls_vectors_ == kNoId &&
+		body_.code_labels.empty() && program_.symbols[symbol_].metadata.tls_for == kNoId)
+		shrink_wrap(out_, frame_code_);
 	if (level_ >= 2 && !dynamic_stack_ && body_.code_labels.empty())
 		simplify_branches(out_);
 }

@@ -2,6 +2,7 @@
 
 #include "aarch64/mir.h"
 #include "aarch64/abi.h"
+#include "aarch64/shrink_wrap.h"
 #include "machine/phi_inputs.h"
 
 namespace opt {
@@ -227,6 +228,7 @@ private:
 	uint32_t result_slot_ = lowir::kNoId;
 	uint32_t result_pointer_ = lowir::kNoId;
 	uint32_t frame_ = 0, phi_area_ = 0;
+	FrameCode frame_code_;
 };
 
 } // namespace aarch64

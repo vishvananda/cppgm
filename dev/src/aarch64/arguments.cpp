@@ -600,6 +600,7 @@ void Selector::epilogue(const lowir::Instruction& inst)
 
 void Selector::finish(SymbolId tail, unsigned indirect)
 {
+	const auto first_event = static_cast<uint32_t>(out_.frame_events.size());
 	if (frame_)
 		out_.frame_rule(FrameRule::RememberState);
 	if (dynamic_stack_)
@@ -622,7 +623,10 @@ void Selector::finish(SymbolId tail, unsigned indirect)
 	else
 		out_.reference(Op::B, Fixup::Jump, tail);
 	if (frame_)
+	{
 		out_.frame_rule(FrameRule::RestoreState);
+		frame_code_.epilogues.push_back({ first_event, static_cast<uint32_t>(out_.frame_events.size()) });
+	}
 }
 
 } // namespace aarch64
