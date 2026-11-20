@@ -1,0 +1,67 @@
+function @three(%n : i32) -> i32 [no_inline=yes] {
+  block ^entry:
+    %t1 = cmp ult i32 %n, 3
+    %t2 = select i32 %t1, 3, 0
+    return i32 %t2
+}
+function @offset(%n : u8) -> i64 [no_inline=yes] {
+  block ^entry:
+    %t1 = binary sub u8 %n, 5
+    %t2 = cmp ult u8 %t1, 4
+    %t3 = select i64 %t2, 9, 2
+    return i64 %t3
+}
+function @two_results(%n : i32) -> i32 [no_inline=yes] {
+  block ^entry:
+    %c0 = cmp eq i32 %n, 0
+    branch %c0, ^pass0, ^test1
+
+  block ^test1:
+    %c1 = cmp eq i32 %n, 1
+    branch %c1, ^join, ^pass0
+
+  block ^pass0:
+    %r0 = phi i32 [^test1: 0, ^entry: 3]
+    jump ^join
+
+  block ^join:
+    %r = phi i32 [^pass0: %r0, ^test1: 4]
+    return i32 %r
+}
+function @main() -> i32 [role=entry] {
+  block ^entry:
+    %a = call i32 @three(0)
+    %b = call i32 @three(2)
+    %c = call i32 @three(3)
+    %d = call i32 @three(-1)
+    %ab = binary mul i32 %a, 10
+    %abb = binary add i32 %b, %ab
+    %cc = binary mul i32 %abb, 10
+    %ccc = binary add i32 %c, %cc
+    %dd = binary mul i32 %ccc, 10
+    %ddd = binary add i32 %d, %dd
+    %three_ok = cmp eq i32 %ddd, 3300
+    %e = call i64 @offset(4)
+    %f = call i64 @offset(5)
+    %g = call i64 @offset(8)
+    %h = call i64 @offset(9)
+    %ef = binary mul i64 %e, 10
+    %eff = binary add i64 %f, %ef
+    %gg = binary mul i64 %eff, 10
+    %ggg = binary add i64 %g, %gg
+    %hh = binary mul i64 %ggg, 10
+    %hhh = binary add i64 %h, %hh
+    %offset_ok = cmp eq i64 %hhh, 2992
+    %i = call i32 @two_results(0)
+    %j = call i32 @two_results(1)
+    %k = call i32 @two_results(2)
+    %ij = binary mul i32 %i, 10
+    %ijj = binary add i32 %j, %ij
+    %kk = binary mul i32 %ijj, 10
+    %kkk = binary add i32 %k, %kk
+    %two_ok = cmp eq i32 %kkk, 340
+    %both = binary and i64 %three_ok, %offset_ok
+    %all = binary and i64 %two_ok, %both
+    %status = select i32 %all, 0, 1
+    return i32 %status
+}

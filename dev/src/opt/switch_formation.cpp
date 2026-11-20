@@ -286,6 +286,21 @@ const uint64_t kMaxCases = 256;
 // The fewest runs that take a jump table whatever their targets (the
 // selector's kJumpTableClusters).
 const uint64_t kTableRuns = 6;
+// The most blocks that only pass phi values on between a test and the
+// block its edge leads to.
+const size_t kPassing = 4;
+
+// A target of a region's tests outside it: the block their edges lead to,
+// past blocks that only pass phi values on, with the values its phis take
+// on those edges (from `first` in SwitchFormer::exit_values_, one per phi);
+// edges to one block with other values are another target. `values`: the
+// values of the switched value it takes.
+struct Exit
+{
+	BlockId to;
+	uint32_t first;
+	Ranges values;
+};
 
 class SwitchFormer
 {
@@ -303,17 +318,43 @@ private:
 	template<class Take>
 	bool sides(const Test& test, const Ranges& entry, int64_t tmin, int64_t tmax, Take take) const;
 	bool form(BlockId head);
+	bool passes(const std::vector<BlockId>& region, BlockId block);
+	bool destination(const std::vector<BlockId>& region, BlockId from, BlockId to, Exit& exit);
 	bool spread(const std::vector<BlockId>& region, const std::vector<Test>& tests, const std::vector<size_t>& order,
-		std::vector<std::pair<BlockId, Ranges>>& exits, uint32_t& replaced);
+		std::vector<Exit>& exits, uint32_t& replaced);
 	bool form_region(const std::vector<BlockId>& region, const std::vector<Test>& tests);
+	void retarget(
+		const std::vector<BlockId>& region, const std::vector<Exit>& exits, size_t def, std::vector<BlockId>& target);
 	bool reroot(const Test& test);
 
 	FunctionContext& c_;
 	FunctionBody& body_;
 	Cfg& cfg_;
 	std::vector<uint8_t> consumed_; // per block: inside a formed switch
-	std::vector<uint32_t> exit_at_; // per block: its place among a region's targets, plus one
+	std::vector<uint32_t> exit_at_; // per block: its first place among a region's targets, plus one
+	// Per block, for the region being formed: 1 when it passes phi values on
+	// (passes), 2 when not, 3 while asked; and the blocks asked.
+	std::vector<uint8_t> passing_;
+	std::vector<BlockId> asked_;
+	std::vector<Value> exit_values_;
+	std::vector<BlockId> path_;
 };
+
+bool within(const std::vector<BlockId>& region, BlockId block)
+{
+	return std::find(region.begin(), region.end(), block) != region.end();
+}
+
+// Two phi inputs that give one value (each literal operand has its own
+// entry).
+bool same_input(const FunctionBody& body, Value a, Value b)
+{
+	if (a == b)
+		return true;
+	Constant x, y;
+	return literal_constant(body, a, x) && literal_constant(body, b, y) && x.kind == y.kind &&
+		x.float_kind == y.float_kind && x.bits.low == y.bits.low && x.bits.high == y.bits.high;
+}
 
 // x's root: x without the extensions (from no wider a type) and additions
 // of a constant that define it, types of at most 32 bits each (`links`,
@@ -617,6 +658,69 @@ bool SwitchFormer::reroot(const Test& test)
 	return true;
 }
 
+// Whether `block`, outside the region, holds phis and then a jump to another
+// block whose phis alone read them (each as this block's input), and is
+// entered only from the region and from blocks that pass: once the region
+// switches, nothing enters it, and its phis' values go on to their readers.
+bool SwitchFormer::passes(const std::vector<BlockId>& region, BlockId block)
+{
+	if (passing_[block] != 0)
+		return passing_[block] == 1;
+	passing_[block] = 3;
+	asked_.push_back(block);
+	const Block& b = body_.blocks[block];
+	bool ok = b.first != b.last && !within(region, block) && !consumed_[block] && block != cfg_.rpo[0] &&
+		!(cfg_.flags[block] & (BF_HANDLER | BF_EH | BF_ADDRESS)) && body_.instructions[b.last].op == Opcode::Jump &&
+		body_.instructions[b.last].ops[0].index != block;
+	const BlockId to = ok ? body_.instructions[b.last].ops[0].index : kNoId;
+	for (InstId i = b.first; ok && i != b.last; i = body_.instructions[i].next)
+	{
+		const Instruction& phi = body_.instructions[i];
+		uint32_t read = 0;
+		for (InstId j = body_.blocks[to].first;
+			phi.op == Opcode::Phi && j != kNoId && body_.instructions[j].op == Opcode::Phi;
+			j = body_.instructions[j].next)
+			read += phi_incoming(body_, body_.instructions[j], block) == Value::temp(phi.result) ? 1 : 0;
+		ok = phi.op == Opcode::Phi && read == c_.uses[phi.result];
+	}
+	for (uint32_t p = cfg_.pred_first[block]; ok && p < cfg_.pred_first[block + 1]; ++p)
+		ok = within(region, cfg_.preds[p]) || passes(region, cfg_.preds[p]);
+	passing_[block] = ok ? 1 : 2;
+	return ok;
+}
+
+// The exit an edge of the region from `from` into `to` (outside it) makes:
+// its block past those that pass (at most kPassing), and the values its
+// phis take along that path. False when the path enters the region.
+bool SwitchFormer::destination(const std::vector<BlockId>& region, BlockId from, BlockId to, Exit& exit)
+{
+	path_.assign(1, from);
+	for (; passes(region, to); to = body_.instructions[body_.blocks[to].last].ops[0].index)
+	{
+		if (path_.size() > kPassing)
+			return false;
+		path_.push_back(to);
+	}
+	if (within(region, to))
+		return false;
+	exit.to = to;
+	exit.first = static_cast<uint32_t>(exit_values_.size());
+	for (InstId i = body_.blocks[to].first; i != kNoId && body_.instructions[i].op == Opcode::Phi;
+		i = body_.instructions[i].next)
+	{
+		// (A passing block's phi is read only by the next block's.)
+		Value v = phi_incoming(body_, body_.instructions[i], path_.back());
+		for (size_t k = path_.size() - 1; k > 0 && v.is(ValueKind::Temp); --k)
+		{
+			const InstId def = body_.temps[v.index].def;
+			if (def != kNoId && body_.instructions[def].op == Opcode::Phi && c_.block_of[def] == path_[k])
+				v = phi_incoming(body_, body_.instructions[def], path_[k - 1]);
+		}
+		exit_values_.push_back(v);
+	}
+	return true;
+}
+
 // The values each target outside the region takes from the region's tests
 // (`exits`, in the order the tests reach the targets), read in the order
 // `order` of the region's blocks, and the compares the tests stand for.
@@ -624,7 +728,7 @@ bool SwitchFormer::reroot(const Test& test)
 // region. A value set gathers its parts as they come, and takes its form
 // when its block's turn comes, or at the end.
 bool SwitchFormer::spread(const std::vector<BlockId>& region, const std::vector<Test>& tests,
-	const std::vector<size_t>& order, std::vector<std::pair<BlockId, Ranges>>& exits, uint32_t& replaced)
+	const std::vector<size_t>& order, std::vector<Exit>& exits, uint32_t& replaced)
 {
 	const BlockId head = region[0];
 	int64_t tmin = 0, tmax = 0;
@@ -649,47 +753,178 @@ bool SwitchFormer::spread(const std::vector<BlockId>& region, const std::vector<
 				into.insert(into.end(), values.begin(), values.end());
 				return true;
 			}
-			if (exit_at_[to] == 0)
+			Exit exit;
+			if (!destination(region, region[r], to, exit))
+				return false;
+			const unsigned phis = static_cast<unsigned>(exit_values_.size() - exit.first);
+			size_t e = exit_at_[exit.to] == 0 ? exits.size() : exit_at_[exit.to] - 1;
+			for (; e < exits.size(); ++e)
 			{
-				exits.push_back(std::make_pair(to, Ranges()));
-				exit_at_[to] = static_cast<uint32_t>(exits.size());
+				bool same = exits[e].to == exit.to;
+				for (unsigned k = 0; k < phis && same; ++k)
+					same = same_input(body_, exit_values_[exits[e].first + k], exit_values_[exit.first + k]);
+				if (same)
+					break;
 			}
-			Ranges& into = exits[exit_at_[to] - 1].second;
+			if (e < exits.size())
+				exit_values_.resize(exit.first);
+			else
+			{
+				exits.push_back(exit);
+				if (exit_at_[exit.to] == 0)
+					exit_at_[exit.to] = static_cast<uint32_t>(exits.size());
+			}
+			Ranges& into = exits[e].values;
 			into.insert(into.end(), values.begin(), values.end());
 			return true;
 		});
 		if (!whole)
 			return false;
 	}
-	for (std::pair<BlockId, Ranges>& exit : exits)
-		normalize(exit.second);
+	for (Exit& exit : exits)
+		normalize(exit.values);
 	return true;
+}
+
+// The block each target's cases go to (`target`; kNoId for a target the
+// switch never reaches), and the phis of the blocks they lead to: a block
+// keeps one input from the region, renamed to the head's, which gives the
+// values of one target there (the default's when it goes there); each other
+// target there reached has a new block that jumps there with its values.
+// Inputs from the region's other blocks and from those that pass go.
+void SwitchFormer::retarget(
+	const std::vector<BlockId>& region, const std::vector<Exit>& exits, size_t def, std::vector<BlockId>& target)
+{
+	const BlockId head = region[0];
+	const uint32_t location = body_.instructions[body_.blocks[head].last].location;
+	target.assign(exits.size(), kNoId);
+	std::vector<uint8_t> done(exits.size(), 0);
+	std::vector<BlockId> preds;
+	std::vector<Value> pairs;
+	auto input = [&](Value v) {
+		if (v.is(ValueKind::Temp))
+			++c_.uses[v.index];
+		if (!v.is(ValueKind::Integer) && !v.is(ValueKind::Float))
+			return v;
+		const Literal bits = body_.literals[v.index];
+		return literal_value(body_, v.kind, v.float_kind, bits);
+	};
+	for (size_t e = 0; e < exits.size(); ++e)
+	{
+		if (done[e])
+			continue;
+		const BlockId to = exits[e].to;
+		size_t direct = exits.size();
+		for (size_t k = e; k < exits.size(); ++k)
+			if (exits[k].to == to)
+			{
+				done[k] = 1;
+				if ((k == def || !exits[k].values.empty()) && (direct == exits.size() || k == def))
+					direct = k;
+			}
+		bool from_head = false;
+		BlockId keep = kNoId;
+		preds.clear();
+		for (uint32_t p = cfg_.pred_first[to]; p < cfg_.pred_first[to + 1]; ++p)
+		{
+			const BlockId pred = cfg_.preds[p];
+			if ((!within(region, pred) && passing_[pred] != 1) ||
+				std::find(preds.begin(), preds.end(), pred) != preds.end())
+				continue;
+			preds.push_back(pred);
+			from_head = from_head || pred == head;
+			if (pred != head && keep == kNoId)
+				keep = pred;
+		}
+		keep = direct == exits.size() ? kNoId : from_head ? head : keep;
+		for (size_t k = e; k < exits.size(); ++k)
+		{
+			if (exits[k].to != to || (k != def && exits[k].values.empty()))
+				continue;
+			target[k] = to;
+			if (k == direct)
+				continue;
+			target[k] = append_block(body_, BlockKind::SwitchCase);
+			body_.layout.insert(std::find(body_.layout.begin(), body_.layout.end(), to), target[k]);
+			Instruction jump = make_instruction(Opcode::Jump, Type::scalar(TypeKind::Void));
+			jump.ops[0] = Value::block(to);
+			jump.location = location;
+			insert_after(body_, target[k], kNoId, append_instruction(body_, jump));
+		}
+		unsigned n = 0;
+		for (InstId i = body_.blocks[to].first; i != kNoId && body_.instructions[i].op == Opcode::Phi;
+			i = body_.instructions[i].next, ++n)
+		{
+			pairs.clear();
+			for (uint32_t k = 0; k < body_.instructions[i].extra_count; k += 2)
+			{
+				const uint32_t at = body_.instructions[i].extra_first + k;
+				BlockId from = body_.operands[at].index;
+				Value v = body_.operands[at + 1];
+				if (std::find(preds.begin(), preds.end(), from) != preds.end())
+				{
+					const Value w = from == keep ? exit_values_[exits[direct].first + n] : Value::none();
+					if (v.is(ValueKind::Temp) && (from != keep || !same_input(body_, v, w)))
+						--c_.uses[v.index];
+					if (from != keep)
+						continue;
+					if (!same_input(body_, v, w))
+						v = input(w);
+					from = head;
+				}
+				pairs.push_back(Value::block(from));
+				pairs.push_back(v);
+			}
+			for (size_t k = e; k < exits.size(); ++k)
+				if (exits[k].to == to && k != direct && target[k] != kNoId)
+				{
+					pairs.push_back(Value::block(target[k]));
+					pairs.push_back(input(exit_values_[exits[k].first + n]));
+				}
+			Instruction& phi = body_.instructions[i];
+			if (pairs.size() <= phi.extra_count)
+				std::copy(pairs.begin(), pairs.end(), body_.operands.begin() + phi.extra_first);
+			else
+				phi.extra_first = append_operands(body_, pairs.data(), static_cast<uint32_t>(pairs.size()));
+			phi.extra_count = static_cast<uint32_t>(pairs.size());
+		}
+	}
+	consumed_.resize(body_.blocks.size(), 1);
+	exit_at_.resize(body_.blocks.size(), 0);
+	passing_.resize(body_.blocks.size(), 0);
+	c_.block_of.resize(body_.instructions.size(), kNoId);
+	for (size_t e = 0; e < exits.size(); ++e)
+		if (target[e] != exits[e].to && target[e] != kNoId)
+			c_.block_of[body_.blocks[target[e]].first] = target[e];
 }
 
 bool SwitchFormer::form_region(const std::vector<BlockId>& region, const std::vector<Test>& tests)
 {
 	const BlockId head = region[0];
 	const Test& first = tests[0];
-	auto inside = [&](BlockId b) { return std::find(region.begin(), region.end(), b) != region.end(); };
+	for (BlockId b : asked_)
+		passing_[b] = 0;
+	asked_.clear();
+	exit_values_.clear();
 	// Value sets in reverse postorder (an edge back into the region: none).
 	std::vector<size_t> order(region.size());
 	for (size_t r = 0; r < region.size(); ++r)
 		order[r] = r;
 	std::sort(order.begin(), order.end(),
 		[&](size_t a, size_t b) { return cfg_.rpo_index[region[a]] < cfg_.rpo_index[region[b]]; });
-	std::vector<std::pair<BlockId, Ranges>> exits;
+	std::vector<Exit> exits;
 	uint32_t replaced = 0;
 	const bool whole = spread(region, tests, order, exits, replaced);
-	for (const std::pair<BlockId, Ranges>& exit : exits)
-		exit_at_[exit.first] = 0;
+	for (const Exit& exit : exits)
+		exit_at_[exit.to] = 0;
 	if (!whole)
 		return false;
 	// The default: the most values; ties to the target whose own runs are
 	// the most.
 	size_t def = exits.size();
 	for (size_t e = 0; e < exits.size(); ++e)
-		if (def == exits.size() || count(exits[e].second) > count(exits[def].second) ||
-			(count(exits[e].second) == count(exits[def].second) && exits[e].second.size() > exits[def].second.size()))
+		if (def == exits.size() || count(exits[e].values) > count(exits[def].values) ||
+			(count(exits[e].values) == count(exits[def].values) && exits[e].values.size() > exits[def].values.size()))
 			def = e;
 	if (exits.size() < 2)
 		return false;
@@ -697,69 +932,27 @@ bool SwitchFormer::form_region(const std::vector<BlockId>& region, const std::ve
 	for (size_t e = 0; e < exits.size(); ++e)
 		if (e != def)
 		{
-			cases += count(exits[e].second);
-			runs += exits[e].second.size();
+			cases += count(exits[e].values);
+			runs += exits[e].values.size();
 		}
 	// (As many runs as tests replaced: a switch only from the count that
 	// takes a jump table, kTableRuns.)
 	if (cases > kMaxCases || runs > replaced || (runs == replaced && runs < kTableRuns))
 		return false;
-	// Each target's phis: one value across the region's edges into it.
-	for (const std::pair<BlockId, Ranges>& exit : exits)
-		for (InstId i = body_.blocks[exit.first].first; i != kNoId && body_.instructions[i].op == Opcode::Phi;
-			i = body_.instructions[i].next)
-		{
-			Value seen = Value::none();
-			const Instruction& phi = body_.instructions[i];
-			for (uint32_t k = 0; k < phi.extra_count; k += 2)
-			{
-				if (!inside(body_.operands[phi.extra_first + k].index))
-					continue;
-				const Value v = body_.operands[phi.extra_first + k + 1];
-				if (!seen.is(ValueKind::None) && !(seen.kind == v.kind && seen.index == v.index))
-					return false;
-				seen = v;
-			}
-		}
-	// The rewrite: the head switches; the region's other blocks lose their
-	// predecessors (cleanup removes them).
-	// A target keeps one phi input from the region, renamed to the head's;
-	// a successor the switch never reaches keeps none.
-	for (size_t e = 0; e < exits.size(); ++e)
-	{
-		const BlockId to = exits[e].first;
-		const bool reached = e == def || !exits[e].second.empty();
-		bool from_head = false;
-		BlockId keep = kNoId;
-		std::vector<BlockId> preds;
-		for (uint32_t p = cfg_.pred_first[to]; p < cfg_.pred_first[to + 1]; ++p)
-		{
-			const BlockId pred = cfg_.preds[p];
-			if (!inside(pred) || std::find(preds.begin(), preds.end(), pred) != preds.end())
-				continue;
-			preds.push_back(pred);
-			from_head = from_head || pred == head;
-			if (pred != head && keep == kNoId)
-				keep = pred;
-		}
-		if (!reached)
-			keep = kNoId;
-		for (BlockId pred : preds)
-			if ((pred == head && !reached) || (pred != head && (from_head || pred != keep)))
-				remove_phi_incoming(body_, to, pred);
-		if (reached && !from_head && keep != kNoId)
-			rename_phi_incoming(body_, to, keep, head);
-	}
+	// The rewrite: the head switches; the region's other blocks and those
+	// that pass lose their predecessors (cleanup removes them).
+	std::vector<BlockId> target;
+	retarget(region, exits, def, target);
 	std::vector<Value> pairs;
 	for (size_t e = 0; e < exits.size(); ++e)
 	{
 		if (e == def)
 			continue;
-		for (const std::pair<int64_t, int64_t>& r : exits[e].second)
+		for (const std::pair<int64_t, int64_t>& r : exits[e].values)
 			for (int64_t v = r.first;; ++v)
 			{
 				pairs.push_back(integer_value(body_, integer_literal(v)));
-				pairs.push_back(Value::block(exits[e].first));
+				pairs.push_back(Value::block(target[e]));
 				if (v == r.second)
 					break;
 			}
@@ -809,12 +1002,12 @@ bool SwitchFormer::form_region(const std::vector<BlockId>& region, const std::ve
 	}
 	// Two targets, one of them for one value: a branch on the equality.
 	const size_t lone = exits.size() == 2 ? 1 - def : def;
-	if (lone != def && !first.pointer && count(exits[lone].second) == 1)
+	if (lone != def && !first.pointer && count(exits[lone].values) == 1)
 	{
 		Instruction cmp = make_instruction(Opcode::Compare, first.type);
 		cmp.sub = static_cast<uint8_t>(ComparePredicate::Eq);
 		cmp.ops[0] = selector;
-		cmp.ops[1] = integer_value(body_, integer_literal(exits[lone].second[0].first));
+		cmp.ops[1] = integer_value(body_, integer_literal(exits[lone].values[0].first));
 		cmp.location = body_.instructions[body_.blocks[head].last].location;
 		const InstId id = append_instruction(body_, cmp);
 		body_.instructions[id].result = append_temp(body_, Type::scalar(TypeKind::I64), id);
@@ -827,8 +1020,8 @@ bool SwitchFormer::form_region(const std::vector<BlockId>& region, const std::ve
 		branch.flags = 0;
 		branch.type = Type::scalar(TypeKind::Void);
 		branch.ops[0] = Value::temp(body_.instructions[id].result);
-		branch.ops[1] = Value::block(exits[lone].first);
-		branch.ops[2] = Value::block(exits[def].first);
+		branch.ops[1] = Value::block(target[lone]);
+		branch.ops[2] = Value::block(target[def]);
 		branch.extra_first = 0;
 		branch.extra_count = 0;
 	}
@@ -839,16 +1032,17 @@ bool SwitchFormer::form_region(const std::vector<BlockId>& region, const std::ve
 		term.sub = 0;
 		term.type = first.type;
 		term.ops[0] = selector;
-		term.ops[1] = Value::block(exits[def].first);
+		term.ops[1] = Value::block(target[def]);
 		term.ops[2] = Value::none();
 		term.extra_first = append_operands(body_, pairs.data(), static_cast<uint32_t>(pairs.size()));
 		term.extra_count = static_cast<uint32_t>(pairs.size());
 	}
 	// The region's other blocks end unreachable (the cleanup drops them), as
 	// their inputs are gone: no phi names a block that still jumps to it.
-	for (size_t r = 1; r < region.size(); ++r)
-	{
-		Instruction& end = body_.instructions[body_.blocks[region[r]].last];
+	// So do the blocks that passed values on, their phis gone with their
+	// readers' inputs.
+	auto end_unreachable = [&](BlockId block) {
+		Instruction& end = body_.instructions[body_.blocks[block].last];
 		if (end.ops[0].is(ValueKind::Temp))
 			--c_.uses[end.ops[0].index];
 		end.op = Opcode::Unreachable;
@@ -858,6 +1052,24 @@ bool SwitchFormer::form_region(const std::vector<BlockId>& region, const std::ve
 		end.ops[0] = end.ops[1] = end.ops[2] = Value::none();
 		end.extra_first = 0;
 		end.extra_count = 0;
+	};
+	for (size_t r = 1; r < region.size(); ++r)
+		end_unreachable(region[r]);
+	for (BlockId b : asked_)
+	{
+		if (passing_[b] != 1)
+			continue;
+		while (body_.blocks[b].first != body_.blocks[b].last)
+		{
+			const Instruction& phi = body_.instructions[body_.blocks[b].first];
+			for (uint32_t k = 1; k < phi.extra_count; k += 2)
+				if (body_.operands[phi.extra_first + k].is(ValueKind::Temp))
+					--c_.uses[body_.operands[phi.extra_first + k].index];
+			c_.block_of[body_.blocks[b].first] = kNoId;
+			unlink_after(body_, b, kNoId, body_.blocks[b].first);
+		}
+		end_unreachable(b);
+		consumed_[b] = 1;
 	}
 	for (BlockId b : region)
 		consumed_[b] = 1;
@@ -871,6 +1083,8 @@ bool SwitchFormer::run()
 	c_.entry_block_of(form_switches);
 	consumed_.assign(body_.blocks.size(), 0);
 	exit_at_.assign(body_.blocks.size(), 0);
+	passing_.assign(body_.blocks.size(), 0);
+	asked_.clear();
 	bool changed = false;
 	const std::vector<BlockId> rpo = cfg_.rpo;
 	for (BlockId b : rpo)
