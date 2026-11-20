@@ -548,8 +548,8 @@ installed.
 
 Boost.Build rejects 107 autocreated targets in the pinned Math Jamfile that
 request both successful and failing runs of the same source and arguments.
-Replay the upstream removal of those duplicate run-fail declarations. Keep
-one copy of each original run declaration and the separate compile-fail tests.
+Replay the upstream removal of those duplicate run-fail declarations.
+Retain one copy of each distinct run and compile-fail declaration.
 [Boost.Math fix](https://github.com/boostorg/math/commit/0aa599b200b435777d41d56983d22bdaf7f29b99)
 
 ## Measure before promoting the changes
