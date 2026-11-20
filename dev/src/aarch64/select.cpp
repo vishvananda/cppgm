@@ -633,6 +633,7 @@ void Selector::run()
 	{
 		copy_short_tests(out_);
 		simplify_branches(out_);
+		conditional_compares(out_, block_frequency_);
 	}
 }
 

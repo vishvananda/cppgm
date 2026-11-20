@@ -316,6 +316,94 @@ void simplify_branches(Function& f)
 		remove_instructions(f, removed);
 }
 
+// The conditional compare that runs `compare` when `condition` holds and
+// otherwise sets NZCV to `flags`: CMP of a register or of an immediate
+// below 32, and FCMP of two registers.
+static bool conditional_form(const Instruction& compare, unsigned condition, unsigned flags, Instruction& out)
+{
+	if (compare.fixup != Fixup::None || compare.rd != (compare.op == Op::Fcmp ? 0u : 31u))
+		return false;
+	out = Instruction{ compare.op, flags, compare.rn, compare.rm, condition << 12, Fixup::None, 0 };
+	switch (compare.op)
+	{
+	case Op::Subs:
+	case Op::SubsW:
+		out.op = compare.op == Op::Subs ? Op::Ccmp : Op::CcmpW;
+		return compare.field == 0;
+	case Op::SubsIX:
+	case Op::SubsIW:
+		// Immediate CMP reads SP as register 31; CCMP reads XZR.
+		out.op = compare.op == Op::SubsIX ? Op::CcmpI : Op::CcmpIW;
+		out.rm = compare.field >> 10;
+		return compare.rn != 31 && compare.field < (32u << 10) && !(compare.field & 1023);
+	case Op::Fcmp:
+		out.op = Op::Fccmp;
+		out.field |= compare.field;
+		return (compare.field & ~(1u << 22)) == 0;
+	default:
+		return false;
+	}
+}
+
+// A conditional branch followed by a compare and a second conditional
+// branch becomes one branch when both send their taken edge to the same
+// place, or when the first skips to the instruction after the second:
+// the compare runs as a conditional compare on the first branch's failing
+// condition and otherwise sets flags that take, or skip, the second
+// branch. No other branch may enter the second test, which starts a block.
+// The merged test costs an instruction where the first branch was taken
+// and saves one where it was not, so the second block must be estimated
+// to run at least half as often as the block before it.
+void conditional_compares(Function& f, const std::vector<uint64_t>& block_frequency)
+{
+	const uint32_t n = static_cast<uint32_t>(f.code.size());
+	const uint32_t blocks = static_cast<uint32_t>(std::min(block_frequency.size(), f.labels.size()));
+	if (n < 3 || n >= (1u << 18) || !blocks)
+		return;
+	std::vector<uint8_t> entered(n + 1), starts(n + 1);
+	std::vector<uint64_t> frequency(n + 1);
+	for (const auto& ins : f.code)
+		if (ins.fixup == Fixup::Block && f.labels[ins.target] < n)
+			entered[f.labels[ins.target]] = 1;
+	for (const auto& event : f.frame_events)
+		entered[event.pc / 4] = 1;
+	for (uint32_t pad : f.pads)
+		if (pad != lowir::kNoId)
+			entered[pad / 4] = 1;
+	for (uint32_t block = 0; block < blocks; ++block)
+		if (f.labels[block] < n)
+		{
+			starts[f.labels[block]] = 1;
+			frequency[f.labels[block]] = std::max(frequency[f.labels[block]], block_frequency[block]);
+		}
+	std::vector<uint32_t> removed;
+	uint64_t current = 0;
+	for (uint32_t pc = 0; pc + 2 < n; ++pc)
+	{
+		if (starts[pc])
+			current = frequency[pc];
+		const auto& first = f.code[pc];
+		auto& second = f.code[pc + 2];
+		if (first.op != Op::BCond || first.fixup != Fixup::Block || first.rd >= 14 || second.op != Op::BCond ||
+			second.fixup != Fixup::Block || second.rd >= 14 || entered[pc + 1] || entered[pc + 2] || !starts[pc + 1] ||
+			frequency[pc + 1] < current - current / 2)
+			continue;
+		const uint32_t taken = f.labels[first.target], other = f.labels[second.target];
+		if (taken != other && taken != pc + 3)
+			continue;
+		Instruction merged;
+		if (!conditional_form(
+				f.code[pc + 1], first.rd ^ 1, nzcv_satisfying(taken == other ? second.rd : second.rd ^ 1), merged))
+			continue;
+		f.code[pc + 1] = merged;
+		removed.push_back(pc);
+		// The merged branch may start the next pair; its block keeps the
+		// first block's estimate.
+		++pc;
+	}
+	remove_instructions(f, removed);
+}
+
 // A jump to a short test takes a copy of the test when the copy can fall
 // through to one of its destinations; simplify_branches then inverts the
 // copy's branch over the jump that follows it. The copy computes the same

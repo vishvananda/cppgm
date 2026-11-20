@@ -506,9 +506,7 @@ InstId Selector::compare_pair(const lowir::Instruction& first, BlockId block)
 	else
 		rhs = operand_register(second.ops[1], second.type, 11);
 	const unsigned cond = conditions[second.sub];
-	// Each entry is an NZCV value for which its architectural condition is true.
-	static const unsigned true_flags[] = { 4, 0, 2, 0, 8, 0, 1, 0, 2, 0, 0, 8, 0, 4 };
-	out_.emit(selected, true_flags[cond ^ !either], lhs, rhs, (conditions[first.sub] ^ either) << 12);
+	out_.emit(selected, nzcv_satisfying(cond ^ !either), lhs, rhs, (conditions[first.sub] ^ either) << 12);
 	return finish_condition(join_id, cond, block);
 }
 

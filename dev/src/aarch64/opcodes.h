@@ -168,6 +168,7 @@
 	M(Fcmp, 0x1e202000) \
 	M(FcmpZero, 0x1e202008) \
 	M(Fcsel, 0x1e200c00) \
+	M(Fccmp, 0x1e200400) \
 	M(Fneg, 0x1e214000) \
 	M(Fsqrt, 0x1e21c000) \
 	M(FcvtDS, 0x1e22c000) \

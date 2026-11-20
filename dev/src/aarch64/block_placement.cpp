@@ -234,10 +234,14 @@ public:
 		: program_(program), body_(body), empty_(empty), n_(static_cast<uint32_t>(body.layout.size()))
 	{}
 
-	std::vector<BlockId> order()
+	// The order, and in `frequency` each block's estimated executions.
+	std::vector<BlockId> order(std::vector<uint64_t>& frequency)
 	{
 		if (!describe())
 			return {};
+		frequency.assign(body_.blocks.size(), 0);
+		for (uint32_t pos = 0; pos < n_; ++pos)
+			frequency[body_.layout[pos]] = frequency_[pos];
 		copyable_.assign(n_, 0);
 		for (uint32_t pos = 1; pos < n_; ++pos)
 			copyable_[pos] = short_test(body_, body_.layout[pos], empty_) ? 1 : 2;
@@ -348,9 +352,10 @@ private:
 };
 
 template<typename EmptyEdge>
-std::vector<BlockId> predicted_order(const Program& program, const FunctionBody& body, EmptyEdge empty)
+std::vector<BlockId> predicted_order(
+	const Program& program, const FunctionBody& body, EmptyEdge empty, std::vector<uint64_t>& frequency)
 {
-	return Placement<EmptyEdge>(program, body, empty).order();
+	return Placement<EmptyEdge>(program, body, empty).order(frequency);
 }
 
 bool can_fall_through(const FunctionBody& body, BlockId from, BlockId to)
@@ -377,7 +382,7 @@ std::vector<BlockId> Selector::order_blocks()
 	if (level_ >= 2 && body_.layout.size() >= 4 && body_.code_labels.empty())
 	{
 		auto order = predicted_order(
-			program_, body_, [this](BlockId from, BlockId to) { return empty_edge(from, to); });
+			program_, body_, [this](BlockId from, BlockId to) { return empty_edge(from, to); }, block_frequency_);
 		if (!order.empty())
 			return order;
 	}

@@ -90,6 +90,14 @@ void fold_bit_tests(Function& function, const std::vector<BitTest>& tests);
 void share_edge_moves(Function& function);
 void copy_short_tests(Function& function);
 void simplify_branches(Function& function);
+void conditional_compares(Function& function, const std::vector<uint64_t>& block_frequency);
+
+// An NZCV value for which the A64 condition `condition` (EQ to LE) holds.
+inline unsigned nzcv_satisfying(unsigned condition)
+{
+	static const unsigned flags[] = { 4, 0, 2, 0, 8, 0, 1, 0, 2, 0, 0, 8, 0, 4 };
+	return flags[condition];
+}
 
 void place_short_loops(const Function& function, native::object::Section& text);
 void encode(const Function& function, const std::vector<uint32_t>& symbols, native::object::Section& text,
