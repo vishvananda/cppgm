@@ -75,6 +75,30 @@ class LiveBadgeTests(unittest.TestCase):
             self.assertEqual(other.read_text(), 'previous dedicated Intel result')
             self.assertIn('epyc/report.md', (directory / 'public-hosts.md').read_text())
 
+    def test_moved_reference_mark_needs_the_drift_of_the_same_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            (directory / 'epyc').mkdir()
+            document = godot()
+            document['metadata']['measured_at'] = '2026-11-20T06:00:00+00:00'
+            (directory / 'epyc/results.json').write_text(json.dumps(document))
+            drift = dict(revision='a' * 40, measured_at='2026-11-20T06:00:00+00:00', moved=[
+                dict(reference='gcc', workload='first', change=-.2, previous_seconds=.01, current_seconds=.008)])
+            (directory / 'epyc/reference-drift.json').write_text(json.dumps(drift))
+            badges.library_badges(directory, 'godot')
+            gcc = (directory / 'epyc-runtime-gcc.svg').read_text()
+            self.assertIn('>1.00×†</text>', gcc)
+            self.assertIn('reference moved: first 10.00 to 8.00 ms per pass', gcc)
+            self.assertNotIn('†', (directory / 'epyc-runtime-clang.svg').read_text())
+            self.assertNotIn('†', (directory / 'epyc-build-gcc.svg').read_text())
+            # A drift file left by an earlier run of the same revision does not mark this one.
+            (directory / 'epyc/reference-drift.json').write_text(json.dumps(dict(drift, measured_at='earlier')))
+            badges.library_badges(directory, 'godot')
+            self.assertNotIn('†', (directory / 'epyc-runtime-gcc.svg').read_text())
+            (directory / 'epyc/reference-drift.json').write_text('{damaged')
+            badges.library_badges(directory, 'godot')
+            self.assertIn('>1.00×</text>', (directory / 'epyc-runtime-gcc.svg').read_text())
+
     def test_nonpositive_runtime_cannot_become_a_badge(self):
         document = godot()
         document['runtime']['first']['gcc']['cpu']['speed'] = 0
