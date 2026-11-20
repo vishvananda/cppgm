@@ -1991,7 +1991,7 @@
           "action": "compile",
           "expect": "accept",
           "feature": "later-edition template argument deduction",
-          "pending_reason": "Class template argument deduction for a template-template parameter used in an associated constraint is pending."
+          "pr": true
         },
         {
           "id": "clang-22a453c53be84c2b8834",
