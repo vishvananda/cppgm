@@ -14,11 +14,12 @@
 // of the region goes through a copy of the prologue that also makes those
 // copies and performs the entry's stores to the frame. The region's returns
 // lose their restores.
-// The region comes first; the framed blocks keep their order after it.
-// Frameless code has the CIE's rules and framed code the prologue's,
-// restated where the code ahead leaves the other state; framed blocks keep
-// their epilogues' unwind rules. Nothing in the region calls, so nothing
-// unwinds through it.
+// A framed run that a region block falls into follows it after its prologue
+// copy; the other framed blocks keep their order after the region. Frameless
+// code has the CIE's rules and framed code the prologue's, restated where
+// the code ahead leaves the other state; framed blocks keep their
+// epilogues' unwind rules. Nothing in the region calls, so nothing unwinds
+// through it.
 namespace aarch64 {
 
 namespace {
@@ -734,10 +735,13 @@ bool Wrapper::plan(ShrinkPlan mode, uint32_t minimal_budget)
 	return renames(to_exit);
 }
 
-// The region's blocks; the copies a conditional branch enters (a short
-// return an unconditional one enters goes inline); a prologue copy per exit
-// (before its target when the framed block ahead of it does not fall
-// through); the other blocks with their frame in their own order.
+// The region's blocks, each followed by the copy it falls into; the copies
+// a conditional branch enters (a short return an unconditional one enters
+// goes inline); after a frameless block that falls into an exit, that
+// exit's prologue copy (and after a region block the framed blocks that
+// fall into one another from there); a prologue copy per other exit (before
+// its target when the framed block ahead of it does not fall through); the
+// other blocks with their frame in their own order.
 void Wrapper::order_items()
 {
 	const uint32_t blocks = static_cast<uint32_t>(first_.size());
@@ -772,7 +776,26 @@ void Wrapper::order_items()
 	// A copy a block's conditional branch enters follows that block when
 	// the block leaves for a prologue copy or a return anyway: the branch
 	// then inverts onto that jump.
-	std::vector<uint8_t> placed(blocks);
+	std::vector<uint8_t> placed(blocks), framed_placed(blocks), prologue_placed(region_.exits.size());
+	// A frameless block that falls into an exit: that exit's prologue copy
+	// follows it, and so do the framed blocks from the exit on when nothing
+	// framed falls into the exit (a region block comes before it).
+	auto after = [&](uint32_t b) {
+		const uint32_t s = b + 1;
+		if (!falls_[b] || s >= blocks || region_.region[s] || region_.copied[s] || exit_of_[s] == lowir::kNoId ||
+			prologue_placed[exit_of_[s]])
+			return false;
+		prologue_placed[exit_of_[s]] = 1;
+		items_.push_back(Item{ Kind::Prologue, exit_of_[s] });
+		for (uint32_t f = s; region_.region[b] && !framed_placed[f]; ++f)
+		{
+			framed_placed[f] = 1;
+			items_.push_back(Item{ Kind::Framed, f });
+			if (!falls_[f])
+				break;
+		}
+		return true;
+	};
 	auto follow = [&](uint32_t b) {
 		for (;;)
 		{
@@ -785,6 +808,23 @@ void Wrapper::order_items()
 				return;
 			placed[s] = 1;
 			items_.push_back(Item{ Kind::Copy, s });
+			if (after(s))
+				return;
+			b = s;
+		}
+	};
+	// What a frameless block falls into comes next where it can.
+	auto chain = [&](uint32_t b) {
+		while (!after(b))
+		{
+			const uint32_t s = b + 1;
+			if (!falls_[b] || s >= blocks || !copy_unit_[s] || placed[s])
+			{
+				follow(b);
+				return;
+			}
+			placed[s] = 1;
+			items_.push_back(Item{ Kind::Copy, s });
 			b = s;
 		}
 	};
@@ -792,33 +832,33 @@ void Wrapper::order_items()
 		if (region_.region[b])
 		{
 			items_.push_back(Item{ Kind::Region, b });
-			follow(b);
+			chain(b);
 		}
 	for (uint32_t b = 0; b < blocks; ++b)
 		if (copy_unit_[b] && !placed[b])
 		{
 			placed[b] = 1;
 			items_.push_back(Item{ Kind::Copy, b });
-			follow(b);
+			chain(b);
 		}
 	prologue_before_.assign(region_.exits.size(), 0);
 	uint32_t previous = lowir::kNoId;
 	for (uint32_t b = 0; b < blocks; ++b)
 	{
-		if (region_.region[b])
+		if (region_.region[b] || framed_placed[b])
 			continue;
 		if (exit_of_[b] != lowir::kNoId)
 			prologue_before_[exit_of_[b]] = previous == lowir::kNoId || !falls_[previous];
 		previous = b;
 	}
 	for (uint32_t e = 0; e < region_.exits.size(); ++e)
-		if (!prologue_before_[e])
+		if (!prologue_before_[e] && !prologue_placed[e])
 			items_.push_back(Item{ Kind::Prologue, e });
 	for (uint32_t b = 0; b < blocks; ++b)
 	{
-		if (region_.region[b])
+		if (region_.region[b] || framed_placed[b])
 			continue;
-		if (exit_of_[b] != lowir::kNoId && prologue_before_[exit_of_[b]])
+		if (exit_of_[b] != lowir::kNoId && prologue_before_[exit_of_[b]] && !prologue_placed[exit_of_[b]])
 			items_.push_back(Item{ Kind::Prologue, exit_of_[b] });
 		items_.push_back(Item{ Kind::Framed, b });
 	}
