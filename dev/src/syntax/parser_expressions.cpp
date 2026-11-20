@@ -104,12 +104,13 @@ Expr* Parser::parse_initializer_clause()
 
 Expr* Parser::parse_assignment_expression()
 {
-	if (at(TokenKind::KW_THROW))
+	const ParseToken token = tok();
+	if (token.is(TokenKind::KW_THROW))
 	{
 		ThrowExpr* expr = make<ThrowExpr>(ExprKind::Throw, location());
 		next();
 		expr->operand = nullptr;
-		if (at_cast_operand_start())
+		if (at_cast_operand_start() || at(TokenKind::KW_CO_YIELD))
 		{
 			expr->operand = parse_assignment_expression();
 			if (expr->operand == nullptr)
@@ -117,12 +118,12 @@ Expr* Parser::parse_assignment_expression()
 		}
 		return expr;
 	}
-	if (at_coroutine_keyword(coroutine_keywords_[1]))
+	if (is_coroutine_keyword(token, TokenKind::KW_CO_YIELD, coroutine_keywords_[1]))
 	{
 		const uint32_t start = location();
 		next();
 		Expr* operand = at(TokenKind::OP_LBRACE) ? parse_braced_init_list() : parse_assignment_expression();
-		return operand == nullptr ? nullptr : coroutine_operation(coroutine_keywords_[1], operand, start);
+		return operand == nullptr ? nullptr : coroutine_operation(TokenKind::KW_CO_YIELD, operand, start);
 	}
 	return finish_assignment_expression(parse_binary(kLogicalOrPrecedence));
 }
@@ -290,6 +291,7 @@ bool Parser::at_cast_operand_start()
 	case TokenKind::KW_FALSE:
 	case TokenKind::KW_NULLPTR:
 	case TokenKind::KW_THIS:
+	case TokenKind::KW_CO_AWAIT:
 	case TokenKind::KW_SIZEOF:
 	case TokenKind::KW_ALIGNOF:
 	case TokenKind::KW_NOEXCEPT:
@@ -526,11 +528,11 @@ Expr* Parser::parse_parenthesized_or_cast()
 Expr* Parser::parse_unary_expression()
 {
 	const ParseToken token = tok();
-	if (at_coroutine_keyword(coroutine_keywords_[0]))
+	if (is_coroutine_keyword(token, TokenKind::KW_CO_AWAIT, coroutine_keywords_[0]))
 	{
 		next();
 		Expr* operand = parse_cast_expression();
-		return operand == nullptr ? nullptr : coroutine_operation(coroutine_keywords_[0], operand, token.location);
+		return operand == nullptr ? nullptr : coroutine_operation(TokenKind::KW_CO_AWAIT, operand, token.location);
 	}
 	const uint8_t part = token.is_identifier() ? gnu_names_.kind(token.identifier) : 0;
 	if (part == GnuNames::kRealPart || part == GnuNames::kImagPart)

@@ -789,6 +789,17 @@ void SyntaxRenderer::operand(const Expr& expr)
 		text(")");
 		break;
 	}
+	case ExprKind::Coroutine:
+	{
+		const CoroutineExpr& operation = static_cast<const CoroutineExpr&>(expr);
+		text(TokenKindSpelling(operation.operation));
+		if (operation.operand != nullptr)
+		{
+			text(" ");
+			expression(*operation.operand);
+		}
+		break;
+	}
 	case ExprKind::Throw:
 		text("throw");
 		if (static_cast<const ThrowExpr&>(expr).operand != nullptr)

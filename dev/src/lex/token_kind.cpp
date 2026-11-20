@@ -165,6 +165,9 @@ const SimpleSpelling kSimpleSpellings[] = {
 	{ "concept", TokenKind::KW_CONCEPT },
 	{ "consteval", TokenKind::KW_CONSTEVAL },
 	{ "constinit", TokenKind::KW_CONSTINIT },
+	{ "co_await", TokenKind::KW_CO_AWAIT },
+	{ "co_return", TokenKind::KW_CO_RETURN },
+	{ "co_yield", TokenKind::KW_CO_YIELD },
 	{ "<=>", TokenKind::OP_SPACESHIP },
 };
 

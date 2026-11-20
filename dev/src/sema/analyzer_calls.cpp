@@ -265,8 +265,6 @@ ExprFacts* Analyzer::call_form(const syntax::CallExpr& expr, Scope* scope)
 		// makes a functional cast, a function name a call that argument-
 		// dependent lookup may extend.
 		const Identifier* name = name_key(named->name->last());
-		if (name->spelling[0] == ' ' && unqualified_name)
-			error(expr.location, "a coroutine operation (C++20 coroutines are not supported)");
 		LookupResult result = operator_name ? operator_function_lookup(*named->name, scope)
 			: named->name->qualified()      ? lookup_name(*named->name, scope, LookupFilter::Ordinary)
 											: unqualified(scope, name, LookupFilter::Ordinary);

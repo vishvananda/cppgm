@@ -44,7 +44,8 @@ enum class ExprKind : uint8_t
 	Generic,
 	Requires,
 	// A concept-id has IdExpr's written name and a boolean satisfaction fact.
-	Concept
+	Concept,
+	Coroutine
 };
 
 struct Expr
@@ -357,6 +358,12 @@ struct FoldExpr : Expr
 
 struct ThrowExpr : Expr
 {
+	Expr* operand;
+};
+
+struct CoroutineExpr : Expr
+{
+	TokenKind operation;
 	Expr* operand;
 };
 

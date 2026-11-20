@@ -1319,6 +1319,15 @@ void AstDumper::operand(const Expr& expr)
 		close();
 		break;
 	}
+	case ExprKind::Coroutine:
+	{
+		const CoroutineExpr& operation = static_cast<const CoroutineExpr&>(expr);
+		open("coroutine-operation", TokenKindSpelling(operation.operation));
+		if (operation.operand != nullptr)
+			expression(*operation.operand);
+		close();
+		break;
+	}
 	case ExprKind::Throw:
 		open("throw-expression");
 		if (static_cast<const ThrowExpr&>(expr).operand != nullptr)

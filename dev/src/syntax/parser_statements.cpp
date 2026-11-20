@@ -83,7 +83,7 @@ Stmt* Parser::parse_statement()
 		label->body = parse_statement();
 		return label->body == nullptr ? nullptr : label;
 	}
-	if (at_coroutine_keyword(coroutine_keywords_[2]))
+	if (is_coroutine_keyword(token, TokenKind::KW_CO_RETURN, coroutine_keywords_[2]))
 	{
 		// co_return expression-or-braced-init-list? ; (C++20 9.5.4).
 		next();
@@ -94,14 +94,15 @@ Stmt* Parser::parse_statement()
 		if (!expect(TokenKind::OP_SEMICOLON))
 			return nullptr;
 		ExpressionStmt* stmt = make<ExpressionStmt>(StmtKind::Expression, start);
-		stmt->expression = coroutine_operation(coroutine_keywords_[2], operand, start);
+		stmt->expression = coroutine_operation(TokenKind::KW_CO_RETURN, operand, start);
 		return stmt;
 	}
 	// `co_await e;`, `co_yield e;` and GNU's `__real__ e ...;` are no
 	// declarations.
 	const uint8_t part = token.is_identifier() ? gnu_names_.kind(token.identifier) : 0;
-	if (at_coroutine_keyword(coroutine_keywords_[0]) || at_coroutine_keyword(coroutine_keywords_[1]) ||
-		part == GnuNames::kRealPart || part == GnuNames::kImagPart)
+	if (is_coroutine_keyword(token, TokenKind::KW_CO_AWAIT, coroutine_keywords_[0]) ||
+		is_coroutine_keyword(token, TokenKind::KW_CO_YIELD, coroutine_keywords_[1]) || part == GnuNames::kRealPart ||
+		part == GnuNames::kImagPart)
 		return parse_expression_statement();
 	if (token.kind != ParseTokenKind::Simple)
 		return parse_declaration_or_expression_statement(attributes);
@@ -773,7 +774,7 @@ bool Parser::coroutine_operator(const Identifier* keyword)
 	// C++20's co_await, co_yield and co_return are identifiers in C++11;
 	// hosted headers' coroutine templates use them as operators, which they
 	// are here where no declaration of the name is visible and an operand
-	// (or co_return's `;`) follows (at_coroutine_keyword has checked that
+	// (or co_return's `;`) follows (is_coroutine_keyword has checked that
 	// the parse is hosted and the token is the keyword).
 	if (scopes_.lookup(keyword, false).category != NameCategory::None)
 		return false;
@@ -783,22 +784,12 @@ bool Parser::coroutine_operator(const Identifier* keyword)
 		(keyword == coroutine_keywords_[2] || !following.is(TokenKind::OP_SEMICOLON));
 }
 
-Expr* Parser::coroutine_operation(const Identifier* keyword, Expr* operand, uint32_t location)
+Expr* Parser::coroutine_operation(TokenKind kind, Expr* operand, uint32_t location)
 {
-	// A call of an unspellable name (` co_await` and so on), which only an
-	// uninstantiated template's definition may hold: coroutines (C++20) are
-	// outside PA30, so the analysis rejects any other.
-	const std::string spelling = std::string(" ") + keyword->spelling;
-	IdExpr* callee = make<IdExpr>(ExprKind::Id, location);
-	callee->name = make_simple_name(
-		identifiers_.intern(spelling.data(), static_cast<uint32_t>(spelling.size())), location);
-	CallExpr* call = make<CallExpr>(ExprKind::Call, location);
-	call->callee = callee;
-	Expr** arguments = operand != nullptr ? arena_.allocate_array<Expr*>(1) : nullptr;
-	if (operand != nullptr)
-		arguments[0] = operand;
-	call->arguments = Slice<Expr*>{ arguments, operand != nullptr ? 1u : 0u };
-	return call;
+	CoroutineExpr* expr = make<CoroutineExpr>(ExprKind::Coroutine, location);
+	expr->operation = kind;
+	expr->operand = operand;
+	return expr;
 }
 
 Stmt* Parser::with_selection_init(Stmt* init, Stmt* stmt, uint32_t start)

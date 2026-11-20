@@ -545,7 +545,9 @@ The course mapping for simple tokens is given below, and this has also been tran
 	simple xor_eq OP_XORASS
 	simple xor OP_XOR
 
-In C++20 mode, six more spellings are simple tokens. The starter code has the
+In C++20 mode, nine more spellings are simple tokens, including
+`co_await`, `co_return` and `co_yield`. Those three remain identifiers
+in the earlier editions. The starter code has the
 table above without them. Earlier modes read the five words as identifiers and
 `<=>` as `<=` followed by `>`:
 

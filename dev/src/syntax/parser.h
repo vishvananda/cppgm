@@ -360,12 +360,13 @@ private:
 	bool parse_selection_head(Stmt*& init, Condition& condition);
 	Stmt* with_selection_init(Stmt* init, Stmt* stmt, uint32_t start);
 	Stmt* parse_if();
-	bool at_coroutine_keyword(const Identifier* keyword)
+	bool is_coroutine_keyword(const ParseToken& token, TokenKind kind, const Identifier* spelling)
 	{
-		return hosted_ && at_identifier(keyword) && coroutine_operator(keyword);
+		return token.is(kind) ||
+			(hosted_ && token.is_identifier() && token.identifier == spelling && coroutine_operator(spelling));
 	}
 	bool coroutine_operator(const Identifier* keyword);
-	Expr* coroutine_operation(const Identifier* keyword, Expr* operand, uint32_t location);
+	Expr* coroutine_operation(TokenKind kind, Expr* operand, uint32_t location);
 	Stmt* parse_loop_or_switch(StmtKind kind);
 	Stmt* parse_do();
 	Stmt* parse_for();

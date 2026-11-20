@@ -1503,9 +1503,6 @@ void Analyzer::check_unbound_callee(const syntax::CallExpr& call, const syntax::
 	const char* spelling = name.last().identifier->spelling;
 	if (spelling[0] == '_' && (spelling[1] == '_' || (spelling[1] >= 'A' && spelling[1] <= 'Z')))
 		return;
-	// The parser's unspellable callees (the coroutine operations).
-	if (spelling[0] == ' ')
-		return;
 	if (count > kProbes || unqualified(scope, name.last().identifier, LookupFilter::Ordinary).found())
 		return;
 	const Type* types[kProbes];
@@ -1866,6 +1863,10 @@ void Analyzer::expression_names(const syntax::Expr& expr, Scope* scope, bool une
 			error(expr.location, "sizeof... of a name that is no parameter pack");
 		return;
 	}
+	case syntax::ExprKind::Coroutine:
+		if (const syntax::Expr* operand = static_cast<const syntax::CoroutineExpr&>(expr).operand)
+			work.push_back(PendingExpr{ operand, unevaluated });
+		return;
 	case syntax::ExprKind::Throw:
 		// `throw` alone (a rethrow) has no operand.
 		if (static_cast<const syntax::ThrowExpr&>(expr).operand != nullptr)

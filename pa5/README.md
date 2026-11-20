@@ -531,6 +531,14 @@ and its [AST reference](tests/spec/100-required-modern-syntax.ref) show the
 required later forms together. The dump preserves their syntax before the
 owning semantic lessons perform deduction, capture analysis or instantiation.
 
+### C++20 coroutine syntax
+
+Parse `co_await` with a cast-expression operand, `co_yield` with an
+assignment-expression or braced list, and the `co_return` statement
+with its optional expression or braced list. The AST records the keyword
+and operand under `coroutine-operation`. See N4861 `[expr.await]`,
+`[expr.yield]` and `[stmt.return.coroutine]`.
+
 ### C++20 requires-expressions
 
 In C++20 mode, retain requires-expressions as parsed requirements. Simple

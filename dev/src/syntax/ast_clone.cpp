@@ -1316,6 +1316,13 @@ Expr* SyntaxCloner::expr(const Expr* expr)
 		result = copied;
 		break;
 	}
+	case ExprKind::Coroutine:
+	{
+		CoroutineExpr* operation = copy(static_cast<const CoroutineExpr*>(expr));
+		operation->operand = this->expr(operation->operand);
+		result = operation;
+		break;
+	}
 	case ExprKind::Throw:
 	{
 		ThrowExpr* thrown = copy(static_cast<const ThrowExpr*>(expr));
