@@ -304,6 +304,9 @@ class GodotMeasurementTests(unittest.TestCase):
                                                    cpu='AMD EPYC 9V74', measured_at='2026-11-20T04:00:00+00:00'),
             'history/' + '5' * 40 + '/epyc': timed(base, {'scene': dict(clang=.02)}, '5' * 40,
                                                    hashes=dict(clang='f' * 64), measured_at='2026-11-20T05:00:00+00:00'),
+            # Measured after the current run, published first: not an earlier run.
+            'history/' + '7' * 40 + '/epyc': timed(base, {'geometry': dict(clang=.011)}, '7' * 40,
+                                                   measured_at='2026-11-20T07:00:00+00:00'),
         }
         for name, document in entries.items():
             (root / name).mkdir(parents=True)
@@ -334,7 +337,8 @@ class GodotMeasurementTests(unittest.TestCase):
             root = Path(temporary) / 'godot'
             current = self.history(root)
             earlier = godot_results.published_history(root)
-            self.assertEqual(len(earlier), 5)  # the host copy of the newest entry is not counted twice
+            self.assertEqual(len(earlier), 6)  # the host copy of an entry is not counted twice
+            self.assertEqual(earlier[0][0], 'history/' + '7' * 40 + '/epyc/results.json')
             self.check_drift(godot_results.reference_drift(current, earlier))
             # The same run published again is not its own earlier run.
             self.assertEqual(godot_results.reference_drift(current, [('self', current)])['moved'], [])

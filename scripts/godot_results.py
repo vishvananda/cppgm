@@ -172,7 +172,8 @@ def reference_drift(document, earlier, observations=None, threshold=MOVED):
                     continue
                 past = previous.get('metadata') or {}
                 if (current is None or binary is None or past.get('cpu') != metadata['cpu']
-                        or (previous.get('binary_hashes') or {}).get(ref) != binary):
+                        or (previous.get('binary_hashes') or {}).get(ref) != binary
+                        or str(past.get('measured_at', '')) > str(metadata.get('measured_at') or '~')):
                     continue
                 value = ((previous.get('time_per_pass') or {}).get(name, {}).get(ref, {}).get(key) or {}).get('median')
                 if not isinstance(value, (int, float)) or value <= 0:

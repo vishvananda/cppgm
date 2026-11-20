@@ -21,14 +21,42 @@ Compiler construction and source fetching are outside these measurements.
 The checked [GDScript workloads](workload.gd) exercise dispatch, packed arrays,
 string formatting, vector geometry and scene transforms. Every run must produce
 a checksum calculated independently by Python. These measurements exercise
-headless engine execution, rather than rendering or game frame rates. Work wall
-time excludes engine startup; process CPU time includes it.
+headless engine execution, rather than rendering or game frame rates.
 
-A GCC pilot chooses identical repeats for at least 500 ms of work. Three paired
-ABBA/BAAB blocks follow, with A/A calibration before and after each comparison.
-Ratios are **reference time / cppgm time: higher is better**. Reports flag A/A
-variation above 2% and retain every observation; performance has no pass cutoff.
+Each observation records two times. Work wall time is the `elapsed_usec` value
+that the script measures around its work loop. It excludes engine start-up and
+exit. Process CPU time is user plus system time from the `wait4` resource usage
+of the Godot process, in microseconds. It includes start-up and exit. The
+runtime badge uses work wall time. Results that do not name a `badge_metric`
+used process CPU time from `/usr/bin/time`, at 10 ms resolution.
+
+A GCC pilot chooses identical repeats for at least 3 s of work (`--seconds`).
+Three paired ABBA/BAAB blocks follow, with A/A calibration before and after each
+comparison. Ratios are **reference time / cppgm time: higher is better**.
+Reports flag A/A variation above 2% and retain every observation; performance
+has no pass cutoff. Reports list each observation whose work wall time exceeds
+its process CPU time. Such a process waited off the CPU during its work.
 Runtime errors, bad checksums and failed builds prevent publication.
+
+Measured runs use a fixed address-space layout (`setarch -R`) when the host
+permits it. Docker's default seccomp profile refuses it. Hosted container runs
+keep a random layout. `metadata.json` records the probe result as
+`address_space`. It also records the run time, the kernel release, the CPU
+vendor, family, model, stepping and microcode revision of the measuring CPU,
+every file of `/sys/devices/system/cpu/vulnerabilities`, the transparent
+hugepage mode and `randomize_va_space`. A file that the host hides is `null`.
+
+`results.json` stores the median and least seconds per pass of each binary,
+workload and time as `time_per_pass`. A pass is one call over 100,000
+iterations. Publication compares the work wall time per pass of each reference
+binary with the latest earlier published run that has the same binary SHA-256
+and the same CPU model. Earlier results without `time_per_pass` are skipped.
+A change above 5% reads **reference moved** in the report and in
+`reference-drift.json`. The runtime badge for that reference then shows a gray
+background and a dagger (`†`) after the value. Its tooltip names the workload
+and both times. The ratio of that workload shows a change of the reference
+binary or of the runner, not of cppgm. The hosted job summary shows the same
+comparison against the published history.
 
 Successful main runs publish alongside the other benchmark reports, retaining
 history by compiler commit and host. EPYC and GitHub Intel results are separate.
@@ -51,3 +79,13 @@ Choose an available quiet CPU and a new output directory. `--jobs`, `--gcc`,
 `--cc`, `--clang` and `--scons` select build resources and installed tools;
 `--source` reuses a clean upstream checkout at the pinned commit.
 This lane is independent of the student assignment requirements.
+
+To compare a run with the published history:
+
+```sh
+git fetch origin benchmark-badges
+python3 scripts/godot_results.py drift obj/godot-local --history-ref origin/benchmark-badges
+```
+
+`--earlier` takes earlier run artifacts, newest first. For artifacts without
+`time_per_pass`, the time per pass comes from `runtime-observations.jsonl`.

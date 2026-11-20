@@ -77,6 +77,13 @@ jobs:
           python3 scripts/godot_results.py obj/godot --output obj/godot/standard \
             --environment 'GitHub hosted; Ubuntu 26.04 container' \
             --run-url "$RUN_URL" --details-url "$RUN_URL" --raw-url "$RUN_URL"
+      - name: Compare reference binaries with published history
+        # Publication repeats this comparison on the badge branch; a missing history only loses the summary.
+        continue-on-error: true
+        run: |
+          git fetch -q --depth=1 origin benchmark-badges
+          python3 scripts/godot_results.py drift obj/godot --history-ref FETCH_HEAD \
+            --output obj/godot/reference-drift.json > obj/godot/reference-drift.md
       - name: Report
         if: always()
         run: |
@@ -84,6 +91,9 @@ jobs:
             cat obj/godot/standard/summary.md >> "$GITHUB_STEP_SUMMARY"
           elif [ -f obj/godot/details.md ]; then
             cat obj/godot/details.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -s obj/godot/reference-drift.md ]; then
+            cat obj/godot/reference-drift.md >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Retain results and raw observations
         if: always()

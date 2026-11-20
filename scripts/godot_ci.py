@@ -34,6 +34,7 @@ WORKLOADS = ('dispatch', 'arrays', 'strings', 'geometry', 'scene')
 PASS_KEYS = ('measured_wall', 'cpu')
 BADGE_KEY = 'measured_wall'  # work time from the script; it excludes engine start-up and exit
 DRIFT_FILE = 'reference-drift.json'
+ADDR_NO_RANDOMIZE = 0x0040000  # personality flag that setarch -R sets
 BUILD_FLAGS = [
     'platform=linuxbsd', 'target=template_release', 'arch=x86_64', 'optimize=speed',
     'debug_symbols=no', 'lto=none', 'use_static_cpp=no', 'disable_path_overrides=no',
@@ -126,9 +127,6 @@ def timed_run(command, prefix, cpus, timeout, wrapper=()):
         row.update(cpu=usage.ru_utime + usage.ru_stime, user_cpu=usage.ru_utime, system_cpu=usage.ru_stime,
                    timed_wall=wall, max_rss_kib=usage.ru_maxrss)
     return row
-
-
-ADDR_NO_RANDOMIZE = 0x0040000
 
 
 def address_space_probe(machine=None):
