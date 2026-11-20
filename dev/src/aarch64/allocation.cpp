@@ -716,17 +716,34 @@ public:
 		}
 		return reg;
 	}
-	template<typename F>
-	void each_member(TempId root, F f) const
+	// Whether `rare` holds for every member that crosses a call, found once
+	// for each group.
+	template<typename Rare>
+	bool rare_calls_only(TempId root, const Segments& segments, const std::vector<uint32_t>& calls, Rare rare)
 	{
-		groups_.each_member(root, f);
+		if (rare_.empty())
+			rare_.assign(regs_.size(), 0);
+		if (!rare_[root])
+		{
+			bool only = true;
+			groups_.each_member(root, [&](uint32_t index) {
+				bool crosses = false;
+				each_interval(ranges_[index], segments, [&](uint32_t a, uint32_t b) {
+					const auto call = std::lower_bound(calls.begin(), calls.end(), a);
+					crosses |= call != calls.end() && *call < b;
+				});
+				only = only && (!crosses || rare(ranges_[index]));
+			});
+			rare_[root] = only ? 1 : 2;
+		}
+		return rare_[root] == 1;
 	}
 
 private:
 	const std::vector<LiveRange>& ranges_;
 	PhiGroups groups_;
 	std::vector<uint32_t> regs_;
-	std::vector<uint8_t> assigned_;
+	std::vector<uint8_t> assigned_, rare_;
 };
 
 } // namespace
@@ -947,30 +964,12 @@ void Selector::allocate()
 	// A group whose members cross only rare calls saves caller registers
 	// around them, so it starts in a preserved register only when one is
 	// saved already.
-	std::vector<uint8_t> cold_groups;
-	const auto first_choice = [&](TempId group) -> uint32_t {
+	const auto rare = [&](const LiveRange& range) {
+		return !live_into(range, segments, facts.landings) && cold_crossings(range, segments, calls, cold_budget);
+	};
+	const auto first_choice = [&](TempId group) {
 		const uint32_t all = (dynamic_stack_ ? 0x1ffu : 0x3ffu) << 19;
-		if (!cold_calls)
-			return all;
-		if (cold_groups.empty())
-			cold_groups.assign(count, 0);
-		if (!cold_groups[group])
-		{
-			bool cold = true;
-			groups.each_member(group, [&](uint32_t index) {
-				bool crosses = false;
-				each_interval(ranges[index], segments, [&](uint32_t a, uint32_t b) {
-					const auto call = std::lower_bound(calls.begin(), calls.end(), a);
-					crosses |= call != calls.end() && *call < b;
-				});
-				cold = cold &&
-					(!crosses ||
-						(!live_into(ranges[index], segments, facts.landings) &&
-							cold_crossings(ranges[index], segments, calls, cold_budget)));
-			});
-			cold_groups[group] = cold ? 1 : 2;
-		}
-		return cold_groups[group] == 1 ? all & saved : all;
+		return cold_calls && groups.rare_calls_only(group, segments, calls, rare) ? all & saved : all;
 	};
 	for (uint32_t i = 0; i < ranges.size(); ++i)
 	{
