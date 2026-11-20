@@ -1,10 +1,10 @@
-<svg data-original-label="NEON vs gcc" data-original-message="1.00×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="NEON vs gcc; aarch64; measured 94aaecc52ac26996bd3d654522334e3c28c68457; 10 commits behind main: 1.00×*">
-  <title>NEON vs gcc; aarch64; measured 94aaecc52ac26996bd3d654522334e3c28c68457; 10 commits behind main: 1.00×*</title>
+<svg data-original-label="NEON vs gcc" data-original-message="1.00×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="NEON vs gcc; aarch64; measured f4ee6ed21703be4d5350c45f5d8ed33dc706c992; 8 commits behind main: 1.00×">
+  <title>NEON vs gcc; aarch64; measured f4ee6ed21703be4d5350c45f5d8ed33dc706c992; 8 commits behind main: 1.00×</title>
   <defs><clipPath id="badge"><rect width="120" height="24" rx="4"/></clipPath></defs>
   <g clip-path="url(#badge)">
     <rect width="64" height="24" fill="#555"/>
-    <rect x="64" width="56" height="24" fill="#14532d"/>
+    <rect x="64" width="56" height="24" fill="#16542d"/>
   </g>
   <text x="32" y="16.5" fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="12" font-weight="700" textLength="39" lengthAdjust="spacingAndGlyphs">Arm64</text>
-  <text x="92" y="16.5" fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="12" font-weight="700" letter-spacing="1" textLength="44" lengthAdjust="spacingAndGlyphs">1.00×*</text>
+  <text x="92" y="16.5" fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="12" font-weight="700" letter-spacing="1" textLength="39" lengthAdjust="spacingAndGlyphs">1.00×</text>
 </svg>
