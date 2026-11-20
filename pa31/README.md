@@ -131,9 +131,11 @@ To complete PA31, support:
   through the earlier assignments' constraint, comparison, and atomic rules
 - Classify coroutine definitions from the operations in their own parsed
   bodies. Resolve the promise through `std::coroutine_traits`, including
-  the implicit object parameter of a non-static member. Resolve the
-  promise and awaiter calls using normal overload resolution. Use the
-  type and value category of `await_resume()` for the await expression.
+  the implicit object parameter of a non-static member. Try the promise
+  constructor with the implicit object and the parameter copies as lvalues.
+  Try default initialization if none of those constructors is viable.
+  Resolve the promise and awaiter calls using normal overload resolution.
+  Use the type and value category of `await_resume()` for the await expression.
   See `[dcl.fct.def.coroutine]`, `[expr.await]`, and `[stmt.return.coroutine]`.
 - constant evaluation of C++20 `<memory>`, `<vector>`, and `<algorithm>`.
   `std::allocator<T>::allocate` starts the lifetime of the backing array.

@@ -22,6 +22,8 @@ struct Awaiter {
 Awaiter operator co_await(Token) noexcept;
 
 struct Promise {
+  Promise() = delete;
+  Promise(const Owner&, int&);
   Task get_return_object();
   std::suspend_always initial_suspend() noexcept;
   std::suspend_always final_suspend() noexcept;
@@ -40,4 +42,20 @@ inline Task Owner::run(int n) const & {
     n = 0;
   }
   co_return n + ordinary();
+}
+
+struct FallbackTask {
+  struct promise_type {
+    promise_type();
+    promise_type(int&&) = delete;
+    FallbackTask get_return_object();
+    std::suspend_always initial_suspend() noexcept;
+    std::suspend_always final_suspend() noexcept;
+    void return_void() noexcept;
+    void unhandled_exception() noexcept;
+  };
+};
+
+inline FallbackTask fallback(int) {
+  co_return;
 }

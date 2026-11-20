@@ -2,6 +2,7 @@
 
 namespace syntax {
 struct Expr;
+struct Initializer;
 }
 
 namespace sema {
@@ -24,6 +25,8 @@ struct CoroutineAwait
 struct CoroutineFacts
 {
 	const VariableEntity* promise;
+	const VariableEntity* object;
+	const syntax::Initializer* promise_initializer;
 	const VariableEntity* handle;
 	const syntax::Expr* return_object;
 	const syntax::Expr* unhandled_exception;

@@ -82,8 +82,7 @@ const Type* Analyzer::coroutine_promise_type(const FunctionEntity* function, Sco
 	return require_complete(ClassOf(promise)) ? promise : nullptr;
 }
 
-syntax::Expr* Analyzer::coroutine_variable_use(
-	const VariableEntity* variable, ValueCategory category, uint32_t location)
+syntax::Expr* Analyzer::coroutine_variable_use(const Entity* variable, ValueCategory category, uint32_t location)
 {
 	syntax::IdExpr* expr = CoroutineExpression<syntax::IdExpr>(arena_, syntax::ExprKind::Id, location);
 	expr->name = implicit_name(variable->name, location);
@@ -92,6 +91,60 @@ syntax::Expr* Analyzer::coroutine_variable_use(
 	facts->flags = kImplicit;
 	facts->entity = variable;
 	return expr;
+}
+
+bool Analyzer::coroutine_promise_initializer(
+	const FunctionEntity* function, VariableEntity* promise, CoroutineFacts& coroutine, Scope* scope, uint32_t location)
+{
+	// The promise constructor sees the frame's parameter copies as lvalues,
+	// preceded by the implicit object even for an rvalue-qualified member.
+	SmallList<syntax::Expr*, 4> operands;
+	if (function->member && !function->is_static)
+	{
+		const Type* object = types_.qualified(function->owner->entity->type, function->type->canonical->function_cv);
+		coroutine.object = new_entity<VariableEntity>(
+			EntityKind::Variable, special_key("<coroutine-object>"), scope, types_.reference(object, false));
+		operands.push_back(coroutine_variable_use(coroutine.object, ValueCategory::LValue, location));
+	}
+	for (const Binding* binding = scope->bindings; binding != nullptr; binding = binding->next)
+		if (binding->kind == BindingKind::Parameter)
+			operands.push_back(coroutine_variable_use(binding->entity, ValueCategory::LValue, location));
+
+	ClassEntity* cls = static_cast<ClassEntity*>(promise->type->unqualified->entity);
+	if (!check_abstract_object(promise->type, location))
+		return false;
+	check_destruction(promise->type, scope, location);
+	if (!operands.empty())
+	{
+		const syntax::Slice<syntax::Expr*> arguments{ operands.data(), static_cast<uint32_t>(operands.size()) };
+		std::vector<FunctionEntity*>& set = overload_set_;
+		set.clear();
+		constructor_candidates(cls, arguments, ConstructionKind::Direct, set);
+		Candidate chosen = Candidate();
+		const Resolution result = resolve(arguments, set, nullptr, chosen, cls);
+		if (result == Resolution::Ambiguous)
+			return substitution_error(location, "ambiguous coroutine promise constructor"), false;
+		if (result == Resolution::Selected)
+		{
+			expression_scope_ = scope;
+			promise->constructor = select_constructor(
+				cls, arguments, ConstructionKind::Direct, location, nullptr, &chosen);
+			if (promise->constructor == nullptr || failed())
+				return false;
+			syntax::Initializer* initializer = arena_.allocate_array<syntax::Initializer>(1);
+			*initializer = syntax::Initializer();
+			initializer->kind = syntax::InitializerKind::Parenthesized;
+			initializer->location = location;
+			initializer->arguments = { arena_.copy_array(arguments.data, arguments.size), arguments.size };
+			coroutine.promise_initializer = initializer;
+			return true;
+		}
+	}
+	// Fall back only when no parameter-based candidate is viable (N4861
+	// [dcl.fct.def.coroutine]). A deleted or inaccessible winner is an error.
+	expression_scope_ = scope;
+	promise->constructor = select_constructor(cls, {}, ConstructionKind::Direct, location);
+	return promise->constructor != nullptr && !failed();
 }
 
 syntax::Expr* Analyzer::coroutine_member_call(
@@ -200,7 +253,10 @@ const CoroutineFacts* Analyzer::analyze_coroutine(const FunctionEntity* function
 		return nullptr;
 	CoroutineFacts* facts = arena_.allocate_array<CoroutineFacts>(1);
 	*facts = CoroutineFacts();
-	facts->promise = new_entity<VariableEntity>(EntityKind::Variable, special_key("<promise>"), scope, promise);
+	VariableEntity* object = new_entity<VariableEntity>(EntityKind::Variable, special_key("<promise>"), scope, promise);
+	facts->promise = object;
+	if (!coroutine_promise_initializer(function, object, *facts, scope, location))
+		return nullptr;
 	facts->handle = new_entity<VariableEntity>(
 		EntityKind::Variable, special_key("<coroutine-handle>"), scope, handle->type);
 	const auto invoke = [&](const Identifier* name) {

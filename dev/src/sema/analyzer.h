@@ -459,7 +459,9 @@ private:
 	ExprFacts* coroutine_operation(const syntax::CoroutineExpr& expr, Scope* scope);
 	ClassEntity* coroutine_library_template(const char* name, uint32_t location);
 	const Type* coroutine_promise_type(const FunctionEntity* function, Scope* scope, uint32_t location);
-	syntax::Expr* coroutine_variable_use(const VariableEntity* variable, ValueCategory category, uint32_t location);
+	syntax::Expr* coroutine_variable_use(const Entity* variable, ValueCategory category, uint32_t location);
+	bool coroutine_promise_initializer(const FunctionEntity* function, VariableEntity* promise,
+		CoroutineFacts& coroutine, Scope* scope, uint32_t location);
 	syntax::Expr* coroutine_member_call(
 		syntax::Expr* object, const Identifier* name, syntax::Expr* argument, Scope* scope, uint32_t location);
 	const CoroutineAwait* coroutine_await(
