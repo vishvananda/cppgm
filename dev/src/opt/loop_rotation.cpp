@@ -146,6 +146,11 @@ bool LoopRotation::select_loop(uint32_t loop)
 	const BlockId h = l.header;
 	if ((cfg_.flags[h] & BF_HANDLER) != 0 || l.latches.empty() || h == cfg_.rpo[0])
 		return false;
+	// (A code entry stays where an indirect jump finds it: a loop holding
+	// one keeps its shape.)
+	for (const CodeLabel& label : body_.code_labels)
+		if (in_loop(forest_, loop, label.block))
+			return false;
 	const InstId term = body_.blocks[h].last;
 	if (term == kNoId || body_.instructions[term].op != Opcode::Branch)
 		return false;

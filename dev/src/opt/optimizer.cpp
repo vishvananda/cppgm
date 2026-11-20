@@ -714,7 +714,8 @@ void finish_function(Program& program, SymbolId symbol, OptimizerStats& stats, c
 	std::vector<uint8_t>& nounwind, std::vector<uint8_t>& unwritten, const std::vector<uint8_t>& sealed,
 	const std::vector<uint8_t>* moved, BitTablePool& bit_tables)
 {
-	if (!program.functions[program.symbols[symbol].detail].body->code_labels.empty())
+	const bool addressed = !program.functions[program.symbols[symbol].detail].body->code_labels.empty();
+	if (addressed && (options.level < 3 || options.minimize_size))
 		return;
 	FunctionContext context(program, symbol, stats, 2);
 	const PooledContext pooled(context, context_pool());
@@ -724,6 +725,14 @@ void finish_function(Program& program, SymbolId symbol, OptimizerStats& stats, c
 	context.bit_tables = options.level >= 3 ? &bit_tables : nullptr;
 	context.float_selects = options.level >= 3;
 	enable_verify(context, options);
+	// Code entries: only the loops that hold none rotate (an interpreter's
+	// loops over an instruction's operands).
+	if (addressed)
+	{
+		if (copies_code(context) && RUN_PASS(rotate_loops))
+			RUN_PASS(promote_slots);
+		return;
+	}
 	// What a call's newly proved memory footprint no longer hides, and the
 	// loads of globals the late static initialization gave data (and the
 	// addresses of the stores it removed).
