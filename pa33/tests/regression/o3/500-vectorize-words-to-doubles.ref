@@ -38,6 +38,14 @@ global @__vector_literal_00000000000000040000000000000004 : obj<16x16> [storage=
   i64 4
   i64 4
 }
+global @__vector_literal_00000000000000060000000000000006 : obj<16x16> [storage=readonly, binding=internal] = {
+  i64 6
+  i64 6
+}
+global @__vector_literal_00000000000000080000000000000008 : obj<16x16> [storage=readonly, binding=internal] = {
+  i64 8
+  i64 8
+}
 
 function @unsigned_words(%d : ptr, %x : ptr, %n : i64) -> void [no_inline=yes] {
   block ^entry:
@@ -188,13 +196,13 @@ function @places(%d : ptr, %n : i64, %whole : f64) -> void [no_inline=yes] {
 
   block ^loop_preheader_1:
     %t2 = binary sub i64 %n, 1
-    %t3 = cmp uge i64 %t2, 4
+    %t3 = cmp uge i64 %t2, 8
     %t4 = binary and i64 %any, %t3
     %parts = convert uitofp f64 i64 %n
     branch %t4, ^loop_preheader_2, ^loop_preheader_5
 
   block ^loop_preheader_2:
-    %t6 = binary add i64 %n, -4
+    %t6 = binary add i64 %n, -8
     %t7 = addr @__vector_literal_00000000000000010000000000000000
     %t8 = load v128 %t7
     %t9 = addr @__vector_literal_00000000000000010000000000000001
@@ -216,50 +224,80 @@ function @places(%d : ptr, %n : i64, %whole : f64) -> void [no_inline=yes] {
     %t25 = load v128 %t24
     %t26 = addr @__vector_literal_00000000000000040000000000000004
     %t27 = load v128 %t26
+    %t28 = addr @__vector_literal_00000000000000060000000000000006
+    %t29 = load v128 %t28
+    %t30 = addr @__vector_literal_00000000000000080000000000000008
+    %t31 = load v128 %t30
     jump ^wide_loop_3
 
   block ^wide_loop_3:
-    %t28 = phi v128 [^loop_preheader_2: %t11, ^wide_loop_3: %t53]
-    %t29 = phi i64 [^loop_preheader_2: 1, ^wide_loop_3: %t52]
-    %t30 = vector psubq %t28, %t10
-    %t31 = vector psrlqi %t30, 32
-    %t32 = vector por %t31, %t13
-    %t33 = vector pand %t30, %t17
-    %t34 = vector por %t33, %t15
-    %t35 = vector subpd %t32, %t19
-    %t36 = vector addpd %t35, %t34
-    %t37 = vector mulpd %t21, %t36
-    %t38 = vector divpd %t37, %t23
-    %t39 = index f64 %d, %t29
-    %t40 = vector paddq %t28, %t25
-    %t41 = vector psubq %t40, %t10
-    %t42 = vector pand %t41, %t17
-    %t43 = vector por %t42, %t15
-    %t44 = vector psrlqi %t41, 32
-    %t45 = vector por %t44, %t13
-    %t46 = vector subpd %t45, %t19
-    %t47 = vector addpd %t46, %t43
-    %t48 = vector mulpd %t21, %t47
-    %t49 = vector divpd %t48, %t23
-    store v128 %t38, %t39
-    %t50 = binary add nowrap i64 %t29, 2
-    %t51 = index f64 %d, %t50
-    store v128 %t49, %t51
-    %t52 = binary add nowrap i64 %t29, 4
-    %t53 = vector paddq %t28, %t27
-    %t54 = cmp ule i64 %t52, %t6
-    branch %t54, ^wide_loop_3, ^loop_exit_4
+    %t32 = phi v128 [^loop_preheader_2: %t11, ^wide_loop_3: %t81]
+    %t33 = phi i64 [^loop_preheader_2: 1, ^wide_loop_3: %t80]
+    %t34 = vector psubq %t32, %t10
+    %t35 = vector psrlqi %t34, 32
+    %t36 = vector por %t35, %t13
+    %t37 = vector pand %t34, %t17
+    %t38 = vector por %t37, %t15
+    %t39 = vector subpd %t36, %t19
+    %t40 = vector addpd %t39, %t38
+    %t41 = vector mulpd %t21, %t40
+    %t42 = vector divpd %t41, %t23
+    %t43 = index f64 %d, %t33
+    %t44 = vector paddq %t32, %t25
+    %t45 = vector psubq %t44, %t10
+    %t46 = vector pand %t45, %t17
+    %t47 = vector por %t46, %t15
+    %t48 = vector psrlqi %t45, 32
+    %t49 = vector por %t48, %t13
+    %t50 = vector subpd %t49, %t19
+    %t51 = vector addpd %t50, %t47
+    %t52 = vector mulpd %t21, %t51
+    %t53 = vector divpd %t52, %t23
+    %t54 = vector paddq %t32, %t27
+    %t55 = vector psubq %t54, %t10
+    %t56 = vector pand %t55, %t17
+    %t57 = vector por %t56, %t15
+    %t58 = vector psrlqi %t55, 32
+    %t59 = vector por %t58, %t13
+    %t60 = vector subpd %t59, %t19
+    %t61 = vector addpd %t60, %t57
+    %t62 = vector mulpd %t21, %t61
+    %t63 = vector divpd %t62, %t23
+    %t64 = vector paddq %t32, %t29
+    %t65 = vector psubq %t64, %t10
+    %t66 = vector pand %t65, %t17
+    %t67 = vector por %t66, %t15
+    %t68 = vector psrlqi %t65, 32
+    %t69 = vector por %t68, %t13
+    %t70 = vector subpd %t69, %t19
+    %t71 = vector addpd %t70, %t67
+    %t72 = vector mulpd %t21, %t71
+    %t73 = vector divpd %t72, %t23
+    store v128 %t42, %t43
+    %t74 = binary add nowrap i64 %t33, 2
+    %t75 = index f64 %d, %t74
+    store v128 %t53, %t75
+    %t76 = binary add nowrap i64 %t33, 4
+    %t77 = index f64 %d, %t76
+    store v128 %t63, %t77
+    %t78 = binary add nowrap i64 %t33, 6
+    %t79 = index f64 %d, %t78
+    store v128 %t73, %t79
+    %t80 = binary add nowrap i64 %t33, 8
+    %t81 = vector paddq %t32, %t31
+    %t82 = cmp ule i64 %t80, %t6
+    branch %t82, ^wide_loop_3, ^loop_exit_4
 
   block ^loop_exit_4:
-    %t55 = cmp ult i64 %t52, %n
-    branch %t55, ^loop_preheader_5, ^done
+    %t83 = cmp ult i64 %t80, %n
+    branch %t83, ^loop_preheader_5, ^done
 
   block ^loop_preheader_5:
-    %t56 = phi i64 [^loop_preheader_1: 1, ^loop_exit_4: %t52]
+    %t84 = phi i64 [^loop_preheader_1: 1, ^loop_exit_4: %t80]
     jump ^body
 
   block ^body:
-    %i = phi i64 [^loop_preheader_5: %t56, ^body: %next]
+    %i = phi i64 [^loop_preheader_5: %t84, ^body: %next]
     %before = binary sub i64 %i, 1
     %place = convert uitofp f64 i64 %before
     %share = binary mul f64 %whole, %place

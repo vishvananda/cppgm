@@ -1,7 +1,7 @@
 # Two lanes of short code between bounds that are not both literals run twice
 # a round when the lanes may finish the loop: one test serves four passes.
-# Four lanes, literal bounds and a sum in the order of its passes keep one
-# copy of the lanes' code.
+# Four lanes, and a sum in the order of its passes alone, do so too on a
+# native target. Literal bounds keep one copy of the lanes' code.
 
 function @two_lanes(%d : ptr, %x : ptr, %from : i64, %n : i64) -> void [no_inline=yes] {
   block ^entry:

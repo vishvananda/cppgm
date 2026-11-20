@@ -53,7 +53,7 @@ function @strides(%e : ptr, %d : ptr, %k : i64, %n : i64) -> void [no_inline=yes
 function @same_type(%e : ptr, %d : ptr, %n : i64) -> void [no_inline=yes] {
   block ^entry:
     %t1 = cmp gt i64 %n, 0
-    %t2 = cmp uge i64 %n, 4
+    %t2 = cmp uge i64 %n, 8
     %t3 = binary and i64 %t1, %t2
     branch %t3, ^loop_preheader_1, ^loop_preheader_5
 
@@ -68,30 +68,33 @@ function @same_type(%e : ptr, %d : ptr, %n : i64) -> void [no_inline=yes] {
     branch %t10, ^loop_preheader_2, ^loop_preheader_5
 
   block ^loop_preheader_2:
-    %t11 = binary add i64 %n, -4
+    %t11 = binary add i64 %n, -8
     %t12 = load typed i32 %t4
     %t13 = vector fromi32 %t12
     %t14 = vector pshufd %t13, 0
     jump ^wide_loop_3
 
   block ^wide_loop_3:
-    %t15 = phi i64 [^loop_preheader_2: 0, ^wide_loop_3: %t17]
+    %t15 = phi i64 [^loop_preheader_2: 0, ^wide_loop_3: %t19]
     %t16 = index i32 %d, %t15
     store v128 %t14, %t16
     %t17 = binary add nowrap i64 %t15, 4
-    %t18 = cmp le i64 %t17, %t11
-    branch %t18, ^wide_loop_3, ^loop_exit_4
+    %t18 = index i32 %d, %t17
+    store v128 %t14, %t18
+    %t19 = binary add nowrap i64 %t15, 8
+    %t20 = cmp le i64 %t19, %t11
+    branch %t20, ^wide_loop_3, ^loop_exit_4
 
   block ^loop_exit_4:
-    %t19 = cmp lt i64 %t17, %n
-    branch %t19, ^loop_preheader_5, ^done
+    %t21 = cmp lt i64 %t19, %n
+    branch %t21, ^loop_preheader_5, ^done
 
   block ^loop_preheader_5:
-    %t20 = phi i64 [^entry: 0, ^loop_preheader_1: 0, ^loop_exit_4: %t17]
+    %t22 = phi i64 [^entry: 0, ^loop_preheader_1: 0, ^loop_exit_4: %t19]
     jump ^body
 
   block ^body:
-    %i = phi i64 [^loop_preheader_5: %t20, ^body: %next]
+    %i = phi i64 [^loop_preheader_5: %t22, ^body: %next]
     %f = index i8 %e, 24
     %s = load typed i32 %f
     %p = index i32 %d, %i

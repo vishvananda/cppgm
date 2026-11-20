@@ -257,7 +257,7 @@ function @sum_shorts(%x : ptr, %n : i64) -> u16 [no_inline=yes] {
 function @mul_bytes(%d : ptr, %x : ptr, %n : i64) -> void [no_inline=yes] {
   block ^entry:
     %t1 = cmp gt i64 %n, 0
-    %t2 = cmp uge i64 %n, 4
+    %t2 = cmp uge i64 %n, 8
     %t3 = binary and i64 %t1, %t2
     branch %t3, ^loop_preheader_1, ^loop_preheader_5
 
@@ -270,7 +270,7 @@ function @mul_bytes(%d : ptr, %x : ptr, %n : i64) -> void [no_inline=yes] {
     branch %t8, ^loop_preheader_2, ^loop_preheader_5
 
   block ^loop_preheader_2:
-    %t9 = binary add i64 %n, -4
+    %t9 = binary add i64 %n, -8
     %t10 = vector pzero
     %t11 = addr @__vector_literal_00000003000000030000000300000003
     %t12 = load v128 %t11
@@ -281,7 +281,7 @@ function @mul_bytes(%d : ptr, %x : ptr, %n : i64) -> void [no_inline=yes] {
     jump ^wide_loop_3
 
   block ^wide_loop_3:
-    %t17 = phi i64 [^loop_preheader_2: 0, ^wide_loop_3: %t36]
+    %t17 = phi i64 [^loop_preheader_2: 0, ^wide_loop_3: %t55]
     %t18 = index u8 %x, %t17
     %t19 = load i32 %t18
     %t20 = vector fromi32 %t19
@@ -302,19 +302,39 @@ function @mul_bytes(%d : ptr, %x : ptr, %n : i64) -> void [no_inline=yes] {
     %t35 = vector toi32 %t33
     store i32 %t35, %t34
     %t36 = binary add nowrap i64 %t17, 4
-    %t37 = cmp le i64 %t36, %t9
-    branch %t37, ^wide_loop_3, ^loop_exit_4
+    %t37 = index u8 %x, %t36
+    %t38 = load i32 %t37
+    %t39 = vector fromi32 %t38
+    %t40 = vector punpcklbw %t39, %t10
+    %t41 = vector punpcklwd %t40, %t10
+    %t42 = vector pmuludq %t41, %t12
+    %t43 = vector psrlqi %t41, 32
+    %t44 = vector pmuludq %t43, %t16
+    %t45 = vector pshufd %t42, 8
+    %t46 = vector pshufd %t44, 8
+    %t47 = vector punpckldq %t45, %t46
+    %t48 = vector pslldi %t47, 16
+    %t49 = vector psradi %t48, 16
+    %t50 = vector packssdw %t49, %t49
+    %t51 = vector pand %t50, %t15
+    %t52 = vector packuswb %t51, %t51
+    %t53 = index u8 %d, %t36
+    %t54 = vector toi32 %t52
+    store i32 %t54, %t53
+    %t55 = binary add nowrap i64 %t17, 8
+    %t56 = cmp le i64 %t55, %t9
+    branch %t56, ^wide_loop_3, ^loop_exit_4
 
   block ^loop_exit_4:
-    %t38 = cmp lt i64 %t36, %n
-    branch %t38, ^loop_preheader_5, ^done
+    %t57 = cmp lt i64 %t55, %n
+    branch %t57, ^loop_preheader_5, ^done
 
   block ^loop_preheader_5:
-    %t39 = phi i64 [^entry: 0, ^loop_preheader_1: 0, ^loop_exit_4: %t36]
+    %t58 = phi i64 [^entry: 0, ^loop_preheader_1: 0, ^loop_exit_4: %t55]
     jump ^body
 
   block ^body:
-    %i = phi i64 [^loop_preheader_5: %t39, ^body: %next]
+    %i = phi i64 [^loop_preheader_5: %t58, ^body: %next]
     %p = index u8 %x, %i
     %a = load u8 %p
     %w = convert zext i32 u8 %a
@@ -332,7 +352,7 @@ function @mul_bytes(%d : ptr, %x : ptr, %n : i64) -> void [no_inline=yes] {
 function @both(%d : ptr, %e : ptr, %x : ptr, %n : i64) -> void [no_inline=yes] {
   block ^entry:
     %t1 = cmp gt i64 %n, 0
-    %t2 = cmp uge i64 %n, 4
+    %t2 = cmp uge i64 %n, 8
     %t3 = binary and i64 %t1, %t2
     branch %t3, ^loop_preheader_1, ^loop_preheader_5
 
@@ -355,7 +375,7 @@ function @both(%d : ptr, %e : ptr, %x : ptr, %n : i64) -> void [no_inline=yes] {
     branch %t18, ^loop_preheader_2, ^loop_preheader_5
 
   block ^loop_preheader_2:
-    %t19 = binary add i64 %n, -4
+    %t19 = binary add i64 %n, -8
     %t20 = vector pzero
     %t21 = addr @__vector_literal_0000012c0000012c0000012c0000012c
     %t22 = load v128 %t21
@@ -365,7 +385,7 @@ function @both(%d : ptr, %e : ptr, %x : ptr, %n : i64) -> void [no_inline=yes] {
     jump ^wide_loop_3
 
   block ^wide_loop_3:
-    %t26 = phi i64 [^loop_preheader_2: 0, ^wide_loop_3: %t37]
+    %t26 = phi i64 [^loop_preheader_2: 0, ^wide_loop_3: %t48]
     %t27 = index u8 %x, %t26
     %t28 = load i32 %t27
     %t29 = vector fromi32 %t28
@@ -379,19 +399,32 @@ function @both(%d : ptr, %e : ptr, %x : ptr, %n : i64) -> void [no_inline=yes] {
     %t36 = vector toi32 %t34
     store i32 %t36, %t35
     %t37 = binary add nowrap i64 %t26, 4
-    %t38 = cmp le i64 %t37, %t19
-    branch %t38, ^wide_loop_3, ^loop_exit_4
+    %t38 = index u8 %x, %t37
+    %t39 = load i32 %t38
+    %t40 = vector fromi32 %t39
+    %t41 = vector punpcklbw %t40, %t20
+    %t42 = vector punpcklwd %t41, %t20
+    %t43 = vector paddd %t42, %t22
+    %t44 = index i32 %e, %t37
+    store v128 %t43, %t44
+    %t45 = vector paddb %t40, %t25
+    %t46 = index u8 %d, %t37
+    %t47 = vector toi32 %t45
+    store i32 %t47, %t46
+    %t48 = binary add nowrap i64 %t26, 8
+    %t49 = cmp le i64 %t48, %t19
+    branch %t49, ^wide_loop_3, ^loop_exit_4
 
   block ^loop_exit_4:
-    %t39 = cmp lt i64 %t37, %n
-    branch %t39, ^loop_preheader_5, ^done
+    %t50 = cmp lt i64 %t48, %n
+    branch %t50, ^loop_preheader_5, ^done
 
   block ^loop_preheader_5:
-    %t40 = phi i64 [^entry: 0, ^loop_preheader_1: 0, ^loop_exit_4: %t37]
+    %t51 = phi i64 [^entry: 0, ^loop_preheader_1: 0, ^loop_exit_4: %t48]
     jump ^body
 
   block ^body:
-    %i = phi i64 [^loop_preheader_5: %t40, ^body: %next]
+    %i = phi i64 [^loop_preheader_5: %t51, ^body: %next]
     %p = index u8 %x, %i
     %a = load u8 %p
     %w = convert zext i32 u8 %a

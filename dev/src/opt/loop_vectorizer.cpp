@@ -2659,19 +2659,21 @@ bool LoopVectorizer::read_live_outs(BlockId after)
 	return live_outs_.empty() || cfg_.pred_count(after) == 1;
 }
 
-// Group short rounds so one test serves two vectors. A short two-lane
-// round with a floating divide can overlap the work of four vectors on Arm.
-// The scalar remainder and the order of floating reductions are preserved.
+// Group short rounds so one test serves two vectors: two-lane rounds on
+// every target; four-lane rounds and an ordered floating reduction on a
+// native one. A short two-lane round with a floating divide can overlap the
+// work of four vectors there. The scalar remainder and the order of
+// floating reductions are preserved.
 int64_t LoopVectorizer::round_copies() const
 {
-	const bool arm = target_model::is_aarch64(c_.program.target);
-	if (copies_ != 1 || (lanes_ != 2 && !(lanes_ == 4 && arm)) || !lane_cells_.empty())
+	const bool native = !target_model::is_wasm(c_.program.target);
+	if (copies_ != 1 || (lanes_ != 2 && !(lanes_ == 4 && native)) || !lane_cells_.empty())
 		return copies_;
 	const bool ordered = std::any_of(
 		reductions_.begin(), reductions_.end(), [](const Reduction& r) { return r.ordered; });
-	if (ordered ? !arm || reductions_.size() != 1 || code_.size() > kPairedOrderedCode : code_.size() > kPairedCode)
+	if (ordered ? !native || reductions_.size() != 1 || code_.size() > kPairedOrderedCode : code_.size() > kPairedCode)
 		return copies_;
-	if (arm && lanes_ == 2 && std::any_of(code_.begin(), code_.end(), [&](InstId id) {
+	if (native && lanes_ == 2 && std::any_of(code_.begin(), code_.end(), [&](InstId id) {
 			const auto& inst = body_.instructions[id];
 			return inst.op == Opcode::Binary && inst.type.is_float() &&
 				inst.sub == static_cast<unsigned>(BinaryOp::Div);
