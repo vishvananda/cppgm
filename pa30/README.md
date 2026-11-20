@@ -378,7 +378,9 @@ Support `__builtin_sinf`, `__builtin_sin`, and `__builtin_sinl` in constant
 expressions for finite operands. Compute the sine in the target floating-point
 format when the host math library supplies the needed precision. Preserve a
 signed zero. Infinite and NaN operands require a diagnostic in a required
-constant expression.
+constant expression. Apply the same evaluation to the C-linkage sine
+declarations from system math headers, including declarations imported into
+`std` by `<cmath>`. Preserve user definitions and other signatures.
 
 Constant evaluation of binary128 values must use their target precision and
 range, including arithmetic, comparisons, casts and static initialization.

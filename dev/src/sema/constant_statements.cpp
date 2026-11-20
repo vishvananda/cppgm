@@ -11,6 +11,7 @@
 #include "lex/interchange_float.h"
 #include "lex/extended_float.h"
 #include "lex/text_literal.h"
+#include "preprocess/preprocessor.h"
 #include "sema/analyzer.h"
 #include "sema/constant_memo.h"
 #include "sema/integral_arithmetic.h"
@@ -492,6 +493,8 @@ bool ConstantInterpreter::invoke(const FunctionEntity* function, const ConstPlac
 		return allocator_operation(function, arguments, count, result, location);
 	if (function->builtin != BuiltinFunction::None)
 		return builtin(function, arguments, count, result, location);
+	if (function->c_linkage && !function->defined && hosted_sine(function))
+		return library_sine(function->type->canonical->element->unqualified, arguments, count, result, location);
 	if (function->conversion && function->is_constexpr && function->owner->kind == ScopeKind::Class)
 	{
 		const ClosureFacts* closure = analyzer_.graph_.closure_facts(
@@ -760,16 +763,7 @@ bool ConstantInterpreter::library_floating(
 	if (base == 3 && std::strncmp(name, "fma", 3) == 0)
 		return library_fma(function->type->canonical->element->unqualified, arguments, count, result, location);
 	if (base == 3 && std::strncmp(name, "sin", 3) == 0)
-	{
-		ConstValue input;
-		if (count != 1 || !converted(*arguments[0].expr, arguments[0].conversion, input) ||
-			!convert_scalar(input, function->type->canonical->element->unqualified, location))
-			return true;
-		result.value = ConstantSine(input);
-		if (result.value.kind == ValueKind::Indeterminate)
-			return fail(location, "a sine outside its constant range or supported precision"), true;
-		return true;
-	}
+		return library_sine(function->type->canonical->element->unqualified, arguments, count, result, location), true;
 	const bool copysign = std::strncmp(name, "copysign", 8) == 0 && (length == 8 || length == 9);
 	const bool maximum = base == 4 && std::strncmp(name, "fmax", 4) == 0;
 	const bool minimum = base == 4 && std::strncmp(name, "fmin", 4) == 0;
@@ -807,6 +801,42 @@ bool ConstantInterpreter::library_floating(
 									   : std::fmin(x.floating, y.floating);
 	result.value = FloatingValue(function->type->canonical->element->unqualified, value);
 	return true;
+}
+
+bool ConstantInterpreter::hosted_sine(const FunctionEntity* function) const
+{
+	if (!analyzer_.hosted() || function->owner != analyzer_.graph_.global || function->label == nullptr ||
+		std::strncmp(function->label, "sin", 3) != 0)
+		return false;
+	const Type* signature = function->type->canonical;
+	const Type* target = signature->element->unqualified;
+	if (signature->param_count != 1 || signature->variadic || target != signature->params[0]->unqualified ||
+		target->kind != TypeKind::Fundamental)
+		return false;
+	const auto* positions = analyzer_.source_positions();
+	return (target->fundamental == FundamentalType::Double ? std::strcmp(function->label, "sin") == 0
+				   : target->fundamental == FundamentalType::Float
+				   ? std::strcmp(function->label, "sinf") == 0
+				   : target->fundamental == FundamentalType::LongDouble && std::strcmp(function->label, "sinl") == 0) &&
+		positions != nullptr && function->parameters != nullptr &&
+		positions->in_system_header(function->parameters->location);
+}
+
+bool ConstantInterpreter::library_sine(
+	const Type* target, const Argument* arguments, uint32_t count, Result& result, uint32_t location)
+{
+	if (count != 1)
+		return fail(location, "a sine with the wrong number of arguments");
+	ConstValue input;
+	if (arguments[0].valued)
+		input = arguments[0].value;
+	else if (arguments[0].expr == nullptr || !converted(*arguments[0].expr, arguments[0].conversion, input))
+		return false;
+	if (!convert_scalar(input, target, location))
+		return false;
+	result.value = ConstantSine(input);
+	return result.value.kind != ValueKind::Indeterminate ||
+		fail(location, "a sine outside its constant range or supported precision");
 }
 
 bool ConstantInterpreter::library_fma(
