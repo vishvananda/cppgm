@@ -194,7 +194,7 @@ void Parser::parse_deferred_lambdas(size_t first)
 		pending_template_ = false;
 		definite_type_ = deferred.definite_type;
 		special_member_clause_ = deferred.special_member_clause;
-		CompoundStmt* body = parse_compound_statement(true);
+		CompoundStmt* body = parse_lambda_body();
 		if (body == nullptr || tokens_.position() != deferred.end)
 			throw ParseError(error_location_, "syntax error");
 		deferred.lambda->body = body;
@@ -243,15 +243,18 @@ bool Parser::parse_function_body(FunctionBody& body, bool allow_ctor_initializer
 	}
 	const bool saved_template = pending_template_;
 	pending_template_ = false;
+	const FunctionBodySyntaxScope syntax_scope(function_body_syntax_);
 	body.body = parse_compound_statement(true);
 	pending_template_ = saved_template;
 	if (body.body == nullptr)
 		return false;
+	body.body->function_body_syntax = function_body_syntax_;
 	if (!try_block)
 		return true;
 	ListFrame<Handler> handlers(handlers_);
 	if (!parse_handlers(handlers))
 		return false;
+	body.body->function_body_syntax = function_body_syntax_;
 	body.try_block = make<TryStmt>(StmtKind::Try, body.body->location);
 	body.try_block->body = body.body;
 	body.try_block->handlers = handlers.take(arena_);

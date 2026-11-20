@@ -10,6 +10,8 @@
 // tree is not copied.
 namespace sema {
 
+struct CoroutineAwait;
+
 // 3.10p1.
 enum class ValueCategory : uint8_t
 {
@@ -336,6 +338,8 @@ struct ExprFacts
 		const ThreeWayComparison* comparison;
 		// A rewritten C++20 comparison (kRewrittenComparison).
 		const syntax::Expr* replacement;
+		// A co_await or co_yield expression's selected awaiter protocol.
+		const CoroutineAwait* coroutine_await;
 		// kImmediateValue: the complete constant result of an immediate call.
 		const ConstValue* immediate;
 	};

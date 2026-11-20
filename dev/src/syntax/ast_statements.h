@@ -29,6 +29,12 @@ enum class StmtKind : uint8_t
 	Asm
 };
 
+enum FunctionBodySyntax : uint8_t
+{
+	kCoroutineOperation = 1,
+	kOrdinaryReturn = 2
+};
+
 struct Stmt
 {
 	StmtKind kind;
@@ -37,6 +43,8 @@ struct Stmt
 	// see Parser::with_selection_init): no block of the source, its names
 	// are the selection statement's (see Analyzer::compound).
 	bool selection_init = false;
+	// A function's outer compound records syntax from that function alone.
+	uint8_t function_body_syntax = 0;
 	uint32_t location;
 };
 

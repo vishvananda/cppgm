@@ -334,6 +334,7 @@ private:
 	// -------------------------------------------------------- statements
 	Stmt* parse_statement();
 	CompoundStmt* parse_compound_statement(bool new_scope);
+	CompoundStmt* parse_lambda_body();
 	Stmt* parse_declaration_or_expression_statement(Attribute* attributes);
 	typedef Stmt* (Parser::*StatementReader)(Attribute* attributes);
 	Stmt* read_statement(StatementReader reader, Attribute* attributes);

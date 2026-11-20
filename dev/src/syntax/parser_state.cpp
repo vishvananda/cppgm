@@ -148,6 +148,7 @@ ParserState::Checkpoint ParserState::save()
 	scopes_.begin_logging();
 	Checkpoint checkpoint;
 	checkpoint.position = tokens_.position();
+	checkpoint.function_body_syntax = function_body_syntax_;
 	checkpoint.mark = arena_.mark();
 	checkpoint.runs = runs_.mark();
 	checkpoint.log = scopes_.log_mark();
@@ -188,6 +189,7 @@ void ParserState::restore(const Checkpoint& checkpoint)
 	assembly_environment_ = checkpoint.assembly_environment;
 	pack_mentions_ = checkpoint.pack_mentions;
 	parameter_mentions_ = checkpoint.parameter_mentions;
+	function_body_syntax_ = checkpoint.function_body_syntax;
 	conflicts_.statement = checkpoint.conflict;
 	--speculation_;
 	close(checkpoint);

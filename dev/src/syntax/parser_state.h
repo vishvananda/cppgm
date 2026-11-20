@@ -66,6 +66,7 @@ protected:
 	struct Checkpoint
 	{
 		uint32_t position;
+		uint8_t function_body_syntax;
 		Arena::Mark mark;
 		Arena::Mark runs;
 		uint32_t log;
@@ -83,6 +84,16 @@ protected:
 		uint32_t pack_mentions;
 		uint32_t parameter_mentions;
 		StatementConflict conflict;
+	};
+
+	// Parsing a nested function or lambda must not contribute to its
+	// enclosing function's coroutine classification.
+	struct FunctionBodySyntaxScope
+	{
+		explicit FunctionBodySyntaxScope(uint8_t& state) : state(state), saved(state) { state = 0; }
+		~FunctionBodySyntaxScope() { state = saved; }
+		uint8_t& state;
+		uint8_t saved;
 	};
 
 	struct DeferredBody
@@ -374,6 +385,7 @@ protected:
 	// clause's ellipsis (8.3.5p14).
 	uint32_t pack_mentions_;
 	uint32_t parameter_mentions_;
+	uint8_t function_body_syntax_ = 0;
 	// Number of namespace assembly fragments preceding the current statement.
 	uint32_t assembly_environment_ = 0;
 	// Names of template parameters parsed so far: a base-specifier naming

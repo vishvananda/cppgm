@@ -140,6 +140,7 @@ struct Scope
 	// A try block's or handler's block (15p2), or a statement expression's
 	// (GCC): no jump enters it.
 	bool handles : 1;
+	bool exception_handler : 1;
 	// A class scope a using-declaration introduces a member into (7.3.3p1).
 	bool using_members : 1;
 	// The block of a selection statement's init-statement (see

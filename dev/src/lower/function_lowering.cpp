@@ -93,6 +93,10 @@ void FunctionLowering::lower_definition()
 	// An implicit (or defaulted) constructor or destructor has no body of
 	// its own: its subobject initializations or destructions are its code.
 	const syntax::FunctionBody* body = function_->body;
+	if (body != nullptr && body->body != nullptr &&
+		(body->body->function_body_syntax & syntax::kCoroutineOperation) != 0 &&
+		lowering_.graph().coroutine(function_) != nullptr)
+		throw LoweringError(body->body->location, "a coroutine definition requires frame lowering");
 	if (function_->naked)
 		return lower_naked_definition();
 	const bool inert_destructor = function_->destructor &&

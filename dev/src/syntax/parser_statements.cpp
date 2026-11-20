@@ -340,6 +340,8 @@ Stmt* Parser::parse_value_statement(Attribute*)
 {
 	const uint32_t start = location();
 	const bool is_return = at(TokenKind::KW_RETURN);
+	if (cxx20_ && is_return)
+		function_body_syntax_ |= kOrdinaryReturn;
 	ValueStmt* jump = make<ValueStmt>(is_return ? StmtKind::Return : StmtKind::Throw, start);
 	jump->value = nullptr;
 	next();
@@ -786,6 +788,8 @@ bool Parser::coroutine_operator(const Identifier* keyword)
 
 Expr* Parser::coroutine_operation(TokenKind kind, Expr* operand, uint32_t location)
 {
+	if (cxx20_)
+		function_body_syntax_ |= kCoroutineOperation;
 	CoroutineExpr* expr = make<CoroutineExpr>(ExprKind::Coroutine, location);
 	expr->operation = kind;
 	expr->operand = operand;

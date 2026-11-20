@@ -406,7 +406,7 @@ ExprFacts* Analyzer::typed_form(const syntax::Expr& expr, Scope* scope)
 	case syntax::ExprKind::BracedInit:
 		error(expr.location, "a braced-init-list is not an expression here");
 	case syntax::ExprKind::Coroutine:
-		return substitution_error(expr.location, "a coroutine operation (C++20 coroutines are not supported)"), nullptr;
+		return coroutine_operation(static_cast<const syntax::CoroutineExpr&>(expr), scope);
 	case syntax::ExprKind::Throw:
 		return throw_expression(static_cast<const syntax::ThrowExpr&>(expr), scope);
 	case syntax::ExprKind::Statement:

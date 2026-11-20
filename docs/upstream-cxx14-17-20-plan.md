@@ -455,11 +455,13 @@ even with GCC in C++14.
 
 - Class-valued arguments now cover Cobalt's `template<static_protocol P>`
   declarations, calls with ADL-only lookup and constraints that use the
-  parameter object. The pinned Cobalt compile probe went from 24 of 60
-  successful translation units to 31. The remaining 29 stop at coroutine
-  producer operations. The probe forced the coroutine feature-test macro
-  solely to reach those operations. Keep the compiler macro disabled until
-  the producer path and the original Boost runtime tests pass.
+  parameter object. The pinned Cobalt object-compile probe went from 24
+  of 60 successful translation units to 31. All 60 now pass semantic
+  analysis with the coroutine feature macro forced for the diagnostic
+  probe. PA30 covers promise lookup, awaiter overload resolution and
+  invalid coroutine forms. Executing the original cases still requires
+  generating the coroutine frame, resumption and destruction. The
+  compiler's feature macro remains gated on that runtime support.
 - PA18 exercises class argument equivalence, class deduction, address
   identity, and rejection in C++17. The Linux x86-64 mixed object check
   resolves both a specialization and its parameter object across cppgm,

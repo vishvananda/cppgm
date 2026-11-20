@@ -1541,11 +1541,20 @@ Expr* Parser::parse_lambda()
 	const bool saved_angle = angle_;
 	angle_ = false;
 	pending_template_ = false;
-	lambda->body = parse_compound_statement(true);
+	lambda->body = parse_lambda_body();
 	angle_ = saved_angle;
 	pending_template_ = saved_template;
 	scopes_.set_current(saved);
 	return lambda->body == nullptr ? nullptr : lambda;
+}
+
+CompoundStmt* Parser::parse_lambda_body()
+{
+	const FunctionBodySyntaxScope syntax_scope(function_body_syntax_);
+	CompoundStmt* body = parse_compound_statement(true);
+	if (body != nullptr)
+		body->function_body_syntax = function_body_syntax_;
+	return body;
 }
 
 BracedInitList* Parser::parse_braced_init_list()

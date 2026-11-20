@@ -13,6 +13,8 @@
 
 namespace sema {
 
+struct CoroutineFacts;
+
 // The semantic graph of one translation unit and the storage it lives in:
 // records in the arena, types interned in `types`, names indexed by
 // `names`. Everything is released with the graph.
@@ -98,6 +100,18 @@ struct SemanticGraph
 	}
 	PointerMap closure_index;
 	std::vector<ClosureFacts*> closures;
+	const CoroutineFacts* coroutine(const FunctionEntity* function) const
+	{
+		const uint32_t index = coroutine_index.find(function);
+		return index == PointerMap::kMissing ? nullptr : coroutines[index];
+	}
+	void set_coroutine(const FunctionEntity* function, const CoroutineFacts* facts)
+	{
+		coroutine_index.set(function, static_cast<uint32_t>(coroutines.size()));
+		coroutines.push_back(facts);
+	}
+	PointerMap coroutine_index;
+	std::vector<const CoroutineFacts*> coroutines;
 	const Type* const* c_parameter_objects(const syntax::ParameterClause* clause) const
 	{
 		const auto index = c_parameter_index.find(clause);

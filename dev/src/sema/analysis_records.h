@@ -17,6 +17,8 @@
 
 namespace sema {
 
+struct CoroutineFacts;
+
 // A qualified class-template member's already-keyed name and argument span.
 // These scratch records let its alternate key reuse typed facts, not lookup.
 struct QualifiedNameWords
@@ -61,6 +63,7 @@ struct BodyContext
 	// function (9.3.2p1).
 	const Type* result;
 	const Type* this_type;
+	const CoroutineFacts* coroutine;
 	// Enclosing iteration statements, and the innermost switch statement;
 	// the try blocks, handlers (15p2) and statement expressions being
 	// analyzed, which no switch label enters.

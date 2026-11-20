@@ -207,6 +207,16 @@ bool Analyzer::function_body(FunctionEntity* function, const Type* type, const s
 		type = function->type;
 	}
 	const uint32_t body_location = body.body != nullptr ? body.body->location : 0;
+	const bool coroutine = body.body != nullptr && (body.body->function_body_syntax & syntax::kCoroutineOperation) != 0;
+	if (semantic() && coroutine)
+	{
+		if (lambda != nullptr && !lambda->expr->is_constexpr && !lambda->expr->is_consteval)
+		{
+			function->is_constexpr = false;
+			context.constexpr_lambda_ineligible = true;
+		}
+		check_coroutine_definition(function, *body.body);
+	}
 	if (semantic() && !function->deleted)
 		check_constexpr_function(function, type, body_location);
 	// 7.1.5p3-p4: a constexpr function's or constructor's function-body is
@@ -257,6 +267,8 @@ bool Analyzer::function_body(FunctionEntity* function, const Type* type, const s
 	}
 	if (body.body != nullptr && !shared)
 	{
+		if (semantic() && coroutine && body_ == &context && !context.pattern)
+			context.coroutine = analyze_coroutine(function, scope, body_location);
 		if (body.try_block)
 			context.try_parent = scope;
 		if (function->defaulted && function->is_operator && IsComparisonOperatorToken(function->operator_token))
@@ -446,6 +458,7 @@ void Analyzer::handlers(const syntax::Slice<syntax::Handler>& list, Scope* scope
 		catch_all = handler.exception.ellipsis;
 		Scope* block = new_scope(ScopeKind::Block, scope, scope, nullptr, nullptr);
 		block->handles = true;
+		block->exception_handler = true;
 		const syntax::ExceptionDeclaration& exception = handler.exception;
 		if (!exception.ellipsis)
 		{

@@ -454,6 +454,16 @@ private:
 		bool& nothrow, uint32_t depth = 0);
 	void bit_field_declaration(const syntax::BitFieldDecl& decl, Scope* scope);
 	void require_definition_types(const Type* type, uint32_t location);
+	void check_coroutine_definition(const FunctionEntity* function, const syntax::CompoundStmt& body);
+	const CoroutineFacts* analyze_coroutine(const FunctionEntity* function, Scope* scope, uint32_t location);
+	ExprFacts* coroutine_operation(const syntax::CoroutineExpr& expr, Scope* scope);
+	ClassEntity* coroutine_library_template(const char* name, uint32_t location);
+	const Type* coroutine_promise_type(const FunctionEntity* function, Scope* scope, uint32_t location);
+	syntax::Expr* coroutine_variable_use(const VariableEntity* variable, ValueCategory category, uint32_t location);
+	syntax::Expr* coroutine_member_call(
+		syntax::Expr* object, const Identifier* name, syntax::Expr* argument, Scope* scope, uint32_t location);
+	const CoroutineAwait* coroutine_await(
+		syntax::Expr* value, const CoroutineFacts& coroutine, Scope* scope, uint32_t location, bool explicit_await);
 	void define_function(FunctionEntity* function, const Type* type, const syntax::ParameterClause* parameters,
 		const syntax::FunctionBody& body, Scope* print, Scope* parent);
 	bool reserved_wrapper(const syntax::FunctionBody& body, Scope* parent);
