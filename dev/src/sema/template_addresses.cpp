@@ -276,13 +276,16 @@ const Type* Analyzer::converted_address(const Type* target, const Type* argument
 	}
 	else if (target->kind == TypeKind::MemberPointer)
 	{
-		// A pointer to member function's argument takes no conversion but
-		// std::nullptr_t's null member pointer conversion; a pointer to data
-		// member's, qualification conversions too (4.4, 4.11).
-		const bool same = source == target ||
-			(target->element->kind != TypeKind::Function && source->kind == TypeKind::MemberPointer &&
-				ConversionRules::qualification_convertible(source, target));
-		if (!(entity == nullptr && IsNullptrType(source)) && !same)
+		// A converted constant expression permits qualification and function
+		// pointer conversions, as well as a null member pointer conversion
+		// from std::nullptr_t (N4659 [expr.const]).
+		const bool convertible = source == target ||
+			(source->kind == TypeKind::MemberPointer &&
+				(target->element->kind == TypeKind::Function
+						? source->owner == target->owner &&
+							conversions_.function_conversion(source->element, target->element)
+						: ConversionRules::qualification_convertible(source, target)));
+		if (!(entity == nullptr && IsNullptrType(source)) && !convertible)
 			failure = "a template argument does not convert to its pointer to member parameter's type";
 	}
 	else if (target->kind == TypeKind::LValueReference)
@@ -296,7 +299,9 @@ const Type* Analyzer::converted_address(const Type* target, const Type* argument
 	else if (entity == nullptr)
 	{
 		if (!IsNullptrType(source) && source != target &&
-			!(source->kind == TypeKind::Pointer && ConversionRules::qualification_convertible(source, target)))
+			!(source->kind == TypeKind::Pointer &&
+				(ConversionRules::qualification_convertible(source, target) ||
+					conversions_.function_conversion(source->element, target->element))))
 			failure = "a null pointer template argument of another pointer type";
 	}
 	else
@@ -312,8 +317,9 @@ const Type* Analyzer::converted_address(const Type* target, const Type* argument
 		if (pointer == nullptr)
 			failure = "a pointer template parameter's argument is an object without `&`";
 		else if (pointer->canonical != target &&
-			(target->element->kind == TypeKind::Function ||
-				!ConversionRules::qualification_convertible(pointer->canonical, target)))
+			(target->element->kind == TypeKind::Function
+					? !conversions_.function_conversion(pointer->element, target->element)
+					: !ConversionRules::qualification_convertible(pointer->canonical, target)))
 			failure = "a template argument does not convert to its pointer parameter's type";
 	}
 	if (failure != nullptr)
