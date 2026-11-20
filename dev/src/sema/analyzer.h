@@ -75,6 +75,7 @@ public:
 	// is not implicitly const (7.1.5p8 in C++11) and may return void (N3652).
 	void set_cxx_edition(uint8_t edition, bool diagnose_extensions)
 	{
+		cxx_edition_ = edition;
 		cxx14_ = edition >= 14;
 		cxx17_ = edition >= 17;
 		cxx20_ = edition >= 20;
@@ -1880,6 +1881,7 @@ private:
 	AnalysisMode mode_;
 	bool hosted_ = false;
 	bool host_objects_ = false;
+	uint8_t cxx_edition_ = 11;
 	bool cxx14_ = false;
 	bool cxx17_ = false;
 	bool cxx20_ = false;

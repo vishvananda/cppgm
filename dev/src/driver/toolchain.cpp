@@ -1506,7 +1506,7 @@ bool preprocess_tokens(
 {
 	// The stream types literals as the course's preprocessor does.
 	PostTokenizer tokens(preprocessor, nullptr, NumberStreamDialect(invocation.preprocessor.literals),
-		invocation.target, invocation.preprocessor.gnu_c());
+		invocation.target, invocation.preprocessor.gnu_c(), invocation.preprocessor.cxx_edition);
 	for (;;)
 	{
 		const PostToken& token = tokens.next();

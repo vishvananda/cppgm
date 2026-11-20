@@ -125,7 +125,7 @@ int main(int argc, char** argv)
 		PPLexer lexer(source, mode.lexer_options());
 		MockMacroDefinitions macros;
 		ControllingExpressionEvaluator evaluator(macros, mode.literals);
-		evaluator.set_cxx20(mode.edition >= 20);
+		evaluator.set_cxx_edition(mode.edition);
 		ResultWriter output(cout);
 		try
 		{

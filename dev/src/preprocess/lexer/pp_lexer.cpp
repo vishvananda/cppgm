@@ -10,9 +10,9 @@ PPLexer::PPLexer(const SourceBuffer& source, const PPLexerOptions& options)
 	  cur_(reader_.logical(source.begin_offset())), token_(), token_begin_(0), clean_end_(0), token_end_(0),
 	  base_(options.location_base), dirty_(false), header_names_on_request_(options.header_names_on_request),
 	  c_source_(options.c_source), binary_exponents_(options.binary_exponents),
-	  digit_separators_(options.digit_separators), cxx20_(options.cxx20),
-	  legacy_comment_bytes_(options.legacy_comment_bytes), lone_quotes_(options.lone_quotes),
-	  gnu_escapes_(options.gnu_escapes), keyword_macros_(options.keyword_macros),
+	  digit_separators_(options.digit_separators), utf8_character_literals_(options.cxx_edition >= 17),
+	  cxx20_(options.cxx_edition >= 20), legacy_comment_bytes_(options.legacy_comment_bytes),
+	  lone_quotes_(options.lone_quotes), gnu_escapes_(options.gnu_escapes), keyword_macros_(options.keyword_macros),
 	  conditional_escapes_(options.conditional_escapes), dollar_identifiers_(options.dollar_identifiers),
 	  context_(options.header_names_on_request ? DirectiveContext::Other : DirectiveContext::LineStart)
 {}

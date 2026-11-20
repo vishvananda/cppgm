@@ -349,7 +349,7 @@ bool PPLexer::is_character_prefix() const
 	const char* spelling;
 	uint32_t length;
 	current_spelling(spelling, length);
-	return (cxx20_ && length == 2 && spelling[0] == 'u' && spelling[1] == '8') ||
+	return (length == 2 && spelling[0] == 'u' && spelling[1] == '8' && utf8_character_literals_) ||
 		SpellingIn(spelling, length, kCharacterPrefixes);
 }
 

@@ -28,8 +28,8 @@ struct PPLexerOptions
 	bool binary_exponents = false;
 	// C++14 pp-numbers may include apostrophes before digits or nondigits.
 	bool digit_separators = false;
-	// C++20 UTF-8 character literals and three-way comparison tokens.
-	bool cxx20 = false;
+	// C++17 UTF-8 character literals and C++20 three-way comparison tokens.
+	uint8_t cxx_edition = 11;
 	// Hosted source comments may contain legacy bytes, never token spellings.
 	bool legacy_comment_bytes = false;
 	// A quote with no partner on its line is a token of its own (hosted).
@@ -189,6 +189,7 @@ private:
 	bool c_source_;
 	bool binary_exponents_;
 	bool digit_separators_;
+	bool utf8_character_literals_;
 	bool cxx20_;
 	bool legacy_comment_bytes_;
 	bool lone_quotes_;

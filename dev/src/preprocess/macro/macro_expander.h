@@ -134,7 +134,7 @@ public:
 	// (PPLexerOptions::binary_exponents).
 	void set_binary_exponents(bool enabled) { binary_exponents_ = enabled; }
 	void set_conditional_escapes(bool on) { conditional_escapes_ = on; }
-	void set_cxx20(bool on) { cxx20_ = on; }
+	void set_cxx_edition(uint8_t edition) { cxx_edition_ = edition; }
 	void set_digit_separators(bool enabled) { digit_separators_ = enabled; }
 	// GNU recursion suppression follows active replacement contexts; the
 	// course-defined token nesting remains the default.
@@ -310,7 +310,7 @@ private:
 	bool digit_separators_;
 	bool hosted_recursion_;
 	bool conditional_escapes_ = false;
-	bool cxx20_ = false;
+	uint8_t cxx_edition_ = 11;
 	// An expansion that produced nothing had white space before its name;
 	// the next token read inherits it.
 	bool pending_space_;

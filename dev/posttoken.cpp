@@ -51,7 +51,7 @@ int main(int argc, char** argv)
 		const LanguageMode mode = ReadTokenToolMode(argc, argv);
 		SourceBuffer source = SourceBuffer::ReadFrom(cin);
 		PPLexer lexer(source, mode.lexer_options());
-		PostTokenizer tokens(lexer, nullptr, mode.literals, target_model::Target::Linux, false, mode.edition >= 20);
+		PostTokenizer tokens(lexer, nullptr, mode.literals, target_model::Target::Linux, false, mode.edition);
 		PostTokenWriter output(cout);
 		try
 		{

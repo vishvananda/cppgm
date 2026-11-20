@@ -112,7 +112,7 @@ public:
 	// bytes) in the files entered from now on.
 	void set_hosted(bool enabled) { hosted_ = enabled; }
 	void set_conditional_escapes(bool on) { conditional_escapes_ = on; }
-	void set_cxx20(bool on) { cxx20_ = on; }
+	void set_cxx_edition(uint8_t edition) { cxx_edition_ = edition; }
 	bool digit_separators() const { return digit_separators_; }
 	bool binary_exponents() const { return binary_exponents_; }
 	void set_number_syntax(bool separators, bool exponents)
@@ -150,7 +150,7 @@ private:
 	bool allow_va_args_;
 	bool hosted_;
 	bool conditional_escapes_ = false;
-	bool cxx20_ = false;
+	uint8_t cxx_edition_ = 11;
 	bool digit_separators_ = false;
 	bool binary_exponents_ = false;
 	uint32_t directive_location_;

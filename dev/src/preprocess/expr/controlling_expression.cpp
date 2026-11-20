@@ -238,7 +238,7 @@ void ControllingExpressionEvaluator::classify_character(const PPToken& pp)
 	// expressions.
 	const CharacterLiteralValue character = EvaluateCharacterLiteral(pp.spelling, pp.length,
 		HasNumberSyntax(literals_, number_syntax::GnuCharacter) ? CharacterDialect::Gnu : CharacterDialect::Course,
-		conditional_escapes_, cxx20_);
+		conditional_escapes_, cxx_edition_);
 	if (!character.valid || character.multicharacter || character.suffix_begin != pp.length)
 		return;
 	token_.kind = TokenClass::Operand;

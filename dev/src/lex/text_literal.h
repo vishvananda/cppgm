@@ -89,4 +89,4 @@ struct CharacterLiteralValue
 // GNU mode also gives ordinary numeric byte escapes type char. PA2's
 // post-token contract keeps its Unicode-code-point classification.
 CharacterLiteralValue EvaluateCharacterLiteral(const char* spelling, uint32_t length,
-	CharacterDialect dialect = CharacterDialect::Gnu, bool conditional_escapes = false, bool cxx20 = false);
+	CharacterDialect dialect = CharacterDialect::Gnu, bool conditional_escapes = false, uint8_t cxx_edition = 11);

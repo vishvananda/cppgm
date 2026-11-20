@@ -5,10 +5,10 @@
 #include "lex/text_literal.h"
 
 PostTokenizer::PostTokenizer(PPTokenCursor& input, IdentifierTable* identifiers, NumberDialect literals,
-	target_model::Target target, bool conditional_escapes, bool cxx20)
+	target_model::Target target, bool conditional_escapes, uint8_t cxx_edition)
 	: input_(input), identifiers_(identifiers), literals_(literals), conditional_escapes_(conditional_escapes),
-	  cxx20_(cxx20), target_(target), lookahead_(nullptr), token_(), split_suffix_(), split_suffix_begin_(0),
-	  split_suffix_end_(0), after_operator_(false), scalar_()
+	  cxx_edition_(cxx_edition), target_(target), lookahead_(nullptr), token_(), split_suffix_(),
+	  split_suffix_begin_(0), split_suffix_end_(0), after_operator_(false), scalar_()
 {
 	strings_.set_reserved_suffixes(HasNumberSyntax(literals, number_syntax::ReservedSuffix));
 	strings_.set_conditional_escapes(conditional_escapes);
@@ -111,7 +111,7 @@ void PostTokenizer::convert_identifier(const Identifier* identifier)
 		// The compiler's interned identifiers already carry the selected
 		// dialect's keyword fact. Only the standalone lexer needs this gate.
 		keyword = FindSimpleToken(token_.source.text, token_.source.length, kind);
-		if (keyword && IsCxx20Keyword(kind) && !cxx20_)
+		if (keyword && IsCxx20Keyword(kind) && cxx_edition_ < 20)
 			keyword = false;
 	}
 	if (keyword)
@@ -176,7 +176,7 @@ void PostTokenizer::convert_character(const PPToken& pp)
 {
 	const CharacterLiteralValue value = EvaluateCharacterLiteral(pp.spelling, pp.length,
 		HasNumberSyntax(literals_, number_syntax::GnuCharacter) ? CharacterDialect::Gnu : CharacterDialect::Course,
-		conditional_escapes_, cxx20_);
+		conditional_escapes_, cxx_edition_);
 	if (!value.valid)
 		return;
 	set_scalar(LiteralForm::Character, value.type, value.code_point);
@@ -246,8 +246,8 @@ void PostTokenizer::finish_string_sequence(uint32_t begin, uint32_t end)
 	const TokenSpelling suffix = strings_.ud_suffix();
 	token_.kind = suffix.length == 0 ? PostTokenKind::Literal : PostTokenKind::UserDefinedLiteral;
 	token_.form = LiteralForm::String;
-	token_.type = cxx20_ && strings_.encoding_prefix() == EncodingPrefix::Utf8 ? FundamentalType::Char8T
-																			   : strings_.element_type();
+	token_.type = cxx_edition_ >= 20 && strings_.encoding_prefix() == EncodingPrefix::Utf8 ? FundamentalType::Char8T
+																						   : strings_.element_type();
 	token_.ud_suffix = suffix;
 	token_.data = strings_.data();
 	token_.size = strings_.size();

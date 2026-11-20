@@ -152,11 +152,11 @@ Preprocessor::Preprocessor(const PreprocessorOptions& options, const std::string
 	expander_.set_input(&source_);
 	source_.set_hosted(hosted_);
 	source_.set_conditional_escapes(options.gnu_c());
-	source_.set_cxx20(options.cxx_edition >= 20);
+	source_.set_cxx_edition(options.cxx_edition);
 	expander_.set_conditional_escapes(options.gnu_c());
-	expander_.set_cxx20(options.cxx_edition >= 20);
+	expander_.set_cxx_edition(options.cxx_edition);
 	evaluator_.set_conditional_escapes(options.gnu_c());
-	evaluator_.set_cxx20(options.cxx_edition >= 20);
+	evaluator_.set_cxx_edition(options.cxx_edition);
 	const bool separators = HasNumberSyntax(options.literals, number_syntax::Separators);
 	const bool exponents = HasNumberSyntax(options.literals, number_syntax::HexFloat);
 	source_.set_number_syntax(separators, exponents);

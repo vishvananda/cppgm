@@ -111,6 +111,9 @@ const element contract in serializable LowIR; an ordinary writable character
 array must not gain that storage property merely because it has a static
 initializer.
 
+In C++17 mode, a UTF-8 character literal selects a literal operator taking
+`char`. See N4659 `[lex.ext]`.
+
 In C++20 mode, UTF-8 literals use `char8_t` through initialization and literal
 operator selection. An array of `char8_t` accepts a UTF-8 string, including
 concatenated and raw strings. The adopted UTF-8 compatibility rule also permits

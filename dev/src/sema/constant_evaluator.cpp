@@ -308,7 +308,7 @@ bool ConstantEvaluator::literal(const syntax::LiteralExpr& expr, Constant& value
 		if (parts.quote != '\'')
 			return fail(expr.location, "a string literal is not an integral constant");
 		const CharacterLiteralValue character = EvaluateCharacterLiteral(
-			spelling.text, spelling.length, CharacterDialect::Gnu, true, analyzer_.cxx20_);
+			spelling.text, spelling.length, CharacterDialect::Gnu, true, analyzer_.cxx_edition_);
 		if (!character.valid || character.suffix_begin != spelling.length)
 			return fail(expr.location, "not an integral constant expression");
 		const Type* type = analyzer_.types_.fundamental(analyzer_.c_source_

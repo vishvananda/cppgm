@@ -90,7 +90,7 @@ bool PreprocessSource(const PreprocessorOptions& options, const string& path, Po
 		try
 		{
 			PostTokenizer tokens(
-				preprocessor, nullptr, options.literals, options.target, options.gnu_c(), options.cxx_edition >= 20);
+				preprocessor, nullptr, options.literals, options.target, options.gnu_c(), options.cxx_edition);
 			for (;;)
 			{
 				const PostToken& token = tokens.next();

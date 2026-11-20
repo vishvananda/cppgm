@@ -169,9 +169,9 @@ selected C++11, C++14, C++17 or bounded C++20 profile. In C++20 mode, evaluate
 UTF-8 character literals as unsigned byte values and provide
 `__cpp_char8_t=202207L`, `__cpp_consteval=201811L`,
 `__cpp_constexpr_dynamic_alloc=201907L` and `__cpp_constinit=201907L`.
-Define these macros only in C++20 mode.
-Token pasting must use the same UTF-8 character-prefix rules as the source
-lexer.
+Define these macros only in C++20 mode. In C++17, evaluate UTF-8 character
+literals using the target representation of `char`. Token pasting must use
+the same UTF-8 character-prefix rules as the source lexer.
 Keep the selected token and literal rules through macro expansion, token
 pasting, stringizing and controlling expressions. Stringizing retains the
 separator spelling; evaluating an integer uses its value. This extends

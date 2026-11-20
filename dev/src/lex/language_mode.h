@@ -18,7 +18,7 @@ struct LanguageMode
 		PPLexerOptions options;
 		options.digit_separators = HasNumberSyntax(literals, number_syntax::Separators);
 		options.binary_exponents = HasNumberSyntax(literals, number_syntax::HexFloat);
-		options.cxx20 = edition >= 20;
+		options.cxx_edition = edition;
 		return options;
 	}
 };
