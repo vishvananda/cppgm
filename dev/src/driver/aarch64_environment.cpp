@@ -50,6 +50,7 @@ void configure_aarch64_environment(PreprocessorOptions& options)
 						 "#define __INT8_TYPE__ signed char\n#define __UINT8_TYPE__ unsigned char\n"
 						 "#define __INT16_TYPE__ short int\n#define __UINT16_TYPE__ short unsigned int\n"
 						 "#define __INT32_TYPE__ int\n#define __UINT32_TYPE__ unsigned int\n"
+						 "#define __INT32_MAX__ 2147483647\n#define __UINT32_MAX__ 4294967295U\n"
 						 "#define __SIZE_TYPE__ long unsigned int\n#define __PTRDIFF_TYPE__ long int\n"
 						 "#define __INTPTR_TYPE__ long int\n#define __UINTPTR_TYPE__ long unsigned int\n"
 						 "#define __ORDER_LITTLE_ENDIAN__ 1234\n#define __ORDER_BIG_ENDIAN__ 4321\n"
@@ -61,7 +62,8 @@ void configure_aarch64_environment(PreprocessorOptions& options)
 				  "#define __APPLE__ 1\n#define __MACH__ 1\n#define __arm64__ 1\n#define __arm64 1\n"
 				  "#define __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ 110000\n#define __WCHAR_TYPE__ int\n"
 				  "#define __WCHAR_MAX__ 2147483647\n#define __SIZEOF_LONG_DOUBLE__ 8\n"
-				  "#define __INT64_TYPE__ long long int\n#define __UINT64_TYPE__ long long unsigned int\n";
+				  "#define __INT64_TYPE__ long long int\n#define __UINT64_TYPE__ long long unsigned int\n"
+				  "#define __INT64_MAX__ 9223372036854775807LL\n#define __UINT64_MAX__ 18446744073709551615ULL\n";
 		macros += kBinary64LongDoublePredefines;
 		macros += "#define __GCC_DESTRUCTIVE_SIZE 128\n";
 	}
@@ -75,7 +77,8 @@ void configure_aarch64_environment(PreprocessorOptions& options)
 			"#define __USER_LABEL_PREFIX__\n"
 			"#define __WCHAR_TYPE__ unsigned int\n#define __WCHAR_UNSIGNED__ 1\n#define __WCHAR_MAX__ 4294967295U\n"
 			"#define __SIZEOF_LONG_DOUBLE__ 16\n"
-			"#define __INT64_TYPE__ long int\n#define __UINT64_TYPE__ long unsigned int\n";
+			"#define __INT64_TYPE__ long int\n#define __UINT64_TYPE__ long unsigned int\n"
+			"#define __INT64_MAX__ 9223372036854775807L\n#define __UINT64_MAX__ 18446744073709551615UL\n";
 		macros += kBinary128NumericPredefines;
 		macros += "#define __GCC_DESTRUCTIVE_SIZE 256\n";
 		if (options.language != SourceLanguage::C)
