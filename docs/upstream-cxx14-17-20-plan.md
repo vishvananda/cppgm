@@ -458,7 +458,7 @@ even with GCC in C++14.
   parameter object. The pinned Cobalt object-compile probe went from 24
   of 60 successful translation units to 31. All 60 now pass semantic
   analysis with the coroutine feature macro forced for the diagnostic
-  probe. PA30 covers promise lookup, awaiter overload resolution and
+  probe. PA31 covers promise lookup, awaiter overload resolution and
   invalid coroutine forms. Executing the original cases still requires
   generating the coroutine frame, resumption and destruction. The
   compiler's feature macro remains gated on that runtime support.
