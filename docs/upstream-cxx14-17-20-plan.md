@@ -425,6 +425,10 @@ even with GCC in C++14.
    In Hana's type-name helper, select the spelling
    of `__PRETTY_FUNCTION__` that cppgm already provides. Keep Hana's
    original type-name assertions, including the runtime comparisons.
+   Include `<stdint.h>` in YAP's unary operator test, which uses `uint32_t`
+   directly. In uBLAS's `test_assignment.cpp`, enable the legacy Boost.Timer
+   API before including its header. Apply both changes equally to the native
+   and cppgm runs and preserve the original test assertions.
 2. **Require actual cppgm builds and test execution.** Reuse the B2 runner
    with separate build roots by compiler and edition. Verify the actual
    C++ invocations use the candidate compiler and recorded standard. Each

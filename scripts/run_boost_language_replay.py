@@ -250,6 +250,15 @@ def prepare_replay_sources(boost, groups):
         match = '#if defined(BOOST_HANA_CONFIG_CLANG)'
         replace_replay_source(boost / 'boost/hana/experimental/type_name.hpp', match,
                               match + ' || defined(__CPPGM__)')
+    if 'libs/yap/test' in projects:
+        # The unary operator tests use uint32_t directly.
+        replace_replay_source(boost / 'libs/yap/test/operators_unary.cpp', '#include <sstream>\n',
+                              '#include <stdint.h>\n#include <sstream>\n')
+    if 'libs/numeric/ublas/test' in projects:
+        # This test's timing helper uses the legacy timer API.
+        timer = '#include <boost/timer.hpp>\n'
+        replace_replay_source(boost / 'libs/numeric/ublas/test/test_assignment.cpp', timer,
+                              '#define BOOST_TIMER_ENABLE_DEPRECATED\n' + timer)
 
 
 def main():
