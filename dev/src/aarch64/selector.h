@@ -80,6 +80,8 @@ private:
 	void wide_shift(lowir::BinaryOp op);
 	lowir::InstId wide_high_product(const lowir::Instruction& first);
 	lowir::InstId widening_product(const lowir::Instruction& first);
+	lowir::InstId bitfield(const lowir::Instruction& first);
+	lowir::InstId inserted_field(const lowir::Instruction& first);
 	bool wide(const lowir::Instruction& inst);
 	void save_variadic_registers();
 	void emit_va_start(const lowir::Instruction& inst);

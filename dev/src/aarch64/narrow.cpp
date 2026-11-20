@@ -76,8 +76,10 @@ bool low_bits(const FunctionBody& body, const lowir::Instruction& inst, unsigned
 // computed by an X-register instruction or arriving as a parameter must be
 // extended before it is saved. A value is loose instead, its bits above its
 // width undefined, when every reader takes only its low bits (low_bits), and
-// save() then leaves its high bits alone. A phi or copy reads its input's low
-// bits only if its own result is loose, so loose values form webs.
+// save() then leaves its high bits alone. A phi or copy to a type of the same
+// width reads its input's low bits only if its own result is loose, so loose
+// values form webs. A zero extension's source stays normalized, since the
+// extension may share its register (scalar_aliases).
 void Selector::find_loose_values()
 {
 	loose_.clear();
@@ -112,7 +114,9 @@ void Selector::find_loose_values()
 			const auto visit = [&](Value v, unsigned k) {
 				if (!v.is(ValueKind::Temp) || !loose_[v.index])
 					return;
-				if (transfer && inst.result != kNoId && body_.temps[inst.result].type == body_.temps[v.index].type)
+				if (transfer && inst.result != kNoId && narrow(body_.temps[inst.result].type) &&
+					integer_bits(body_.temps[inst.result].type.kind()) ==
+						integer_bits(body_.temps[v.index].type.kind()))
 					transfers.emplace_back(inst.result, v.index);
 				else if (object_word || !low_bits(body_, inst, k, body_.temps[v.index].type))
 					mark(v.index);

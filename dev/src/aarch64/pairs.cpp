@@ -166,6 +166,11 @@ bool integer_effects(const Instruction& ins, Effects& e)
 	case Op::MovK:
 		e.gp_def = e.gp_use = gp(ins.rd);
 		return true;
+	case Op::Bfm:
+	case Op::BfmW:
+		e.gp_def = gp(ins.rd);
+		e.gp_use = gp(ins.rd) | gp(ins.rn);
+		return true;
 	default:
 		return false;
 	}

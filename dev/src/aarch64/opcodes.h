@@ -25,6 +25,8 @@
 	M(AsrW, 0x1ac02800) \
 	M(UbfmW, 0x53000000) \
 	M(SbfmW, 0x13000000) \
+	M(BfmW, 0x33000000) \
+	M(Bfm, 0xb3400000) \
 	M(AndImm, 0x92000000) \
 	M(AndImmW, 0x12000000) \
 	M(OrrImm, 0xb2000000) \

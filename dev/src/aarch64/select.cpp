@@ -581,6 +581,8 @@ void Selector::run()
 				if (last == kNoId && inst.op == Opcode::Convert && inst.type.kind() == TypeKind::I64)
 					last = widening_product(inst);
 				if (last == kNoId && inst.op == Opcode::Binary)
+					last = bitfield(inst);
+				if (last == kNoId && inst.op == Opcode::Binary)
 				{
 					const auto op = static_cast<BinaryOp>(inst.sub);
 					last = op == BinaryOp::Add ? conditional_float_increment(inst)
