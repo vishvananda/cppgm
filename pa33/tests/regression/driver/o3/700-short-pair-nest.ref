@@ -1,0 +1,157 @@
+global @__local_static__main__decl0__start [binding=internal, object=_ZZ4mainE5start] = {
+  f64 0
+  f64 1
+  f64 2
+  f64 3
+  f64 1
+  f64 0
+  f64 -1
+  f64 0.5
+  f64 1
+  f64 2
+  f64 3
+  f64 4
+}
+
+function @advance(%dt : f64, %steps : i32, %start : ptr) -> f64 [binding=strong, object=_Z7advancediPVKd, no_inline=yes] {
+  block ^entry:
+    %t1 = load volatile f64 %start
+    %t2 = index inbounds f64 [projection=array_element] %start, 4
+    %t3 = load volatile f64 %t2
+    %t4 = index inbounds f64 [projection=array_element] %start, 8
+    %t5 = load volatile f64 %t4
+    %t6 = index inbounds f64 [projection=array_element] %start, 1
+    %t7 = load volatile f64 %t6
+    %t8 = index inbounds f64 [projection=array_element] %start, 5
+    %t9 = load volatile f64 %t8
+    %t10 = index inbounds f64 [projection=array_element] %start, 9
+    %t11 = load volatile f64 %t10
+    %t12 = index inbounds f64 [projection=array_element] %start, 2
+    %t13 = load volatile f64 %t12
+    %t14 = index inbounds f64 [projection=array_element] %start, 6
+    %t15 = load volatile f64 %t14
+    %t16 = index inbounds f64 [projection=array_element] %start, 10
+    %t17 = load volatile f64 %t16
+    %t18 = index inbounds f64 [projection=array_element] %start, 3
+    %t19 = load volatile f64 %t18
+    %t20 = index inbounds f64 [projection=array_element] %start, 7
+    %t21 = load volatile f64 %t20
+    %t22 = index inbounds f64 [projection=array_element] %start, 11
+    %t23 = load volatile f64 %t22
+    %t24 = cmp gt i32 %steps, 0
+    branch %t24, ^unrolled_1, ^for_end_2
+
+  block ^unrolled_1:
+    %t25 = phi f64 [^unrolled_1: %t93, ^entry: %t21]
+    %t26 = phi i32 [^unrolled_1: %t102, ^entry: 0]
+    %t27 = phi f64 [^unrolled_1: %t95, ^entry: %t1]
+    %t28 = phi f64 [^unrolled_1: %t97, ^entry: %t7]
+    %t29 = phi f64 [^unrolled_1: %t72, ^entry: %t3]
+    %t30 = phi f64 [^unrolled_1: %t84, ^entry: %t9]
+    %t31 = phi f64 [^unrolled_1: %t99, ^entry: %t13]
+    %t32 = phi f64 [^unrolled_1: %t90, ^entry: %t15]
+    %t33 = phi f64 [^unrolled_1: %t101, ^entry: %t19]
+    %t34 = binary sub f64 %t27, %t28
+    %t35 = binary mul f64 %t34, %t34
+    %t36 = binary add f64 %t35, 0.010000000000000000208
+    %t37 = binary div f64 %dt, %t36
+    %t38 = binary mul f64 %t11, %t34
+    %t39 = binary sub f64 %t27, %t31
+    %t40 = binary mul f64 %t39, %t39
+    %t41 = binary add f64 %t40, 0.010000000000000000208
+    %t42 = binary div f64 %dt, %t41
+    %t43 = binary sub f64 %t27, %t33
+    %t44 = binary mul f64 %t43, %t43
+    %t45 = binary add f64 %t44, 0.010000000000000000208
+    %t46 = binary div f64 %dt, %t45
+    %t47 = binary sub f64 %t28, %t31
+    %t48 = binary mul f64 %t47, %t47
+    %t49 = binary add f64 %t48, 0.010000000000000000208
+    %t50 = binary div f64 %dt, %t49
+    %t51 = binary mul f64 %t37, %t38
+    %t52 = binary sub f64 %t29, %t51
+    %t53 = binary mul f64 %t5, %t34
+    %t54 = binary mul f64 %t37, %t53
+    %t55 = binary add f64 %t54, %t30
+    %t56 = binary mul f64 %t17, %t39
+    %t57 = binary sub f64 %t28, %t33
+    %t58 = binary mul f64 %t57, %t57
+    %t59 = binary add f64 %t58, 0.010000000000000000208
+    %t60 = binary div f64 %dt, %t59
+    %t61 = binary mul f64 %t42, %t56
+    %t62 = binary sub f64 %t52, %t61
+    %t63 = binary mul f64 %t5, %t39
+    %t64 = binary mul f64 %t42, %t63
+    %t65 = binary add f64 %t64, %t32
+    %t66 = binary mul f64 %t23, %t43
+    %t67 = binary sub f64 %t31, %t33
+    %t68 = binary mul f64 %t67, %t67
+    %t69 = binary add f64 %t68, 0.010000000000000000208
+    %t70 = binary div f64 %dt, %t69
+    %t71 = binary mul f64 %t46, %t66
+    %t72 = binary sub f64 %t62, %t71
+    %t73 = binary mul f64 %t5, %t43
+    %t74 = binary mul f64 %t46, %t73
+    %t75 = binary add f64 %t74, %t25
+    %t76 = binary mul f64 %t17, %t47
+    %t77 = binary mul f64 %t50, %t76
+    %t78 = binary sub f64 %t55, %t77
+    %t79 = binary mul f64 %t11, %t47
+    %t80 = binary mul f64 %t50, %t79
+    %t81 = binary add f64 %t65, %t80
+    %t82 = binary mul f64 %t23, %t57
+    %t83 = binary mul f64 %t60, %t82
+    %t84 = binary sub f64 %t78, %t83
+    %t85 = binary mul f64 %t11, %t57
+    %t86 = binary mul f64 %t60, %t85
+    %t87 = binary add f64 %t75, %t86
+    %t88 = binary mul f64 %t23, %t67
+    %t89 = binary mul f64 %t70, %t88
+    %t90 = binary sub f64 %t81, %t89
+    %t91 = binary mul f64 %t17, %t67
+    %t92 = binary mul f64 %t70, %t91
+    %t93 = binary add f64 %t87, %t92
+    %t94 = binary mul f64 %dt, %t72
+    %t95 = binary add f64 %t94, %t27
+    %t96 = binary mul f64 %dt, %t84
+    %t97 = binary add f64 %t96, %t28
+    %t98 = binary mul f64 %dt, %t90
+    %t99 = binary add f64 %t98, %t31
+    %t100 = binary mul f64 %dt, %t93
+    %t101 = binary add f64 %t100, %t33
+    %t102 = binary add nowrap i32 %t26, 1
+    %t103 = cmp lt i32 %t102, %steps
+    branch %t103, ^unrolled_1, ^for_end_2
+
+  block ^for_end_2:
+    %t104 = phi f64 [^entry: %t1, ^unrolled_1: %t95]
+    %t105 = phi f64 [^entry: %t7, ^unrolled_1: %t97]
+    %t106 = phi f64 [^entry: %t13, ^unrolled_1: %t99]
+    %t107 = phi f64 [^entry: %t19, ^unrolled_1: %t101]
+    %t108 = binary add f64 %t105, %t104
+    %t109 = binary add f64 %t108, %t106
+    %t110 = binary add f64 %t109, %t107
+    return f64 %t110
+}
+function @main() -> i32 [role=entry, binding=strong, keep_alias=yes] {
+  slot $steps : i32
+
+  block ^entry:
+    store volatile i32 100, $steps
+    %t1 = load volatile i32 $steps
+    %t2 = addr @__local_static__main__decl0__start
+    %t3 = call f64 @advance(0.010000000000000000208, %t1, %t2)
+    %t4 = cmp gt f64 %t3, 9.3300000000000000711
+    branch %t4, ^land_rhs_1, ^cond_else_2
+
+  block ^land_rhs_1:
+    %t5 = cmp lt f64 %t3, 9.3499999999999996447
+    branch %t5, ^cond_end_3, ^cond_else_2
+
+  block ^cond_else_2:
+    jump ^cond_end_3
+
+  block ^cond_end_3:
+    %t6 = phi i32 [^cond_else_2: 1, ^land_rhs_1: 0]
+    return i32 %t6
+}

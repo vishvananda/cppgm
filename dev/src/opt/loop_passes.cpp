@@ -1951,7 +1951,7 @@ bool LoopPass::unroll_search_shape(uint32_t loop, int64_t trips, TempId iv, std:
 	std::vector<uint8_t>& owned, BlockId& through)
 {
 	const Loop& l = forest_.loops[loop];
-	const bool short_nest = trips <= kShortTrips && c_.level >= 3 && target_model::is_aarch64(c_.program.target);
+	const bool short_nest = trips <= kShortTrips && c_.level >= 3 && !target_model::is_wasm(c_.program.target);
 	uint32_t child = kNoId;
 	member.assign(body_.blocks.size(), 0);
 	for (BlockId b : l.blocks)
@@ -2377,7 +2377,7 @@ bool LoopPass::try_unroll_search(uint32_t loop)
 	if (l.preheader == kNoId)
 		return make_preheader(loop);
 	CountedUnrollGuard guard;
-	if (c_.level >= 3 && target_model::is_aarch64(c_.program.target) && header_counted && l.parent != kNoId &&
+	if (c_.level >= 3 && !target_model::is_wasm(c_.program.target) && header_counted && l.parent != kNoId &&
 		trips >= 4 && trips <= kShortTrips &&
 		std::none_of(owned.begin(), owned.end(), [](uint8_t own) { return own != 0; }))
 		guard = unroll_guard(loop);
