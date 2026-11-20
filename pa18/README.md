@@ -208,6 +208,10 @@ the implemented surface, including:
   logical operator. Short-circuit evaluation can skip an operand after
   substitution. Check a constructor template's dependent default when the
   candidate needs it. See N4140 `[temp.dep.constexpr]` and `[temp.deduct]`.
+- when deduction checks an argument's specialization against a template
+  template parameter, resolve the specialization's default arguments where
+  they were declared, including defaults added by redeclarations. See N3485
+  `[temp.param]`, `[temp.res]` and `[temp.deduct.type]`.
 - non-deduced contexts and explicit template-id deduction edge cases
 - CWG 1391: after deduction and defaults, conversions to originally
   nondependent call parameters are checked before signature substitution

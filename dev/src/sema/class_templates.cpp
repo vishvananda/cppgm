@@ -269,6 +269,12 @@ void Analyzer::default_ordinal(const TemplateHead* head, uint32_t index, uint32_
 	default_ordinals_[first + index] = ordinal;
 }
 
+uint32_t Analyzer::added_default_ordinal(const TemplateHead* head, uint32_t index) const
+{
+	const uint32_t first = default_ordinal_index_.find(head);
+	return first != PointerMap::kMissing ? default_ordinals_[first + index] : 0;
+}
+
 void Analyzer::merge_template_head(
 	TemplateHead* head, const syntax::TemplateParameterList& list, Scope* scope, uint32_t location)
 {
@@ -1097,7 +1103,7 @@ const Type* Analyzer::converted_value(const TemplateParameterEntity* parameter, 
 }
 
 const Type* Analyzer::template_default(const TemplateHead* head, const Type* const* arguments, uint32_t index,
-	bool arguments_dependent, bool substitution, Scope* named_in)
+	bool arguments_dependent, bool substitution, Scope* named_in, bool substituted_template)
 {
 	if (head->deduction_origins != nullptr)
 	{
@@ -1136,10 +1142,11 @@ const Type* Analyzer::template_default(const TemplateHead* head, const Type* con
 	// declaration's are available wherever the template is found (see
 	// template_head). Either way the default's names are looked up in the
 	// context of the declaration that gave it: `ordinal`.
-	const uint32_t first = default_ordinal_index_.find(head);
-	const uint32_t added = first != PointerMap::kMissing ? default_ordinals_[first + index] : 0;
+	const uint32_t added = added_default_ordinal(head, index);
 	const uint32_t ordinal = added != 0 ? added : head->ordinal;
-	if (names_.limit() != NameLookup::kNoLimit && added > names_.limit())
+	// A substituted template template argument supplies its own defaults.
+	// The definition of the enclosing template did not name that argument.
+	if (added > names_.limit() && !substituted_template)
 	{
 		substitution_error(
 			head->defaults[index] != nullptr ? head->defaults[index]->location : head->default_values[index]->location,
@@ -1289,12 +1296,18 @@ uint32_t Analyzer::qualifier_arguments(const TemplateHead* head, const Type* con
 			unbound = *known;
 		else
 		{
-			// As a template definition's default is (template_default).
+			// The specialization can reach deduction through an argument even
+			// when the caller predates the declaration that supplied its default.
+			const uint32_t limit = names_.limit();
+			const uint32_t added = added_default_ordinal(head, index);
+			const uint32_t ordinal = added != 0 ? added : head->ordinal;
+			names_.set_limit(ordinal != 0 ? ordinal : NameLookup::kNoLimit);
 			++template_depth_;
 			unbound = head->defaults[index] != nullptr
 				? type_id(*head->defaults[index], parameters)
 				: template_value(*head->default_values[index], parameters, argument_target(head, index, arguments));
 			--template_depth_;
+			names_.set_limit(limit);
 			unbound_defaults_.insert(key, unbound);
 		}
 		if (unbound == nullptr)
@@ -1319,7 +1332,7 @@ uint32_t Analyzer::qualifier_arguments(const TemplateHead* head, const Type* con
 }
 
 void Analyzer::default_template_arguments(
-	const TemplateHead* head, TypeList& arguments, uint32_t location, Scope* named_in)
+	const TemplateHead* head, TypeList& arguments, uint32_t location, Scope* named_in, bool substituted_template)
 {
 	// 14.1p9: a missing argument is its parameter's default; a parameter
 	// pack takes the arguments left, none for an empty pack. A pack
@@ -1354,8 +1367,8 @@ void Analyzer::default_template_arguments(
 		// Formed in a deduction's substitution, an invalid default is its
 		// failure (14.8.2p8; std::function's _Callable<F> of the function
 		// itself, as the hosts take it).
-		const Type* argument = template_default(
-			head, arguments.data(), static_cast<uint32_t>(i), arguments_dependent, soft_substitution_ != 0, named_in);
+		const Type* argument = template_default(head, arguments.data(), static_cast<uint32_t>(i), arguments_dependent,
+			soft_substitution_ != 0, named_in, substituted_template);
 		if (argument == nullptr)
 			return;
 		arguments.push_back(argument);
@@ -1528,7 +1541,8 @@ Binding* Analyzer::template_id_binding(const Binding* found, const syntax::NameC
 		{
 			SpecializationKey key = given;
 			key.arguments = arena_.copy_array(arguments.data(), arguments.size());
-			default_template_arguments(templ->templ->head, arguments, component.location);
+			default_template_arguments(
+				templ->templ->head, arguments, component.location, nullptr, parameter != nullptr);
 			specialization = failed()
 				? nullptr
 				: class_specialization(templ, arguments, component.location, soft_substitution_ == 0);

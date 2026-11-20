@@ -676,7 +676,8 @@ void Analyzer::named_parameters(const Type* type, uint32_t depth, uint64_t& name
 	}
 }
 
-const Type* Analyzer::specialize_template(const Type* templ, TypeList& arguments, uint32_t location)
+const Type* Analyzer::specialize_template(
+	const Type* templ, TypeList& arguments, uint32_t location, bool substituted_template)
 {
 	// The template-id of a template-name and arguments: a class template's
 	// specialization (defaults supplied, 14.1p9), an alias template's
@@ -687,7 +688,7 @@ const Type* Analyzer::specialize_template(const Type* templ, TypeList& arguments
 		if (templ->entity->kind == EntityKind::AliasTemplate)
 			return alias_specialization(static_cast<const AliasTemplateEntity*>(templ->entity), arguments, location);
 		ClassEntity* cls = static_cast<ClassEntity*>(templ->entity);
-		default_template_arguments(cls->templ->head, arguments, location);
+		default_template_arguments(cls->templ->head, arguments, location, nullptr, substituted_template);
 		if (failed())
 			return nullptr;
 		ClassEntity* specialization = class_specialization(cls, arguments, location, soft_substitution_ == 0);
@@ -775,7 +776,7 @@ const Type* Analyzer::substitute_stand_in(const Type* type, const Substitution& 
 	substitute_list(facts->arguments, facts->argument_count, substitution, arguments);
 	if (templ == nullptr || AnyNull(arguments))
 		return nullptr;
-	const Type* result = specialize_template(templ, arguments, 0);
+	const Type* result = specialize_template(templ, arguments, 0, true);
 	return result != nullptr ? types_.qualified(result, type->cv) : nullptr;
 }
 

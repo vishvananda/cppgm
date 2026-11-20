@@ -805,6 +805,7 @@ private:
 	void merge_template_head(
 		TemplateHead* head, const syntax::TemplateParameterList& list, Scope* scope, uint32_t location);
 	void default_ordinal(const TemplateHead* head, uint32_t index, uint32_t ordinal);
+	uint32_t added_default_ordinal(const TemplateHead* head, uint32_t index) const;
 	void check_template_defaults(const TemplateHead* head, uint32_t location);
 	void declare_class_template(ClassEntity* entity, bool existed, uint32_t location);
 	void define_pattern(ClassEntity* entity, const syntax::ClassSpecifier& specifier, Scope* parameters);
@@ -861,9 +862,10 @@ private:
 	Binding* value_binding(
 		const TemplateParameterEntity* parameter, const Type* argument, Scope* frame, const Identifier* name = nullptr);
 	const Type* template_default(const TemplateHead* head, const Type* const* arguments, uint32_t index,
-		bool arguments_dependent, bool substitution = false, Scope* named_in = nullptr);
-	void default_template_arguments(
-		const TemplateHead* head, TypeList& arguments, uint32_t location, Scope* named_in = nullptr);
+		bool arguments_dependent, bool substitution = false, Scope* named_in = nullptr,
+		bool substituted_template = false);
+	void default_template_arguments(const TemplateHead* head, TypeList& arguments, uint32_t location,
+		Scope* named_in = nullptr, bool substituted_template = false);
 	bool own_arguments(const TemplateHead* head, const Type* const* canonical, uint32_t count);
 	ClassEntity* class_specialization(
 		ClassEntity* templ, const TypeList& arguments, uint32_t location, bool fatal = true);
@@ -989,7 +991,8 @@ private:
 	const Type* const* enclosing_arguments(const ClassTemplateFacts* facts, uint32_t& count) const;
 	ClassEntity* pattern_member_template(const ClassEntity* templ);
 	void enclosing_substitution(const Type* const* pattern, uint32_t count, const ClassEntity* instance, TypeList& out);
-	const Type* specialize_template(const Type* templ, TypeList& arguments, uint32_t location);
+	const Type* specialize_template(
+		const Type* templ, TypeList& arguments, uint32_t location, bool substituted_template = false);
 	Binding* specialization_binding(const Type* type, const Entity* templ);
 	const Type* substitute_template_name(const Type* type, const Substitution& substitution);
 	const Type* substitute_stand_in(const Type* type, const Substitution& substitution);
