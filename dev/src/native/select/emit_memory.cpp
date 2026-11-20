@@ -160,7 +160,7 @@ void FunctionSelector::emit_atomic(const Instruction& inst)
 		const bool slot_address = desired_value.kind == ValueKind::Slot;
 		Reg borrowed = kNoReg;
 		int32_t borrowed_home = 0;
-		Operand desired = slot_address ? Operand::make_frame(slot_offset_[desired_value.index])
+		Operand desired = slot_address ? frame_home_operand(slot_offset_[desired_value.index])
 									   : rm_operand(inst.ops[2], inst.type, kNoReg);
 		if (desired.kind != OperandKind::Reg)
 		{
@@ -304,8 +304,8 @@ void FunctionSelector::emit_bulk(const Instruction& inst)
 		src = bulk_address(address_operand(inst.ops[0], kEmitScratch));
 	const Operand dst = bulk_address(address_operand(inst.ops[1], kSelectScratch));
 	// An object parameter whose home is this slot (layout_slots).
-	if (src.kind == OperandKind::Mem && dst.kind == OperandKind::Mem && src.reg == kFrame && dst.reg == kFrame &&
-		src.index == kNoReg && dst.index == kNoReg && src.disp == dst.disp)
+	if (src.kind == OperandKind::Mem && src.index == kNoReg &&
+		(src.reg == kFrame || (src.reg == R12 && out_->aligned_base != 0)) && src == dst)
 		return;
 	Inst& mir = emit2(Op::CopyBytes, TypeKind::Void, dst, src);
 	mir.aux = bytes;

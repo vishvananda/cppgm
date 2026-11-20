@@ -117,7 +117,7 @@ Operand FunctionSelector::memory_value_operand(Value value, Type type)
 	switch (value.kind)
 	{
 	case ValueKind::Slot:
-		return Operand::make_frame(slot_offset_[value.index]);
+		return frame_home_operand(slot_offset_[value.index]);
 	case ValueKind::Temp:
 		return temp_location(value.index);
 	case ValueKind::Integer:
@@ -201,7 +201,7 @@ Operand FunctionSelector::temp_location(uint32_t temp, Reg scratch)
 		return address_operand(load.ops[0], scratch == kNoReg ? kSelectScratch : scratch);
 	}
 	if (t.home != 0)
-		return Operand::make_frame(t.home);
+		return frame_home_operand(t.home);
 	if (t.flags & TF_PINNED)
 		return Operand::make_reg(t.reg);
 	// A value defined in reachable code whose definition the layout emits
@@ -210,7 +210,7 @@ Operand FunctionSelector::temp_location(uint32_t temp, Reg scratch)
 	// home, which the definition or the phi transfers write. (A value with
 	// a function-level register is bound wherever liveness finds it.)
 	if ((t.flags & (TF_DEFINED | TF_LAZY)) == TF_DEFINED)
-		return Operand::make_frame(home_of(temp));
+		return frame_home_operand(home_of(temp));
 	// A value whose definition never executes (unreachable or undefined):
 	// any bits will do.
 	return Operand::make_imm(0);
@@ -376,7 +376,7 @@ Operand FunctionSelector::rm_operand(Value value, Type type, Reg scratch)
 	case ValueKind::Slot:
 		// A slot in a value position reads the value stored there (call
 		// arguments and phi transfers take slot addresses separately).
-		return Operand::make_frame(slot_offset_[value.index]);
+		return frame_home_operand(slot_offset_[value.index]);
 	default:
 		throw InternalError("unsupported operand");
 	}
@@ -391,6 +391,15 @@ Operand FunctionSelector::reg_operand(Value value, Type type, Reg scratch)
 	return Operand::make_reg(scratch);
 }
 
+Operand FunctionSelector::frame_home_operand(int32_t home, int64_t displacement) const
+{
+	// Choose the base from the allocation's home. The displacement can
+	// include a folded offset from an index and reach either frame region.
+	if (in_aligned_region(*out_, home))
+		return Operand::make_mem(R12, static_cast<int32_t>(home - out_->aligned_disp + displacement));
+	return Operand::make_frame(static_cast<int32_t>(home + displacement));
+}
+
 // The memory operand of a lazy address. It reloads homed parts into
 // `scratch` only: when base and index both need reloading they combine
 // there (the index loaded at its own type and scaled, the full-width base
@@ -402,7 +411,7 @@ Operand FunctionSelector::lazy_operand(const AddrExpr& expr, Reg scratch, Reg sp
 	switch (expr.kind)
 	{
 	case AddrExpr::Frame:
-		op = Operand::make_frame(static_cast<int32_t>(slot_offset_[expr.base] + expr.disp));
+		op = frame_home_operand(slot_offset_[expr.base], expr.disp);
 		frame_pinned_ = frame_pinned_ || expr.disp < 0 ||
 			static_cast<uint64_t>(expr.disp) >=
 				std::max<uint64_t>(8, (value_bytes(body_->slots[expr.base].type) + 7) & ~7ull);
@@ -429,7 +438,7 @@ Operand FunctionSelector::lazy_operand(const AddrExpr& expr, Reg scratch, Reg sp
 		op = Operand::make_mem(kNoReg, static_cast<int32_t>(expr.disp));
 		break;
 	case AddrExpr::Home:
-		op = Operand::make_frame(static_cast<int32_t>(home_of(expr.base) + expr.disp));
+		op = frame_home_operand(home_of(expr.base), expr.disp);
 		frame_pinned_ = frame_pinned_ || expr.disp < 0 ||
 			static_cast<uint64_t>(expr.disp) >=
 				std::max<uint64_t>(8, (value_bytes(body_->temps[expr.base].type) + 7) & ~7ull);
@@ -449,7 +458,7 @@ Operand FunctionSelector::address_operand(Value storage, Reg scratch)
 	switch (storage.kind)
 	{
 	case ValueKind::Slot:
-		return Operand::make_frame(slot_offset_[storage.index]);
+		return frame_home_operand(slot_offset_[storage.index]);
 	case ValueKind::Symbol:
 		return symbol_memory(storage.index, 0, scratch);
 	case ValueKind::Integer:

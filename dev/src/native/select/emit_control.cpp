@@ -419,7 +419,7 @@ void FunctionSelector::emit_edge_transfers(uint32_t from, uint32_t to)
 			continue;
 		Move move;
 		const Reg greg = temps_[phi.result].greg;
-		move.dst = greg != kNoReg ? Operand::make_reg(greg) : Operand::make_frame(home_of(phi.result));
+		move.dst = greg != kNoReg ? Operand::make_reg(greg) : frame_home_operand(home_of(phi.result));
 		move.type = phi.type.is_pointer() ? TypeKind::Ptr : phi.type.kind();
 		switch (value.kind)
 		{
@@ -436,7 +436,7 @@ void FunctionSelector::emit_edge_transfers(uint32_t from, uint32_t to)
 				move.src_type = body.temps[value.index].type.kind();
 			break;
 		case ValueKind::Slot:
-			move.src = Operand::make_frame(slot_offset_[value.index]);
+			move.src = frame_home_operand(slot_offset_[value.index]);
 			move.address = true;
 			break;
 		case ValueKind::Symbol:
@@ -466,7 +466,7 @@ void FunctionSelector::emit_edge_transfers(uint32_t from, uint32_t to)
 				continue;
 			const lowir::Type type = body.temps[it->temp].type;
 			const Operand reg = Operand::make_reg(it->reg);
-			const Operand home = Operand::make_frame(home_of(it->temp));
+			const Operand home = frame_home_operand(home_of(it->temp));
 			Move move;
 			move.dst = it->store ? home : reg;
 			move.src = it->store ? reg : home;

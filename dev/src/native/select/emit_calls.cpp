@@ -469,7 +469,7 @@ void FunctionSelector::emit_entry()
 			{
 				const int32_t home = home_of(p);
 				emit2(Op::Load, move_type(type), Operand::make_reg(RAX), Operand::make_frame(incoming));
-				emit2(Op::Store, move_type(type), Operand::make_frame(home), Operand::make_reg(RAX));
+				emit2(Op::Store, move_type(type), frame_home_operand(home), Operand::make_reg(RAX));
 				t.flags |= TF_HOMED;
 				continue;
 			}
@@ -486,7 +486,7 @@ void FunctionSelector::emit_entry()
 			for (uint32_t k = 0; k < arg.part_count; ++k)
 			{
 				const ArgPart& part = layout.parts[arg.first_part + k];
-				move.dst = Operand::make_frame(home + static_cast<int32_t>(part.offset));
+				move.dst = frame_home_operand(home, static_cast<int32_t>(part.offset));
 				move.src = Operand::make_reg(part.reg);
 				move.type = part_type(part);
 				moves_.push_back(move);
@@ -496,12 +496,12 @@ void FunctionSelector::emit_entry()
 		if (t.greg != kNoReg)
 			move.dst = Operand::make_reg(t.greg);
 		else if (t.flags & TF_GLOBAL)
-			move.dst = Operand::make_frame(home_of(p));
+			move.dst = frame_home_operand(home_of(p));
 		else if (t.cls == VClass::Xmm && level_ == 0)
 		{
 			// -O0: a vector parameter lives in its parameter slot (a
 			// conservative spill at the ABI boundary).
-			move.dst = Operand::make_frame(home_of(p));
+			move.dst = frame_home_operand(home_of(p));
 			t.flags |= TF_HOMED;
 		}
 		else if (t.reg == layout.parts[arg.first_part].reg)
@@ -518,7 +518,7 @@ void FunctionSelector::emit_entry()
 			}
 			else
 			{
-				move.dst = Operand::make_frame(home_of(p));
+				move.dst = frame_home_operand(home_of(p));
 				t.flags |= TF_HOMED;
 			}
 		}
@@ -617,7 +617,7 @@ void FunctionSelector::stage_call_arguments(const Instruction& inst, const lowir
 			// A slot passes its storage to an indirect_result or by_address
 			// parameter, otherwise its value, of the slot's type (the
 			// validator's rule).
-			src = Operand::make_frame(slot_offset_[v.index]);
+			src = frame_home_operand(slot_offset_[v.index]);
 			address = a < sig->parameter_count && params[a].pass != ir_model::PPM_DIRECT;
 		}
 		else if (a < sig->parameter_count && params[a].pass == ir_model::PPM_BY_ADDRESS &&
@@ -779,7 +779,7 @@ void FunctionSelector::stage_call_arguments(const Instruction& inst, const lowir
 	{
 		Move move;
 		move.dst = Operand::make_reg(RDI);
-		move.src = Operand::make_frame(home_of(inst.result));
+		move.src = frame_home_operand(home_of(inst.result));
 		move.address = true;
 		arg_mask |= 1u << RDI;
 		moves_.push_back(move);
@@ -1811,7 +1811,7 @@ void FunctionSelector::stage_incoming_words(uint32_t root, uint32_t incoming)
 		if (t.greg != kNoReg)
 			move.dst = Operand::make_reg(t.greg);
 		else if (t.flags & TF_GLOBAL)
-			move.dst = Operand::make_frame(home_of(v.index));
+			move.dst = frame_home_operand(home_of(v.index));
 		else if (reg != kNoReg && t.reg == reg)
 			continue;
 		else
@@ -1824,7 +1824,7 @@ void FunctionSelector::stage_incoming_words(uint32_t root, uint32_t incoming)
 			}
 			else
 			{
-				move.dst = Operand::make_frame(home_of(v.index));
+				move.dst = frame_home_operand(home_of(v.index));
 				t.flags |= TF_HOMED;
 			}
 		}
@@ -1863,7 +1863,7 @@ bool FunctionSelector::receive_incoming_words(const Instruction& inst, const Cal
 		Move move;
 		move.src = Operand::make_reg(regs[half]);
 		if (temps_[v.index].flags & TF_HOMED)
-			move.dst = Operand::make_frame(home_of(v.index));
+			move.dst = frame_home_operand(home_of(v.index));
 		else
 		{
 			move.dst = Operand::make_reg(dst);

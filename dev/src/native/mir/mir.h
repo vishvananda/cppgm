@@ -175,12 +175,10 @@ struct Function
 	// no callee-saved register; each edge into the rest sets it up
 	// (select/shrink_wrap.cpp).
 	bool shrink_wrapped = false;
-	// Local objects aligned beyond 16 (7.6.2, 3.11) use logical frame offsets
-	// from aligned_disp through aligned_disp + aligned_bytes, including the
-	// last object's one-past pointer. The prologue rounds rbp + aligned_disp
-	// up to aligned_base in R12. The frame reserves padding on both sides
-	// of the logical offsets so adjacent ordinary objects' addresses stay
-	// distinguishable.
+	// Local objects aligned beyond 16 (7.6.2, 3.11) have homes from
+	// aligned_disp through aligned_disp + aligned_bytes. Their operands use
+	// offsets from R12, where the prologue rounds rbp + aligned_disp up to
+	// aligned_base. Other frame operands keep their ordinary base.
 	// aligned_base: that alignment (0: none).
 	uint32_t aligned_base = 0;
 	int32_t aligned_disp = 0;
@@ -228,8 +226,7 @@ inline uint32_t reserved_gprs(const Function& function)
 	return function.aligned_base != 0 ? 1u << R12 : 0u;
 }
 
-// Whether a frame displacement uses the over-aligned base. The guard below
-// aligned_disp can contain an adjacent ordinary object's one-past address.
+// Whether an undisplaced frame home belongs to the over-aligned slots.
 inline bool in_aligned_region(const Function& function, int32_t disp)
 {
 	return function.aligned_base != 0 && disp >= function.aligned_disp &&

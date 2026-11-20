@@ -209,6 +209,7 @@ public:
 	Operand rm_operand(lowir::Value value, lowir::Type type, Reg scratch);
 	Operand address_operand(lowir::Value storage, Reg scratch);
 	Operand lazy_operand(const AddrExpr& expr, Reg scratch, Reg spare = kNoReg);
+	Operand frame_home_operand(int32_t home, int64_t displacement = 0) const;
 	Reg temp_reg_or_load(uint32_t temp, Reg scratch);
 	Operand temp_location(uint32_t temp, Reg scratch = kSelectScratch);
 	Operand imm_for(lowir::Value value, lowir::Type type) const;

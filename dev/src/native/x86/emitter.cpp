@@ -55,8 +55,6 @@ RM FunctionEmitter::rm(const Operand& op) const
 	case OperandKind::Mem:
 		if (op.symbol != lowir::kNoId)
 			return RM::rip(op.symbol, op.disp);
-		if (op.reg == kFrame && in_aligned_region(*function_, op.disp))
-			return RM::m(R12, op.disp - function_->aligned_disp, op.index, op.scale);
 		if (op.reg == kFrame)
 			return omit_fp_ ? RM::m(RSP, rsp_disp(op.disp), op.index, op.scale)
 							: RM::m(RBP, op.disp, op.index, op.scale);

@@ -120,7 +120,7 @@ Reg FunctionSelector::evict_for(const Instruction& inst, uint32_t exclude)
 	if (victim == kNoReg)
 		return kNoReg;
 	const uint32_t held = owner_[victim];
-	const Operand home = Operand::make_frame(home_of(held));
+	const Operand home = frame_home_operand(home_of(held));
 	const TypeKind kind = body_->temps[held].type.kind();
 	if (is_xmm(victim))
 		emit2(Op::FMov, kind, home, Operand::make_reg(victim));
@@ -181,7 +181,7 @@ void FunctionSelector::finish_result(const Instruction& inst, Reg reg)
 		return;
 	if (t.flags & (TF_GLOBAL | TF_HOMED))
 	{
-		const Operand home = Operand::make_frame(home_of(temp));
+		const Operand home = frame_home_operand(home_of(temp));
 		const TypeKind kind = body_->temps[temp].type.kind();
 		if (is_xmm(reg))
 			emit2(Op::FMov, kind, home, Operand::make_reg(reg));
@@ -256,7 +256,7 @@ void FunctionSelector::normalize(Reg reg, TypeKind type)
 
 Operand FunctionSelector::memory_result(const Instruction& inst)
 {
-	return Operand::make_frame(home_of(inst.result));
+	return frame_home_operand(home_of(inst.result));
 }
 
 void FunctionSelector::store_result_memory(const Instruction& inst, const Operand& src, TypeKind type)
