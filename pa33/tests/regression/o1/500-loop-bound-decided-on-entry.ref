@@ -4,19 +4,16 @@ global @bytes : obj<8x8> = {
 
 function @decode_object_chunk(%data : ptr, %form : i32) -> i64 [no_inline=yes] {
   block ^entry:
-    %not_three = cmp ne i32 %form, 3
-    branch %not_three, ^not_three, ^loop
-
-  block ^not_three:
-    %not_four = cmp ne i32 %form, 4
-    branch %not_four, ^reject, ^loop
+    %t1 = binary sub i32 %form, 3
+    %t2 = cmp ult i32 %t1, 2
+    branch %t2, ^loop, ^reject
 
   block ^reject:
     return i64 0
 
   block ^loop:
-    %byte = phi u32 [^entry: 0, ^not_three: 0, ^body: %next]
-    %value = phi i64 [^entry: 0, ^not_three: 0, ^body: %merged]
+    %byte = phi u32 [^entry: 0, ^body: %next]
+    %value = phi i64 [^entry: 0, ^body: %merged]
     %three = cmp eq i32 %form, 3
     branch %three, ^test, ^long
 
