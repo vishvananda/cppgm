@@ -1324,6 +1324,8 @@ private:
 	bool implicit_sequence(const syntax::Expr& argument, const Type* parameter, Conversion& out);
 	bool object_sequence(const ExprFacts* object, const FunctionEntity* function, bool ranking, Conversion& out);
 	int compare_candidates(const Candidate& a, const Candidate& b, uint32_t count, bool object);
+	Resolution select_candidate(
+		const Candidate* candidates, size_t count, uint32_t slots, bool with_object, Candidate& chosen);
 	const Conversion* elided_direct_sequence(const Candidate& candidate) const;
 	// Records the arguments' conversions: the chosen candidate's sequences
 	// (the implicit object's, if any, first, then `offset` on), or for an

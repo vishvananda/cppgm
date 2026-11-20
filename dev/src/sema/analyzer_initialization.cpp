@@ -130,30 +130,32 @@ FunctionEntity* Analyzer::implicit_constructor(ClassEntity* entity)
 			}
 			found = function;
 		}
-		// Else a constructor template callable without arguments (its
-		// function parameter pack empty, 14.8.2.1p1): its specialization
-		// from its default template arguments (14.8.2p5), no candidate
-		// where their substitution fails (14.8.2p8). Two templates are not
-		// ordered by a call without arguments (14.8.2.4p3).
-		for (const FunctionList* node = entry != nullptr && found == nullptr ? entry->functions : nullptr;
-			node != nullptr; node = node->next)
+		if (entry != nullptr && found == nullptr)
 		{
-			FunctionEntity* function = static_cast<FunctionEntity*>(node->binding->entity);
-			const Type* type = function->type->canonical;
-			bool matches = function->templated && HeadOf(function) != nullptr;
-			for (uint32_t i = 0; matches && i < type->param_count; ++i)
-				matches = (function->default_arguments != nullptr && function->default_arguments[i] != nullptr) ||
-					(i + 1 == type->param_count && type->params[i]->kind == TypeKind::Expansion);
-			TypeList arguments(matches ? HeadOf(function)->count : 0, nullptr);
-			FunctionEntity* specialization = matches ? deduced_specialization(function, arguments) : nullptr;
-			if (specialization == nullptr)
-				continue;
-			if (found != nullptr)
+			// Deduce the constructor templates from defaults and empty packs
+			// (14.8.2p5). Rank the viable specializations as for any call,
+			// including the unused trailing pack rule (CWG 1395).
+			SmallList<Candidate, 4> candidates;
+			for (const FunctionList* node = entry->functions; node != nullptr; node = node->next)
+			{
+				FunctionEntity* function = static_cast<FunctionEntity*>(node->binding->entity);
+				const Type* type = function->type->canonical;
+				bool matches = function->templated && HeadOf(function) != nullptr;
+				for (uint32_t i = 0; matches && i < type->param_count; ++i)
+					matches = (function->default_arguments != nullptr && function->default_arguments[i] != nullptr) ||
+						(i + 1 == type->param_count && type->params[i]->kind == TypeKind::Expansion);
+				TypeList arguments(matches ? HeadOf(function)->count : 0, nullptr);
+				FunctionEntity* specialization = matches ? deduced_specialization(function, arguments) : nullptr;
+				if (specialization != nullptr)
+					candidates.push_back(Candidate{ specialization, 0, true, 0 });
+			}
+			Candidate chosen = {};
+			if (select_candidate(candidates.data(), candidates.size(), 0, false, chosen) == Resolution::Ambiguous)
 			{
 				substitution_error(0, "ambiguous default constructor");
 				return nullptr;
 			}
-			found = specialization;
+			found = chosen.function;
 		}
 	}
 	if (found != nullptr)

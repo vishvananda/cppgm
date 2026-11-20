@@ -1388,20 +1388,26 @@ Resolution Analyzer::resolve(const syntax::Slice<syntax::Expr*>& call_arguments,
 				perfect = all;
 			}
 		}
-	if (candidates_.empty())
+	return select_candidate(candidates_.data(), candidates_.size(), slots, with_object, chosen);
+}
+
+Resolution Analyzer::select_candidate(
+	const Candidate* candidates, size_t count, uint32_t slots, bool with_object, Candidate& chosen)
+{
+	if (count == 0)
 		return Resolution::NoViable;
 	size_t best = 0;
-	for (size_t i = 1; i < candidates_.size(); ++i)
+	for (size_t i = 1; i < count; ++i)
 	{
-		if (compare_candidates(candidates_[i], candidates_[best], slots, with_object) > 0)
+		if (compare_candidates(candidates[i], candidates[best], slots, with_object) > 0)
 			best = i;
 	}
-	for (size_t i = 0; i < candidates_.size(); ++i)
+	for (size_t i = 0; i < count; ++i)
 	{
-		if (i != best && compare_candidates(candidates_[best], candidates_[i], slots, with_object) <= 0)
+		if (i != best && compare_candidates(candidates[best], candidates[i], slots, with_object) <= 0)
 			return Resolution::Ambiguous;
 	}
-	chosen = candidates_[best];
+	chosen = candidates[best];
 	return Resolution::Selected;
 }
 
