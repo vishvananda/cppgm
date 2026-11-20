@@ -1362,7 +1362,8 @@ private:
 	ExprFacts* binary_operator(const syntax::BinaryExpr& expr, Scope* scope);
 	void class_builtin_candidates(TokenKind op, const syntax::Slice<syntax::Expr*>& operands, bool postfix);
 	ExprFacts* unary_operator(const syntax::UnaryExpr& expr, bool postfix, Scope* scope);
-	void check_operator_declaration(const FunctionEntity* function, uint32_t location);
+	void check_operator_declaration(const FunctionEntity* function, uint32_t location,
+		const syntax::ParameterClause* declared_parameters = nullptr);
 
 	// ----------------------------------------- statements
 	void condition_to_bool(const syntax::Condition& condition);

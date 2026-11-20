@@ -403,7 +403,7 @@ RULES: tuple[FeatureRule, ...] = (
                 path_patterns=(rx(r"(?:multiple-inheritance|multiple-base|multibase|diamond|nonprimary-base|downcast-nonprimary|secondary-primary|repeated-base)"),)),
     FeatureRule("class.member_pointer", (rx(r"::\s*\*|\.\*|->\*"),)),
     FeatureRule("class.conversion_operator",
-                (rx(r"\boperator\s+(?!new\b|delete\b)(?:const\s+)?[A-Za-z_][A-Za-z0-9_:<>*&\s]*\s*\("),),
+                (rx(r"\boperator\s+(?!(?:new|delete|co_await)\b)(?:const\s+)?[A-Za-z_][A-Za-z0-9_:<>*&\s]*\s*\("),),
                 use_raw=True),
     FeatureRule("function.trailing_return", (rx(r"\)\s*->\s*[A-Za-z_][A-Za-z0-9_:<>*&\s]*"),)),
     FeatureRule("support.constinit", (rx(r"\b__constinit\b"),)),

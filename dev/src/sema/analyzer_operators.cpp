@@ -911,7 +911,8 @@ ExprFacts* Analyzer::unary_operator(const syntax::UnaryExpr& expr, bool postfix,
 	return overloaded_operator(expr, expr.op, operands, postfix, scope);
 }
 
-void Analyzer::check_operator_declaration(const FunctionEntity* function, uint32_t location)
+void Analyzer::check_operator_declaration(
+	const FunctionEntity* function, uint32_t location, const syntax::ParameterClause* declared_parameters)
 {
 	// 13.5p6: a non-member operator function has a parameter of class or
 	// enumeration type (or a reference to one); 13.5.3-13.5.6: `=`, `()`,
@@ -924,6 +925,9 @@ void Analyzer::check_operator_declaration(const FunctionEntity* function, uint32
 		const Type* type = function->type->canonical;
 		if (type->variadic || type->param_count != (function->member ? 0u : 1u))
 			error(location, "operator co_await requires one operand");
+		if (declared_parameters != nullptr && !declared_parameters->parameters.empty() &&
+			declared_parameters->parameters[0]->default_argument != nullptr)
+			error(location, "operator co_await cannot have default arguments");
 	}
 	if (function->member || op == TokenKind::KW_NEW || op == TokenKind::KW_DELETE)
 		return;
