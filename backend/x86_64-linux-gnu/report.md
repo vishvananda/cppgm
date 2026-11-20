@@ -1,15 +1,15 @@
 # x86-64 backend performance
 
-Measured `56c86f755ec2b56e235b3f5e5ff76e6d147c3f93` on INTEL(R) XEON(R) PLATINUM 8573C. [CI run and raw observations](https://github.com/vishvananda/cppgm/actions/runs/44612055398)
+Measured `94aaecc52ac26996bd3d654522334e3c28c68457` on Intel(R) Xeon(R) 6975P-C. [CI run and raw observations](https://github.com/vishvananda/cppgm/actions/runs/44656576225)
 
 ### Portable public benchmarks on x86_64-linux-gnu
 
 | Program | Runtime speedup vs Clang O3 |
 | --- | ---: |
 | Prolangs-C++/primes | 1.00× |
-| Stanford/Bubblesort | 1.03× |
-| Stanford/FloatMM | 0.72× |
-| Stanford/Puzzle | 0.92× |
-| Stanford/Treesort | 1.04× |
+| Stanford/Bubblesort | 1.01× |
+| Stanford/FloatMM | 0.78× |
+| Stanford/Puzzle | 0.88× |
+| Stanford/Treesort | 1.05× |
 
 The badge gives the geometric mean of the per-program CPU speedups.
