@@ -12,6 +12,7 @@ import xml.etree.ElementTree as ET
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import boost_ci
 import boost_ci_toolchain
+import run_boost_language_replay
 
 
 class ReviewTests(unittest.TestCase):
@@ -150,14 +151,15 @@ class ReviewTests(unittest.TestCase):
             self.check()
 
     def test_standalone_python_requires_actual_execution_without_extension_dependencies(self):
+        self.project = 'libs/pfr/test/core'
         self.fixture('RUN_PYD')
-        source = self.project + '/example.py'
+        source = 'libs/pfr/misc/example.py'
         self.tree.find('test/source').text = source
         self.calls[0]['args'][-1] = str(self.root / 'unrelated.o')
         target = self.project + '//example.test'
         run_target = target.removesuffix('.test')
         targets = ET.SubElement(self.tree, 'targets')
-        for name, dependency in [(target, run_target), (run_target, self.project + '//example.py')]:
+        for name, dependency in [(target, run_target), (run_target, self.project + '//../../misc/example.py')]:
             entry = ET.SubElement(targets, 'target')
             ET.SubElement(entry, 'name').text = name
             dependencies = ET.SubElement(entry, 'dependencies')
@@ -169,8 +171,15 @@ class ReviewTests(unittest.TestCase):
         ET.SubElement(action, 'name').text = 'python%python.capture-output'
         ET.SubElement(action, 'path').text = str(self.marker.with_suffix(''))
         ET.SubElement(action, 'command').text = f'PYTHONPATH=""\n"/usr/bin/python3" "{source}"\n'
-        row, = self.check()['tests']
+        result = self.check()
+        row, = result['tests']
         self.assertEqual((row['sources'], row['native_status']), ([], 0))
+        with self.assertRaisesRegex(ValueError, 'unrecorded language build variant'):
+            run_boost_language_replay.test_inventory(result, {target}, 14)
+        properties = ET.SubElement(self.tree.find('action'), 'properties')
+        ET.SubElement(properties, 'property', name='cxxstd').text = '14'
+        self.assertEqual(run_boost_language_replay.test_inventory(self.check(), {target}, 14),
+                         {(target, 'RUN_PYD', ()): 1})
         ET.SubElement(dependencies, 'dependency').text = self.project + '//extension'
         with self.assertRaisesRegex(ValueError, 'unreviewed Python dependencies'):
             self.check()

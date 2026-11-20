@@ -116,7 +116,9 @@ def test_inventory(result, required, minimum):
         editions = tuple(sorted({recorded_edition(args) for args in test['sources']}))
         name = test['target']
         if test['kind'] == 'RUN_PYD' and not editions:
-            boost_ci.require(name not in required, f"required language test has no compilation for {name}")
+            if name in required:
+                boost_ci.require(test.get('b2_cxxstd', 0) >= minimum,
+                                 f"unrecorded language build variant for {name}")
             observed[name, test['kind'], editions] += 1
             continue
         boost_ci.require(editions and editions[0] > 0, f"unrecorded language mode for {name}: {editions}")

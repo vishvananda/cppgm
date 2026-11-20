@@ -81,14 +81,18 @@ def python_test_result(tree, actions, test, target, marker, boost, compiled, lin
     require(len(scripts) == 1 and len(inputs) == len(cxx_sources) + 1, f'unreviewed Python inputs for {target}')
     source = scripts[0]
     directory, _ = target.split('//')
-    require(all(path.is_relative_to(boost / directory) for path in inputs),
+    # A standalone generator may live beside its library's test project.
+    # B2 must still name that exact source as the generator's dependency.
+    allowed = Path(directory) if cxx_sources else Path(*Path(directory).parts[:2])
+    require(all(path.is_relative_to(boost / allowed) for path in inputs),
             f'Python source outside the test project for {target}')
     run_target = target.removesuffix('.test')
     require(python_dependencies(tree, target, target) == {run_target}, f'unreviewed Python dependencies for {target}')
     dependencies = python_dependencies(tree, run_target, target)
-    script_dependency = directory + '//' + source.name
-    require(script_dependency in dependencies, f'unreviewed Python dependencies for {target}')
-    extensions = dependencies - {script_dependency}
+    script_dependencies = {dep for dep in dependencies if dep.startswith(directory + '//') and
+                           (boost / directory / dep.split('//', 1)[1]).resolve() == source}
+    require(len(script_dependencies) == 1, f'unreviewed Python dependencies for {target}')
+    extensions = dependencies - script_dependencies
     require(bool(cxx_sources) == bool(extensions) and all(
         dep.startswith(directory + '//') and re.fullmatch(r'[^/]+\.so', dep.split('//')[-1]) for dep in extensions),
         f'unreviewed Python dependencies for {target}')
@@ -218,6 +222,9 @@ def review(xml_path, log_path, calls_path, project, expected, label='cppgm', nat
                    sources=[c['args'] for c in compiled])
         if kind == 'RUN_PYD':
             row.update(python_test_result(tree, actions, test, target, marker, boost, compiled, links))
+            modes = [p.text for p in action.findall('properties/property[@name="cxxstd"]')]
+            if len(modes) == 1 and modes[0] and modes[0].isdecimal():
+                row['b2_cxxstd'] = int(modes[0])
         if kind == 'RUN_MPI':
             row.update(mpi_result(actions, target, marker))
         if kind in ('RUN', 'RUN_FAIL'):

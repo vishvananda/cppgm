@@ -451,6 +451,28 @@ even with GCC in C++14.
    Track coroutines as an explicit implementation dependency for closing
    the Boost check. [Existing Boost benchmark](../benchmarks/boost/README.md)
 
+### Cobalt and PFR checkpoints
+
+- Class-valued arguments now cover Cobalt's `template<static_protocol P>`
+  declarations, calls with ADL-only lookup and constraints that use the
+  parameter object. The pinned Cobalt compile probe went from 24 of 60
+  successful translation units to 31. The remaining 29 stop at coroutine
+  producer operations. The probe forced the coroutine feature-test macro
+  solely to reach those operations. Keep the compiler macro disabled until
+  the producer path and the original Boost runtime tests pass.
+- PA18 exercises class argument equivalence, class deduction, address
+  identity, and rejection in C++17. The Linux x86-64 mixed object check
+  resolves both a specialization and its parameter object across cppgm,
+  GCC and Clang. The three positive controls also execute on WASI.
+  Recheck class values with extended-width scalars, subobject addresses
+  and adjusted pointers to members before claiming complete support.
+- Native Boost.PFR executes 135 declarations in C++14 and 195 across the
+  C++14 and C++17 configurations. Eighty-eight additional declarations in
+  the frozen inventory depend on the upstream C++26 configurations.
+  B2 reports the C++14 generator as a standalone Python test. Its
+  original source dependency, execution receipt and requested build
+  mode are required evidence for that declaration.
+
 ## Measure before promoting the changes
 
 - Use the existing compile-performance tooling with immutable baseline and
