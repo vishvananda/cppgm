@@ -175,12 +175,12 @@ struct Function
 	// no callee-saved register; each edge into the rest sets it up
 	// (select/shrink_wrap.cpp).
 	bool shrink_wrapped = false;
-	// Local objects aligned beyond 16 (7.6.2, 3.11): they lie in the frame
-	// region [aligned_disp - 16, aligned_disp + aligned_bytes + aligned_base
-	// - 16), laid out from an aligned base (an object's frame operand is
-	// [aligned_disp + its offset from that base]), which the prologue puts
-	// in R12 (aligned_disp + rbp rounded up to aligned_base), reserved for
-	// the function: the region's frame operands are encoded from R12.
+	// Local objects aligned beyond 16 (7.6.2, 3.11) use logical frame offsets
+	// from aligned_disp through aligned_disp + aligned_bytes, including the
+	// last object's one-past pointer. The prologue rounds rbp + aligned_disp
+	// up to aligned_base in R12. The frame reserves padding on both sides
+	// of the logical offsets so adjacent ordinary objects' addresses stay
+	// distinguishable.
 	// aligned_base: that alignment (0: none).
 	uint32_t aligned_base = 0;
 	int32_t aligned_disp = 0;
@@ -228,11 +228,12 @@ inline uint32_t reserved_gprs(const Function& function)
 	return function.aligned_base != 0 ? 1u << R12 : 0u;
 }
 
-// Whether a frame displacement lies in the over-aligned objects' region.
+// Whether a frame displacement uses the over-aligned base. The guard below
+// aligned_disp can contain an adjacent ordinary object's one-past address.
 inline bool in_aligned_region(const Function& function, int32_t disp)
 {
-	return function.aligned_base != 0 && disp >= function.aligned_disp - 16 &&
-		disp < function.aligned_disp + static_cast<int32_t>(function.aligned_bytes + function.aligned_base) - 16;
+	return function.aligned_base != 0 && disp >= function.aligned_disp &&
+		disp <= function.aligned_disp + static_cast<int32_t>(function.aligned_bytes);
 }
 
 // The program-level MIR facts: startup hooks, and the declared external C
