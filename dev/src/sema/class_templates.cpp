@@ -610,10 +610,11 @@ const Type* Analyzer::template_argument(
 				}
 			}
 		}
-		// A dependent using-declaration also introduces an unqualified
-		// value name unless the parser recorded a type-id with `typename`.
-		const bool dependent = !name.last().template_keyword &&
-			((name.qualified() && last_prefix_.dependent != nullptr) || IsDependentMember(result.binding));
+		// The parser recorded an id-expression. A dependent qualifier's
+		// member template-id still names a value here even with `template`.
+		// A dependent using-declaration can also supply an unqualified value.
+		const bool dependent = (name.qualified() && last_prefix_.dependent != nullptr) ||
+			(!name.last().template_keyword && IsDependentMember(result.binding));
 		// 14.6p6: a name the definition assumed to name no type (a copy of
 		// the name keeps the fact) names none in its instantiations.
 		if (dependent)

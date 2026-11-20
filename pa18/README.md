@@ -212,6 +212,10 @@ the implemented surface, including:
   template parameter, resolve the specialization's default arguments where
   they were declared, including defaults added by redeclarations. See N3485
   `[temp.param]`, `[temp.res]` and `[temp.deduct.type]`.
+- a dependent member variable template can supply the value in a constructor
+  template's default argument. Preserve the `template` disambiguator and
+  substitute the value when checking the constructor candidate. See N4140
+  `[temp.arg.nontype]`, `[temp.dep.temp]` and `[temp.deduct]`.
 - non-deduced contexts and explicit template-id deduction edge cases
 - CWG 1391: after deduction and defaults, conversions to originally
   nondependent call parameters are checked before signature substitution
