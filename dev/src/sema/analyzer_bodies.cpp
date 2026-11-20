@@ -6,12 +6,21 @@
 #include "lex/identifier_table.h"
 #include "lex/number_literal.h"
 #include "lex/text_literal.h"
+#include "preprocess/preprocessor.h"
 #include "sema/pretty_function.h"
 #include "support/internal_error.h"
 
 namespace sema {
 
 namespace {
+
+constexpr const char* kConstexprTryExtension = "a try-block in a constexpr function requires C++20";
+
+bool AllowConstexprTry(const SourcePositions* positions, bool relaxed_constexpr, uint32_t location)
+{
+	return relaxed_constexpr && positions != nullptr &&
+		positions->allow_cxx_extension(location, 20, kConstexprTryExtension);
+}
 
 const syntax::Name* DeclaratorId(const syntax::Declarator* declarator)
 {
@@ -220,8 +229,8 @@ bool Analyzer::function_body(FunctionEntity* function, const Type* type, const s
 	if (semantic() && !function->deleted)
 		check_constexpr_function(function, type, body_location);
 	// P1002R1 permits constexpr function-try-blocks from C++20.
-	if (function->is_constexpr && body.try_block && !cxx20_)
-		error(body_location, "a constexpr function with a function-try-block");
+	if (function->is_constexpr && body.try_block && !cxx20_ && !AllowConstexprTry(positions_, cxx14_, body_location))
+		error(body_location, kConstexprTryExtension);
 	// An instance's member template, or a member (or a friend defined in
 	// the class) of its member class template, shares its class template's
 	// body, whose names that template's definition bound (14.6p10): its
@@ -761,11 +770,11 @@ void Analyzer::scoped_statement(const syntax::Stmt& stmt, Scope* scope, BodyCont
 	case syntax::StmtKind::Try:
 		if (!cxx20_ && body != nullptr)
 		{
-			if (body->lambda != nullptr)
+			if (body->lambda != nullptr && !body->lambda->expr->is_constexpr)
 				body->constexpr_lambda_ineligible = true;
-			if (body->function != nullptr && body->function->is_constexpr &&
-				(body->lambda == nullptr || body->lambda->expr->is_constexpr))
-				error(stmt.location, "a try-block in a constexpr function requires C++20");
+			else if (body->function != nullptr && body->function->is_constexpr &&
+				!AllowConstexprTry(positions_, cxx14_, stmt.location))
+				error(stmt.location, kConstexprTryExtension);
 		}
 		return try_statement(static_cast<const syntax::TryStmt&>(stmt), scope);
 	case syntax::StmtKind::Ambiguous:

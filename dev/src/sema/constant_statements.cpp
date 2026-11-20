@@ -1045,8 +1045,6 @@ bool ConstantInterpreter::body(const FunctionEntity* function, Result& result, u
 	const syntax::FunctionBody* definition = function->body;
 	if (definition == nullptr || definition->body == nullptr)
 		return function->constructor || fail(location, "a constexpr function without a body");
-	if (definition->try_block && !cxx20_)
-		return fail(location, "a function-try-block in a constant expression requires C++20");
 	Flow flow = Flow::Next;
 	if (!compound(*definition->body, flow))
 		return false;
@@ -1227,10 +1225,8 @@ bool ConstantInterpreter::execute(const syntax::Stmt& stmt, Flow& flow)
 	case syntax::StmtKind::RangeFor:
 		return range_for(static_cast<const syntax::RangeForStmt&>(stmt), flow);
 	case syntax::StmtKind::Try:
-		// C++20 permits a try-block. An evaluated throw still fails the
-		// constant expression before reaching a handler.
-		if (!cxx20_)
-			return fail(stmt.location, "a try-block in a constant expression requires C++20");
+		// Analysis checks the edition at this declaration. An evaluated
+		// throw still fails the constant expression before reaching a handler.
 		return execute_substatement(*static_cast<const syntax::TryStmt&>(stmt).body, flow);
 	case syntax::StmtKind::Case:
 		return execute(*static_cast<const syntax::CaseStmt&>(stmt).body, flow);

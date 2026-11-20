@@ -424,6 +424,9 @@ Honor scoped `diagnostic push`, `diagnostic ignored`, and `diagnostic pop`
 for the edition warning groups, including through `_Pragma`. Use
 `-pedantic-errors` to require rejection for active extension diagnostics.
 Ordinary language errors still diagnose inside a suppressed scope.
+A constexpr `try` statement or function-try-block follows the C++20
+extension group in C++14 and C++17. Evaluate an admitted protected block
+using the [PA21 constant-expression rules](../pa21/README.md).
 In C++20 mode, expose `__cpp_concepts`. PA31 exercises the hosted `<concepts>`
 declarations through the course's constraint and overload rules.
 
