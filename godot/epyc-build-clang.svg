@@ -1,10 +1,10 @@
-<svg data-original-label="godot build-clang; AMD EPYC 7763 64-Core Processor; revision f4ee6ed21703be4d5350c45f5d8ed33dc706c992" data-original-message="4.01×" data-original-color="14532d" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="godot build-clang; AMD EPYC 7763 64-Core Processor; revision f4ee6ed21703be4d5350c45f5d8ed33dc706c992; measured f4ee6ed21703be4d5350c45f5d8ed33dc706c992; 212 commits behind main: stale">
-  <title>godot build-clang; AMD EPYC 7763 64-Core Processor; revision f4ee6ed21703be4d5350c45f5d8ed33dc706c992; measured f4ee6ed21703be4d5350c45f5d8ed33dc706c992; 212 commits behind main: stale</title>
+<svg data-original-label="godot build-clang; AMD EPYC 7763 64-Core Processor; revision 0bf4bdfe0b8e6703ee3dafe7ac8c410e2097974a" data-original-message="3.97×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="godot build-clang; AMD EPYC 7763 64-Core Processor; revision 0bf4bdfe0b8e6703ee3dafe7ac8c410e2097974a; measured 0bf4bdfe0b8e6703ee3dafe7ac8c410e2097974a; 3 commits behind main: 3.97×">
+  <title>godot build-clang; AMD EPYC 7763 64-Core Processor; revision 0bf4bdfe0b8e6703ee3dafe7ac8c410e2097974a; measured 0bf4bdfe0b8e6703ee3dafe7ac8c410e2097974a; 3 commits behind main: 3.97×</title>
   <defs><clipPath id="badge"><rect width="120" height="24" rx="4"/></clipPath></defs>
   <g clip-path="url(#badge)">
     <rect width="64" height="24" fill="#555"/>
-    <rect x="64" width="56" height="24" fill="#475569"/>
+    <rect x="64" width="56" height="24" fill="#14532d"/>
   </g>
   <text x="32" y="16.5" fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="12" font-weight="700" textLength="31" lengthAdjust="spacingAndGlyphs">EPYC</text>
-  <text x="92" y="16.5" fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="12" font-weight="700" letter-spacing="1" textLength="39" lengthAdjust="spacingAndGlyphs">stale</text>
+  <text x="92" y="16.5" fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="12" font-weight="700" letter-spacing="1" textLength="39" lengthAdjust="spacingAndGlyphs">3.97×</text>
 </svg>
