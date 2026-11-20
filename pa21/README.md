@@ -190,6 +190,12 @@ To complete PA21, implement these goals:
    parameter declared inside a lambda body is local to that body and is not
    an implicit capture.
 
+   C++20 permits `try` statements and function-try-blocks in constexpr
+   functions. Evaluate the protected block with its normal scope and lifetime
+   rules. An evaluated `throw` invalidates the constant expression before a
+   handler can run. Runtime calls still use ordinary exception handling.
+   See `[dcl.constexpr]` and `[expr.const]` in the [C++20 draft](../doc/n4861.pdf).
+
 2. `std::initializer_list` interoperation.
    Supported braced-list calls should materialize deterministic lowered storage and expose
    the expected `__begin` / `__size` semantics to range-for lowering.

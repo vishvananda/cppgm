@@ -219,9 +219,8 @@ bool Analyzer::function_body(FunctionEntity* function, const Type* type, const s
 	}
 	if (semantic() && !function->deleted)
 		check_constexpr_function(function, type, body_location);
-	// 7.1.5p3-p4: a constexpr function's or constructor's function-body is
-	// a compound-statement, not a function-try-block.
-	if (function->is_constexpr && body.try_block)
+	// P1002R1 permits constexpr function-try-blocks from C++20.
+	if (function->is_constexpr && body.try_block && !cxx20_)
 		error(body_location, "a constexpr function with a function-try-block");
 	// An instance's member template, or a member (or a friend defined in
 	// the class) of its member class template, shares its class template's
@@ -760,8 +759,14 @@ void Analyzer::scoped_statement(const syntax::Stmt& stmt, Scope* scope, BodyCont
 		return;
 	}
 	case syntax::StmtKind::Try:
-		if (body != nullptr && body->lambda != nullptr)
-			body->constexpr_lambda_ineligible = true;
+		if (!cxx20_ && body != nullptr)
+		{
+			if (body->lambda != nullptr)
+				body->constexpr_lambda_ineligible = true;
+			if (body->function != nullptr && body->function->is_constexpr &&
+				(body->lambda == nullptr || body->lambda->expr->is_constexpr))
+				error(stmt.location, "a try-block in a constexpr function requires C++20");
+		}
 		return try_statement(static_cast<const syntax::TryStmt&>(stmt), scope);
 	case syntax::StmtKind::Ambiguous:
 	{
