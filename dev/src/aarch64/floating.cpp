@@ -8,8 +8,10 @@ namespace aarch64 {
 using namespace lowir;
 
 namespace {
-// FCMP reports an unordered pair with NZCV=0011.
-const unsigned kFloatConditions[] = { 0, 1, 4, 9, 12, 10, 4, 9, 12, 10 };
+// FCMP reports an unordered pair with NZCV=0011. The ordered predicates
+// take MI, LS, GT and GE, which that value fails; the unordered ones (ult,
+// ule, ugt, uge) take LT, LE, HI and CS, which it satisfies.
+const unsigned kFloatConditions[] = { 0, 1, 4, 9, 12, 10, 11, 13, 8, 2 };
 const Op kFloatBinary[] = { Op::Fadd, Op::Fsub, Op::Fmul, Op::Fdiv };
 }
 
