@@ -228,8 +228,10 @@ class ReviewTests(unittest.TestCase):
             dependencies = ET.SubElement(entry, 'dependencies')
             for dependency in required:
                 ET.SubElement(dependencies, 'dependency').text = dependency
-        extension = self.marker.with_name(module)
+        extension = self.marker.parent.parent / 'extensions' / module
+        extension.parent.mkdir()
         extension.touch()
+        self.calls[0]['args'][-1] = str(extension.with_suffix('.o'))
         link = ET.SubElement(self.tree, 'action', status='0')
         ET.SubElement(link, 'name').text = 'gcc%gcc.link.dll'
         ET.SubElement(link, 'path').text = str(extension)
@@ -237,7 +239,7 @@ class ReviewTests(unittest.TestCase):
         ET.SubElement(action, 'name').text = 'python%python.capture-output'
         ET.SubElement(action, 'path').text = str(self.marker.with_suffix(''))
         command = ET.SubElement(action, 'command')
-        command.text = f'PYTHONPATH="{self.marker.parent}"\n"/usr/bin/python3" "{source}"\n'
+        command.text = f'PYTHONPATH="{extension.parent}"\n"/usr/bin/python3" "{source}"\n'
         self.marker.with_suffix('.output').write_text('EXIT STATUS: 0\n')
         with self.assertRaisesRegex(ValueError, 'no recorded extension link'):
             self.check()
@@ -249,8 +251,8 @@ class ReviewTests(unittest.TestCase):
         row, = self.check()['tests']
         self.assertEqual((row['sources'], row['python_extensions'], row['native_status']),
                          ([self.calls[0]['args']], [module], 0))
-        command.text = command.text.replace(str(self.marker.parent), '/unrelated')
-        with self.assertRaisesRegex(ValueError, 'unreviewed Python command'):
+        command.text = command.text.replace(str(extension.parent), '/unrelated')
+        with self.assertRaisesRegex(ValueError, 'no recorded extension link'):
             self.check()
 
     def test_cpp_response_files_are_expanded(self):
