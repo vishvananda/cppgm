@@ -357,7 +357,7 @@ void Analyzer::unexpanded_packs(const Type* type, uint32_t depth, PackList& out,
 	}
 }
 
-const Type* Analyzer::expression_packs(const syntax::Expr& expr, Scope* scope, const Type** nested)
+const Type* Analyzer::expression_packs(const syntax::Expr& expr, Scope* scope, const Type** nested, bool* function_pack)
 {
 	// The packs a template definition's expression (a placeholder's) names
 	// outside nested expansions: a Pack of canonical template parameter
@@ -367,14 +367,14 @@ const Type* Analyzer::expression_packs(const syntax::Expr& expr, Scope* scope, c
 	std::vector<const Identifier*> names, inner;
 	syntax::SyntaxCloner cloner(arena_, true, &finder);
 	cloner.collect_packs(&expr, names, nested != nullptr ? &inner : nullptr);
-	const Type* packs = canonical_packs(names, scope);
+	const Type* packs = canonical_packs(names, scope, function_pack);
 	if (nested == nullptr)
 		return packs;
 	*nested = canonical_packs(inner, scope);
 	return packs;
 }
 
-const Type* Analyzer::canonical_packs(const std::vector<const Identifier*>& names, Scope* scope)
+const Type* Analyzer::canonical_packs(const std::vector<const Identifier*>& names, Scope* scope, bool* function_pack)
 {
 	// The packs found by DefinitionPacks as canonical types/patterns.
 	if (names.empty())
@@ -384,6 +384,8 @@ const Type* Analyzer::canonical_packs(const std::vector<const Identifier*>& name
 	{
 		const LookupResult found = names_.unqualified(scope, name, LookupFilter::Ordinary);
 		packs.push_back(DefinitionPack(found.binding));
+		if (function_pack != nullptr && found.binding->kind == BindingKind::Parameter)
+			*function_pack = true;
 	}
 	return types_.pack(packs.data(), static_cast<uint32_t>(packs.size()));
 }

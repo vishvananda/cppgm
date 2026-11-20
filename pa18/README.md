@@ -197,6 +197,9 @@ the implemented surface, including:
   the immediate substitution context discards the candidate. See N4140
   `[temp.arg.template]` and `[temp.deduct]`.
 - `enable_if`, `void_t`, and detected-idiom style SFINAE behavior
+- when an expansion in a trailing return type names a function parameter
+  pack, substitute the parameter at the same position as the selected
+  template arguments. See N4140 `[temp.variadic]` and `[temp.deduct]`.
 - conversion function template deduction
 - conversion template ABI names retain the declared target pattern, including
   explicit specializations and cv/reference target arguments

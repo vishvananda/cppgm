@@ -1171,8 +1171,10 @@ const Type* Analyzer::dependent_expression(const syntax::Expr& operand, Scope* s
 	entity->expression = &operand;
 	entity->expression_scope = scope;
 	entity->head_depth = HeadDepth(scope);
-	entity->packs = expression_packs(operand, scope, &entity->nested_packs);
-	entity->sizeof_packs = sizeof_packs || entity->nested_packs != nullptr;
+	bool function_pack = false;
+	entity->packs = expression_packs(operand, scope, &entity->nested_packs, &function_pack);
+	entity->sizeof_packs = sizeof_packs || entity->nested_packs != nullptr || function_pack;
+	keyed_sizeof_pack_ = enclosing_sizeof || entity->sizeof_packs;
 	entity->friend_keyed = namespace_friend_class_ != nullptr;
 	entity->fixed = value && fixed && keyed && (key.words[0] & 1) == 0 && !type_dependent(&operand, scope) &&
 		(target == nullptr || !dependent_type(target));
@@ -1611,7 +1613,7 @@ const Type* Analyzer::substitute_value(const Type* type, const Substitution& giv
 		substitution.count, dependent, element_packs ? elements.data() : nullptr);
 }
 
-bool Analyzer::element_renames(const Scope* scope, uint32_t depth, const int32_t* elements, uint32_t count,
+bool Analyzer::element_renames(Scope* scope, uint32_t depth, const int32_t* elements, uint32_t count,
 	const Type* nested, std::vector<std::pair<const Identifier*, const Identifier*>>& out)
 {
 	// The names of the parameter packs of depth `depth` an operand's scope
@@ -1621,8 +1623,34 @@ bool Analyzer::element_renames(const Scope* scope, uint32_t depth, const int32_t
 	// name (which expand it whole): a pack itself, or named by the pattern
 	// of a function parameter pack's type (see expression_packs).
 	bool whole = false;
+	Scope* expression_scope = scope;
 	while (scope != nullptr && !DeclaresDepth(scope, depth))
+	{
+		if (PrototypeScope(scope) && scope->has_parameter_packs)
+		{
+			// The function parameter pack's elements have their own names
+			// in the substituted prototype. Pick the element at the same
+			// index as its type's selected template argument.
+			for (const Binding* binding = scope->bindings; binding != nullptr; binding = binding->next)
+			{
+				if (binding->kind != BindingKind::Parameter || binding->name == nullptr || binding->type == nullptr ||
+					binding->type->kind != TypeKind::Expansion)
+					continue;
+				PackList indexes;
+				unexpanded_packs(binding->type->element, depth, indexes);
+				for (uint32_t index : indexes)
+				{
+					if (index >= count || elements[index] < 0)
+						continue;
+					if (names_.unqualified(expression_scope, binding->name, LookupFilter::Ordinary).binding == binding)
+						out.emplace_back(
+							binding->name, pack_element_name(binding->name, static_cast<uint32_t>(elements[index])));
+					break;
+				}
+			}
+		}
 		scope = scope->parent;
+	}
 	for (const Binding* binding = scope != nullptr ? scope->bindings : nullptr; binding != nullptr;
 		binding = binding->next)
 	{

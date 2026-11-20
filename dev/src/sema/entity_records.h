@@ -534,9 +534,9 @@ struct TemplateParameterEntity : Entity
 	// member function's trailing return type, 5.1.1p3; null elsewhere).
 	uint32_t ordinal;
 	// sizeof_packs: a placeholder whose operand (or a placeholder in it)
-	// applies sizeof... to a parameter pack, nests an expansion of one, or
-	// is not covered by its key: substituted for one element of an
-	// expansion, it needs the whole pack too (see
+	// applies sizeof... to a pack, nests an expansion, names a function
+	// parameter pack, or is not covered by its key: substitution of one
+	// element of an expansion also needs the whole pack (see
 	// Analyzer::substitute_value); friend_keyed: made for a friend
 	// declaration in a class keyed in its namespace (see
 	// Analyzer::namespace_friend_class_), whose scope gives no access;

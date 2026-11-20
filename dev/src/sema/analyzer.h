@@ -906,8 +906,8 @@ private:
 	const Type* substituted_value(const TemplateParameterEntity* keyed, const TemplateParameterEntity* placeholder,
 		const struct PendingSubstitution* earlier, uint32_t depth, const Type* const* canonical, uint32_t count,
 		bool dependent, const int32_t* elements = nullptr);
-	bool element_renames(const Scope* scope, uint32_t depth, const int32_t* elements, uint32_t count,
-		const Type* nested, std::vector<std::pair<const Identifier*, const Identifier*>>& out);
+	bool element_renames(Scope* scope, uint32_t depth, const int32_t* elements, uint32_t count, const Type* nested,
+		std::vector<std::pair<const Identifier*, const Identifier*>>& out);
 	Scope* selected_scope(Scope* scope, const TemplateParameterEntity* operand, uint32_t depth,
 		const Type* const* selected, uint32_t count, const Type* whole,
 		std::vector<std::pair<const Identifier*, const Identifier*>>& renames);
@@ -1014,8 +1014,10 @@ private:
 	void unexpanded_packs(
 		const Type* type, uint32_t depth, PackList& out, TypeList* bound = nullptr, bool placeholders = true);
 	static int32_t BoundLength(const TypeList& bound);
-	const Type* expression_packs(const syntax::Expr& expr, Scope* scope, const Type** nested = nullptr);
-	const Type* canonical_packs(const std::vector<const Identifier*>& names, Scope* scope);
+	const Type* expression_packs(
+		const syntax::Expr& expr, Scope* scope, const Type** nested = nullptr, bool* function_pack = nullptr);
+	const Type* canonical_packs(
+		const std::vector<const Identifier*>& names, Scope* scope, bool* function_pack = nullptr);
 	void substitute_list(const Type* const* types, uint32_t count, const Substitution& substitution, TypeList& out);
 	const Type* const* effective_arguments(const Substitution& substitution, TypeList& scratch);
 	void flattened_arguments(const Type* const* arguments, uint32_t count, TypeList& out);
