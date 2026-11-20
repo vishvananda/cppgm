@@ -286,7 +286,7 @@ void SlotPromotion::exclude_handler_state(std::vector<uint8_t>& ok)
 	// Handler code: blocks no ordinary path from the entry reaches.
 	std::vector<uint8_t> loaded(slots, 0);
 	std::vector<uint8_t> normal_loads;
-	if (!fallback && c_.level >= 3 && target_model::is_aarch64(c_.program.target))
+	if (!fallback && c_.level >= 3 && !target_model::is_wasm(c_.program.target))
 		normal_loads.assign(slots, 0);
 	for (BlockId b : body_.layout)
 		for (InstId i = body_.blocks[b].first; i != kNoId; i = body_.instructions[i].next)

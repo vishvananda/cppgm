@@ -1,0 +1,519 @@
+declare global @__external_rtti__unsigned_int [role=rtti_data, binding=strong, object=_ZTIj]
+declare global @__external_rtti_vtable____fundamental_type_info [role=rtti_data, binding=strong, object=_ZTVN10__cxxabiv123__fundamental_type_infoE]
+
+declare function @__cppgm_builtin_memset(%arg0 : ptr, %arg1 : i32, %arg2 : i64) -> ptr [unwind=no, binding=strong, object=cppgm_builtin_memset]
+declare function @__external_runtime____cxa_allocate_exception(%arg0 : i64) -> ptr [role=eh_allocate_exception, linkage=c, binding=strong, object=__cxa_allocate_exception]
+declare function @__external_runtime____cxa_throw(%arg0 : ptr, %arg1 : ptr, %arg2 : ptr) -> void [return=noreturn, role=eh_throw, linkage=c, binding=strong, object=__cxa_throw]
+declare function @__external_runtime____cxa_begin_catch(%arg0 : ptr) -> ptr [role=eh_begin_catch, linkage=c, binding=strong, object=__cxa_begin_catch]
+declare function @__external_runtime____cxa_end_catch() -> void [role=eh_end_catch, linkage=c, binding=strong, object=__cxa_end_catch]
+declare function @operatornew__(%arg0 : i64) -> ptr [role=allocate_memory, binding=strong, object=cppgm_builtin_operator_new_array]
+declare function @operatordelete__(%arg0 : ptr) -> void [unwind=no, role=free_memory, binding=strong, object=cppgm_builtin_operator_delete_array]
+
+global @__typeinfo_name__unsigned_int [storage=readonly, binding=weak, object=_ZTSj] = {
+  i8 106
+  i8 0
+}
+global @__rtti_unsigned_int [storage=readonly, binding=internal] = {
+  ptr addr @__external_rtti_vtable____fundamental_type_info + 16
+  ptr addr @__typeinfo_name__unsigned_int
+}
+global @__ehobj_unsigned_int [binding=internal] = {
+  zero 4
+}
+global @__constexpr_template__1 [storage=readonly, binding=internal] = {
+  i8 62
+  i8 62
+  i8 62
+  i8 62
+  i8 62
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+  i8 0
+}
+global @__strlit__1 [storage=readonly, binding=internal] = {
+  i8 43
+  i8 43
+  i8 46
+  i8 62
+  i8 43
+  i8 43
+  i8 43
+  i8 46
+  i8 62
+  i8 46
+  i8 43
+  i8 46
+  i8 62
+  i8 62
+  i8 62
+  i8 62
+  i8 43
+  i8 46
+  i8 0
+}
+
+function @grow(%cells : ptr, %size : u32) -> ptr [binding=strong, object=_Z4growPhj, no_inline=yes] {
+  block ^entry:
+    %t1 = binary mul u32 %size, 2
+    %t2 = convert zext i64 u32 %t1
+    %t3 = call ptr @operatornew__(%t2)
+    %t4 = call ptr @__cppgm_builtin_memset(%t3, 0, %t2)
+    branch %size, ^loop_preheader_1, ^for_end_8
+
+  block ^loop_preheader_1:
+    %t5 = cmp uge u32 %size, 16
+    branch %t5, ^loop_preheader_2, ^loop_preheader_6
+
+  block ^loop_preheader_2:
+    %t6 = convert zext i64 u32 %size
+    %t7 = index i8 %cells, %t6
+    %t8 = index i8 %t3, %t6
+    %t9 = cmp ule ptr %t7, %t3
+    %t10 = cmp ule ptr %t8, %cells
+    %t11 = binary or i64 %t9, %t10
+    branch %t11, ^loop_preheader_3, ^loop_preheader_6
+
+  block ^loop_preheader_3:
+    %t12 = binary add u32 %size, 4294967280
+    jump ^wide_loop_4
+
+  block ^wide_loop_4:
+    %t13 = phi u32 [^loop_preheader_3: 0, ^wide_loop_4: %t17]
+    %t14 = index inbounds u8 [projection=array_element] %cells, %t13
+    %t15 = load v128 %t14
+    %t16 = index inbounds u8 [projection=array_element] %t3, %t13
+    store v128 %t15, %t16
+    %t17 = binary add u32 %t13, 16
+    %t18 = cmp ule u32 %t17, %t12
+    branch %t18, ^wide_loop_4, ^loop_exit_5
+
+  block ^loop_exit_5:
+    %t19 = cmp ult u32 %t17, %size
+    branch %t19, ^loop_preheader_6, ^for_end_8
+
+  block ^loop_preheader_6:
+    %t20 = phi u32 [^loop_preheader_1: 0, ^loop_preheader_2: 0, ^loop_exit_5: %t17]
+    jump ^for_body_7
+
+  block ^for_body_7:
+    %t21 = phi u32 [^for_body_7: %t25, ^loop_preheader_6: %t20]
+    %t22 = index inbounds u8 [projection=array_element] %cells, %t21
+    %t23 = load u8 %t22
+    %t24 = index inbounds u8 [projection=array_element] %t3, %t21
+    store u8 %t23, %t24
+    %t25 = binary add u32 %t21, 1
+    %t26 = cmp ult u32 %t25, %size
+    branch %t26, ^for_body_7, ^for_end_8
+
+  block ^for_end_8:
+    call void @operatordelete__(%cells)
+    return ptr %t3
+}
+function @note(%v : u32) -> void [binding=strong, object=_Z4notej, no_inline=yes] {
+  block ^entry:
+    %t1 = cmp ugt u32 %v, 200
+    branch %t1, ^if_then_1, ^if_end_2
+
+  block ^if_then_1:
+    %t2 = call ptr @__external_runtime____cxa_allocate_exception(4)
+    store typed u32 %v, %t2
+    %t3 = addr @__external_rtti__unsigned_int
+    call void @__external_runtime____cxa_throw(%t2, %t3, 0)
+    unreachable
+
+  block ^if_end_2:
+    return void
+}
+function @run(%code : ptr, %n : u32) -> u32 [binding=strong, object=_Z3runPKcj, no_inline=yes] {
+  slot $field__1 : ptr
+
+  block ^entry:
+    %t1 = call ptr @operatornew__(4)
+    zeroinit 4x1 %t1
+    store typed ptr %t1, $field__1
+    branch %n, ^for_body_1, ^for_end_8
+
+  block ^for_body_1:
+    %t2 = phi u32 [^switch_end_7: %t28, ^entry: 0]
+    %t3 = phi ptr [^switch_end_7: %t27, ^entry: %t1]
+    %t4 = phi u32 [^switch_end_7: %t26, ^entry: 4]
+    %t5 = phi u32 [^switch_end_7: %t25, ^entry: 0]
+    %t6 = phi u32 [^switch_end_7: %t24, ^entry: 0]
+    %t7 = index inbounds i8 [projection=array_element] %code, %t2
+    %t8 = load i8 %t7
+    switch %t8, ^switch_end_7, 43:^switch_case_2, 62:^switch_case_3, 46:^switch_case_6
+
+  block ^switch_case_2:
+    %t9 = index inbounds u8 [projection=array_element] %t3, %t5
+    %t10 = load u8 %t9
+    %t11 = binary add u8 %t10, 1
+    store u8 %t11, %t9
+    jump ^switch_end_7
+
+  block ^switch_case_3:
+    %t12 = binary add u32 %t5, 1
+    %t13 = cmp eq u32 %t12, %t4
+    branch %t13, ^if_then_4, ^switch_end_7
+
+  block ^if_then_4:
+    eh_try ^cleanup_action_5
+    %t14 = call ptr @grow(%t3, %t4)
+    store typed ptr %t14, $field__1
+    eh_end
+    %t15 = binary mul u32 %t4, 2
+    jump ^switch_end_7
+
+  block ^cleanup_action_5:
+    %t16 = load typed ptr $field__1
+    call void @operatordelete__(%t16)
+    resume
+
+  block ^switch_case_6:
+    eh_try ^cleanup_action_5
+    %t17 = index inbounds u8 [projection=array_element] %t3, %t5
+    %t18 = load u8 %t17
+    %t19 = convert zext u32 u8 %t18
+    call void @note(%t19)
+    eh_end
+    %t20 = binary mul u32 %t6, 3
+    %t21 = load u8 %t17
+    %t22 = convert zext u32 u8 %t21
+    %t23 = binary add u32 %t20, %t22
+    jump ^switch_end_7
+
+  block ^switch_end_7:
+    %t24 = phi u32 [^for_body_1: %t6, ^switch_case_2: %t6, ^switch_case_3: %t6, ^switch_case_6: %t23, ^if_then_4: %t6]
+    %t25 = phi u32 [^for_body_1: %t5, ^switch_case_2: %t5, ^switch_case_3: %t12, ^switch_case_6: %t5, ^if_then_4: %t12]
+    %t26 = phi u32 [^for_body_1: %t4, ^switch_case_2: %t4, ^switch_case_3: %t4, ^switch_case_6: %t4, ^if_then_4: %t15]
+    %t27 = phi ptr [^for_body_1: %t3, ^switch_case_2: %t3, ^switch_case_3: %t3, ^switch_case_6: %t3, ^if_then_4: %t14]
+    %t28 = binary add u32 %t2, 1
+    %t29 = cmp ult u32 %t28, %n
+    branch %t29, ^for_body_1, ^for_end_8
+
+  block ^for_end_8:
+    %t30 = phi ptr [^entry: %t1, ^switch_end_7: %t27]
+    %t31 = phi u32 [^entry: 0, ^switch_end_7: %t24]
+    call void @operatordelete__(%t30)
+    return u32 %t31
+}
+function @main() -> i32 [role=entry, binding=strong, keep_alias=yes] {
+  slot $code : obj<220x1>
+
+  block ^entry:
+    %t1 = addr $code
+    copyobj 220x1 @__constexpr_template__1, %t1
+    %t2 = vector fromi32 11051
+    %t3 = vector pshuflw %t2, 0
+    %t4 = vector pshufd %t3, 0
+    jump ^unrolled_1
+
+  block ^unrolled_1:
+    %t5 = phi i64 [^entry: 5, ^unrolled_1: %t14]
+    %t6 = index inbounds i8 [projection=array_element] %t1, %t5
+    store v128 %t4, %t6
+    %t7 = index inbounds i8 [projection=array_element] %t6, 16
+    store v128 %t4, %t7
+    %t8 = index inbounds i8 [projection=array_element] %t6, 32
+    store v128 %t4, %t8
+    %t9 = index inbounds i8 [projection=array_element] %t6, 48
+    store v128 %t4, %t9
+    %t10 = index inbounds i8 [projection=array_element] %t6, 64
+    store v128 %t4, %t10
+    %t11 = index inbounds i8 [projection=array_element] %t6, 80
+    store v128 %t4, %t11
+    %t12 = index inbounds i8 [projection=array_element] %t6, 96
+    store v128 %t4, %t12
+    %t13 = index inbounds i8 [projection=array_element] %t6, 112
+    store v128 %t4, %t13
+    %t14 = binary add nowrap i64 %t5, 128
+    %t15 = convert trunc exact u32 i64 %t14
+    %t16 = cmp ne u32 %t15, 133
+    branch %t16, ^unrolled_1, ^wide_tail_2
+
+  block ^wide_tail_2:
+    jump ^wide_loop_3
+
+  block ^wide_loop_3:
+    %t17 = phi i64 [^wide_tail_2: 133, ^wide_loop_3: %t19]
+    %t18 = index inbounds i8 [projection=array_element] %t1, %t17
+    store v128 %t4, %t18
+    %t19 = binary add nowrap i64 %t17, 16
+    %t20 = convert trunc exact u32 i64 %t19
+    %t21 = cmp ult u32 %t20, 190
+    branch %t21, ^wide_loop_3, ^loop_preheader_4
+
+  block ^loop_preheader_4:
+    %t22 = convert zext i64 u32 %t20
+    jump ^for_body_5
+
+  block ^for_body_5:
+    %t23 = phi i64 [^for_body_5: %t25, ^loop_preheader_4: %t22]
+    %t24 = index inbounds i8 [projection=array_element] %t1, %t23
+    store i8 43, %t24
+    %t25 = binary add nowrap i64 %t23, 1
+    %t26 = convert trunc exact u32 i64 %t25
+    %t27 = cmp ult u32 %t26, 206
+    branch %t27, ^for_body_5, ^for_end_6
+
+  block ^for_end_6:
+    %t28 = index inbounds i8 [projection=array_element] %t1, 206
+    store i8 46, %t28
+    eh_try ^catch_dispatch_7
+    %t29 = call u32 @run(%t1, 207)
+    eh_end
+    return i32 1
+
+  block ^catch_dispatch_7:
+    eh_catch @__external_rtti__unsigned_int, 1
+    %t30 = exception ptr
+    %t31 = exception_selector i32
+    %t32 = cmp eq i32 %t31, 1
+    branch %t32, ^catch_body_8, ^catch_next_12
+
+  block ^catch_body_8:
+    %t33 = call ptr @__external_runtime____cxa_begin_catch(%t30)
+    eh_cleanup ^catch_cleanup_11
+    %t34 = load typed u32 %t33
+    %t35 = cmp ne u32 %t34, 201
+    branch %t35, ^if_then_9, ^if_end_10
+
+  block ^if_then_9:
+    eh_end
+    call void @__external_runtime____cxa_end_catch()
+    return i32 2
+
+  block ^if_end_10:
+    eh_end
+    call void @__external_runtime____cxa_end_catch()
+    %t36 = addr @__strlit__1
+    %t37 = call u32 @run(%t36, 18)
+    %t38 = cmp eq u32 %t37, 247
+    branch %t38, ^cond_end_14, ^cond_else_13
+
+  block ^catch_cleanup_11:
+    call void @__external_runtime____cxa_end_catch()
+    eh_end
+    resume
+
+  block ^catch_next_12:
+    resume
+
+  block ^cond_else_13:
+    jump ^cond_end_14
+
+  block ^cond_end_14:
+    %t39 = phi i32 [^cond_else_13: 3, ^if_end_10: 0]
+    return i32 %t39
+}
