@@ -866,6 +866,12 @@ void AbiEncoder::encode_expression(AbiNode expression)
 	case ABI_NODE_EXPRESSION_LIST:
 		put(static_cast<char>(data.code >> 8));
 		put(static_cast<char>(data.code & 0xff));
+		if (data.code == abi_pack_operation_code('d', 'i'))
+		{
+			put_source_name(data.a);
+			encode_expression(items[0]);
+			return;
+		}
 		if (data.a != ABI_NONE)
 			encode_type(data.a);
 		if (data.code == abi_pack_operation_code('c', 'v'))
@@ -1065,6 +1071,10 @@ void AbiEncoder::encode_special(const AbiTarget& target)
 		// 5.1.4: _ZGV <object name>, a local static's <local-name> included.
 		put("_ZGV");
 		encode_name(target.node, 0);
+		return;
+	case ABI_TARGET_TEMPLATE_PARAMETER_OBJECT:
+		put("_ZTA");
+		encode_template_arg(target.node);
 		return;
 	case ABI_TARGET_THUNK:
 		put("_ZT");

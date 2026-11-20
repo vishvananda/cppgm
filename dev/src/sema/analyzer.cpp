@@ -282,6 +282,8 @@ template NamespaceAliasEntity* Analyzer::new_entity<NamespaceAliasEntity>(
 template ClassEntity* Analyzer::new_entity<ClassEntity>(EntityKind, const Identifier*, Scope*, const Type*);
 template EnumEntity* Analyzer::new_entity<EnumEntity>(EntityKind, const Identifier*, Scope*, const Type*);
 template VariableEntity* Analyzer::new_entity<VariableEntity>(EntityKind, const Identifier*, Scope*, const Type*);
+template TemplateParameterObject* Analyzer::new_entity<TemplateParameterObject>(
+	EntityKind, const Identifier*, Scope*, const Type*);
 template PredefinedNameEntity* Analyzer::new_entity<PredefinedNameEntity>(
 	EntityKind, const Identifier*, Scope*, const Type*);
 template BindingEntity* Analyzer::new_entity<BindingEntity>(EntityKind, const Identifier*, Scope*, const Type*);
@@ -1150,7 +1152,7 @@ const Type* Analyzer::non_type_parameter_type(const syntax::TemplateParameter& p
 	// earlier parameter; top-level cv-qualifiers are ignored, and an array
 	// or function type is adjusted to a pointer (14.1p8).
 	Specifiers specifiers;
-	this->specifiers(parameter.specifiers, scope, specifiers, false);
+	this->specifiers(parameter.specifiers, scope, specifiers, false, cxx20_);
 	if (specifiers.type == nullptr)
 		error(parameter.location, "non-type template parameter without a type");
 	// A pack's `...` in the declarator declares the pack, not an expansion.
@@ -1175,7 +1177,10 @@ const Type* Analyzer::non_type_parameter_type(const syntax::TemplateParameter& p
 	if ((cxx17_ && holds_auto(type)) || dependent_type(type))
 		return type;
 	if (!IsIntegralType(type) && type->kind != TypeKind::Enum && !AddressParameterType(type))
-		error(parameter.location, "a non-type template parameter of a type 14.1p4 does not allow");
+	{
+		if (!cxx20_ || (specifiers.deduction == nullptr && !structural_class_type(type)))
+			error(parameter.location, "a non-type template parameter of a type 14.1p4 does not allow");
+	}
 	return type;
 }
 

@@ -263,6 +263,22 @@ and heterogeneous packs. The resulting argument must still be a permitted
 C++17 template argument. An evaluated pointer to a named object or function
 keeps that identity, including an array's address after array-to-pointer
 conversion. See N4659 `[temp.arg.nontype]`.
+In C++20, a literal class with public, non-mutable structural members and
+public structural bases can be the type of a non-type parameter. A class
+template name in the parameter declaration deduces the class type first.
+Evaluate the argument with the ordinary constant initialization rules.
+Compare bases, array elements and members recursively when identifying
+specializations, including the active member of a union. A user-defined
+equality operator has no role in template argument equivalence.
+
+A class-valued parameter names a const lvalue. Equivalent values of the
+same class type name the same parameter object, including from different
+templates. The unparenthesized `decltype` gives the parameter's type.
+When the program uses the object's address, emit a linkable definition
+using the target's template parameter object ABI. See N4861 `[temp.param]`,
+`[temp.arg.nontype]`, `[temp.type]` and
+[P1907R1](../doc/cwg/paper-p1907r1.txt).
+
 Trailing-return function-pointer parameter types
 are distinct from a placeholder whose argument type is deduced.
 Pack-expanded using declarations import the corresponding names; diagnose a

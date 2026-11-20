@@ -1252,6 +1252,8 @@ private:
 	std::string function_object(const sema::FunctionEntity* function, EntryVariant variant);
 	std::string variable_object(const sema::VariableEntity* variable);
 	abi_mangle::AbiNode variable_name(const sema::VariableEntity* variable);
+	abi_mangle::AbiNode aggregate_argument_expression(const sema::Type* value);
+	abi_mangle::AbiNode aggregate_address_expression(const sema::Type* value);
 	abi_mangle::AbiNode variable_source_name(const sema::VariableEntity* variable);
 	// A function-local static object's <local-name> (5.1.7).
 	abi_mangle::AbiNode local_static_name(const sema::VariableEntity* variable);

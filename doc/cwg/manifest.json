@@ -2259,6 +2259,19 @@
       }
     },
     {
+      "file": "paper-p1907r1.txt",
+      "source_url": "https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2019/p1907r1.html",
+      "source_html_sha256": "9944af685671972c91662413383289ffab9d189052d116c72abe6971dc4c4bec",
+      "text_sha256": "398cd1c644ec805e68f77109885981ff0e3085cc5d9839b9bd658802a1d72f75",
+      "text_renderer": {
+        "path": "scripts/cwg_html_text.py",
+        "sha256": "9f54db3aee8c6beec374ecea9a96ae5172f584cfcaf793c2d41dbf775afc43aa",
+        "historical_edits": "del/ins, s/u, marked blocks and source-defined stddel/stdins retained, not applied"
+      },
+      "retrieved": "2026-11-20",
+      "paper": "P1907R1"
+    },
+    {
       "file": "paper-p2280r4.txt",
       "source_url": "https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p2280r4.html",
       "source_html_sha256": "4fc00f4d66e6293f30af7ce878231e5fde02fb3f7b60f7f0e597948a1100a45b",

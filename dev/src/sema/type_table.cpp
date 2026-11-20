@@ -394,6 +394,17 @@ const Type* TypeTable::value(const Type* type, uint64_t bits)
 	return intern(key);
 }
 
+const Type* TypeTable::aggregate_value(
+	const Type* type, const Type* const* elements, uint32_t count, uint32_t active_member)
+{
+	Type key = Key(TypeKind::Value);
+	key.element = type;
+	key.bound = active_member;
+	key.params = count != 0 ? elements : nullptr;
+	key.param_count = count;
+	return intern(key);
+}
+
 const Type* TypeTable::address(const Type* type, Entity* entity)
 {
 	Type key = Key(TypeKind::Value);

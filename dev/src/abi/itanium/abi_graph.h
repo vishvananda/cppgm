@@ -276,6 +276,7 @@ public:
 	// template argument that is a null pointer is its type's literal 0
 	// (LPi0E, LDn0E: literal()).
 	AbiNode nullptr_literal();
+	AbiNode type_literal(AbiNode type);
 	// <template-param-decl> (the current ABI's 5.1.5.10, cxx-abi issue 47):
 	// a type parameter's Ty, a non-type parameter's Tn <type> (`type` its
 	// declared type in its template's own terms), a template parameter's

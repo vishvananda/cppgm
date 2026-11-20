@@ -185,4 +185,14 @@ struct Constant
 	const Type* type;
 };
 
+inline bool ClassTemplateValue(const Type* type)
+{
+	return type->kind == TypeKind::Value && type->element->kind == TypeKind::Class;
+}
+
+inline bool DeducedClassParameter(const Type* type)
+{
+	return type->kind == TypeKind::Template && type->entity != nullptr;
+}
+
 } // namespace sema

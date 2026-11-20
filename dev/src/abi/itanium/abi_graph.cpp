@@ -804,8 +804,13 @@ AbiNode AbiGraph::literal(AbiNode type, long long value, bool unsigned_value)
 
 AbiNode AbiGraph::nullptr_literal()
 {
+	return type_literal(builtin(ABI_BUILTIN_TYPE_NULLPTR));
+}
+
+AbiNode AbiGraph::type_literal(AbiNode type)
+{
 	AbiNodeData data = make_data(ABI_NODE_LITERAL);
-	data.a = builtin(ABI_BUILTIN_TYPE_NULLPTR);
+	data.a = type;
 	data.flags = ABI_FLAG_NO_VALUE;
 	return intern(data, nullptr, 0);
 }

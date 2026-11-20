@@ -1159,9 +1159,14 @@ const Type* Analyzer::decltype_result(const syntax::Expr& operand, const ExprFac
 	// value category, without repeating lookup or typing its initializer.
 	if ((operand.kind == syntax::ExprKind::Id || operand.kind == syntax::ExprKind::Member) && facts.entity != nullptr)
 	{
-		if (facts.entity->kind == EntityKind::Variable &&
-			static_cast<const VariableEntity*>(facts.entity)->structured_binding)
-			return static_cast<const BindingEntity*>(facts.entity)->referenced;
+		if (facts.entity->kind == EntityKind::Variable)
+		{
+			const VariableEntity* variable = static_cast<const VariableEntity*>(facts.entity);
+			if (variable->structured_binding)
+				return static_cast<const BindingEntity*>(variable)->referenced;
+			if (variable->template_parameter_object)
+				return variable->type->unqualified;
+		}
 		return facts.entity->type;
 	}
 	if (facts.category == ValueCategory::LValue)
@@ -1226,6 +1231,8 @@ const Type* Analyzer::decltype_type(const syntax::Expr& operand, Scope* scope)
 		{
 		case BindingKind::Variable:
 			type = binding->entity->type;
+			if (!parenthesized && static_cast<const VariableEntity*>(binding->entity)->template_parameter_object)
+				return type->unqualified;
 			if (parenthesized && static_cast<const VariableEntity*>(binding->entity)->member &&
 				implicit_object(static_cast<const ClassEntity*>(binding->entity->owner->entity)))
 			{

@@ -25,6 +25,8 @@ bool SameValue(const Type* first, const Type* second)
 		return true;
 	if (first->kind != TypeKind::Value || second->kind != TypeKind::Value)
 		return false;
+	if (ClassTemplateValue(first) || ClassTemplateValue(second))
+		return false;
 	// Pointer and reference arguments: one designated entity (or
 	// both null pointers).
 	if (AddressArgument(first) || AddressArgument(second))
@@ -1323,7 +1325,7 @@ bool Analyzer::deduced_values_typed(const FunctionEntity* primary, const TypeLis
 		const TemplateParameterEntity* parameter = head->parameters[i];
 		const Type* declared = parameter->value_type;
 		if (arguments[i] == nullptr || !parameter->non_type || declared == nullptr || holds_auto(declared) ||
-			dependent_type(declared))
+			dependent_type(declared) || DeducedClassParameter(declared))
 			continue;
 		const bool pack = arguments[i]->kind == TypeKind::Pack;
 		const uint32_t count = pack ? arguments[i]->param_count : 1;

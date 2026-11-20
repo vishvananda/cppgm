@@ -822,6 +822,13 @@ private:
 		const Type* target = nullptr, bool unknown = false);
 	const Type* template_value(
 		const syntax::Expr& expr, Scope* scope, const Type* target = nullptr, bool unknown = false);
+	bool structural_class_type(const Type* type);
+	const Type* class_template_argument(const syntax::Expr& expr, Scope* scope, const Type* target);
+	const Type* structural_value(const ConstValue& value);
+	const Type* structural_address(const ConstValue& value);
+	const syntax::Expr* template_argument_object_use(const Type* argument, uint32_t location);
+	Binding* parameter_object_binding(
+		const TemplateParameterEntity* parameter, const Type* argument, Scope* frame, const Identifier* name);
 	const Type* argument_target(const TemplateHead* head, uint32_t index, const Type* const* earlier);
 	static bool NamesLinkedObject(const syntax::Expr& expr);
 	static bool value_argument(const Type* argument);
@@ -2624,6 +2631,8 @@ private:
 	// constructor_candidates, taken by that resolution.
 	bool converting_only_ = false;
 	std::vector<const VariableEntity*> demanded_variables_;
+	PointerMap parameter_object_index_;
+	std::vector<VariableEntity*> parameter_objects_;
 	std::vector<const FunctionEntity*> explicit_instantiations_;
 	std::vector<const ClassEntity*> explicit_class_instantiations_;
 	// The functions explicit instantiation definitions name, with their

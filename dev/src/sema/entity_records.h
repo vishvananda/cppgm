@@ -426,6 +426,8 @@ struct VariableEntity : Entity
 	bool structured_binding : 1;
 	// C++14's variable introduced by an initialized lambda capture.
 	bool init_capture : 1;
+	// C++20's canonical const object denoted by a class-valued parameter.
+	bool template_parameter_object : 1;
 	// The alignment a member's alignment-specifiers request (7.6.2).
 	uint32_t alignment_request;
 	Constant value;
@@ -444,6 +446,11 @@ struct VariableEntity : Entity
 	// A static data member of a templated class or of an instance (null
 	// otherwise; sema/template_records.h).
 	VariableTemplateFacts* templ;
+};
+
+struct TemplateParameterObject : VariableEntity
+{
+	const Type* argument;
 };
 
 // A function's predefined name variable (VariableEntity::predefined_name):

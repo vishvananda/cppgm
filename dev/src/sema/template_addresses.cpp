@@ -74,6 +74,28 @@ bool AddressArgument(const Type* argument)
 	return argument->kind == TypeKind::Value && AddressParameterType(argument->element);
 }
 
+const Type* Analyzer::structural_address(const ConstValue& value)
+{
+	const Type* type = value.type->unqualified->canonical;
+	if (value.kind == ValueKind::MemberPointer)
+	{
+		if (value.address.offset != 0)
+			return nullptr;
+		Entity* member = const_cast<Entity*>(static_cast<const Entity*>(value.address.entity));
+		return types_.address(type, member);
+	}
+	if (value.root == RootKind::Null)
+		return types_.address(type, nullptr);
+	// Otherwise the published constant must designate actual storage or
+	// a function. Temporary, typeid and string objects cannot escape in
+	// a structural argument's pointer or reference (C++20 [temp.arg.nontype]).
+	const Entity* entity = NamedAddressConstant(value);
+	if (entity == nullptr)
+		return nullptr;
+	note_argument_demand(entity);
+	return types_.address(type, const_cast<Entity*>(entity));
+}
+
 bool Analyzer::NamesLinkedObject(const syntax::Expr& expr)
 {
 	// An id-expression (parenthesized or not) naming an object of integral

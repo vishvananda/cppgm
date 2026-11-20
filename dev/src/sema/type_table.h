@@ -63,6 +63,7 @@ public:
 	// unqualified integral or enumeration type), an argument pack of
 	// `count` elements, and a pack expansion of `pattern`.
 	const Type* value(const Type* type, uint64_t bits);
+	const Type* aggregate_value(const Type* type, const Type* const* elements, uint32_t count, uint32_t active_member);
 	// A pointer or reference argument (14.3.2): of `type` (a pointer,
 	// std::nullptr_t or lvalue reference type), designating `entity` (a
 	// variable or function; null for a null pointer).

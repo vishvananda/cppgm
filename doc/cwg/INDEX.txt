@@ -330,6 +330,9 @@ CWG 2820 | CD7 | cwg-2820.txt
 CWG 2879 | CD7 | cwg-2879.txt
   Undesired outcomes with const_cast
 
+P1907R1 | paper-p1907r1.txt
+  C++20 structural non-type template parameter types, parameter objects
+  and template argument equivalence.
 P2280R4 | paper-p2280r4.txt
   Using unknown pointers and references in constant expressions.
 N4918 | paper-n4918.txt

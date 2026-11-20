@@ -37,6 +37,7 @@ extension follows the source-location rules in [PA30](pa30/README.md).
 | Relaxed constexpr bodies | C++14 rules, existing C++11 extension | PA16 |
 | Variable templates | C++14, extension in GNU C++11 | PA17 |
 | Template-template `typename`, placeholder non-type parameters, class deduction/guides | C++17 | PA17 declarations, PA18 deduction; multiple-base/member-pointer combinations PA22 |
+| Class-valued non-type parameters, deduced class parameters and parameter objects | C++20 | PA18 template arguments and deduction; PA16 constant initialization; PA9 Itanium naming |
 | Using-declarator lists and pack expansion | C++17 | PA5 syntax, PA6 lookup, PA17 pack expansion |
 | Selection initializer statements | C++17 | PA10 |
 | `if constexpr` | C++17 | PA19, after substitution and constant evaluation |

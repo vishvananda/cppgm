@@ -412,6 +412,8 @@ Locality ProgramLowering::type_locality(const sema::Type* type, bool nested)
 		case sema::TypeKind::Pack:
 			break;
 		case sema::TypeKind::Value:
+			if (type->element->kind == sema::TypeKind::Class || type->element->kind == sema::TypeKind::Array)
+				break;
 			// A pointer or reference argument designating an object or
 			// function of internal linkage (or of a class its unit alone
 			// names) is its unit's own: each unit's specialization is
@@ -438,7 +440,7 @@ Locality ProgramLowering::type_locality(const sema::Type* type, bool nested)
 	Locality locality = pack ? Locality::External : type_locality(type->element, true);
 	if (type->kind == sema::TypeKind::MemberPointer)
 		locality = Narrower(locality, type_locality(type->owner, true));
-	for (uint32_t i = 0; (pack || type->kind == sema::TypeKind::Function) && i < type->param_count; ++i)
+	for (uint32_t i = 0; i < type->param_count; ++i)
 		locality = Narrower(locality, type_locality(type->params[i], true));
 	if (nested)
 		localities_.set(type, static_cast<uint32_t>(locality));
@@ -702,6 +704,9 @@ bool ProgramLowering::private_entity_name(const sema::Entity* entity)
 
 bool ProgramLowering::unit_local(const sema::VariableEntity* variable)
 {
+	if (variable->template_parameter_object)
+		return type_locality(static_cast<const sema::TemplateParameterObject*>(variable)->argument) !=
+			Locality::External;
 	// As for functions: a variable of internal linkage, a member of a class
 	// of internal or no linkage, or one whose type no other unit can name.
 	const sema::Scope* owner = variable->owner;
@@ -1259,7 +1264,9 @@ lowir::SymbolId ProgramLowering::variable_symbol(const sema::VariableEntity* var
 	qualified_spelling(LinkageScope(variable->owner), spelling);
 	lowir::SymbolId symbol = lowir::kNoId;
 	const sema::Decomposition* decomposition = variable->name == nullptr ? graph_->decomposition(variable) : nullptr;
-	if (variable->name == nullptr && decomposition == nullptr)
+	if (variable->template_parameter_object)
+		spelling += "__template_parameter_object";
+	else if (variable->name == nullptr && decomposition == nullptr)
 	{
 		// An anonymous union's unnamed object (internal, 9.5p5): Itanium
 		// 5.1.2 names it by its first named data member in a pre-order,
@@ -1293,7 +1300,7 @@ lowir::SymbolId ProgramLowering::variable_symbol(const sema::VariableEntity* var
 			spelling += decomposition->bindings[i]->name->spelling;
 		}
 	}
-	else
+	else if (!variable->template_parameter_object)
 		spelling += variable->name->spelling;
 	const std::string object = variable_object(variable);
 	if (unit_local(variable))
@@ -1323,7 +1330,12 @@ lowir::SymbolId ProgramLowering::variable_symbol(const sema::VariableEntity* var
 	// A class template instance's static data member is defined where it is
 	// used (14.7.1p1), weak like the unit's other demand-emitted entities.
 	const sema::VariableTemplateFacts* facts = variable->templ;
-	if (facts != nullptr && facts->pattern != nullptr &&
+	if (variable->template_parameter_object && program_.symbols[symbol].kind == lowir::SymbolKind::Unresolved)
+	{
+		define_global(symbol, variable, nullptr, 0);
+		++counters_.globals;
+	}
+	else if (facts != nullptr && facts->pattern != nullptr &&
 		program_.symbols[symbol].kind == lowir::SymbolKind::Unresolved &&
 		!sema::Analyzer::InstantiationSuppressed(variable) && analyzer_->instantiate_variable(variable))
 	{
@@ -1672,6 +1684,14 @@ AbiNode ProgramLowering::abi_type_node(const sema::Type* type)
 		// L6Policy2E); a pointer argument the address of its entity
 		// (XadL_Z1xEE), a reference argument the entity (L_Z1xE), a null
 		// pointer its type's zero (LPi0E).
+		if (sema::ClassTemplateValue(bare))
+		{
+			const AbiNode expression = aggregate_argument_expression(bare);
+			node = abi_graph_.kind(expression) == abi_mangle::ABI_NODE_LITERAL
+				? expression
+				: abi_graph_.expression_argument(expression);
+			break;
+		}
 		if (sema::AddressArgument(bare) && bare->entity != nullptr)
 		{
 			const AbiNode entity = bare->entity->kind == sema::EntityKind::Function
@@ -2275,6 +2295,8 @@ bool ProgramLowering::declared_type_dependent(const sema::Type* type)
 		return parameter->expression == nullptr || parameter->key == nullptr ||
 			parameter->key[0] <= sema::kPlaceholderKeyPrefix || (parameter->key[1] & 1) != 0;
 	}
+	case sema::TypeKind::Template:
+		return sema::DeducedClassParameter(bare);
 	case sema::TypeKind::Pointer:
 	case sema::TypeKind::LValueReference:
 	case sema::TypeKind::RValueReference:
@@ -2364,6 +2386,11 @@ std::string ProgramLowering::asm_object_name(const char* label) const
 
 std::string ProgramLowering::variable_object(const sema::VariableEntity* variable)
 {
+	if (variable->template_parameter_object)
+	{
+		const sema::Type* argument = static_cast<const sema::TemplateParameterObject*>(variable)->argument;
+		return special_object(abi_mangle::ABI_TARGET_TEMPLATE_PARAMETER_OBJECT, abi_type(argument));
+	}
 	if (const char* label = graph_->asm_label(variable))
 		return asm_object_name(label);
 	// 5.1.2: a variable of the global namespace is not mangled (nor is a
@@ -2396,6 +2423,70 @@ std::string ProgramLowering::variable_object(const sema::VariableEntity* variabl
 	encoder_->encode(target, out);
 	++counters_.mangled_names;
 	return out;
+}
+
+AbiNode ProgramLowering::aggregate_argument_expression(const sema::Type* value)
+{
+	const sema::Type* type = value->element;
+	if (sema::IsFloating(type))
+		return abi_graph_.floating_literal(abi_type(type), value->bound);
+	if (sema::AddressArgument(value) && value->entity != nullptr)
+		return aggregate_address_expression(value);
+	if (type->kind != sema::TypeKind::Class && type->kind != sema::TypeKind::Array)
+		return abi_literal(type, value->bound);
+	const AbiNode target = abi_type(type);
+	const sema::ClassEntity* cls = sema::ClassOf(type);
+	using abi_mangle::abi_pack_operation_code;
+	if (cls != nullptr && cls->key == TokenKind::KW_UNION)
+	{
+		if (value->bound == 0)
+			return abi_graph_.type_literal(target);
+		const sema::DataMember* member = cls->members;
+		for (; member->ordinal + 1 != value->bound; member = member->next)
+			continue;
+		const Identifier* name = member->variable->name;
+		const sema::Type* subobject = value->params[0];
+		if (member == cls->members && subobject->bound == 0 && subobject->param_count == 0 &&
+			subobject->entity == nullptr)
+			return abi_graph_.expression_list(abi_pack_operation_code('t', 'l'), target, nullptr, 0);
+		const AbiNode source_name = abi_graph_.string(name->spelling, name->length);
+		const AbiNode init = aggregate_argument_expression(subobject);
+		const AbiNode designated = abi_graph_.expression_list(abi_pack_operation_code('d', 'i'), source_name, &init, 1);
+		return abi_graph_.expression_list(abi_pack_operation_code('t', 'l'), target, &designated, 1);
+	}
+	const size_t base = abi_scratch_.size();
+	for (uint32_t i = 0; i < value->param_count; ++i)
+	{
+		const AbiNode subobject = aggregate_argument_expression(value->params[i]);
+		abi_scratch_.push_back(subobject);
+	}
+	const AbiNode node = abi_graph_.expression_list(
+		abi_pack_operation_code('t', 'l'), target, abi_scratch_.data() + base, value->param_count);
+	abi_scratch_.resize(base);
+	return node;
+}
+
+AbiNode ProgramLowering::aggregate_address_expression(const sema::Type* value)
+{
+	const sema::Entity* named = value->entity;
+	AbiNode entity;
+	if (named->kind == sema::EntityKind::Function)
+		entity = function_encoding(static_cast<const sema::FunctionEntity*>(named), EntryVariant::Complete);
+	else
+	{
+		const sema::VariableEntity* variable = static_cast<const sema::VariableEntity*>(named);
+		if (variable->template_parameter_object)
+		{
+			const std::string symbol = variable_object(variable);
+			entity = abi_graph_.external_symbol(abi_graph_.string(symbol.data(), symbol.size()));
+		}
+		else
+			entity = variable_name(variable);
+	}
+	const AbiNode reference = abi_graph_.entity_reference(entity);
+	return value->element->is_reference()
+		? reference
+		: abi_graph_.operation(abi_mangle::abi_pack_operation_code('a', 'd'), &reference, 1);
 }
 
 AbiNode ProgramLowering::variable_source_name(const sema::VariableEntity* variable)

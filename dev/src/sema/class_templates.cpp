@@ -709,6 +709,8 @@ const Type* Analyzer::template_value(const syntax::Expr& expr, Scope* scope, con
 		if (names_.value_parameter_uses() != values)
 			names_.note_dependent_use();
 		const ExprFacts* facts = expr.facts;
+		if (cxx20_ && target != nullptr && (ClassOf(target) != nullptr || DeducedClassParameter(target)))
+			return class_template_argument(expr, scope, target);
 		if (address ||
 			(target == nullptr && facts != nullptr && facts->type != nullptr && !IsIntegralType(facts->type) &&
 				facts->type->unqualified->kind != TypeKind::Enum && ClassOf(facts->type) == nullptr))
@@ -733,6 +735,8 @@ const Type* Analyzer::template_value(const syntax::Expr& expr, Scope* scope, con
 			const Type* result = conversion != nullptr ? conversion->type->canonical->element : nullptr;
 			if (result != nullptr)
 				target = result->is_reference() ? result->element->unqualified : result->unqualified;
+			else if (cxx20_ && structural_class_type(expr.facts->type))
+				return class_template_argument(expr, scope, nullptr);
 		}
 		if (target != nullptr && cls != nullptr)
 		{
@@ -1029,6 +1033,32 @@ const Type* Analyzer::converted_value(const TemplateParameterEntity* parameter, 
 			return argument;
 	}
 	target = types_.adjusted_parameter(target);
+	if (cxx20_ && (ClassTemplateValue(argument) || ClassOf(target) != nullptr || DeducedClassParameter(target)))
+	{
+		const Type* source = argument->element;
+		const ClassEntity* cls = ClassOf(source);
+		if (ClassTemplateValue(argument) &&
+			(source == target ||
+				(DeducedClassParameter(target) && cls->templ != nullptr && cls->templ->pattern == target->entity)))
+			return argument;
+		if (AddressArgument(argument) && source->is_reference() && argument->entity != nullptr &&
+			argument->entity->kind == EntityKind::Variable)
+		{
+			const Type* converted = nullptr;
+			{
+				SoftSubstitution soft(*this);
+				const syntax::Expr* use = template_argument_object_use(argument, location);
+				converted = class_template_argument(*use, argument->entity->owner, target);
+				if (soft.failed())
+					converted = nullptr;
+			}
+			if (converted != nullptr)
+				return converted;
+		}
+		if (fatal)
+			error(location, "a class-valued template argument does not match its parameter");
+		return nullptr;
+	}
 	// An object designated before its parameter was known (see
 	// template_value), for an integral or enumeration parameter: its value
 	// when it is usable in constant expressions (5.19p2-p3).
@@ -1041,14 +1071,7 @@ const Type* Analyzer::converted_value(const TemplateParameterEntity* parameter, 
 			// Preserve the designated object until each overload's parameter
 			// is known. A reference binds it; an integral parameter selects
 			// and evaluates its own converted constant expression.
-			syntax::IdExpr* use = arena_.allocate_array<syntax::IdExpr>(1);
-			*use = syntax::IdExpr();
-			use->location = location;
-			use->kind = syntax::ExprKind::Id;
-			use->name = implicit_name(argument->entity->name, location);
-			ExprFacts* facts = new_facts(*use, argument->entity->type, ValueCategory::LValue);
-			facts->entity = argument->entity;
-			facts->flags = kImplicit;
+			const syntax::Expr* use = template_argument_object_use(argument, location);
 			const Type* converted = nullptr;
 			{
 				SoftSubstitution soft(*this);
@@ -2227,6 +2250,8 @@ Binding* Analyzer::value_binding(
 		name = parameter->name;
 	if (argument != nullptr && argument->kind == TypeKind::Value)
 	{
+		if (ClassTemplateValue(argument))
+			return parameter_object_binding(parameter, argument, frame, name);
 		EnumeratorEntity* constant = new_entity<EnumeratorEntity>(
 			EntityKind::Enumerator, name, frame, argument->element);
 		constant->enumeration = nullptr;
