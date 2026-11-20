@@ -579,7 +579,11 @@ public:
 			hints_.build_regs(slots_);
 			hinted_ = true;
 		}
-		each_interval(range, segments_, [&](uint32_t a, uint32_t b) { hints_.add_regs(a, b, 1u << reg); });
+		each_interval(range, segments_, [&](uint32_t a, uint32_t b) {
+			hints_.add_regs(a, b, 1u << reg);
+			hint_from_[reg] = std::min(hint_from_[reg], a);
+			hint_to_[reg] = std::max(hint_to_[reg], b);
+		});
 	}
 	// Without a usable preference, a register in `partners` comes next;
 	// those are the registers of the range's phi partners.
@@ -599,12 +603,19 @@ public:
 		}
 		else
 		{
-			if (!initialized_)
+			// Retries for the same range reuse its interference.
+			if (&range != queried_)
 			{
-				tree_.build(std::vector<int32_t>(slots_, 0));
-				initialized_ = true;
+				if (!initialized_)
+				{
+					tree_.build(std::vector<int32_t>(slots_, 0));
+					initialized_ = true;
+				}
+				busy_ = 0;
+				each_interval(range, segments_, [&](uint32_t a, uint32_t b) { busy_ |= tree_.regs(a, b); });
+				queried_ = &range;
 			}
-			each_interval(range, segments_, [&](uint32_t a, uint32_t b) { allowed &= ~tree_.regs(a, b); });
+			allowed &= ~busy_;
 		}
 		if (!allowed)
 			return kNoId;
@@ -616,6 +627,7 @@ public:
 			until_[reg] = range.last + 1;
 		else
 			each_interval(range, segments_, [&](uint32_t a, uint32_t b) { tree_.add(a, b, 1, 1u << reg); });
+		queried_ = nullptr;
 		return reg;
 	}
 
@@ -628,12 +640,30 @@ private:
 		if (!hinted_)
 			return lowest;
 		uint32_t open = lowest < 19 ? allowed & ((1u << 19) - 1) : allowed;
-		each_interval(range, segments_, [&](uint32_t a, uint32_t b) { open &= ~(hints_.regs(a, b) & ~partners); });
+		// Only registers hinted somewhere within the range's extent can be
+		// hinted over it.
+		uint32_t from = ~0u, to = 0, near = 0;
+		each_interval(range, segments_, [&](uint32_t a, uint32_t b) {
+			from = std::min(from, a);
+			to = std::max(to, b);
+		});
+		for (uint32_t regs = open & ~partners; regs; regs &= regs - 1)
+		{
+			const unsigned reg = __builtin_ctz(regs);
+			if (hint_from_[reg] <= to && hint_to_[reg] >= from)
+				near |= 1u << reg;
+		}
+		if (near)
+			each_interval(
+				range, segments_, [&](uint32_t a, uint32_t b) { open &= ~(hints_.regs(a, b) & ~partners & near); });
 		return open ? __builtin_ctz(open) : lowest;
 	}
 
 	const Segments& segments_;
-	uint32_t slots_, until_[32] = {};
+	const LiveRange* queried_ = nullptr;
+	uint32_t slots_, until_[32] = {}, busy_ = 0, hint_to_[32] = {};
+	uint32_t hint_from_[32] = { ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u,
+		~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u };
 	machine::PressureTree tree_, hints_;
 	bool initialized_ = false, hinted_ = false;
 };
