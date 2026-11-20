@@ -284,7 +284,7 @@ bool ConversionRules::c_type_compatible(const Type* source, const Type* target, 
 	if (source == nullptr || target == nullptr)
 		return false;
 	if (ignore_cv && source->kind == TypeKind::Array && target->kind == TypeKind::Array)
-		return (source->bound == target->bound || source->bound == 0 || target->bound == 0) &&
+		return (source->bound == target->bound || !source->has_array_bound() || !target->has_array_bound()) &&
 			c_type_compatible(source->element, target->element, true);
 	if (ignore_cv)
 	{
@@ -308,7 +308,7 @@ bool ConversionRules::c_type_compatible(const Type* source, const Type* target, 
 	if (source->kind == TypeKind::Pointer)
 		return c_type_compatible(source->element, target->element);
 	if (source->kind == TypeKind::Array)
-		return (source->bound == target->bound || source->bound == 0 || target->bound == 0) &&
+		return (source->bound == target->bound || !source->has_array_bound() || !target->has_array_bound()) &&
 			c_type_compatible(source->element, target->element);
 	if (source->kind != TypeKind::Function)
 		return false;

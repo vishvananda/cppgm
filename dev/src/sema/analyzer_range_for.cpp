@@ -643,7 +643,7 @@ void Analyzer::range_for_equivalent(const syntax::RangeForStmt& loop, Scope* blo
 		// An array of known bound (6.5.4p1: of unknown size or incomplete
 		// element type, the program is ill-formed): the index is an int
 		// when every position fits one, else a long.
-		if (range_type->bound == 0)
+		if (!range_type->has_array_bound())
 			error(location, "a range-based for over an array of unknown bound");
 		const Type* index = types_.fundamental(
 			range_type->bound <= 0x7fffffffu ? FundamentalType::Int : FundamentalType::LongInt);

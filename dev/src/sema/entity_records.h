@@ -415,10 +415,6 @@ struct VariableEntity : Entity
 	bool constant_deferred : 1;
 	// A C file-scope definition without an initializer, awaiting a full definition.
 	bool c_tentative : 1;
-	// A GNU zero-length array member `T m[0]` (hosted compilations): its
-	// type is a flexible array member's, but no element initializes it
-	// (GCC and Clang; see Analyzer::aggregate_members).
-	bool zero_length : 1;
 	// A function's predefined __func__ (8.4.1p8), __FUNCTION__ or
 	// __PRETTY_FUNCTION__: a PredefinedNameEntity.
 	bool predefined_name : 1;

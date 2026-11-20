@@ -749,8 +749,8 @@ ExprFacts* Analyzer::binding_expression(
 		// 8.3.4p3): instantiated when named, as a static member's is (see
 		// static_constant).
 		if (variable->templ != nullptr && variable->templ->arguments != nullptr &&
-			variable->type->kind == TypeKind::Array && variable->type->bound == 0 && variable->type->owner == nullptr &&
-			template_depth_ == 0 && semantic())
+			variable->type->kind == TypeKind::Array && !variable->type->has_array_bound() &&
+			variable->type->owner == nullptr && template_depth_ == 0 && semantic())
 			instantiate_variable(variable);
 		const Type* type = variable->type;
 		if (type->is_reference())
@@ -932,8 +932,9 @@ void Analyzer::static_constant(ExprFacts* facts, const VariableEntity* variable)
 	// One declared with an omitted bound has the type its template's
 	// definition completes (3.9p6), instantiated when named (as Clang
 	// instantiates it when its type must be complete).
-	else if (variable->templ != nullptr && variable->type->kind == TypeKind::Array && variable->type->bound == 0 &&
-		variable->type->owner == nullptr && template_depth_ == 0 && instantiate_variable(variable))
+	else if (variable->templ != nullptr && variable->type->kind == TypeKind::Array &&
+		!variable->type->has_array_bound() && variable->type->owner == nullptr && template_depth_ == 0 &&
+		instantiate_variable(variable))
 		facts->type = variable->type;
 	// Named where evaluated, an instance's member's definition is emitted
 	// even when its value is read as a constant (the course's form; not in
@@ -1559,7 +1560,7 @@ bool Analyzer::complete_pointee(const Type* pointer, uint32_t location)
 	// incomplete class, whose completion may come later: not memoized).
 	const Type* element = pointer->unqualified->element;
 	if (IsVoid(element) ||
-		(element->kind == TypeKind::Array && element->bound == 0 && element->owner == nullptr &&
+		(element->kind == TypeKind::Array && !element->has_array_bound() && element->owner == nullptr &&
 			!element->runtime_array()))
 		return substitution_error(location, "arithmetic on a pointer to an incomplete type");
 	const ClassEntity* cls = ClassOf(element);
@@ -3014,7 +3015,7 @@ ExprFacts* Analyzer::functional_cast(const syntax::FunctionalCastExpr& expr, Sco
 	{
 		// 8.5.1p4: an unknown bound is deduced from a nonempty list;
 		// an empty list cannot form a zero-length array temporary.
-		if (target->bound == 0 && expr.braced->elements.empty())
+		if (!target->has_array_bound() && expr.braced->elements.empty())
 		{
 			substitution_error(expr.location, "empty initializer for an array of unknown bound");
 			return nullptr;
@@ -3422,7 +3423,7 @@ ExprFacts* Analyzer::size_of(const syntax::SizeofExpr& expr, Scope* scope)
 		return facts;
 	}
 	if (type->kind == TypeKind::Function || IsVoid(type) ||
-		(type->kind == TypeKind::Array && type->bound == 0 && type->owner == nullptr && template_depth_ == 0) ||
+		(type->kind == TypeKind::Array && !type->has_array_bound() && type->owner == nullptr && template_depth_ == 0) ||
 		!type_size(type, size, alignment, expr.location))
 	{
 		substitution_error(expr.location, "sizeof of an incomplete or function type", ClassOf(type) != nullptr);
@@ -3469,11 +3470,11 @@ ExprFacts* Analyzer::braced_list(const syntax::BracedInitList& list, const Type*
 	++empty_list_epoch_;
 	uint32_t next = 0;
 	uint64_t count = 0;
-	for (; !failed() && next < list.elements.size && (target->bound == 0 || count < target->bound); ++count)
+	for (; !failed() && next < list.elements.size && (!target->has_array_bound() || count < target->bound); ++count)
 		aggregate_element(list, next, target->element, scope);
 	// Every omitted element has the same value-initialization constraints.
 	// Check its type once, without visiting the implicit zero-filled tail.
-	if (!failed() && target->bound != 0 && count < target->bound)
+	if (!failed() && target->has_array_bound() && count < target->bound)
 		aggregate_element(list, next, target->element, scope);
 	if (failed())
 		return nullptr;
@@ -3482,7 +3483,7 @@ ExprFacts* Analyzer::braced_list(const syntax::BracedInitList& list, const Type*
 		substitution_error(list.location, "too many initializers for the array");
 		return nullptr;
 	}
-	if (target->bound == 0 && count != 0)
+	if (!target->has_array_bound() && count != 0)
 		target = types_.array(target->element, count);
 	return new_facts(list, target, ValueCategory::LValue);
 }

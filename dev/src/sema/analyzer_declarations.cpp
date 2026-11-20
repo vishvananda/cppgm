@@ -40,7 +40,7 @@ bool CompatibleVariableTypes(const Type* a, const Type* b)
 	if (a->canonical == b->canonical)
 		return true;
 	return a->kind == TypeKind::Array && b->kind == TypeKind::Array && a->element->canonical == b->element->canonical &&
-		(a->bound == 0 || b->bound == 0);
+		(!a->has_array_bound() || !b->has_array_bound());
 }
 
 const syntax::Name* DeclaratorId(const syntax::Declarator* declarator)
@@ -960,22 +960,6 @@ void Analyzer::declare_declarator(
 			note_placeholder_constraint(facts, specifiers.type_specifier);
 		}
 	}
-	if (hosted_ && info.type->kind == TypeKind::Array && info.type->bound == 0 && init.declared->entity != nullptr &&
-		init.declared->entity->kind == EntityKind::Variable &&
-		static_cast<VariableEntity*>(init.declared->entity)->member)
-	{
-		// The member's own array is the suffix nearest its declarator-id:
-		// `T m[0]` is GNU's zero-length array, `T m[]` a flexible array
-		// member.
-		const syntax::DeclaratorSuffix* own = nullptr;
-		for (const syntax::Declarator* declarator = init.declarator; declarator != nullptr;
-			declarator = declarator->nested)
-		{
-			if (declarator->suffixes.size != 0)
-				own = &declarator->suffixes[0];
-		}
-		static_cast<VariableEntity*>(init.declared->entity)->zero_length = own != nullptr && own->bound != nullptr;
-	}
 	if (!semantic())
 		return;
 	note_nothrow_target(init.declared->entity, info.type, init.declarator, scope);
@@ -1222,7 +1206,7 @@ const Type* Analyzer::complete_array_from_initializer(
 	// from a braced initializer list or a string literal. A list's
 	// elements are counted with brace elision (8.5.1p11) by its typed
 	// initialization (see braced_list); untyped, one per element.
-	if (initializer == nullptr || type->kind != TypeKind::Array || type->bound != 0 || type->owner != nullptr)
+	if (initializer == nullptr || type->kind != TypeKind::Array || type->has_array_bound() || type->owner != nullptr)
 		return type;
 	const syntax::Expr* expr = initializer->expression;
 	if (initializer->kind == syntax::InitializerKind::Parenthesized)
@@ -1335,7 +1319,7 @@ Binding* Analyzer::declare_variable(const Specifiers& specifiers, const Declarat
 		specifiers, name, where, qualified, initializer != nullptr, definition, location);
 	// 8.3.4p3: an earlier bound applies before any initializer deduction.
 	// The ordinary lookup above supplies that entity without a second lookup.
-	if (variable != nullptr && type->kind == TypeKind::Array && type->bound == 0 &&
+	if (variable != nullptr && type->kind == TypeKind::Array && !type->has_array_bound() &&
 		CompatibleVariableTypes(variable->type, type))
 		type = variable->type;
 	type = complete_array_from_initializer(type, initializer, typed_initialization);
@@ -1377,11 +1361,11 @@ Binding* Analyzer::declare_variable(const Specifiers& specifiers, const Declarat
 			if (initializer == nullptr)
 				definition = false;
 		}
-		if (variable->type->kind == TypeKind::Array && variable->type->bound == 0)
+		if (variable->type->kind == TypeKind::Array && !variable->type->has_array_bound())
 			variable->type = type;
 		// 8.3.4p3: an omitted bound is the bound an earlier declaration
 		// of the entity specified.
-		else if (type->kind == TypeKind::Array && type->bound == 0 && variable->type->kind == TypeKind::Array)
+		else if (type->kind == TypeKind::Array && !type->has_array_bound() && variable->type->kind == TypeKind::Array)
 			type = variable->type;
 		if (info.asm_label != nullptr && graph_.asm_label(variable) == nullptr)
 			graph_.set_asm_label(variable, info.asm_label);
@@ -1501,7 +1485,7 @@ Binding* Analyzer::declare_variable(const Specifiers& specifiers, const Declarat
 			if (bound_from_list)
 			{
 				type = initializer->expression->facts->type;
-				if (type->bound == 0)
+				if (!type->has_array_bound())
 					error(location, "variable of incomplete type");
 				variable->type = type;
 				binding->type = type;
@@ -1589,7 +1573,7 @@ bool Analyzer::check_variable_object(const Specifiers& specifiers, const Type* t
 	const syntax::Initializer* initializer, bool member, bool definition, bool typed_initialization, uint32_t location)
 {
 	// A braced list's initialization completes an omitted bound (8.5.1p4).
-	const bool bound_from_list = typed_initialization && type->kind == TypeKind::Array && type->bound == 0 &&
+	const bool bound_from_list = typed_initialization && type->kind == TypeKind::Array && !type->has_array_bound() &&
 		initializer != nullptr &&
 		(initializer->kind == syntax::InitializerKind::Assign ||
 			initializer->kind == syntax::InitializerKind::Braced) &&
@@ -1604,7 +1588,7 @@ bool Analyzer::check_variable_object(const Specifiers& specifiers, const Type* t
 		// instantiations).
 		const Type* object = bound_from_list ? type->element : type;
 		while (object->kind == TypeKind::Array &&
-			(object->bound != 0 || object->owner != nullptr || object->runtime_array() || member))
+			(object->has_array_bound() || object->owner != nullptr || object->runtime_array() || member))
 			object = object->element;
 		if ((object->kind == TypeKind::Array && !specifiers.is_static) ||
 			(object->unqualified->kind == TypeKind::Class && template_depth_ == 0 &&

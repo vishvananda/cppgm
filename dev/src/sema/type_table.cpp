@@ -246,7 +246,8 @@ const Type* TypeTable::qualified_anew(const Type* type, uint8_t cv)
 	switch (type->kind)
 	{
 	case TypeKind::Array:
-		return array(qualified(type->element, cv), type->bound, type->owner, type->runtime_bound);
+		return array(
+			qualified(type->element, cv), type->bound, type->owner, type->runtime_bound, type->zero_length_array());
 	case TypeKind::LValueReference:
 	case TypeKind::RValueReference:
 	case TypeKind::Function:
@@ -289,12 +290,13 @@ const Type* TypeTable::member_pointer(const Type* owner, const Type* member)
 	return intern(key);
 }
 
-const Type* TypeTable::array(
-	const Type* element, uint64_t bound, const Type* dependent_bound, const syntax::Expr* runtime_bound)
+const Type* TypeTable::array(const Type* element, uint64_t bound, const Type* dependent_bound,
+	const syntax::Expr* runtime_bound, bool zero_length)
 {
 	Type key = Key(TypeKind::Array);
 	key.element = element;
 	key.bound = bound;
+	key.function_cv = zero_length;
 	key.owner = dependent_bound;
 	key.runtime_bound = runtime_bound;
 	return intern(key);

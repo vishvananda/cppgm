@@ -404,7 +404,7 @@ const Type* Analyzer::substitute(const Type* type, const Substitution& substitut
 		if (type->owner != nullptr)
 			return substitute_bound(type, substitution);
 		const Type* element = substitute(type->element, substitution);
-		return element != nullptr ? checked_array(element, type->bound, 0) : nullptr;
+		return element != nullptr ? checked_array(element, type->bound, 0, type->zero_length_array()) : nullptr;
 	}
 	case TypeKind::Mode:
 	{
@@ -518,7 +518,8 @@ const Type* Analyzer::without_cv(const Type* type, uint8_t cv)
 	// `type` less the cv-qualifiers `cv`: an array's are its elements'
 	// (3.9.3p5); a dependent bound kept.
 	if (type->kind == TypeKind::Array)
-		return types_.array(without_cv(type->element, cv), type->bound, type->owner);
+		return types_.array(
+			without_cv(type->element, cv), type->bound, type->owner, nullptr, type->zero_length_array());
 	return types_.qualified(type->unqualified, static_cast<uint8_t>(type->cv & ~cv));
 }
 
@@ -692,6 +693,8 @@ bool Analyzer::deduce_type(const Type* p, const Type* a, uint32_t depth, TypeLis
 		// 14.8.2.5p8: a bound that is a non-type parameter's name deduces
 		// it from A's (of any integral type, p17); another dependent bound
 		// is a non-deduced context (p5).
+		if (p->zero_length_array() != a->zero_length_array())
+			return false;
 		if (p->owner != nullptr)
 		{
 			if (a->owner == nullptr && !deduce_array_bound(p, a->bound, depth, arguments))

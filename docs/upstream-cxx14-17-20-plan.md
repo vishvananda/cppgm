@@ -479,6 +479,10 @@ even with GCC in C++14.
   fixed, all three original configurations compile in under 50 ms using
   less than 17 MiB peak RSS on the same host. Keep the remaining PFR replay
   bounded while investigating its other failures.
+- The original C++14 and C++17 PFR zero-length array programs now compile
+  and run. The frontend preserves the explicit bound through type aliases
+  and deduction. The PA11 layout controls cover their zero-byte extent,
+  ordinary empty classes and flexible members of unknown bound.
 
 ## Measure before promoting the changes
 

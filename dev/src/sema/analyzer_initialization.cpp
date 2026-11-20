@@ -366,7 +366,7 @@ void Analyzer::check_character_array(
 	if (inner->kind != syntax::ExprKind::Literal || (facts->flags & kUserLiteral) != 0 ||
 		facts->type->kind != TypeKind::Array || !InitializesCharacterArray(facts->type->element, type->element))
 		error(location, "array initialized from an expression");
-	if (type->bound != 0 && facts->type->bound > type->bound + (c_source_ ? 1 : 0))
+	if (type->has_array_bound() && facts->type->bound > type->bound + (c_source_ ? 1 : 0))
 		error(location, "string literal too long for the array");
 }
 
@@ -495,13 +495,13 @@ void Analyzer::list_initialize(const syntax::BracedInitList& list, const Type* t
 					substitution_error(list.location, "array initialized from a string literal of another kind");
 					return;
 				}
-				if (type->bound != 0 && facts->type->bound > type->bound + (c_source_ ? 1 : 0))
+				if (type->has_array_bound() && facts->type->bound > type->bound + (c_source_ ? 1 : 0))
 				{
 					substitution_error(list.location, "string literal too long for the array");
 					return;
 				}
 				// An omitted bound is the literal's (8.5.2p2, 8.5.1p4).
-				new_facts(list, type->bound == 0 ? types_.array(type->element, facts->type->bound) : type,
+				new_facts(list, !type->has_array_bound() ? types_.array(type->element, facts->type->bound) : type,
 					ValueCategory::LValue);
 				return;
 			}
@@ -588,22 +588,17 @@ void Analyzer::aggregate_members(const syntax::BracedInitList& list, uint32_t& n
 		if (next >= list.elements.size && aggregate_default_member(member))
 			continue;
 		const Type* type = member->variable->type;
-		if (next < list.elements.size && hosted_ && type->kind == TypeKind::Array && type->bound == 0 &&
+		if (next < list.elements.size && hosted_ && type->kind == TypeKind::Array && !type->has_array_bound() &&
 			type->owner == nullptr && template_depth_ == 0)
 		{
 			// GNU's flexible array member (see member_size) given elements:
 			// only in an object of static storage duration's own list (see
 			// flexible_list_); not in a nested one, an automatic object or a
-			// temporary (GCC and Clang alike). `{}` gives none. A zero-length
-			// array `T m[0]` (wherever it stands) takes none at all (GCC:
-			// "too many initializers for 'int [0]'", Clang alike).
+			// temporary (GCC and Clang alike). `{}` gives none.
 			const syntax::Expr* element = list.elements[next];
 			if (element->kind != syntax::ExprKind::BracedInit ||
 				!static_cast<const syntax::BracedInitList*>(element)->elements.empty())
 			{
-				if (member->variable->kind == EntityKind::Variable &&
-					static_cast<const VariableEntity*>(member->variable)->zero_length)
-					error(element->location, "a zero-length array member initialized with elements");
 				if (member->next != nullptr || &list != flexible_list_ || entity != flexible_class_)
 					error(element->location,
 						"a flexible array member initialized outside the initializer of an object of "
@@ -1123,7 +1118,7 @@ bool Analyzer::list_sequence(const syntax::BracedInitList& list, const Type* par
 		// p2: an array of X (a reference's temporary) whose elements each
 		// convert to X: the worst of those conversions (identity for none),
 		// no more elements than its bound (8.5.1p6).
-		if (target->bound == 0 || list.elements.size > target->bound)
+		if (!target->has_array_bound() || list.elements.size > target->bound)
 			return false;
 		const syntax::Expr* literal = CharacterArrayLiteral(list, target->element);
 		const ExprFacts* string = literal != nullptr ? facts_of(*literal) : nullptr;

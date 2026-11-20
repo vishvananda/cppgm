@@ -452,7 +452,7 @@ bool Analyzer::trait_value(
 		// array is none, and every array is an aggregate, 8.5.1p1); an
 		// array of unknown bound is not destructible (20.9.4.3). Their
 		// element is not asked about (GCC and Clang alike).
-		const bool unknown_bound = type->kind == TypeKind::Array && type->bound == 0 && type->owner == nullptr;
+		const bool unknown_bound = type->kind == TypeKind::Array && !type->has_array_bound() && type->owner == nullptr;
 		const bool element_unasked = trait <= GnuTrait::IsAggregate ||
 			(unknown_bound && trait >= GnuTrait::IsDestructible && trait <= GnuTrait::IsTriviallyDestructible);
 		ClassEntity* object = ClassType(element_unasked ? type : WithoutArrays(type));
@@ -731,11 +731,12 @@ bool Analyzer::shape_trait(GnuTrait trait, const Type* type)
 	case GnuTrait::IsFloatingPoint:
 		return IsFloating(bare);
 	case GnuTrait::IsArray:
-		return type->kind == TypeKind::Array;
+		// GCC and Clang exclude the GNU T[0] type from the array traits.
+		return type->kind == TypeKind::Array && !type->zero_length_array();
 	case GnuTrait::IsBoundedArray:
 		return type->kind == TypeKind::Array && (type->bound != 0 || type->owner != nullptr);
 	case GnuTrait::IsUnboundedArray:
-		return type->kind == TypeKind::Array && type->bound == 0 && type->owner == nullptr;
+		return type->kind == TypeKind::Array && !type->has_array_bound() && type->owner == nullptr;
 	case GnuTrait::IsPointer:
 		return bare->kind == TypeKind::Pointer;
 	case GnuTrait::IsLvalueReference:
@@ -800,7 +801,7 @@ bool Analyzer::trait_destructible(const Type* type, uint32_t location, Scope* sc
 	if (type->is_reference())
 		return true;
 	if (IsVoid(type) || type->kind == TypeKind::Function ||
-		(type->kind == TypeKind::Array && type->bound == 0 && type->owner == nullptr))
+		(type->kind == TypeKind::Array && !type->has_array_bound() && type->owner == nullptr))
 		return false;
 	const Type* object = WithoutArrays(type);
 	ClassEntity* cls = ClassType(object);
@@ -1064,7 +1065,7 @@ bool Analyzer::representation_bits(const Type* type, uint64_t& bits)
 	}
 	if (type->kind == TypeKind::Array)
 	{
-		if (type->bound == 0 || !unique_object_representations(type->element))
+		if (!type->has_array_bound() || !unique_object_representations(type->element))
 			return false;
 	}
 	else if (type->kind == TypeKind::Vector)

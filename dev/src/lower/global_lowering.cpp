@@ -511,7 +511,7 @@ void ProgramLowering::state_storage_type(lowir::Global& global, uint64_t size, u
 		++log2;
 	global.typed = true;
 	global.type = lowir::Type::object(
-		object_mode_ ? std::max(size, alignment) : (size + alignment - 1) / alignment * alignment, log2);
+		object_mode_ || size == 0 ? std::max(size, alignment) : (size + alignment - 1) / alignment * alignment, log2);
 }
 
 void ProgramLowering::define_global(lowir::SymbolId symbol, const sema::VariableEntity* variable,
@@ -1767,7 +1767,8 @@ bool ProgramLowering::static_aggregate(
 			append_zero(offset - position, out);
 		const syntax::Expr* element = list != nullptr && next < list->elements.size ? list->elements[next] : nullptr;
 		if (element != nullptr && list->facts != nullptr && (list->facts->flags & sema::kFlexibleElements) != 0 &&
-			member->next == nullptr && variable->type->kind == sema::TypeKind::Array && variable->type->bound == 0)
+			member->next == nullptr && variable->type->kind == sema::TypeKind::Array &&
+			!variable->type->has_array_bound())
 		{
 			// GNU's flexible array member given elements (the analysis
 			// allows them only here, see sema::kFlexibleElements): the array

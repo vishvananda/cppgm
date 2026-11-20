@@ -68,7 +68,7 @@ uint64_t OverlappingDataSize(const ClassEntity* cls)
 
 bool Analyzer::object_layout(const Type* type, uint64_t& size, uint64_t& alignment)
 {
-	if (type->kind == TypeKind::Function || IsVoid(type) || (type->kind == TypeKind::Array && type->bound == 0))
+	if (type->kind == TypeKind::Function || IsVoid(type) || (type->kind == TypeKind::Array && !type->has_array_bound()))
 		return false;
 	const ClassEntity* entity = ClassOf(type);
 	if (entity != nullptr && !require_complete(entity))
@@ -165,10 +165,10 @@ uint32_t Analyzer::alias_alignment_of(const syntax::Expr& expr, bool pointee) co
 
 bool Analyzer::member_size(const Type* type, uint64_t& size, uint64_t& alignment, uint32_t location)
 {
-	// A non-static data member's: GNU's flexible array member of unknown
-	// bound (C99's, and a zero-length array, see array_bound) takes no
-	// space, aligned as its element (hosted compilations).
-	if (hosted_ && type->kind == TypeKind::Array && type->bound == 0 && type->owner == nullptr && template_depth_ == 0)
+	// A flexible array member has unknown bound and takes no space.
+	// Its element determines its alignment (C99 and hosted C++).
+	if (hosted_ && type->kind == TypeKind::Array && !type->has_array_bound() && type->owner == nullptr &&
+		template_depth_ == 0)
 	{
 		if (!type_size(type->element, size, alignment, location))
 			return false;
@@ -223,7 +223,7 @@ bool Analyzer::type_size(const Type* type, uint64_t& size, uint64_t& alignment, 
 		return true;
 	case TypeKind::Array:
 	{
-		if (type->bound == 0)
+		if (!type->has_array_bound())
 		{
 			// In a template an unknown bound may be a dependent one.
 			if (template_depth_ != 0)
@@ -610,7 +610,11 @@ bool Analyzer::class_layout(ClassEntity* entity, uint32_t location)
 		else if (!entity->alignment_request_gnu)
 			error(location, "a class alignment-specifier weaker than its natural alignment");
 	}
-	entity->size = RoundUp(std::max<uint64_t>(is_union ? union_size : size, 1), alignment);
+	const uint64_t extent = is_union ? union_size : size;
+	// GNU classes with storage-bearing declarations whose total extent is
+	// zero (such as a zero-length array and classes containing it) stay
+	// zero-sized. An ordinary empty C++ class still has its minimum size.
+	entity->size = RoundUp(hosted_ && !entity->empty ? extent : std::max<uint64_t>(extent, 1), alignment);
 	entity->alignment = alignment;
 	// The last run may reach the class's end when no derived class can
 	// reuse its tail padding (a POD for the purpose of layout), else its

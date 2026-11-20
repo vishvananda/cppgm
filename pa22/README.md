@@ -213,6 +213,9 @@ To complete PA22, implement these goals:
    `!=` overload resolution, including null literals and compatible base/derived
    and cv-qualified composite types. Explicit conversions do not participate, and
    member pointers have no built-in ordering operators.
+   When a C++20 class-valued template argument contains a pointer to
+   member, use the member-pointer value in template argument equivalence.
+   Preserve the value when the parameter object is used at runtime.
    Their contextual conversion to `bool` must distinguish a non-null target from a null
    member pointer without treating the adjustment word as an independent truth value.
    The representation below describes the native ABI. When adding PA37, use its

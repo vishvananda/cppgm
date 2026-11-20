@@ -506,9 +506,9 @@ private:
 	const Type* type_id(const syntax::TypeId& type, Scope* scope, bool allow_placeholder = false);
 	const Type* decltype_type(const syntax::Expr& operand, Scope* scope);
 	const Type* decltype_result(const syntax::Expr& operand, const ExprFacts& facts);
-	uint64_t array_bound(const syntax::Expr& bound, Scope* scope, bool* runtime = nullptr);
+	uint64_t array_bound(const syntax::Expr& bound, Scope* scope, bool* runtime = nullptr, bool* zero_length = nullptr);
 	const Type* checked_pointer(const Type* pointee, uint32_t location);
-	const Type* checked_array(const Type* element, uint64_t bound, uint32_t location);
+	const Type* checked_array(const Type* element, uint64_t bound, uint32_t location, bool zero_length = false);
 
 	// ------------------------------------------------------- names
 	// The binding a name denotes, by unqualified or qualified lookup;

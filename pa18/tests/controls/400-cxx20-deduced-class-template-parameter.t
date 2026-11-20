@@ -7,10 +7,10 @@ template<int Family> struct Protocol {
 
 template<Protocol P> struct Profile {
   static constexpr int family = P.family();
-  static constexpr const auto* value() { return &P; }
+  static constexpr const decltype(P)* value() { return &P; }
 };
 
-template<Protocol P> constexpr auto code() { return Profile<P>::value()->code; }
+template<Protocol P> constexpr int code() { return Profile<P>::value()->code; }
 constexpr Protocol<4> input{7};
 static_assert(Profile<input>::family == 4);
 static_assert(code<input>() == 7);

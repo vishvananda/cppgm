@@ -846,6 +846,8 @@ void FunctionLowering::null_data_member_pointers(
 
 void FunctionLowering::zero_bytes(lowir::Value object, uint64_t size, uint64_t alignment)
 {
+	if (size == 0)
+		return;
 	// Preliminary class-storage zeroing is one span, including union padding;
 	// scalar initialization and subsequent volatile accesses remain separate.
 	lowir::Instruction inst = lowir::make_instruction(

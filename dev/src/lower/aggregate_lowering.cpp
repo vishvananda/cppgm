@@ -1803,11 +1803,6 @@ void FunctionLowering::copy_object(
 		builder_.body().temps[source.index].type.kind() == lowir::TypeKind::Obj;
 	if (!whole && copy_members(type, source, destination))
 		return;
-	const uint64_t alignment = lowering_.alignment_of(type, location);
-	lowir::Instruction inst = lowir::make_instruction(
-		lowir::Opcode::CopyObject, lowir::Type::scalar(lowir::TypeKind::Void));
-	inst.ops[0] = source;
-	inst.ops[1] = destination;
 	// A class object owns its nvsize bytes: past them its tail padding may
 	// hold another object (a derived class's member or virtual base,
 	// Itanium C++ ABI 2.4), so a class is transferred from storage as those
@@ -1816,6 +1811,13 @@ void FunctionLowering::copy_object(
 	const sema::ClassEntity* cls = type->kind == sema::TypeKind::Array ? nullptr : sema::ClassOf(type);
 	if (cls != nullptr && cls->nvsize != 0 && !whole)
 		size = std::min(size, cls->nvsize);
+	if (size == 0)
+		return;
+	const uint64_t alignment = lowering_.alignment_of(type, location);
+	lowir::Instruction inst = lowir::make_instruction(
+		lowir::Opcode::CopyObject, lowir::Type::scalar(lowir::TypeKind::Void));
+	inst.ops[0] = source;
+	inst.ops[1] = destination;
 	inst.immediate = static_cast<int64_t>(size);
 	unsigned log2 = 0;
 	while ((uint64_t(1) << log2) < alignment)

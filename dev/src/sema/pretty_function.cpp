@@ -349,7 +349,7 @@ void AppendType(const Type* type, std::string inner, std::string& out)
 				out += " " + inner;
 			return;
 		case TypeKind::Array:
-			inner += type->bound != 0 ? "[" + std::to_string(type->bound) + "]" : "[]";
+			inner += type->has_array_bound() ? "[" + std::to_string(type->bound) + "]" : "[]";
 			type = type->element;
 			continue;
 		case TypeKind::Function:

@@ -1480,7 +1480,9 @@ lowir::Type ProgramLowering::storage_type(const sema::Type* type)
 		unsigned log2 = 0;
 		while ((uint64_t(1) << log2) < alignment)
 			++log2;
-		return Type::object(size, log2);
+		// LowIR storage needs a positive span for its address. GNU
+		// zero-sized objects retain their logical size in the type layout.
+		return Type::object(size != 0 ? size : alignment, log2);
 	}
 	default:
 		break;
@@ -1497,7 +1499,7 @@ uint64_t ProgramLowering::size_of(const sema::Type* type, uint32_t location)
 		return 8;
 	// A hosted compilation's flexible array member (see
 	// sema::Analyzer::member_size) has no bytes of its own.
-	if (type->kind == sema::TypeKind::Array && type->bound == 0 && analyzer_->hosted())
+	if (type->kind == sema::TypeKind::Array && !type->has_array_bound() && analyzer_->hosted())
 		return 0;
 	if (!analyzer_->object_layout(type, size, alignment))
 		throw LoweringError(location, "the size of an incomplete type");

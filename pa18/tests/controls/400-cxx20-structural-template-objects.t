@@ -16,7 +16,7 @@ template<Key K> struct Entry {
   static_assert(same<decltype((K)), const Key&>);
   static constexpr const Key* key() { return &K; }
 };
-template<auto K> constexpr const auto* deduced() { return &K; }
+template<auto K> constexpr const decltype(K)* deduced() { return &K; }
 
 static_assert(same<Entry<first>, Entry<equal>>);
 static_assert(!same<Entry<first>, Entry<different>>);

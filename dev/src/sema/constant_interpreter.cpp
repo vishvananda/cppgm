@@ -924,7 +924,7 @@ uint64_t ConstantInterpreter::leaves(const Type* type, uint32_t depth)
 		return 1 + type->unqualified->bound;
 	while (type->kind == TypeKind::Array)
 	{
-		count *= type->bound != 0 ? type->bound : 1;
+		count *= type->has_array_bound() ? type->bound : 1;
 		if (count > kValueBudget)
 			return kValueBudget + 1;
 		type = type->element;

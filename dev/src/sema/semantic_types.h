@@ -119,6 +119,7 @@ struct Type
 	uint8_t cv;
 	// Function: a member function's cv-qualifier-seq. Vector: 1 for
 	// Clang's ext_vector_type (whose scalar casts broadcast), else 0.
+	// Array: 1 for an explicitly zero-length GNU array.
 	uint8_t function_cv;
 	RefQualifier ref;
 	// Function: the parameter list ends with `...`.
@@ -167,6 +168,8 @@ struct Type
 
 	bool is(TypeKind k) const { return kind == k; }
 	bool runtime_array() const { return kind == TypeKind::Array && runtime_bound != nullptr; }
+	bool has_array_bound() const { return bound != 0 || function_cv != 0; }
+	bool zero_length_array() const { return kind == TypeKind::Array && function_cv != 0; }
 	bool extended_vector() const { return kind == TypeKind::Vector && function_cv != 0; }
 	bool is_reference() const { return kind == TypeKind::LValueReference || kind == TypeKind::RValueReference; }
 	bool c_unprototyped() const { return kind == TypeKind::Function && bound != 0; }

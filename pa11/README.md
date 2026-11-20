@@ -361,6 +361,10 @@ PA11 supports the following in addition to the PA10 procedural subset:
   subobject's), its members emitted once
 - aggregate initialization for the supported PA11 object subset, including namespace-scope
   aggregate arrays whose elements contain string-literal pointer members
+- a GNU zero-length array has size zero and its element's alignment.
+  Keep the explicit zero bound distinct from an omitted bound. A class
+  whose members occupy zero bytes can also have size zero. An ordinary
+  empty C++ class still needs storage.
 - an empty subaggregate requires an explicit initializer clause when later
   members are initialized (8.5.1p8,12); brace elision cannot silently skip it,
   including when inferring an array bound

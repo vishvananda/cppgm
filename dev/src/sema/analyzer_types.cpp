@@ -1324,7 +1324,7 @@ const Type* Analyzer::checked_pointer(const Type* pointee, uint32_t location)
 	return types_.pointer(pointee);
 }
 
-const Type* Analyzer::checked_array(const Type* element, uint64_t bound, uint32_t location)
+const Type* Analyzer::checked_array(const Type* element, uint64_t bound, uint32_t location, bool zero_length)
 {
 	// Even a byte array cannot exceed the implementation's signed offset
 	// range. Check the type itself, including an unused substituted default.
@@ -1338,7 +1338,7 @@ const Type* Analyzer::checked_array(const Type* element, uint64_t bound, uint32_
 	const char* failure = element->is_reference()                           ? "array of references"
 		: element->kind == TypeKind::Function                               ? "array of functions"
 		: element->unqualified == types_.fundamental(FundamentalType::Void) ? "array of void"
-		: element->kind == TypeKind::Array && element->bound == 0 && element->owner == nullptr
+		: element->kind == TypeKind::Array && !element->has_array_bound() && element->owner == nullptr
 		? "array of arrays of unknown bound"
 		: nullptr;
 	if (failure != nullptr)
@@ -1348,7 +1348,7 @@ const Type* Analyzer::checked_array(const Type* element, uint64_t bound, uint32_
 	}
 	if (semantic() && template_depth_ == 0 && !check_abstract_object(element, location))
 		return nullptr;
-	return types_.array(element, bound);
+	return types_.array(element, bound, nullptr, nullptr, zero_length);
 }
 
 const Type* Analyzer::apply_suffix(const syntax::DeclaratorSuffix& suffix, const Type* type, Scope* scope,
@@ -1357,7 +1357,8 @@ const Type* Analyzer::apply_suffix(const syntax::DeclaratorSuffix& suffix, const
 	if (suffix.kind == syntax::DeclaratorSuffixKind::Array)
 	{
 		bool runtime = false;
-		const uint64_t bound = suffix.bound != nullptr ? array_bound(*suffix.bound, scope, &runtime) : 0;
+		bool zero_length = false;
+		const uint64_t bound = suffix.bound != nullptr ? array_bound(*suffix.bound, scope, &runtime, &zero_length) : 0;
 		if (runtime)
 		{
 			if (scope->kind != ScopeKind::Block || type->kind == TypeKind::Array)
@@ -1367,13 +1368,13 @@ const Type* Analyzer::apply_suffix(const syntax::DeclaratorSuffix& suffix, const
 		}
 		if (type->runtime_array())
 			error(location, "multidimensional variable-length arrays are outside the C profile");
-		const Type* array = checked_array(type, bound, location);
+		const Type* array = checked_array(type, bound, location, zero_length);
 		if (array == nullptr)
 			return type;
 		// A template's bound it cannot evaluate depends on its parameters
 		// (14.6.2.3): the array keeps the expression, evaluated where the
 		// type is substituted (its instantiations analyze their own copy).
-		if (bound == 0 && suffix.bound != nullptr && template_depth_ != 0)
+		if (bound == 0 && !zero_length && suffix.bound != nullptr && template_depth_ != 0)
 			return types_.array(type, 0, dependent_decltype(*suffix.bound, scope));
 		return array;
 	}
@@ -1732,7 +1733,7 @@ void Analyzer::default_template_argument_names(const syntax::TypeId& type, Scope
 		unbound_defaults_.insert(key, bound);
 }
 
-uint64_t Analyzer::array_bound(const syntax::Expr& bound, Scope* scope, bool* runtime)
+uint64_t Analyzer::array_bound(const syntax::Expr& bound, Scope* scope, bool* runtime, bool* zero_length)
 {
 	// 8.3.4p1: an integral constant expression converted to std::size_t,
 	// greater than zero.
@@ -1768,12 +1769,15 @@ uint64_t Analyzer::array_bound(const syntax::Expr& bound, Scope* scope, bool* ru
 			substitution_error(bound.location, "an array bound that is not an integral constant expression");
 		return 0;
 	}
-	if (template_depth_ != 0 && (value.bits == 0 || (IsSignedConstant(value) && static_cast<int64_t>(value.bits) < 0)))
-		return 0;
-	// GNU's zero-length array (hosted compilations), as its flexible array
-	// member of unknown bound (see member_size); a substitution's still
-	// fails (14.8.2p8, as in GCC).
+	// GNU's zero-length array is complete. A substituting bound must
+	// still be positive (14.8.2p8).
 	if (hosted_ && value.bits == 0 && soft_substitution_ == 0 && value.type->kind != TypeKind::Enum)
+	{
+		if (zero_length != nullptr)
+			*zero_length = true;
+		return 0;
+	}
+	if (template_depth_ != 0 && (value.bits == 0 || (IsSignedConstant(value) && static_cast<int64_t>(value.bits) < 0)))
 		return 0;
 	// 14.8.2p8: a substitution forming an array of no positive size fails.
 	const char* failure = value.type->kind == TypeKind::Enum &&

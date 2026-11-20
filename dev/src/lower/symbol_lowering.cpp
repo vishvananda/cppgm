@@ -1649,7 +1649,7 @@ AbiNode ProgramLowering::abi_type_node(const sema::Type* type)
 			node = abi_graph_.array(abi_type(bare->element), abi_mangle::ABI_ARRAY_BOUND_EXPRESSION, 0, bound);
 		else
 			node = abi_graph_.array(abi_type(bare->element),
-				bare->bound != 0 ? abi_mangle::ABI_ARRAY_BOUND_VALUE : abi_mangle::ABI_ARRAY_BOUND_NONE,
+				bare->has_array_bound() ? abi_mangle::ABI_ARRAY_BOUND_VALUE : abi_mangle::ABI_ARRAY_BOUND_NONE,
 				static_cast<long long>(bare->bound), abi_mangle::ABI_NONE);
 		break;
 	}
@@ -2883,7 +2883,7 @@ void ProgramLowering::classify_eightbytes(const sema::Type* type, uint64_t offse
 			classes[0] = AC_MEMORY;
 	};
 	type = type->unqualified;
-	if (type->kind == sema::TypeKind::Array && type->bound == 0)
+	if (type->kind == sema::TypeKind::Array && !type->has_array_bound())
 		return;
 	uint64_t size = 0, alignment = 0;
 	if (!analyzer_->object_layout(type, size, alignment) || (alignment != 0 && offset % alignment != 0))
