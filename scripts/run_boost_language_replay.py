@@ -361,6 +361,12 @@ def prepare_replay_sources(boost, groups):
         # The auto_ptr runner imports this module and calls its test function.
         replace_replay_source(boost / 'libs/python/test/polymorphism2.py', '   unittest.main()',
                               '   unittest.main(module=__name__)')
+        # Keep virtual dispatch through the callback types in the auto_ptr
+        # variant, whose holder constructs the pointee type.
+        polymorphism = boost / 'libs/python/test/polymorphism2.cpp'
+        for name in ('A', 'D'):
+            replace_replay_source(polymorphism, f'class_<{name}Callback HELD_PTR({name})',
+                                  f'class_<{name}Callback HELD_PTR({name}Callback)')
     if 'libs/mpi/build' in projects:
         # Backport boostorg/mpi#180 and #181 for the optional Python module.
         # Its indexing suite must compile even though request equality raises.
