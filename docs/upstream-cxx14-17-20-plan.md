@@ -539,7 +539,8 @@ original configurations build and run successfully with GCC and cppgm.
 
 With its two original DOT fixtures available from B2's working directory,
 all 128 Boost.Graph test cases pass with the same outcomes under GCC and
-cppgm. Boost.GIL also matches GCC on all 146 test cases, including its
+cppgm. Boost.Graph Parallel matches on all 25 cases with the documented
+MPI configuration and bounds fixes. Boost.GIL matches GCC on all 146 cases, including its
 all-formats test with the JPEG, PNG and TIFF development headers installed.
 
 ## Measure before promoting the changes
