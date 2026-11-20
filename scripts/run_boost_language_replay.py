@@ -228,8 +228,36 @@ def replace_replay_source(path, original, replacement):
     path.write_text(text.replace(original, replacement))
 
 
+def prepare_geometry_rtree(boost):
+    # Boost.Geometry 4aa263966b restores support for Interprocess fancy pointers.
+    rtree = boost / 'boost/geometry/index/detail/rtree'
+    elements = rtree / 'node/node_elements.hpp'
+    replace_replay_source(elements, '#include <vector>\n\n#include <boost/container/static_vector.hpp>\n',
+                          '#include <boost/container/static_vector.hpp>\n#include <boost/container/vector.hpp>\n')
+    namespace = 'namespace detail { namespace rtree {\n'
+    alias = ('\ntemplate <typename Value, typename Allocator = void>\n'
+             'using dynamic_container = boost::container::vector<Value, Allocator>;\n')
+    replace_replay_source(elements, namespace, namespace + alias)
+    replace_replay_source(elements, 'std::vector<NewValue>', 'rtree::dynamic_container<NewValue>')
+    concept = '#include <boost/geometry/index/detail/rtree/node/concept.hpp>\n'
+    for name in ('variant_dynamic.hpp', 'weak_dynamic.hpp'):
+        node = rtree / 'node' / name
+        replace_replay_source(node, '#include <vector>\n', '')
+        replace_replay_source(node, concept, concept + '#include <boost/geometry/index/detail/rtree/node/node_elements.hpp>\n')
+        for element in ('element_type', 'Value'):
+            replace_replay_source(node, f'std::vector<{element}, allocator_type>',
+                                  f'rtree::dynamic_container<{element}, allocator_type>')
+    pack = rtree / 'pack_create.hpp'
+    replace_replay_source(pack, '#include <vector>\n', '#include <iterator>\n')
+    replace_replay_source(pack, 'std::vector<entry_type, temp_entry_allocator_type> entries(temp_entry_allocator);',
+                          'using entries_type = rtree::dynamic_container<entry_type, temp_entry_allocator_type>;\n'
+                          '        entries_type entries(temp_entry_allocator);')
+
+
 def prepare_replay_sources(boost, groups):
     projects = {group['project'] for group in groups}
+    if projects & {'libs/geometry/index/test', 'libs/geometry/test'}:
+        prepare_geometry_rtree(boost)
     if 'libs/gil/test' in projects:
         # GIL gives the compile and run alternatives the same default target.
         # Give the compile test its own name so B2 can run both original tests.

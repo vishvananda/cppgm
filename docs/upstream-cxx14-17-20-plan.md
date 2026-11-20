@@ -513,6 +513,15 @@ and both resulting Python modules load and construct a request list.
 [Comparison definition](https://github.com/boostorg/mpi/pull/180) ·
 [Namespace correction](https://github.com/boostorg/mpi/pull/181)
 
+### Boost.Geometry validation
+
+The three shared-memory tests for dynamic R-trees in Boost 1.92 use an
+Interprocess allocator with offset pointers. GCC reproduces the build
+failure with libstdc++'s `std::vector`. The replay applies the upstream
+change to use `boost::container::vector` in the pinned source. All three
+original configurations build and run successfully with GCC and cppgm.
+[Boost.Geometry fix](https://github.com/boostorg/geometry/commit/4aa263966bfd030e1463bac990ab50da68f2fac1)
+
 ## Measure before promoting the changes
 
 - Use the existing compile-performance tooling with immutable baseline and
