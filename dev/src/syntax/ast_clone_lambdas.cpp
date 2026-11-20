@@ -132,6 +132,12 @@ LambdaExpr* SyntaxCloner::lambda(const LambdaExpr* source)
 		result->pattern_parameters = source->parameters;
 		result->parameter_packs = copied_parameter_packs(packs);
 	}
+	// A parameter pack still declared by this lambda has no elements yet.
+	// An expansion can name it alongside packs bound by the enclosing copy.
+	if (expander_ != nullptr && result->parameters != nullptr)
+		for (const ParameterDeclaration* parameter : result->parameters->parameters)
+			if (parameter->declarator != nullptr && parameter->declarator->pack != PackPosition::None)
+				shadow(parameter->declarator, -2);
 	result->noexcept_operand = expr(source->noexcept_operand);
 	// The type-id list itself is shared when no exception types change.
 	if (!source->throw_types.empty())

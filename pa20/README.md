@@ -280,6 +280,8 @@ Deduce the specialization's return type from its own definition. Initialized cap
 deduce from the enclosing scope; their new name is available in the body,
 not its own initializer. Support the existing assignment and parenthesized
 forms, generic parameter packs and nested capture propagation.
+An expansion that names both an enclosing pack and a generic lambda's
+parameter pack waits until both packs are bound. See N4140 `[temp.variadic]`.
 In nested generic lambdas, a qualified name such as `decltype(arg)::value`
 can depend on the inner lambda's parameter type. Resolve the member when
 that call operator is instantiated. Naming an outer parameter in `decltype`
