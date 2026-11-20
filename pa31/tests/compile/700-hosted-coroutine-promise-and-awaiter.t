@@ -1,7 +1,4 @@
 
-#ifndef __cpp_impl_coroutine
-#define __cpp_impl_coroutine 201902L
-#endif
 #include <coroutine>
 
 struct Task {};

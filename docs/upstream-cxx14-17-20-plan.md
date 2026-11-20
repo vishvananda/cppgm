@@ -468,13 +468,14 @@ even with GCC in C++14.
   suspension. Exception-enabled PA32 and PA37 tests check the startup
   cleanup boundary, resumption inside a user `try` block, a throwing
   `await_suspend`, and forwarding an uncaught exception to the promise.
-  With the coroutine feature macro forced, the pinned Cobalt replay
-  emits objects for 50 of 60 original translation units. The function
-  try block, member allocation, and captureless lambda cases have PA32
-  runtime checks. The remaining failures include exception paths that
-  merge inside a resumed expression and calls to inline library functions.
-  The original runtime tests remain the gate for enabling the feature
-  macro.
+  The pinned Cobalt replay emits objects for all 60 original translation
+  units. The original Boost.Build replay matched all 26 native library
+  configurations and 32 runtime configurations with the coroutine macro
+  forced during qualification. The compiler now defines
+  `__cpp_impl_coroutine=201902L` in C++20 mode. PA4 checks the macro and
+  its absence in C++17. PA32 checks function try blocks, member
+  allocation, captureless lambdas, and startup failure in a `noexcept`
+  coroutine. PA32 and PA37 cover cleanup during a resumed initializer.
 - PA18 exercises class argument equivalence, class deduction, address
   identity, and rejection in C++17. The Linux x86-64 mixed object check
   resolves both a specialization and its parameter object across cppgm,
