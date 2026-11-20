@@ -2126,7 +2126,7 @@ bool Simplifier::affine_constant(BlockId block, InstId& prev, InstId id)
 	}
 	else
 	{
-		if (c_.level < 3 || !target_model::is_aarch64(c_.program.target) || seen.next == kNoId ||
+		if (c_.level < 3 || target_model::is_wasm(c_.program.target) || seen.next == kNoId ||
 			seen.result >= uses_.size() || uses_[seen.result] != 1)
 			return false;
 		const auto& following = body_.instructions[seen.next];

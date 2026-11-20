@@ -1,0 +1,70 @@
+function @scaled_bias(%x : i64) -> i64 [no_inline=yes] {
+  block ^entry:
+    %t1 = binary mul i64 %x, 12
+    %c = binary add i64 %t1, 41
+    return i64 %c
+}
+function @scaled_rows(%p : ptr, %n : i32, %w : i32) -> i32 [no_inline=yes] {
+  block ^entry:
+    %more = cmp gt i32 %n, 0
+    branch %more, ^loop_preheader_1, ^done
+
+  block ^loop_preheader_1:
+    %t2 = binary and i32 %n, -2
+    %t3 = cmp gt i32 %t2, 0
+    branch %t3, ^unrolled_2, ^wide_tail_4
+
+  block ^unrolled_2:
+    %t4 = phi i32 [^unrolled_2: %t19, ^loop_preheader_1: 55]
+    %t5 = phi i32 [^unrolled_2: %t17, ^loop_preheader_1: 0]
+    %t6 = phi i32 [^unrolled_2: %t18, ^loop_preheader_1: 0]
+    %t7 = convert sext i64 i32 %t4
+    %t8 = index i8 %p, %t7
+    %t9 = load i8 %t8
+    %t10 = convert zext i32 i8 %t9
+    %t11 = binary add i32 %t5, %t10
+    %t12 = binary add i32 %t4, 24
+    %t13 = convert sext i64 i32 %t12
+    %t14 = index i8 %p, %t13
+    %t15 = load i8 %t14
+    %t16 = convert zext i32 i8 %t15
+    %t17 = binary add i32 %t11, %t16
+    %t18 = binary add nowrap i32 %t6, 2
+    %t19 = binary add i32 %t4, 48
+    %t20 = cmp ne i32 %t2, %t18
+    branch %t20, ^unrolled_2, ^loop_exit_3
+
+  block ^loop_exit_3:
+    %t21 = cmp lt i32 %t18, %n
+    branch %t21, ^wide_tail_4, ^done
+
+  block ^wide_tail_4:
+    %t22 = phi i32 [^loop_preheader_1: 55, ^loop_exit_3: %t19]
+    %t23 = phi i32 [^loop_preheader_1: 0, ^loop_exit_3: %t17]
+    %t24 = phi i32 [^loop_preheader_1: 0, ^loop_exit_3: %t18]
+    jump ^body
+
+  block ^body:
+    %t25 = phi i32 [^wide_tail_4: %t22, ^body: %t34]
+    %t26 = phi i32 [^body: %t, ^wide_tail_4: %t23]
+    %t27 = phi i32 [^body: %next, ^wide_tail_4: %t24]
+    %e = convert sext i64 i32 %t25
+    %q = index i8 %p, %e
+    %v = load i8 %q
+    %x = convert zext i32 i8 %v
+    %t = binary add i32 %x, %t26
+    %next = binary add nowrap i32 %t27, 1
+    %t34 = binary add i32 %t25, 24
+    %t35 = cmp lt i32 %next, %n
+    branch %t35, ^body, ^done
+
+  block ^done:
+    %t36 = phi i32 [^entry: 0, ^body: %t, ^loop_exit_3: %t17]
+    return i32 %t36
+}
+function @main() -> i32 [role=entry] {
+  block ^entry:
+    %a = call i64 @scaled_bias(4)
+    %low = convert trunc i32 i64 %a
+    return i32 %low
+}
