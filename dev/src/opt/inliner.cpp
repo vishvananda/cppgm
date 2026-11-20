@@ -2026,7 +2026,7 @@ bool InlineWaveRunner::admit(
 		// (The late wave's allowance for a hinted callee is a diagnostic control.)
 		const FunctionBody& caller_body = *program_.functions[program_.symbols[graph_.functions[caller_]].detail].body;
 		const bool forwards_reference = hint && !caller_loop_ && wave_ == InlineWave::Late && options_.level >= 3 &&
-			target_model::is_aarch64(program_.target) && !shape.loop && !shape.eh && shape.calls <= 1 &&
+			!target_model::is_wasm(program_.target) && !shape.loop && !shape.eh && shape.calls <= 1 &&
 			shape.size <= 128 && forwards_small_reference(g, caller_body, call);
 		const uint32_t hinted = wave_ == InlineWave::Late && options_.limits.hint_late_cap != 0
 			? options_.limits.hint_late_cap

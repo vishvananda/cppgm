@@ -1,0 +1,938 @@
+global @__vector_literal_00000003000000020000000100000000 : obj<16x16> [storage=readonly, binding=internal] = {
+  i64 4294967296
+  i64 12884901890
+}
+global @__vector_literal_00000007000000070000000700000007 : obj<16x16> [storage=readonly, binding=internal] = {
+  i64 30064771079
+  i64 30064771079
+}
+global @__vector_literal_0000012c0000012c0000012c0000012c : obj<16x16> [storage=readonly, binding=internal] = {
+  i64 1288490189100
+  i64 1288490189100
+}
+global @__vector_literal_00000004000000040000000400000004 : obj<16x16> [storage=readonly, binding=internal] = {
+  i64 17179869188
+  i64 17179869188
+}
+global @__vector_literal_00003039000030390000303900003039 : obj<16x16> [storage=readonly, binding=internal] = {
+  i64 53021371281465
+  i64 53021371281465
+}
+global @__vector_literal_000df33d000df33d000df33d000df33d : obj<16x16> [storage=readonly, binding=internal] = {
+  i64 3926618016707389
+  i64 3926618016707389
+}
+global @__vector_literal_0000000d0000000d0000000d0000000d : obj<16x16> [storage=readonly, binding=internal] = {
+  i64 55834574861
+  i64 55834574861
+}
+
+function @main() -> i32 [role=entry, binding=strong, keep_alias=yes] {
+  slot $data : obj<400x4>
+
+  block ^entry:
+    %t1 = addr $data
+    %t2 = addr @__vector_literal_00000003000000020000000100000000
+    %t3 = load v128 %t2
+    %t4 = vector pzero
+    %t5 = vector paddd %t4, %t3
+    %t6 = addr @__vector_literal_00000007000000070000000700000007
+    %t7 = load v128 %t6
+    %t8 = addr @__vector_literal_0000012c0000012c0000012c0000012c
+    %t9 = load v128 %t8
+    %t10 = addr @__vector_literal_00000004000000040000000400000004
+    %t11 = load v128 %t10
+    %t12 = vector psrlqi %t7, 32
+    jump ^unrolled_1
+
+  block ^unrolled_1:
+    %t13 = phi v128 [^unrolled_1: %t34, ^entry: %t5]
+    %t14 = phi i64 [^unrolled_1: %t32, ^entry: 0]
+    %t15 = vector pmuludq %t13, %t7
+    %t16 = vector psrlqi %t13, 32
+    %t17 = vector pmuludq %t16, %t12
+    %t18 = vector pshufd %t15, 8
+    %t19 = vector pshufd %t17, 8
+    %t20 = vector punpckldq %t18, %t19
+    %t21 = vector psubd %t20, %t9
+    %t22 = index inbounds u32 [projection=array_element] %t1, %t14
+    store v128 %t21, %t22
+    %t23 = vector paddd %t13, %t11
+    %t24 = vector pmuludq %t23, %t7
+    %t25 = vector psrlqi %t23, 32
+    %t26 = vector pmuludq %t25, %t12
+    %t27 = vector pshufd %t24, 8
+    %t28 = vector pshufd %t26, 8
+    %t29 = vector punpckldq %t27, %t28
+    %t30 = vector psubd %t29, %t9
+    %t31 = index inbounds u32 [projection=array_element] %t22, 4
+    store v128 %t30, %t31
+    %t32 = binary add nowrap i64 %t14, 8
+    %t33 = convert trunc exact i32 i64 %t32
+    %t34 = vector paddd %t23, %t11
+    %t35 = cmp ne i32 %t33, 96
+    branch %t35, ^unrolled_1, ^loop_preheader_2
+
+  block ^loop_preheader_2:
+    jump ^wide_loop_3
+
+  block ^wide_loop_3:
+    %t36 = phi v128 [^wide_loop_3: %t48, ^loop_preheader_2: %t34]
+    %t37 = phi i64 [^wide_loop_3: %t46, ^loop_preheader_2: 96]
+    %t38 = vector pmuludq %t36, %t7
+    %t39 = vector psrlqi %t36, 32
+    %t40 = vector pmuludq %t39, %t12
+    %t41 = vector pshufd %t38, 8
+    %t42 = vector pshufd %t40, 8
+    %t43 = vector punpckldq %t41, %t42
+    %t44 = vector psubd %t43, %t9
+    %t45 = index inbounds u32 [projection=array_element] %t1, %t37
+    store v128 %t44, %t45
+    %t46 = binary add nowrap i64 %t37, 4
+    %t47 = convert trunc exact i32 i64 %t46
+    %t48 = vector paddd %t36, %t11
+    %t49 = cmp le i32 %t47, 96
+    branch %t49, ^wide_loop_3, ^loop_preheader_4
+
+  block ^loop_preheader_4:
+    jump ^for_body_5
+
+  block ^for_body_5:
+    %t50 = phi i64 [^for_body_5: %t58, ^loop_preheader_4: 0]
+    %t51 = phi u32 [^for_body_5: %t57, ^loop_preheader_4: 0]
+    %t52 = index inbounds u32 [projection=array_element] %t1, %t50
+    %t53 = load typed u32 %t52
+    %t54 = binary add u32 %t53, 12345
+    %t55 = binary mul u32 %t54, 914237
+    %t56 = binary sub u32 %t55, 13
+    %t57 = binary add u32 %t56, %t51
+    %t58 = binary add nowrap i64 %t50, 1
+    %t59 = convert trunc exact i32 i64 %t58
+    %t60 = cmp lt i32 %t59, 100
+    branch %t60, ^for_body_5, ^for_end_6
+
+  block ^for_end_6:
+    %t61 = call u32 @sum(%t1, 100)
+    %t62 = call u32 @sum_while(%t1, 100)
+    %t63 = binary add u32 %t61, %t62
+    %t64 = call u32 @sum__2(%t1, 100)
+    %t65 = binary add u32 %t63, %t64
+    %t66 = call u32 @sum_while__2(%t1, 100)
+    %t67 = binary add u32 %t65, %t66
+    %t68 = binary mul u32 %t57, 4
+    %t69 = cmp eq u32 %t67, %t68
+    %t70 = select i32 %t69, 0, 1
+    return i32 %t70
+}
+function @sum(%first : ptr, %count : i32) -> u32 [binding=weak, object=_Z3sumILi25EEjPKji, no_inline=yes] {
+  slot $result : u32
+
+  block ^entry:
+    store typed u32 0, $result
+    %t1 = binary sub nowrap i32 %count, 24
+    %t2 = cmp gt i32 %t1, 0
+    branch %t2, ^for_body_1, ^split_2
+
+  block ^for_body_1:
+    %t3 = phi i32 [^for_body_1: %t5, ^entry: 0]
+    %t4 = addr $result
+    call void @chain_25___add(%t4, %first, %t3)
+    %t5 = binary add nowrap i32 %t3, 25
+    %t6 = cmp lt i32 %t5, %t1
+    branch %t6, ^for_body_1, ^split_2
+
+  block ^split_2:
+    %t7 = phi i32 [^entry: 0, ^for_body_1: %t5]
+    %t8 = cmp lt i32 %t7, %count
+    branch %t8, ^split_3, ^split_10
+
+  block ^split_3:
+    %t9 = load typed u32 $result
+    %t10 = binary sub i32 %count, %t7
+    %t11 = cmp uge i32 %t10, 8
+    %t12 = binary and i64 %t8, %t11
+    branch %t12, ^loop_preheader_4, ^loop_preheader_8
+
+  block ^loop_preheader_4:
+    %t13 = index inbounds u32 [projection=array_element] %first, %t7
+    %t14 = copy u32 %t10
+    %t15 = convert zext i64 u32 %t14
+    %t16 = binary mul i64 %t15, 4
+    %t17 = index i8 %t13, %t16
+    %t18 = index i8 $result, 4
+    %t19 = cmp ule ptr %t17, $result
+    %t20 = cmp ule ptr %t18, %t13
+    %t21 = binary or i64 %t19, %t20
+    branch %t21, ^loop_preheader_5, ^loop_preheader_8
+
+  block ^loop_preheader_5:
+    %t22 = binary add i32 %count, -8
+    %t23 = copy i32 %t9
+    %t24 = vector fromi32 %t23
+    %t25 = addr @__vector_literal_00003039000030390000303900003039
+    %t26 = load v128 %t25
+    %t27 = addr @__vector_literal_000df33d000df33d000df33d000df33d
+    %t28 = load v128 %t27
+    %t29 = addr @__vector_literal_0000000d0000000d0000000d0000000d
+    %t30 = load v128 %t29
+    %t31 = vector psrlqi %t28, 32
+    %t32 = convert sext i64 i32 %t7
+    jump ^wide_loop_6
+
+  block ^wide_loop_6:
+    %t33 = phi v128 [^loop_preheader_5: %t24, ^wide_loop_6: %t56]
+    %t34 = phi i64 [^loop_preheader_5: %t32, ^wide_loop_6: %t57]
+    %t35 = index inbounds u32 [projection=array_element] %first, %t34
+    %t36 = load v128 %t35
+    %t37 = vector paddd %t36, %t26
+    %t38 = vector pmuludq %t37, %t28
+    %t39 = vector psrlqi %t37, 32
+    %t40 = vector pmuludq %t39, %t31
+    %t41 = vector pshufd %t38, 8
+    %t42 = vector pshufd %t40, 8
+    %t43 = vector punpckldq %t41, %t42
+    %t44 = vector psubd %t43, %t30
+    %t45 = vector paddd %t33, %t44
+    %t46 = index u32 [projection=array_element] %t35, 4
+    %t47 = load v128 %t46
+    %t48 = vector paddd %t47, %t26
+    %t49 = vector pmuludq %t48, %t28
+    %t50 = vector psrlqi %t48, 32
+    %t51 = vector pmuludq %t50, %t31
+    %t52 = vector pshufd %t49, 8
+    %t53 = vector pshufd %t51, 8
+    %t54 = vector punpckldq %t52, %t53
+    %t55 = vector psubd %t54, %t30
+    %t56 = vector paddd %t45, %t55
+    %t57 = binary add nowrap i64 %t34, 8
+    %t58 = convert trunc exact i32 i64 %t57
+    %t59 = cmp le i32 %t58, %t22
+    branch %t59, ^wide_loop_6, ^loop_exit_7
+
+  block ^loop_exit_7:
+    %t60 = vector pshufd %t56, 78
+    %t61 = vector paddd %t56, %t60
+    %t62 = vector pshufd %t61, 177
+    %t63 = vector paddd %t61, %t62
+    %t64 = vector toi32 %t63
+    %t65 = copy u32 %t64
+    store typed u32 %t65, $result
+    %t66 = cmp lt i32 %t58, %count
+    branch %t66, ^loop_preheader_8, ^for_end_11
+
+  block ^loop_preheader_8:
+    %t67 = phi u32 [^split_3: %t9, ^loop_preheader_4: %t9, ^loop_exit_7: %t65]
+    %t68 = phi i32 [^split_3: %t7, ^loop_preheader_4: %t7, ^loop_exit_7: %t58]
+    %t69 = convert sext i64 i32 %t68
+    jump ^for_body_9
+
+  block ^for_body_9:
+    %t70 = phi u32 [^for_body_9: %t77, ^loop_preheader_8: %t67]
+    %t71 = phi i64 [^for_body_9: %t78, ^loop_preheader_8: %t69]
+    %t72 = index inbounds u32 [projection=array_element] %first, %t71
+    %t73 = load typed u32 %t72
+    %t74 = binary add u32 %t73, 12345
+    %t75 = binary mul u32 %t74, 914237
+    %t76 = binary sub u32 %t75, 13
+    %t77 = binary add u32 %t76, %t70
+    store typed u32 %t77, $result
+    %t78 = binary add nowrap i64 %t71, 1
+    %t79 = convert trunc exact i32 i64 %t78
+    %t80 = cmp lt i32 %t79, %count
+    branch %t80, ^for_body_9, ^for_end_11
+
+  block ^split_10:
+    %t81 = load typed u32 $result
+    jump ^for_end_11
+
+  block ^for_end_11:
+    %t82 = phi u32 [^for_body_9: %t77, ^split_10: %t81, ^loop_exit_7: %t65]
+    return u32 %t82
+}
+function @sum_while(%first : ptr, %count : i32) -> u32 [binding=weak, object=_Z9sum_whileILi25EEjPKji, no_inline=yes] {
+  slot $result : u32
+
+  block ^entry:
+    store typed u32 0, $result
+    %t1 = binary sub nowrap i32 %count, 24
+    %t2 = cmp gt i32 %t1, 0
+    branch %t2, ^while_body_1, ^split_2
+
+  block ^while_body_1:
+    %t3 = phi i32 [^while_body_1: %t5, ^entry: 0]
+    %t4 = addr $result
+    call void @chain_25___add(%t4, %first, %t3)
+    %t5 = binary add nowrap i32 %t3, 25
+    %t6 = cmp lt i32 %t5, %t1
+    branch %t6, ^while_body_1, ^split_2
+
+  block ^split_2:
+    %t7 = phi i32 [^entry: 0, ^while_body_1: %t5]
+    %t8 = cmp lt i32 %t7, %count
+    branch %t8, ^split_3, ^split_10
+
+  block ^split_3:
+    %t9 = load typed u32 $result
+    %t10 = binary sub i32 %count, %t7
+    %t11 = cmp uge i32 %t10, 8
+    %t12 = binary and i64 %t8, %t11
+    branch %t12, ^loop_preheader_4, ^loop_preheader_8
+
+  block ^loop_preheader_4:
+    %t13 = index inbounds u32 [projection=array_element] %first, %t7
+    %t14 = copy u32 %t10
+    %t15 = convert zext i64 u32 %t14
+    %t16 = binary mul i64 %t15, 4
+    %t17 = index i8 %t13, %t16
+    %t18 = index i8 $result, 4
+    %t19 = cmp ule ptr %t17, $result
+    %t20 = cmp ule ptr %t18, %t13
+    %t21 = binary or i64 %t19, %t20
+    branch %t21, ^loop_preheader_5, ^loop_preheader_8
+
+  block ^loop_preheader_5:
+    %t22 = binary add i32 %count, -8
+    %t23 = copy i32 %t9
+    %t24 = vector fromi32 %t23
+    %t25 = addr @__vector_literal_00003039000030390000303900003039
+    %t26 = load v128 %t25
+    %t27 = addr @__vector_literal_000df33d000df33d000df33d000df33d
+    %t28 = load v128 %t27
+    %t29 = addr @__vector_literal_0000000d0000000d0000000d0000000d
+    %t30 = load v128 %t29
+    %t31 = vector psrlqi %t28, 32
+    %t32 = convert sext i64 i32 %t7
+    jump ^wide_loop_6
+
+  block ^wide_loop_6:
+    %t33 = phi v128 [^loop_preheader_5: %t24, ^wide_loop_6: %t56]
+    %t34 = phi i64 [^loop_preheader_5: %t32, ^wide_loop_6: %t57]
+    %t35 = index inbounds u32 [projection=array_element] %first, %t34
+    %t36 = load v128 %t35
+    %t37 = vector paddd %t36, %t26
+    %t38 = vector pmuludq %t37, %t28
+    %t39 = vector psrlqi %t37, 32
+    %t40 = vector pmuludq %t39, %t31
+    %t41 = vector pshufd %t38, 8
+    %t42 = vector pshufd %t40, 8
+    %t43 = vector punpckldq %t41, %t42
+    %t44 = vector psubd %t43, %t30
+    %t45 = vector paddd %t33, %t44
+    %t46 = index u32 [projection=array_element] %t35, 4
+    %t47 = load v128 %t46
+    %t48 = vector paddd %t47, %t26
+    %t49 = vector pmuludq %t48, %t28
+    %t50 = vector psrlqi %t48, 32
+    %t51 = vector pmuludq %t50, %t31
+    %t52 = vector pshufd %t49, 8
+    %t53 = vector pshufd %t51, 8
+    %t54 = vector punpckldq %t52, %t53
+    %t55 = vector psubd %t54, %t30
+    %t56 = vector paddd %t45, %t55
+    %t57 = binary add nowrap i64 %t34, 8
+    %t58 = convert trunc exact i32 i64 %t57
+    %t59 = cmp le i32 %t58, %t22
+    branch %t59, ^wide_loop_6, ^loop_exit_7
+
+  block ^loop_exit_7:
+    %t60 = vector pshufd %t56, 78
+    %t61 = vector paddd %t56, %t60
+    %t62 = vector pshufd %t61, 177
+    %t63 = vector paddd %t61, %t62
+    %t64 = vector toi32 %t63
+    %t65 = copy u32 %t64
+    store typed u32 %t65, $result
+    %t66 = cmp lt i32 %t58, %count
+    branch %t66, ^loop_preheader_8, ^while_end_11
+
+  block ^loop_preheader_8:
+    %t67 = phi u32 [^split_3: %t9, ^loop_preheader_4: %t9, ^loop_exit_7: %t65]
+    %t68 = phi i32 [^split_3: %t7, ^loop_preheader_4: %t7, ^loop_exit_7: %t58]
+    %t69 = convert sext i64 i32 %t68
+    jump ^while_body_9
+
+  block ^while_body_9:
+    %t70 = phi u32 [^while_body_9: %t77, ^loop_preheader_8: %t67]
+    %t71 = phi i64 [^while_body_9: %t78, ^loop_preheader_8: %t69]
+    %t72 = index inbounds u32 [projection=array_element] %first, %t71
+    %t73 = load typed u32 %t72
+    %t74 = binary add u32 %t73, 12345
+    %t75 = binary mul u32 %t74, 914237
+    %t76 = binary sub u32 %t75, 13
+    %t77 = binary add u32 %t76, %t70
+    %t78 = binary add nowrap i64 %t71, 1
+    %t79 = convert trunc exact i32 i64 %t78
+    store typed u32 %t77, $result
+    %t80 = cmp lt i32 %t79, %count
+    branch %t80, ^while_body_9, ^while_end_11
+
+  block ^split_10:
+    %t81 = load typed u32 $result
+    jump ^while_end_11
+
+  block ^while_end_11:
+    %t82 = phi u32 [^while_body_9: %t77, ^split_10: %t81, ^loop_exit_7: %t65]
+    return u32 %t82
+}
+function @sum__2(%first : ptr, %count : i32) -> u32 [binding=weak, object=_Z3sumILi13EEjPKji, no_inline=yes] {
+  slot $result : u32
+
+  block ^entry:
+    store typed u32 0, $result
+    %t1 = binary sub nowrap i32 %count, 12
+    %t2 = cmp gt i32 %t1, 0
+    branch %t2, ^for_body_1, ^split_2
+
+  block ^for_body_1:
+    %t3 = phi i32 [^for_body_1: %t5, ^entry: 0]
+    %t4 = addr $result
+    call void @chain_13___add(%t4, %first, %t3)
+    %t5 = binary add nowrap i32 %t3, 13
+    %t6 = cmp lt i32 %t5, %t1
+    branch %t6, ^for_body_1, ^split_2
+
+  block ^split_2:
+    %t7 = phi i32 [^entry: 0, ^for_body_1: %t5]
+    %t8 = cmp lt i32 %t7, %count
+    branch %t8, ^split_3, ^split_10
+
+  block ^split_3:
+    %t9 = load typed u32 $result
+    %t10 = binary sub i32 %count, %t7
+    %t11 = cmp uge i32 %t10, 8
+    %t12 = binary and i64 %t8, %t11
+    branch %t12, ^loop_preheader_4, ^loop_preheader_8
+
+  block ^loop_preheader_4:
+    %t13 = index inbounds u32 [projection=array_element] %first, %t7
+    %t14 = copy u32 %t10
+    %t15 = convert zext i64 u32 %t14
+    %t16 = binary mul i64 %t15, 4
+    %t17 = index i8 %t13, %t16
+    %t18 = index i8 $result, 4
+    %t19 = cmp ule ptr %t17, $result
+    %t20 = cmp ule ptr %t18, %t13
+    %t21 = binary or i64 %t19, %t20
+    branch %t21, ^loop_preheader_5, ^loop_preheader_8
+
+  block ^loop_preheader_5:
+    %t22 = binary add i32 %count, -8
+    %t23 = copy i32 %t9
+    %t24 = vector fromi32 %t23
+    %t25 = addr @__vector_literal_00003039000030390000303900003039
+    %t26 = load v128 %t25
+    %t27 = addr @__vector_literal_000df33d000df33d000df33d000df33d
+    %t28 = load v128 %t27
+    %t29 = addr @__vector_literal_0000000d0000000d0000000d0000000d
+    %t30 = load v128 %t29
+    %t31 = vector psrlqi %t28, 32
+    %t32 = convert sext i64 i32 %t7
+    jump ^wide_loop_6
+
+  block ^wide_loop_6:
+    %t33 = phi v128 [^loop_preheader_5: %t24, ^wide_loop_6: %t56]
+    %t34 = phi i64 [^loop_preheader_5: %t32, ^wide_loop_6: %t57]
+    %t35 = index inbounds u32 [projection=array_element] %first, %t34
+    %t36 = load v128 %t35
+    %t37 = vector paddd %t36, %t26
+    %t38 = vector pmuludq %t37, %t28
+    %t39 = vector psrlqi %t37, 32
+    %t40 = vector pmuludq %t39, %t31
+    %t41 = vector pshufd %t38, 8
+    %t42 = vector pshufd %t40, 8
+    %t43 = vector punpckldq %t41, %t42
+    %t44 = vector psubd %t43, %t30
+    %t45 = vector paddd %t33, %t44
+    %t46 = index u32 [projection=array_element] %t35, 4
+    %t47 = load v128 %t46
+    %t48 = vector paddd %t47, %t26
+    %t49 = vector pmuludq %t48, %t28
+    %t50 = vector psrlqi %t48, 32
+    %t51 = vector pmuludq %t50, %t31
+    %t52 = vector pshufd %t49, 8
+    %t53 = vector pshufd %t51, 8
+    %t54 = vector punpckldq %t52, %t53
+    %t55 = vector psubd %t54, %t30
+    %t56 = vector paddd %t45, %t55
+    %t57 = binary add nowrap i64 %t34, 8
+    %t58 = convert trunc exact i32 i64 %t57
+    %t59 = cmp le i32 %t58, %t22
+    branch %t59, ^wide_loop_6, ^loop_exit_7
+
+  block ^loop_exit_7:
+    %t60 = vector pshufd %t56, 78
+    %t61 = vector paddd %t56, %t60
+    %t62 = vector pshufd %t61, 177
+    %t63 = vector paddd %t61, %t62
+    %t64 = vector toi32 %t63
+    %t65 = copy u32 %t64
+    store typed u32 %t65, $result
+    %t66 = cmp lt i32 %t58, %count
+    branch %t66, ^loop_preheader_8, ^for_end_11
+
+  block ^loop_preheader_8:
+    %t67 = phi u32 [^split_3: %t9, ^loop_preheader_4: %t9, ^loop_exit_7: %t65]
+    %t68 = phi i32 [^split_3: %t7, ^loop_preheader_4: %t7, ^loop_exit_7: %t58]
+    %t69 = convert sext i64 i32 %t68
+    jump ^for_body_9
+
+  block ^for_body_9:
+    %t70 = phi u32 [^for_body_9: %t77, ^loop_preheader_8: %t67]
+    %t71 = phi i64 [^for_body_9: %t78, ^loop_preheader_8: %t69]
+    %t72 = index inbounds u32 [projection=array_element] %first, %t71
+    %t73 = load typed u32 %t72
+    %t74 = binary add u32 %t73, 12345
+    %t75 = binary mul u32 %t74, 914237
+    %t76 = binary sub u32 %t75, 13
+    %t77 = binary add u32 %t76, %t70
+    store typed u32 %t77, $result
+    %t78 = binary add nowrap i64 %t71, 1
+    %t79 = convert trunc exact i32 i64 %t78
+    %t80 = cmp lt i32 %t79, %count
+    branch %t80, ^for_body_9, ^for_end_11
+
+  block ^split_10:
+    %t81 = load typed u32 $result
+    jump ^for_end_11
+
+  block ^for_end_11:
+    %t82 = phi u32 [^for_body_9: %t77, ^split_10: %t81, ^loop_exit_7: %t65]
+    return u32 %t82
+}
+function @sum_while__2(%first : ptr, %count : i32) -> u32 [binding=weak, object=_Z9sum_whileILi13EEjPKji, no_inline=yes] {
+  slot $result : u32
+
+  block ^entry:
+    store typed u32 0, $result
+    %t1 = binary sub nowrap i32 %count, 12
+    %t2 = cmp gt i32 %t1, 0
+    branch %t2, ^while_body_1, ^split_2
+
+  block ^while_body_1:
+    %t3 = phi i32 [^while_body_1: %t5, ^entry: 0]
+    %t4 = addr $result
+    call void @chain_13___add(%t4, %first, %t3)
+    %t5 = binary add nowrap i32 %t3, 13
+    %t6 = cmp lt i32 %t5, %t1
+    branch %t6, ^while_body_1, ^split_2
+
+  block ^split_2:
+    %t7 = phi i32 [^entry: 0, ^while_body_1: %t5]
+    %t8 = cmp lt i32 %t7, %count
+    branch %t8, ^split_3, ^split_10
+
+  block ^split_3:
+    %t9 = load typed u32 $result
+    %t10 = binary sub i32 %count, %t7
+    %t11 = cmp uge i32 %t10, 8
+    %t12 = binary and i64 %t8, %t11
+    branch %t12, ^loop_preheader_4, ^loop_preheader_8
+
+  block ^loop_preheader_4:
+    %t13 = index inbounds u32 [projection=array_element] %first, %t7
+    %t14 = copy u32 %t10
+    %t15 = convert zext i64 u32 %t14
+    %t16 = binary mul i64 %t15, 4
+    %t17 = index i8 %t13, %t16
+    %t18 = index i8 $result, 4
+    %t19 = cmp ule ptr %t17, $result
+    %t20 = cmp ule ptr %t18, %t13
+    %t21 = binary or i64 %t19, %t20
+    branch %t21, ^loop_preheader_5, ^loop_preheader_8
+
+  block ^loop_preheader_5:
+    %t22 = binary add i32 %count, -8
+    %t23 = copy i32 %t9
+    %t24 = vector fromi32 %t23
+    %t25 = addr @__vector_literal_00003039000030390000303900003039
+    %t26 = load v128 %t25
+    %t27 = addr @__vector_literal_000df33d000df33d000df33d000df33d
+    %t28 = load v128 %t27
+    %t29 = addr @__vector_literal_0000000d0000000d0000000d0000000d
+    %t30 = load v128 %t29
+    %t31 = vector psrlqi %t28, 32
+    %t32 = convert sext i64 i32 %t7
+    jump ^wide_loop_6
+
+  block ^wide_loop_6:
+    %t33 = phi v128 [^loop_preheader_5: %t24, ^wide_loop_6: %t56]
+    %t34 = phi i64 [^loop_preheader_5: %t32, ^wide_loop_6: %t57]
+    %t35 = index inbounds u32 [projection=array_element] %first, %t34
+    %t36 = load v128 %t35
+    %t37 = vector paddd %t36, %t26
+    %t38 = vector pmuludq %t37, %t28
+    %t39 = vector psrlqi %t37, 32
+    %t40 = vector pmuludq %t39, %t31
+    %t41 = vector pshufd %t38, 8
+    %t42 = vector pshufd %t40, 8
+    %t43 = vector punpckldq %t41, %t42
+    %t44 = vector psubd %t43, %t30
+    %t45 = vector paddd %t33, %t44
+    %t46 = index u32 [projection=array_element] %t35, 4
+    %t47 = load v128 %t46
+    %t48 = vector paddd %t47, %t26
+    %t49 = vector pmuludq %t48, %t28
+    %t50 = vector psrlqi %t48, 32
+    %t51 = vector pmuludq %t50, %t31
+    %t52 = vector pshufd %t49, 8
+    %t53 = vector pshufd %t51, 8
+    %t54 = vector punpckldq %t52, %t53
+    %t55 = vector psubd %t54, %t30
+    %t56 = vector paddd %t45, %t55
+    %t57 = binary add nowrap i64 %t34, 8
+    %t58 = convert trunc exact i32 i64 %t57
+    %t59 = cmp le i32 %t58, %t22
+    branch %t59, ^wide_loop_6, ^loop_exit_7
+
+  block ^loop_exit_7:
+    %t60 = vector pshufd %t56, 78
+    %t61 = vector paddd %t56, %t60
+    %t62 = vector pshufd %t61, 177
+    %t63 = vector paddd %t61, %t62
+    %t64 = vector toi32 %t63
+    %t65 = copy u32 %t64
+    store typed u32 %t65, $result
+    %t66 = cmp lt i32 %t58, %count
+    branch %t66, ^loop_preheader_8, ^while_end_11
+
+  block ^loop_preheader_8:
+    %t67 = phi u32 [^split_3: %t9, ^loop_preheader_4: %t9, ^loop_exit_7: %t65]
+    %t68 = phi i32 [^split_3: %t7, ^loop_preheader_4: %t7, ^loop_exit_7: %t58]
+    %t69 = convert sext i64 i32 %t68
+    jump ^while_body_9
+
+  block ^while_body_9:
+    %t70 = phi u32 [^while_body_9: %t77, ^loop_preheader_8: %t67]
+    %t71 = phi i64 [^while_body_9: %t78, ^loop_preheader_8: %t69]
+    %t72 = index inbounds u32 [projection=array_element] %first, %t71
+    %t73 = load typed u32 %t72
+    %t74 = binary add u32 %t73, 12345
+    %t75 = binary mul u32 %t74, 914237
+    %t76 = binary sub u32 %t75, 13
+    %t77 = binary add u32 %t76, %t70
+    %t78 = binary add nowrap i64 %t71, 1
+    %t79 = convert trunc exact i32 i64 %t78
+    store typed u32 %t77, $result
+    %t80 = cmp lt i32 %t79, %count
+    branch %t80, ^while_body_9, ^while_end_11
+
+  block ^split_10:
+    %t81 = load typed u32 $result
+    jump ^while_end_11
+
+  block ^while_end_11:
+    %t82 = phi u32 [^while_body_9: %t77, ^split_10: %t81, ^loop_exit_7: %t65]
+    return u32 %t82
+}
+function @chain_25___add(%result : ptr [pass=by_address, object_bytes=4], %first : ptr, %n : i32) -> void [binding=weak, object=_ZN5chainILi25EE3addERjPKji, inline_hint=yes] {
+  block ^entry:
+    %t1 = index inbounds u32 [projection=array_element] %first, %n
+    %t2 = load typed u32 %t1
+    %t3 = binary add u32 %t2, 12345
+    %t4 = binary mul u32 %t3, 914237
+    %t5 = binary sub u32 %t4, 13
+    %t6 = load typed u32 %result
+    %t7 = binary add u32 %t5, %t6
+    store typed u32 %t7, %result
+    %t8 = binary add nowrap i32 %n, 1
+    %t9 = index inbounds u32 [projection=array_element] %first, %t8
+    %t10 = load typed u32 %t9
+    %t11 = binary add u32 %t10, 12345
+    %t12 = binary mul u32 %t11, 914237
+    %t13 = binary sub u32 %t12, 13
+    %t14 = binary add u32 %t7, %t13
+    store typed u32 %t14, %result
+    %t15 = binary add nowrap i32 %n, 2
+    %t16 = index inbounds u32 [projection=array_element] %first, %t15
+    %t17 = load typed u32 %t16
+    %t18 = binary add u32 %t17, 12345
+    %t19 = binary mul u32 %t18, 914237
+    %t20 = binary sub u32 %t19, 13
+    %t21 = binary add u32 %t14, %t20
+    store typed u32 %t21, %result
+    %t22 = binary add nowrap i32 %n, 3
+    %t23 = index inbounds u32 [projection=array_element] %first, %t22
+    %t24 = load typed u32 %t23
+    %t25 = binary add u32 %t24, 12345
+    %t26 = binary mul u32 %t25, 914237
+    %t27 = binary sub u32 %t26, 13
+    %t28 = binary add u32 %t21, %t27
+    store typed u32 %t28, %result
+    %t29 = binary add nowrap i32 %n, 4
+    %t30 = index inbounds u32 [projection=array_element] %first, %t29
+    %t31 = load typed u32 %t30
+    %t32 = binary add u32 %t31, 12345
+    %t33 = binary mul u32 %t32, 914237
+    %t34 = binary sub u32 %t33, 13
+    %t35 = binary add u32 %t28, %t34
+    store typed u32 %t35, %result
+    %t36 = binary add nowrap i32 %n, 5
+    %t37 = index inbounds u32 [projection=array_element] %first, %t36
+    %t38 = load typed u32 %t37
+    %t39 = binary add u32 %t38, 12345
+    %t40 = binary mul u32 %t39, 914237
+    %t41 = binary sub u32 %t40, 13
+    %t42 = binary add u32 %t35, %t41
+    store typed u32 %t42, %result
+    %t43 = binary add nowrap i32 %n, 6
+    %t44 = index inbounds u32 [projection=array_element] %first, %t43
+    %t45 = load typed u32 %t44
+    %t46 = binary add u32 %t45, 12345
+    %t47 = binary mul u32 %t46, 914237
+    %t48 = binary sub u32 %t47, 13
+    %t49 = binary add u32 %t42, %t48
+    store typed u32 %t49, %result
+    %t50 = binary add nowrap i32 %n, 7
+    %t51 = index inbounds u32 [projection=array_element] %first, %t50
+    %t52 = load typed u32 %t51
+    %t53 = binary add u32 %t52, 12345
+    %t54 = binary mul u32 %t53, 914237
+    %t55 = binary sub u32 %t54, 13
+    %t56 = binary add u32 %t49, %t55
+    store typed u32 %t56, %result
+    %t57 = binary add nowrap i32 %n, 8
+    %t58 = index inbounds u32 [projection=array_element] %first, %t57
+    %t59 = load typed u32 %t58
+    %t60 = binary add u32 %t59, 12345
+    %t61 = binary mul u32 %t60, 914237
+    %t62 = binary sub u32 %t61, 13
+    %t63 = binary add u32 %t56, %t62
+    store typed u32 %t63, %result
+    %t64 = binary add nowrap i32 %n, 9
+    %t65 = index inbounds u32 [projection=array_element] %first, %t64
+    %t66 = load typed u32 %t65
+    %t67 = binary add u32 %t66, 12345
+    %t68 = binary mul u32 %t67, 914237
+    %t69 = binary sub u32 %t68, 13
+    %t70 = binary add u32 %t63, %t69
+    store typed u32 %t70, %result
+    %t71 = binary add nowrap i32 %n, 10
+    %t72 = index inbounds u32 [projection=array_element] %first, %t71
+    %t73 = load typed u32 %t72
+    %t74 = binary add u32 %t73, 12345
+    %t75 = binary mul u32 %t74, 914237
+    %t76 = binary sub u32 %t75, 13
+    %t77 = binary add u32 %t70, %t76
+    store typed u32 %t77, %result
+    %t78 = binary add nowrap i32 %n, 11
+    %t79 = index inbounds u32 [projection=array_element] %first, %t78
+    %t80 = load typed u32 %t79
+    %t81 = binary add u32 %t80, 12345
+    %t82 = binary mul u32 %t81, 914237
+    %t83 = binary sub u32 %t82, 13
+    %t84 = binary add u32 %t77, %t83
+    store typed u32 %t84, %result
+    %t85 = binary add nowrap i32 %n, 12
+    %t86 = index inbounds u32 [projection=array_element] %first, %t85
+    %t87 = load typed u32 %t86
+    %t88 = binary add u32 %t87, 12345
+    %t89 = binary mul u32 %t88, 914237
+    %t90 = binary sub u32 %t89, 13
+    %t91 = binary add u32 %t84, %t90
+    store typed u32 %t91, %result
+    %t92 = binary add nowrap i32 %n, 13
+    %t93 = index inbounds u32 [projection=array_element] %first, %t92
+    %t94 = load typed u32 %t93
+    %t95 = binary add u32 %t94, 12345
+    %t96 = binary mul u32 %t95, 914237
+    %t97 = binary sub u32 %t96, 13
+    %t98 = binary add u32 %t97, %t91
+    store typed u32 %t98, %result
+    %t99 = binary add nowrap i32 %n, 14
+    %t100 = index inbounds u32 [projection=array_element] %first, %t99
+    %t101 = load typed u32 %t100
+    %t102 = binary add u32 %t101, 12345
+    %t103 = binary mul u32 %t102, 914237
+    %t104 = binary sub u32 %t103, 13
+    %t105 = binary add u32 %t98, %t104
+    store typed u32 %t105, %result
+    %t106 = binary add nowrap i32 %n, 15
+    %t107 = index inbounds u32 [projection=array_element] %first, %t106
+    %t108 = load typed u32 %t107
+    %t109 = binary add u32 %t108, 12345
+    %t110 = binary mul u32 %t109, 914237
+    %t111 = binary sub u32 %t110, 13
+    %t112 = binary add u32 %t105, %t111
+    store typed u32 %t112, %result
+    %t113 = binary add nowrap i32 %n, 16
+    %t114 = index inbounds u32 [projection=array_element] %first, %t113
+    %t115 = load typed u32 %t114
+    %t116 = binary add u32 %t115, 12345
+    %t117 = binary mul u32 %t116, 914237
+    %t118 = binary sub u32 %t117, 13
+    %t119 = binary add u32 %t112, %t118
+    store typed u32 %t119, %result
+    %t120 = binary add nowrap i32 %n, 17
+    %t121 = index inbounds u32 [projection=array_element] %first, %t120
+    %t122 = load typed u32 %t121
+    %t123 = binary add u32 %t122, 12345
+    %t124 = binary mul u32 %t123, 914237
+    %t125 = binary sub u32 %t124, 13
+    %t126 = binary add u32 %t119, %t125
+    store typed u32 %t126, %result
+    %t127 = binary add nowrap i32 %n, 18
+    %t128 = index inbounds u32 [projection=array_element] %first, %t127
+    %t129 = load typed u32 %t128
+    %t130 = binary add u32 %t129, 12345
+    %t131 = binary mul u32 %t130, 914237
+    %t132 = binary sub u32 %t131, 13
+    %t133 = binary add u32 %t126, %t132
+    store typed u32 %t133, %result
+    %t134 = binary add nowrap i32 %n, 19
+    %t135 = index inbounds u32 [projection=array_element] %first, %t134
+    %t136 = load typed u32 %t135
+    %t137 = binary add u32 %t136, 12345
+    %t138 = binary mul u32 %t137, 914237
+    %t139 = binary sub u32 %t138, 13
+    %t140 = binary add u32 %t133, %t139
+    store typed u32 %t140, %result
+    %t141 = binary add nowrap i32 %n, 20
+    %t142 = index inbounds u32 [projection=array_element] %first, %t141
+    %t143 = load typed u32 %t142
+    %t144 = binary add u32 %t143, 12345
+    %t145 = binary mul u32 %t144, 914237
+    %t146 = binary sub u32 %t145, 13
+    %t147 = binary add u32 %t140, %t146
+    store typed u32 %t147, %result
+    %t148 = binary add nowrap i32 %n, 21
+    %t149 = index inbounds u32 [projection=array_element] %first, %t148
+    %t150 = load typed u32 %t149
+    %t151 = binary add u32 %t150, 12345
+    %t152 = binary mul u32 %t151, 914237
+    %t153 = binary sub u32 %t152, 13
+    %t154 = binary add u32 %t147, %t153
+    store typed u32 %t154, %result
+    %t155 = binary add nowrap i32 %n, 22
+    %t156 = index inbounds u32 [projection=array_element] %first, %t155
+    %t157 = load typed u32 %t156
+    %t158 = binary add u32 %t157, 12345
+    %t159 = binary mul u32 %t158, 914237
+    %t160 = binary sub u32 %t159, 13
+    %t161 = binary add u32 %t154, %t160
+    store typed u32 %t161, %result
+    %t162 = binary add nowrap i32 %n, 23
+    %t163 = index inbounds u32 [projection=array_element] %first, %t162
+    %t164 = load typed u32 %t163
+    %t165 = binary add u32 %t164, 12345
+    %t166 = binary mul u32 %t165, 914237
+    %t167 = binary sub u32 %t166, 13
+    %t168 = binary add u32 %t161, %t167
+    store typed u32 %t168, %result
+    %t169 = binary add nowrap i32 %n, 24
+    %t170 = index inbounds u32 [projection=array_element] %first, %t169
+    %t171 = load typed u32 %t170
+    %t172 = binary add u32 %t171, 12345
+    %t173 = binary mul u32 %t172, 914237
+    %t174 = binary sub u32 %t173, 13
+    %t175 = binary add u32 %t168, %t174
+    store typed u32 %t175, %result
+    return void
+}
+function @chain_13___add(%result : ptr [pass=by_address, object_bytes=4], %first : ptr, %n : i32) -> void [binding=weak, object=_ZN5chainILi13EE3addERjPKji, inline_hint=yes] {
+  block ^entry:
+    %t1 = index inbounds u32 [projection=array_element] %first, %n
+    %t2 = load typed u32 %t1
+    %t3 = binary add u32 %t2, 12345
+    %t4 = binary mul u32 %t3, 914237
+    %t5 = binary sub u32 %t4, 13
+    %t6 = load typed u32 %result
+    %t7 = binary add u32 %t5, %t6
+    store typed u32 %t7, %result
+    %t8 = binary add nowrap i32 %n, 1
+    %t9 = index inbounds u32 [projection=array_element] %first, %t8
+    %t10 = load typed u32 %t9
+    %t11 = binary add u32 %t10, 12345
+    %t12 = binary mul u32 %t11, 914237
+    %t13 = binary sub u32 %t12, 13
+    %t14 = binary add u32 %t7, %t13
+    store typed u32 %t14, %result
+    %t15 = binary add nowrap i32 %n, 2
+    %t16 = index inbounds u32 [projection=array_element] %first, %t15
+    %t17 = load typed u32 %t16
+    %t18 = binary add u32 %t17, 12345
+    %t19 = binary mul u32 %t18, 914237
+    %t20 = binary sub u32 %t19, 13
+    %t21 = binary add u32 %t14, %t20
+    store typed u32 %t21, %result
+    %t22 = binary add nowrap i32 %n, 3
+    %t23 = index inbounds u32 [projection=array_element] %first, %t22
+    %t24 = load typed u32 %t23
+    %t25 = binary add u32 %t24, 12345
+    %t26 = binary mul u32 %t25, 914237
+    %t27 = binary sub u32 %t26, 13
+    %t28 = binary add u32 %t21, %t27
+    store typed u32 %t28, %result
+    %t29 = binary add nowrap i32 %n, 4
+    %t30 = index inbounds u32 [projection=array_element] %first, %t29
+    %t31 = load typed u32 %t30
+    %t32 = binary add u32 %t31, 12345
+    %t33 = binary mul u32 %t32, 914237
+    %t34 = binary sub u32 %t33, 13
+    %t35 = binary add u32 %t28, %t34
+    store typed u32 %t35, %result
+    %t36 = binary add nowrap i32 %n, 5
+    %t37 = index inbounds u32 [projection=array_element] %first, %t36
+    %t38 = load typed u32 %t37
+    %t39 = binary add u32 %t38, 12345
+    %t40 = binary mul u32 %t39, 914237
+    %t41 = binary sub u32 %t40, 13
+    %t42 = binary add u32 %t35, %t41
+    store typed u32 %t42, %result
+    %t43 = binary add nowrap i32 %n, 6
+    %t44 = index inbounds u32 [projection=array_element] %first, %t43
+    %t45 = load typed u32 %t44
+    %t46 = binary add u32 %t45, 12345
+    %t47 = binary mul u32 %t46, 914237
+    %t48 = binary sub u32 %t47, 13
+    %t49 = binary add u32 %t42, %t48
+    store typed u32 %t49, %result
+    %t50 = binary add nowrap i32 %n, 7
+    %t51 = index inbounds u32 [projection=array_element] %first, %t50
+    %t52 = load typed u32 %t51
+    %t53 = binary add u32 %t52, 12345
+    %t54 = binary mul u32 %t53, 914237
+    %t55 = binary sub u32 %t54, 13
+    %t56 = binary add u32 %t49, %t55
+    store typed u32 %t56, %result
+    %t57 = binary add nowrap i32 %n, 8
+    %t58 = index inbounds u32 [projection=array_element] %first, %t57
+    %t59 = load typed u32 %t58
+    %t60 = binary add u32 %t59, 12345
+    %t61 = binary mul u32 %t60, 914237
+    %t62 = binary sub u32 %t61, 13
+    %t63 = binary add u32 %t56, %t62
+    store typed u32 %t63, %result
+    %t64 = binary add nowrap i32 %n, 9
+    %t65 = index inbounds u32 [projection=array_element] %first, %t64
+    %t66 = load typed u32 %t65
+    %t67 = binary add u32 %t66, 12345
+    %t68 = binary mul u32 %t67, 914237
+    %t69 = binary sub u32 %t68, 13
+    %t70 = binary add u32 %t63, %t69
+    store typed u32 %t70, %result
+    %t71 = binary add nowrap i32 %n, 10
+    %t72 = index inbounds u32 [projection=array_element] %first, %t71
+    %t73 = load typed u32 %t72
+    %t74 = binary add u32 %t73, 12345
+    %t75 = binary mul u32 %t74, 914237
+    %t76 = binary sub u32 %t75, 13
+    %t77 = binary add u32 %t70, %t76
+    store typed u32 %t77, %result
+    %t78 = binary add nowrap i32 %n, 11
+    %t79 = index inbounds u32 [projection=array_element] %first, %t78
+    %t80 = load typed u32 %t79
+    %t81 = binary add u32 %t80, 12345
+    %t82 = binary mul u32 %t81, 914237
+    %t83 = binary sub u32 %t82, 13
+    %t84 = binary add u32 %t77, %t83
+    store typed u32 %t84, %result
+    %t85 = binary add nowrap i32 %n, 12
+    %t86 = index inbounds u32 [projection=array_element] %first, %t85
+    %t87 = load typed u32 %t86
+    %t88 = binary add u32 %t87, 12345
+    %t89 = binary mul u32 %t88, 914237
+    %t90 = binary sub u32 %t89, 13
+    %t91 = binary add u32 %t84, %t90
+    store typed u32 %t91, %result
+    return void
+}
