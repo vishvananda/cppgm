@@ -429,6 +429,11 @@ even with GCC in C++14.
    directly. In uBLAS's `test_assignment.cpp`, enable the legacy Boost.Timer
    API before including its header. Apply both changes equally to the native
    and cppgm runs and preserve the original test assertions.
+   Point Outcome's Predef check and its four compile-fail tests at the
+   headers installed at the release archive's root. Run Safe Numerics in
+   the release variant so its performance test reaches its run oracle.
+   Use shared linking for Serialization's recovered tests so the tests
+   that load shared libraries are enabled.
 2. **Require actual cppgm builds and test execution.** Reuse the B2 runner
    with separate build roots by compiler and edition. Verify the actual
    C++ invocations use the candidate compiler and recorded standard. Each

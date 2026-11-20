@@ -289,7 +289,10 @@
         "path": "runs/20261029T135250.207508Z-libs__safe_numerics__test/review.json",
         "sha256": "e064ea9903051d71eec6adbffdbc39bd942aa779d89bd3459c0504f1123ba1f5"
       },
-      "kind": "test"
+      "kind": "test",
+      "b2_properties": [
+        "variant=release"
+      ]
     },
     {
       "project": "libs/stl_interfaces/test",
@@ -911,6 +914,9 @@
         "path": "validation/20261029-serialization157-reviewed/language.json",
         "sha256": "243461004626b7cb1f702d6bf9a21a2d2eeefa39baa5f6a362424f73e7e255e8"
       },
+      "b2_properties": [
+        "link=shared"
+      ],
       "targets": [
         "libs/serialization/test//quick.test",
         "libs/serialization/test//test_array_binary_archive.test",

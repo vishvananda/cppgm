@@ -57,6 +57,8 @@ def validate_inventory(inventory):
                              all(re.fullmatch(r'[A-Za-z0-9_]+', alias) for alias in group['b2_aliases']),
                              'invalid supplementary B2 aliases')
         replay_properties = {'link=shared'}
+        if project == 'libs/safe_numerics/test':
+            replay_properties.add('variant=release')
         if required == {'libs/spirit/test/x3//x3_attribute_type_check.test'}:
             replay_properties.add('cxxflags=-include boost/type_traits/decay.hpp')
         boost_ci.require(all(p in replay_properties for p in group.get('b2_properties', [])),
@@ -259,6 +261,16 @@ def prepare_replay_sources(boost, groups):
         timer = '#include <boost/timer.hpp>\n'
         replace_replay_source(boost / 'libs/numeric/ublas/test/test_assignment.cpp', timer,
                               '#define BOOST_TIMER_ENABLE_DEPRECATED\n' + timer)
+    if 'libs/outcome/test' in projects:
+        # The release archive lays out Boost.Predef headers at its root.
+        replace_replay_source(boost / 'libs/predef/tools/check/predef.jam', '$(predef_jam:D)/../../include',
+                              '$(predef_jam:D)/../../../..')
+        # A missing header would make the negative tests pass prematurely.
+        negatives = boost / 'libs/outcome/test/compile-fail'
+        for source in ('issue0071-fail', 'outcome-int-int-1', 'result-int-int-1', 'result-int-int-2'):
+            header = 'boost/outcome.hpp' if source == 'outcome-int-int-1' else 'boost/outcome/result.hpp'
+            replace_replay_source(negatives / (source + '.cpp'), '#include "../../include/' + header + '"',
+                                  '#include <' + header + '>')
 
 
 def main():
