@@ -58,6 +58,12 @@ const uint32_t kHintAllowance = 65;
 // Late copies of short reference-forwarding helpers can expose the referenced
 // value to scalar promotion when their callers in turn go inline.
 const uint32_t kReferenceHintAllowance = 76;
+// At -O3 the calls that a copy at a call site in a loop of a loop holds are
+// visited again, to kNestLevels copies deep: in the callee they were no such
+// site (a chain of hinted layers, each too large for its own caller, stays a
+// call in the loop otherwise, and a caller's slot it receives stays in
+// memory).
+const uint32_t kNestLevels = 8;
 // On Wasm a callee without the hint may cost more: a call there costs more
 // than its instructions (the engine keeps no value in a register across a
 // call, so the caller saves each live value before it and reads it back
@@ -1783,6 +1789,7 @@ private:
 	bool admit_partial(uint32_t g, const Instruction& call, bool handler_code, bool loop_site, PartialCut& partial,
 		uint32_t& charge, const FunctionBody* source);
 	std::vector<uint8_t> cold_paths(const FunctionBody& body, const Cfg& cfg, size_t count) const;
+	void prepare_recursion(const lowir::FunctionBody& body, SymbolId caller);
 	bool process(SymbolId caller);
 	void settle(lowir::FunctionBody& body, const std::vector<BlockId>& layout_next, const std::vector<Value>& repl);
 	// A private copy of EH-bearing callee `g` with the call's constant
@@ -2375,6 +2382,43 @@ bool read_only_recursive_chain(const Program& program, const FunctionBody& body,
 	return reads_memory;
 }
 
+// Recursive inlining (kRecursiveCap): the body before any copy, and the
+// depth the total budget allows for the copies' self calls (each level
+// multiplies them).
+void InlineWaveRunner::prepare_recursion(const FunctionBody& body, SymbolId caller)
+{
+	original_.reset();
+	original_count_ = recursive_budget_ = recursive_depth_ = 0;
+	if (wave_ != InlineWave::Late || options_.level < 2 || options_.minimize_size || !graph_.recursive[caller_] ||
+		shapes_[caller_].eh || shapes_[caller_].unsafe || shapes_[caller_].size > kRecursiveCap)
+		return;
+	const uint64_t self_calls = shapes_[caller_].self_calls;
+	// (A loop's one self call, what is left of a tail-recursive function,
+	// is a chain: its copies nest loops.)
+	const bool chain = shapes_[caller_].loop && self_calls == 1;
+	const uint32_t chain_depth = chain && options_.level >= 3 && target_model::is_aarch64(program_.target) &&
+			read_only_recursive_chain(program_, body, caller)
+		? kAArch64RecursiveChainDepth
+		: kRecursiveChainDepth;
+	const uint32_t depth_cap = chain ? chain_depth : kRecursiveDepth;
+	uint64_t copies = 0, level = 1;
+	for (uint32_t d = 1; d <= depth_cap && (chain || (self_calls >= kRecursiveTreeCalls && !shapes_[caller_].loop));
+		++d)
+	{
+		level *= self_calls;
+		copies += level;
+		if (copies * shapes_[caller_].size > kRecursiveTotal)
+			break;
+		recursive_depth_ = d;
+	}
+	if (recursive_depth_ != 0)
+	{
+		original_.reset(new FunctionBody(body));
+		original_count_ = shapes_[caller_].size;
+		recursive_budget_ = kRecursiveTotal;
+	}
+}
+
 bool InlineWaveRunner::process(SymbolId caller)
 {
 	caller_ = graph_.index_of[caller];
@@ -2406,15 +2450,20 @@ bool InlineWaveRunner::process(SymbolId caller)
 	auto handler = handler_paths(cfg, policy_blocks);
 	std::vector<BlockId> work;
 	auto cold = cold_paths(body, cfg, policy_blocks);
-	// New blocks inherit the loop membership of the block they split.
+	// Loop blocks: 1 in a loop, 2 in a loop of a loop (new blocks inherit
+	// the loop membership of the block they split).
 	std::vector<uint8_t> in_loop(policy_blocks, 0);
 	if (caller_loop_)
 	{
 		LoopForest forest;
 		find_loops(body, cfg, forest);
 		for (BlockId b : cfg.rpo)
-			in_loop[b] = forest.innermost[b] != kNoId;
+		{
+			const uint32_t loop = forest.innermost[b];
+			in_loop[b] = loop == kNoId ? 0 : forest.loops[loop].parent == kNoId ? 1 : 2;
+		}
 	}
+	const bool nests = !source_required_ && options_.level >= 3 && !options_.minimize_size;
 	work.assign(body.layout.rbegin(), body.layout.rend());
 	std::vector<BlockId> layout_next(source_required_ ? 0 : body.blocks.size(), kNoId);
 	if (!source_required_)
@@ -2422,43 +2471,14 @@ bool InlineWaveRunner::process(SymbolId caller)
 			layout_next[body.layout[k]] = body.layout[k + 1];
 	std::vector<Value> repl;
 	bool changed = false;
-	// Recursive inlining (kRecursiveCap): the body before any copy, and the
-	// depth the total budget allows for the copies' self calls (each level
-	// multiplies them).
-	original_.reset();
-	original_count_ = recursive_budget_ = recursive_depth_ = 0;
-	if (wave_ == InlineWave::Late && options_.level >= 2 && !options_.minimize_size && graph_.recursive[caller_] &&
-		!shapes_[caller_].eh && !shapes_[caller_].unsafe && shapes_[caller_].size <= kRecursiveCap)
-	{
-		const uint64_t self_calls = shapes_[caller_].self_calls;
-		// (A loop's one self call, what is left of a tail-recursive function,
-		// is a chain: its copies nest loops.)
-		const bool chain = shapes_[caller_].loop && self_calls == 1;
-		const uint32_t chain_depth = chain && options_.level >= 3 && target_model::is_aarch64(program_.target) &&
-				read_only_recursive_chain(program_, body, caller)
-			? kAArch64RecursiveChainDepth
-			: kRecursiveChainDepth;
-		const uint32_t depth_cap = chain ? chain_depth : kRecursiveDepth;
-		uint64_t copies = 0, level = 1;
-		for (uint32_t d = 1; d <= depth_cap && (chain || (self_calls >= kRecursiveTreeCalls && !shapes_[caller_].loop));
-			++d)
-		{
-			level *= self_calls;
-			copies += level;
-			if (copies * shapes_[caller_].size > kRecursiveTotal)
-				break;
-			recursive_depth_ = d;
-		}
-		if (recursive_depth_ != 0)
-		{
-			original_.reset(new FunctionBody(body));
-			original_count_ = shapes_[caller_].size;
-			recursive_budget_ = kRecursiveTotal;
-		}
-	}
+	prepare_recursion(body, caller);
 	// A block's recursive copy level (new blocks are one deeper than their
 	// split block; the continuation stays).
 	std::vector<uint8_t> depth(policy_blocks, 0);
+	// An instruction's copy level at a nest site (kNestLevels): 0 for one
+	// the caller held. The instructions of a copy visited again are one
+	// level deeper than the call they replaced.
+	std::vector<uint8_t> copied;
 	while (!work.empty())
 	{
 		const BlockId b = work.back();
@@ -2495,9 +2515,17 @@ bool InlineWaveRunner::process(SymbolId caller)
 			const bool cold_site = !source_required_ && cold[b] != 0 && shapes_[g].size > kTrivialLeaf &&
 				!non_growing(shapes_[g], body.instructions[i]) && !pins_slot(body, shapes_[g], body.instructions[i]) &&
 				(program_.symbols[callee].metadata.flags & SF_FORCE_INLINE) == 0;
-			if (cold_site ||
-				!admit(g, body.instructions[i], !source_required_ && handler[b] != 0,
-					!source_required_ && in_loop[b] != 0, charge, once))
+			// (A call in a copy visited again is not one the call counts
+			// hold: it takes no single-call copy.)
+			const bool nest_site = nests && in_loop[b] >= 2;
+			const uint8_t level = i < copied.size() ? copied[i] : 0;
+			const bool copied_site = level != 0;
+			const bool admitted = !cold_site &&
+				admit(g, body.instructions[i], !source_required_ && handler[b] != 0,
+					!source_required_ && in_loop[b] != 0, charge, once);
+			if (admitted && once && copied_site)
+				continue;
+			if (!admitted)
 			{
 				// (Nor does a cold callee or caller take a recursive, partial or
 				// folded copy.)
@@ -2555,9 +2583,10 @@ bool InlineWaveRunner::process(SymbolId caller)
 						   : *program_.functions[program_.symbols[source].detail].body;
 			const size_t before = body.blocks.size();
 			const uint64_t size = copy != kNoId ? instruction_count(kb) : partly ? partial.size : shapes_[g].size;
-			// The unit's growth budgets (the single-call policy has its own).
+			// The unit's growth budgets (the single-call policy has its own,
+			// and so have the calls of a copy visited again).
 			const bool forced = copy == kNoId && (program_.symbols[callee].metadata.flags & SF_FORCE_INLINE) != 0;
-			uint64_t& unit = forced ? budgets_.force_unit : budgets_.growth_unit;
+			uint64_t& unit = forced ? budgets_.force_unit : copied_site ? budgets_.nest_unit : budgets_.growth_unit;
 			// (A trivial leaf takes no more room than its call.)
 			const bool free_leaf = !partly && copy == kNoId && non_growing(shapes_[g], body.instructions[i]);
 			// Preserve loop/handler sites, small and call-free helpers,
@@ -2584,12 +2613,21 @@ bool InlineWaveRunner::process(SymbolId caller)
 			if (outside_loop)
 				outside_loop_budget_ -= size;
 			const bool loop = copy != kNoId ? shape_of(program_, copy, nounwind_).loop : shapes_[g].loop;
+			// (A whole copy at a nest site is visited again.)
+			const bool again = nest_site && !partly && copy == kNoId && !original_ && !graph_.recursive[g] &&
+				level < kNestLevels;
+			const size_t held = body.instructions.size();
 			InstId tail = kNoId;
 			if (!source_required_ || !inline_return(body, b, before_call, i, kb, tail))
 				tail = clone_call(program_, caller, source, body, b, before_call, i, kb, layout_next, repl,
 					partly ? &partial : nullptr, source_required_ || !fully);
 			if (copy != kNoId)
 				release(copy);
+			if (again)
+			{
+				copied.resize(held, 0);
+				copied.resize(body.instructions.size(), static_cast<uint8_t>(level + 1));
+			}
 			if (!source_required_)
 			{
 				handler.resize(body.blocks.size(), handler[b]);
@@ -2608,7 +2646,7 @@ bool InlineWaveRunner::process(SymbolId caller)
 				budget_ = budget_ >= charge ? budget_ - charge : 0;
 			if (fully)
 				recursive_budget_ -= original_count_;
-			else if (!partly)
+			else if (!partly && !copied_site)
 				--graph_.calls_in[g];
 			caller_loop_ = caller_loop_ || loop;
 			// (The caller now holds the callee's unrolled loops.)
@@ -2624,14 +2662,18 @@ bool InlineWaveRunner::process(SymbolId caller)
 			changed = true;
 			if (body.blocks.size() == before)
 			{
-				prev = tail;
+				// (The copy lies in this block: on after it, or through it.)
+				prev = again ? before_call : tail;
+				if (again)
+					next = before_call == kNoId ? body.blocks[b].first : body.instructions[before_call].next;
 				continue;
 			}
 			caller_cfg_changed_ = true;
 			// Continue in the continuation (created first by clone_call); a
-			// recursive copy's own blocks first, for the next level.
+			// recursive copy's own blocks first, for the next level, and those
+			// of a whole copy at a nest site.
 			work.push_back(static_cast<BlockId>(before));
-			if (fully)
+			if (fully || again)
 				for (size_t k = body.blocks.size(); k-- > before + 1;)
 					work.push_back(static_cast<BlockId>(k));
 			break;

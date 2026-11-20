@@ -1118,11 +1118,14 @@ void optimize_program(Program& program, const OptimizerOptions& options, Optimiz
 		// layers, as in tramp3d, are mostly small accessors, and a
 		// single-call callee is charged again with each caller that takes
 		// it: past the budget each stays a call, and a unit that runs out
-		// spends five times the instructions).
+		// spends five times the instructions). The calls of a copy visited
+		// again (a nest site's, -O3) draw on a pool of their own, so that
+		// they starve no other policy.
 		InlineBudgets budgets;
 		budgets.force_unit = stats.instructions_in > 10240 ? stats.instructions_in : 10240;
 		budgets.growth_unit = 2 * budgets.force_unit;
 		budgets.once_unit = 2 * budgets.force_unit;
+		budgets.nest_unit = 2 * budgets.force_unit;
 		run_inline_wave(program, options, stats, InlineWave::Ordinary, budgets, original, unrolled, nounwind, simplify);
 		prune_unreachable(program, stats);
 		if (level >= 2 && !options.minimize_size)
