@@ -379,7 +379,7 @@ owning earlier assignments. Hosted headers consume those same type, deduction,
 constant-evaluation and closure rules. A language-only reducer belongs in its
 earlier lesson; host include/builtin/ABI consumers stay here or in PA32.
 The supplied `.cxx-standard` sidecars select required modes in normal tests.
-An edition extension such as `if constexpr` or conditional `explicit(bool)`
+An edition extension such as `if constexpr`, conditional `explicit(bool)` or `__VA_OPT__`
 can appear in a system header under an earlier mode. Preserve the translation
 unit's edition and feature macros when suppressing its extension diagnostic.
 System status follows `-isystem`, nested includes from system headers, and

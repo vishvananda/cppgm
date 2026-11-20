@@ -4,6 +4,7 @@
 #include <ostream>
 
 #include "preprocess/preprocess_error.h"
+#include "preprocess/preprocessor_names.h"
 
 namespace {
 
@@ -106,6 +107,7 @@ MacroDefinition* MakeBuiltinMacro(Arena& arena, const Identifier* name, BuiltinM
 	macro->parameter_count = 0;
 	macro->function_like = false;
 	macro->variadic = false;
+	macro->has_va_opt = false;
 	macro->builtin = builtin;
 	return macro;
 }
@@ -134,10 +136,11 @@ MacroDefinition* MacroDefinitionParser::parse(DefinitionTokens& tokens, const PP
 
 	read_replacement_list(tokens, token);
 	tokens.allow_va_args(false);
+	const bool has_va_opt = variadic_ && mark_va_opt(tokens);
 	if (function_like)
 		assign_function_like_roles();
 	assign_paste_roles(function_like);
-	return finish(name, function_like);
+	return finish(name, function_like, has_va_opt);
 }
 
 void MacroDefinitionParser::parse_parameters(DefinitionTokens& tokens, const PPToken& open)
@@ -181,6 +184,7 @@ void MacroDefinitionParser::parse_parameters(DefinitionTokens& tokens, const PPT
 		if (hosted_ && IsPunctuatorToken(token, TokenKind::OP_DOTS))
 		{
 			variadic_ = true;
+			tokens.allow_va_args(true);
 			token = tokens.next();
 			if (!IsPunctuatorToken(token, TokenKind::OP_RPAREN))
 				throw PreprocessError(token.begin, "`...` must end the macro parameters");
@@ -207,6 +211,47 @@ void MacroDefinitionParser::read_replacement_list(DefinitionTokens& tokens, PPTo
 	}
 }
 
+bool MacroDefinitionParser::mark_va_opt(const DefinitionTokens& tokens)
+{
+	// The original tokens are retained for redefinition checks and -dM.
+	// The indexed operand is an independent replacement list for # and ##.
+	const uint32_t size = static_cast<uint32_t>(body_.size());
+	uint32_t depth = 0;
+	uint32_t start = 0;
+	bool found = false;
+	for (uint32_t i = 0; i < size; ++i)
+	{
+		const PPToken& token = body_[i].token;
+		if (token.kind == PPTokenKind::Identifier && token.identifier == va_args_ && va_args_->parameter_slot == 0)
+			throw PreprocessError(token.begin, "__VA_ARGS__ outside a variadic macro's replacement list");
+		if (token.kind == PPTokenKind::Identifier && RoleOf(token.identifier) == IdentifierRole::VaOpt)
+		{
+			if (depth != 0)
+				throw PreprocessError(token.begin, "nested __VA_OPT__");
+			if (i + 1 == size || !IsPunctuatorToken(body_[i + 1].token, TokenKind::OP_LPAREN))
+				throw PreprocessError(token.begin, "__VA_OPT__ requires a parenthesized replacement list");
+			if (!tokens.allow_va_opt(token.begin))
+				throw PreprocessError(token.begin, "__VA_OPT__ requires C++20");
+			start = i++;
+			depth = 1;
+			found = true;
+		}
+		else if (depth != 0 && IsPunctuatorToken(token, TokenKind::OP_LPAREN))
+			++depth;
+		else if (depth != 0 && IsPunctuatorToken(token, TokenKind::OP_RPAREN) && --depth == 0)
+		{
+			if (body_[start + 2].token.punctuator == kHashHashPunctuator ||
+				body_[i - 1].token.punctuator == kHashHashPunctuator)
+				throw PreprocessError(body_[start].token.begin, "`##` cannot begin or end a __VA_OPT__ operand");
+			body_[start].role = ReplacementRole::VaOpt;
+			body_[start].parameter = i;
+		}
+	}
+	if (depth != 0)
+		throw PreprocessError(body_[start].token.begin, "unterminated __VA_OPT__");
+	return found;
+}
+
 void MacroDefinitionParser::assign_function_like_roles()
 {
 	for (std::size_t i = 0; i < body_.size(); ++i)
@@ -216,18 +261,23 @@ void MacroDefinitionParser::assign_function_like_roles()
 		if (token.kind == PPTokenKind::Identifier && token.identifier->parameter_slot != 0)
 		{
 			replacement.role = ReplacementRole::Parameter;
-			replacement.parameter = static_cast<uint16_t>(token.identifier->parameter_slot - 1);
+			replacement.parameter = token.identifier->parameter_slot - 1;
 		}
 		else if (token.kind == PPTokenKind::PreprocessingOpOrPunc && token.punctuator == kHashPunctuator)
 		{
-			// Each # shall be followed by a parameter (16.3.2p1).
+			// Each # is followed by a parameter or a C++20 optional operand.
+			if (i + 1 != body_.size() && body_[i + 1].role == ReplacementRole::VaOpt)
+			{
+				replacement.role = ReplacementRole::StringizeVaOpt;
+				continue;
+			}
 			if (i + 1 == body_.size() || body_[i + 1].token.kind != PPTokenKind::Identifier ||
 				body_[i + 1].token.identifier->parameter_slot == 0)
 			{
 				throw PreprocessError(token.begin, "`#` is not followed by a macro parameter");
 			}
 			replacement.role = ReplacementRole::Stringize;
-			replacement.parameter = static_cast<uint16_t>(body_[i + 1].token.identifier->parameter_slot - 1);
+			replacement.parameter = body_[i + 1].token.identifier->parameter_slot - 1;
 			body_[i + 1].role = ReplacementRole::StringizedParameter;
 			body_[i + 1].parameter = replacement.parameter;
 			++i;
@@ -269,7 +319,7 @@ void MacroDefinitionParser::assign_paste_roles(bool function_like)
 	}
 }
 
-MacroDefinition* MacroDefinitionParser::finish(const PPToken& name, bool function_like)
+MacroDefinition* MacroDefinitionParser::finish(const PPToken& name, bool function_like, bool has_va_opt)
 {
 	MacroDefinition* macro = arena_.allocate_array<MacroDefinition>(1);
 	macro->name = name.identifier;
@@ -291,6 +341,7 @@ MacroDefinition* MacroDefinitionParser::finish(const PPToken& name, bool functio
 	macro->parameter_uses = uses;
 	macro->function_like = function_like;
 	macro->variadic = variadic_;
+	macro->has_va_opt = has_va_opt;
 	macro->builtin = BuiltinMacro::None;
 	return macro;
 }

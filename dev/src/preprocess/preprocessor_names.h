@@ -27,8 +27,6 @@ enum class IdentifierRole : uint8_t
 	Warning,
 	// The `defined` operator ([cpp.cond] 16.1p1).
 	Defined,
-	// The variable-argument parameter ([cpp.replace] 16.3p5).
-	VaArgs,
 	// The pragma operator ([cpp.pragma.op] 16.9).
 	PragmaOperator,
 	// `#pragma once`.
@@ -36,12 +34,20 @@ enum class IdentifierRole : uint8_t
 	// A macro name this implementation predefines ([cpp.predefined] 16.8p1);
 	// #define or #undef of it has undefined behavior (16.8p4) and is
 	// diagnosed.
-	ReservedMacroName
+	ReservedMacroName,
+	// The high bit marks names confined to variadic replacement lists.
+	VaArgs = 0x80,
+	VaOpt
 };
 
 inline IdentifierRole RoleOf(const Identifier* identifier)
 {
 	return static_cast<IdentifierRole>(identifier->role);
+}
+
+inline bool VariadicMacroName(const Identifier* identifier)
+{
+	return (identifier->role & static_cast<uint8_t>(IdentifierRole::VaArgs)) != 0;
 }
 
 // Interns the names the preprocessor recognizes and records their roles.

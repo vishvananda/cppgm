@@ -230,6 +230,7 @@ private:
 		uint32_t inherited;
 		Arguments arguments;
 		uint32_t argument;
+		uint32_t replacement;
 		bool pending_space;
 	};
 
@@ -267,10 +268,18 @@ private:
 	bool collect_nested_arguments(const MacroDefinition& macro, Arguments& arguments);
 	void check_argument_count(const MacroDefinition& macro, const PPToken& head, Arguments& arguments);
 	void advance_arguments();
+	void advance_optional_arguments();
+	bool request_argument(Invocation& invocation, uint32_t parameter);
+	bool has_variable_tokens(const MacroDefinition& macro, const Arguments& arguments) const;
 	void finish_argument();
 	void complete_invocation();
 	void push_expansion(MacroDefinition& macro, const PPToken& head, const Nesting& nesting, uint32_t disabled,
 		uint32_t inherited, const Arguments* arguments);
+	template<bool optional = false>
+	bool substitute_list(const MacroDefinition& macro, const Arguments* arguments, uint32_t argument_hide_set,
+		uint32_t first, uint32_t last, bool& has_placemarkers);
+	uint32_t substitute_optional(const MacroDefinition& macro, const Arguments& arguments, uint32_t argument_hide_set,
+		uint32_t index, bool& paste, bool& has_placemarkers);
 	void push_barrier(const Arguments& arguments, uint32_t begin, uint32_t end);
 	const std::vector<PPToken>& tokens_of(const Context& context) const
 	{
@@ -279,7 +288,9 @@ private:
 	void substitute(const std::vector<PPToken>& source, uint32_t begin, uint32_t end, const ReplacementToken& parameter,
 		uint32_t hide_set, bool replace_hide_set, bool& paste);
 	void emit(const PPToken& token, bool& paste);
-	PPToken stringize(uint32_t begin, uint32_t end, const ReplacementToken& operator_token, const PPToken& head);
+	template<bool has_placemarkers = false>
+	PPToken stringize(const std::vector<PPToken>& tokens, uint32_t begin, uint32_t end,
+		const ReplacementToken& operator_token, const PPToken& head);
 	PPToken paste_tokens(const PPToken& left, const PPToken& right);
 	void remove_placemarkers(uint32_t begin);
 

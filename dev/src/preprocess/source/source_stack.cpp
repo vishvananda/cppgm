@@ -279,10 +279,12 @@ void SourceStack::stabilize(PPToken& token, const SourceFrame& frame)
 	{
 		token.identifier = identifiers_.intern(token.spelling, token.length);
 		token.spelling = token.identifier->spelling;
-		// __VA_ARGS__ shall occur only in the replacement list of a variadic
+		// The variadic names occur only in the replacement list of a variadic
 		// macro ([cpp.replace] 16.3p5).
-		if (token.identifier == names_.va_args && !allow_va_args_)
-			throw PreprocessError(token.begin, "__VA_ARGS__ outside a variadic macro's replacement list");
+		if (VariadicMacroName(token.identifier) && !allow_va_args_)
+			throw PreprocessError(token.begin,
+				token.identifier == names_.va_args ? "__VA_ARGS__ outside a variadic macro's replacement list"
+												   : "__VA_OPT__ outside a variadic macro's replacement list");
 		return;
 	}
 	// A clean spelling is a view of the immutable source image; a translated

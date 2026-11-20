@@ -67,6 +67,17 @@ PPToken EndToken()
 	return token;
 }
 
+PPToken Placemark(const PPToken& head, uint8_t flags = 0)
+{
+	PPToken token = PPToken();
+	token.kind = PPTokenKind::Placemarker;
+	token.flags = flags & kLeadingSpace;
+	token.spelling = "";
+	token.begin = head.begin;
+	token.end = head.end;
+	return token;
+}
+
 } // namespace
 
 MacroExpander::MacroExpander(Arena& arena, IdentifierTable& identifiers, const PreprocessorNames& names,
@@ -392,8 +403,14 @@ void MacroExpander::begin_invocation(
 	check_argument_count(macro, head, arguments);
 	invocations_.push_back(
 		Invocation{ &macro, head, nesting, passes_disabled(head, nesting.parent) ? context_disabled : 0,
-			passes_disabled(head, nesting.parent) ? inherited : 0, arguments, 0, pending_space_ });
+			passes_disabled(head, nesting.parent) ? inherited : 0, arguments, 0, 0, pending_space_ });
 	telemetry::note_peak(state_.counters.peak_invocations, invocations_.size());
+	if (macro.has_va_opt)
+	{
+		expanded_bounds_.resize(arguments.expanded + 2u * arguments.count, UINT32_MAX);
+		advance_optional_arguments();
+		return;
+	}
 	advance_arguments();
 }
 
@@ -567,6 +584,54 @@ void MacroExpander::advance_arguments()
 	complete_invocation();
 }
 
+bool MacroExpander::request_argument(Invocation& invocation, uint32_t parameter)
+{
+	const Arguments& arguments = invocation.arguments;
+	uint32_t& first = expanded_bounds_[arguments.expanded + 2u * parameter];
+	if (first != UINT32_MAX)
+		return false;
+	first = static_cast<uint32_t>(expanded_tokens_.size());
+	invocation.argument = parameter;
+	++state_.counters.argument_expansions;
+	const uint32_t raw = arguments.bounds + 2u * parameter;
+	push_barrier(arguments, argument_bounds_[raw], argument_bounds_[raw + 1]);
+	pending_space_ = false;
+	return true;
+}
+
+bool MacroExpander::has_variable_tokens(const MacroDefinition& macro, const Arguments& arguments) const
+{
+	const uint32_t range = arguments.expanded + 2u * (macro.parameter_count - 1);
+	return expanded_bounds_[range] != expanded_bounds_[range + 1];
+}
+
+void MacroExpander::advance_optional_arguments()
+{
+	// An inactive operand uses none of its parameters. Demand arguments
+	// from the parsed replacement list, making each expansion once. An
+	// optional operand first needs the expanded variable argument.
+	Invocation& invocation = invocations_.back();
+	const MacroDefinition& macro = *invocation.macro;
+	uint32_t& cursor = invocation.replacement;
+	while (cursor < macro.body_size)
+	{
+		const ReplacementToken& token = macro.body[cursor];
+		if (token.role == ReplacementRole::VaOpt)
+		{
+			if (request_argument(invocation, macro.parameter_count - 1))
+				return;
+			cursor = has_variable_tokens(macro, invocation.arguments) ? cursor + 2 : token.parameter + 1;
+		}
+		else
+		{
+			++cursor;
+			if (token.role == ReplacementRole::Parameter && request_argument(invocation, token.parameter))
+				return;
+		}
+	}
+	complete_invocation();
+}
+
 void MacroExpander::push_barrier(const Arguments& arguments, uint32_t begin, uint32_t end)
 {
 	Context context;
@@ -587,6 +652,14 @@ void MacroExpander::finish_argument()
 {
 	// Contexts above the barrier were popped by the read that reached it.
 	contexts_.pop_back();
+	const Invocation& invocation = invocations_.back();
+	if (invocation.macro->has_va_opt)
+	{
+		expanded_bounds_[invocation.arguments.expanded + 2u * invocation.argument + 1] = static_cast<uint32_t>(
+			expanded_tokens_.size());
+		advance_optional_arguments();
+		return;
+	}
 	expanded_bounds_.push_back(static_cast<uint32_t>(expanded_tokens_.size()));
 	++invocations_.back().argument;
 	advance_arguments();
@@ -634,82 +707,12 @@ void MacroExpander::push_expansion(MacroDefinition& macro, const PPToken& head, 
 	building_head_ = head;
 	building_serial_ = ++state_.serial;
 	building_chain_ = hosted_recursion_ ? 0 : hide_sets_.add(nesting.chain, macro.name);
-	bool paste = false;
 	bool has_placemarkers = false;
-	bool comma_paste = false;
-	bool first_item_emitted = false;
-	for (uint32_t i = 0; i < macro.body_size; ++i)
-	{
-		const ReplacementToken& replacement = macro.body[i];
-		switch (replacement.role)
-		{
-		case ReplacementRole::Token:
-		{
-			PPToken token = replacement.token;
-			token.begin = head.begin;
-			token.end = head.end;
-			token.hide_set = building_chain_;
-			token.origin = building_serial_;
-			emit(token, paste);
-			break;
-		}
-		case ReplacementRole::Parameter:
-		{
-			const uint32_t index = arguments->expanded + 2u * replacement.parameter;
-			substitute(expanded_tokens_, expanded_bounds_[index], expanded_bounds_[index + 1], replacement,
-				argument_hide_set, true, paste);
-			break;
-		}
-		case ReplacementRole::RawParameter:
-		{
-			const uint32_t raw_begin = argument_bounds_[arguments->bounds + 2u * replacement.parameter];
-			const uint32_t raw_end = argument_bounds_[arguments->bounds + 2u * replacement.parameter + 1];
-			if (comma_paste)
-			{
-				// Empty variable arguments remove the comma, and are still a
-				// placemarker for a ## that follows.
-				comma_paste = false;
-				if (raw_begin == raw_end)
-					context_tokens_.pop_back();
-			}
-			if (raw_begin == raw_end)
-			{
-				has_placemarkers = true;
-				PPToken placemarker = PPToken();
-				placemarker.kind = PPTokenKind::Placemarker;
-				placemarker.spelling = "";
-				placemarker.begin = head.begin;
-				placemarker.end = head.end;
-				emit(placemarker, paste);
-				break;
-			}
-			substitute(argument_tokens_, raw_begin, raw_end, replacement, 0, false, paste);
-			break;
-		}
-		case ReplacementRole::Stringize:
-		{
-			const uint32_t raw_begin = argument_bounds_[arguments->bounds + 2u * replacement.parameter];
-			const uint32_t raw_end = argument_bounds_[arguments->bounds + 2u * replacement.parameter + 1];
-			emit(stringize(raw_begin, raw_end, replacement, head), paste);
-			break;
-		}
-		case ReplacementRole::StringizedParameter:
-			break;
-		case ReplacementRole::Paste:
-			paste = true;
-			break;
-		case ReplacementRole::CommaPaste:
-			comma_paste = true;
-			break;
-		}
-		if (i == 0)
-			first_item_emitted = context_tokens_.size() != begin;
-	}
+	bool first_item_emitted = substitute_list(
+		macro, arguments, argument_hide_set, 0, macro.body_size, has_placemarkers);
 	// The first item's token, with the ones pasted to it, stands where the
 	// macro name stood.
 	first_item_emitted = first_item_emitted && context_tokens_[begin].kind != PPTokenKind::Placemarker;
-	// Only an empty raw operand of ## emits a placemarker. Ordinary
-	// substitution and nonempty pastes need no second pass over the tokens.
 	if (has_placemarkers)
 		remove_placemarkers(begin);
 
@@ -743,6 +746,130 @@ void MacroExpander::push_expansion(MacroDefinition& macro, const PPToken& head, 
 	macro.name->macro_open_serial = building_serial_;
 	telemetry::note_peak(state_.counters.peak_contexts, contexts_.size());
 	telemetry::note_peak(state_.counters.peak_context_tokens, context_tokens_.size());
+}
+
+template<bool optional>
+bool MacroExpander::substitute_list(const MacroDefinition& macro, const Arguments* arguments,
+	uint32_t argument_hide_set, uint32_t first, uint32_t last, bool& has_placemarkers)
+{
+	const size_t begin = context_tokens_.size();
+	const PPToken& head = building_head_;
+	bool paste = false;
+	bool comma_paste = false;
+	bool first_item_emitted = false;
+	for (uint32_t i = first; i < last; ++i)
+	{
+		const ReplacementToken& replacement = macro.body[i];
+		switch (replacement.role)
+		{
+		case ReplacementRole::Token:
+		{
+			PPToken token = replacement.token;
+			token.begin = head.begin;
+			token.end = head.end;
+			token.hide_set = building_chain_;
+			token.origin = building_serial_;
+			emit(token, paste);
+			break;
+		}
+		case ReplacementRole::Parameter:
+		{
+			const uint32_t index = arguments->expanded + 2u * replacement.parameter;
+			const uint32_t argument_begin = expanded_bounds_[index];
+			const uint32_t argument_end = expanded_bounds_[index + 1];
+			if (optional && argument_begin == argument_end)
+			{
+				// The entire optional operand can later be pasted. An
+				// empty parameter at its edge still supplies that edge.
+				has_placemarkers = true;
+				emit(Placemark(head, replacement.token.flags), paste);
+			}
+			else
+				substitute(expanded_tokens_, argument_begin, argument_end, replacement, argument_hide_set, true, paste);
+			break;
+		}
+		case ReplacementRole::RawParameter:
+		{
+			const uint32_t raw_begin = argument_bounds_[arguments->bounds + 2u * replacement.parameter];
+			const uint32_t raw_end = argument_bounds_[arguments->bounds + 2u * replacement.parameter + 1];
+			if (comma_paste)
+			{
+				// Empty variable arguments remove the comma, and are still a
+				// placemarker for a ## that follows.
+				comma_paste = false;
+				if (raw_begin == raw_end)
+					context_tokens_.pop_back();
+			}
+			if (raw_begin == raw_end)
+			{
+				has_placemarkers = true;
+				emit(Placemark(head), paste);
+				break;
+			}
+			substitute(argument_tokens_, raw_begin, raw_end, replacement, 0, false, paste);
+			break;
+		}
+		case ReplacementRole::Stringize:
+		{
+			const uint32_t raw_begin = argument_bounds_[arguments->bounds + 2u * replacement.parameter];
+			const uint32_t raw_end = argument_bounds_[arguments->bounds + 2u * replacement.parameter + 1];
+			emit(stringize(argument_tokens_, raw_begin, raw_end, replacement, head), paste);
+			break;
+		}
+		case ReplacementRole::StringizedParameter:
+			break;
+		case ReplacementRole::Paste:
+			paste = true;
+			break;
+		case ReplacementRole::CommaPaste:
+			comma_paste = true;
+			break;
+		case ReplacementRole::VaOpt:
+		case ReplacementRole::StringizeVaOpt:
+			first_item_emitted |= i == first;
+			i = substitute_optional(macro, *arguments, argument_hide_set, i, paste, has_placemarkers);
+			continue;
+		}
+		if (i == first)
+			first_item_emitted = context_tokens_.size() != begin;
+	}
+	return first_item_emitted;
+}
+
+uint32_t MacroExpander::substitute_optional(const MacroDefinition& macro, const Arguments& arguments,
+	uint32_t argument_hide_set, uint32_t index, bool& paste, bool& has_placemarkers)
+{
+	const ReplacementToken& op = macro.body[index];
+	const bool stringify = op.role == ReplacementRole::StringizeVaOpt;
+	const uint32_t open = index + stringify;
+	const uint32_t close = macro.body[open].parameter;
+	const uint32_t begin = static_cast<uint32_t>(context_tokens_.size());
+	if (has_variable_tokens(macro, arguments))
+		substitute_list<true>(macro, &arguments, argument_hide_set, open + 2, close, has_placemarkers);
+	if (stringify)
+	{
+		const PPToken literal = stringize<true>(
+			context_tokens_, begin, static_cast<uint32_t>(context_tokens_.size()), op, building_head_);
+		context_tokens_.resize(begin);
+		emit(literal, paste);
+	}
+	else if (begin == context_tokens_.size())
+	{
+		has_placemarkers = true;
+		emit(Placemark(building_head_, op.token.flags), paste);
+	}
+	else
+	{
+		PPToken& first = context_tokens_[begin];
+		first.flags = static_cast<uint8_t>((first.flags & ~kLeadingSpace) | (op.token.flags & kLeadingSpace));
+		if (paste)
+		{
+			context_tokens_[begin - 1] = paste_tokens(context_tokens_[begin - 1], first);
+			context_tokens_.erase(context_tokens_.begin() + begin);
+			paste = false;
+		}
+	}
+	return close;
 }
 
 void MacroExpander::substitute(const std::vector<PPToken>& source, uint32_t begin, uint32_t end,
@@ -784,8 +911,9 @@ void MacroExpander::emit(const PPToken& token, bool& paste)
 	left = paste_tokens(left, token);
 }
 
-PPToken MacroExpander::stringize(
-	uint32_t begin, uint32_t end, const ReplacementToken& operator_token, const PPToken& head)
+template<bool has_placemarkers>
+PPToken MacroExpander::stringize(const std::vector<PPToken>& tokens, uint32_t begin, uint32_t end,
+	const ReplacementToken& operator_token, const PPToken& head)
 {
 	// White space between the argument's tokens becomes one space; `"` and
 	// `\` in character and string literals are escaped (16.3.2p2).
@@ -793,8 +921,10 @@ PPToken MacroExpander::stringize(
 	scratch_.assign(1, '"');
 	for (uint32_t i = begin; i < end; ++i)
 	{
-		const PPToken& token = argument_tokens_[i];
-		if (i != begin && (token.flags & kLeadingSpace) != 0)
+		const PPToken& token = tokens[i];
+		if (has_placemarkers && token.kind == PPTokenKind::Placemarker)
+			continue;
+		if ((has_placemarkers ? scratch_.size() > 1 : i != begin) && (token.flags & kLeadingSpace) != 0)
 			scratch_.push_back(' ');
 		if (!IsTextLiteral(token.kind))
 		{
@@ -830,6 +960,7 @@ PPToken MacroExpander::paste_tokens(const PPToken& left, const PPToken& right)
 	if (left.kind == PPTokenKind::Placemarker || right.kind == PPTokenKind::Placemarker)
 	{
 		PPToken result = left.kind == PPTokenKind::Placemarker ? right : left;
+		result.flags |= left.flags & kLeadingSpace;
 		result.flags &= static_cast<uint8_t>(~(kArgument | kReplacedArgument | kFollowsInContext | kFromArgument));
 		if (result.kind != PPTokenKind::Placemarker)
 			result.hide_set = hide_sets_.merge(building_chain_, result.hide_set);
@@ -870,8 +1001,10 @@ PPToken MacroExpander::paste_tokens(const PPToken& left, const PPToken& right)
 		{
 			result.identifier = identifiers_.intern(token.spelling, token.length);
 			result.spelling = result.identifier->spelling;
-			if (result.identifier == names_.va_args)
-				throw PreprocessError(head.begin, "__VA_ARGS__ formed by token pasting");
+			if (VariadicMacroName(result.identifier))
+				throw PreprocessError(head.begin,
+					result.identifier == names_.va_args ? "__VA_ARGS__ formed by token pasting"
+														: "__VA_OPT__ formed by token pasting");
 		}
 		else
 		{
@@ -898,10 +1031,17 @@ void MacroExpander::remove_placemarkers(uint32_t begin)
 		++out;
 	if (out == context_tokens_.size())
 		return;
+	uint8_t space = context_tokens_[out].flags & kLeadingSpace;
 	for (uint32_t i = out + 1; i < context_tokens_.size(); ++i)
 	{
-		if (context_tokens_[i].kind != PPTokenKind::Placemarker)
-			context_tokens_[out++] = context_tokens_[i];
+		if (context_tokens_[i].kind == PPTokenKind::Placemarker)
+			space |= context_tokens_[i].flags & kLeadingSpace;
+		else
+		{
+			context_tokens_[out] = context_tokens_[i];
+			context_tokens_[out++].flags |= space;
+			space = 0;
+		}
 	}
 	context_tokens_.resize(out);
 }

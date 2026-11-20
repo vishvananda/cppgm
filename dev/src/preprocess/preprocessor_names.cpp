@@ -16,8 +16,8 @@ const NamedRole kNamedRoles[] = { { "if", IdentifierRole::If }, { "ifdef", Ident
 	{ "undef", IdentifierRole::Undef }, { "line", IdentifierRole::Line }, { "error", IdentifierRole::Error },
 	{ "pragma", IdentifierRole::Pragma }, { "include_next", IdentifierRole::IncludeNext },
 	{ "warning", IdentifierRole::Warning }, { "defined", IdentifierRole::Defined },
-	{ "__VA_ARGS__", IdentifierRole::VaArgs }, { "_Pragma", IdentifierRole::PragmaOperator },
-	{ "once", IdentifierRole::Once },
+	{ "__VA_ARGS__", IdentifierRole::VaArgs }, { "__VA_OPT__", IdentifierRole::VaOpt },
+	{ "_Pragma", IdentifierRole::PragmaOperator }, { "once", IdentifierRole::Once },
 	// The names 16.8p1 predefines. This implementation defines none of the
 	// conditional names of 16.8p2, and the host headers that complete it may:
 	// glibc's <stdc-predef.h>, included by <features.h>, defines

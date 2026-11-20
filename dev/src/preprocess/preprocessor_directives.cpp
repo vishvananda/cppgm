@@ -379,7 +379,7 @@ void Preprocessor::run_define(const PPToken& directive)
 	name.spelling = identifier->spelling;
 	name.length = identifier->length;
 	name.begin = directive.begin;
-	LineTokens tokens(source_);
+	LineTokens tokens(*this);
 	MacroDefinition* macro = definition_parser_.parse(tokens, name);
 	// A macro may be redefined only identically (16.3p2); a command-line
 	// definition or a host compiler's predefined one yields to a later one,

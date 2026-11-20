@@ -213,12 +213,17 @@ private:
 	class LineTokens final : public DefinitionTokens
 	{
 	public:
-		explicit LineTokens(SourceStack& source) : source_(source) {}
-		const PPToken& next() override { return source_.next_in_line(); }
-		void allow_va_args(bool allow) override { source_.allow_va_args(allow); }
+		explicit LineTokens(Preprocessor& preprocessor) : preprocessor_(preprocessor) {}
+		const PPToken& next() override { return preprocessor_.source_.next_in_line(); }
+		void allow_va_args(bool allow) override { preprocessor_.source_.allow_va_args(allow); }
+		bool allow_va_opt(uint32_t location) const override
+		{
+			return preprocessor_.modes_.language >= 20 ||
+				preprocessor_.allow_cxx_extension(location, 20, "__VA_OPT__ is a C++20 extension", true);
+		}
 
 	private:
-		SourceStack& source_;
+		Preprocessor& preprocessor_;
 	};
 
 	// ExpansionEnvironment.

@@ -59,14 +59,18 @@ enum class ReplacementRole : uint8_t
 	// the comma is removed; otherwise they follow the comma as written,
 	// unpasted (GNU extension, pinned by the course fixture for variadic
 	// comma pasting; the details follow the course reference).
-	CommaPaste
+	CommaPaste,
+	// The optional operand's closing parenthesis is at `parameter`.
+	VaOpt,
+	// A # followed by an optional operand.
+	StringizeVaOpt
 };
 
 struct ReplacementToken
 {
 	PPToken token;
 	ReplacementRole role;
-	uint16_t parameter;
+	uint32_t parameter;
 };
 
 // MacroDefinition::parameter_uses bits.
@@ -91,6 +95,7 @@ struct MacroDefinition
 	uint16_t parameter_count;
 	bool function_like;
 	bool variadic;
+	bool has_va_opt;
 	BuiltinMacro builtin;
 };
 
@@ -114,6 +119,7 @@ public:
 	// Whether __VA_ARGS__ may be read: only in the replacement list of a
 	// variadic macro (16.3p5).
 	virtual void allow_va_args(bool allow) = 0;
+	virtual bool allow_va_opt(uint32_t location) const = 0;
 
 protected:
 	~DefinitionTokens() {}
@@ -135,9 +141,10 @@ public:
 private:
 	void parse_parameters(DefinitionTokens& tokens, const PPToken& open);
 	void read_replacement_list(DefinitionTokens& tokens, PPToken token);
+	bool mark_va_opt(const DefinitionTokens& tokens);
 	void assign_function_like_roles();
 	void assign_paste_roles(bool function_like);
-	MacroDefinition* finish(const PPToken& name, bool function_like);
+	MacroDefinition* finish(const PPToken& name, bool function_like, bool has_va_opt);
 
 	Arena& arena_;
 	Identifier* va_args_;
