@@ -8,6 +8,9 @@ single-vptr ABI:
 - non-virtual multiple inheritance
 - member lookup and access across multiple base subobjects
 - constructor, copy, and destructor generation across multiple non-virtual bases
+- constructor inheritance from multiple direct bases, including constructor
+  templates. Resolve all inherited candidates with ordinary overload
+  resolution and diagnose ambiguous choices. See [P0136R1](../doc/cwg/paper-p0136r1.txt).
 - member pointer type formation, null/conversion handling, and `.*` / `->*`
   application over the completed non-virtual object model
 - `dynamic_cast<void*>` for the current polymorphic single-inheritance ABI

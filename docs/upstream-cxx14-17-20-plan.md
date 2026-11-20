@@ -567,6 +567,13 @@ fixing constexpr calls through an unknown closure parameter. Its non-odr-use
 of an enclosing constant pointer reads the original value. PA20 checks
 both default capture kinds and a runtime reference capture.
 
+### MSM validation in C++17
+
+All 19 recovered target configurations pass. PA22 tests constructor
+inheritance from multiple bases, including templates and ambiguous
+overloads. PA18 preserves declaration-point lookup in a dependent call so
+a later member cannot hide the ADL customization in MSM's JSON test.
+
 ### Hosted source location validation
 
 PA30 supplies the builtin using the record described in the
