@@ -540,8 +540,17 @@ original configurations build and run successfully with GCC and cppgm.
 With its two original DOT fixtures available from B2's working directory,
 all 128 Boost.Graph test cases pass with the same outcomes under GCC and
 cppgm. Boost.Graph Parallel matches on all 25 cases with the documented
-MPI configuration and bounds fixes. Boost.GIL matches GCC on all 146 cases, including its
-all-formats test with the JPEG, PNG and TIFF development headers installed.
+MPI configuration and bounds fixes. Boost.GIL matches GCC on all 146 cases,
+including its all-formats test with the JPEG, PNG and TIFF development headers
+installed.
+
+### Boost.Math test discovery
+
+Boost.Build rejects 107 autocreated targets in the pinned Math Jamfile that
+request both successful and failing runs of the same source and arguments.
+Replay the upstream removal of those duplicate run-fail declarations. Keep
+one copy of each original run declaration and the separate compile-fail tests.
+[Boost.Math fix](https://github.com/boostorg/math/commit/0aa599b200b435777d41d56983d22bdaf7f29b99)
 
 ## Measure before promoting the changes
 

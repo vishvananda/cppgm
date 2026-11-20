@@ -271,6 +271,36 @@ def prepare_pfr_names(boost):
                           '#   elif defined(_MSC_VER)')
 
 
+def prepare_math_autodiff(boost):
+    # Boost.Math #1551 drops the run-fail entries that contradict a run
+    # declaration for the same source. Keep the separate compile-fail tests.
+    jamfile = boost / 'libs/math/test/Jamfile.v2'
+    text = jamfile.read_text()
+    section = re.search(r'^# BEGIN AUTODIFF LONG RUNNING TESTS\n(.*?)^# END AUTODIFF LONG RUNNING TESTS$',
+                        text, re.MULTILINE | re.DOTALL)
+    boost_ci.require(section is not None, 'math autodiff test suite markers changed')
+    tests = section[1]
+    run = re.compile(r'(?m)^[ \t]*\[ (run|run-fail) (\S+) \][ \t]*\n')
+    declarations = Counter(run.findall(tests))
+    passing = {source for kind, source in declarations if kind == 'run'}
+    failing = {source for kind, source in declarations if kind == 'run-fail'}
+    boost_ci.require(len(passing) == 157 and len(failing) == 107 and failing <= passing and
+                     sum(declarations.values()) == 267,
+                     'math autodiff duplicate run-fail declarations changed')
+
+    emitted = set()
+
+    def keep_run(match):
+        kind, source = match.groups()
+        if kind == 'run-fail' or source in emitted:
+            return ''
+        emitted.add(source)
+        return match[0]
+
+    first, last = section.span(1)
+    jamfile.write_text(text[:first] + run.sub(keep_run, tests) + text[last:])
+
+
 def prepare_replay_sources(boost, groups):
     projects = {group['project'] for group in groups}
     if projects & {'libs/geometry/index/test', 'libs/geometry/test'}:
@@ -307,6 +337,8 @@ def prepare_replay_sources(boost, groups):
         match = '#if defined(BOOST_HANA_CONFIG_CLANG)'
         replace_replay_source(boost / 'boost/hana/experimental/type_name.hpp', match,
                               match + ' || defined(__CPPGM__)')
+    if 'libs/math/test' in projects:
+        prepare_math_autodiff(boost)
     if 'libs/mpi/build' in projects:
         # Backport boostorg/mpi#180 and #181 for the optional Python module.
         # Its indexing suite must compile even though request equality raises.
