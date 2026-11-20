@@ -5,6 +5,7 @@
 #include "native/select/block_placement.h"
 #include "native/select/bulk_policy.h"
 #include "native/select/shrink_wrap.h"
+#include "machine/shrink_region.h"
 
 // Shrink-wrapping (O1+, frame-pointer-free functions, before branch
 // layout): the blocks the entry reaches without passing a block that needs
@@ -226,154 +227,70 @@ bool shrink_wrap(Function& f)
 	};
 	// (A block that ends in a table jump is never copied: a copy would
 	// share the table's entries, which the region's are redirected through.)
-	std::vector<uint8_t> needs(n, 0), tabled(n, 0);
-	std::vector<std::vector<uint32_t>> succs(n);
+	machine::ShrinkGraph graph;
+	graph.needs.assign(n, 0);
+	graph.tabled.assign(n, 0);
+	graph.returns.assign(n, 0);
+	graph.short_return.assign(n, 0);
+	graph.counts.assign(n, 0);
+	graph.succs.resize(n);
+	const auto& needs = graph.needs;
 	for (uint32_t b = 0; b < n; ++b)
 	{
 		const Block& block = f.blocks[b];
 		if (!terminated(f, block))
 			return false;
-		tabled[b] = f.insts[block.first + block.count - 1].op == Op::JumpTable;
+		graph.tabled[b] = f.insts[block.first + block.count - 1].op == Op::JumpTable;
 		for (uint32_t i = block.first; i < block.first + block.count && !needs[b]; ++i)
-			needs[b] = !frameless_inst(f.insts[i]) && std::find(sunk.begin(), sunk.end(), i) == sunk.end() &&
+			graph.needs[b] = !frameless_inst(f.insts[i]) && std::find(sunk.begin(), sunk.end(), i) == sunk.end() &&
 				reload_of(i) == sunk.size();
-		successors(f, b, succs[b]);
+		for (uint32_t i = block.first; i < block.first + block.count; ++i)
+			graph.returns[b] |= f.insts[i].op == Op::Ret;
+		graph.counts[b] = block.count;
+		// Short of registers for a wider region, only short return blocks
+		// (a shared `ret`) are copied.
+		graph.short_return[b] = !needs[b] && block.count <= kReturnCopyCap &&
+			f.insts[block.first + block.count - 1].op == Op::Ret;
+		successors(f, b, graph.succs[b]);
 	}
 	// Blocks a frame-needing block reaches (it never returns to the region).
-	std::vector<uint8_t> framed(needs);
-	std::vector<uint32_t> work;
-	for (uint32_t b = 0; b < n; ++b)
-		if (framed[b])
-			work.push_back(b);
-	while (!work.empty())
-	{
-		const uint32_t b = work.back();
-		work.pop_back();
-		for (uint32_t s : succs[b])
-			if (s < n && !framed[s])
-			{
-				framed[s] = 1;
-				work.push_back(s);
-			}
-	}
+	std::vector<uint8_t> framed;
+	machine::framed_blocks(graph, framed);
 	if (framed[0])
 		return false;
 	// A block frame-needing code also reaches that needs no frame itself (a
 	// join on the way to a return) gets a frameless copy for the region's
 	// edges, within kCopyBudget instructions in all; the copies' own
-	// successors are taken alike. Short of registers for that, only short
-	// return blocks (a shared `ret`) are copied.
-	std::vector<uint8_t> region(n), copied(n), kept(sunk.size());
-	std::vector<uint32_t> exits;             // distinct framed targets
+	// successors are taken alike.
+	machine::ShrinkRegion shrink;
+	const auto& region = shrink.region;
+	const auto& copied = shrink.copied;
+	const auto& exits = shrink.exits; // distinct framed targets
+	std::vector<uint8_t> kept(sunk.size());
 	std::vector<std::pair<Reg, Reg>> copies; // (callee-saved, its stand-in)
 	std::vector<Reg> spare(sunk.size());
 	Reg rename[16];
 	// Plans: wide (joins copied within kCopyBudget), narrow (short returns
 	// copied), minimal (the entry alone with copies of the short returns it
 	// enters; any other successor, framed or not, is an exit).
-	enum Plan
-	{
-		kWide,
-		kNarrow,
-		kMinimal
-	};
-	auto plan = [&](Plan mode, uint32_t minimal_budget) -> bool {
-		const bool wide = mode == kWide;
-		uint32_t budget = kCopyBudget;
-		auto short_return = [&](uint32_t b) {
-			const Block& block = f.blocks[b];
-			return !needs[b] && block.count <= kReturnCopyCap && f.insts[block.first + block.count - 1].op == Op::Ret;
-		};
-		auto copyable = [&](uint32_t b) {
-			return wide ? !needs[b] && !tabled[b] && f.blocks[b].count <= budget : short_return(b);
-		};
-		// The region: what the entry reaches through blocks not framed.
-		region.assign(n, 0);
-		copied.assign(n, 0);
-		region[0] = 1;
-		work.assign(1, 0);
-		bool returns = false;
+	auto plan = [&](machine::ShrinkPlan mode, uint32_t minimal_budget) -> bool {
+		if (!machine::shrink_region(graph, framed, mode, kCopyBudget, minimal_budget, shrink))
+			return false;
 		uint32_t names = 0;
-		exits.clear();
-		auto scan = [&](uint32_t b) {
+		for (uint32_t b = 0; b < n; ++b)
+		{
+			if (!region[b] && !copied[b])
+				continue;
 			const Block& block = f.blocks[b];
 			for (uint32_t i = block.first; i < block.first + block.count; ++i)
-			{
-				const Inst& inst = f.insts[i];
-				returns = returns || inst.op == Op::Ret;
-				for (unsigned k = 0; k < inst.nops; ++k)
-					names |= named(inst.ops[k]);
-			}
-		};
-		while (!work.empty())
-		{
-			const uint32_t b = work.back();
-			work.pop_back();
-			scan(b);
-			for (uint32_t s : succs[b])
-			{
-				if (s >= n || (mode == kMinimal && s == 0))
-					return false;
-				if (mode == kMinimal)
-				{
-					// A short return gets a copy (the original may be entered
-					// from an exit's framed code), so does another frameless
-					// block within kMinimalCopyBudget; anything else is an exit.
-					if (copied[s])
-						continue;
-					if (short_return(s) || (!needs[s] && !tabled[s] && f.blocks[s].count <= minimal_budget))
-					{
-						if (!short_return(s))
-							minimal_budget -= f.blocks[s].count;
-						copied[s] = 1;
-						work.push_back(s);
-					}
-					else if (std::find(exits.begin(), exits.end(), s) == exits.end())
-						exits.push_back(s);
-				}
-				else if (framed[s] && (copied[s] || copyable(s)))
-				{
-					if (!copied[s])
-					{
-						copied[s] = 1;
-						budget -= f.blocks[s].count;
-						work.push_back(s);
-					}
-				}
-				else if (framed[s])
-				{
-					if (std::find(exits.begin(), exits.end(), s) == exits.end())
-						exits.push_back(s);
-				}
-				else if (!region[s])
-				{
-					region[s] = 1;
-					work.push_back(s);
-				}
-			}
+				for (unsigned k = 0; k < f.insts[i].nops; ++k)
+					names |= named(f.insts[i].ops[k]);
 		}
-		if (!returns || exits.empty())
-			return false;
 		// The region's blocks an exit is still reachable from: a register
 		// written only past them (on the way to a return) never reaches a
 		// prologue.
-		std::vector<uint8_t> to_exit(n, 0);
-		for (bool grew = true; grew;)
-		{
-			grew = false;
-			for (uint32_t b = 0; b < n; ++b)
-			{
-				if ((!region[b] && !copied[b]) || to_exit[b])
-					continue;
-				for (uint32_t s : succs[b])
-					if (s >= n || (!region[s] && !copied[s]) || to_exit[s])
-					{
-						to_exit[b] = 1;
-						grew = true;
-						break;
-					}
-			}
-		}
+		std::vector<uint8_t> to_exit;
+		machine::exit_reaching(graph, shrink, to_exit);
 		// A moved store's register stays as it was through the region. The
 		// writes in blocks an exit is reachable from count apart from the
 		// leaf blocks' (on the way to a return only), whose names are kept.
@@ -471,8 +388,10 @@ bool shrink_wrap(Function& f)
 		}
 		return true;
 	};
-	if (!plan(kWide, 0) && !plan(kNarrow, 0) && !plan(kMinimal, kMinimalCopyBudgets[0]) &&
-		!plan(kMinimal, kMinimalCopyBudgets[1]) && !plan(kMinimal, kMinimalCopyBudgets[2]))
+	using machine::ShrinkPlan;
+	if (!plan(ShrinkPlan::Wide, 0) && !plan(ShrinkPlan::Narrow, 0) &&
+		!plan(ShrinkPlan::Minimal, kMinimalCopyBudgets[0]) && !plan(ShrinkPlan::Minimal, kMinimalCopyBudgets[1]) &&
+		!plan(ShrinkPlan::Minimal, kMinimalCopyBudgets[2]))
 		return false;
 	// The copies of shared returns, then a prologue block per framed target:
 	// the frame, the registers back, the jump on.
@@ -601,7 +520,7 @@ bool shrink_wrap(Function& f)
 			part[b] = 1;
 	std::vector<uint32_t> next_blocks;
 	part[0] = 0;
-	work.assign(1, 0);
+	std::vector<uint32_t> work(1, 0);
 	while (!work.empty())
 	{
 		const uint32_t b = work.back();
