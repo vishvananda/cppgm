@@ -416,6 +416,15 @@ even with GCC in C++14.
    execute both original test definitions. The default GIL format test
    needs the JPEG, PNG, TIFF and zlib development packages. Replay GIL
    with shared linking so libtiff supplies its codec dependencies.
+   Copy Graph's two archived DOT fixtures into B2's working directory for
+   its isomorphism test. Apply two bounds fixes to the extracted Boost
+   Graph Parallel headers before running its original MPI tests. Form
+   one-past pointers directly in the centrality reduction and discard
+   empty partitions before the next strong-components BFS. The pinned
+   GCC 15.2 libstdc++ assertions otherwise abort those tests.
+   In Hana's type-name helper, select the spelling
+   of `__PRETTY_FUNCTION__` that cppgm already provides. Keep Hana's
+   original type-name assertions, including the runtime comparisons.
 2. **Require actual cppgm builds and test execution.** Reuse the B2 runner
    with separate build roots by compiler and edition. Verify the actual
    C++ invocations use the candidate compiler and recorded standard. Each
@@ -461,3 +470,9 @@ even with GCC in C++14.
   existing blanket permissions. Add the remaining features in measurable
   batches and run the strict report, audits, PA35 self-host checks and
   student export before promoting each edition's initial cohort.
+
+## Prepare the release
+
+Include a separate version commit in the completed C++ edition PR. Update
+`CPPGM_VERSION` in `dev/src/support/version.h` and verify the reported version
+matches the intended release tag. Use that tag on the merged release commit.

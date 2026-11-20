@@ -74,7 +74,8 @@
       ],
       "required_tests": [
         "libs/gil/test/core/io//path_spec_compile.test",
-        "libs/gil/test/core/io//path_spec.test"
+        "libs/gil/test/core/io//path_spec.test",
+        "libs/gil/test/extension/io//simple_all_formats.test"
       ],
       "proof": {
         "path": "runs/20261029T090403.725099Z-libs__gil__test/review.json",
@@ -97,6 +98,9 @@
     {
       "project": "libs/graph/test",
       "edition": 14,
+      "required_tests": [
+        "libs/graph/test//isomorphism.test"
+      ],
       "proof": {
         "path": "runs/20261029T090418.951028Z-libs__graph__test/review.json",
         "sha256": "75e577e46e38c69759131eb50e92404f3ebb32ab0fa4cf179ade778689469048"
@@ -115,6 +119,10 @@
     {
       "project": "libs/graph_parallel/test",
       "edition": 14,
+      "required_tests": [
+        "libs/graph_parallel/test//distributed_betweenness_centrality_test-2.test",
+        "libs/graph_parallel/test//distributed_strong_components_test-2.test"
+      ],
       "proof": {
         "path": "runs/20261029T090443.557262Z-libs__graph_parallel__test/review.json",
         "sha256": "f056c9a6452fd68ad9c353e7e3d3b3fd1a35c28ae92193487af2bab0fa985148"
@@ -124,6 +132,9 @@
     {
       "project": "libs/hana/test",
       "edition": 14,
+      "required_tests": [
+        "libs/hana/test//test~experimental~type_name.test"
+      ],
       "proof": {
         "path": "runs/20261029T090455.441813Z-libs__hana__test/review.json",
         "sha256": "bac6d81b1b23de092692d1fc7f9c29694584035c42582d1a71d62909975478bc"
