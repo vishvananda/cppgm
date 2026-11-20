@@ -56,6 +56,14 @@ struct Known
 	uint64_t bytes;  // storage_bytes(type)
 };
 
+// A store of an integer (or null pointer) zero.
+bool stores_zero(const FunctionBody& body, const Instruction& store)
+{
+	const Value v = store.ops[0];
+	return (store.type.is_pointer() || (store.type.is_integer() && store.type.kind() != TypeKind::I128)) &&
+		v.is(ValueKind::Integer) && body.literals[v.index].low == 0 && body.literals[v.index].high == 0;
+}
+
 // An EH region's start or end (a try or cleanup record pushed or popped):
 // it writes no memory the program reads, and a handler block starts the
 // walk knowing nothing.
@@ -205,6 +213,7 @@ private:
 	size_t tile_parts(const AddressFacts& at, uint64_t bytes, bool floats, MovedPart* parts) const;
 	InstId field_copy(BlockId block, InstId prev, InstId id);
 	InstId moved_load(BlockId block, InstId prev, InstId id, const AddressFacts& at);
+	bool absorb_zero_store(BlockId block, InstId prev, InstId id, Instruction& zero);
 	InstId store_parts(BlockId block, InstId after, Value dst, const MovedPart* parts, size_t count, uint32_t location);
 	void drop_unread_writes();
 	void drop_overwritten_stores();
@@ -1078,6 +1087,7 @@ void MemoryForwarding::process(BlockId block)
 	call_epoch_ = 1;
 	call_has_reads_ = false;
 	InstId prev = kNoId;
+	InstId zero_store = kNoId, zero_prev = kNoId; // the last store of zero, address arithmetic after it
 	for (InstId i = body_.blocks[block].first; i != kNoId;)
 	{
 		Instruction& inst = body_.instructions[i];
@@ -1172,9 +1182,7 @@ void MemoryForwarding::process(BlockId block)
 				store_blocks_.push_back(block);
 			const Value v = inst.ops[0];
 			const uint64_t bytes = storage_bytes(inst.type);
-			const bool zero = (inst.type.is_pointer() ||
-								  (inst.type.is_integer() && inst.type.kind() != TypeKind::I128)) &&
-				v.is(ValueKind::Integer) && body_.literals[v.index].low == 0 && body_.literals[v.index].high == 0;
+			const bool zero = stores_zero(body_, inst);
 			if ((inst.flags & IF_VOLATILE) == 0)
 			{
 				// An ordinary store of what the location already holds
@@ -1223,6 +1231,8 @@ void MemoryForwarding::process(BlockId block)
 		}
 		else if (inst.op == Opcode::ZeroInit)
 		{
+			if (zero_store != kNoId && absorb_zero_store(block, zero_prev, zero_store, inst) && prev == zero_store)
+				prev = zero_prev;
 			invalidate(inst.ops[0], static_cast<uint64_t>(inst.immediate));
 			note_zero(inst.ops[0], static_cast<uint64_t>(inst.immediate));
 		}
@@ -1239,9 +1249,44 @@ void MemoryForwarding::process(BlockId block)
 				forget_passed(inst);                                       // but those it is given
 			}
 		}
+		if (inst.op == Opcode::Store && !(inst.flags & IF_VOLATILE) && stores_zero(body_, inst))
+		{
+			zero_store = i;
+			zero_prev = prev;
+		}
+		else if (!is_pure(inst))
+			zero_store = kNoId;
 		prev = i;
 		i = next;
 	}
+}
+
+// A store of zero to the bytes just before a zeroing, with only address
+// arithmetic between them, joins the zeroing (a member array's `{0}` lowers
+// as its first element's store and a zeroing of the rest): one zeroing
+// writes them all, and a wide read of the whole forwards from one store.
+bool MemoryForwarding::absorb_zero_store(BlockId block, InstId prev, InstId id, Instruction& zero)
+{
+	const Instruction& store = body_.instructions[id];
+	const uint64_t width = storage_bytes(store.type);
+	const AddressFacts a = facts_of(store.ops[1]), b = facts_of(zero.ops[0]);
+	if ((zero.flags & IF_VOLATILE) != 0 || a.base == ValueKind::None || a.base != b.base || a.index != b.index ||
+		a.offset + static_cast<int64_t>(width) != b.offset)
+		return false;
+	// The start's alignment: the zeroing's less the store's width, or the
+	// slot's at that offset.
+	unsigned align = std::min<unsigned>(zero.sub, static_cast<unsigned>(__builtin_ctzll(width)));
+	if (a.base == ValueKind::Slot && a.offset >= 0)
+		align = std::max(align,
+			std::min<unsigned>(body_.slots[a.index].type.align_log2,
+				a.offset == 0 ? 63u : static_cast<unsigned>(__builtin_ctzll(static_cast<uint64_t>(a.offset)))));
+	zero.ops[0] = store.ops[1];
+	zero.immediate += static_cast<int64_t>(width);
+	zero.sub = static_cast<uint8_t>(align);
+	unlink_after(body_, block, prev, id);
+	++c_.stats.stores_removed;
+	changed_ = true;
+	return true;
 }
 
 // What a copy's source is known to hold within the copied bytes holds at
