@@ -507,15 +507,74 @@ def tool_version(command):
     return output.splitlines()[0] if output else None
 
 
-def cpu_model():
+# AArch64 /proc/cpuinfo has no model name, only the MIDR fields. The names
+# follow arch/arm64/include/asm/cputype.h of the Linux kernel.
+ARM_IMPLEMENTERS = {0x41: 'Arm', 0x42: 'Broadcom', 0x43: 'Cavium', 0x46: 'Fujitsu', 0x48: 'HiSilicon',
+                    0x4e: 'NVIDIA', 0x50: 'APM', 0x51: 'Qualcomm', 0x61: 'Apple', 0x6d: 'Microsoft',
+                    0xc0: 'Ampere'}
+ARM_PARTS = {
+    0x41: {0xd03: 'Cortex-A53', 0xd04: 'Cortex-A35', 0xd05: 'Cortex-A55', 0xd07: 'Cortex-A57',
+           0xd08: 'Cortex-A72', 0xd09: 'Cortex-A73', 0xd0a: 'Cortex-A75', 0xd0b: 'Cortex-A76',
+           0xd0c: 'Neoverse N1', 0xd0d: 'Cortex-A77', 0xd0e: 'Cortex-A76AE', 0xd40: 'Neoverse V1',
+           0xd41: 'Cortex-A78', 0xd42: 'Cortex-A78AE', 0xd44: 'Cortex-X1', 0xd46: 'Cortex-A510',
+           0xd47: 'Cortex-A710', 0xd48: 'Cortex-X2', 0xd49: 'Neoverse N2', 0xd4b: 'Cortex-A78C',
+           0xd4c: 'Cortex-X1C', 0xd4d: 'Cortex-A715', 0xd4e: 'Cortex-X3', 0xd4f: 'Neoverse V2',
+           0xd80: 'Cortex-A520', 0xd81: 'Cortex-A720', 0xd82: 'Cortex-X4', 0xd83: 'Neoverse V3AE',
+           0xd84: 'Neoverse V3', 0xd85: 'Cortex-X925', 0xd87: 'Cortex-A725', 0xd89: 'Cortex-A720AE',
+           0xd8c: 'C1-Ultra', 0xd8e: 'Neoverse N3', 0xd90: 'C1-Premium'},
+    0x43: {0x0a1: 'ThunderX', 0x0af: 'ThunderX2'},
+    0x46: {0x001: 'A64FX'},
+    0x48: {0xd01: 'TSV110', 0xd02: 'HIP09', 0xd06: 'HIP12'},
+    0x4e: {0x003: 'Denver', 0x004: 'Carmel', 0x010: 'Olympus'},
+    0x50: {0x000: 'X-Gene'},
+    0x51: {0x001: 'Oryon X1', 0x800: 'Falkor V1', 0xc00: 'Falkor'},
+    0x6d: {0xd49: 'Azure Cobalt 100'},
+    0xc0: {0xac3: 'AmpereOne', 0xac4: 'AmpereOne A'},
+}
+MIDR_FIELDS = ('CPU implementer', 'CPU part', 'CPU variant', 'CPU revision')
+
+
+def arm_cpu_name(cpuinfo):
+    """Name the distinct AArch64 cores in /proc/cpuinfo text, or return None."""
+    names = []
+    for block in cpuinfo.split('\n\n'):
+        fields = {}
+        for line in block.splitlines():
+            key, _, value = line.partition(':')
+            if key.strip() in MIDR_FIELDS:
+                fields[key.strip()] = int(value.strip(), 0)
+        if len(fields) != len(MIDR_FIELDS):
+            continue
+        implementer, part, variant, revision = (fields[key] for key in MIDR_FIELDS)
+        vendor = ARM_IMPLEMENTERS.get(implementer, 'AArch64')
+        core = ARM_PARTS.get(implementer, {}).get(part, f'part {part:#05x}')
+        name = f'{vendor} {core} (implementer {implementer:#04x}, part {part:#05x}, r{variant}p{revision})'
+        if name not in names:
+            names.append(name)
+    return ' + '.join(names) or None
+
+
+def lscpu_model():
     try:
-        with open('/proc/cpuinfo') as cpuinfo:
-            for line in cpuinfo:
-                if line.startswith('model name'):
-                    return line.split(':', 1)[1].strip()
+        output = subprocess.run(['lscpu'], capture_output=True, text=True, timeout=30,
+                                env=dict(os.environ, LC_ALL='C')).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    fields = [line.partition(':') for line in output.splitlines()]
+    vendor = next((value.strip() for key, _, value in fields if key.strip() == 'Vendor ID'), '')
+    models = list(dict.fromkeys(value.strip() for key, _, value in fields if key.strip() == 'Model name'))
+    return ' + '.join(f'{vendor} {model}'.strip() for model in models) or None
+
+
+def cpu_model(cpuinfo='/proc/cpuinfo'):
+    try:
+        text = Path(cpuinfo).read_text()
     except OSError:
-        pass
-    return platform.processor() or None
+        text = ''
+    for line in text.splitlines():
+        if line.startswith('model name'):
+            return line.split(':', 1)[1].strip()
+    return arm_cpu_name(text) or lscpu_model() or platform.processor() or None
 
 
 def run(arguments):

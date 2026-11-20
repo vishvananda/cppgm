@@ -866,6 +866,61 @@ class BackendPublicationTests(unittest.TestCase):
                 publish()
 
 
+def arm_core(index, implementer, part, variant, revision):
+    return (f'processor\t: {index}\nBogoMIPS\t: 50.00\nFeatures\t: fp asimd evtstrm aes pmull sha1 sha2 crc32\n'
+            f'CPU implementer\t: {implementer}\nCPU architecture: 8\nCPU variant\t: {variant}\n'
+            f'CPU part\t: {part}\nCPU revision\t: {revision}\n')
+
+
+class CpuModelTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.cpuinfo = Path(self.temp.name) / 'cpuinfo'
+
+    def model(self, text, lscpu=''):
+        self.cpuinfo.write_text(text)
+        done = subprocess.CompletedProcess(['lscpu'], 0, stdout=lscpu)
+        with mock.patch.object(pb.subprocess, 'run', return_value=done) as run:
+            return pb.cpu_model(self.cpuinfo), run
+
+    def test_an_x86_model_name_is_kept_as_written(self):
+        text = ('processor\t: 0\nvendor_id\t: AuthenticAMD\n'
+                'model name\t: AMD EPYC 9V74 80-Core Processor\nflags\t\t: fpu\n\n')
+        name, run = self.model(text)
+        self.assertEqual(name, 'AMD EPYC 9V74 80-Core Processor')
+        run.assert_not_called()
+
+    def test_arm_cores_are_named_from_their_midr_fields(self):
+        text = '\n'.join(arm_core(i, '0x41', '0xd4f', '0x0', '1') for i in range(4))
+        name, run = self.model(text)
+        self.assertEqual(name, 'Arm Neoverse V2 (implementer 0x41, part 0xd4f, r0p1)')
+        run.assert_not_called()
+
+    def test_common_server_parts(self):
+        for implementer, part, expected in [('0x41', '0xd0c', 'Arm Neoverse N1'),
+                                            ('0x41', '0xd49', 'Arm Neoverse N2'),
+                                            ('0x41', '0xd40', 'Arm Neoverse V1'),
+                                            ('0x6d', '0xd49', 'Microsoft Azure Cobalt 100'),
+                                            ('0xc0', '0xac3', 'Ampere AmpereOne')]:
+            name, _ = self.model(arm_core(0, implementer, part, '0x3', '1'))
+            self.assertEqual(name, f'{expected} (implementer {implementer}, part {part}, r3p1)')
+
+    def test_unknown_parts_and_mixed_cores_keep_every_field(self):
+        text = '\n'.join([arm_core(0, '0x41', '0xd05', '0x2', '0'), arm_core(1, '0x41', '0xd05', '0x2', '0'),
+                          arm_core(2, '0x41', '0xd99', '0x1', '2'), arm_core(3, '0x99', '0x123', '0x0', '0')])
+        name, _ = self.model(text)
+        self.assertEqual(name, 'Arm Cortex-A55 (implementer 0x41, part 0xd05, r2p0) + '
+                               'Arm part 0xd99 (implementer 0x41, part 0xd99, r1p2) + '
+                               'AArch64 part 0x123 (implementer 0x99, part 0x123, r0p0)')
+
+    def test_without_midr_fields_lscpu_names_the_cpu(self):
+        lscpu = 'Architecture:  aarch64\nVendor ID:     ARM\nModel name:    Neoverse-N2\nCPU(s): 4\n'
+        name, run = self.model('processor\t: 0\nBogoMIPS\t: 50.00\n', lscpu)
+        self.assertEqual(name, 'ARM Neoverse-N2')
+        self.assertEqual(run.call_args.args[0], ['lscpu'])
+
+
 class IntelRunnerTests(unittest.TestCase):
     def test_suites_use_separate_sequential_runners_at_one_pinned_revision(self):
         args = SimpleNamespace(repo='owner/repo', ref='main', course_quality=True)

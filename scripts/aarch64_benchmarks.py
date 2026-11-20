@@ -10,6 +10,7 @@ import subprocess
 import time
 
 from benchmark_timing import observations, retain, sha, summarize
+from public_benchmarks import cpu_model
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = ("lookup", "calls", "memory", "vectors")
@@ -83,7 +84,8 @@ def measure(args):
             guest.chmod(0o555)
     verify()
     samples = output / "observations.jsonl"
-    report = {"machine": platform.uname()._asdict(), "manifest_sha256": sha(directory / "manifest.json"),
+    report = {"machine": platform.uname()._asdict(), "cpu": cpu_model(),
+              "manifest_sha256": sha(directory / "manifest.json"),
               "revision": manifest.get("revision"), "cases": {}}
     for case in CASES:
         def run(label, phase, block, position):
