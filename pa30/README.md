@@ -358,6 +358,11 @@ these literals. ISO C++ modes leave those suffixes to the ordinary
 user-defined literal rules. The standard `l` and `L` suffixes denote
 `long double`. [GCC floating-type extensions](https://gcc.gnu.org/onlinedocs/gcc/Floating-Types.html)
 
+In constant expressions, support the GNU builtins `__builtin_fmaf`,
+`__builtin_fma`, and `__builtin_fmal` for finite operands. Evaluate the
+product and sum with one rounding to the result type. An overflow or an
+inexact underflow cannot produce a constant expression.
+
 Constant evaluation of binary128 values must use their target precision and
 range, including arithmetic, comparisons, casts and static initialization.
 Preserve signed zero, subnormals and the bits of supported NaN builtins;

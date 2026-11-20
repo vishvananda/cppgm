@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+struct InterchangeFormat;
+
 namespace sema {
 namespace binary128 {
 
@@ -32,6 +34,8 @@ Bits signaling_nan(std::uint64_t payload);
 int compare(Bits left, Bits right);
 // Constant operations reject nonfinite results and zero divisors.
 bool calculate(Operation operation, Bits left, Bits right, Bits& result);
+// The operands use binary128 encoding. Round the fused result to the requested format.
+bool fused_multiply_add(Bits left, Bits right, Bits addend, const InterchangeFormat& format, Bits& result);
 bool from_integer(bool negative, Bits magnitude, Bits& result);
 bool to_integer(Bits value, unsigned width, bool is_signed, Bits& result);
 bool from_host(long double value, Bits& result);

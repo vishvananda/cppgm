@@ -293,6 +293,7 @@ private:
 	// function (true with a failure for a call of one that is no constant).
 	bool library_comparison(
 		const FunctionEntity* function, const Argument* arguments, uint32_t count, Result& result, uint32_t location);
+	bool library_fma(const Type* target, const Argument* arguments, uint32_t count, Result& result, uint32_t location);
 	bool library_floating(
 		const FunctionEntity* function, const Argument* arguments, uint32_t count, Result& result, uint32_t location);
 	// GCC's __builtin_FILE, __builtin_LINE and __builtin_FUNCTION, Clang's
