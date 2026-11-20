@@ -379,6 +379,7 @@ void FunctionLowering::lower_coroutine_actor(lowir::SymbolId symbol, CoroutineFr
 	free_coroutine_frame(facts, allocation, size);
 	terminate(ret);
 	place_late_blocks();
+	lowering_.state_forward_boundaries(symbol);
 	if (exceptions)
 	{
 		reconnect_coroutine_exception_regions(program_, symbol, builder_, context);

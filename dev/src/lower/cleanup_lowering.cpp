@@ -4,6 +4,7 @@
 
 #include "lowir/literals.h"
 #include "sema/conversions.h"
+#include "sema/coroutine_records.h"
 #include "sema/statement_facts.h"
 #include "sema/template_records.h"
 
@@ -39,6 +40,16 @@ const syntax::Expr* WithoutParentheses(const syntax::Expr* expr)
 			break;
 	}
 	return expr;
+}
+
+void AwaitEvaluations(const sema::CoroutineAwait* await, std::vector<const syntax::Expr*>& work)
+{
+	if (await == nullptr)
+		return;
+	work.push_back(await->resume);
+	work.push_back(await->transfer != nullptr ? await->transfer : await->suspend);
+	work.push_back(await->ready);
+	work.push_back(await->source);
 }
 
 } // namespace
@@ -152,6 +163,10 @@ bool FunctionLowering::may_throw(const syntax::Expr* root)
 		// A statement expression's statements are not walked here.
 		case syntax::ExprKind::Statement:
 			found = true;
+			break;
+		case syntax::ExprKind::Coroutine:
+			if (facts != nullptr)
+				AwaitEvaluations(facts->coroutine_await, work);
 			break;
 		case syntax::ExprKind::Binary:
 		case syntax::ExprKind::Assign:
@@ -1211,6 +1226,9 @@ bool FunctionLowering::creates_temporaries(
 			continue;
 		switch (e->kind)
 		{
+		case syntax::ExprKind::Coroutine:
+			AwaitEvaluations(facts->coroutine_await, work);
+			break;
 		case syntax::ExprKind::Binary:
 		case syntax::ExprKind::Assign:
 		{

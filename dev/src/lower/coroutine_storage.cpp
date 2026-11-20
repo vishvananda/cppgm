@@ -90,6 +90,7 @@ public:
 private:
 	void collect_spills(std::vector<uint8_t>& spill);
 	Value reserve(Type type);
+	void relocate_call_arguments(const Instruction& call, BlockId block, InstId& previous);
 	void relocate_operand(InstId instruction, BlockId block, InstId& previous, Value& value);
 	void relocate_phi(const Instruction& inst);
 	InstId store_spill(BlockId block, InstId previous, TempId temp);
@@ -150,6 +151,26 @@ Value CoroutineSpills::reserve(Type type)
 	const TempId address = builder_.add_temp(0);
 	builder_.bind(address, body_.pointer_type(), entry_end_);
 	return Value::temp(address);
+}
+
+void CoroutineSpills::relocate_call_arguments(const Instruction& call, BlockId block, InstId& previous)
+{
+	const Signature* signature = program_.call_boundary(call);
+	if (signature == nullptr)
+		return;
+	const Parameter* parameters = program_.parameters_of(*signature);
+	const uint32_t written = std::min(signature->parameter_count, call.extra_count);
+	for (uint32_t i = 0; i < written; ++i)
+	{
+		Value& argument = body_.operands[call.extra_first + i];
+		const Parameter& parameter = parameters[i];
+		if (!argument.is(ValueKind::Slot) || !parameter.type.is_object() || parameter.pass != ir_model::PPM_DIRECT)
+			continue;
+		// A direct aggregate argument is a value. Snapshot the relocated
+		// slot so inlining and call lowering still see its original type.
+		argument = opt::materialize_slot_read(
+			body_, block, previous, slots_[argument.index], parameter.type, call.location);
+	}
 }
 
 void CoroutineSpills::relocate_operand(InstId instruction, BlockId block, InstId& previous, Value& value)
@@ -214,6 +235,8 @@ void CoroutineSpills::relocate(BlockId block, uint32_t original_instructions)
 		phis.clear();
 		if (inst.op == Opcode::Addr && inst.ops[0].is(ValueKind::Slot))
 			inst.op = Opcode::Copy;
+		if (inst.op == Opcode::Call)
+			relocate_call_arguments(inst, block, previous);
 		opt::for_each_operand(body_, inst, [&](Value& value) { relocate_operand(id, block, previous, value); });
 		// Inserting loads may also move the incoming edge to this instruction.
 		inst.next = body_.instructions[id].next;
