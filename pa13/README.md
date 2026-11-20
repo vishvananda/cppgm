@@ -222,9 +222,6 @@ PA13 supports the following in addition to the PA12 subset:
   vpointer at offset `0`; ordinary pointer/reference conversion to such a base uses the
   resulting nonzero base-subobject offset and preserves its data members
 - virtual member functions in the ordinary non-template class cases
-- `constexpr` virtual members and overrides in C++20 mode, with the usual
-  runtime dispatch through a base pointer or reference. See N4861 `[dcl.constexpr]`
-  and `[class.virtual]`.
 - overriding of inherited virtual members by exact signature match in the current class model
 - covariant pointer/reference return overrides when the class hierarchy is in
   the supported single-inheritance subset

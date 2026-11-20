@@ -1657,7 +1657,7 @@ const Type* Analyzer::parameter_type(const syntax::ParameterDeclaration& paramet
 	if (specifiers.is_constinit)
 		error(parameter.location, "__constinit in a parameter declaration");
 	if (specifiers.type == nullptr)
-		error(parameter.location, "parameter without a type");
+		return substitution_error(parameter.location, "parameter without a type"), nullptr;
 	// 7.1.2p1: function-specifiers only in function declarations; 9.2p9:
 	// virt-specifiers only in member function declarations.
 	if (specifiers.is_virtual)

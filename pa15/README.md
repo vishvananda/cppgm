@@ -328,6 +328,13 @@ Useful intermediate representations include:
 - compile-time constant bindings that can be reused by both `static_assert` and template
   argument resolution
 
+### C++20 constexpr virtual declarations
+
+Allow `constexpr` on virtual members and overrides starting in C++20.
+Use the ordinary virtual dispatch rules for their runtime calls, including
+calls through a base pointer or reference. See N4861 `[dcl.constexpr]` and
+`[class.virtual]`.
+
 ### C++20 requires-expressions
 
 In C++20 mode, retain requires-expressions as parsed requirements. Simple
@@ -361,6 +368,9 @@ checks every element and accepts an empty pack. Check these constraints
 before publishing a specialization or retaining a candidate. Unsatisfied
 immediate substitution rejects the candidate without instantiating its body.
 Preserve the written order and short-circuit substitution.
+Substitution can fail in a type argument of a constraint, including a
+parameter type inside a function type. Discard that candidate and consider
+the remaining overloads. See N4861 `[temp.deduct]` and `[temp.constr.atomic]`.
 
 A redeclaration of a class template repeats equivalent constraints; a
 different requires-clause is an error. An operand of a requires-clause that
