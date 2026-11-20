@@ -598,6 +598,10 @@ Use Clang for these four native compile inputs and GCC for the other
 Math tests. Compare both compilers against all original Boost.Build targets
 and outcomes.
 
+The spherical harmonic test specifies an overflow policy after including a
+header that supplies a default. Undefine the earlier macro before that
+test definition for both compilers.
+
 ## Measure before promoting the changes
 
 - Use the existing compile-performance tooling with immutable baseline and

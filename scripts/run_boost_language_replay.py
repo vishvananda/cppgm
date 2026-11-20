@@ -347,6 +347,11 @@ def prepare_replay_sources(boost, groups):
                               match + ' || defined(__CPPGM__)')
     if 'libs/math/test' in projects:
         prepare_math_autodiff(boost)
+        # The spherical harmonic test replaces the policy supplied by the
+        # earlier headers. Undefine that macro before its test definition.
+        policy = '#define BOOST_MATH_OVERFLOW_ERROR_POLICY ignore_error'
+        replace_replay_source(boost / 'libs/math/test/test_spherical_harmonic.hpp', policy,
+                              '#undef BOOST_MATH_OVERFLOW_ERROR_POLICY\n' + policy)
     if 'libs/mpi/build' in projects:
         # Backport boostorg/mpi#180 and #181 for the optional Python module.
         # Its indexing suite must compile even though request equality raises.
