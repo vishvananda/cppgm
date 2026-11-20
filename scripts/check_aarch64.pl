@@ -161,7 +161,7 @@ for my $level (@{$expect->{levels} // [0..3]}) {
                 my %counts = (instructions => scalar(@ins), code_bytes => 4 * @ins, memory_ops => scalar(@memory),
                     stack_ops => scalar(grep { /\[sp\b/ } @memory), calls => scalar(grep { /^bl(?:r)?\b/ } @ins),
                     sp_uses => scalar(grep { /\bsp\b/ } @ins), back_jumps => $back_jumps,
-                    flag_values => scalar(grep { /^csetm?\b/ } @ins),
+                    flag_values => scalar(grep { /^csetm?\b/ } @ins), jumps => scalar(grep { /^b\s/ } @ins),
                     conditional_branches => scalar(grep { /^(?:b\.\w+|cbn?z|tbn?z)\b/ } @ins));
                 check_bounds(\%counts, $quality->{functions}{$symbol}, "$test: O$level $symbol", 'AArch64');
             }

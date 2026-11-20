@@ -316,6 +316,22 @@ void simplify_branches(Function& f)
 		remove_instructions(f, removed);
 }
 
+// A jump to a return returns; a table's jumps stay jumps.
+void return_directly(Function& f)
+{
+	std::vector<uint8_t> table;
+	mark_tables(f, table);
+	for (uint32_t pc = 0; pc < f.code.size(); ++pc)
+	{
+		auto& jump = f.code[pc];
+		if (jump.op != Op::B || jump.fixup != Fixup::Block || (!table.empty() && table[pc]))
+			continue;
+		const auto to = f.labels[jump.target];
+		if (to < f.code.size() && f.code[to].op == Op::Ret && f.code[to].fixup == Fixup::None)
+			jump = f.code[to];
+	}
+}
+
 // The conditional compare that runs `compare` when `condition` holds and
 // otherwise sets NZCV to `flags`: CMP of a register or of an immediate
 // below 32, and FCMP of two registers.

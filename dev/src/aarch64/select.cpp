@@ -635,6 +635,7 @@ void Selector::run()
 		simplify_branches(out_);
 		orient_branches(out_, branch_estimates_);
 		conditional_compares(out_, block_frequency_);
+		return_directly(out_);
 	}
 }
 
