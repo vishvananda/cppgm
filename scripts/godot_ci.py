@@ -271,7 +271,10 @@ def runtime(args, directory, binaries, wrapper=()):
                          for ref in ('gcc', 'clang')}
     if hashes != {label: timing.sha(path) for label, path in binaries.items()}:
         raise ValueError('a measured Godot executable changed')
-    return results, checks, hashes, pass_times(rows)
+    # Work wall time above the whole process CPU time means the process waited off the CPU during the work.
+    preempted = [{key: row[key] for key in ('workload', 'label', 'phase', 'block', 'position', 'measured_wall', 'cpu')}
+                 for row in rows if row.get('status') == 0 and row['measured_wall'] > row['cpu']]
+    return results, checks, hashes, dict(time_per_pass=pass_times(rows), preempted_observations=preempted)
 
 
 def validate(document):
@@ -311,6 +314,12 @@ def method(document):
         text = (f"\nA GCC pilot sets the repeats for at least {metadata['seconds']:g} s of work per observation. "
                 f"Process CPU time is {metadata['time_source']}. Address-space layout: {layout}. "
                 f"The badge uses `{document.get('badge_metric', 'cpu')}`.\n")
+    if 'preempted_observations' in document:
+        rows = document['preempted_observations']
+        text += ('\nObservations whose work wall time exceeds their process CPU time (off the CPU during the work): '
+                 + ('; '.join(f"{r['workload']} {r['label']} {r['phase']} block {r['block']}: "
+                              f"{r['measured_wall']:.3f} s work wall, {r['cpu']:.3f} s CPU" for r in rows)
+                    if rows else 'none') + '.\n')
     times = document.get('time_per_pass')
     if times:
         key = document.get('badge_metric', 'measured_wall')
@@ -366,6 +375,25 @@ def report(document, drift=None):
                    '[Full-build observations](compile-observations.jsonl) · [Runtime observations](runtime-observations.jsonl)\n')
 
 
+def provenance(args, compilers, cpus, hashes, space):
+    library = Path(subprocess.check_output([str(compilers['gcc']), '-print-file-name=libstdc++.so'],
+                                           text=True).strip()).resolve(strict=True)
+    return dict(**benchmark_hosts.source_metadata(getattr(args, 'repo_root', ROOT)),
+                measured_at=datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds'),
+                cpu=public_benchmarks.cpu_model(), cpus=cpus, runtime_cpu=args.runtime_cpu,
+                host=host_state(args.runtime_cpu), address_space=space, seconds=args.seconds,
+                time_source='user plus system time from wait4 resource usage, in microseconds',
+                flags=BUILD_FLAGS, compiler_hashes=hashes,
+                jobs=args.jobs, system=dict(platform=platform.platform(),
+                                          os_release=Path('/etc/os-release').read_text(),
+                                          libc=platform.libc_ver()),
+                standard_library=f'libstdc++: {library}; sha256={timing.sha(library)}',
+                workload_hashes={name: timing.sha(ROOT / 'benchmarks/godot' / name)
+                                 for name in ('project.godot', 'workload.gd')},
+                toolchains={label: subprocess.check_output([str(path), '--version'], text=True).strip()
+                            for label, path in compilers.items()})
+
+
 def run(args):
     directory = args.output.resolve()
     directory.mkdir(parents=True, exist_ok=False)
@@ -377,23 +405,8 @@ def run(args):
         compilers = dict(cppgm=compiler, gcc=common.compiler_path(args.gcc), clang=common.compiler_path(args.clang))
         cpus = ','.join(map(str, sorted(os.sched_getaffinity(0))))
         hashes = {label: timing.sha(path) for label, path in compilers.items()}
-        library = Path(subprocess.check_output([str(compilers['gcc']), '-print-file-name=libstdc++.so'],
-                                               text=True).strip()).resolve(strict=True)
         space = address_space_probe()
-        metadata = dict(**benchmark_hosts.source_metadata(getattr(args, 'repo_root', ROOT)),
-                        measured_at=datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds'),
-                        cpu=public_benchmarks.cpu_model(), cpus=cpus, runtime_cpu=args.runtime_cpu,
-                        host=host_state(args.runtime_cpu), address_space=space, seconds=args.seconds,
-                        time_source='user plus system time from wait4 resource usage, in microseconds',
-                        flags=BUILD_FLAGS, compiler_hashes=hashes,
-                        jobs=args.jobs, system=dict(platform=platform.platform(),
-                                                  os_release=Path('/etc/os-release').read_text(),
-                                                  libc=platform.libc_ver()),
-                        standard_library=f'libstdc++: {library}; sha256={timing.sha(library)}',
-                        workload_hashes={name: timing.sha(ROOT / 'benchmarks/godot' / name)
-                                         for name in ('project.godot', 'workload.gd')},
-                        toolchains={label: subprocess.check_output([str(path), '--version'], text=True).strip()
-                                    for label, path in compilers.items()})
+        metadata = provenance(args, compilers, cpus, hashes, space)
         save(directory / 'metadata.json', metadata)
         source = args.source.resolve() if args.source else directory / 'source'
         if args.source is None:
@@ -406,7 +419,7 @@ def run(args):
             raise ValueError('a compiler changed during measurement')
         document.update(status='complete', metadata=metadata, compilation=compilation,
                         runtime=measurements, correctness=correctness, binary_hashes=binary_hashes,
-                        time_per_pass=times, badge_metric=BADGE_KEY)
+                        badge_metric=BADGE_KEY, **times)
         validate(document)
     except BaseException as error:
         document.update(status='failed', error=repr(error))
