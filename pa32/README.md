@@ -295,6 +295,8 @@ To complete PA32, implement hosted link/runtime behavior for:
   frame construction. The body uses the same object on resumption.
   A captureless coroutine lambda converted to a function pointer still
   calls its coroutine call operator with a default-constructed closure.
+  If resumption throws while initializing a local, unwind the objects
+  already constructed in the surrounding scope.
 
 If hosted header code compiles but the emitted objects do not link or run
 correctly, fix the hosted symbol emission, ABI spelling, object ownership, or

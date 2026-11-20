@@ -480,6 +480,20 @@ bool FunctionLowering::begin_segment()
 	return true;
 }
 
+void FunctionLowering::move_expression_region_start()
+{
+	const lowir::BlockId block = builder_.insertion_block();
+	const lowir::InstId after = builder_.last_instruction(block);
+	for (CallMark& mark : call_marks_)
+	{
+		mark.block = block;
+		mark.after = after;
+	}
+	construction_block_ = segment_block_ = block;
+	construction_after_ = segment_after_ = after;
+	eager_pending_ = false;
+}
+
 void FunctionLowering::end_full_expression(bool began)
 {
 	if (!began)
@@ -586,6 +600,11 @@ bool FunctionLowering::branched_regions(const syntax::Expr* root)
 		{
 		case syntax::ExprKind::Statement:
 			found = branched;
+			break;
+		case syntax::ExprKind::Coroutine:
+			// The ready and suspend paths must close any construction
+			// region before the resumption may open one of its own.
+			found = facts != nullptr && facts->coroutine_await != nullptr;
 			break;
 		case syntax::ExprKind::Throw:
 			push(static_cast<const syntax::ThrowExpr*>(e)->operand, branched);

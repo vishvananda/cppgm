@@ -1023,6 +1023,7 @@ private:
 	// else here.
 	void open_region(bool empty, bool here = false);
 	void close_region();
+	void move_expression_region_start();
 	bool drop_empty_region();
 	// The landing blocks pending when an empty region was dropped.
 	size_t dropped_chains_ = 0;

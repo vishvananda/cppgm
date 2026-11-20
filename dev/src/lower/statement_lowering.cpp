@@ -344,17 +344,8 @@ struct FunctionLowering::ExpressionScope
 	~ExpressionScope()
 	{
 		// The enclosing expression's region opens here at the earliest.
-		const lowir::BlockId block = f.builder_.insertion_block();
-		const lowir::InstId after = f.builder_.last_instruction(block);
 		marks.swap(f.call_marks_);
-		for (CallMark& mark : f.call_marks_)
-		{
-			mark.block = block;
-			mark.after = after;
-		}
-		f.construction_block_ = f.segment_block_ = block;
-		f.construction_after_ = f.segment_after_ = after;
-		f.eager_pending_ = false;
+		f.move_expression_region_start();
 
 		f.choice_root_ = choice_root;
 		f.guard_scopes_ = guard_scopes;

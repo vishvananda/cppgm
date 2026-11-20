@@ -221,6 +221,10 @@ const syntax::Expr& FunctionLowering::suspend_coroutine(
 	destroy_cleanups(0, false, 0);
 	jump(body.destroy);
 	place(resume);
+	// Calls in the continuation can only open cleanup regions from this
+	// activation, even when they finish an initializer started before it.
+	if (exceptions)
+		move_expression_region_start();
 	return *await.resume;
 }
 
