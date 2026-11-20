@@ -116,6 +116,15 @@
 	M(LdrB, 0x39400000) \
 	M(LdrSBW, 0x39c00000) \
 	M(LdrSHW, 0x79c00000) \
+	M(LdrSBX, 0x39800000) \
+	M(LdrSHX, 0x79800000) \
+	M(LdrSW, 0xb9800000) \
+	M(LdurSBX, 0x38800000) \
+	M(LdurSHX, 0x78800000) \
+	M(LdurSW, 0xb8800000) \
+	M(LdrSBXReg, 0x38a00800) \
+	M(LdrSHXReg, 0x78a00800) \
+	M(LdrSWReg, 0xb8a00800) \
 	M(StrB, 0x39000000) \
 	M(LdrH, 0x79400000) \
 	M(StrH, 0x79000000) \

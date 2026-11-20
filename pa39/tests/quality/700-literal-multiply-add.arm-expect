@@ -45,6 +45,15 @@
       },
       "nine_minus": {
         "instructions": 3
+      },
+      "add_times5": {
+        "instructions": 3
+      },
+      "sub_times4": {
+        "instructions": 2
+      },
+      "top_word": {
+        "instructions": 2
       }
     }
   }

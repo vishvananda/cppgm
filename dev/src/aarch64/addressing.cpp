@@ -18,17 +18,37 @@ bool following_field(const FunctionBody& body, const lowir::Instruction& step, u
 		body.literals[step.ops[1].index].low == bytes / scale;
 }
 
-const lowir::Instruction* signed_word_extension(const FunctionBody& body, const lowir::Instruction& load, uint32_t uses)
+// A sign extension of an 8- or 16-bit load to 32 or 64 bits, or of a 32-bit
+// load to 64 bits, that is the load's only reader and follows it.
+const lowir::Instruction* signed_extension(const FunctionBody& body, const lowir::Instruction& load, uint32_t uses)
 {
 	const unsigned bits = integer_bits(load.type.kind());
-	if ((bits != 8 && bits != 16) || uses != 1 || load.next == kNoId)
+	if ((bits != 8 && bits != 16 && bits != 32) || uses != 1 || load.next == kNoId)
 		return nullptr;
 	const auto& next = body.instructions[load.next];
+	const unsigned to = integer_bits(next.type.kind());
 	if (next.op != Opcode::Convert || next.sub != static_cast<unsigned>(ConvertOp::SExt) ||
 		!(next.ops[0] == Value::temp(load.result)) || convert_source_type(next) != load.type ||
-		integer_bits(next.type.kind()) != 32)
+		(to != 64 && (to != 32 || bits == 32)))
 		return nullptr;
 	return &next;
+}
+
+enum class Offset
+{
+	Scaled,
+	Unscaled,
+	Register
+};
+
+// LDRSB, LDRSH or LDRSW of `bytes` into a W (to 32 bits) or X register.
+Op signed_load(unsigned bytes, unsigned to, Offset form)
+{
+	static const Op ops[3][5] = { { Op::LdrSBW, Op::LdrSHW, Op::LdrSBX, Op::LdrSHX, Op::LdrSW },
+		{ Op::LdurSBW, Op::LdurSHW, Op::LdurSBX, Op::LdurSHX, Op::LdurSW },
+		{ Op::LdrSBWReg, Op::LdrSHWReg, Op::LdrSBXReg, Op::LdrSHXReg, Op::LdrSWReg } };
+	const unsigned size = bytes == 1 ? 0 : bytes == 2 ? 1 : 4;
+	return ops[static_cast<int>(form)][size == 4 ? 4 : size + (to == 64 ? 2 : 0)];
 }
 
 Op indexed_access(bool store, unsigned bytes)
@@ -140,7 +160,7 @@ InstId Selector::global_access(const lowir::Instruction& addr)
 		: !store                                          ? vectors_[memory.result]
 		: data.is(ValueKind::Temp)                        ? vectors_[data.index]
 														  : kNoId;
-	const auto* convert = !store && !vector && fp == kNoId ? signed_word_extension(body_, memory, uses_[memory.result])
+	const auto* convert = !store && !vector && fp == kNoId ? signed_extension(body_, memory, uses_[memory.result])
 														   : nullptr;
 	const TempId result = convert ? convert->result : memory.result;
 	// A stored value is ready before ADRP replaces the base.
@@ -156,7 +176,7 @@ InstId Selector::global_access(const lowir::Instruction& addr)
 	if (vector)
 		out_.emit(store ? Op::StrQ : Op::LdrQ, reg, base);
 	else if (convert)
-		out_.emit(bytes == 1 ? Op::LdrSBW : Op::LdrSHW, reg, base);
+		out_.emit(signed_load(bytes, integer_bits(convert->type.kind()), Offset::Scaled), reg, base);
 	else if (fp == kNoId)
 		access(store, reg, base, 0, bytes);
 	else
@@ -196,7 +216,20 @@ unsigned Selector::zero_or_register(Value source, Type type, unsigned scratch)
 	return operand_register(source, type, scratch);
 }
 
-void Selector::scalar_access(const lowir::Instruction& inst)
+// A load and the sign extension that follows it are one LDRSB, LDRSH or
+// LDRSW of the loaded width.
+InstId Selector::signed_access(const lowir::Instruction& load)
+{
+	if (load.op != Opcode::Load || !load.type.is_integer() || vectors_[load.result] != kNoId)
+		return kNoId;
+	const auto* extension = signed_extension(body_, load, uses_[load.result]);
+	if (!extension)
+		return kNoId;
+	scalar_access(load, extension);
+	return load.next;
+}
+
+void Selector::scalar_access(const lowir::Instruction& inst, const lowir::Instruction* extension)
 {
 	const bool store = inst.op == Opcode::Store;
 	const auto pointer = inst.ops[store ? 1 : 0];
@@ -229,14 +262,19 @@ void Selector::scalar_access(const lowir::Instruction& inst)
 	}
 	else
 	{
-		const auto reg = store                 ? zero_or_register(value, inst.type, 11)
-			: registers_[inst.result] == kNoId ? 9
-											   : registers_[inst.result];
-		access(store, reg, base, offset, bytes);
+		const TempId result = extension ? extension->result : inst.result;
+		const auto reg = store            ? zero_or_register(value, inst.type, 11)
+			: registers_[result] == kNoId ? 9
+										  : registers_[result];
+		if (extension)
+			out_.emit(signed_load(bytes, integer_bits(extension->type.kind()), Offset::Scaled), reg, base, 0,
+				(offset / bytes) << 10);
+		else
+			access(store, reg, base, offset, bytes);
 		if (page)
 			page_access(out_, pointer.index, 0, bytes);
 		if (!store)
-			save(reg, inst.result, inst.type.kind() != TypeKind::I1);
+			save(reg, result, inst.type.kind() != TypeKind::I1);
 	}
 }
 
@@ -453,7 +491,7 @@ InstId Selector::address_sequence(InstId id)
 					: data.is(ValueKind::Temp)              ? vectors_[data.index]
 															: kNoId;
 
-				const auto* convert = !store && fp == kNoId ? signed_word_extension(body_, memory, uses_[memory.result])
+				const auto* convert = !store && fp == kNoId ? signed_extension(body_, memory, uses_[memory.result])
 															: nullptr;
 				const TempId result = convert ? convert->result : memory.result;
 				const unsigned reg = fp != kNoId  ? fp
@@ -463,12 +501,12 @@ InstId Selector::address_sequence(InstId id)
 				if (literal)
 				{
 					if (displacement % bytes || displacement / bytes >= 4096)
-						out_.emit(convert ? (bytes == 1 ? Op::LdurSBW : Op::LdurSHW)
+						out_.emit(convert ? signed_load(bytes, integer_bits(convert->type.kind()), Offset::Unscaled)
 										  : unscaled_access(store, bytes, fp != kNoId),
 							reg, base, 0, (uint32_t(displacement) & 511) << 12);
 					else if (convert)
-						out_.emit(
-							bytes == 1 ? Op::LdrSBW : Op::LdrSHW, reg, base, 0, uint32_t(displacement / bytes) << 10);
+						out_.emit(signed_load(bytes, integer_bits(convert->type.kind()), Offset::Scaled), reg, base, 0,
+							uint32_t(displacement / bytes) << 10);
 					else if (fp == kNoId)
 						access(store, reg, base, displacement, bytes);
 					else
@@ -484,7 +522,7 @@ InstId Selector::address_sequence(InstId id)
 						subscript = 11;
 					}
 					const unsigned index_extension = bits == 64 ? 3 : sign ? 6 : 2;
-					const Op op = convert ? (bytes == 1 ? Op::LdrSBWReg : Op::LdrSHWReg)
+					const Op op = convert ? signed_load(bytes, integer_bits(convert->type.kind()), Offset::Register)
 						: fp == kNoId     ? indexed_access(store, bytes)
 						: bytes == 4      ? (store ? Op::StrSReg : Op::LdrSReg)
 										  : (store ? Op::StrDReg : Op::LdrDReg);

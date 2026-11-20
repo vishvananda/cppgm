@@ -507,21 +507,9 @@ void Selector::save(unsigned reg, TempId temp, bool normalized)
 	if ((!type.is_integer() && !type.is_pointer() && !type.is_float()) || storage_bytes(type) > 8)
 		throw AArch64Error("unsupported AArch64 result type");
 	const auto bits = integer_bits(type.kind());
-	// Like the x86 selector, leave the high bits alone if the only reader
-	// stores the result at its own width. Address sinking can put a pure
-	// index between the definition and that store.
-	if (!normalized && level_ && (bits == 8 || bits == 16) && uses_[temp] == 1)
-	{
-		const InstId definition = body_.temps[temp].def;
-		InstId consumer = definition == kNoId ? kNoId : body_.instructions[definition].next;
-		if (consumer != kNoId && body_.instructions[consumer].op == Opcode::Index)
-			consumer = body_.instructions[consumer].next;
-		if (consumer != kNoId)
-		{
-			const auto& store = body_.instructions[consumer];
-			normalized = store.op == Opcode::Store && store.type == type && store.ops[0] == Value::temp(temp);
-		}
-	}
+	// A loose value's readers take only its low bits (narrow.cpp).
+	if (loose(temp))
+		normalized = true;
 	if (!normalized && bits && bits < 64 && registers_[temp] != kNoId)
 	{
 		const auto dest = registers_[temp];

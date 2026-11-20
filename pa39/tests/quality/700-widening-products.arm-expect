@@ -14,16 +14,16 @@
     "levels": [1, 2, 3],
     "functions": {
       "smul": {
-        "instructions": 4
+        "instructions": 2
       },
       "umul": {
         "instructions": 4
       },
       "smadd": {
-        "instructions": 4
+        "instructions": 2
       },
       "smsub": {
-        "instructions": 4
+        "instructions": 2
       },
       "umadd": {
         "instructions": 4
@@ -32,19 +32,19 @@
         "instructions": 4
       },
       "square": {
-        "instructions": 3
+        "instructions": 2
       },
       "thousand": {
-        "instructions": 4
+        "instructions": 3
       },
       "eight": {
-        "instructions": 3
+        "instructions": 2
       },
       "add_eight": {
-        "instructions": 3
+        "instructions": 2
       },
       "sub_four": {
-        "instructions": 3
+        "instructions": 2
       },
       "add_two": {
         "instructions": 3
@@ -53,10 +53,10 @@
         "instructions": 3
       },
       "past_int": {
-        "instructions": 3
+        "instructions": 2
       },
       "int_min": {
-        "instructions": 4
+        "instructions": 3
       }
     }
   }

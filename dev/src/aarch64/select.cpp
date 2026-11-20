@@ -85,7 +85,7 @@ void Selector::select(const lowir::Instruction& inst, BlockId block)
 		{
 			const unsigned dest = registers_[inst.result] == kNoId ? result_reg : registers_[inst.result];
 			value(dest, inst.ops[0], inst.type);
-			save(dest, inst.result, inst.ops[0].is(ValueKind::Temp));
+			save(dest, inst.result, inst.ops[0].is(ValueKind::Temp) || inst.ops[0].is(ValueKind::Integer));
 			return;
 		}
 		value(result_reg, inst.ops[0], inst.type);
@@ -208,7 +208,8 @@ void Selector::select(const lowir::Instruction& inst, BlockId block)
 			const unsigned bits = integer_bits(op == ConvertOp::Trunc ? inst.type.kind() : from.kind());
 			const bool zero_extend = op == ConvertOp::ZExt ||
 				(op == ConvertOp::SExt && zero_extended_from_narrower(body_, inst.ops[0], from));
-			if (zero_extend && inst.ops[0].is(ValueKind::Temp) && !memory_value(from))
+			if ((zero_extend || (op == ConvertOp::Trunc && loose(inst.result))) && inst.ops[0].is(ValueKind::Temp) &&
+				!memory_value(from))
 				move(dest, src);
 			else if (bits == 32 && op != ConvertOp::SExt)
 				out_.emit(Op::OrrW, dest, 31, src);
@@ -465,6 +466,7 @@ BlockId Selector::early_return()
 void Selector::run()
 {
 	plan();
+	find_loose_values();
 	const BlockId slow_entry = minimize_size_ ? kNoId : early_return();
 	stack_adjust(true);
 	if (tls_vectors_ != kNoId)
@@ -601,7 +603,9 @@ void Selector::run()
 					i = inst.next;
 					continue;
 				}
-				const auto last = inst.op == Opcode::Vector ? vector_combination(inst) : paired_access(inst);
+				auto last = inst.op == Opcode::Vector ? vector_combination(inst) : paired_access(inst);
+				if (last == kNoId && inst.op == Opcode::Load && !memory_value(inst.type))
+					last = signed_access(inst);
 				if (last != kNoId)
 				{
 					i = last;

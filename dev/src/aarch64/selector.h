@@ -136,7 +136,8 @@ private:
 	void constant(unsigned reg, uint64_t bits);
 	void move(unsigned to, unsigned from);
 	void extend(unsigned reg, unsigned bits, bool sign);
-	void scalar_access(const lowir::Instruction& inst);
+	void scalar_access(const lowir::Instruction& inst, const lowir::Instruction* extension = nullptr);
+	lowir::InstId signed_access(const lowir::Instruction& load);
 	unsigned zero_or_register(lowir::Value source, lowir::Type type, unsigned scratch);
 	void access(bool store, unsigned reg, unsigned base, uint32_t offset, unsigned bytes);
 	void darwin_tls_address(unsigned reg, lowir::SymbolId symbol);
@@ -144,6 +145,8 @@ private:
 	unsigned address_register(lowir::Value operand, unsigned scratch);
 	void value(unsigned reg, lowir::Value value, lowir::Type type);
 	void save(unsigned reg, lowir::TempId temp, bool normalized = false);
+	void find_loose_values();
+	bool loose(lowir::TempId temp) const { return !loose_.empty() && loose_[temp]; }
 	lowir::Type type_of(lowir::Value v, lowir::Type fallback) const;
 	bool same_home(lowir::TempId dest, lowir::Value source) const;
 	bool needs_snapshot(lowir::BlockId from, lowir::BlockId to);
@@ -226,6 +229,7 @@ private:
 	std::vector<uint32_t> entry_regs_, aliases_;
 	std::vector<BitTest> bit_tests_;
 	std::vector<lowir::InstId> entry_elided_;
+	std::vector<uint8_t> loose_; // narrow values held with undefined high bits (narrow.cpp)
 	std::vector<std::pair<lowir::BlockId, lowir::BlockId>> snapshot_edges_;
 	std::vector<lowir::BlockId> frame_phi_blocks_;
 	std::vector<CallLayout> calls_;

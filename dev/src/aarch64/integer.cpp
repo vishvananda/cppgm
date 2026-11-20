@@ -154,7 +154,8 @@ bool Selector::simple_binary(const lowir::Instruction& inst)
 	const bool w = bits <= 32;
 	// For AND, OR and XOR, canonical inputs guarantee canonical high bits.
 	const auto canonical = [&](Value v) {
-		return v.is(ValueKind::Integer) || (v.is(ValueKind::Temp) && body_.temps[v.index].type == inst.type);
+		return v.is(ValueKind::Integer) ||
+			(v.is(ValueKind::Temp) && body_.temps[v.index].type == inst.type && !loose(v.index));
 	};
 	const bool normalized = bits >= 32 || (logical && canonical(lhs) && canonical(rhs));
 	if ((op == BinaryOp::Add || op == BinaryOp::Sub) && rhs.is(ValueKind::Integer))
@@ -399,7 +400,7 @@ InstId Selector::narrow_range_branch(const lowir::Instruction& sub, BlockId bloc
 	const unsigned width = integer_bits(sub.type.kind());
 	if ((width != 8 && width != 16) || sub.sub != static_cast<unsigned>(BinaryOp::Sub) || sub.next == kNoId ||
 		uses_[sub.result] != 1 || !sub.ops[0].is(ValueKind::Temp) || body_.temps[sub.ops[0].index].type != sub.type ||
-		!sub.ops[1].is(ValueKind::Integer))
+		!sub.ops[1].is(ValueKind::Integer) || loose(sub.ops[0].index))
 		return kNoId;
 	const auto& cmp = body_.instructions[sub.next];
 	if (cmp.op != Opcode::Compare || cmp.next == kNoId || cmp.type != sub.type || uses_[cmp.result] != 1 ||
