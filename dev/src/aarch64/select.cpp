@@ -617,6 +617,8 @@ void Selector::run()
 			select(inst, block);
 		}
 	}
+	if (level_ && !named_.darwin && body_.code_labels.empty() && !orders_memory(body_))
+		pair_accesses(out_, frame_code_.prologue_end, bit_tests_);
 	if (level_ && !dynamic_stack_ && body_.code_labels.empty())
 		share_edge_moves(out_);
 	// Tail sharing may redirect a branch. Check the final target before

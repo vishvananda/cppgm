@@ -29,7 +29,7 @@ void Function::bind(uint32_t label)
 	labels.at(label) = code.size();
 }
 
-static void remove_instructions(Function& f, const std::vector<uint32_t>& removed)
+void remove_instructions(Function& f, const std::vector<uint32_t>& removed)
 {
 	if (removed.empty())
 		return;

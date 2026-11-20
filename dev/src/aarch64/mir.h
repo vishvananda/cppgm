@@ -87,6 +87,9 @@ struct BitTest
 	uint32_t pc, bit;
 };
 void fold_bit_tests(Function& function, const std::vector<BitTest>& tests);
+void remove_instructions(Function& function, const std::vector<uint32_t>& removed);
+bool orders_memory(const lowir::FunctionBody& body);
+void pair_accesses(Function& function, uint32_t first, std::vector<BitTest>& tests);
 void share_edge_moves(Function& function);
 void copy_short_tests(Function& function);
 void simplify_branches(Function& function);
