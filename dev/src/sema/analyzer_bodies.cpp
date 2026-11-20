@@ -1575,15 +1575,20 @@ LookupResult Analyzer::unqualified(Scope* scope, const Identifier* name, LookupF
 	if (function == nullptr || function->entity->kind != EntityKind::Function)
 		return result;
 	const FunctionEntity* owner = static_cast<const FunctionEntity*>(function->entity);
-	const std::string name_text = name == pretty_function_ ? PrettyFunctionName(owner, graph_)
-														   : PredefinedFunctionName(owner);
+	// The pretty signature includes template arguments supplied by the
+	// specialization. A definition's pattern has no characters to fold.
+	const bool pending = name == pretty_function_ && template_depth_ != 0;
+	std::string name_text;
+	if (!pending)
+		name_text = name == pretty_function_ ? PrettyFunctionName(owner, graph_) : PredefinedFunctionName(owner);
 	const size_t length = name_text.size();
-	const char* text = copy_label(name_text.data(), length);
-	const Type* type = types_.array(types_.qualified(types_.fundamental(FundamentalType::Char), kConst), length + 1);
+	const Type* characters = types_.qualified(types_.fundamental(FundamentalType::Char), kConst);
+	const Type* type = types_.array(characters, pending ? 0 : length + 1);
 	PredefinedNameEntity* variable = new_entity<PredefinedNameEntity>(EntityKind::Variable, name, function, type);
 	variable->predefined_name = true;
-	variable->text = text;
+	variable->text = pending ? nullptr : copy_label(name_text.data(), length);
 	Binding* binding = new_binding(BindingKind::Variable, name, variable, type);
+	binding->dependent = pending;
 	binding->hidden = true;
 	declare_in(function, binding);
 	return names_.unqualified(scope, name, filter);

@@ -494,6 +494,13 @@ even with GCC in C++14.
   and Clang accept their standalone named-subobject address probes. cppgm
   still rejects both probes, which prevents B2 from running those 19 tests.
   See [P1907R1](../doc/cwg/paper-p1907r1.txt) for the C++20 address rule.
+- The full replay exposed a regression in Boost.Convert after the GNU
+  zero-length array fix. `__PRETTY_FUNCTION__` had supplied a provisional
+  string while analyzing the function template definition. That string
+  made a dependent size check produce a negative bound. Recording the name
+  as dependent until specialization restored all 13 original Convert
+  outcomes. PA30 checks both the characters and size of the instantiated
+  signature in array extents.
 
 ## Measure before promoting the changes
 

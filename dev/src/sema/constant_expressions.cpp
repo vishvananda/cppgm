@@ -1006,8 +1006,10 @@ bool ConstantInterpreter::entity_place(const Entity* entity, const Type* type, C
 			// A function's predefined __func__ (8.4.1p8), a static const
 			// array of the characters the analysis gave it: as the string
 			// literal of them (the lowering shares one object).
-			const syntax::LiteralExpr* literal = analyzer_.text_literal(
-				static_cast<const PredefinedNameEntity*>(variable)->text);
+			const char* text = static_cast<const PredefinedNameEntity*>(variable)->text;
+			if (text == nullptr)
+				return fail(location, "a value-dependent predefined function name");
+			const syntax::LiteralExpr* literal = analyzer_.text_literal(text);
 			if (literal == nullptr)
 				return fail(location, "a predefined name's characters");
 			out = ConstPlace();
