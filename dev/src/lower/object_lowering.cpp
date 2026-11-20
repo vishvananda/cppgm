@@ -937,7 +937,7 @@ void FunctionLowering::materialize_prvalue(const syntax::Expr& expr, lowir::Valu
 	if ((facts->flags & sema::kImmediateValue) != 0)
 	{
 		Place source = Place();
-		source.storage = lowir::Value::symbol(lowering_.constant_temporary(facts->immediate, location));
+		source.storage = lowir::Value::symbol(lowering_.constant_temporary(immediate_result(*e), location));
 		copy_object(type, address_of(source), object, location);
 		return;
 	}

@@ -1604,6 +1604,7 @@ private:
 	Place variable_place(const sema::Entity* entity, const sema::Type* type, uint32_t location);
 	lowir::Value address(const syntax::Expr& expr);
 	RValue immediate_rvalue(const syntax::Expr& expr);
+	const sema::ConstValue* immediate_result(const syntax::Expr& expr);
 	void immediate_construction(const void* key, lowir::Value object, uint64_t bytes, uint32_t location);
 	bool constant_address(const sema::ConstValue& value, lowir::Value& out, uint32_t location);
 	bool constant_rvalue(const sema::ConstValue& value, const sema::Type* type, RValue& out, uint32_t location);

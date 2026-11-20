@@ -254,13 +254,15 @@ bool ConstantInterpreter::rvalue(const syntax::Expr& expr, ConstValue& out)
 	TypeTable& types = analyzer_.types_;
 	if ((facts->flags & kImmediateValue) != 0)
 	{
+		const ConstValue* value = immediate_result(*e);
+		if (value == nullptr)
+			return false;
 		if (facts->category != ValueCategory::PRValue)
 		{
-			ConstPlace place;
-			place = PlaceOf(*facts->immediate, facts->type);
+			const ConstPlace place = PlaceOf(*value, facts->type);
 			return read(place, out, e->location);
 		}
-		immediate_value(*facts->immediate, out);
+		immediate_value(*value, out);
 		return true;
 	}
 	if (e->kind == syntax::ExprKind::Binary &&
@@ -806,7 +808,10 @@ bool ConstantInterpreter::glvalue(const syntax::Expr& expr, ConstPlace& out)
 		return false;
 	if ((facts->flags & kImmediateValue) != 0)
 	{
-		out = PlaceOf(*facts->immediate, facts->type);
+		const ConstValue* value = immediate_result(*e);
+		if (value == nullptr)
+			return false;
+		out = PlaceOf(*value, facts->type);
 		return true;
 	}
 	if (e->kind == syntax::ExprKind::Binary &&
@@ -1150,6 +1155,8 @@ bool ConstantInterpreter::discard(const syntax::Expr& expr)
 		return fail(e->location, "an expression outside constant evaluation");
 	if ((facts->flags & kImmediateValue) != 0)
 	{
+		if (immediate_result(*e) == nullptr)
+			return false;
 		if (cxx20_ && facts->category == ValueCategory::PRValue && analyzer_.nontrivial_destruction(facts->type))
 		{
 			ConstPlace place;
@@ -1932,7 +1939,7 @@ bool ConstantInterpreter::intrinsic_value(const syntax::CallExpr& call_expr, Con
 		return bit_builtin(call_expr, out);
 	if (which >= Intrinsic::AddOverflow && which <= Intrinsic::MulOverflow)
 		return overflow_builtin(call_expr, out);
-	if (which >= Intrinsic::SourceFile && which <= Intrinsic::SourceColumn)
+	if (which >= Intrinsic::SourceFile && which <= Intrinsic::SourceLocationRecord)
 		return source_location(call_expr, out);
 	const syntax::Slice<syntax::Expr*>& arguments = call_expr.arguments;
 	if (which >= Intrinsic::IsGreater && which <= Intrinsic::IsUnordered)
@@ -2286,6 +2293,7 @@ bool ConstantInterpreter::source_location(const syntax::CallExpr& expr, ConstVal
 	// the call's own position; the name `__func__` holds in the function
 	// evaluating it (the frame's, else the body being analyzed; none at
 	// namespace scope), a string literal's array.
+	++source_site_uses_;
 	const Intrinsic which = static_cast<Intrinsic>(expr.facts->value & 0xff);
 	const uint32_t location = source_site_ != kNoSourceSite ? source_site_ : expr.location;
 	if (which == Intrinsic::SourceLine || which == Intrinsic::SourceColumn)
@@ -2293,17 +2301,15 @@ bool ConstantInterpreter::source_location(const syntax::CallExpr& expr, ConstVal
 		out = IntegerValue(expr.facts->type, which == Intrinsic::SourceLine ? analyzer_.source_line(location) : 0);
 		return true;
 	}
-	std::string text;
-	if (which == Intrinsic::SourceFile)
-		text = analyzer_.source_file(location);
-	else
+	const FunctionEntity* function = source_function();
+	if (which == Intrinsic::SourceLocationRecord)
 	{
-		const FunctionEntity* function = frames_.size() > first_frame_ ? frames_.back().function
-			: analyzer_.body_ != nullptr                               ? analyzer_.body_->function
-																	   : nullptr;
-		if (function != nullptr)
-			text = PredefinedFunctionName(function);
+		out = analyzer_.source_location_value(expr.facts->type, location, function);
+		return true;
 	}
+	const std::string text = which == Intrinsic::SourceFile ? analyzer_.source_file(location)
+		: function != nullptr                               ? PredefinedFunctionName(function)
+															: std::string();
 	const syntax::LiteralExpr* literal = analyzer_.text_literal(text);
 	if (literal == nullptr)
 		return fail(expr.location, "a source location builtin's string");

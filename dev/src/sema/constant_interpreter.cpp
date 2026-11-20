@@ -1913,6 +1913,34 @@ const ConstValue* ConstantInterpreter::evaluate_immediate(const syntax::Expr& ex
 	return !incomplete_class_ ? publish(value, expr.location) : nullptr;
 }
 
+const ConstValue* ConstantInterpreter::evaluate_immediate_at(
+	const syntax::Expr& expr, uint32_t site, const FunctionEntity* function)
+{
+	const SourceSite evaluation_site(source_site_, site);
+	source_site_function_ = function;
+	return evaluate_immediate(expr);
+}
+
+const FunctionEntity* ConstantInterpreter::source_function() const
+{
+	for (size_t frame = frames_.size(); frame > first_frame_; --frame)
+		if (frames_[frame - 1].function != nullptr)
+			return frames_[frame - 1].function;
+	return source_site_function_ != nullptr ? source_site_function_
+		: analyzer_.body_ != nullptr        ? analyzer_.body_->function
+											: nullptr;
+}
+
+const ConstValue* ConstantInterpreter::immediate_result(const syntax::Expr& expr)
+{
+	if (source_site_ == kNoSourceSite && expr.facts->immediate != nullptr)
+		return expr.facts->immediate;
+	const ConstValue* value = analyzer_.immediate_result(expr, source_site_, source_function(), &source_site_uses_);
+	if (value == nullptr)
+		fail(expr.location, "an immediate invocation is not a constant expression at this use");
+	return value;
+}
+
 bool ConstantInterpreter::evaluate(const syntax::Expr& expr, bool converted, ConstValue& out)
 {
 	++analyzer_.graph_.constant_evaluations;

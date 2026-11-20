@@ -731,6 +731,7 @@ const struct
 	{ "__builtin_smul_overflow", { GnuBuiltin::TypedOverflow, 12, nullptr, 0 } },
 	{ "__builtin_smull_overflow", { GnuBuiltin::TypedOverflow, 13, nullptr, 0 } },
 	{ "__builtin_smulll_overflow", { GnuBuiltin::TypedOverflow, 14, nullptr, 0 } },
+	{ "__builtin_source_location", { GnuBuiltin::SourceLocation, 4, nullptr, 0 } },
 	{ "__builtin_ssub_overflow", { GnuBuiltin::TypedOverflow, 6, nullptr, 0 } },
 	{ "__builtin_ssubl_overflow", { GnuBuiltin::TypedOverflow, 7, nullptr, 0 } },
 	{ "__builtin_ssubll_overflow", { GnuBuiltin::TypedOverflow, 8, nullptr, 0 } },

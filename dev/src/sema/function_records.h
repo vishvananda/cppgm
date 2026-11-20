@@ -258,6 +258,8 @@ enum class Intrinsic : uint8_t
 	SourceLine,
 	SourceFunction,
 	SourceColumn,
+	// A pointer to the standard library source_location record.
+	SourceLocationRecord,
 	// GCC's __atomic builtins on the object the first operand points to
 	// (an integral or pointer type of 1, 2, 4 or 8 bytes; the generic forms
 	// pass values through pointers); the memory orders are the last

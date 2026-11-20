@@ -642,7 +642,7 @@ Place FunctionLowering::glvalue(const syntax::Expr& expr)
 	Place place = Place();
 	if ((facts->flags & sema::kImmediateValue) != 0)
 	{
-		if (!constant_address(*facts->immediate, place.storage, e->location))
+		if (!constant_address(*immediate_result(*e), place.storage, e->location))
 			throw LoweringError(e->location, "an immediate reference without a constant address");
 		qualify(place, facts->type);
 		return place;
@@ -1043,7 +1043,10 @@ RValue FunctionLowering::immediate_rvalue(const syntax::Expr& expr)
 {
 	const sema::ExprFacts* facts = expr.facts;
 	if (sema::IsVoid(facts->type))
+	{
+		immediate_result(expr);
 		return RValue();
+	}
 	if (facts->category != sema::ValueCategory::PRValue)
 	{
 		Place place = glvalue(expr);
@@ -1051,11 +1054,12 @@ RValue FunctionLowering::immediate_rvalue(const syntax::Expr& expr)
 			return RValue{ address_of(place), program_.pointer_type() };
 		return load(lowering_.storage_type(facts->type), place);
 	}
+	const sema::ConstValue* value = immediate_result(expr);
 	RValue out;
-	if (constant_rvalue(*facts->immediate, facts->type, out, expr.location))
+	if (constant_rvalue(*value, facts->type, out, expr.location))
 		return out;
-	if (facts->immediate->kind == sema::ValueKind::MemberPointer)
-		return member_pointer_constant(*facts->immediate, expr.location);
+	if (value->kind == sema::ValueKind::MemberPointer)
+		return member_pointer_constant(*value, expr.location);
 	if (sema::ClassOf(facts->type) != nullptr)
 	{
 		Place place = Place();
@@ -1063,6 +1067,17 @@ RValue FunctionLowering::immediate_rvalue(const syntax::Expr& expr)
 		return load(lowering_.storage_type(facts->type), place);
 	}
 	throw LoweringError(expr.location, "an immediate result without a constant representation");
+}
+
+const sema::ConstValue* FunctionLowering::immediate_result(const syntax::Expr& expr)
+{
+	if (source_site_ == kNoSourceSite && expr.facts->immediate != nullptr)
+		return expr.facts->immediate;
+	const sema::ConstValue* value = lowering_.analyzer_->immediate_result(expr, source_site_, function_);
+	if (value == nullptr)
+		throw LoweringError(source_site_ != kNoSourceSite ? source_site_ : expr.location,
+			"an immediate invocation is not a constant expression at this use");
+	return value;
 }
 
 bool FunctionLowering::constant_rvalue(

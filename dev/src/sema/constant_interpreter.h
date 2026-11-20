@@ -50,6 +50,8 @@ public:
 	bool evaluate_designation(const syntax::Expr& expr, ConstValue& out);
 	// A C++20 immediate invocation, including object, reference and void results.
 	const ConstValue* evaluate_immediate(const syntax::Expr& expr);
+	const ConstValue* evaluate_immediate_at(const syntax::Expr& expr, uint32_t site, const FunctionEntity* function);
+	bool uses_source_site() const { return source_site_uses_ != 0; }
 	const ConstValue* evaluate_immediate_conversion(const syntax::Expr& expr, const Conversion& conversion);
 	const ConstValue* evaluate_immediate_construction(
 		const Type* type, const syntax::Initializer* initializer, const FunctionEntity* constructor, uint32_t location);
@@ -441,6 +443,10 @@ private:
 	// builtins report (kNoSourceSite: their own).
 	static const uint32_t kNoSourceSite = 0xffffffffu;
 	uint32_t source_site_;
+	uint32_t source_site_uses_ = 0;
+	const FunctionEntity* source_site_function_ = nullptr;
+	const FunctionEntity* source_function() const;
+	const ConstValue* immediate_result(const syntax::Expr& expr);
 	// Sets the site for its lifetime unless one is set (or `site` is
 	// kNoSourceSite).
 	struct SourceSite

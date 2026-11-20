@@ -603,6 +603,7 @@ bool ConstantInterpreter::invoke_body(
 	frame.peak_depth = frames_.size() + 1;
 	const size_t parent_depth = frames_.size();
 	const uint64_t first_step = steps_;
+	const uint32_t source_uses = source_site_uses_;
 	frames_.push_back(frame);
 	const size_t swaps = suspend_swaps();
 	const bool done = body(function, result, location);
@@ -611,7 +612,8 @@ bool ConstantInterpreter::invoke_body(
 	frames_.pop_back();
 	if (frames_.size() > first_frame_)
 		frames_.back().peak_depth = std::max(frames_.back().peak_depth, peak);
-	if (eligible && done && !incomplete_class_ && result.value.kind == ValueKind::Integer)
+	if (eligible && done && !incomplete_class_ && result.value.kind == ValueKind::Integer &&
+		source_uses == source_site_uses_)
 	{
 		if (memo_->remember(key, ConstantCallResult{ result.value, steps_ - first_step, peak - parent_depth }))
 			++analyzer_.graph_.constant_call_builds;

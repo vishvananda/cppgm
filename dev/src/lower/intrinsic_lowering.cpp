@@ -11,6 +11,8 @@
 #include "lex/identifier_table.h"
 
 #include "lowir/literals.h"
+#include "sema/analyzer.h"
+#include "sema/constant_values.h"
 #include "sema/expression_facts.h"
 #include "sema/integral_arithmetic.h"
 #include "sema/pretty_function.h"
@@ -538,6 +540,16 @@ RValue FunctionLowering::gnu_intrinsic(const syntax::CallExpr& expr, sema::Intri
 	case sema::Intrinsic::SourceFunction:
 	case sema::Intrinsic::SourceColumn:
 		return source_location(kind, expr.location);
+	case sema::Intrinsic::SourceLocationRecord:
+	{
+		const uint32_t location = source_site_ != kNoSourceSite ? source_site_ : expr.location;
+		const sema::ConstValue value = lowering_.analyzer_->source_location_value(
+			expr.facts->type, location, function_);
+		RValue result;
+		if (!constant_rvalue(value, expr.facts->type, result, location))
+			throw LoweringError(location, "invalid constant source location");
+		return result;
+	}
 	case sema::Intrinsic::IsConstantEvaluated:
 		// Code runs only outside constant evaluation.
 		return integer(lowir::Type::scalar(lowir::TypeKind::I64), 0);

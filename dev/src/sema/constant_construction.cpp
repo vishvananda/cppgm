@@ -110,7 +110,10 @@ bool ConstantInterpreter::materialize(const syntax::Expr& expr, const ConstPlace
 	if (!step(e->location))
 		return false;
 	if ((facts->flags & kImmediateValue) != 0)
-		return write(target, *facts->immediate, e->location);
+	{
+		const ConstValue* value = immediate_result(*e);
+		return value != nullptr && write(target, *value, e->location);
+	}
 	const FunctionEntity* constructor = facts->entity != nullptr && facts->entity->kind == EntityKind::Function
 		? static_cast<const FunctionEntity*>(facts->entity)
 		: nullptr;
@@ -672,6 +675,7 @@ bool ConstantInterpreter::aggregate_members(const ClassEntity* entity, const Con
 			frame.self = target;
 			frame.first_local = locals_.size();
 			frames_.push_back(frame);
+			const SourceSite site(source_site_, location);
 			const bool done = construct(
 				variable->type, place, variable->member_initializer, variable->constructor, location);
 			frames_.pop_back();

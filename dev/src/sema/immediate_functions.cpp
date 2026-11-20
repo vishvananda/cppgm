@@ -26,14 +26,45 @@ void Analyzer::immediate_invocation(const syntax::Expr& expr, const FunctionEnti
 		return;
 	ConstantInterpreter interpreter(*this);
 	const ConstValue* value = interpreter.evaluate_immediate(expr);
-	if (value == nullptr)
+	ExprFacts* facts = facts_of(expr);
+	const bool default_context = body_ != nullptr && body_->function == nullptr &&
+		(default_argument_scope_ != nullptr ||
+			(body_->closure_context != nullptr && body_->closure_context->kind == EntityKind::Variable));
+	if (default_context && interpreter.uses_source_site())
+	{
+		source_immediate_index_.set(facts, static_cast<uint32_t>(source_immediates_.size()));
+		source_immediates_.push_back(*facts);
+	}
+	else if (value == nullptr)
 	{
 		error(expr.location, "an immediate invocation is not a constant expression");
 		return;
 	}
-	ExprFacts* facts = facts_of(expr);
 	facts->immediate = value;
 	facts->flags |= kImmediateValue;
+}
+
+const ConstValue* Analyzer::immediate_result(
+	const syntax::Expr& expr, uint32_t site, const FunctionEntity* function, uint32_t* source_site_uses)
+{
+	const uint32_t index = source_immediate_index_.find(expr.facts);
+	if (index == PointerMap::kMissing)
+		return expr.facts->immediate;
+	// The same default may be used at several locations. Evaluate its
+	// typed invocation with the caller's location, keeping the original
+	// expression and its default-argument bindings intact.
+	if (source_site_uses != nullptr)
+		++*source_site_uses;
+	ExprFacts facts = source_immediates_[index];
+	struct ScopedFacts
+	{
+		const syntax::Expr& expr;
+		const ExprFacts* old;
+		~ScopedFacts() { expr.facts = old; }
+	} saved{ expr, expr.facts };
+	expr.facts = &facts;
+	ConstantInterpreter interpreter(*this);
+	return interpreter.evaluate_immediate_at(expr, site, function);
 }
 
 const ConstValue* Analyzer::immediate_conversion(const syntax::Expr& expr) const

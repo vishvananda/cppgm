@@ -94,6 +94,7 @@ public:
 	const SourcePositions* source_positions() const { return positions_; }
 	uint64_t source_line(uint32_t location) const;
 	std::string source_file(uint32_t location) const;
+	ConstValue source_location_value(const Type* pointer, uint32_t location, const FunctionEntity* function);
 	// A string literal of the analysis's own holding `text` (a source
 	// location builtin's value in a constant evaluation); one per text.
 	const syntax::LiteralExpr* text_literal(const std::string& text);
@@ -155,6 +156,8 @@ public:
 	// integral object's value, published on first request), in the
 	// semantic arena; null when it has none.
 	const ConstValue* evaluated_value(const VariableEntity* variable);
+	const ConstValue* immediate_result(
+		const syntax::Expr& expr, uint32_t site, const FunctionEntity* function, uint32_t* source_site_uses = nullptr);
 	const ConstValue* immediate_conversion(const syntax::Expr& expr) const;
 	const ConstValue* immediate_construction(const void* key) const;
 	// A constexpr reference whose initializer selects its referent by a
@@ -1301,7 +1304,8 @@ private:
 	// The C library's nan, nanf or nanl (by `variant`) called as
 	// __builtin_nan[f|l] of an operand that is no string literal is.
 	ExprFacts* library_nan_call(const syntax::CallExpr& expr, uint8_t variant, Scope* scope);
-	ExprFacts* source_location_builtin(const syntax::CallExpr& expr, uint8_t variant, Scope* scope);
+	ExprFacts* source_location_builtin(const syntax::CallExpr& expr, uint8_t variant);
+	const Type* source_location_record(uint32_t location);
 	// An __atomic, __sync or __c11_atomic builtin's call as `form` reads it.
 	struct AtomicForm
 	{
@@ -2729,6 +2733,10 @@ private:
 	// library_nan_call's functions (double, float, long double).
 	FunctionEntity* library_nans_[3] = {};
 	// text_literal's literals, by the text interned as an identifier.
+	const Type* source_location_type_ = nullptr;
+	uint8_t source_location_fields_[4] = {};
+	PointerMap source_immediate_index_;
+	std::vector<ExprFacts> source_immediates_;
 	PointerMap text_literal_index_;
 	std::vector<const syntax::LiteralExpr*> text_literals_;
 	// The constant interpreters' scratch values and stacks: each evaluation

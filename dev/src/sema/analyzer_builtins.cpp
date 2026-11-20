@@ -17,6 +17,7 @@
 #include "sema/constant_interpreter.h"
 #include "sema/conversions.h"
 #include "sema/integral_arithmetic.h"
+#include "sema/pretty_function.h"
 #include "sema/string_literals.h"
 
 namespace sema {
@@ -270,7 +271,7 @@ ExprFacts* Analyzer::builtin_operation(const syntax::CallExpr& expr, const Funct
 	case GnuBuiltin::OperatorDelete:
 		return allocation_builtin(expr, builtin->gnu_builtin == GnuBuiltin::OperatorNew, scope);
 	case GnuBuiltin::SourceLocation:
-		return source_location_builtin(expr, variant, scope);
+		return source_location_builtin(expr, variant);
 	case GnuBuiltin::CoroDestroy:
 	case GnuBuiltin::CoroDone:
 	case GnuBuiltin::CoroNoop:
@@ -1681,23 +1682,93 @@ ExprFacts* Analyzer::library_nan_call(const syntax::CallExpr& expr, uint8_t vari
 	return resolved_call(expr, nullptr, nullptr, false, nullptr, false);
 }
 
-ExprFacts* Analyzer::source_location_builtin(const syntax::CallExpr& expr, uint8_t variant, Scope* scope)
+ExprFacts* Analyzer::source_location_builtin(const syntax::CallExpr& expr, uint8_t variant)
 {
-	// GCC's __builtin_FILE() and __builtin_FUNCTION() (const char*),
-	// __builtin_LINE() and __builtin_COLUMN() (int): typed here, their
-	// values decided where they are evaluated (see Intrinsic::SourceFile),
-	// which for a default argument is each call using it.
-	(void)scope;
 	if (expr.arguments.size != 0)
 		error(expr.location, "a source location builtin takes no arguments");
-	const bool text = variant == 0 || variant == 2;
-	ExprFacts* facts = new_facts(expr,
-		text ? types_.pointer(types_.qualified(types_.fundamental(FundamentalType::Char), kConst))
-			 : types_.fundamental(FundamentalType::Int),
-		ValueCategory::PRValue);
+	const Intrinsic kind = static_cast<Intrinsic>(static_cast<uint8_t>(Intrinsic::SourceFile) + variant);
+	const Type* type = nullptr;
+	if (kind == Intrinsic::SourceLocationRecord)
+		type = source_location_record(expr.location);
+	else if (kind == Intrinsic::SourceFile || kind == Intrinsic::SourceFunction)
+		type = types_.pointer(types_.qualified(types_.fundamental(FundamentalType::Char), kConst));
+	else
+		type = types_.fundamental(FundamentalType::Int);
+	if (type == nullptr)
+		return nullptr;
+	ExprFacts* facts = new_facts(expr, type, ValueCategory::PRValue);
 	facts->flags |= kIntrinsic;
-	facts->value = static_cast<uint64_t>(Intrinsic::SourceFile) + variant;
+	facts->value = static_cast<uint64_t>(kind);
 	return facts;
+}
+
+const Type* Analyzer::source_location_record(uint32_t location)
+{
+	if (source_location_type_ != nullptr)
+		return source_location_type_;
+	const LookupResult space = names_.qualified(graph_.global, std_key_, LookupFilter::Namespace);
+	const LookupResult owner = space.found() && !space.ambiguous && space.binding->entity->kind == EntityKind::Namespace
+		? names_.qualified(static_cast<NamespaceEntity*>(space.binding->entity)->scope, special_key("source_location"),
+			  LookupFilter::Elaborated)
+		: LookupResult();
+	const ClassEntity* record_owner = owner.found() && !owner.ambiguous ? ClassOf(owner.binding->type) : nullptr;
+	const LookupResult nested = record_owner != nullptr && record_owner->scope != nullptr
+		? names_.qualified(record_owner->scope, special_key("__impl"), LookupFilter::Elaborated)
+		: LookupResult();
+	const ClassEntity* record = nested.found() && !nested.ambiguous ? ClassOf(nested.binding->type) : nullptr;
+	if (record == nullptr || !require_complete(record) || record->member_count != 4 || record->base_count != 0 ||
+		record->key == TokenKind::KW_UNION)
+		return substitution_error(location, "invalid std::source_location::__impl for __builtin_source_location"),
+			   nullptr;
+	const Type* text = types_.pointer(types_.qualified(types_.fundamental(FundamentalType::Char), kConst));
+	const Type* number = types_.fundamental(FundamentalType::UnsignedInt);
+	const char* const fields[] = { "_M_file_name", "_M_function_name", "_M_line", "_M_column" };
+	uint8_t seen = 0;
+	for (const DataMember* member = record->members; member != nullptr; member = member->next)
+	{
+		const Identifier* name = member->variable->name;
+		unsigned field = 0;
+		while (name != nullptr && field < 4 && std::strcmp(name->spelling, fields[field]) != 0)
+			++field;
+		if (member->bit_field || name == nullptr || field == 4 || (seen & (1u << field)) != 0 ||
+			member->variable->type != (field < 2 ? text : number))
+			return substitution_error(location, "invalid fields in std::source_location::__impl"), nullptr;
+		source_location_fields_[field] = static_cast<uint8_t>(member->ordinal);
+		seen |= static_cast<uint8_t>(1u << field);
+	}
+	// Both standard libraries derive their parameter type from this builtin.
+	// A typed pointer avoids a conversion from void* in constant evaluation.
+	source_location_type_ = types_.pointer(types_.qualified(record->type, kConst));
+	return source_location_type_;
+}
+
+ConstValue Analyzer::source_location_value(const Type* pointer, uint32_t location, const FunctionEntity* function)
+{
+	const Type* text = types_.pointer(types_.qualified(types_.fundamental(FundamentalType::Char), kConst));
+	const Type* number = types_.fundamental(FundamentalType::UnsignedInt);
+	const auto string_address = [&](const std::string& spelling) {
+		ConstPlace place = ConstPlace();
+		place.root = RootKind::Literal;
+		place.entity = text_literal(spelling);
+		return PointerTo(place, text);
+	};
+	ConstValue* fields = arena_.allocate_array<ConstValue>(4);
+	fields[source_location_fields_[0]] = string_address(source_file(location));
+	fields[source_location_fields_[1]] = string_address(
+		function != nullptr ? PredefinedFunctionName(function) : std::string());
+	fields[source_location_fields_[2]] = IntegerValue(number, source_line(location));
+	fields[source_location_fields_[3]] = IntegerValue(
+		number, positions_ != nullptr ? positions_->column_of(location) : 0);
+	ConstValue* record = arena_.allocate_array<ConstValue>(1);
+	*record = ConstValue();
+	record->kind = ValueKind::Class;
+	record->type = pointer->element;
+	record->count = 4;
+	record->elements = fields;
+	ConstPlace place = ConstPlace();
+	place.root = RootKind::Temporary;
+	place.entity = record;
+	return PointerTo(place, pointer);
 }
 
 uint64_t Analyzer::source_line(uint32_t location) const

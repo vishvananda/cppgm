@@ -326,6 +326,9 @@ void FunctionLowering::aggregate_default_member(const sema::ClassEntity* owner, 
 	// bound to the containing object rather than the lexical caller.
 	const sema::ClassEntity* saved_class = initializer_class_;
 	const lowir::Value saved_object = initializer_object_;
+	const uint32_t saved_site = source_site_;
+	if (source_site_ == kNoSourceSite)
+		source_site_ = location;
 	initializer_class_ = owner;
 	initializer_object_ = object;
 	const syntax::Expr* element = member->member_initializer->expression;
@@ -338,6 +341,7 @@ void FunctionLowering::aggregate_default_member(const sema::ClassEntity* owner, 
 		aggregate_class_item(cls, type, path, &single, next, location, false, member);
 	else
 		aggregate_item(type, path, &single, next, value_first, location);
+	source_site_ = saved_site;
 	initializer_class_ = saved_class;
 	initializer_object_ = saved_object;
 }
