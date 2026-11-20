@@ -494,6 +494,17 @@ even with GCC in C++14.
   and Clang accept their standalone named-subobject address probes. cppgm
   still rejects both probes, which prevents B2 from running those 19 tests.
   See [P1907R1](../doc/cwg/paper-p1907r1.txt) for the C++20 address rule.
+  Preserve the object, byte offset and subobject identity through constant
+  evaluation, template argument interning and lowering. Cover direct and
+  computed pointers, reference parameters and pointer fields of structural
+  values in PA18. Two same-typed union members can share an offset and
+  still name distinct specializations. Clang canonicalizes array decay
+  and the address of the first element. GCC 15.2 disagrees on that identity
+  and emits different symbols for direct member and array-element addresses.
+  Check runtime behavior independently, and use Clang as the ABI reference
+  for the subobject encoding. Measure the C++11 address path against its
+  baseline and gate the `201911L` probe on the full support it advertises.
+  [Itanium ABI discussion](https://github.com/itanium-cxx-abi/cxx-abi/issues/47)
 - The full replay exposed a regression in Boost.Convert after the GNU
   zero-length array fix. `__PRETTY_FUNCTION__` had supplied a provisional
   string while analyzing the function template definition. That string
