@@ -493,7 +493,7 @@ bool Preprocessor::has_feature(const char* spelling, uint32_t length, bool exten
 
 uint32_t Preprocessor::builtin_version(const char* spelling, uint32_t length)
 {
-	return ProvidedBuiltinVersion(spelling, length, wasm_attributes_);
+	return ProvidedBuiltinVersion(spelling, length, wasm_attributes_, modes_.language >= 20);
 }
 
 bool Preprocessor::has_target_attribute(const char* spelling, uint32_t length)

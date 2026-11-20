@@ -9,7 +9,7 @@
 // and the type traits and transforms (__is_class ...). Hosted headers ask
 // `__has_builtin` before using an optional one; it answers from these
 // registries, which the parser and analyzer read the names from.
-uint32_t ProvidedBuiltinVersion(const char* spelling, uint32_t length, bool wasm = false);
+uint32_t ProvidedBuiltinVersion(const char* spelling, uint32_t length, bool wasm = false, bool cxx20 = false);
 
 // The builtin functions (GCC's and Clang's): the analyzer declares each in
 // the global namespace from its entry when a call first names it.
@@ -54,6 +54,10 @@ enum class GnuBuiltin : uint8_t
 	GenericBitCount,
 	Alloca,
 	FrameAddress,
+	CoroDestroy,
+	CoroDone,
+	CoroPromise,
+	CoroResume,
 	WasmMemory, // size or grow, variants 0 and 1; memory index must be zero
 	WasmMinMax, // IEEE min/max: f32 min/max, then f64 min/max
 	VaList,
@@ -128,6 +132,11 @@ enum class GnuBuiltin : uint8_t
 	// is not specified (x is not evaluated).
 	NondeterministicValue
 };
+
+inline bool IsCoroutineBuiltin(GnuBuiltin builtin)
+{
+	return builtin >= GnuBuiltin::CoroDestroy && builtin <= GnuBuiltin::CoroResume;
+}
 
 // A VectorLanewise builtin's operation. Its signature is the result and then
 // the operands, one letter each: F, D, G __v4sf, __v2df, __v2sf; B, H, W, Q

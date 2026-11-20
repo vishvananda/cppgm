@@ -14,13 +14,13 @@ namespace {
 // A call's callee that is a reserved `__builtin_` name no registry holds: a
 // GNU inline wrapper of a builtin this compiler lacks may be left
 // unanalyzed while unused (see Analyzer::define_function).
-const Identifier* ReservedBuiltinCallee(const Name& name)
+const Identifier* ReservedBuiltinCallee(const Name& name, bool cxx20)
 {
 	if (name.components.size != 1 || name.components[0].kind != NameComponentKind::Identifier)
 		return nullptr;
 	const Identifier* identifier = name.components[0].identifier;
 	if (std::strncmp(identifier->spelling, "__builtin_", 10) == 0 &&
-		!ProvidedBuiltinVersion(identifier->spelling, static_cast<uint32_t>(std::strlen(identifier->spelling))))
+		!ProvidedBuiltinVersion(identifier->spelling, identifier->length, false, cxx20))
 		return identifier;
 	return nullptr;
 }
@@ -1002,7 +1002,7 @@ Expr* Parser::parse_postfix_suffixes(Expr* expr)
 		if (token.is(TokenKind::OP_LPAREN))
 		{
 			if (hosted_ && reserved_call_ == nullptr && expr->kind == ExprKind::Id)
-				reserved_call_ = ReservedBuiltinCallee(*static_cast<const IdExpr*>(expr)->name);
+				reserved_call_ = ReservedBuiltinCallee(*static_cast<const IdExpr*>(expr)->name, cxx20_);
 			CallExpr* call = make<CallExpr>(ExprKind::Call, expr->location);
 			call->callee = expr;
 			next();

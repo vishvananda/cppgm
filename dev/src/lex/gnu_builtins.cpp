@@ -38,6 +38,10 @@ const struct
 	{ "__builtin_clzll", { GnuBuiltin::BitCount, 5, nullptr, 0 } },
 	{ "__builtin_complex", { GnuBuiltin::Complex, 0, nullptr, 0 } },
 	{ "__builtin_constant_p", { GnuBuiltin::ConstantP, 0, nullptr, 0 } },
+	{ "__builtin_coro_destroy", { GnuBuiltin::CoroDestroy, 0, "vv*", 0 } },
+	{ "__builtin_coro_done", { GnuBuiltin::CoroDone, 0, nullptr, 0 } },
+	{ "__builtin_coro_promise", { GnuBuiltin::CoroPromise, 0, nullptr, 0 } },
+	{ "__builtin_coro_resume", { GnuBuiltin::CoroResume, 0, "vv*", 0 } },
 	{ "__builtin_ctz", { GnuBuiltin::BitCount, 6, nullptr, 0 } },
 	{ "__builtin_ctzg", { GnuBuiltin::GenericBitCount, 1, nullptr, 0 } },
 	{ "__builtin_ctzl", { GnuBuiltin::BitCount, 7, nullptr, 0 } },
@@ -960,7 +964,7 @@ const GnuC11Operation kGnuC11Operations[] = { { "init", 2, "pv", '-', 1, 0xff },
 	{ "is_lock_free", 25, "s", 'C', 0, 0xff } };
 const unsigned kGnuC11OperationCount = sizeof kGnuC11Operations / sizeof kGnuC11Operations[0];
 
-uint32_t ProvidedBuiltinVersion(const char* spelling, uint32_t length, bool wasm)
+uint32_t ProvidedBuiltinVersion(const char* spelling, uint32_t length, bool wasm, bool cxx20)
 {
 	// Clang's builtin templates, which the hosted builtin declarations
 	// declare (driver/host_environment.cpp).
@@ -977,6 +981,8 @@ uint32_t ProvidedBuiltinVersion(const char* spelling, uint32_t length, bool wasm
 	if (!FindGnuBuiltin(spelling, length, entry))
 		return 0;
 	if ((entry.builtin == GnuBuiltin::WasmMemory || entry.builtin == GnuBuiltin::WasmMinMax) && !wasm)
+		return 0;
+	if (!cxx20 && IsCoroutineBuiltin(entry.builtin))
 		return 0;
 	return entry.builtin == GnuBuiltin::OperatorNew || entry.builtin == GnuBuiltin::OperatorDelete ? 201802 : 1;
 }

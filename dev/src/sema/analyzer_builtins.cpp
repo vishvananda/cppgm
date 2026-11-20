@@ -111,7 +111,8 @@ FunctionEntity* Analyzer::builtin_function(const Identifier* name)
 		return nullptr;
 	}
 	GnuBuiltinEntry entry;
-	const bool found = FindGnuBuiltin(name->spelling, name->length, entry);
+	const bool found = FindGnuBuiltin(name->spelling, name->length, entry) &&
+		(cxx20_ || !IsCoroutineBuiltin(entry.builtin));
 	builtin_names_[name->id] = found ? 2 : 1;
 	if (!found)
 		return nullptr;
@@ -270,6 +271,11 @@ ExprFacts* Analyzer::builtin_operation(const syntax::CallExpr& expr, const Funct
 		return allocation_builtin(expr, builtin->gnu_builtin == GnuBuiltin::OperatorNew, scope);
 	case GnuBuiltin::SourceLocation:
 		return source_location_builtin(expr, variant, scope);
+	case GnuBuiltin::CoroDestroy:
+	case GnuBuiltin::CoroDone:
+	case GnuBuiltin::CoroPromise:
+	case GnuBuiltin::CoroResume:
+		return coroutine_handle_builtin(expr, builtin, scope);
 	case GnuBuiltin::Atomic:
 	{
 		// The lock-free queries follow the operations (and share the
@@ -988,6 +994,53 @@ ExprFacts* Analyzer::control_intrinsic(const syntax::CallExpr& expr, GnuBuiltin 
 		facts->value = static_cast<uint64_t>(variant != 0 ? Intrinsic::WriteMxcsr : Intrinsic::ReadMxcsr);
 	}
 	facts->flags |= kIntrinsic;
+	return facts;
+}
+
+ExprFacts* Analyzer::coroutine_handle_builtin(const syntax::CallExpr& expr, const FunctionEntity* builtin, Scope* scope)
+{
+	const GnuBuiltin op = builtin->gnu_builtin;
+	const bool promise = op == GnuBuiltin::CoroPromise;
+	if (expr.arguments.size != (promise ? 3u : 1u))
+		return substitution_error(expr.location, "wrong number of arguments to a coroutine builtin"), nullptr;
+	const Type* void_type = types_.fundamental(FundamentalType::Void);
+	const Type* pointer = types_.pointer(void_type);
+	if (typed_value(*expr.arguments[0], scope) == nullptr)
+		return nullptr;
+	convert(*expr.arguments[0], pointer, false);
+	if (failed())
+		return nullptr;
+	uint64_t extra = 0;
+	if (promise)
+	{
+		Constant alignment = {}, from_promise = {};
+		uint64_t high = 0;
+		if (!integral_constant(*expr.arguments[1], scope, alignment, high) || high != 0 || alignment.bits == 0 ||
+			alignment.bits > INT32_MAX || (alignment.bits & (alignment.bits - 1)) != 0)
+			return substitution_error(
+					   expr.arguments[1]->location, "coroutine promise alignment must be a constant power of two"),
+				   nullptr;
+		if (!integral_constant(*expr.arguments[2], scope, from_promise, high))
+			return substitution_error(expr.arguments[2]->location, "coroutine promise direction must be constant"),
+				   nullptr;
+		// GCC and Clang place the promise after both entry pointers, rounded
+		// up to its alignment. Record the offset and which direction to apply it.
+		const uint64_t entries = 2u * target_model::data_layout(types_.target()).pointer_bytes;
+		const uint64_t offset = entries < alignment.bits ? alignment.bits : entries;
+		extra = (offset << 1) | (from_promise.bits != 0 || high != 0 ? 1u : 0u);
+	}
+	const bool done = op == GnuBuiltin::CoroDone;
+	const Type* result = promise ? pointer : done ? types_.fundamental(FundamentalType::Bool) : void_type;
+	ExprFacts* facts = new_facts(expr, result, ValueCategory::PRValue);
+	facts->flags |= kIntrinsic;
+	facts->entity = builtin;
+	const Intrinsic kind = promise      ? Intrinsic::CoroPromise
+		: done                          ? Intrinsic::CoroDone
+		: op == GnuBuiltin::CoroDestroy ? Intrinsic::CoroDestroy
+										: Intrinsic::CoroResume;
+	facts->value = static_cast<uint64_t>(kind) | (extra << 8);
+	if (!promise && !done)
+		++potentially_throwing_;
 	return facts;
 }
 

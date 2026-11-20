@@ -1250,6 +1250,7 @@ private:
 	ExprFacts* object_size_call(const syntax::CallExpr& expr, Scope* scope);
 	ExprFacts* floating_builtin(const syntax::CallExpr& expr, const FunctionEntity& builtin, Scope* scope);
 	ExprFacts* control_intrinsic(const syntax::CallExpr& expr, GnuBuiltin builtin, uint8_t variant, Scope* scope);
+	ExprFacts* coroutine_handle_builtin(const syntax::CallExpr& expr, const FunctionEntity* builtin, Scope* scope);
 	ExprFacts* gnu_intrinsic(const syntax::CallExpr& expr, GnuBuiltin builtin, uint8_t variant, Scope* scope);
 	const FunctionEntity* header_builtin(const FunctionEntity* function);
 	bool integer_register(const Type* type, uint64_t bytes = 16);

@@ -1328,6 +1328,7 @@ private:
 	void copy_object(const sema::Type* type, lowir::Value source, lowir::Value destination, uint32_t location);
 	lowir::Value va_list_tag(const syntax::Expr& list);
 	RValue gnu_intrinsic(const syntax::CallExpr& expr, sema::Intrinsic kind);
+	RValue coroutine_handle(const syntax::CallExpr& expr, sema::Intrinsic kind);
 	RValue bit_count(sema::Intrinsic kind, RValue x);
 	RValue overflow_intrinsic(const syntax::CallExpr& expr, sema::Intrinsic kind);
 	RValue carry_intrinsic(const syntax::CallExpr& expr, bool subtract);

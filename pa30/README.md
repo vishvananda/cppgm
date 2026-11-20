@@ -102,6 +102,14 @@ hosted headers depend on:
   callers that omit frame pointers cannot be traversed reliably. Inlining
   uses the containing activation's frame. The query is not a C++ constant
   expression, and `__has_builtin` advertises it through the builtin registry
+- In C++20 hosted mode, `__builtin_coro_resume`, `__builtin_coro_destroy`,
+  `__builtin_coro_done`, and `__builtin_coro_promise` operate on a suspended
+  coroutine handle. Use the two entry pointers at the start of the frame.
+  A null resume entry marks completion. The promise starts after the entry
+  pointers, rounded up to the requested constant alignment. The constant
+  direction operand selects handle-to-promise or promise-to-handle.
+  Resume and destroy calls participate in ordinary exception unwinding.
+  See `[coroutine.handle]` for the library contract. [C++20 draft](../doc/n4861.pdf)
 
 The tests assume a Linux shell environment with `make`, `bash`, `perl`, and a
 working host C++ compiler with hosted C++ headers installed.

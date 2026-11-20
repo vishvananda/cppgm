@@ -190,6 +190,11 @@ bool FunctionLowering::may_throw(const syntax::Expr* root)
 					}
 				}
 			}
+			else if (facts != nullptr && (facts->flags & sema::kIntrinsic) != 0)
+			{
+				const sema::Intrinsic kind = static_cast<sema::Intrinsic>(facts->value);
+				found = kind == sema::Intrinsic::CoroResume || kind == sema::Intrinsic::CoroDestroy;
+			}
 			// A member call's object expression; another callee (a
 			// pointer-to-member call's `.*`, a function pointer's operand).
 			const syntax::Expr* callee = WithoutParentheses(call->callee);

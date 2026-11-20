@@ -240,6 +240,41 @@ lowir::Value FunctionLowering::va_list_tag(const syntax::Expr& list)
 	return address(list);
 }
 
+RValue FunctionLowering::coroutine_handle(const syntax::CallExpr& expr, sema::Intrinsic kind)
+{
+	const lowir::Type pointer = program_.pointer_type();
+	const bool invokes = kind == sema::Intrinsic::CoroResume || kind == sema::Intrinsic::CoroDestroy;
+	const size_t base = arguments_.size();
+	if (invokes)
+	{
+		note_call_arguments(nullptr, expr.arguments);
+		begin_call(true);
+	}
+	const RValue frame = operand(*expr.arguments[0], ConversionContext::Argument);
+	if (kind == sema::Intrinsic::CoroPromise)
+	{
+		const uint64_t offset = expr.facts->value >> 9;
+		const bool from_promise = (expr.facts->value & (uint64_t(1) << 8)) != 0;
+		const lowir::Value address = element_address(frame.value, from_promise ? 0 - offset : offset, 1);
+		return RValue{ address, pointer };
+	}
+	// A null resume entry marks a completed coroutine. Destroy has its own
+	// entry so it can still deallocate a frame at final suspend.
+	Place entry = {};
+	entry.storage = kind == sema::Intrinsic::CoroDestroy ? element_address(frame.value, pointer.pointer_bytes(), 1)
+														 : frame.value;
+	entry.untyped = true;
+	const RValue function = load(pointer, entry);
+	if (!invokes)
+		return compare(lowir::ComparePredicate::Eq, pointer, function, integer(pointer, 0));
+	arguments_.push_back(frame.value);
+	const lowir::Type result = lowir::Type::scalar(lowir::TypeKind::Void);
+	const auto signature = lowering_.call_signature(expr.facts->entity->type);
+	const lowir::Value call = emit_call(result, function.value, base, signature, true);
+	end_call(true);
+	return RValue{ call, result };
+}
+
 RValue FunctionLowering::gnu_intrinsic(const syntax::CallExpr& expr, sema::Intrinsic kind)
 {
 	// The GCC builtins of hosted headers (sema::Intrinsic): addresses and
@@ -277,6 +312,11 @@ RValue FunctionLowering::gnu_intrinsic(const syntax::CallExpr& expr, sema::Intri
 	}
 	case sema::Intrinsic::WasmFloatMinMax:
 		return wasm_float_minmax(expr);
+	case sema::Intrinsic::CoroDestroy:
+	case sema::Intrinsic::CoroDone:
+	case sema::Intrinsic::CoroPromise:
+	case sema::Intrinsic::CoroResume:
+		return coroutine_handle(expr, kind);
 	case sema::Intrinsic::WasmMemorySize:
 	case sema::Intrinsic::WasmMemoryGrow:
 	{
