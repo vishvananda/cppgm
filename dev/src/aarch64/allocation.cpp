@@ -325,11 +325,11 @@ public:
 		std::stable_partition(
 			order.begin(), order.end(), [&](uint32_t c) { return position[copies[c].from] < position[copies[c].to]; });
 		root_.assign(count, kNoId);
-		std::vector<uint32_t> span_of(count, kNoId), target(copies.size());
-		std::vector<Segments> spans;
+		Spans spans{ ranges, segments, range_of, std::vector<uint32_t>(count, kNoId), {} };
+		std::vector<uint32_t> target(copies.size());
 		for (uint32_t c = 0; c < copies.size(); ++c)
 			target[c] = copies[c].phi;
-		split_inputs(body, aliases, ranges, segments, copies, position, range_of, target);
+		split_inputs(body, aliases, copies, position, spans, target);
 		for (uint32_t c : order)
 		{
 			uint32_t ends[] = { copies[c].source, target[c] };
@@ -340,19 +340,15 @@ public:
 				if (root_[end] == kNoId)
 				{
 					root_[end] = end;
-					span_of[end] = spans.size();
-					spans.emplace_back();
-					each_interval(ranges[range_of[end]], segments,
-						[&](uint32_t a, uint32_t b) { spans.back().push_back({ a, b }); });
-					std::sort(spans.back().begin(), spans.back().end());
+					spans.get(end);
 				}
 				end = find(end);
 			}
-			if (ends[0] == ends[1] || overlap(spans[span_of[ends[0]]], spans[span_of[ends[1]]]))
+			if (ends[0] == ends[1] || spans.overlap(ends[0], ends[1]))
 				continue;
 			const auto keep = std::min(ends[0], ends[1]), gone = std::max(ends[0], ends[1]);
-			auto& kept = spans[span_of[keep]];
-			auto& lost = spans[span_of[gone]];
+			auto& kept = spans.list[spans.index[keep]];
+			auto& lost = spans.list[spans.index[gone]];
 			Segments joined;
 			joined.reserve(kept.size() + lost.size());
 			std::merge(kept.begin(), kept.end(), lost.begin(), lost.end(), std::back_inserter(joined));
@@ -418,28 +414,57 @@ private:
 	// that edge. When the copy needs its own block there, join the inputs
 	// instead: every edge then makes the same copy, which the loop header
 	// makes once while the branches go to it directly.
-	void split_inputs(const FunctionBody& body, const std::vector<uint32_t>& aliases,
-		const std::vector<LiveRange>& ranges, const Segments& segments, const std::vector<PhiCopy>& copies,
-		const std::vector<uint32_t>& position, const std::vector<uint32_t>& range_of, std::vector<uint32_t>& target)
+	// Sorted intervals of temps, computed once each. A group's root holds
+	// the merged intervals of its members.
+	struct Spans
 	{
-		std::vector<uint32_t> by_phi(copies.size());
-		for (uint32_t c = 0; c < copies.size(); ++c)
-			by_phi[c] = c;
-		std::stable_sort(
-			by_phi.begin(), by_phi.end(), [&](uint32_t a, uint32_t b) { return copies[a].phi < copies[b].phi; });
-		const auto span = [&](TempId t) {
-			Segments out;
-			each_interval(ranges[range_of[t]], segments, [&](uint32_t a, uint32_t b) { out.push_back({ a, b }); });
-			std::sort(out.begin(), out.end());
-			return out;
-		};
+		const std::vector<LiveRange>& ranges;
+		const Segments& segments;
+		const std::vector<uint32_t>& range_of;
+		std::vector<uint32_t> index;
+		std::vector<Segments> list;
+		uint32_t get(TempId t)
+		{
+			if (index[t] == kNoId)
+			{
+				index[t] = list.size();
+				list.emplace_back();
+				each_interval(
+					ranges[range_of[t]], segments, [&](uint32_t a, uint32_t b) { list.back().push_back({ a, b }); });
+				std::sort(list.back().begin(), list.back().end());
+			}
+			return index[t];
+		}
+		bool overlap(TempId a, TempId b)
+		{
+			const auto x = get(a), y = get(b);
+			return PhiGroups::overlap(list[x], list[y]);
+		}
+	};
+
+	// A scalar loop phi that overlaps every value it takes on a back edge, or
+	// every input of the phi of a merge block that it takes, needs a copy on
+	// that edge. When the copy needs its own block there, join the inputs
+	// instead: every edge then makes the same copy, which the loop header
+	// makes once while the branches go to it directly.
+	void split_inputs(const FunctionBody& body, const std::vector<uint32_t>& aliases,
+		const std::vector<PhiCopy>& copies, const std::vector<uint32_t>& position, Spans& spans,
+		std::vector<uint32_t>& target)
+	{
+		const auto& range_of = spans.range_of;
+		// The transfers of each phi are adjacent.
+		std::vector<uint32_t> first_copy;
 		const auto inputs_of = [&](TempId phi) {
-			const auto lower = std::lower_bound(
-				by_phi.begin(), by_phi.end(), phi, [&](uint32_t c, TempId t) { return copies[c].phi < t; });
-			auto upper = lower;
-			while (upper != by_phi.end() && copies[*upper].phi == phi)
-				++upper;
-			return std::make_pair(lower, upper);
+			if (first_copy.empty())
+			{
+				first_copy.assign(body.temps.size(), kNoId);
+				for (uint32_t c = copies.size(); c-- > 0;)
+					first_copy[copies[c].phi] = c;
+			}
+			uint32_t end = first_copy[phi];
+			while (end < copies.size() && copies[end].phi == phi)
+				++end;
+			return std::make_pair(first_copy[phi], end);
 		};
 		// A conditional branch, or a block of phis and its jump, needs a
 		// block or a jump for the copy.
@@ -464,63 +489,70 @@ private:
 					continue;
 				if (range_of[phi.result] == kNoId)
 					return false;
-				const auto own = span(phi.result);
 				for (uint32_t k = 0; k < phi.extra_count; k += 2)
 				{
 					const auto v = body.operands[phi.extra_first + k + 1];
 					if (!v.is(ValueKind::Temp))
 						return false;
 					const auto t = representative(aliases, v.index);
-					if (t != phi.result && (range_of[t] == kNoId || overlap(own, span(t))))
+					if (t != phi.result && (range_of[t] == kNoId || spans.overlap(phi.result, t)))
 						return false;
 				}
 			}
 			return true;
 		};
 		std::vector<TempId> seen;
-		for (auto first = by_phi.begin(); first != by_phi.end();)
+		for (uint32_t first = 0, last = 0; first < copies.size(); first = last)
 		{
-			const TempId phi = copies[*first].phi;
-			const auto last = inputs_of(phi).second;
-			const auto range = std::make_pair(first, last);
-			first = last;
+			const TempId phi = copies[first].phi;
+			for (last = first; last < copies.size() && copies[last].phi == phi;)
+				++last;
 			if (range_of[phi] == kNoId || body.temps[phi].type.is_float() || body.temps[phi].type.is_vector())
 				continue;
+			// Every source needs a range, and some transfer must come from
+			// before the loop and some back edge need a block.
 			bool forward = false, block = false, valid = true;
-			TempId joined = kNoId;
-			const auto own = span(phi);
-			seen.clear();
-			for (auto c = range.first; valid && c != range.second; ++c)
+			for (uint32_t c = first; valid && c < last; ++c)
 			{
-				const auto source = copies[*c].source;
-				valid = range_of[source] != kNoId && source != phi;
-				if (!valid || std::find(seen.begin(), seen.end(), source) != seen.end())
+				valid = range_of[copies[c].source] != kNoId && copies[c].source != phi;
+				forward |= !back(c);
+				block |= back(c) && needs_block(copies[c].from);
+			}
+			if (!valid || !forward || !block)
+				continue;
+			// Each source counts at its first transfer.
+			forward = block = false;
+			TempId joined = kNoId;
+			seen.clear();
+			for (uint32_t c = first; valid && c < last; ++c)
+			{
+				const auto source = copies[c].source;
+				if (std::find(seen.begin(), seen.end(), source) != seen.end())
 					continue;
 				seen.push_back(source);
-				forward |= !back(*c);
-				if (back(*c))
-				{
-					block |= needs_block(copies[*c].from);
-					joined = joined == kNoId ? source : joined;
-					if (overlap(own, span(source)))
-						continue;
-					const auto merged = inputs_of(source);
-					valid = merged.first != merged.second;
-					for (auto m = merged.first; valid && m != merged.second; ++m)
-						valid = copies[*m].to == copies[*c].from && copies[*m].source != phi &&
-							range_of[copies[*m].source] != kNoId && overlap(own, span(copies[*m].source));
-				}
+				forward |= !back(c);
+				if (!back(c))
+					continue;
+				block |= needs_block(copies[c].from);
+				joined = joined == kNoId ? source : joined;
+				if (spans.overlap(phi, source))
+					continue;
+				const auto merged = inputs_of(source);
+				valid = merged.first < merged.second;
+				for (auto m = merged.first; valid && m < merged.second; ++m)
+					valid = copies[m].to == copies[c].from && copies[m].source != phi &&
+						range_of[copies[m].source] != kNoId && spans.overlap(phi, copies[m].source);
 			}
 			for (size_t a = 0; valid && a < seen.size(); ++a)
 				for (size_t b = a + 1; valid && b < seen.size(); ++b)
-					valid = !overlap(span(seen[a]), span(seen[b]));
-			if (!valid || !forward || !block || !others_join(copies[*range.first].to, phi))
+					valid = !spans.overlap(seen[a], seen[b]);
+			if (!valid || !forward || !block || !others_join(copies[first].to, phi))
 				continue;
 			if (split_.empty())
 				split_.assign(body.temps.size(), 0);
 			split_[phi] = 1;
-			for (auto c = range.first; c != range.second; ++c)
-				target[*c] = joined;
+			for (uint32_t c = first; c < last; ++c)
+				target[c] = joined;
 		}
 	}
 
