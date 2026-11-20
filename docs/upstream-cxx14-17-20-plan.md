@@ -459,9 +459,10 @@ even with GCC in C++14.
   of 60 successful translation units to 31. All 60 now pass semantic
   analysis with the coroutine feature macro forced for the diagnostic
   probe. PA31 covers promise lookup, awaiter overload resolution and
-  invalid coroutine forms. Executing the original cases still requires
-  generating the coroutine frame, resumption and destruction. The
-  compiler's feature macro remains gated on that runtime support.
+  invalid coroutine forms. PA32 executes frame construction, initial and
+  final suspension, resumption, and destruction with exceptions disabled.
+  Cobalt still exercises suspension inside the user body and exception
+  handling. Both remain prerequisites for the compiler's feature macro.
 - PA18 exercises class argument equivalence, class deduction, address
   identity, and rejection in C++17. The Linux x86-64 mixed object check
   resolves both a specialization and its parameter object across cppgm,

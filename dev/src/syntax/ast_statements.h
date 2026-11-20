@@ -32,7 +32,8 @@ enum class StmtKind : uint8_t
 enum FunctionBodySyntax : uint8_t
 {
 	kCoroutineOperation = 1,
-	kOrdinaryReturn = 2
+	kOrdinaryReturn = 2,
+	kCoroutineSuspension = 4
 };
 
 struct Stmt

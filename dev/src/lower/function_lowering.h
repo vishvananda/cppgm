@@ -13,7 +13,9 @@
 // storage is a slot or global used directly as a load/store operand, or a
 // pointer temporary. Generated temporaries, slots and blocks are unnamed
 // (printed by ordinal), so no source name can redirect them.
-namespace sema {}
+namespace sema {
+struct CoroutineAwait;
+}
 
 namespace lower {
 
@@ -77,6 +79,8 @@ enum class ConversionContext : uint8_t
 	// always folds).
 	BesideSize
 };
+
+class CoroutineFrameLayout;
 
 class FunctionLowering
 {
@@ -144,6 +148,22 @@ public:
 	void finish_initializer();
 
 private:
+	void lower_coroutine(const sema::CoroutineFacts& facts, const syntax::CompoundStmt& body);
+	void lower_coroutine_actor(
+		CoroutineFrameLayout& frame, const sema::CoroutineFacts& facts, const syntax::CompoundStmt& body);
+	void coroutine_return(const syntax::CoroutineExpr& expr);
+	void coroutine_return(const syntax::Expr& call);
+	lowir::SymbolId coroutine_entry(const char* suffix, bool with_action);
+	lowir::Value allocate_coroutine_frame(const sema::CoroutineFacts& facts, uint64_t bytes, uint32_t location);
+	void free_coroutine_frame(const sema::CoroutineFacts& facts, lowir::Value allocation, uint64_t bytes);
+	void bind_coroutine_storage(const sema::Entity* entity, lowir::Value address);
+	lowir::Value prepare_coroutine_result(const syntax::Expr& expression);
+	Place coroutine_place(lowir::Value frame, uint64_t offset);
+	void initialize_coroutine_awaiter(const sema::CoroutineAwait& await, const Place& slot);
+	void emit_coroutine_suspend(const sema::CoroutineAwait& await, lowir::Value frame, uint64_t state_offset,
+		uint32_t state, lowir::BlockId resumed, lowir::BlockId suspended);
+	void finish_coroutine_awaiter(const sema::CoroutineAwait& await, const Place& slot);
+
 	// The debug location of the construct being lowered (a statement, an
 	// expression): the instructions it emits carry it (ProgramLowering::
 	// debug_location), the enclosing construct's again when it ends.
@@ -1950,6 +1970,7 @@ private:
 	ProgramLowering& lowering_;
 	lowir::Program& program_;
 	const sema::FunctionEntity* function_;
+	lowir::BlockId coroutine_final_suspend_ = lowir::kNoId;
 	// A non-static member function's `this` (9.3.2), held in a slot of its
 	// own; kNoId elsewhere.
 	lowir::SlotId this_slot_;

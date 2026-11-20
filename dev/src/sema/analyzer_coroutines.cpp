@@ -251,8 +251,14 @@ const CoroutineAwait* Analyzer::coroutine_await(
 	if (ready == nullptr)
 		return nullptr;
 	convert_to_bool(*ready);
-	syntax::Expr* suspend = invoke(
-		"await_suspend", coroutine_variable_use(coroutine.handle, ValueCategory::PRValue, location));
+	// The argument is a class prvalue. Give each await its own call so
+	// overload resolution and parameter conversions belong to that use.
+	syntax::Expr* handle_argument = coroutine_member_call(
+		coroutine_variable_use(coroutine.handle, ValueCategory::LValue, location), special_key("from_promise"),
+		coroutine_variable_use(coroutine.promise, ValueCategory::LValue, location), scope, location);
+	if (handle_argument == nullptr)
+		return nullptr;
+	syntax::Expr* suspend = invoke("await_suspend", handle_argument);
 	if (suspend == nullptr)
 		return nullptr;
 	const Type* result = suspend->facts->type;
@@ -304,12 +310,6 @@ const CoroutineFacts* Analyzer::analyze_coroutine(const FunctionEntity* function
 		return nullptr;
 	facts->handle = new_entity<VariableEntity>(
 		EntityKind::Variable, special_key("<coroutine-handle>"), scope, handle->type);
-	// [expr.await] passes the library handle made from the live promise.
-	facts->make_handle = coroutine_member_call(coroutine_variable_use(facts->handle, ValueCategory::LValue, location),
-		special_key("from_promise"), coroutine_variable_use(facts->promise, ValueCategory::LValue, location), scope,
-		location);
-	if (facts->make_handle == nullptr)
-		return nullptr;
 	const auto invoke = [&](const Identifier* name) {
 		return coroutine_member_call(
 			coroutine_variable_use(facts->promise, ValueCategory::LValue, location), name, nullptr, scope, location);

@@ -119,6 +119,9 @@ void FunctionLowering::statement(const syntax::Stmt& stmt)
 		const syntax::Expr* root = expr != nullptr ? WithoutParentheses(expr) : nullptr;
 		if (root != nullptr && root->kind == syntax::ExprKind::Throw)
 			return throw_statement(static_cast<const syntax::ThrowExpr*>(root)->operand, root->location);
+		if (root != nullptr && root->kind == syntax::ExprKind::Coroutine &&
+			static_cast<const syntax::CoroutineExpr*>(root)->operation == TokenKind::KW_CO_RETURN)
+			return coroutine_return(*static_cast<const syntax::CoroutineExpr*>(root));
 		if (expr != nullptr)
 		{
 			const size_t first = cleanups_.size();

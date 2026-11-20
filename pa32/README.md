@@ -269,6 +269,13 @@ To complete PA32, implement hosted link/runtime behavior for:
   link and run through the plain host toolchain
 - hosted link smokes where the main question is emitted symbol ownership, ABI
   spelling, or runtime behavior of hosted header-generated code
+- C++20 coroutine frame lifetimes. A call creates the frame, copies the
+  parameters, constructs the promise and obtains the return object. After
+  initial suspension, resumption enters the body with those same objects.
+  Destroying an initially or finally suspended frame ends the promise's
+  lifetime, ends the parameter copies' lifetimes and releases the allocation.
+  When allocation returns null and the promise provides a failure operation,
+  return its result. See N4861 `[dcl.fct.def.coroutine]` and `[expr.await]`.
 
 If hosted header code compiles but the emitted objects do not link or run
 correctly, fix the hosted symbol emission, ABI spelling, object ownership, or

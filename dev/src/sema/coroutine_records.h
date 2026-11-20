@@ -52,7 +52,6 @@ struct CoroutineFacts
 	syntax::Slice<syntax::Expr*> allocation_arguments;
 	const syntax::Expr* return_on_allocation_failure;
 	const VariableEntity* handle;
-	const syntax::Expr* make_handle;
 	const syntax::Expr* return_object;
 	const syntax::Expr* unhandled_exception;
 	const syntax::Expr* return_void;

@@ -93,10 +93,17 @@ void FunctionLowering::lower_definition()
 	// An implicit (or defaulted) constructor or destructor has no body of
 	// its own: its subobject initializations or destructions are its code.
 	const syntax::FunctionBody* body = function_->body;
+	const sema::CoroutineFacts* coroutine = nullptr;
 	if (body != nullptr && body->body != nullptr &&
-		(body->body->function_body_syntax & syntax::kCoroutineOperation) != 0 &&
-		lowering_.graph().coroutine(function_) != nullptr)
-		throw LoweringError(body->body->location, "a coroutine definition requires frame lowering");
+		(body->body->function_body_syntax & syntax::kCoroutineOperation) != 0)
+	{
+		coroutine = lowering_.graph().coroutine(function_);
+		if (coroutine != nullptr &&
+			(lowering_.exceptions() || body->try_block != nullptr ||
+				(body->body->function_body_syntax & syntax::kCoroutineSuspension) != 0))
+			throw LoweringError(
+				body->body->location, "this coroutine definition requires suspension or exception lowering");
+	}
 	if (function_->naked)
 		return lower_naked_definition();
 	const bool inert_destructor = function_->destructor &&
@@ -224,6 +231,8 @@ void FunctionLowering::lower_definition()
 		}
 	}
 	closure_captures();
+	if (coroutine != nullptr)
+		return lower_coroutine(*coroutine, *body->body);
 	const uint32_t location = body != nullptr ? body->body->location : 0;
 	// 12.8p31: a local that every return statement returns is constructed
 	// in an indirect result's destination.
