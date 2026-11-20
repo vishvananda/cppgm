@@ -234,6 +234,32 @@ InstId Selector::arithmetic_operand(const lowir::Instruction& inst)
 	{
 		if (op != BinaryOp::Add && (op != BinaryOp::Sub || !right))
 			return kNoId;
+		// A literal factor of 2^k or -2^k adds or subtracts the shifted
+		// register, and one of 1 + 2^k is an ADD with a shifted register before
+		// the sum; neither builds the literal. A literal accumulator is then an
+		// immediate.
+		const bool literal = inst.ops[1].is(ValueKind::Integer);
+		if (literal || inst.ops[0].is(ValueKind::Integer))
+		{
+			const uint64_t raw = body_.literals[inst.ops[literal ? 1 : 0].index].low;
+			const uint64_t factor = bits == 32 ? static_cast<uint32_t>(raw) : raw;
+			const uint64_t negated = bits == 32 ? static_cast<uint32_t>(0 - raw) : 0 - raw;
+			if (factor > 2 && !((factor - 1) & (factor - 2)))
+				return kNoId;
+			const bool negative = negated > 1 && !(negated & (negated - 1));
+			if ((factor > 1 && !(factor & (factor - 1))) || negative)
+			{
+				if (other.is(ValueKind::Integer))
+					return kNoId;
+				const unsigned acc = operand_register(other, next.type, 15);
+				const unsigned scaled = operand_register(inst.ops[literal ? 0 : 1], inst.type, 10);
+				const bool subtract = (op == BinaryOp::Sub) != negative;
+				out_.emit(subtract ? (bits == 32 ? Op::SubW : Op::Sub) : (bits == 32 ? Op::AddW : Op::Add), dest, acc,
+					scaled, __builtin_ctzll(negative ? negated : factor) << 10);
+				save(dest, next.result, true);
+				return inst.next;
+			}
+		}
 		const unsigned lhs = operand_register(inst.ops[0], inst.type, 10);
 		const unsigned rhs = operand_register(inst.ops[1], inst.type, 11);
 		const unsigned acc = operand_register(other, inst.type, 15);
