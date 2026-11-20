@@ -1,5 +1,6 @@
 #include "sema/analyzer.h"
 
+#include "lex/identifier_table.h"
 #include "sema/constant_interpreter.h"
 
 // Non-type template arguments of pointer, reference and pointer to member
@@ -42,6 +43,14 @@ bool LinkedEntity(const Entity* entity)
 	return owner == ScopeKind::Namespace || owner == ScopeKind::Class || variable->is_extern;
 }
 
+bool LocalStaticAddress(const Entity* entity)
+{
+	if (entity->kind != EntityKind::Variable)
+		return false;
+	const VariableEntity* variable = static_cast<const VariableEntity*>(entity);
+	return variable->is_static && !variable->member && !variable->is_thread_local && !variable->predefined_name;
+}
+
 const Entity* NamedAddressConstant(const ConstValue& value)
 {
 	if (value.kind != ValueKind::Pointer || (value.root != RootKind::Variable && value.root != RootKind::Function) ||
@@ -58,6 +67,66 @@ const Entity* NamedAddressConstant(const ConstValue& value)
 	const Type* pointee = value.type->element->unqualified;
 	return pointee == object || (object->kind == TypeKind::Array && pointee == object->element->unqualified) ? entity
 																											 : nullptr;
+}
+
+bool DescribeSubobject(Analyzer& analyzer, const Type* type, const SubobjectAddress& address, int64_t start,
+	const UnionSelection* const* variants, size_t remaining, std::string& out, uint32_t depth)
+{
+	if (depth > 128 || start > address.offset)
+		return false;
+	if (start == address.offset && type->unqualified == address.referent && remaining == 0)
+		return true;
+	uint64_t size = 0, alignment = 0;
+	if (!analyzer.object_layout(type, size, alignment) ||
+		(static_cast<uint64_t>(address.offset - start) >= size && start != address.offset))
+		return false;
+	const size_t prefix = out.size();
+	if (type->kind == TypeKind::Array)
+	{
+		uint64_t stride = 0;
+		if (!analyzer.object_layout(type->element, stride, alignment) || stride == 0)
+			return false;
+		const uint64_t index = static_cast<uint64_t>(address.offset - start) / stride;
+		if (index >= type->bound)
+			return false;
+		out += '[' + std::to_string(index) + ']';
+		if (DescribeSubobject(analyzer, type->element, address, start + static_cast<int64_t>(index * stride), variants,
+				remaining, out, depth + 1))
+			return true;
+		out.resize(prefix);
+		return false;
+	}
+	const ClassEntity* cls = ClassOf(type);
+	if (cls == nullptr)
+		return false;
+	for (const BaseClass* base = cls->bases; base != nullptr; base = base->next)
+	{
+		if (DescribeSubobject(analyzer, base->base->type, address, start + static_cast<int64_t>(base->offset), variants,
+				remaining, out, depth + 1))
+			return true;
+	}
+	const bool is_union = cls->key == TokenKind::KW_UNION;
+	const UnionSelection* selected = remaining != 0 ? variants[remaining - 1] : nullptr;
+	if (is_union &&
+		(selected == nullptr || selected->offset != start || selected->member->variable->owner->entity != cls))
+		return false;
+	for (const DataMember* member = is_union ? selected->member : cls->members; member != nullptr;
+		member = is_union ? nullptr : member->next)
+	{
+		if (member->bit_field || member->variable->type->is_reference())
+			continue;
+		if (member->variable->name != nullptr)
+		{
+			out += '.';
+			out += member->variable->name->spelling;
+		}
+		const int64_t offset = start + static_cast<int64_t>(member->offset / 8);
+		if (DescribeSubobject(analyzer, member->variable->type, address, offset, variants,
+				remaining - (is_union ? 1 : 0), out, depth + 1))
+			return true;
+		out.resize(prefix);
+	}
+	return false;
 }
 
 } // namespace
@@ -89,11 +158,74 @@ const Type* Analyzer::structural_address(const ConstValue& value)
 	// Otherwise the published constant must designate actual storage or
 	// a function. Temporary, typeid and string objects cannot escape in
 	// a structural argument's pointer or reference (C++20 [temp.arg.nontype]).
-	const Entity* entity = NamedAddressConstant(value);
+	return constant_template_address(value);
+}
+
+const Type* Analyzer::constant_template_address(const ConstValue& value)
+{
+	if (value.kind != ValueKind::Pointer || (value.flags & kInvalidView) != 0 ||
+		(value.root != RootKind::Variable && value.root != RootKind::Function))
+		return nullptr;
+	Entity* entity = const_cast<Entity*>(static_cast<const Entity*>(value.address.entity));
 	if (entity == nullptr)
 		return nullptr;
+	const Type* type = value.type->unqualified->canonical;
+	if (value.root == RootKind::Function)
+	{
+		if (!LinkedEntity(entity) || static_cast<const FunctionEntity*>(entity)->is_consteval)
+			return nullptr;
+		note_argument_demand(entity);
+		return types_.address(type, entity);
+	}
+	const VariableEntity* variable = static_cast<const VariableEntity*>(entity);
+	if (variable->predefined_name || (!LinkedEntity(entity) && !LocalStaticAddress(entity)))
+		return nullptr;
+	if (variable->templ != nullptr)
+		demand_variable(variable);
 	note_argument_demand(entity);
-	return types_.address(type, const_cast<Entity*>(entity));
+	const Type* referent = type->element->unqualified;
+	const bool erased = IsVoid(referent);
+	if (erased)
+	{
+		referent = ErasedReferent(value);
+		if (referent == nullptr)
+			return nullptr;
+	}
+	const UnionSelection* variant = reinterpret_cast<const UnionSelection*>(static_cast<uintptr_t>(value.high));
+	const bool one_past = (value.flags & kPastEnd) != 0;
+	const SubobjectAddress address{ referent, variant, value.address.offset, one_past, entity->type->unqualified,
+		nullptr };
+	if (!erased && address.whole_object())
+		return types_.address(type, entity);
+	return subobject_template_address(type, entity, address);
+}
+
+const Type* Analyzer::subobject_template_address(const Type* type, Entity* root, SubobjectAddress address)
+{
+	const Type* argument = types_.subobject_address(type, root, address);
+	const SubobjectAddress* description = SubobjectOf(argument);
+	if (description->spelling != nullptr)
+		return argument;
+	SmallList<const UnionSelection*, 4> variants;
+	for (const UnionSelection* variant = address.variant; variant != nullptr; variant = variant->outer)
+		variants.push_back(variant);
+	SubobjectAddress element = address;
+	if (address.one_past)
+	{
+		uint64_t size = 0, alignment = 0;
+		if (object_layout(address.referent, size, alignment))
+			element.offset -= static_cast<int64_t>(size);
+	}
+	std::string path;
+	if (DescribeSubobject(*this, address.storage, element, 0, variants.data(), variants.size(), path, 0))
+	{
+		if (address.one_past)
+			path += " + 1";
+	}
+	else
+		path = " + " + std::to_string(address.offset) + " bytes";
+	description->spelling = arena_.copy_string(path.data(), path.size());
+	return argument;
 }
 
 bool Analyzer::NamesLinkedObject(const syntax::Expr& expr)
@@ -129,6 +261,15 @@ ConstValue ArgumentPointer(const Type* argument)
 		: entity->kind == EntityKind::Function ? RootKind::Function
 											   : RootKind::Variable;
 	value.address.entity = entity;
+	if (const SubobjectAddress* subobject = SubobjectOf(argument))
+	{
+		value.address.offset = subobject->offset;
+		value.high = reinterpret_cast<uintptr_t>(subobject->variant);
+		if (value.type->kind == TypeKind::Pointer && IsVoid(value.type->element))
+			SetErasedReferent(value, subobject->referent);
+		if (subobject->one_past)
+			value.flags |= kPastEnd;
+	}
 	return value;
 }
 
@@ -178,6 +319,12 @@ const Type* Analyzer::address_argument(const syntax::Expr& expr, const Type* tar
 			named_type->kind == TypeKind::MemberPointer) &&
 		(target == nullptr || !target->is_reference()))
 		entity = nullptr;
+	if (cxx20_ && entity != nullptr && entity->kind == EntityKind::Variable)
+	{
+		const VariableEntity* variable = static_cast<const VariableEntity*>(entity);
+		if (variable->type->is_reference() || variable->member || variable->predefined_name)
+			entity = nullptr;
+	}
 	// A pointer to member expressed as `&X::m` (5.3.1p3), which designates
 	// the member.
 	if (address && e->facts->type != nullptr && e->facts->type->unqualified->kind == TypeKind::MemberPointer)
@@ -193,7 +340,7 @@ const Type* Analyzer::address_argument(const syntax::Expr& expr, const Type* tar
 	if (entity != nullptr && (entity->kind == EntityKind::Variable || entity->kind == EntityKind::Function))
 	{
 		const char* failure = nullptr;
-		if (!LinkedEntity(entity))
+		if (!LinkedEntity(entity) && !(cxx20_ && LocalStaticAddress(entity)))
 			failure = "a template argument designates no object of static storage duration with linkage";
 		else if (!address && entity->type->is_reference())
 			failure = "a reference named as a template argument (14.3.2p1 names an object)";
@@ -220,7 +367,7 @@ const Type* Analyzer::address_argument(const syntax::Expr& expr, const Type* tar
 			return types_.address(e->facts->type->unqualified->canonical, designated);
 		return types_.address(types_.reference(named->facts->type, false)->canonical, designated);
 	}
-	if (address)
+	if (address && !cxx20_)
 	{
 		substitution_error(
 			e->location, "a template argument's address of something that is no named object or function");
@@ -228,7 +375,9 @@ const Type* Analyzer::address_argument(const syntax::Expr& expr, const Type* tar
 	}
 	ConstantInterpreter interpreter(*this);
 	ConstValue value;
-	if (!interpreter.evaluate(expr, false, value))
+	const bool reference = cxx20_ && target != nullptr && target->is_reference() &&
+		facts->category == ValueCategory::LValue;
+	if (!(reference ? interpreter.evaluate_designation(expr, value) : interpreter.evaluate(expr, false, value)))
 	{
 		substitution_error(interpreter.failure() != nullptr ? interpreter.failure_location() : expr.location,
 			interpreter.failure() != nullptr ? interpreter.failure()
@@ -241,7 +390,12 @@ const Type* Analyzer::address_argument(const syntax::Expr& expr, const Type* tar
 		return types_.address(value.type->unqualified->canonical, nullptr);
 	if (value.kind == ValueKind::MemberPointer && value.address.entity == nullptr)
 		return types_.address(value.type->unqualified->canonical, nullptr);
-	if (const Entity* designated = cxx17_ ? NamedAddressConstant(value) : nullptr)
+	if (cxx20_)
+	{
+		if (const Type* designated = constant_template_address(value))
+			return designated;
+	}
+	else if (const Entity* designated = cxx17_ ? NamedAddressConstant(value) : nullptr)
 	{
 		if (designated->kind == EntityKind::Variable &&
 			static_cast<const VariableEntity*>(designated)->templ != nullptr)
@@ -376,6 +530,19 @@ const Type* Analyzer::converted_address(const Type* target, const Type* argument
 			error(location, failure);
 		return nullptr;
 	}
+	if (cxx20_ && target->kind == TypeKind::Pointer && source->is_reference() &&
+		source->element->kind == TypeKind::Array)
+	{
+		// The array-to-pointer conversion selects element zero. A direct
+		// subscript and a computed pointer designate the same element.
+		const SubobjectAddress* array = SubobjectOf(argument);
+		return subobject_template_address(target, entity,
+			SubobjectAddress{ source->element->element->unqualified, array != nullptr ? array->variant : nullptr,
+				array != nullptr ? array->offset : 0, false, entity->type->unqualified, nullptr });
+	}
+	if (source->kind != TypeKind::MemberPointer)
+		if (const SubobjectAddress* subobject = SubobjectOf(argument))
+			return types_.subobject_address(target, entity, *subobject);
 	return types_.address(target, entity);
 }
 
@@ -396,6 +563,15 @@ ExprFacts* Analyzer::argument_name(const syntax::Expr& expr, const EnumeratorEnt
 		return facts;
 	}
 	ExprFacts* facts = new_facts(expr, type->element, ValueCategory::LValue);
+	if (SubobjectOf(argument) != nullptr)
+	{
+		ConstValue* value = arena_.allocate_array<ConstValue>(1);
+		*value = ArgumentPointer(argument);
+		facts->entity = constant;
+		facts->flags |= kImmediateValue;
+		facts->immediate = value;
+		return facts;
+	}
 	facts->entity = argument->entity;
 	if (argument->entity->kind == EntityKind::Function && !callee_name_)
 		odr_use(static_cast<FunctionEntity*>(argument->entity));

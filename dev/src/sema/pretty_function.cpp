@@ -9,6 +9,7 @@
 #include "sema/integral_arithmetic.h"
 #include "sema/semantic_graph.h"
 #include "sema/semantic_unit.h"
+#include "sema/subobject_address.h"
 #include "sema/template_records.h"
 
 namespace sema {
@@ -266,6 +267,8 @@ void AppendArgument(const Type* argument, std::string& out)
 				out += '&';
 			AppendScope(argument->entity->owner, out);
 			out += argument->entity->name != nullptr ? argument->entity->name->spelling : "";
+			if (const SubobjectAddress* address = SubobjectOf(argument))
+				out += address->spelling;
 			return;
 		}
 		AppendValue(argument->element, argument->bound, out);

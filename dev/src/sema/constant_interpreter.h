@@ -47,6 +47,7 @@ public:
 	// recorded (a converted constant expression, 5.19p3, or a contextual
 	// conversion to bool).
 	bool evaluate(const syntax::Expr& expr, bool converted, ConstValue& out);
+	bool evaluate_designation(const syntax::Expr& expr, ConstValue& out);
 	// A C++20 immediate invocation, including object, reference and void results.
 	const ConstValue* evaluate_immediate(const syntax::Expr& expr);
 	const ConstValue* evaluate_immediate_conversion(const syntax::Expr& expr, const Conversion& conversion);
@@ -201,6 +202,8 @@ private:
 	};
 	StorageView descend(
 		ConstValue* value, const Type* type, int64_t offset, const Type* wanted, bool write, uint32_t depth);
+	StorageView select_variant(ConstValue* storage, const Type* type, const DataMember* member, int64_t offset,
+		const UnionSelection* outer, bool write, uint32_t location);
 	const ConstValue* literal_object(const syntax::LiteralExpr* literal, uint32_t location);
 	bool read(const ConstPlace& place, ConstValue& out, uint32_t location);
 	bool write(const ConstPlace& place, const ConstValue& value, uint32_t location);
@@ -369,6 +372,7 @@ private:
 	bool subobjects(const FunctionEntity* constructor, const ConstPlace& self, uint32_t location);
 	bool member_initialization(const SubobjectInit& init, const ConstPlace& self, uint32_t location);
 	bool member_slot(const ConstPlace& object, const VariableEntity* member, ConstPlace& out, uint32_t location);
+	void variant_step(ConstPlace& place, const VariableEntity* member);
 
 	// ------------------------------------------------ calls and bodies
 	bool call(const syntax::CallExpr& expr, Result& result);

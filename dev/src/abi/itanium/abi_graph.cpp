@@ -455,6 +455,7 @@ void AbiGraph::tag_components(AbiNode node, AbiNode& a, AbiNode& b, AbiNode& c, 
 		break;
 	case ABI_NODE_MEMBER_POINTER:
 	case ABI_NODE_CAST:
+	case ABI_NODE_SUBOBJECT:
 		walk_a = walk_b = true;
 		break;
 	case ABI_NODE_ALLOCATION:
@@ -949,6 +950,17 @@ AbiNode AbiGraph::member_access(
 AbiNode AbiGraph::entity_reference(AbiNode entity)
 {
 	return unary(ABI_NODE_ENTITY_REFERENCE, entity);
+}
+
+AbiNode AbiGraph::subobject(AbiNode referent, AbiNode root, std::int64_t offset, bool one_past,
+	const std::uint32_t* variants, std::size_t count)
+{
+	AbiNodeData data = make_data(ABI_NODE_SUBOBJECT);
+	data.a = referent;
+	data.b = root;
+	data.c = offset != 0 ? literal(builtin(ABI_BUILTIN_TYPE_LONG_LONG), offset) : ABI_NONE;
+	data.flags = one_past ? ABI_FLAG_ONE_PAST : 0;
+	return intern(data, variants, count);
 }
 
 AbiNode AbiGraph::expression_list(std::uint16_t code, AbiNode type, const AbiNode* expressions, std::size_t count)

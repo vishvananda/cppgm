@@ -546,18 +546,6 @@ void Indeterminate(ConstValue& value)
 		Indeterminate(value.elements[i]);
 }
 
-// A member named in the object `place` designates: a union's member is the
-// place's innermost union member from then on (see ConstPlace::variant; a
-// union's bit-fields have no active-member record).
-void VariantStep(ConstPlace& place, const VariableEntity* member)
-{
-	const ClassEntity* owner = static_cast<const ClassEntity*>(member->owner->entity);
-	if (owner->key != TokenKind::KW_UNION || member->data_member == nullptr || member->bit_field)
-		return;
-	place.variant = member->data_member;
-	place.variant_offset = static_cast<uint32_t>(place.offset);
-}
-
 } // namespace
 
 ConstantInterpreter::StorageView ConstantInterpreter::descend(
@@ -991,42 +979,63 @@ bool ConstantInterpreter::locate(const ConstPlace& place, bool write, ConstValue
 bool ConstantInterpreter::locate_variant(
 	const ConstPlace& place, ConstValue* storage, const Type* type, bool write, ConstValue*& out, uint32_t location)
 {
-	// The place within the union member a member access named: a write
-	// makes that member the active one (its lifetime begins, 9.5p1, its
-	// storage indeterminate), a read of it, or of a subobject of it, when
-	// it is not active is no constant expression (5.19p2). By offset and
-	// type alone another member of the same type at the same offset would
-	// be taken for it.
-	const DataMember* member = place.variant;
+	const UnionSelection* selection = place.selected_union_path ? static_cast<const UnionSelection*>(place.variant)
+																: nullptr;
+	const DataMember* member = selection != nullptr ? selection->member : static_cast<const DataMember*>(place.variant);
+	const int64_t at = selection != nullptr ? selection->offset : static_cast<int64_t>(place.variant_offset);
+	const StorageView selected = select_variant(
+		storage, type, member, at, selection != nullptr ? selection->outer : nullptr, write, location);
+	if (!selected)
+		return false;
+	const StorageView subobject = descend(selected.value, member->variable->type,
+		place.offset - at - static_cast<int64_t>(member->offset / 8), place.type, write, 0);
+	out = subobject.zero_type != nullptr ? zero_storage(subobject.zero_type) : subobject.value;
+	return out != nullptr || fail(location, "an access outside the designated object");
+}
+
+ConstantInterpreter::StorageView ConstantInterpreter::select_variant(ConstValue* storage, const Type* type,
+	const DataMember* member, int64_t at, const UnionSelection* outer, bool write, uint32_t location)
+{
+	// Follow enclosing selections before looking up an inner union. At the
+	// same address, two outer variants can contain the same inner union type.
+	if (outer != nullptr)
+	{
+		const StorageView selected = select_variant(
+			storage, type, outer->member, outer->offset, outer->outer, write, location);
+		if (!selected)
+			return StorageView();
+		storage = selected.value;
+		type = outer->member->variable->type;
+		at -= outer->offset + static_cast<int64_t>(outer->member->offset / 8);
+	}
 	const ClassEntity* owner = static_cast<const ClassEntity*>(member->variable->owner->entity);
-	const int64_t at = static_cast<int64_t>(place.variant_offset);
 	const StorageView view = descend(storage, type, at, owner->type, write, 0);
 	if (view.zero_type != nullptr)
 	{
-		if (first_zero_member(owner) != member)
-			return fail(location, "a read of an inactive union member");
-		const StorageView subobject = descend(nullptr, member->variable->type,
-			place.offset - at - static_cast<int64_t>(member->offset / 8), place.type, false, 0);
-		out = subobject.zero_type != nullptr ? zero_storage(subobject.zero_type) : nullptr;
-		return out != nullptr || fail(location, "an access outside the designated object");
+		if (first_zero_member(owner) == member)
+			return StorageView(nullptr, member->variable->type);
+		fail(location, "a read of an inactive union member");
+		return StorageView();
 	}
 	ConstValue* object = view.value;
 	if (object == nullptr || object->kind != ValueKind::Class)
-		return fail(location, "an access outside the designated object or to an inactive union member");
+	{
+		fail(location, "an access outside the designated object or to an inactive union member");
+		return StorageView();
+	}
 	ConstValue& slot = object->elements[owner->base_count + member->ordinal];
+	// A write starts the selected member's lifetime (9.5p1).
 	if (object->extra != member->ordinal + 1)
 	{
 		if (!write)
-			return fail(location, "a read of an inactive union member");
+		{
+			fail(location, "a read of an inactive union member");
+			return StorageView();
+		}
 		Indeterminate(slot);
 		object->extra = member->ordinal + 1;
 	}
-	const StorageView subobject = descend(&slot, member->variable->type,
-		place.offset - at - static_cast<int64_t>(member->offset / 8), place.type, write, 0);
-	out = subobject.zero_type != nullptr ? zero_storage(subobject.zero_type) : subobject.value;
-	if (out == nullptr)
-		return fail(location, "an access outside the designated object");
-	return true;
+	return StorageView(&slot);
 }
 
 bool ConstantInterpreter::read(const ConstPlace& place, ConstValue& out, uint32_t location)
@@ -1316,6 +1325,24 @@ bool ConstantInterpreter::member_pointer_object(const syntax::BinaryExpr& expr, 
 	return true;
 }
 
+void ConstantInterpreter::variant_step(ConstPlace& place, const VariableEntity* member)
+{
+	const ClassEntity* owner = static_cast<const ClassEntity*>(member->owner->entity);
+	if (owner->key != TokenKind::KW_UNION || member->data_member == nullptr || member->bit_field)
+		return;
+	if (cxx20_ && place.root == RootKind::Variable)
+	{
+		const UnionSelection* outer = place.selected_union_path ? static_cast<const UnionSelection*>(place.variant)
+																: nullptr;
+		place.variant = analyzer_.types_.union_selection(outer, member->data_member, place.offset);
+		place.selected_union_path = true;
+		return;
+	}
+	place.variant = member->data_member;
+	place.variant_offset = static_cast<uint32_t>(place.offset);
+	place.selected_union_path = false;
+}
+
 bool ConstantInterpreter::member_slot(
 	const ConstPlace& object, const VariableEntity* member, ConstPlace& out, uint32_t location)
 {
@@ -1344,13 +1371,13 @@ bool ConstantInterpreter::member_slot(
 	{
 		uint64_t offset = 0;
 		analyzer_.member_offset(chain[i], offset);
-		VariantStep(place, chain[i]);
+		variant_step(place, chain[i]);
 		if (chain[i]->is_mutable)
 			place.flags |= kMutableSubobject;
 		place.offset += static_cast<int64_t>(offset);
 		place.type = analyzer_.types_.qualified(chain[i]->type, cv);
 	}
-	VariantStep(place, member);
+	variant_step(place, member);
 	if (member->is_mutable)
 		place.flags |= kMutableSubobject;
 	if (member->bit_field)
@@ -1448,8 +1475,16 @@ bool ConstantInterpreter::element_bounds(const ConstPlace& place, int64_t& first
 				start = at;
 			}
 		}
-		for (const DataMember* member = cls->key == TokenKind::KW_UNION ? cls->members : nullptr;
-			member != nullptr && next == nullptr; member = member->next)
+		const bool is_union = cls->key == TokenKind::KW_UNION;
+		const UnionSelection* selected = is_union && place.selected_union_path
+			? static_cast<const UnionSelection*>(place.variant)
+			: nullptr;
+		while (selected != nullptr && (selected->offset != base || selected->member->variable->owner->entity != cls))
+			selected = selected->outer;
+		for (const DataMember* member = selected != nullptr ? selected->member
+				: is_union                                  ? cls->members
+															: nullptr;
+			member != nullptr && next == nullptr; member = selected != nullptr ? nullptr : member->next)
 		{
 			if (member->bit_field || member->variable->kind != EntityKind::Variable ||
 				member->variable->type->is_reference())
@@ -1887,6 +1922,18 @@ bool ConstantInterpreter::evaluate(const syntax::Expr& expr, bool converted, Con
 		return fail(expr.location, "not a constant scalar value");
 	return (!analyzer_.cxx20_ || (end_full_expression(0) && valid_pointer(out, expr.location))) &&
 		finish_allocations(expr.location);
+}
+
+bool ConstantInterpreter::evaluate_designation(const syntax::Expr& expr, ConstValue& out)
+{
+	++analyzer_.graph_.constant_evaluations;
+	ConstPlace place;
+	if (!glvalue(expr, place))
+		return false;
+	if (place.bit_field != nullptr)
+		return fail(expr.location, "a bit-field cannot be a reference template argument");
+	out = PointerTo(place, analyzer_.types_.reference(place.type, false));
+	return end_full_expression(0) && valid_pointer(out, expr.location) && finish_allocations(expr.location);
 }
 
 bool ConstantInterpreter::evaluate_after(const syntax::Expr& expr, const Conversion* conversion, ConstValue& out)

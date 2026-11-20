@@ -827,6 +827,8 @@ private:
 	const Type* class_template_argument(const syntax::Expr& expr, Scope* scope, const Type* target);
 	const Type* structural_value(const ConstValue& value);
 	const Type* structural_address(const ConstValue& value);
+	const Type* constant_template_address(const ConstValue& value);
+	const Type* subobject_template_address(const Type* type, Entity* root, SubobjectAddress address);
 	const syntax::Expr* template_argument_object_use(const Type* argument, uint32_t location);
 	Binding* parameter_object_binding(
 		const TemplateParameterEntity* parameter, const Type* argument, Scope* frame, const Identifier* name);

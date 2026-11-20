@@ -279,6 +279,14 @@ using the target's template parameter object ABI. See N4861 `[temp.param]`,
 `[temp.arg.nontype]`, `[temp.type]` and
 [P1907R1](../doc/cwg/paper-p1907r1.txt).
 
+C++20 pointer and reference arguments may designate subobjects of named
+objects with static storage duration. Apply the same rule to pointer and
+reference members of structural values. Equivalent expressions for an
+array element designate the same subobject, including array decay and the
+address of element zero. Keep overlapping union members distinct when
+they designate different subobjects. The prohibitions on temporary and
+string objects, `typeid`, `__func__`, and their subobjects still apply.
+
 Trailing-return function-pointer parameter types
 are distinct from a placeholder whose argument type is deduced.
 Pack-expanded using declarations import the corresponding names; diagnose a

@@ -863,6 +863,22 @@ void AbiEncoder::encode_expression(AbiNode expression)
 		encode_entity_reference(data.a);
 		put('E');
 		return;
+	case ABI_NODE_SUBOBJECT:
+		put("so");
+		encode_type(data.a);
+		encode_expression(data.b);
+		if (data.c != ABI_NONE)
+			put_signed(graph_.value(data.c));
+		for (std::uint32_t i = 0; i < data.list_size; ++i)
+		{
+			put('_');
+			if (items[i] != 0)
+				put_number(items[i] - 1);
+		}
+		if ((data.flags & ABI_FLAG_ONE_PAST) != 0)
+			put('p');
+		put('E');
+		return;
 	case ABI_NODE_EXPRESSION_LIST:
 		put(static_cast<char>(data.code >> 8));
 		put(static_cast<char>(data.code & 0xff));

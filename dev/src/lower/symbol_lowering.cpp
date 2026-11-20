@@ -1694,9 +1694,14 @@ AbiNode ProgramLowering::abi_type_node(const sema::Type* type)
 		}
 		if (sema::AddressArgument(bare) && bare->entity != nullptr)
 		{
+			if (sema::SubobjectOf(bare) != nullptr)
+			{
+				node = abi_graph_.expression_argument(aggregate_address_expression(bare));
+				break;
+			}
 			const AbiNode entity = bare->entity->kind == sema::EntityKind::Function
 				? function_encoding(static_cast<const sema::FunctionEntity*>(bare->entity), EntryVariant::Complete)
-				: variable_name(static_cast<const sema::VariableEntity*>(bare->entity));
+				: address_argument_variable(static_cast<const sema::VariableEntity*>(bare->entity));
 			node = abi_graph_.entity_argument(entity, !bare->element->is_reference());
 			break;
 		}
@@ -2481,12 +2486,36 @@ AbiNode ProgramLowering::aggregate_address_expression(const sema::Type* value)
 			entity = abi_graph_.external_symbol(abi_graph_.string(symbol.data(), symbol.size()));
 		}
 		else
-			entity = variable_name(variable);
+			entity = address_argument_variable(variable);
 	}
-	const AbiNode reference = abi_graph_.entity_reference(entity);
-	return value->element->is_reference()
-		? reference
-		: abi_graph_.operation(abi_mangle::abi_pack_operation_code('a', 'd'), &reference, 1);
+	AbiNode reference = abi_graph_.entity_reference(entity);
+	const sema::SubobjectAddress* address = sema::SubobjectOf(value);
+	const bool erased = address != nullptr && value->element->kind == sema::TypeKind::Pointer &&
+		sema::IsVoid(value->element->element);
+	if (address != nullptr && !address->whole_object())
+	{
+		const AbiNode referent = abi_type(erased ? address->referent : value->element->element);
+		const size_t base = abi_scratch_.size();
+		for (const sema::UnionSelection* variant = address->variant; variant != nullptr; variant = variant->outer)
+			abi_scratch_.push_back(variant->member->ordinal);
+		std::reverse(abi_scratch_.begin() + base, abi_scratch_.end());
+		reference = abi_graph_.subobject(referent, reference, address->offset, address->one_past,
+			abi_scratch_.size() != base ? abi_scratch_.data() + base : nullptr, abi_scratch_.size() - base);
+		abi_scratch_.resize(base);
+	}
+	if (value->element->is_reference())
+		return reference;
+	const AbiNode pointer = abi_graph_.operation(abi_mangle::abi_pack_operation_code('a', 'd'), &reference, 1);
+	return erased ? abi_graph_.cast(abi_mangle::abi_pack_operation_code('c', 'v'), abi_type(value->element), pointer)
+				  : pointer;
+}
+
+AbiNode ProgramLowering::address_argument_variable(const sema::VariableEntity* variable)
+{
+	return variable->is_static &&
+			(variable->owner->kind == sema::ScopeKind::Block || variable->owner->kind == sema::ScopeKind::Function)
+		? local_static_name(variable)
+		: variable_name(variable);
 }
 
 AbiNode ProgramLowering::variable_source_name(const sema::VariableEntity* variable)

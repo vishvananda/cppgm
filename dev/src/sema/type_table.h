@@ -4,6 +4,8 @@
 #include <vector>
 
 #include "sema/semantic_graph.h"
+#include "sema/subobject_address.h"
+#include "support/flat_map.h"
 #include "support/memory/arena.h"
 #include "support/memory/zeroed_allocator.h"
 
@@ -68,6 +70,8 @@ public:
 	// std::nullptr_t or lvalue reference type), designating `entity` (a
 	// variable or function; null for a null pointer).
 	const Type* address(const Type* type, Entity* entity);
+	const Type* subobject_address(const Type* type, Entity* entity, const SubobjectAddress& address);
+	const UnionSelection* union_selection(const UnionSelection* outer, const DataMember* member, int64_t offset);
 	const Type* pack(const Type* const* elements, uint32_t count);
 	const Type* expansion(const Type* pattern);
 	// A bound parameter pack: the argument pack `pack` of the
@@ -102,6 +106,16 @@ private:
 	const Type* fundamentals_[kFundamentalTypeCount];
 	// Parameter scratch for canonical function types.
 	std::vector<const Type*> scratch_;
+	struct UnionSelectionHash
+	{
+		size_t operator()(const UnionSelection& selection) const;
+	};
+	struct SubobjectAddressHash
+	{
+		size_t operator()(const SubobjectAddress& address) const;
+	};
+	FlatMap<UnionSelection, const UnionSelection*, UnionSelectionHash> union_selections_;
+	FlatMap<SubobjectAddress, const SubobjectAddress*, SubobjectAddressHash> subobject_addresses_;
 };
 
 } // namespace sema

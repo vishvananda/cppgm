@@ -141,6 +141,8 @@ struct Type
 	// Array: the bound, 0 when unknown (or dependent, see `owner`).
 	// Mode: 1 for a complex machine mode, 0 for a scalar one.
 	// Function: 1 for a C declaration without a prototype, 0 otherwise.
+	// Subobject pointer/reference template argument: its interned designation
+	// (SubobjectOf); zero for an entire object, function or null pointer.
 	uint64_t bound;
 	const Type* canonical;
 	// The type without its top-level cv-qualifiers.

@@ -109,6 +109,7 @@ enum AbiNodeKind : std::uint8_t
 	ABI_NODE_FUNCTION_ENCODING, // a = name, b = result type (0 none), list = parameters,
 								//   flags = VARIADIC, code = AbiQualifier bits of the member function
 	ABI_NODE_EXTERNAL_SYMBOL,   // a = mangled-name STRING (an entity known only by its symbol)
+	ABI_NODE_SUBOBJECT,         // a = referent type, b = root expression, c = offset literal, list = union ordinals
 	ABI_NODE_KIND_COUNT
 };
 
@@ -127,6 +128,7 @@ enum AbiNodeFlag : std::uint8_t
 	ABI_FLAG_PACK = 1,
 	ABI_FLAG_GLOBAL = 1,
 	ABI_FLAG_PARENTHESIZED = 1,
+	ABI_FLAG_ONE_PAST = 1,
 	ABI_FLAG_HIDDEN_TAGS = 2,
 	ABI_FLAG_NONTHROWING = 2,
 	ABI_FLAG_DATA_MEMBER = 4,
@@ -323,6 +325,9 @@ public:
 	AbiNode unresolved_prefix(AbiNode unresolved_type, const AbiNode* levels, std::size_t count, bool global);
 	AbiNode member_access(std::uint16_t code, AbiNode object, AbiNode member, const AbiNode* args, std::size_t count);
 	AbiNode entity_reference(AbiNode entity);
+	// so <referent type> <expression> [<offset>] <union-selector>* [p] E.
+	AbiNode subobject(AbiNode referent, AbiNode root, std::int64_t offset, bool one_past, const std::uint32_t* variants,
+		std::size_t count);
 	// cv <type> _ <expression>* E, tl <type> <expression>* E, il <expression>* E
 	// (and pi <expression>* E, a new-expression's parenthesized initializer).
 	AbiNode expression_list(std::uint16_t code, AbiNode type, const AbiNode* expressions, std::size_t count);

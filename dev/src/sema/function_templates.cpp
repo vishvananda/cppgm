@@ -30,7 +30,8 @@ bool SameValue(const Type* first, const Type* second)
 	// Pointer and reference arguments: one designated entity (or
 	// both null pointers).
 	if (AddressArgument(first) || AddressArgument(second))
-		return AddressArgument(first) && AddressArgument(second) && first->entity == second->entity;
+		return AddressArgument(first) && AddressArgument(second) && first->entity == second->entity &&
+			first->bound == second->bound;
 	IntegralKind kind;
 	return IntegralKindOf(second->element, kind) && Representable(Constant{ first->bound, first->element }, kind) &&
 		ConvertIntegral(first->bound, kind) == second->bound;

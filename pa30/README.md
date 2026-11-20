@@ -419,7 +419,8 @@ To complete PA30, implement hosted compatibility for:
 - GNU `__PRETTY_FUNCTION__` names the specialization in a function
   template. Evaluate constant expressions that read the string with the
   specialization's arguments, including when the result determines an
-  array bound.
+  array bound. A C++20 argument that designates a named member includes
+  the member's name in the string.
 - predefined macro import, `__COUNTER__`, the GNU comma paste, `_Pragma`,
   `__has_*`, `#include_next`, `#warning`, ignored unknown pragmas, and hosted
   hex-float preprocessing forms such as `0x1p+4`. Hosted preprocessing also

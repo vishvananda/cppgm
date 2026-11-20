@@ -737,6 +737,9 @@ bool ConstantInterpreter::convert_scalar(ConstValue& value, const Type* to, uint
 	{
 		if (value.kind == ValueKind::Pointer)
 		{
+			if (cxx20_ && value.root == RootKind::Variable && to->kind == TypeKind::Pointer && IsVoid(to->element) &&
+				!IsVoid(value.type->element))
+				SetErasedReferent(value, value.type->element->unqualified);
 			value.type = to;
 			return true;
 		}
@@ -1447,7 +1450,8 @@ bool ConstantInterpreter::scalar_comparison(
 		if ((left.root == RootKind::Unknown || right.root == RootKind::Unknown) && left.root != RootKind::Null &&
 			right.root != RootKind::Null && (left.root != right.root || left.address.entity != right.address.entity))
 			return fail(location, "a comparison of unspecified object identities");
-		const bool same_object = left.root == right.root && left.count == right.count && left.extra == right.extra &&
+		const bool same_object = left.root == right.root &&
+			((left.count == right.count && left.extra == right.extra) || left.root == RootKind::Variable) &&
 			(left.address.entity == right.address.entity || same_literal(left, right));
 		if (op == TokenKind::OP_EQ || op == TokenKind::OP_NE)
 		{

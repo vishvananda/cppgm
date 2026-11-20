@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "sema/semantic_types.h"
+#include "sema/subobject_address.h"
 
 namespace syntax {
 struct LiteralExpr;
@@ -123,6 +124,7 @@ struct ConstPlace
 	// kPastEnd and kInvalidView, shared with pointer values so transferring
 	// a designation preserves its address state without boolean conversions.
 	uint8_t flags;
+	bool selected_union_path;
 	uint32_t object;
 	uint32_t generation;
 	// The innermost union member a member access named on the way (null
@@ -135,7 +137,9 @@ struct ConstPlace
 	int64_t offset;
 	const Type* type;
 	const VariableEntity* bit_field;
-	const DataMember* variant;
+	// A DataMember for an evaluation-local selection. A persistent C++20
+	// selection is an interned UnionSelection and can travel through pointers.
+	const void* variant;
 };
 
 // One value. `type` is the value's unqualified type (the pointer type of a
@@ -146,14 +150,16 @@ struct ConstValue
 	RootKind root;
 	uint8_t flags;
 	// Array and Class: the number of stored elements (kArrayPrefix omits
-	// its tail); Pointer to an evaluation object: its slot.
+	// its tail); Pointer to an evaluation object: its slot. On a C++20
+	// void pointer to named storage, count/extra hold the erased referent.
 	uint32_t count;
 	// Pointer to an evaluation object: the slot's generation; a union: its
 	// active member's index plus one (0 for none).
 	uint32_t extra;
 	const Type* type;
 	// Integer of a 128-bit type: the value's high 64 bits (`bits` the low
-	// ones; see WideOf). Unused for narrower types.
+	// ones; see WideOf). A pointer to a named variable may instead keep
+	// its interned union path here.
 	uint64_t high;
 	union
 	{
@@ -168,6 +174,19 @@ struct ConstValue
 	};
 };
 
+inline void SetErasedReferent(ConstValue& pointer, const Type* referent)
+{
+	const uint64_t bits = reinterpret_cast<uintptr_t>(referent);
+	pointer.count = static_cast<uint32_t>(bits);
+	pointer.extra = static_cast<uint32_t>(bits >> 32);
+}
+
+inline const Type* ErasedReferent(const ConstValue& pointer)
+{
+	const uint64_t bits = (static_cast<uint64_t>(pointer.extra) << 32) | pointer.count;
+	return reinterpret_cast<const Type*>(static_cast<uintptr_t>(bits));
+}
+
 inline ConstPlace PlaceOf(const ConstValue& pointer, const Type* designated)
 {
 	ConstPlace place = ConstPlace();
@@ -178,6 +197,8 @@ inline ConstPlace PlaceOf(const ConstValue& pointer, const Type* designated)
 	place.entity = pointer.address.entity;
 	place.offset = pointer.address.offset;
 	place.type = designated;
+	place.variant = reinterpret_cast<const UnionSelection*>(static_cast<uintptr_t>(pointer.high));
+	place.selected_union_path = place.variant != nullptr;
 	return place;
 }
 
@@ -190,6 +211,8 @@ inline ConstValue PointerTo(const ConstPlace& place, const Type* type)
 	value.count = place.object;
 	value.extra = place.generation;
 	value.type = type;
+	if (place.selected_union_path)
+		value.high = reinterpret_cast<uintptr_t>(place.variant);
 	value.address.entity = place.entity;
 	value.address.offset = place.offset;
 	return value;

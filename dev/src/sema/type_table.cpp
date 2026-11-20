@@ -415,6 +415,57 @@ const Type* TypeTable::address(const Type* type, Entity* entity)
 	return intern(key);
 }
 
+bool UnionSelection::operator==(const UnionSelection& other) const
+{
+	return outer == other.outer && member == other.member && offset == other.offset;
+}
+
+size_t TypeTable::UnionSelectionHash::operator()(const UnionSelection& selection) const
+{
+	return Mix(Mix(Bits(selection.outer), Bits(selection.member)), static_cast<uint64_t>(selection.offset));
+}
+
+const UnionSelection* TypeTable::union_selection(const UnionSelection* outer, const DataMember* member, int64_t offset)
+{
+	const UnionSelection selection{ outer, member, offset };
+	if (const UnionSelection* const* found = union_selections_.find(selection))
+		return *found;
+	UnionSelection* stored = arena_.allocate_array<UnionSelection>(1);
+	*stored = selection;
+	union_selections_.insert(selection, stored);
+	return stored;
+}
+
+bool SubobjectAddress::operator==(const SubobjectAddress& other) const
+{
+	return referent == other.referent && variant == other.variant && offset == other.offset &&
+		one_past == other.one_past && storage == other.storage;
+}
+
+size_t TypeTable::SubobjectAddressHash::operator()(const SubobjectAddress& address) const
+{
+	return Mix(Mix(Mix(Bits(address.referent), Bits(address.variant)), static_cast<uint64_t>(address.offset)),
+		Bits(address.storage) ^ address.one_past);
+}
+
+const Type* TypeTable::subobject_address(const Type* type, Entity* entity, const SubobjectAddress& address)
+{
+	const SubobjectAddress* const* found = subobject_addresses_.find(address);
+	const SubobjectAddress* designated = found != nullptr ? *found : nullptr;
+	if (designated == nullptr)
+	{
+		SubobjectAddress* stored = arena_.allocate_array<SubobjectAddress>(1);
+		*stored = address;
+		subobject_addresses_.insert(address, stored);
+		designated = stored;
+	}
+	Type key = Key(TypeKind::Value);
+	key.element = type;
+	key.entity = entity;
+	key.bound = Bits(designated);
+	return intern(key);
+}
+
 const Type* TypeTable::pack(const Type* const* elements, uint32_t count)
 {
 	Type key = Key(TypeKind::Pack);
