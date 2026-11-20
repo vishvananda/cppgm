@@ -2,6 +2,6 @@
 
 11,600 / 11,600 passed.
 
-Compiler: [`44d3c4a29`](https://github.com/vishvananda/cppgm/commit/44d3c4a29971caff2cc064889ec96259f34e7504) · [CI report](https://github.com/vishvananda/cppgm/actions/runs/44812171520)
+Compiler: [`b3e8ffd61`](https://github.com/vishvananda/cppgm/commit/b3e8ffd61d008c80042a09444d6d607c4b7d7f0c) · [CI report](https://github.com/vishvananda/cppgm/actions/runs/44815856949)
 
 This is the strict `make test-report-nobuild` run with GCC on Ubuntu 26.04. The count covers the required assignment suites on Linux. Optional target features, debug information, macOS and self-host checks have separate CI jobs.
