@@ -185,8 +185,8 @@ bool Analyzer::coroutine_promise_initializer(
 	return promise->constructor != nullptr && !failed();
 }
 
-syntax::Expr* Analyzer::coroutine_member_call(
-	syntax::Expr* object, const Identifier* name, syntax::Expr* argument, Scope* scope, uint32_t location)
+syntax::Expr* Analyzer::coroutine_member_call(syntax::Expr* object, const Identifier* name, syntax::Expr* argument,
+	Scope* scope, uint32_t location, ExprFacts* move_argument)
 {
 	syntax::MemberExpr* member = CoroutineExpression<syntax::MemberExpr>(arena_, syntax::ExprKind::Member, location);
 	member->op = TokenKind::OP_DOT;
@@ -196,7 +196,7 @@ syntax::Expr* Analyzer::coroutine_member_call(
 	call->callee = member;
 	if (argument != nullptr)
 		call->arguments = syntax::Slice<syntax::Expr*>{ arena_.copy_array(&argument, 1), 1 };
-	ExprFacts* facts = typed_value(*call, scope);
+	ExprFacts* facts = this->call(*call, scope, move_argument);
 	if (facts == nullptr)
 		return nullptr;
 	facts->flags |= kImplicit;
@@ -397,13 +397,14 @@ ExprFacts* Analyzer::coroutine_operation(const syntax::CoroutineExpr& expr, Scop
 			if (parent->exception_handler)
 				return substitution_error(location, "a coroutine cannot suspend in an exception handler"), nullptr;
 	}
-	const auto promise_call = [&](const char* name, syntax::Expr* argument) {
+	const auto promise_call = [&](const char* name, syntax::Expr* argument, ExprFacts* move_argument) {
 		return coroutine_member_call(coroutine_variable_use(coroutine.promise, ValueCategory::LValue, location),
-			special_key(name), argument, scope, location);
+			special_key(name), argument, scope, location, move_argument);
 	};
 	if (expr.operation == TokenKind::KW_CO_RETURN)
 	{
 		syntax::Expr* argument = expr.operand;
+		ExprFacts* move_argument = nullptr;
 		if (argument != nullptr && argument->kind != syntax::ExprKind::BracedInit)
 		{
 			ExprFacts* operand = typed_value(*argument, scope);
@@ -412,8 +413,11 @@ ExprFacts* Analyzer::coroutine_operation(const syntax::CoroutineExpr& expr, Scop
 			operand->flags |= kImplicit;
 			if (IsVoid(operand->type))
 				argument = nullptr;
+			else if (names_automatic_object(*argument))
+				move_argument = operand;
 		}
-		const syntax::Expr* call = argument != nullptr ? promise_call("return_value", argument) : coroutine.return_void;
+		const syntax::Expr* call = argument != nullptr ? promise_call("return_value", argument, move_argument)
+													   : coroutine.return_void;
 		if (call == nullptr)
 			return failed() ? nullptr
 							: (substitution_error(location, "co_return requires a promise return operation"), nullptr);
@@ -424,7 +428,7 @@ ExprFacts* Analyzer::coroutine_operation(const syntax::CoroutineExpr& expr, Scop
 		return facts;
 	}
 	const bool await = expr.operation == TokenKind::KW_CO_AWAIT;
-	syntax::Expr* source = await ? expr.operand : promise_call("yield_value", expr.operand);
+	syntax::Expr* source = await ? expr.operand : promise_call("yield_value", expr.operand, nullptr);
 	const CoroutineAwait* facts = coroutine_await(source, coroutine, scope, location, await);
 	if (facts == nullptr)
 		return nullptr;

@@ -143,6 +143,11 @@ To complete PA31, support:
   alone. A promise with `get_return_object_on_allocation_failure` needs a
   non-throwing allocator and a static failure operation.
   Resolve the promise and awaiter calls using normal overload resolution.
+  For `co_return`, first resolve `return_value` using an rvalue when the
+  operand names an implicitly movable entity in the coroutine, including
+  a possibly parenthesized local name. Retry as an lvalue only if overload
+  resolution fails. Diagnose a deleted or inaccessible selected overload.
+  See [P1825](../doc/cwg/paper-p1825r0.txt).
   Reject suspension in a block-scope static or thread-local initializer.
   Use the type and value category of `await_resume()` for the await expression.
   Type-check the promise's coroutine handle and the resumption of the

@@ -193,11 +193,11 @@ bool Analyzer::member_template_arguments(
 	return !failed();
 }
 
-ExprFacts* Analyzer::call(const syntax::CallExpr& expr, Scope* scope)
+ExprFacts* Analyzer::call(const syntax::CallExpr& expr, Scope* scope, ExprFacts* move_argument)
 {
 	if (!cxx20_)
 		return call_form(expr, scope);
-	ExprFacts* facts = call_form(expr, scope);
+	ExprFacts* facts = call_form(expr, scope, move_argument);
 	if (facts != nullptr && facts->entity != nullptr && facts->entity->kind == EntityKind::Function)
 	{
 		const FunctionEntity* function = static_cast<const FunctionEntity*>(facts->entity);
@@ -207,7 +207,7 @@ ExprFacts* Analyzer::call(const syntax::CallExpr& expr, Scope* scope)
 	return facts;
 }
 
-ExprFacts* Analyzer::call_form(const syntax::CallExpr& expr, Scope* scope)
+ExprFacts* Analyzer::call_form(const syntax::CallExpr& expr, Scope* scope, ExprFacts* move_argument)
 {
 	unsigned levels = 0;
 	const syntax::IdExpr* named = DesignatingName(expr.callee, levels);
@@ -381,7 +381,7 @@ ExprFacts* Analyzer::call_form(const syntax::CallExpr& expr, Scope* scope)
 	// 13.3.1.1.2: a class object called is the object of its operator().
 	if (callee != nullptr && callee->type != nullptr && (callee->flags & (kOverloadSet | kBoundMember)) == 0 &&
 		callee->type->kind != TypeKind::Function && ClassOf(callee->type) != nullptr)
-		return call_operator(expr, callee);
+		return call_operator(expr, callee, move_argument);
 	if (dependent || undeclared)
 		argument_dependent(expr.arguments, name_key(named->name->last()), bound);
 	if (template_call)
@@ -447,7 +447,8 @@ ExprFacts* Analyzer::call_form(const syntax::CallExpr& expr, Scope* scope)
 			error(expr.location, "a call of a bound member function without its object");
 		if (member_template_call)
 			explicit_arguments_ = &explicit_arguments;
-		return resolved_call(expr, callee->functions, object, (callee->flags & kImplicitThis) != 0, naming);
+		return resolved_call(
+			expr, callee->functions, object, (callee->flags & kImplicitThis) != 0, naming, false, move_argument);
 	}
 	// A callee designating a function by name calls it directly. An
 	// overloaded name is resolved by the call when parenthesized (13.3.1.1.1)
@@ -456,7 +457,7 @@ ExprFacts* Analyzer::call_form(const syntax::CallExpr& expr, Scope* scope)
 	const ExprFacts* designated = named != nullptr ? named->facts : nullptr;
 	if (designated != nullptr && designated->entity != nullptr && designated->entity->kind == EntityKind::Function &&
 		(designated->flags & kBoundMember) == 0 && (levels <= 1 || (designated->flags & kOverloadSet) == 0))
-		return resolved_call(expr, designated->functions, nullptr, false, naming);
+		return resolved_call(expr, designated->functions, nullptr, false, naming, false, move_argument);
 	return indirect_call(expr, callee);
 }
 
@@ -746,7 +747,7 @@ ExprFacts* Analyzer::member_pointer_call(
 	return new_facts(expr, type, category);
 }
 
-ExprFacts* Analyzer::call_operator(const syntax::CallExpr& expr, ExprFacts* callee)
+ExprFacts* Analyzer::call_operator(const syntax::CallExpr& expr, ExprFacts* callee, ExprFacts* move_argument)
 {
 	if (!check_resolved(*expr.callee))
 		return nullptr;
@@ -771,29 +772,34 @@ ExprFacts* Analyzer::call_operator(const syntax::CallExpr& expr, ExprFacts* call
 	}
 	const bool has_members = members.found() && members.binding->kind == BindingKind::Function;
 	ExprFacts view = *callee;
-	if (has_members)
+	if (move_argument != nullptr)
+		move_argument->category = ValueCategory::XValue;
+	for (;;)
 	{
-		// The members' resolution first; failing that, the surrogates.
-		std::vector<FunctionEntity*>& set = overload_set_;
-		set.clear();
-		for (const FunctionList* node = members.functions; node != nullptr; node = node->next)
-			set.push_back(static_cast<FunctionEntity*>(node->binding->entity));
-		Candidate chosen = Candidate();
-		if (resolve(expr.arguments, set, &view, chosen) == Resolution::Selected || !surrogate_call(expr, cls))
+		if (has_members)
 		{
-			ExprFacts* facts = resolved_call(expr, members.functions, &view, false, cls, true);
-			if (facts != nullptr)
-				facts->flags |= kOperatorCall;
-			return facts;
+			// The members' resolution first; failing that, the surrogates.
+			std::vector<FunctionEntity*>& set = overload_set_;
+			set.clear();
+			for (const FunctionList* node = members.functions; node != nullptr; node = node->next)
+				set.push_back(static_cast<FunctionEntity*>(node->binding->entity));
+			Candidate chosen = Candidate();
+			if (resolve(expr.arguments, set, &view, chosen) == Resolution::Selected)
+				break;
 		}
-		return indirect_call(expr, facts_of(*expr.callee));
+		if (surrogate_call(expr, cls))
+			return indirect_call(expr, facts_of(*expr.callee));
+		if (move_argument == nullptr)
+			break;
+		move_argument->category = ValueCategory::LValue;
+		move_argument = nullptr;
 	}
-	if (!surrogate_call(expr, cls))
-	{
-		substitution_error(expr.location, "called object is not a function or pointer to function");
-		return nullptr;
-	}
-	return indirect_call(expr, facts_of(*expr.callee));
+	if (!has_members)
+		return substitution_error(expr.location, "called object is not a function or pointer to function"), nullptr;
+	ExprFacts* facts = resolved_call(expr, members.functions, &view, false, cls, true);
+	if (facts != nullptr)
+		facts->flags |= kOperatorCall;
+	return facts;
 }
 
 bool Analyzer::surrogate_call(const syntax::CallExpr& expr, const ClassEntity* cls)
@@ -847,7 +853,7 @@ bool Analyzer::surrogate_call(const syntax::CallExpr& expr, const ClassEntity* c
 }
 
 ExprFacts* Analyzer::resolved_call(const syntax::CallExpr& expr, const FunctionList* functions, ExprFacts* object,
-	bool implicit_this, const ClassEntity* naming, bool operator_object)
+	bool implicit_this, const ClassEntity* naming, bool operator_object, ExprFacts* move_argument)
 {
 	// The candidate functions, each once (a function can reach the set
 	// through several declarations), in the analysis's scratch.
@@ -881,7 +887,20 @@ ExprFacts* Analyzer::resolved_call(const syntax::CallExpr& expr, const FunctionL
 		if (callee->entity != nullptr && callee->entity->kind == EntityKind::Function)
 			set.push_back(static_cast<FunctionEntity*>(const_cast<Entity*>(callee->entity)));
 	}
-	const Candidate chosen = best_viable(expr.arguments, expr.location, set, object, true);
+	Candidate chosen;
+	if (move_argument == nullptr)
+		chosen = best_viable(expr.arguments, expr.location, set, object, true);
+	else
+	{
+		// P1825: retry as an lvalue only if overload resolution fails.
+		// A deleted or inaccessible rvalue winner remains selected.
+		move_argument->category = ValueCategory::XValue;
+		if (resolve(expr.arguments, set, object, chosen) != Resolution::Selected)
+		{
+			move_argument->category = ValueCategory::LValue;
+			chosen = best_viable(expr.arguments, expr.location, set, object, true);
+		}
+	}
 	FunctionEntity* selected = chosen.function;
 	if (selected == nullptr)
 		return nullptr;

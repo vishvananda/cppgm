@@ -466,8 +466,8 @@ private:
 	bool coroutine_parameter_copies(CoroutineFacts& coroutine, Scope* scope, uint32_t location);
 	bool coroutine_allocation(CoroutineFacts& coroutine, Scope* scope, uint32_t location);
 	bool coroutine_deallocation(CoroutineFacts& coroutine, Scope* scope, uint32_t location);
-	syntax::Expr* coroutine_member_call(
-		syntax::Expr* object, const Identifier* name, syntax::Expr* argument, Scope* scope, uint32_t location);
+	syntax::Expr* coroutine_member_call(syntax::Expr* object, const Identifier* name, syntax::Expr* argument,
+		Scope* scope, uint32_t location, ExprFacts* move_argument = nullptr);
 	const CoroutineAwait* coroutine_await(
 		syntax::Expr* value, const CoroutineFacts& coroutine, Scope* scope, uint32_t location, bool explicit_await);
 	void define_function(FunctionEntity* function, const Type* type, const syntax::ParameterClause* parameters,
@@ -1253,7 +1253,7 @@ private:
 	ExprFacts* argument_dependent_call(syntax::CallExpr& call, const Identifier* name, bool bound, Scope* scope);
 
 	// ------------------------------------------------------ calls
-	ExprFacts* call(const syntax::CallExpr& expr, Scope* scope);
+	ExprFacts* call(const syntax::CallExpr& expr, Scope* scope, ExprFacts* move_argument = nullptr);
 	bool member_template_arguments(
 		const syntax::MemberExpr& access, const ExprFacts* callee, Scope* scope, TypeList& explicit_arguments);
 	ExprFacts* template_callee(const syntax::IdExpr& named, const syntax::Expr* callee, Scope* scope,
@@ -1322,7 +1322,7 @@ private:
 	ExprFacts* builtin_invoke(const syntax::CallExpr& expr, Scope* scope);
 	ExprFacts* invoke_call(
 		const syntax::CallExpr& rewritten, const syntax::Expr* callable, const syntax::Expr* object, Scope* scope);
-	ExprFacts* call_form(const syntax::CallExpr& expr, Scope* scope);
+	ExprFacts* call_form(const syntax::CallExpr& expr, Scope* scope, ExprFacts* move_argument = nullptr);
 	bool immediate_context() const;
 	void note_immediate_name(const syntax::Expr& expr);
 	void allow_immediate_names(const syntax::Expr& expr);
@@ -1336,8 +1336,9 @@ private:
 	ExprFacts* indirect_call(const syntax::CallExpr& expr, ExprFacts* callee);
 	ExprFacts* c_unprototyped_call(const syntax::CallExpr& expr, ExprFacts* callee, const Type* function);
 	ExprFacts* resolved_call(const syntax::CallExpr& expr, const FunctionList* functions, ExprFacts* object,
-		bool implicit_this, const ClassEntity* naming, bool operator_object = false);
-	ExprFacts* call_operator(const syntax::CallExpr& expr, ExprFacts* callee);
+		bool implicit_this, const ClassEntity* naming, bool operator_object = false,
+		ExprFacts* move_argument = nullptr);
+	ExprFacts* call_operator(const syntax::CallExpr& expr, ExprFacts* callee, ExprFacts* move_argument = nullptr);
 	bool surrogate_call(const syntax::CallExpr& expr, const ClassEntity* cls);
 	void argument_dependent(const syntax::Slice<syntax::Expr*>& arguments, const Identifier* name, bool bound = false);
 	void associated(const Type* type, uint32_t depth);
