@@ -83,6 +83,10 @@ void configure_aarch64_environment(PreprocessorOptions& options)
 		macros += "#define __GCC_DESTRUCTIVE_SIZE 256\n";
 		if (options.language != SourceLanguage::C)
 			macros += "#define _GNU_SOURCE 1\n#define __GNUG__ 4\n#define __GXX_WEAK__ 1\n";
+		// GNU dialects configure libstdc++'s integer traits for __int128.
+		// ISO dialects leave the type out, and the library supplies it.
+		if (options.language != SourceLanguage::C && !options.strict)
+			macros += "#define __GLIBCXX_TYPE_INT_N_0 __int128\n#define __GLIBCXX_BITSIZE_INT_N_0 128\n";
 	}
 	options.command_line.insert(0, macros);
 }
