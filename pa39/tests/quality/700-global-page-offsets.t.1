@@ -1,0 +1,49 @@
+struct Pair {
+    int key;
+    long value;
+};
+
+typedef int v4 __attribute__((vector_size(16)));
+
+extern int counter;
+extern short half;
+extern long table[1024];
+extern Pair pairs[4];
+extern double weights[3];
+extern v4 lanes;
+extern signed char bytes[8];
+
+extern "C" long pair_value();
+extern "C" void bump();
+extern "C" long far_entry();
+extern "C" void set_far(long);
+extern "C" int packed_word();
+extern "C" long packed_wide();
+extern "C" double weight();
+extern "C" int lane_sum();
+extern "C" void set_lanes(int);
+extern "C" int signed_byte();
+extern "C" int text_word();
+
+alignas(4) char shared_text[8] = {1, 0, 0, 0, 2};
+
+int main() {
+    if (pair_value() != 30) return 1;
+    bump();
+    bump();
+    if (counter != 2 || half != 9) return 2;
+    table[1000] = 77;
+    if (far_entry() != 77) return 3;
+    set_far(-5);
+    if (table[1001] != -5) return 4;
+    if (packed_word() != 0x1234 || packed_wide() != 0x123456789) return 5;
+    if (weight() != weights[1] || weights[1] != 1.5) return 6;
+    if (lane_sum() != 5) return 7;
+    set_lanes(9);
+    if (lanes[2] != 9 || lane_sum() != 18) return 8;
+    if (signed_byte() != -2) return 9;
+    if (text_word() != 1) return 10;
+    pairs[2].value = 31;
+    if (pair_value() != 31) return 11;
+    return 37;
+}

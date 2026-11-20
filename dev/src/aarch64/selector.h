@@ -176,6 +176,9 @@ private:
 	lowir::InstId paired_fields(const lowir::Instruction& first);
 	lowir::InstId paired_store(const lowir::Instruction& index);
 	lowir::InstId address_sequence(lowir::InstId id);
+	bool page_offset(lowir::Value pointer, int64_t displacement, unsigned bytes) const;
+	lowir::InstId global_access(const lowir::Instruction& addr);
+	bool vector_page_access(const lowir::Instruction& inst);
 	void choose(const lowir::Instruction& inst, unsigned condition);
 	lowir::InstId bit_branch(
 		const lowir::Instruction& inst, lowir::BlockId block, const lowir::Instruction* shift = nullptr);

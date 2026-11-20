@@ -33,7 +33,13 @@ enum class Fixup : uint16_t
 	TlsHi = TlsAddHi12,
 	TlsLo = TlsAddLo12,
 	TlvPage = DarwinTlvPage,
-	TlvLoad = DarwinTlvLo12
+	TlvLoad = DarwinTlvLo12,
+	// The scaled :lo12: offset of a load or store of 1, 2, 4, 8 or 16 bytes.
+	ByteOffset = Ldst8Lo12,
+	HalfOffset = Ldst16Lo12,
+	WordOffset = Ldst32Lo12,
+	DoubleOffset = Ldst64Lo12,
+	QuadOffset = Ldst128Lo12
 };
 
 struct Instruction
@@ -43,6 +49,7 @@ struct Instruction
 	uint32_t field;
 	Fixup fixup;
 	uint32_t target;
+	int32_t addend; // a symbol fixup's addend
 };
 
 enum class FrameRule
@@ -89,7 +96,7 @@ struct BitTest
 void fold_bit_tests(Function& function, const std::vector<BitTest>& tests);
 void remove_instructions(Function& function, const std::vector<uint32_t>& removed);
 bool orders_memory(const lowir::FunctionBody& body);
-void pair_accesses(Function& function, uint32_t first, std::vector<BitTest>& tests);
+void pair_accesses(Function& function, uint32_t first, std::vector<BitTest>& tests, bool ordered);
 void share_edge_moves(Function& function);
 void copy_short_tests(Function& function);
 void simplify_branches(Function& function);

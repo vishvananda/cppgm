@@ -621,7 +621,7 @@ void encode(
 				throw AArch64Error("unresolved AArch64 relocation symbol");
 			const uint32_t type = static_cast<uint32_t>(ins.fixup);
 			text.relocations.push_back(
-				native::object::Relocation{ text.bytes.size(), type, symbols.at(ins.target), 0 });
+				native::object::Relocation{ text.bytes.size(), type, symbols.at(ins.target), ins.addend });
 		}
 		for (unsigned shift = 0; shift < 32; shift += 8)
 			text.bytes.push_back(static_cast<uint8_t>(word >> shift));

@@ -116,6 +116,8 @@ void Selector::select(const lowir::Instruction& inst, BlockId block)
 		copy_bytes(address_register(inst.ops[0], 10), 31, inst.immediate);
 		return;
 	case Opcode::Load:
+		if (inst.type.kind() == TypeKind::V128 && vector_page_access(inst))
+			return;
 		if (inst.type.kind() == TypeKind::V128)
 		{
 			const unsigned base = address_register(inst.ops[0], 10);
@@ -139,6 +141,8 @@ void Selector::select(const lowir::Instruction& inst, BlockId block)
 		access(false, result_reg, left, 0, storage_bytes(inst.type));
 		break;
 	case Opcode::Store:
+		if (inst.type.kind() == TypeKind::V128 && vector_page_access(inst))
+			return;
 		if (inst.type.kind() == TypeKind::V128)
 		{
 			const unsigned base = address_register(inst.ops[1], 10);
@@ -565,7 +569,9 @@ void Selector::run()
 					continue;
 				}
 			}
-			if (level_ && (inst.op == Opcode::Index || inst.op == Opcode::Binary || inst.op == Opcode::Convert))
+			if (level_ &&
+				(inst.op == Opcode::Index || inst.op == Opcode::Binary || inst.op == Opcode::Convert ||
+					inst.op == Opcode::Addr))
 			{
 				InstId last = inst.op != Opcode::Convert ? address_sequence(i)
 					: inst.type.kind() == TypeKind::I128 ? wide_high_product(inst)
@@ -617,8 +623,8 @@ void Selector::run()
 			select(inst, block);
 		}
 	}
-	if (level_ && !named_.darwin && body_.code_labels.empty() && !orders_memory(body_))
-		pair_accesses(out_, frame_code_.prologue_end, bit_tests_);
+	if (level_ && !named_.darwin && body_.code_labels.empty())
+		pair_accesses(out_, frame_code_.prologue_end, bit_tests_, orders_memory(body_));
 	if (level_ && !dynamic_stack_ && body_.code_labels.empty())
 		share_edge_moves(out_);
 	// Tail sharing may redirect a branch. Check the final target before

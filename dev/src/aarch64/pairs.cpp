@@ -15,6 +15,7 @@ namespace aarch64 {
 namespace {
 
 constexpr uint32_t kWindow = 12;
+constexpr uint32_t kPageWindow = 64;
 constexpr uint32_t kSp = 1u << 31;
 
 // The registers and memory one instruction touches. General registers are
@@ -399,10 +400,40 @@ bool join(const Access& x, const Access& y, const Effects& between, Instruction&
 	return true;
 }
 
+// A repeated ADRP of one page into a register that still holds the page is
+// dropped. The search ends at a block start and at any instruction that may
+// write the register.
+void share_pages(const Function& f, uint32_t first, const std::vector<uint8_t>& boundary, std::vector<uint8_t>& gone,
+	std::vector<uint32_t>& removed)
+{
+	const uint32_t n = static_cast<uint32_t>(f.code.size());
+	for (uint32_t a = first; a < n; ++a)
+	{
+		const Instruction& page = f.code[a];
+		if (gone[a] || page.op != Op::Adrp || page.fixup != Fixup::Page || page.rd >= 31)
+			continue;
+		for (uint32_t b = a + 1; b < n && b <= a + kPageWindow && !boundary[b]; ++b)
+		{
+			const Instruction& ins = f.code[b];
+			if (ins.op == Op::Adrp && ins.fixup == Fixup::Page && ins.rd == page.rd && ins.target == page.target &&
+				ins.addend == page.addend)
+			{
+				gone[b] = 1;
+				removed.push_back(b);
+				continue;
+			}
+			Effects e;
+			if (!effects(ins, e) || (e.gp_def & gp(page.rd)))
+				break;
+		}
+	}
+}
+
 } // namespace
 
 // Volatile and atomic accesses keep their own instructions and order, and
-// inline assembly is not modelled, so a body with any of them is left alone.
+// inline assembly is not modelled, so no access of a body with any of them
+// is paired.
 bool orders_memory(const lowir::FunctionBody& body)
 {
 	using lowir::Opcode;
@@ -425,7 +456,7 @@ bool orders_memory(const lowir::FunctionBody& body)
 	return false;
 }
 
-void pair_accesses(Function& f, uint32_t first, std::vector<BitTest>& tests)
+void pair_accesses(Function& f, uint32_t first, std::vector<BitTest>& tests, bool ordered)
 {
 	const uint32_t n = static_cast<uint32_t>(f.code.size());
 	// A block start, a call site edge or a landing pad ends a search; so does
@@ -446,7 +477,8 @@ void pair_accesses(Function& f, uint32_t first, std::vector<BitTest>& tests)
 		boundary[std::min(event.pc / 4, n + 1)] = 1;
 	std::vector<uint8_t> gone(n);
 	std::vector<uint32_t> removed;
-	for (uint32_t a = first; a < n; ++a)
+	share_pages(f, first, boundary, gone, removed);
+	for (uint32_t a = first; a < n && !ordered; ++a)
 	{
 		Access x;
 		// A general load into its own base changes the second address.

@@ -1,4 +1,5 @@
 #include "aarch64/selector.h"
+#include "machine/global_data.h"
 
 namespace aarch64 {
 using namespace lowir;
@@ -61,6 +62,129 @@ Op unscaled_access(bool store, unsigned bytes, bool fp)
 	}
 }
 
+// The access takes the low twelve bits of the symbol address from a
+// relocation that scales them by the access size.
+void page_access(Function& out, SymbolId symbol, int64_t displacement, unsigned bytes)
+{
+	auto& access = out.code.back();
+	access.fixup = bytes == 1 ? Fixup::ByteOffset
+		: bytes == 2          ? Fixup::HalfOffset
+		: bytes == 4          ? Fixup::WordOffset
+		: bytes == 8          ? Fixup::DoubleOffset
+							  : Fixup::QuadOffset;
+	access.target = symbol;
+	access.addend = static_cast<int32_t>(displacement);
+}
+
+}
+
+// ADRP and a scaled :lo12: offset address a global that is not reached
+// through the GOT, thread-local storage or a Darwin page reference. The
+// relocation needs the symbol plus displacement aligned to the access size.
+// A typed global is aligned to its type (up to 16 bytes); an untyped
+// definition is aligned as its data is laid out.
+bool Selector::page_offset(Value pointer, int64_t displacement, unsigned bytes) const
+{
+	if (!level_ || named_.darwin || !pointer.is(ValueKind::Symbol) || !power_of_two(bytes) || bytes > 16 ||
+		displacement < 0 || displacement >= (int64_t(1) << 24) || displacement % bytes)
+		return false;
+	const auto& symbol = program_.symbols[pointer.index];
+	const bool declared = symbol.kind == SymbolKind::GlobalDeclaration;
+	if ((!declared && symbol.kind != SymbolKind::GlobalDefinition) ||
+		symbol.metadata.storage == ir_model::GSM_THREAD_LOCAL ||
+		(declared && symbol.metadata.binding == ir_model::SBM_WEAK) ||
+		(pic_ && symbol.metadata.binding != ir_model::SBM_INTERNAL))
+		return false;
+	const Global& global = program_.globals[symbol.detail];
+	uint32_t align = 0;
+	if (global.typed)
+		align = data_alignment(global.type);
+	else if (!declared && global.item_count <= 64)
+		machine::global_size(program_, global, align);
+	return std::min<uint32_t>(align, 16) >= bytes;
+}
+
+// A single-use global address, optionally at a literal offset, feeding one
+// scalar or vector access becomes ADRP and the access at its :lo12: offset.
+InstId Selector::global_access(const lowir::Instruction& addr)
+{
+	if (addr.next == kNoId || uses_[addr.result] != 1)
+		return kNoId;
+	InstId at = addr.next;
+	Value pointer = Value::temp(addr.result);
+	int64_t displacement = 0;
+	if (body_.instructions[at].op == Opcode::Index)
+	{
+		const auto& index = body_.instructions[at];
+		if (!(index.ops[0] == pointer) || !index.ops[1].is(ValueKind::Integer) || uses_[index.result] != 1 ||
+			index.next == kNoId)
+			return kNoId;
+		displacement = static_cast<int64_t>(body_.literals[index.ops[1].index].low * storage_bytes(index.type));
+		pointer = Value::temp(index.result);
+		at = index.next;
+	}
+	const auto& memory = body_.instructions[at];
+	const bool store = memory.op == Opcode::Store;
+	if ((!store && memory.op != Opcode::Load) || !(memory.ops[store ? 1 : 0] == pointer) ||
+		(!word_accesses_.empty() && word_accesses_[at]))
+		return kNoId;
+	const bool vector = memory.type.kind() == TypeKind::V128;
+	const unsigned bytes = storage_bytes(memory.type);
+	const Value data = memory.ops[0];
+	if ((!vector && (memory_value(memory.type) || bytes > 8)) ||
+		(store && !vector && !data.is(ValueKind::Temp) && !data.is(ValueKind::Integer) && !data.is(ValueKind::Float)) ||
+		!page_offset(addr.ops[0], displacement, bytes))
+		return kNoId;
+	const unsigned base = registers_[addr.result] == kNoId ? 10 : registers_[addr.result];
+	const unsigned fp = vector || !memory.type.is_float() ? kNoId
+		: !store                                          ? vectors_[memory.result]
+		: data.is(ValueKind::Temp)                        ? vectors_[data.index]
+														  : kNoId;
+	const auto* convert = !store && !vector && fp == kNoId ? signed_word_extension(body_, memory, uses_[memory.result])
+														   : nullptr;
+	const TempId result = convert ? convert->result : memory.result;
+	// A stored value is ready before ADRP replaces the base.
+	const unsigned reg = vector       ? (store                              ? vector_value(data, 16)
+												: vectors_[result] == kNoId ? 16
+																			: vectors_[result])
+		: fp != kNoId                 ? fp
+		: store                       ? zero_or_register(data, memory.type, 11)
+		: registers_[result] == kNoId ? 9
+									  : registers_[result];
+	out_.reference(Op::Adrp, Fixup::Page, addr.ops[0].index, base);
+	out_.code.back().addend = static_cast<int32_t>(displacement);
+	if (vector)
+		out_.emit(store ? Op::StrQ : Op::LdrQ, reg, base);
+	else if (convert)
+		out_.emit(bytes == 1 ? Op::LdrSBW : Op::LdrSHW, reg, base);
+	else if (fp == kNoId)
+		access(store, reg, base, 0, bytes);
+	else
+		out_.emit(bytes == 4 ? (store ? Op::StrS : Op::LdrS) : (store ? Op::StrD : Op::LdrD), reg, base);
+	page_access(out_, addr.ops[0].index, displacement, bytes);
+	if (!store && vector)
+		save_vector(reg, result);
+	else if (!store && fp == kNoId)
+		save(reg, result, memory.type.kind() != TypeKind::I1);
+	return convert ? memory.next : at;
+}
+
+// A vector load or store of a global symbol.
+bool Selector::vector_page_access(const lowir::Instruction& inst)
+{
+	const bool store = inst.op == Opcode::Store;
+	const Value pointer = inst.ops[store ? 1 : 0];
+	if (!page_offset(pointer, 0, 16))
+		return false;
+	const unsigned reg = store           ? vector_value(inst.ops[0], 16)
+		: vectors_[inst.result] == kNoId ? 16
+										 : vectors_[inst.result];
+	out_.reference(Op::Adrp, Fixup::Page, pointer.index, 10);
+	out_.emit(store ? Op::StrQ : Op::LdrQ, reg, 10);
+	page_access(out_, pointer.index, 0, 16);
+	if (!store)
+		save_vector(reg, inst.result);
+	return true;
 }
 
 // Scalar stores and conditional select operands read register 31 as zero.
@@ -80,7 +204,13 @@ void Selector::scalar_access(const lowir::Instruction& inst)
 	const unsigned bytes = storage_bytes(inst.type);
 	uint32_t offset = 0;
 	unsigned base;
-	if (pointer.is(ValueKind::Slot) && data_alignment(body_.slots[pointer.index].type) <= 16 &&
+	const bool page = page_offset(pointer, 0, bytes);
+	if (page)
+	{
+		base = 10;
+		out_.reference(Op::Adrp, Fixup::Page, pointer.index, base);
+	}
+	else if (pointer.is(ValueKind::Slot) && data_alignment(body_.slots[pointer.index].type) <= 16 &&
 		slots_[pointer.index] % bytes == 0 && slots_[pointer.index] / bytes < 4096)
 	{
 		// Named frame slots fit the same scaled displacement as an indexed field.
@@ -94,6 +224,8 @@ void Selector::scalar_access(const lowir::Instruction& inst)
 	{
 		const auto op = bytes == 4 ? (store ? Op::StrS : Op::LdrS) : (store ? Op::StrD : Op::LdrD);
 		out_.emit(op, fp, base, 0, (offset / bytes) << 10);
+		if (page)
+			page_access(out_, pointer.index, 0, bytes);
 	}
 	else
 	{
@@ -101,6 +233,8 @@ void Selector::scalar_access(const lowir::Instruction& inst)
 			: registers_[inst.result] == kNoId ? 9
 											   : registers_[inst.result];
 		access(store, reg, base, offset, bytes);
+		if (page)
+			page_access(out_, pointer.index, 0, bytes);
 		if (!store)
 			save(reg, inst.result, inst.type.kind() != TypeKind::I1);
 	}
@@ -215,6 +349,8 @@ InstId Selector::paired_store(const lowir::Instruction& index)
 InstId Selector::address_sequence(InstId id)
 {
 	const lowir::Instruction& first = body_.instructions[id];
+	if (first.op == Opcode::Addr)
+		return global_access(first);
 	if (first.op == Opcode::Index)
 	{
 		auto last = paired_fields(first);

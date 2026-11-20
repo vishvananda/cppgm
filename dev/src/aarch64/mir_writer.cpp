@@ -35,6 +35,8 @@ void dump_function(const Function& function, const lowir::Program& program, cons
 			const auto& symbol = program.symbols[inst.target];
 			dump += " @";
 			dump += program.spelling(symbol.metadata.object ? symbol.metadata.object : symbol.name);
+			if (inst.addend)
+				dump += "+" + std::to_string(inst.addend);
 		}
 		dump += '\n';
 	}
