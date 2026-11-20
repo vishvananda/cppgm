@@ -916,10 +916,17 @@ void Analyzer::check_operator_declaration(const FunctionEntity* function, uint32
 	// 13.5p6: a non-member operator function has a parameter of class or
 	// enumeration type (or a reference to one); 13.5.3-13.5.6: `=`, `()`,
 	// `[]` and `->` are non-static members.
-	if (!function->is_operator || function->member || function->operator_token == TokenKind::KW_NEW ||
-		function->operator_token == TokenKind::KW_DELETE)
+	if (!function->is_operator)
 		return;
 	const TokenKind op = function->operator_token;
+	if (op == TokenKind::KW_CO_AWAIT)
+	{
+		const Type* type = function->type->canonical;
+		if (type->variadic || type->param_count != (function->member ? 0u : 1u))
+			error(location, "operator co_await requires one operand");
+	}
+	if (function->member || op == TokenKind::KW_NEW || op == TokenKind::KW_DELETE)
+		return;
 	if (op == TokenKind::OP_ASS || op == TokenKind::OP_LPAREN || op == TokenKind::OP_LSQUARE ||
 		op == TokenKind::OP_ARROW)
 		error(location, "this operator function must be a non-static member");

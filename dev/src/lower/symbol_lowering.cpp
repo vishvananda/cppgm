@@ -167,6 +167,8 @@ abi_mangle::AbiTerminalKind OperatorTerminal(TokenKind op, bool array)
 		return ABI_TERMINAL_LESS_EQUAL;
 	case TokenKind::OP_SPACESHIP:
 		return ABI_TERMINAL_THREE_WAY;
+	case TokenKind::KW_CO_AWAIT:
+		return ABI_TERMINAL_CO_AWAIT;
 	case TokenKind::OP_GE:
 		return ABI_TERMINAL_GREATER_EQUAL;
 	case TokenKind::OP_LNOT:

@@ -767,6 +767,7 @@ operator-token:
 	OP_ARROWSTAR
 	OP_ARROW
 	OP_DOTSTAR
+	KW_CO_AWAIT
 
 close-angle-bracket:
 	OP_GT

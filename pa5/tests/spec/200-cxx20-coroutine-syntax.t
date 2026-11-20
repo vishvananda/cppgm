@@ -1,4 +1,5 @@
 struct task {};
+int operator co_await(task);
 
 task sequence(int value) {
   co_yield value + 1;

@@ -2161,7 +2161,11 @@ Binding* Analyzer::declare_function(const Specifiers& specifiers, const Declarat
 	if (befriending != nullptr)
 		befriend_function(function, befriending);
 	if (semantic() && (template_depth_ == 0 || templated))
+	{
 		check_operator_declaration(function, location);
+		if (function->operator_token == TokenKind::KW_CO_AWAIT && HasDefaultArgument(info.parameters))
+			error(location, "operator co_await cannot have default arguments");
+	}
 	Binding* binding = new_binding(BindingKind::Function, name.key, function, info.type);
 	if (c_source_)
 		binding->type = function->type;

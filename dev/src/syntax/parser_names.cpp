@@ -51,6 +51,7 @@ bool IsOverloadableOperator(TokenKind kind)
 	case TokenKind::OP_COMMA:
 	case TokenKind::OP_ARROWSTAR:
 	case TokenKind::OP_ARROW:
+	case TokenKind::KW_CO_AWAIT:
 		return true;
 	default:
 		return false;

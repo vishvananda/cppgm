@@ -3,6 +3,17 @@ start translation unit 1
 translation-unit
   class-specifier task
     class-key KW_STRUCT:struct
+  simple-declaration
+    decl-specifier-seq
+      decl-specifier KW_INT:int
+    init-declarator-list
+      init-declarator
+        declarator
+          identifier operatorco_await
+          parameter-clause
+            parameter-declaration
+              decl-specifier-seq
+                decl-specifier TT_IDENTIFIER:task
   function-definition
     decl-specifier-seq
       decl-specifier TT_IDENTIFIER:task
