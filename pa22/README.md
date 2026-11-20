@@ -260,6 +260,10 @@ observations require member pointers or multiple bases remain here even when
 their isolated deduction syntax was introduced earlier. This is not a new
 STL requirement. See N4659 `[dcl.init.aggr]`, `[namespace.udecl]` and `[temp.arg.nontype]`.
 
+As a C++17 template argument, a non-throwing member-function pointer
+converts to a potentially throwing member-function pointer with the same
+class and function signature. See N4659 `[conv.fctptr]` and `[expr.const]`.
+
 ### Out Of Scope
 
 The following are explicitly out of scope for PA22:

@@ -252,8 +252,8 @@ are distinct from a placeholder whose argument type is deduced.
 Pack-expanded using declarations import the corresponding names; diagnose a
 missing pack. Multiple-base object-model observations remain in PA22.
 Preserve C++17 `noexcept` function-type distinctions through substitution.
-Permit a non-throwing function or member-function pointer as a template
-argument for the matching potentially throwing pointer type. See N4659
+Permit a non-throwing function pointer as a template argument for the
+matching potentially throwing pointer type. See N4659
 `[conv.fctptr]` and `[expr.const]`.
 When `noexcept` contains a deduced construction such as `View{value}`,
 its braced arguments can make the exception specification dependent.
