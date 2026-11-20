@@ -160,7 +160,8 @@ for my $level (@{$expect->{levels} // [0..3]}) {
                 my @memory = grep { /^(?:ld|st)/ } @ins;
                 my %counts = (instructions => scalar(@ins), code_bytes => 4 * @ins, memory_ops => scalar(@memory),
                     stack_ops => scalar(grep { /\[sp\b/ } @memory), calls => scalar(grep { /^bl(?:r)?\b/ } @ins),
-                    sp_uses => scalar(grep { /\bsp\b/ } @ins), back_jumps => $back_jumps);
+                    sp_uses => scalar(grep { /\bsp\b/ } @ins), back_jumps => $back_jumps,
+                    flag_values => scalar(grep { /^csetm?\b/ } @ins));
                 check_bounds(\%counts, $quality->{functions}{$symbol}, "$test: O$level $symbol", 'AArch64');
             }
         }
