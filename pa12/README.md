@@ -490,6 +490,9 @@ PA12 supports the following in addition to the PA11 subset:
   `X x = {{...}}`, use only standard conversions when the inner list would
   initialize a parameter of type `X` or a reference to `X`. See
   [CWG 2076](../doc/cwg/cwg-2076.txt).
+- An inherited constructor uses the by-value parameter object initialized by
+  the caller. Preserve that object's identity and lifetime when forwarding
+  it to the base constructor. See [P0136R1](../doc/cwg/paper-p0136r1.txt).
 - class results copy-initialized through conversion operators from conditional
   glvalues, preserving the selected operand and the result calling convention
 
