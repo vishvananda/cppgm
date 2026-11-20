@@ -342,10 +342,12 @@ bool CopyCoalescing::forward_copies(BlockId block)
 				waiting = pending_.size();
 			}
 		}
-		// A return of the slot the copy just filled from another slot
-		// returns that slot (nothing reads the copy after the return).
+		// A return can read the original slot only when the staging slot
+		// has no other accesses. A later field store can change its value
+		// without writing the copied source.
 		Rooted origin;
 		if (inst.op == Opcode::Return && waiting != pending_.size() && !pending_[waiting].written &&
+			slot_uses_[pending_[waiting].slot] == 2 && !escaped_[pending_[waiting].slot] &&
 			rooted(body_, body_.instructions[pending_[waiting].copy].ops[0], origin) &&
 			origin.root.is(ValueKind::Slot) && origin.offset == 0 &&
 			storage_bytes(body_.slots[origin.root.index].type) ==
