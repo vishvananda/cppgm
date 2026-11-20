@@ -112,6 +112,10 @@ member of the destination is active. The old member ends its lifetime, and
 the copy does not read any inactive member. See N4659 `[class.copy.assign]`
 and N4861 `[class.copy.assign]`.
 
+When a defaulted copy or move constructor initializes an array member,
+apply the selected constructor to each class element in order. This also
+applies to elements of a multidimensional member array.
+
 ### Constant initialization of nonliteral objects
 
 A constexpr member function's enclosing class need not be a literal type

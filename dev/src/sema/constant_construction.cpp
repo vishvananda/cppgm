@@ -945,12 +945,17 @@ bool ConstantInterpreter::copy_subobjects(
 				return false;
 			continue;
 		}
+		if (copy->constructor)
+		{
+			if (!copy_initialized_value(to.type, copy, to, from, location))
+				return false;
+			continue;
+		}
 		Argument argument = Argument();
 		argument.bound = true;
 		argument.place = from;
 		Result result = Result();
-		if (copy->constructor ? !run_constructor(copy, to, &argument, 1, location)
-							  : !invoke(copy, &to, &argument, 1, result, location))
+		if (!invoke(copy, &to, &argument, 1, result, location))
 			return false;
 	}
 	return true;
