@@ -281,6 +281,12 @@ member initializer in a class template specialization can require the return
 type of a member function. Instantiate that member when its return type is
 needed, using the specialization's template arguments. An explicit
 specialization must repeat the function template's written return placeholder.
+
+When selecting a function template by the target type of its address, a
+placeholder return contributes no template argument deductions. Deduce from
+the parameter types and explicit template arguments, then instantiate the
+body to determine its return type. Compare the complete function type with
+the target. See N4659 `[temp.deduct.funcaddr]`.
 Deduce the specialization's return type from its own definition. Initialized captures
 deduce from the enclosing scope; their new name is available in the body,
 not its own initializer. Support the existing assignment and parenthesized

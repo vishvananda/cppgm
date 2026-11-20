@@ -13,6 +13,8 @@ single-vptr ABI:
   resolution and diagnose ambiguous choices. See [P0136R1](../doc/cwg/paper-p0136r1.txt).
 - member pointer type formation, null/conversion handling, and `.*` / `->*`
   application over the completed non-virtual object model
+- selecting an overloaded member function's address using a pointer-to-member
+  target, including a template with a deduced return as covered in PA20
 - `dynamic_cast<void*>` for the current polymorphic single-inheritance ABI
 
 PA22 still produces LowIR. It does not introduce a new output format.

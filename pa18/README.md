@@ -234,17 +234,17 @@ the implemented surface, including:
   its declaration point. If that lookup finds nothing, a later member
   declaration does not hide a function found through argument-dependent
   lookup during substitution
-- an overloaded function's address can be selected using a target function
-  type. Deduce template parameters from the written parameter types when
-  the return type is a placeholder. Instantiate the selected body to
-  obtain its return type and compare the complete function type. See
-  N4659 `[temp.deduct.funcaddr]`.
 - dependent-call, dependent-alias, and no-eager-instantiation behavior when the
   primary assertion is a single PA18-owned feature rather than a broad
   multi-feature composition
 - equivalent redeclarations of a function template with a dependent result
   type name the same template, however many such templates a translation unit
   declares (14.5.6.1)
+
+In C++17, a deduced non-type argument in a partial specialization also
+supplies deductions for parameters in its declared type. A reference to
+an array can supply its bound. Retain the usual matching and
+substitution checks. See N4659 `[temp.deduct.type]`.
 
 A fixed pointer, reference, or function-address argument in a function-template
 body also forms a nondependent specialization. Its local alias can name member
