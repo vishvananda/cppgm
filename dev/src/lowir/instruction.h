@@ -14,6 +14,9 @@ namespace lowir {
 
 using lowir_model::kNoId;
 
+// Opcode::Call subcode for a required indirect tail transfer.
+constexpr uint8_t kTailCall = 1;
+
 // A literal outside a function body (global initializers and data items).
 struct Constant
 {

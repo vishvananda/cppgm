@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "suite": "gcc",
+  "edition": 17,
+  "revision": "5115c7e447fc07457443df874bf57840e8316d5f",
+  "coverage": "Reviewed GCC and libstdc++ tests using the pinned GCC toolchain headers.",
+  "limitations": [
+    "The GCC toolchain supplies standard headers and links runtime tests."
+  ],
+  "exclusions": [],
+  "cases": [
+    {
+      "id": "libstdcxx-variant-compile",
+      "path": "libstdc++-v3/testsuite/20_util/variant/compile.cc",
+      "sha256": "f71cbe9f9f35d93c9129520ab3404f192a8591dc1858015d06e5401cafdd1986",
+      "dialect": "c++17",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [],
+      "upstream_flags": []
+    },
+    {
+      "id": "libstdcxx-variant-visit-inherited",
+      "path": "libstdc++-v3/testsuite/20_util/variant/visit_inherited.cc",
+      "sha256": "26d04f9253861233ad666059d760da6c0c54d192011d827d0efb71a6801cf7eb",
+      "dialect": "c++17",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [],
+      "upstream_flags": []
+    },
+    {
+      "id": "libstdcxx-is-invocable-value",
+      "path": "libstdc++-v3/testsuite/20_util/is_invocable/value.cc",
+      "sha256": "4e66eb6f8860e7a48a9224d1302c736888ef95ed4644ab477e0e9b95fc9e77de",
+      "dialect": "c++17",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [],
+      "upstream_flags": []
+    }
+  ]
+}

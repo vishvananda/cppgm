@@ -154,7 +154,7 @@ void decode_object_chunk(const ObjectChunk& chunk, const Signature& signature, c
 			else if (op == Op::TableGet || op == Op::TableSet || op == Op::TableGrow || op == Op::TableSize ||
 				op == Op::TableFill || op == Op::TableCopy)
 				field(RelocationKind::TableNumber);
-			else if (op == Op::CallIndirect)
+			else if (op == Op::CallIndirect || op == Op::ReturnCallIndirect)
 				field(i == 0 ? RelocationKind::TypeIndex : RelocationKind::TableNumber);
 			else if (form == Immediate::BlockType && static_cast<int64_t>(value) >= 0)
 				field(RelocationKind::TypeIndex);

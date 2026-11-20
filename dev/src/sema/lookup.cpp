@@ -1103,6 +1103,23 @@ void NameLookup::nominate(Scope* origin, Scope* nominated)
 	}
 }
 
+bool NameLookup::parameter_hidden(const Scope* scope, const Identifier* name) const
+{
+	for (const ParameterPrefix* prefix = parameter_prefix_; prefix != nullptr; prefix = prefix->previous_)
+	{
+		if (prefix->scope_ != scope)
+			continue;
+		const NameEntry* entry = find(prefix->parameters_, name);
+		if (entry == nullptr)
+			continue;
+		const Binding* binding = entry->value != nullptr ? entry->value : entry->type;
+		if (binding != nullptr && binding->entity->kind == EntityKind::TemplateParameter &&
+			static_cast<const TemplateParameterEntity*>(binding->entity)->index >= prefix->count_)
+			return true;
+	}
+	return false;
+}
+
 LookupResult NameLookup::unqualified(Scope* scope, const Identifier* name, LookupFilter filter)
 {
 	++lookups_;
@@ -1119,7 +1136,7 @@ LookupResult NameLookup::unqualified(Scope* scope, const Identifier* name, Looku
 		if (current->kind == ScopeKind::TemplateParameters)
 		{
 			concrete_members = concrete_members || current->concrete_members;
-			if (outside)
+			if (outside || (__builtin_expect(parameter_prefix_ != nullptr, 0) && parameter_hidden(current, name)))
 				continue;
 			bridged = bridged || current->bridge;
 		}

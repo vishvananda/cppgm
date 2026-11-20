@@ -43,6 +43,8 @@ uint16_t effects(Op op)
 	case Op::Call:
 	case Op::CallIndirect:
 		return Call | ReadMemory | WriteMemory | ReadGlobal | WriteGlobal | MayTrap | MayThrow;
+	case Op::ReturnCallIndirect:
+		return Control | Call | ReadMemory | WriteMemory | ReadGlobal | WriteGlobal | MayTrap | MayThrow;
 	case Op::Throw:
 	case Op::ThrowRef:
 		return Control | MayThrow;

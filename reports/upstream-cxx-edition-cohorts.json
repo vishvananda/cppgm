@@ -203,6 +203,42 @@
           "feature": "generic variadic lambda execution",
           "pr": false,
           "exclusion_reason": "GCC accepts placeholders nested in template arguments in C++14; Clang diagnoses this GNU extension. It is outside the required language profile."
+        },
+        {
+          "id": "constexpr-union1-c++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/constexpr-union1.C",
+          "sha256": "3770afd8783155cfec786cd7595adac0a125be5199efe1b6b97d678ee6a0971d",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "constant evaluation of unions",
+          "pr": true
+        },
+        {
+          "id": "constexpr-union1-gnu++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/constexpr-union1.C",
+          "sha256": "3770afd8783155cfec786cd7595adac0a125be5199efe1b6b97d678ee6a0971d",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "constant evaluation of unions",
+          "pr": true
+        },
+        {
+          "id": "constexpr-union2-c++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/constexpr-union2.C",
+          "sha256": "14af68ef3ff34a8c9a3d764f90ada843968494d4cc93e2676f55157f20c9242b",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "constant evaluation of unions",
+          "pr": true
+        },
+        {
+          "id": "constexpr-union2-gnu++14",
+          "path": "gcc/testsuite/g++.dg/cpp1y/constexpr-union2.C",
+          "sha256": "14af68ef3ff34a8c9a3d764f90ada843968494d4cc93e2676f55157f20c9242b",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "constant evaluation of unions",
+          "pr": true
         }
       ]
     },
@@ -271,6 +307,33 @@
           "action": "compile",
           "expect": "reject",
           "feature": "variable-template partial specialization must specialize an argument",
+          "pr": true
+        },
+        {
+          "id": "clang-33236b7f77de2be5ee46",
+          "path": "clang/test/CXX/class/class.mem/p13.cpp",
+          "sha256": "e3fe5a08c8fb59ab534b71fd23a55819daaa39a217476367e6e174681a06741a",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "anonymous union member declarations",
+          "pr": true
+        },
+        {
+          "id": "clang-e3cb48532679b08c0196",
+          "path": "clang/test/CXX/temp/temp.decls/temp.mem/p2.cpp",
+          "sha256": "12d5b82ccbb8459e2460dbdc21f37bac45cf93e8ed8364b8940547ac246daa9b",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "invalid member template declarations",
+          "pr": true
+        },
+        {
+          "id": "clang-8b0ac11dd82b285dfb35",
+          "path": "clang/test/SemaCXX/warn-c++1z-extensions.cpp",
+          "sha256": "162d0a23559fb84cc0457ba1c57c2132109f133f43d0b02a6ea4d85bbd14b0df",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "C++17 extension diagnostics in C++14 mode",
           "pr": true
         }
       ]
@@ -921,6 +984,42 @@
           "expect": "accept",
           "feature": "generic lambda return deduction inside a fold expression",
           "pr": false
+        },
+        {
+          "id": "clang-fc62a821f916afeb40f4",
+          "path": "clang/test/CXX/basic/basic.lookup/basic.lookup.argdep/p2-associated-namespaces-classes.cpp",
+          "sha256": "edcb90bf908a19d62b7405db7afe93fd603e7c185cc95cd6ad2a5a9281bb0c54",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "argument-dependent lookup in associated namespaces",
+          "pr": true
+        },
+        {
+          "id": "clang-8133f1048cd8ea36f497",
+          "path": "clang/test/CXX/dcl.dcl/dcl.attr/dcl.attr.unused/p2.cpp",
+          "sha256": "f2cc9444f2a93c010fed3819b016ec2e47d5e9f7275290fc082a4bec4d85ec48",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "maybe_unused on declarations",
+          "pr": true
+        },
+        {
+          "id": "clang-43e935515eee326c46bb",
+          "path": "clang/test/CXX/over/over.match/over.match.best/p1.cpp",
+          "sha256": "d093d6b10edc128fc70bf35f79314f4711c6dc0cdd97e39ed0b3f4f4ac8d2a0d",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "ordering of overload candidates",
+          "pr": true
+        },
+        {
+          "id": "clang-cb206069857786270f06",
+          "path": "clang/test/SemaCXX/GH62596.cpp",
+          "sha256": "ccba3837bc227eeefa4497da4dd646c4b8c098cde3154735f739470a2b65ec34",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "deduction with a pack of template arguments",
+          "pr": true
         }
       ]
     },
@@ -1893,6 +1992,78 @@
           "expect": "reject",
           "feature": "C++20 constant destruction or allocation",
           "exclusion_reason": "GCC 15.2 accepts the unused constexpr definitions, so the pinned reference does not satisfy the source's rejection oracle."
+        },
+        {
+          "id": "udlit-class-nttp-ctad-neg2-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/udlit-class-nttp-ctad-neg2.C",
+          "sha256": "84132a2d09b94d30c281e18f35b912572ea4c92d21e81541993ae29a065c558b",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "structural string literal operator templates",
+          "pr": true
+        },
+        {
+          "id": "udlit-class-nttp-ctad-neg2-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/udlit-class-nttp-ctad-neg2.C",
+          "sha256": "84132a2d09b94d30c281e18f35b912572ea4c92d21e81541993ae29a065c558b",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "structural string literal operator templates",
+          "pr": true
+        },
+        {
+          "id": "udlit-class-nttp-ctad-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/udlit-class-nttp-ctad.C",
+          "sha256": "0f3b5df45ededc2a1838957f20cf3571532c624b983f5d136394f8c4873f1321",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "structural string literal operator templates",
+          "pr": true
+        },
+        {
+          "id": "udlit-class-nttp-ctad-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/udlit-class-nttp-ctad.C",
+          "sha256": "0f3b5df45ededc2a1838957f20cf3571532c624b983f5d136394f8c4873f1321",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "structural string literal operator templates",
+          "pr": true
+        },
+        {
+          "id": "udlit-class-nttp-neg-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/udlit-class-nttp-neg.C",
+          "sha256": "e1578b32f9dea843d189d8023dbc631d4d6bf2a57117093ae916788141ce7756",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "structural string literal operator templates",
+          "pr": true
+        },
+        {
+          "id": "udlit-class-nttp-neg-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/udlit-class-nttp-neg.C",
+          "sha256": "e1578b32f9dea843d189d8023dbc631d4d6bf2a57117093ae916788141ce7756",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "structural string literal operator templates",
+          "pr": true
+        },
+        {
+          "id": "udlit-class-nttp-c++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/udlit-class-nttp.C",
+          "sha256": "f7cd29bec218d41f648f30bb8ccf5b291b5d8323c6fb9c7a0699521de2977e11",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "structural string literal operator templates",
+          "pr": true
+        },
+        {
+          "id": "udlit-class-nttp-gnu++20",
+          "path": "gcc/testsuite/g++.dg/cpp2a/udlit-class-nttp.C",
+          "sha256": "f7cd29bec218d41f648f30bb8ccf5b291b5d8323c6fb9c7a0699521de2977e11",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "structural string literal operator templates",
+          "pr": true
         }
       ]
     },
@@ -2024,6 +2195,42 @@
           "expect": "accept",
           "feature": "invalid generic call-operator selection inside a requires expression",
           "pr": false
+        },
+        {
+          "id": "clang-a2ae1502ee0462044a93",
+          "path": "clang/test/CXX/dcl.dcl/basic.namespace/namespace.def/p7.cpp",
+          "sha256": "d46bcea45600c52ebcece64aafe66bb1c70068ec0d20974f987ba504b0a09db5",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "namespace definition constraints",
+          "pr": true
+        },
+        {
+          "id": "clang-f697f8e56edbbc0ba7a5",
+          "path": "clang/test/CXX/expr/expr.prim/expr.prim.lambda/p23.cpp",
+          "sha256": "fc710a130c47117b12f8e1b24ffd82b36cb13b74bcdbc897f5332a97005de391",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "lambda declaration constraints",
+          "pr": true
+        },
+        {
+          "id": "clang-37b78a38c96e59bb8fc5",
+          "path": "clang/test/SemaCXX/coroutine-noreturn.cpp",
+          "sha256": "f8b31bc76932c20dd7745f74b9e4f0e2952251f212ab2c8bc4e76010afa20c7f",
+          "action": "compile",
+          "expect": "accept",
+          "feature": "coroutine declaration with noreturn",
+          "pr": true
+        },
+        {
+          "id": "clang-70f57312349eaf25348e",
+          "path": "clang/test/SemaCXX/ctad-copy-init-list-narrowing.cpp",
+          "sha256": "a3424f3caf3474471d4316a151fba8517562bdd8f5b0be65140281201fbc54cd",
+          "action": "compile",
+          "expect": "reject",
+          "feature": "list narrowing during class template argument deduction",
+          "pr": true
         }
       ]
     }

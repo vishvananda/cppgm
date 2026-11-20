@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "suite": "gcc",
+  "edition": 20,
+  "revision": "5115c7e447fc07457443df874bf57840e8316d5f",
+  "coverage": "Reviewed GCC and libstdc++ tests using the pinned GCC toolchain headers.",
+  "limitations": [
+    "The GCC toolchain supplies standard headers and links runtime tests."
+  ],
+  "exclusions": [],
+  "cases": [
+    {
+      "id": "libstdcxx-coroutine-lwg3460",
+      "path": "libstdc++-v3/testsuite/18_support/coroutines/lwg3460.cc",
+      "sha256": "5f4df4abf225544f84ac85480d3c6c726544dd17a43edc0044de029c69d88422",
+      "dialect": "c++20",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [],
+      "upstream_flags": []
+    },
+    {
+      "id": "libstdcxx-constexpr-exchange",
+      "path": "libstdc++-v3/testsuite/20_util/exchange/constexpr.cc",
+      "sha256": "feb2fbe51c432351c0244e17d58eacb7098fec5e0cfe4a9028dc9451c6612bcc",
+      "dialect": "c++20",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [],
+      "upstream_flags": []
+    },
+    {
+      "id": "gcc-concept-deduction-constraint",
+      "path": "gcc/testsuite/g++.dg/concepts/deduction-constraint1.C",
+      "sha256": "13e72895c12937920732862a2b4a829ae03efb450cada720b53dd5b5e7fec964",
+      "dialect": "c++20",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [],
+      "upstream_flags": []
+    },
+    {
+      "id": "gcc-coroutine-moveonly-awaiter",
+      "path": "gcc/testsuite/g++.dg/coroutines/co-await-moveonly1.C",
+      "sha256": "049c8315e3e5fda222e7aebe8fd0e4c5f6d320a9310cfa19661ee82a616359ab",
+      "dialect": "c++20",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [],
+      "upstream_flags": []
+    },
+    {
+      "id": "gcc-coroutine-resume",
+      "path": "gcc/testsuite/g++.dg/coroutines/pr106188.C",
+      "sha256": "1bb5fc95bfc48ae759771c518ceda766e6a19d9286aded5b2f4df13ff7df0cf9",
+      "dialect": "c++20",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-O2"
+      ],
+      "upstream_flags": [
+        "-O2"
+      ]
+    },
+    {
+      "id": "gcc-coroutine-long-symmetric-transfer",
+      "path": "gcc/testsuite/g++.dg/coroutines/symmetric-transfer-00-basic.C",
+      "sha256": "777016c0391e3f3ff8c986d1fd58d47e4651940172e781a3f7935d7ebab4141e",
+      "dialect": "c++20",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-O2",
+        "-pthread"
+      ],
+      "upstream_flags": [
+        "-O2",
+        "-pthread"
+      ]
+    }
+  ]
+}

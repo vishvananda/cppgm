@@ -388,15 +388,7 @@ RValue FunctionLowering::gnu_intrinsic(const syntax::CallExpr& expr, sema::Intri
 		return RValue{ emit_value(inst, size), size };
 	}
 	case sema::Intrinsic::Alloca:
-	{
-		const RValue size = operand(*expr.arguments[0], ConversionContext::Argument);
-		lowir::Instruction inst = lowir::make_instruction(lowir::Opcode::StackAlloc, pointer);
-		inst.ops[0] = size.value;
-		RValue result;
-		result.value = emit_value(inst, pointer);
-		result.type = pointer;
-		return result;
-	}
+		return dynamic_stack_allocate(operand(*expr.arguments[0], ConversionContext::Argument), expr.facts->value >> 8);
 	case sema::Intrinsic::VaStart:
 	{
 		lowir::Instruction inst = lowir::make_instruction(

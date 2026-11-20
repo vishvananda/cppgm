@@ -57,6 +57,7 @@ struct CoroutineFacts
 	const syntax::Expr* return_void;
 	const CoroutineAwait* initial;
 	const CoroutineAwait* final;
+	bool resume_transfer;
 };
 
 } // namespace sema

@@ -1220,6 +1220,16 @@ bool Validator::check_call(const Instruction& inst)
 		return fail("direct call return mismatch");
 	const uint32_t count = inst.extra_count;
 	const uint32_t parameters = signature->parameter_count;
+	if (inst.sub == kTailCall &&
+		(direct || !inst.type.is_void() || !signature_->result.is_void() || !body_->slots.empty() ||
+			signature->boundary.arity != ir_model::CAM_FIXED || signature->boundary.this_return ||
+			signature_->boundary.arity != ir_model::CAM_FIXED || signature_->boundary.this_return || parameters != 1 ||
+			signature_->parameter_count != 1 || !program_.parameters_of(*signature)[0].type.is_pointer() ||
+			!program_.parameters_of(*signature_)[0].type.is_pointer() ||
+			program_.parameters_of(*signature)[0].pass != ir_model::PPM_DIRECT ||
+			program_.parameters_of(*signature_)[0].pass != ir_model::PPM_DIRECT || inst.next == kNoId ||
+			body_->instructions[inst.next].op != Opcode::Return))
+		return fail("invalid required tail call");
 	if (signature->boundary.arity == ir_model::CAM_FIXED ? count != parameters : count < parameters)
 		return fail("call arity mismatch");
 	// A slot argument passes the slot's value, of the slot's type, except

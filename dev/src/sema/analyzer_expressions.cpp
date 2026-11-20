@@ -507,7 +507,9 @@ bool Analyzer::resolve_lone_function(const syntax::Expr& expr)
 	if ((facts->flags & kOverloadSet) == 0 || facts->functions == nullptr || facts->functions->next != nullptr ||
 		static_cast<const FunctionEntity*>(facts->functions->binding->entity)->templated)
 		return false;
-	resolve_overloaded(expr, static_cast<FunctionEntity*>(facts->functions->binding->entity));
+	auto* function = static_cast<FunctionEntity*>(facts->functions->binding->entity);
+	if (require_deduced(function, expr.location))
+		resolve_overloaded(expr, function);
 	return true;
 }
 
@@ -698,7 +700,7 @@ ExprFacts* Analyzer::binding_expression(
 				// an access to the union's unnamed object (9.5p5).
 				const Type* type = variable->type->is_reference() ? variable->type->element : variable->type;
 				ExprFacts* facts = new_facts(expr, type, ValueCategory::LValue);
-				facts->flags |= kAnonymousMember;
+				facts->flags |= kAnonymousMember | (variable->bit_field ? kBitField : 0);
 				facts->entity = variable;
 				return facts;
 			}

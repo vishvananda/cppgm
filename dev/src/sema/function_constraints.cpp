@@ -107,6 +107,7 @@ uint64_t Analyzer::constraint_redeclaration_hash(const ConstraintPredicate* earl
 	bool known = constraint_words(head, scope);
 	const auto append_type = [&](uint32_t index, const syntax::Name* name) {
 		decltype_words_.push_back(index);
+		NameLookup::ParameterPrefix visible(names_, scope, scope, index);
 		return constraint_name_words(*name, scope);
 	};
 	if (next != nullptr && template_list_ != nullptr)

@@ -263,12 +263,18 @@ void AppendArgument(const Type* argument, std::string& out)
 				out += "nullptr";
 				return;
 			}
-			if (!argument->element->is_reference())
-				out += '&';
+			const SubobjectAddress* address = SubobjectOf(argument);
+			const bool pointer = !argument->element->is_reference();
+			if (pointer)
+				out += address != nullptr ? "(& " : "&";
 			AppendScope(argument->entity->owner, out);
 			out += argument->entity->name != nullptr ? argument->entity->name->spelling : "";
-			if (const SubobjectAddress* address = SubobjectOf(argument))
+			if (address != nullptr)
+			{
 				out += address->spelling;
+				if (pointer)
+					out += ')';
+			}
 			return;
 		}
 		AppendValue(argument->element, argument->bound, out);
@@ -432,6 +438,11 @@ std::string PredefinedFunctionName(const FunctionEntity* function)
 	if (std::strncmp(label, "operator", 8) == 0 && label[8] >= 'a' && label[8] <= 'z')
 		return std::string("operator ") + (label + 8);
 	return label;
+}
+
+void AppendPrettyTypeName(const Type* type, std::string& out)
+{
+	AppendType(type, std::string(), out);
 }
 
 std::string PrettyFunctionName(const FunctionEntity* function, const SemanticGraph& graph)

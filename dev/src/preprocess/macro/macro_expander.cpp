@@ -1262,7 +1262,7 @@ PPToken MacroExpander::expand_include_token(PPToken token)
 	}
 }
 
-uint32_t ExpansionEnvironment::builtin_version(const char* spelling, uint32_t length)
+uint32_t ExpansionEnvironment::builtin_version(const char* spelling, uint32_t length, uint32_t)
 {
 	return ProvidedBuiltinVersion(spelling, length);
 }
@@ -1276,7 +1276,7 @@ void MacroExpander::replace_has_builtin()
 	if (operand.kind != PPTokenKind::Identifier && !IsIdentifierLikeOperator(operand))
 		throw PreprocessError(operator_token.begin, "expected an identifier after __has_builtin");
 	const uint32_t provided = operand.kind == PPTokenKind::Identifier
-		? environment_.builtin_version(operand.spelling, operand.length)
+		? environment_.builtin_version(operand.spelling, operand.length, operator_token.begin)
 		: 0;
 	current_ = operator_token;
 	set_number(provided == 201802 ? "201802" : provided ? "1" : "0", provided == 201802 ? 6 : 1);

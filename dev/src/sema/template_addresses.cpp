@@ -2,6 +2,7 @@
 
 #include "lex/identifier_table.h"
 #include "sema/constant_interpreter.h"
+#include "sema/pretty_function.h"
 
 // Non-type template arguments of pointer, reference and pointer to member
 // type (14.3.2):
@@ -118,6 +119,11 @@ bool DescribeSubobject(Analyzer& analyzer, const Type* type, const SubobjectAddr
 		if (member->variable->name != nullptr)
 		{
 			out += '.';
+			if (cls->name != nullptr)
+			{
+				AppendPrettyTypeName(cls->type, out);
+				out += "::";
+			}
 			out += member->variable->name->spelling;
 		}
 		const int64_t offset = start + static_cast<int64_t>(member->offset / 8);

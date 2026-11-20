@@ -505,7 +505,13 @@ void Selector::emit_call(const lowir::Instruction& inst, const CallLayout& layou
 			pass(layout.args[i], body_.operands[inst.extra_first + i], layout.types[i], layout.copies[i]);
 	if (layout.tail)
 	{
-		finish(inst.ops[0].index);
+		if (inst.sub == lowir::kTailCall)
+		{
+			move(17, operand_register(inst.ops[0], program_.pointer_type(), 17));
+			finish(kNoId, 17);
+		}
+		else
+			finish(inst.ops[0].index);
 		return;
 	}
 	const Argument ret = classify(inst.type, program_.call_boundary(inst)->boundary.result_shape);
@@ -592,7 +598,7 @@ void Selector::epilogue(const lowir::Instruction& inst)
 	finish();
 }
 
-void Selector::finish(SymbolId tail)
+void Selector::finish(SymbolId tail, unsigned indirect)
 {
 	if (frame_)
 		out_.frame_rule(FrameRule::RememberState);
@@ -609,7 +615,9 @@ void Selector::finish(SymbolId tail)
 			out_.emit(Op::LdrD, v, 16, 0, v << 10);
 	}
 	stack_adjust(false);
-	if (tail == kNoId)
+	if (indirect != 31)
+		out_.emit(Op::Br, 0, indirect);
+	else if (tail == kNoId)
 		out_.emit(Op::Ret, 0, 30);
 	else
 		out_.reference(Op::B, Fixup::Jump, tail);

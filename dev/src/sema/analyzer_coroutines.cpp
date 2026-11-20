@@ -281,9 +281,10 @@ const CoroutineAwait* Analyzer::coroutine_await(
 	if (transfer)
 	{
 		// [expr.await] resumes the handle returned by await_suspend.
-		// The next coroutine runs on behalf of the current resumer.
+		// Retain the selected address() call so lowering can transfer
+		// control after it has left this coroutine's resume activation.
 		const uint32_t throwing = potentially_throwing_;
-		transfer_call = coroutine_member_call(suspend, special_key("resume"), nullptr, scope, location);
+		transfer_call = coroutine_member_call(suspend, special_key("address"), nullptr, scope, location);
 		potentially_throwing_ = throwing;
 		if (transfer_call == nullptr)
 			return nullptr;
@@ -293,7 +294,7 @@ const CoroutineAwait* Analyzer::coroutine_await(
 	return facts;
 }
 
-const CoroutineFacts* Analyzer::analyze_coroutine(const FunctionEntity* function, Scope* scope, uint32_t location)
+CoroutineFacts* Analyzer::analyze_coroutine(const FunctionEntity* function, Scope* scope, uint32_t location)
 {
 	const Type* promise = coroutine_promise_type(function, scope, location);
 	if (promise == nullptr)
@@ -373,6 +374,7 @@ const CoroutineFacts* Analyzer::analyze_coroutine(const FunctionEntity* function
 		return nullptr;
 	if (potentially_throwing_ != throwing)
 		return substitution_error(location, "a coroutine's final suspend expression must be non-throwing"), nullptr;
+	facts->resume_transfer = facts->final->transfer != nullptr;
 	graph_.set_coroutine(function, facts);
 	return facts;
 }
@@ -386,7 +388,7 @@ ExprFacts* Analyzer::coroutine_operation(const syntax::CoroutineExpr& expr, Scop
 		body_->default_argument_parent != nullptr)
 		return substitution_error(location, "a coroutine operation outside a potentially evaluated coroutine body"),
 			   nullptr;
-	const CoroutineFacts& coroutine = *body_->coroutine;
+	CoroutineFacts& coroutine = *body_->coroutine;
 	if (expr.operation != TokenKind::KW_CO_RETURN)
 	{
 		if (body_->static_local_initializer)
@@ -434,6 +436,7 @@ ExprFacts* Analyzer::coroutine_operation(const syntax::CoroutineExpr& expr, Scop
 		return nullptr;
 	ExprFacts* result = new_facts(expr, facts->resume->facts->type, facts->resume->facts->category);
 	result->coroutine_await = facts;
+	coroutine.resume_transfer |= facts->transfer != nullptr;
 	return result;
 }
 

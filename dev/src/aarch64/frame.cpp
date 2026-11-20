@@ -99,8 +99,9 @@ void Selector::plan()
 							if (arg.bank == Bank::General)
 								layout.preserved_callers &= ~(((1u << arg.pieces) - 1) << arg.first);
 				}
-				layout.tail = tail_safe && tail_compatible(inst, layout);
-				has_tail |= layout.tail;
+				const bool required = inst.sub == lowir::kTailCall;
+				layout.tail = required || (tail_safe && tail_compatible(inst, layout));
+				has_tail |= layout.tail && !required;
 				calls |= !layout.tail;
 				outgoing = std::max(outgoing, calls_.back().size);
 			}
@@ -113,8 +114,9 @@ void Selector::plan()
 	}
 	if (has_tail && (!tail_safe || eh || starts_variadic || dynamic_stack_ || frame_pointer_ != kNoId))
 	{
-		for (auto& layout : calls_)
-			layout.tail = false;
+		for (InstId i = 0; i < call_indices_.size(); ++i)
+			if (call_indices_[i] != kNoId && body_.instructions[i].sub != lowir::kTailCall)
+				calls_[call_indices_[i]].tail = false;
 		calls = true;
 	}
 	outgoing_ = (outgoing + 15) & ~15u;

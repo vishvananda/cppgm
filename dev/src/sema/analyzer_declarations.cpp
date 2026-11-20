@@ -2078,6 +2078,8 @@ Binding* Analyzer::declare_function(const Specifiers& specifiers, const Declarat
 																							: signature_of(info.type);
 	FunctionEntity* function = pattern_friend ? nullptr
 											  : earlier_function(name, where, signature, templated, invisible, info);
+	if (qualified && function != nullptr)
+		print = where = function->owner;
 	function = c_redeclared_function(function, name.key, where, info.type, definition, location);
 	if (c_language_ && !templated && !specifiers.is_static && where->kind == ScopeKind::Namespace)
 	{
@@ -2255,6 +2257,36 @@ Binding* Analyzer::qualified_friend(
 	return same->binding;
 }
 
+FunctionEntity* Analyzer::earlier_inline_function(
+	const DeclaredName& name, Scope* scope, const Type* signature, bool templated, const DeclaratorInfo& info)
+{
+	// A qualified namespace member definition can designate an overload
+	// declared in its inline namespace set. A using-directive or a
+	// using-declaration alone cannot make another namespace's member one.
+	const LookupResult found = names_.qualified(scope, name.key, LookupFilter::Ordinary);
+	const Type* shape = templated
+		? template_shape(template_entities_.data(), static_cast<uint32_t>(template_entities_.size()))
+		: nullptr;
+	FunctionEntity* result = nullptr;
+	for (const FunctionList* entry = found.functions; entry != nullptr; entry = entry->next)
+	{
+		auto* candidate = static_cast<FunctionEntity*>(entry->binding->entity);
+		if (candidate->signature != signature || candidate->templated != templated ||
+			(templated && HeadOf(candidate)->shape != shape))
+			continue;
+		const Scope* owner = candidate->owner;
+		while (owner != scope && owner->kind == ScopeKind::Namespace &&
+			static_cast<const NamespaceEntity*>(owner->entity)->is_inline)
+			owner = owner->parent;
+		if (owner != scope || (cxx20_ && !equivalent_function_constraints(candidate, templated, info)))
+			continue;
+		if (result != nullptr && result != candidate)
+			error(info.location, "ambiguous qualified definition in inline namespaces");
+		result = candidate;
+	}
+	return result;
+}
+
 FunctionEntity* Analyzer::earlier_function(const DeclaredName& name, Scope* where, const Type* signature,
 	bool templated, bool& invisible, const DeclaratorInfo& info)
 {
@@ -2318,6 +2350,9 @@ FunctionEntity* Analyzer::earlier_function(const DeclaredName& name, Scope* wher
 			invisible = invisible && same->binding->invisible;
 		}
 	}
+	if (function == nullptr && info.qualifier != nullptr && where->kind == ScopeKind::Namespace &&
+		static_cast<const NamespaceEntity*>(where->entity)->inline_members != nullptr)
+		return earlier_inline_function(name, where, signature, templated, info);
 	return function;
 }
 
@@ -2659,11 +2694,14 @@ void Analyzer::function_definition(const syntax::FunctionDecl& decl, Scope* scop
 	// The function scope sits where the definition does: in its class or
 	// namespace for a qualified definition, and a friend defined in a class
 	// stays in the class's scope for lookup (3.4.1p9).
-	Scope* home = info.qualifier != nullptr ? info.qualifier : scope;
+	auto* function = static_cast<FunctionEntity*>(binding->entity);
+	Scope* home = info.qualifier != nullptr ? function->owner : scope;
+	Scope* after = info.qualifier != nullptr && home != info.qualifier ? qualified_lookup_scope(home, scope)
+																	   : info.after;
 	// The declared type (a constexpr member's made const, 7.1.5p8).
 	const Type* type = binding->type->kind == TypeKind::Function ? binding->type : info.type;
-	static_cast<FunctionEntity*>(binding->entity)->definition_location = decl.location + 1;
-	define_function(static_cast<FunctionEntity*>(binding->entity), type, info.parameters, decl.body, home, info.after);
+	function->definition_location = decl.location + 1;
+	define_function(function, type, info.parameters, decl.body, home, after);
 }
 
 void Analyzer::special_member(const syntax::SpecialMemberDecl& decl, Scope* scope)

@@ -23,6 +23,7 @@ const struct
 	{ "__builtin_add_overflow_p", { GnuBuiltin::Overflow, 3, nullptr, 0 } },
 	{ "__builtin_addressof", { GnuBuiltin::AddressOf, 0, nullptr, 0 } },
 	{ "__builtin_alloca", { GnuBuiltin::Alloca, 0, nullptr, 0 } },
+	{ "__builtin_alloca_with_align", { GnuBuiltin::Alloca, 1, nullptr, 0 } },
 	{ "__builtin_assume_aligned", { GnuBuiltin::AssumeAligned, 0, nullptr, 0 } },
 	{ "__builtin_bitreverse16", { GnuBuiltin::BitReverse, 1, nullptr, 0 } },
 	{ "__builtin_bitreverse32", { GnuBuiltin::BitReverse, 2, nullptr, 0 } },

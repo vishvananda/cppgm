@@ -61,6 +61,7 @@ struct CoroutineSuspension
 	lowir::BlockId destroy;
 	lowir::BlockId suspended;
 	bool final;
+	lowir::Value transfer;
 };
 
 struct CoroutineBody

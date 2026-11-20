@@ -155,9 +155,17 @@ bool Deducible(const Type* type, uint32_t depth, uint32_t level)
 		// A template template-parameter's specialization TT<...> (its
 		// stand-in, see Analyzer::stand_in_template) deduces TT too.
 		const ClassEntity* templ = facts->pattern;
-		if (templ != nullptr && templ->templ != nullptr && templ->templ->template_name != nullptr &&
-			Deducible(templ->templ->template_name->type, depth, level + 1))
-			return true;
+		const TemplateParameterEntity* name = templ != nullptr && templ->templ != nullptr ? templ->templ->template_name
+																						  : nullptr;
+		if (name != nullptr)
+		{
+			// A qualified member template-id's qualifier and arguments
+			// are non-deduced, even if an argument names a parameter.
+			if (name->qualifier != nullptr)
+				return false;
+			if (Deducible(name->type, depth, level + 1))
+				return true;
+		}
 		for (uint32_t i = 0; i < facts->argument_count; ++i)
 		{
 			if (Deducible(facts->arguments[i], depth, level + 1))
@@ -1113,8 +1121,10 @@ FunctionEntity* Analyzer::deduce_for_call(
 		// A non-trailing pack is non-deduced, not one call argument.
 		// Its explicitly supplied prefix was already expanded above.
 		const uint32_t argument = fixed++;
-		if (argument >= call_arguments.size || !dependent_type(aliased_type(p)) ||
-			!Deducible(aliased_type(p)->canonical, depth, 0))
+		if (argument >= call_arguments.size)
+			continue;
+		const Type* pattern = aliased_type(p->is_reference() ? p->element : p)->canonical;
+		if (!dependent_type(pattern) || !Deducible(pattern, depth, 0))
 			continue;
 		if (call_arguments[argument]->kind == syntax::ExprKind::BracedInit)
 		{

@@ -2185,6 +2185,23 @@ Place FunctionLowering::bit_field_unit(
 	}
 	else if (access == nullptr)
 	{
+		if ((WithoutParentheses(&expr)->facts->flags & sema::kAnonymousMember) != 0)
+		{
+			// A namespace- or block-scope anonymous union has its own
+			// unnamed object. The member names its allocation unit there.
+			uint64_t offset = 0;
+			const sema::ClassEntity* home = lowering_.member_home(variable, offset, expr.location);
+			if (home->anonymous && home->storage != nullptr)
+			{
+				const auto* storage = static_cast<const sema::VariableEntity*>(home->storage->entity);
+				const Place outer = variable_place(storage, storage->type, expr.location);
+				Place place = Place();
+				place.storage = field_address(address_of(outer), offset + field.unit_offset);
+				mark_untyped(place.storage);
+				qualify(place, expr.facts->type);
+				return place;
+			}
+		}
 		object = object_pointer(expr.location);
 		from = object_class();
 	}
@@ -2301,7 +2318,7 @@ const syntax::MemberExpr* FunctionLowering::bit_field_access(const syntax::Expr&
 		found = true;
 		return static_cast<const syntax::MemberExpr*>(e);
 	}
-	found = e->kind == syntax::ExprKind::Id && (facts->flags & sema::kImplicitThis) != 0;
+	found = e->kind == syntax::ExprKind::Id && (facts->flags & (sema::kImplicitThis | sema::kAnonymousMember)) != 0;
 	return nullptr;
 }
 

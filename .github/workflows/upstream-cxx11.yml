@@ -41,6 +41,12 @@ jobs:
               gcc/testsuite/g++.dg/cpp1y
               gcc/testsuite/g++.dg/cpp1z
               gcc/testsuite/g++.dg/cpp2a
+              gcc/testsuite/g++.dg/concepts
+              gcc/testsuite/g++.dg/coroutines
+              libstdc++-v3/testsuite/18_support/coroutines
+              libstdc++-v3/testsuite/20_util/exchange
+              libstdc++-v3/testsuite/20_util/is_invocable
+              libstdc++-v3/testsuite/20_util/variant
             upstream: g++-15
             version: 15.2.0
           - suite: clang
@@ -276,6 +282,23 @@ jobs:
           done
           exit "$failed"
 
+      - name: Run hosted GCC and libstdc++ compliance cases
+        if: matrix.suite == 'gcc'
+        env:
+          UPSTREAM: ${{ matrix.upstream }}
+          UPSTREAM_VERSION: ${{ matrix.version }}
+        run: |
+          set -euo pipefail
+          failed=0
+          for edition in 17 20; do
+            python3 scripts/run_cxx11_ci_suite.py \
+              --manifest "reports/upstream-gcc-hosted-cxx$edition.json" \
+              --source-root upstream-sources --candidate dev/cppgm \
+              --upstream "$UPSTREAM" --upstream-version "$UPSTREAM_VERSION" \
+              --workers 2 --output "$RUNNER_TEMP/cxx11/hosted-cxx$edition" || failed=1
+          done
+          exit "$failed"
+
       - name: Publish counts and elapsed-time ratio
         if: always()
         run: |
@@ -295,6 +318,12 @@ jobs:
                 cat "$summary" >> "$GITHUB_STEP_SUMMARY"
               fi
             done
+          done
+          for edition in 17 20; do
+            summary="$RUNNER_TEMP/cxx11/hosted-cxx$edition/summary.md"
+            if [ -f "$summary" ]; then
+              cat "$summary" >> "$GITHUB_STEP_SUMMARY"
+            fi
           done
           tar -C "$RUNNER_TEMP" -czf "$RUNNER_TEMP/cxx11-${{ matrix.suite }}.tar.gz" cxx11
 

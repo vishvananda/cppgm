@@ -6,6 +6,7 @@
 #include "lex/identifier_table.h"
 #include "lex/number_literal.h"
 #include "lex/text_literal.h"
+#include "sema/instantiation_context.h"
 #include "sema/string_literals.h"
 
 // Clause 2.14 literals as expressions (semantics mode): their types and
@@ -23,6 +24,13 @@ bool LiteralCharacter(const Type* type)
 			type->fundamental == FundamentalType::Char32T);
 }
 
+const Type* StringLiteralParameter(const TemplateParameterEntity* parameter)
+{
+	const Type* type = parameter->value_type;
+	return !parameter->pack && type != nullptr && (ClassOf(type) != nullptr || DeducedClassParameter(type)) ? type
+																											: nullptr;
+}
+
 } // namespace
 
 void Analyzer::literal_operator_declaration(const FunctionEntity& function, uint32_t location)
@@ -36,11 +44,17 @@ void Analyzer::literal_operator_declaration(const FunctionEntity& function, uint
 	const Type* type = function.type->canonical;
 	if (function.templated)
 	{
-		if (type->param_count != 0 || type->variadic || template_entities_.size() != 1 ||
-			!template_entities_[0]->non_type || !template_entities_[0]->pack ||
-			template_entities_[0]->value_type == nullptr ||
-			template_entities_[0]->value_type->unqualified != types_.fundamental(FundamentalType::Char))
-			error(location, "a literal operator template requires an empty parameter clause and a char pack");
+		const auto* parameter = template_entities_.size() == 1 ? template_entities_[0] : nullptr;
+		const Type* string = cxx20_ && parameter != nullptr ? StringLiteralParameter(parameter) : nullptr;
+		const bool numeric = parameter != nullptr && parameter->pack && parameter->value_type != nullptr &&
+			parameter->value_type->unqualified == types_.fundamental(FundamentalType::Char);
+		if (type->param_count != 0 || type->variadic || (!numeric && string == nullptr))
+			error(location,
+				"a literal operator template needs no function parameters and a char pack or a structural class "
+				"parameter");
+		if (string != nullptr && !DeducedClassParameter(string) && !dependent_type(string) &&
+			!structural_class_type(string))
+			error(location, "a string literal operator template requires a structural class parameter");
 		return;
 	}
 	if (type->variadic || (type->param_count != 1 && type->param_count != 2))
@@ -269,7 +283,44 @@ ExprFacts* Analyzer::user_string_literal(
 	*text = syntax::LiteralExpr();
 	text->kind = syntax::ExprKind::Literal;
 	text->location = expr.location;
-	new_facts(*text, array, ValueCategory::LValue);
+	text->spelling = expr.spelling;
+	new_facts(*text, array, ValueCategory::LValue)->flags |= kImplicit;
+	if (cxx20_)
+	{
+		// [lex.ext] prefers a string literal template when the string
+		// is an admissible argument for its class-valued parameter.
+		FunctionEntity* chosen = nullptr;
+		for (const FunctionList* node = found.functions; node != nullptr; node = node->next)
+		{
+			auto* primary = static_cast<FunctionEntity*>(node->binding->entity);
+			const TemplateHead* head = HeadOf(primary);
+			if (node->binding->invisible || head == nullptr || head->count != 1)
+				continue;
+			const Type* target = StringLiteralParameter(head->parameters[0]);
+			if (target == nullptr)
+				continue;
+			FunctionEntity* candidate = nullptr;
+			{
+				SoftSubstitution probe(*this);
+				const Type* argument = class_template_argument(*text, scope, target);
+				if (argument != nullptr)
+				{
+					TypeList arguments;
+					arguments.push_back(argument);
+					candidate = specialize(primary, arguments);
+				}
+				if (probe.failed())
+					candidate = nullptr;
+			}
+			if (candidate == nullptr)
+				continue;
+			if (chosen != nullptr && chosen != candidate)
+				return substitution_error(expr.location, "ambiguous string literal operator"), nullptr;
+			chosen = candidate;
+		}
+		if (chosen != nullptr)
+			return literal_call(expr, chosen, kLiteralCallTemplate);
+	}
 	syntax::LiteralExpr* length = static_cast<syntax::LiteralExpr*>(
 		arena_.allocate(sizeof(syntax::LiteralExpr), alignof(syntax::LiteralExpr)));
 	*length = syntax::LiteralExpr();

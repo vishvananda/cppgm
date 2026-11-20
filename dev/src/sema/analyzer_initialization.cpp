@@ -922,6 +922,13 @@ bool Analyzer::check_narrowing(
 																	  : std::isinf(static_cast<double>(value)));
 		}
 	}
+	else if (second == ValueConversion::PointerBoolean &&
+		(source->kind != TypeKind::Fundamental || source->fundamental != FundamentalType::NullptrT))
+	{
+		// P1957R2: conversions from pointers and pointer-to-member types
+		// narrow in a list, including after array/function decay.
+		narrowing = true;
+	}
 	else if (second == ValueConversion::Boolean && IsFloating(source))
 	{
 		// From a floating type to bool, an integer type (3.9.1p7): always.

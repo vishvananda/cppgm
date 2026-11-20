@@ -961,7 +961,10 @@ void FunctionSelector::emit_call(uint32_t id)
 		++stats_.dynamic_copies;
 		return;
 	}
-	Inst& call = emit1(Op::Call, TypeKind::Void, target);
+	const bool tail = inst.sub == lowir::kTailCall;
+	if (tail && (stack_bytes != 0 || variadic))
+		throw InternalError("required tail call uses a stack argument");
+	Inst& call = emit1(tail ? Op::TailJump : Op::Call, TypeKind::Void, target);
 	call.aux = arg_mask;
 	call.sub = pack_narrow_arguments(narrow_mask);
 	call.aux2 = layout.stack_bytes;
@@ -1232,6 +1235,9 @@ Reg FunctionSelector::stored_xmm(const Operand& home, uint32_t bytes) const
 
 void FunctionSelector::emit_return(const Instruction& inst)
 {
+	// The required transfer already emitted the frame epilogue.
+	if (out_->insts.size() > out_->blocks.back().first && out_->insts.back().op == Op::TailJump)
+		return;
 	const Type type = inst.type;
 	const TypeKind kind = type.kind();
 	if (type.is_void())

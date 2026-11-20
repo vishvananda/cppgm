@@ -21,7 +21,7 @@ lowir::SymbolId FunctionLowering::coroutine_entry(const char* suffix, bool with_
 	lowir::Signature signature = {};
 	signature.first_parameter = static_cast<uint32_t>(program_.parameters.size());
 	signature.parameter_count = with_action ? 2 : 1;
-	signature.result = lowir::Type::scalar(lowir::TypeKind::Void);
+	signature.result = with_action ? program_.pointer_type() : lowir::Type::scalar(lowir::TypeKind::Void);
 	signature.boundary.unwind = lowering_.exceptions() ? ir_model::CUM_DEFAULT : ir_model::CUM_NO;
 	lowir::Parameter frame = {};
 	frame.name = lowering_.intern("frame", 5);
@@ -133,7 +133,7 @@ Place FunctionLowering::coroutine_place(lowir::Value frame, uint64_t offset)
 	return place;
 }
 
-void FunctionLowering::emit_coroutine_suspend(const sema::CoroutineAwait& await, lowir::Value frame,
+lowir::Value FunctionLowering::emit_coroutine_suspend(const sema::CoroutineAwait& await, lowir::Value frame,
 	uint64_t state_offset, uint32_t state, lowir::BlockId resumed, lowir::BlockId suspended)
 {
 	const lowir::BlockId suspending = new_block(lowir::BlockKind::IfThen);
@@ -150,7 +150,10 @@ void FunctionLowering::emit_coroutine_suspend(const sema::CoroutineAwait& await,
 	const bool boolean = await.transfer == nullptr && !sema::IsVoid(call.facts->type);
 	const bool region = begin_full_expression(&call, !boolean);
 	RValue suspended_now = {};
-	if (boolean)
+	lowir::Value transfer = lowir::Value::none();
+	if (await.transfer != nullptr)
+		transfer = rvalue(call).value;
+	else if (boolean)
 		suspended_now = truth(call);
 	else
 		discard(call);
@@ -160,6 +163,7 @@ void FunctionLowering::emit_coroutine_suspend(const sema::CoroutineAwait& await,
 		branch(suspended_now, suspended, resumed);
 	else
 		jump(suspended);
+	return transfer;
 }
 
 void FunctionLowering::lower_coroutine_implicit_await(
@@ -205,17 +209,27 @@ const syntax::Expr& FunctionLowering::suspend_coroutine(
 	const lowir::BlockId resume = new_block(lowir::BlockKind::IfEnd);
 	const lowir::BlockId destroy = new_block(lowir::BlockKind::IfElse);
 	const bool exceptions = lowering_.exceptions();
-	const lowir::BlockId suspended = exceptions ? new_block(lowir::BlockKind::IfElse) : body.suspend;
+	const lowir::BlockId suspended = exceptions || await.transfer != nullptr ? new_block(lowir::BlockKind::IfElse)
+																			 : body.suspend;
 	const uint32_t state = static_cast<uint32_t>(body.suspensions.size());
-	body.suspensions.push_back(
-		CoroutineSuspension{ final && !exceptions ? lowir::kNoId : resume, destroy, suspended, final });
-	emit_coroutine_suspend(await, body.address, body.layout.state, state, resume, suspended);
+	body.suspensions.push_back(CoroutineSuspension{
+		final && !exceptions ? lowir::kNoId : resume, destroy, suspended, final, lowir::Value::none() });
+	const lowir::Value transfer = emit_coroutine_suspend(
+		await, body.address, body.layout.state, state, resume, suspended);
+	body.suspensions[state].transfer = transfer;
 	if (exceptions)
 	{
 		// Use conceptual continuation edges so the exception-state analysis
 		// can see the lexical stack at both routes of a suspension.
 		place(suspended);
 		branch(integer(lowir::Type::scalar(lowir::TypeKind::I64), 1), resume, destroy);
+	}
+	else if (!transfer.is(lowir::ValueKind::None))
+	{
+		place(suspended);
+		lowir::Instruction ret = lowir::make_instruction(lowir::Opcode::Return, program_.pointer_type());
+		ret.ops[0] = transfer;
+		terminate(ret);
 	}
 	place(destroy);
 	destroy_cleanups(0, false, 0);
@@ -366,7 +380,8 @@ void FunctionLowering::lower_coroutine_actor(lowir::SymbolId symbol, CoroutineFr
 	lower_coroutine_implicit_await(*facts.final, context, true);
 	jump(destroy_frame);
 
-	const lowir::Instruction ret = lowir::make_instruction(lowir::Opcode::Return, result_type_);
+	lowir::Instruction ret = lowir::make_instruction(lowir::Opcode::Return, pointer);
+	ret.ops[0] = integer(pointer, 0).value;
 	place(suspend);
 	terminate(ret);
 
@@ -417,6 +432,7 @@ void FunctionLowering::lower_coroutine(const sema::CoroutineFacts& facts, const 
 	const lowir::Type pointer = program_.pointer_type();
 	const lowir::Type word = lowir::Type::scalar(lowir::TypeKind::U32);
 	const lowir::Type void_type = lowir::Type::scalar(lowir::TypeKind::Void);
+	const auto resume_signature = program_.functions[program_.symbols[resume].detail].signature;
 
 	const auto make_entry = [&](lowir::SymbolId entry, CoroutineAction action) {
 		lowir::FunctionBuilder thunk(program_, entry);
@@ -425,7 +441,30 @@ void FunctionLowering::lower_coroutine(const sema::CoroutineFacts& facts, const 
 		thunk.set_insertion_block(start);
 		const lowir::Value args[] = { lowir::Value::temp(thunk.parameter(0)),
 			thunk.integer(static_cast<uint32_t>(action)) };
-		thunk.call(void_type, lowir::Value::symbol(actor), args, 2, lowir::kNoId, 0);
+		const auto next = lowir::Value::temp(
+			thunk.call(pointer, lowir::Value::symbol(actor), args, 2, lowir::kNoId, 0));
+		if (action == CoroutineAction::Resume && facts.resume_transfer)
+		{
+			// The actor returns after releasing its active exception
+			// regions. This ABI entry then leaves its own stack before
+			// invoking the next resume entry, including foreign entries.
+			const auto transfer = thunk.add_block(0, lowir::BlockKind::IfThen);
+			const auto done = thunk.add_block(0, lowir::BlockKind::IfEnd);
+			const auto boolean = lowir::Type::scalar(lowir::TypeKind::I64);
+			auto nonnull = lowir::make_instruction(lowir::Opcode::Compare, pointer);
+			nonnull.sub = static_cast<uint8_t>(lowir::ComparePredicate::Ne);
+			nonnull.ops[0] = next;
+			nonnull.ops[1] = thunk.integer(0);
+			thunk.branch(lowir::Value::temp(thunk.append_value(nonnull, boolean, 0)), transfer, done);
+			thunk.place_block(transfer);
+			thunk.set_insertion_block(transfer);
+			const auto target = lowir::Value::temp(thunk.load(pointer, next, 0));
+			thunk.call(void_type, target, &next, 1, resume_signature, 0);
+			thunk.body().instructions[thunk.last_instruction(transfer)].sub = lowir::kTailCall;
+			thunk.ret(void_type, lowir::Value::none());
+			thunk.place_block(done);
+			thunk.set_insertion_block(done);
+		}
 		thunk.ret(void_type, lowir::Value::none());
 		if (!lowering_.streaming())
 			thunk.finish();
@@ -529,9 +568,23 @@ void FunctionLowering::lower_coroutine(const sema::CoroutineFacts& facts, const 
 	const size_t first = arguments_.size();
 	arguments_.push_back(frame);
 	arguments_.push_back(integer(word, static_cast<uint32_t>(CoroutineAction::Start)).value);
-	emit_call(void_type, lowir::Value::symbol(actor), first, lowir::kNoId, lowering_.exceptions());
+	const RValue next{ emit_call(pointer, lowir::Value::symbol(actor), first, lowir::kNoId, lowering_.exceptions()),
+		pointer };
 	if (startup.landing != lowir::kNoId)
 		emit_marker(lowir::Opcode::EhEnd, lowir::kNoId);
+	if (facts.resume_transfer || facts.initial->transfer != nullptr)
+	{
+		const auto transfer = new_block(lowir::BlockKind::IfThen);
+		const auto done = new_block(lowir::BlockKind::IfEnd);
+		branch(compare(lowir::ComparePredicate::Ne, pointer, next, integer(pointer, 0)), transfer, done);
+		place(transfer);
+		const auto target = load(pointer, coroutine_place(next.value, 0)).value;
+		const size_t next_argument = arguments_.size();
+		arguments_.push_back(next.value);
+		emit_call(void_type, target, next_argument, resume_signature, lowering_.exceptions());
+		jump(done);
+		place(done);
+	}
 	terminate(ret);
 	unwind_coroutine_startup(startup, facts, layout, frame, allocation, bytes);
 	place_late_blocks();

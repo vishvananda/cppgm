@@ -1304,7 +1304,7 @@ const Binding* Analyzer::check_id_expression(
 			name.dependent_qualifier = true;
 		if (last.has_arguments &&
 			(dependent || result.binding->kind == BindingKind::Function || IsDependentMember(result.binding)))
-			template_argument_names(last, scope);
+			template_argument_names(last, scope, dependent ? nullptr : SoleTemplateHead(result.functions));
 		if (dependent)
 			return nullptr;
 	}
@@ -1367,12 +1367,12 @@ void Analyzer::default_argument_names(FunctionEntity* function, const syntax::Pa
 		type_default_arguments(function, clause, scope);
 }
 
-void Analyzer::template_argument_names(const syntax::NameComponent& component, Scope* scope)
+void Analyzer::template_argument_names(const syntax::NameComponent& component, Scope* scope, const TemplateHead* head)
 {
 	// A function template-id's arguments (a class template-id's are its
 	// lookup's): types, their names checked where they appear.
 	TypeList arguments;
-	template_arguments(component, scope, arguments);
+	template_arguments(component, scope, arguments, head);
 }
 
 namespace {

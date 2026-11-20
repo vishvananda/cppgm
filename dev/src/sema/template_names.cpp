@@ -318,9 +318,9 @@ bool Analyzer::template_heads_match(
 	// 14.3.3p3: each parameter of the argument template's list matches the
 	// template template-parameter's at its position; a parameter pack of the
 	// template template-parameter's matches the argument's remaining
-	// parameters and packs of its kind. An argument's pack matches only such
-	// a pack (p2's example: `X<C>` is ill-formed, a template parameter pack
-	// does not match a template parameter).
+	// parameters and packs of its kind. C++17 P0522 also allows a trailing
+	// pack in the argument template to accept fixed parameters of the
+	// same kind when matching an argument.
 	// An inner non-type pack consumes its own outer packs. Its known
 	// expansion is a fixed sequence in this head, not an unconstrained
 	// pack and not a controller of the enclosing template-parameter pack.
@@ -366,9 +366,11 @@ bool Analyzer::template_heads_match(
 		return template_heads_match(&head, argument, selection, match_argument);
 	}
 	uint32_t next = 0;
-	for (uint32_t i = 0; i < argument->count; ++i)
+	uint32_t i = 0;
+	while (i < argument->count)
 	{
 		const TemplateParameterEntity* a = argument->parameters[i];
+		const bool flexible = match_argument && cxx17_ && a->pack && i + 1 == argument->count;
 		if (next == parameter->count)
 		{
 			// CWG150: a template argument can supply additional defaulted
@@ -376,7 +378,7 @@ bool Analyzer::template_heads_match(
 			if (!match_argument)
 				return false;
 			for (; i < argument->count; ++i)
-				if (!HasDefault(argument, i))
+				if (!HasDefault(argument, i) && !(cxx17_ && argument->parameters[i]->pack && i + 1 == argument->count))
 					return false;
 			return true;
 		}
@@ -396,10 +398,15 @@ bool Analyzer::template_heads_match(
 				: nullptr;
 			matching = rebound != nullptr && rebound->canonical == a->value_type->canonical;
 		}
-		if (!matching || (a->pack && !p->pack))
+		if (!matching || (a->pack && !p->pack && !flexible))
 			return false;
 		if (!p->pack)
+		{
 			++next;
+			if (flexible)
+				continue;
+		}
+		++i;
 	}
 	return next == parameter->count || (next + 1 == parameter->count && parameter->parameters[next]->pack);
 }

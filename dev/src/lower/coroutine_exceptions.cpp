@@ -78,7 +78,8 @@ void FunctionLowering::lower_coroutine_exception(const sema::CoroutineFacts& fac
 		store(pointer, integer(pointer, 0), coroutine_place(body.address, body.layout.resume));
 		const lowir::Type word = lowir::Type::scalar(lowir::TypeKind::U32);
 		store(word, integer(word, body.suspensions.size()), coroutine_place(body.address, body.layout.state));
-		body.suspensions.push_back(CoroutineSuspension{ lowir::kNoId, body.destroy, lowir::kNoId, true });
+		body.suspensions.push_back(
+			CoroutineSuspension{ lowir::kNoId, body.destroy, lowir::kNoId, true, lowir::Value::none() });
 	}
 	const size_t first = cleanups_.size();
 	const bool region = begin_full_expression(&call, true);
@@ -102,8 +103,16 @@ void reconnect_coroutine_exception_regions(
 			continue;
 		const bool reached = regions.analysis.suspended_regions(regions.layout_of[point.suspended], stack);
 		Instruction& transfer = body.instructions[body.blocks[point.suspended].last];
-		transfer = make_instruction(Opcode::Jump, void_type);
-		transfer.ops[0] = Value::block(frame.suspend);
+		if (reached && !point.transfer.is(ValueKind::None))
+		{
+			transfer = make_instruction(Opcode::Return, program.pointer_type());
+			transfer.ops[0] = point.transfer;
+		}
+		else
+		{
+			transfer = make_instruction(Opcode::Jump, void_type);
+			transfer.ops[0] = Value::block(frame.suspend);
+		}
 		if (!reached)
 		{
 			point.resume = point.destroy = kNoId;

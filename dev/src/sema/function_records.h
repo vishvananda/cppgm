@@ -155,7 +155,7 @@ enum class Intrinsic : uint8_t
 	GenericCountLeadingZeros,
 	GenericCountTrailingZeros,
 	GenericPopCount,
-	// __builtin_alloca(size): stack storage of the function's frame.
+	// Stack allocation. Bits 8 and above record the required byte alignment.
 	Alloca,
 	// __builtin_frame_address(level): the physical activation's frame,
 	// followed by `level` saved frame pointers (facts bits 8 and above).

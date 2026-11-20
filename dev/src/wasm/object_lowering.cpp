@@ -12,6 +12,23 @@ namespace wasm {
 
 namespace {
 
+void set_object_features(Object& object, const Module& module, bool uses_simd, bool uses_tail_calls)
+{
+	object.features = { { '+', "mutable-globals" }, { '+', "sign-ext" }, { '+', "bulk-memory" },
+		{ '+', "nontrapping-fptoint" }, { '+', "reference-types" } };
+	if (uses_simd)
+		object.features.push_back({ '+', "simd128" });
+	if (uses_tail_calls)
+		object.features.push_back({ '+', "tail-call" });
+	if (module.atomics)
+		object.features.push_back({ '+', "atomics" });
+	if (!module.tag_types.empty())
+	{
+		object.features.push_back({ '+', "exception-handling" });
+		object.features.push_back({ '+', "multivalue" });
+	}
+}
+
 uint32_t flags(const lowir::Symbol& symbol)
 {
 	return symbol.metadata.binding == ir_model::SBM_INTERNAL ? 2
@@ -328,6 +345,7 @@ void make_object(lowir::Program& program, const backend::Options& options, Objec
 	append_nonlocal_objects(module, object, symbols);
 	const bool minimize_size = options.optimizer != nullptr && options.optimizer->minimize_size;
 	bool uses_simd = false;
+	bool uses_tail_calls = false;
 	for (const Signature& type : module.signatures)
 	{
 		for (ValueType value : type.parameters)
@@ -346,7 +364,10 @@ void make_object(lowir::Program& program, const backend::Options& options, Objec
 		for (ValueType local : function.locals)
 			uses_simd = uses_simd || local == ValueType::V128;
 		for (const auto& inst : function.instructions)
+		{
 			uses_simd = uses_simd || (static_cast<unsigned>(inst.op) >> 8) == 0xfd;
+			uses_tail_calls = uses_tail_calls || inst.op == Op::ReturnCallIndirect;
+		}
 		ObjectFunction& destination = object.functions[module.function_indices[id]];
 		try
 		{
@@ -376,17 +397,7 @@ void make_object(lowir::Program& program, const backend::Options& options, Objec
 		for (lowir::SymbolId id : program.order)
 			if (program.symbols[id].metadata.role == ir_model::SR_ENTRY)
 				adapt_wasi_entry(object, symbols[id]);
-	object.features = { { '+', "mutable-globals" }, { '+', "sign-ext" }, { '+', "bulk-memory" },
-		{ '+', "nontrapping-fptoint" }, { '+', "reference-types" } };
-	if (uses_simd)
-		object.features.push_back({ '+', "simd128" });
-	if (module.atomics)
-		object.features.push_back({ '+', "atomics" });
-	if (!module.tag_types.empty())
-	{
-		object.features.push_back({ '+', "exception-handling" });
-		object.features.push_back({ '+', "multivalue" });
-	}
+	set_object_features(object, module, uses_simd, uses_tail_calls);
 }
 
 } // namespace wasm

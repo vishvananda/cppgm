@@ -641,11 +641,21 @@ void Validator::instruction(const Instruction& inst)
 		return;
 	}
 	case Op::CallIndirect:
+	case Op::ReturnCallIndirect:
+	{
 		if (module_.table_count != 1 || operand(inst) >= module_.signatures.size() || operand(inst, 1) != 0)
 			throw WasmError("invalid Wasm indirect call type/table");
+		const auto& callee = module_.signatures[operand(inst)];
 		pop(ValueType::I32);
-		call(module_.signatures[operand(inst)]);
+		call(callee);
+		if (inst.op == Op::ReturnCallIndirect)
+		{
+			if (!(Types(callee.results) == Types(signature_.results)))
+				throw WasmError("Wasm tail call result type mismatch");
+			unreachable();
+		}
 		return;
+	}
 	case Op::Drop:
 		pop_any();
 		return;

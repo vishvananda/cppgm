@@ -491,8 +491,16 @@ bool Preprocessor::has_feature(const char* spelling, uint32_t length, bool exten
 	return IsProvidedFeature(spelling, length, modes_, extension);
 }
 
-uint32_t Preprocessor::builtin_version(const char* spelling, uint32_t length)
+uint32_t Preprocessor::builtin_version(const char* spelling, uint32_t length, uint32_t location)
 {
+	// Native GCC-compatible system headers can select their GCC fallback
+	// independently of probing this Clang-only builtin. Keep the two
+	// decisions consistent. Direct uses still name the supported builtin.
+	constexpr char noop[] = "__builtin_coro_noop";
+	if (!wasm_attributes_ && length == sizeof(noop) - 1 && std::memcmp(spelling, noop, length) == 0 &&
+		in_system_header(location) && macro_query_.is_defined("__GNUC__", sizeof("__GNUC__") - 1) &&
+		!macro_query_.is_defined("__clang__", sizeof("__clang__") - 1))
+		return 0;
 	return ProvidedBuiltinVersion(spelling, length, wasm_attributes_, modes_.language >= 20);
 }
 

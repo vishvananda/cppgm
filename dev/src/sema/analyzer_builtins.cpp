@@ -325,9 +325,9 @@ ExprFacts* Analyzer::constant_p_call(const syntax::CallExpr& expr, Scope* scope)
 	if (expr.arguments.size != 1)
 		error(expr.location, "__builtin_constant_p takes one argument");
 	const syntax::Expr& operand = *expr.arguments[0];
-	++unevaluated_;
+	unevaluated_ += kConstantProbeOperand;
 	const ExprFacts* typed_operand = typed_value(operand, scope);
-	--unevaluated_;
+	unevaluated_ -= kConstantProbeOperand;
 	if (typed_operand == nullptr)
 		return nullptr;
 	Constant value;
@@ -601,14 +601,28 @@ ExprFacts* Analyzer::gnu_intrinsic(const syntax::CallExpr& expr, GnuBuiltin buil
 		break;
 	}
 	case GnuBuiltin::Alloca:
-		if (count != 1)
-			error(expr.location, "__builtin_alloca takes one argument");
+	{
+		if (count != (variant == 0 ? 1u : 2u))
+			error(expr.location, "wrong number of arguments to a stack allocation builtin");
 		if (typed_value(*expr.arguments[0], scope) == nullptr)
 			return nullptr;
 		convert(*expr.arguments[0], size_type, false);
+		uint64_t alignment = 16;
+		if (variant != 0)
+		{
+			const syntax::Expr& argument = *expr.arguments[1];
+			if (typed_value(argument, scope) == nullptr)
+				return nullptr;
+			Constant bits;
+			if (!constant_value(argument, scope, bits, false) || !IsIntegralType(bits.type) || bits.bits < 8 ||
+				bits.bits >= (uint64_t(1) << 32) || (bits.bits & (bits.bits - 1)) != 0)
+				error(argument.location, "stack alignment must be a power-of-two integral constant in bits");
+			alignment = bits.bits / 8;
+		}
 		facts = new_facts(expr, types_.pointer(void_type), ValueCategory::PRValue);
-		facts->value = static_cast<uint64_t>(Intrinsic::Alloca);
+		facts->value = static_cast<uint64_t>(Intrinsic::Alloca) | (alignment << 8);
 		break;
+	}
 	case GnuBuiltin::VaList:
 	{
 		// The argument lists are lvalues of __builtin_va_list (an array of

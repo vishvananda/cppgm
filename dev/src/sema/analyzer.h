@@ -395,6 +395,7 @@ private:
 		uint32_t location, bool deleted = false);
 	Binding* qualified_friend(
 		const Specifiers& specifiers, const DeclaratorInfo& info, Scope* scope, uint32_t location);
+	FunctionEntity* earlier_inline_function(const DeclaredName&, Scope*, const Type*, bool, const DeclaratorInfo&);
 	FunctionEntity* earlier_function(const DeclaredName& name, Scope* where, const Type* signature, bool templated,
 		bool& invisible, const DeclaratorInfo& info);
 	FunctionEntity* c_redeclared_function(FunctionEntity* previous, const Identifier* name, Scope* where,
@@ -466,7 +467,7 @@ private:
 	void bit_field_declaration(const syntax::BitFieldDecl& decl, Scope* scope);
 	void require_definition_types(const Type* type, uint32_t location);
 	void check_coroutine_definition(const FunctionEntity* function, const syntax::CompoundStmt& body);
-	const CoroutineFacts* analyze_coroutine(const FunctionEntity* function, Scope* scope, uint32_t location);
+	CoroutineFacts* analyze_coroutine(const FunctionEntity* function, Scope* scope, uint32_t location);
 	ExprFacts* coroutine_operation(const syntax::CoroutineExpr& expr, Scope* scope);
 	ClassEntity* coroutine_library_template(const char* name, uint32_t location);
 	const Type* coroutine_promise_type(const FunctionEntity* function, Scope* scope, uint32_t location);
@@ -615,7 +616,8 @@ private:
 	void new_expression(const syntax::NewExpr& expr, Scope* scope, bool unevaluated);
 	void initializer_names(const syntax::Initializer* initializer, Scope* scope, bool constructs_class);
 	const Binding* check_id_expression(const syntax::Name& name, Scope* scope, bool allow_undeclared, bool allow_type);
-	void template_argument_names(const syntax::NameComponent& component, Scope* scope);
+	void template_argument_names(
+		const syntax::NameComponent& component, Scope* scope, const TemplateHead* head = nullptr);
 	void default_argument_names(FunctionEntity* function, const syntax::ParameterClause* clause, Scope* scope);
 	void default_template_argument_names(const syntax::TypeId& type, Scope* scope);
 	const Type* known_argument_type(const syntax::Expr& expr, Scope* scope, uint32_t depth = 0);
@@ -890,7 +892,7 @@ private:
 	static bool TemplatedClassScope(const Scope* scope);
 	bool type_dependent(const syntax::Expr* expr, Scope* scope);
 	bool fixed_expression(const syntax::Expr& operand, Scope* scope);
-	bool dependent_name_expression(const syntax::Name& name, Scope* scope);
+	bool dependent_name_expression(const syntax::Name& name, Scope* scope, bool call = false);
 	bool fixed_template_arguments(const syntax::NameComponent& component, Scope* scope);
 	void check_fixed_operands(const syntax::Expr& operand, Scope* scope, uint32_t level);
 	void bound_expansion(const Type* expansion, TypeList& out);
@@ -2299,7 +2301,10 @@ private:
 	const syntax::BracedInitList* flexible_list_ = nullptr;
 	const ClassEntity* flexible_class_ = nullptr;
 	bool flexible_given_ = false;
-	// Nonzero inside unevaluated operands (5p8): nothing is odr-used.
+	// Nonzero where operands do not odr-use entities. Standard unevaluated
+	// operands count in the low bits. A GNU constant probe suppresses
+	// odr-use without imposing the standard's operand grammar.
+	static constexpr uint32_t kConstantProbeOperand = 1u << 16;
 	uint32_t unevaluated_;
 	// Only actual immediate-function designations have a record. Their
 	// enclosing invocation may be selected after operand typing (including

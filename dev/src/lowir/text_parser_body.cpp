@@ -785,6 +785,8 @@ void Parser::parse_eh_instruction(FunctionBuilder& builder, Opcode keyword, Inst
 void Parser::parse_call(FunctionBuilder& builder, Instruction& inst)
 {
 	inst.op = Opcode::Call;
+	if (accept_keyword(Keyword::Tail))
+		inst.sub = kTailCall;
 	inst.type = parse_type();
 	inst.ops[0] = parse_callee(builder);
 	expect(TokenKind::LParen, "(");

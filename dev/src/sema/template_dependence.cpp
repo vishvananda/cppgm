@@ -86,7 +86,10 @@ bool Analyzer::type_dependent(const syntax::Expr* expr, Scope* scope)
 	case syntax::ExprKind::Call:
 	{
 		const syntax::CallExpr* call = static_cast<const syntax::CallExpr*>(expr);
-		if (type_dependent(call->callee, scope))
+		const bool dependent_callee = call->callee->kind == syntax::ExprKind::Id
+			? dependent_name_expression(*static_cast<const syntax::IdExpr*>(call->callee)->name, scope, true)
+			: type_dependent(call->callee, scope);
+		if (dependent_callee)
 			return true;
 		for (const syntax::Expr* argument : call->arguments)
 		{
@@ -182,7 +185,7 @@ bool Analyzer::fixed_expression(const syntax::Expr& operand, Scope* scope)
 	return fixed && !type_dependent(&operand, scope);
 }
 
-bool Analyzer::dependent_name_expression(const syntax::Name& name, Scope* scope)
+bool Analyzer::dependent_name_expression(const syntax::Name& name, Scope* scope, bool call)
 {
 	// 14.6.2.2p3: an id-expression naming a template parameter, a
 	// declaration of dependent type, a member of a templated class, or a
@@ -213,7 +216,8 @@ bool Analyzer::dependent_name_expression(const syntax::Name& name, Scope* scope)
 		const NamePrefix prefix = name_prefix(name, scope);
 		if (failed() || prefix.dependent != nullptr || prefix.scope == nullptr)
 			return true;
-		for (const Scope* enclosing = prefix.scope; enclosing->kind != ScopeKind::Namespace;
+		const Scope* owner = prefix.scope->kind == ScopeKind::Enum ? prefix.scope->parent : prefix.scope;
+		for (const Scope* enclosing = owner; enclosing != nullptr && enclosing->kind != ScopeKind::Namespace;
 			enclosing = enclosing->parent)
 		{
 			if (enclosing->kind != ScopeKind::Class || enclosing->entity == nullptr || templated_class(enclosing) ||
@@ -241,7 +245,10 @@ bool Analyzer::dependent_name_expression(const syntax::Name& name, Scope* scope)
 			return false;
 		for (const FunctionList* node = found.functions; node != nullptr; node = node->next)
 		{
-			if (dependent_type(node->binding->entity->type))
+			// A known function template is selected using the call arguments.
+			// Its own template parameters do not make a call dependent.
+			const auto* function = static_cast<const FunctionEntity*>(node->binding->entity);
+			if ((!call || !function->templated) && dependent_type(function->type))
 				return true;
 		}
 		return found.functions == nullptr && dependent_type(entity->type);

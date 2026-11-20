@@ -174,7 +174,7 @@ bool Analyzer::literal_type(const Type* type)
 	// the implementations have it, any), an array of a literal type, or a
 	// class with a trivial (C++20: constexpr) destructor that is an
 	// aggregate or has a constexpr non-copy/move constructor, whose
-	// bases and non-static data members are of non-volatile literal types.
+	// bases and non-variant members are of non-volatile literal types.
 	// void is none (C++11). A type that depends on template parameters is
 	// taken as one.
 	if (type->is_reference())
@@ -201,14 +201,27 @@ bool Analyzer::literal_type(const Type* type)
 	bool literal = cxx20_ ? constexpr_destructor(cls, 0) : cls->destructor == nullptr || cls->destructor->trivial;
 	for (const BaseClass* base = cls->bases; literal && base != nullptr; base = base->next)
 		literal = !base->is_virtual && literal_type(base->base->type);
+	const bool is_union = cls->key == TokenKind::KW_UNION;
+	bool literal_variant = false;
+	bool has_variant = false;
 	for (const DataMember* member = cls->members; literal && member != nullptr; member = member->next)
 	{
-		// Of non-volatile literal types (a volatile member's reads are no
-		// constant expressions, 5.19p2).
+		if (member->variable->kind != EntityKind::Variable)
+			continue;
 		const Type* type = member->variable->type;
-		literal = member->variable->kind != EntityKind::Variable ||
-			(literal_type(type) && (type->is_reference() || (ObjectType(type)->cv & kVolatile) == 0));
+		const bool eligible = literal_type(type) && (type->is_reference() || (ObjectType(type)->cv & kVolatile) == 0);
+		if (!is_union)
+			literal = eligible;
+		else
+		{
+			has_variant = true;
+			literal_variant |= eligible;
+			if (literal_variant)
+				break;
+		}
 	}
+	// A union can be used in constant evaluation with a literal variant active.
+	literal = literal && (!is_union || !has_variant || literal_variant);
 	if (literal && !IsAggregateClass(cls) && !(cxx17_ && graph_.closure_facts(cls) != nullptr))
 	{
 		// A constexpr constructor (or constructor template) other than a

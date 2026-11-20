@@ -70,6 +70,7 @@ void Analyzer::attach_template_constraint(
 			continue;
 		const TemplateParameterEntity* parameter = head->parameters[i];
 		const Type* type = parameter->non_type ? synthesized_type(i) : parameter->type->canonical;
+		NameLookup::ParameterPrefix visible(names_, parameters, parameters, i);
 		concept_constraint(*name, type, parameters);
 		constraints.push_back(TypeConstraint{ name, i });
 	}
@@ -86,6 +87,7 @@ bool Analyzer::type_constraints_satisfied(const ConstraintPredicate* predicate, 
 	for (uint32_t i = 0; i < predicate->type_constraint_count; ++i)
 	{
 		const TypeConstraint& constraint = predicate->type_constraints[i];
+		NameLookup::ParameterPrefix visible(names_, frame, predicate->parameters, constraint.index);
 		const Type* argument = arguments[constraint.index];
 		const Type* value_type = predicate->head->parameters[constraint.index]->value_type;
 		const uint32_t count = argument->kind == TypeKind::Pack ? argument->param_count : 1;
@@ -126,9 +128,16 @@ bool Analyzer::template_constraints_equivalent(
 			earlier->type_constraints[index].index != i)
 			return false;
 		const size_t base = decltype_words_.size();
-		bool known = constraint_name_words(*earlier->type_constraints[index].name, earlier->parameters);
+		bool known;
+		{
+			NameLookup::ParameterPrefix visible(names_, earlier->parameters, earlier->parameters, i);
+			known = constraint_name_words(*earlier->type_constraints[index].name, earlier->parameters);
+		}
 		const size_t middle = decltype_words_.size();
-		known = known && constraint_name_words(*next, scope);
+		{
+			NameLookup::ParameterPrefix visible(names_, scope, scope, i);
+			known = known && constraint_name_words(*next, scope);
+		}
 		const bool equal = known && decltype_words_.size() - middle == middle - base &&
 			std::equal(decltype_words_.begin() + static_cast<std::ptrdiff_t>(base),
 				decltype_words_.begin() + static_cast<std::ptrdiff_t>(middle),

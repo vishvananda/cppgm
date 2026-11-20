@@ -460,7 +460,8 @@ ExprFacts* Analyzer::call_form(const syntax::CallExpr& expr, Scope* scope, ExprF
 	// target type (13.4), which the indirect call reports missing.
 	const ExprFacts* designated = named != nullptr ? named->facts : nullptr;
 	if (designated != nullptr && designated->entity != nullptr && designated->entity->kind == EntityKind::Function &&
-		(designated->flags & kBoundMember) == 0 && (levels <= 1 || (designated->flags & kOverloadSet) == 0))
+		(designated->flags & (kBoundMember | kUserConverted)) == 0 &&
+		(levels <= 1 || (designated->flags & kOverloadSet) == 0))
 		return resolved_call(expr, designated->functions, nullptr, false, naming, false, move_argument);
 	return indirect_call(expr, callee);
 }

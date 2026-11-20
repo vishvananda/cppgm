@@ -14,13 +14,33 @@ RValue FunctionLowering::runtime_array_size(const sema::Type* type)
 	return load(lowering_.storage_type(lowering_.graph().types.fundamental(FundamentalType::UnsignedLongInt)), place);
 }
 
+RValue FunctionLowering::dynamic_stack_allocate(RValue bytes, uint64_t alignment)
+{
+	const lowir::Type pointer = program_.pointer_type();
+	const lowir::Type size = bytes.type;
+	lowir::Instruction allocate = lowir::make_instruction(lowir::Opcode::StackAlloc, pointer);
+	allocate.ops[0] = alignment > 16 ? binary(lowir::BinaryOp::Add, size, bytes, integer(size, alignment - 1)).value
+									 : bytes.value;
+	RValue address{ emit_value(allocate, pointer), pointer };
+	if (alignment > 16)
+	{
+		sema::TypeTable& types = lowering_.graph().types;
+		const sema::Type* size_type = types.fundamental(FundamentalType::UnsignedLongInt);
+		const sema::Type* pointer_type = types.pointer(types.fundamental(FundamentalType::Void));
+		RValue bits = convert(address, pointer_type, size_type, ConversionContext::Cast);
+		bits = binary(lowir::BinaryOp::Add, size, bits, integer(size, alignment - 1));
+		bits = binary(lowir::BinaryOp::And, size, bits, integer(size, 0 - alignment));
+		address = convert(bits, size_type, pointer_type, ConversionContext::Cast);
+	}
+	return address;
+}
+
 void FunctionLowering::local_runtime_array(const sema::VariableEntity* variable, uint32_t location)
 {
 	const sema::Type* type = variable->type;
 	const syntax::Expr& bound = *type->runtime_bound;
 	sema::TypeTable& types = lowering_.graph().types;
 	const sema::Type* size_type = types.fundamental(FundamentalType::UnsignedLongInt);
-	const sema::Type* pointer_type = types.pointer(types.fundamental(FundamentalType::Void));
 	const lowir::Type size = lowering_.storage_type(size_type);
 	const lowir::Type pointer = program_.pointer_type();
 	// The bound is evaluated exactly once on each entry to the declaration.
@@ -42,17 +62,7 @@ void FunctionLowering::local_runtime_array(const sema::VariableEntity* variable,
 	// mark for all exits from this declaration's scope.
 	lowir::Instruction save = lowir::make_instruction(lowir::Opcode::StackSave, pointer);
 	const lowir::Value mark = emit_value(save, pointer);
-	lowir::Instruction allocate = lowir::make_instruction(lowir::Opcode::StackAlloc, pointer);
-	allocate.ops[0] = alignment > 16 ? binary(lowir::BinaryOp::Add, size, bytes, integer(size, alignment - 1)).value
-									 : bytes.value;
-	RValue address{ emit_value(allocate, pointer), pointer };
-	if (alignment > 16)
-	{
-		RValue bits = convert(address, pointer_type, size_type, ConversionContext::Cast);
-		bits = binary(lowir::BinaryOp::Add, size, bits, integer(size, alignment - 1));
-		bits = binary(lowir::BinaryOp::And, size, bits, integer(size, 0 - alignment));
-		address = convert(bits, size_type, pointer_type, ConversionContext::Cast);
-	}
+	const RValue address = dynamic_stack_allocate(bytes, alignment);
 	Cleanup cleanup = Cleanup();
 	cleanup.storage = mark;
 	cleanup.type = type;

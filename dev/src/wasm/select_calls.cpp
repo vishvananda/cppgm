@@ -88,9 +88,14 @@ void Selector::call_body(const lowir::Instruction& inst, const lowir::Signature&
 	else
 	{
 		value(inst.ops[0], program_.pointer_type());
-		out_.emit(Op::CallIndirect, { module_.signature_types[signature_id], 0 });
+		const bool tail = inst.sub == kTailCall;
+		if (tail)
+			restore_stack();
+		out_.emit(tail ? Op::ReturnCallIndirect : Op::CallIndirect, { module_.signature_types[signature_id], 0 });
 		out_.relocate(RelocationKind::TypeIndex, module_.signature_types[signature_id]);
 		out_.relocate(RelocationKind::TableNumber, module_.table_symbol, 1);
+		if (tail)
+			return;
 	}
 	if (signature->boundary.returns == ir_model::CRM_NORETURN)
 	{

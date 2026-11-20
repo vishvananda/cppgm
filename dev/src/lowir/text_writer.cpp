@@ -1087,6 +1087,11 @@ void Writer::argument_facts(const Instruction& inst, bool& open)
 void Writer::write_call(const Instruction& inst)
 {
 	head(inst.op);
+	if (inst.sub == kTailCall)
+	{
+		word(spelling(Keyword::Tail));
+		out_.push_back(' ');
+	}
 	type(inst.type);
 	out_.push_back(' ');
 	value(inst.ops[0]);

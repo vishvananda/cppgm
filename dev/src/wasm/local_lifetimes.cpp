@@ -17,7 +17,7 @@ bool local_op(Op op)
 bool stops(Op op)
 {
 	return op == Op::Br || op == Op::BrTable || op == Op::Else || op == Op::Return || op == Op::Unreachable ||
-		op == Op::Throw || op == Op::ThrowRef;
+		op == Op::ReturnCallIndirect || op == Op::Throw || op == Op::ThrowRef;
 }
 
 struct Edge

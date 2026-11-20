@@ -45,7 +45,7 @@ public:
 	// Whether the language feature is provided (`__has_feature` and
 	// `__has_extension`, preprocess/macro/feature_probes.h).
 	virtual bool has_feature(const char* spelling, uint32_t length, bool extension) = 0;
-	virtual uint32_t builtin_version(const char* spelling, uint32_t length);
+	virtual uint32_t builtin_version(const char* spelling, uint32_t length, uint32_t location);
 	virtual bool has_target_attribute(const char*, uint32_t) { return false; }
 	// Hosted extension: execute a directive encountered while collecting
 	// function-macro arguments. False at a genuine input boundary.

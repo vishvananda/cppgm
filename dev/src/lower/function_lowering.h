@@ -166,7 +166,7 @@ private:
 	void unwind_coroutine_startup(const CoroutineStartup& startup, const sema::CoroutineFacts& facts,
 		const CoroutineFrameLayout& layout, lowir::Value frame, lowir::Value allocation, uint64_t bytes);
 	Place coroutine_place(lowir::Value frame, uint64_t offset);
-	void emit_coroutine_suspend(const sema::CoroutineAwait& await, lowir::Value frame, uint64_t state_offset,
+	lowir::Value emit_coroutine_suspend(const sema::CoroutineAwait& await, lowir::Value frame, uint64_t state_offset,
 		uint32_t state, lowir::BlockId resumed, lowir::BlockId suspended);
 	const syntax::Expr& suspend_coroutine(const sema::CoroutineAwait& await, CoroutineBody& body, bool final);
 	void lower_coroutine_implicit_await(const sema::CoroutineAwait& await, CoroutineBody& body, bool final);
@@ -773,6 +773,7 @@ private:
 	void declaration_statement(const syntax::Decl& decl);
 	void local_variable(const syntax::InitDeclarator& init);
 	void local_object_variable(const sema::VariableEntity* variable, const syntax::InitDeclarator& init);
+	RValue dynamic_stack_allocate(RValue bytes, uint64_t alignment);
 	void local_runtime_array(const sema::VariableEntity* variable, uint32_t location);
 	RValue runtime_array_size(const sema::Type* type);
 	// A function-local static object (lower/local_static_lowering.cpp).

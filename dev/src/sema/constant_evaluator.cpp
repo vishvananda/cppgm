@@ -1264,19 +1264,31 @@ const Type* Analyzer::decltype_type(const syntax::Expr& operand, Scope* scope)
 			// ill-formed, and so is a function template's name, whose
 			// specialization only a target type selects (13.4p1).
 			const syntax::NameComponent& last = static_cast<const syntax::IdExpr*>(expr)->name->last();
+			const uint64_t uses = names_.dependent_uses();
+			const uint64_t values = names_.value_parameter_uses();
 			const FunctionList* set = last.has_arguments ? explicit_specializations(last, result.functions, scope)
 														 : result.functions;
 			if (failed())
 				return nullptr;
-			const Entity* function = set != nullptr ? set->binding->entity : binding->entity;
-			if ((set != nullptr && set->next != nullptr) || static_cast<const FunctionEntity*>(function)->templated)
+			auto* function = static_cast<FunctionEntity*>(set != nullptr ? set->binding->entity : binding->entity);
+			if (last.has_arguments && template_depth_ != 0 &&
+				(names_.dependent_uses() != uses || names_.value_parameter_uses() != values ||
+					dependent_type(function->type)))
+				return dependent_decltype(operand, scope);
+			if ((set != nullptr && set->next != nullptr) || function->templated)
 			{
 				substitution_error(expr->location, "decltype of an overloaded function");
 				return nullptr;
 			}
-			// A function's type has its parameters adjusted (8.3.5p5).
-			if (cxx17_)
-				function_nothrow(static_cast<const FunctionEntity*>(function));
+			// Naming a specialization in decltype needs its deduced return
+			// type, even though the operand does not odr-use the function.
+			if (semantic() && template_depth_ == 0)
+			{
+				if (!require_deduced(function, expr->location))
+					return nullptr;
+			}
+			else if (cxx17_)
+				function_nothrow(function);
 			type = function->type->canonical;
 			break;
 		}

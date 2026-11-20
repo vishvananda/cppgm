@@ -57,7 +57,7 @@ ExprFacts* Analyzer::lambda_expression(const syntax::LambdaExpr& expr, Scope* sc
 	// Until C++20, a lambda-expression cannot appear in an unevaluated
 	// operand. C++20 still checks the body, but does not emit the closure
 	// or capture storage for that use.
-	if (unevaluated_ != 0 && !cxx20_)
+	if (!cxx20_ && (unevaluated_ & (kConstantProbeOperand - 1)) != 0)
 		error(expr.location, "a lambda-expression in an unevaluated operand requires C++20");
 	if (template_depth_ != 0)
 		error(expr.location, "a lambda in a template definition is analyzed in its instantiations");

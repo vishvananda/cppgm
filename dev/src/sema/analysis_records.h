@@ -63,7 +63,7 @@ struct BodyContext
 	// function (9.3.2p1).
 	const Type* result;
 	const Type* this_type;
-	const CoroutineFacts* coroutine;
+	CoroutineFacts* coroutine;
 	// Enclosing iteration statements, and the innermost switch statement;
 	// the try blocks, handlers (15p2) and statement expressions being
 	// analyzed, which no switch label enters.

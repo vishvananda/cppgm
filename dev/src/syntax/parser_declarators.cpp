@@ -413,7 +413,11 @@ bool Parser::parse_declarator_suffixes(
 			// Only a named declarator's clause competes with an initializer;
 			// an operator or special member name decides for the clause.
 			const bool class_member = mode == DeclaratorMode::Named && declaration_scope()->kind == ScopeKind::Class;
-			const bool definite = mode != DeclaratorMode::Named || special_member_clause_ || class_member ||
+			// A function type in a template argument still competes with
+			// a functional cast. Its first parameter must establish that
+			// reading rather than assuming an unknown dependent name is a type.
+			const bool definite = (mode != DeclaratorMode::Named && !angle_) || special_member_clause_ ||
+				class_member ||
 				(declarator->name != nullptr && declarator->name->last().kind != NameComponentKind::Identifier);
 			// A parameter clause can be unambiguous once chosen even when
 			// it is still competing with a functional cast. Only contexts

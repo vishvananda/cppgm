@@ -115,6 +115,31 @@ public:
 	const OverloadVariant* overload_variants(
 		const Scope*, const Identifier*, const Type* signature, const Type* shape) const;
 
+	// A type-constraint occurs before its own template parameter's point
+	// of declaration. Full declaration scopes and substitution frames
+	// share the existing index while lookup sees a prefix of one list.
+	class ParameterPrefix
+	{
+	public:
+		ParameterPrefix(NameLookup& lookup, const Scope* scope, const Scope* parameters, uint32_t count)
+			: lookup_(lookup), previous_(lookup.parameter_prefix_), scope_(scope), parameters_(parameters),
+			  count_(count)
+		{
+			lookup_.parameter_prefix_ = this;
+		}
+		~ParameterPrefix() { lookup_.parameter_prefix_ = previous_; }
+		ParameterPrefix(const ParameterPrefix&) = delete;
+		ParameterPrefix& operator=(const ParameterPrefix&) = delete;
+
+	private:
+		friend class NameLookup;
+		NameLookup& lookup_;
+		const ParameterPrefix* previous_;
+		const Scope* scope_;
+		const Scope* parameters_;
+		uint32_t count_;
+	};
+
 	LookupResult unqualified(Scope* scope, const Identifier* name, LookupFilter filter);
 	// Lookup in a namespace, class or scoped enumeration named by a
 	// nested-name-specifier.
@@ -308,6 +333,9 @@ private:
 	FunctionList* function_union(FunctionList* first, FunctionList* second);
 	LookupResult namespace_members(Scope* scope, const Identifier* name, LookupFilter filter);
 	void search_inline_set(Scope* scope, const Identifier* name, LookupFilter filter, LookupResult& result);
+
+	bool parameter_hidden(const Scope*, const Identifier*) const;
+	const ParameterPrefix* parameter_prefix_ = nullptr;
 
 	Arena& arena_;
 	std::vector<Slot, ZeroedAllocator<Slot>> slots_;

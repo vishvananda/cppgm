@@ -313,6 +313,7 @@ const ConstraintNode* Analyzer::normalized_constraint(const ConstraintPredicate*
 		else
 		{
 			const Type* type = parameter->non_type ? synthesized_type(constraint.index) : arguments[constraint.index];
+			NameLookup::ParameterPrefix visible(names_, frame, predicate->parameters, constraint.index);
 			append(normalize_type_constraint(*constraint.name, type, frame));
 		}
 	}

@@ -383,6 +383,10 @@ bool Analyzer::user_conversion(const ExprFacts* from, const Type* target, Conver
 	const Type* object = reference ? target->element : target;
 	ClassEntity* entity = const_cast<ClassEntity*>(ClassOf(object));
 	const ClassEntity* source = ClassOf(from->type);
+	// A conversion to the same class is never user-defined. In particular,
+	// an incompatible reference category needs no completion of the class.
+	if (entity != nullptr && source == entity)
+		return false;
 	// Class template instances' declarations are known once defined; an
 	// incomplete class has none yet (a substitution noting it, see
 	// incomplete_classes_seen_).
@@ -398,7 +402,7 @@ bool Analyzer::user_conversion(const ExprFacts* from, const Type* target, Conver
 		(entity->user_declared_constructor || entity->inherits_constructors != nullptr);
 	if (!constructors && (source == nullptr || !source->has_conversion_functions))
 		return false;
-	if (source != nullptr && entity != nullptr && (source == entity || conversions_.is_base_of(entity, source)))
+	if (source != nullptr && entity != nullptr && conversions_.is_base_of(entity, source))
 		return false;
 	const size_t base = user_candidates_.size();
 	// 8.5.3p5: an lvalue reference binds directly to a conversion

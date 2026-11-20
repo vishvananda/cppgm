@@ -2707,10 +2707,14 @@ void Analyzer::link_member(const Binding* pattern, const Binding* instance)
 		// The instance retains the ABI tags of the member's declaration;
 		// an out-of-class definition does not remove them.
 
-		if (function->templated && PatternOf(function) == nullptr && function->owner->kind == ScopeKind::Class &&
-			static_cast<const FunctionEntity*>(pattern->entity)->templated)
+		auto* source = static_cast<FunctionEntity*>(pattern->entity);
+		if (function->templated && PatternOf(function) == nullptr && source->templated &&
+			(function->owner->kind == ScopeKind::Class ||
+				(function->befriending != nullptr && source->body != nullptr)))
 		{
-			function_template_facts(function)->pattern = static_cast<FunctionEntity*>(pattern->entity);
+			// A friend template defined in the class also needs the
+			// original parameter dependence when its body is instantiated.
+			function_template_facts(function)->pattern = source;
 			return;
 		}
 		if (PatternOf(function) != nullptr || function->templated || function->primary != nullptr ||
