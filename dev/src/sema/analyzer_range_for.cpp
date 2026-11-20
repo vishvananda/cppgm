@@ -225,14 +225,19 @@ void Analyzer::range_for_names(const syntax::RangeForStmt& loop, Scope* block)
 			const Type* declared =
 				declarator(loop.declarator, auto_placeholder_, block, loop.location, &specifiers).type;
 			auto_declarator_ = saved_auto;
-			TypeList deduced;
-			deduced.push_back(nullptr);
-			if (!holds_auto(declared) ||
-				!deduce_argument(
-					replaced_auto(declared, auto_placeholder_, specifiers.cv), element, element_category, 0, deduced) ||
-				deduced[0] == nullptr)
-				error(loop.location, "auto deduction fails for the range's element (7.1.6.4p6)");
-			type = replaced_auto(declared, deduced[0], specifiers.cv);
+			if (loop.array_decomposition_by_value && element->kind == TypeKind::Array)
+				type = types_.qualified(element, specifiers.cv);
+			else
+			{
+				TypeList deduced;
+				deduced.push_back(nullptr);
+				if (!holds_auto(declared) ||
+					!deduce_argument(replaced_auto(declared, auto_placeholder_, specifiers.cv), element,
+						element_category, 0, deduced) ||
+					deduced[0] == nullptr)
+					error(loop.location, "auto deduction fails for the range's element (7.1.6.4p6)");
+				type = replaced_auto(declared, deduced[0], specifiers.cv);
+			}
 		}
 	}
 	else
@@ -409,6 +414,8 @@ T* Analyzer::implicit_node(uint32_t location)
 	located(*node, location);
 	return node;
 }
+
+template syntax::IdExpr* Analyzer::implicit_node<syntax::IdExpr>(uint32_t);
 
 const Identifier* Analyzer::range_for_identifier(unsigned which)
 {
@@ -752,6 +759,11 @@ void Analyzer::range_for_equivalent(const syntax::RangeForStmt& loop, Scope* blo
 	syntax::Initializer* initializer = implicit_node<syntax::Initializer>(location);
 	initializer->kind = syntax::InitializerKind::Assign;
 	initializer->expression = element;
+	if (loop.array_decomposition_by_value && typed_element->type->kind == TypeKind::Array)
+	{
+		specifiers.type = types_.qualified(typed_element->type, specifiers.cv);
+		initializer->array_copy = true;
+	}
 	facts->declaration.declarator = loop.declarator;
 	facts->declaration.initializer = initializer;
 	const Type* saved_auto = auto_deduced_;

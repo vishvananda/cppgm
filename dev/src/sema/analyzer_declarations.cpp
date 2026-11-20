@@ -1002,7 +1002,7 @@ bool Analyzer::holds_auto(const Type* type) const
 }
 
 const Type* Analyzer::deduced_type(const Specifiers& specifiers, const Type* declared,
-	const syntax::Initializer* initializer, Scope* scope, uint32_t location)
+	const syntax::Initializer* initializer, Scope* scope, uint32_t location, bool array_decomposition)
 {
 	// 7.1.6.4p6: the variable's declared type with auto replaced by an
 	// invented type template parameter U (auto itself keeps no
@@ -1118,6 +1118,9 @@ const Type* Analyzer::deduced_type(const Specifiers& specifiers, const Type* dec
 		if (type->is_reference())
 			type = type->element;
 	}
+	// C++17 [dcl.struct.bind]: this backing object retains the array type.
+	if (array_decomposition && type != nullptr && type->kind == TypeKind::Array)
+		return types_.qualified(type, specifiers.cv);
 	// The auto placeholder is the template parameter of depth and index 0.
 	if (type != nullptr && !deduce_argument(p, type, category, 0, deduced))
 		deduced[0] = nullptr;

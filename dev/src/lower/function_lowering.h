@@ -1626,8 +1626,11 @@ private:
 	void closure_capture(const sema::Capture& capture, const Place& member, uint32_t location);
 	void closure_object(const syntax::LambdaExpr& lambda, lowir::Value object, uint32_t location);
 	void closure_member_region();
-	void copy_captured_elements(const sema::Type* type, const sema::FunctionEntity* constructor,
-		lowir::Value destination, lowir::Value source, uint32_t location);
+	void initialize_array_copy(const sema::Type* type, const Place& place, const syntax::Initializer& init,
+		const sema::FunctionEntity* constructor, uint32_t location);
+	void copy_array_elements(const sema::Type* type, const sema::FunctionEntity* constructor, lowir::Value destination,
+		lowir::Value source, uint32_t location, const sema::Type* source_type = nullptr,
+		const syntax::Expr* array_element = nullptr);
 	// How to_base reaches a virtual base: through the object's table; at
 	// its offset in a complete object of class `from` (a named object of
 	// class type or a temporary, whose class is its dynamic type); or

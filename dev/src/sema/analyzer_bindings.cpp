@@ -163,17 +163,9 @@ VariableEntity* Decomposer::object()
 		declarator.declarator, specifiers_.type, scope_, decl_.location, &specifiers_);
 	analyzer_.auto_declarator_ = saved_auto;
 	const bool reference = info.type->is_reference();
-	info.type = analyzer_.deduced_type(specifiers_, info.type, declarator.initializer, scope_, info.location);
-	// An array initializer without a ref-qualifier makes e an array whose
-	// elements it initializes (11.5p1): outside PA30, which binds a
-	// reference to the array instead (`auto& [a, b] = array`).
-	const syntax::Initializer& written = *declarator.initializer;
-	const syntax::Expr* single = written.kind == syntax::InitializerKind::Parenthesized
-		? (written.arguments.size == 1 ? written.arguments[0] : nullptr)
-		: written.expression;
-	if (!reference && single != nullptr && single->facts != nullptr && single->facts->type != nullptr &&
-		single->facts->type->kind == TypeKind::Array)
-		analyzer_.error(decl_.location, "a structured binding copy of an array is not supported (bind by reference)");
+	info.type = analyzer_.deduced_type(
+		specifiers_, info.type, declarator.initializer, scope_, info.location, !reference);
+	declarator.initializer->array_copy = !reference && info.type->kind == TypeKind::Array;
 	Binding* binding = analyzer_.declare_variable(specifiers_, info, declarator.initializer, scope_, info.location);
 	declarator.declared = binding;
 	dependent_ = binding->dependent;

@@ -322,6 +322,10 @@ C++23 form uses PA30's extension diagnostic in earlier modes.
 Structured bindings support the existing array, member and tuple-protocol
 forms, including references and local tuple-trait declarations without the STL.
 Preserve the hidden object's lifetime, cv/ref category and lookup behavior.
+A by-value array binding creates a backing array and evaluates its source
+once. Initialize each element in subscript order using the written
+initialization form. A reference binding aliases the original array.
+A C++17 array prvalue supplies the backing array's elements directly.
 C++17 direct-list initialization of fixed-underlying enums requires one
 nonnarrowing element; copy-list initialization remains distinct.
 For enum-to-integer list initialization, check the enum's value range.

@@ -743,6 +743,11 @@ void FunctionLowering::initialize_storage(
 {
 	// 8.5: an object from its initializer: a scalar from one expression
 	// (or `{}`, zero), an aggregate element by element.
+	if (initializer->array_copy)
+	{
+		initialize_array_copy(type, place, *initializer, nullptr, location);
+		return;
+	}
 	const syntax::Expr* expr = initializer->kind == syntax::InitializerKind::Parenthesized
 		? (initializer->arguments.size == 1 ? initializer->arguments[0] : nullptr)
 		: initializer->expression;

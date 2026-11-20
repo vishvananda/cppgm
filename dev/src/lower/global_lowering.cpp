@@ -1534,7 +1534,7 @@ bool ProgramLowering::static_parameter_value(const syntax::Expr& expr, const sem
 
 bool ProgramLowering::static_object(const sema::Type* type, const syntax::Initializer* initializer, StaticData& out)
 {
-	if (initializer->kind == syntax::InitializerKind::Parenthesized)
+	if (initializer->array_copy || initializer->kind == syntax::InitializerKind::Parenthesized)
 		return false;
 	const syntax::Expr* expr = initializer->expression;
 	if (expr->kind == syntax::ExprKind::FunctionalCast)

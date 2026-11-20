@@ -916,6 +916,7 @@ Stmt* Parser::parse_for()
 				RangeForStmt* stmt = make<RangeForStmt>(StmtKind::RangeFor, start);
 				stmt->specifiers = specifiers.take(arena_);
 				stmt->declarator = binding_declarator(hidden, ref, start);
+				stmt->array_decomposition_by_value = ref == TokenKind::OP_COMMA;
 				InitDeclarator object = InitDeclarator();
 				object.declarator = binding_declarator(hidden, ref, start);
 				object.initializer = nullptr;

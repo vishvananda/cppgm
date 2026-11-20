@@ -421,4 +421,6 @@ completed nested rows. Preserve the lifetime of explicit initializer
 temporaries, the per-element lifetime of default-argument temporaries, and
 reverse destruction of every completed element if a later initialization
 throws. A completed nonthrowing array member still needs destruction if a
-later member throws.
+later member throws. Apply the same cleanup rules when copying an array for a
+C++17 structured binding. If an element's initialization throws, destroy the
+completed backing elements in reverse order.

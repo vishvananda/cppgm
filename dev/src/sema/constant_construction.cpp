@@ -308,6 +308,15 @@ bool ConstantInterpreter::construct(const Type* type, const ConstPlace& target, 
 	// initializer.
 	if (!step(location))
 		return false;
+	if (init != nullptr && init->array_copy)
+	{
+		const syntax::Expr& expression = syntax::ArrayCopySource(*init);
+		if (expression.facts->category == ValueCategory::PRValue)
+			return materialize(expression, target);
+		ConstPlace source;
+		return object_place(expression, source) &&
+			copy_initialized_value(type, constructor, target, source, location, init->array_element);
+	}
 	const ClassEntity* cls = type->is_reference() || type->kind == TypeKind::Array ? nullptr : ClassOf(type);
 	if (cls == nullptr)
 	{

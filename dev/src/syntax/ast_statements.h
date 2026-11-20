@@ -163,6 +163,7 @@ struct RangeForStmt : Stmt
 	Stmt* body;
 	// Semantics mode: the statement's equivalent (6.5.4p1).
 	mutable const sema::RangeForFacts* facts = nullptr;
+	bool array_decomposition_by_value = false;
 };
 
 struct CaseStmt : Stmt

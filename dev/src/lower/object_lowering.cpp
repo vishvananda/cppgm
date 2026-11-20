@@ -466,7 +466,7 @@ void FunctionLowering::closure_capture(const sema::Capture& capture, const Place
 	if (capture.constructor != nullptr && type->kind != sema::TypeKind::Array)
 		construct_from(capture.constructor, member.storage, address_of(source), location);
 	else if (capture.constructor != nullptr && !copies_storage(capture.constructor))
-		copy_captured_elements(type, capture.constructor, member.storage, address_of(source), location);
+		copy_array_elements(type, capture.constructor, member.storage, address_of(source), location);
 	else if (sema::ClassOf(type) != nullptr || type->kind == sema::TypeKind::Array)
 		copy_object(type, address_of(source), member.storage, location);
 	else
@@ -583,12 +583,36 @@ void FunctionLowering::closure_member_region()
 	construction_ = construction;
 }
 
-void FunctionLowering::copy_captured_elements(const sema::Type* type, const sema::FunctionEntity* constructor,
-	lowir::Value destination, lowir::Value source, uint32_t location)
+void FunctionLowering::initialize_array_copy(const sema::Type* type, const Place& place,
+	const syntax::Initializer& init, const sema::FunctionEntity* constructor, uint32_t location)
 {
-	// 5.1.2p21: an array member's elements (a multidimensional array's as
-	// one sequence) copied from the captured array's in increasing
-	// subscript order by the class's constructor; one that throws destroys
+	const syntax::Expr& expression = syntax::ArrayCopySource(init);
+	const lowir::Value destination = address_of(place);
+	if (expression.facts->category == sema::ValueCategory::PRValue)
+	{
+		materialize_prvalue(expression, destination, location);
+		return;
+	}
+	const lowir::Value source = address(expression);
+	const sema::Type* from = expression.facts->type;
+	const sema::Type* element = type;
+	while (element->kind == sema::TypeKind::Array)
+	{
+		from = from->element;
+		element = element->element;
+	}
+	if (constructor == nullptr && ((from->cv | element->cv) & (sema::kVolatile | sema::kAtomic)) == 0)
+		copy_object(type, source, destination, location);
+	else
+		copy_array_elements(type, constructor, destination, source, location, from, init.array_element);
+}
+
+void FunctionLowering::copy_array_elements(const sema::Type* type, const sema::FunctionEntity* constructor,
+	lowir::Value destination, lowir::Value source, uint32_t location, const sema::Type* source_type,
+	const syntax::Expr* array_element)
+{
+	// Copy elements in increasing subscript order, as one sequence for
+	// multidimensional arrays. A constructor that throws destroys
 	// the elements before it, last first (15.2p2), as construct_elements
 	// does: each element after the first in a region of its own (eight or
 	// fewer), else a loop over an index slot whose handler destroys the
@@ -601,11 +625,42 @@ void FunctionLowering::copy_captured_elements(const sema::Type* type, const sema
 		element = element->element;
 	}
 	const uint64_t size = lowering_.size_of(element, location);
+	const uint32_t operand = static_cast<uint32_t>(locals_.size());
+	if (array_element != nullptr)
+	{
+		const sema::ExprFacts* facts = array_element->facts;
+		if ((facts->flags & sema::kUserConverted) != 0)
+			facts = facts->original;
+		local_index_.set(facts->entity, operand);
+		locals_.emplace_back();
+	}
+	const auto copy = [&](lowir::Value to, lowir::Value from) {
+		if (array_element != nullptr)
+		{
+			locals_[operand].address = from;
+			call_constructor(constructor, to, *array_element, array_element->facts->conversion, location);
+			return;
+		}
+		if (constructor != nullptr)
+		{
+			construct_from(constructor, to, from, location);
+			return;
+		}
+		Place input = Place(), target = Place();
+		input.storage = from;
+		target.storage = to;
+		qualify(input, source_type);
+		qualify(target, element);
+		const lowir::Type storage = lowering_.storage_type(element);
+		store(storage, load(storage, input), target);
+	};
 	// An element's copy whose default arguments make temporaries ends them
 	// with the element (begin_element_temporaries); a default argument that
 	// may throw guards the elements too.
 	bool throws = false;
-	const bool temporaries = element_temporaries(constructor, &throws);
+	const bool defaults = element_temporaries(constructor, &throws);
+	const bool temporaries = defaults || (array_element != nullptr && creates_temporaries(array_element));
+	throws = throws || (array_element != nullptr && may_throw(array_element));
 	const bool guarded = needs_destruction(element) && throws;
 	if (temporaries && throws && count <= 8)
 		before_throwing_call();
@@ -623,7 +678,7 @@ void FunctionLowering::copy_captured_elements(const sema::Type* type, const sema
 				const ElementScope scope = begin_element_temporaries(temporaries, true);
 				// (Operands emitted last first: see FunctionLowering::binary.)
 				const lowir::Value from = element_address(source, i, size);
-				construct_from(constructor, element_address(destination, i, size), from, location);
+				copy(element_address(destination, i, size), from);
 				end_element_temporaries(scope);
 				continue;
 			}
@@ -634,7 +689,7 @@ void FunctionLowering::copy_captured_elements(const sema::Type* type, const sema
 			++explicit_regions_;
 			const ElementScope scope = begin_element_temporaries(temporaries);
 			const lowir::Value from = element_address(source, i, size);
-			construct_from(constructor, element_address(destination, i, size), from, location);
+			copy(element_address(destination, i, size), from);
 			end_element_temporaries(scope);
 			--explicit_regions_;
 			emit_marker(lowir::Opcode::EhEnd, lowir::kNoId);
@@ -683,7 +738,7 @@ void FunctionLowering::copy_captured_elements(const sema::Type* type, const sema
 	const RValue offset = size != 1 ? binary(lowir::BinaryOp::Mul, i64, current, integer(i64, size)) : current;
 	const ElementScope scope = begin_element_temporaries(temporaries);
 	const lowir::Value from = index(i8, ir_model::IPK_ARRAY_ELEMENT, source, offset).value;
-	construct_from(constructor, index(i8, ir_model::IPK_ARRAY_ELEMENT, destination, offset).value, from, location);
+	copy(index(i8, ir_model::IPK_ARRAY_ELEMENT, destination, offset).value, from);
 	end_element_temporaries(scope);
 	if (guarded)
 	{
@@ -945,6 +1000,13 @@ void FunctionLowering::materialize_prvalue(const syntax::Expr& expr, lowir::Valu
 		? static_cast<const syntax::BracedInitList*>(e)
 		: e->kind == syntax::ExprKind::FunctionalCast ? static_cast<const syntax::FunctionalCastExpr*>(e)->list()
 													  : nullptr;
+	if (braced != nullptr && type->kind == sema::TypeKind::Array)
+	{
+		Place array = Place();
+		array.storage = object;
+		aggregate_array_object(type, array, *braced, nullptr, location);
+		return;
+	}
 	const sema::ClassEntity* entity = sema::ClassOf(type);
 	uint32_t count = 0;
 	const bool helper = braced != nullptr && (braced->facts == nullptr || !braced->facts->single_class_element) &&
@@ -1600,10 +1662,15 @@ void FunctionLowering::local_object(const sema::VariableEntity* variable, const 
 		copy_object(type, address_of(source), address_of(place), location);
 		return;
 	}
-	const syntax::BracedInitList* list = initializer != nullptr ? BracedList(*initializer) : nullptr;
+	const syntax::Expr* array_source = initializer != nullptr && initializer->array_copy
+		? &syntax::ArrayCopySource(*initializer)
+		: nullptr;
+	const syntax::BracedInitList* list = initializer != nullptr && array_source == nullptr ? BracedList(*initializer)
+																						   : nullptr;
 	// `T x = T{...}` of an aggregate: the list initializes x itself
 	// (12.8p31), member by member as `T x = {...}` (the course's form).
-	const syntax::Expr* source = initializer != nullptr && initializer->kind == syntax::InitializerKind::Assign
+	const syntax::Expr* source = array_source != nullptr ? WithoutParentheses(array_source)
+		: initializer != nullptr && initializer->kind == syntax::InitializerKind::Assign
 		? WithoutParentheses(initializer->expression)
 		: nullptr;
 	if (!static_local_ && variable->is_constexpr && source != nullptr && source->kind == syntax::ExprKind::Id &&
@@ -1639,9 +1706,9 @@ void FunctionLowering::local_object(const sema::VariableEntity* variable, const 
 	if (conversion_function(staged) && type->kind != sema::TypeKind::Array &&
 		sema::IsAggregateClass(sema::ClassOf(type)) && !lowering_.indirect_result(staged->constructor))
 		generated_slot(lowir::SlotKind::Argobj, lowering_.storage_type(type));
-	const syntax::BracedInitList* elided = source != nullptr && source->kind == syntax::ExprKind::FunctionalCast &&
-			source->facts->entity == nullptr && source->facts->type->unqualified == type->unqualified &&
-			sema::IsAggregateClass(sema::ClassOf(type))
+	const syntax::BracedInitList* elided = type->kind != sema::TypeKind::Array && source != nullptr &&
+			source->kind == syntax::ExprKind::FunctionalCast && source->facts->entity == nullptr &&
+			source->facts->type->unqualified == type->unqualified && sema::IsAggregateClass(sema::ClassOf(type))
 		? static_cast<const syntax::FunctionalCastExpr*>(source)->list()
 		: nullptr;
 	if (list == nullptr && elided != nullptr && !elided->elements.empty())
@@ -1655,7 +1722,8 @@ void FunctionLowering::local_object(const sema::VariableEntity* variable, const 
 	// full-expression (a parenthesized list's arguments together, 1.9p10);
 	// a constructor's call (or an array's) runs in a region when it may
 	// throw.
-	const syntax::Expr* single = initializer == nullptr || list != nullptr ? list
+	const syntax::Expr* single = array_source != nullptr ? array_source
+		: initializer == nullptr || list != nullptr      ? list
 		: initializer->kind == syntax::InitializerKind::Parenthesized
 		? (initializer->arguments.size == 1 ? initializer->arguments[0] : nullptr)
 		: initializer->expression;
@@ -1666,8 +1734,8 @@ void FunctionLowering::local_object(const sema::VariableEntity* variable, const 
 	// form).
 	const bool aggregate = list != nullptr && (list->facts == nullptr || !list->facts->single_class_element) &&
 		(variable->constructor == nullptr || elided != nullptr);
-	const bool moved = source != nullptr && source->kind == syntax::ExprKind::Cast &&
-		(source->facts->flags & sema::kReferenceCast) != 0 &&
+	const bool moved = type->kind != sema::TypeKind::Array && source != nullptr &&
+		source->kind == syntax::ExprKind::Cast && (source->facts->flags & sema::kReferenceCast) != 0 &&
 		sema::ClassOf(source->facts->type) == sema::ClassOf(type) && variable->constructor != nullptr &&
 		copies_storage(variable->constructor) && !sema::ClassOf(type)->empty;
 	const bool constructed = type->kind != sema::TypeKind::Array && !aggregate && !moved;
@@ -1809,6 +1877,11 @@ void FunctionLowering::construct_array(const sema::Type* type, const Place& plac
 	const sema::VariableEntity* variable, uint32_t location)
 {
 	const sema::FunctionEntity* constructor = variable->constructor;
+	if (init != nullptr && init->array_copy)
+	{
+		initialize_array_copy(type, place, *init, constructor, location);
+		return;
+	}
 	// An array of class objects: an aggregate initializer element by
 	// element; otherwise each element default-initialized, in order.
 	if (init != nullptr)
@@ -1848,7 +1921,11 @@ void FunctionLowering::construct_global(lowir::SymbolId global, const sema::Vari
 	Place place = Place();
 	place.storage = lowir::Value::symbol(global);
 	const sema::Type* type = variable->type;
-	const syntax::BracedInitList* list = initializer != nullptr ? BracedList(*initializer) : nullptr;
+	const syntax::Expr* array_source = initializer != nullptr && initializer->array_copy
+		? &syntax::ArrayCopySource(*initializer)
+		: nullptr;
+	const syntax::BracedInitList* list = initializer != nullptr && array_source == nullptr ? BracedList(*initializer)
+																						   : nullptr;
 	if (list == nullptr && variable->constructor == nullptr)
 		list = elided_list(initializer, type);
 	// Its aggregate reference members' temporaries persist with it
@@ -1859,8 +1936,9 @@ void FunctionLowering::construct_global(lowir::SymbolId global, const sema::Vari
 	const size_t first = cleanups_.size();
 	begin_static_initializer();
 	const ProgramLowering::TemporaryNames names = lowering_.begin_temporary_names(variable, global);
-	const syntax::Expr* single = initializer == nullptr ? nullptr
-		: list != nullptr                               ? list
+	const syntax::Expr* single = array_source != nullptr ? array_source
+		: initializer == nullptr                         ? nullptr
+		: list != nullptr                                ? list
 		: initializer->kind == syntax::InitializerKind::Parenthesized
 		? (initializer->arguments.size == 1 ? initializer->arguments[0] : nullptr)
 		: initializer->expression;

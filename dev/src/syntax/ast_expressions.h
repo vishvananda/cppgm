@@ -338,6 +338,14 @@ struct BracedInitList : Expr
 	mutable const Expr* result_source = nullptr;
 };
 
+inline const Expr& ArrayCopySource(const Initializer& initializer)
+{
+	if (initializer.kind == InitializerKind::Parenthesized)
+		return *initializer.arguments[0];
+	const Expr* source = initializer.expression;
+	return source->kind == ExprKind::BracedInit ? *static_cast<const BracedInitList*>(source)->elements[0] : *source;
+}
+
 struct PackExpansionExpr : Expr
 {
 	Expr* pattern;

@@ -362,7 +362,7 @@ private:
 		VariableEntity* variable, const syntax::Attribute* leading, const syntax::Declarator* declarator);
 	bool holds_auto(const Type* type) const;
 	const Type* deduced_type(const Specifiers& specifiers, const Type* declared, const syntax::Initializer* initializer,
-		Scope* scope, uint32_t location);
+		Scope* scope, uint32_t location, bool array_decomposition = false);
 	const Type* replaced_auto(const Type* declared, const Type* type, uint8_t cv);
 	Binding* declare_typedef(const DeclaredName& name, const Type* type, Scope* scope, uint32_t location);
 	// `existing` is the predeclared name of one of GCC's extended floating
@@ -1504,6 +1504,8 @@ private:
 	// resolution; consume it before another overload query can replace them.
 	const Conversion* record_copy(ClassEntity* entity, const Type* target, const syntax::Expr& source,
 		uint32_t location, bool in_place = false, const Candidate* chosen = nullptr, bool complete_object = true);
+	FunctionEntity* initialize_decomposition_array(
+		const Type* type, const syntax::Initializer& init, Scope* scope, uint32_t location);
 	FunctionEntity* initialize_object(
 		const Type* type, const syntax::Initializer& init, Scope* scope, uint32_t location);
 	void constructor_plan(FunctionEntity* constructor, ClassEntity* entity, const syntax::CtorInitializer* list,

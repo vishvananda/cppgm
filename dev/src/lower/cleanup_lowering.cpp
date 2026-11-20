@@ -1966,6 +1966,8 @@ bool FunctionLowering::initializer_may_throw(const syntax::Initializer* init)
 {
 	if (init == nullptr)
 		return false;
+	if (init->array_copy)
+		return may_throw(&syntax::ArrayCopySource(*init)) || may_throw(init->array_element);
 	if (init->kind == syntax::InitializerKind::Parenthesized)
 	{
 		for (const syntax::Expr* argument : init->arguments)

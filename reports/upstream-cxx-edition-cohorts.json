@@ -192,7 +192,7 @@
           "expect": "accept",
           "feature": "generic variadic lambda execution",
           "pr": false,
-          "pending_reason": "GCC accepts placeholders nested in template arguments in C++14; Clang diagnoses this GNU extension. It is outside the required language profile."
+          "exclusion_reason": "GCC accepts placeholders nested in template arguments in C++14; Clang diagnoses this GNU extension. It is outside the required language profile."
         },
         {
           "id": "lambda-generic-variadic-gnu++14",
@@ -202,7 +202,7 @@
           "expect": "accept",
           "feature": "generic variadic lambda execution",
           "pr": false,
-          "pending_reason": "GCC accepts placeholders nested in template arguments in C++14; Clang diagnoses this GNU extension. It is outside the required language profile."
+          "exclusion_reason": "GCC accepts placeholders nested in template arguments in C++14; Clang diagnoses this GNU extension. It is outside the required language profile."
         }
       ]
     },
@@ -217,7 +217,7 @@
           "expect": "accept",
           "feature": "auto deduction across declarations",
           "pr": false,
-          "pending_reason": "Strict native qualification rejects the storage-class specifier on an explicit specialization."
+          "exclusion_reason": "Strict native qualification rejects the storage-class specifier on an explicit specialization."
         },
         {
           "id": "clang-213943abcdc3ff7b3d9d",
@@ -447,8 +447,7 @@
           "action": "run",
           "expect": "accept",
           "feature": "structured binding execution",
-          "pr": false,
-          "pending_reason": "Array decomposition by value needs backing-array copy initialization."
+          "pr": true
         },
         {
           "id": "decomp1-gnu++17",
@@ -457,8 +456,7 @@
           "action": "run",
           "expect": "accept",
           "feature": "structured binding execution",
-          "pr": false,
-          "pending_reason": "Array decomposition by value needs backing-array copy initialization."
+          "pr": true
         },
         {
           "id": "decomp3-c++17",

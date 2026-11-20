@@ -301,11 +301,20 @@ enum class InitializerKind : uint8_t
 
 struct Initializer
 {
+	Initializer() = default;
+	Initializer(InitializerKind kind, Expr* expression, Slice<Expr*> arguments, uint32_t location)
+		: kind(kind), location(location), expression(expression), arguments(arguments)
+	{}
+
 	InitializerKind kind;
+	// The typed backing object of a by-value array decomposition.
+	mutable bool array_copy = false;
+	uint32_t location;
 	// Assign: the clause; Braced: the list.
 	Expr* expression;
 	Slice<Expr*> arguments;
-	uint32_t location;
+	// The typed operand for an element constructor.
+	mutable const Expr* array_element = nullptr;
 };
 
 struct ParameterDeclaration

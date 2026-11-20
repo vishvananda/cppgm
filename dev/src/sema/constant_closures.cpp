@@ -20,7 +20,7 @@ bool ConstantInterpreter::closure_object(const syntax::LambdaExpr& expr, const C
 			return false;
 		if (ClassOf(closure->this_member->type) != nullptr)
 		{
-			if (!copy_closure_capture(
+			if (!copy_initialized_value(
 					closure->this_member->type, closure->this_constructor, member, self, expr.location))
 				return false;
 		}
@@ -47,11 +47,11 @@ bool ConstantInterpreter::closure_capture(const Capture& capture, const ConstPla
 		return false;
 	if (type->is_reference())
 		return write(target, PointerTo(source, type), location);
-	return copy_closure_capture(type, capture.constructor, target, source, location);
+	return copy_initialized_value(type, capture.constructor, target, source, location);
 }
 
-bool ConstantInterpreter::copy_closure_capture(const Type* type, const FunctionEntity* constructor,
-	const ConstPlace& target, const ConstPlace& source, uint32_t location)
+bool ConstantInterpreter::copy_initialized_value(const Type* type, const FunctionEntity* constructor,
+	const ConstPlace& target, const ConstPlace& source, uint32_t location, const syntax::Expr* array_element)
 {
 	if (type->kind == TypeKind::Array && constructor != nullptr && !constructor->trivial)
 	{
@@ -63,10 +63,13 @@ bool ConstantInterpreter::copy_closure_capture(const Type* type, const FunctionE
 		for (uint64_t i = 0; i < type->bound; ++i)
 		{
 			ConstPlace to = target, from = source;
-			to.type = from.type = type->element;
+			to.type = type->element;
+			from.type = source.type->element;
 			to.offset += static_cast<int64_t>(i * stride);
 			from.offset += static_cast<int64_t>(i * stride);
-			if (!copy_closure_capture(type->element, constructor, to, from, location))
+			const size_t first = temporary_mark();
+			if (!copy_initialized_value(type->element, constructor, to, from, location, array_element) ||
+				!end_full_expression(first))
 				return false;
 		}
 		return true;
@@ -74,9 +77,22 @@ bool ConstantInterpreter::copy_closure_capture(const Type* type, const FunctionE
 	if (type->kind != TypeKind::Array && constructor != nullptr)
 	{
 		Argument argument = Argument();
-		argument.bound = true;
-		argument.place = source;
-		return run_constructor(constructor, target, &argument, 1, location);
+		if (array_element == nullptr)
+		{
+			argument.bound = true;
+			argument.place = source;
+			return run_constructor(constructor, target, &argument, 1, location);
+		}
+		argument.expr = array_element;
+		argument.conversion = array_element->facts->conversion;
+		const ExprFacts* facts = array_element->facts;
+		if ((facts->flags & kUserConverted) != 0)
+			facts = facts->original;
+		const size_t first = locals_.size();
+		locals_.push_back(Local{ facts->entity, source });
+		const bool made = run_constructor(constructor, target, &argument, 1, location);
+		locals_.resize(first);
+		return made;
 	}
 	ConstValue value;
 	return read(source, value, location) && write(target, value, location);

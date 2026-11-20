@@ -1514,11 +1514,38 @@ const Conversion* Analyzer::record_copy(ClassEntity* entity, const Type* target,
 	return record_conversion(facts, conversion);
 }
 
+FunctionEntity* Analyzer::initialize_decomposition_array(
+	const Type* type, const syntax::Initializer& init, Scope* scope, uint32_t location)
+{
+	const ExprFacts* source = typed(syntax::ArrayCopySource(init), scope);
+	ClassEntity* cls = ObjectClass(type);
+	if (source == nullptr || cls == nullptr || source->category == ValueCategory::PRValue)
+		return nullptr;
+	const Type* element = source->type;
+	while (element->kind == TypeKind::Array)
+		element = element->element;
+	// The element occupies storage in the source array. The written array
+	// expression determines its value category and is evaluated once.
+	syntax::IdExpr* view = implicit_node<syntax::IdExpr>(location);
+	view->kind = syntax::ExprKind::Id;
+	ExprFacts* argument = new_facts(*view, element, source->category);
+	argument->entity = new_entity<VariableEntity>(EntityKind::Variable, nullptr, scope, element);
+	syntax::Expr* operand = view;
+	expression_scope_ = scope;
+	const ConstructionKind kind = init.kind == syntax::InitializerKind::Assign ? ConstructionKind::Copy
+																			   : ConstructionKind::Direct;
+	FunctionEntity* constructor = select_constructor(cls, { &operand, 1 }, kind, location);
+	init.array_element = constructor != nullptr ? view : nullptr;
+	return constructor;
+}
+
 FunctionEntity* Analyzer::initialize_object(
 	const Type* type, const syntax::Initializer& init, Scope* scope, uint32_t location)
 {
 	// 8.5: an object (or reference) of `type` from its initializer; the
 	// constructor a class object runs is returned.
+	if (init.array_copy)
+		return initialize_decomposition_array(type, init, scope, location);
 	if (!c_source_ && !type->is_reference() && type->kind != TypeKind::Array)
 		if (ClassEntity* entity = ObjectClass(type))
 			return initialize_class(entity, type, init, scope, location);
