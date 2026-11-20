@@ -1022,7 +1022,7 @@ bool Analyzer::implicit_sequence(const syntax::Expr& argument, const Type* param
 	{
 		// 13.3.3.1p? via 13.4: the argument resolves to the function the
 		// parameter's type selects, an exact match.
-		const FunctionEntity* selected = select_overloaded(facts, parameter);
+		const FunctionEntity* selected = select_overloaded(facts, parameter, argument.location);
 		if (selected == nullptr || ((facts->flags & kBoundMember) != 0 && !selected->is_static))
 			return false;
 		out = Conversion();

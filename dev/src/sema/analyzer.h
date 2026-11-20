@@ -793,7 +793,8 @@ private:
 	// whose type matches the target type; null if none or ambiguous.
 	// `explicit_cast`: a static_cast's target (5.2.9p12 also takes a
 	// derived class's member to a base's pointer).
-	FunctionEntity* select_overloaded(const ExprFacts* facts, const Type* target, bool explicit_cast = false);
+	FunctionEntity* select_overloaded(
+		const ExprFacts* facts, const Type* target, uint32_t location, bool explicit_cast = false);
 	void resolve_overloaded(const syntax::Expr& expr, FunctionEntity* function);
 	static bool NonstaticMemberName(const ExprFacts* facts);
 	bool check_resolved(const syntax::Expr& expr);
@@ -1092,7 +1093,8 @@ private:
 	void deduce_overloaded(const Type* p, const FunctionList* functions, uint32_t depth, TypeList& arguments);
 	FunctionEntity* deduce_for_call(FunctionEntity* primary, const syntax::Slice<syntax::Expr*>& arguments,
 		const TypeList* explicit_arguments = nullptr);
-	FunctionEntity* deduce_for_target(FunctionEntity* primary, const Type* function, const Type* given = nullptr);
+	FunctionEntity* deduce_for_target(
+		FunctionEntity* primary, const Type* function, const Type* given, uint32_t location);
 	FunctionEntity* deduce_for_conversion(FunctionEntity* primary, const Type* required, bool named = false);
 	const Type* without_level_cv(const Type* type);
 	FunctionEntity* deduce_for_operand(FunctionEntity* primary, const ExprFacts* from);

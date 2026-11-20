@@ -1158,7 +1158,8 @@ FunctionEntity* Analyzer::deduce_for_call(
 	return deduced_specialization(primary, arguments, &call_arguments);
 }
 
-FunctionEntity* Analyzer::deduce_for_target(FunctionEntity* primary, const Type* function, const Type* given)
+FunctionEntity* Analyzer::deduce_for_target(
+	FunctionEntity* primary, const Type* function, const Type* given, uint32_t location)
 {
 	// 14.8.2.2: the template's function type against the target's, a
 	// top-level T&& against an lvalue reference taken as T (14.8.2.5p10);
@@ -1171,9 +1172,21 @@ FunctionEntity* Analyzer::deduce_for_target(FunctionEntity* primary, const Type*
 	for (uint32_t i = 0; given != nullptr && i < given->param_count && i < head->count; ++i)
 		arguments[i] = given->params[i];
 	const uint32_t depth = head->count != 0 ? head->parameters[0]->depth : 0;
-	if (!deduce_type(declaration_pattern(primary->type->canonical, function, depth), function, depth, arguments, false))
+	const Type* written = primary->type->canonical;
+	// N4659 [temp.deduct.funcaddr]: a placeholder return type is a
+	// non-deduced context. Instantiate the chosen definition to get its type.
+	const bool placeholder = primary->placeholder_result;
+	if (placeholder)
+	{
+		written = signature_of(written);
+		function = signature_of(function);
+	}
+	if (!deduce_type(declaration_pattern(written, function, depth), function, depth, arguments, false))
 		return nullptr;
-	return deduced_specialization(primary, arguments);
+	FunctionEntity* selected = deduced_specialization(primary, arguments);
+	if (placeholder && selected != nullptr && !require_deduced(selected, location))
+		return nullptr;
+	return selected;
 }
 
 FunctionEntity* Analyzer::deduce_for_conversion(FunctionEntity* primary, const Type* required, bool named)

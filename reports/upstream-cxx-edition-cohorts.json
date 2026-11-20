@@ -913,7 +913,7 @@
           "action": "compile",
           "expect": "accept",
           "feature": "later-edition template argument deduction",
-          "pending_reason": "Deduction from a member function pointer target does not select the member template with an undeduced auto result."
+          "pr": true
         },
         {
           "id": "clang-acd26658643ad0017a4b",

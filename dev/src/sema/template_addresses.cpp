@@ -286,7 +286,7 @@ const Type* Analyzer::address_argument(const syntax::Expr& expr, const Type* tar
 	ExprFacts* facts = facts_of(expr);
 	if ((facts->flags & kOverloadSet) != 0)
 	{
-		FunctionEntity* function = target != nullptr ? select_overloaded(facts, target) : nullptr;
+		FunctionEntity* function = target != nullptr ? select_overloaded(facts, target, expr.location) : nullptr;
 		if (function == nullptr)
 		{
 			substitution_error(expr.location, "no overloaded function matches the template parameter's type");

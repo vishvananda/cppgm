@@ -1113,7 +1113,7 @@ const Conversion* Analyzer::convert(const syntax::Expr& expr, const Type* target
 	ExprFacts* facts = facts_of(expr);
 	if ((facts->flags & kOverloadSet) != 0)
 	{
-		FunctionEntity* function = select_overloaded(facts, target);
+		FunctionEntity* function = select_overloaded(facts, target, expr.location);
 		if (function == nullptr)
 			return substitution_error(expr.location, "no overloaded function matches the target type"), nullptr;
 		resolve_overloaded(expr, function);
@@ -1187,7 +1187,8 @@ void Analyzer::convert_to_bool(const syntax::Expr& expr)
 	convert(expr, boolean, true, true);
 }
 
-FunctionEntity* Analyzer::select_overloaded(const ExprFacts* facts, const Type* target, bool explicit_cast)
+FunctionEntity* Analyzer::select_overloaded(
+	const ExprFacts* facts, const Type* target, uint32_t location, bool explicit_cast)
 {
 	// 13.4p1: the function whose type is the target's function type; a
 	// non-template is preferred (13.4p4). Member functions match a
@@ -1255,7 +1256,7 @@ FunctionEntity* Analyzer::select_overloaded(const ExprFacts* facts, const Type* 
 		const Type* given = node->binding->type != nullptr && node->binding->type->kind == TypeKind::Pack
 			? node->binding->type
 			: nullptr;
-		FunctionEntity* function = deduce_for_target(primary, wanted->canonical, given);
+		FunctionEntity* function = deduce_for_target(primary, wanted->canonical, given, location);
 		if (function == nullptr || function->type->canonical != wanted->canonical)
 			continue;
 		bool known = false;
@@ -3101,7 +3102,7 @@ ExprFacts* Analyzer::explicit_conversion(
 	if ((source->flags & kOverloadSet) != 0)
 	{
 		FunctionEntity* function = select_overloaded(
-			source, target, cast != TokenKind::KW_CONST_CAST && cast != TokenKind::KW_REINTERPET_CAST);
+			source, target, expr.location, cast != TokenKind::KW_CONST_CAST && cast != TokenKind::KW_REINTERPET_CAST);
 		if (function == nullptr)
 			return substitution_error(expr.location, "no overloaded function matches the cast's type"), nullptr;
 		resolve_overloaded(*operand, function);

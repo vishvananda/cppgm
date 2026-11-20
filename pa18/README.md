@@ -234,6 +234,11 @@ the implemented surface, including:
   its declaration point. If that lookup finds nothing, a later member
   declaration does not hide a function found through argument-dependent
   lookup during substitution
+- an overloaded function's address can be selected using a target function
+  type. Deduce template parameters from the written parameter types when
+  the return type is a placeholder. Instantiate the selected body to
+  obtain its return type and compare the complete function type. See
+  N4659 `[temp.deduct.funcaddr]`.
 - dependent-call, dependent-alias, and no-eager-instantiation behavior when the
   primary assertion is a single PA18-owned feature rather than a broad
   multi-feature composition
