@@ -622,6 +622,10 @@ void Analyzer::apply_user_conversion(const ExprFacts* from, Conversion& conversi
 			}
 		}
 	}
+	// Overload resolution selected this conversion. Its exception
+	// specification is needed even in an unevaluated operand (CWG 1330).
+	if (unevaluated_ != 0 && function->noexcept_pending)
+		function_nothrow(function);
 	odr_use(const_cast<FunctionEntity*>(function), true);
 	if (!function->nothrow)
 		++potentially_throwing_;

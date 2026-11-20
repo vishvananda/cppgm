@@ -1254,7 +1254,7 @@ private:
 
 	// ------------------- aggregates, bit-fields (lower/aggregate_lowering.cpp)
 	lowir::Value path_address(const AddressPath& path);
-	bool aggregate_stores(const sema::ClassEntity* entity);
+	bool aggregate_needs_initialization(const sema::ClassEntity* entity);
 	void aggregate_class(const sema::ClassEntity* entity, uint8_t cv, const AddressPath& path,
 		const syntax::BracedInitList* list, uint32_t& next, uint32_t location);
 	void aggregate_default_member(const sema::ClassEntity* owner, const sema::VariableEntity* member,

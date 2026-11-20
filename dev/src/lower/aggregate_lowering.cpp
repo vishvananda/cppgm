@@ -216,23 +216,26 @@ FunctionLowering::PathStep FunctionLowering::element_step(const sema::Type* elem
 
 // ------------------------------------------------------- class aggregates
 
-bool FunctionLowering::aggregate_stores(const sema::ClassEntity* entity)
+bool FunctionLowering::aggregate_needs_initialization(const sema::ClassEntity* entity)
 {
 	for (const sema::BaseClass* base = entity->bases; base != nullptr; base = base->next)
 	{
 		const sema::ClassEntity* cls = static_cast<const sema::ClassEntity*>(base->base);
-		if (!sema::IsAggregateClass(cls) || aggregate_stores(cls))
+		if (!sema::IsAggregateClass(cls) || aggregate_needs_initialization(cls))
 			return true;
 	}
-	// Whether initializing the aggregate stores anything: every member but
-	// one of empty class type does.
+	// A member with a default initializer can have effects even when its
+	// class has no payload to store.
 	for (const sema::DataMember* member = entity->members; member != nullptr; member = member->next)
 	{
 		if (member->bit_field && member->variable->name == nullptr)
 			continue;
+		if (member->variable->kind == sema::EntityKind::Variable &&
+			static_cast<const sema::VariableEntity*>(member->variable)->member_initializer != nullptr)
+			return true;
 		const sema::Type* type = member->variable->type;
 		const sema::ClassEntity* cls = type->is_reference() ? nullptr : object_class(type);
-		if (cls == nullptr || !sema::IsAggregateClass(cls) || aggregate_stores(cls))
+		if (cls == nullptr || !sema::IsAggregateClass(cls) || aggregate_needs_initialization(cls))
 			return true;
 	}
 	return false;
@@ -784,7 +787,10 @@ void FunctionLowering::aggregate_object(const sema::Type* type, const AddressPat
 	// A class aggregate from a braced list; a named object's address is
 	// taken first when anything is stored.
 	const sema::ClassEntity* entity = sema::ClassOf(type);
-	if (!aggregate_stores(entity))
+	// A written initializer can call a conversion function even when it
+	// initializes an empty class and transfers no bytes.
+	if ((list == nullptr || (list->elements.empty() && list->result_source == nullptr)) &&
+		!aggregate_needs_initialization(entity))
 		return;
 	if (root_address)
 		path_address(path);

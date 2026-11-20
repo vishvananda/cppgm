@@ -483,7 +483,8 @@ PA12 supports the following in addition to the PA11 subset:
   and conversion machinery
 - an initializer expression that can implicitly initialize a subaggregate
   consumes one clause for the whole member. Apply brace elision to its
-  children when the expression cannot initialize that member. See N3485
+  children when the expression cannot initialize that member. Evaluate
+  initializers of empty members for their side effects. See N3485
   `[dcl.init.aggr]`.
 - single-element scalar list initialization preserves the direct or copy
   initialization context when choosing conversion functions. Direct-list
