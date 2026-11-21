@@ -1,5 +1,5 @@
-<svg data-original-label="Boost compile CPU vs gcc" data-original-message="4.64×" data-original-color="14532d" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="Boost compile CPU vs gcc; AMD EPYC 9V74 80-Core Processor; measured 992888a62d0d19fee6e2973c68195aed2b02a9b7; 114 commits behind main: stale">
-  <title>Boost compile CPU vs gcc; AMD EPYC 9V74 80-Core Processor; measured 992888a62d0d19fee6e2973c68195aed2b02a9b7; 114 commits behind main: stale</title>
+<svg data-original-label="Boost compile CPU vs gcc" data-original-message="4.64×" data-original-color="14532d" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="Boost compile CPU vs gcc; AMD EPYC 9V74 80-Core Processor; measured 992888a62d0d19fee6e2973c68195aed2b02a9b7; 123 commits behind main: stale">
+  <title>Boost compile CPU vs gcc; AMD EPYC 9V74 80-Core Processor; measured 992888a62d0d19fee6e2973c68195aed2b02a9b7; 123 commits behind main: stale</title>
   <defs><clipPath id="badge"><rect width="120" height="24" rx="4"/></clipPath></defs>
   <g clip-path="url(#badge)">
     <rect width="64" height="24" fill="#555"/>
