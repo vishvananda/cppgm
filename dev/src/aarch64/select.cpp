@@ -543,8 +543,9 @@ void Selector::run()
 			if (!word_accesses_.empty() && word_accesses_[i] && register_access(inst))
 				continue;
 			// Late address rewriting can leave integer arithmetic with no
-			// remaining readers.
-			if (level_ && inst.op == Opcode::Binary && inst.type.is_integer() && uses_[inst.result] == 0)
+			// remaining readers, and minimum formation a comparison.
+			if (level_ && ((inst.op == Opcode::Binary && inst.type.is_integer()) || inst.op == Opcode::Compare) &&
+				uses_[inst.result] == 0)
 				continue;
 			if (inst.op == Opcode::Call && calls_[call_indices_[i]].tail)
 			{

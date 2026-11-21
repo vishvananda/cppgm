@@ -188,6 +188,8 @@ bool floating_effects(const Instruction& ins, Effects& e)
 	case Op::Fmul:
 	case Op::Fdiv:
 	case Op::Fcsel:
+	case Op::Fminnm:
+	case Op::Fmaxnm:
 		e.fp_def = fp(ins.rd);
 		e.fp_use = fp(ins.rn) | fp(ins.rm);
 		return true;

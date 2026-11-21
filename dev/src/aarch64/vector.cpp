@@ -29,6 +29,11 @@ InstId Selector::vector_combination(const lowir::Instruction& inst)
 	case VectorOp::Pmullw:
 	case VectorOp::Pmulld:
 		return packed_multiply_accumulate(inst);
+	case VectorOp::Minps:
+	case VectorOp::Minpd:
+	case VectorOp::Maxps:
+	case VectorOp::Maxpd:
+		return lane_bound(inst);
 	case VectorOp::Punpcklbw:
 	case VectorOp::Punpcklwd:
 		return vector_extension(inst);
@@ -361,8 +366,24 @@ const Pattern patterns[] = {
 };
 }
 
+namespace {
+// A literal that is neither NaN nor a zero of either sign. A bound returns
+// its second operand when the first is NaN or equal to it, as FMINNM and
+// FMAXNM do when that operand is such a number; they differ only for a
+// signaling NaN, which C++ code is not assumed to hold (as in GCC and Clang).
+bool number_bound(const FunctionBody& body, Value v, bool wide)
+{
+	if (!v.is(ValueKind::Float))
+		return false;
+	const uint64_t bits = body.literals[v.index].low;
+	const uint64_t magnitude = bits & (wide ? ~(uint64_t(1) << 63) : 0x7fffffffu);
+	const uint64_t infinity = wide ? uint64_t(0x7ff) << 52 : 0x7f800000u;
+	return magnitude && magnitude <= infinity;
+}
+}
+
 // Two scalar values can feed a packed doubleword pair or a scalar bound
-// directly from their registers.
+// directly from their registers. A bound may take them in either order.
 InstId Selector::combine_float_pair(const lowir::Instruction& first)
 {
 	const auto from = static_cast<VectorOp>(first.sub);
@@ -373,11 +394,12 @@ InstId Selector::combine_float_pair(const lowir::Instruction& first)
 	if (second.op != Opcode::Vector || second.sub != first.sub || second.next == kNoId || uses_[second.result] != 1)
 		return kNoId;
 	const auto& merge = body_.instructions[second.next];
-	if (merge.op != Opcode::Vector || !(merge.ops[0] == Value::temp(first.result)) ||
-		!(merge.ops[1] == Value::temp(second.result)))
+	const bool reversed = merge.ops[0] == Value::temp(second.result);
+	if (merge.op != Opcode::Vector || !(merge.ops[reversed ? 1 : 0] == Value::temp(first.result)) ||
+		!(merge.ops[reversed ? 0 : 1] == Value::temp(second.result)))
 		return kNoId;
 	const auto op = static_cast<VectorOp>(merge.sub);
-	if (wide && op == VectorOp::Unpcklpd)
+	if (wide && op == VectorOp::Unpcklpd && !reversed)
 	{
 		const Type type = Type::scalar(TypeKind::F64);
 		const unsigned lhs = fp_operand(first.ops[0], type, 16), rhs = fp_operand(second.ops[0], type, 17);
@@ -397,11 +419,79 @@ InstId Selector::combine_float_pair(const lowir::Instruction& first)
 		!(extract.ops[0] == Value::temp(merge.result)))
 		return kNoId;
 	const Type type = extract.type;
-	const unsigned lhs = fp_operand(first.ops[0], type, 16), rhs = fp_operand(second.ops[0], type, 17);
+	const auto& left = reversed ? second : first;
+	const auto& right = reversed ? first : second;
+	const unsigned lhs = fp_operand(left.ops[0], type, 16), rhs = fp_operand(right.ops[0], type, 17);
 	const unsigned dest = vectors_[extract.result] == kNoId ? 16 : vectors_[extract.result];
+	scalar_bound(maximum, wide, dest, lhs, rhs, number_bound(body_, right.ops[0], wide));
+	save_fp(dest, extract.result);
+	return merge.next;
+}
+
+// A bound is FCMP and FCSEL, which select the second operand when the
+// first is NaN or equal to it, or FMINNM or FMAXNM for a second operand
+// number_bound accepts.
+void Selector::scalar_bound(bool maximum, bool wide, unsigned dest, unsigned lhs, unsigned rhs, bool number)
+{
 	const unsigned precision = wide ? 1u << 22 : 0;
-	out_.emit(Op::Fcmp, 0, lhs, rhs, precision);
-	out_.emit(Op::Fcsel, dest, lhs, rhs, precision | ((maximum ? 12u : 4u) << 12));
+	if (number)
+		out_.emit(maximum ? Op::Fmaxnm : Op::Fminnm, dest, lhs, rhs, precision);
+	else
+	{
+		out_.emit(Op::Fcmp, 0, lhs, rhs, precision);
+		out_.emit(Op::Fcsel, dest, lhs, rhs, precision | ((maximum ? 12u : 4u) << 12));
+	}
+}
+
+// Whether the only reader of a new vector, among the next four instructions
+// of its block, is a bound that lane_bound selects, which reads only the
+// low lane.
+bool Selector::low_lane_only(const lowir::Instruction& made) const
+{
+	if (uses_[made.result] != 1)
+		return false;
+	const Value v = Value::temp(made.result);
+	InstId id = made.next;
+	for (unsigned n = 0; n < 4 && id != kNoId; ++n, id = body_.instructions[id].next)
+	{
+		const auto& inst = body_.instructions[id];
+		if (!(inst.ops[0] == v) && !(inst.ops[1] == v) && !(inst.ops[2] == v))
+			continue;
+		const auto op = static_cast<VectorOp>(inst.sub);
+		const bool wide = op == VectorOp::Minpd || op == VectorOp::Maxpd;
+		if (inst.op != Opcode::Vector || (!wide && op != VectorOp::Minps && op != VectorOp::Maxps) ||
+			inst.next == kNoId || uses_[inst.result] != 1)
+			return false;
+		const auto& extract = body_.instructions[inst.next];
+		return extract.op == Opcode::Vector &&
+			static_cast<VectorOp>(extract.sub) == (wide ? VectorOp::Tof64 : VectorOp::Tof32) &&
+			extract.ops[0] == Value::temp(inst.result);
+	}
+	return false;
+}
+
+// The low lane of a minimum or maximum read only by the next extraction of
+// that lane is the scalar bound of the operands' low lanes.
+InstId Selector::lane_bound(const lowir::Instruction& merge)
+{
+	const auto op = static_cast<VectorOp>(merge.sub);
+	const bool wide = op == VectorOp::Minpd || op == VectorOp::Maxpd;
+	if (merge.next == kNoId || uses_[merge.result] != 1)
+		return kNoId;
+	const auto& extract = body_.instructions[merge.next];
+	if (extract.op != Opcode::Vector ||
+		static_cast<VectorOp>(extract.sub) != (wide ? VectorOp::Tof64 : VectorOp::Tof32) ||
+		!(extract.ops[0] == Value::temp(merge.result)))
+		return kNoId;
+	const Value second = merge.ops[1];
+	const InstId made = second.is(ValueKind::Temp) ? body_.temps[second.index].def : kNoId;
+	const auto from = wide ? VectorOp::Fromf64 : VectorOp::Fromf32;
+	const bool number = made != kNoId && body_.instructions[made].op == Opcode::Vector &&
+		static_cast<VectorOp>(body_.instructions[made].sub) == from &&
+		number_bound(body_, body_.instructions[made].ops[0], wide);
+	const unsigned lhs = vector_value(merge.ops[0], 16), rhs = vector_value(second, 17);
+	const unsigned dest = vectors_[extract.result] == kNoId ? 16 : vectors_[extract.result];
+	scalar_bound(op == VectorOp::Maxps || op == VectorOp::Maxpd, wide, dest, lhs, rhs, number);
 	save_fp(dest, extract.result);
 	return merge.next;
 }
@@ -462,9 +552,13 @@ void Selector::vector_instruction(const lowir::Instruction& inst)
 		}
 		if (type.is_float())
 		{
-			// The scalar write clears the other lanes of the new vector.
-			const unsigned source = fp_operand(inst.ops[0], type, 16);
-			out_.emit(Op::FmovFP, dest, source, 0, narrow ? 0 : 1u << 22);
+			// The scalar write clears the other lanes of the new vector, as
+			// does each write of a literal or a reload into the destination.
+			// A vector read only by a lane bound needs no clear lanes.
+			const bool held = inst.ops[0].is(ValueKind::Temp) && vectors_[inst.ops[0].index] != kNoId;
+			const unsigned source = fp_operand(inst.ops[0], type, dest);
+			if (source != dest || (held && !low_lane_only(inst)))
+				out_.emit(Op::FmovFP, dest, source, 0, narrow ? 0 : 1u << 22);
 		}
 		else
 		{
