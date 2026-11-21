@@ -71,6 +71,7 @@ private:
 	std::vector<CallRegisters> call_registers() const;
 	void allocate();
 	void call_result_homes();
+	void spill_homes(const std::vector<LiveRange>& ranges);
 	void parameter_homes(opt::Cfg& cfg);
 	void register_objects();
 	bool register_access(const lowir::Instruction& inst);

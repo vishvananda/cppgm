@@ -1426,6 +1426,18 @@ void Selector::allocate()
 	if (!object_words_.empty())
 		frame_ = reused_slot_tail(body_, slots_, object_words_, slot_base);
 	call_result_homes();
+	spill_homes(ranges);
+}
+
+// The frame homes of the ranges left without a register, a call result
+// copy slot or a home already; then the aliases take their representatives'
+// registers and homes. Ranges that never overlap share a spill slot.
+void Selector::spill_homes(const std::vector<LiveRange>& ranges)
+{
+	const auto home = [&](TempId id) {
+		const auto type = body_.temps[id].type;
+		return reserve((storage_bytes(type) + 7) & ~uint64_t(7), std::max(8u, data_alignment(type)));
+	};
 	machine::IntervalSlots scalar_spills, vector_spills;
 	for (const auto& range : ranges)
 	{
