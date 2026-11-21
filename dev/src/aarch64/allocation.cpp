@@ -4,6 +4,7 @@
 #include "machine/frame_lifetimes.h"
 #include "machine/interval_slots.h"
 #include "machine/register_pressure.h"
+#include "machine/shrink_region.h"
 
 #include <algorithm>
 #include <cmath>
@@ -238,6 +239,76 @@ bool live_into(const LiveRange& range, const Segments& segments, const std::vect
 		each_interval(range, segments, [&](uint32_t a, uint32_t b) {
 			const auto it = std::lower_bound(positions.begin(), positions.end(), a);
 			live |= it != positions.end() && *it <= b;
+		});
+	return live;
+}
+
+// The positions [first, last] of the entry and the short returns it
+// enters when shrink_wrap.cpp can run them without the frame, found on
+// LowIR with the region analysis it uses (its narrowest plan: other blocks
+// may need the frame for spills). A block needs the frame when it calls, or
+// names a slot, a symbol or a floating value. The positions are those of
+// live_ranges.
+std::vector<uint32_t> frameless_spans(const FunctionBody& body, const opt::Cfg& cfg)
+{
+	std::vector<uint32_t> spans;
+	const auto n = static_cast<uint32_t>(body.layout.size());
+	if (n < 2 || cfg.succ_first.empty())
+		return spans;
+	std::vector<uint32_t> index(body.blocks.size(), kNoId), first(n), last(n);
+	for (uint32_t k = 0; k < n; ++k)
+		index[body.layout[k]] = k;
+	machine::ShrinkGraph graph;
+	graph.succs.resize(n);
+	graph.needs.assign(n, 0);
+	graph.tabled.assign(n, 0);
+	graph.returns.assign(n, 0);
+	graph.short_return.assign(n, 0);
+	graph.counts.assign(n, 0);
+	uint32_t at = 2;
+	for (uint32_t k = 0; k < n; ++k)
+	{
+		const BlockId b = body.layout[k];
+		first[k] = k ? at : 0;
+		for (InstId i = body.blocks[b].first; i != kNoId; i = body.instructions[i].next, at += 2)
+		{
+			const auto& inst = body.instructions[i];
+			bool needs = inst.op == Opcode::Call || inst.type.is_float() || inst.type.is_vector();
+			opt::for_each_operand(body, inst,
+				[&](Value v) { needs |= v.is(ValueKind::Slot) || v.is(ValueKind::Symbol) || v.is(ValueKind::Float); });
+			graph.needs[k] |= needs;
+			graph.tabled[k] |= inst.op == Opcode::Switch;
+			graph.returns[k] = inst.op == Opcode::Return;
+			++graph.counts[k];
+		}
+		last[k] = at + 1;
+		at += 2;
+		for (uint32_t s = cfg.succ_first[b]; s < cfg.succ_first[b + 1]; ++s)
+			graph.succs[k].push_back(index[cfg.succs[s]]);
+		graph.short_return[k] = !graph.needs[k] && graph.returns[k] && graph.counts[k] <= 4;
+	}
+	std::vector<uint8_t> framed;
+	machine::framed_blocks(graph, framed);
+	machine::ShrinkRegion region;
+	if (framed[0] || !machine::shrink_region(graph, framed, machine::ShrinkPlan::Minimal, 0, 0, region))
+		return spans;
+	for (uint32_t k = 0; k < n; ++k)
+		if (region.region[k] || region.copied[k])
+		{
+			spans.push_back(first[k]);
+			spans.push_back(last[k]);
+		}
+	return spans;
+}
+
+// Whether the range is live within one of the spans.
+bool live_within(const LiveRange& range, const Segments& segments, const std::vector<uint32_t>& spans)
+{
+	bool live = false;
+	if (!spans.empty())
+		each_interval(range, segments, [&](uint32_t a, uint32_t b) {
+			for (size_t k = 0; !live && k < spans.size(); k += 2)
+				live = a <= spans[k + 1] && spans[k] <= b;
 		});
 	return live;
 }
@@ -745,11 +816,28 @@ public:
 		return rare_[root] == 1;
 	}
 
+	// Whether a member is live within the spans, found once for each group.
+	bool member_within(TempId root, const Segments& segments, const std::vector<uint32_t>& spans)
+	{
+		if (spans.empty())
+			return false;
+		if (within_.empty())
+			within_.assign(regs_.size(), 0);
+		if (!within_[root])
+		{
+			bool live = false;
+			groups_.each_member(
+				root, [&](uint32_t index) { live = live || live_within(ranges_[index], segments, spans); });
+			within_[root] = live ? 1 : 2;
+		}
+		return within_[root] == 1;
+	}
+
 private:
 	const std::vector<LiveRange>& ranges_;
 	PhiGroups groups_;
 	std::vector<uint32_t> regs_;
-	std::vector<uint8_t> assigned_, rare_;
+	std::vector<uint8_t> assigned_, rare_, within_;
 };
 
 } // namespace
@@ -962,6 +1050,10 @@ void Selector::allocate()
 	const uint64_t cold_budget = single ? ~uint64_t(0)
 										: (block_weights_.empty() ? 0 : block_weights_[body_.layout.front()] / 2);
 	GroupRegisters groups(body_, aliases_, ranges, segments, facts.copies, calls);
+	const auto frameless_blocks = !minimize_size_ && !named_.darwin && !out_.exceptions && !dynamic_stack_ &&
+			body_.code_labels.empty() && !calls.empty()
+		? frameless_spans(body_, cfg)
+		: std::vector<uint32_t>();
 	constexpr uint32_t high_caller_simd = 0xfffc0000; // v18 through v31, clear of argument and scratch registers.
 	RegisterBank general(segments, slots), simd(segments, slots);
 	std::vector<uint32_t> simd_web_regs;
@@ -969,12 +1061,15 @@ void Selector::allocate()
 	uint32_t saved = dynamic_stack_ ? 1u << 28 : 0;
 	// A group whose members cross only rare calls saves caller registers
 	// around them, so it starts in a preserved register only when one is
-	// saved already.
+	// saved already. A group with a member in the entry's frameless region
+	// does not start in one.
 	const auto rare = [&](const LiveRange& range) {
 		return !live_into(range, segments, facts.landings) && cold_crossings(range, segments, calls, cold_budget);
 	};
 	const auto first_choice = [&](TempId group) {
 		const uint32_t all = (dynamic_stack_ ? 0x1ffu : 0x3ffu) << 19;
+		if (groups.member_within(group, segments, frameless_blocks))
+			return 0u;
 		return cold_calls && groups.rare_calls_only(group, segments, calls, rare) ? all & saved : all;
 	};
 	for (uint32_t i = 0; i < ranges.size(); ++i)
