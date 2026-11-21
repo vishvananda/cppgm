@@ -16,10 +16,10 @@ struct LiveRange;
 // The condition code that holds for an integer comparison predicate.
 unsigned integer_condition(unsigned predicate);
 
-// The multiplier constant_word_division builds for a division by a literal,
-// and the divisor a remainder also needs (0 for a quotient); false when that
+// The multiplier constant_division builds for a division by a literal, and
+// the divisor a remainder also needs (0 for a quotient); false when that
 // selection does not apply.
-bool word_division_constants(
+bool division_constants(
 	const lowir::Instruction& inst, const lowir::FunctionBody& body, uint64_t& multiplier, uint64_t& divisor);
 
 // A constant built in a register at the start of the block that enters a
@@ -221,7 +221,7 @@ private:
 	unsigned operand_register(lowir::Value operand, lowir::Type type, unsigned scratch);
 	void narrow_left(lowir::Value src, lowir::Type type, lowir::TempId result, unsigned width, unsigned count);
 	bool constant_quotient(const lowir::Instruction& inst, uint64_t divisor, unsigned bits, unsigned lhs, unsigned dst);
-	bool constant_word_division(const lowir::Instruction& inst, uint32_t divisor, unsigned lhs, unsigned dst);
+	bool constant_division(const lowir::Instruction& inst, uint64_t raw, unsigned bits, unsigned lhs, unsigned dst);
 	void build_held_constants(lowir::BlockId block);
 	std::vector<HeldConstant> held_constants_;
 	// By division: the multiplier's register | the divisor's << 8 (255: none).

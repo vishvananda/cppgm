@@ -817,7 +817,7 @@ BlockId loop_entry(const opt::Cfg& cfg, const opt::LoopForest& forest, uint32_t 
 	return entry;
 }
 
-// A division by a literal that constant_word_division selects needs its
+// A division by a literal that constant_division selects needs its
 // multiplier, and a remainder its divisor, in registers. In a loop each is
 // built once at the start of the block that enters the loop when one
 // register is free there and over every block of the loop: a caller register
@@ -844,7 +844,7 @@ void hold_division_constants(const FunctionBody& body, opt::Cfg& cfg, RegisterBa
 		for (InstId i = body.blocks[b].first; i != kNoId; i = body.instructions[i].next)
 		{
 			uint64_t values[2];
-			if (!word_division_constants(body.instructions[i], body, values[0], values[1]))
+			if (!division_constants(body.instructions[i], body, values[0], values[1]))
 				continue;
 			if (first.empty())
 			{
