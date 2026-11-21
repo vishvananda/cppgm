@@ -89,6 +89,13 @@ RegisterPressure register_pressure(const FunctionBody& body, const std::vector<L
 	return across_calls ? RegisterPressure::AcrossCalls : RegisterPressure::Fits;
 }
 
+// The factor of a range of `slots` read/write slots against the reference range.
+double length_factor(uint32_t slots)
+{
+	constexpr double reference_length = 1024; // Read/write slots in the reference range.
+	return std::sqrt(reference_length / std::max(1u, slots));
+}
+
 // In a saturated SIMD bank, one long range can force many short arithmetic
 // results into integer registers. Discount long ranges while retaining
 // the block frequency and use counts in the ordinary spill weights.
@@ -98,8 +105,75 @@ double simd_spill_priority(const FunctionBody& body, const LiveRange& range, con
 		return static_cast<double>(weight);
 	uint32_t slots = 0;
 	each_interval(range, segments, [&](uint32_t first, uint32_t last) { slots += last - first; });
-	constexpr double reference_length = 1024; // Read/write slots in the reference range.
-	return static_cast<double>(weight) * std::sqrt(reference_length / std::max(1u, slots));
+	return static_cast<double>(weight) * length_factor(slots);
+}
+
+// In a saturated general bank, the spill-weight order can leave a short
+// range no register where the heavier long ranges already fill the bank, so
+// each of many short results pays a store and a reload on its own chain
+// although one register would hold them in turn. Such a range takes the
+// SIMD bank's discounted priority, which puts it before the long ranges it
+// meets: a short integer or address range (at most `short_length` slots)
+// that would find no register in a model of the order. In the model a range
+// holds a register where fewer than `assignable` ranges before it hold one,
+// and, crossing a call, fewer than `preserved` crossing ranges. A phi's or a
+// move's partner keeps its place, where it shares its partner's register.
+// Returns whether a range was raised.
+bool raise_crowded_short_ranges(const FunctionBody& body, const std::vector<uint32_t>& aliases,
+	const std::vector<LiveRange>& ranges, const Segments& segments, const std::vector<uint32_t>& calls, uint32_t slots,
+	int32_t assignable, int32_t preserved, const std::vector<uint32_t>& order, std::vector<double>& priority)
+{
+	constexpr uint32_t short_length = 16;
+	std::vector<uint8_t> partner(body.temps.size(), 0);
+	for (BlockId b : body.layout)
+		for (InstId i = body.blocks[b].first; i != kNoId; i = body.instructions[i].next)
+		{
+			const auto& inst = body.instructions[i];
+			if ((inst.op == Opcode::Copy || inst.op == Opcode::Convert) && inst.result != kNoId &&
+				inst.ops[0].is(ValueKind::Temp))
+			{
+				partner[representative(aliases, inst.result)] = 1;
+				partner[representative(aliases, inst.ops[0].index)] = 1;
+			}
+		}
+	machine::PressureTree held, crossing;
+	bool raised = false;
+	held.build(std::vector<int32_t>(slots + 1, 0));
+	crossing.build(std::vector<int32_t>(slots + 1, 0));
+	for (uint32_t index : order)
+	{
+		const auto& range = ranges[index];
+		const auto type = body.temps[range.id].type;
+		if (range.first == kNoId || !(type.is_pointer() || (type.is_integer() && integer_bits(type.kind()) <= 64)))
+			continue;
+		uint32_t length = 0;
+		int32_t most = 0, most_crossing = 0;
+		bool across = false;
+		each_interval(range, segments, [&](uint32_t first, uint32_t last) {
+			length += last - first;
+			most = std::max(most, held.max(first, last));
+			const auto call = std::lower_bound(calls.begin(), calls.end(), first);
+			across |= call != calls.end() && *call < last;
+		});
+		if (across)
+			each_interval(range, segments, [&](uint32_t first, uint32_t last) {
+				most_crossing = std::max(most_crossing, crossing.max(first, last));
+			});
+		if (most < assignable && (!across || most_crossing < preserved))
+		{
+			each_interval(range, segments, [&](uint32_t first, uint32_t last) {
+				held.add(first, last, 1);
+				if (across)
+					crossing.add(first, last, 1);
+			});
+		}
+		else if (length <= short_length && range.affinity == kNoId && !partner[range.id])
+		{
+			priority[index] *= length_factor(length);
+			raised = true;
+		}
+	}
+	return raised;
 }
 
 // Let each scalar phi web's call-crossing members choose before its other
@@ -388,18 +462,19 @@ uint32_t reused_slot_tail(const FunctionBody& body, const std::vector<uint32_t>&
 
 // The order in which ranges choose homes: by spill priority when the
 // registers may not suffice, with the phi web adjustments above; empty
-// (program order) otherwise.
+// (program order) otherwise. `general_registers` counts the preserved
+// general registers, `assignable` every general register a range can take.
 std::vector<uint32_t> allocation_order(const Program& program, const FunctionBody& body, opt::Cfg& cfg,
 	const std::vector<uint32_t>& aliases, std::vector<uint64_t>& block_weights, const std::vector<LiveRange>& ranges,
 	const Segments& segments, const std::vector<uint32_t>& calls, machine::PhiWebs& webs, uint32_t slots,
-	unsigned level, unsigned general_registers, std::vector<uint64_t>& weight)
+	unsigned level, unsigned general_registers, unsigned assignable, std::vector<uint64_t>& weight)
 {
 	std::vector<uint32_t> order;
 	std::vector<double> priority;
 	const auto simd_pressure = register_pressure(body, ranges, segments, calls, slots, 8, Bank::Simd);
-	if (simd_pressure != RegisterPressure::Fits ||
-		register_pressure(body, ranges, segments, calls, slots, general_registers, Bank::General) !=
-			RegisterPressure::Fits)
+	const auto general_pressure = register_pressure(
+		body, ranges, segments, calls, slots, general_registers, Bank::General);
+	if (simd_pressure != RegisterPressure::Fits || general_pressure != RegisterPressure::Fits)
 	{
 		weight = spill_weights(program, body, cfg, aliases, block_weights);
 		order.resize(ranges.size());
@@ -412,7 +487,12 @@ std::vector<uint32_t> allocation_order(const Program& program, const FunctionBod
 					? simd_spill_priority(body, range, segments, weight[range.id])
 					: static_cast<double>(weight[range.id]));
 		}
-		std::stable_sort(order.begin(), order.end(), [&](uint32_t a, uint32_t b) { return priority[a] > priority[b]; });
+		const auto by_priority = [&](uint32_t a, uint32_t b) { return priority[a] > priority[b]; };
+		std::stable_sort(order.begin(), order.end(), by_priority);
+		if (general_pressure == RegisterPressure::Saturated &&
+			raise_crowded_short_ranges(body, aliases, ranges, segments, calls, slots, static_cast<int32_t>(assignable),
+				static_cast<int32_t>(general_registers), order, priority))
+			std::stable_sort(order.begin(), order.end(), by_priority);
 		if (level >= 2 && !calls.empty() && !webs.empty())
 			prioritize_call_webs(body, ranges, segments, calls, webs, priority, order);
 	}
@@ -1222,8 +1302,11 @@ void Selector::allocate()
 	const uint32_t slots = 2 * (body_.instructions.size() + body_.layout.size()) + 3;
 	const auto outgoing = call_registers();
 	std::vector<uint64_t> weight;
+	// x0-x7, x12-x14, x8 when free, x18 off Darwin and the preserved registers.
+	const unsigned preserved_count = dynamic_stack_ ? 9 : 10;
+	const unsigned assignable = preserved_count + 11 + (free_x8 ? 1 : 0) + (named_.darwin ? 0 : 1);
 	const auto order = allocation_order(program_, body_, cfg, aliases_, block_weights_, ranges, segments, calls, webs,
-		slots, level_, dynamic_stack_ ? 9 : 10, weight);
+		slots, level_, preserved_count, assignable, weight);
 	const bool split_calls = level_ >= 2 && !named_.darwin && !dynamic_stack_ && body_.code_labels.empty() &&
 		calls.size() <= 64;
 	if (split_calls && calls.size() > 1 && block_weights_.empty() && !cfg.succ_first.empty())
