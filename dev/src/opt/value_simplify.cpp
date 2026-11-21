@@ -2,6 +2,7 @@
 #include "opt/integer_patterns.h"
 #include "opt/packed_loads.h"
 #include "opt/phi_equivalence.h"
+#include "opt/reader_counts.h"
 #include "opt/loops.h"
 #include "opt/passes.h"
 #include "opt/scalar_fold.h"
@@ -103,7 +104,9 @@ bool is_commutative(const Instruction& inst)
 class Simplifier final : public IntegerPatternFacts
 {
 public:
-	explicit Simplifier(FunctionContext& context) : c_(context), body_(context.body), changed_(false) {}
+	explicit Simplifier(FunctionContext& context)
+		: c_(context), body_(context.body), changed_(false), readers_(context.body, repl_)
+	{}
 
 	bool run();
 	bool edited() const { return edited_; } // substitute changed an operand
@@ -190,6 +193,7 @@ private:
 	void replace(TempId temp, Value value, uint32_t own = 0)
 	{
 		repl_[temp] = value;
+		readers_.replaced(temp);
 		has_replacements_ = true;
 		if (value.is(ValueKind::Temp) && !repl_[value.index].is(ValueKind::None))
 			value = resolve(value);
@@ -200,6 +204,7 @@ private:
 		uses_[to] = moved == kManyReaders ? kManyReaders : uses_[to] + moved - std::min(own, uses_[to]);
 	}
 	std::vector<uint32_t> uses_;  // per temp at the pass start (a retyped load: none)
+	ReaderCounts readers_;        // for the retype of a load (identity)
 	bool edited_ = false;         // substitute changed an operand (reported or not)
 	std::vector<uint8_t> walked_; // per block: process_block ran on it
 	// Expression -> (temporary, its block): an entry is reusable only where
@@ -648,6 +653,7 @@ bool Simplifier::select_phi(BlockId block, InstId prev, InstId id)
 	unlink_after(body_, block, prev, id);
 	body_.instructions[id] = merged;
 	insert_after(body_, block, kNoId, id);
+	readers_.edited(id);
 	return true;
 }
 
@@ -744,7 +750,9 @@ bool Simplifier::identity(Instruction& inst, Value& out)
 		if (load == nullptr || load->op != Opcode::Load || (load->flags & IF_VOLATILE) != 0 ||
 			!inst.type.is_integer() || !load->type.is_integer() ||
 			storage_bytes(load->type) != storage_bytes(inst.type) || inst.type.kind() == TypeKind::I128 ||
-			load->type.kind() == TypeKind::I128 || !sole_reader(body_, inst, loaded, repl_))
+			load->type.kind() == TypeKind::I128 ||
+			readers_.readers(
+				loaded, static_cast<InstId>(&inst - body_.instructions.data()), current_block_, c_.cfg, c_.verify) != 1)
 			return false;
 		load->type = inst.type;
 		body_.temps[loaded].type = inst.type;
@@ -2876,6 +2884,7 @@ bool Simplifier::reuse_quotient(BlockId block, InstId& prev, InstId id)
 		copy.flags = 0;
 		copy.ops[0] = q;
 		copy.ops[1] = Value::none();
+		readers_.edited(later);
 	}
 	if (q.is(ValueKind::None))
 		return false;
@@ -3024,7 +3033,7 @@ void Simplifier::process_block(BlockId block)
 		const InstId next = inst.next;
 		if (inst.op == Opcode::Phi && !repl_[inst.result].is(ValueKind::None))
 		{
-			unlink_after(body_, block, prev, id);
+			readers_.unlink(body_, block, prev, id);
 			id = next;
 			continue;
 		}
@@ -3113,7 +3122,7 @@ void Simplifier::process_block(BlockId block)
 														: (inst.ops[0] == value ? 1u : 0u) +
 					(inst.ops[1] == value ? 1u : 0u) + (inst.ops[2] == value ? 1u : 0u);
 			replace(inst.result, value, own);
-			unlink_after(body_, block, prev, id);
+			readers_.unlink(body_, block, prev, id);
 			++c_.stats.folded;
 			changed_ = true;
 			id = next;
@@ -3169,7 +3178,7 @@ void Simplifier::process_block(BlockId block)
 					continue;
 				}
 				replace(inst.result, Value::temp(found->temp));
-				unlink_after(body_, block, prev, id);
+				readers_.unlink(body_, block, prev, id);
 				++c_.stats.reused;
 				changed_ = true;
 				id = next;

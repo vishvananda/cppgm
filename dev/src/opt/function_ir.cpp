@@ -630,27 +630,6 @@ void count_uses(const FunctionBody& body, std::vector<uint32_t>& uses)
 			});
 }
 
-bool sole_reader(
-	const FunctionBody& body, const Instruction& reader, TempId temp, const std::vector<Value>& replacements)
-{
-	const auto reads = [&](Value v) {
-		while (v.is(ValueKind::Temp) && v.index != temp && v.index < replacements.size() &&
-			!replacements[v.index].is(ValueKind::None))
-			v = replacements[v.index];
-		return v.is(ValueKind::Temp) && v.index == temp;
-	};
-	for (BlockId b : body.layout)
-		for (InstId i = body.blocks[b].first; i != kNoId; i = body.instructions[i].next)
-		{
-			bool other = false;
-			if (&body.instructions[i] != &reader)
-				for_each_operand(body, body.instructions[i], [&](const Value& v) { other = other || reads(v); });
-			if (other)
-				return false;
-		}
-	return true;
-}
-
 InstId append_instruction(FunctionBody& body, const Instruction& inst)
 {
 	body.instructions.push_back(inst);
