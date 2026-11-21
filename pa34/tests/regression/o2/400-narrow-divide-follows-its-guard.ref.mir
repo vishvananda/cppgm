@@ -1,0 +1,67 @@
+machine_ir x86_64 linux
+
+startup
+    call @main [args=()]
+    mov rdi, rax
+    exit
+
+function @digits
+  abi
+    param %n -> rdi : i64
+    param %base -> rsi : i64
+    return i64 -> rax
+  frame
+    stack_size 0
+    scratch_bytes 0
+    frame_pointer keep
+    epilogues duplicated
+
+  block ^entry
+    mov rcx, 0
+
+  block ^loop
+    mov rax, rdi
+    cqo
+    mov r10, rax
+    or r10, rsi
+    shr r10, 32
+    jne ^~
+
+  block ^~
+    div.i32 rsi
+
+  block ^~
+    mov rdi, rax
+    add rcx, 1
+    cmp.i64 rdi, 0
+    jne ^loop
+    ret rcx
+
+  block ^~
+    idiv rsi
+    jmp ^~
+
+  block ^done
+    ret rcx
+
+function @main
+  abi
+    return i32 -> rax
+  frame
+    stack_size 16
+    scratch_bytes 0
+    frame_pointer keep
+    epilogues duplicated
+    preserve rbx
+
+  block ^entry
+    mov rdi, 123456
+    mov rsi, 10
+    call @digits [args=(rsi,rdi)]
+    zext.i32 rbx, rax
+    mov rdi, -9876543210123
+    mov rsi, 7
+    call @digits [args=(rsi,rdi)]
+    imul rbx, 100
+    add.u32 rax, rbx
+    ret rax

@@ -41,6 +41,8 @@ Inst operation(Op op, lowir::TypeKind type, Operand a, Operand b = Operand())
 // this guard never discards high operand bits. A signed divide takes the
 // same path: operands that fit are not negative, so the quotient and
 // remainder are the unsigned ones, and the cqo before it has cleared rdx.
+// The guard's branch to the full divide is hinted rare (the premise of the
+// guard), so placement lays the narrow divide out on the test's own path.
 void narrow_variable_divides(Function& function)
 {
 	bool candidate = false;
@@ -91,6 +93,7 @@ void narrow_variable_divides(Function& function)
 			emit(operation(Op::Shr, lowir::TypeKind::I64, work, Operand::make_imm(32)));
 			Inst branch = operation(Op::Jcc, lowir::TypeKind::Void, Operand::make_label(slow));
 			branch.sub = CC_NE;
+			branch.aux = 1;
 			emit(branch);
 			emit(operation(Op::Jmp, lowir::TypeKind::Void, Operand::make_label(fast)));
 			begin(fast);
