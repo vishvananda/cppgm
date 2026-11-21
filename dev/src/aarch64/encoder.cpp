@@ -393,9 +393,11 @@ static bool flag_compare(const Instruction& ins, unsigned& count, unsigned regs[
 // Whether every path into `at` ran the instruction `compare` last among
 // the instructions that set flags, passing only conditional branches and
 // register moves that write none of its registers since. A path that comes
-// round to a point already reached adds nothing.
+// round to a point already reached adds nothing; one that reaches a point
+// entered from outside the code's branches (`entered`) fails.
 static bool flags_hold(const Function& f, const std::vector<uint32_t>& first, const std::vector<uint32_t>& from,
-	uint32_t at, const Instruction& compare, const unsigned regs[2], unsigned count)
+	const std::vector<uint8_t>& entered, uint32_t at, const Instruction& compare, const unsigned regs[2],
+	unsigned count)
 {
 	const auto same = [&](const Instruction& ins) {
 		return ins.op == compare.op && ins.rd == compare.rd && ins.rn == compare.rn && ins.rm == compare.rm &&
@@ -418,7 +420,7 @@ static bool flags_hold(const Function& f, const std::vector<uint32_t>& first, co
 	const auto visit = [&](uint32_t point) {
 		if (std::find(seen, seen + visited, point) != seen + visited)
 			return true;
-		if (visited == 32)
+		if (visited == 32 || entered[point])
 			return false;
 		seen[visited++] = point;
 		stack[depth++] = point;
@@ -462,16 +464,16 @@ void drop_repeated_compares(Function& f)
 	}
 	if (candidates.empty())
 		return;
-	std::vector<uint8_t> blocked(n + 1);
-	for (const auto& event : f.frame_events)
-		blocked[std::min(n, event.pc / 4)] = 1;
+	// Points entered from outside the code's branches: landing pads, a
+	// table's jumps (reached by an indirect branch, not by the instruction
+	// before them) and the destinations of those jumps and of an ADR.
+	std::vector<uint8_t> entered(n + 1), table;
 	for (uint32_t pad : f.pads)
 		if (pad != lowir::kNoId)
-			blocked[std::min(n, pad / 4)] = 1;
-	// A table's jumps are reached by an indirect branch, not by the
-	// instruction before them.
-	std::vector<uint8_t> table;
+			entered[std::min(n, pad / 4)] = 1;
 	mark_tables(f, table);
+	for (uint32_t pc = 0; pc < table.size(); ++pc)
+		entered[pc] |= table[pc];
 	// The branches into each instruction.
 	std::vector<uint32_t> first(n + 2), from;
 	for (const auto& ins : f.code)
@@ -487,16 +489,19 @@ void drop_repeated_compares(Function& f)
 		if (ins.fixup == Fixup::Block && f.labels[ins.target] < n)
 		{
 			if (ins.op == Op::Adr || (!table.empty() && table[pc]))
-				blocked[f.labels[ins.target]] = 1;
+				entered[f.labels[ins.target]] = 1;
 			from[fill[f.labels[ins.target]]++] = pc;
 		}
 	}
+	std::vector<uint8_t> blocked(entered);
+	for (const auto& event : f.frame_events)
+		blocked[std::min(n, event.pc / 4)] = 1;
 	std::vector<uint32_t> removed;
 	for (uint32_t pc : candidates)
 	{
 		unsigned regs[2] = {}, count = 0;
 		if (!blocked[pc] && flag_compare(f.code[pc], count, regs) &&
-			flags_hold(f, first, from, pc, f.code[pc], regs, count))
+			flags_hold(f, first, from, entered, pc, f.code[pc], regs, count))
 			removed.push_back(pc);
 	}
 	remove_instructions(f, removed);
