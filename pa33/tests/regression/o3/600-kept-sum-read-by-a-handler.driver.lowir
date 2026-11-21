@@ -1,0 +1,75 @@
+function @fill() -> void {
+  block ^entry:
+    jump ^loop
+  block ^loop:
+    %i = phi i32 [^entry: 0, ^loop: %next]
+    %u = copy u32 %i
+    %m = binary mul u32 %u, 2654435761
+    %w = binary add u32 %m, 12345
+    %p = index u32 @words, %i
+    store u32 %w, %p
+    %next = binary add i32 %i, 1
+    %more = cmp lt i32 %next, 128
+    branch %more, ^loop, ^done
+  block ^done:
+    return void
+}
+
+# Throws 7 on the pass that starts at word 40.
+function @probe(%i : i32) -> void {
+  block ^entry:
+    %hit = cmp eq i32 %i, 40
+    branch %hit, ^throw, ^back
+  block ^throw:
+    %thrown = const i64 7
+    throw i64 %thrown
+  block ^back:
+    return void
+}
+
+# The xor of the first `count` words, one at a time.
+function @oracle(%count : i32) -> u32 {
+  block ^entry:
+    jump ^header
+  block ^header:
+    %i = phi i32 [^entry: 0, ^body: %step]
+    %x = phi u32 [^entry: 305419896, ^body: %x1]
+    %more = cmp lt i32 %i, %count
+    branch %more, ^body, ^exit
+  block ^body:
+    %p = index u32 @words, %i
+    %v = load u32 %p
+    %x1 = binary xor u32 %x, %v
+    %step = binary add i32 %i, 1
+    jump ^header
+  block ^exit:
+    return u32 %x
+}
+
+# 1 when @xor_until(%n) differs from the xor of its first `count` words
+# and `thrown`.
+function @check(%n : i32, %count : i32, %thrown : u32) -> i32 {
+  block ^entry:
+    %got = call u32 @xor_until(%n)
+    %words = call u32 @oracle(%count)
+    %want = binary xor u32 %words, %thrown
+    %bad = cmp ne u32 %got, %want
+    %flag = convert zext i32 i1 %bad
+    return i32 %flag
+}
+
+# Through word 43 when the probe throws, otherwise whole passes.
+function @main() -> i32 {
+  block ^entry:
+    call void @fill()
+    %a = call i32 @check(128, 44, 7)
+    %b = call i32 @check(43, 40, 0)
+    %c = call i32 @check(44, 44, 7)
+    %d = call i32 @check(3, 0, 0)
+    %e = call i32 @check(103, 44, 7)
+    %ab = binary or i32 %a, %b
+    %cd = binary or i32 %c, %d
+    %abcd = binary or i32 %ab, %cd
+    %all = binary or i32 %abcd, %e
+    return i32 %all
+}

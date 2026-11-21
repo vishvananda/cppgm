@@ -1063,18 +1063,20 @@ Value BlockLanes::fold_lanes(Value lanes, VectorOp op, Type type, InstId* reads)
 }
 
 // The phi of a loop sum `b` keeps in lanes, or kNoId. `b` is a loop of one
-// block with one edge out. The sum runs from a phi of `b` with two inputs,
-// read once, through operations of `last`'s kind, each read once by the
-// next, to the phi's input from `b`, which `b` reads in that phi alone:
-// whatever reads the sum after the loop reads it on the edge out. `carry`
-// lies on that run and `last` `steps` operations after it. Each pass then
-// combines its lanes with a vector the loop carries, and one fold of that
-// vector on the edge out completes the scalar; the operations regroup
-// exactly (reduction_lanes).
+// block with one edge out and no handler. The sum runs from a phi of `b`
+// with two inputs, read once, through operations of `last`'s kind, each read
+// once by the next, to the phi's input from `b`, which `b` reads in that phi
+// alone: whatever reads the sum after the loop reads it on the edge out (a
+// handler `b` installs would read it inside the pass, where the fold has not
+// run). `carry` lies on that run and `last` `steps` operations after it.
+// Each pass then combines its lanes with a vector the loop carries, and one
+// fold of that vector on the edge out completes the scalar; the operations
+// regroup exactly (reduction_lanes).
 InstId BlockLanes::kept_sum(BlockId b, Value carry, InstId last, unsigned steps) const
 {
 	const Instruction& term = body_.instructions[body_.blocks[b].last];
-	if (term.op != Opcode::Branch || (term.ops[1].index == b) == (term.ops[2].index == b))
+	if (term.op != Opcode::Branch || (term.ops[1].index == b) == (term.ops[2].index == b) ||
+		(c_.ensure_cfg_light().flags[b] & BF_EH) != 0)
 		return kNoId;
 	const Instruction& tail = body_.instructions[last];
 	for (InstId p = body_.blocks[b].first; p != kNoId && body_.instructions[p].op == Opcode::Phi;

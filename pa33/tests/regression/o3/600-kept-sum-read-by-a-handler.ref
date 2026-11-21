@@ -1,0 +1,46 @@
+declare function @probe(%i : i32) -> void
+
+global @words : obj<512x16> = {
+  zero 512
+}
+
+function @xor_until(%n : i32) -> u32 {
+  block ^entry:
+    %limit = binary sub i32 %n, 3
+    %enter = cmp gt i32 %limit, 0
+    branch %enter, ^loop_preheader_1, ^done
+
+  block ^loop_preheader_1:
+    jump ^loop
+
+  block ^loop:
+    %x = phi u32 [^loop_preheader_1: 305419896, ^loop: %next]
+    %t4 = phi i64 [^loop_preheader_1: 0, ^loop: %t15]
+    %i = convert trunc exact i32 i64 %t4
+    %p0 = index u32 @words, %t4
+    %t7 = load v128 %p0
+    %t8 = vector pshufd %t7, 78
+    %t9 = vector pxor %t7, %t8
+    %t10 = vector pshufd %t9, 177
+    %t11 = vector pxor %t9, %t10
+    %t12 = vector toi32 %t11
+    %t13 = copy u32 %t12
+    %next = binary xor u32 %x, %t13
+    eh_try ^caught
+    call void @probe(%i)
+    eh_end
+    %t15 = binary add nowrap i64 %t4, 4
+    %step = convert trunc exact i32 i64 %t15
+    %more = cmp lt i32 %step, %limit
+    branch %more, ^loop, ^done
+
+  block ^caught:
+    %thrown = exception i64
+    %low = convert trunc u32 i64 %thrown
+    %sofar = binary xor u32 %next, %low
+    return u32 %sofar
+
+  block ^done:
+    %result = phi u32 [^entry: 305419896, ^loop: %next]
+    return u32 %result
+}
