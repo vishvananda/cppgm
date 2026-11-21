@@ -29,6 +29,28 @@ unsigned lane_bytes(Type type)
 	}
 }
 
+VectorOp lane_read(VectorOp from)
+{
+	switch (from)
+	{
+	case VectorOp::Fromf32:
+		return VectorOp::Tof32;
+	case VectorOp::Fromf64:
+		return VectorOp::Tof64;
+	case VectorOp::Fromi32:
+		return VectorOp::Toi32;
+	case VectorOp::Fromi64:
+		return VectorOp::Toi64;
+	default:
+		return from;
+	}
+}
+
+unsigned lane_bytes(VectorOp read)
+{
+	return read == VectorOp::Tof32 || read == VectorOp::Toi32 ? 4 : 8;
+}
+
 // The operation on each lane of a binary operator, or false.
 bool lane_operation(BinaryOp op, Type type, VectorOp& out)
 {

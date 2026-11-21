@@ -5,6 +5,7 @@
 #include "opt/loops.h"
 #include "opt/passes.h"
 #include "opt/scalar_fold.h"
+#include "opt/vector_lanes.h"
 #include "support/flat_map.h"
 
 #include <algorithm>
@@ -97,29 +98,6 @@ bool is_commutative(const Instruction& inst)
 	return inst.op == Opcode::Compare &&
 		(static_cast<ComparePredicate>(inst.sub) == ComparePredicate::Eq ||
 			static_cast<ComparePredicate>(inst.sub) == ComparePredicate::Ne);
-}
-
-// The operation that reads back what a `from*` operation places.
-VectorOp lane_read(VectorOp from)
-{
-	switch (from)
-	{
-	case VectorOp::Fromf32:
-		return VectorOp::Tof32;
-	case VectorOp::Fromf64:
-		return VectorOp::Tof64;
-	case VectorOp::Fromi32:
-		return VectorOp::Toi32;
-	case VectorOp::Fromi64:
-		return VectorOp::Toi64;
-	default:
-		return from;
-	}
-}
-
-unsigned lane_bytes(VectorOp read)
-{
-	return read == VectorOp::Tof32 || read == VectorOp::Toi32 ? 4 : 8;
 }
 
 class Simplifier final : public IntegerPatternFacts
