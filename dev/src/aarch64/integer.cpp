@@ -307,6 +307,42 @@ void Selector::set_condition(TempId result, unsigned condition)
 	save(dest, result, true);
 }
 
+// An increment of a word or doubleword read only by a selection between it
+// and the value it increments is not computed where it is defined: the
+// selection is CSINC of the value with itself (choose).
+void Selector::find_chosen_increments()
+{
+	increments_.clear();
+	if (!level_)
+		return;
+	for (const auto& block : body_.blocks)
+		for (InstId i = block.first; i != kNoId; i = body_.instructions[i].next)
+		{
+			const auto& select = body_.instructions[i];
+			const unsigned bits = integer_bits(select.type.kind());
+			if (select.op != Opcode::Select || (bits != 32 && bits != 64))
+				continue;
+			for (unsigned k = 1; k <= 2; ++k)
+			{
+				const Value up = select.ops[k], same = select.ops[3 - k];
+				if (!up.is(ValueKind::Temp) || !same.is(ValueKind::Temp) || up == same || uses_[up.index] != 1 ||
+					rematerialized(up.index) || body_.temps[up.index].def == kNoId)
+					continue;
+				const auto& add = body_.instructions[body_.temps[up.index].def];
+				if (add.op != Opcode::Binary || add.sub != static_cast<unsigned>(BinaryOp::Add) ||
+					add.type != select.type)
+					continue;
+				const unsigned j = add.ops[0] == same ? 1 : add.ops[1] == same ? 0 : 2;
+				if (j == 2 || !add.ops[j].is(ValueKind::Integer) || body_.literals[add.ops[j].index].low != 1)
+					continue;
+				if (increments_.empty())
+					increments_.assign(body_.temps.size(), 0);
+				increments_[up.index] = 1;
+				break;
+			}
+		}
+}
+
 void Selector::choose(const lowir::Instruction& inst, unsigned condition)
 {
 	if (inst.type.is_float())
@@ -317,6 +353,14 @@ void Selector::choose(const lowir::Instruction& inst, unsigned condition)
 	Value yes = inst.ops[1], no = inst.ops[2];
 	const unsigned dest = registers_[inst.result] == kNoId ? 9 : registers_[inst.result];
 	const unsigned bits = integer_bits(inst.type.kind());
+	const bool up_yes = chosen_increment(yes);
+	if (up_yes || chosen_increment(no))
+	{
+		const unsigned source = zero_or_register(up_yes ? no : yes, inst.type, 10);
+		out_.emit(bits == 32 ? Op::CsincW : Op::Csinc, dest, source, source, (condition ^ up_yes) << 12);
+		save(dest, inst.result, true);
+		return;
+	}
 	auto one = [&](Value v) { return bits && v.is(ValueKind::Integer) && body_.literals[v.index].low == 1; };
 	if (one(yes))
 	{
@@ -561,7 +605,9 @@ bool direct_select(const lowir::Instruction& select, TempId test)
 } // namespace
 
 // LowIR gives each select its own comparison so it can be emitted beside
-// its use. Here both selects can use the same flags.
+// its use. Here a run of selects of comparisons of the same operands uses
+// the same flags. Each word, doubleword or pointer predicate reads the
+// flags of one comparison; a narrower one also selects its extension.
 InstId Selector::compare_select_pair(const lowir::Instruction& inst)
 {
 	if (inst.next == kNoId || uses_[inst.result] != 1 ||
@@ -570,20 +616,28 @@ InstId Selector::compare_select_pair(const lowir::Instruction& inst)
 	const auto& first = body_.instructions[inst.next];
 	if (!direct_select(first, inst.result) || first.next == kNoId)
 		return kNoId;
-	const auto& other = body_.instructions[first.next];
-	const auto same_operand = [&](unsigned k) {
-		return inst.ops[k] == other.ops[k] || opt::same_literal(body_, inst.type, inst.ops[k], other.ops[k]);
+	const unsigned bits = integer_bits(inst.type.kind());
+	const bool any_predicate = inst.type.is_pointer() || bits == 32 || bits == 64;
+	const auto same = [&](const lowir::Instruction& other) {
+		const auto same_operand = [&](unsigned k) {
+			return inst.ops[k] == other.ops[k] || opt::same_literal(body_, inst.type, inst.ops[k], other.ops[k]);
+		};
+		return other.op == Opcode::Compare && other.next != kNoId && uses_[other.result] == 1 &&
+			other.type == inst.type && (other.sub == inst.sub || any_predicate) && same_operand(0) && same_operand(1) &&
+			direct_select(body_.instructions[other.next], other.result);
 	};
-	if (other.op != Opcode::Compare || other.next == kNoId || uses_[other.result] != 1 || other.type != inst.type ||
-		other.sub != inst.sub || !same_operand(0) || !same_operand(1))
-		return kNoId;
-	const auto& second = body_.instructions[other.next];
-	if (!direct_select(second, other.result))
+	if (!same(body_.instructions[first.next]))
 		return kNoId;
 	compare_flags(inst);
 	choose(first, conditions[inst.sub]);
-	choose(second, conditions[inst.sub]);
-	return other.next;
+	InstId last = inst.next;
+	while (body_.instructions[last].next != kNoId && same(body_.instructions[body_.instructions[last].next]))
+	{
+		const auto& other = body_.instructions[body_.instructions[last].next];
+		choose(body_.instructions[other.next], conditions[other.sub]);
+		last = other.next;
+	}
+	return last;
 }
 
 bool Selector::compare_consumer(const lowir::Instruction& inst, BlockId block, bool flags_ready)

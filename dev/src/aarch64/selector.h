@@ -136,7 +136,6 @@ private:
 	void float_compare(const lowir::Instruction& inst);
 	unsigned float_flags(const lowir::Instruction& inst);
 	bool float_consumer(const lowir::Instruction& inst, lowir::BlockId block);
-	lowir::InstId selected_increment(const lowir::Instruction& inst);
 	bool increment_choice(
 		const lowir::Instruction& cmp, const lowir::Instruction& add, const lowir::Instruction& select);
 	lowir::InstId added_condition(const lowir::Instruction& cmp);
@@ -166,6 +165,11 @@ private:
 	void save(unsigned reg, lowir::TempId temp, bool normalized = false);
 	void find_loose_values();
 	bool loose(lowir::TempId temp) const { return !loose_.empty() && loose_[temp]; }
+	void find_chosen_increments();
+	bool chosen_increment(lowir::Value v) const
+	{
+		return v.is(lowir::ValueKind::Temp) && !increments_.empty() && increments_[v.index];
+	}
 	lowir::Type type_of(lowir::Value v, lowir::Type fallback) const;
 	bool same_home(lowir::TempId dest, lowir::Value source) const;
 	bool needs_snapshot(lowir::BlockId from, lowir::BlockId to);
@@ -249,7 +253,8 @@ private:
 	std::vector<uint32_t> entry_regs_, aliases_;
 	std::vector<BitTest> bit_tests_;
 	std::vector<lowir::InstId> entry_elided_;
-	std::vector<uint8_t> loose_; // narrow values held with undefined high bits (narrow.cpp)
+	std::vector<uint8_t> loose_;      // narrow values held with undefined high bits (narrow.cpp)
+	std::vector<uint8_t> increments_; // increments made by the selection reading them (integer.cpp)
 	std::vector<std::pair<lowir::BlockId, lowir::BlockId>> snapshot_edges_;
 	std::vector<lowir::BlockId> frame_phi_blocks_;
 	std::vector<CallLayout> calls_;

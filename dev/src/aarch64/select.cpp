@@ -468,6 +468,7 @@ void Selector::run()
 {
 	plan();
 	find_loose_values();
+	find_chosen_increments();
 	const BlockId slow_entry = minimize_size_ ? kNoId : early_return();
 	stack_adjust(true);
 	if (tls_vectors_ != kNoId)
@@ -543,9 +544,10 @@ void Selector::run()
 			if (!word_accesses_.empty() && word_accesses_[i] && register_access(inst))
 				continue;
 			// Late address rewriting can leave integer arithmetic with no
-			// remaining readers, and minimum formation a comparison.
+			// remaining readers, and minimum formation a comparison. An
+			// increment that a selection makes itself is not computed.
 			if (level_ && ((inst.op == Opcode::Binary && inst.type.is_integer()) || inst.op == Opcode::Compare) &&
-				uses_[inst.result] == 0)
+				(uses_[inst.result] == 0 || chosen_increment(Value::temp(inst.result))))
 				continue;
 			if (inst.op == Opcode::Call && calls_[call_indices_[i]].tail)
 			{
@@ -589,10 +591,10 @@ void Selector::run()
 				if (last == kNoId && inst.op == Opcode::Binary)
 				{
 					const auto op = static_cast<BinaryOp>(inst.sub);
-					last = op == BinaryOp::Add ? selected_increment(inst)
-						: op == BinaryOp::And  ? bit_branch(inst, block)
+					last = op == BinaryOp::And ? bit_branch(inst, block)
 						: op == BinaryOp::Sub  ? narrow_range_branch(inst, block)
-											   : shifted_operand(inst, block);
+						: op != BinaryOp::Add  ? shifted_operand(inst, block)
+											   : kNoId;
 				}
 				if (last != kNoId)
 				{
@@ -623,7 +625,7 @@ void Selector::run()
 			if (level_ && inst.op == Opcode::Compare)
 			{
 				const bool fp = inst.type.is_float();
-				auto last = !fp && level_ >= 3 ? compare_select_pair(inst) : kNoId;
+				auto last = !fp ? compare_select_pair(inst) : kNoId;
 				if (!fp && last == kNoId)
 					last = compare_pair(inst, block);
 				if (last == kNoId)

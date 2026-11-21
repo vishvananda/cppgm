@@ -138,18 +138,8 @@ bool Selector::float_consumer(const lowir::Instruction& inst, BlockId block)
 
 // The unchanged alternative keeps the input alive until the comparison.
 // CSINC increments it only on the selected edge. The comparison is of
-// floating-point values or of integers or pointers, and it either follows
-// the increment or precedes it.
-InstId Selector::selected_increment(const lowir::Instruction& add)
-{
-	if (add.next == kNoId)
-		return kNoId;
-	const auto& cmp = body_.instructions[add.next];
-	if (cmp.op != Opcode::Compare || cmp.next == kNoId || !increment_choice(cmp, add, body_.instructions[cmp.next]))
-		return kNoId;
-	return cmp.next;
-}
-
+// floating-point values or of integers or pointers, and it precedes the
+// increment (find_chosen_increments covers the other order).
 bool Selector::increment_choice(
 	const lowir::Instruction& cmp, const lowir::Instruction& add, const lowir::Instruction& select)
 {
