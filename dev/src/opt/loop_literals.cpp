@@ -96,7 +96,15 @@ bool LoopLiterals::held_literal(const Instruction& inst, uint32_t k, Value v) co
 		uint32_t field = 0;
 		return raw && !aarch64::logical_immediate(raw, width, field);
 	}
-	if (across_call_ || op != BinaryOp::Mul || width != 64)
+	if (across_call_ || op != BinaryOp::Mul || !wide)
+		return false;
+	// A multiply reads its literal from a register: where registers are not
+	// short, a factor the selector cannot form with a shift or a shifted
+	// addition (2^k, 1 + 2^k) is built once, not by a move or two per pass.
+	const uint64_t factor = width == 32 ? static_cast<uint32_t>(raw) : raw;
+	if (cheap_held_ && factor > 2 && (factor & (factor - 1)) != 0 && ((factor - 1) & (factor - 2)) != 0)
+		return true;
+	if (width != 64)
 		return false;
 	// A multiply-add address needs a register stride, even if a single
 	// move constructs the literal. A power of two already folds as a shift.
