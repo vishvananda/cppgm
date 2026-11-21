@@ -17,9 +17,10 @@ bool narrow(Type type)
 // Each case names a selection that uses W registers or a field of the
 // operand's width: the simple arithmetic and logical forms, shifts by a
 // literal, 32-bit division, comparison, selection and branch conditions,
-// the stores of the same width, truncation and sign extension. The paths
-// that combine these instructions with a neighbour keep that property; a
-// narrow range test of a loose value is not combined (narrow_range_branch).
+// the stores of the same width, truncation, sign extension and 32-bit
+// subscripts. The paths that combine these instructions with a neighbour
+// keep that property; a narrow range test of a loose value is not combined
+// (narrow_range_branch).
 bool low_bits(const FunctionBody& body, const lowir::Instruction& inst, unsigned k, Type type)
 {
 	const unsigned bits = integer_bits(type.kind());
@@ -64,6 +65,11 @@ bool low_bits(const FunctionBody& body, const lowir::Instruction& inst, unsigned
 		return k == 0 || (inst.type == type && k <= 2);
 	case Opcode::Branch:
 		return k == 0 && bits == 32;
+	case Opcode::Index:
+		// A 32-bit subscript is an SXTW or UXTW extended register, or is
+		// extended first; only an unsigned subscript of an element larger
+		// than 16 bytes is shifted as a doubleword (address_sequence).
+		return k == 1 && bits == 32 && (type.kind() == TypeKind::I32 || storage_bytes(inst.type) <= 16);
 	case Opcode::Unary:
 		return inst.type == type && k == 0 &&
 			(inst.sub == static_cast<unsigned>(UnaryOp::Neg) || inst.sub == static_cast<unsigned>(UnaryOp::BitNot));
@@ -89,8 +95,8 @@ bool low_bits(const FunctionBody& body, const lowir::Instruction& inst, unsigned
 }
 
 // Integer values of 8, 16 and 32 bits are normalized: held zero-extended
-// to 64 bits in their register or home. Compares, extensions, branches,
-// selects, indexes, switches, calls and returns rely on it, and a value
+// to 64 bits in their register or home. Extensions, switches, calls,
+// returns and most readers of 8- and 16-bit values rely on it, and a value
 // computed by an X-register instruction or arriving as a parameter must be
 // extended before it is saved. A value is loose instead, its bits above its
 // width undefined, when every reader takes only its low bits (low_bits), and
