@@ -10,7 +10,7 @@ permissions:
 
 concurrency:
   group: macos-port-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   CPPGM_WARNINGS_AS_ERRORS: "1"
