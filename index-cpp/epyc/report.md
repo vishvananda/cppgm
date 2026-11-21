@@ -1,85 +1,85 @@
 # index-cpp benchmarks
 
-Compiler checkout: `f14c300df24c805416e28f06d41b201a035b60c7` · CPU: AMD EPYC 7763 64-Core Processor
+Compiler checkout: `44d3c4a29971caff2cc064889ec96259f34e7504` · CPU: AMD EPYC 9V74 80-Core Processor
 
 Unchanged upstream: `79e0b423094d420da37fb714f20c53fc35eeb2a3`. All 50 checksums pass with cppgm, GCC and Clang. Full runtime inputs, paired ABBA/BAAB blocks with A/A calibration. Speeds are reference time / cppgm time: higher is better. The aggregate gives all 50 workloads equal weight and is separate from the public suite.
 
 | Measurement | vs GCC | vs Clang |
 |---|---:|---:|
-| Generated code | 1.067× | 1.056× |
-| Compile CPU | 6.387× | 5.915× |
+| Generated code | 1.079× | 1.071× |
+| Compile CPU | 6.502× | 5.220× |
 
 | Compiler | Executable bytes | .text bytes | Compile peak RSS (KiB) |
 |---|---:|---:|---:|
-| cppgm | 632,152 | 326,258 | 230,736 |
-| gcc | 540,112 | 280,921 | 486,030 |
-| clang | 513,720 | 264,561 | 319,104 |
+| cppgm | 632,152 | 326,258 | 230,872 |
+| gcc | 540,112 | 280,921 | 486,074 |
+| clang | 513,720 | 264,561 | 318,902 |
 
 | Workload | cppgm seconds | GCC seconds | Clang seconds | vs GCC | vs Clang | A/A warning |
 |---|---:|---:|---:|---:|---:|---|
-| Base64::Decode | 1.389 | 1.181 | 1.196 | 0.854× | 0.859× | — |
-| Base64::Encode | 1.722 | 1.418 | 1.275 | 0.825× | 0.739× | — |
-| Binarytrees::Arena | 2.385 | 2.426 | 2.527 | 1.025× | 1.052× | — |
-| Binarytrees::Obj | 1.456 | 1.301 | 1.584 | 0.894× | 1.080× | clang |
-| Brainfuck::Array | 2.533 | 2.810 | 2.694 | 1.083× | 1.060× | — |
-| Brainfuck::Recursion | 1.743 | 1.743 | 1.696 | 1.002× | 0.979× | — |
-| CLBG::Fannkuchredux | 0.995 | 1.145 | 0.986 | 1.151× | 0.991× | — |
-| CLBG::Mandelbrot | 1.365 | 1.350 | 1.336 | 0.989× | 0.978× | — |
-| CLBG::Nbody | 1.038 | 1.058 | 1.058 | 1.017× | 1.020× | — |
-| CLBG::Spectralnorm | 1.184 | 1.143 | 1.739 | 0.968× | 1.468× | — |
-| CSV::Parse | 1.214 | 1.086 | 1.148 | 0.893× | 0.946× | — |
-| Calculator::Ast | 1.038 | 0.959 | 0.976 | 0.925× | 0.940× | — |
-| Calculator::Interpreter | 1.344 | 1.250 | 1.360 | 0.949× | 1.013× | — |
-| Compress::ArithDecode | 0.938 | 0.945 | 1.604 | 1.009× | 1.712× | — |
-| Compress::ArithEncode | 1.079 | 0.980 | 1.109 | 0.908× | 1.026× | — |
-| Compress::BWTDecode | 0.640 | 0.648 | 0.655 | 1.009× | 1.026× | — |
-| Compress::BWTEncode | 1.111 | 1.132 | 1.357 | 1.007× | 1.215× | — |
-| Compress::HuffDecode | 0.616 | 0.772 | 0.514 | 1.253× | 0.834× | — |
-| Compress::HuffEncode | 0.984 | 1.230 | 1.031 | 1.248× | 1.048× | — |
-| Compress::LZWDecode | 0.739 | 0.736 | 0.705 | 1.001× | 0.955× | — |
-| Compress::LZWEncode | 1.336 | 1.299 | 1.307 | 0.982× | 0.979× | — |
-| Distance::Jaro | 1.209 | 1.171 | 1.148 | 0.969× | 0.950× | — |
-| Distance::NGram | 1.362 | 1.325 | 1.285 | 0.972× | 0.947× | — |
-| Etc::CacheSimulation | 1.156 | 1.106 | 1.119 | 0.960× | 0.961× | — |
-| Etc::GameOfLife | 1.196 | 1.102 | 1.167 | 0.931× | 0.970× | clang |
-| Etc::LogParser | 0.521 | 1.944 | 0.657 | 3.738× | 1.262× | gcc |
-| Etc::NeuralNet | 1.273 | 1.103 | 1.079 | 0.882× | 0.829× | gcc, clang |
-| Etc::Sieve | 1.544 | 1.973 | 1.462 | 1.297× | 0.989× | gcc |
-| Etc::TextRaytracer | 1.038 | 1.023 | 1.339 | 0.985× | 1.291× | — |
-| Etc::Words | 1.310 | 1.288 | 1.331 | 0.986× | 1.026× | — |
-| Graph::AStar | 1.139 | 1.284 | 1.053 | 1.135× | 0.919× | — |
-| Graph::BFS | 1.411 | 1.113 | 1.068 | 0.829× | 0.759× | — |
-| Graph::DFS | 1.318 | 1.134 | 1.204 | 0.875× | 0.911× | — |
-| Hash::CRC32 | 0.293 | 0.806 | 0.915 | 2.749× | 3.123× | — |
-| Hash::SHA256 | 0.452 | 1.475 | 1.379 | 3.260× | 3.048× | — |
-| Json::Generate | 1.136 | 1.128 | 1.140 | 0.996× | 1.006× | — |
-| Json::ParseDom | 1.281 | 1.204 | 1.191 | 0.937× | 0.930× | — |
-| Json::ParseMapping | 1.220 | 1.144 | 1.135 | 0.938× | 0.931× | — |
-| Matmul::Single | 1.387 | 1.385 | 1.385 | 0.999× | 0.997× | — |
-| Matmul::T16 | 2.623 | 2.624 | 2.618 | 0.995× | 1.003× | — |
-| Matmul::T4 | 1.355 | 1.354 | 1.354 | 1.000× | 0.999× | — |
-| Matmul::T8 | 1.375 | 1.371 | 1.375 | 0.999× | 1.000× | — |
-| Maze::AStar | 1.144 | 1.074 | 1.186 | 0.907× | 1.019× | gcc |
-| Maze::BFS | 1.169 | 1.335 | 1.290 | 1.138× | 1.049× | gcc |
-| Maze::Generator | 1.183 | 1.222 | 1.238 | 1.064× | 1.042× | — |
-| Sort::Merge | 0.862 | 1.127 | 1.025 | 1.306× | 1.188× | — |
-| Sort::Quick | 1.352 | 1.232 | 1.251 | 0.911× | 0.925× | — |
-| Sort::Self | 1.260 | 1.206 | 1.231 | 0.958× | 0.977× | — |
-| Template::Parse | 1.222 | 1.165 | 1.218 | 0.976× | 1.014× | gcc, clang |
-| Template::Regex | 1.245 | 1.289 | 1.458 | 1.050× | 1.182× | gcc |
+| Base64::Decode | 1.281 | 1.034 | 1.091 | 0.803× | 0.875× | gcc, clang |
+| Base64::Encode | 1.501 | 1.336 | 1.065 | 0.887× | 0.740× | clang |
+| Binarytrees::Arena | 2.314 | 2.417 | 2.404 | 1.040× | 1.050× | clang |
+| Binarytrees::Obj | 2.510 | 2.437 | 2.586 | 0.943× | 1.074× | gcc, clang |
+| Brainfuck::Array | 1.426 | 2.322 | 1.570 | 1.559× | 1.195× | gcc |
+| Brainfuck::Recursion | 1.136 | 1.256 | 1.209 | 1.113× | 1.082× | gcc |
+| CLBG::Fannkuchredux | 0.980 | 1.081 | 0.998 | 1.105× | 1.010× | gcc, clang |
+| CLBG::Mandelbrot | 1.335 | 1.276 | 1.179 | 0.951× | 0.904× | clang |
+| CLBG::Nbody | 0.988 | 0.988 | 0.951 | 1.017× | 0.985× | — |
+| CLBG::Spectralnorm | 1.053 | 1.024 | 1.717 | 0.963× | 1.647× | gcc |
+| CSV::Parse | 0.994 | 0.929 | 0.988 | 0.922× | 1.047× | gcc |
+| Calculator::Ast | 0.927 | 0.875 | 0.849 | 0.928× | 0.959× | clang |
+| Calculator::Interpreter | 1.676 | 1.500 | 1.570 | 0.900× | 1.001× | gcc, clang |
+| Compress::ArithDecode | 0.869 | 0.869 | 1.540 | 1.002× | 1.798× | — |
+| Compress::ArithEncode | 0.984 | 0.948 | 1.025 | 0.961× | 1.042× | clang |
+| Compress::BWTDecode | 0.599 | 0.592 | 0.601 | 0.952× | 0.998× | clang |
+| Compress::BWTEncode | 0.913 | 0.952 | 1.121 | 1.038× | 1.235× | gcc |
+| Compress::HuffDecode | 0.537 | 0.658 | 0.452 | 1.212× | 0.860× | clang |
+| Compress::HuffEncode | 0.873 | 0.865 | 1.000 | 0.974× | 1.140× | clang |
+| Compress::LZWDecode | 0.651 | 0.665 | 0.596 | 1.043× | 0.935× | clang |
+| Compress::LZWEncode | 1.103 | 1.131 | 1.092 | 1.004× | 1.006× | clang |
+| Distance::Jaro | 1.117 | 1.159 | 1.068 | 0.997× | 0.956× | clang |
+| Distance::NGram | 1.224 | 1.189 | 1.153 | 0.981× | 0.948× | — |
+| Etc::CacheSimulation | 0.974 | 0.956 | 0.934 | 0.996× | 0.964× | clang |
+| Etc::GameOfLife | 1.320 | 1.230 | 1.264 | 0.943× | 1.017× | clang |
+| Etc::LogParser | 0.447 | 1.934 | 0.538 | 4.352× | 1.268× | gcc, clang |
+| Etc::NeuralNet | 1.054 | 0.952 | 0.895 | 0.877× | 0.869× | gcc, clang |
+| Etc::Sieve | 1.288 | 1.704 | 1.292 | 1.335× | 1.023× | — |
+| Etc::TextRaytracer | 0.980 | 0.941 | 1.156 | 0.970× | 1.186× | gcc, clang |
+| Etc::Words | 1.108 | 1.075 | 1.091 | 0.965× | 0.999× | — |
+| Graph::AStar | 1.308 | 1.472 | 1.179 | 1.119× | 0.914× | — |
+| Graph::BFS | 2.264 | 2.032 | 1.843 | 0.887× | 0.790× | — |
+| Graph::DFS | 1.750 | 1.579 | 1.588 | 0.895× | 0.879× | — |
+| Hash::CRC32 | 0.280 | 0.740 | 0.835 | 2.753× | 3.107× | gcc, clang |
+| Hash::SHA256 | 0.405 | 1.304 | 1.252 | 3.184× | 3.045× | gcc, clang |
+| Json::Generate | 0.855 | 0.859 | 0.832 | 0.963× | 1.019× | gcc |
+| Json::ParseDom | 1.024 | 1.001 | 0.984 | 0.986× | 0.974× | gcc, clang |
+| Json::ParseMapping | 1.014 | 0.952 | 0.920 | 0.934× | 0.946× | clang |
+| Matmul::Single | 1.296 | 1.325 | 1.263 | 1.004× | 1.005× | clang |
+| Matmul::T16 | 2.590 | 2.555 | 2.524 | 0.978× | 0.998× | gcc |
+| Matmul::T4 | 1.277 | 1.298 | 1.251 | 1.006× | 1.003× | gcc |
+| Matmul::T8 | 1.363 | 1.333 | 1.294 | 0.970× | 0.969× | — |
+| Maze::AStar | 1.638 | 1.584 | 1.837 | 0.957× | 1.086× | gcc |
+| Maze::BFS | 1.476 | 1.493 | 1.464 | 0.997× | 0.990× | clang |
+| Maze::Generator | 1.962 | 2.064 | 1.962 | 1.006× | 1.012× | — |
+| Sort::Merge | 0.802 | 1.067 | 0.950 | 1.344× | 1.151× | clang |
+| Sort::Quick | 1.230 | 1.197 | 1.191 | 0.952× | 0.988× | clang |
+| Sort::Self | 1.175 | 1.141 | 1.140 | 0.959× | 0.995× | clang |
+| Template::Parse | 1.175 | 1.246 | 1.269 | 1.021× | 1.118× | clang |
+| Template::Regex | 1.181 | 1.316 | 1.345 | 1.120× | 1.151× | gcc |
 
 A/A warnings flag variation above 2%; no cases are dropped. Small timing differences need confirmation.
-Compile gcc A/A CPU ratio: 1.005×.
-Compile clang A/A CPU ratio: 1.020×.
+Compile gcc A/A CPU ratio: 0.987×.
+Compile clang A/A CPU ratio: 1.005×.
 
 Hardware counters: unavailable: perf is not installed on this host.
 
 ## Toolchains
 
-- **cppgm**: cppgm 0.9.8 (host configuration: g++)
+- **cppgm**: cppgm 0.10.2 (host configuration: g++)
 - **gcc**: g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0
 - **clang**: Ubuntu clang version 21.1.8 (6ubuntu1)
 
 [Results](results.json) · [Provenance and header hashes](metadata.json) · [Raw compile observations](compile-observations.jsonl) · [Raw runtime observations](runtime-observations.jsonl)
 
-[CI run and complete artifacts](https://github.com/vishvananda/cppgm/actions/runs/44743598642)
+[CI run and complete artifacts](https://github.com/vishvananda/cppgm/actions/runs/44815881069)
