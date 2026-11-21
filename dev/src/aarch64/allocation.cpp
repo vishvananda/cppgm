@@ -1050,10 +1050,10 @@ void Selector::allocate()
 	const uint64_t cold_budget = single ? ~uint64_t(0)
 										: (block_weights_.empty() ? 0 : block_weights_[body_.layout.front()] / 2);
 	GroupRegisters groups(body_, aliases_, ranges, segments, facts.copies, calls);
-	const auto frameless_blocks = !minimize_size_ && !named_.darwin && !out_.exceptions && !dynamic_stack_ &&
-			body_.code_labels.empty() && !calls.empty()
-		? frameless_spans(body_, cfg)
-		: std::vector<uint32_t>();
+	// The entry's frameless region, found when a group first asks.
+	bool frameless_known = minimize_size_ || named_.darwin || out_.exceptions || dynamic_stack_ ||
+		!body_.code_labels.empty() || calls.empty();
+	std::vector<uint32_t> frameless_blocks;
 	constexpr uint32_t high_caller_simd = 0xfffc0000; // v18 through v31, clear of argument and scratch registers.
 	RegisterBank general(segments, slots), simd(segments, slots);
 	std::vector<uint32_t> simd_web_regs;
@@ -1068,6 +1068,11 @@ void Selector::allocate()
 	};
 	const auto first_choice = [&](TempId group) {
 		const uint32_t all = (dynamic_stack_ ? 0x1ffu : 0x3ffu) << 19;
+		if (!frameless_known)
+		{
+			frameless_blocks = frameless_spans(body_, cfg);
+			frameless_known = true;
+		}
 		if (groups.member_within(group, segments, frameless_blocks))
 			return 0u;
 		return cold_calls && groups.rare_calls_only(group, segments, calls, rare) ? all & saved : all;
