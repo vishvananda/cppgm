@@ -84,6 +84,13 @@ bool FunctionSelector::low_lane_only(const Instruction& inst) const
 	}
 	if (op == VectorOp::Unpcklpd)
 		return from == VectorOp::Fromf64; // the whole low qword is read
+	if (op == VectorOp::Unpcklps && from == VectorOp::Fromf32)
+	{
+		// A pair's low qword holds the low dword of each operand.
+		const Instruction* read = single_user(*lanes);
+		return read != nullptr && read->op == lowir::Opcode::Vector &&
+			static_cast<VectorOp>(read->sub) == VectorOp::Tof64;
+	}
 	if (op != VectorOp::Minps && op != VectorOp::Minpd && op != VectorOp::Maxps && op != VectorOp::Maxpd)
 		return false;
 	const Instruction* read = single_user(*lanes);

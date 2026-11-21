@@ -70,6 +70,7 @@ private:
 	bool group(BlockId b, const std::vector<Stored>& stores, const std::vector<size_t>& runs, size_t run);
 	void pack(BlockId b, const std::vector<Stored>& stores, size_t first, InstId last, int root);
 	bool stores_move(const std::vector<Stored>& stores, size_t first, InstId last) const;
+	bool pair_floats(BlockId b, const std::vector<Stored>& stores);
 	bool load_moves(InstId load, const std::vector<Stored>& stores, size_t first, InstId last) const;
 	int build(
 		BlockId b, const Value* lanes, const std::vector<Stored>& stores, size_t first, InstId last, unsigned depth);
@@ -936,6 +937,64 @@ bool BlockLanes::block(BlockId b)
 		// (A group changes the block's order: it is read again.)
 		if (group(b, lanes, runs, r))
 			return true;
+	}
+	return c_.costs.pairs_float_stores && pair_floats(b, stores);
+}
+
+// Where the target pairs float stores (OptimizationModel::pairs_float_stores):
+// two computed float stores to adjacent addresses that pack no further become
+// one eight-byte store of their lanes, just before the later one, when nothing
+// the earlier one passes reads or writes what it writes. The address of each
+// has no other store in the block. An eight-byte copy of the pair then reads
+// one store.
+bool BlockLanes::pair_floats(BlockId b, const std::vector<Stored>& stores)
+{
+	const auto computed = [&](Value v) {
+		if (!v.is(ValueKind::Temp) || v.index >= body_.temps.size() || body_.temps[v.index].def == kNoId)
+			return false;
+		const Opcode op = body_.instructions[body_.temps[v.index].def].op;
+		return (op == Opcode::Binary || op == Opcode::Unary || op == Opcode::Convert) && v.index < uses_.size() &&
+			uses_[v.index] == 1;
+	};
+	lanes_ = 2;
+	lane_type_ = Type::scalar(TypeKind::F32);
+	for (size_t i = 0; i + 1 < stores.size(); ++i)
+	{
+		const Stored& low = stores[i];
+		const Stored& high = stores[i + 1];
+		const Instruction& first = body_.instructions[low.id];
+		const Instruction& second = body_.instructions[high.id];
+		// (A literal stores as an immediate and a loaded float is a copy: it
+		// would take a load into lanes or gain nothing. A value read again
+		// would take a copy of its register.)
+		if (first.type.kind() != TypeKind::F32 || second.type.kind() != TypeKind::F32 || !computed(first.ops[0]) ||
+			!computed(second.ops[0]) || !(high.at.root == low.at.root) || high.at.offset != low.at.offset + 4 ||
+			(i > 0 && stores[i - 1].at.root == low.at.root && stores[i - 1].at.offset == low.at.offset) ||
+			(i + 2 < stores.size() && stores[i + 2].at.root == high.at.root &&
+				stores[i + 2].at.offset == high.at.offset))
+			continue;
+		const InstId last = position_[low.id] < position_[high.id] ? high.id : low.id;
+		const std::vector<Stored> pair = { low, high };
+		if (!stores_move(pair, 0, last))
+			continue;
+		// (The values are read before the new instructions move the body.)
+		const Value value0 = first.ops[0], value1 = second.ops[0];
+		block_ = b;
+		tail_ = previous_in_block(body_, b, last);
+		const Value lane0 = vector(VectorOp::Fromf32, phi_input(body_, lane_type_, value0));
+		const Value lane1 = vector(VectorOp::Fromf32, phi_input(body_, lane_type_, value1));
+		const Value lanes = vector(VectorOp::Unpcklps, lane0, lane1);
+		Instruction store = make_instruction(Opcode::Store, Type::scalar(TypeKind::F64));
+		store.ops[0] = vector(VectorOp::Tof64, lanes);
+		store.ops[1] = body_.instructions[low.id].ops[1];
+		store.location = body_.instructions[low.id].location;
+		emit(store, Type::scalar(TypeKind::Void));
+		for (const Stored& s : pair)
+		{
+			unlink_after(body_, b, previous_in_block(body_, b, s.id), s.id);
+			c_.block_of[s.id] = kNoId;
+		}
+		return true;
 	}
 	return false;
 }

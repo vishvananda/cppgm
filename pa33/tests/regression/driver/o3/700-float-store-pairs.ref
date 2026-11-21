@@ -1,0 +1,232 @@
+declare function @__builtin_memcpy(%arg0 : ptr [alias=noalias], %arg1 : ptr [alias=noalias], %arg2 : i64) -> ptr [unwind=no, binding=strong, object=cppgm_builtin_memcpy]
+
+function @cross(%a : ptr, %b : ptr, %out : ptr) -> void [binding=strong, object=_Z5crossPK2V3S1_P4Slot, no_inline=yes] {
+  block ^entry:
+    %t1 = index inbounds i8 [projection=field] %out, 8
+    %t2 = copy nonnull ptr %a
+    %t3 = copy nonnull ptr %b
+    %t4 = index inbounds i8 [projection=field] %t2, 4
+    %t5 = load typed f32 %t4
+    %t6 = index inbounds i8 [projection=field] %t3, 8
+    %t7 = load typed f32 %t6
+    %t8 = binary mul f32 %t5, %t7
+    %t9 = index inbounds i8 [projection=field] %t2, 8
+    %t10 = load typed f32 %t9
+    %t11 = index inbounds i8 [projection=field] %t3, 4
+    %t12 = load typed f32 %t11
+    %t13 = binary mul f32 %t10, %t12
+    %t14 = binary sub f32 %t8, %t13
+    %t15 = load typed f32 %t3
+    %t16 = binary mul f32 %t10, %t15
+    %t17 = load typed f32 %t2
+    %t18 = binary mul f32 %t7, %t17
+    %t19 = binary sub f32 %t16, %t18
+    %t20 = binary mul f32 %t12, %t17
+    %t21 = binary mul f32 %t5, %t15
+    %t22 = binary sub f32 %t20, %t21
+    %t23 = vector fromf32 %t14
+    %t24 = vector fromf32 %t19
+    %t25 = vector unpcklps %t23, %t24
+    %t26 = vector tof64 %t25
+    store f64 %t26, %t1
+    %t27 = index inbounds i8 [projection=field] %out, 16
+    store typed f32 %t22, %t27
+    return void
+}
+function @make(%x : f64, %y : f64, %z : f64, %out : ptr) -> void [binding=strong, object=_Z4makedddP4Slot, no_inline=yes] {
+  block ^entry:
+    %t1 = index inbounds i8 [projection=field] %out, 8
+    %t2 = convert fptrunc f32 f64 %x
+    %t3 = convert fptrunc f32 f64 %y
+    %t4 = convert fptrunc f32 f64 %z
+    %t5 = vector fromf32 %t2
+    %t6 = vector fromf32 %t3
+    %t7 = vector unpcklps %t5, %t6
+    %t8 = vector tof64 %t7
+    store f64 %t8, %t1
+    %t9 = index inbounds i8 [projection=field] %out, 16
+    store typed f32 %t4, %t9
+    return void
+}
+function @chained(%s : f32, %out : ptr, %p : ptr) -> void [binding=strong, object=_Z7chainedfP4SlotPKf, no_inline=yes] {
+  block ^entry:
+    %t1 = binary mul f32 %s, 3f
+    %t2 = index inbounds i8 [projection=field] %out, 8
+    store typed f32 %t1, %t2
+    %t3 = load typed f32 %p
+    %t4 = binary add f32 %s, %t3
+    %t5 = index inbounds i8 [projection=field] %out, 12
+    store typed f32 %t4, %t5
+    %t6 = index inbounds i8 [projection=field] %out, 16
+    store typed f32 0.5f, %t6
+    return void
+}
+function @unit(%out : ptr) -> void [binding=strong, object=_Z4unitP4Slot, no_inline=yes] {
+  block ^entry:
+    %t1 = index inbounds i8 [projection=field] %out, 8
+    store typed f32 1f, %t1
+    %t2 = index inbounds i8 [projection=field] %out, 12
+    store typed f32 0f, %t2
+    return void
+}
+function @low_pair(%s : ptr) -> i64 [binding=strong, object=_Z8low_pairPK4Slot, no_inline=yes] {
+  block ^entry:
+    %t1 = index inbounds i8 [projection=field] %s, 8
+    %t2 = load i64 %t1
+    return i64 %t2
+}
+function @main() -> i32 [role=entry, binding=strong, keep_alias=yes] {
+  slot $s : obj<20x4>
+  slot $a : obj<12x4>
+  slot $b : obj<12x4>
+
+  block ^entry:
+    %t1 = addr $s
+    store typed i32 1, %t1
+    %t2 = index inbounds i8 [projection=field] %t1, 4
+    store typed i32 0, %t2
+    %t3 = index inbounds i8 [projection=field] %t1, 8
+    store typed f32 0f, %t3
+    %t4 = index inbounds i8 [projection=field] %t1, 12
+    store typed f32 0f, %t4
+    %t5 = index inbounds i8 [projection=field] %t1, 16
+    store typed f32 0f, %t5
+    %t6 = addr $a
+    store typed f32 1f, %t6
+    %t7 = index inbounds i8 [projection=field] %t6, 4
+    store typed f32 2f, %t7
+    %t8 = index inbounds i8 [projection=field] %t6, 8
+    store typed f32 3f, %t8
+    %t9 = addr $b
+    store typed f32 -2f, %t9
+    %t10 = index inbounds i8 [projection=field] %t9, 4
+    store typed f32 0.5f, %t10
+    %t11 = index inbounds i8 [projection=field] %t9, 8
+    store typed f32 4f, %t11
+    call void @cross(%t6, %t9, %t1)
+    %t12 = load typed f32 %t3
+    %t13 = cmp ne f32 %t12, 6.5f
+    branch %t13, ^if_then_4, ^lor_rhs_1
+
+  block ^lor_rhs_1:
+    %t14 = index inbounds i8 [projection=field] %t1, 12
+    %t15 = load typed f32 %t14
+    %t16 = cmp ne f32 %t15, -10f
+    branch %t16, ^if_then_4, ^lor_rhs_2
+
+  block ^lor_rhs_2:
+    %t17 = index inbounds i8 [projection=field] %t1, 16
+    %t18 = load typed f32 %t17
+    %t19 = cmp ne f32 %t18, 4.5f
+    branch %t19, ^if_then_4, ^lor_rhs_3
+
+  block ^lor_rhs_3:
+    %t20 = load typed i32 %t1
+    %t21 = cmp ne i32 %t20, 1
+    branch %t21, ^if_then_4, ^if_end_5
+
+  block ^if_then_4:
+    return i32 1
+
+  block ^if_end_5:
+    %t22 = index inbounds i8 [projection=field] %t1, 12
+    %t23 = index inbounds i8 [projection=field] %t1, 16
+    %t24 = index inbounds i8 [projection=field] %t1, 8
+    store typed f32 1f, %t24
+    store typed f32 2f, %t22
+    store typed f32 3f, %t23
+    call void @cross(%t24, %t9, %t1)
+    %t25 = load typed f32 %t24
+    %t26 = cmp ne f32 %t25, 6.5f
+    branch %t26, ^if_then_8, ^lor_rhs_6
+
+  block ^lor_rhs_6:
+    %t27 = load typed f32 %t22
+    %t28 = cmp ne f32 %t27, -10f
+    branch %t28, ^if_then_8, ^lor_rhs_7
+
+  block ^lor_rhs_7:
+    %t29 = load typed f32 %t23
+    %t30 = cmp ne f32 %t29, 4.5f
+    branch %t30, ^if_then_8, ^if_end_9
+
+  block ^if_then_8:
+    return i32 2
+
+  block ^if_end_9:
+    call void @make(0.25, -8.0, 10000000000.0, %t1)
+    %t31 = load typed f32 %t24
+    %t32 = cmp ne f32 %t31, 0.25f
+    branch %t32, ^if_then_12, ^lor_rhs_10
+
+  block ^lor_rhs_10:
+    %t33 = load typed f32 %t22
+    %t34 = cmp ne f32 %t33, -8f
+    branch %t34, ^if_then_12, ^lor_rhs_11
+
+  block ^lor_rhs_11:
+    %t35 = load typed f32 %t23
+    %t36 = cmp ne f32 %t35, 10000000000f
+    branch %t36, ^if_then_12, ^if_end_13
+
+  block ^if_then_12:
+    return i32 3
+
+  block ^if_end_13:
+    %t37 = call i64 @low_pair(%t1)
+    %t38 = convert trunc u32 i64 %t37
+    %t39 = copy f32 %t38
+    %t40 = cmp ne f32 %t39, 0.25f
+    branch %t40, ^if_then_15, ^lor_rhs_14
+
+  block ^lor_rhs_14:
+    %t41 = binary ushr i64 %t37, 32
+    %t42 = convert trunc u32 i64 %t41
+    %t43 = copy f32 %t42
+    %t44 = cmp ne f32 %t43, -8f
+    branch %t44, ^if_then_15, ^if_end_16
+
+  block ^if_then_15:
+    return i32 4
+
+  block ^if_end_16:
+    call void @chained(2f, %t1, %t24)
+    %t45 = load typed f32 %t24
+    %t46 = cmp ne f32 %t45, 6f
+    branch %t46, ^if_then_19, ^lor_rhs_17
+
+  block ^lor_rhs_17:
+    %t47 = load typed f32 %t22
+    %t48 = cmp ne f32 %t47, 8f
+    branch %t48, ^if_then_19, ^lor_rhs_18
+
+  block ^lor_rhs_18:
+    %t49 = load typed f32 %t23
+    %t50 = cmp ne f32 %t49, 0.5f
+    branch %t50, ^if_then_19, ^if_end_20
+
+  block ^if_then_19:
+    return i32 5
+
+  block ^if_end_20:
+    call void @unit(%t1)
+    %t51 = load typed f32 %t24
+    %t52 = cmp eq f32 %t51, 1f
+    branch %t52, ^land_rhs_21, ^cond_else_23
+
+  block ^land_rhs_21:
+    %t53 = load typed f32 %t22
+    %t54 = cmp eq f32 %t53, 0f
+    branch %t54, ^land_rhs_22, ^cond_else_23
+
+  block ^land_rhs_22:
+    %t55 = cmp eq f32 %t49, 0.5f
+    branch %t55, ^cond_end_24, ^cond_else_23
+
+  block ^cond_else_23:
+    jump ^cond_end_24
+
+  block ^cond_end_24:
+    %t56 = phi i32 [^cond_else_23: 6, ^land_rhs_22: 0]
+    return i32 %t56
+}
