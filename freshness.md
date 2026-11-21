@@ -7,7 +7,7 @@ An asterisk marks a result at least 10 commits behind main, or outside its histo
 | Workload | Host | CPU | Measured commit | Commit date (UTC) | Age | Results |
 |---|---|---|---|---|---|---|
 | Public programs | EPYC | AMD EPYC 9V74 80-Core Processor | [`0eb0fe355`](https://github.com/vishvananda/cppgm/commit/0eb0fe355ff3f83f0f2ffe697f97c7e8f251dea6) | 2026-11-20T18:46:26Z | 172 commits (stale badge) | [Results](epyc/report.md) |
-| cppgm | EPYC | AMD EPYC 9V45 96-Core Processor | [`992888a62`](https://github.com/vishvananda/cppgm/commit/992888a62d0d19fee6e2973c68195aed2b02a9b7) | 2026-11-20T20:04:07Z | 166 commits (stale badge) | [Results](epyc/self-build.md) |
+| cppgm | EPYC | AMD EPYC 9V74 80-Core Processor | [`0e83e16cf`](https://github.com/vishvananda/cppgm/commit/0e83e16cfc2b07812fd972ecb73cd95be4783dad) | 2026-11-20T21:17:50Z | 159 commits (stale badge) | [Results](epyc/self-build.md) |
 | index-cpp | EPYC | AMD EPYC 9V74 80-Core Processor | [`44d3c4a29`](https://github.com/vishvananda/cppgm/commit/44d3c4a29971caff2cc064889ec96259f34e7504) | 2026-11-20T20:31:32Z | 165 commits (stale badge) | [Results](index-cpp/epyc/report.md) |
 | simdjson | EPYC | AMD EPYC 9V74 80-Core Processor | [`b3e8ffd61`](https://github.com/vishvananda/cppgm/commit/b3e8ffd61d008c80042a09444d6d607c4b7d7f0c) | 2026-11-20T20:38:16Z | 164 commits (stale badge) | [Results](simdjson/epyc/report.md) |
 | godot | EPYC | AMD EPYC 9V74 80-Core Processor | [`44d3c4a29`](https://github.com/vishvananda/cppgm/commit/44d3c4a29971caff2cc064889ec96259f34e7504) | 2026-11-20T20:31:32Z | 165 commits (stale badge) | [Results](godot/epyc/report.md) |
