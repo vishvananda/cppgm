@@ -1,8 +1,8 @@
 # The inner loop stores `%cell` on every pass, so its value stays in a
 # register and is stored on the way out. The edge out goes to the outer
 # loop's header, which comes before the block that computes `%cell`: the
-# block holding that store is placed after the exiting block, not before
-# the header, so every pass sees each definition before its uses.
+# block holding that store goes before the header, and the layout is then
+# reordered so that every pass sees each definition before its uses.
 
 global @sums : obj<16x4> = zero
 global @cells : obj<64x4> = zero
