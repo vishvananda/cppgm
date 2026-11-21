@@ -1,5 +1,5 @@
-<svg data-original-label="Public programs runtime vs clang" data-original-message="0.98×" data-original-color="336128" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="Public programs runtime vs clang; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured b3e8ffd61d008c80042a09444d6d607c4b7d7f0c; 131 commits behind main: stale">
-  <title>Public programs runtime vs clang; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured b3e8ffd61d008c80042a09444d6d607c4b7d7f0c; 131 commits behind main: stale</title>
+<svg data-original-label="Public programs runtime vs clang" data-original-message="0.98×" data-original-color="336128" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="Public programs runtime vs clang; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured b3e8ffd61d008c80042a09444d6d607c4b7d7f0c; 147 commits behind main: stale">
+  <title>Public programs runtime vs clang; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured b3e8ffd61d008c80042a09444d6d607c4b7d7f0c; 147 commits behind main: stale</title>
   <defs><clipPath id="badge"><rect width="120" height="24" rx="4"/></clipPath></defs>
   <g clip-path="url(#badge)">
     <rect width="64" height="24" fill="#555"/>
