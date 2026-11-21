@@ -1,0 +1,21 @@
+function @f(%p : ptr) -> i64 [binding=strong, no_inline=yes] {
+  block ^entry:
+    %x = load typed i32 %p
+    %s = convert sext i64 i32 %x
+    %m = binary and i64 %s, -4611685743549480961
+    %u = copy u32 %x
+    %z = convert zext i64 u32 %u
+    %r = binary xor i64 %m, %z
+    return i64 %r
+}
+function @main() -> i32 [role=entry] {
+  slot $v : i32
+
+  block ^entry:
+    store typed i32 -5, $v
+    %a = addr $v
+    %r = call i64 @f(%a)
+    %ok = cmp eq i64 %r, -4611685747844448256
+    %rc = select i32 %ok, 0, 1
+    return i32 %rc
+}

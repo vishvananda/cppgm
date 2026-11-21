@@ -343,6 +343,13 @@ void map_instruction_blocks(const lowir::FunctionBody& body, std::vector<lowir::
 // Use counts of every temporary over linked instructions.
 void count_uses(const lowir::FunctionBody& body, std::vector<uint32_t>& uses);
 
+// Whether `reader` is the only linked instruction that reads `temp`, directly
+// or through `replacements` (a temporary's value from here on; none when it
+// keeps its own). A pass's counts kept from its start do not see a read that
+// a rewrite adds when it reads through an instruction to its operand.
+bool sole_reader(const lowir::FunctionBody& body, const lowir::Instruction& reader, lowir::TempId temp,
+	const std::vector<lowir::Value>& replacements);
+
 // New instructions, temporaries and literals (appended; ids stay dense).
 lowir::InstId append_instruction(lowir::FunctionBody& body, const lowir::Instruction& inst);
 // The stated argument facts (FunctionBody::argument_facts) of `from`'s

@@ -766,7 +766,7 @@ bool Simplifier::identity(Instruction& inst, Value& out)
 		if (load == nullptr || load->op != Opcode::Load || (load->flags & IF_VOLATILE) != 0 ||
 			!inst.type.is_integer() || !load->type.is_integer() ||
 			storage_bytes(load->type) != storage_bytes(inst.type) || inst.type.kind() == TypeKind::I128 ||
-			load->type.kind() == TypeKind::I128)
+			load->type.kind() == TypeKind::I128 || !sole_reader(body_, inst, loaded, repl_))
 			return false;
 		load->type = inst.type;
 		body_.temps[loaded].type = inst.type;
