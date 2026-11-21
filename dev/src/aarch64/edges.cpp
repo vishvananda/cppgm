@@ -290,9 +290,79 @@ uint64_t Selector::plan_phis()
 			bytes += (storage_bytes(body_.instructions[i].type) + 7) & ~uint64_t(7);
 		maximum = std::max(maximum, bytes);
 	}
+	if (level_)
+		for (auto block : body_.layout)
+			if (shared_exit_moves(block))
+			{
+				if (exit_moves_.empty())
+					exit_moves_.assign(body_.blocks.size(), 0);
+				exit_moves_[block] = 1;
+			}
 	std::sort(snapshot_edges_.begin(), snapshot_edges_.end());
 	std::sort(frame_phi_blocks_.begin(), frame_phi_blocks_.end());
 	return maximum;
+}
+
+// When both edges of a two-way branch make the same register moves, the
+// block makes them once before its branch (a move keeps the flags), and
+// neither edge needs code.
+bool Selector::shared_exit_moves(BlockId block)
+{
+	const auto& term = body_.instructions[body_.blocks[block].last];
+	if (term.op != Opcode::Branch || term.ops[1].index == term.ops[2].index)
+		return false;
+	const BlockId targets[2] = { term.ops[1].index, term.ops[2].index };
+	for (const BlockId to : targets)
+	{
+		const auto first = body_.blocks[to].first;
+		if (first == kNoId || body_.instructions[first].op != Opcode::Phi ||
+			(!entry_moves_.empty() && entry_moves_[to] != kNoId) ||
+			(out_.exceptions && out_.exceptions->entry_selectors[to]))
+			return false;
+	}
+	EdgeMoves yes, no;
+	if (!edge_moves(block, targets[0], yes) || !edge_moves(block, targets[1], no) || !yes.count ||
+		yes.count != no.count)
+		return false;
+	for (unsigned i = 0; i < yes.count; ++i)
+	{
+		const auto& move = yes.moves[i];
+		const auto kind = body_.temps[yes.results[i]].type.kind();
+		if (move.destination >= frame_location || move.source >= frame_location ||
+			memory_value(body_.temps[yes.results[i]].type))
+			return false;
+		bool same = false;
+		for (unsigned k = 0; k < no.count && !same; ++k)
+			same = no.moves[k].destination == move.destination && no.moves[k].source == move.source &&
+				body_.temps[no.results[k]].type.kind() == kind;
+		if (!same)
+			return false;
+	}
+	return true;
+}
+
+// The moves both edges of `block` make, before its branch on `operand`
+// (a condition code for B.cond). False, and the edges make their own,
+// when a move would write the tested register or come between a pending
+// bit test's AND and its branch.
+bool Selector::exit_moves(BlockId block, BlockId to, Op test, unsigned operand)
+{
+	if (exit_moves_.empty() || !exit_moves_[block])
+		return false;
+	EdgeMoves moves;
+	bool clear = edge_moves(block, to, moves);
+	if (test != Op::BCond && clear && !out_.code.empty())
+	{
+		const auto& last = out_.code.back();
+		clear = !((last.op == Op::AndImmW || last.op == Op::AndImm) && last.rd == operand);
+		for (unsigned i = 0; clear && i < moves.count; ++i)
+			clear = moves.moves[i].destination != operand;
+	}
+	exit_moves_[block] = clear;
+	if (clear)
+		parallel_edge(block, to);
+	exit_done_ = clear ? block : kNoId;
+	return clear;
 }
 
 // When every edge into a block moves the same registers, the block makes the
@@ -437,7 +507,7 @@ bool Selector::empty_edge(BlockId block, BlockId to)
 	const auto first = body_.blocks[to].first;
 	if (out_.exceptions && out_.exceptions->entry_selectors[to])
 		return false;
-	if (!entry_moves_.empty() && entry_moves_[to] != kNoId)
+	if ((!entry_moves_.empty() && entry_moves_[to] != kNoId) || (!exit_moves_.empty() && exit_moves_[block]))
 		return true;
 	for (auto i = first; i != kNoId && body_.instructions[i].op == Opcode::Phi; i = body_.instructions[i].next)
 	{
@@ -453,8 +523,8 @@ bool Selector::empty_edge(BlockId block, BlockId to)
 // destinations are all dead on the other edge. MOV preserves the flags.
 bool Selector::backedge_moves(BlockId from, BlockId to, BlockId other, unsigned condition)
 {
-	if (entry_regs_.empty() || out_.labels[to] == kNoId || !empty_edge(from, other) || condition == 15 ||
-		(out_.exceptions && out_.exceptions->entry_selectors[to]) ||
+	if (entry_regs_.empty() || out_.labels[to] == kNoId || exit_done_ == from || !empty_edge(from, other) ||
+		condition == 15 || (out_.exceptions && out_.exceptions->entry_selectors[to]) ||
 		(!entry_moves_.empty() && entry_moves_[to] != kNoId))
 		return false;
 	machine::ScalarTransfer moves[2];
@@ -488,6 +558,7 @@ void Selector::conditional_edges(BlockId block, const lowir::Instruction& branch
 		: test == Op::CbnzW              ? Op::CbzW
 										 : Op::BCond;
 	const auto inverse_operand = test == Op::BCond ? operand ^ 1 : operand;
+	exit_moves(block, yes, test, operand);
 	if (level_ && (no == fallthrough_ || yes == fallthrough_))
 	{
 		const bool taken = no == fallthrough_;
@@ -548,7 +619,7 @@ void Selector::conditional_edges(BlockId block, const lowir::Instruction& branch
 
 void Selector::edge(BlockId from, BlockId to, bool last)
 {
-	if (entry_moves_.empty() || entry_moves_[to] == kNoId)
+	if ((entry_moves_.empty() || entry_moves_[to] == kNoId) && exit_done_ != from)
 	{
 		if (!level_ || std::binary_search(snapshot_edges_.begin(), snapshot_edges_.end(), std::make_pair(to, from)))
 			copy_edge(from, to);
