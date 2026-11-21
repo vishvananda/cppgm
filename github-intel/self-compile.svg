@@ -1,5 +1,5 @@
-<svg data-original-label="self compile speed vs gcc" data-original-message="4.1×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="self compile speed vs gcc; INTEL(R) XEON(R) PLATINUM 8573C; measured 897807fd4b8c8a50f234a4480f91abe56a7760a8; 35 commits behind main: 4.1×*">
-  <title>self compile speed vs gcc; INTEL(R) XEON(R) PLATINUM 8573C; measured 897807fd4b8c8a50f234a4480f91abe56a7760a8; 35 commits behind main: 4.1×*</title>
+<svg data-original-label="self compile speed vs gcc" data-original-message="4.1×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="self compile speed vs gcc; INTEL(R) XEON(R) PLATINUM 8573C; measured 897807fd4b8c8a50f234a4480f91abe56a7760a8; 46 commits behind main: 4.1×*">
+  <title>self compile speed vs gcc; INTEL(R) XEON(R) PLATINUM 8573C; measured 897807fd4b8c8a50f234a4480f91abe56a7760a8; 46 commits behind main: 4.1×*</title>
   <defs><clipPath id="badge"><rect width="120" height="24" rx="4"/></clipPath></defs>
   <g clip-path="url(#badge)">
     <rect width="64" height="24" fill="#555"/>
