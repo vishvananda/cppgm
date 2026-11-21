@@ -148,7 +148,7 @@ static uint32_t untouched_callers(const Function& function)
 }
 
 void compile_object(Program& program, obj::ObjectFile& object, int level, bool pic, std::string* dump,
-	bool function_sections, bool host, bool minimize_size, bool contract_float)
+	bool function_sections, bool host, bool minimize_size, bool contract_float, bool fixed_x18)
 {
 	if (program.explicit_target && !target_model::is_aarch64(program.target))
 		throw AArch64Error("input and output target profiles differ");
@@ -179,7 +179,7 @@ void compile_object(Program& program, obj::ObjectFile& object, int level, bool p
 		if (src.kind != SymbolKind::FunctionDefinition)
 			continue;
 		Function function;
-		Selector(program, id, function, level, pic, leaf_registers, minimize_size, contract_float).run();
+		Selector(program, id, function, level, pic, leaf_registers, minimize_size, contract_float, fixed_x18).run();
 		if (level >= 2 && src.metadata.binding == ir_model::SBM_INTERNAL && !function.exceptions)
 			leaf_registers[id] = untouched_callers(function);
 		const uint32_t resume = function.needs_resume ? external_symbol(object, "_Unwind_Resume") : kNoId;

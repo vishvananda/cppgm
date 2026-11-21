@@ -120,6 +120,17 @@ bool diagnostic_option(
 	return true;
 }
 
+bool fixed_x18_option(const std::string& option, bool* fixed)
+{
+	if (option != "-ffixed-x18" &&
+		(option.compare(0, 11, "-fsanitize=") != 0 ||
+			("," + option.substr(11) + ",").find(",shadow-call-stack,") == std::string::npos))
+		return false;
+	if (fixed != nullptr)
+		*fixed = true;
+	return true;
+}
+
 bool float_contract_option(const std::string& option, bool* enabled)
 {
 	const bool fast = option == "-ffast-math" || option == "-ffp-contract=fast";
@@ -184,6 +195,7 @@ struct Invocation
 	bool position_independent = false;
 	bool red_zone = true;
 	bool contract_float = false;
+	bool fixed_x18 = false;
 	// -ffunction-sections: each function in a section of its own.
 	bool function_sections = false;
 	bool preprocess_only = false;
@@ -528,7 +540,7 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 			invocation.emit_lowir = true;
 		else if (arg == "-flowir-passes" || arg == "-fno-lowir-passes")
 			invocation.lowir_passes = arg == "-flowir-passes";
-		else if (float_contract_option(arg, &invocation.contract_float))
+		else if (float_contract_option(arg, &invocation.contract_float) || fixed_x18_option(arg, &invocation.fixed_x18))
 			continue;
 		else if (arg == "-fPIC" || arg == "-fpic" || arg == "-fPIE" || arg == "-fpie")
 		{
@@ -976,7 +988,7 @@ bool compile_native_sources(SourceInputs sources, const Invocation& invocation, 
 		if (arm)
 			aarch64::compile_object(program, object, invocation.optimizer.level, invocation.position_independent,
 				nullptr, invocation.function_sections, eh_model == native::EhModel::Host,
-				invocation.optimizer.minimize_size, invocation.contract_float);
+				invocation.optimizer.minimize_size, invocation.contract_float, invocation.fixed_x18);
 		else
 			builder->finish(object);
 	}
@@ -1045,7 +1057,7 @@ bool compile_lowir_unit(const std::string& path, const Invocation& invocation, n
 		{
 			aarch64::compile_object(program, object, invocation.optimizer.level, invocation.position_independent,
 				nullptr, invocation.function_sections, eh_model == native::EhModel::Host,
-				invocation.optimizer.minimize_size, invocation.contract_float);
+				invocation.optimizer.minimize_size, invocation.contract_float, invocation.fixed_x18);
 		}
 		catch (const native::BackendError& e)
 		{

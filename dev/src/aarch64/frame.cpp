@@ -12,11 +12,12 @@ namespace aarch64 {
 using namespace lowir;
 
 Selector::Selector(const Program& program, SymbolId symbol, Function& out, int level, bool pic,
-	const std::vector<uint32_t>& leaf_registers, bool minimize_size, bool contract_float)
+	const std::vector<uint32_t>& leaf_registers, bool minimize_size, bool contract_float, bool fixed_x18)
 	: program_(program), symbol_(symbol), body_(*program.functions[program.symbols[symbol].detail].body),
 	  signature_(program.signatures[program.functions[program.symbols[symbol].detail].signature]), out_(out),
 	  level_(level), pic_(pic), minimize_size_(minimize_size), contract_float_(contract_float),
-	  leaf_registers_(leaf_registers), named_(target_model::is_darwin(program.target))
+	  free_x18_(!fixed_x18 && !target_model::is_darwin(program.target)), leaf_registers_(leaf_registers),
+	  named_(target_model::is_darwin(program.target))
 {}
 
 uint32_t Selector::reserve(uint64_t size, uint32_t alignment)

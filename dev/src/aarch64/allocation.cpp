@@ -1299,16 +1299,15 @@ void Selector::allocate()
 	std::vector<uint32_t> web_regs(webs.empty() ? 0 : count, kNoId);
 	std::stable_sort(
 		ranges.begin(), ranges.end(), [](const LiveRange& a, const LiveRange& b) { return a.first < b.first; });
-	// x9-x11, x15-x17 and v16-v17 are selector scratch; x18 is the platform
-	// register on Darwin.
+	// x9-x11, x15-x17 and v16-v17 are selector scratch; see free_x18_ for x18.
 	bool free_x8 = !named_.darwin && !result_.indirect && !out_.exceptions;
 	const auto incoming = incoming_registers(program_, signature_, body_, named_.darwin, free_x8);
 	const uint32_t slots = 2 * (body_.instructions.size() + body_.layout.size()) + 3;
 	const auto outgoing = call_registers();
 	std::vector<uint64_t> weight;
-	// x0-x7, x12-x14, x8 when free, x18 off Darwin and the preserved registers.
+	// x0-x7, x12-x14, x8 when free, x18 when free and the preserved registers.
 	const unsigned preserved_count = dynamic_stack_ ? 9 : 10;
-	const unsigned assignable = preserved_count + 11 + (free_x8 ? 1 : 0) + (named_.darwin ? 0 : 1);
+	const unsigned assignable = preserved_count + 11 + (free_x8 ? 1 : 0) + (free_x18_ ? 1 : 0);
 	const auto order = allocation_order(program_, body_, cfg, aliases_, block_weights_, ranges, segments, calls, webs,
 		slots, level_, preserved_count, assignable, weight);
 	const bool split_calls = level_ >= 2 && !named_.darwin && !dynamic_stack_ && body_.code_labels.empty() &&
@@ -1445,10 +1444,9 @@ void Selector::allocate()
 		if (range.first == 0)
 			kept &= ~0xffu |
 				(!second && range.id < incoming.size() && incoming[range.id] < 8 ? 1u << incoming[range.id] : 0);
-		// Linux leaves x18 to the program as a temporary; Darwin reserves it.
 		uint32_t caller = across_call
 			? kept
-			: arguments | (7u << 12) | (!at_call && free_x8 ? 1u << 8 : 0) | (named_.darwin ? 0 : 1u << 18);
+			: arguments | (7u << 12) | (!at_call && free_x8 ? 1u << 8 : 0) | (free_x18_ ? 1u << 18 : 0);
 		// Keep an incoming scalar in its ABI register when its live range
 		// crosses only cold calls. The saved slot belongs to this register.
 		// A value a landing pad reads stays in its home at every call.
@@ -1503,7 +1501,7 @@ void Selector::allocate()
 	}
 	if (level_ >= 3 && !segments.empty() && body_.code_labels.empty())
 		hold_division_constants(body_, cfg, general,
-			0xffu | (7u << 12) | (free_x8 ? 1u << 8 : 0) | (named_.darwin ? 0 : 1u << 18),
+			0xffu | (7u << 12) | (free_x8 ? 1u << 8 : 0) | (free_x18_ ? 1u << 18 : 0),
 			saved & ((dynamic_stack_ ? 0x1ffu : 0x3ffu) << 19), held_constants_, held_divisions_);
 	for (auto& entry : entry_regs_)
 		entry = general.live_at(entry);

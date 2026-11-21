@@ -382,7 +382,7 @@ SourceOutputInvocation parse_source_output_invocation(const vector<string>& args
 		}
 		if (driver::sse_option(args[i], invocation.sse_level))
 			continue;
-		if (allow_lowir_options && driver::float_contract_option(args[i]))
+		if (allow_lowir_options && (driver::float_contract_option(args[i]) || driver::fixed_x18_option(args[i])))
 			continue;
 		if (args[i] == "-funsigned-char" || args[i] == "-fno-signed-char" || args[i] == "-fsigned-char" ||
 			args[i] == "-fno-unsigned-char")

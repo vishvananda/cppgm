@@ -63,6 +63,11 @@ bool sse_option(const std::string& option, uint8_t& level);
 // Recognize a floating contraction option and update the object policy if supplied.
 bool float_contract_option(const std::string& option, bool* enabled = nullptr);
 
+// -ffixed-x18, or a -fsanitize= list with shadow-call-stack, whose stack
+// pointer lives in x18: AArch64 Linux code leaves x18 alone. Sets `fixed`
+// if supplied.
+bool fixed_x18_option(const std::string& option, bool* fixed = nullptr);
+
 // A -g option's request: 0 disables debug information, 1 enables it,
 // -1 is a modifier that leaves the current request unchanged.
 int debug_info_request(const std::string& arg);
