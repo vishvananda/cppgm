@@ -364,6 +364,18 @@ bool searched(const std::vector<Exit>& exits, size_t def)
 	return gaps >= machine::kNativeSearchGaps;
 }
 
+// Whether the selectors test a set (the runs of the one target besides the
+// default `def`) with a bounds check and a bit test: four runs or more
+// within 64 values. (x86-64 takes the bit test from four single values,
+// AArch64 from three, which is no shorter than their tests.)
+bool bit_tested(const std::vector<Exit>& exits, size_t def)
+{
+	if (exits.size() != 2)
+		return false;
+	const Ranges& set = exits[1 - def].values;
+	return set.size() >= 4 && static_cast<uint64_t>(set.back().second) - static_cast<uint64_t>(set.front().first) < 64;
+}
+
 // Two phi inputs that give one value (each literal operand has its own
 // entry).
 bool same_input(const FunctionBody& body, Value a, Value b)
@@ -955,8 +967,10 @@ bool SwitchFormer::form_region(const std::vector<BlockId>& region, const std::ve
 			runs += exits[e].values.size();
 		}
 	// (As many runs as tests replaced: a switch only from the count that
-	// takes a jump table, kTableRuns, or that the selectors search.)
-	if (cases > kMaxCases || runs > replaced || (runs == replaced && runs < kTableRuns && !searched(exits, def)))
+	// takes a jump table, kTableRuns, or that the selectors search or test
+	// with one bit test.)
+	if (cases > kMaxCases || runs > replaced ||
+		(runs == replaced && runs < kTableRuns && !searched(exits, def) && !bit_tested(exits, def)))
 		return false;
 	// The rewrite: the head switches; the region's other blocks and those
 	// that pass lose their predecessors (cleanup removes them).
