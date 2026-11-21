@@ -965,6 +965,10 @@ void hold_division_constants(const FunctionBody& body, opt::Cfg& cfg, RegisterBa
 				for (uint32_t h = 0; h < held.size() && reg == 255 && values[k]; ++h)
 					if (holder[h] == loop && held[h].value == values[k])
 						reg = held[h].reg;
+				// A loop nested in this one or sharing its entry may have
+				// taken a register over these blocks since.
+				if (reg == 255 && values[k])
+					busy[loop] |= held_over(l, entries[loop]);
 				if (reg == 255 && values[k] && ~busy[loop])
 				{
 					reg = __builtin_ctz(~busy[loop]);
