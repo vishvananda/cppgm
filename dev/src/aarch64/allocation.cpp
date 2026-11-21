@@ -147,17 +147,21 @@ void prioritize_call_webs(const FunctionBody& body, const std::vector<LiveRange>
 
 // Give scalar SIMD phis and their backedge values first choice over short
 // intermediates. Their shared web preference can then eliminate a transfer
-// cycle on each iteration.
+// cycle on each iteration. When one header's phis alone outnumber the SIMD
+// registers (v0-v15, v18-v31), some of them spill anyway, and a value read
+// more often than any of them (by spill weight) keeps its place.
 void prioritize_loop_webs(const FunctionBody& body, const opt::Cfg& cfg, const std::vector<LiveRange>& ranges,
-	const std::vector<uint32_t>& aliases, std::vector<uint32_t>& order)
+	const std::vector<uint32_t>& aliases, const std::vector<uint64_t>& weight, std::vector<uint32_t>& order)
 {
 	if (cfg.rpo_index.empty())
 		return;
 	std::vector<uint8_t> carried;
+	uint32_t phis = 0;
 	for (BlockId b : body.layout)
 	{
 		if (cfg.rpo_index[b] == kNoId)
 			continue;
+		uint32_t here = 0;
 		for (InstId i = body.blocks[b].first; i != kNoId && body.instructions[i].op == Opcode::Phi;
 			i = body.instructions[i].next)
 		{
@@ -173,10 +177,12 @@ void prioritize_loop_webs(const FunctionBody& body, const opt::Cfg& cfg, const s
 					continue;
 				if (carried.empty())
 					carried.assign(body.temps.size(), 0);
+				here += !carried[phi.result];
 				carried[phi.result] = 1;
 				carried[representative(aliases, incoming.index)] = 1;
 			}
 		}
+		phis = std::max(phis, here);
 	}
 	if (carried.empty())
 		return;
@@ -186,7 +192,16 @@ void prioritize_loop_webs(const FunctionBody& body, const opt::Cfg& cfg, const s
 		for (uint32_t i = 0; i < order.size(); ++i)
 			order[i] = i;
 	}
-	std::stable_partition(order.begin(), order.end(), [&](uint32_t i) { return carried[ranges[i].id]; });
+	uint64_t top = 0;
+	const bool crowded = !weight.empty() && phis > 30;
+	if (crowded)
+		for (const auto& range : ranges)
+			if (range.first != kNoId && carried[range.id])
+				top = std::max(top, weight[range.id]);
+	std::stable_partition(order.begin(), order.end(), [&](uint32_t i) {
+		const auto id = ranges[i].id;
+		return carried[id] || (crowded && weight[id] > top);
+	});
 }
 
 // A guarded call that cannot repeat has a path to a return on which
@@ -367,7 +382,7 @@ std::vector<uint32_t> allocation_order(const Program& program, const FunctionBod
 			prioritize_call_webs(body, ranges, segments, calls, webs, priority, order);
 	}
 	if (level >= 3 && !segments.empty() && !webs.empty())
-		prioritize_loop_webs(body, cfg, ranges, aliases, order);
+		prioritize_loop_webs(body, cfg, ranges, aliases, weight, order);
 	if (level >= 2 && priority.empty() && !order.empty() && !calls.empty() && !webs.empty())
 		prioritize_call_webs(body, ranges, segments, calls, webs, priority, order);
 	return order;
@@ -1087,12 +1102,19 @@ void Selector::allocate()
 			return 0u;
 		return cold_calls && groups.rare_calls_only(group, segments, calls, rare) ? all & saved : all;
 	};
-	for (uint32_t i = 0; i < ranges.size(); ++i)
+	// A floating value that finds no SIMD register takes a general one only
+	// after every integer and address value has chosen: there it trades a
+	// reload for a move at each use, which an integer value saves outright.
+	std::vector<uint32_t> deferred;
+	for (uint32_t i = 0; i < ranges.size() + deferred.size(); ++i)
 	{
-		const auto& range = ranges[order.empty() ? i : order[i]];
+		const bool second = i >= ranges.size();
+		const uint32_t index = second ? deferred[i - ranges.size()] : order.empty() ? i : order[i];
+		const auto& range = ranges[index];
 		if (range.first == kNoId)
 			continue;
-		groups.start(order.empty() ? i : order[i]);
+		if (!second)
+			groups.start(index);
 		bool at_call = false, across_call = false;
 		uint32_t kept = !out_.exceptions && !leaf_registers_.empty() ? kLeafKept : 0;
 		if (!calls.empty())
@@ -1111,7 +1133,7 @@ void Selector::allocate()
 			: 0xff;
 		if (range.first == 0)
 			arguments &= range.id < incoming.size() && incoming[range.id] != kNoId ? 1u << incoming[range.id] : 0;
-		if (type.is_float() && !memory_value(type))
+		if (type.is_float() && !memory_value(type) && !second)
 		{
 			// Both Arm ABIs preserve the low 64 bits of v8 through v15.
 			const auto preferred = range.affinity == kNoId ? kNoId : vectors_[range.affinity];
@@ -1146,10 +1168,12 @@ void Selector::allocate()
 				saved_fp |= preserved;
 				continue;
 			}
-			// The incoming SIMD argument does not own the corresponding GPR.
-			if (range.first == 0 || at_call)
-				arguments = 0;
+			deferred.push_back(index);
+			continue;
 		}
+		// The incoming SIMD argument does not own the corresponding GPR.
+		if (second && (range.first == 0 || at_call))
+			arguments = 0;
 		if (memory_value(type))
 		{
 			// Argument registers are free between calls. A quadword
