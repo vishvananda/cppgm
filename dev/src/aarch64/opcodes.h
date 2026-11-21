@@ -249,6 +249,7 @@
 	M(VSshr, 0x4f000400) \
 	M(VUshr, 0x6f000400) \
 	M(VSsra, 0x4f001400) \
+	M(VShadd, 0x4e200400) \
 	M(VUsra, 0x6f001400) \
 	M(VMovIS, 0x0f000400) \
 	M(VDupWS, 0x4e040c00) \

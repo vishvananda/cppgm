@@ -117,4 +117,44 @@ InstId Selector::shift_accumulate(const lowir::Instruction& shift)
 	return shift.next;
 }
 
+// Each lane of an arithmetic right shift by at least one bit, or of a splat
+// of a literal of at most 2^30 in magnitude, is within [-2^30, 2^30].
+bool Selector::half_range(Value v, unsigned width) const
+{
+	if (!v.is(ValueKind::Temp) || body_.temps[v.index].def == kNoId)
+		return false;
+	const auto& def = body_.instructions[body_.temps[v.index].def];
+	if (vector_op(def, width == 16 ? VectorOp::Psrawi : VectorOp::Psradi))
+		return def.ops[2].is(ValueKind::Integer) && body_.literals[def.ops[2].index].low >= 1;
+	if (width != 32 || !vector_op(def, VectorOp::Pshufd) || !def.ops[2].is(ValueKind::Integer) ||
+		body_.literals[def.ops[2].index].low != 0 || !def.ops[0].is(ValueKind::Temp) ||
+		body_.temps[def.ops[0].index].def == kNoId)
+		return false;
+	const auto& made = body_.instructions[body_.temps[def.ops[0].index].def];
+	if (!vector_op(made, VectorOp::Fromi32) || !made.ops[0].is(ValueKind::Integer))
+		return false;
+	const auto value = static_cast<int32_t>(body_.literals[made.ops[0].index].low);
+	return value >= -(1 << 30) && value <= (1 << 30);
+}
+
+// A lane sum halved by an arithmetic shift is SHADD when neither operand can
+// make the sum overflow, since SHADD keeps the carry the wrapping sum drops.
+InstId Selector::halving_add(const lowir::Instruction& sum)
+{
+	const bool words = vector_op(sum, VectorOp::Paddw);
+	const unsigned width = words ? 16 : 32;
+	if (sum.next == kNoId || uses_[sum.result] != 1 || !half_range(sum.ops[0], width) || !half_range(sum.ops[1], width))
+		return kNoId;
+	const auto& shift = body_.instructions[sum.next];
+	if (!vector_op(shift, words ? VectorOp::Psrawi : VectorOp::Psradi) || !(shift.ops[0] == Value::temp(sum.result)) ||
+		!shift.ops[2].is(ValueKind::Integer) || body_.literals[shift.ops[2].index].low != 1)
+		return kNoId;
+	const unsigned left = vector_value(sum.ops[0], 16);
+	const unsigned right = vector_value(sum.ops[1], 17);
+	const unsigned dest = vectors_[shift.result] == kNoId ? 16 : vectors_[shift.result];
+	out_.emit(Op::VShadd, dest, left, right, (words ? 1u : 2u) << 22);
+	save_vector(dest, shift.result);
+	return sum.next;
+}
+
 } // namespace aarch64

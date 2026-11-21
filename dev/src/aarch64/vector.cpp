@@ -34,6 +34,9 @@ InstId Selector::vector_combination(const lowir::Instruction& inst)
 		return vector_extension(inst);
 	case VectorOp::Toi64:
 		return vector_store(inst);
+	case VectorOp::Paddw:
+	case VectorOp::Paddd:
+		return halving_add(inst);
 	case VectorOp::Psrlwi:
 	case VectorOp::Psrldi:
 	case VectorOp::Psrlqi:
