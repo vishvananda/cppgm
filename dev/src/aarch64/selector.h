@@ -13,6 +13,9 @@ namespace aarch64 {
 
 struct LiveRange;
 
+// The condition code that holds for an integer comparison predicate.
+unsigned integer_condition(unsigned predicate);
+
 class Selector
 {
 public:
@@ -128,7 +131,10 @@ private:
 	void float_compare(const lowir::Instruction& inst);
 	unsigned float_flags(const lowir::Instruction& inst);
 	bool float_consumer(const lowir::Instruction& inst, lowir::BlockId block);
-	lowir::InstId conditional_float_increment(const lowir::Instruction& inst);
+	lowir::InstId selected_increment(const lowir::Instruction& inst);
+	bool increment_choice(
+		const lowir::Instruction& cmp, const lowir::Instruction& add, const lowir::Instruction& select);
+	lowir::InstId added_condition(const lowir::Instruction& cmp);
 	lowir::InstId contracted_float_sum(const lowir::Instruction& inst);
 	void float_choice(const lowir::Instruction& inst, unsigned condition);
 	unsigned fp_operand(lowir::Value operand, lowir::Type type, unsigned scratch);

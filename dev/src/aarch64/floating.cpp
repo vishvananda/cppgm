@@ -137,30 +137,47 @@ bool Selector::float_consumer(const lowir::Instruction& inst, BlockId block)
 }
 
 // The unchanged alternative keeps the input alive until the comparison.
-// CSINC increments it only on the selected edge.
-InstId Selector::conditional_float_increment(const lowir::Instruction& add)
+// CSINC increments it only on the selected edge. The comparison is of
+// floating-point values or of integers or pointers, and it either follows
+// the increment or precedes it.
+InstId Selector::selected_increment(const lowir::Instruction& add)
 {
-	const unsigned bits = integer_bits(add.type.kind());
-	if ((bits != 32 && bits != 64) || add.next == kNoId || uses_[add.result] != 1 || !add.ops[0].is(ValueKind::Temp) ||
-		!add.ops[1].is(ValueKind::Integer) || body_.literals[add.ops[1].index].low != 1)
+	if (add.next == kNoId)
 		return kNoId;
 	const auto& cmp = body_.instructions[add.next];
-	if (cmp.op != Opcode::Compare || (cmp.type.kind() != TypeKind::F32 && cmp.type.kind() != TypeKind::F64) ||
-		cmp.next == kNoId || uses_[cmp.result] != 1)
+	if (cmp.op != Opcode::Compare || cmp.next == kNoId || !increment_choice(cmp, add, body_.instructions[cmp.next]))
 		return kNoId;
-	const auto& select = body_.instructions[cmp.next];
+	return cmp.next;
+}
+
+bool Selector::increment_choice(
+	const lowir::Instruction& cmp, const lowir::Instruction& add, const lowir::Instruction& select)
+{
+	const unsigned bits = integer_bits(add.type.kind());
+	if (add.op != Opcode::Binary || add.sub != static_cast<unsigned>(BinaryOp::Add) || (bits != 32 && bits != 64) ||
+		uses_[add.result] != 1 || !add.ops[0].is(ValueKind::Temp) || !add.ops[1].is(ValueKind::Integer) ||
+		body_.literals[add.ops[1].index].low != 1)
+		return false;
+	const bool fp = cmp.type.kind() == TypeKind::F32 || cmp.type.kind() == TypeKind::F64;
+	if ((!fp && !cmp.type.is_pointer() && !(cmp.type.is_integer() && integer_bits(cmp.type.kind()) <= 64)) ||
+		uses_[cmp.result] != 1)
+		return false;
 	if (select.op != Opcode::Select || select.type != add.type || !(select.ops[0] == Value::temp(cmp.result)))
-		return kNoId;
+		return false;
 	const Value next = Value::temp(add.result);
 	const bool on_true = select.ops[1] == next && select.ops[2] == add.ops[0];
 	if (!on_true && !(select.ops[2] == next && select.ops[1] == add.ops[0]))
-		return kNoId;
-	float_compare(cmp);
+		return false;
+	if (fp)
+		float_compare(cmp);
+	else
+		compare_flags(cmp);
+	const unsigned condition = fp ? kFloatConditions[cmp.sub] : integer_condition(cmp.sub);
 	const unsigned source = operand_register(add.ops[0], add.type, 10);
 	const unsigned dest = registers_[select.result] == kNoId ? 9 : registers_[select.result];
-	out_.emit(bits == 32 ? Op::CsincW : Op::Csinc, dest, source, source, (kFloatConditions[cmp.sub] ^ on_true) << 12);
+	out_.emit(bits == 32 ? Op::CsincW : Op::Csinc, dest, source, source, (condition ^ on_true) << 12);
 	save(dest, select.result, true);
-	return cmp.next;
+	return true;
 }
 
 InstId Selector::contracted_float_sum(const lowir::Instruction& multiply)

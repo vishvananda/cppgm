@@ -238,6 +238,11 @@ namespace {
 const unsigned conditions[] = { 0, 1, 11, 13, 12, 10, 3, 9, 8, 2 };
 }
 
+unsigned integer_condition(unsigned predicate)
+{
+	return conditions[predicate];
+}
+
 void Selector::compare_flags(const lowir::Instruction& inst)
 {
 	const unsigned bits = integer_bits(inst.type.kind());
@@ -681,6 +686,49 @@ InstId Selector::compare_before_increment(const lowir::Instruction& inst, BlockI
 	else
 		conditional_edges(block, branch, Op::BCond, condition ^ 1);
 	return step.next;
+}
+
+// A comparison result added to a word or doubleword, through truncations
+// and zero extensions of the boolean, is CINC (CSINC of the other addend
+// with itself on the inverted condition), as is a selection between a value
+// and its increment that follows the comparison and the increment. The
+// instructions are adjacent and each consumed result has no other reader.
+InstId Selector::added_condition(const lowir::Instruction& cmp)
+{
+	if (cmp.next == kNoId || uses_[cmp.result] != 1 ||
+		!(cmp.type.is_pointer() || (cmp.type.is_integer() && integer_bits(cmp.type.kind()) <= 64)))
+		return kNoId;
+	const auto& step = body_.instructions[cmp.next];
+	if (step.next != kNoId && increment_choice(cmp, step, body_.instructions[step.next]))
+		return step.next;
+	Value flag = Value::temp(cmp.result);
+	InstId id = cmp.next;
+	for (unsigned n = 0; n < 2; ++n)
+	{
+		const auto& cast = body_.instructions[id];
+		if (cast.op != Opcode::Convert || !(cast.ops[0] == flag) ||
+			(cast.sub != static_cast<unsigned>(ConvertOp::Trunc) &&
+				cast.sub != static_cast<unsigned>(ConvertOp::ZExt)) ||
+			!cast.type.is_integer() || integer_bits(cast.type.kind()) > 64 || uses_[cast.result] != 1 ||
+			cast.next == kNoId)
+			break;
+		flag = Value::temp(cast.result);
+		id = cast.next;
+	}
+	const auto& add = body_.instructions[id];
+	const unsigned bits = integer_bits(add.type.kind());
+	if (add.op != Opcode::Binary || add.sub != static_cast<unsigned>(BinaryOp::Add) || (bits != 32 && bits != 64) ||
+		(add.ops[0] == flag) == (add.ops[1] == flag))
+		return kNoId;
+	const Value other = add.ops[add.ops[0] == flag ? 1 : 0];
+	if (other.is(ValueKind::Symbol))
+		return kNoId;
+	compare_flags(cmp);
+	const unsigned source = zero_or_register(other, add.type, 10);
+	const unsigned dest = registers_[add.result] == kNoId ? 9 : registers_[add.result];
+	out_.emit(bits == 32 ? Op::CsincW : Op::Csinc, dest, source, source, (conditions[cmp.sub] ^ 1) << 12);
+	save(dest, add.result, true);
+	return id;
 }
 
 void Selector::integer_unary(const lowir::Instruction& inst)

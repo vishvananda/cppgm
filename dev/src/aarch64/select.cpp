@@ -586,7 +586,7 @@ void Selector::run()
 				if (last == kNoId && inst.op == Opcode::Binary)
 				{
 					const auto op = static_cast<BinaryOp>(inst.sub);
-					last = op == BinaryOp::Add ? conditional_float_increment(inst)
+					last = op == BinaryOp::Add ? selected_increment(inst)
 						: op == BinaryOp::And  ? bit_branch(inst, block)
 						: op == BinaryOp::Sub  ? narrow_range_branch(inst, block)
 											   : shifted_operand(inst, block);
@@ -625,6 +625,8 @@ void Selector::run()
 					last = compare_pair(inst, block);
 				if (last == kNoId)
 					last = compare_before_increment(inst, block);
+				if (!fp && last == kNoId)
+					last = added_condition(inst);
 				if (last != kNoId || (fp ? float_consumer(inst, block) : compare_consumer(inst, block)))
 				{
 					i = last == kNoId ? inst.next : last;
