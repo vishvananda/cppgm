@@ -452,6 +452,10 @@ void drop_repeated_compares(Function& f)
 	for (uint32_t pad : f.pads)
 		if (pad != lowir::kNoId)
 			blocked[std::min(n, pad / 4)] = 1;
+	// A table's jumps are reached by an indirect branch, not by the
+	// instruction before them.
+	std::vector<uint8_t> table;
+	mark_tables(f, table);
 	// The branches into each instruction.
 	std::vector<uint32_t> first(n + 2), from;
 	for (const auto& ins : f.code)
@@ -466,7 +470,7 @@ void drop_repeated_compares(Function& f)
 		const auto& ins = f.code[pc];
 		if (ins.fixup == Fixup::Block && f.labels[ins.target] < n)
 		{
-			if (ins.op == Op::Adr)
+			if (ins.op == Op::Adr || (!table.empty() && table[pc]))
 				blocked[f.labels[ins.target]] = 1;
 			from[fill[f.labels[ins.target]]++] = pc;
 		}
