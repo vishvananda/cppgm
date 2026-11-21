@@ -1988,12 +1988,18 @@ void FunctionSelector::find_folds()
 	const lowir::FunctionBody& body = *body_;
 	// O1+: `x & y` (or `x & (1 << k)`) a branch tests, directly or as a
 	// compare with zero fused into it, folds into the branch's test x, y
-	// (bt x, k): its register operands live to the branch.
-	auto test_fold = [&](Value x, uint32_t branch_id) {
+	// (bt x, k): its register operands live to the branch. The reader takes
+	// the value at type `read`, narrower through a truncation that stands for
+	// the `and` (resolve_aliases): the test of the whole `and` then serves only
+	// when the `and` has no bit above that width.
+	auto test_fold = [&](Value x, uint32_t branch_id, Type read) {
 		if (level_ < 1 || x.kind != ValueKind::Temp || x.index < body.parameter_count)
 			return;
 		const Type type = body.temps[x.index].type;
 		if (!(type.is_integer() || type.is_pointer()) || type.kind() == TypeKind::I128 || type.kind() == TypeKind::I1)
+			return;
+		const unsigned read_bits = read.is_pointer() || read.kind() == TypeKind::I128 ? 64 : width_bits(read.kind());
+		if (read_bits < (type.is_pointer() ? 64 : width_bits(type.kind())) && fits_[x.index] > read_bits)
 			return;
 		auto single = [&](Value v, lowir::BinaryOp op) -> const Instruction* {
 			if (v.kind != ValueKind::Temp || v.index < body.parameter_count || body.temps[v.index].def == kNoId)
@@ -2140,7 +2146,7 @@ void FunctionSelector::find_folds()
 			if (!flags_read && (pred == lowir::ComparePredicate::Eq || pred == lowir::ComparePredicate::Ne) &&
 				zero.kind == ValueKind::Integer && (literal(zero).low | literal(zero).high) == 0)
 			{
-				test_fold(resolve(inst.ops[0]), id);
+				test_fold(resolve(inst.ops[0]), id, inst.type);
 				return;
 			}
 		}
@@ -2155,7 +2161,7 @@ void FunctionSelector::find_folds()
 			if (user.op == Opcode::Select && resolve(user.ops[0]) == self && !(resolve(user.ops[1]) == self) &&
 				!(resolve(user.ops[2]) == self))
 			{
-				test_fold(self, user_id);
+				test_fold(self, user_id, body.temps[user.ops[0].index].type);
 				if (t.flags & TF_TESTED)
 					return;
 			}
@@ -2285,14 +2291,14 @@ void FunctionSelector::find_folds()
 				const lowir::ComparePredicate pred = static_cast<lowir::ComparePredicate>(cmp.sub);
 				if (zero.kind == ValueKind::Integer && (literal(zero).low | literal(zero).high) == 0 &&
 					(pred == lowir::ComparePredicate::Eq || pred == lowir::ComparePredicate::Ne))
-					test_fold(resolve(cmp.ops[0]), user_id);
+					test_fold(resolve(cmp.ops[0]), user_id, cmp.type);
 			}
 			return;
 		}
 		if (inst.op == Opcode::Binary && static_cast<lowir::BinaryOp>(inst.sub) == lowir::BinaryOp::And &&
 			user.op == Opcode::Branch && left)
 		{
-			test_fold(self, user_id);
+			test_fold(self, user_id, body.temps[user.ops[0].index].type);
 			return;
 		}
 		// A load only the next instruction's branch tests compares in
