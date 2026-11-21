@@ -205,9 +205,10 @@ void LoopPass::add_narrow_accumulators(uint32_t loop, std::vector<Induction>& iv
 		for (uint32_t k = 0; k < 4; k += 2)
 			if (body_.operands[phi.extra_first + k].index != l.latches[0])
 				iv.init = body_.operands[phi.extra_first + k + 1];
+		// (What it truncates may be a parameter, which no instruction defines.)
 		const Instruction* narrow = convert_of(next, true);
 		if (narrow == nullptr || narrow->type != phi.type || !invariant(loop, iv.init) ||
-			!narrow->ops[0].is(ValueKind::Temp))
+			!narrow->ops[0].is(ValueKind::Temp) || body_.temps[narrow->ops[0].index].def == kNoId)
 			continue;
 		const Instruction& sum = body_.instructions[body_.temps[narrow->ops[0].index].def];
 		if (sum.op != Opcode::Binary || !sum.ops[1].is(ValueKind::Integer) ||

@@ -1,0 +1,22 @@
+# An effect-free loop assigns a truncated parameter on each pass
+# (`v = (uint16_t)p;`). Its exit value is no induction and no narrow
+# accumulator, and what it truncates has no defining instruction: the loop
+# stays.
+function @last(%p : i64, %q : u16, %n : i32) -> u16 [binding=strong] {
+  block ^entry:
+    jump ^loop
+
+  block ^loop:
+    %i = phi i32 [^entry: 0, ^body: %next]
+    %v = phi u16 [^entry: %q, ^body: %low]
+    %more = cmp lt i32 %i, %n
+    branch %more, ^body, ^done
+
+  block ^body:
+    %low = convert trunc u16 i64 %p
+    %next = binary add nowrap i32 %i, 1
+    jump ^loop
+
+  block ^done:
+    return u16 %v
+}
