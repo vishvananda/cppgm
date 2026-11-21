@@ -1439,8 +1439,12 @@ void Selector::allocate()
 			}
 			continue;
 		}
+		// A floating parameter arrives in a SIMD register: its number names no
+		// general register the parameter may take before the prologue reads
+		// the integer argument that arrives there.
 		if (range.first == 0)
-			kept &= ~0xffu | (range.id < incoming.size() && incoming[range.id] < 8 ? 1u << incoming[range.id] : 0);
+			kept &= ~0xffu |
+				(!second && range.id < incoming.size() && incoming[range.id] < 8 ? 1u << incoming[range.id] : 0);
 		// Linux leaves x18 to the program as a temporary; Darwin reserves it.
 		uint32_t caller = across_call
 			? kept
@@ -1452,7 +1456,7 @@ void Selector::allocate()
 			? cold_crossings(range, segments, calls, cold_budget)
 			: 0;
 		uint32_t crossing = 7u << 12;
-		if (across_call && range.id < incoming.size() && incoming[range.id] < 8)
+		if (across_call && !second && range.id < incoming.size() && incoming[range.id] < 8)
 			crossing |= outgoing[range.id].allowed & (1u << incoming[range.id]);
 		else if (across_call && range.first != 0)
 			crossing |= outgoing[range.id].allowed & 0xffu;
