@@ -30,6 +30,10 @@ InstId Selector::truncated_operand(const lowir::Instruction& trunc, BlockId bloc
 	{
 		if (compare_consumer(next, block))
 			return next.next;
+		// (A counter's test before another counter's step, then the branch.)
+		const InstId branch = compare_before_increment(next, block);
+		if (branch != kNoId)
+			return branch;
 		compare(next);
 	}
 	else
