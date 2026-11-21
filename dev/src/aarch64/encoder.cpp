@@ -386,8 +386,10 @@ void orient_branches(Function& f, const std::vector<BranchEstimate>& estimates)
 		if (pad != lowir::kNoId)
 			anchored[pad / 4] = 1;
 	mark_tables(f, table);
+	// A block that only forwards to its successor shares the successor's
+	// label; the block with the branch holds the code there.
 	for (uint32_t block = 0; block < blocks; ++block)
-		if (f.labels[block] < n)
+		if (f.labels[block] < n && (block_at[f.labels[block]] == lowir::kNoId || estimates[block].yes != lowir::kNoId))
 			block_at[f.labels[block]] = block;
 	uint32_t current = lowir::kNoId;
 	for (uint32_t pc = 0; pc + 1 < n; ++pc)
