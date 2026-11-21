@@ -1091,4 +1091,45 @@ bool shrink_wrap(Function& function, const FrameCode& frame)
 	return Wrapper(function, frame).run();
 }
 
+bool general_operands(const Instruction& ins, uint32_t& uses, uint32_t& defs)
+{
+	Operands ops;
+	uses = defs = 0;
+	if (ins.fixup == Fixup::Call || ins.fixup == Fixup::Resume || !operands(ins, ops))
+		return false;
+	for (unsigned k = 0; k < ops.count; ++k)
+	{
+		const unsigned reg = reg_of(ins, ops.list[k].field);
+		const uint32_t bit = reg < 31 ? 1u << reg : ops.list[k].sp ? 1u << 31 : 0;
+		if (ops.list[k].use)
+			uses |= bit;
+		if (ops.list[k].def)
+			defs |= bit;
+	}
+	return true;
+}
+
+bool rename_reads(Instruction& ins, unsigned from, unsigned to)
+{
+	Operands ops;
+	if (from >= 31 || to >= 31 || ins.fixup == Fixup::Call || ins.fixup == Fixup::Resume || !operands(ins, ops))
+		return false;
+	bool read = false;
+	for (unsigned k = 0; k < ops.count; ++k)
+		if (reg_of(ins, ops.list[k].field) == from)
+		{
+			if (ops.list[k].def && ops.list[k].use)
+				return false;
+			read |= ops.list[k].use;
+		}
+	if (!read)
+		return false;
+	Instruction renamed = ins;
+	for (unsigned k = 0; k < ops.count; ++k)
+		if (ops.list[k].use && reg_of(ins, ops.list[k].field) == from)
+			set_reg(renamed, ops.list[k].field, to);
+	ins = renamed;
+	return true;
+}
+
 } // namespace aarch64

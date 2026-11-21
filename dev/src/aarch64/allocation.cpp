@@ -982,6 +982,15 @@ uint64_t Selector::cold_crossings(
 	return cost <= budget ? crossed : 0;
 }
 
+// A scalar temp's home, marked for forward_reloads (reloads.cpp).
+uint32_t Selector::spill_home(uint32_t offset)
+{
+	if (spill_homes_.size() <= offset / 8)
+		spill_homes_.resize(offset / 8 + 1);
+	spill_homes_[offset / 8] = 1;
+	return offset;
+}
+
 // A fixed frame address is one add at the use. Computing it twice can
 // cost less than saving a register across a call.
 bool Selector::rematerialize_frame_address(TempId id)
@@ -1084,7 +1093,7 @@ void Selector::allocate()
 			continue;
 		groups.start(order.empty() ? i : order[i]);
 		bool at_call = false, across_call = false;
-		uint32_t kept = !out_.exceptions && !leaf_registers_.empty() ? (0xfcu | (7u << 12)) : 0;
+		uint32_t kept = !out_.exceptions && !leaf_registers_.empty() ? kLeafKept : 0;
 		if (!calls.empty())
 			each_interval(range, segments, [&](uint32_t a, uint32_t b) {
 				const auto call = std::lower_bound(calls.begin(), calls.end(), a);
@@ -1250,7 +1259,7 @@ void Selector::allocate()
 		if (type.is_object() && def != kNoId && load_returns_directly(body_.instructions[def]))
 			continue;
 		if (!memory_value(type))
-			homes_[id] = scalar_spills.assign(range.first, range.last, [&]() { return reserve(8, 8); });
+			homes_[id] = spill_home(scalar_spills.assign(range.first, range.last, [&]() { return reserve(8, 8); }));
 		else if (type.kind() == TypeKind::V128 && !range.vector_address)
 			homes_[id] = vector_spills.assign(range.first, range.last, [&]() { return home(id); });
 		else

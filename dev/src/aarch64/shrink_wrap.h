@@ -27,4 +27,13 @@ struct FrameCode
 // Returns whether it did.
 bool shrink_wrap(Function& function, const FrameCode& frame);
 
+// The general registers an instruction reads and writes, as masks of bits
+// 0-30 with bit 31 for SP; false for a call or an instruction outside the
+// operand model shrink_wrap.cpp uses.
+bool general_operands(const Instruction& ins, uint32_t& uses, uint32_t& defs);
+
+// Make the fields that only read general register `from` read `to`; false,
+// and nothing changed, when no field reads it or one also writes it.
+bool rename_reads(Instruction& ins, unsigned from, unsigned to);
+
 } // namespace aarch64

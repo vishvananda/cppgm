@@ -132,7 +132,7 @@ void aliases(const Program& program, const std::vector<uint32_t>& symbols, obj::
 // bases); treating immediate bits as registers merely shortens this mask.
 static uint32_t untouched_callers(const Function& function)
 {
-	uint32_t mask = (0xfcu | (7u << 12));
+	uint32_t mask = kLeafKept;
 	for (const auto& inst : function.code)
 	{
 		if (inst.op == Op::Bl || inst.op == Op::Blr || inst.op == Op::Br || inst.op == Op::Svc ||

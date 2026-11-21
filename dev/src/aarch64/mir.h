@@ -99,8 +99,17 @@ void remove_instructions(Function& function, const std::vector<uint32_t>& remove
 void insert_instructions(
 	Function& function, const std::vector<uint32_t>& places, const std::vector<Instruction>& added);
 void relax_branches(Function& function);
+// The caller-saved registers (x2-x7, x12-x14) a function may hold a value in
+// across a direct call to a function of its unit that leaves them alone.
+constexpr uint32_t kLeafKept = 0xfcu | (7u << 12);
 bool orders_memory(const lowir::FunctionBody& body);
 void pair_accesses(Function& function, uint32_t first, std::vector<BitTest>& tests, bool ordered);
+// Spill reloads from code at `first` on (reloads.cpp): `homes` marks, by
+// 8-byte unit of the frame at `base`, the homes of scalar temps; with
+// `thunks` an indirect call may be to a thread-local thunk, which keeps
+// the registers a call does not.
+void forward_reloads(Function& function, uint32_t first, unsigned base, const std::vector<uint8_t>& homes,
+	std::vector<BitTest>& tests, bool thunks);
 void share_edge_moves(Function& function, std::vector<BitTest>& tests);
 void copy_short_tests(Function& function);
 void simplify_branches(Function& function);

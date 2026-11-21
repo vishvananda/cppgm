@@ -662,6 +662,8 @@ void Selector::run()
 	}
 	flush_deferred_edges();
 	bind_forwarded();
+	if (level_ && body_.code_labels.empty())
+		forward_reloads(out_, frame_code_.prologue_end, frame_base(), spill_homes_, bit_tests_, named_.darwin);
 	if (level_ && !named_.darwin && body_.code_labels.empty())
 		pair_accesses(out_, frame_code_.prologue_end, bit_tests_, orders_memory(body_));
 	if (level_ && !dynamic_stack_ && body_.code_labels.empty())

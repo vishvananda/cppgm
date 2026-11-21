@@ -246,6 +246,7 @@ private:
 	uint64_t cold_crossings(const LiveRange& range, const std::vector<std::pair<uint32_t, uint32_t>>& segments,
 		const std::vector<uint32_t>& calls, uint64_t budget) const;
 	bool rematerialize_frame_address(lowir::TempId id);
+	uint32_t spill_home(uint32_t offset);
 	bool rematerialized(lowir::TempId id) const { return !remat_slots_.empty() && remat_slots_[id] != lowir::kNoId; }
 	void epilogue(const lowir::Instruction& inst);
 	bool load_returns_directly(const lowir::Instruction& load) const;
@@ -270,8 +271,9 @@ private:
 	std::vector<uint32_t> entry_regs_, aliases_;
 	std::vector<BitTest> bit_tests_;
 	std::vector<lowir::InstId> entry_elided_;
-	std::vector<uint8_t> loose_;      // narrow values held with undefined high bits (narrow.cpp)
-	std::vector<uint8_t> increments_; // increments made by the selection reading them (integer.cpp)
+	std::vector<uint8_t> loose_;       // narrow values held with undefined high bits (narrow.cpp)
+	std::vector<uint8_t> spill_homes_; // by 8-byte frame unit: a scalar temp's spill home
+	std::vector<uint8_t> increments_;  // increments made by the selection reading them (integer.cpp)
 	std::vector<std::pair<lowir::BlockId, lowir::BlockId>> snapshot_edges_;
 	std::vector<lowir::BlockId> frame_phi_blocks_;
 	std::vector<lowir::BlockId> entry_moves_, forwarded_;
