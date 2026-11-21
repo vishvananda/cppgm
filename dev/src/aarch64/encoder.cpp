@@ -181,6 +181,95 @@ static bool conditional_branch(const Instruction& ins)
 			ins.op == Op::Tbz || ins.op == Op::Tbnz);
 }
 
+// A conditional branch whose destination is out of its reach (TBZ and TBNZ
+// 2^13 words, the others 2^18) branches on the inverse condition over a jump
+// there (2^25 words); B.AL becomes the jump. A function of fewer than 2^13
+// instructions has no such branch. An inserted jump can put another branch
+// out of reach, so the search repeats until every branch reaches.
+void relax_branches(Function& f)
+{
+	if (f.code.size() < (1u << 13))
+		return;
+	std::vector<uint32_t> far;
+	for (;;)
+	{
+		const uint32_t n = static_cast<uint32_t>(f.code.size());
+		far.clear();
+		for (uint32_t pc = 0; pc < n; ++pc)
+		{
+			auto& ins = f.code[pc];
+			if (!conditional_branch(ins))
+				continue;
+			const int64_t displacement = int64_t(f.labels[ins.target]) - int64_t(pc);
+			const int64_t reach = int64_t(1) << (ins.op == Op::Tbz || ins.op == Op::Tbnz ? 13 : 18);
+			if (displacement >= -reach && displacement < reach)
+				continue;
+			if (ins.op == Op::BCond && ins.rd >= 14)
+				ins = Instruction{ Op::B, 0, 0, 0, 0, Fixup::Block, ins.target };
+			else
+				far.push_back(pc);
+		}
+		if (far.empty())
+			return;
+		std::vector<Instruction> code;
+		code.reserve(n + far.size());
+		size_t next = 0;
+		for (uint32_t pc = 0; pc < n; ++pc)
+		{
+			code.push_back(f.code[pc]);
+			if (next == far.size() || far[next] != pc)
+				continue;
+			++next;
+			auto& branch = code.back();
+			const uint32_t target = branch.target;
+			switch (branch.op)
+			{
+			case Op::BCond:
+				branch.rd ^= 1;
+				break;
+			case Op::Cbz:
+				branch.op = Op::Cbnz;
+				break;
+			case Op::Cbnz:
+				branch.op = Op::Cbz;
+				break;
+			case Op::CbzW:
+				branch.op = Op::CbnzW;
+				break;
+			case Op::CbnzW:
+				branch.op = Op::CbzW;
+				break;
+			default:
+				branch.op = branch.op == Op::Tbz ? Op::Tbnz : Op::Tbz;
+				break;
+			}
+			// The inverse branch skips the jump: a label at the instruction
+			// after it, which moves with that instruction.
+			branch.target = static_cast<uint32_t>(f.labels.size());
+			f.labels.push_back(pc + 1);
+			code.push_back(Instruction{ Op::B, 0, 0, 0, 0, Fixup::Block, target });
+		}
+		f.code.swap(code);
+		// An instruction after an inserted jump moves by one for each.
+		const auto mapped = [&](uint32_t pc) {
+			return pc + static_cast<uint32_t>(std::lower_bound(far.begin(), far.end(), pc) - far.begin());
+		};
+		for (auto& label : f.labels)
+			if (label != lowir::kNoId)
+				label = mapped(label);
+		for (auto& event : f.frame_events)
+			event.pc = 4 * mapped(event.pc / 4);
+		for (auto& site : f.sites)
+		{
+			site.begin = 4 * mapped(site.begin / 4);
+			site.end = 4 * mapped(site.end / 4);
+		}
+		for (auto& pad : f.pads)
+			if (pad != lowir::kNoId)
+				pad = 4 * mapped(pad / 4);
+	}
+}
+
 // An instruction a copy may repeat elsewhere: no label or symbol reference,
 // no control transfer, exclusive access, barrier or system instruction.
 static bool repeatable(const Instruction& ins)

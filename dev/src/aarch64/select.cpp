@@ -685,6 +685,7 @@ void Selector::run()
 		return_directly(out_);
 		drop_repeated_compares(out_);
 	}
+	relax_branches(out_);
 }
 
 } // namespace aarch64

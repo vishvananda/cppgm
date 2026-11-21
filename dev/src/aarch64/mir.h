@@ -96,6 +96,7 @@ struct BitTest
 };
 void fold_bit_tests(Function& function, const std::vector<BitTest>& tests);
 void remove_instructions(Function& function, const std::vector<uint32_t>& removed);
+void relax_branches(Function& function);
 bool orders_memory(const lowir::FunctionBody& body);
 void pair_accesses(Function& function, uint32_t first, std::vector<BitTest>& tests, bool ordered);
 void share_edge_moves(Function& function, std::vector<BitTest>& tests);
