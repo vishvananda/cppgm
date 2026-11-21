@@ -1,10 +1,10 @@
-<svg data-original-label="codegen speed vs clang" data-original-message="0.97×" data-original-color="456925" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="codegen speed vs clang; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured b3e8ffd61d008c80042a09444d6d607c4b7d7f0c; 165 commits behind main: stale">
-  <title>codegen speed vs clang; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured b3e8ffd61d008c80042a09444d6d607c4b7d7f0c; 165 commits behind main: stale</title>
+<svg data-original-label="codegen speed vs clang" data-original-message="1.00×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="codegen speed vs clang; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured dbbd227db37c255596e3fc11a4d3df8700ea7be7; 1 commits behind main: 1.00×">
+  <title>codegen speed vs clang; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured dbbd227db37c255596e3fc11a4d3df8700ea7be7; 1 commits behind main: 1.00×</title>
   <defs><clipPath id="badge"><rect width="120" height="24" rx="4"/></clipPath></defs>
   <g clip-path="url(#badge)">
     <rect width="64" height="24" fill="#555"/>
-    <rect x="64" width="56" height="24" fill="#475569"/>
+    <rect x="64" width="56" height="24" fill="#19552c"/>
   </g>
   <text x="32" y="16.5" fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="12" font-weight="700" textLength="39" lengthAdjust="spacingAndGlyphs">Arm64</text>
-  <text x="92" y="16.5" fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="12" font-weight="700" letter-spacing="1" textLength="39" lengthAdjust="spacingAndGlyphs">stale</text>
+  <text x="92" y="16.5" fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="12" font-weight="700" letter-spacing="1" textLength="39" lengthAdjust="spacingAndGlyphs">1.00×</text>
 </svg>
