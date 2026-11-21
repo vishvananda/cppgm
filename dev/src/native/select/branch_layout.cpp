@@ -428,7 +428,7 @@ bool closes_range(const Function& f, const Block& block, uint32_t index, uint32_
 uint32_t FunctionSelector::layout_branches()
 {
 	const bool addressed = !out_->code_labels.empty();
-	const TailCopies copies = addressed || out_->cold ? TailCopies{} : duplicate_short_tails(*out_);
+	const TailCopies copies = out_->cold ? TailCopies{} : duplicate_short_tails(*out_, addressed);
 	stats_.rotated_loops += copies.rotations;
 	stats_.dispatch_tails += copies.dispatches;
 	const bool copied = copies.rotations != 0 || copies.dispatches != 0;

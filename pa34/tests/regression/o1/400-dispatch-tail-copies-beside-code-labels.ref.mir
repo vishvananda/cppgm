@@ -1,0 +1,94 @@
+machine_ir x86_64 linux
+
+startup
+    call @main [args=()]
+    mov rdi, rax
+    exit
+
+global @ops
+  storage data
+  item ptr addr @run.step
+  item ptr addr @run.end
+
+global @program
+  storage data
+  item i64 0
+  item i64 0
+  item i64 0
+  item i64 0
+  item i64 0
+  item i64 0
+  item i64 0
+  item i64 1
+
+function @run
+  abi
+    param %n -> rdi : i64
+    return i64 -> rax
+  frame
+    stack_size 16
+    scratch_bytes 0
+    frame_pointer keep
+    epilogues duplicated
+    slot $ip -> [rbp-16] : i64
+    slot $acc -> [rbp-8] : i64
+
+  block ^entry
+    store.i64 [rbp-16], 0
+    store.i64 [rbp-8], rdi
+    indirect_jump @ops
+
+  block ^step
+    load.i64 rax, [rbp-16]
+    load.i64 rcx, [rbp-8]
+    test.u8 rax, 1
+    je ^even
+
+  block ^odd
+    imul rcx, 3
+    store.i64 [rbp-8], rcx
+    add rax, 1
+    store.i64 [rbp-16], rax
+    shl rax, 3
+    mov r10, @program
+    add rax, r10
+    load.i64 rax, [rax]
+    shl rax, 3
+    mov r10, @ops
+    add rax, r10
+    indirect_jump [rax]
+
+  block ^even
+    add rcx, 1
+    store.i64 [rbp-8], rcx
+    add rax, 1
+    store.i64 [rbp-16], rax
+
+  block ^dispatch
+    shl rax, 3
+    mov r10, @program
+    add rax, r10
+    load.i64 rax, [rax]
+    shl rax, 3
+    mov r10, @ops
+    add rax, r10
+    indirect_jump [rax]
+
+  block ^end
+    load.i64 rax, [rbp-8]
+    ret rax
+
+function @main
+  abi
+    return i32 -> rax
+  frame
+    stack_size 0
+    scratch_bytes 0
+    frame_pointer keep
+    epilogues duplicated
+
+  block ^entry
+    mov rdi, 1
+    call @run [args=(rdi)]
+    sub.u32 rax, 67
+    ret rax

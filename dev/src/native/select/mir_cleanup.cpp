@@ -102,13 +102,15 @@ bool loaded_condition(const Function& f, const Block& block)
 // Copy a short straight-line dispatch into an incoming jump. Its guards stay
 // at their original sites; calls, stores, side exits and landing pads stay
 // shared. Charge the table data too. Each emitted copy gets its own table label.
-bool dispatch_tail(const Function& f, uint32_t b)
+// `indirect`: a dispatch by an indirect jump instead, whose targets emit no data.
+bool dispatch_tail(const Function& f, uint32_t b, bool indirect)
 {
 	const Block& block = f.blocks[b];
 	if (b == 0 || block.landing || block.count == 0 || block.count > kRotateCap)
 		return false;
 	const Inst& table = f.insts[block.first + block.count - 1];
-	if (table.op != Op::JumpTable || table.aux2 == 0 || table.aux2 > kRotateCap - block.count)
+	if (indirect ? table.op != Op::IndirectJump
+				 : table.op != Op::JumpTable || table.aux2 == 0 || table.aux2 > kRotateCap - block.count)
 		return false;
 	for (uint32_t i = block.first; i + 1 < block.first + block.count; ++i)
 	{
@@ -143,7 +145,26 @@ bool dispatch_tail(const Function& f, uint32_t b)
 	return true;
 }
 
-TailCopies duplicate_short_tails(Function& f)
+namespace {
+
+// Whether block `b` of a function with code labels is empty, or a lone jump
+// that is no code label's block.
+bool passed_over(const Function& f, uint32_t b)
+{
+	const Block& block = f.blocks[b];
+	if (block.count == 0)
+		return true;
+	if (block.count != 1 || f.insts[block.first].op != Op::Jmp)
+		return false;
+	for (const lowir::CodeLabel& label : f.code_labels)
+		if (label.block == b)
+			return false;
+	return true;
+}
+
+} // namespace
+
+TailCopies duplicate_short_tails(Function& f, bool addressed)
 {
 	TailCopies copies;
 	const uint32_t blocks = static_cast<uint32_t>(f.blocks.size());
@@ -156,8 +177,14 @@ TailCopies duplicate_short_tails(Function& f)
 		if (last.op != Op::Jmp || last.ops[0].kind != OperandKind::Label)
 			continue;
 		const uint32_t target = last.ops[0].symbol;
-		const bool dispatch = target != b && dispatch_tail(f, target);
-		if (!dispatch && (target >= b || !rotatable(f, target)))
+		// (Code labels keep their function's order: a jump over blocks that
+		// are empty or only jump on, which threading leaves unreached, falls
+		// into its target.)
+		uint32_t next = b + 1;
+		while (addressed && next < target && passed_over(f, next))
+			++next;
+		const bool dispatch = target != b && (!addressed || target != next) && dispatch_tail(f, target, addressed);
+		if (!dispatch && (addressed || target >= b || !rotatable(f, target)))
 			continue;
 		const Block tail = f.blocks[target];
 		// A latch takes no copy of a guard, a test whose branch is hinted to
@@ -195,7 +222,7 @@ TailCopies duplicate_short_tails(Function& f)
 			// Counted loops retain sharing even when their bounds are loaded.
 			if (loaded_test && copy.op == Op::Jcc)
 				copy.aux2 = static_cast<uint32_t>(f.insts.size()) + 1;
-			if (copy.op == Op::JumpTable)
+			if (copy.op == Op::JumpTable || copy.op == Op::IndirectJump)
 			{
 				// Each dispatch owns the targets that later frame splitting
 				// and block renumbering rewrite. Sharing a slice would apply

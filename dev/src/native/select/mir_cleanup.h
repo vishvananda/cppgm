@@ -90,7 +90,11 @@ struct TailCopies
 
 // Copy a short terminal dispatch into an incoming jump, or an earlier loop
 // test into its latch. Guards and table entries count toward the growth bound.
-TailCopies duplicate_short_tails(Function& function);
+// `addressed` (a function with code labels): only a short block ending in an
+// indirect jump (a computed dispatch, whose targets are no emitted data) is
+// copied, into each jump to it that does not already fall into it, so each
+// path dispatches by its own indirect jump.
+TailCopies duplicate_short_tails(Function& function, bool addressed = false);
 
 // A jump to a test block that only decides between two successors on a
 // register the jumping block set to a known value goes to the decided
