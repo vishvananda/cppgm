@@ -173,8 +173,13 @@ void FunctionSelector::select(lowir::SymbolId symbol, Function& out, uint32_t ex
 		drop_redundant_constants(out);
 		hoist_zeroes(out);
 		forward_float_homes(out);
+		// The frame's order reads no edges: its most used objects move
+		// nearest the frame register here too.
 		if (!frame_pinned_)
+		{
 			forward_frame_copies(out, frame_objects_);
+			stats_.ordered_frames += order_frame(out, frame_objects_, false) ? 1 : 0;
+		}
 	}
 	if (level_ >= 2)
 		narrow_variable_divides(out);

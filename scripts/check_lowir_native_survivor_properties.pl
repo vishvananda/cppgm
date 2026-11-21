@@ -110,7 +110,7 @@ if(scalar(@ARGV) != 2)
 
 my ($app, $root) = @ARGV;
 my @tests = collect_tests($root,
-	qr/(?:\d{3}-loop-invariant-call-crossing-placement|\d{3}-deferred-compare-across-call|\d{3}-volatile-access-emission|\d{3}-eh-edge-placement-barrier|\d{3}-loop-and-eh-placement|\d{3}-native-layout-policy-guards|\d{3}-staged-home-selection|\d{3}-rematerialized-storage-addresses)\.t$/);
+	qr/(?:\d{3}-loop-invariant-call-crossing-placement|\d{3}-deferred-compare-across-call|\d{3}-volatile-access-emission|\d{3}-eh-edge-placement-barrier|\d{3}-loop-and-eh-placement|\d{3}-native-layout-policy-guards|\d{3}-staged-home-selection|\d{3}-rematerialized-storage-addresses|\d{3}-frame-order-beside-code-labels)\.t$/);
 die "No native survivor-property tests found under $root\n" if !@tests;
 
 for my $test (@tests)
@@ -138,6 +138,14 @@ for my $test (@tests)
 		my $floating = function_body($test, $optimized, 'float_loop');
 		die "$test: call-free floating loop consumed integer preserved capacity\n"
 			if preserve_count($floating) != 0;
+		next;
+	}
+	if($test =~ /\d{3}-frame-order-beside-code-labels/) {
+		my $run = function_body($test, $o1, 'run');
+		my ($acc) = $run =~ /^\s+slot \$acc -> \[rbp-(\d+)\]/m;
+		my ($big) = $run =~ /^\s+slot \$big -> \[rbp-(\d+)\]/m;
+		die "$test: code-label function left its most used slot beyond a one-byte displacement\n"
+			if !defined($acc) || !defined($big) || $acc > 128 || $big <= $acc;
 		next;
 	}
 	if($test =~ /\d{3}-deferred-compare-across-call/) {
