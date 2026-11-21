@@ -1,6 +1,6 @@
 # x86-64 backend performance
 
-Measured `b3e8ffd61d008c80042a09444d6d607c4b7d7f0c` on Intel(R) Xeon(R) 6975P-C. [CI run and raw observations](https://github.com/vishvananda/cppgm/actions/runs/44818861403)
+Measured `dbbd227db37c255596e3fc11a4d3df8700ea7be7` on Intel(R) Xeon(R) 6975P-C. [CI run and raw observations](https://github.com/vishvananda/cppgm/actions/runs/44922642903)
 
 ### Portable public benchmarks on x86_64-linux-gnu
 
@@ -8,8 +8,8 @@ Measured `b3e8ffd61d008c80042a09444d6d607c4b7d7f0c` on Intel(R) Xeon(R) 6975P-C.
 | --- | ---: |
 | Prolangs-C++/primes | 1.00× |
 | Stanford/Bubblesort | 0.98× |
-| Stanford/FloatMM | 0.82× |
-| Stanford/Puzzle | 0.87× |
-| Stanford/Treesort | 1.05× |
+| Stanford/FloatMM | 0.85× |
+| Stanford/Puzzle | 0.99× |
+| Stanford/Treesort | 1.06× |
 
 The badge gives the geometric mean of the per-program CPU speedups.

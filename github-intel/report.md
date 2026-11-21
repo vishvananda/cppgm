@@ -1,6 +1,6 @@
 # Public benchmarks: Intel (GitHub)
 
-Measured compiler: [`b3e8ffd61`](https://github.com/vishvananda/cppgm/commit/b3e8ffd61d008c80042a09444d6d607c4b7d7f0c) · [CI run](https://github.com/vishvananda/cppgm/actions/runs/44818861403) · [Raw program results](results.json)
+Measured compiler: [`dbbd227db`](https://github.com/vishvananda/cppgm/commit/dbbd227db37c255596e3fc11a4d3df8700ea7be7) · [CI run](https://github.com/vishvananda/cppgm/actions/runs/44922642903) · [Raw program results](results.json)
 
 81 of 81 programs built with cppgm and g++ and agreed. Each number is the reference over cppgm, so above 1× means cppgm is smaller or faster.
 
@@ -8,33 +8,33 @@ CPU: Intel(R) Xeon(R) 6975P-C.
 
 | Measure | vs g++ | Programs | vs clang++ | Programs |
 | --- | ---: | ---: | ---: | ---: |
-| Frontend CPU, `-fsyntax-only` | 2.31× | 74 | 2.98× | 74 |
-| Compile CPU, `-O0` | 3.24× | 75 | 3.22× | 75 |
-| Compile CPU, `-O3` | 4.35× | 80 | 3.88× | 80 |
-| Compile peak RSS, `-O0` | 1.44× | 81 | 2.17× | 81 |
-| Compile peak RSS, `-O3` | 1.69× | 81 | 2.27× | 81 |
+| Frontend CPU, `-fsyntax-only` | 2.32× | 74 | 2.95× | 74 |
+| Compile CPU, `-O0` | 3.24× | 74 | 3.19× | 74 |
+| Compile CPU, `-O3` | 4.30× | 79 | 3.84× | 79 |
+| Compile peak RSS, `-O0` | 1.43× | 81 | 2.18× | 81 |
+| Compile peak RSS, `-O3` | 1.70× | 81 | 2.28× | 81 |
 | Executable size, `-O0` | 0.93× | 81 | 0.87× | 81 |
 | Executable size, `-O3` | 0.97× | 81 | 0.93× | 81 |
-| Run CPU, `-O0` | 1.11× | 81 | 1.06× | 81 |
-| Run CPU, `-O3` | 0.99× | 80 | 1.00× | 80 |
-| Run instructions, `-O3` | 1.00× | 43 | - | 0 |
+| Run CPU, `-O0` | 1.11× | 81 | 1.07× | 81 |
+| Run CPU, `-O3` | 1.01× | 80 | 1.02× | 80 |
+| Run instructions, `-O3` | 1.05× | 43 | - | 0 |
 
-O3 execution uses paired ABBA/BAAB blocks. GCC A/A CPU ratios ranged from 0.909 to 1.020; raw observations and block ratios are retained in the artifact.
+O3 execution uses paired ABBA/BAAB blocks. GCC A/A CPU ratios ranged from 0.904 to 1.014; raw observations and block ratios are retained in the artifact.
 
 ## Slowest generated code, by run-time instructions
 
 | Program | vs g++ |
 | --- | ---: |
-| bg/nbody/2 | 0.63× |
-| bg/spectralnorm/1 | 0.75× |
 | tramp3d-v4 | 0.78× |
-| bg/nbody/1 | 0.82× |
-| bg/mandelbrot/7 | 0.84× |
-| bg/mandelbrot/9 | 0.84× |
-| bg/nbody/3 | 0.86× |
-| bg/mandelbrot/5 | 0.86× |
-| bg/mandelbrot/2 | 0.86× |
+| bg/spectralnorm/1 | 0.83× |
+| bg/nbody/2 | 0.86× |
+| bg/nbody/3 | 0.87× |
+| bg/mandelbrot/7 | 0.88× |
+| bg/mandelbrot/9 | 0.89× |
+| bg/mandelbrot/5 | 0.89× |
 | CoyoteBench/fftbench | 0.89× |
+| DOE/PENNANT | 0.90× |
+| bg/mandelbrot/2 | 0.93× |
 
 ## Compile CPU times
 
@@ -46,259 +46,259 @@ Compilation is measured once per compiler and level; the ABBA/BAAB repetitions a
 
 | Program | cppgm (s) | GCC (s) | Speed vs GCC ↑ | Clang (s) | Speed vs Clang ↑ | Status |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| Adobe-C++/functionobjects | 0.062 | 0.250 | 4.03× | 0.176 | 2.84× | ok |
-| Adobe-C++/loop_unroll | 0.053 | 0.558 | 10.53× | 0.172 | 3.25× | ok |
-| Adobe-C++/simple_types_constant_folding | 0.058 | 0.654 | 11.28× | 0.208 | 3.59× | ok |
-| Adobe-C++/simple_types_loop_invariant | 0.046 | 0.481 | 10.46× | 0.239 | 5.20× | ok |
-| Adobe-C++/stepanov_abstraction | 0.037 | 0.172 | 4.65× | 0.110 | 2.97× | ok |
-| Adobe-C++/stepanov_vector | 0.073 | 0.303 | 4.15× | 0.236 | 3.23× | ok |
-| Bullet | 4.692 | 17.573 | 3.75× | 15.735 | 3.35× | ok |
-| CLAMR | 2.264 | 8.512 | 3.76× | 8.934 | 3.95× | ok |
-| CoyoteBench/almabench | 0.028 | 0.064 | 2.29× | 0.078 | 2.79× | ok |
-| CoyoteBench/fftbench | 0.093 | 0.234 | 2.52× | 0.294 | 3.16× | ok |
-| CoyoteBench/huffbench | 0.027 | 0.071 | 2.63× | 0.084 | 3.11× | ok |
-| CoyoteBench/lpbench | 0.025 | 0.063 | 2.52× | 0.073 | 2.92× | ok |
-| DOE/HACCKernels | 0.098 | 0.239 | 2.44× | 0.310 | 3.16× | ok |
-| DOE/HPCCG | 0.708 | 1.528 | 2.16× | 2.194 | 3.10× | ok |
-| DOE/PENNANT | 1.252 | 3.982 | 3.18× | 4.158 | 3.32× | ok |
-| DOE/miniFE | 0.586 | 2.213 | 3.78× | 2.343 | 4.00× | ok |
-| Misc-C++-EH/spirit | 0.382 | 2.325 | 6.09× | 1.565 | 4.10× | ok |
-| Misc-C++-Large/ray | 0.100 | 0.269 | 2.69× | 0.342 | 3.42× | ok |
-| Misc-C++-Large/sphereflake | 0.083 | 0.223 | 2.69× | 0.281 | 3.39× | ok |
-| Misc-C++/bigfib | 0.123 | 0.388 | 3.15× | 0.420 | 3.41× | ok |
-| Misc-C++/oopack_v1p8 | 0.031 | 0.092 | 2.97× | 0.095 | 3.06× | ok |
-| Misc-C++/stepanov_container | 0.158 | 0.583 | 3.69× | 0.555 | 3.51× | ok |
-| Misc-C++/stepanov_v1p2 | 0.028 | 0.118 | 4.21× | 0.106 | 3.79× | ok |
-| PAQ8p | 0.065 | 0.454 | 6.98× | 0.204 | 3.14× | ok |
-| Prolangs-C++/life | 0.004 | 0.029 | — | 0.027 | — | ok |
-| Prolangs-C++/ocean | 0.010 | 0.064 | 6.40× | 0.046 | 4.60× | ok |
-| Prolangs-C++/primes | 0.006 | 0.022 | — | 0.025 | — | ok |
-| Shootout-C++-EH/except | 0.061 | 0.145 | 2.38× | 0.193 | 3.16× | ok |
-| Shootout-C++/ackermann | 0.069 | 0.161 | 2.33× | 0.231 | 3.35× | ok |
-| Shootout-C++/ary3 | 0.071 | 0.179 | 2.52× | 0.225 | 3.17× | ok |
-| Shootout-C++/fibo | 0.067 | 0.161 | 2.40× | 0.193 | 2.88× | ok |
-| Shootout-C++/hash | 0.092 | 0.257 | 2.79× | 0.280 | 3.04× | ok |
-| Shootout-C++/hash2 | 0.101 | 0.310 | 3.07× | 0.373 | 3.69× | ok |
-| Shootout-C++/heapsort | 0.074 | 0.167 | 2.26× | 0.222 | 3.00× | ok |
-| Shootout-C++/lists | 0.069 | 0.201 | 2.91× | 0.218 | 3.16× | ok |
-| Shootout-C++/lists1 | 0.081 | 0.221 | 2.73× | 0.251 | 3.10× | ok |
-| Shootout-C++/matrix | 0.061 | 0.150 | 2.46× | 0.204 | 3.34× | ok |
-| Shootout-C++/methcall | 0.065 | 0.143 | 2.20× | 0.225 | 3.46× | ok |
-| Shootout-C++/moments | 0.093 | 0.241 | 2.59× | 0.259 | 2.78× | ok |
-| Shootout-C++/random | 0.077 | 0.169 | 2.19× | 0.237 | 3.08× | ok |
-| Shootout-C++/sieve | 0.079 | 0.219 | 2.77× | 0.257 | 3.25× | ok |
-| SmallPT | 0.027 | 0.082 | 3.04× | 0.081 | 3.00× | ok |
-| Stanford/Bubblesort | 0.008 | 0.025 | — | 0.030 | — | ok |
-| Stanford/FloatMM | 0.008 | 0.026 | — | 0.030 | — | ok |
-| Stanford/Puzzle | 0.009 | 0.032 | — | 0.031 | — | ok |
-| Stanford/Treesort | 0.008 | 0.026 | — | 0.029 | — | ok |
-| bg/binarytrees/2 | 0.063 | 0.148 | 2.35× | 0.208 | 3.30× | ok |
-| bg/fannkuchredux/3 | 0.030 | 0.068 | 2.27× | 0.081 | 2.70× | ok |
-| bg/fasta/1 | 0.052 | 0.124 | 2.38× | 0.140 | 2.69× | ok |
-| bg/fasta/2 | 0.047 | 0.117 | 2.49× | 0.134 | 2.85× | ok |
-| bg/fasta/3 | 0.077 | 0.182 | 2.36× | 0.251 | 3.26× | ok |
-| bg/fasta/4 | 0.067 | 0.144 | 2.15× | 0.174 | 2.60× | ok |
-| bg/fasta/6 | 0.125 | 0.369 | 2.95× | 0.387 | 3.10× | ok |
-| bg/mandelbrot/0 | 0.136 | 0.489 | 3.60× | 0.412 | 3.03× | ok |
-| bg/mandelbrot/2 | 0.081 | 0.209 | 2.58× | 0.236 | 2.91× | ok |
-| bg/mandelbrot/3 | 0.090 | 0.206 | 2.29× | 0.270 | 3.00× | ok |
-| bg/mandelbrot/5 | 0.041 | 0.096 | 2.34× | 0.114 | 2.78× | ok |
-| bg/mandelbrot/7 | 0.049 | 0.126 | 2.57× | 0.128 | 2.61× | ok |
-| bg/mandelbrot/9 | 0.044 | 0.113 | 2.57× | 0.121 | 2.75× | ok |
-| bg/nbody/1 | 0.030 | 0.102 | 3.40× | 0.089 | 2.97× | ok |
-| bg/nbody/2 | 0.025 | 0.061 | 2.44× | 0.076 | 3.04× | ok |
-| bg/nbody/3 | 0.027 | 0.067 | 2.48× | 0.074 | 2.74× | ok |
-| bg/nbody/6 | 0.028 | 0.100 | 3.57× | 0.091 | 3.25× | ok |
-| bg/pidigits/4 | 0.113 | 0.297 | 2.63× | 0.411 | 3.64× | ok |
-| bg/pidigits/5 | 0.069 | 0.162 | 2.35× | 0.262 | 3.80× | ok |
-| bg/revcomp/1 | 0.081 | 0.221 | 2.73× | 0.237 | 2.93× | ok |
-| bg/revcomp/5 | 0.077 | 0.192 | 2.49× | 0.212 | 2.75× | ok |
-| bg/spectralnorm/1 | 0.117 | 0.272 | 2.32× | 0.367 | 3.14× | ok |
-| box2d | 1.405 | 4.098 | 2.92× | 3.241 | 2.31× | ok |
-| fmt | 0.475 | 2.348 | 4.94× | 1.956 | 4.12× | ok |
-| hexxagon | 0.245 | 0.551 | 2.25× | 0.825 | 3.37× | ok |
-| lambda | 0.050 | 0.300 | 6.00× | 0.237 | 4.74× | ok |
-| minisat | 0.061 | 0.297 | 4.87× | 0.205 | 3.36× | ok |
-| nlohmann-json | 0.425 | 1.941 | 4.57× | 1.820 | 4.28× | ok |
-| pugixml | 0.273 | 1.276 | 4.67× | 0.992 | 3.63× | ok |
-| pugixml-tests | 3.393 | 14.965 | 4.41× | 13.299 | 3.92× | ok |
-| rapidjson | 0.115 | 0.480 | 4.17× | 0.364 | 3.17× | ok |
-| re2 | 2.958 | 10.998 | 3.72× | 6.531 | 2.21× | ok |
-| re2-test-re2 | 4.518 | 15.418 | 3.41× | 15.000 | 3.32× | ok |
-| re2-test-search | 4.506 | 14.609 | 3.24× | 14.877 | 3.30× | ok |
-| tramp3d-v4 | 1.008 | 8.704 | 8.63× | 2.613 | 2.59× | ok |
+| Adobe-C++/functionobjects | 0.064 | 0.252 | 3.94× | 0.209 | 3.27× | ok |
+| Adobe-C++/loop_unroll | 0.050 | 0.568 | 11.36× | 0.174 | 3.48× | ok |
+| Adobe-C++/simple_types_constant_folding | 0.051 | 0.671 | 13.16× | 0.210 | 4.12× | ok |
+| Adobe-C++/simple_types_loop_invariant | 0.045 | 0.480 | 10.67× | 0.228 | 5.07× | ok |
+| Adobe-C++/stepanov_abstraction | 0.036 | 0.170 | 4.72× | 0.110 | 3.06× | ok |
+| Adobe-C++/stepanov_vector | 0.072 | 0.301 | 4.18× | 0.189 | 2.62× | ok |
+| Bullet | 5.007 | 16.710 | 3.34× | 16.955 | 3.39× | ok |
+| CLAMR | 2.438 | 9.519 | 3.90× | 8.573 | 3.52× | ok |
+| CoyoteBench/almabench | 0.026 | 0.076 | 2.92× | 0.080 | 3.08× | ok |
+| CoyoteBench/fftbench | 0.103 | 0.240 | 2.33× | 0.360 | 3.50× | ok |
+| CoyoteBench/huffbench | 0.024 | 0.060 | 2.50× | 0.073 | 3.04× | ok |
+| CoyoteBench/lpbench | 0.028 | 0.075 | 2.68× | 0.087 | 3.11× | ok |
+| DOE/HACCKernels | 0.101 | 0.287 | 2.84× | 0.317 | 3.14× | ok |
+| DOE/HPCCG | 0.652 | 1.530 | 2.35× | 2.152 | 3.30× | ok |
+| DOE/PENNANT | 1.213 | 4.134 | 3.41× | 3.883 | 3.20× | ok |
+| DOE/miniFE | 0.607 | 1.844 | 3.04× | 2.167 | 3.57× | ok |
+| Misc-C++-EH/spirit | 0.366 | 2.708 | 7.40× | 1.557 | 4.25× | ok |
+| Misc-C++-Large/ray | 0.093 | 0.276 | 2.97× | 0.294 | 3.16× | ok |
+| Misc-C++-Large/sphereflake | 0.089 | 0.220 | 2.47× | 0.273 | 3.07× | ok |
+| Misc-C++/bigfib | 0.117 | 0.364 | 3.11× | 0.394 | 3.37× | ok |
+| Misc-C++/oopack_v1p8 | 0.031 | 0.091 | 2.94× | 0.091 | 2.94× | ok |
+| Misc-C++/stepanov_container | 0.156 | 0.565 | 3.62× | 0.525 | 3.37× | ok |
+| Misc-C++/stepanov_v1p2 | 0.028 | 0.114 | 4.07× | 0.102 | 3.64× | ok |
+| PAQ8p | 0.065 | 0.455 | 7.00× | 0.242 | 3.72× | ok |
+| Prolangs-C++/life | 0.004 | 0.029 | — | 0.024 | — | ok |
+| Prolangs-C++/ocean | 0.009 | 0.058 | — | 0.038 | — | ok |
+| Prolangs-C++/primes | 0.005 | 0.021 | — | 0.023 | — | ok |
+| Shootout-C++-EH/except | 0.068 | 0.159 | 2.34× | 0.226 | 3.32× | ok |
+| Shootout-C++/ackermann | 0.063 | 0.140 | 2.22× | 0.191 | 3.03× | ok |
+| Shootout-C++/ary3 | 0.083 | 0.198 | 2.39× | 0.267 | 3.22× | ok |
+| Shootout-C++/fibo | 0.063 | 0.144 | 2.29× | 0.192 | 3.05× | ok |
+| Shootout-C++/hash | 0.092 | 0.253 | 2.75× | 0.280 | 3.04× | ok |
+| Shootout-C++/hash2 | 0.104 | 0.303 | 2.91× | 0.281 | 2.70× | ok |
+| Shootout-C++/heapsort | 0.081 | 0.165 | 2.04× | 0.248 | 3.06× | ok |
+| Shootout-C++/lists | 0.067 | 0.188 | 2.81× | 0.218 | 3.25× | ok |
+| Shootout-C++/lists1 | 0.078 | 0.211 | 2.71× | 0.279 | 3.58× | ok |
+| Shootout-C++/matrix | 0.062 | 0.164 | 2.65× | 0.188 | 3.03× | ok |
+| Shootout-C++/methcall | 0.067 | 0.143 | 2.13× | 0.213 | 3.18× | ok |
+| Shootout-C++/moments | 0.086 | 0.227 | 2.64× | 0.242 | 2.81× | ok |
+| Shootout-C++/random | 0.076 | 0.198 | 2.61× | 0.225 | 2.96× | ok |
+| Shootout-C++/sieve | 0.079 | 0.212 | 2.68× | 0.258 | 3.27× | ok |
+| SmallPT | 0.027 | 0.084 | 3.11× | 0.076 | 2.81× | ok |
+| Stanford/Bubblesort | 0.008 | 0.025 | — | 0.028 | — | ok |
+| Stanford/FloatMM | 0.008 | 0.025 | — | 0.028 | — | ok |
+| Stanford/Puzzle | 0.009 | 0.032 | — | 0.032 | — | ok |
+| Stanford/Treesort | 0.008 | 0.027 | — | 0.029 | — | ok |
+| bg/binarytrees/2 | 0.068 | 0.157 | 2.31× | 0.199 | 2.93× | ok |
+| bg/fannkuchredux/3 | 0.032 | 0.073 | 2.28× | 0.084 | 2.62× | ok |
+| bg/fasta/1 | 0.046 | 0.123 | 2.67× | 0.124 | 2.70× | ok |
+| bg/fasta/2 | 0.050 | 0.124 | 2.48× | 0.124 | 2.48× | ok |
+| bg/fasta/3 | 0.076 | 0.166 | 2.18× | 0.238 | 3.13× | ok |
+| bg/fasta/4 | 0.069 | 0.143 | 2.07× | 0.199 | 2.88× | ok |
+| bg/fasta/6 | 0.122 | 0.384 | 3.15× | 0.384 | 3.15× | ok |
+| bg/mandelbrot/0 | 0.149 | 0.445 | 2.99× | 0.430 | 2.89× | ok |
+| bg/mandelbrot/2 | 0.076 | 0.210 | 2.76× | 0.260 | 3.42× | ok |
+| bg/mandelbrot/3 | 0.088 | 0.193 | 2.19× | 0.264 | 3.00× | ok |
+| bg/mandelbrot/5 | 0.046 | 0.108 | 2.35× | 0.128 | 2.78× | ok |
+| bg/mandelbrot/7 | 0.044 | 0.121 | 2.75× | 0.130 | 2.95× | ok |
+| bg/mandelbrot/9 | 0.038 | 0.104 | 2.74× | 0.117 | 3.08× | ok |
+| bg/nbody/1 | 0.028 | 0.099 | 3.54× | 0.085 | 3.04× | ok |
+| bg/nbody/2 | 0.028 | 0.064 | 2.29× | 0.071 | 2.54× | ok |
+| bg/nbody/3 | 0.023 | 0.069 | 3.00× | 0.073 | 3.17× | ok |
+| bg/nbody/6 | 0.027 | 0.093 | 3.44× | 0.099 | 3.67× | ok |
+| bg/pidigits/4 | 0.127 | 0.302 | 2.38× | 0.373 | 2.94× | ok |
+| bg/pidigits/5 | 0.081 | 0.170 | 2.10× | 0.212 | 2.62× | ok |
+| bg/revcomp/1 | 0.074 | 0.208 | 2.81× | 0.249 | 3.36× | ok |
+| bg/revcomp/5 | 0.076 | 0.196 | 2.58× | 0.209 | 2.75× | ok |
+| bg/spectralnorm/1 | 0.116 | 0.245 | 2.11× | 0.350 | 3.02× | ok |
+| box2d | 1.321 | 4.025 | 3.05× | 3.323 | 2.52× | ok |
+| fmt | 0.509 | 2.429 | 4.77× | 2.054 | 4.04× | ok |
+| hexxagon | 0.249 | 0.543 | 2.18× | 0.857 | 3.44× | ok |
+| lambda | 0.050 | 0.304 | 6.08× | 0.232 | 4.64× | ok |
+| minisat | 0.059 | 0.294 | 4.98× | 0.225 | 3.81× | ok |
+| nlohmann-json | 0.392 | 2.067 | 5.27× | 1.718 | 4.38× | ok |
+| pugixml | 0.276 | 1.360 | 4.93× | 0.980 | 3.55× | ok |
+| pugixml-tests | 3.317 | 14.810 | 4.46× | 13.195 | 3.98× | ok |
+| rapidjson | 0.110 | 0.458 | 4.16× | 0.345 | 3.14× | ok |
+| re2 | 3.014 | 10.871 | 3.61× | 6.544 | 2.17× | ok |
+| re2-test-re2 | 4.608 | 15.229 | 3.30× | 15.317 | 3.32× | ok |
+| re2-test-search | 4.668 | 14.382 | 3.08× | 13.340 | 2.86× | ok |
+| tramp3d-v4 | 0.682 | 8.509 | 12.48× | 2.463 | 3.61× | ok |
 
 ### O3 compilation
 
 | Program | cppgm (s) | GCC (s) | Speed vs GCC ↑ | Clang (s) | Speed vs Clang ↑ | Status |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| Adobe-C++/functionobjects | 0.128 | 0.815 | 6.37× | 0.566 | 4.42× | ok |
-| Adobe-C++/loop_unroll | 0.436 | 5.409 | 12.41× | 4.057 | 9.31× | ok |
-| Adobe-C++/simple_types_constant_folding | 0.247 | 3.001 | 12.15× | 2.247 | 9.10× | ok |
-| Adobe-C++/simple_types_loop_invariant | 0.204 | 2.210 | 10.83× | 1.850 | 9.07× | ok |
-| Adobe-C++/stepanov_abstraction | 0.101 | 0.962 | 9.52× | 0.461 | 4.56× | ok |
-| Adobe-C++/stepanov_vector | 0.130 | 1.412 | 10.86× | 0.514 | 3.95× | ok |
-| Bullet | 6.146 | 37.650 | 6.13× | 27.224 | 4.43× | ok |
-| CLAMR | 4.025 | 23.504 | 5.84× | 18.524 | 4.60× | ok |
-| CoyoteBench/almabench | 0.032 | 0.149 | 4.66× | 0.118 | 3.69× | ok |
-| CoyoteBench/fftbench | 0.113 | 0.399 | 3.53× | 0.395 | 3.50× | ok |
-| CoyoteBench/huffbench | 0.037 | 0.225 | 6.08× | 0.137 | 3.70× | ok |
-| CoyoteBench/lpbench | 0.033 | 0.160 | 4.85× | 0.170 | 5.15× | ok |
-| DOE/HACCKernels | 0.110 | 0.355 | 3.23× | 0.375 | 3.41× | ok |
-| DOE/HPCCG | 0.763 | 2.287 | 3.00× | 2.597 | 3.40× | ok |
-| DOE/PENNANT | 1.746 | 5.872 | 3.36× | 5.632 | 3.23× | ok |
-| DOE/miniFE | 0.833 | 4.104 | 4.93× | 3.664 | 4.40× | ok |
-| Misc-C++-EH/spirit | 0.584 | 3.885 | 6.65× | 2.898 | 4.96× | ok |
-| Misc-C++-Large/ray | 0.111 | 0.443 | 3.99× | 0.402 | 3.62× | ok |
-| Misc-C++-Large/sphereflake | 0.102 | 0.718 | 7.04× | 0.387 | 3.79× | ok |
-| Misc-C++/bigfib | 0.149 | 0.559 | 3.75× | 0.558 | 3.74× | ok |
-| Misc-C++/oopack_v1p8 | 0.040 | 0.185 | 4.62× | 0.176 | 4.40× | ok |
-| Misc-C++/stepanov_container | 0.220 | 0.954 | 4.34× | 0.937 | 4.26× | ok |
-| Misc-C++/stepanov_v1p2 | 0.039 | 0.198 | 5.08× | 0.179 | 4.59× | ok |
-| PAQ8p | 0.307 | 3.941 | 12.84× | 1.508 | 4.91× | ok |
-| Prolangs-C++/life | 0.010 | 0.094 | 9.40× | 0.069 | 6.90× | ok |
-| Prolangs-C++/ocean | 0.021 | 0.208 | 9.90× | 0.126 | 6.00× | ok |
-| Prolangs-C++/primes | 0.008 | 0.035 | — | 0.035 | — | ok |
-| Shootout-C++-EH/except | 0.066 | 0.173 | 2.62× | 0.207 | 3.14× | ok |
-| Shootout-C++/ackermann | 0.073 | 0.202 | 2.77× | 0.250 | 3.42× | ok |
-| Shootout-C++/ary3 | 0.077 | 0.217 | 2.82× | 0.299 | 3.88× | ok |
-| Shootout-C++/fibo | 0.074 | 0.204 | 2.76× | 0.192 | 2.59× | ok |
-| Shootout-C++/hash | 0.109 | 0.415 | 3.81× | 0.369 | 3.39× | ok |
-| Shootout-C++/hash2 | 0.143 | 0.427 | 2.99× | 0.530 | 3.71× | ok |
-| Shootout-C++/heapsort | 0.079 | 0.204 | 2.58× | 0.235 | 2.97× | ok |
-| Shootout-C++/lists | 0.077 | 0.217 | 2.82× | 0.252 | 3.27× | ok |
-| Shootout-C++/lists1 | 0.091 | 0.254 | 2.79× | 0.295 | 3.24× | ok |
-| Shootout-C++/matrix | 0.071 | 0.200 | 2.82× | 0.347 | 4.89× | ok |
-| Shootout-C++/methcall | 0.066 | 0.187 | 2.83× | 0.208 | 3.15× | ok |
-| Shootout-C++/moments | 0.105 | 0.349 | 3.32× | 0.324 | 3.09× | ok |
-| Shootout-C++/random | 0.080 | 0.192 | 2.40× | 0.249 | 3.11× | ok |
-| Shootout-C++/sieve | 0.088 | 0.239 | 2.72× | 0.278 | 3.16× | ok |
-| SmallPT | 0.037 | 0.285 | 7.70× | 0.156 | 4.22× | ok |
-| Stanford/Bubblesort | 0.011 | 0.050 | 4.55× | 0.048 | 4.36× | ok |
-| Stanford/FloatMM | 0.012 | 0.058 | 4.83× | 0.067 | 5.58× | ok |
-| Stanford/Puzzle | 0.019 | 0.117 | 6.16× | 0.109 | 5.74× | ok |
-| Stanford/Treesort | 0.013 | 0.078 | 6.00× | 0.050 | 3.85× | ok |
-| bg/binarytrees/2 | 0.068 | 0.400 | 5.88× | 0.227 | 3.34× | ok |
-| bg/fannkuchredux/3 | 0.035 | 0.113 | 3.23× | 0.116 | 3.31× | ok |
-| bg/fasta/1 | 0.059 | 0.155 | 2.63× | 0.177 | 3.00× | ok |
-| bg/fasta/2 | 0.055 | 0.156 | 2.84× | 0.206 | 3.75× | ok |
-| bg/fasta/3 | 0.084 | 0.226 | 2.69× | 0.262 | 3.12× | ok |
-| bg/fasta/4 | 0.074 | 0.175 | 2.36× | 0.209 | 2.82× | ok |
-| bg/fasta/6 | 0.146 | 0.520 | 3.56× | 0.530 | 3.63× | ok |
-| bg/mandelbrot/0 | 0.188 | 0.612 | 3.26× | 0.627 | 3.34× | ok |
-| bg/mandelbrot/2 | 0.087 | 0.258 | 2.97× | 0.271 | 3.11× | ok |
-| bg/mandelbrot/3 | 0.094 | 0.230 | 2.45× | 0.269 | 2.86× | ok |
-| bg/mandelbrot/5 | 0.054 | 0.150 | 2.78× | 0.141 | 2.61× | ok |
-| bg/mandelbrot/7 | 0.057 | 0.199 | 3.49× | 0.160 | 2.81× | ok |
-| bg/mandelbrot/9 | 0.059 | 0.172 | 2.92× | 0.163 | 2.76× | ok |
-| bg/nbody/1 | 0.042 | 0.162 | 3.86× | 0.165 | 3.93× | ok |
-| bg/nbody/2 | 0.032 | 0.118 | 3.69× | 0.121 | 3.78× | ok |
-| bg/nbody/3 | 0.028 | 0.116 | 4.14× | 0.104 | 3.71× | ok |
-| bg/nbody/6 | 0.045 | 0.166 | 3.69× | 0.169 | 3.76× | ok |
-| bg/pidigits/4 | 0.132 | 0.334 | 2.53× | 0.485 | 3.67× | ok |
-| bg/pidigits/5 | 0.084 | 0.196 | 2.33× | 0.285 | 3.39× | ok |
-| bg/revcomp/1 | 0.088 | 0.256 | 2.91× | 0.277 | 3.15× | ok |
-| bg/revcomp/5 | 0.085 | 0.239 | 2.81× | 0.243 | 2.86× | ok |
-| bg/spectralnorm/1 | 0.126 | 0.371 | 2.94× | 0.388 | 3.08× | ok |
-| box2d | 1.749 | 6.890 | 3.94× | 5.836 | 3.34× | ok |
-| fmt | 0.993 | 5.497 | 5.54× | 3.700 | 3.73× | ok |
-| hexxagon | 0.292 | 1.053 | 3.61× | 1.085 | 3.72× | ok |
-| lambda | 0.123 | 1.143 | 9.29× | 0.529 | 4.30× | ok |
-| minisat | 0.149 | 1.021 | 6.85× | 0.654 | 4.39× | ok |
-| nlohmann-json | 0.782 | 3.593 | 4.59× | 3.079 | 3.94× | ok |
-| pugixml | 0.686 | 5.621 | 8.19× | 4.056 | 5.91× | ok |
-| pugixml-tests | 5.109 | 33.980 | 6.65× | 24.612 | 4.82× | ok |
-| rapidjson | 0.232 | 1.175 | 5.06× | 0.684 | 2.95× | ok |
-| re2 | 2.873 | 18.072 | 6.29× | 9.857 | 3.43× | ok |
-| re2-test-re2 | 5.749 | 27.350 | 4.76× | 23.099 | 4.02× | ok |
-| re2-test-search | 5.671 | 24.289 | 4.28× | 21.332 | 3.76× | ok |
-| tramp3d-v4 | 2.685 | 17.229 | 6.42× | 14.092 | 5.25× | ok |
+| Adobe-C++/functionobjects | 0.109 | 0.807 | 7.40× | 0.485 | 4.45× | ok |
+| Adobe-C++/loop_unroll | 0.448 | 5.260 | 11.74× | 4.044 | 9.03× | ok |
+| Adobe-C++/simple_types_constant_folding | 0.251 | 2.894 | 11.53× | 2.243 | 8.94× | ok |
+| Adobe-C++/simple_types_loop_invariant | 0.248 | 2.168 | 8.74× | 1.785 | 7.20× | ok |
+| Adobe-C++/stepanov_abstraction | 0.091 | 0.912 | 10.02× | 0.439 | 4.82× | ok |
+| Adobe-C++/stepanov_vector | 0.104 | 1.406 | 13.52× | 0.624 | 6.00× | ok |
+| Bullet | 6.028 | 38.165 | 6.33× | 25.654 | 4.26× | ok |
+| CLAMR | 4.566 | 23.248 | 5.09× | 17.862 | 3.91× | ok |
+| CoyoteBench/almabench | 0.036 | 0.148 | 4.11× | 0.111 | 3.08× | ok |
+| CoyoteBench/fftbench | 0.127 | 0.396 | 3.12× | 0.486 | 3.83× | ok |
+| CoyoteBench/huffbench | 0.040 | 0.192 | 4.80× | 0.133 | 3.33× | ok |
+| CoyoteBench/lpbench | 0.038 | 0.186 | 4.89× | 0.203 | 5.34× | ok |
+| DOE/HACCKernels | 0.111 | 0.364 | 3.28× | 0.375 | 3.38× | ok |
+| DOE/HPCCG | 0.670 | 2.226 | 3.32× | 2.553 | 3.81× | ok |
+| DOE/PENNANT | 1.679 | 5.833 | 3.47× | 6.012 | 3.58× | ok |
+| DOE/miniFE | 0.854 | 4.153 | 4.86× | 3.543 | 4.15× | ok |
+| Misc-C++-EH/spirit | 0.588 | 3.274 | 5.57× | 2.853 | 4.85× | ok |
+| Misc-C++-Large/ray | 0.104 | 0.439 | 4.22× | 0.349 | 3.36× | ok |
+| Misc-C++-Large/sphereflake | 0.099 | 0.753 | 7.61× | 0.370 | 3.74× | ok |
+| Misc-C++/bigfib | 0.149 | 0.554 | 3.72× | 0.557 | 3.74× | ok |
+| Misc-C++/oopack_v1p8 | 0.039 | 0.185 | 4.74× | 0.168 | 4.31× | ok |
+| Misc-C++/stepanov_container | 0.223 | 0.893 | 4.00× | 0.923 | 4.14× | ok |
+| Misc-C++/stepanov_v1p2 | 0.040 | 0.197 | 4.92× | 0.176 | 4.40× | ok |
+| PAQ8p | 0.319 | 3.931 | 12.32× | 1.705 | 5.34× | ok |
+| Prolangs-C++/life | 0.009 | 0.093 | — | 0.061 | — | ok |
+| Prolangs-C++/ocean | 0.019 | 0.187 | 9.84× | 0.104 | 5.47× | ok |
+| Prolangs-C++/primes | 0.007 | 0.031 | — | 0.032 | — | ok |
+| Shootout-C++-EH/except | 0.073 | 0.194 | 2.66× | 0.244 | 3.34× | ok |
+| Shootout-C++/ackermann | 0.066 | 0.179 | 2.71× | 0.201 | 3.05× | ok |
+| Shootout-C++/ary3 | 0.087 | 0.243 | 2.79× | 0.299 | 3.44× | ok |
+| Shootout-C++/fibo | 0.065 | 0.182 | 2.80× | 0.192 | 2.95× | ok |
+| Shootout-C++/hash | 0.109 | 0.410 | 3.76× | 0.369 | 3.39× | ok |
+| Shootout-C++/hash2 | 0.118 | 0.445 | 3.77× | 0.401 | 3.40× | ok |
+| Shootout-C++/heapsort | 0.094 | 0.202 | 2.15× | 0.235 | 2.50× | ok |
+| Shootout-C++/lists | 0.077 | 0.216 | 2.81× | 0.246 | 3.19× | ok |
+| Shootout-C++/lists1 | 0.091 | 0.251 | 2.76× | 0.330 | 3.63× | ok |
+| Shootout-C++/matrix | 0.070 | 0.198 | 2.83× | 0.342 | 4.89× | ok |
+| Shootout-C++/methcall | 0.066 | 0.185 | 2.80× | 0.210 | 3.18× | ok |
+| Shootout-C++/moments | 0.099 | 0.294 | 2.97× | 0.299 | 3.02× | ok |
+| Shootout-C++/random | 0.081 | 0.193 | 2.38× | 0.237 | 2.93× | ok |
+| Shootout-C++/sieve | 0.088 | 0.239 | 2.72× | 0.320 | 3.64× | ok |
+| SmallPT | 0.036 | 0.312 | 8.67× | 0.162 | 4.50× | ok |
+| Stanford/Bubblesort | 0.011 | 0.051 | 4.64× | 0.045 | 4.09× | ok |
+| Stanford/FloatMM | 0.012 | 0.057 | 4.75× | 0.063 | 5.25× | ok |
+| Stanford/Puzzle | 0.021 | 0.120 | 5.71× | 0.111 | 5.29× | ok |
+| Stanford/Treesort | 0.014 | 0.081 | 5.79× | 0.052 | 3.71× | ok |
+| bg/binarytrees/2 | 0.071 | 0.400 | 5.63× | 0.227 | 3.20× | ok |
+| bg/fannkuchredux/3 | 0.038 | 0.121 | 3.18× | 0.116 | 3.05× | ok |
+| bg/fasta/1 | 0.054 | 0.162 | 3.00× | 0.161 | 2.98× | ok |
+| bg/fasta/2 | 0.057 | 0.163 | 2.86× | 0.167 | 2.93× | ok |
+| bg/fasta/3 | 0.081 | 0.206 | 2.54× | 0.325 | 4.01× | ok |
+| bg/fasta/4 | 0.084 | 0.175 | 2.08× | 0.215 | 2.56× | ok |
+| bg/fasta/6 | 0.135 | 0.437 | 3.24× | 0.519 | 3.84× | ok |
+| bg/mandelbrot/0 | 0.163 | 0.627 | 3.85× | 0.632 | 3.88× | ok |
+| bg/mandelbrot/2 | 0.093 | 0.271 | 2.91× | 0.283 | 3.04× | ok |
+| bg/mandelbrot/3 | 0.093 | 0.233 | 2.51× | 0.273 | 2.94× | ok |
+| bg/mandelbrot/5 | 0.050 | 0.144 | 2.88× | 0.148 | 2.96× | ok |
+| bg/mandelbrot/7 | 0.057 | 0.202 | 3.54× | 0.171 | 3.00× | ok |
+| bg/mandelbrot/9 | 0.049 | 0.168 | 3.43× | 0.162 | 3.31× | ok |
+| bg/nbody/1 | 0.044 | 0.155 | 3.52× | 0.162 | 3.68× | ok |
+| bg/nbody/2 | 0.032 | 0.118 | 3.69× | 0.115 | 3.59× | ok |
+| bg/nbody/3 | 0.028 | 0.108 | 3.86× | 0.107 | 3.82× | ok |
+| bg/nbody/6 | 0.040 | 0.149 | 3.73× | 0.190 | 4.75× | ok |
+| bg/pidigits/4 | 0.113 | 0.324 | 2.87× | 0.422 | 3.73× | ok |
+| bg/pidigits/5 | 0.083 | 0.197 | 2.37× | 0.233 | 2.81× | ok |
+| bg/revcomp/1 | 0.088 | 0.258 | 2.93× | 0.261 | 2.97× | ok |
+| bg/revcomp/5 | 0.084 | 0.220 | 2.62× | 0.240 | 2.86× | ok |
+| bg/spectralnorm/1 | 0.125 | 0.336 | 2.69× | 0.397 | 3.18× | ok |
+| box2d | 1.709 | 6.809 | 3.98× | 4.459 | 2.61× | ok |
+| fmt | 0.955 | 5.368 | 5.62× | 4.187 | 4.38× | ok |
+| hexxagon | 0.296 | 1.062 | 3.59× | 1.081 | 3.65× | ok |
+| lambda | 0.121 | 1.140 | 9.42× | 0.570 | 4.71× | ok |
+| minisat | 0.153 | 1.011 | 6.61× | 0.648 | 4.24× | ok |
+| nlohmann-json | 0.774 | 3.618 | 4.67× | 3.002 | 3.88× | ok |
+| pugixml | 0.639 | 5.635 | 8.82× | 3.980 | 6.23× | ok |
+| pugixml-tests | 4.938 | 34.266 | 6.94× | 24.548 | 4.97× | ok |
+| rapidjson | 0.230 | 1.146 | 4.98× | 0.688 | 2.99× | ok |
+| re2 | 2.867 | 17.688 | 6.17× | 9.718 | 3.39× | ok |
+| re2-test-re2 | 5.905 | 26.909 | 4.56× | 21.197 | 3.59× | ok |
+| re2-test-search | 5.823 | 23.313 | 4.00× | 20.464 | 3.51× | ok |
+| tramp3d-v4 | 2.552 | 23.672 | 9.28× | 13.511 | 5.29× | ok |
 
 ### Frontend only: -fsyntax-only
 
 | Program | cppgm (s) | GCC (s) | Speed vs GCC ↑ | Clang (s) | Speed vs Clang ↑ | Status |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| Adobe-C++/functionobjects | 0.058 | 0.134 | 2.31× | 0.150 | 2.59× | ok |
-| Adobe-C++/loop_unroll | 0.037 | 0.100 | 2.70× | 0.100 | 2.70× | ok |
-| Adobe-C++/simple_types_constant_folding | 0.042 | 0.100 | 2.38× | 0.106 | 2.52× | ok |
-| Adobe-C++/simple_types_loop_invariant | 0.034 | 0.091 | 2.68× | 0.119 | 3.50× | ok |
-| Adobe-C++/stepanov_abstraction | 0.031 | 0.066 | 2.13× | 0.085 | 2.74× | ok |
-| Adobe-C++/stepanov_vector | 0.054 | 0.130 | 2.41× | 0.198 | 3.67× | ok |
-| Bullet | 4.304 | 9.631 | 2.24× | 13.037 | 3.03× | ok |
-| CLAMR | 1.926 | 4.493 | 2.33× | 5.725 | 2.97× | ok |
-| CoyoteBench/almabench | 0.028 | 0.053 | 1.89× | 0.074 | 2.64× | ok |
-| CoyoteBench/fftbench | 0.092 | 0.209 | 2.27× | 0.271 | 2.95× | ok |
-| CoyoteBench/huffbench | 0.027 | 0.061 | 2.26× | 0.081 | 3.00× | ok |
-| CoyoteBench/lpbench | 0.025 | 0.051 | 2.04× | 0.068 | 2.72× | ok |
-| DOE/HACCKernels | 0.095 | 0.208 | 2.19× | 0.289 | 3.04× | ok |
-| DOE/HPCCG | 0.687 | 1.346 | 1.96× | 2.141 | 3.12× | ok |
-| DOE/PENNANT | 1.225 | 2.862 | 2.34× | 3.801 | 3.10× | ok |
-| DOE/miniFE | 0.546 | 1.371 | 2.51× | 1.735 | 3.18× | ok |
-| Misc-C++-EH/spirit | 0.262 | 0.841 | 3.21× | 1.033 | 3.94× | ok |
-| Misc-C++-Large/ray | 0.101 | 0.223 | 2.21× | 0.306 | 3.03× | ok |
-| Misc-C++-Large/sphereflake | 0.082 | 0.195 | 2.38× | 0.250 | 3.05× | ok |
-| Misc-C++/bigfib | 0.110 | 0.259 | 2.35× | 0.368 | 3.35× | ok |
-| Misc-C++/oopack_v1p8 | 0.030 | 0.063 | 2.10× | 0.086 | 2.87× | ok |
-| Misc-C++/stepanov_container | 0.145 | 0.339 | 2.34× | 0.462 | 3.19× | ok |
-| Misc-C++/stepanov_v1p2 | 0.027 | 0.061 | 2.26× | 0.086 | 3.19× | ok |
-| PAQ8p | 0.042 | 0.119 | 2.83× | 0.115 | 2.74× | ok |
-| Prolangs-C++/life | 0.003 | 0.009 | — | 0.021 | — | ok |
-| Prolangs-C++/ocean | 0.009 | 0.022 | — | 0.033 | — | ok |
-| Prolangs-C++/primes | 0.006 | 0.015 | — | 0.025 | — | ok |
-| Shootout-C++-EH/except | 0.063 | 0.142 | 2.25× | 0.184 | 2.92× | ok |
-| Shootout-C++/ackermann | 0.070 | 0.163 | 2.33× | 0.220 | 3.14× | ok |
-| Shootout-C++/ary3 | 0.069 | 0.165 | 2.39× | 0.210 | 3.04× | ok |
-| Shootout-C++/fibo | 0.071 | 0.166 | 2.34× | 0.183 | 2.58× | ok |
-| Shootout-C++/hash | 0.087 | 0.195 | 2.24× | 0.249 | 2.86× | ok |
-| Shootout-C++/hash2 | 0.097 | 0.225 | 2.32× | 0.328 | 3.38× | ok |
-| Shootout-C++/heapsort | 0.075 | 0.168 | 2.24× | 0.211 | 2.81× | ok |
-| Shootout-C++/lists | 0.068 | 0.166 | 2.44× | 0.201 | 2.96× | ok |
-| Shootout-C++/lists1 | 0.078 | 0.180 | 2.31× | 0.228 | 2.92× | ok |
-| Shootout-C++/matrix | 0.062 | 0.147 | 2.37× | 0.193 | 3.11× | ok |
-| Shootout-C++/methcall | 0.068 | 0.141 | 2.07× | 0.198 | 2.91× | ok |
-| Shootout-C++/moments | 0.087 | 0.190 | 2.18× | 0.232 | 2.67× | ok |
-| Shootout-C++/random | 0.079 | 0.171 | 2.16× | 0.227 | 2.87× | ok |
-| Shootout-C++/sieve | 0.077 | 0.180 | 2.34× | 0.237 | 3.08× | ok |
-| SmallPT | 0.026 | 0.052 | 2.00× | 0.074 | 2.85× | ok |
-| Stanford/Bubblesort | 0.008 | 0.022 | — | 0.029 | — | ok |
-| Stanford/FloatMM | 0.008 | 0.021 | — | 0.030 | — | ok |
-| Stanford/Puzzle | 0.009 | 0.022 | — | 0.029 | — | ok |
-| Stanford/Treesort | 0.008 | 0.021 | — | 0.029 | — | ok |
-| bg/binarytrees/2 | 0.063 | 0.147 | 2.33× | 0.196 | 3.11× | ok |
-| bg/fannkuchredux/3 | 0.030 | 0.058 | 1.93× | 0.078 | 2.60× | ok |
-| bg/fasta/1 | 0.050 | 0.099 | 1.98× | 0.134 | 2.68× | ok |
-| bg/fasta/2 | 0.045 | 0.092 | 2.04× | 0.123 | 2.73× | ok |
-| bg/fasta/3 | 0.076 | 0.173 | 2.28× | 0.240 | 3.16× | ok |
-| bg/fasta/4 | 0.067 | 0.142 | 2.12× | 0.167 | 2.49× | ok |
-| bg/fasta/6 | 0.112 | 0.268 | 2.39× | 0.338 | 3.02× | ok |
-| bg/mandelbrot/0 | 0.122 | 0.316 | 2.59× | 0.365 | 2.99× | ok |
-| bg/mandelbrot/2 | 0.079 | 0.182 | 2.30× | 0.220 | 2.78× | ok |
-| bg/mandelbrot/3 | 0.088 | 0.199 | 2.26× | 0.256 | 2.91× | ok |
-| bg/mandelbrot/5 | 0.040 | 0.077 | 1.92× | 0.105 | 2.62× | ok |
-| bg/mandelbrot/7 | 0.042 | 0.091 | 2.17× | 0.132 | 3.14× | ok |
-| bg/mandelbrot/9 | 0.041 | 0.088 | 2.15× | 0.110 | 2.68× | ok |
-| bg/nbody/1 | 0.028 | 0.060 | 2.14× | 0.075 | 2.68× | ok |
-| bg/nbody/2 | 0.025 | 0.050 | 2.00× | 0.072 | 2.88× | ok |
-| bg/nbody/3 | 0.028 | 0.055 | 1.96× | 0.070 | 2.50× | ok |
-| bg/nbody/6 | 0.029 | 0.059 | 2.03× | 0.083 | 2.86× | ok |
-| bg/pidigits/4 | 0.126 | 0.268 | 2.13× | 0.406 | 3.22× | ok |
-| bg/pidigits/5 | 0.068 | 0.158 | 2.32× | 0.240 | 3.53× | ok |
-| bg/revcomp/1 | 0.076 | 0.169 | 2.22× | 0.217 | 2.86× | ok |
-| bg/revcomp/5 | 0.075 | 0.156 | 2.08× | 0.190 | 2.53× | ok |
-| bg/spectralnorm/1 | 0.111 | 0.262 | 2.36× | 0.349 | 3.14× | ok |
-| box2d | 1.320 | 2.740 | 2.08× | 3.373 | 2.56× | ok |
-| fmt | 0.426 | 0.997 | 2.34× | 1.410 | 3.31× | ok |
-| hexxagon | 0.236 | 0.494 | 2.09× | 0.758 | 3.21× | ok |
-| lambda | 0.041 | 0.120 | 2.93× | 0.161 | 3.93× | ok |
-| minisat | 0.051 | 0.127 | 2.49× | 0.149 | 2.92× | ok |
-| nlohmann-json | 0.332 | 0.867 | 2.61× | 1.373 | 4.14× | ok |
-| pugixml | 0.204 | 0.508 | 2.49× | 0.719 | 3.52× | ok |
-| pugixml-tests | 2.867 | 7.432 | 2.59× | 9.883 | 3.45× | ok |
-| rapidjson | 0.091 | 0.240 | 2.64× | 0.286 | 3.14× | ok |
-| re2 | 2.811 | 7.039 | 2.50× | 5.549 | 1.97× | ok |
-| re2-test-re2 | 4.214 | 9.656 | 2.29× | 12.549 | 2.98× | ok |
-| re2-test-search | 4.083 | 9.374 | 2.30× | 13.123 | 3.21× | ok |
-| tramp3d-v4 | 0.427 | 2.495 | 5.84× | 1.504 | 3.52× | ok |
+| Adobe-C++/functionobjects | 0.058 | 0.134 | 2.31× | 0.183 | 3.16× | ok |
+| Adobe-C++/loop_unroll | 0.034 | 0.101 | 2.97× | 0.101 | 2.97× | ok |
+| Adobe-C++/simple_types_constant_folding | 0.035 | 0.103 | 2.94× | 0.107 | 3.06× | ok |
+| Adobe-C++/simple_types_loop_invariant | 0.034 | 0.094 | 2.76× | 0.117 | 3.44× | ok |
+| Adobe-C++/stepanov_abstraction | 0.030 | 0.067 | 2.23× | 0.085 | 2.83× | ok |
+| Adobe-C++/stepanov_vector | 0.055 | 0.138 | 2.51× | 0.153 | 2.78× | ok |
+| Bullet | 4.112 | 10.090 | 2.45× | 13.729 | 3.34× | ok |
+| CLAMR | 2.109 | 4.557 | 2.16× | 7.097 | 3.37× | ok |
+| CoyoteBench/almabench | 0.026 | 0.064 | 2.46× | 0.079 | 3.04× | ok |
+| CoyoteBench/fftbench | 0.104 | 0.213 | 2.05× | 0.310 | 2.98× | ok |
+| CoyoteBench/huffbench | 0.024 | 0.051 | 2.12× | 0.071 | 2.96× | ok |
+| CoyoteBench/lpbench | 0.028 | 0.060 | 2.14× | 0.080 | 2.86× | ok |
+| DOE/HACCKernels | 0.099 | 0.258 | 2.61× | 0.294 | 2.97× | ok |
+| DOE/HPCCG | 0.630 | 1.323 | 2.10× | 1.971 | 3.13× | ok |
+| DOE/PENNANT | 1.296 | 2.715 | 2.09× | 3.423 | 2.64× | ok |
+| DOE/miniFE | 0.558 | 1.205 | 2.16× | 1.816 | 3.25× | ok |
+| Misc-C++-EH/spirit | 0.286 | 0.934 | 3.27× | 1.016 | 3.55× | ok |
+| Misc-C++-Large/ray | 0.092 | 0.223 | 2.42× | 0.271 | 2.95× | ok |
+| Misc-C++-Large/sphereflake | 0.088 | 0.196 | 2.23× | 0.244 | 2.77× | ok |
+| Misc-C++/bigfib | 0.106 | 0.231 | 2.18× | 0.346 | 3.26× | ok |
+| Misc-C++/oopack_v1p8 | 0.029 | 0.062 | 2.14× | 0.081 | 2.79× | ok |
+| Misc-C++/stepanov_container | 0.139 | 0.333 | 2.40× | 0.438 | 3.15× | ok |
+| Misc-C++/stepanov_v1p2 | 0.027 | 0.060 | 2.22× | 0.085 | 3.15× | ok |
+| PAQ8p | 0.041 | 0.119 | 2.90× | 0.138 | 3.37× | ok |
+| Prolangs-C++/life | 0.003 | 0.009 | — | 0.018 | — | ok |
+| Prolangs-C++/ocean | 0.008 | 0.020 | — | 0.027 | — | ok |
+| Prolangs-C++/primes | 0.005 | 0.014 | — | 0.021 | — | ok |
+| Shootout-C++-EH/except | 0.068 | 0.159 | 2.34× | 0.219 | 3.22× | ok |
+| Shootout-C++/ackermann | 0.063 | 0.141 | 2.24× | 0.182 | 2.89× | ok |
+| Shootout-C++/ary3 | 0.077 | 0.178 | 2.31× | 0.253 | 3.29× | ok |
+| Shootout-C++/fibo | 0.062 | 0.145 | 2.34× | 0.184 | 2.97× | ok |
+| Shootout-C++/hash | 0.088 | 0.192 | 2.18× | 0.249 | 2.83× | ok |
+| Shootout-C++/hash2 | 0.101 | 0.220 | 2.18× | 0.249 | 2.47× | ok |
+| Shootout-C++/heapsort | 0.078 | 0.165 | 2.12× | 0.227 | 2.91× | ok |
+| Shootout-C++/lists | 0.066 | 0.156 | 2.36× | 0.201 | 3.05× | ok |
+| Shootout-C++/lists1 | 0.077 | 0.170 | 2.21× | 0.241 | 3.13× | ok |
+| Shootout-C++/matrix | 0.063 | 0.160 | 2.54× | 0.180 | 2.86× | ok |
+| Shootout-C++/methcall | 0.067 | 0.141 | 2.10× | 0.197 | 2.94× | ok |
+| Shootout-C++/moments | 0.082 | 0.179 | 2.18× | 0.219 | 2.67× | ok |
+| Shootout-C++/random | 0.076 | 0.181 | 2.38× | 0.218 | 2.87× | ok |
+| Shootout-C++/sieve | 0.077 | 0.173 | 2.25× | 0.242 | 3.14× | ok |
+| SmallPT | 0.026 | 0.055 | 2.12× | 0.069 | 2.65× | ok |
+| Stanford/Bubblesort | 0.009 | 0.021 | — | 0.028 | — | ok |
+| Stanford/FloatMM | 0.008 | 0.020 | — | 0.027 | — | ok |
+| Stanford/Puzzle | 0.009 | 0.021 | — | 0.030 | — | ok |
+| Stanford/Treesort | 0.009 | 0.021 | — | 0.029 | — | ok |
+| bg/binarytrees/2 | 0.069 | 0.152 | 2.20× | 0.187 | 2.71× | ok |
+| bg/fannkuchredux/3 | 0.032 | 0.062 | 1.94× | 0.080 | 2.50× | ok |
+| bg/fasta/1 | 0.045 | 0.100 | 2.22× | 0.115 | 2.56× | ok |
+| bg/fasta/2 | 0.048 | 0.099 | 2.06× | 0.120 | 2.50× | ok |
+| bg/fasta/3 | 0.074 | 0.156 | 2.11× | 0.209 | 2.82× | ok |
+| bg/fasta/4 | 0.068 | 0.137 | 2.01× | 0.168 | 2.47× | ok |
+| bg/fasta/6 | 0.111 | 0.312 | 2.81× | 0.336 | 3.03× | ok |
+| bg/mandelbrot/0 | 0.127 | 0.283 | 2.23× | 0.394 | 3.10× | ok |
+| bg/mandelbrot/2 | 0.073 | 0.187 | 2.56× | 0.237 | 3.25× | ok |
+| bg/mandelbrot/3 | 0.097 | 0.171 | 1.76× | 0.244 | 2.52× | ok |
+| bg/mandelbrot/5 | 0.042 | 0.087 | 2.07× | 0.112 | 2.67× | ok |
+| bg/mandelbrot/7 | 0.042 | 0.089 | 2.12× | 0.117 | 2.79× | ok |
+| bg/mandelbrot/9 | 0.037 | 0.086 | 2.32× | 0.103 | 2.78× | ok |
+| bg/nbody/1 | 0.026 | 0.057 | 2.19× | 0.073 | 2.81× | ok |
+| bg/nbody/2 | 0.028 | 0.054 | 1.93× | 0.068 | 2.43× | ok |
+| bg/nbody/3 | 0.026 | 0.056 | 2.15× | 0.070 | 2.69× | ok |
+| bg/nbody/6 | 0.025 | 0.054 | 2.16× | 0.087 | 3.48× | ok |
+| bg/pidigits/4 | 0.121 | 0.261 | 2.16× | 0.352 | 2.91× | ok |
+| bg/pidigits/5 | 0.078 | 0.174 | 2.23× | 0.200 | 2.56× | ok |
+| bg/revcomp/1 | 0.076 | 0.182 | 2.39× | 0.233 | 3.07× | ok |
+| bg/revcomp/5 | 0.073 | 0.158 | 2.16× | 0.189 | 2.59× | ok |
+| bg/spectralnorm/1 | 0.114 | 0.224 | 1.96× | 0.324 | 2.84× | ok |
+| box2d | 1.329 | 2.703 | 2.03× | 3.344 | 2.52× | ok |
+| fmt | 0.404 | 1.034 | 2.56× | 1.500 | 3.71× | ok |
+| hexxagon | 0.242 | 0.486 | 2.01× | 0.754 | 3.12× | ok |
+| lambda | 0.040 | 0.123 | 3.08× | 0.164 | 4.10× | ok |
+| minisat | 0.050 | 0.126 | 2.52× | 0.166 | 3.32× | ok |
+| nlohmann-json | 0.331 | 0.917 | 2.77× | 1.309 | 3.95× | ok |
+| pugixml | 0.203 | 0.517 | 2.55× | 0.711 | 3.50× | ok |
+| pugixml-tests | 2.861 | 7.461 | 2.61× | 9.594 | 3.35× | ok |
+| rapidjson | 0.091 | 0.236 | 2.59× | 0.266 | 2.92× | ok |
+| re2 | 2.602 | 6.919 | 2.66× | 5.556 | 2.14× | ok |
+| re2-test-re2 | 4.149 | 9.622 | 2.32× | 12.510 | 3.02× | ok |
+| re2-test-search | 4.142 | 8.989 | 2.17× | 13.009 | 3.14× | ok |
+| tramp3d-v4 | 0.540 | 2.268 | 4.20× | 1.434 | 2.66× | ok |
 
 
 ## Toolchains
