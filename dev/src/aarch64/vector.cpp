@@ -1,6 +1,8 @@
 #include "aarch64/selector.h"
 #include "aarch64/error.h"
 
+#include <algorithm>
+
 namespace aarch64 {
 
 using namespace lowir;
@@ -119,30 +121,166 @@ InstId Selector::horizontal_word_sum(const lowir::Instruction& first)
 	return sum.next;
 }
 
+// The accumulator of `sum` when `sum` is a product's MLA or MLS: the product
+// is the instruction before it, read once, and allocation placed the
+// accumulator in the result's register (packed_multiply_accumulate's form
+// without an offset). Otherwise none.
+Value Selector::fused_accumulator(InstId sum) const
+{
+	const auto& s = body_.instructions[sum];
+	if (s.op != Opcode::Vector)
+		return Value::none();
+	const VectorOp op = static_cast<VectorOp>(s.sub);
+	const bool words = op == VectorOp::Paddw || op == VectorOp::Psubw;
+	const bool minus = op == VectorOp::Psubd || op == VectorOp::Psubw;
+	if (!words && op != VectorOp::Paddd && !minus)
+		return Value::none();
+	for (unsigned side = minus ? 1 : 0; side < 2; ++side)
+	{
+		const Value product = s.ops[side], acc = s.ops[1 - side];
+		if (!product.is(ValueKind::Temp) || uses_[product.index] != 1 || acc == product || !acc.is(ValueKind::Temp) ||
+			vectors_[s.result] == kNoId || vectors_[acc.index] != vectors_[s.result])
+			continue;
+		const InstId def = body_.temps[product.index].def;
+		if (def == kNoId || body_.instructions[def].next != sum || body_.instructions[def].op != Opcode::Vector ||
+			static_cast<VectorOp>(body_.instructions[def].sub) != (words ? VectorOp::Pmullw : VectorOp::Pmulld))
+			continue;
+		return acc;
+	}
+	return Value::none();
+}
+
+// Whether `v` is computed from `result`, looking back at most `budget` values
+// (more counts as computed from it).
+bool Selector::computed_from(Value v, TempId result, unsigned budget) const
+{
+	std::vector<TempId> pending{ v.index }, seen;
+	while (!pending.empty())
+	{
+		const TempId t = pending.back();
+		pending.pop_back();
+		if (t == result)
+			return true;
+		if (std::find(seen.begin(), seen.end(), t) != seen.end())
+			continue;
+		if (seen.size() == budget)
+			return true;
+		seen.push_back(t);
+		const InstId def = body_.temps[t].def;
+		if (def == kNoId)
+			continue;
+		const auto& inst = body_.instructions[def];
+		const auto look = [&](Value x) {
+			if (x.is(ValueKind::Temp))
+				pending.push_back(x.index);
+		};
+		for (const Value& x : inst.ops)
+			look(x);
+		for (uint32_t k = 0; k < inst.extra_count; ++k)
+			look(body_.operands[inst.extra_first + k]);
+	}
+	return false;
+}
+
+// Whether MLA can accumulate into `acc` for `result` without a product's
+// latency on a loop-carried chain. MLA reads its accumulator a cycle after
+// another MLA or MLS makes it, but anything else makes the accumulation
+// wait for the whole multiply. So the accumulator comes from such products
+// and phis of them back to `result` (directly, not through `result`'s added
+// offset), or from values not computed from `result` at all.
+bool Selector::accumulates_late(Value acc, TempId result, bool offset) const
+{
+	const unsigned kBudget = 32;
+	std::vector<Value> pending{ acc };
+	std::vector<TempId> seen;
+	while (!pending.empty())
+	{
+		const Value v = pending.back();
+		pending.pop_back();
+		if (!v.is(ValueKind::Temp))
+			continue;
+		if (v.index == result)
+		{
+			if (offset)
+				return false;
+			continue;
+		}
+		if (std::find(seen.begin(), seen.end(), v.index) != seen.end())
+			continue;
+		if (seen.size() == kBudget)
+			return false;
+		seen.push_back(v.index);
+		const InstId def = body_.temps[v.index].def;
+		if (def == kNoId)
+			continue;
+		const auto& inst = body_.instructions[def];
+		if (inst.op == Opcode::Phi)
+		{
+			for (uint32_t k = 1; k < inst.extra_count; k += 2)
+				pending.push_back(body_.operands[inst.extra_first + k]);
+			continue;
+		}
+		const Value inner = fused_accumulator(def);
+		if (!inner.is(ValueKind::None))
+			pending.push_back(inner);
+		else if (computed_from(v, result, kBudget))
+			return false;
+	}
+	return true;
+}
+
 // MLA overwrites the addend. Fuse the pair when allocation already placed
-// the addend and the result in the same register.
+// the addend and the result in the same register; acc - x * k is MLS. The
+// product may first meet another value that the accumulation then adds,
+// acc + (x * k + c): integer addition regroups exactly, so that is MLA, then
+// the add of c. Either form fuses only where no loop-carried chain waits for
+// the product (accumulates_late): the offset form, only off such chains.
 InstId Selector::packed_multiply_accumulate(
 	const lowir::Instruction& inst, const lowir::Instruction* splat, unsigned lane_field)
 {
 	if (inst.next == kNoId || uses_[inst.result] != 1)
 		return kNoId;
-	const auto& next = body_.instructions[inst.next];
 	const bool words = static_cast<VectorOp>(inst.sub) == VectorOp::Pmullw;
-	if (next.op != Opcode::Vector || static_cast<VectorOp>(next.sub) != (words ? VectorOp::Paddw : VectorOp::Paddd))
-		return kNoId;
+	const auto adds = [&](const lowir::Instruction& sum, Value term, Value& other) {
+		if (sum.op != Opcode::Vector || static_cast<VectorOp>(sum.sub) != (words ? VectorOp::Paddw : VectorOp::Paddd))
+			return false;
+		const bool right = sum.ops[1] == term;
+		other = sum.ops[right ? 0 : 1];
+		return right || sum.ops[0] == term;
+	};
+	const auto in_place = [&](Value acc, TempId result) {
+		return acc.is(ValueKind::Temp) && vectors_[result] != kNoId && vectors_[acc.index] == vectors_[result];
+	};
+	const auto& next = body_.instructions[inst.next];
 	const Value product = Value::temp(inst.result);
-	const bool right = next.ops[1] == product;
-	if (!right && !(next.ops[0] == product))
+	const bool minus = next.op == Opcode::Vector &&
+		static_cast<VectorOp>(next.sub) == (words ? VectorOp::Psubw : VectorOp::Psubd) && next.ops[1] == product &&
+		!(next.ops[0] == product);
+	Value acc = minus ? next.ops[0] : Value::none(), addend = Value::none();
+	if (!minus && !adds(next, product, acc))
 		return kNoId;
-	const Value acc = next.ops[right ? 0 : 1];
-	const unsigned dest = vectors_[next.result];
-	if (!acc.is(ValueKind::Temp) || dest == kNoId || vectors_[acc.index] != dest)
+	InstId last = inst.next;
+	if (!minus && !in_place(acc, next.result) && uses_[next.result] == 1 && next.next != kNoId &&
+		adds(body_.instructions[next.next], Value::temp(next.result), addend))
+	{
+		std::swap(acc, addend);
+		last = next.next;
+	}
+	const unsigned dest = vectors_[body_.instructions[last].result];
+	if (!in_place(acc, body_.instructions[last].result) ||
+		(last != inst.next &&
+			(!addend.is(ValueKind::Temp) || vectors_[addend.index] == kNoId || vectors_[addend.index] == dest)) ||
+		!accumulates_late(acc, body_.instructions[last].result, last != inst.next))
 		return kNoId;
 	const bool left_splat = splat && inst.ops[0] == Value::temp(splat->result);
 	const unsigned left = vector_value(inst.ops[left_splat ? 1 : 0], 16);
 	const unsigned factor = vector_value(splat ? splat->ops[0] : inst.ops[1], 17);
-	out_.emit(splat ? Op::VMlaLaneS : Op::VMla, dest, left, factor, splat ? lane_field : (words ? 1u : 2u) << 22);
-	return inst.next;
+	const unsigned size = (words ? 1u : 2u) << 22;
+	const Op fused = splat ? (minus ? Op::VMlsLaneS : Op::VMlaLaneS) : (minus ? Op::VMls : Op::VMla);
+	out_.emit(fused, dest, left, factor, splat ? lane_field : size);
+	if (last != inst.next)
+		out_.emit(Op::VAdd, dest, dest, vectors_[addend.index], size);
+	return last;
 }
 
 // Multiplying by a repeated i32 lane can read that lane from the original

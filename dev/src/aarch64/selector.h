@@ -99,6 +99,9 @@ private:
 	lowir::InstId scalar_lane_binary(const lowir::Instruction& inst);
 	lowir::InstId packed_multiply_accumulate(
 		const lowir::Instruction& inst, const lowir::Instruction* splat = nullptr, unsigned lane_field = 0);
+	lowir::Value fused_accumulator(lowir::InstId sum) const;
+	bool computed_from(lowir::Value v, lowir::TempId result, unsigned budget) const;
+	bool accumulates_late(lowir::Value acc, lowir::TempId result, bool offset) const;
 	lowir::InstId packed_lane_multiply(const lowir::Instruction& inst);
 	lowir::InstId horizontal_double_sum(const lowir::Instruction& inst);
 	lowir::InstId horizontal_word_sum(const lowir::Instruction& inst);

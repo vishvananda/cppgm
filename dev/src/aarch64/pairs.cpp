@@ -256,6 +256,7 @@ bool floating_effects(const Instruction& ins, Effects& e)
 	case Op::VSmin:
 	case Op::VUmin:
 	case Op::VMla:
+	case Op::VMls:
 	case Op::VZip1:
 	case Op::VZip2:
 	case Op::VUzp1:

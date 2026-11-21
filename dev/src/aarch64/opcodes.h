@@ -269,6 +269,8 @@
 	M(VMla, 0x4e209400) \
 	M(VMulLaneS, 0x4f808000) \
 	M(VMlaLaneS, 0x6f800000) \
+	M(VMls, 0x6e209400) \
+	M(VMlsLaneS, 0x6f804000) \
 	M(VFmulElem, 0x4f809000) \
 	M(ReadThreadPointer, 0xd53bd040) \
 	M(VFaddpD, 0x7e70d800) \
