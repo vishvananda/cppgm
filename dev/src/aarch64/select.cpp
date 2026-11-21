@@ -667,7 +667,7 @@ void Selector::run()
 	if (level_ && !named_.darwin && body_.code_labels.empty())
 		pair_accesses(out_, frame_code_.prologue_end, bit_tests_, orders_memory(body_));
 	if (level_ && !dynamic_stack_ && body_.code_labels.empty())
-		share_edge_moves(out_);
+		share_edge_moves(out_, bit_tests_);
 	// Tail sharing may redirect a branch. Check the final target before
 	// choosing the shorter reach of TBZ or TBNZ.
 	if (!bit_tests_.empty())

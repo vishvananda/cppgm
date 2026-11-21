@@ -90,9 +90,10 @@ void fold_bit_tests(Function& f, const std::vector<BitTest>& tests)
 
 // A phi edge may contain a single MOV followed by a branch to the loop
 // header. If the identical MOV already falls through to the header, branch
-// there directly. Keep ordinary labels (including address-taken labels),
-// instruction PCs and unwind records in place.
-void share_edge_moves(Function& f)
+// there directly. Keep ordinary labels (including address-taken labels)
+// and unwind records in place. A redirected MOV and jump that nothing
+// reaches go, and the bit tests selection recorded move with their code.
+void share_edge_moves(Function& f, std::vector<BitTest>& tests)
 {
 	const uint32_t labels = f.labels.size();
 	// Any replacement destination must fit the shortest local branch.
@@ -130,8 +131,6 @@ void share_edge_moves(Function& f)
 	for (auto& ins : f.code)
 		if (ins.fixup == Fixup::Block && ins.op != Op::Adr && redirect[ins.target] != lowir::kNoId)
 			ins.target = redirect[ins.target];
-	// A redirected MOV and jump that no branch reaches and no code falls
-	// into go.
 	const uint32_t n = static_cast<uint32_t>(f.code.size());
 	std::vector<uint8_t> kept(n + 1);
 	for (const auto& ins : f.code)
@@ -158,6 +157,8 @@ void share_edge_moves(Function& f)
 	}
 	std::sort(removed.begin(), removed.end());
 	remove_instructions(f, removed);
+	for (auto& test : tests)
+		test.pc -= static_cast<uint32_t>(std::lower_bound(removed.begin(), removed.end(), test.pc) - removed.begin());
 }
 
 // The jumps of a table an ADR addresses, which stay one instruction wide.
