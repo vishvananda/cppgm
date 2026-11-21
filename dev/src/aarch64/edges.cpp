@@ -591,9 +591,10 @@ void Selector::conditional_edges(BlockId block, const lowir::Instruction& branch
 	}
 	// When neither edge needs code, the jump goes on the less frequent one:
 	// by weight, or else, when both go back, the edge that does not go to
-	// the nearer of the two, which is the inner loop's header.
+	// the nearer of the two, which is the inner loop's header. Placement's
+	// estimates, where there are some, leave this to orient_branches.
 	const bool both_behind = out_.labels[yes] != kNoId && out_.labels[no] != kNoId;
-	if (level_ && yes != fallthrough_ && no != fallthrough_ &&
+	if (level_ && branch_estimates_.empty() && yes != fallthrough_ && no != fallthrough_ &&
 		(block_weights_.empty() ? both_behind && out_.labels[yes] > out_.labels[no]
 								: block_weights_[yes] > block_weights_[no]) &&
 		empty_edge(block, yes) && empty_edge(block, no))
