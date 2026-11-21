@@ -102,7 +102,8 @@ void page_access(Function& out, SymbolId symbol, int64_t displacement, unsigned 
 // through the GOT, thread-local storage or a Darwin page reference. The
 // relocation needs the symbol plus displacement aligned to the access size.
 // A typed global is aligned to its type (up to 16 bytes); an untyped
-// definition is aligned as its data is laid out.
+// definition is aligned as its data is laid out. A weak symbol may resolve
+// to another object's definition, which need not have this one's alignment.
 bool Selector::page_offset(Value pointer, int64_t displacement, unsigned bytes) const
 {
 	if (!level_ || named_.darwin || !pointer.is(ValueKind::Symbol) || !power_of_two(bytes) || bytes > 16 ||
@@ -111,8 +112,7 @@ bool Selector::page_offset(Value pointer, int64_t displacement, unsigned bytes) 
 	const auto& symbol = program_.symbols[pointer.index];
 	const bool declared = symbol.kind == SymbolKind::GlobalDeclaration;
 	if ((!declared && symbol.kind != SymbolKind::GlobalDefinition) ||
-		symbol.metadata.storage == ir_model::GSM_THREAD_LOCAL ||
-		(declared && symbol.metadata.binding == ir_model::SBM_WEAK) ||
+		symbol.metadata.storage == ir_model::GSM_THREAD_LOCAL || symbol.metadata.binding == ir_model::SBM_WEAK ||
 		(pic_ && symbol.metadata.binding != ir_model::SBM_INTERNAL))
 		return false;
 	const Global& global = program_.globals[symbol.detail];

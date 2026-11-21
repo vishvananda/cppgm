@@ -2,7 +2,10 @@
 // ADRP and the access's :lo12: offset. The bounds allow no separate ADD and
 // one ADRP per global. The other functions access a packed global whose
 // fields are not aligned to their size, an untyped external array, a vector
-// global, sign-extending loads and offsets past one 4 KiB page.
+// global, sign-extending loads and offsets past one 4 KiB page. A weak
+// definition is replaced by the other unit's strong one, which a peer
+// compiler may place at an odd address: its eight-byte read takes the
+// address first.
 struct Pair {
     int key;
     long value;
@@ -25,6 +28,11 @@ double weights[3] = {0.5, 1.5, 2.5};
 v4 lanes = {1, 2, 3, 4};
 signed char bytes[8] = {-1, -2, -3, -4, 5, 6, 7, 8};
 extern char shared_text[];
+struct __attribute__((packed)) Loose {
+    long wide;
+    int word;
+};
+__attribute__((weak)) Loose replaced[3] = {{9, 9}, {9, 9}, {9, 9}};
 
 extern "C" long pair_value() { return pairs[2].value; }
 
@@ -56,3 +64,5 @@ extern "C" void set_lanes(int x) {
 extern "C" int signed_byte() { return bytes[1]; }
 
 extern "C" int text_word() { return *(int*)shared_text; }
+
+extern "C" long replaced_wide() { return replaced[0].wide; }

@@ -24,8 +24,15 @@ extern "C" int lane_sum();
 extern "C" void set_lanes(int);
 extern "C" int signed_byte();
 extern "C" int text_word();
+struct __attribute__((packed)) Loose {
+    long wide;
+    int word;
+};
+extern "C" long replaced_wide();
 
 alignas(4) char shared_text[8] = {1, 0, 0, 0, 2};
+alignas(16) char lead[3] = {1, 2, 3};
+Loose replaced[3] = {{0x1122334455667788, 2}, {3, 4}, {5, 6}};
 
 int main() {
     if (pair_value() != 30) return 1;
@@ -45,5 +52,6 @@ int main() {
     if (text_word() != 1) return 10;
     pairs[2].value = 31;
     if (pair_value() != 31) return 11;
+    if (replaced_wide() != 0x1122334455667788 || lead[1] != 2 || replaced[2].word != 6) return 12;
     return 37;
 }
