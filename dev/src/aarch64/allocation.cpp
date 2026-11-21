@@ -1464,6 +1464,8 @@ void Selector::spill_homes(const std::vector<LiveRange>& ranges)
 				remat_slots_[id] = remat_slots_[aliases_[id]];
 			registers_[id] = registers_[aliases_[id]];
 			homes_[id] = homes_[aliases_[id]];
+			if (body_.temps[id].type.is_vector())
+				vectors_[id] = vectors_[aliases_[id]];
 		}
 }
 } // namespace aarch64
