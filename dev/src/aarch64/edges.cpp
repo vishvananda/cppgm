@@ -613,6 +613,10 @@ void Selector::conditional_edges(BlockId block, const lowir::Instruction& branch
 		edge(block, no, true);
 		return;
 	}
+	// The moves of a colder edge beside an empty one that falls through go
+	// out of line too, as placement prices them.
+	if (no == fallthrough_ && defer_edge(block, yes, no, inverse, inverse_operand))
+		return;
 	if (level_ && empty_edge(block, no))
 	{
 		out_.reference(test, Fixup::Block, no, operand);
