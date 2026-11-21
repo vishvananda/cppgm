@@ -1769,11 +1769,14 @@ bool LoopPass::fill_available() const
 // and the exit. Values the loop's header defines read their final copies
 // outside it. At most kUnrollBody cloned instructions; a body with no call
 // runs kUnrollCallFreeTrips passes within kUnrollCallFreeBody (a call first
-// has its chance to inline at each site the copies would make).
+// has its chance to inline at each site the copies would make). A nested
+// loop's sum of products read through row pointers runs kNestedReductionTrips
+// passes (each copy's address chain is independent), except on Wasm.
 const int64_t kUnrollTrips = 4;
 const uint32_t kUnrollBody = 64;
 const int64_t kUnrollCallFreeTrips = 8;
 const uint32_t kUnrollCallFreeBody = 512;
+const int64_t kNestedReductionTrips = 32;
 
 bool LoopPass::try_unroll(uint32_t loop)
 {
@@ -1782,8 +1785,8 @@ bool LoopPass::try_unroll(uint32_t loop)
 		return false;
 	ExitTest test;
 	std::vector<Induction> ivs;
-	const int64_t call_free_trips = l.parent != kNoId && target_model::is_aarch64(c_.program.target)
-		? 32
+	const int64_t call_free_trips = l.parent != kNoId && !target_model::is_wasm(c_.program.target)
+		? kNestedReductionTrips
 		: kUnrollCallFreeTrips;
 	if (!exit_test(loop, test, ivs, true) || test.trips < 0 || test.trips > call_free_trips || test.exiting != l.header)
 		return false;

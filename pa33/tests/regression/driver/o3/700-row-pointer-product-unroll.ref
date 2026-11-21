@@ -1,0 +1,408 @@
+global @N : i32 [storage=readonly, binding=internal, object=_ZL1N] = 30
+global @__local_static__main__decl0__sa : obj<3600x4> [binding=internal, object=_ZZ4mainE2sa] = {
+  zero 3600
+}
+global @__local_static__main__decl1__sb : obj<3600x4> [binding=internal, object=_ZZ4mainE2sb] = {
+  zero 3600
+}
+global @__local_static__main__decl2__sc : obj<3600x4> [binding=internal, object=_ZZ4mainE2sc] = {
+  zero 3600
+}
+
+function @product(%a : ptr, %b : ptr, %c : ptr) -> void [binding=strong, object=_Z7productPPiS0_S0_, no_inline=yes] {
+  block ^entry:
+    %t1 = index inbounds ptr [projection=array_element] %b, 15
+    %t2 = load typed ptr %t1
+    %t3 = index inbounds ptr [projection=array_element] %b, 16
+    %t4 = load typed ptr %t3
+    %t5 = index inbounds ptr [projection=array_element] %b, 17
+    %t6 = load typed ptr %t5
+    %t7 = index inbounds ptr [projection=array_element] %b, 18
+    %t8 = load typed ptr %t7
+    %t9 = index inbounds ptr [projection=array_element] %b, 19
+    %t10 = load typed ptr %t9
+    %t11 = index inbounds ptr [projection=array_element] %b, 20
+    %t12 = load typed ptr %t11
+    %t13 = index inbounds ptr [projection=array_element] %b, 21
+    %t14 = load typed ptr %t13
+    %t15 = index inbounds ptr [projection=array_element] %b, 22
+    %t16 = load typed ptr %t15
+    %t17 = index inbounds ptr [projection=array_element] %b, 23
+    %t18 = load typed ptr %t17
+    %t19 = index inbounds ptr [projection=array_element] %b, 24
+    %t20 = load typed ptr %t19
+    %t21 = index inbounds ptr [projection=array_element] %b, 25
+    %t22 = load typed ptr %t21
+    %t23 = index inbounds ptr [projection=array_element] %b, 26
+    %t24 = load typed ptr %t23
+    %t25 = index inbounds ptr [projection=array_element] %b, 27
+    %t26 = load typed ptr %t25
+    %t27 = index inbounds ptr [projection=array_element] %b, 28
+    %t28 = load typed ptr %t27
+    %t29 = index inbounds ptr [projection=array_element] %b, 29
+    %t30 = load typed ptr %t29
+    %t31 = load typed ptr %b
+    %t32 = index inbounds ptr [projection=array_element] %b, 1
+    %t33 = load typed ptr %t32
+    %t34 = index inbounds ptr [projection=array_element] %b, 2
+    %t35 = load typed ptr %t34
+    %t36 = index inbounds ptr [projection=array_element] %b, 3
+    %t37 = load typed ptr %t36
+    %t38 = index inbounds ptr [projection=array_element] %b, 4
+    %t39 = load typed ptr %t38
+    %t40 = index inbounds ptr [projection=array_element] %b, 5
+    %t41 = load typed ptr %t40
+    %t42 = index inbounds ptr [projection=array_element] %b, 6
+    %t43 = load typed ptr %t42
+    %t44 = index inbounds ptr [projection=array_element] %b, 7
+    %t45 = load typed ptr %t44
+    %t46 = index inbounds ptr [projection=array_element] %b, 8
+    %t47 = load typed ptr %t46
+    %t48 = index inbounds ptr [projection=array_element] %b, 9
+    %t49 = load typed ptr %t48
+    %t50 = index inbounds ptr [projection=array_element] %b, 10
+    %t51 = load typed ptr %t50
+    %t52 = index inbounds ptr [projection=array_element] %b, 11
+    %t53 = load typed ptr %t52
+    %t54 = index inbounds ptr [projection=array_element] %b, 12
+    %t55 = load typed ptr %t54
+    %t56 = index inbounds ptr [projection=array_element] %b, 13
+    %t57 = load typed ptr %t56
+    %t58 = index inbounds ptr [projection=array_element] %b, 14
+    %t59 = load typed ptr %t58
+    jump ^loop_preheader_1
+
+  block ^loop_preheader_1:
+    %t60 = phi i64 [^for_end_3: %t248, ^entry: 0]
+    %t61 = index ptr [projection=array_element] %a, %t60
+    %t62 = index ptr [projection=array_element] %c, %t60
+    %t63 = load typed ptr %t61
+    %t64 = load typed ptr %t62
+    jump ^unrolled_2
+
+  block ^unrolled_2:
+    %t65 = phi i64 [^unrolled_2: %t245, ^loop_preheader_1: 0]
+    %t66 = load typed i32 %t63
+    %t67 = index inbounds i32 [projection=array_element] %t31, %t65
+    %t68 = load typed i32 %t67
+    %t69 = binary mul nowrap i32 %t66, %t68
+    %t70 = index inbounds i32 [projection=array_element] %t63, 1
+    %t71 = load typed i32 %t70
+    %t72 = index inbounds i32 [projection=array_element] %t33, %t65
+    %t73 = load typed i32 %t72
+    %t74 = binary mul nowrap i32 %t71, %t73
+    %t75 = binary add nowrap i32 %t69, %t74
+    %t76 = index inbounds i32 [projection=array_element] %t63, 2
+    %t77 = load typed i32 %t76
+    %t78 = index inbounds i32 [projection=array_element] %t35, %t65
+    %t79 = load typed i32 %t78
+    %t80 = binary mul nowrap i32 %t77, %t79
+    %t81 = binary add nowrap i32 %t75, %t80
+    %t82 = index inbounds i32 [projection=array_element] %t63, 3
+    %t83 = load typed i32 %t82
+    %t84 = index inbounds i32 [projection=array_element] %t37, %t65
+    %t85 = load typed i32 %t84
+    %t86 = binary mul nowrap i32 %t83, %t85
+    %t87 = binary add nowrap i32 %t81, %t86
+    %t88 = index inbounds i32 [projection=array_element] %t63, 4
+    %t89 = load typed i32 %t88
+    %t90 = index inbounds i32 [projection=array_element] %t39, %t65
+    %t91 = load typed i32 %t90
+    %t92 = binary mul nowrap i32 %t89, %t91
+    %t93 = binary add nowrap i32 %t87, %t92
+    %t94 = index inbounds i32 [projection=array_element] %t63, 5
+    %t95 = load typed i32 %t94
+    %t96 = index inbounds i32 [projection=array_element] %t41, %t65
+    %t97 = load typed i32 %t96
+    %t98 = binary mul nowrap i32 %t95, %t97
+    %t99 = binary add nowrap i32 %t93, %t98
+    %t100 = index inbounds i32 [projection=array_element] %t63, 6
+    %t101 = load typed i32 %t100
+    %t102 = index inbounds i32 [projection=array_element] %t43, %t65
+    %t103 = load typed i32 %t102
+    %t104 = binary mul nowrap i32 %t101, %t103
+    %t105 = binary add nowrap i32 %t99, %t104
+    %t106 = index inbounds i32 [projection=array_element] %t63, 7
+    %t107 = load typed i32 %t106
+    %t108 = index inbounds i32 [projection=array_element] %t45, %t65
+    %t109 = load typed i32 %t108
+    %t110 = binary mul nowrap i32 %t107, %t109
+    %t111 = binary add nowrap i32 %t105, %t110
+    %t112 = index inbounds i32 [projection=array_element] %t63, 8
+    %t113 = load typed i32 %t112
+    %t114 = index inbounds i32 [projection=array_element] %t47, %t65
+    %t115 = load typed i32 %t114
+    %t116 = binary mul nowrap i32 %t113, %t115
+    %t117 = binary add nowrap i32 %t111, %t116
+    %t118 = index inbounds i32 [projection=array_element] %t63, 9
+    %t119 = load typed i32 %t118
+    %t120 = index inbounds i32 [projection=array_element] %t49, %t65
+    %t121 = load typed i32 %t120
+    %t122 = binary mul nowrap i32 %t119, %t121
+    %t123 = binary add nowrap i32 %t117, %t122
+    %t124 = index inbounds i32 [projection=array_element] %t63, 10
+    %t125 = load typed i32 %t124
+    %t126 = index inbounds i32 [projection=array_element] %t51, %t65
+    %t127 = load typed i32 %t126
+    %t128 = binary mul nowrap i32 %t125, %t127
+    %t129 = binary add nowrap i32 %t123, %t128
+    %t130 = index inbounds i32 [projection=array_element] %t63, 11
+    %t131 = load typed i32 %t130
+    %t132 = index inbounds i32 [projection=array_element] %t53, %t65
+    %t133 = load typed i32 %t132
+    %t134 = binary mul nowrap i32 %t131, %t133
+    %t135 = binary add nowrap i32 %t129, %t134
+    %t136 = index inbounds i32 [projection=array_element] %t63, 12
+    %t137 = load typed i32 %t136
+    %t138 = index inbounds i32 [projection=array_element] %t55, %t65
+    %t139 = load typed i32 %t138
+    %t140 = binary mul nowrap i32 %t137, %t139
+    %t141 = binary add nowrap i32 %t135, %t140
+    %t142 = index inbounds i32 [projection=array_element] %t63, 13
+    %t143 = load typed i32 %t142
+    %t144 = index inbounds i32 [projection=array_element] %t57, %t65
+    %t145 = load typed i32 %t144
+    %t146 = binary mul nowrap i32 %t143, %t145
+    %t147 = binary add nowrap i32 %t141, %t146
+    %t148 = index inbounds i32 [projection=array_element] %t63, 14
+    %t149 = load typed i32 %t148
+    %t150 = index inbounds i32 [projection=array_element] %t59, %t65
+    %t151 = load typed i32 %t150
+    %t152 = binary mul nowrap i32 %t149, %t151
+    %t153 = binary add nowrap i32 %t147, %t152
+    %t154 = index inbounds i32 [projection=array_element] %t63, 15
+    %t155 = load typed i32 %t154
+    %t156 = index inbounds i32 [projection=array_element] %t2, %t65
+    %t157 = load typed i32 %t156
+    %t158 = binary mul nowrap i32 %t155, %t157
+    %t159 = binary add nowrap i32 %t153, %t158
+    %t160 = index inbounds i32 [projection=array_element] %t63, 16
+    %t161 = load typed i32 %t160
+    %t162 = index inbounds i32 [projection=array_element] %t4, %t65
+    %t163 = load typed i32 %t162
+    %t164 = binary mul nowrap i32 %t161, %t163
+    %t165 = binary add nowrap i32 %t159, %t164
+    %t166 = index inbounds i32 [projection=array_element] %t63, 17
+    %t167 = load typed i32 %t166
+    %t168 = index inbounds i32 [projection=array_element] %t6, %t65
+    %t169 = load typed i32 %t168
+    %t170 = binary mul nowrap i32 %t167, %t169
+    %t171 = binary add nowrap i32 %t165, %t170
+    %t172 = index inbounds i32 [projection=array_element] %t63, 18
+    %t173 = load typed i32 %t172
+    %t174 = index inbounds i32 [projection=array_element] %t8, %t65
+    %t175 = load typed i32 %t174
+    %t176 = binary mul nowrap i32 %t173, %t175
+    %t177 = binary add nowrap i32 %t171, %t176
+    %t178 = index inbounds i32 [projection=array_element] %t63, 19
+    %t179 = load typed i32 %t178
+    %t180 = index inbounds i32 [projection=array_element] %t10, %t65
+    %t181 = load typed i32 %t180
+    %t182 = binary mul nowrap i32 %t179, %t181
+    %t183 = binary add nowrap i32 %t177, %t182
+    %t184 = index inbounds i32 [projection=array_element] %t63, 20
+    %t185 = load typed i32 %t184
+    %t186 = index inbounds i32 [projection=array_element] %t12, %t65
+    %t187 = load typed i32 %t186
+    %t188 = binary mul nowrap i32 %t185, %t187
+    %t189 = binary add nowrap i32 %t183, %t188
+    %t190 = index inbounds i32 [projection=array_element] %t63, 21
+    %t191 = load typed i32 %t190
+    %t192 = index inbounds i32 [projection=array_element] %t14, %t65
+    %t193 = load typed i32 %t192
+    %t194 = binary mul nowrap i32 %t191, %t193
+    %t195 = binary add nowrap i32 %t189, %t194
+    %t196 = index inbounds i32 [projection=array_element] %t63, 22
+    %t197 = load typed i32 %t196
+    %t198 = index inbounds i32 [projection=array_element] %t16, %t65
+    %t199 = load typed i32 %t198
+    %t200 = binary mul nowrap i32 %t197, %t199
+    %t201 = binary add nowrap i32 %t195, %t200
+    %t202 = index inbounds i32 [projection=array_element] %t63, 23
+    %t203 = load typed i32 %t202
+    %t204 = index inbounds i32 [projection=array_element] %t18, %t65
+    %t205 = load typed i32 %t204
+    %t206 = binary mul nowrap i32 %t203, %t205
+    %t207 = binary add nowrap i32 %t201, %t206
+    %t208 = index inbounds i32 [projection=array_element] %t63, 24
+    %t209 = load typed i32 %t208
+    %t210 = index inbounds i32 [projection=array_element] %t20, %t65
+    %t211 = load typed i32 %t210
+    %t212 = binary mul nowrap i32 %t209, %t211
+    %t213 = binary add nowrap i32 %t207, %t212
+    %t214 = index inbounds i32 [projection=array_element] %t63, 25
+    %t215 = load typed i32 %t214
+    %t216 = index inbounds i32 [projection=array_element] %t22, %t65
+    %t217 = load typed i32 %t216
+    %t218 = binary mul nowrap i32 %t215, %t217
+    %t219 = binary add nowrap i32 %t213, %t218
+    %t220 = index inbounds i32 [projection=array_element] %t63, 26
+    %t221 = load typed i32 %t220
+    %t222 = index inbounds i32 [projection=array_element] %t24, %t65
+    %t223 = load typed i32 %t222
+    %t224 = binary mul nowrap i32 %t221, %t223
+    %t225 = binary add nowrap i32 %t219, %t224
+    %t226 = index inbounds i32 [projection=array_element] %t63, 27
+    %t227 = load typed i32 %t226
+    %t228 = index inbounds i32 [projection=array_element] %t26, %t65
+    %t229 = load typed i32 %t228
+    %t230 = binary mul nowrap i32 %t227, %t229
+    %t231 = binary add nowrap i32 %t225, %t230
+    %t232 = index inbounds i32 [projection=array_element] %t63, 28
+    %t233 = load typed i32 %t232
+    %t234 = index inbounds i32 [projection=array_element] %t28, %t65
+    %t235 = load typed i32 %t234
+    %t236 = binary mul nowrap i32 %t233, %t235
+    %t237 = binary add nowrap i32 %t231, %t236
+    %t238 = index inbounds i32 [projection=array_element] %t63, 29
+    %t239 = load typed i32 %t238
+    %t240 = index inbounds i32 [projection=array_element] %t30, %t65
+    %t241 = load typed i32 %t240
+    %t242 = binary mul nowrap i32 %t239, %t241
+    %t243 = binary add nowrap i32 %t237, %t242
+    %t244 = index inbounds i32 [projection=array_element] %t64, %t65
+    store typed i32 %t243, %t244
+    %t245 = binary add nowrap i64 %t65, 1
+    %t246 = convert trunc exact i32 i64 %t245
+    %t247 = cmp lt i32 %t246, 30
+    branch %t247, ^unrolled_2, ^for_end_3
+
+  block ^for_end_3:
+    %t248 = binary add nowrap i64 %t60, 1
+    %t249 = convert trunc exact i32 i64 %t248
+    %t250 = cmp lt i32 %t249, 30
+    branch %t250, ^loop_preheader_1, ^for_end_4
+
+  block ^for_end_4:
+    return void
+}
+function @main() -> i32 [role=entry, binding=strong, keep_alias=yes] {
+  slot $a : obj<240x8>
+  slot $b : obj<240x8>
+  slot $c : obj<240x8>
+
+  block ^entry:
+    %t1 = addr @__local_static__main__decl0__sa
+    %t2 = addr $a
+    %t3 = addr @__local_static__main__decl1__sb
+    %t4 = addr $b
+    %t5 = addr @__local_static__main__decl2__sc
+    %t6 = addr $c
+    jump ^for_body_1
+
+  block ^for_body_1:
+    %t7 = phi i64 [^entry: 0, ^for_iter_5: %t33]
+    %t8 = phi i64 [^for_iter_5: %t31, ^entry: 0]
+    %t9 = convert trunc exact i32 i64 %t8
+    %t10 = index inbounds i8 [projection=array_element] %t1, %t7
+    %t11 = index inbounds ptr [projection=array_element] %t2, %t8
+    store typed ptr %t10, %t11
+    %t12 = index inbounds i8 [projection=array_element] %t3, %t7
+    %t13 = index inbounds ptr [projection=array_element] %t4, %t8
+    store typed ptr %t12, %t13
+    %t14 = index inbounds i8 [projection=array_element] %t5, %t7
+    %t15 = index inbounds ptr [projection=array_element] %t6, %t8
+    store typed ptr %t14, %t15
+    %t16 = binary sub i32 %t9, 7
+    jump ^for_body_2
+
+  block ^for_body_2:
+    %t17 = phi i64 [^cond_end_4: %t28, ^for_body_1: 0]
+    %t18 = convert trunc exact i32 i64 %t17
+    %t19 = binary mul nowrap i32 %t18, 2
+    %t20 = binary add i32 %t19, %t16
+    %t21 = index inbounds i32 [projection=array_element] %t10, %t17
+    store typed i32 %t20, %t21
+    %t22 = cmp eq i32 %t18, %t9
+    branch %t22, ^cond_end_4, ^cond_else_3
+
+  block ^cond_else_3:
+    %t23 = binary add nowrap i32 %t18, %t9
+    %t24 = binary mod i32 %t23, 5
+    %t25 = binary sub nowrap i32 %t24, 2
+    jump ^cond_end_4
+
+  block ^cond_end_4:
+    %t26 = phi i32 [^cond_else_3: %t25, ^for_body_2: 3]
+    %t27 = index inbounds i32 [projection=array_element] %t12, %t17
+    store typed i32 %t26, %t27
+    %t28 = binary add nowrap i64 %t17, 1
+    %t29 = convert trunc exact i32 i64 %t28
+    %t30 = cmp lt i32 %t29, 30
+    branch %t30, ^for_body_2, ^for_iter_5
+
+  block ^for_iter_5:
+    %t31 = binary add nowrap i64 %t8, 1
+    %t32 = convert trunc exact i32 i64 %t31
+    %t33 = binary add i64 %t7, 120
+    %t34 = cmp lt i32 %t32, 30
+    branch %t34, ^for_body_1, ^for_end_6
+
+  block ^for_end_6:
+    call void @product(%t2, %t4, %t6)
+    jump ^loop_preheader_7
+
+  block ^loop_preheader_7:
+    %t35 = phi i64 [^for_end_6: 0, ^for_iter_13: %t69]
+    %t36 = phi i32 [^for_iter_13: %t68, ^for_end_6: 0]
+    %t37 = index i8 [projection=array_element] %t5, %t35
+    %t38 = index i8 [projection=array_element] %t1, %t35
+    jump ^loop_preheader_8
+
+  block ^loop_preheader_8:
+    %t39 = phi i64 [^if_end_12: %t65, ^loop_preheader_7: 0]
+    jump ^unrolled_9
+
+  block ^unrolled_9:
+    %t40 = phi i64 [^unrolled_9: %t60, ^loop_preheader_8: 0]
+    %t41 = phi i64 [^unrolled_9: %t58, ^loop_preheader_8: 0]
+    %t42 = phi i32 [^unrolled_9: %t57, ^loop_preheader_8: 0]
+    %t43 = index inbounds i32 [projection=array_element] %t38, %t41
+    %t44 = load typed i32 %t43
+    %t45 = index inbounds i8 [projection=array_element] %t3, %t40
+    %t46 = index inbounds i32 [projection=array_element] %t45, %t39
+    %t47 = load typed i32 %t46
+    %t48 = binary mul nowrap i32 %t44, %t47
+    %t49 = binary add nowrap i32 %t42, %t48
+    %t50 = binary add i64 %t40, 120
+    %t51 = index inbounds i32 [projection=array_element] %t43, 1
+    %t52 = load typed i32 %t51
+    %t53 = index inbounds i8 [projection=array_element] %t3, %t50
+    %t54 = index inbounds i32 [projection=array_element] %t53, %t39
+    %t55 = load typed i32 %t54
+    %t56 = binary mul nowrap i32 %t52, %t55
+    %t57 = binary add nowrap i32 %t49, %t56
+    %t58 = binary add nowrap i64 %t41, 2
+    %t59 = convert trunc exact i32 i64 %t58
+    %t60 = binary add i64 %t40, 240
+    %t61 = cmp ne i32 %t59, 30
+    branch %t61, ^unrolled_9, ^loop_exit_10
+
+  block ^loop_exit_10:
+    %t62 = index inbounds i32 [projection=array_element] %t37, %t39
+    %t63 = load typed i32 %t62
+    %t64 = cmp ne i32 %t63, %t57
+    branch %t64, ^if_then_11, ^if_end_12
+
+  block ^if_then_11:
+    return i32 1
+
+  block ^if_end_12:
+    %t65 = binary add nowrap i64 %t39, 1
+    %t66 = convert trunc exact i32 i64 %t65
+    %t67 = cmp lt i32 %t66, 30
+    branch %t67, ^loop_preheader_8, ^for_iter_13
+
+  block ^for_iter_13:
+    %t68 = binary add nowrap i32 %t36, 1
+    %t69 = binary add i64 %t35, 120
+    %t70 = cmp lt i32 %t68, 30
+    branch %t70, ^loop_preheader_7, ^for_end_14
+
+  block ^for_end_14:
+    %t71 = index inbounds i8 [projection=array_element] %t5, 376
+    %t72 = load typed i32 %t71
+    %t73 = cmp eq i32 %t72, 0
+    %t74 = select i32 %t73, 2, 0
+    return i32 %t74
+}
