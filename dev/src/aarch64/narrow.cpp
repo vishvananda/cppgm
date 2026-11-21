@@ -12,6 +12,18 @@ bool narrow(Type type)
 	return bits == 8 || bits == 16 || bits == 32;
 }
 
+// Whether `sub` begins a narrow range test, which narrow_range_branch
+// selects on its operand as normalized.
+bool range_test(const FunctionBody& body, const lowir::Instruction& sub)
+{
+	const unsigned width = integer_bits(sub.type.kind());
+	if ((width != 8 && width != 16) || !sub.ops[1].is(ValueKind::Integer) || sub.next == kNoId)
+		return false;
+	const auto& cmp = body.instructions[sub.next];
+	return cmp.op == Opcode::Compare && cmp.type == sub.type && cmp.ops[0] == Value::temp(sub.result) &&
+		cmp.ops[1].is(ValueKind::Integer) && cmp.next != kNoId && body.instructions[cmp.next].op == Opcode::Branch;
+}
+
 // Whether the selected code for `inst` reads only the low bits of the
 // operand in slot `k` (ops[0..2], then the extra operands), which holds `t`.
 // Each case names a selection that uses W registers or a field of the
@@ -19,8 +31,7 @@ bool narrow(Type type)
 // literal, 32-bit division, comparison, selection and branch conditions,
 // the stores of the same width, truncation, sign extension and 32-bit
 // subscripts. The paths that combine these instructions with a neighbour
-// keep that property; a narrow range test of a loose value is not combined
-// (narrow_range_branch).
+// keep that property, except a narrow range test (range_test).
 bool low_bits(const FunctionBody& body, const lowir::Instruction& inst, unsigned k, Type type)
 {
 	const unsigned bits = integer_bits(type.kind());
@@ -31,8 +42,9 @@ bool low_bits(const FunctionBody& body, const lowir::Instruction& inst, unsigned
 			return false;
 		switch (static_cast<BinaryOp>(inst.sub))
 		{
-		case BinaryOp::Add:
 		case BinaryOp::Sub:
+			return !range_test(body, inst);
+		case BinaryOp::Add:
 		case BinaryOp::Or:
 		case BinaryOp::Xor:
 			return true;

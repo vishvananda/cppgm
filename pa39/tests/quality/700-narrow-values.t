@@ -3,7 +3,8 @@
 // extension of a load is a sign-extending load. The other functions keep
 // values whose readers need the extension (compares, returns, calls,
 // divisions), take parameters whose high bits the caller leaves undefined,
-// and load at offsets that need each signed load form.
+// and load at offsets that need each signed load form. A range test of a
+// loaded byte or halfword subtracts from the load as it is.
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
 typedef unsigned uint32_t;
@@ -57,4 +58,12 @@ uint32_t low_sum(uint64_t a, uint32_t b) {
     return t + b;
 }
 void store_sum8(uint8_t* p, uint8_t a, uint8_t b) { *p = a + b; }
+void mark(const uint8_t* p, int* out) {
+    if ((uint8_t)(p[0] - 1) < 3)
+        *out = 1;
+}
+void mark_half(const uint16_t* p, int* out) {
+    if ((uint16_t)(p[0] - 100) < 900)
+        *out = 1;
+}
 }

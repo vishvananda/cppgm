@@ -49,6 +49,12 @@
       },
       "store_sum8": {
         "instructions": 3
+      },
+      "mark": {
+        "instructions": 7
+      },
+      "mark_half": {
+        "instructions": 7
       }
     }
   }

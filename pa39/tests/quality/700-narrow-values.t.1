@@ -26,6 +26,8 @@ long negated16(long);
 long inverted16(long);
 uint32_t low_sum(uint64_t, long);
 void store_sum8(uint8_t*, long, long);
+void mark(const uint8_t*, int*);
+void mark_half(const uint16_t*, int*);
 }
 
 short shorts[6000];
@@ -68,5 +70,17 @@ int main() {
     uint8_t byte = 0;
     store_sum8(&byte, kHigh | 0xf0, kHigh | 0x20);
     if (byte != 0x10) return 16;
+    const uint8_t marks[5] = {0, 1, 3, 4, 255};
+    for (int i = 0; i != 5; ++i) {
+        int marked = 0;
+        mark(marks + i, &marked);
+        if (marked != (i == 1 || i == 2)) return 17;
+    }
+    const uint16_t halves[5] = {0, 99, 100, 999, 1000};
+    for (int i = 0; i != 5; ++i) {
+        int marked = 0;
+        mark_half(halves + i, &marked);
+        if (marked != (i == 2 || i == 3)) return 18;
+    }
     return 37;
 }
