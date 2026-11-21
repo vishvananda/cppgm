@@ -653,7 +653,10 @@ private:
 class RegisterBank
 {
 public:
-	RegisterBank(const Segments& segments, uint32_t slots) : segments_(segments), slots_(slots) {}
+	// `caller` is the bank's class of registers a call may clobber.
+	RegisterBank(const Segments& segments, uint32_t slots, uint32_t caller)
+		: segments_(segments), slots_(slots), caller_(caller)
+	{}
 	uint32_t live_at(uint32_t slot) const { return initialized_ ? tree_.regs(slot, slot) : 0; }
 	// Ask later ranges without a usable preference to leave `reg` free over
 	// `range`, which would remove one of its phi transfers.
@@ -726,7 +729,7 @@ private:
 		const unsigned lowest = __builtin_ctz(allowed);
 		if (!hinted_)
 			return lowest;
-		uint32_t open = lowest < 19 ? allowed & ((1u << 19) - 1) : allowed;
+		uint32_t open = allowed & ((1u << lowest) & caller_ ? caller_ : ~caller_);
 		// Only registers hinted somewhere within the range's extent can be
 		// hinted over it.
 		uint32_t from = ~0u, to = 0, near = 0;
@@ -748,7 +751,7 @@ private:
 
 	const Segments& segments_;
 	const LiveRange* queried_ = nullptr;
-	uint32_t slots_, until_[32] = {}, busy_ = 0, hint_to_[32] = {};
+	uint32_t slots_, caller_, until_[32] = {}, busy_ = 0, hint_to_[32] = {};
 	uint32_t hint_from_[32] = { ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u,
 		~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u, ~0u };
 	machine::PressureTree tree_, hints_;
@@ -808,6 +811,19 @@ public:
 		}
 		return reg;
 	}
+	// A floating member chooses among SIMD registers by the same rule, with
+	// the groups' SIMD registers kept apart from their general ones.
+	unsigned choose_simd(RegisterBank& bank, const LiveRange& range, uint32_t allowed, unsigned preferred,
+		unsigned alternate, bool across_call)
+	{
+		if (simd_regs_.size() != regs_.size())
+			simd_regs_.assign(regs_.size(), kNoId);
+		regs_.swap(simd_regs_);
+		const auto reg = choose(
+			bank, range, allowed, [](TempId) { return 0u; }, preferred, alternate, across_call, false);
+		regs_.swap(simd_regs_);
+		return reg;
+	}
 	// Whether `rare` holds for every member that crosses a call, found once
 	// for each group.
 	template<typename Rare>
@@ -851,7 +867,7 @@ public:
 private:
 	const std::vector<LiveRange>& ranges_;
 	PhiGroups groups_;
-	std::vector<uint32_t> regs_;
+	std::vector<uint32_t> regs_, simd_regs_;
 	std::vector<uint8_t> assigned_, rare_, within_;
 };
 
@@ -1080,7 +1096,7 @@ void Selector::allocate()
 		!body_.code_labels.empty() || calls.empty();
 	std::vector<uint32_t> frameless_blocks;
 	constexpr uint32_t high_caller_simd = 0xfffc0000; // v18 through v31, clear of argument and scratch registers.
-	RegisterBank general(segments, slots), simd(segments, slots);
+	RegisterBank general(segments, slots, (1u << 19) - 1), simd(segments, slots, ~kPreservedSimd);
 	std::vector<uint32_t> simd_web_regs;
 	uint32_t saved_fp = 0;
 	uint32_t saved = dynamic_stack_ ? 1u << 28 : 0;
@@ -1146,9 +1162,9 @@ void Selector::allocate()
 			const auto alternate = root == kNoId ? kNoId : simd_web_regs[root];
 			if (!across_call && range.first != 0)
 				allowed |= saved_fp & ((preferred < 32 ? 1u << preferred : 0) | (alternate < 32 ? 1u << alternate : 0));
-			auto reg = simd.assign(range, allowed, preferred, alternate);
+			auto reg = groups.choose_simd(simd, range, allowed, preferred, alternate, across_call);
 			if (reg == kNoId && !across_call)
-				reg = simd.assign(range, kPreservedSimd, preferred, alternate);
+				reg = groups.choose_simd(simd, range, kPreservedSimd, preferred, alternate, across_call);
 			// Keep scalar arithmetic in its register bank. With only rare
 			// calls to cross, save the live scalar lanes on those paths.
 			if (reg == kNoId && across_call && cold_calls && !live_into(range, segments, facts.landings))
