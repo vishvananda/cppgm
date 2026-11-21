@@ -1,6 +1,7 @@
 #include "aarch64/selector.h"
 #include "aarch64/lifetimes.h"
 #include "opt/function_ir.h"
+#include "opt/loops.h"
 #include "machine/frame_lifetimes.h"
 #include "machine/interval_slots.h"
 #include "machine/register_pressure.h"
@@ -256,6 +257,22 @@ bool live_into(const LiveRange& range, const Segments& segments, const std::vect
 			live |= it != positions.end() && *it <= b;
 		});
 	return live;
+}
+
+// The first and last positions of each block, as live_ranges numbers them.
+void block_positions(const FunctionBody& body, std::vector<uint32_t>& first, std::vector<uint32_t>& last)
+{
+	first.assign(body.blocks.size(), 0);
+	last.assign(body.blocks.size(), 0);
+	uint32_t at = 2;
+	for (BlockId b : body.layout)
+	{
+		first[b] = b == body.layout.front() ? 0 : at;
+		for (InstId i = body.blocks[b].first; i != kNoId; i = body.instructions[i].next)
+			at += 2;
+		last[b] = at + 1;
+		at += 2;
+	}
 }
 
 // The positions [first, last] of the entry and the short returns it
@@ -676,6 +693,9 @@ public:
 		: segments_(segments), slots_(slots), caller_(caller)
 	{}
 	uint32_t live_at(uint32_t slot) const { return initialized_ ? tree_.regs(slot, slot) : 0; }
+	// The registers that ranges hold somewhere in [a, b], and taking one there.
+	uint32_t busy(uint32_t a, uint32_t b) const { return initialized_ ? tree_.regs(a, b) : ~0u; }
+	void take(uint32_t a, uint32_t b, unsigned reg) { tree_.add(a, b, 1, 1u << reg); }
 	// Ask later ranges without a usable preference to leave `reg` free over
 	// `range`, which would remove one of its phi transfers.
 	void hint(const LiveRange& range, unsigned reg)
@@ -775,6 +795,112 @@ private:
 	machine::PressureTree tree_, hints_;
 	bool initialized_ = false, hinted_ = false;
 };
+// The one block outside a loop that enters its header (the preheader, or a
+// block that also branches elsewhere), or kNoId.
+BlockId loop_entry(const opt::Cfg& cfg, const opt::LoopForest& forest, uint32_t loop)
+{
+	const auto& l = forest.loops[loop];
+	if (l.preheader != kNoId)
+		return l.preheader;
+	BlockId entry = kNoId;
+	for (uint32_t p = cfg.pred_first[l.header]; p < cfg.pred_first[l.header + 1]; ++p)
+	{
+		uint32_t in = forest.innermost[cfg.preds[p]];
+		while (in != kNoId && in != loop)
+			in = forest.loops[in].parent;
+		if (in == loop)
+			continue;
+		if (entry != kNoId && entry != cfg.preds[p])
+			return kNoId;
+		entry = cfg.preds[p];
+	}
+	return entry;
+}
+
+// A division by a literal that constant_word_division selects needs its
+// multiplier, and a remainder its divisor, in registers. In a loop each is
+// built once at the start of the block that enters the loop when one
+// register is free there and over every block of the loop: a caller register
+// in a loop without calls, or a preserved register the function saves anyway.
+// The divisions of one loop share equal constants.
+void hold_division_constants(const FunctionBody& body, opt::Cfg& cfg, RegisterBank& bank, uint32_t caller,
+	uint32_t saved, std::vector<HeldConstant>& held, std::vector<std::pair<InstId, uint32_t>>& divisions)
+{
+	opt::LoopForest forest;
+	std::vector<uint32_t> first, last, busy, holder, entries;
+	// The registers held over a loop's entry and blocks, and taking one there.
+	const auto held_over = [&](const opt::Loop& l, BlockId entry) {
+		uint32_t regs = bank.busy(first[entry], last[entry]);
+		for (BlockId member : l.blocks)
+			regs |= bank.busy(first[member], last[member]);
+		return regs;
+	};
+	const auto take_over = [&](const opt::Loop& l, BlockId entry, unsigned reg) {
+		bank.take(first[entry], last[entry], reg);
+		for (BlockId member : l.blocks)
+			bank.take(first[member], last[member], reg);
+	};
+	for (BlockId b : body.layout)
+		for (InstId i = body.blocks[b].first; i != kNoId; i = body.instructions[i].next)
+		{
+			uint64_t values[2];
+			if (!word_division_constants(body.instructions[i], body, values[0], values[1]))
+				continue;
+			if (first.empty())
+			{
+				if (cfg.dom_in.size() != cfg.block_count)
+					opt::complete_cfg(cfg);
+				opt::find_loops(body, cfg, forest);
+				block_positions(body, first, last);
+				busy.assign(forest.loops.size(), 0);
+				entries.assign(forest.loops.size(), kNoId - 1);
+			}
+			const uint32_t loop = forest.innermost[b];
+			if (loop == kNoId)
+				continue;
+			const auto& l = forest.loops[loop];
+			if (entries[loop] == kNoId - 1)
+			{
+				const BlockId entry = loop_entry(cfg, forest, loop);
+				entries[loop] = entry != kNoId && last[entry] ? entry : kNoId;
+				if (entries[loop] == kNoId)
+					continue;
+				// A constant built at the start of the entry block lives through its calls too.
+				bool calls = false;
+				const auto calling = [&](BlockId member) {
+					for (InstId k = body.blocks[member].first; k != kNoId; k = body.instructions[k].next)
+						calls |= body.instructions[k].op == Opcode::Call;
+				};
+				calling(entry);
+				for (BlockId member : l.blocks)
+					calling(member);
+				busy[loop] = ~(saved | (calls ? 0 : caller)) | held_over(l, entry);
+			}
+			if (entries[loop] == kNoId)
+				continue;
+			uint32_t regs = 0;
+			for (unsigned k = 0; k < 2; ++k)
+			{
+				unsigned reg = 255;
+				for (uint32_t h = 0; h < held.size() && reg == 255 && values[k]; ++h)
+					if (holder[h] == loop && held[h].value == values[k])
+						reg = held[h].reg;
+				if (reg == 255 && values[k] && ~busy[loop])
+				{
+					reg = __builtin_ctz(~busy[loop]);
+					busy[loop] |= 1u << reg;
+					take_over(l, entries[loop], reg);
+					held.push_back(HeldConstant{ entries[loop], reg, values[k] });
+					holder.push_back(loop);
+				}
+				regs |= reg << (8 * k);
+			}
+			if (regs != 0xffff)
+				divisions.push_back(std::make_pair(i, regs));
+		}
+	std::sort(divisions.begin(), divisions.end());
+}
+
 // The phi groups' registers as ranges choose theirs. A group's first member
 // to get a register asks the later ones, and the ranges assigned in between,
 // to leave it to them.
@@ -1281,6 +1407,10 @@ void Selector::allocate()
 		if (root != kNoId && reg != kNoId && (web_regs[root] == kNoId || (reg >= 19 && web_regs[root] < 19)))
 			web_regs[root] = reg;
 	}
+	if (level_ >= 3 && !segments.empty() && body_.code_labels.empty())
+		hold_division_constants(body_, cfg, general,
+			0xffu | (7u << 12) | (free_x8 ? 1u << 8 : 0) | (named_.darwin ? 0 : 1u << 18),
+			saved & ((dynamic_stack_ ? 0x1ffu : 0x3ffu) << 19), held_constants_, held_divisions_);
 	for (auto& entry : entry_regs_)
 		entry = general.live_at(entry);
 	// Keeping callee saves together lets STP and LDP share both the transfer

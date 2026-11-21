@@ -100,31 +100,79 @@ bool Selector::constant_quotient(
 	return true;
 }
 
-// Use a widening multiply when the shared word-division plan fits one.
-// The correction changes the signed quotient from floor to truncation.
-bool Selector::constant_word_division(const lowir::Instruction& inst, uint32_t divisor, unsigned lhs, unsigned dst)
+namespace {
+// The shared word-division plan for a 32-bit divisor, when a widening
+// multiply holds its multiplier.
+bool word_division_magic(BinaryOp op, uint32_t divisor, machine::WordMagic& magic)
 {
 	if (divisor <= 1 || divisor > INT32_MAX || (divisor & (divisor - 1)) == 0)
 		return false;
+	const bool sign = op == BinaryOp::Div || op == BinaryOp::Mod;
+	magic = machine::word_magic(divisor, sign ? 31 : 32);
+	return magic.multiplier <= (sign ? static_cast<uint64_t>(INT32_MAX) : UINT32_MAX);
+}
+}
+
+bool word_division_constants(
+	const lowir::Instruction& inst, const FunctionBody& body, uint64_t& multiplier, uint64_t& divisor)
+{
 	const auto op = static_cast<BinaryOp>(inst.sub);
+	if (inst.op != Opcode::Binary || inst.type.is_pointer() || integer_bits(inst.type.kind()) != 32 ||
+		(op != BinaryOp::Div && op != BinaryOp::Mod && op != BinaryOp::UDiv && op != BinaryOp::UMod) ||
+		!inst.ops[1].is(ValueKind::Integer) ||
+		((op == BinaryOp::Div || op == BinaryOp::UDiv) && (inst.flags & IF_EXACT)))
+		return false;
+	machine::WordMagic magic;
+	const auto raw = static_cast<uint32_t>(body.literals[inst.ops[1].index].low);
+	if (!word_division_magic(op, raw, magic))
+		return false;
+	multiplier = magic.multiplier;
+	divisor = op == BinaryOp::Mod || op == BinaryOp::UMod ? raw : 0;
+	return true;
+}
+
+// Use a widening multiply when the shared word-division plan fits one.
+// The correction changes the signed quotient from floor to truncation. A
+// constant held through the loop (hold_division_constants) is read from its
+// register.
+bool Selector::constant_word_division(const lowir::Instruction& inst, uint32_t divisor, unsigned lhs, unsigned dst)
+{
+	const auto op = static_cast<BinaryOp>(inst.sub);
+	machine::WordMagic magic;
+	if (!word_division_magic(op, divisor, magic))
+		return false;
 	const bool sign = op == BinaryOp::Div || op == BinaryOp::Mod;
 	const bool remainder = op == BinaryOp::Mod || op == BinaryOp::UMod;
-	const auto magic = machine::word_magic(divisor, sign ? 31 : 32);
-	if (magic.multiplier > (sign ? static_cast<uint64_t>(INT32_MAX) : UINT32_MAX))
-		return false;
+	// (A combination can select a rewritten copy of the instruction.)
+	const bool listed = &inst >= body_.instructions.data() &&
+		&inst < body_.instructions.data() + body_.instructions.size();
+	const auto id = listed ? static_cast<InstId>(&inst - body_.instructions.data()) : kNoId;
+	const auto held = std::lower_bound(held_divisions_.begin(), held_divisions_.end(), std::make_pair(id, 0u));
+	const uint32_t regs = held != held_divisions_.end() && held->first == id ? held->second : ~0u;
+	const unsigned multiplier = regs & 255, divisor_reg = (regs >> 8) & 255;
 	const unsigned quotient = remainder ? 9 : dst;
-	constant(11, magic.multiplier);
-	out_.emit(sign ? Op::Smull : Op::Umull, 9, lhs, 11);
+	if (multiplier == 255)
+		constant(11, magic.multiplier);
+	out_.emit(sign ? Op::Smull : Op::Umull, 9, lhs, multiplier == 255 ? 11 : multiplier);
 	out_.emit(sign ? Op::Sbfm : Op::Ubfm, sign ? 9 : quotient, 9, 0, (magic.shift << 16) | (63u << 10));
 	if (sign)
 		out_.emit(Op::AddW, quotient, 9, lhs, (1u << 22) | (31u << 10));
 	if (remainder)
 	{
-		constant(11, divisor);
-		out_.emit(Op::MsubW, dst, quotient, 11, lhs << 10);
+		if (divisor_reg == 255)
+			constant(11, divisor);
+		out_.emit(Op::MsubW, dst, quotient, divisor_reg == 255 ? 11 : divisor_reg, lhs << 10);
 	}
 	save(dst, inst.result, true);
 	return true;
+}
+
+// The constants held through the loops that `block` enters, built at its start.
+void Selector::build_held_constants(BlockId block)
+{
+	for (const auto& held : held_constants_)
+		if (held.block == block)
+			constant(held.reg, held.value);
 }
 
 bool Selector::simple_binary(const lowir::Instruction& inst)
