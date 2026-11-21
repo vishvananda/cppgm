@@ -14,7 +14,7 @@
     "levels": [3],
     "functions": {
       "insert_all": {
-        "instructions": 37,
+        "instructions": 38,
         "calls": 2
       }
     }
