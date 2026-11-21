@@ -1,0 +1,501 @@
+global @__vector_literal_3fd00000000000003fd0000000000000 : obj<16x16> [storage=readonly, binding=internal] = {
+  i64 4598175219545276416
+  i64 4598175219545276416
+}
+global @__vector_literal_3fc00000000000003fc0000000000000 : obj<16x16> [storage=readonly, binding=internal] = {
+  i64 4593671619917905920
+  i64 4593671619917905920
+}
+
+function @orbit(%re : ptr, %im : ptr, %steps : u32) -> void [linkage=c, binding=strong, no_inline=yes] {
+  block ^entry:
+    %t1 = load typed f64 %re
+    %t2 = load typed f64 %im
+    %t3 = index inbounds f64 [projection=array_element] %re, 1
+    %t4 = load typed f64 %t3
+    %t5 = index inbounds f64 [projection=array_element] %im, 1
+    %t6 = load typed f64 %t5
+    %t7 = index inbounds f64 [projection=array_element] %re, 2
+    %t8 = load typed f64 %t7
+    %t9 = index inbounds f64 [projection=array_element] %im, 2
+    %t10 = load typed f64 %t9
+    %t11 = index inbounds f64 [projection=array_element] %re, 3
+    %t12 = load typed f64 %t11
+    %t13 = index inbounds f64 [projection=array_element] %im, 3
+    %t14 = load typed f64 %t13
+    %t15 = index inbounds f64 [projection=array_element] %re, 4
+    %t16 = load typed f64 %t15
+    %t17 = index inbounds f64 [projection=array_element] %im, 4
+    %t18 = load typed f64 %t17
+    %t19 = index inbounds f64 [projection=array_element] %re, 5
+    %t20 = load typed f64 %t19
+    %t21 = index inbounds f64 [projection=array_element] %im, 5
+    %t22 = load typed f64 %t21
+    %t23 = index inbounds f64 [projection=array_element] %re, 6
+    %t24 = load typed f64 %t23
+    %t25 = index inbounds f64 [projection=array_element] %im, 6
+    %t26 = load typed f64 %t25
+    %t27 = index inbounds f64 [projection=array_element] %re, 7
+    %t28 = load typed f64 %t27
+    %t29 = index inbounds f64 [projection=array_element] %im, 7
+    %t30 = load typed f64 %t29
+    %t31 = vector fromf64 %t1
+    %t32 = vector fromf64 %t4
+    %t33 = vector unpcklpd %t31, %t32
+    %t34 = addr @__vector_literal_3fd00000000000003fd0000000000000
+    %t35 = load v128 %t34
+    %t36 = vector fromf64 %t8
+    %t37 = vector fromf64 %t12
+    %t38 = vector unpcklpd %t36, %t37
+    %t39 = vector fromf64 %t16
+    %t40 = vector fromf64 %t20
+    %t41 = vector unpcklpd %t39, %t40
+    %t42 = vector fromf64 %t24
+    %t43 = vector fromf64 %t28
+    %t44 = vector unpcklpd %t42, %t43
+    %t45 = vector fromf64 %t2
+    %t46 = vector fromf64 %t6
+    %t47 = vector unpcklpd %t45, %t46
+    %t48 = addr @__vector_literal_3fc00000000000003fc0000000000000
+    %t49 = load v128 %t48
+    %t50 = vector fromf64 %t10
+    %t51 = vector fromf64 %t14
+    %t52 = vector unpcklpd %t50, %t51
+    %t53 = vector fromf64 %t18
+    %t54 = vector fromf64 %t22
+    %t55 = vector unpcklpd %t53, %t54
+    %t56 = vector fromf64 %t26
+    %t57 = vector fromf64 %t30
+    %t58 = vector unpcklpd %t56, %t57
+    jump ^do_body_1
+
+  block ^do_body_1:
+    %t59 = phi u32 [^entry: %steps, ^do_body_1: %t68]
+    %t60 = phi v128 [^do_body_1: %t72, ^entry: %t33]
+    %t61 = phi v128 [^do_body_1: %t76, ^entry: %t38]
+    %t62 = phi v128 [^do_body_1: %t80, ^entry: %t41]
+    %t63 = phi v128 [^do_body_1: %t84, ^entry: %t44]
+    %t64 = phi v128 [^do_body_1: %t87, ^entry: %t47]
+    %t65 = phi v128 [^do_body_1: %t90, ^entry: %t52]
+    %t66 = phi v128 [^do_body_1: %t93, ^entry: %t55]
+    %t67 = phi v128 [^do_body_1: %t96, ^entry: %t58]
+    %t68 = binary sub u32 %t59, 1
+    %t69 = vector mulpd %t60, %t60
+    %t70 = vector mulpd %t64, %t64
+    %t71 = vector subpd %t69, %t70
+    %t72 = vector addpd %t71, %t35
+    %t73 = vector mulpd %t61, %t61
+    %t74 = vector mulpd %t65, %t65
+    %t75 = vector subpd %t73, %t74
+    %t76 = vector addpd %t75, %t35
+    %t77 = vector mulpd %t62, %t62
+    %t78 = vector mulpd %t66, %t66
+    %t79 = vector subpd %t77, %t78
+    %t80 = vector addpd %t79, %t35
+    %t81 = vector mulpd %t63, %t63
+    %t82 = vector mulpd %t67, %t67
+    %t83 = vector subpd %t81, %t82
+    %t84 = vector addpd %t83, %t35
+    %t85 = vector mulpd %t60, %t64
+    %t86 = vector addpd %t85, %t85
+    %t87 = vector subpd %t86, %t49
+    %t88 = vector mulpd %t61, %t65
+    %t89 = vector addpd %t88, %t88
+    %t90 = vector subpd %t89, %t49
+    %t91 = vector mulpd %t62, %t66
+    %t92 = vector addpd %t91, %t91
+    %t93 = vector subpd %t92, %t49
+    %t94 = vector mulpd %t63, %t67
+    %t95 = vector addpd %t94, %t94
+    %t96 = vector subpd %t95, %t49
+    branch %t68, ^do_body_1, ^do_end_2
+
+  block ^do_end_2:
+    %t97 = index inbounds f64 [projection=array_element] %re, 1
+    %t98 = index inbounds f64 [projection=array_element] %re, 2
+    %t99 = index inbounds f64 [projection=array_element] %re, 3
+    %t100 = index inbounds f64 [projection=array_element] %re, 4
+    %t101 = index inbounds f64 [projection=array_element] %re, 5
+    %t102 = index inbounds f64 [projection=array_element] %re, 6
+    %t103 = index inbounds f64 [projection=array_element] %re, 7
+    %t104 = index inbounds f64 [projection=array_element] %im, 1
+    %t105 = index inbounds f64 [projection=array_element] %im, 2
+    %t106 = index inbounds f64 [projection=array_element] %im, 3
+    %t107 = index inbounds f64 [projection=array_element] %im, 4
+    %t108 = index inbounds f64 [projection=array_element] %im, 5
+    %t109 = index inbounds f64 [projection=array_element] %im, 6
+    %t110 = index inbounds f64 [projection=array_element] %im, 7
+    %t111 = vector tof64 %t72
+    %t112 = vector unpckhpd %t72, %t72
+    %t113 = vector tof64 %t112
+    %t114 = vector tof64 %t76
+    %t115 = vector unpckhpd %t76, %t76
+    %t116 = vector tof64 %t115
+    %t117 = vector tof64 %t80
+    %t118 = vector unpckhpd %t80, %t80
+    %t119 = vector tof64 %t118
+    %t120 = vector tof64 %t84
+    %t121 = vector unpckhpd %t84, %t84
+    %t122 = vector tof64 %t121
+    %t123 = vector tof64 %t87
+    %t124 = vector unpckhpd %t87, %t87
+    %t125 = vector tof64 %t124
+    %t126 = vector tof64 %t90
+    %t127 = vector unpckhpd %t90, %t90
+    %t128 = vector tof64 %t127
+    %t129 = vector tof64 %t93
+    %t130 = vector unpckhpd %t93, %t93
+    %t131 = vector tof64 %t130
+    %t132 = vector tof64 %t96
+    %t133 = vector unpckhpd %t96, %t96
+    %t134 = vector tof64 %t133
+    store typed f64 %t111, %re
+    store typed f64 %t113, %t97
+    store typed f64 %t114, %t98
+    store typed f64 %t116, %t99
+    store typed f64 %t117, %t100
+    store typed f64 %t119, %t101
+    store typed f64 %t120, %t102
+    store typed f64 %t122, %t103
+    store typed f64 %t123, %im
+    store typed f64 %t125, %t104
+    store typed f64 %t126, %t105
+    store typed f64 %t128, %t106
+    store typed f64 %t129, %t107
+    store typed f64 %t131, %t108
+    store typed f64 %t132, %t109
+    store typed f64 %t134, %t110
+    return void
+}
+function @main() -> i32 [role=entry, binding=strong, keep_alias=yes] {
+  slot $sre : obj<64x8>
+  slot $re : obj<64x8>
+  slot $sim : obj<64x8>
+  slot $im : obj<64x8>
+  slot $rr : f64
+  slot $ii : f64
+  slot $ri : f64
+
+  block ^entry:
+    %t1 = addr $sre
+    store typed f64 -0.25, %t1
+    %t2 = addr $re
+    store typed f64 -0.25, %t2
+    %t3 = addr $sim
+    store typed f64 0, %t3
+    %t4 = addr $im
+    store typed f64 0, %t4
+    %t5 = index inbounds f64 [projection=array_element] %t1, 1
+    store typed f64 -0.1875, %t5
+    %t6 = index inbounds f64 [projection=array_element] %t2, 1
+    store typed f64 -0.1875, %t6
+    %t7 = index inbounds f64 [projection=array_element] %t3, 1
+    store typed f64 0.03125, %t7
+    %t8 = index inbounds f64 [projection=array_element] %t4, 1
+    store typed f64 0.03125, %t8
+    %t9 = index inbounds f64 [projection=array_element] %t1, 2
+    store typed f64 -0.125, %t9
+    %t10 = index inbounds f64 [projection=array_element] %t2, 2
+    store typed f64 -0.125, %t10
+    %t11 = index inbounds f64 [projection=array_element] %t3, 2
+    store typed f64 0.0625, %t11
+    %t12 = index inbounds f64 [projection=array_element] %t4, 2
+    store typed f64 0.0625, %t12
+    %t13 = index inbounds f64 [projection=array_element] %t1, 3
+    store typed f64 -0.0625, %t13
+    %t14 = index inbounds f64 [projection=array_element] %t2, 3
+    store typed f64 -0.0625, %t14
+    %t15 = index inbounds f64 [projection=array_element] %t3, 3
+    store typed f64 0.09375, %t15
+    %t16 = index inbounds f64 [projection=array_element] %t4, 3
+    store typed f64 0.09375, %t16
+    %t17 = index inbounds f64 [projection=array_element] %t1, 4
+    store typed f64 0, %t17
+    %t18 = index inbounds f64 [projection=array_element] %t2, 4
+    store typed f64 0, %t18
+    %t19 = index inbounds f64 [projection=array_element] %t3, 4
+    store typed f64 0.125, %t19
+    %t20 = index inbounds f64 [projection=array_element] %t4, 4
+    store typed f64 0.125, %t20
+    %t21 = index inbounds f64 [projection=array_element] %t1, 5
+    store typed f64 0.0625, %t21
+    %t22 = index inbounds f64 [projection=array_element] %t2, 5
+    store typed f64 0.0625, %t22
+    %t23 = index inbounds f64 [projection=array_element] %t3, 5
+    store typed f64 0.15625, %t23
+    %t24 = index inbounds f64 [projection=array_element] %t4, 5
+    store typed f64 0.15625, %t24
+    %t25 = index inbounds f64 [projection=array_element] %t1, 6
+    store typed f64 0.125, %t25
+    %t26 = index inbounds f64 [projection=array_element] %t2, 6
+    store typed f64 0.125, %t26
+    %t27 = index inbounds f64 [projection=array_element] %t3, 6
+    store typed f64 0.1875, %t27
+    %t28 = index inbounds f64 [projection=array_element] %t4, 6
+    store typed f64 0.1875, %t28
+    %t29 = index inbounds f64 [projection=array_element] %t1, 7
+    store typed f64 0.1875, %t29
+    %t30 = index inbounds f64 [projection=array_element] %t2, 7
+    store typed f64 0.1875, %t30
+    %t31 = index inbounds f64 [projection=array_element] %t3, 7
+    store typed f64 0.21875, %t31
+    %t32 = index inbounds f64 [projection=array_element] %t4, 7
+    store typed f64 0.21875, %t32
+    call void @orbit(%t2, %t4, 1)
+    call void @orbit(%t2, %t4, 8)
+    %t33 = copy f64 0.25
+    %t34 = copy f64 0.125
+    jump ^unrolled_1
+
+  block ^unrolled_1:
+    %t35 = phi i32 [^unrolled_1: %t140, ^entry: 0]
+    %t36 = load typed f64 %t1
+    %t37 = binary mul f64 %t36, %t36
+    store volatile f64 %t37, $rr
+    %t38 = load typed f64 %t3
+    %t39 = binary mul f64 %t38, %t38
+    store volatile f64 %t39, $ii
+    %t40 = binary mul f64 %t36, %t38
+    store volatile f64 %t40, $ri
+    %t41 = load volatile f64 $rr
+    %t42 = load volatile f64 $ii
+    %t43 = binary sub f64 %t41, %t42
+    %t44 = binary add f64 %t43, %t33
+    store typed f64 %t44, %t1
+    %t45 = load volatile f64 $ri
+    %t46 = load volatile f64 $ri
+    %t47 = binary add f64 %t45, %t46
+    %t48 = binary sub f64 %t47, %t34
+    store typed f64 %t48, %t3
+    %t49 = load typed f64 %t5
+    %t50 = binary mul f64 %t49, %t49
+    store volatile f64 %t50, $rr
+    %t51 = load typed f64 %t7
+    %t52 = binary mul f64 %t51, %t51
+    store volatile f64 %t52, $ii
+    %t53 = binary mul f64 %t49, %t51
+    store volatile f64 %t53, $ri
+    %t54 = load volatile f64 $rr
+    %t55 = load volatile f64 $ii
+    %t56 = binary sub f64 %t54, %t55
+    %t57 = binary add f64 %t56, %t33
+    store typed f64 %t57, %t5
+    %t58 = load volatile f64 $ri
+    %t59 = load volatile f64 $ri
+    %t60 = binary add f64 %t58, %t59
+    %t61 = binary sub f64 %t60, %t34
+    store typed f64 %t61, %t7
+    %t62 = load typed f64 %t9
+    %t63 = binary mul f64 %t62, %t62
+    store volatile f64 %t63, $rr
+    %t64 = load typed f64 %t11
+    %t65 = binary mul f64 %t64, %t64
+    store volatile f64 %t65, $ii
+    %t66 = binary mul f64 %t62, %t64
+    store volatile f64 %t66, $ri
+    %t67 = load volatile f64 $rr
+    %t68 = load volatile f64 $ii
+    %t69 = binary sub f64 %t67, %t68
+    %t70 = binary add f64 %t69, %t33
+    store typed f64 %t70, %t9
+    %t71 = load volatile f64 $ri
+    %t72 = load volatile f64 $ri
+    %t73 = binary add f64 %t71, %t72
+    %t74 = binary sub f64 %t73, %t34
+    store typed f64 %t74, %t11
+    %t75 = load typed f64 %t13
+    %t76 = binary mul f64 %t75, %t75
+    store volatile f64 %t76, $rr
+    %t77 = load typed f64 %t15
+    %t78 = binary mul f64 %t77, %t77
+    store volatile f64 %t78, $ii
+    %t79 = binary mul f64 %t75, %t77
+    store volatile f64 %t79, $ri
+    %t80 = load volatile f64 $rr
+    %t81 = load volatile f64 $ii
+    %t82 = binary sub f64 %t80, %t81
+    %t83 = binary add f64 %t82, %t33
+    store typed f64 %t83, %t13
+    %t84 = load volatile f64 $ri
+    %t85 = load volatile f64 $ri
+    %t86 = binary add f64 %t84, %t85
+    %t87 = binary sub f64 %t86, %t34
+    store typed f64 %t87, %t15
+    %t88 = load typed f64 %t17
+    %t89 = binary mul f64 %t88, %t88
+    store volatile f64 %t89, $rr
+    %t90 = load typed f64 %t19
+    %t91 = binary mul f64 %t90, %t90
+    store volatile f64 %t91, $ii
+    %t92 = binary mul f64 %t88, %t90
+    store volatile f64 %t92, $ri
+    %t93 = load volatile f64 $rr
+    %t94 = load volatile f64 $ii
+    %t95 = binary sub f64 %t93, %t94
+    %t96 = binary add f64 %t95, %t33
+    store typed f64 %t96, %t17
+    %t97 = load volatile f64 $ri
+    %t98 = load volatile f64 $ri
+    %t99 = binary add f64 %t97, %t98
+    %t100 = binary sub f64 %t99, %t34
+    store typed f64 %t100, %t19
+    %t101 = load typed f64 %t21
+    %t102 = binary mul f64 %t101, %t101
+    store volatile f64 %t102, $rr
+    %t103 = load typed f64 %t23
+    %t104 = binary mul f64 %t103, %t103
+    store volatile f64 %t104, $ii
+    %t105 = binary mul f64 %t101, %t103
+    store volatile f64 %t105, $ri
+    %t106 = load volatile f64 $rr
+    %t107 = load volatile f64 $ii
+    %t108 = binary sub f64 %t106, %t107
+    %t109 = binary add f64 %t108, %t33
+    store typed f64 %t109, %t21
+    %t110 = load volatile f64 $ri
+    %t111 = load volatile f64 $ri
+    %t112 = binary add f64 %t110, %t111
+    %t113 = binary sub f64 %t112, %t34
+    store typed f64 %t113, %t23
+    %t114 = load typed f64 %t25
+    %t115 = binary mul f64 %t114, %t114
+    store volatile f64 %t115, $rr
+    %t116 = load typed f64 %t27
+    %t117 = binary mul f64 %t116, %t116
+    store volatile f64 %t117, $ii
+    %t118 = binary mul f64 %t114, %t116
+    store volatile f64 %t118, $ri
+    %t119 = load volatile f64 $rr
+    %t120 = load volatile f64 $ii
+    %t121 = binary sub f64 %t119, %t120
+    %t122 = binary add f64 %t121, %t33
+    store typed f64 %t122, %t25
+    %t123 = load volatile f64 $ri
+    %t124 = load volatile f64 $ri
+    %t125 = binary add f64 %t123, %t124
+    %t126 = binary sub f64 %t125, %t34
+    store typed f64 %t126, %t27
+    %t127 = load typed f64 %t29
+    %t128 = binary mul f64 %t127, %t127
+    store volatile f64 %t128, $rr
+    %t129 = load typed f64 %t31
+    %t130 = binary mul f64 %t129, %t129
+    store volatile f64 %t130, $ii
+    %t131 = binary mul f64 %t127, %t129
+    store volatile f64 %t131, $ri
+    %t132 = load volatile f64 $rr
+    %t133 = load volatile f64 $ii
+    %t134 = binary sub f64 %t132, %t133
+    %t135 = binary add f64 %t134, %t33
+    store typed f64 %t135, %t29
+    %t136 = load volatile f64 $ri
+    %t137 = load volatile f64 $ri
+    %t138 = binary add f64 %t136, %t137
+    %t139 = binary sub f64 %t138, %t34
+    store typed f64 %t139, %t31
+    %t140 = binary add nowrap i32 %t35, 1
+    %t141 = cmp lt i32 %t140, 9
+    branch %t141, ^unrolled_1, ^loop_preheader_2
+
+  block ^loop_preheader_2:
+    %t142 = load typed f64 %t2
+    %t143 = cmp ne f64 %t44, %t142
+    branch %t143, ^if_then_19, ^lor_rhs_3
+
+  block ^lor_rhs_3:
+    %t144 = load typed f64 %t4
+    %t145 = cmp ne f64 %t48, %t144
+    branch %t145, ^if_then_19, ^if_end_4
+
+  block ^if_end_4:
+    %t146 = index inbounds f64 [projection=array_element] %t2, 1
+    %t147 = load typed f64 %t146
+    %t148 = cmp ne f64 %t57, %t147
+    branch %t148, ^if_then_19, ^lor_rhs_5
+
+  block ^lor_rhs_5:
+    %t149 = index inbounds f64 [projection=array_element] %t4, 1
+    %t150 = load typed f64 %t149
+    %t151 = cmp ne f64 %t61, %t150
+    branch %t151, ^if_then_19, ^if_end_6
+
+  block ^if_end_6:
+    %t152 = index inbounds f64 [projection=array_element] %t2, 2
+    %t153 = load typed f64 %t152
+    %t154 = cmp ne f64 %t70, %t153
+    branch %t154, ^if_then_19, ^lor_rhs_7
+
+  block ^lor_rhs_7:
+    %t155 = index inbounds f64 [projection=array_element] %t4, 2
+    %t156 = load typed f64 %t155
+    %t157 = cmp ne f64 %t74, %t156
+    branch %t157, ^if_then_19, ^if_end_8
+
+  block ^if_end_8:
+    %t158 = index inbounds f64 [projection=array_element] %t2, 3
+    %t159 = load typed f64 %t158
+    %t160 = cmp ne f64 %t83, %t159
+    branch %t160, ^if_then_19, ^lor_rhs_9
+
+  block ^lor_rhs_9:
+    %t161 = index inbounds f64 [projection=array_element] %t4, 3
+    %t162 = load typed f64 %t161
+    %t163 = cmp ne f64 %t87, %t162
+    branch %t163, ^if_then_19, ^if_end_10
+
+  block ^if_end_10:
+    %t164 = index inbounds f64 [projection=array_element] %t2, 4
+    %t165 = load typed f64 %t164
+    %t166 = cmp ne f64 %t96, %t165
+    branch %t166, ^if_then_19, ^lor_rhs_11
+
+  block ^lor_rhs_11:
+    %t167 = index inbounds f64 [projection=array_element] %t4, 4
+    %t168 = load typed f64 %t167
+    %t169 = cmp ne f64 %t100, %t168
+    branch %t169, ^if_then_19, ^if_end_12
+
+  block ^if_end_12:
+    %t170 = index inbounds f64 [projection=array_element] %t2, 5
+    %t171 = load typed f64 %t170
+    %t172 = cmp ne f64 %t109, %t171
+    branch %t172, ^if_then_19, ^lor_rhs_13
+
+  block ^lor_rhs_13:
+    %t173 = index inbounds f64 [projection=array_element] %t4, 5
+    %t174 = load typed f64 %t173
+    %t175 = cmp ne f64 %t113, %t174
+    branch %t175, ^if_then_19, ^if_end_14
+
+  block ^if_end_14:
+    %t176 = index inbounds f64 [projection=array_element] %t2, 6
+    %t177 = load typed f64 %t176
+    %t178 = cmp ne f64 %t122, %t177
+    branch %t178, ^if_then_19, ^lor_rhs_15
+
+  block ^lor_rhs_15:
+    %t179 = index inbounds f64 [projection=array_element] %t4, 6
+    %t180 = load typed f64 %t179
+    %t181 = cmp ne f64 %t126, %t180
+    branch %t181, ^if_then_19, ^if_end_16
+
+  block ^if_end_16:
+    %t182 = index inbounds f64 [projection=array_element] %t2, 7
+    %t183 = load typed f64 %t182
+    %t184 = cmp ne f64 %t135, %t183
+    branch %t184, ^if_then_19, ^lor_rhs_17
+
+  block ^lor_rhs_17:
+    %t185 = index inbounds f64 [projection=array_element] %t4, 7
+    %t186 = load typed f64 %t185
+    %t187 = cmp ne f64 %t139, %t186
+    branch %t187, ^if_then_19, ^if_end_18
+
+  block ^if_end_18:
+    return i32 0
+
+  block ^if_then_19:
+    %t188 = phi i32 [^loop_preheader_2: 0, ^lor_rhs_3: 0, ^if_end_4: 1, ^lor_rhs_5: 1, ^if_end_6: 2, ^lor_rhs_7: 2, ^if_end_8: 3, ^lor_rhs_9: 3, ^if_end_10: 4, ^lor_rhs_11: 4, ^if_end_12: 5, ^lor_rhs_13: 5, ^if_end_14: 6, ^lor_rhs_15: 6, ^if_end_16: 7, ^lor_rhs_17: 7]
+    %t189 = binary add nowrap i32 %t188, 1
+    return i32 %t189
+}

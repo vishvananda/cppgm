@@ -944,13 +944,12 @@ bool BlockLanes::run()
 {
 	// Avoid planning when there are neither packable stores nor integer sums.
 	unsigned stores = 0, adds = 0, float_phis = 0;
-	const bool pack_recurrences = c_.costs.pack_loop_carried_f64;
 	for (const Instruction& inst : body_.instructions)
 	{
 		stores += inst.op == Opcode::Store && (inst.type.is_float() || lane_bytes(inst.type) == 4);
 		adds += inst.op == Opcode::Binary && static_cast<BinaryOp>(inst.sub) == BinaryOp::Add &&
 			(inst.type.kind() == TypeKind::I32 || inst.type.kind() == TypeKind::U32);
-		float_phis += pack_recurrences && inst.op == Opcode::Phi && inst.type.kind() == TypeKind::F64;
+		float_phis += inst.op == Opcode::Phi && inst.type.kind() == TypeKind::F64;
 	}
 	if (stores < 2 && adds < 4)
 		return false;
