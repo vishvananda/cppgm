@@ -1,0 +1,402 @@
+global @kSize : i32 [storage=readonly, binding=internal, object=_ZL5kSize] = 64
+global @__local_static__main__decl0__board [binding=internal, object=_ZZ4mainE5board] = {
+  zero 64
+}
+global @__local_static__main__decl1__shape [binding=internal, object=_ZZ4mainE5shape] = {
+  zero 64
+}
+
+function @fits(%shape : ptr, %board : ptr, %extent : i32, %at : i32) -> u8 [binding=strong, object=_Z4fitsPKbS0_ii, no_inline=yes] {
+  block ^entry:
+    %t1 = cmp ge i32 %extent, 0
+    %t2 = convert sext i64 i32 %extent
+    %t3 = binary sub i64 %t2, 4
+    branch %t1, ^for_body_1, ^for_end_15
+
+  block ^for_body_1:
+    %t4 = phi i32 [^if_end_14: %t36, ^entry: 0, ^unrolled_10: %t30]
+    %t5 = convert sext i64 i32 %t4
+    %t6 = cmp le i64 %t5, %t3
+    branch %t6, ^unrolled_2, ^unrolled_11
+
+  block ^unrolled_2:
+    %t7 = index inbounds u8 [projection=array_element] %shape, %t4
+    %t8 = load typed u8 %t7
+    branch %t8, ^unrolled_3, ^unrolled_4
+
+  block ^unrolled_3:
+    %t9 = binary add nowrap i32 %at, %t4
+    %t10 = index inbounds u8 [projection=array_element] %board, %t9
+    %t11 = load typed u8 %t10
+    branch %t11, ^if_then_13, ^unrolled_4
+
+  block ^unrolled_4:
+    %t12 = binary add i32 %t4, 1
+    %t13 = index inbounds u8 [projection=array_element] %shape, %t12
+    %t14 = load typed u8 %t13
+    branch %t14, ^unrolled_5, ^unrolled_6
+
+  block ^unrolled_5:
+    %t15 = binary add nowrap i32 %at, %t12
+    %t16 = index inbounds u8 [projection=array_element] %board, %t15
+    %t17 = load typed u8 %t16
+    branch %t17, ^if_then_13, ^unrolled_6
+
+  block ^unrolled_6:
+    %t18 = binary add i32 %t4, 2
+    %t19 = index inbounds u8 [projection=array_element] %shape, %t18
+    %t20 = load typed u8 %t19
+    branch %t20, ^unrolled_7, ^unrolled_8
+
+  block ^unrolled_7:
+    %t21 = binary add nowrap i32 %at, %t18
+    %t22 = index inbounds u8 [projection=array_element] %board, %t21
+    %t23 = load typed u8 %t22
+    branch %t23, ^if_then_13, ^unrolled_8
+
+  block ^unrolled_8:
+    %t24 = binary add i32 %t4, 3
+    %t25 = index inbounds u8 [projection=array_element] %shape, %t24
+    %t26 = load typed u8 %t25
+    branch %t26, ^unrolled_9, ^unrolled_10
+
+  block ^unrolled_9:
+    %t27 = binary add nowrap i32 %at, %t24
+    %t28 = index inbounds u8 [projection=array_element] %board, %t27
+    %t29 = load typed u8 %t28
+    branch %t29, ^if_then_13, ^unrolled_10
+
+  block ^unrolled_10:
+    %t30 = binary add i32 %t4, 4
+    jump ^for_body_1
+
+  block ^unrolled_11:
+    %t31 = index inbounds u8 [projection=array_element] %shape, %t4
+    %t32 = load typed u8 %t31
+    branch %t32, ^land_rhs_12, ^if_end_14
+
+  block ^land_rhs_12:
+    %t33 = binary add nowrap i32 %at, %t4
+    %t34 = index inbounds u8 [projection=array_element] %board, %t33
+    %t35 = load typed u8 %t34
+    branch %t35, ^if_then_13, ^if_end_14
+
+  block ^if_then_13:
+    return u8 0
+
+  block ^if_end_14:
+    %t36 = binary add nowrap i32 %t4, 1
+    %t37 = cmp le i32 %t36, %extent
+    branch %t37, ^for_body_1, ^for_end_15
+
+  block ^for_end_15:
+    return u8 1
+}
+function @place(%shape : ptr, %board : ptr, %extent : i32, %at : i32) -> void [binding=strong, object=_Z5placePKbPbii, no_inline=yes] {
+  block ^entry:
+    %t1 = cmp ge i32 %extent, 0
+    branch %t1, ^loop_preheader_1, ^for_end_25
+
+  block ^loop_preheader_1:
+    %t2 = binary and i32 %extent, -8
+    %t3 = cmp gt i32 %t2, 0
+    branch %t3, ^loop_preheader_2, ^wide_tail_21
+
+  block ^loop_preheader_2:
+    %t4 = index u8 %board, %at
+    jump ^unrolled_3
+
+  block ^unrolled_3:
+    %t5 = phi i64 [^unrolled_19: %t39, ^loop_preheader_2: 0]
+    %t6 = index inbounds u8 [projection=array_element] %shape, %t5
+    %t7 = load typed u8 %t6
+    branch %t7, ^unrolled_4, ^unrolled_5
+
+  block ^unrolled_4:
+    %t8 = index u8 [projection=array_element] %t4, %t5
+    store typed u8 1, %t8
+    jump ^unrolled_5
+
+  block ^unrolled_5:
+    %t9 = index inbounds u8 [projection=array_element] %shape, %t5
+    %t10 = index inbounds u8 [projection=array_element] %t9, 1
+    %t11 = load typed u8 %t10
+    branch %t11, ^unrolled_6, ^unrolled_7
+
+  block ^unrolled_6:
+    %t12 = index u8 [projection=array_element] %t4, %t5
+    %t13 = index u8 [projection=array_element] %t12, 1
+    store typed u8 1, %t13
+    jump ^unrolled_7
+
+  block ^unrolled_7:
+    %t14 = index inbounds u8 [projection=array_element] %shape, %t5
+    %t15 = index inbounds u8 [projection=array_element] %t14, 2
+    %t16 = load typed u8 %t15
+    branch %t16, ^unrolled_8, ^unrolled_9
+
+  block ^unrolled_8:
+    %t17 = index u8 [projection=array_element] %t4, %t5
+    %t18 = index u8 [projection=array_element] %t17, 2
+    store typed u8 1, %t18
+    jump ^unrolled_9
+
+  block ^unrolled_9:
+    %t19 = index inbounds u8 [projection=array_element] %t14, 3
+    %t20 = load typed u8 %t19
+    branch %t20, ^unrolled_10, ^unrolled_11
+
+  block ^unrolled_10:
+    %t21 = index u8 [projection=array_element] %t4, %t5
+    %t22 = index u8 [projection=array_element] %t21, 3
+    store typed u8 1, %t22
+    jump ^unrolled_11
+
+  block ^unrolled_11:
+    %t23 = index inbounds u8 [projection=array_element] %t14, 4
+    %t24 = load typed u8 %t23
+    branch %t24, ^unrolled_12, ^unrolled_13
+
+  block ^unrolled_12:
+    %t25 = index u8 [projection=array_element] %t4, %t5
+    %t26 = index u8 [projection=array_element] %t25, 4
+    store typed u8 1, %t26
+    jump ^unrolled_13
+
+  block ^unrolled_13:
+    %t27 = index inbounds u8 [projection=array_element] %t14, 5
+    %t28 = load typed u8 %t27
+    branch %t28, ^unrolled_14, ^unrolled_15
+
+  block ^unrolled_14:
+    %t29 = index u8 [projection=array_element] %t4, %t5
+    %t30 = index u8 [projection=array_element] %t29, 5
+    store typed u8 1, %t30
+    jump ^unrolled_15
+
+  block ^unrolled_15:
+    %t31 = index inbounds u8 [projection=array_element] %t14, 6
+    %t32 = load typed u8 %t31
+    branch %t32, ^unrolled_16, ^unrolled_17
+
+  block ^unrolled_16:
+    %t33 = index u8 [projection=array_element] %t4, %t5
+    %t34 = index u8 [projection=array_element] %t33, 6
+    store typed u8 1, %t34
+    jump ^unrolled_17
+
+  block ^unrolled_17:
+    %t35 = index inbounds u8 [projection=array_element] %t14, 7
+    %t36 = load typed u8 %t35
+    branch %t36, ^unrolled_18, ^unrolled_19
+
+  block ^unrolled_18:
+    %t37 = index u8 [projection=array_element] %t4, %t5
+    %t38 = index u8 [projection=array_element] %t37, 7
+    store typed u8 1, %t38
+    jump ^unrolled_19
+
+  block ^unrolled_19:
+    %t39 = binary add nowrap i64 %t5, 8
+    %t40 = convert trunc exact i32 i64 %t39
+    %t41 = cmp ne i32 %t2, %t40
+    branch %t41, ^unrolled_3, ^loop_exit_20
+
+  block ^loop_exit_20:
+    %t42 = cmp le i32 %t40, %extent
+    branch %t42, ^wide_tail_21, ^for_end_25
+
+  block ^wide_tail_21:
+    %t43 = phi i32 [^loop_preheader_1: 0, ^loop_exit_20: %t40]
+    %t44 = convert sext i64 i32 %t43
+    %t45 = index u8 %board, %at
+    jump ^for_body_22
+
+  block ^for_body_22:
+    %t46 = phi i64 [^if_end_24: %t50, ^wide_tail_21: %t44]
+    %t47 = index inbounds u8 [projection=array_element] %shape, %t46
+    %t48 = load typed u8 %t47
+    branch %t48, ^if_then_23, ^if_end_24
+
+  block ^if_then_23:
+    %t49 = index u8 [projection=array_element] %t45, %t46
+    store typed u8 1, %t49
+    jump ^if_end_24
+
+  block ^if_end_24:
+    %t50 = binary add nowrap i64 %t46, 1
+    %t51 = convert trunc exact i32 i64 %t50
+    %t52 = cmp le i32 %t51, %extent
+    branch %t52, ^for_body_22, ^for_end_25
+
+  block ^for_end_25:
+    return void
+}
+function @main() -> i32 [role=entry, binding=strong, keep_alias=yes] {
+  block ^entry:
+    %t1 = addr @__local_static__main__decl1__shape
+    jump ^unrolled_1
+
+  block ^unrolled_1:
+    %t2 = phi i64 [^unrolled_1: %t23, ^entry: 0]
+    %t3 = convert trunc exact i32 i64 %t2
+    %t4 = binary mod i32 %t3, 3
+    %t5 = cmp ne i32 %t4, 1
+    %t6 = convert trunc u8 i64 %t5
+    %t7 = index inbounds u8 [projection=array_element] %t1, %t2
+    store typed u8 %t6, %t7
+    %t8 = binary add nowrap i32 %t3, 1
+    %t9 = binary mod i32 %t8, 3
+    %t10 = cmp ne i32 %t9, 1
+    %t11 = convert trunc u8 i64 %t10
+    %t12 = index inbounds u8 [projection=array_element] %t7, 1
+    store typed u8 %t11, %t12
+    %t13 = binary add nowrap i32 %t3, 2
+    %t14 = binary mod i32 %t13, 3
+    %t15 = cmp ne i32 %t14, 1
+    %t16 = convert trunc u8 i64 %t15
+    %t17 = index inbounds u8 [projection=array_element] %t7, 2
+    store typed u8 %t16, %t17
+    %t18 = binary add nowrap i32 %t3, 3
+    %t19 = binary mod i32 %t18, 3
+    %t20 = cmp ne i32 %t19, 1
+    %t21 = convert trunc u8 i64 %t20
+    %t22 = index inbounds u8 [projection=array_element] %t7, 3
+    store typed u8 %t21, %t22
+    %t23 = binary add nowrap i64 %t2, 4
+    %t24 = convert trunc exact i32 i64 %t23
+    %t25 = cmp ne i32 %t24, 64
+    branch %t25, ^unrolled_1, ^loop_exit_2
+
+  block ^loop_exit_2:
+    %t26 = addr @__local_static__main__decl0__board
+    %t27 = call u8 @fits(%t1, %t26, 20, 5)
+    %t28 = cmp eq u8 %t27, 0
+    branch %t28, ^if_then_3, ^if_end_4
+
+  block ^if_then_3:
+    return i32 1
+
+  block ^if_end_4:
+    call void @place(%t1, %t26, 20, 5)
+    %t29 = call u8 @fits(%t1, %t26, 20, 5)
+    branch %t29, ^if_then_7, ^lor_rhs_5
+
+  block ^lor_rhs_5:
+    %t30 = call u8 @fits(%t1, %t26, 0, 5)
+    branch %t30, ^if_then_7, ^lor_rhs_6
+
+  block ^lor_rhs_6:
+    %t31 = call u8 @fits(%t1, %t26, 0, 6)
+    %t32 = cmp eq u8 %t31, 0
+    branch %t32, ^if_then_7, ^loop_preheader_8
+
+  block ^if_then_7:
+    return i32 2
+
+  block ^loop_preheader_8:
+    %t33 = vector pzero
+    %t34 = load i32 %t26
+    %t35 = vector fromi32 %t34
+    %t36 = vector punpcklbw %t35, %t33
+    %t37 = vector punpcklwd %t36, %t33
+    %t38 = vector paddd %t33, %t37
+    %t39 = index inbounds u8 [projection=array_element] %t26, 4
+    %t40 = load i32 %t39
+    %t41 = vector fromi32 %t40
+    %t42 = vector punpcklbw %t41, %t33
+    %t43 = vector punpcklwd %t42, %t33
+    %t44 = vector paddd %t38, %t43
+    %t45 = index inbounds u8 [projection=array_element] %t26, 8
+    %t46 = load i32 %t45
+    %t47 = vector fromi32 %t46
+    %t48 = vector punpcklbw %t47, %t33
+    %t49 = vector punpcklwd %t48, %t33
+    %t50 = vector paddd %t44, %t49
+    %t51 = index inbounds u8 [projection=array_element] %t26, 12
+    %t52 = load i32 %t51
+    %t53 = vector fromi32 %t52
+    %t54 = vector punpcklbw %t53, %t33
+    %t55 = vector punpcklwd %t54, %t33
+    %t56 = vector paddd %t50, %t55
+    %t57 = index inbounds u8 [projection=array_element] %t26, 16
+    %t58 = load i32 %t57
+    %t59 = vector fromi32 %t58
+    %t60 = vector punpcklbw %t59, %t33
+    %t61 = vector punpcklwd %t60, %t33
+    %t62 = vector paddd %t56, %t61
+    %t63 = index inbounds u8 [projection=array_element] %t26, 20
+    %t64 = load i32 %t63
+    %t65 = vector fromi32 %t64
+    %t66 = vector punpcklbw %t65, %t33
+    %t67 = vector punpcklwd %t66, %t33
+    %t68 = vector paddd %t62, %t67
+    %t69 = index inbounds u8 [projection=array_element] %t26, 24
+    %t70 = load i32 %t69
+    %t71 = vector fromi32 %t70
+    %t72 = vector punpcklbw %t71, %t33
+    %t73 = vector punpcklwd %t72, %t33
+    %t74 = vector paddd %t68, %t73
+    %t75 = index inbounds u8 [projection=array_element] %t26, 28
+    %t76 = load i32 %t75
+    %t77 = vector fromi32 %t76
+    %t78 = vector punpcklbw %t77, %t33
+    %t79 = vector punpcklwd %t78, %t33
+    %t80 = vector paddd %t74, %t79
+    %t81 = index inbounds u8 [projection=array_element] %t26, 32
+    %t82 = load i32 %t81
+    %t83 = vector fromi32 %t82
+    %t84 = vector punpcklbw %t83, %t33
+    %t85 = vector punpcklwd %t84, %t33
+    %t86 = vector paddd %t80, %t85
+    %t87 = index inbounds u8 [projection=array_element] %t26, 36
+    %t88 = load i32 %t87
+    %t89 = vector fromi32 %t88
+    %t90 = vector punpcklbw %t89, %t33
+    %t91 = vector punpcklwd %t90, %t33
+    %t92 = vector paddd %t86, %t91
+    %t93 = index inbounds u8 [projection=array_element] %t26, 40
+    %t94 = load i32 %t93
+    %t95 = vector fromi32 %t94
+    %t96 = vector punpcklbw %t95, %t33
+    %t97 = vector punpcklwd %t96, %t33
+    %t98 = vector paddd %t92, %t97
+    %t99 = index inbounds u8 [projection=array_element] %t26, 44
+    %t100 = load i32 %t99
+    %t101 = vector fromi32 %t100
+    %t102 = vector punpcklbw %t101, %t33
+    %t103 = vector punpcklwd %t102, %t33
+    %t104 = vector paddd %t98, %t103
+    %t105 = index inbounds u8 [projection=array_element] %t26, 48
+    %t106 = load i32 %t105
+    %t107 = vector fromi32 %t106
+    %t108 = vector punpcklbw %t107, %t33
+    %t109 = vector punpcklwd %t108, %t33
+    %t110 = vector paddd %t104, %t109
+    %t111 = index inbounds u8 [projection=array_element] %t26, 52
+    %t112 = load i32 %t111
+    %t113 = vector fromi32 %t112
+    %t114 = vector punpcklbw %t113, %t33
+    %t115 = vector punpcklwd %t114, %t33
+    %t116 = vector paddd %t110, %t115
+    %t117 = index inbounds u8 [projection=array_element] %t26, 56
+    %t118 = load i32 %t117
+    %t119 = vector fromi32 %t118
+    %t120 = vector punpcklbw %t119, %t33
+    %t121 = vector punpcklwd %t120, %t33
+    %t122 = vector paddd %t116, %t121
+    %t123 = index inbounds u8 [projection=array_element] %t26, 60
+    %t124 = load i32 %t123
+    %t125 = vector fromi32 %t124
+    %t126 = vector punpcklbw %t125, %t33
+    %t127 = vector punpcklwd %t126, %t33
+    %t128 = vector paddd %t122, %t127
+    %t129 = vector pshufd %t128, 78
+    %t130 = vector paddd %t128, %t129
+    %t131 = vector pshufd %t130, 177
+    %t132 = vector paddd %t130, %t131
+    %t133 = vector toi32 %t132
+    %t134 = cmp eq i32 %t133, 14
+    %t135 = select i32 %t134, 0, 3
+    return i32 %t135
+}

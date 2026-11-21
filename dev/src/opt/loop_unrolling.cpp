@@ -154,7 +154,7 @@ bool ShortLoopUnrolling::chain(uint32_t loop, Shape& s) const
 	s.bottom = s.header == s.latch || last(s.header).op != Opcode::Branch;
 	// A guarded body executes only along one edge. Its other edge rejoins
 	// the latch directly, so each copy must keep its own branch.
-	if (!s.bottom && l.blocks.size() == 3 && target_model::is_aarch64(c_.program.target))
+	if (!s.bottom && l.blocks.size() == 3 && !target_model::is_wasm(c_.program.target))
 	{
 		const auto& test = last(s.header);
 		for (unsigned side = 1; side <= 2; ++side)
@@ -959,7 +959,7 @@ void ShortLoopUnrolling::join_exit(const Shape& s, BlockId left)
 bool ShortLoopUnrolling::search_shape(uint32_t at, Search& s) const
 {
 	const auto& loop = forest_.loops[at];
-	if (!target_model::is_aarch64(c_.program.target) || loop.blocks.size() != 3 || loop.latches.size() != 1 ||
+	if (target_model::is_wasm(c_.program.target) || loop.blocks.size() != 3 || loop.latches.size() != 1 ||
 		!body_.code_labels.empty())
 		return false;
 	const auto h = loop.header, latch = loop.latches[0];
