@@ -27,6 +27,7 @@ void Function::reference(Op op, Fixup fixup, uint32_t target, unsigned rd, unsig
 void Function::bind(uint32_t label)
 {
 	labels.at(label) = code.size();
+	last_bound = code.size();
 }
 
 void remove_instructions(Function& f, const std::vector<uint32_t>& removed)

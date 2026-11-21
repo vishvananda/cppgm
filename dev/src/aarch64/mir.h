@@ -78,6 +78,7 @@ struct Function
 	void frame_rule(FrameRule rule, unsigned reg = 0, unsigned offset = 0);
 	std::vector<Instruction> code;
 	std::vector<uint32_t> labels;
+	uint32_t last_bound = ~0u; // the code size at the latest bind
 	void emit(Op op, unsigned rd = 0, unsigned rn = 0, unsigned rm = 0, uint32_t field = 0);
 	void reference(Op op, Fixup fixup, uint32_t target, unsigned rd = 0, unsigned rn = 0);
 	void bind(uint32_t label);
