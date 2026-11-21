@@ -9,8 +9,8 @@
 // c, where the accumulator is not carried (affine_into); affine_words'
 // carried sum keeps the multiply and both adds, so that its chain adds only.
 extern "C" {
-int scaled_sum(const int* a, int k) {
-    int s = 0;
+unsigned scaled_sum(const unsigned* a, unsigned k) {
+    unsigned s = 0;
     for (int i = 0; i < 1024; ++i)
         s += a[i] * k;
     return s;
@@ -18,16 +18,16 @@ int scaled_sum(const int* a, int k) {
 unsigned short scaled_halves(const unsigned short* a, unsigned short k) {
     unsigned short s = 0;
     for (int i = 0; i < 1024; ++i)
-        s += a[i] * k;
+        s += static_cast<unsigned>(a[i]) * k;
     return s;
 }
-int scaled_difference(const int* a, int k) {
-    int s = 0;
+unsigned scaled_difference(const unsigned* a, unsigned k) {
+    unsigned s = 0;
     for (int i = 0; i < 1024; ++i)
         s -= a[i] * k;
     return s;
 }
-void affine_into(int* __restrict y, const int* a, const int* b, int k, int c) {
+void affine_into(unsigned* __restrict y, const unsigned* a, const unsigned* b, unsigned k, unsigned c) {
     for (int i = 0; i < 1024; ++i)
         y[i] = b[i] + (a[i] * k + c);
 }

@@ -23,7 +23,7 @@
         "instructions": 20
       },
       "affine_into": {
-        "instructions": 51
+        "instructions": 52
       },
       "affine_words": {
         "instructions": 30
