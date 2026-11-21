@@ -160,6 +160,14 @@ TailCopies duplicate_short_tails(Function& f)
 		if (!dispatch && (target >= b || !rotatable(f, target)))
 			continue;
 		const Block tail = f.blocks[target];
+		// A latch takes no copy of a guard, a test whose branch is hinted to
+		// one side: the copy closes the loop with a taken branch as the jump
+		// did, and when the latch decides the loop's exit (a conditional
+		// branch before its jump, or in the block whose edge it is) it keeps
+		// the exit from running into the block below.
+		const uint32_t hint = dispatch ? 0 : f.insts[tail.first + tail.count - 2].aux;
+		if (hint != 0 && hint != 500 && hint < 1000)
+			continue;
 		// (A jump alone that the test's own block repeats through: threaded
 		// away, that block closes its loop itself, and the copy would be the
 		// loop a second time.)

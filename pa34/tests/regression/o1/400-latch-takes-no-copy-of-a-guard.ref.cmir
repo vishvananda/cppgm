@@ -1,0 +1,108 @@
+machine_ir x86_64 <host-target>
+
+startup
+    call @main [args=()]
+    mov rdi, rax
+    exit
+
+global @values
+  storage data
+  item i64 3
+  item i64 1
+  item i64 4
+  item i64 1
+  item i64 5
+  item i64 9
+  item i64 2
+  item i64 6
+
+global @size
+  storage scalar i64
+  init i64 8
+
+global @last
+  storage scalar i64
+  init i64 0
+
+function @record
+  abi
+    param %v -> rdi : i64
+    return i64 -> rax
+  frame
+    stack_size N
+    scratch_bytes 0
+    frame_pointer keep
+    epilogues duplicated
+
+  block ^entry
+    lea rax, [rdi+rdi*2]
+    ret rax
+
+function @total
+  abi
+    param %n -> rdi : i64
+    return i64 -> rax
+  frame
+    stack_size N
+    scratch_bytes 0
+    frame_pointer keep
+    epilogues duplicated
+    preserve <gpr0> <gpr1> <gpr2>
+
+  block ^entry
+    mov <gpr2>, rdi
+    cmp.i64 <gpr2>, 0
+    jle ^empty
+
+  block ^entry~check
+    mov <gpr0>, 0
+    mov <gpr1>, 0
+
+  block ^check
+    cmp.i64 <gpr0>, @size
+    jae ^crash
+
+  block ^body
+    lea rax, [<gpr0>*8]
+    mov <gpr3>, @values
+    add rax, <gpr3>
+    load.i64 rdi, [rax]
+    call @record [args=(rdi)]
+    add <gpr1>, rax
+
+  block ^step
+    add <gpr0>, 1
+    cmp.i64 <gpr0>, <gpr2>
+    jl ^check
+
+  block ^done
+    store.i64 @last, <gpr1>
+    ret <gpr1>
+
+  block ^crash
+    call @abort [args=(), unwind=no, returns=noreturn]
+    trap
+
+  block ^empty
+    mov rax, 0
+    ret rax
+
+function @main
+  abi
+    return i32 -> rax
+  frame
+    stack_size N
+    scratch_bytes 0
+    frame_pointer keep
+    epilogues duplicated
+    preserve <gpr0>
+
+  block ^entry
+    mov rdi, 8
+    call @total [args=(rdi)]
+    zext.i32 <gpr0>, rax
+    mov rdi, 3
+    call @total [args=(rdi)]
+    add.u32 rax, <gpr0>
+    add.u32 rax, @last
+    ret rax

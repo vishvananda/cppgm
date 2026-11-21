@@ -1,0 +1,108 @@
+machine_ir x86_64 linux
+
+startup
+    call @main [args=()]
+    mov rdi, rax
+    exit
+
+global @values
+  storage data
+  item i64 3
+  item i64 1
+  item i64 4
+  item i64 1
+  item i64 5
+  item i64 9
+  item i64 2
+  item i64 6
+
+global @size
+  storage scalar i64
+  init i64 8
+
+global @last
+  storage scalar i64
+  init i64 0
+
+function @record
+  abi
+    param %v -> rdi : i64
+    return i64 -> rax
+  frame
+    stack_size 0
+    scratch_bytes 0
+    frame_pointer keep
+    epilogues duplicated
+
+  block ^entry
+    lea rax, [rdi+rdi*2]
+    ret rax
+
+function @total
+  abi
+    param %n -> rdi : i64
+    return i64 -> rax
+  frame
+    stack_size 32
+    scratch_bytes 0
+    frame_pointer keep
+    epilogues duplicated
+    preserve rbx r14 r15
+
+  block ^entry
+    mov r15, rdi
+    cmp.i64 r15, 0
+    jle ^empty
+
+  block ^entry~check
+    mov rbx, 0
+    mov r14, 0
+
+  block ^check
+    cmp.i64 rbx, @size
+    jae ^crash
+
+  block ^body
+    lea rax, [rbx*8]
+    mov r10, @values
+    add rax, r10
+    load.i64 rdi, [rax]
+    call @record [args=(rdi)]
+    add r14, rax
+
+  block ^step
+    add rbx, 1
+    cmp.i64 rbx, r15
+    jl ^check
+
+  block ^done
+    store.i64 @last, r14
+    ret r14
+
+  block ^crash
+    call @abort [args=(), unwind=no, returns=noreturn]
+    trap
+
+  block ^empty
+    mov rax, 0
+    ret rax
+
+function @main
+  abi
+    return i32 -> rax
+  frame
+    stack_size 16
+    scratch_bytes 0
+    frame_pointer keep
+    epilogues duplicated
+    preserve rbx
+
+  block ^entry
+    mov rdi, 8
+    call @total [args=(rdi)]
+    zext.i32 rbx, rax
+    mov rdi, 3
+    call @total [args=(rdi)]
+    add.u32 rax, rbx
+    add.u32 rax, @last
+    ret rax
