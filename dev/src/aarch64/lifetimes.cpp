@@ -298,8 +298,9 @@ void lane_reads(const FunctionBody& body, std::vector<uint32_t>& reads, std::vec
 }
 } // namespace
 
-// A copy or conversion that preserves all bits can share its source's
-// canonical register value or eight-byte spill. Account for every later use
+// A copy or conversion that preserves all bits, or a truncation whose
+// readers take only its low bits, can share its source's canonical
+// register value or eight-byte spill. Account for every later use
 // before allocating registers, including outgoing arguments and phi edges.
 // A floating value made a vector that only lane bounds read is that value in
 // a SIMD register's low lane: it shares the value's register and spill, and
@@ -307,6 +308,7 @@ void lane_reads(const FunctionBody& body, std::vector<uint32_t>& reads, std::vec
 std::vector<uint32_t> scalar_aliases(const FunctionBody& body)
 {
 	std::vector<uint32_t> parent, reads, bounds;
+	std::vector<uint8_t> loose;
 	for (TempId id = body.parameter_count; id < body.temps.size(); ++id)
 	{
 		const InstId def = body.temps[id].def;
@@ -346,8 +348,19 @@ std::vector<uint32_t> scalar_aliases(const FunctionBody& body)
 			const auto bits = integer_bits(inst.type.kind());
 			unsigned budget = 16;
 			if (!bits || bits >= 64 || !from.is_integer() || integer_bits(from.kind()) > 64 ||
-				from != convert_source_type(inst) || !fits_unsigned(body, inst.ops[0], bits, budget))
+				from != convert_source_type(inst))
 				continue;
+			// Otherwise a truncation whose readers take only its low bits
+			// (a loose value) holds its source's bits as they are.
+			if (!fits_unsigned(body, inst.ops[0], bits, budget))
+			{
+				if (src >= id)
+					continue;
+				if (loose.empty())
+					loose = loose_values(body, {}, true);
+				if (!loose[id])
+					continue;
+			}
 		}
 		else if (inst.sub != static_cast<unsigned>(ConvertOp::ZExt) || from != convert_source_type(inst) ||
 			!from.is_integer() || !inst.type.is_integer() || integer_bits(inst.type.kind()) > 64 ||
