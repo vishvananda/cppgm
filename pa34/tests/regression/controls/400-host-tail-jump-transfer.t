@@ -57,8 +57,43 @@ function @local_storage(%first : i64, %second : i64) -> void
     return void
 }
 
+function @wide_record(%a : i64, %b : i64, %c : i64, %d : i64, %e : i64, %f : i64, %g : i64, %h : i64) -> void
+    [binding=internal, no_inline=yes, unwind=no] {
+  block ^entry:
+    %sum = binary add i64 %g, %h
+    store i64 %sum, @seen
+    return void
+}
+
+# One path passes stack arguments (%first and %second are the seventh and
+# eighth); the call the other path returns from at once is still a tail
+# jump: those arguments end when @wide_record returns.
+function @beside_stack_arguments(%first : i64, %second : i64) -> void
+    [binding=internal, no_inline=yes, unwind=no] {
+  block ^entry:
+    %wide = cmp eq i64 %first, 0
+    branch %wide, ^wide, ^narrow
+
+  block ^wide:
+    call void @wide_record(1, 2, 3, 4, 5, 6, %first, %second)
+    store i64 %second, @written
+    return void
+
+  block ^narrow:
+    call void @record(%first, %second)
+    return void
+}
+
 function @main() -> i32 [role=entry, unwind=no] {
   block ^entry:
+    call void @beside_stack_arguments(0, 9)
+    %wide_seen = load i64 @seen
+    %wide_written = load i64 @written
+    %wide_seen_bad = cmp ne i64 %wide_seen, 9
+    %wide_written_bad = cmp ne i64 %wide_written, 9
+    call void @beside_stack_arguments(4, 5)
+    %narrow_seen = load i64 @seen
+    %narrow_seen_bad = cmp ne i64 %narrow_seen, 4
     call void @changed_argument(20, 23)
     call void @local_storage(31, 37)
     call void @tail_transfer(0, 13)
@@ -70,6 +105,9 @@ function @main() -> i32 [role=entry, unwind=no] {
     %fast_result = load i64 @written
     %fast_bad = cmp ne i64 %fast_result, 18
     %bad0 = binary or i32 %slow_first_bad, %slow_second_bad
-    %bad = binary or i32 %bad0, %fast_bad
+    %bad1 = binary or i32 %bad0, %fast_bad
+    %bad2 = binary or i32 %wide_seen_bad, %wide_written_bad
+    %bad3 = binary or i32 %bad2, %narrow_seen_bad
+    %bad = binary or i32 %bad1, %bad3
     return i32 %bad
 }

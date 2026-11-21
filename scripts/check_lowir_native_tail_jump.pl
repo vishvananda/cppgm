@@ -162,6 +162,13 @@ for my $test (@tests)
 				if scalar(@changed_jumps) != 1 ||
 				   $changed_jumps[0] ne 'record' ||
 				   branch_targets($changed, 'call');
+			# Another path's stack arguments keep no call from the jump.
+			my $beside = object_function($test, $code, 'beside_stack_arguments');
+			my @beside_jumps = branch_targets($beside, 'jmp');
+			my @beside_calls = branch_targets($beside, 'call');
+			die "$test: host $level kept the call beside stack arguments\n"
+				if scalar(@beside_jumps) != 1 || $beside_jumps[0] ne 'record' ||
+				   scalar(@beside_calls) != 1 || $beside_calls[0] ne 'wide_record';
 		}
 		# The callee receives the address of the caller's slot, so the
 		# frame must outlive the call: an ordinary call at every level.
