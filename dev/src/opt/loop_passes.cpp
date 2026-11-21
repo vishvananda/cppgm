@@ -2392,7 +2392,7 @@ bool LoopPass::unroll(bool vector_loops_only)
 	c_.ensure_cfg();
 	find_loops(body_, cfg_, forest_);
 	c_.entry_block_of(vector_loops_only ? unroll_vector_loops : unroll_loops);
-	const bool defer_array_unroll = !vector_loops_only && c_.level >= 3 && target_model::is_aarch64(c_.program.target);
+	const bool defer_array_unroll = !vector_loops_only && c_.level >= 3 && unrolls_vector_loops(c_.program);
 	bool any = false;
 	// A loop around this run's copies waits for the next run: the copies
 	// fold first (optimizer.cpp, kUnrollNest).

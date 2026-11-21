@@ -433,6 +433,13 @@ bool specialize_phi_compares(FunctionContext& context);
 bool unroll_loops(FunctionContext& context);
 // Expand short loops that already operate on packed values.
 bool unroll_vector_loops(FunctionContext& context);
+// Whether the -O3 pipeline runs unroll_vector_loops after the vectorizer
+// (Wasm keeps vector loops rolled), so that a short floating array loop can
+// wait for the vectorizer instead of being unrolled first.
+inline bool unrolls_vector_loops(const lowir::Program& program)
+{
+	return !target_model::is_wasm(program.target);
+}
 
 // Promotes scalar slots accessed only by direct nonvolatile loads and
 // stores of their type to SSA values: phis at iterated dominance

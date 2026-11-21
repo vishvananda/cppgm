@@ -1,0 +1,320 @@
+function @pixels(%c : ptr [pass=by_address, object_bytes=128], %rounds : i32) -> i32 [binding=strong, object=_Z6pixelsRK5Pointi, no_inline=yes] {
+  slot $z : obj<128x8>
+  slot $abs2 : obj<64x8>
+
+  block ^entry:
+    %t1 = addr $z
+    copyobj 128x8 %c, %t1
+    %t2 = addr $abs2
+    %t3 = cmp gt i32 %rounds, 0
+    branch %t3, ^loop_preheader_1, ^split_18
+
+  block ^loop_preheader_1:
+    %t4 = index i8 %t1, 128
+    %t5 = index i8 %c, 128
+    %t6 = cmp ule ptr %t4, %c
+    %t7 = cmp ule ptr %t5, %t1
+    %t8 = binary or i64 %t6, %t7
+    %t9 = index i8 %t2, 64
+    %t10 = cmp ule ptr %t5, %t2
+    %t11 = cmp ule ptr %t9, %c
+    %t12 = binary or i64 %t10, %t11
+    %t13 = binary and i64 %t8, %t12
+    %t14 = index i8 [projection=field] %t1, 64
+    %t15 = index i8 [projection=field] %c, 64
+    %t16 = copy f64 4
+    jump ^loop_preheader_2
+
+  block ^loop_preheader_2:
+    %t17 = phi i32 [^if_end_17: %t128, ^loop_preheader_1: 0]
+    jump ^loop_preheader_3
+
+  block ^loop_preheader_3:
+    %t18 = phi i32 [^for_end_7: %t103, ^loop_preheader_2: 0]
+    branch %t13, ^unrolled_4, ^loop_preheader_5
+
+  block ^unrolled_4:
+    %t19 = load v128 %t1
+    %t20 = vector mulpd %t19, %t19
+    %t21 = load v128 %t14
+    %t22 = vector mulpd %t21, %t21
+    %t23 = vector mulpd %t19, %t21
+    %t24 = vector subpd %t20, %t22
+    %t25 = load v128 %c
+    %t26 = vector addpd %t24, %t25
+    store v128 %t26, %t1
+    %t27 = vector addpd %t23, %t23
+    %t28 = load v128 %t15
+    %t29 = vector addpd %t27, %t28
+    store v128 %t29, %t14
+    %t30 = vector addpd %t20, %t22
+    store v128 %t30, %t2
+    %t31 = index inbounds f64 [projection=array_element] %t1, 2
+    %t32 = load v128 %t31
+    %t33 = vector mulpd %t32, %t32
+    %t34 = index i8 [projection=array_element] %t1, 80
+    %t35 = load v128 %t34
+    %t36 = vector mulpd %t35, %t35
+    %t37 = vector mulpd %t32, %t35
+    %t38 = vector subpd %t33, %t36
+    %t39 = index inbounds f64 [projection=array_element] %c, 2
+    %t40 = load v128 %t39
+    %t41 = vector addpd %t38, %t40
+    store v128 %t41, %t31
+    %t42 = vector addpd %t37, %t37
+    %t43 = index i8 [projection=array_element] %c, 80
+    %t44 = load v128 %t43
+    %t45 = vector addpd %t42, %t44
+    store v128 %t45, %t34
+    %t46 = vector addpd %t33, %t36
+    %t47 = index inbounds f64 [projection=array_element] %t2, 2
+    store v128 %t46, %t47
+    %t48 = index inbounds f64 [projection=array_element] %t1, 4
+    %t49 = load v128 %t48
+    %t50 = vector mulpd %t49, %t49
+    %t51 = index i8 [projection=array_element] %t1, 96
+    %t52 = load v128 %t51
+    %t53 = vector mulpd %t52, %t52
+    %t54 = vector mulpd %t49, %t52
+    %t55 = vector subpd %t50, %t53
+    %t56 = index inbounds f64 [projection=array_element] %c, 4
+    %t57 = load v128 %t56
+    %t58 = vector addpd %t55, %t57
+    store v128 %t58, %t48
+    %t59 = vector addpd %t54, %t54
+    %t60 = index i8 [projection=array_element] %c, 96
+    %t61 = load v128 %t60
+    %t62 = vector addpd %t59, %t61
+    store v128 %t62, %t51
+    %t63 = vector addpd %t50, %t53
+    %t64 = index inbounds f64 [projection=array_element] %t2, 4
+    store v128 %t63, %t64
+    %t65 = index inbounds f64 [projection=array_element] %t1, 6
+    %t66 = load v128 %t65
+    %t67 = vector mulpd %t66, %t66
+    %t68 = index i8 [projection=array_element] %t1, 112
+    %t69 = load v128 %t68
+    %t70 = vector mulpd %t69, %t69
+    %t71 = vector mulpd %t66, %t69
+    %t72 = vector subpd %t67, %t70
+    %t73 = index inbounds f64 [projection=array_element] %c, 6
+    %t74 = load v128 %t73
+    %t75 = vector addpd %t72, %t74
+    store v128 %t75, %t65
+    %t76 = vector addpd %t71, %t71
+    %t77 = index i8 [projection=array_element] %c, 112
+    %t78 = load v128 %t77
+    %t79 = vector addpd %t76, %t78
+    store v128 %t79, %t68
+    %t80 = vector addpd %t67, %t70
+    %t81 = index inbounds f64 [projection=array_element] %t2, 6
+    store v128 %t80, %t81
+    jump ^for_end_7
+
+  block ^loop_preheader_5:
+    jump ^for_body_6
+
+  block ^for_body_6:
+    %t82 = phi i64 [^for_body_6: %t100, ^loop_preheader_5: 0]
+    %t83 = index inbounds f64 [projection=array_element] %t1, %t82
+    %t84 = load typed f64 %t83
+    %t85 = binary mul f64 %t84, %t84
+    %t86 = index inbounds f64 [projection=array_element] %t14, %t82
+    %t87 = load typed f64 %t86
+    %t88 = binary mul f64 %t87, %t87
+    %t89 = binary mul f64 %t84, %t87
+    %t90 = binary sub f64 %t85, %t88
+    %t91 = index inbounds f64 [projection=array_element] %c, %t82
+    %t92 = load typed f64 %t91
+    %t93 = binary add f64 %t90, %t92
+    store typed f64 %t93, %t83
+    %t94 = binary add f64 %t89, %t89
+    %t95 = index inbounds f64 [projection=array_element] %t15, %t82
+    %t96 = load typed f64 %t95
+    %t97 = binary add f64 %t94, %t96
+    store typed f64 %t97, %t86
+    %t98 = binary add f64 %t85, %t88
+    %t99 = index inbounds f64 [projection=array_element] %t2, %t82
+    store typed f64 %t98, %t99
+    %t100 = binary add nowrap i64 %t82, 1
+    %t101 = convert trunc exact i32 i64 %t100
+    %t102 = cmp lt i32 %t101, 8
+    branch %t102, ^for_body_6, ^for_end_7
+
+  block ^for_end_7:
+    %t103 = binary add nowrap i32 %t18, 1
+    %t104 = cmp lt i32 %t103, 5
+    branch %t104, ^loop_preheader_3, ^for_cond_8
+
+  block ^for_cond_8:
+    %t105 = load typed f64 %t2
+    %t106 = cmp gt f64 %t105, %t16
+    branch %t106, ^land_rhs_9, ^if_end_17
+
+  block ^land_rhs_9:
+    %t107 = index inbounds f64 [projection=array_element] %t2, 1
+    %t108 = load typed f64 %t107
+    %t109 = cmp gt f64 %t108, %t16
+    branch %t109, ^land_rhs_10, ^if_end_17
+
+  block ^land_rhs_10:
+    %t110 = index inbounds f64 [projection=array_element] %t2, 2
+    %t111 = load typed f64 %t110
+    %t112 = cmp gt f64 %t111, %t16
+    branch %t112, ^land_rhs_11, ^if_end_17
+
+  block ^land_rhs_11:
+    %t113 = index inbounds f64 [projection=array_element] %t2, 3
+    %t114 = load typed f64 %t113
+    %t115 = cmp gt f64 %t114, %t16
+    branch %t115, ^land_rhs_12, ^if_end_17
+
+  block ^land_rhs_12:
+    %t116 = index inbounds f64 [projection=array_element] %t2, 4
+    %t117 = load typed f64 %t116
+    %t118 = cmp gt f64 %t117, %t16
+    branch %t118, ^land_rhs_13, ^if_end_17
+
+  block ^land_rhs_13:
+    %t119 = index inbounds f64 [projection=array_element] %t2, 5
+    %t120 = load typed f64 %t119
+    %t121 = cmp gt f64 %t120, %t16
+    branch %t121, ^land_rhs_14, ^if_end_17
+
+  block ^land_rhs_14:
+    %t122 = index inbounds f64 [projection=array_element] %t2, 6
+    %t123 = load typed f64 %t122
+    %t124 = cmp gt f64 %t123, %t16
+    branch %t124, ^land_rhs_15, ^if_end_17
+
+  block ^land_rhs_15:
+    %t125 = index inbounds f64 [projection=array_element] %t2, 7
+    %t126 = load typed f64 %t125
+    %t127 = cmp gt f64 %t126, %t16
+    branch %t127, ^if_then_16, ^if_end_17
+
+  block ^if_then_16:
+    return i32 0
+
+  block ^if_end_17:
+    %t128 = binary add nowrap i32 %t17, 1
+    %t129 = cmp lt i32 %t128, %rounds
+    branch %t129, ^loop_preheader_2, ^unrolled_19
+
+  block ^split_18:
+    %t130 = load typed f64 %t2
+    jump ^unrolled_19
+
+  block ^unrolled_19:
+    %t131 = phi f64 [^split_18: %t130, ^if_end_17: %t105]
+    %t132 = cmp le f64 %t131, 4
+    %t133 = convert trunc i32 i64 %t132
+    %t134 = binary mul nowrap i32 %t133, 2
+    %t135 = index inbounds f64 [projection=array_element] %t2, 1
+    %t136 = load typed f64 %t135
+    %t137 = cmp le f64 %t136, 4
+    %t138 = convert trunc i32 i64 %t137
+    %t139 = binary add nowrap i32 %t134, %t138
+    %t140 = binary mul nowrap i32 %t139, 2
+    %t141 = index inbounds f64 [projection=array_element] %t2, 2
+    %t142 = load typed f64 %t141
+    %t143 = cmp le f64 %t142, 4
+    %t144 = convert trunc i32 i64 %t143
+    %t145 = binary add nowrap i32 %t140, %t144
+    %t146 = binary mul nowrap i32 %t145, 2
+    %t147 = index inbounds f64 [projection=array_element] %t2, 3
+    %t148 = load typed f64 %t147
+    %t149 = cmp le f64 %t148, 4
+    %t150 = convert trunc i32 i64 %t149
+    %t151 = binary add nowrap i32 %t146, %t150
+    %t152 = binary mul nowrap i32 %t151, 2
+    %t153 = index inbounds f64 [projection=array_element] %t2, 4
+    %t154 = load typed f64 %t153
+    %t155 = cmp le f64 %t154, 4
+    %t156 = convert trunc i32 i64 %t155
+    %t157 = binary add nowrap i32 %t152, %t156
+    %t158 = binary mul nowrap i32 %t157, 2
+    %t159 = index inbounds f64 [projection=array_element] %t2, 5
+    %t160 = load typed f64 %t159
+    %t161 = cmp le f64 %t160, 4
+    %t162 = convert trunc i32 i64 %t161
+    %t163 = binary add nowrap i32 %t158, %t162
+    %t164 = binary mul nowrap i32 %t163, 2
+    %t165 = index inbounds f64 [projection=array_element] %t2, 6
+    %t166 = load typed f64 %t165
+    %t167 = cmp le f64 %t166, 4
+    %t168 = convert trunc i32 i64 %t167
+    %t169 = binary add nowrap i32 %t164, %t168
+    %t170 = binary mul nowrap i32 %t169, 2
+    %t171 = index inbounds f64 [projection=array_element] %t2, 7
+    %t172 = load typed f64 %t171
+    %t173 = cmp le f64 %t172, 4
+    %t174 = convert trunc i32 i64 %t173
+    %t175 = binary add nowrap i32 %t170, %t174
+    return i32 %t175
+}
+function @main() -> i32 [role=entry, binding=strong, keep_alias=yes] {
+  slot $c : obj<128x8>
+
+  block ^entry:
+    %t1 = addr $c
+    store typed f64 -0.75, %t1
+    %t2 = index inbounds i8 [projection=field] %t1, 64
+    store typed f64 0.25, %t2
+    %t3 = index inbounds f64 [projection=array_element] %t1, 1
+    store typed f64 -0.625, %t3
+    %t4 = index inbounds i8 [projection=array_element] %t1, 72
+    store typed f64 0.25, %t4
+    %t5 = index inbounds f64 [projection=array_element] %t1, 2
+    store typed f64 -0.5, %t5
+    %t6 = index inbounds i8 [projection=array_element] %t1, 80
+    store typed f64 0.25, %t6
+    %t7 = index inbounds f64 [projection=array_element] %t1, 3
+    store typed f64 -0.375, %t7
+    %t8 = index inbounds i8 [projection=array_element] %t1, 88
+    store typed f64 0.25, %t8
+    %t9 = index inbounds f64 [projection=array_element] %t1, 4
+    store typed f64 -0.25, %t9
+    %t10 = index inbounds i8 [projection=array_element] %t1, 96
+    store typed f64 0.25, %t10
+    %t11 = index inbounds f64 [projection=array_element] %t1, 5
+    store typed f64 -0.125, %t11
+    %t12 = index inbounds i8 [projection=array_element] %t1, 104
+    store typed f64 0.25, %t12
+    %t13 = index inbounds f64 [projection=array_element] %t1, 6
+    store typed f64 0, %t13
+    %t14 = index inbounds i8 [projection=array_element] %t1, 112
+    store typed f64 0.25, %t14
+    %t15 = index inbounds f64 [projection=array_element] %t1, 7
+    store typed f64 0.125, %t15
+    %t16 = index inbounds i8 [projection=array_element] %t1, 120
+    store typed f64 0.25, %t16
+    %t17 = call i32 @pixels(%t1, 4)
+    %t18 = cmp ne i32 %t17, 127
+    branch %t18, ^if_then_1, ^unrolled_2
+
+  block ^if_then_1:
+    return i32 1
+
+  block ^unrolled_2:
+    %t19 = index inbounds i8 [projection=field] %t1, 64
+    %t20 = index inbounds i8 [projection=array_element] %t1, 72
+    %t21 = index inbounds i8 [projection=array_element] %t1, 80
+    %t22 = index inbounds i8 [projection=array_element] %t1, 88
+    %t23 = index inbounds i8 [projection=array_element] %t1, 96
+    %t24 = index inbounds i8 [projection=array_element] %t1, 104
+    %t25 = index inbounds i8 [projection=array_element] %t1, 112
+    %t26 = index inbounds i8 [projection=array_element] %t1, 120
+    store typed f64 2, %t19
+    store typed f64 2, %t20
+    store typed f64 2, %t21
+    store typed f64 2, %t22
+    store typed f64 2, %t23
+    store typed f64 2, %t24
+    store typed f64 2, %t25
+    store typed f64 2, %t26
+    %t27 = call i32 @pixels(%t1, 4)
+    %t28 = cmp eq i32 %t27, 0
+    %t29 = select i32 %t28, 0, 2
+    return i32 %t29
+}
