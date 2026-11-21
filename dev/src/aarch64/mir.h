@@ -49,7 +49,7 @@ struct Instruction
 	uint32_t field;
 	Fixup fixup;
 	uint32_t target;
-	int32_t addend; // a symbol fixup's addend
+	int32_t addend; // a symbol fixup's addend; a block ADR's jump table entries
 };
 
 enum class FrameRule

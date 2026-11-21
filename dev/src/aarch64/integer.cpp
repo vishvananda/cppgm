@@ -1138,8 +1138,9 @@ void Selector::switch_edges(const lowir::Instruction& inst, BlockId from)
 	const uint64_t span = cases.empty() ? 0 : static_cast<uint64_t>(cases.back().first) - first;
 	const bool masks = !cases.empty() && span < 64 && !targets.empty() && targets.size() <= 2 &&
 		clusters.size() >= 2 * targets.size() + 1;
-	// A64 table entries are executable branch instructions. A sparse table
-	// adds an indirect branch as well as the selected entry's direct branch.
+	// A table entry is a word: its destination's distance from the table
+	// (encode). A sparse table adds an indirect branch and a load where a
+	// search takes conditional branches.
 	if (level_ && (masks || (span < 4 * cases.size() && machine::native_table(cases, clusters.size(), targets.size()))))
 	{
 		// Several entries may share the same phi transfer. Give each
@@ -1193,7 +1194,9 @@ void Selector::switch_edges(const lowir::Instruction& inst, BlockId from)
 			const auto table = static_cast<uint32_t>(out_.labels.size());
 			out_.labels.push_back(kNoId);
 			out_.reference(Op::Adr, Fixup::Block, table, 16);
-			out_.emit(Op::Add, 16, 16, index, (2u << 10) | (narrow ? (1u << 21) | (2u << 13) : 0u));
+			out_.code.back().addend = static_cast<int32_t>(span + 1);
+			out_.emit(Op::LdrSWReg, 17, 16, index, ((narrow ? 2u : 3u) << 13) | (1u << 12));
+			out_.emit(Op::Add, 16, 16, 17);
 			out_.emit(Op::Br, 0, 16);
 			out_.bind(table);
 			size_t cluster = 0;

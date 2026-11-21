@@ -873,14 +873,35 @@ void place_short_loops(const Function& function, native::object::Section& text)
 		native::object::put32(text.bytes, 0xd503201f);
 }
 
+// A jump table's entries, which the selector writes as jumps after the ADR
+// that addresses them (its addend counts them), are words: each
+// destination's byte distance from the table, which the dispatch loads and
+// adds to the table's address.
 void encode(
 	const Function& function, const std::vector<uint32_t>& symbols, native::object::Section& text, uint32_t resume)
 {
-	for (size_t i = 0; i < function.code.size(); ++i)
+	const uint32_t n = static_cast<uint32_t>(function.code.size());
+	std::vector<uint32_t> table_at;
+	for (const auto& ins : function.code)
+		if (ins.op == Op::Adr && ins.fixup == Fixup::Block)
+		{
+			if (table_at.empty())
+				table_at.assign(n, kNoLabel);
+			const uint32_t start = function.labels.at(ins.target);
+			for (uint32_t i = start; i - start < static_cast<uint32_t>(ins.addend); ++i)
+			{
+				if (i >= n || function.code[i].op != Op::B || function.code[i].fixup != Fixup::Block)
+					throw AArch64Error("AArch64 jump table entry is not a jump");
+				table_at[i] = start;
+			}
+		}
+	for (uint32_t i = 0; i < n; ++i)
 	{
 		const Instruction& ins = function.code[i];
 		uint32_t word = static_cast<uint32_t>(ins.op) | ins.rd | (ins.rn << 5) | (ins.rm << 16) | ins.field;
-		if (ins.fixup == Fixup::Block)
+		if (!table_at.empty() && table_at[i] != kNoLabel)
+			word = static_cast<uint32_t>(4 * (int64_t(function.labels.at(ins.target)) - int64_t(table_at[i])));
+		else if (ins.fixup == Fixup::Block)
 		{
 			const int64_t displacement = int64_t(function.labels.at(ins.target)) - int64_t(i);
 			// Local ADR targets are instruction-aligned. Its low two byte-offset

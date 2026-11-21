@@ -1,0 +1,30 @@
+{
+  "source": true,
+  "units": [
+    "700-switch-table-words.t.1"
+  ],
+  "llvm_interop": true,
+  "commands": [
+    {
+      "exit": 0,
+      "stdout": ""
+    }
+  ],
+  "quality": {
+    "levels": [
+      2,
+      3
+    ],
+    "functions": {
+      "pick": {
+        "jumps": 0
+      },
+      "wide_pick": {
+        "jumps": 0
+      },
+      "run": {
+        "jumps": 7
+      }
+    }
+  }
+}
