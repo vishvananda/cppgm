@@ -608,6 +608,14 @@ void Selector::conditional_edges(BlockId block, const lowir::Instruction& branch
 		edge(block, yes, true);
 		return;
 	}
+	// The branch goes to the empty edge's destination, and the other edge
+	// makes its moves and jumps.
+	if (level_ && yes != fallthrough_ && empty_edge(block, yes))
+	{
+		out_.reference(inverse, Fixup::Block, yes, inverse_operand);
+		edge(block, no, true);
+		return;
+	}
 	const uint32_t other = out_.labels.size();
 	out_.labels.push_back(kNoId);
 	const bool yes_next = yes == fallthrough_;
