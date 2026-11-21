@@ -419,41 +419,45 @@ function @from_unsigned(%d : ptr, %x : ptr, %n : i64) -> void [no_inline=yes] {
     branch %t2, ^unrolled_1, ^wide_tail_3
 
   block ^unrolled_1:
-    %t3 = phi i64 [^unrolled_1: %t20, ^entry: 0]
+    %t3 = phi i64 [^unrolled_1: %t26, ^entry: 0]
     %t4 = index u32 %x, %t3
     %t5 = load typed u32 %t4
     %t6 = convert uitofp f32 u32 %t5
     %t7 = index f32 %d, %t3
-    store typed f32 %t6, %t7
     %t8 = index u32 %t4, 1
     %t9 = load typed u32 %t8
     %t10 = convert uitofp f32 u32 %t9
-    %t11 = index f32 %t7, 1
-    store typed f32 %t10, %t11
-    %t12 = index u32 %t4, 2
-    %t13 = load typed u32 %t12
-    %t14 = convert uitofp f32 u32 %t13
-    %t15 = index f32 %t7, 2
-    store typed f32 %t14, %t15
-    %t16 = index u32 %t4, 3
-    %t17 = load typed u32 %t16
-    %t18 = convert uitofp f32 u32 %t17
-    %t19 = index f32 %t7, 3
-    store typed f32 %t18, %t19
-    %t20 = binary add nowrap i64 %t3, 4
-    %t21 = cmp ne i64 %t1, %t20
-    branch %t21, ^unrolled_1, ^loop_exit_2
+    %t11 = vector fromf32 %t6
+    %t12 = vector fromf32 %t10
+    %t13 = vector unpcklps %t11, %t12
+    %t14 = vector tof64 %t13
+    store f64 %t14, %t7
+    %t15 = index u32 %t4, 2
+    %t16 = load typed u32 %t15
+    %t17 = convert uitofp f32 u32 %t16
+    %t18 = index f32 %t7, 2
+    %t19 = index u32 %t4, 3
+    %t20 = load typed u32 %t19
+    %t21 = convert uitofp f32 u32 %t20
+    %t22 = vector fromf32 %t17
+    %t23 = vector fromf32 %t21
+    %t24 = vector unpcklps %t22, %t23
+    %t25 = vector tof64 %t24
+    store f64 %t25, %t18
+    %t26 = binary add nowrap i64 %t3, 4
+    %t27 = cmp ne i64 %t1, %t26
+    branch %t27, ^unrolled_1, ^loop_exit_2
 
   block ^loop_exit_2:
-    %t22 = cmp lt i64 %t20, %n
-    branch %t22, ^wide_tail_3, ^done
+    %t28 = cmp lt i64 %t26, %n
+    branch %t28, ^wide_tail_3, ^done
 
   block ^wide_tail_3:
-    %t23 = phi i64 [^entry: 0, ^loop_exit_2: %t20]
+    %t29 = phi i64 [^entry: 0, ^loop_exit_2: %t26]
     jump ^body
 
   block ^body:
-    %i = phi i64 [^wide_tail_3: %t23, ^body: %next]
+    %i = phi i64 [^wide_tail_3: %t29, ^body: %next]
     %p = index u32 %x, %i
     %v = load typed u32 %p
     %w = convert uitofp f32 u32 %v
