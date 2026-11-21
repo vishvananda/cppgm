@@ -1,9 +1,9 @@
-<svg data-original-label="godot runtime-clang; Intel(R) Xeon(R) 6975P-C; revision 0eb0fe355ff3f83f0f2ffe697f97c7e8f251dea6" data-original-message="0.99×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="godot runtime-clang; Intel(R) Xeon(R) 6975P-C; revision 0eb0fe355ff3f83f0f2ffe697f97c7e8f251dea6; measured 0eb0fe355ff3f83f0f2ffe697f97c7e8f251dea6; 81 commits behind main: 0.99×*">
-  <title>godot runtime-clang; Intel(R) Xeon(R) 6975P-C; revision 0eb0fe355ff3f83f0f2ffe697f97c7e8f251dea6; measured 0eb0fe355ff3f83f0f2ffe697f97c7e8f251dea6; 81 commits behind main: 0.99×*</title>
+<svg data-original-label="godot runtime-clang; Intel(R) Xeon(R) 6975P-C; revision 992888a62d0d19fee6e2973c68195aed2b02a9b7" data-original-message="0.99×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="godot runtime-clang; Intel(R) Xeon(R) 6975P-C; revision 992888a62d0d19fee6e2973c68195aed2b02a9b7; measured 992888a62d0d19fee6e2973c68195aed2b02a9b7; 75 commits behind main: 0.99×*">
+  <title>godot runtime-clang; Intel(R) Xeon(R) 6975P-C; revision 992888a62d0d19fee6e2973c68195aed2b02a9b7; measured 992888a62d0d19fee6e2973c68195aed2b02a9b7; 75 commits behind main: 0.99×*</title>
   <defs><clipPath id="badge"><rect width="120" height="24" rx="4"/></clipPath></defs>
   <g clip-path="url(#badge)">
     <rect width="64" height="24" fill="#555"/>
-    <rect x="64" width="56" height="24" fill="#265b2a"/>
+    <rect x="64" width="56" height="24" fill="#22592b"/>
   </g>
   <text x="32" y="16.5" fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="12" font-weight="700" textLength="52" lengthAdjust="spacingAndGlyphs">CI Intel</text>
   <text x="92" y="16.5" fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="12" font-weight="700" letter-spacing="1" textLength="44" lengthAdjust="spacingAndGlyphs">0.99×*</text>
