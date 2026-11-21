@@ -861,12 +861,12 @@ struct Selector::SwitchSearch
 	bool narrow = false, sign = false;
 };
 
-// Four runs or more with gaps between them (values the fallback takes; a
-// run of consecutive cases, an enumeration's, keeps its order) search by
-// halves, as on x86-64: a missed value runs about log2 of the runs' tests
-// instead of all of them. The keys order as switch_edges reads them: a
-// 64-bit or signed 32-bit selector compares signed, a narrower or unsigned
-// one unsigned.
+// machine::kNativeSearchRuns runs or more with gaps between them (values
+// the fallback takes; a run of consecutive cases, an enumeration's, keeps
+// its order) search by halves, as on x86-64: a missed value runs about
+// log2 of the runs' tests instead of all of them. The keys order as
+// switch_edges reads them: a 64-bit or signed 32-bit selector compares
+// signed, a narrower or unsigned one unsigned.
 bool Selector::search_switch(SwitchSearch& search, BlockId from, Type type)
 {
 	auto& runs = search.runs;
@@ -876,7 +876,7 @@ bool Selector::search_switch(SwitchSearch& search, BlockId from, Type type)
 	uint32_t gaps = 0;
 	for (size_t i = 1; i < runs.size(); ++i)
 		gaps += runs[i].lo > runs[i - 1].hi + 1 ? 1 : 0;
-	if (runs.size() < 4 || gaps < 2)
+	if (runs.size() < machine::kNativeSearchRuns || gaps < machine::kNativeSearchGaps)
 		return false;
 	auto label = [&](BlockId target) {
 		if (empty_edge(from, target))
