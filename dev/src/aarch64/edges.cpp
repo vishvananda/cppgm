@@ -617,6 +617,9 @@ void Selector::conditional_edges(BlockId block, const lowir::Instruction& branch
 		edge(block, no, true);
 		return;
 	}
+	if (defer_edge(
+			block, yes, no, yes == fallthrough_ ? test : inverse, yes == fallthrough_ ? operand : inverse_operand))
+		return;
 	const uint32_t other = out_.labels.size();
 	out_.labels.push_back(kNoId);
 	const bool yes_next = yes == fallthrough_;
@@ -624,6 +627,64 @@ void Selector::conditional_edges(BlockId block, const lowir::Instruction& branch
 	edge(block, yes_next ? no : yes);
 	out_.bind(other);
 	edge(block, yes_next ? yes : no, true);
+}
+
+// When the edge that falls through runs more often than the other, by
+// placement's estimates, the branch goes to the other edge's moves, made
+// out of line after the next code that does not fall through
+// (flush_deferred_edges). `test` and `operand` take the other edge.
+bool Selector::defer_edge(BlockId block, BlockId yes, BlockId no, Op test, unsigned operand)
+{
+	if (level_ < 2 || out_.exceptions || branch_estimates_.empty() || (yes != fallthrough_ && no != fallthrough_))
+		return false;
+	const auto& estimate = branch_estimates_[block];
+	const BlockId away = yes == fallthrough_ ? no : yes;
+	const uint64_t next_edge = yes == fallthrough_ ? estimate.to_yes : estimate.to_no;
+	const uint64_t moved = yes == fallthrough_ ? estimate.to_no : estimate.to_yes;
+	if (estimate.yes != yes || estimate.no != no ||
+		!(next_edge > moved || (next_edge == moved && shared_move(block, away))))
+		return false;
+	const uint32_t label = out_.labels.size();
+	out_.labels.push_back(kNoId);
+	out_.reference(test, Fixup::Block, label, operand);
+	deferred_edges_.push_back({ block, away, label });
+	edge(block, fallthrough_, true);
+	return true;
+}
+
+// Whether the edge makes one register move that another edge into `to`
+// makes alone: share_edge_moves sends a branch to its deferred copy to the
+// other edge's where that falls into `to`.
+bool Selector::shared_move(BlockId from, BlockId to)
+{
+	const auto first = body_.blocks[to].first;
+	if (first == kNoId || body_.instructions[first].op != Opcode::Phi || empty_edge(from, to))
+		return false;
+	EdgeMoves mine;
+	if (!edge_moves(from, to, mine) || mine.count != 1 || mine.moves[0].destination >= simd_base ||
+		mine.moves[0].source >= simd_base || !body_.temps[mine.results[0]].type.is_integer())
+		return false;
+	const auto& phi = body_.instructions[first];
+	for (uint32_t k = 0; k < phi.extra_count; k += 2)
+	{
+		const BlockId other = body_.operands[phi.extra_first + k].index;
+		EdgeMoves theirs;
+		if (other != from && edge_moves(other, to, theirs) && theirs.count == 1 &&
+			theirs.moves[0].destination == mine.moves[0].destination && theirs.moves[0].source == mine.moves[0].source)
+			return true;
+	}
+	return false;
+}
+
+// The deferred edges' moves and jumps, where no code falls through.
+void Selector::flush_deferred_edges()
+{
+	for (const auto& deferred : deferred_edges_)
+	{
+		out_.bind(deferred.label);
+		edge(deferred.from, deferred.to);
+	}
+	deferred_edges_.clear();
 }
 
 void Selector::edge(BlockId from, BlockId to, bool last)

@@ -14,7 +14,7 @@
     "levels": [3],
     "functions": {
       "fib": {
-        "jumps": 13,
+        "jumps": 12,
         "calls": 1
       }
     }

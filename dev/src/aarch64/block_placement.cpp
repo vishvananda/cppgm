@@ -231,12 +231,14 @@ bool short_test(const FunctionBody& body, BlockId b, EmptyEdge& empty)
 // branches cheapest, so a loop tested at its top repeats through its
 // conditional branch: the latch is placed above the test, or the test at
 // the bottom where the block entering the loop takes a copy of it.
-template<typename EmptyEdge, typename EarlyMoves>
+template<typename EmptyEdge, typename EarlyMoves, typename SharedMove>
 class Placement
 {
 public:
-	Placement(const Program& program, const FunctionBody& body, EmptyEdge empty, EarlyMoves early)
-		: program_(program), body_(body), empty_(empty), early_(early), n_(static_cast<uint32_t>(body.layout.size()))
+	Placement(const Program& program, const FunctionBody& body, EmptyEdge empty, EarlyMoves early, SharedMove shared,
+		bool deferrable)
+		: program_(program), body_(body), empty_(empty), early_(early), shared_move_(shared),
+		  n_(static_cast<uint32_t>(body.layout.size())), deferrable_(deferrable)
 	{}
 
 	// The order, and by block its estimated executions and those of its
@@ -318,6 +320,14 @@ private:
 			{
 				shares_[slot] = true_share(body_, term, blocks_, b, loops_, slot);
 				shares_[slot + 1] = 1000 - shares_[slot];
+				if (deferrable_ && term.ops[1].index != term.ops[2].index)
+					for (uint32_t k = 0; k < 2; ++k)
+						if (shared_move_(b, term.ops[1 + k].index))
+						{
+							if (shared_.empty())
+								shared_.assign(graph_.succs.size(), 0);
+							shared_[slot + k] = 1;
+						}
 			}
 			else
 				for (uint32_t k = 0; k < count; ++k)
@@ -356,10 +366,19 @@ private:
 		const auto early = [&](uint32_t k, uint32_t to, uint32_t other) {
 			return loops_.back[k] && early_(b, body_.layout[to], body_.layout[other]);
 		};
+		// An edge with moves beside one that falls through either branches
+		// over them, or, when the edge that falls through runs more often,
+		// makes them out of line and jumps (Selector::defer_edge); a move
+		// another edge into the same block makes is taken there instead.
+		const auto apart = [&](uint32_t away, uint64_t next_edge, uint64_t moved) {
+			if (deferrable_ && next_edge >= moved && !shared_.empty() && shared_[away])
+				return moved;
+			return deferrable_ && next_edge > moved ? 3 * moved : f + moved;
+		};
 		if (next == yes)
-			return empty_no || (empty_yes && early(slot + 1, no, yes)) ? to_no : f + to_no;
+			return empty_no || (empty_yes && early(slot + 1, no, yes)) ? to_no : apart(slot + 1, to_yes, to_no);
 		if (next == no)
-			return empty_yes || (empty_no && early(slot, yes, no)) ? to_yes : f + to_yes;
+			return empty_yes || (empty_no && early(slot, yes, no)) ? to_yes : apart(slot, to_no, to_yes);
 		// Neither follows: the branch goes to an empty edge's destination,
 		// the more frequent one when both are empty (orient_branches), and
 		// the other edge jumps after its moves (simplify_branches turns a
@@ -373,20 +392,25 @@ private:
 	const FunctionBody& body_;
 	EmptyEdge empty_;
 	EarlyMoves early_;
+	SharedMove shared_move_;
 	uint32_t n_;
+	bool deferrable_;
 	std::vector<LayoutBlock> blocks_;
 	machine::PlacementGraph graph_;
 	machine::PlacementLoops loops_;
 	std::vector<uint32_t> shares_;
 	std::vector<uint64_t> frequency_;
 	std::vector<uint8_t> copyable_; // by position: 1 a short test, 2 not
+	std::vector<uint8_t> shared_;   // by successor slot: the edge's one move is shared (Selector::shared_move)
 };
 
-template<typename EmptyEdge, typename EarlyMoves>
+template<typename EmptyEdge, typename EarlyMoves, typename SharedMove>
 std::vector<BlockId> predicted_order(const Program& program, const FunctionBody& body, EmptyEdge empty,
-	EarlyMoves early, std::vector<uint64_t>& frequency, std::vector<BranchEstimate>& branches)
+	EarlyMoves early, SharedMove shared, bool deferrable, std::vector<uint64_t>& frequency,
+	std::vector<BranchEstimate>& branches)
 {
-	return Placement<EmptyEdge, EarlyMoves>(program, body, empty, early).order(frequency, branches);
+	return Placement<EmptyEdge, EarlyMoves, SharedMove>(program, body, empty, early, shared, deferrable)
+		.order(frequency, branches);
 }
 
 bool can_fall_through(const FunctionBody& body, BlockId from, BlockId to)
@@ -432,7 +456,8 @@ std::vector<BlockId> Selector::order_blocks()
 			return count != 0;
 		};
 		auto order = predicted_order(
-			program_, body_, [this](BlockId from, BlockId to) { return empty_edge(from, to); }, early, block_frequency_,
+			program_, body_, [this](BlockId from, BlockId to) { return empty_edge(from, to); }, early,
+			[this](BlockId from, BlockId to) { return shared_move(from, to); }, !out_.exceptions, block_frequency_,
 			branch_estimates_);
 		if (!order.empty())
 			return order;

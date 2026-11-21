@@ -185,6 +185,9 @@ private:
 	bool shared_entry_moves(lowir::BlockId block);
 	bool shared_exit_moves(lowir::BlockId block);
 	bool exit_moves(lowir::BlockId block, lowir::BlockId to, Op test, unsigned operand);
+	bool defer_edge(lowir::BlockId block, lowir::BlockId yes, lowir::BlockId no, Op test, unsigned operand);
+	void flush_deferred_edges();
+	bool shared_move(lowir::BlockId from, lowir::BlockId to);
 	void entry_moves(lowir::BlockId block);
 	void plan_forwarding(const std::vector<lowir::BlockId>& layout);
 	lowir::BlockId next_emitted(const std::vector<lowir::BlockId>& layout, size_t index) const;
@@ -270,6 +273,12 @@ private:
 	std::vector<lowir::BlockId> entry_moves_, forwarded_;
 	std::vector<uint8_t> exit_moves_; // by block: its branch's edges make the same moves before it
 	lowir::BlockId exit_done_ = lowir::kNoId;
+	struct DeferredEdge
+	{
+		lowir::BlockId from, to;
+		uint32_t label;
+	};
+	std::vector<DeferredEdge> deferred_edges_;
 	std::vector<CallLayout> calls_;
 	std::vector<uint32_t> call_indices_;
 	Argument result_ = {};

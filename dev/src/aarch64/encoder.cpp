@@ -124,10 +124,39 @@ void share_edge_moves(Function& f)
 		redirect[label] = f.labels.size();
 		f.labels.push_back(dest - 1);
 	}
-	if (!redirect.empty())
-		for (auto& ins : f.code)
-			if (ins.fixup == Fixup::Block && ins.op != Op::Adr && redirect[ins.target] != lowir::kNoId)
-				ins.target = redirect[ins.target];
+	if (redirect.empty())
+		return;
+	for (auto& ins : f.code)
+		if (ins.fixup == Fixup::Block && ins.op != Op::Adr && redirect[ins.target] != lowir::kNoId)
+			ins.target = redirect[ins.target];
+	// A redirected MOV and jump that no branch reaches and no code falls
+	// into go.
+	const uint32_t n = static_cast<uint32_t>(f.code.size());
+	std::vector<uint8_t> kept(n + 1);
+	for (const auto& ins : f.code)
+		if (ins.fixup == Fixup::Block && f.labels[ins.target] < n)
+			kept[f.labels[ins.target]] = 1;
+	for (const auto& event : f.frame_events)
+		kept[std::min(n, event.pc / 4)] = 1;
+	for (uint32_t pad : f.pads)
+		if (pad != lowir::kNoId)
+			kept[std::min(n, pad / 4)] = 1;
+	std::vector<uint32_t> removed;
+	for (uint32_t label = 0; label < labels; ++label)
+	{
+		const uint32_t pc = f.labels[label];
+		if (redirect[label] == lowir::kNoId || !pc || kept[pc] || kept[pc + 1])
+			continue;
+		const auto op = f.code[pc - 1].op;
+		if ((op == Op::B || op == Op::Ret || op == Op::Br || op == Op::Brk) &&
+			std::find(removed.begin(), removed.end(), pc) == removed.end())
+		{
+			removed.push_back(pc);
+			removed.push_back(pc + 1);
+		}
+	}
+	std::sort(removed.begin(), removed.end());
+	remove_instructions(f, removed);
 }
 
 // The jumps of a table an ADR addresses, which stay one instruction wide.

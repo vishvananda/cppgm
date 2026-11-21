@@ -514,6 +514,12 @@ void Selector::run()
 		const BlockId block = layout[index];
 		if (forwarded(block))
 			continue;
+		if (!deferred_edges_.empty() && !out_.code.empty())
+		{
+			const auto op = out_.code.back().op;
+			if (op == Op::B || op == Op::Ret || op == Op::Br || op == Op::Brk)
+				flush_deferred_edges();
+		}
 		// A landing prologue can precede its LowIR block label.
 		fallthrough_ = level_ ? next_emitted(layout, index) : kNoId;
 		if (out_.exceptions && fallthrough_ != kNoId)
@@ -654,6 +660,7 @@ void Selector::run()
 			select(inst, block);
 		}
 	}
+	flush_deferred_edges();
 	bind_forwarded();
 	if (level_ && !named_.darwin && body_.code_labels.empty())
 		pair_accesses(out_, frame_code_.prologue_end, bit_tests_, orders_memory(body_));
