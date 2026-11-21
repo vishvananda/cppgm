@@ -178,6 +178,14 @@ for my $test (@tests)
 			if branch_targets($guard, 'jmp');
 		die "$test: host $level lost the guarded ordinary call in local_storage\n"
 			if scalar(@guard_calls) != 1 || $guard_calls[0] ne 'record_slot';
+		# So must memory the caller allocates on the stack, which its
+		# epilogue releases.
+		my $dynamic = object_function($test, $code, 'dynamic_storage');
+		my @dynamic_calls = branch_targets($dynamic, 'call');
+		die "$test: host $level tail-jumped a callee that can reach a stack allocation\n"
+			if branch_targets($dynamic, 'jmp');
+		die "$test: host $level lost the ordinary call in dynamic_storage\n"
+			if scalar(@dynamic_calls) != 1 || $dynamic_calls[0] ne 'record_slot';
 	}
 
 	my $driver_program = "$directory/driver.program";

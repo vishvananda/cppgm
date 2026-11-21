@@ -57,6 +57,17 @@ function @local_storage(%first : i64, %second : i64) -> void
     return void
 }
 
+# The callee receives the address of memory the caller allocated on the
+# stack, which the caller's epilogue releases: an ordinary call.
+function @dynamic_storage(%first : i64, %second : i64) -> void
+    [binding=internal, no_inline=yes, unwind=no] {
+  block ^entry:
+    %memory = stack_alloc 16
+    store i64 %first, %memory
+    call void @record_slot(%memory, %second)
+    return void
+}
+
 function @wide_record(%a : i64, %b : i64, %c : i64, %d : i64, %e : i64, %f : i64, %g : i64, %h : i64) -> void
     [binding=internal, no_inline=yes, unwind=no] {
   block ^entry:
@@ -96,6 +107,9 @@ function @main() -> i32 [role=entry, unwind=no] {
     %narrow_seen_bad = cmp ne i64 %narrow_seen, 4
     call void @changed_argument(20, 23)
     call void @local_storage(31, 37)
+    call void @dynamic_storage(41, 43)
+    %dynamic_seen = load i64 @seen
+    %dynamic_bad = cmp ne i64 %dynamic_seen, 41
     call void @tail_transfer(0, 13)
     %slow_first = load i64 @seen
     %slow_second = load i64 @written
@@ -108,6 +122,7 @@ function @main() -> i32 [role=entry, unwind=no] {
     %bad1 = binary or i32 %bad0, %fast_bad
     %bad2 = binary or i32 %wide_seen_bad, %wide_written_bad
     %bad3 = binary or i32 %bad2, %narrow_seen_bad
-    %bad = binary or i32 %bad1, %bad3
+    %bad4 = binary or i32 %bad3, %dynamic_bad
+    %bad = binary or i32 %bad1, %bad4
     return i32 %bad
 }

@@ -289,9 +289,9 @@ void share_small_tails(
 // O2+, host model, laid-out MIR: a call the function returns from at once
 // (a `ret` after it in its block, or first in the block it falls into)
 // jumps to its callee past the epilogue (Op::TailJump) when the callee
-// cannot reach the frame (the function forms no frame address and the call
-// passes no stack argument), no landing catches it and no strlen prefix
-// precedes it. The returned registers are the callee's either way. (Another
+// cannot reach the frame (the function forms no frame address, allocates no
+// stack memory and the call passes no stack argument), no landing catches it
+// and no strlen prefix precedes it. The returned registers are the callee's either way. (Another
 // call's stack arguments, in an area set up and released around that call
 // by constant adjustments of rsp, are its callee's parameters, which end
 // when it returns.)
@@ -302,6 +302,10 @@ uint32_t form_tail_jumps(Function& f)
 	if (f.variadic || f.eh_records_pushed || (f.preserve_mask & kCallerSavedGprs) != 0)
 		return 0;
 	for (const Inst& inst : f.insts)
+	{
+		// (An allocation is frame memory that names neither register.)
+		if (inst.op == Op::StackAlloc || inst.op == Op::StackSave || inst.op == Op::StackRestore)
+			return 0;
 		for (unsigned k = 0; k < inst.nops && inst.op != Op::Nop; ++k)
 		{
 			const Operand& op = inst.ops[k];
@@ -312,6 +316,7 @@ uint32_t form_tail_jumps(Function& f)
 				(inst.op != Op::Ret && !argument_area && op.kind == OperandKind::Reg && op.reg == RSP))
 				return 0;
 		}
+	}
 	uint32_t formed = 0;
 	for (uint32_t b = 0; b < f.blocks.size(); ++b)
 	{
