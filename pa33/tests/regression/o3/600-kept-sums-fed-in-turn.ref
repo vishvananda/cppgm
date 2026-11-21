@@ -1,0 +1,166 @@
+global @__vector_literal_00000005000000050000000500000005 : obj<16x16> [storage=readonly, binding=internal] = {
+  i64 21474836485
+  i64 21474836485
+}
+
+function @shifted_twelve(%a : ptr, %n : i32) -> i32 {
+  block ^entry:
+    %limit = binary sub i32 %n, 11
+    %enter = cmp gt i32 %limit, 0
+    branch %enter, ^loop_preheader_1, ^done
+
+  block ^loop_preheader_1:
+    %t3 = vector pzero
+    jump ^loop
+
+  block ^loop:
+    %t4 = phi v128 [^loop: %t21, ^loop_preheader_1: %t3]
+    %t5 = phi v128 [^loop: %t16, ^loop_preheader_1: %t3]
+    %t6 = phi v128 [^loop: %t12, ^loop_preheader_1: %t3]
+    %s = phi i32 [^loop_preheader_1: 9, ^loop: %t18]
+    %t8 = phi i64 [^loop_preheader_1: 0, ^loop: %t22]
+    %p0 = index i32 %a, %t8
+    %t10 = load v128 %p0
+    %t11 = vector pslldi %t10, 1
+    %t12 = vector paddd %t6, %t11
+    %p4 = index i32 %p0, 4
+    %t14 = load v128 %p4
+    %t15 = vector pslldi %t14, 1
+    %t16 = vector paddd %t5, %t15
+    %p8 = index i32 %p0, 8
+    %t18 = binary add i32 %s, 60
+    %t19 = load v128 %p8
+    %t20 = vector pslldi %t19, 1
+    %t21 = vector paddd %t4, %t20
+    %t22 = binary add nowrap i64 %t8, 12
+    %step = convert trunc exact i32 i64 %t22
+    %more = cmp lt i32 %step, %limit
+    branch %more, ^loop, ^loop_exit_3
+
+  block ^loop_exit_3:
+    %t25 = vector paddd %t12, %t16
+    %t26 = vector paddd %t25, %t21
+    %t27 = vector pshufd %t26, 78
+    %t28 = vector paddd %t26, %t27
+    %t29 = vector pshufd %t28, 177
+    %t30 = vector paddd %t28, %t29
+    %t31 = vector toi32 %t30
+    %t32 = binary add i32 %t31, %t18
+    jump ^done
+
+  block ^done:
+    %result = phi i32 [^entry: 9, ^loop_exit_3: %t32]
+    return i32 %result
+}
+function @shifted_twenty(%a : ptr, %n : i32) -> i32 {
+  block ^entry:
+    %limit = binary sub i32 %n, 19
+    %enter = cmp gt i32 %limit, 0
+    branch %enter, ^loop_preheader_1, ^done
+
+  block ^loop_preheader_1:
+    %t3 = vector pzero
+    jump ^loop
+
+  block ^loop:
+    %t4 = phi v128 [^loop: %t25, ^loop_preheader_1: %t3]
+    %t5 = phi v128 [^loop: %t21, ^loop_preheader_1: %t3]
+    %t6 = phi v128 [^loop: %t17, ^loop_preheader_1: %t3]
+    %t7 = phi v128 [^loop: %t30, ^loop_preheader_1: %t3]
+    %s = phi i32 [^loop_preheader_1: 0, ^loop: %t27]
+    %t9 = phi i64 [^loop_preheader_1: 0, ^loop: %t31]
+    %p0 = index i32 %a, %t9
+    %t11 = load v128 %p0
+    %t12 = vector pslldi %t11, 3
+    %t13 = vector paddd %t7, %t12
+    %p4 = index i32 %p0, 4
+    %t15 = load v128 %p4
+    %t16 = vector pslldi %t15, 3
+    %t17 = vector paddd %t6, %t16
+    %p8 = index i32 %p0, 8
+    %t19 = load v128 %p8
+    %t20 = vector pslldi %t19, 3
+    %t21 = vector paddd %t5, %t20
+    %p12 = index i32 %p0, 12
+    %t23 = load v128 %p12
+    %t24 = vector pslldi %t23, 3
+    %t25 = vector paddd %t4, %t24
+    %p16 = index i32 %p0, 16
+    %t27 = binary add i32 %s, -1474836340
+    %t28 = load v128 %p16
+    %t29 = vector pslldi %t28, 3
+    %t30 = vector paddd %t13, %t29
+    %t31 = binary add nowrap i64 %t9, 20
+    %step = convert trunc exact i32 i64 %t31
+    %more = cmp lt i32 %step, %limit
+    branch %more, ^loop, ^loop_exit_3
+
+  block ^loop_exit_3:
+    %t34 = vector paddd %t30, %t17
+    %t35 = vector paddd %t34, %t21
+    %t36 = vector paddd %t35, %t25
+    %t37 = vector pshufd %t36, 78
+    %t38 = vector paddd %t36, %t37
+    %t39 = vector pshufd %t38, 177
+    %t40 = vector paddd %t38, %t39
+    %t41 = vector toi32 %t40
+    %t42 = binary add i32 %t41, %t27
+    jump ^done
+
+  block ^done:
+    %result = phi i32 [^entry: 0, ^loop_exit_3: %t42]
+    return i32 %result
+}
+function @xor_twelve(%a : ptr, %n : i32) -> u32 {
+  block ^entry:
+    %limit = binary sub i32 %n, 11
+    %enter = cmp gt i32 %limit, 0
+    branch %enter, ^loop_preheader_1, ^done
+
+  block ^loop_preheader_1:
+    %t3 = vector pzero
+    %t4 = addr @__vector_literal_00000005000000050000000500000005
+    %t5 = load v128 %t4
+    jump ^loop
+
+  block ^loop:
+    %t6 = phi v128 [^loop: %t24, ^loop_preheader_1: %t3]
+    %t7 = phi v128 [^loop: %t19, ^loop_preheader_1: %t3]
+    %t8 = phi v128 [^loop: %t14, ^loop_preheader_1: %t3]
+    %t9 = phi i64 [^loop_preheader_1: 0, ^loop: %t25]
+    %p0 = index u32 %a, %t9
+    %t11 = load v128 %p0
+    %t12 = vector pslldi %t11, 1
+    %t13 = vector paddd %t12, %t5
+    %t14 = vector pxor %t8, %t13
+    %p4 = index u32 %p0, 4
+    %t16 = load v128 %p4
+    %t17 = vector pslldi %t16, 1
+    %t18 = vector paddd %t17, %t5
+    %t19 = vector pxor %t7, %t18
+    %p8 = index u32 %p0, 8
+    %t21 = load v128 %p8
+    %t22 = vector pslldi %t21, 1
+    %t23 = vector paddd %t22, %t5
+    %t24 = vector pxor %t6, %t23
+    %t25 = binary add nowrap i64 %t9, 12
+    %step = convert trunc exact i32 i64 %t25
+    %more = cmp lt i32 %step, %limit
+    branch %more, ^loop, ^loop_exit_3
+
+  block ^loop_exit_3:
+    %t28 = vector pxor %t14, %t19
+    %t29 = vector pxor %t28, %t24
+    %t30 = vector pshufd %t29, 78
+    %t31 = vector pxor %t29, %t30
+    %t32 = vector pshufd %t31, 177
+    %t33 = vector pxor %t31, %t32
+    %t34 = vector toi32 %t33
+    %t35 = copy u32 %t34
+    %t36 = binary xor u32 %t35, 305419896
+    jump ^done
+
+  block ^done:
+    %result = phi u32 [^entry: 305419896, ^loop_exit_3: %t36]
+    return u32 %result
+}

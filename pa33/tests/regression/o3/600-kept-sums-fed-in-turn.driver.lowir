@@ -1,0 +1,92 @@
+global @words : obj<512x16> = {
+  zero 512
+}
+
+function @fill() -> void {
+  block ^entry:
+    jump ^loop
+  block ^loop:
+    %i = phi i32 [^entry: 0, ^loop: %next]
+    %u = copy u32 %i
+    %m = binary mul u32 %u, 2654435761
+    %w = binary add u32 %m, 12345
+    %p = index u32 @words, %i
+    store u32 %w, %p
+    %next = binary add i32 %i, 1
+    %more = cmp lt i32 %next, 128
+    branch %more, ^loop, ^done
+  block ^done:
+    return void
+}
+
+# One element at a time over the elements the functions' passes of `step`
+# read: from `start`, the sum of (w << shift) + offset, or their xor if `xor`
+# is not zero.
+function @oracle(%n : i32, %step : i32, %shift : i32, %offset : i32, %start : i32, %xor : i32) -> i32 {
+  block ^entry:
+    %less = binary sub i32 %step, 1
+    %limit = binary sub i32 %n, %less
+    %enter = cmp gt i32 %limit, 0
+    %up = binary add i32 %limit, %less
+    %passes = binary div i32 %up, %step
+    %count = binary mul i32 %passes, %step
+    %flip = cmp ne i32 %xor, 0
+    branch %enter, ^element, ^exit
+  block ^element:
+    %e = phi i32 [^entry: 0, ^element: %e1]
+    %s = phi i32 [^entry: %start, ^element: %s1]
+    %p = index i32 @words, %e
+    %v = load i32 %p
+    %w = binary shl i32 %v, %shift
+    %c = binary add i32 %w, %offset
+    %added = binary add i32 %s, %c
+    %flipped = binary xor i32 %s, %c
+    %s1 = select i32 %flip, %flipped, %added
+    %e1 = binary add i32 %e, 1
+    %more = cmp lt i32 %e1, %count
+    branch %more, ^element, ^exit
+  block ^exit:
+    %r = phi i32 [^entry: %start, ^element: %s1]
+    return i32 %r
+}
+
+# The bits of the checks that fail, for a count of elements.
+function @check(%n : i32) -> i32 {
+  block ^entry:
+    %a = addr @words
+    %t = call i32 @shifted_twelve(%a, %n)
+    %w = call i32 @shifted_twenty(%a, %n)
+    %x = call u32 @xor_twelve(%a, %n)
+    %et = call i32 @oracle(%n, 12, 1, 5, 9, 0)
+    %ew = call i32 @oracle(%n, 20, 3, 1000000007, 0, 0)
+    %ex = call i32 @oracle(%n, 12, 1, 5, 305419896, 1)
+    %xi = copy i32 %x
+    %bt = cmp ne i32 %t, %et
+    %bw = cmp ne i32 %w, %ew
+    %bx = cmp ne i32 %xi, %ex
+    %ct = select i32 %bt, 1, 0
+    %cw = select i32 %bw, 2, 0
+    %cx = select i32 %bx, 4, 0
+    %k1 = binary or i32 %ct, %cw
+    %k2 = binary or i32 %k1, %cx
+    return i32 %k2
+}
+
+function @main() -> i32 {
+  block ^entry:
+    call void @fill()
+    %a = call i32 @check(128)
+    %b = call i32 @check(103)
+    %c = call i32 @check(20)
+    %d = call i32 @check(12)
+    %e = call i32 @check(11)
+    %f = call i32 @check(0)
+    %g = call i32 @check(41)
+    %ab = binary or i32 %a, %b
+    %cd = binary or i32 %c, %d
+    %ef = binary or i32 %e, %f
+    %abcd = binary or i32 %ab, %cd
+    %efg = binary or i32 %ef, %g
+    %all = binary or i32 %abcd, %efg
+    return i32 %all
+}

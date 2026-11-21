@@ -1,0 +1,178 @@
+global @words : obj<512x16> = {
+  zero 512
+}
+global @doubles : obj<1024x16> = {
+  zero 1024
+}
+global @sums : obj<512x16> = {
+  zero 512
+}
+
+function @fill() -> void {
+  block ^entry:
+    jump ^loop
+  block ^loop:
+    %i = phi i32 [^entry: 0, ^loop: %next]
+    %u = copy u32 %i
+    %m = binary mul u32 %u, 2654435761
+    %w = binary add u32 %m, 12345
+    %p = index u32 @words, %i
+    store u32 %w, %p
+    %lane = binary and i32 %i, 3
+    %odd = binary and i32 %i, 1
+    %small = cmp ne i32 %odd, 0
+    %negative = cmp eq i32 %lane, 2
+    %last = cmp eq i32 %lane, 3
+    %big = select f64 %negative, -10000000000000000.0, 10000000000000000.0
+    %fraction = select f64 %last, 1.25, 3.0
+    %d = select f64 %small, %fraction, %big
+    %q = index f64 @doubles, %i
+    store f64 %d, %q
+    %next = binary add i32 %i, 1
+    %more = cmp lt i32 %next, 128
+    branch %more, ^loop, ^done
+  block ^done:
+    return void
+}
+
+# In source order, one element at a time: what each function must return
+# (the doubles in quarters: their sums are exact multiples of 0.25, and any
+# other grouping of the adds gives another sum).
+function @oracle(%which : i32, %n : i32) -> i64 {
+  block ^entry:
+    %limit = binary sub i32 %n, 3
+    jump ^header
+  block ^header:
+    %i = phi i32 [^entry: 0, ^body: %step]
+    %x = phi u32 [^entry: 305419896, ^body: %x4]
+    %s = phi i32 [^entry: 7, ^body: %s4]
+    %m = phi u32 [^entry: 4294967295, ^body: %m4]
+    %d = phi f64 [^entry: 0.0, ^body: %d4]
+    %r = phi i32 [^entry: 0, ^body: %r4]
+    %more = cmp lt i32 %i, %limit
+    branch %more, ^body, ^exit
+  block ^body:
+    %i1 = binary add i32 %i, 1
+    %i2 = binary add i32 %i, 2
+    %i3 = binary add i32 %i, 3
+    %p0 = index u32 @words, %i
+    %p1 = index u32 @words, %i1
+    %p2 = index u32 @words, %i2
+    %p3 = index u32 @words, %i3
+    %v0 = load u32 %p0
+    %v1 = load u32 %p1
+    %v2 = load u32 %p2
+    %v3 = load u32 %p3
+    %x1 = binary xor u32 %x, %v0
+    %x2 = binary xor u32 %x1, %v1
+    %x3 = binary xor u32 %x2, %v2
+    %x4 = binary xor u32 %x3, %v3
+    %w0 = copy i32 %v0
+    %w1 = copy i32 %v1
+    %w2 = copy i32 %v2
+    %w3 = copy i32 %v3
+    %h0 = binary mul i32 %w0, 4
+    %h1 = binary mul i32 %w1, 4
+    %h2 = binary mul i32 %w2, 4
+    %h3 = binary mul i32 %w3, 4
+    %s1 = binary add i32 %s, %h0
+    %s2 = binary add i32 %s1, %h1
+    %s3 = binary add i32 %s2, %h2
+    %s4 = binary add i32 %s3, %h3
+    %o0 = binary or u32 %v0, 1
+    %o1 = binary or u32 %v1, 1
+    %o2 = binary or u32 %v2, 1
+    %o3 = binary or u32 %v3, 1
+    %m1 = binary and u32 %m, %o0
+    %m2 = binary and u32 %m1, %o1
+    %m3 = binary and u32 %m2, %o2
+    %m4 = binary and u32 %m3, %o3
+    %q0 = index f64 @doubles, %i
+    %q1 = index f64 @doubles, %i1
+    %q2 = index f64 @doubles, %i2
+    %q3 = index f64 @doubles, %i3
+    %e0 = load f64 %q0
+    %e1 = load f64 %q1
+    %e2 = load f64 %q2
+    %e3 = load f64 %q3
+    %d1 = binary add f64 %d, %e0
+    %d2 = binary add f64 %d1, %e1
+    %d3 = binary add f64 %d2, %e2
+    %d4 = binary add f64 %d3, %e3
+    %r1 = binary add i32 %r, %w0
+    %r2 = binary add i32 %r1, %w1
+    %r3 = binary add i32 %r2, %w2
+    %r4 = binary add i32 %r3, %w3
+    %step = binary add i32 %i, 4
+    jump ^header
+  block ^exit:
+    %xa = convert zext i64 u32 %x
+    %sa = convert sext i64 i32 %s
+    %ma = convert zext i64 u32 %m
+    %quarters = binary mul f64 %d, 4.0
+    %da = convert fptosi i64 f64 %quarters
+    %ra = convert sext i64 i32 %r
+    %is_x = cmp eq i32 %which, 0
+    %is_s = cmp eq i32 %which, 1
+    %is_m = cmp eq i32 %which, 2
+    %is_d = cmp eq i32 %which, 3
+    %c3 = select i64 %is_d, %da, %ra
+    %c2 = select i64 %is_m, %ma, %c3
+    %c1 = select i64 %is_s, %sa, %c2
+    %c0 = select i64 %is_x, %xa, %c1
+    return i64 %c0
+}
+
+# The bits of the checks that fail, for each count of elements.
+function @check(%n : i32) -> i32 {
+  block ^entry:
+    %a = addr @words
+    %d = addr @doubles
+    %out = addr @sums
+    %x = call u32 @xor_words(%a, %n)
+    %s = call i32 @sum_shifted(%a, %n)
+    %m = call u32 @and_masks(%a, %n)
+    %f = call f64 @ordered_doubles(%d, %n)
+    %r = call i32 @running_sum(%a, %out, %n)
+    %ex = call i64 @oracle(0, %n)
+    %es = call i64 @oracle(1, %n)
+    %em = call i64 @oracle(2, %n)
+    %ef = call i64 @oracle(3, %n)
+    %xa = convert zext i64 u32 %x
+    %sa = convert sext i64 i32 %s
+    %ma = convert zext i64 u32 %m
+    %quarters = binary mul f64 %f, 4.0
+    %fa = convert fptosi i64 f64 %quarters
+    %bx = cmp ne i64 %xa, %ex
+    %bs = cmp ne i64 %sa, %es
+    %bm = cmp ne i64 %ma, %em
+    %bf = cmp ne i64 %fa, %ef
+    %cx = select i32 %bx, 1, 0
+    %cs = select i32 %bs, 2, 0
+    %cm = select i32 %bm, 4, 0
+    %cf = select i32 %bf, 8, 0
+    %k1 = binary or i32 %cx, %cs
+    %k2 = binary or i32 %k1, %cm
+    %k3 = binary or i32 %k2, %cf
+    %ra = convert sext i64 i32 %r
+    %er = call i64 @oracle(4, %n)
+    %br = cmp ne i64 %ra, %er
+    %cr = select i32 %br, 16, 0
+    %k4 = binary or i32 %k3, %cr
+    return i32 %k4
+}
+
+function @main() -> i32 {
+  block ^entry:
+    call void @fill()
+    %a = call i32 @check(103)
+    %b = call i32 @check(4)
+    %c = call i32 @check(3)
+    %d = call i32 @check(0)
+    %e = call i32 @check(128)
+    %ab = binary or i32 %a, %b
+    %cd = binary or i32 %c, %d
+    %abcd = binary or i32 %ab, %cd
+    %all = binary or i32 %abcd, %e
+    return i32 %all
+}

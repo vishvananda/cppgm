@@ -18,6 +18,12 @@ const size_t kBlockStores = 64;
 const uint32_t kMaxNodes = 24;
 const unsigned kMaxDepth = 8;
 const unsigned kMaxLanes = 4;
+// The most links of one loop sum kept_sum follows.
+const unsigned kSumLinks = 64;
+// The most vectors one kept sum carries, fed in turn: combining a pack takes
+// a lane addition (two cycles on AArch64) and a pass can make two packs a
+// cycle, so four carried vectors let no pack wait on the one before it.
+const unsigned kKeptVectors = 4;
 
 // Block lanes at O3: adjacent stores of one block, f64 in twos and f32 or
 // i32 in fours, become one sixteen-byte store when their values are worth
@@ -60,10 +66,33 @@ private:
 		InstId id;
 		Located at;
 	};
+	// A loop sum kept in lanes: its scalar phi, the vectors the loop carries
+	// to the next pass (packs feed them in turn), and on the edge out their
+	// combination, which the fold's first two instructions read.
+	struct Kept
+	{
+		TempId phi;
+		BlockId entry, exit;
+		Value identity;
+		Value next[kKeptVectors];
+		unsigned count, fed;
+		Value joined;
+		InstId fold[2];
+	};
 
 	bool block(BlockId b);
 	void find_runs(const std::vector<Stored>& stores, std::vector<Stored>& lanes, std::vector<size_t>& runs) const;
 	bool reduction(BlockId b);
+	bool link(BlockId b, Value v, const Instruction& last) const;
+	bool run_parts(BlockId b, InstId id, Value& carry, Value* parts);
+	bool tree_parts(BlockId b, InstId id, Value& carry, Value* parts);
+	InstId kept_sum(BlockId b, Value carry, InstId last, unsigned steps) const;
+	void keep(BlockId b, InstId phi, Value carry, InstId last, Value lanes, VectorOp op);
+	void feed(Kept& known, BlockId b, Value lanes, VectorOp op);
+	Value carried_vector(BlockId b, BlockId entry, Value identity, Value lanes, VectorOp op);
+	bool splat_offset(int root, int& varying, Value& offset);
+	BlockId split_exit(BlockId from, BlockId to);
+	Value fold_lanes(Value lanes, VectorOp op, Type type, InstId* reads = nullptr);
 	bool reload(BlockId b, const std::vector<Stored>& stores, const std::vector<size_t>& runs);
 	bool quiet(const Instruction& inst) const;
 	int plan(BlockId b, const std::vector<Stored>& stores, size_t first, InstId& last);
@@ -93,7 +122,9 @@ private:
 	std::vector<uint32_t> uses_;
 	std::vector<uint8_t> escaped_;
 	std::vector<Node> nodes_;
-	size_t shared_ = 0; // nodes_ below this belong to an earlier group a later one may reuse
+	std::vector<Kept> kept_;
+	std::vector<InstId> ops_; // the operations a reduction's contributions leave
+	size_t shared_ = 0;       // nodes_ below this belong to an earlier group a later one may reuse
 	unsigned lanes_ = 2;
 	Type lane_type_ = Type::scalar(TypeKind::F64);
 	BlockId block_ = kNoId;
@@ -782,71 +813,442 @@ bool BlockLanes::reload(BlockId b, const std::vector<Stored>& stores, const std:
 	return false;
 }
 
-// Pack four contributions of an integer addition chain. Unlike floating
-// addition, integer addition can regroup modulo its width. The scalar carry
-// stays scalar; this also handles a loop the early unroller expanded.
+// The lane form of an integer reduction that regroups exactly: addition
+// modulo its width and the bitwise operations do, floating addition and
+// subtraction do not.
+bool reduction_lanes(BinaryOp op, VectorOp& out)
+{
+	switch (op)
+	{
+	case BinaryOp::Add:
+		out = VectorOp::Paddd;
+		return true;
+	case BinaryOp::And:
+		out = VectorOp::Pand;
+		return true;
+	case BinaryOp::Or:
+		out = VectorOp::Por;
+		return true;
+	case BinaryOp::Xor:
+		out = VectorOp::Pxor;
+		return true;
+	default:
+		return false;
+	}
+}
+
+// Whether v is an operation of `last`'s kind in b, read once.
+bool BlockLanes::link(BlockId b, Value v, const Instruction& last) const
+{
+	if (!same_block(b, v) || uses_[v.index] != 1)
+		return false;
+	const Instruction& inst = body_.instructions[body_.temps[v.index].def];
+	return inst.op == Opcode::Binary && inst.sub == last.sub && inst.type == last.type;
+}
+
+// The four contributions of a run of four operations of `last`'s kind from
+// the carry to `last`, each adding one: `ops_` gets the four, from the carry
+// on.
+bool BlockLanes::run_parts(BlockId b, InstId id, Value& carry, Value* parts)
+{
+	const Instruction& last = body_.instructions[id];
+	carry = Value::temp(last.result);
+	ops_.clear();
+	for (unsigned lane = 4; lane-- > 0;)
+	{
+		if (!same_block(b, carry))
+			return false;
+		const InstId def = body_.temps[carry.index].def;
+		const Instruction& add = body_.instructions[def];
+		if (add.op != Opcode::Binary || add.sub != last.sub || add.type != last.type ||
+			(lane != 3 && uses_[carry.index] != 1))
+			return false;
+		// The earlier operation is the recurrence; its other operand is
+		// this pass's contribution. Either source operand order is accepted.
+		unsigned side = 0;
+		if (lane == 0 && !same_block(b, add.ops[1]))
+			side = 1;
+		else if (same_block(b, add.ops[0]) && same_block(b, add.ops[1]) &&
+			position_[body_.temps[add.ops[1].index].def] < position_[body_.temps[add.ops[0].index].def])
+			side = 1;
+		parts[lane] = add.ops[1 - side];
+		carry = add.ops[side];
+		ops_.insert(ops_.begin(), def);
+	}
+	return true;
+}
+
+// The four contributions of `last` = carry op tree, where three operations
+// of its kind combine the four in any shape (`s += f(a) + f(b) + f(c) +
+// f(d)`): the carry is the earlier operand, as for a run. The contributions
+// are the tree's leaves in operand order, and all share one operation, which
+// tells the tree's operations from contributions of the same kind. `ops_`
+// gets the three and `last`.
+bool BlockLanes::tree_parts(BlockId b, InstId id, Value& carry, Value* parts)
+{
+	const Instruction& last = body_.instructions[id];
+	const unsigned side = !same_block(b, last.ops[1]) ||
+			(same_block(b, last.ops[0]) &&
+				position_[body_.temps[last.ops[1].index].def] < position_[body_.temps[last.ops[0].index].def])
+		? 1
+		: 0;
+	carry = last.ops[side];
+	const Value top = last.ops[1 - side];
+	if (!link(b, top, last))
+		return false;
+	const Instruction& tree = body_.instructions[body_.temps[top.index].def];
+	// Which operands of the tree are operations of it: both (a balanced
+	// tree), or one, which has one (a chain), in either order.
+	for (unsigned shape = 0; shape < 5; ++shape)
+	{
+		Value inner[2] = { Value::none(), Value::none() };
+		if (shape == 0)
+		{
+			inner[0] = tree.ops[0];
+			inner[1] = tree.ops[1];
+		}
+		else
+		{
+			inner[0] = tree.ops[(shape - 1) / 2];
+			if (link(b, inner[0], last))
+				inner[1] = body_.instructions[body_.temps[inner[0].index].def].ops[(shape - 1) % 2];
+		}
+		if (!link(b, inner[0], last) || !link(b, inner[1], last))
+			continue;
+		// (The leaves in operand order: a stack of what is left to visit.)
+		unsigned count = 0;
+		bool ok = true;
+		Value pending[4] = { top };
+		for (unsigned depth = 1; depth > 0 && ok;)
+		{
+			const Value v = pending[--depth];
+			if (v == top || v == inner[0] || v == inner[1])
+			{
+				const Instruction& inst = body_.instructions[body_.temps[v.index].def];
+				pending[depth++] = inst.ops[1];
+				pending[depth++] = inst.ops[0];
+			}
+			else if (count == 4 || !same_block(b, v))
+				ok = false;
+			else
+				parts[count++] = v;
+		}
+		for (unsigned lane = 1; ok && count == 4 && lane < 4; ++lane)
+		{
+			const Instruction& a = body_.instructions[body_.temps[parts[0].index].def];
+			const Instruction& x = body_.instructions[body_.temps[parts[lane].index].def];
+			ok = x.op == a.op && x.sub == a.sub && x.type == a.type;
+		}
+		if (!ok || count != 4)
+			continue;
+		// (The operation regroups exactly, so its leaves take the lanes in
+		// the order the block computes them, as the elements are read.)
+		for (unsigned lane = 1; lane < 4; ++lane)
+			for (unsigned k = lane;
+				k > 0 && position_[body_.temps[parts[k].index].def] < position_[body_.temps[parts[k - 1].index].def];
+				--k)
+				std::swap(parts[k], parts[k - 1]);
+		ops_.assign(
+			{ body_.temps[inner[1].index].def, body_.temps[inner[0].index].def, body_.temps[top.index].def, id });
+		return true;
+	}
+	return false;
+}
+
+// Pack four contributions of an integer reduction (one operation of
+// reduction_lanes): a run or a tree of operations of one kind. The lanes are
+// combined on each pass and the scalar carry stays scalar, unless the sum is
+// a loop's that kept_sum keeps in lanes. This also handles a loop the early
+// unroller expanded.
 bool BlockLanes::reduction(BlockId b)
 {
 	const std::vector<Stored> stores;
 	for (InstId id = body_.blocks[b].first; id != kNoId; id = body_.instructions[id].next)
 	{
 		const Instruction last = body_.instructions[id];
-		if (last.op != Opcode::Binary || static_cast<BinaryOp>(last.sub) != BinaryOp::Add ||
+		VectorOp op = VectorOp::Paddd;
+		if (last.op != Opcode::Binary || !reduction_lanes(static_cast<BinaryOp>(last.sub), op) ||
 			(last.type.kind() != TypeKind::I32 && last.type.kind() != TypeKind::U32))
 			continue;
-		Value carry = Value::temp(last.result), parts[kMaxLanes];
-		bool chain = true;
-		for (unsigned lane = 4; lane-- > 0;)
-		{
-			if (!same_block(b, carry))
-			{
-				chain = false;
-				break;
-			}
-			const Instruction& add = body_.instructions[body_.temps[carry.index].def];
-			if (add.op != Opcode::Binary || static_cast<BinaryOp>(add.sub) != BinaryOp::Add || add.type != last.type ||
-				(lane != 3 && uses_[carry.index] != 1))
-			{
-				chain = false;
-				break;
-			}
-			// The earlier add is the recurrence; its other operand is this
-			// pass's contribution. Either source operand order is accepted.
-			unsigned side = 0;
-			if (lane == 0 && !same_block(b, add.ops[1]))
-				side = 1;
-			else if (same_block(b, add.ops[0]) && same_block(b, add.ops[1]) &&
-				position_[body_.temps[add.ops[1].index].def] < position_[body_.temps[add.ops[0].index].def])
-				side = 1;
-			parts[lane] = add.ops[1 - side];
-			carry = add.ops[side];
-		}
-		if (!chain)
+		Value carry, parts[kMaxLanes];
+		const bool run = run_parts(b, id, carry, parts);
+		if (!run && !tree_parts(b, id, carry, parts))
 			continue;
 		lanes_ = 4;
 		lane_type_ = last.type;
 		nodes_.clear();
 		shared_ = 0;
 		const int root = build(b, parts, stores, 0, id, 0);
-		// Four scalar additions become two shuffle/add pairs, an extract
-		// and the carry addition: five more instructions than store roots.
-		if (root < 0 || net_gain(b, &root, 1) <= 5 || nodes_[root].kind < NodeKind::Loaded)
+		if (root < 0)
+			continue;
+		const int gain = net_gain(b, &root, 1);
+		if (gain <= 0 || nodes_[root].kind < NodeKind::Loaded)
+			continue;
+		// Four scalar operations become one in lanes where the loop keeps
+		// them; otherwise two shuffle/combine pairs, an extract and the carry
+		// operation: five more instructions than store roots.
+		const InstId phi = kept_sum(b, carry, id, run ? 4 : 1);
+		if (gain <= (phi != kNoId ? 0 : 5))
 			continue;
 		block_ = b;
 		tail_ = previous_in_block(body_, b, id);
-		Value sum = make(root);
-		sum = vector(VectorOp::Paddd, sum, vector(VectorOp::Pshufd, sum, Value::none(), 0x4e));
-		sum = vector(VectorOp::Paddd, sum, vector(VectorOp::Pshufd, sum, Value::none(), 0xb1));
-		const Value scalar = vector(VectorOp::Toi32, sum);
-		Instruction cast = make_instruction(Opcode::Copy, last.type);
-		cast.ops[0] = scalar;
-		const Value part = emit(cast, last.type);
+		// (A splat offset joins the scalar carry before the lanes, which keeps
+		// a product next to the addition that accumulates it.)
+		int varying = root;
+		Value offset = Value::none();
+		if (phi != kNoId && op == VectorOp::Paddd && splat_offset(root, varying, offset))
+		{
+			Instruction add = make_instruction(Opcode::Binary, last.type);
+			add.sub = last.sub;
+			add.ops[0] = carry;
+			add.ops[1] = offset;
+			carry = emit(add, last.type);
+		}
+		const Value lanes = make(varying);
+		if (phi != kNoId)
+		{
+			keep(b, phi, carry, id, lanes, op);
+			return true;
+		}
+		const Value part = fold_lanes(lanes, op, last.type);
 		body_.instructions[id].ops[0] = carry;
 		body_.instructions[id].ops[1] = part;
 		body_.instructions[id].flags &= static_cast<uint8_t>(~IF_NO_WRAP);
 		return true;
 	}
 	return false;
+}
+
+// A kept sum's pack that adds a literal splat c to what varies: the lanes
+// add 4c to the sum, which the scalar carry can take (addition regroups
+// exactly), so the carried vectors take only `varying`, and a product
+// accumulates straight into them. `offset` is 4c.
+bool BlockLanes::splat_offset(int root, int& varying, Value& offset)
+{
+	const Node& node = nodes_[root];
+	if (node.kind != NodeKind::Operation || node.op != VectorOp::Paddd || node.left < 0 || node.right < 0)
+		return false;
+	for (const int side : { node.left, node.right })
+	{
+		Constant c;
+		if (nodes_[side].kind != NodeKind::Splat || !literal_constant(body_, nodes_[side].lanes[0], c) ||
+			c.kind != ValueKind::Integer)
+			continue;
+		const uint32_t four = static_cast<uint32_t>(c.bits.low) * 4u;
+		offset = integer_value(body_, normalize_integer(lane_type_, integer_literal(static_cast<int64_t>(four))));
+		varying = side == node.left ? node.right : node.left;
+		return true;
+	}
+	return false;
+}
+
+// The four i32 lanes of `lanes` combined by `op` into one `type` scalar,
+// after tail_. `reads`, if given, gets the two instructions that read
+// `lanes`.
+Value BlockLanes::fold_lanes(Value lanes, VectorOp op, Type type, InstId* reads)
+{
+	const Value upper = vector(VectorOp::Pshufd, lanes, Value::none(), 0x4e);
+	const Value half = vector(op, lanes, upper);
+	if (reads != nullptr)
+	{
+		reads[0] = body_.temps[upper.index].def;
+		reads[1] = body_.temps[half.index].def;
+	}
+	const Value odd = vector(VectorOp::Pshufd, half, Value::none(), 0xb1);
+	const Value all = vector(op, half, odd);
+	const Value scalar = vector(VectorOp::Toi32, all);
+	Instruction cast = make_instruction(Opcode::Copy, type);
+	cast.ops[0] = scalar;
+	return emit(cast, type);
+}
+
+// The phi of a loop sum `b` keeps in lanes, or kNoId. `b` is a loop of one
+// block with one edge out. The sum runs from a phi of `b` with two inputs,
+// read once, through operations of `last`'s kind, each read once by the
+// next, to the phi's input from `b`, which `b` reads in that phi alone:
+// whatever reads the sum after the loop reads it on the edge out. `carry`
+// lies on that run and `last` `steps` operations after it. Each pass then
+// combines its lanes with a vector the loop carries, and one fold of that
+// vector on the edge out completes the scalar; the operations regroup
+// exactly (reduction_lanes).
+InstId BlockLanes::kept_sum(BlockId b, Value carry, InstId last, unsigned steps) const
+{
+	const Instruction& term = body_.instructions[body_.blocks[b].last];
+	if (term.op != Opcode::Branch || (term.ops[1].index == b) == (term.ops[2].index == b))
+		return kNoId;
+	const Instruction& tail = body_.instructions[last];
+	for (InstId p = body_.blocks[b].first; p != kNoId && body_.instructions[p].op == Opcode::Phi;
+		p = body_.instructions[p].next)
+	{
+		const Instruction& phi = body_.instructions[p];
+		if (phi.type != tail.type || phi.extra_count != 4 || uses_[phi.result] != 1)
+			continue;
+		const Value back = phi_incoming(body_, phi, b);
+		Value at = Value::temp(phi.result);
+		int after = at == carry ? 0 : -1; // operations from the carry
+		bool through = false;
+		unsigned links = 0;
+		for (InstId i = phi.next; i != kNoId && links < kSumLinks; i = body_.instructions[i].next)
+		{
+			const Instruction& inst = body_.instructions[i];
+			if (inst.op != Opcode::Binary || inst.sub != tail.sub || inst.type != tail.type ||
+				(!(inst.ops[0] == at) && !(inst.ops[1] == at)) || inst.ops[0] == inst.ops[1] || uses_[at.index] != 1)
+				continue;
+			at = Value::temp(inst.result);
+			++links;
+			after = after >= 0 ? after + 1 : at == carry ? 0 : -1;
+			through = through || (i == last && after == static_cast<int>(steps));
+		}
+		if (!through || !(at == back))
+			continue;
+		unsigned reads = 0;
+		for (InstId i = body_.blocks[b].first; i != kNoId; i = body_.instructions[i].next)
+			for_each_operand(body_, body_.instructions[i], [&](const Value& v) { reads += v == back; });
+		if (reads == 1)
+			return p;
+	}
+	return kNoId;
+}
+
+// A block on the edge from `from` to `to`.
+BlockId BlockLanes::split_exit(BlockId from, BlockId to)
+{
+	const BlockId exit = append_block(body_, BlockKind::LoopExit);
+	Instruction jump = make_instruction(Opcode::Jump, Type::scalar(TypeKind::Void));
+	jump.ops[0] = Value::block(to);
+	jump.location = body_.instructions[body_.blocks[from].last].location;
+	const InstId id = append_instruction(body_, jump);
+	insert_after(body_, exit, kNoId, id);
+	c_.block_of.resize(body_.instructions.size(), kNoId);
+	c_.block_of[id] = exit;
+	for_each_successor(body_, body_.instructions[body_.blocks[from].last], [&](BlockId& t) {
+		if (t == to)
+			t = exit;
+	});
+	rename_phi_incoming(body_, to, from, exit);
+	const auto at = std::find(body_.layout.begin(), body_.layout.end(), from);
+	body_.layout.insert(at == body_.layout.end() ? at : at + 1, exit);
+	c_.invalidate_cfg();
+	return exit;
+}
+
+// Keeps the sum of `phi` in lanes (kept_sum): the operations of the pack
+// (ops_) leave the scalar run, and `lanes` joins a vector the loop carries.
+// The first pack of a sum makes the first carried vector, starting from the
+// operation's identity, and its fold on the edge out; later packs feed the
+// carried vectors in turn (feed).
+void BlockLanes::keep(BlockId b, InstId phi, Value carry, InstId last, Value lanes, VectorOp op)
+{
+	const Instruction sum = body_.instructions[phi];
+	const uint8_t sub = body_.instructions[last].sub;
+	const TempId result = body_.instructions[last].result;
+	for (const InstId link : ops_)
+	{
+		unlink_after(body_, b, previous_in_block(body_, b, link), link);
+		c_.block_of[link] = kNoId;
+	}
+	replace_all_uses(body_, result, carry);
+	block_ = b;
+	for (Kept& known : kept_)
+		if (known.phi == sum.result)
+		{
+			feed(known, b, lanes, op);
+			count_uses(body_, uses_);
+			return;
+		}
+	Kept known;
+	known.phi = sum.result;
+	const Value entry = body_.operands[sum.extra_first] == Value::block(b) ? body_.operands[sum.extra_first + 2]
+																		   : body_.operands[sum.extra_first];
+	known.entry = entry.index;
+	const InstId at = tail_;
+	block_ = known.entry;
+	tail_ = previous_in_block(body_, known.entry, body_.blocks[known.entry].last);
+	const Value zero = vector(VectorOp::Pzero, Value::none());
+	known.identity = op == VectorOp::Pand ? vector(VectorOp::Pcmpeqd, zero, zero) : zero;
+	block_ = b;
+	tail_ = at;
+	const Value next = carried_vector(b, known.entry, known.identity, lanes, op);
+	known.next[0] = next;
+	known.count = known.fed = 1;
+	const Instruction& term = body_.instructions[body_.blocks[b].last];
+	const BlockId to = term.ops[1].index == b ? term.ops[2].index : term.ops[1].index;
+	const InstId first = body_.blocks[to].first;
+	const bool alone = c_.ensure_cfg_light().pred_count(to) == 1 && first != kNoId &&
+		body_.instructions[first].op != Opcode::Phi;
+	known.exit = block_ = alone ? to : split_exit(b, to);
+	tail_ = kNoId;
+	known.joined = next;
+	const Value scalar = fold_lanes(next, op, sum.type, known.fold);
+	const Value back = phi_incoming(body_, body_.instructions[phi], b);
+	Instruction total = make_instruction(Opcode::Binary, sum.type);
+	total.sub = sub;
+	total.ops[0] = back;
+	total.ops[1] = scalar;
+	const Value whole = emit(total, sum.type);
+	for (const BlockId x : body_.layout)
+		if (x != b)
+			for (InstId i = body_.blocks[x].first; i != kNoId; i = body_.instructions[i].next)
+				if (i != tail_)
+					for_each_operand(body_, body_.instructions[i], [&](Value& v) {
+						if (v == back)
+							v = whole;
+					});
+	kept_.push_back(known);
+	count_uses(body_, uses_);
+}
+
+// A pack of a kept sum after its first: the next carried vector in turn
+// takes `lanes`, where they are made or after what that vector carries if a
+// later pack made it. A carried vector that does not exist yet starts from
+// the identity, and the edge out combines it with the others before the
+// fold.
+void BlockLanes::feed(Kept& known, BlockId b, Value lanes, VectorOp op)
+{
+	const unsigned turn = known.fed++ % kKeptVectors;
+	if (turn == known.count)
+	{
+		const Value next = carried_vector(b, known.entry, known.identity, lanes, op);
+		known.next[known.count++] = next;
+		block_ = known.exit;
+		tail_ = previous_in_block(body_, known.exit, known.fold[0]);
+		const Value joined = vector(op, known.joined, next);
+		body_.instructions[known.fold[0]].ops[0] = joined;
+		body_.instructions[known.fold[1]].ops[0] = joined;
+		known.joined = joined;
+		return;
+	}
+	const Value carried = known.next[turn];
+	for (InstId i = tail_; i != kNoId; i = body_.instructions[i].next)
+		if (i == body_.temps[carried.index].def)
+			tail_ = i;
+	const Value next = vector(op, carried, lanes);
+	const InstId made = body_.temps[next.index].def;
+	replace_all_uses(body_, carried.index, next);
+	body_.instructions[made].ops[0] = carried;
+	if (known.joined == carried)
+		known.joined = next;
+	known.next[turn] = next;
+}
+
+// Makes a vector phi of `b` that starts from `identity` on the edge from
+// `entry` and, after tail_, its combination with `lanes`, which the phi takes
+// on the back edge. Returns the combination.
+Value BlockLanes::carried_vector(BlockId b, BlockId entry, Value identity, Value lanes, VectorOp op)
+{
+	const Type v128 = Type::scalar(TypeKind::V128);
+	const InstId acc = append_instruction(body_, make_instruction(Opcode::Phi, v128));
+	const TempId carried = append_temp(body_, v128, acc);
+	body_.instructions[acc].result = carried;
+	insert_after(body_, b, kNoId, acc);
+	c_.block_of.resize(body_.instructions.size(), kNoId);
+	c_.block_of[acc] = b;
+	block_ = b;
+	const Value next = vector(op, Value::temp(carried), lanes);
+	const Value inputs[4] = { Value::block(b), next, Value::block(entry), identity };
+	body_.instructions[acc].extra_first = append_operands(body_, inputs, 4);
+	body_.instructions[acc].extra_count = 4;
+	return next;
 }
 
 // The runs of adjacent stores of one type that may form a group, from the
@@ -1006,7 +1408,8 @@ bool BlockLanes::run()
 	for (const Instruction& inst : body_.instructions)
 	{
 		stores += inst.op == Opcode::Store && (inst.type.is_float() || lane_bytes(inst.type) == 4);
-		adds += inst.op == Opcode::Binary && static_cast<BinaryOp>(inst.sub) == BinaryOp::Add &&
+		VectorOp op;
+		adds += inst.op == Opcode::Binary && reduction_lanes(static_cast<BinaryOp>(inst.sub), op) &&
 			(inst.type.kind() == TypeKind::I32 || inst.type.kind() == TypeKind::U32);
 		float_phis += inst.op == Opcode::Phi && inst.type.kind() == TypeKind::F64;
 	}
@@ -1017,14 +1420,18 @@ bool BlockLanes::run()
 	escaped_ = escaped_slots(body_);
 	map_instruction_blocks(body_, c_.block_of);
 	bool changed = false;
-	for (BlockId b : body_.layout)
-		for (unsigned round = 0; round < kBlockStores && block(b); ++round)
+	// (A kept sum may add a block on its loop's edge out.)
+	for (size_t n = 0; n < body_.layout.size(); ++n)
+		for (unsigned round = 0; round < kBlockStores && block(body_.layout[n]); ++round)
 		{
 			position_.resize(body_.instructions.size(), 0);
 			changed = true;
 		}
 	if (changed)
+	{
 		c_.invalidate_block_of();
+		c_.invalidate_uses();
+	}
 	return (float_phis >= kMinLoopF64Phis && pack_loop_lanes(c_)) || changed;
 }
 
