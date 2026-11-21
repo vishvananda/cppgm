@@ -303,9 +303,9 @@ uint64_t Selector::plan_phis()
 	return maximum;
 }
 
-// When both edges of a two-way branch make the same register moves, the
-// block makes them once before its branch (a move keeps the flags), and
-// neither edge needs code.
+// When both edges of a two-way branch make the same register moves, or put
+// the same integer literal in a general register, the block makes them once
+// before its branch (a move keeps the flags), and neither edge needs code.
 bool Selector::shared_exit_moves(BlockId block)
 {
 	const auto& term = body_.instructions[body_.blocks[block].last];
@@ -324,17 +324,27 @@ bool Selector::shared_exit_moves(BlockId block)
 	if (!edge_moves(block, targets[0], yes) || !edge_moves(block, targets[1], no) || !yes.count ||
 		yes.count != no.count)
 		return false;
+	const auto literal = [&](const EdgeMoves& edge, unsigned i) {
+		return edge.moves[i].source == machine::kTransferLiteral && edge.sources[i].is(ValueKind::Integer) &&
+			edge.moves[i].destination < simd_base;
+	};
 	for (unsigned i = 0; i < yes.count; ++i)
 	{
 		const auto& move = yes.moves[i];
 		const auto kind = body_.temps[yes.results[i]].type.kind();
-		if (move.destination >= frame_location || move.source >= frame_location ||
+		const bool constant = literal(yes, i);
+		if (move.destination >= frame_location || (!constant && move.source >= frame_location) ||
 			memory_value(body_.temps[yes.results[i]].type))
 			return false;
+		const auto same_literal = [&](unsigned k) {
+			const auto& mine = body_.literals[yes.sources[i].index];
+			const auto& theirs = body_.literals[no.sources[k].index];
+			return literal(no, k) && mine.low == theirs.low && mine.high == theirs.high;
+		};
 		bool same = false;
 		for (unsigned k = 0; k < no.count && !same; ++k)
 			same = no.moves[k].destination == move.destination && no.moves[k].source == move.source &&
-				body_.temps[no.results[k]].type.kind() == kind;
+				body_.temps[no.results[k]].type.kind() == kind && (!constant || same_literal(k));
 		if (!same)
 			return false;
 	}
