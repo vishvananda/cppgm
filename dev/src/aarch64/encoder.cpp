@@ -447,6 +447,21 @@ void drop_repeated_compares(Function& f)
 	const uint32_t n = static_cast<uint32_t>(f.code.size());
 	if (n < 3 || n >= (1u << 18))
 		return;
+	// A compare can go only after a jump, a branch, a register move or a
+	// compare (flags_hold).
+	std::vector<uint32_t> candidates;
+	for (uint32_t pc = 1; pc < n; ++pc)
+	{
+		unsigned regs[2] = {}, count = 0;
+		const auto& before = f.code[pc - 1];
+		if (flag_compare(f.code[pc], count, regs) &&
+			(before.op == Op::B || before.op == Op::Ret || before.op == Op::Br || before.op == Op::Brk ||
+				before.op == Op::Orr || before.op == Op::OrrW || conditional_branch(before) ||
+				flag_compare(before, count, regs)))
+			candidates.push_back(pc);
+	}
+	if (candidates.empty())
+		return;
 	std::vector<uint8_t> blocked(n + 1);
 	for (const auto& event : f.frame_events)
 		blocked[std::min(n, event.pc / 4)] = 1;
@@ -477,7 +492,7 @@ void drop_repeated_compares(Function& f)
 		}
 	}
 	std::vector<uint32_t> removed;
-	for (uint32_t pc = 1; pc < n; ++pc)
+	for (uint32_t pc : candidates)
 	{
 		unsigned regs[2] = {}, count = 0;
 		if (!blocked[pc] && flag_compare(f.code[pc], count, regs) &&
