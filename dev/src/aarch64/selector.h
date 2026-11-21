@@ -196,6 +196,10 @@ private:
 	void select(const lowir::Instruction& inst, lowir::BlockId block);
 	void atomic(const lowir::Instruction& inst);
 	void switch_edges(const lowir::Instruction& inst, lowir::BlockId block);
+	struct SwitchSearch;
+	bool search_switch(SwitchSearch& search, lowir::BlockId from, lowir::Type type);
+	void search_cases(const SwitchSearch& search, uint32_t first, uint32_t past, int64_t lo, int64_t hi, bool compared);
+	void compare_key(unsigned dest, unsigned input, uint64_t amount, bool narrow);
 	unsigned condition_register(lowir::Value operand, unsigned scratch);
 	bool word_condition(lowir::Value operand) const;
 	unsigned operand_register(lowir::Value operand, lowir::Type type, unsigned scratch);

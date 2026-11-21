@@ -6,6 +6,7 @@
 #include "machine/switch_plan.h"
 #include "opt/scalar_fold.h"
 #include <algorithm>
+#include <climits>
 
 namespace aarch64 {
 
@@ -829,6 +830,161 @@ void Selector::integer_unary(const lowir::Instruction& inst)
 	save(dst, inst.result, bits == 32 || bits == 64);
 }
 
+// selector - amount (a compare into the zero register), an immediate when
+// its magnitude encodes and x10 otherwise.
+void Selector::compare_key(unsigned dest, unsigned input, uint64_t amount, bool narrow)
+{
+	const bool negative = static_cast<int64_t>(amount) < 0;
+	const uint64_t magnitude = negative ? 0 - amount : amount;
+	const unsigned shift = (magnitude & 4095) == 0 ? 12 : 0;
+	if ((magnitude >> shift) <= 4095)
+		out_.emit(negative ? (narrow ? Op::AddsIW : Op::AddsIX) : (narrow ? Op::SubsIW : Op::SubsIX), dest, input, 0,
+			(shift ? 1u << 22 : 0) | (uint32_t(magnitude >> shift) << 10));
+	else
+	{
+		constant(10, amount);
+		out_.emit(narrow ? Op::SubsW : Op::Subs, dest, input, 10);
+	}
+}
+
+// A switch's runs of cases, searched by halves: the runs not taking the
+// fallback (which a miss reaches anyway), each run's label, and the stubs
+// holding the phi transfers of the nonempty edges after the tests.
+struct Selector::SwitchSearch
+{
+	std::vector<machine::CaseCluster> runs;
+	std::vector<uint32_t> labels;
+	std::vector<std::pair<BlockId, uint32_t>> stubs;
+	BlockId fallback = kNoId;
+	uint32_t other = kNoId;
+	unsigned source = 31;
+	bool narrow = false, sign = false;
+};
+
+// Four runs or more with gaps between them (values the fallback takes; a
+// run of consecutive cases, an enumeration's, keeps its order) search by
+// halves, as on x86-64: a missed value runs about log2 of the runs' tests
+// instead of all of them. The keys order as switch_edges reads them: a
+// 64-bit or signed 32-bit selector compares signed, a narrower or unsigned
+// one unsigned.
+bool Selector::search_switch(SwitchSearch& search, BlockId from, Type type)
+{
+	auto& runs = search.runs;
+	runs.erase(std::remove_if(runs.begin(), runs.end(),
+				   [&](const machine::CaseCluster& c) { return c.target == search.fallback; }),
+		runs.end());
+	uint32_t gaps = 0;
+	for (size_t i = 1; i < runs.size(); ++i)
+		gaps += runs[i].lo > runs[i - 1].hi + 1 ? 1 : 0;
+	if (runs.size() < 4 || gaps < 2)
+		return false;
+	auto label = [&](BlockId target) {
+		if (empty_edge(from, target))
+			return target;
+		for (const auto& stub : search.stubs)
+			if (stub.first == target)
+				return stub.second;
+		const auto next = static_cast<uint32_t>(out_.labels.size());
+		out_.labels.push_back(kNoId);
+		search.stubs.push_back({ target, next });
+		return next;
+	};
+	search.other = label(search.fallback);
+	for (const auto& c : runs)
+		search.labels.push_back(label(c.target));
+	const unsigned bits = type.is_pointer() ? 64 : integer_bits(type.kind());
+	search.sign = bits == 64 || type.kind() == TypeKind::I32;
+	const int64_t lo = bits == 64 ? INT64_MIN : search.sign ? INT32_MIN : 0;
+	const int64_t hi = bits == 64 ? INT64_MAX
+		: search.sign             ? INT32_MAX
+								  : static_cast<int64_t>((uint64_t(1) << bits) - 1);
+	search_cases(search, 0, static_cast<uint32_t>(runs.size()), lo, hi, false);
+	for (const auto& stub : search.stubs)
+	{
+		out_.bind(stub.second);
+		edge(from, stub.first, &stub == &search.stubs.back());
+	}
+	return true;
+}
+
+// Runs [first, past) of a search, the selector known within [lo, hi]: four
+// or more test whether it is below the middle run (the lower half after
+// the upper one); fewer test each run, one compare when a known bound
+// meets it. A failed test at a known bound moves that bound. (The upper
+// half's first run, at the value the search just compared, reads its
+// flags.)
+void Selector::search_cases(
+	const SwitchSearch& search, uint32_t first, uint32_t past, int64_t lo, int64_t hi, bool compared)
+{
+	const auto& runs = search.runs;
+	const bool narrow = search.narrow;
+	const unsigned source = search.source;
+	enum : unsigned
+	{
+		Eq = 0,
+		Hs = 2,
+		Lo = 3,
+		Ls = 9,
+		Ge = 10,
+		Lt = 11,
+		Le = 13
+	};
+	if (past - first >= 4)
+	{
+		const uint32_t middle = (first + past) / 2;
+		const int64_t pivot = runs[middle].lo;
+		const auto lower = static_cast<uint32_t>(out_.labels.size());
+		out_.labels.push_back(kNoId);
+		compare_key(31, source, static_cast<uint64_t>(pivot), narrow);
+		out_.reference(Op::BCond, Fixup::Block, lower, search.sign ? Lt : Lo);
+		search_cases(search, middle, past, pivot, hi, true);
+		out_.bind(lower);
+		search_cases(search, first, middle, lo, pivot - 1, false);
+		return;
+	}
+	bool flags = compared;
+	for (uint32_t i = first; i < past; ++i)
+	{
+		const auto& c = runs[i];
+		const uint32_t to = search.labels[i];
+		if (c.lo <= lo && c.hi >= hi)
+		{
+			out_.reference(Op::B, Fixup::Block, to);
+			return;
+		}
+		if (c.lo == c.hi && !c.lo && !flags)
+			out_.reference(narrow ? Op::CbzW : Op::Cbz, Fixup::Block, to, source);
+		else if (c.lo == c.hi)
+		{
+			if (!flags)
+				compare_key(31, source, static_cast<uint64_t>(c.lo), narrow);
+			out_.reference(Op::BCond, Fixup::Block, to, Eq);
+		}
+		else if (c.lo <= lo)
+		{
+			compare_key(31, source, static_cast<uint64_t>(c.hi), narrow);
+			out_.reference(Op::BCond, Fixup::Block, to, search.sign ? Le : Ls);
+		}
+		else if (c.hi >= hi)
+		{
+			compare_key(31, source, static_cast<uint64_t>(c.lo), narrow);
+			out_.reference(Op::BCond, Fixup::Block, to, search.sign ? Ge : Hs);
+		}
+		else
+		{
+			compare_key(9, source, static_cast<uint64_t>(c.lo), narrow);
+			compare_key(31, 9, static_cast<uint64_t>(c.hi) - static_cast<uint64_t>(c.lo), narrow);
+			out_.reference(Op::BCond, Fixup::Block, to, Ls);
+		}
+		flags = false;
+		if (c.lo <= lo)
+			lo = c.hi + 1;
+		else if (c.hi >= hi)
+			hi = c.lo - 1;
+	}
+	out_.reference(Op::B, Fixup::Block, search.other);
+}
+
 void Selector::switch_edges(const lowir::Instruction& inst, BlockId from)
 {
 	const Type type = type_of(inst.ops[0], Type::scalar(TypeKind::I64));
@@ -849,19 +1005,7 @@ void Selector::switch_edges(const lowir::Instruction& inst, BlockId from)
 	machine::cluster_switch_cases(cases, clusters, targets, machine::kNativeSwitchTargets);
 	const unsigned source = operand_register(inst.ops[0], type, 15);
 	const bool narrow = bits <= 32;
-	auto subtract = [&](unsigned dest, unsigned input, uint64_t amount) {
-		const bool negative = static_cast<int64_t>(amount) < 0;
-		const uint64_t magnitude = negative ? 0 - amount : amount;
-		const unsigned shift = (magnitude & 4095) == 0 ? 12 : 0;
-		if ((magnitude >> shift) <= 4095)
-			out_.emit(negative ? (narrow ? Op::AddsIW : Op::AddsIX) : (narrow ? Op::SubsIW : Op::SubsIX), dest, input,
-				0, (shift ? 1u << 22 : 0) | (uint32_t(magnitude >> shift) << 10));
-		else
-		{
-			constant(10, amount);
-			out_.emit(narrow ? Op::SubsW : Op::Subs, dest, input, 10);
-		}
-	};
+	auto subtract = [&](unsigned dest, unsigned input, uint64_t amount) { compare_key(dest, input, amount, narrow); };
 	const BlockId fallback = inst.ops[1].index;
 	const uint64_t first = cases.empty() ? 0 : static_cast<uint64_t>(cases.front().first);
 	const uint64_t span = cases.empty() ? 0 : static_cast<uint64_t>(cases.back().first) - first;
@@ -941,6 +1085,13 @@ void Selector::switch_edges(const lowir::Instruction& inst, BlockId from)
 		}
 		return;
 	}
+	SwitchSearch search;
+	search.runs = clusters;
+	search.fallback = fallback;
+	search.source = source;
+	search.narrow = narrow;
+	if (level_ && search_switch(search, from, type))
+		return;
 	for (const auto& c : clusters)
 	{
 		const bool single = c.lo == c.hi;
