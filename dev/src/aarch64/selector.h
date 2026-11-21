@@ -76,6 +76,8 @@ private:
 	bool half_range(lowir::Value v, unsigned width) const;
 	lowir::InstId combine_float_pair(const lowir::Instruction& inst);
 	lowir::InstId lane_bound(const lowir::Instruction& merge);
+	int extended_subscript(
+		const lowir::Instruction& convert, lowir::Value& offset, uint64_t& scale, lowir::InstId& at) const;
 	bool low_lane_only(const lowir::Instruction& made) const;
 	void scalar_bound(bool maximum, bool wide, unsigned dest, unsigned lhs, unsigned rhs, bool number);
 	lowir::InstId scalar_lane_binary(const lowir::Instruction& inst);

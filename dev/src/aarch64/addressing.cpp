@@ -381,6 +381,44 @@ InstId Selector::paired_store(const lowir::Instruction& index)
 	return low.next;
 }
 
+// An extension of a subscript of at most 32 bits read only by the next
+// index, directly or through a product by a power of two that a byte index
+// reads, is the index's extended register (SXTW, UXTW and narrower). Returns
+// whether the extension is signed, or -1, and sets the subscript, its
+// scale and the index.
+int Selector::extended_subscript(const lowir::Instruction& convert, Value& offset, uint64_t& scale, InstId& at) const
+{
+	const Type from = convert_source_type(convert);
+	if ((convert.sub != static_cast<unsigned>(ConvertOp::SExt) &&
+			convert.sub != static_cast<unsigned>(ConvertOp::ZExt)) ||
+		convert.next == kNoId || uses_[convert.result] != 1 || !from.is_integer() || integer_bits(from.kind()) > 32 ||
+		from.kind() == TypeKind::I1 || !convert.ops[0].is(ValueKind::Temp) || rematerialized(convert.result))
+		return -1;
+	Value wide = Value::temp(convert.result);
+	InstId id = convert.next;
+	const lowir::Instruction* user = &body_.instructions[id];
+	uint64_t factor = 0;
+	if (user->op == Opcode::Binary && user->sub == static_cast<unsigned>(BinaryOp::Mul) &&
+		user->type.kind() == TypeKind::I64 && uses_[user->result] == 1 && user->next != kNoId)
+	{
+		const unsigned k = user->ops[0] == wide ? 1 : 0;
+		if (!(user->ops[1 - k] == wide) || !user->ops[k].is(ValueKind::Integer))
+			return -1;
+		factor = body_.literals[user->ops[k].index].low;
+		wide = Value::temp(user->result);
+		id = user->next;
+		user = &body_.instructions[id];
+		if (!power_of_two(factor) || storage_bytes(user->type) != 1)
+			return -1;
+	}
+	if (user->op != Opcode::Index || !(user->ops[1] == wide) || user->ops[0] == wide)
+		return -1;
+	offset = convert.ops[0];
+	scale = factor ? factor : storage_bytes(user->type);
+	at = id;
+	return convert.sub == static_cast<unsigned>(ConvertOp::SExt);
+}
+
 // The shared address-sinking pass leaves typed index expressions beside their
 // users. Consume only adjacent, single-use producers: their inputs are still
 // in their allocated locations, and no memory operation moves past another.
@@ -400,6 +438,9 @@ InstId Selector::address_sequence(InstId id)
 	InstId index_id = id;
 	Value offset = first.ops[1];
 	uint64_t scale = storage_bytes(first.type);
+	int extended = -1;
+	if (first.op == Opcode::Convert && (extended = extended_subscript(first, offset, scale, index_id)) < 0)
+		return kNoId;
 	if (first.op == Opcode::Binary)
 	{
 		if (first.next == kNoId || first.sub != static_cast<unsigned>(BinaryOp::Mul) ||
@@ -438,9 +479,10 @@ InstId Selector::address_sequence(InstId id)
 		return kNoId;
 	const bool literal = offset.is(ValueKind::Integer);
 	const uint64_t displacement = literal ? body_.literals[offset.index].low * scale : 0;
-	const bool sign = !is_unsigned(type.kind()) && type.kind() != TypeKind::I1;
+	const bool sign = extended >= 0 ? extended == 1 : !is_unsigned(type.kind()) && type.kind() != TypeKind::I1;
 	const unsigned part = bits == 64 ? 3 : bits == 32 ? 2 : bits == 16 ? 1 : 0;
 	const unsigned extension = part | ((bits < 64 && sign) ? 4 : 0);
+	const unsigned index_extension = bits == 64 ? 3 : sign ? 6 : 2;
 	if (index.next != kNoId && uses_[index.result] == 1)
 	{
 		// A coalesced copy or zero extension emits no instruction and
@@ -457,7 +499,7 @@ InstId Selector::address_sequence(InstId id)
 			(aliases_.empty() ? pointer.index : aliases_[pointer.index]) == index.result;
 		const bool vector_offset = literal
 			? (!(displacement % 16) && displacement / 16 < 4096) || displacement + 256 < 512
-			: bits == 64 && (scale == 1 || scale == 16);
+			: bits >= 32 && (scale == 1 || scale == 16);
 		if (consumes && memory.type.kind() == TypeKind::V128 && vector_offset && index.ops[0].is(ValueKind::Temp))
 		{
 			const unsigned base = address_register(index.ops[0], 10);
@@ -466,7 +508,7 @@ InstId Selector::address_sequence(InstId id)
 												   : vectors_[memory.result];
 			if (!literal)
 				out_.emit(store ? Op::StrQReg : Op::LdrQReg, reg, base, operand_register(offset, type, 11),
-					(3u << 13) | ((scale != 1) << 12));
+					(index_extension << 13) | ((scale != 1) << 12));
 			else if (!(displacement % 16) && displacement / 16 < 4096)
 				out_.emit(store ? Op::StrQ : Op::LdrQ, reg, base, 0, uint32_t(displacement / 16) << 10);
 			else
@@ -521,7 +563,6 @@ InstId Selector::address_sequence(InstId id)
 						out_.emit(Op::Sbfm, 11, subscript, 0, (bits - 1) << 10);
 						subscript = 11;
 					}
-					const unsigned index_extension = bits == 64 ? 3 : sign ? 6 : 2;
 					const Op op = convert ? signed_load(bytes, integer_bits(convert->type.kind()), Offset::Register)
 						: fp == kNoId     ? indexed_access(store, bytes)
 						: bytes == 4      ? (store ? Op::StrSReg : Op::LdrSReg)

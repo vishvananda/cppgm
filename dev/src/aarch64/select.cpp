@@ -581,6 +581,8 @@ void Selector::run()
 					: inst.type.kind() == TypeKind::I128 ? wide_high_product(inst)
 														 : truncated_operand(inst, block);
 				if (last == kNoId && inst.op == Opcode::Convert && inst.type.kind() == TypeKind::I64)
+					last = address_sequence(i);
+				if (last == kNoId && inst.op == Opcode::Convert && inst.type.kind() == TypeKind::I64)
 					last = widening_product(inst);
 				if (last == kNoId && inst.op == Opcode::Binary)
 					last = bitfield(inst);
