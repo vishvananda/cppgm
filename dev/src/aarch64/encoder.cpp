@@ -5,6 +5,7 @@
 #include "aarch64/error.h"
 
 #include <algorithm>
+#include <cstdint>
 
 namespace aarch64 {
 
@@ -873,26 +874,71 @@ void place_short_loops(const Function& function, native::object::Section& text)
 		native::object::put32(text.bytes, 0xd503201f);
 }
 
+// The last step of selection: a jump table of a function shorter than 2^15
+// instructions holds halfwords, two to a word, each its destination's
+// distance in words from the table, which the dispatch loads sign-extended
+// and adds scaled by four. The table's ADR then counts its entries negated,
+// and the word that holds entries 2k and 2k + 1 is the jump to entry 2k
+// with entry 2k + 1's label as its addend.
+void pack_tables(Function& f)
+{
+	const uint32_t n = static_cast<uint32_t>(f.code.size());
+	if (n >= (1u << 15))
+		return;
+	std::vector<uint32_t> removed;
+	for (uint32_t pc = 0; pc + 3 < n; ++pc)
+	{
+		auto& adr = f.code[pc];
+		auto& load = f.code[pc + 1];
+		auto& add = f.code[pc + 2];
+		if (adr.op != Op::Adr || adr.fixup != Fixup::Block || adr.addend <= 1 || load.op != Op::LdrSWReg ||
+			load.rd != 17 || load.rn != 16 || add.op != Op::Add || add.rd != 16 || add.rn != 16 || add.rm != 17 ||
+			add.field != 0)
+			continue;
+		const uint32_t start = f.labels[adr.target], count = static_cast<uint32_t>(adr.addend);
+		load.op = Op::LdrSHXReg; // the same extend, scaled by two
+		add.field = 2u << 10;
+		adr.addend = -adr.addend;
+		for (uint32_t k = 0; 2 * k < count; ++k)
+		{
+			auto& word = f.code[start + k];
+			word.target = f.code[start + 2 * k].target;
+			word.addend = 2 * k + 1 < count ? static_cast<int32_t>(f.code[start + 2 * k + 1].target) : -1;
+		}
+		for (uint32_t k = (count + 1) / 2; k < count; ++k)
+			removed.push_back(start + k);
+	}
+	std::sort(removed.begin(), removed.end());
+	remove_instructions(f, removed);
+}
+
 // A jump table's entries, which the selector writes as jumps after the ADR
 // that addresses them (its addend counts them), are words: each
 // destination's byte distance from the table, which the dispatch loads and
-// adds to the table's address.
+// adds to the table's address; or halfword pairs (pack_tables).
 void encode(
 	const Function& function, const std::vector<uint32_t>& symbols, native::object::Section& text, uint32_t resume)
 {
 	const uint32_t n = static_cast<uint32_t>(function.code.size());
 	std::vector<uint32_t> table_at;
+	std::vector<uint8_t> halves;
 	for (const auto& ins : function.code)
 		if (ins.op == Op::Adr && ins.fixup == Fixup::Block)
 		{
 			if (table_at.empty())
 				table_at.assign(n, kNoLabel);
 			const uint32_t start = function.labels.at(ins.target);
-			for (uint32_t i = start; i - start < static_cast<uint32_t>(ins.addend); ++i)
+			const bool packed = ins.addend < 0;
+			if (packed && halves.empty())
+				halves.assign(n, 0);
+			const auto entries = static_cast<uint32_t>(packed ? -int64_t(ins.addend) : int64_t(ins.addend));
+			for (uint32_t i = start; i - start < (packed ? (entries + 1) / 2 : entries); ++i)
 			{
 				if (i >= n || function.code[i].op != Op::B || function.code[i].fixup != Fixup::Block)
 					throw AArch64Error("AArch64 jump table entry is not a jump");
 				table_at[i] = start;
+				if (packed)
+					halves[i] = 1;
 			}
 		}
 	for (uint32_t i = 0; i < n; ++i)
@@ -900,7 +946,19 @@ void encode(
 		const Instruction& ins = function.code[i];
 		uint32_t word = static_cast<uint32_t>(ins.op) | ins.rd | (ins.rn << 5) | (ins.rm << 16) | ins.field;
 		if (!table_at.empty() && table_at[i] != kNoLabel)
-			word = static_cast<uint32_t>(4 * (int64_t(function.labels.at(ins.target)) - int64_t(table_at[i])));
+		{
+			const int64_t first = int64_t(function.labels.at(ins.target)) - int64_t(table_at[i]);
+			if (halves.empty() || !halves[i])
+				word = static_cast<uint32_t>(4 * first);
+			else
+			{
+				const int64_t second = ins.addend < 0 ? 0
+													  : int64_t(function.labels.at(ins.addend)) - int64_t(table_at[i]);
+				if (first < INT16_MIN || first > INT16_MAX || second < INT16_MIN || second > INT16_MAX)
+					throw AArch64Error("AArch64 jump table entry out of range");
+				word = uint32_t(uint16_t(first)) | uint32_t(uint16_t(second)) << 16;
+			}
+		}
 		else if (ins.fixup == Fixup::Block)
 		{
 			const int64_t displacement = int64_t(function.labels.at(ins.target)) - int64_t(i);

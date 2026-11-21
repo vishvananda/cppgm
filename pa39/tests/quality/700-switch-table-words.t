@@ -1,6 +1,7 @@
-// A dense switch dispatches through a table of words, each its case's
-// distance from the table: the indirect branch goes to the case itself, with
-// no jump in between.
+// A dense switch dispatches through a table of halfwords, each its case's
+// distance in instructions from the table: the indirect branch goes to the
+// case itself, with no jump in between, and the table takes half the bytes
+// of one of jumps.
 extern "C" __attribute__((noinline)) int pick(unsigned k, int a) {
     switch (k) {
     case 0:

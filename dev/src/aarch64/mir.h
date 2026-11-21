@@ -49,7 +49,7 @@ struct Instruction
 	uint32_t field;
 	Fixup fixup;
 	uint32_t target;
-	int32_t addend; // a symbol fixup's addend; a block ADR's jump table entries
+	int32_t addend; // a symbol fixup's addend; a block ADR's jump table entries (pack_tables)
 };
 
 enum class FrameRule
@@ -99,6 +99,7 @@ void remove_instructions(Function& function, const std::vector<uint32_t>& remove
 void insert_instructions(
 	Function& function, const std::vector<uint32_t>& places, const std::vector<Instruction>& added);
 void relax_branches(Function& function);
+void pack_tables(Function& function);
 // The caller-saved registers (x2-x7, x12-x14) a function may hold a value in
 // across a direct call to a function of its unit that leaves them alone.
 constexpr uint32_t kLeafKept = 0xfcu | (7u << 12);

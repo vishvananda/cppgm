@@ -689,6 +689,7 @@ void Selector::run()
 		drop_repeated_compares(out_);
 	}
 	relax_branches(out_);
+	pack_tables(out_);
 }
 
 } // namespace aarch64

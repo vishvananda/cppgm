@@ -25,6 +25,17 @@
       "run": {
         "jumps": 7
       }
+    },
+    "own_functions": {
+      "pick": {
+        "code_bytes": 124
+      },
+      "wide_pick": {
+        "code_bytes": 112
+      },
+      "run": {
+        "code_bytes": 124
+      }
     }
   }
 }
