@@ -345,6 +345,25 @@ bool within(const std::vector<BlockId>& region, BlockId block)
 	return std::find(region.begin(), region.end(), block) != region.end();
 }
 
+// Whether the selectors search a switch of the targets' runs (the default
+// `def` aside) by halves: machine::kNativeSearchRuns runs or more with
+// machine::kNativeSearchGaps gaps between them. A missed value then takes
+// about log2 of the runs' compares instead of one per run.
+bool searched(const std::vector<Exit>& exits, size_t def)
+{
+	Ranges all;
+	for (size_t e = 0; e < exits.size(); ++e)
+		if (e != def)
+			all.insert(all.end(), exits[e].values.begin(), exits[e].values.end());
+	if (all.size() < machine::kNativeSearchRuns)
+		return false;
+	std::sort(all.begin(), all.end());
+	uint32_t gaps = 0;
+	for (size_t k = 1; k < all.size(); ++k)
+		gaps += all[k].first - 1 > all[k - 1].second ? 1 : 0;
+	return gaps >= machine::kNativeSearchGaps;
+}
+
 // Two phi inputs that give one value (each literal operand has its own
 // entry).
 bool same_input(const FunctionBody& body, Value a, Value b)
@@ -936,8 +955,8 @@ bool SwitchFormer::form_region(const std::vector<BlockId>& region, const std::ve
 			runs += exits[e].values.size();
 		}
 	// (As many runs as tests replaced: a switch only from the count that
-	// takes a jump table, kTableRuns.)
-	if (cases > kMaxCases || runs > replaced || (runs == replaced && runs < kTableRuns))
+	// takes a jump table, kTableRuns, or that the selectors search.)
+	if (cases > kMaxCases || runs > replaced || (runs == replaced && runs < kTableRuns && !searched(exits, def)))
 		return false;
 	// The rewrite: the head switches; the region's other blocks and those
 	// that pass lose their predecessors (cleanup removes them).

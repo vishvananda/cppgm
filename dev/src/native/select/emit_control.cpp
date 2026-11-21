@@ -1525,8 +1525,9 @@ bool FunctionSelector::emit_clustered_switch(
 	uint32_t gaps = 0;
 	for (size_t i = 1; i < tree.tests.size(); ++i)
 		gaps += tree.tests[i].lo > tree.tests[i - 1].hi + 1 ? 1 : 0;
-	tree.tree = level_ >= 1 && tree.tests.size() >= 4 && gaps >= 2 && selector.kind == OperandKind::Reg &&
-		selector.reg < 16 && selector.reg != kSelectScratch && selector.reg != kEmitScratch;
+	tree.tree = level_ >= 1 && tree.tests.size() >= machine::kNativeSearchRuns && gaps >= machine::kNativeSearchGaps &&
+		selector.kind == OperandKind::Reg && selector.reg < 16 && selector.reg != kSelectScratch &&
+		selector.reg != kEmitScratch;
 	// A window covering more values than the runs outside it goes first
 	// (taken as the likelier, with no profile), the runs in a deferred
 	// block its bounds check jumps to: a selector the window takes skips

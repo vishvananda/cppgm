@@ -1,0 +1,112 @@
+function @ladder(%op : u8) -> i32 [no_inline=yes] {
+  block ^entry:
+    switch %op, ^miss, 3:^a, 1:^b, 6:^c, 2:^d, 21:^e
+
+  block ^a:
+    return i32 10
+
+  block ^b:
+    return i32 20
+
+  block ^c:
+    return i32 30
+
+  block ^d:
+    return i32 40
+
+  block ^e:
+    return i32 50
+
+  block ^miss:
+    return i32 7
+}
+function @joined(%n : i32) -> i32 [no_inline=yes] {
+  block ^entry:
+    switch %n, ^miss, 9:^join, 40:^join, 2:^switch_case_2, 17:^switch_case_3
+
+  block ^miss:
+    %m = binary mul i32 %n, 3
+    jump ^join
+
+  block ^switch_case_2:
+    jump ^join
+
+  block ^switch_case_3:
+    jump ^join
+
+  block ^join:
+    %r = phi i32 [^entry: 1, ^miss: %m, ^switch_case_2: 2, ^switch_case_3: 4]
+    return i32 %r
+}
+function @consecutive(%op : u8) -> i32 [no_inline=yes] {
+  block ^entry:
+    %c0 = cmp eq u8 %op, 42
+    branch %c0, ^a, ^t1
+
+  block ^t1:
+    %c1 = cmp eq u8 %op, 43
+    branch %c1, ^b, ^t2
+
+  block ^t2:
+    %c2 = cmp eq u8 %op, 44
+    %c3 = cmp eq u8 %op, 45
+    %t5 = select i32 %c3, 4, 0
+    %t6 = select i32 %c2, 3, %t5
+    return i32 %t6
+
+  block ^a:
+    return i32 1
+
+  block ^b:
+    return i32 2
+}
+function @three(%op : u8) -> i32 [no_inline=yes] {
+  block ^entry:
+    %c0 = cmp eq u8 %op, 7
+    branch %c0, ^a, ^t1
+
+  block ^t1:
+    %c1 = cmp eq u8 %op, 1
+    %c2 = cmp eq u8 %op, 30
+    %t4 = select i32 %c2, 3, 0
+    %t5 = select i32 %c1, 2, %t4
+    return i32 %t5
+
+  block ^a:
+    return i32 1
+}
+function @main() -> i32 [role=entry] {
+  block ^entry:
+    %l0 = call i32 @ladder(3)
+    %l1 = call i32 @ladder(21)
+    %l2 = call i32 @ladder(4)
+    %l3 = call i32 @ladder(255)
+    %l4 = call i32 @ladder(0)
+    %la = binary add i32 %l0, %l1
+    %lb = binary add i32 %l2, %l3
+    %lc = binary add i32 %la, %lb
+    %ld = binary add i32 %l4, %lc
+    %ladder_ok = cmp eq i32 %ld, 81
+    %j0 = call i32 @joined(9)
+    %j1 = call i32 @joined(40)
+    %j2 = call i32 @joined(17)
+    %j3 = call i32 @joined(18)
+    %j4 = call i32 @joined(-5)
+    %ja = binary add i32 %j0, %j1
+    %jb = binary add i32 %j2, %j3
+    %jc = binary add i32 %ja, %jb
+    %jd = binary add i32 %j4, %jc
+    %joined_ok = cmp eq i32 %jd, 45
+    %k0 = call i32 @consecutive(45)
+    %k1 = call i32 @consecutive(41)
+    %k2 = call i32 @three(30)
+    %k3 = call i32 @three(2)
+    %ka = binary add i32 %k0, %k1
+    %kb = binary add i32 %k2, %k3
+    %kc = binary add i32 %ka, %kb
+    %rest_ok = cmp eq i32 %kc, 7
+    %both = binary and i64 %ladder_ok, %joined_ok
+    %all = binary and i64 %rest_ok, %both
+    %status = select i32 %all, 0, 1
+    return i32 %status
+}
