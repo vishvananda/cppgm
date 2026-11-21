@@ -91,6 +91,10 @@ bool Selector::parallel_edge(BlockId from, BlockId to)
 		else
 			move(reg, loc);
 	};
+	const auto zero_literal = [&](Value v) {
+		return (v.is(ValueKind::Integer) || v.is(ValueKind::Float)) && body_.literals[v.index].low == 0 &&
+			body_.literals[v.index].high == 0;
+	};
 	uint32_t scratch = 0;
 	return machine::parallel_scalar_transfers<limit>(
 		moves, count,
@@ -134,6 +138,12 @@ bool Selector::parallel_edge(BlockId from, BlockId to)
 				return;
 			}
 			const unsigned reg = dst < simd_base ? dst : 9;
+			if (src == machine::kTransferLiteral && dst >= frame_location && zero_literal(sources[i]))
+			{
+				// A zero for a frame home is stored from the zero register.
+				access(true, 31, frame_base(), dst - frame_location, 8);
+				return;
+			}
 			if (src == machine::kTransferLiteral)
 				value(reg, sources[i], type);
 			else if (simd(src))
@@ -177,7 +187,7 @@ void Selector::copy_edge(BlockId from, BlockId to)
 		}
 		else
 		{
-			const auto reg = operand_register(source, type, 10);
+			const auto reg = zero_or_register(source, type, 10);
 			access(true, reg, frame_base(), offset, 8);
 		}
 		offset += (storage_bytes(type) + 7) & ~uint64_t(7);
@@ -518,7 +528,7 @@ void Selector::register_edge(BlockId from, BlockId to)
 			value(registers_[phi.result], source, phi.type);
 		else
 		{
-			const auto reg = operand_register(source, phi.type, 9);
+			const auto reg = zero_or_register(source, phi.type, 9);
 			access(true, reg, frame_base(), homes_[phi.result], 8);
 		}
 	}
