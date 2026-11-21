@@ -309,6 +309,9 @@ bool memory_effects(const Instruction& ins, Effects& e)
 		{ Op::LdpS, true, true, true, false, false }, { Op::LdpD, true, true, true, false, false },
 		{ Op::LdpQ, true, true, true, false, false }, { Op::StpS, false, true, true, false, false },
 		{ Op::StpD, false, true, true, false, false }, { Op::StpQ, false, true, true, false, false } };
+	// Every load and store has bit 27 set and bit 25 clear.
+	if ((static_cast<uint32_t>(ins.op) & 0x0a000000) != 0x08000000)
+		return false;
 	for (const auto& form : forms)
 	{
 		if (form.op != ins.op)
@@ -339,25 +342,25 @@ struct Access
 	int64_t offset;
 };
 
+struct SingleForm
+{
+	Op op;
+	bool load, simd, unscaled;
+	unsigned bytes;
+};
+const SingleForm kSingleForms[] = { { Op::LdrW, true, false, false, 4 }, { Op::LdrX, true, false, false, 8 },
+	{ Op::StrW, false, false, false, 4 }, { Op::StrX, false, false, false, 8 }, { Op::LdurW, true, false, true, 4 },
+	{ Op::LdurX, true, false, true, 8 }, { Op::SturW, false, false, true, 4 }, { Op::SturX, false, false, true, 8 },
+	{ Op::LdrS, true, true, false, 4 }, { Op::LdrD, true, true, false, 8 }, { Op::LdrQ, true, true, false, 16 },
+	{ Op::StrS, false, true, false, 4 }, { Op::StrD, false, true, false, 8 }, { Op::StrQ, false, true, false, 16 },
+	{ Op::LdurS, true, true, true, 4 }, { Op::LdurD, true, true, true, 8 }, { Op::LdurQ, true, true, true, 16 },
+	{ Op::SturS, false, true, true, 4 }, { Op::SturD, false, true, true, 8 }, { Op::SturQ, false, true, true, 16 } };
+
 bool single_access(const Instruction& ins, Access& access)
 {
-	struct Form
-	{
-		Op op;
-		bool load, simd, unscaled;
-		unsigned bytes;
-	};
-	static const Form forms[] = { { Op::LdrW, true, false, false, 4 }, { Op::LdrX, true, false, false, 8 },
-		{ Op::StrW, false, false, false, 4 }, { Op::StrX, false, false, false, 8 }, { Op::LdurW, true, false, true, 4 },
-		{ Op::LdurX, true, false, true, 8 }, { Op::SturW, false, false, true, 4 }, { Op::SturX, false, false, true, 8 },
-		{ Op::LdrS, true, true, false, 4 }, { Op::LdrD, true, true, false, 8 }, { Op::LdrQ, true, true, false, 16 },
-		{ Op::StrS, false, true, false, 4 }, { Op::StrD, false, true, false, 8 }, { Op::StrQ, false, true, false, 16 },
-		{ Op::LdurS, true, true, true, 4 }, { Op::LdurD, true, true, true, 8 }, { Op::LdurQ, true, true, true, 16 },
-		{ Op::SturS, false, true, true, 4 }, { Op::SturD, false, true, true, 8 },
-		{ Op::SturQ, false, true, true, 16 } };
 	if (ins.fixup != Fixup::None)
 		return false;
-	for (const auto& form : forms)
+	for (const auto& form : kSingleForms)
 	{
 		if (form.op != ins.op)
 			continue;
@@ -371,6 +374,25 @@ bool single_access(const Instruction& ins, Access& access)
 	return false;
 }
 
+// The single access as an instruction: the scaled form from offset zero up,
+// the unscaled form below it.
+bool single_instruction(const Access& access, Instruction& ins)
+{
+	const bool unscaled = access.offset < 0;
+	if (unscaled ? access.offset < -256 : access.offset % access.bytes || access.offset / access.bytes > 4095)
+		return false;
+	for (const auto& form : kSingleForms)
+		if (form.load == access.load && form.simd == access.simd && form.unscaled == unscaled &&
+			form.bytes == access.bytes)
+		{
+			const uint32_t field = unscaled ? (uint32_t(access.offset) & 511) << 12
+											: uint32_t(access.offset / access.bytes) << 10;
+			ins = Instruction{ form.op, access.rt, access.rn, 0, field, Fixup::None, 0 };
+			return true;
+		}
+	return false;
+}
+
 Op pair_op(const Access& a)
 {
 	if (!a.simd)
@@ -378,6 +400,46 @@ Op pair_op(const Access& a)
 	if (a.bytes == 4)
 		return a.load ? Op::LdpS : Op::StpS;
 	return a.bytes == 8 ? (a.load ? Op::LdpD : Op::StpD) : (a.load ? Op::LdpQ : Op::StpQ);
+}
+
+// The two accesses of a pair without writeback, the lower address first.
+bool pair_halves(const Instruction& ins, Access& low, Access& high)
+{
+	bool load = false, simd = false;
+	unsigned bytes = 8;
+	switch (ins.op)
+	{
+	case Op::LdpW:
+		bytes = 4;
+		// Fallthrough.
+	case Op::LdpX:
+		load = true;
+		break;
+	case Op::StpW:
+		bytes = 4;
+		// Fallthrough.
+	case Op::StpX:
+		break;
+	case Op::LdpS:
+	case Op::LdpD:
+	case Op::LdpQ:
+		load = true;
+		// Fallthrough.
+	case Op::StpS:
+	case Op::StpD:
+	case Op::StpQ:
+		simd = true;
+		bytes = ins.op == Op::LdpS || ins.op == Op::StpS ? 4 : ins.op == Op::LdpD || ins.op == Op::StpD ? 8 : 16;
+		break;
+	default:
+		return false;
+	}
+	if (ins.fixup != Fixup::None)
+		return false;
+	const int64_t offset = ((int64_t((ins.field >> 15) & 127) ^ 64) - 64) * bytes;
+	low = Access{ load, simd, bytes, ins.rd, ins.rn, offset };
+	high = Access{ load, simd, bytes, ra_of(ins), ins.rn, offset + int64_t(bytes) };
+	return true;
 }
 
 // The pair of accesses x (first) and y, separated by the effects between
@@ -519,6 +581,254 @@ void share_pages(const Function& f, uint32_t first, const std::vector<uint8_t>& 
 	}
 }
 
+// Forwarding in flight. A pair forwards neither half before both halves have
+// their data: a pair load waits for the two stores it reads, and a load of
+// one half of a pair store waits for the other half's value. A value a loop
+// carries through memory then waits for its neighbour each time around. So
+// inside a loop, and while the base register stays, two loads do not pair
+// when a store of the loop may still be in flight where either one reads it,
+// and two stores do not pair when a load of the loop may read either one in
+// flight. A load reads the last store of its own block to its memory when
+// the block has one, and that store has its data once a call stands between
+// them; a load with no such store may read any store of the loop.
+class Flights
+{
+public:
+	explicit Flights(const Function& f) : f_(f) {}
+
+	// The code changed.
+	void reset() { stage_ = kNone; }
+
+	// Whether the accesses x at `first` and y at `second` stay single.
+	bool keeps_single(uint32_t first, uint32_t second, const Access& x, const Access& y)
+	{
+		if (stage_ == kNone)
+			find_loops();
+		const uint32_t loop = loop_.empty() ? 0 : loop_[first];
+		if (!loop)
+			return false;
+		if (stage_ == kLoops)
+			index_loops();
+		const int64_t low = std::min(x.offset, y.offset);
+		if ((moved_[loop] & gp(x.rn, true)) || !placed(low, 2 * x.bytes))
+			return false;
+		const uint32_t half = cell_of(low) + x.bytes / 4;
+		for (uint32_t cell = cell_of(low), end = half + x.bytes / 4; cell != end; ++cell)
+		{
+			// The store of this cell: x holds the low half or the high one.
+			const uint32_t store = (cell < half) == (x.offset == low) ? first : second;
+			if (x.load ? fed_in_flight(loop, x.rn, cell, first) : read_in_flight(loop, x.rn, cell, store))
+				return true;
+		}
+		return false;
+	}
+
+private:
+	// One 4-byte cell an access covers, sorted by loop, base, kind and cell,
+	// then by place.
+	struct Cell
+	{
+		uint32_t loop, key, pc;
+		bool operator<(const Cell& other) const
+		{
+			return loop != other.loop ? loop < other.loop : key != other.key ? key < other.key : pc < other.pc;
+		}
+	};
+	using Range = std::pair<const Cell*, const Cell*>;
+
+	static bool placed(int64_t offset, unsigned bytes) { return offset % 4 == 0 && offset >= -256 && bytes % 4 == 0; }
+	static uint32_t cell_of(int64_t offset) { return static_cast<uint32_t>((offset + 256) / 4); }
+	static uint32_t key(unsigned rn, bool load, uint32_t cell) { return rn << 20 | (load ? 1u << 19 : 0) | cell; }
+
+	Range cells(uint32_t loop, unsigned rn, bool load, uint32_t cell) const
+	{
+		const Cell low{ loop, key(rn, load, cell), 0 };
+		const Cell* end = cells_.data() + cells_.size();
+		const Cell* first = std::lower_bound(cells_.data(), end, low);
+		const Cell* last = first;
+		while (last != end && last->loop == low.loop && last->key == low.key)
+			++last;
+		return Range(first, last);
+	}
+
+	// The last of the stores before `pc` in its block, or null.
+	const Cell* feeder(const Range& stores, uint32_t pc) const
+	{
+		const Cell* after = stores.first;
+		while (after != stores.second && after->pc < pc)
+			++after;
+		return after != stores.first && block_[after[-1].pc] == block_[pc] ? after - 1 : nullptr;
+	}
+
+	// A load at `pc` of a cell the loop stores: in flight unless its own
+	// block's store feeds it past a call.
+	bool fed_in_flight(uint32_t loop, unsigned rn, uint32_t cell, uint32_t pc) const
+	{
+		const Range stores = cells(loop, rn, false, cell);
+		if (stores.first == stores.second)
+			return false;
+		const Cell* from = feeder(stores, pc);
+		return !from || calls_[from->pc] == calls_[pc];
+	}
+
+	// A store at `pc`: read in flight by the next load of its block with no
+	// call between, or by a load of the loop that no store of its own block
+	// feeds.
+	bool read_in_flight(uint32_t loop, unsigned rn, uint32_t cell, uint32_t pc)
+	{
+		const Range loads = cells(loop, rn, true, cell);
+		if (loads.first == loads.second)
+			return false;
+		const Range stores = cells(loop, rn, false, cell);
+		uint8_t& open = open_[loads.first - cells_.data()];
+		if (!open)
+		{
+			open = 1;
+			for (const Cell* load = loads.first; load != loads.second && open == 1; ++load)
+				if (!feeder(stores, load->pc))
+					open = 2;
+		}
+		if (open == 2)
+			return true;
+		const Cell* next = loads.first;
+		while (next != loads.second && next->pc < pc)
+			++next;
+		if (next == loads.second || block_[next->pc] != block_[pc] || calls_[next->pc] != calls_[pc])
+			return false;
+		const Cell* from = feeder(stores, next->pc);
+		return from && from->pc == pc;
+	}
+
+	// A loop is the code a branch back to a label spans; spans that overlap
+	// are one loop.
+	void find_loops()
+	{
+		stage_ = kLoops;
+		loop_.clear();
+		loops_ = 0;
+		const uint32_t n = static_cast<uint32_t>(f_.code.size());
+		std::vector<int32_t> depth;
+		for (uint32_t pc = 0; pc < n; ++pc)
+		{
+			const Instruction& ins = f_.code[pc];
+			if (ins.fixup != Fixup::Block || ins.target >= f_.labels.size() || f_.labels[ins.target] > pc)
+				continue;
+			if (depth.empty())
+				depth.resize(n + 2);
+			++depth[f_.labels[ins.target]];
+			--depth[pc + 1];
+		}
+		if (depth.empty())
+			return;
+		loop_.resize(n + 1);
+		for (uint32_t pc = 0, inside = 0; pc < n; ++pc)
+		{
+			const uint32_t before = inside;
+			inside += depth[pc];
+			loops_ += inside && !before;
+			loop_[pc] = inside ? loops_ : 0;
+		}
+	}
+
+	// The registers each loop writes and the cells its accesses cover.
+	void index_loops()
+	{
+		stage_ = kIndexed;
+		const uint32_t n = static_cast<uint32_t>(f_.code.size());
+		block_.assign(n + 1, 0);
+		calls_.assign(n + 1, 0);
+		for (uint32_t pc : f_.labels)
+			if (pc < n)
+				block_[pc] = 1;
+		moved_.assign(loops_ + 1, 0);
+		cells_.clear();
+		for (uint32_t pc = 0; pc < n; ++pc)
+		{
+			const Instruction& ins = f_.code[pc];
+			const bool call = ins.op == Op::Bl || ins.op == Op::Blr;
+			block_[pc] += pc ? block_[pc - 1] : 0;
+			calls_[pc + 1] = calls_[pc] + call;
+			const uint32_t loop = loop_[pc];
+			Effects e;
+			Access access, high;
+			if (!loop)
+				continue;
+			if (integer_effects(ins, e) || floating_effects(ins, e))
+			{
+				moved_[loop] |= e.gp_def;
+				continue;
+			}
+			const bool pair = pair_halves(ins, access, high);
+			if (pair || single_access(ins, access))
+			{
+				if (access.load && !access.simd)
+					moved_[loop] |= gp(access.rt) | (pair ? gp(high.rt) : 0);
+				if (!placed(access.offset, access.bytes))
+					continue;
+				const unsigned cells = (pair ? 2 : 1) * access.bytes / 4;
+				for (uint32_t cell = cell_of(access.offset), end = cell + cells; cell != end; ++cell)
+					cells_.push_back(Cell{ loop, key(access.rn, access.load, cell), pc });
+			}
+			else if (memory_effects(ins, e))
+				moved_[loop] |= e.gp_def;
+			// A call keeps x19 to x29; a branch writes no register; any
+			// other instruction without a model may write all but SP.
+			else if (call)
+				moved_[loop] |= 0x4007ffffu;
+			else if (ins.fixup != Fixup::Block && ins.op != Op::Ret && ins.op != Op::Br)
+				moved_[loop] |= ~kSp;
+		}
+		// The rule reads no cell of a base its loop writes.
+		cells_.erase(std::remove_if(cells_.begin(), cells_.end(),
+						 [&](const Cell& c) { return (moved_[c.loop] & gp(c.key >> 20, true)) != 0; }),
+			cells_.end());
+		std::sort(cells_.begin(), cells_.end());
+		open_.assign(cells_.size() + 1, 0);
+	}
+
+	enum Stage
+	{
+		kNone,
+		kLoops,
+		kIndexed
+	};
+	const Function& f_;
+	Stage stage_ = kNone;
+	uint32_t loops_ = 0;
+	std::vector<uint32_t> loop_;  // the loop of each instruction, from 1; 0 outside loops
+	std::vector<uint32_t> block_; // labels at or before each instruction
+	std::vector<uint32_t> calls_; // calls before each instruction
+	std::vector<uint32_t> moved_; // general registers each loop writes
+	std::vector<Cell> cells_;
+	std::vector<uint8_t> open_; // at a load range's start: 1 every load has a feeder, 2 one has none
+};
+
+// A pair selection made through a pointer register falls under the same
+// rule: it becomes two single accesses again. A load into the base goes last.
+void split_pairs(Function& f, uint32_t first, std::vector<BitTest>& tests, Flights& flights)
+{
+	std::vector<uint32_t> places;
+	std::vector<Instruction> added;
+	for (uint32_t pc = first; pc < f.code.size(); ++pc)
+	{
+		Access low, high;
+		Instruction one, other;
+		if (!pair_halves(f.code[pc], low, high) || low.rn == 31 || !single_instruction(low, one) ||
+			!single_instruction(high, other) || !flights.keeps_single(pc, pc, low, high))
+			continue;
+		const bool base_first = low.load && !low.simd && low.rt == low.rn;
+		f.code[pc] = base_first ? other : one;
+		places.push_back(pc);
+		added.push_back(base_first ? one : other);
+	}
+	if (places.empty())
+		return;
+	for (auto& test : tests)
+		test.pc += static_cast<uint32_t>(std::lower_bound(places.begin(), places.end(), test.pc) - places.begin());
+	insert_instructions(f, places, added);
+	flights.reset();
+}
+
 } // namespace
 
 // Volatile and atomic accesses keep their own instructions and order, and
@@ -548,6 +858,9 @@ bool orders_memory(const lowir::FunctionBody& body)
 
 void pair_accesses(Function& f, uint32_t first, std::vector<BitTest>& tests, bool ordered)
 {
+	Flights flights(f);
+	if (!ordered)
+		split_pairs(f, first, tests, flights);
 	const uint32_t n = static_cast<uint32_t>(f.code.size());
 	// A block start, a call site edge or a landing pad ends a search; so does
 	// any frame event, which marks prologue or epilogue code.
@@ -583,7 +896,8 @@ void pair_accesses(Function& f, uint32_t first, std::vector<BitTest>& tests, boo
 			Access y;
 			Instruction pair;
 			bool at_second = false;
-			if (single_access(ins, y) && !boundary[b + 1] && join(x, y, between, pair, at_second))
+			if (single_access(ins, y) && !boundary[b + 1] && join(x, y, between, pair, at_second) &&
+				!flights.keeps_single(a, b, x, y))
 			{
 				f.code[at_second ? b : a] = pair;
 				const uint32_t dropped = at_second ? a : b;
