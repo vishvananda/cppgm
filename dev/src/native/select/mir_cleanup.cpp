@@ -179,11 +179,17 @@ TailCopies duplicate_short_tails(Function& f, bool addressed)
 		const uint32_t target = last.ops[0].symbol;
 		// (Code labels keep their function's order: a jump over blocks that
 		// are empty or only jump on, which threading leaves unreached, falls
-		// into its target.)
+		// into its target. A jump after a branch to the block below stays,
+		// as does a lone jump that threading takes out of its branch's way:
+		// the branch's other path falls through only while the jump does not.)
 		uint32_t next = b + 1;
-		while (addressed && next < target && passed_over(f, next))
+		while (addressed && next < blocks && passed_over(f, next))
 			++next;
-		const bool dispatch = target != b && (!addressed || target != next) && dispatch_tail(f, target, addressed);
+		const Inst& before = f.insts[block.first + block.count - (block.count >= 2 ? 2 : 1)];
+		const bool falls_below = before.op == Op::Jcc && before.ops[0].kind == OperandKind::Label &&
+			before.ops[0].symbol == next;
+		const bool dispatch = target != b && (!addressed || (target != next && !falls_below && !passed_over(f, b))) &&
+			dispatch_tail(f, target, addressed);
 		if (!dispatch && (addressed || target >= b || !rotatable(f, target)))
 			continue;
 		const Block tail = f.blocks[target];

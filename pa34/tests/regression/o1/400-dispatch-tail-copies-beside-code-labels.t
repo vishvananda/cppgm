@@ -1,7 +1,11 @@
 # A function with code labels copies a short block that ends in its computed
 # dispatch (an indirect jump) into a jump to it: the arms of `^step`'s test
 # meet at `^dispatch`, and `^odd`, which does not fall into it, ends with its
-# own copy of the dispatch instead of a jump there.
+# own copy of the dispatch instead of a jump there. `^even` keeps its branch
+# to `^dispatch`: its other successor, `^clamp`, is the block below, which
+# the copy would leave reachable only by a taken branch. So does `^clamp`,
+# whose edge to `^dispatch` is the lone jump `^skip`: threaded away, it
+# leaves `^last` below `^clamp`.
 declare global @run.step : i8 [binding=internal]
 declare global @run.end : i8 [binding=internal]
 
@@ -53,6 +57,20 @@ function @run(%n : i64) -> i64 [binding=internal, no_inline=yes] {
     store i64 %a1, $acc
     %ipe = binary add i64 %ip, 1
     store i64 %ipe, $ip
+    %big = cmp gt i64 %a1, 1000
+    branch %big, ^clamp, ^dispatch
+
+  block ^clamp:
+    store i64 0, $acc
+    %t = load i64 $ip
+    %tick = cmp eq i64 %t, 3
+    branch %tick, ^skip, ^last
+
+  block ^skip:
+    jump ^dispatch
+
+  block ^last:
+    store i64 1, $acc
     jump ^dispatch
 
   block ^dispatch:

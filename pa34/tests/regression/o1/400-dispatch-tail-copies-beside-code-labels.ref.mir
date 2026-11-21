@@ -63,6 +63,16 @@ function @run
     store.i64 [rbp-8], rcx
     add rax, 1
     store.i64 [rbp-16], rax
+    cmp.i64 rcx, 1000
+    jle ^dispatch
+
+  block ^clamp
+    store.i64 [rbp-8], 0
+    cmp.i64 rax, 3
+    je ^dispatch
+
+  block ^last
+    store.i64 [rbp-8], 1
 
   block ^dispatch
     shl rax, 3
