@@ -240,6 +240,7 @@ bool floating_effects(const Instruction& ins, Effects& e)
 	case Op::VFadd:
 	case Op::VFsub:
 	case Op::VFmul:
+	case Op::VFmulElem:
 	case Op::VFdiv:
 	case Op::VFcmgt:
 	case Op::VBsl:

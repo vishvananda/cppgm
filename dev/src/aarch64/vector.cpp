@@ -231,7 +231,8 @@ void Selector::vector_shift(VectorOp op, unsigned dest, unsigned source, uint64_
 }
 
 // Broadcast a scalar directly. MOVI can also encode a single nonzero byte
-// at any byte position in each i32 lane.
+// at any byte position in each i32 lane. A floating-point broadcast whose
+// only reader is the next instruction, a multiply, is FMUL by element.
 InstId Selector::scalar_splat(const lowir::Instruction& inst)
 {
 	if (inst.next == kNoId || uses_[inst.result] != 1)
@@ -247,6 +248,18 @@ InstId Selector::scalar_splat(const lowir::Instruction& inst)
 	if (op != VectorOp::Fromi32)
 	{
 		const unsigned source = fp_operand(inst.ops[0], Type::scalar(wide ? TypeKind::F64 : TypeKind::F32), 16);
+		const Value splat = Value::temp(shuffle.result);
+		const auto& mul = body_.instructions[shuffle.next == kNoId ? inst.next : shuffle.next];
+		if (shuffle.next != kNoId && uses_[shuffle.result] == 1 && mul.op == Opcode::Vector &&
+			mul.sub == static_cast<unsigned>(wide ? VectorOp::Mulpd : VectorOp::Mulps) &&
+			(mul.ops[0] == splat) != (mul.ops[1] == splat))
+		{
+			const unsigned input = vector_value(mul.ops[mul.ops[0] == splat ? 1 : 0], 17);
+			const unsigned product = vectors_[mul.result] == kNoId ? 16 : vectors_[mul.result];
+			out_.emit(Op::VFmulElem, product, input, source, wide ? 1u << 22 : 0);
+			save_vector(product, mul.result);
+			return shuffle.next;
+		}
 		out_.emit(wide ? Op::VDupD : Op::VDupS, dest, source);
 		save_vector(dest, shuffle.result);
 		return inst.next;
