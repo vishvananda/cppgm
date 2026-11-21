@@ -337,6 +337,27 @@ void complete_cfg(Cfg& cfg);
 
 void build_dom_children(const Cfg& cfg, DomChildren& out);
 
+// Handler paths. A handler edge (Cfg::handlers) leaves its opener's block at
+// a throw point inside it, not at its end: what the block computes after its
+// first handler exit (the first instruction after one of its eh_try or
+// eh_cleanup records that may unwind) has not run when that handler starts.
+// A definition may stand after that exit only when no block on a handler's
+// path but its own reads it (a phi reads its input in the predecessor it
+// names). The simplifier's handler rule is the same fact for reuse.
+// The block's first handler exit, or kNoId (a block with no handler edge has
+// none).
+lowir::InstId first_handler_exit(
+	const lowir::Program& program, const lowir::FunctionBody& body, const Cfg& cfg, lowir::BlockId block);
+// Per block: whether a handler reaches it, over both kinds of edge (all 0
+// when the CFG has no handler edge).
+void find_handler_reached(const Cfg& cfg, std::vector<uint8_t>& reached);
+// A block marking several readers (find_handler_readers).
+const lowir::BlockId kSeveralBlocks = lowir::kNoId - 1;
+// Per temporary: the block `reached` marks that reads it, kSeveralBlocks
+// when more than one does, kNoId when none does.
+void find_handler_readers(const lowir::FunctionBody& body, const Cfg& cfg, const std::vector<uint8_t>& reached,
+	std::vector<lowir::BlockId>& reader);
+
 // The block of each instruction (kNoId for unlinked ones), from layout.
 void map_instruction_blocks(const lowir::FunctionBody& body, std::vector<lowir::BlockId>& block_of);
 

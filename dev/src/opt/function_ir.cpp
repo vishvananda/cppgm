@@ -611,6 +611,75 @@ void build_dom_children(const Cfg& cfg, DomChildren& out)
 	out.first[0] = 0;
 }
 
+InstId first_handler_exit(const Program& program, const FunctionBody& body, const Cfg& cfg, BlockId block)
+{
+	if (cfg.handler_first[block] == cfg.handler_first[block + 1])
+		return kNoId;
+	bool opened = false;
+	for (InstId i = body.blocks[block].first; i != kNoId; i = body.instructions[i].next)
+	{
+		const Instruction& inst = body.instructions[i];
+		if ((inst.op == Opcode::EhTry || inst.op == Opcode::EhCleanup) && inst.ops[0].is(ValueKind::Block))
+			opened = true;
+		else if (opened && may_unwind(program, inst))
+			return i;
+	}
+	return kNoId;
+}
+
+void find_handler_reached(const Cfg& cfg, std::vector<uint8_t>& reached)
+{
+	reached.assign(cfg.block_count, 0);
+	std::vector<BlockId> work(cfg.handlers.begin(), cfg.handlers.end());
+	for (BlockId b : work)
+		reached[b] = 1;
+	while (!work.empty())
+	{
+		const BlockId b = work.back();
+		work.pop_back();
+		auto visit = [&](BlockId s) {
+			if (reached[s] == 0)
+			{
+				reached[s] = 1;
+				work.push_back(s);
+			}
+		};
+		for (uint32_t k = cfg.succ_first[b]; k < cfg.succ_first[b + 1]; ++k)
+			visit(cfg.succs[k]);
+		for (uint32_t k = cfg.handler_first[b]; k < cfg.handler_first[b + 1]; ++k)
+			visit(cfg.handlers[k]);
+	}
+}
+
+void find_handler_readers(
+	const FunctionBody& body, const Cfg& cfg, const std::vector<uint8_t>& reached, std::vector<BlockId>& reader)
+{
+	reader.assign(body.temps.size(), kNoId);
+	auto read = [&](const Value& v, BlockId b) {
+		if (v.is(ValueKind::Temp))
+			reader[v.index] = reader[v.index] == kNoId || reader[v.index] == b ? b : kSeveralBlocks;
+	};
+	// (Phis lead their blocks: a block no handler reaches is read up to them.)
+	for (BlockId b : body.layout)
+		for (InstId i = body.blocks[b].first; i != kNoId; i = body.instructions[i].next)
+		{
+			const Instruction& inst = body.instructions[i];
+			if (inst.op != Opcode::Phi)
+			{
+				if (reached[b] == 0)
+					break;
+				for_each_operand(body, inst, [&](const Value& v) { read(v, b); });
+				continue;
+			}
+			for (uint32_t k = 0; k + 1 < inst.extra_count; k += 2)
+			{
+				const BlockId from = body.operands[inst.extra_first + k].index;
+				if (from < cfg.block_count && reached[from] != 0)
+					read(body.operands[inst.extra_first + k + 1], from);
+			}
+		}
+}
+
 void map_instruction_blocks(const FunctionBody& body, std::vector<BlockId>& block_of)
 {
 	block_of.assign(body.instructions.size(), kNoId);

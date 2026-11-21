@@ -12,7 +12,8 @@ namespace {
 
 // `sin(x)` and `cos(x)` of one value share their work: `sincos` gives both for
 // about the price of one. The first call becomes `sincos`, and the calls it
-// dominates read what that wrote.
+// dominates read what that wrote; when the first stands after its block's
+// first handler exit, only those off a handler's path (function_ir.h).
 class SinCos
 {
 public:
@@ -107,6 +108,7 @@ bool SinCos::run()
 	const Cfg& cfg = c_.ensure_cfg();
 	bool changed = false;
 	std::vector<size_t> later;
+	std::vector<uint8_t> reached;
 	for (size_t first = 0; first < calls_.size(); ++first)
 	{
 		if (calls_[first].done)
@@ -114,11 +116,19 @@ bool SinCos::run()
 		later.clear();
 		bool other = false;
 		const Type type = body_.instructions[calls_[first].id].type;
+		// (Whether the first call stands after its block's first handler exit.)
+		bool exited = false;
+		const InstId exit = first_handler_exit(c_.program, body_, cfg, calls_[first].block);
+		for (InstId i = exit; i != kNoId && !exited; i = body_.instructions[i].next)
+			exited = i == calls_[first].id;
+		if (exited && reached.empty())
+			find_handler_reached(cfg, reached);
 		for (size_t k = first + 1; k < calls_.size(); ++k)
 		{
 			const Call& call = calls_[k];
 			if (call.done || !(call.x == calls_[first].x) || !(body_.instructions[call.id].type == type) ||
-				!cfg.dominates(calls_[first].block, call.block))
+				!cfg.dominates(calls_[first].block, call.block) ||
+				(exited && call.block != calls_[first].block && reached[call.block] != 0))
 				continue;
 			later.push_back(k);
 			other = other || call.function != calls_[first].function;

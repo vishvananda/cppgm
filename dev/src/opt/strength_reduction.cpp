@@ -74,6 +74,7 @@ private:
 	std::vector<TempId> carried_;               // sink_steps: the phi and addresses stepping from it
 	std::vector<uint32_t> uses_;                // per temp
 	std::vector<InstId> first_reader_, reader_; // per temp: the first and last in layout order
+	std::vector<BlockId> handler_reader_;       // sink_steps: per temp, its reader on a handler's path
 	bool changed_ = false;
 };
 
@@ -509,7 +510,8 @@ void StrengthReduction::shift_counters(uint32_t loop)
 // In a one-block loop, a step of a phi that runs before the phi's last reader
 // holds both values at once, and the back edge copies one to the other: the
 // step (with the compare only the branch reads, when that reads the step) moves
-// after that reader.
+// after that reader. A step that another block on a handler's path reads
+// stays before the block's first handler exit (function_ir.h).
 void StrengthReduction::sink_steps(uint32_t loop)
 {
 	const Loop& l = forest_.loops[loop];
@@ -517,6 +519,15 @@ void StrengthReduction::sink_steps(uint32_t loop)
 	if (b == kNoId)
 		return;
 	const InstId term = body_.blocks[b].last;
+	const InstId exit = first_handler_exit(c_.program, body_, cfg_, b);
+	if (exit != kNoId && handler_reader_.empty())
+	{
+		std::vector<uint8_t> reached;
+		find_handler_reached(cfg_, reached);
+		find_handler_readers(body_, cfg_, reached, handler_reader_);
+	}
+	// (Whether a definition of `t` must stay before the exit.)
+	auto stays = [&](TempId t) { return exit != kNoId && handler_reader_[t] != kNoId && handler_reader_[t] != b; };
 	std::vector<InstId> order;
 	auto read_order = [&]() {
 		order.clear();
@@ -602,6 +613,11 @@ void StrengthReduction::sink_steps(uint32_t loop)
 			compare = order[k];
 		}
 		if (blocked)
+			continue;
+		bool crosses = false;
+		for (size_t k = at + 1; k <= last && !crosses; ++k)
+			crosses = order[k] == exit;
+		if (crosses && (stays(next.index) || (narrow != kNoId && stays(body_.instructions[narrow].result))))
 			continue;
 		const InstId tail = order[last];
 		unlink_after(body_, b, previous_in_block(body_, b, step), step);

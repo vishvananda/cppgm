@@ -20,7 +20,9 @@ constexpr unsigned kWalk = 128;
 // in no deeper loop, so a path that reads nothing computes nothing and a
 // step meets the test of what it computes. Blocks are visited after every
 // block they dominate, so a reader's move is known when its operands are
-// placed: one walk moves a whole chain.
+// placed: one walk moves a whole chain. A value that a block on a handler's
+// path reads (other than the target) goes before the target's first handler
+// exit (function_ir.h): that handler starts there.
 class CodeSinking
 {
 public:
@@ -54,6 +56,8 @@ private:
 	std::vector<uint8_t> moved_;       // per instruction
 	std::vector<uint32_t> first_read_; // per temp, in the target at hand
 	std::vector<InstId> order_;
+	std::vector<uint8_t> reached_;        // per block: on a handler's path (empty: no handler)
+	std::vector<BlockId> handler_reader_; // per temp: the block on a handler's path that reads it
 };
 
 // (`kNoId` when the walk is too long, which pins the value.)
@@ -77,6 +81,11 @@ void CodeSinking::read(Value v, BlockId b)
 {
 	if (v.kind != ValueKind::Temp)
 		return;
+	if (!reached_.empty() && reached_[b] != 0)
+	{
+		BlockId& reader = handler_reader_[v.index];
+		reader = reader == kNoId || reader == b ? b : kSeveralBlocks;
+	}
 	BlockId& lowest = lowest_[v.index];
 	lowest = lowest == kNoId ? b : common(lowest, b);
 	if (lowest == kNoId)
@@ -152,13 +161,21 @@ void CodeSinking::unlink_moved()
 }
 
 // moves_[first, last) enter one block, each before its first reader there
-// (the end, for a phi's read): last-placed readers come first in the list.
+// (the end, for a phi's read), or before the block's first handler exit when
+// another block on a handler's path reads it: last-placed readers come first
+// in the list.
 void CodeSinking::insert(size_t first, size_t last)
 {
 	const BlockId to = moves_[first].to;
+	const InstId exit = reached_.empty() ? kNoId : first_handler_exit(c_.program, body_, cfg_, to);
+	uint32_t exit_at = kNoId;
 	order_.clear();
 	for (InstId i = body_.blocks[to].first; i != kNoId; i = body_.instructions[i].next)
+	{
+		if (i == exit)
+			exit_at = static_cast<uint32_t>(order_.size());
 		order_.push_back(i);
+	}
 	const uint32_t end = static_cast<uint32_t>(order_.size() - 1);
 	for (size_t m = first; m < last; ++m)
 		first_read_[body_.instructions[moves_[m].inst].result] = end;
@@ -176,7 +193,10 @@ void CodeSinking::insert(size_t first, size_t last)
 	for (size_t m = first; m < last; ++m)
 	{
 		const Instruction& inst = body_.instructions[moves_[m].inst];
-		const uint32_t position = first_read_[inst.result];
+		uint32_t position = first_read_[inst.result];
+		const BlockId reader = exit_at == kNoId ? kNoId : handler_reader_[inst.result];
+		if (reader != kNoId && reader != to)
+			position = std::min(position, exit_at);
 		moves_[m].position = position;
 		for_each_operand(body_, inst, [&](const Value& v) {
 			if (v.kind == ValueKind::Temp && first_read_[v.index] != kNoId)
@@ -208,6 +228,12 @@ bool CodeSinking::run()
 		if (forest_.loops[l].parent != kNoId)
 			loop_depth_[l] = loop_depth_[forest_.loops[l].parent] + 1;
 	lowest_.assign(body_.temps.size(), kNoId);
+	reached_.clear();
+	if (!cfg_.handlers.empty())
+	{
+		find_handler_reached(cfg_, reached_);
+		handler_reader_.assign(body_.temps.size(), kNoId);
+	}
 	moved_.assign(body_.instructions.size(), 0);
 	moves_.clear();
 	for (BlockId b : cfg_.rpo)
@@ -392,7 +418,9 @@ constexpr size_t kStepPhiReads = 1u << 16;
 // there or the test that ends the block, when x is read between the two
 // places, itself or as an address formed from it by literal offsets, and
 // is live nowhere after the block: x's register then takes y, and no copy
-// carries y into x's phi.
+// carries y into x's phi. A step that another block on a handler's path
+// reads moves no further than the block's first handler exit
+// (function_ir.h).
 class StepPlacement
 {
 public:
@@ -464,6 +492,7 @@ private:
 	std::vector<uint32_t> seen_;
 	uint32_t stamp_ = 0;
 	std::vector<BlockId> work_;
+	std::vector<BlockId> handler_reader_; // per temp, read at the first block with a handler exit
 };
 
 // Whether x is live on no path out of b: no block that a path from b reaches
@@ -592,6 +621,18 @@ bool StepPlacement::place(BlockId b)
 		body_.instructions[seq_[end - 1]].result == term.ops[0].index &&
 		body_.instructions[seq_[end - 1]].op == Opcode::Compare)
 		--end;
+	// (And the block's first handler exit, for a step read on a handler's path.)
+	const Cfg& cfg = c_.ensure_cfg_light();
+	const InstId exit = first_handler_exit(c_.program, body_, cfg, b);
+	uint32_t exit_at = kNoId;
+	for (uint32_t p = 0; exit != kNoId && p < seq_.size() && exit_at == kNoId; ++p)
+		exit_at = seq_[p] == exit ? p : kNoId;
+	if (exit_at != kNoId && handler_reader_.empty())
+	{
+		std::vector<uint8_t> reached;
+		find_handler_reached(cfg, reached);
+		find_handler_readers(body_, cfg, reached, handler_reader_);
+	}
 	moves_.clear();
 	for (uint32_t p = 0; p + 1 < end; ++p)
 	{
@@ -599,7 +640,10 @@ bool StepPlacement::place(BlockId b)
 		if (inst.op != Opcode::Binary || inst.result == kNoId || stepped(inst).is(ValueKind::None) || folded(inst))
 			continue;
 		const Reads& x = at_[inst.ops[0].index];
-		const uint32_t to = at_[inst.result].first != 0 ? at_[inst.result].first - 1 : end;
+		uint32_t to = at_[inst.result].first != 0 ? at_[inst.result].first - 1 : end;
+		if (exit_at != kNoId && p < exit_at && handler_reader_[inst.result] != kNoId &&
+			handler_reader_[inst.result] != b)
+			to = std::min(to, exit_at);
 		// (Of two steps of one counter only one can take its register: they
 		// stay as the loop passes left them.)
 		if (x.root != 0 || x.steps != 1 || x.last <= p + 1 || x.last > to || to > end || !dies_in(inst.ops[0].index, b))
