@@ -412,6 +412,82 @@ bool join(const Access& x, const Access& y, const Effects& between, Instruction&
 	return true;
 }
 
+// The unscaled form of a single access at offset zero from a general base
+// other than its data register, which takes pre- and post-index writeback.
+Op indexed_form(const Instruction& ins)
+{
+	static const Op forms[][2] = { { Op::LdrB, Op::LdurB }, { Op::LdrH, Op::LdurH }, { Op::LdrW, Op::LdurW },
+		{ Op::LdrX, Op::LdurX }, { Op::LdrSBW, Op::LdurSBW }, { Op::LdrSHW, Op::LdurSHW }, { Op::LdrSBX, Op::LdurSBX },
+		{ Op::LdrSHX, Op::LdurSHX }, { Op::LdrSW, Op::LdurSW }, { Op::StrB, Op::SturB }, { Op::StrH, Op::SturH },
+		{ Op::StrW, Op::SturW }, { Op::StrX, Op::SturX }, { Op::LdrS, Op::LdurS }, { Op::LdrD, Op::LdurD },
+		{ Op::LdrQ, Op::LdurQ }, { Op::StrS, Op::SturS }, { Op::StrD, Op::SturD }, { Op::StrQ, Op::SturQ } };
+	if (ins.fixup != Fixup::None || ins.field != 0 || ins.rn >= 31)
+		return Op::B;
+	for (const auto& form : forms)
+		if (form[0] == ins.op || form[1] == ins.op)
+		{
+			Effects e;
+			memory_effects(ins, e);
+			return (e.fp_def | e.fp_use) || ins.rd != ins.rn ? form[1] : Op::B;
+		}
+	return Op::B;
+}
+
+// The signed amount by which `add xN, xN, #imm` or `sub` advances base xN,
+// when it fits a nine-bit writeback offset.
+bool advance(const Instruction& ins, unsigned base, int32_t& amount)
+{
+	if ((ins.op != Op::AddI && ins.op != Op::SubI) || ins.fixup != Fixup::None || ins.rd != base || ins.rn != base ||
+		(ins.field & ~(4095u << 10)))
+		return false;
+	const int32_t imm = int32_t((ins.field >> 10) & 4095);
+	amount = ins.op == Op::AddI ? imm : -imm;
+	return amount >= -256 && amount <= 255 && amount != 0;
+}
+
+// Pre- and post-index forms, as Clang's AArch64 load/store optimizer makes
+// them. An access at offset zero followed by an increment of its base takes
+// the increment as post-index writeback; an increment followed by the access
+// becomes pre-index writeback at the access. Nothing between the two may name
+// the base, so only the increment moves.
+void index_accesses(Function& f, uint32_t first, const std::vector<uint8_t>& boundary, std::vector<uint8_t>& gone,
+	std::vector<uint32_t>& removed)
+{
+	std::vector<Instruction>& code = f.code;
+	const uint32_t n = static_cast<uint32_t>(code.size());
+	for (uint32_t a = first; a < n; ++a)
+	{
+		if (gone[a])
+			continue;
+		const Instruction& head = code[a];
+		const Op single = indexed_form(head);
+		int32_t amount = 0;
+		const bool step = single == Op::B && head.rd < 31 && advance(head, head.rd, amount);
+		if (single == Op::B && !step)
+			continue;
+		const unsigned base = step ? head.rd : head.rn;
+		for (uint32_t b = a + 1; b < n && b <= a + kWindow && !boundary[b]; ++b)
+		{
+			if (gone[b])
+				continue;
+			Instruction& ins = code[b];
+			const Op later = step ? indexed_form(ins) : Op::B;
+			if (!boundary[b + 1] && (step ? later != Op::B && ins.rn == base : advance(ins, base, amount)))
+			{
+				Instruction& access = step ? ins : code[a];
+				access.op = step ? later : single;
+				access.field = ((uint32_t(amount) & 511) << 12) | ((step ? 3u : 1u) << 10);
+				gone[step ? a : b] = 1;
+				removed.push_back(step ? a : b);
+				break;
+			}
+			Effects e;
+			if (!effects(ins, e) || ((e.gp_use | e.gp_def) & gp(base)))
+				break;
+		}
+	}
+}
+
 // A repeated ADRP of one page into a register that still holds the page is
 // dropped. The search ends at a block start and at any instruction that may
 // write the register.
@@ -521,6 +597,8 @@ void pair_accesses(Function& f, uint32_t first, std::vector<BitTest>& tests, boo
 				break;
 		}
 	}
+	if (!ordered)
+		index_accesses(f, first, boundary, gone, removed);
 	if (removed.empty())
 		return;
 	std::sort(removed.begin(), removed.end());
