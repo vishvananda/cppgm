@@ -779,7 +779,7 @@ void finish_function(Program& program, SymbolId symbol, OptimizerStats& stats, c
 	}
 	const bool had_loops = has_loop(context);
 	const bool loops_changed = had_loops && finish_loops(context, options);
-	if (had_loops && options.level >= 3 && target_model::is_aarch64(program.target))
+	if (had_loops && options.level >= 3)
 		changed = promote_loop_fields(context, loops_changed) || changed;
 	if (loops_changed)
 	{
@@ -791,8 +791,7 @@ void finish_function(Program& program, SymbolId symbol, OptimizerStats& stats, c
 	}
 	// Some fixed fields were split before unrolling. Give their remaining
 	// conditional updates the same register budget as newly split fields.
-	if (had_loops && options.level >= 3 && target_model::is_aarch64(program.target) &&
-		RUN_PASS(promote_late_float_fields))
+	if (had_loops && options.level >= 3 && RUN_PASS(promote_late_float_fields))
 	{
 		scalar_rounds(context);
 		changed = true;

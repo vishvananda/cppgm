@@ -17,9 +17,13 @@ namespace {
 // repeated spill transfers. Keep those fields addressable; ordinary scalars
 // and loop-header-only states retain their normal promotion policy.
 const uint32_t kConditionalFloatFieldCap = 4;
-// Arm's larger SIMD bank can carry more conditionally updated fields.
-// Reserve registers for loop invariants and intermediate arithmetic.
-const uint32_t kArmConditionalFloatFieldCap = 12;
+// A loop may carry conditionally updated fields of a split object in 3/8 of
+// the target's floating registers (12 of 32, 6 of 16); the rest hold loop
+// invariants and intermediate arithmetic.
+uint32_t conditional_float_field_room(const target_model::OptimizationModel& costs)
+{
+	return costs.floating_registers * 3u / 8u;
+}
 
 bool phi_type(Type type)
 {
@@ -657,7 +661,7 @@ void SlotPromotion::place_phis()
 	if (c_.level >= 2 && floating_fields > kConditionalFloatFieldCap)
 		find_loops(body_, cfg_, pressure_loops);
 	std::vector<uint32_t> room(
-		first_new_field != kNoId ? pressure_loops.loops.size() : 0, kArmConditionalFloatFieldCap);
+		first_new_field != kNoId ? pressure_loops.loops.size() : 0, conditional_float_field_room(c_.costs));
 	// Credit loop-carried values left by earlier promotion rounds.
 	for (uint32_t loop = 0; loop < room.size(); ++loop)
 	{
