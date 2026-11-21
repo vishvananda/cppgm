@@ -676,14 +676,24 @@ bool Selector::shared_move(BlockId from, BlockId to)
 	return false;
 }
 
-// The deferred edges' moves and jumps, where no code falls through.
+// The deferred edges' moves and jumps, where no code falls through. The
+// last falls into the block that follows when it goes there, and a label
+// bound at the end, which expects that block, moves past them.
 void Selector::flush_deferred_edges()
 {
-	for (const auto& deferred : deferred_edges_)
+	const auto end = static_cast<uint32_t>(out_.code.size());
+	std::vector<uint32_t> ending;
+	if (out_.last_bound == end)
+		for (uint32_t label = 0; label < out_.labels.size(); ++label)
+			if (out_.labels[label] == end)
+				ending.push_back(label);
+	for (size_t k = 0; k < deferred_edges_.size(); ++k)
 	{
-		out_.bind(deferred.label);
-		edge(deferred.from, deferred.to);
+		out_.bind(deferred_edges_[k].label);
+		edge(deferred_edges_[k].from, deferred_edges_[k].to, k + 1 == deferred_edges_.size());
 	}
+	for (auto label : ending)
+		out_.bind(label);
 	deferred_edges_.clear();
 }
 

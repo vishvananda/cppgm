@@ -514,9 +514,7 @@ void Selector::run()
 		const BlockId block = layout[index];
 		if (forwarded(block))
 			continue;
-		// Deferred edges go where no code falls through and no label bound
-		// at the end expects the block that follows.
-		if (!deferred_edges_.empty() && !out_.code.empty() && out_.last_bound != out_.code.size())
+		if (!deferred_edges_.empty() && !out_.code.empty())
 		{
 			const auto op = out_.code.back().op;
 			if (op == Op::B || op == Op::Ret || op == Op::Br || op == Op::Brk)
