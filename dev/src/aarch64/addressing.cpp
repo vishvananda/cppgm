@@ -488,15 +488,21 @@ InstId Selector::address_sequence(InstId id)
 	const unsigned part = bits == 64 ? 3 : bits == 32 ? 2 : bits == 16 ? 1 : 0;
 	const unsigned extension = part | ((bits < 64 && sign) ? 4 : 0);
 	const unsigned index_extension = bits == 64 ? 3 : sign ? 6 : 2;
-	if (index.next != kNoId && uses_[index.result] == 1)
+	// A coalesced copy or zero extension emits no instruction and leaves the
+	// base and index registers available to the memory access. Up to three
+	// are passed over, among them a copy of the address itself (an inlined
+	// parameter's non-null fact): the uses of a value count its copies'
+	// reads, so one use is the access.
+	InstId next = index.next;
+	for (unsigned k = 0; k < 3 && next != kNoId && !aliases_.empty(); ++k)
 	{
-		// A coalesced copy or zero extension emits no instruction and
-		// leaves the base and index registers available to the memory access.
-		InstId next = index.next;
 		const auto& candidate = body_.instructions[next];
-		if (candidate.result != kNoId && candidate.next != kNoId && !aliases_.empty() &&
-			aliases_[candidate.result] != candidate.result)
-			next = candidate.next;
+		if (candidate.result == kNoId || candidate.next == kNoId || aliases_[candidate.result] == candidate.result)
+			break;
+		next = candidate.next;
+	}
+	if (next != kNoId && uses_[index.result] == 1)
+	{
 		const auto& memory = body_.instructions[next];
 		const bool store = memory.op == Opcode::Store;
 		const Value pointer = memory.ops[store ? 1 : 0];
