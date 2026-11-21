@@ -159,8 +159,7 @@ Value SelectFormation::emit_select(BlockId block, InstId& at, const Instruction&
 	const InstId id = append_instruction(body_, select);
 	const TempId result = append_temp(body_, select.type, id);
 	body_.instructions[id].result = result;
-	if (arm_ &&
-		(select.type.is_pointer() || select.type.kind() == TypeKind::I32 || select.type.kind() == TypeKind::I64))
+	if (select.type.is_pointer() || select.type.kind() == TypeKind::I32 || select.type.kind() == TypeKind::I64)
 		floor_formed_ = simplify_floor_correction(c_, block, at, id) || floor_formed_;
 	insert_after(body_, block, at, id);
 	at = id;

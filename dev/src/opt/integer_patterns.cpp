@@ -1151,8 +1151,6 @@ bool merge_divisions(FunctionBody& body, Instruction& inst)
 // directly, even when the dividend is negative.
 bool simplify_floor_correction(FunctionContext& context, BlockId block, InstId& prev, InstId id)
 {
-	if (!target_model::is_aarch64(context.program.target))
-		return false;
 	FunctionBody& body = context.body;
 	const Instruction select = body.instructions[id];
 	const auto producer = [&](Value v) -> const Instruction* {
