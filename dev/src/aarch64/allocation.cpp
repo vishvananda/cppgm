@@ -1040,7 +1040,8 @@ void Selector::allocate()
 	std::vector<uint32_t> web_regs(webs.empty() ? 0 : count, kNoId);
 	std::stable_sort(
 		ranges.begin(), ranges.end(), [](const LiveRange& a, const LiveRange& b) { return a.first < b.first; });
-	// x9-x11, x15-x17 and v16-v17 are selector scratch; x18 is platform-reserved.
+	// x9-x11, x15-x17 and v16-v17 are selector scratch; x18 is the platform
+	// register on Darwin.
 	bool free_x8 = !named_.darwin && !result_.indirect && !out_.exceptions;
 	const auto incoming = incoming_registers(program_, signature_, body_, named_.darwin, free_x8);
 	const uint32_t slots = 2 * (body_.instructions.size() + body_.layout.size()) + 3;
@@ -1169,7 +1170,10 @@ void Selector::allocate()
 		}
 		if (range.first == 0)
 			kept &= ~0xffu | (range.id < incoming.size() && incoming[range.id] < 8 ? 1u << incoming[range.id] : 0);
-		uint32_t caller = across_call ? kept : arguments | (7u << 12) | (!at_call && free_x8 ? 1u << 8 : 0);
+		// Linux leaves x18 to the program as a temporary; Darwin reserves it.
+		uint32_t caller = across_call
+			? kept
+			: arguments | (7u << 12) | (!at_call && free_x8 ? 1u << 8 : 0) | (named_.darwin ? 0 : 1u << 18);
 		// Keep an incoming scalar in its ABI register when its live range
 		// crosses only cold calls. The saved slot belongs to this register.
 		// A value a landing pad reads stays in its home at every call.
