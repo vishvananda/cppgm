@@ -208,10 +208,15 @@ bool Selector::vector_page_access(const lowir::Instruction& inst)
 }
 
 // Scalar stores and conditional select operands read register 31 as zero.
+// A positive floating zero is stored from it as a word or doubleword of
+// zero bits.
 unsigned Selector::zero_or_register(Value source, Type type, unsigned scratch)
 {
 	if (source.is(ValueKind::Integer) && (type.is_integer() || type.is_pointer()) &&
 		body_.literals[source.index].low == 0)
+		return 31;
+	if (source.is(ValueKind::Float) && (type.kind() == TypeKind::F32 || type.kind() == TypeKind::F64) &&
+		body_.literals[source.index].low == 0 && body_.literals[source.index].high == 0)
 		return 31;
 	return operand_register(source, type, scratch);
 }
