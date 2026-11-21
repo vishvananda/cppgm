@@ -1458,7 +1458,10 @@ void Selector::allocate()
 		uint32_t crossing = 7u << 12;
 		if (across_call && !second && range.id < incoming.size() && incoming[range.id] < 8)
 			crossing |= outgoing[range.id].allowed & (1u << incoming[range.id]);
-		else if (across_call && range.first != 0)
+		// A floating value passed at a call goes in a SIMD register; its number
+		// names no general register the value may take while the integer
+		// arguments are written.
+		else if (across_call && range.first != 0 && (!second || outgoing[range.id].allowed == 0xffu))
 			crossing |= outgoing[range.id].allowed & 0xffu;
 		if (crossed)
 			caller |= crossing;
