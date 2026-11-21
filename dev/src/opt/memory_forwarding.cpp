@@ -2531,7 +2531,6 @@ bool MemoryForwarding::chain_load(BlockId block, InstId prev, InstId id)
 bool MemoryForwarding::pre_load(BlockId block, InstId prev, InstId id)
 {
 	const Instruction load = body_.instructions[id];
-	const Value address = load.ops[0];
 	const uint32_t preds = cfg_.pred_count(block);
 	if (preds < 2 || preds > kPreLoadPreds || block == cfg_.rpo[0])
 		return false;
@@ -2545,6 +2544,18 @@ bool MemoryForwarding::pre_load(BlockId block, InstId prev, InstId id)
 			(def < c_.block_of.size() && c_.block_of[def] != kNoId && c_.block_of[def] != block &&
 				cfg_.dominates(c_.block_of[def], block));
 	};
+	// A copy of a pointer (`copy nonnull` of an element's address) names the
+	// location its source names: the step or phi is behind it.
+	Value address = load.ops[0];
+	for (unsigned copies = 0; copies < 4 && address.is(ValueKind::Temp) && !available(address); ++copies)
+	{
+		const InstId d = body_.temps[address.index].def;
+		if (d == kNoId || body_.instructions[d].op != Opcode::Copy || !body_.instructions[d].type.is_pointer() ||
+			!body_.instructions[d].ops[0].is(ValueKind::Temp) ||
+			!body_.temps[body_.instructions[d].ops[0].index].type.is_pointer())
+			break;
+		address = body_.instructions[d].ops[0];
+	}
 	InstId step = kNoId;
 	// Or one of the join's phis of pointers (through copies), or a constant
 	// step from one: each predecessor answers for (and recomputes) the
