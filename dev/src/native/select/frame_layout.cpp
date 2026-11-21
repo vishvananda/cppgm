@@ -597,8 +597,12 @@ bool order_frame(Function& f, const std::vector<FrameObject>& objects, bool fewe
 		return static_cast<int64_t>(disp) < static_cast<int64_t>(o.offset) + o.bytes ? by_offset[lo - 1] : lowir::kNoId;
 	};
 	auto end_of = [&](uint32_t o) { return static_cast<int64_t>(objects[o].offset) + objects[o].bytes; };
+	// (In a function with code labels each access weighs alike: every
+	// label heads a loop through every computed jump, which the estimate
+	// would walk once per label.)
 	std::vector<uint64_t> frequency;
-	block_frequencies(f, frequency);
+	if (f.code_labels.empty())
+		block_frequencies(f, frequency);
 	std::vector<uint64_t> weight(n, 0);
 	// Per rank: the object stays directly below the next one.
 	std::vector<uint8_t> glued(n, 0);
