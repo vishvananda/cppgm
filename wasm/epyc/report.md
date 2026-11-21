@@ -1,3 +1,3 @@
 # Wasm32 benchmark details
 
-[Standard comparison](standard/summary.md) · [Every kernel and metric](standard/wasm.md) · [Raw CI observations](https://github.com/vishvananda/cppgm/actions/runs/44818861403)
+[Standard comparison](standard/summary.md) · [Every kernel and metric](standard/wasm.md) · [Raw CI observations](https://github.com/vishvananda/cppgm/actions/runs/44927958294)

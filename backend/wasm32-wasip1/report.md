@@ -1,15 +1,15 @@
 # WASI backend performance
 
-Measured `dbbd227db37c255596e3fc11a4d3df8700ea7be7` on Intel(R) Xeon(R) 6975P-C. [CI run and raw observations](https://github.com/vishvananda/cppgm/actions/runs/44922642903)
+Measured `7bc2ee42070147be1668ff16a16841c6e02b47e3` on AMD EPYC 7763 64-Core Processor. [CI run and raw observations](https://github.com/vishvananda/cppgm/actions/runs/44927958294)
 
 ### Portable public benchmarks on wasm32-wasip1
 
 | Program | Runtime speedup vs Clang O3 |
 | --- | ---: |
-| Prolangs-C++/primes | 1.00× |
-| Stanford/Bubblesort | 0.83× |
-| Stanford/FloatMM | 1.67× |
-| Stanford/Puzzle | 0.91× |
-| Stanford/Treesort | 0.99× |
+| Prolangs-C++/primes | 0.99× |
+| Stanford/Bubblesort | 0.87× |
+| Stanford/FloatMM | 2.17× |
+| Stanford/Puzzle | 0.97× |
+| Stanford/Treesort | 1.02× |
 
 The badge gives the geometric mean of the per-program CPU speedups.
