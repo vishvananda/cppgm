@@ -1,5 +1,5 @@
-<svg data-original-label="Wasm simd128 runtime vs Clang; Intel(R) Xeon(R) 6975P-C; revision 0eb0fe355ff3f83f0f2ffe697f97c7e8f251dea6" data-original-message="1.05×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="Wasm simd128 runtime vs Clang; Intel(R) Xeon(R) 6975P-C; revision 0eb0fe355ff3f83f0f2ffe697f97c7e8f251dea6; measured 0eb0fe355ff3f83f0f2ffe697f97c7e8f251dea6; 48 commits behind main: 1.05×*">
-  <title>Wasm simd128 runtime vs Clang; Intel(R) Xeon(R) 6975P-C; revision 0eb0fe355ff3f83f0f2ffe697f97c7e8f251dea6; measured 0eb0fe355ff3f83f0f2ffe697f97c7e8f251dea6; 48 commits behind main: 1.05×*</title>
+<svg data-original-label="Wasm simd128 runtime vs Clang; Intel(R) Xeon(R) 6975P-C; revision 0eb0fe355ff3f83f0f2ffe697f97c7e8f251dea6" data-original-message="1.05×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="Wasm simd128 runtime vs Clang; Intel(R) Xeon(R) 6975P-C; revision 0eb0fe355ff3f83f0f2ffe697f97c7e8f251dea6; measured 0eb0fe355ff3f83f0f2ffe697f97c7e8f251dea6; 58 commits behind main: 1.05×*">
+  <title>Wasm simd128 runtime vs Clang; Intel(R) Xeon(R) 6975P-C; revision 0eb0fe355ff3f83f0f2ffe697f97c7e8f251dea6; measured 0eb0fe355ff3f83f0f2ffe697f97c7e8f251dea6; 58 commits behind main: 1.05×*</title>
   <defs><clipPath id="badge"><rect width="120" height="24" rx="4"/></clipPath></defs>
   <g clip-path="url(#badge)">
     <rect width="64" height="24" fill="#555"/>
