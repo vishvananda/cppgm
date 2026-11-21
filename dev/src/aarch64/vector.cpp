@@ -29,6 +29,17 @@ InstId Selector::vector_combination(const lowir::Instruction& inst)
 	case VectorOp::Pmullw:
 	case VectorOp::Pmulld:
 		return packed_multiply_accumulate(inst);
+	case VectorOp::Punpcklbw:
+	case VectorOp::Punpcklwd:
+		return vector_extension(inst);
+	case VectorOp::Toi64:
+		return vector_store(inst);
+	case VectorOp::Psrlwi:
+	case VectorOp::Psrldi:
+	case VectorOp::Psrlqi:
+	case VectorOp::Psrawi:
+	case VectorOp::Psradi:
+		return shift_accumulate(inst);
 	case VectorOp::Pshufd:
 	{
 		const InstId pair = horizontal_double_sum(inst);
@@ -465,9 +476,16 @@ void Selector::vector_instruction(const lowir::Instruction& inst)
 			const auto narrow = op < VectorOp::Packuswb ? Op::VSqxtn : Op::VSqxtun;
 			const unsigned size = op == VectorOp::Packssdw || op == VectorOp::Packusdw ? 1u << 22 : 0;
 			// Keep both inputs live until the upper half has been inserted.
-			const unsigned packed = dest == right ? 16 : dest;
+			// A vector packed with itself whose only reader takes its low
+			// eight bytes needs only the low half.
+			const bool low_half = inst.ops[0] == inst.ops[1] && inst.next != kNoId && uses_[inst.result] == 1 &&
+				body_.instructions[inst.next].op == Opcode::Vector &&
+				body_.instructions[inst.next].sub == static_cast<unsigned>(VectorOp::Toi64) &&
+				body_.instructions[inst.next].ops[0] == Value::temp(inst.result);
+			const unsigned packed = dest == right && !low_half ? 16 : dest;
 			out_.emit(narrow, packed, left, 0, size);
-			out_.emit(narrow, packed, right, 0, size | (1u << 30));
+			if (!low_half)
+				out_.emit(narrow, packed, right, 0, size | (1u << 30));
 			save_vector(packed, inst.result);
 			return;
 		}

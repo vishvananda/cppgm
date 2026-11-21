@@ -215,6 +215,10 @@
 	M(VFcvtl, 0x0e617800) \
 	M(VFcvtn, 0x0e616800) \
 	M(VSxtl2d, 0x0f20a400) \
+	M(VSshll, 0x0f00a400) \
+	M(VUshll, 0x2f00a400) \
+	M(VSaddw, 0x0e201000) \
+	M(VUaddw, 0x2e201000) \
 	M(VScvtf, 0x4e21d800) \
 	M(VEor, 0x6e201c00) \
 	M(VBic, 0x4e601c00) \
@@ -244,6 +248,8 @@
 	M(VShl, 0x4f005400) \
 	M(VSshr, 0x4f000400) \
 	M(VUshr, 0x6f000400) \
+	M(VSsra, 0x4f001400) \
+	M(VUsra, 0x6f001400) \
 	M(VMovIS, 0x0f000400) \
 	M(VDupWS, 0x4e040c00) \
 	M(VDupS, 0x4e040400) \

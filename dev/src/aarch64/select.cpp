@@ -608,6 +608,8 @@ void Selector::run()
 				auto last = inst.op == Opcode::Vector ? vector_combination(inst) : paired_access(inst);
 				if (last == kNoId && inst.op == Opcode::Load && !memory_value(inst.type))
 					last = signed_access(inst);
+				if (last == kNoId && inst.op == Opcode::Load)
+					last = vector_load(inst);
 				if (last != kNoId)
 				{
 					i = last;

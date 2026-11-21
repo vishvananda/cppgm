@@ -65,6 +65,10 @@ private:
 	void vector_shift(lowir::VectorOp op, unsigned dest, unsigned source, uint64_t count);
 	lowir::InstId vector_combination(const lowir::Instruction& inst);
 	lowir::InstId scalar_splat(const lowir::Instruction& inst);
+	lowir::InstId vector_load(const lowir::Instruction& load);
+	lowir::InstId vector_store(const lowir::Instruction& extract);
+	lowir::InstId vector_extension(const lowir::Instruction& first);
+	lowir::InstId shift_accumulate(const lowir::Instruction& shift);
 	lowir::InstId combine_float_pair(const lowir::Instruction& inst);
 	lowir::InstId scalar_lane_binary(const lowir::Instruction& inst);
 	lowir::InstId packed_multiply_accumulate(
