@@ -351,6 +351,24 @@ std::vector<unsigned> incoming_registers(
 	return incoming;
 }
 
+// Reuse the tail of the slot area when all its remaining owners live in
+// registers: the frame ends after the last slot still in memory. The
+// original slot offsets below it stay valid.
+uint32_t reused_slot_tail(const FunctionBody& body, const std::vector<uint32_t>& slots,
+	const std::vector<uint8_t>& object_words, uint32_t base)
+{
+	uint32_t frame = base;
+	for (SlotId i = 0; i < slots.size(); ++i)
+		if (!object_words[i] && slots[i] != kNoId)
+		{
+			const Type type = body.slots[i].type;
+			const uint64_t bytes = (storage_bytes(type) + 7) & ~uint64_t(7);
+			const unsigned align = data_alignment(type);
+			frame = std::max(frame, static_cast<uint32_t>(slots[i] + bytes + (align > 16 ? align - 16 : 0)));
+		}
+	return frame;
+}
+
 // The order in which ranges choose homes: by spill priority when the
 // registers may not suffice, with the phi web adjustments above; empty
 // (program order) otherwise.
@@ -1276,19 +1294,7 @@ void Selector::allocate()
 	parameter_homes(cfg);
 	register_objects();
 	if (!object_words_.empty())
-	{
-		// Reuse the tail of the slot area when all its remaining owners
-		// live in registers. The original slot offsets below it stay valid.
-		frame_ = slot_base;
-		for (SlotId i = 0; i < slots_.size(); ++i)
-			if (!object_words_[i] && slots_[i] != kNoId)
-			{
-				const Type type = body_.slots[i].type;
-				const uint64_t bytes = (storage_bytes(type) + 7) & ~uint64_t(7);
-				const unsigned align = data_alignment(type);
-				frame_ = std::max(frame_, static_cast<uint32_t>(slots_[i] + bytes + (align > 16 ? align - 16 : 0)));
-			}
-	}
+		frame_ = reused_slot_tail(body_, slots_, object_words_, slot_base);
 	call_result_homes();
 	machine::IntervalSlots scalar_spills, vector_spills;
 	for (const auto& range : ranges)
