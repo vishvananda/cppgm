@@ -101,6 +101,7 @@ void share_edge_moves(Function& function);
 void copy_short_tests(Function& function);
 void simplify_branches(Function& function);
 void return_directly(Function& function);
+void drop_repeated_compares(Function& function);
 void conditional_compares(Function& function, const std::vector<uint64_t>& block_frequency);
 
 // A block's two-way branch: its destination blocks and the estimated

@@ -361,6 +361,126 @@ void return_directly(Function& f)
 	}
 }
 
+// A compare that sets only the flags, and the registers it reads.
+static bool flag_compare(const Instruction& ins, unsigned& count, unsigned regs[2])
+{
+	if (ins.fixup != Fixup::None)
+		return false;
+	switch (ins.op)
+	{
+	case Op::Subs:
+	case Op::SubsW:
+	case Op::Fcmp:
+		regs[0] = ins.rn;
+		regs[1] = ins.rm;
+		count = 2;
+		return ins.op == Op::Fcmp || ins.rd == 31;
+	case Op::SubsIW:
+	case Op::SubsIX:
+	case Op::AddsIW:
+	case Op::AddsIX:
+	case Op::FcmpZero:
+		regs[0] = ins.rn;
+		count = 1;
+		return ins.op == Op::FcmpZero || ins.rd == 31;
+	default:
+		return false;
+	}
+}
+
+// Whether every path into `at` ran the instruction `compare` last among
+// the instructions that set flags, passing only conditional branches and
+// register moves that write none of its registers since. A path that comes
+// round to a point already reached adds nothing.
+static bool flags_hold(const Function& f, const std::vector<uint32_t>& first, const std::vector<uint32_t>& from,
+	uint32_t at, const Instruction& compare, const unsigned regs[2], unsigned count)
+{
+	const auto same = [&](const Instruction& ins) {
+		return ins.op == compare.op && ins.rd == compare.rd && ins.rn == compare.rn && ins.rm == compare.rm &&
+			ins.field == compare.field && ins.fixup == Fixup::None;
+	};
+	const auto passes = [&](const Instruction& ins) {
+		if (conditional_branch(ins))
+			return true;
+		if ((ins.op != Op::Orr && ins.op != Op::OrrW) || ins.fixup != Fixup::None)
+			return false;
+		for (unsigned k = 0; k < count; ++k)
+			if (ins.rd == regs[k])
+				return false;
+		return true;
+	};
+	uint32_t stack[32], seen[32];
+	unsigned depth = 0, visited = 0;
+	stack[depth++] = at;
+	seen[visited++] = at;
+	const auto visit = [&](uint32_t point) {
+		if (std::find(seen, seen + visited, point) != seen + visited)
+			return true;
+		if (visited == 32)
+			return false;
+		seen[visited++] = point;
+		stack[depth++] = point;
+		return true;
+	};
+	while (depth)
+	{
+		const uint32_t point = stack[--depth];
+		for (uint32_t k = first[point]; k < first[point + 1]; ++k)
+			if (!visit(from[k]))
+				return false;
+		if (!point)
+			return false;
+		const auto& before = f.code[point - 1];
+		if (before.op == Op::B || before.op == Op::Ret || before.op == Op::Br || before.op == Op::Brk || same(before))
+			continue;
+		if (!passes(before) || !visit(point - 1))
+			return false;
+	}
+	return true;
+}
+
+// A compare whose flags every path into it already holds goes.
+void drop_repeated_compares(Function& f)
+{
+	const uint32_t n = static_cast<uint32_t>(f.code.size());
+	if (n < 3 || n >= (1u << 18))
+		return;
+	std::vector<uint8_t> blocked(n + 1);
+	for (const auto& event : f.frame_events)
+		blocked[std::min(n, event.pc / 4)] = 1;
+	for (uint32_t pad : f.pads)
+		if (pad != lowir::kNoId)
+			blocked[std::min(n, pad / 4)] = 1;
+	// The branches into each instruction.
+	std::vector<uint32_t> first(n + 2), from;
+	for (const auto& ins : f.code)
+		if (ins.fixup == Fixup::Block && f.labels[ins.target] < n)
+			++first[f.labels[ins.target] + 1];
+	for (uint32_t pc = 0; pc <= n; ++pc)
+		first[pc + 1] += first[pc];
+	from.resize(first[n + 1]);
+	std::vector<uint32_t> fill(first.begin(), first.end() - 1);
+	for (uint32_t pc = 0; pc < n; ++pc)
+	{
+		const auto& ins = f.code[pc];
+		if (ins.fixup == Fixup::Block && f.labels[ins.target] < n)
+		{
+			if (ins.op == Op::Adr)
+				blocked[f.labels[ins.target]] = 1;
+			from[fill[f.labels[ins.target]]++] = pc;
+		}
+	}
+	std::vector<uint32_t> removed;
+	for (uint32_t pc = 1; pc < n; ++pc)
+	{
+		unsigned regs[2] = {}, count = 0;
+		if (!blocked[pc] && flag_compare(f.code[pc], count, regs) &&
+			flags_hold(f, first, from, pc, f.code[pc], regs, count))
+			removed.push_back(pc);
+	}
+	remove_instructions(f, removed);
+}
+
 // The conditional compare that runs `compare` when `condition` holds and
 // otherwise sets NZCV to `flags`: CMP of a register or of an immediate
 // below 32, and FCMP of two registers.
