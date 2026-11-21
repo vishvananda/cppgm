@@ -328,6 +328,9 @@ bool Selector::shared_exit_moves(BlockId block)
 		return edge.moves[i].source == machine::kTransferLiteral && edge.sources[i].is(ValueKind::Integer) &&
 			edge.moves[i].destination < simd_base;
 	};
+	// Each move of the true edge pairs with its own move of the false edge.
+	static_assert(limit <= 32, "a bit for each edge move");
+	uint32_t paired = 0;
 	for (unsigned i = 0; i < yes.count; ++i)
 	{
 		const auto& move = yes.moves[i];
@@ -343,8 +346,13 @@ bool Selector::shared_exit_moves(BlockId block)
 		};
 		bool same = false;
 		for (unsigned k = 0; k < no.count && !same; ++k)
-			same = no.moves[k].destination == move.destination && no.moves[k].source == move.source &&
-				body_.temps[no.results[k]].type.kind() == kind && (!constant || same_literal(k));
+			if (!(paired & (1u << k)) && no.moves[k].destination == move.destination &&
+				no.moves[k].source == move.source && body_.temps[no.results[k]].type.kind() == kind &&
+				(!constant || same_literal(k)))
+			{
+				paired |= 1u << k;
+				same = true;
+			}
 		if (!same)
 			return false;
 	}
