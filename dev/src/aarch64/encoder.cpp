@@ -61,6 +61,42 @@ void remove_instructions(Function& f, const std::vector<uint32_t>& removed)
 			pad = 4 * mapped(pad / 4);
 }
 
+// Puts added[i] after the instruction at places[i]; the places ascend. A
+// label, frame event, call site or landing pad after a place moves with the
+// instruction it names.
+void insert_instructions(Function& f, const std::vector<uint32_t>& places, const std::vector<Instruction>& added)
+{
+	if (places.empty())
+		return;
+	const uint32_t n = static_cast<uint32_t>(f.code.size());
+	std::vector<Instruction> code;
+	code.reserve(n + places.size());
+	size_t next = 0;
+	for (uint32_t pc = 0; pc < n; ++pc)
+	{
+		code.push_back(f.code[pc]);
+		if (next != places.size() && places[next] == pc)
+			code.push_back(added[next++]);
+	}
+	f.code.swap(code);
+	const auto mapped = [&](uint32_t pc) {
+		return pc + static_cast<uint32_t>(std::lower_bound(places.begin(), places.end(), pc) - places.begin());
+	};
+	for (auto& label : f.labels)
+		if (label != lowir::kNoId)
+			label = mapped(label);
+	for (auto& event : f.frame_events)
+		event.pc = 4 * mapped(event.pc / 4);
+	for (auto& site : f.sites)
+	{
+		site.begin = 4 * mapped(site.begin / 4);
+		site.end = 4 * mapped(site.end / 4);
+	}
+	for (auto& pad : f.pads)
+		if (pad != lowir::kNoId)
+			pad = 4 * mapped(pad / 4);
+}
+
 // A TBZ/TBNZ displacement is a signed 14-bit word offset. Fuse only pairs
 // already in range; removing instructions can only shorten the distance.
 // Selection records adjacent AND/branch sites with no intervening labels.
@@ -191,40 +227,30 @@ void relax_branches(Function& f)
 	if (f.code.size() < (1u << 13))
 		return;
 	std::vector<uint32_t> far;
+	std::vector<Instruction> jumps;
 	for (;;)
 	{
 		const uint32_t n = static_cast<uint32_t>(f.code.size());
 		far.clear();
+		jumps.clear();
 		for (uint32_t pc = 0; pc < n; ++pc)
 		{
-			auto& ins = f.code[pc];
-			if (!conditional_branch(ins))
+			auto& branch = f.code[pc];
+			if (!conditional_branch(branch))
 				continue;
-			const int64_t displacement = int64_t(f.labels[ins.target]) - int64_t(pc);
-			const int64_t reach = int64_t(1) << (ins.op == Op::Tbz || ins.op == Op::Tbnz ? 13 : 18);
+			const int64_t displacement = int64_t(f.labels[branch.target]) - int64_t(pc);
+			const int64_t reach = int64_t(1) << (branch.op == Op::Tbz || branch.op == Op::Tbnz ? 13 : 18);
 			if (displacement >= -reach && displacement < reach)
 				continue;
-			if (ins.op == Op::BCond && ins.rd >= 14)
-				ins = Instruction{ Op::B, 0, 0, 0, 0, Fixup::Block, ins.target };
-			else
-				far.push_back(pc);
-		}
-		if (far.empty())
-			return;
-		std::vector<Instruction> code;
-		code.reserve(n + far.size());
-		size_t next = 0;
-		for (uint32_t pc = 0; pc < n; ++pc)
-		{
-			code.push_back(f.code[pc]);
-			if (next == far.size() || far[next] != pc)
-				continue;
-			++next;
-			auto& branch = code.back();
 			const uint32_t target = branch.target;
 			switch (branch.op)
 			{
 			case Op::BCond:
+				if (branch.rd >= 14)
+				{
+					branch = Instruction{ Op::B, 0, 0, 0, 0, Fixup::Block, target };
+					continue;
+				}
 				branch.rd ^= 1;
 				break;
 			case Op::Cbz:
@@ -247,26 +273,12 @@ void relax_branches(Function& f)
 			// after it, which moves with that instruction.
 			branch.target = static_cast<uint32_t>(f.labels.size());
 			f.labels.push_back(pc + 1);
-			code.push_back(Instruction{ Op::B, 0, 0, 0, 0, Fixup::Block, target });
+			far.push_back(pc);
+			jumps.push_back(Instruction{ Op::B, 0, 0, 0, 0, Fixup::Block, target });
 		}
-		f.code.swap(code);
-		// An instruction after an inserted jump moves by one for each.
-		const auto mapped = [&](uint32_t pc) {
-			return pc + static_cast<uint32_t>(std::lower_bound(far.begin(), far.end(), pc) - far.begin());
-		};
-		for (auto& label : f.labels)
-			if (label != lowir::kNoId)
-				label = mapped(label);
-		for (auto& event : f.frame_events)
-			event.pc = 4 * mapped(event.pc / 4);
-		for (auto& site : f.sites)
-		{
-			site.begin = 4 * mapped(site.begin / 4);
-			site.end = 4 * mapped(site.end / 4);
-		}
-		for (auto& pad : f.pads)
-			if (pad != lowir::kNoId)
-				pad = 4 * mapped(pad / 4);
+		if (far.empty())
+			return;
+		insert_instructions(f, far, jumps);
 	}
 }
 
