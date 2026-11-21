@@ -196,6 +196,62 @@ InstId Selector::contracted_float_sum(const lowir::Instruction& multiply)
 	return multiply.next;
 }
 
+// `bits` copies a floating value's bits to an integer, the next instruction
+// clears their sign bit and the one after it copies them back: the copy back,
+// or kNoId.
+InstId Selector::cleared_sign(const lowir::Instruction& bits) const
+{
+	if (bits.op != Opcode::Copy || bits.next == kNoId || uses_[bits.result] != 1 || !bits.ops[0].is(ValueKind::Temp))
+		return kNoId;
+	const Type type = body_.temps[bits.ops[0].index].type;
+	const bool wide = type.kind() == TypeKind::F64;
+	if ((!wide && type.kind() != TypeKind::F32) || bits.type.kind() != (wide ? TypeKind::I64 : TypeKind::I32))
+		return kNoId;
+	const auto& mask = body_.instructions[bits.next];
+	const Value v = Value::temp(bits.result);
+	const Value other = mask.ops[0] == v ? mask.ops[1] : mask.ops[0];
+	if (mask.op != Opcode::Binary || mask.sub != static_cast<unsigned>(BinaryOp::And) || mask.type != bits.type ||
+		mask.next == kNoId || uses_[mask.result] != 1 || rematerialized(mask.result) ||
+		(!(mask.ops[0] == v) && !(mask.ops[1] == v)) || !other.is(ValueKind::Integer) ||
+		body_.literals[other.index].low != (wide ? ~(uint64_t(1) << 63) : 0x7fffffffu))
+		return kNoId;
+	const auto& back = body_.instructions[mask.next];
+	if (back.op != Opcode::Copy || back.type != type || !(back.ops[0] == Value::temp(mask.result)) ||
+		rematerialized(back.result))
+		return kNoId;
+	return mask.next;
+}
+
+// A floating value with its sign bit cleared is FABS of it, and FABD when the
+// value is a difference computed just before (FABD rounds the difference and
+// clears the sign of the result, NaN included).
+InstId Selector::magnitude(const lowir::Instruction& first)
+{
+	const bool difference = first.op == Opcode::Binary;
+	if (first.next == kNoId ||
+		(difference && (first.sub != static_cast<unsigned>(BinaryOp::Sub) || uses_[first.result] != 1)))
+		return kNoId;
+	const auto& bits = difference ? body_.instructions[first.next] : first;
+	if (difference && !(bits.ops[0] == Value::temp(first.result)))
+		return kNoId;
+	const InstId last = cleared_sign(bits);
+	if (last == kNoId)
+		return kNoId;
+	const auto& back = body_.instructions[last];
+	const unsigned precision = back.type.kind() == TypeKind::F64 ? 1u << 22 : 0;
+	const unsigned dest = vectors_[back.result] == kNoId ? 16 : vectors_[back.result];
+	if (difference)
+	{
+		const unsigned a = fp_operand(first.ops[0], first.type, 16);
+		const unsigned b = first.ops[1] == first.ops[0] ? a : fp_operand(first.ops[1], first.type, 17);
+		out_.emit(Op::Fabd, dest, a, b, precision);
+	}
+	else
+		out_.emit(Op::Fabs, dest, fp_operand(bits.ops[0], back.type, 16), 0, precision);
+	save_fp(dest, back.result);
+	return last;
+}
+
 // Scalar FP instructions can read the low lane of the original vector even
 // when a later instruction needs the rest of it.
 InstId Selector::scalar_lane_binary(const lowir::Instruction& inst)

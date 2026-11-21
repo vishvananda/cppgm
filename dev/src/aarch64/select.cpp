@@ -575,6 +575,15 @@ void Selector::run()
 					continue;
 				}
 			}
+			if (level_ && (inst.op == Opcode::Copy || (inst.op == Opcode::Binary && inst.type.is_float())))
+			{
+				const auto last = magnitude(inst);
+				if (last != kNoId)
+				{
+					i = last;
+					continue;
+				}
+			}
 			if (level_ &&
 				(inst.op == Opcode::Index || inst.op == Opcode::Binary || inst.op == Opcode::Convert ||
 					inst.op == Opcode::Addr))

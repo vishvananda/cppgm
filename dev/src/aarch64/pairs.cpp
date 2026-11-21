@@ -190,6 +190,7 @@ bool floating_effects(const Instruction& ins, Effects& e)
 	case Op::Fcsel:
 	case Op::Fminnm:
 	case Op::Fmaxnm:
+	case Op::Fabd:
 		e.fp_def = fp(ins.rd);
 		e.fp_use = fp(ins.rn) | fp(ins.rm);
 		return true;
@@ -198,6 +199,7 @@ bool floating_effects(const Instruction& ins, Effects& e)
 		e.fp_use = fp(ins.rn) | fp(ins.rm) | fp(ra_of(ins));
 		return true;
 	case Op::Fneg:
+	case Op::Fabs:
 	case Op::Fsqrt:
 	case Op::FcvtDS:
 	case Op::FcvtSD:

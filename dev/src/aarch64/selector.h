@@ -140,6 +140,8 @@ private:
 		const lowir::Instruction& cmp, const lowir::Instruction& add, const lowir::Instruction& select);
 	lowir::InstId added_condition(const lowir::Instruction& cmp);
 	lowir::InstId contracted_float_sum(const lowir::Instruction& inst);
+	lowir::InstId magnitude(const lowir::Instruction& first);
+	lowir::InstId cleared_sign(const lowir::Instruction& bits) const;
 	void float_choice(const lowir::Instruction& inst, unsigned condition);
 	unsigned fp_operand(lowir::Value operand, lowir::Type type, unsigned scratch);
 	void fp_home(bool store, unsigned reg, lowir::TempId temp);

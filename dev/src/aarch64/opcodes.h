@@ -182,7 +182,9 @@
 	M(Fccmp, 0x1e200400) \
 	M(Fminnm, 0x1e207800) \
 	M(Fmaxnm, 0x1e206800) \
+	M(Fabd, 0x7ea0d400) \
 	M(Fneg, 0x1e214000) \
+	M(Fabs, 0x1e20c000) \
 	M(Fsqrt, 0x1e21c000) \
 	M(FcvtDS, 0x1e22c000) \
 	M(FcvtSD, 0x1e624000) \
