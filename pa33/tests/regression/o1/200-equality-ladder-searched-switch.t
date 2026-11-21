@@ -1,11 +1,11 @@
 # A chain of equality tests of one value whose tests each lead to their own
 # target (a ladder: as many runs as tests) becomes a switch when it has at
-# least four runs with two gaps between them: the selectors search such a
+# least five runs with two gaps between them: the selectors search such a
 # switch by halves, so a missed value takes about log2 of the tests.
-# `@ladder` (3, 1, 6, 2, 21) and `@joined` (9, 2, 40, 17, the arms' results
-# joined by one phi) switch. `@consecutive` (four consecutive values) and
-# `@three` (three tests) keep their tests: a switch of either is lowered as
-# the same compares, and the source order is kept.
+# `@ladder` (3, 1, 6, 2, 21) and `@joined` (9, 2, 40, 17, 33, the arms'
+# results joined by one phi) switch. `@consecutive` (five consecutive
+# values) and `@four` (four tests) keep their tests: a switch of either is
+# lowered as the same compares, and the source order is kept.
 function @ladder(%op : u8) -> i32 [no_inline=yes] {
   block ^entry:
     %c0 = cmp eq u8 %op, 3
@@ -48,12 +48,15 @@ function @joined(%n : i32) -> i32 [no_inline=yes] {
     branch %c2, ^join, ^t3
   block ^t3:
     %c3 = cmp eq i32 %n, 17
-    branch %c3, ^join, ^miss
+    branch %c3, ^join, ^t4
+  block ^t4:
+    %c4 = cmp eq i32 %n, 33
+    branch %c4, ^join, ^miss
   block ^miss:
     %m = binary mul i32 %n, 3
     jump ^join
   block ^join:
-    %r = phi i32 [^entry: 1, ^t1: 2, ^t2: 1, ^t3: 4, ^miss: %m]
+    %r = phi i32 [^entry: 1, ^t1: 2, ^t2: 1, ^t3: 4, ^t4: 5, ^miss: %m]
     return i32 %r
 }
 
@@ -69,6 +72,36 @@ function @consecutive(%op : u8) -> i32 [no_inline=yes] {
     branch %c2, ^c, ^t3
   block ^t3:
     %c3 = cmp eq u8 %op, 45
+    branch %c3, ^d, ^t4
+  block ^t4:
+    %c4 = cmp eq u8 %op, 46
+    branch %c4, ^e, ^miss
+  block ^a:
+    return i32 1
+  block ^b:
+    return i32 2
+  block ^c:
+    return i32 3
+  block ^d:
+    return i32 4
+  block ^e:
+    return i32 5
+  block ^miss:
+    return i32 0
+}
+
+function @four(%op : u8) -> i32 [no_inline=yes] {
+  block ^entry:
+    %c0 = cmp eq u8 %op, 7
+    branch %c0, ^a, ^t1
+  block ^t1:
+    %c1 = cmp eq u8 %op, 1
+    branch %c1, ^b, ^t2
+  block ^t2:
+    %c2 = cmp eq u8 %op, 30
+    branch %c2, ^c, ^t3
+  block ^t3:
+    %c3 = cmp eq u8 %op, 12
     branch %c3, ^d, ^miss
   block ^a:
     return i32 1
@@ -78,26 +111,6 @@ function @consecutive(%op : u8) -> i32 [no_inline=yes] {
     return i32 3
   block ^d:
     return i32 4
-  block ^miss:
-    return i32 0
-}
-
-function @three(%op : u8) -> i32 [no_inline=yes] {
-  block ^entry:
-    %c0 = cmp eq u8 %op, 7
-    branch %c0, ^a, ^t1
-  block ^t1:
-    %c1 = cmp eq u8 %op, 1
-    branch %c1, ^b, ^t2
-  block ^t2:
-    %c2 = cmp eq u8 %op, 30
-    branch %c2, ^c, ^miss
-  block ^a:
-    return i32 1
-  block ^b:
-    return i32 2
-  block ^c:
-    return i32 3
   block ^miss:
     return i32 0
 }
@@ -117,21 +130,21 @@ function @main() -> i32 {
     %j0 = call i32 @joined(9)
     %j1 = call i32 @joined(40)
     %j2 = call i32 @joined(17)
-    %j3 = call i32 @joined(18)
+    %j3 = call i32 @joined(33)
     %j4 = call i32 @joined(-5)
     %ja = binary add i32 %j0, %j1
     %jb = binary add i32 %j2, %j3
     %jc = binary add i32 %ja, %jb
     %jd = binary add i32 %jc, %j4
-    %joined_ok = cmp eq i32 %jd, 45
-    %k0 = call i32 @consecutive(45)
+    %joined_ok = cmp eq i32 %jd, -4
+    %k0 = call i32 @consecutive(46)
     %k1 = call i32 @consecutive(41)
-    %k2 = call i32 @three(30)
-    %k3 = call i32 @three(2)
+    %k2 = call i32 @four(12)
+    %k3 = call i32 @four(2)
     %ka = binary add i32 %k0, %k1
     %kb = binary add i32 %k2, %k3
     %kc = binary add i32 %ka, %kb
-    %rest_ok = cmp eq i32 %kc, 7
+    %rest_ok = cmp eq i32 %kc, 9
     %both = binary and i64 %ladder_ok, %joined_ok
     %all = binary and i64 %both, %rest_ok
     %status = select i32 %all, 0, 1

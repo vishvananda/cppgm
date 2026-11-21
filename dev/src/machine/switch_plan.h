@@ -22,8 +22,9 @@ constexpr uint32_t kNativeSwitchClusters = 6;
 // Native case tests (runs of consecutive values per target) of at least
 // kNativeSearchRuns with kNativeSearchGaps gaps between them (values the
 // fallback takes) search by halves; consecutive runs, an enumeration's,
-// keep their order.
-constexpr uint32_t kNativeSearchRuns = 4;
+// keep their order. From five: a search of four runs saves fewer compares
+// than it adds taken branches (the compiler's own run, on both targets).
+constexpr uint32_t kNativeSearchRuns = 5;
 constexpr uint32_t kNativeSearchGaps = 2;
 bool native_table(const std::vector<std::pair<int64_t, uint32_t>>& cases, uint32_t clusters, uint32_t targets);
 

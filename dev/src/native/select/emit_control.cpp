@@ -1518,10 +1518,10 @@ bool FunctionSelector::emit_clustered_switch(
 		}
 		tree.tests.push_back(SwitchTest{ clusters[i].lo, clusters[i].hi, clusters[i].target, false });
 	}
-	// O2+: four tests or more with gaps between them (values the fallback
-	// takes; a run of consecutive cases, an enumeration's, keeps its
-	// order) search by halves. Not a selector in a scratch register,
-	// which would not survive into the subtrees' blocks.
+	// O2+: machine::kNativeSearchRuns tests or more with gaps between them
+	// (values the fallback takes; a run of consecutive cases, an
+	// enumeration's, keeps its order) search by halves. Not a selector in a
+	// scratch register, which would not survive into the subtrees' blocks.
 	uint32_t gaps = 0;
 	for (size_t i = 1; i < tree.tests.size(); ++i)
 		gaps += tree.tests[i].lo > tree.tests[i - 1].hi + 1 ? 1 : 0;

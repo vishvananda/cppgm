@@ -1,0 +1,219 @@
+machine_ir x86_64 <host-target>
+
+startup
+    call @main [args=()]
+    mov rdi, rax
+    exit
+
+function @four
+  abi
+    param %k -> rdi : i32
+    param %x -> rsi : i64
+    return i64 -> rax
+  frame
+    stack_size N
+    scratch_bytes 0
+    frame_pointer keep
+    epilogues duplicated
+
+  block ^entry
+    cmp.i32 rdi, 1
+    je ^one
+    cmp.i32 rdi, 5
+    je ^two
+    cmp.i32 rdi, 9
+    je ^three
+    cmp.i32 rdi, 40
+    je ^four
+
+  block ^zero
+    mov rax, 0
+    ret rax
+
+  block ^four
+    lea rax, [rsi-<off0>]
+    ret rax
+
+  block ^three
+    mov rax, rsi
+    xor rax, 7
+    ret rax
+
+  block ^two
+    lea rax, [rsi+rsi*4]
+    ret rax
+
+  block ^one
+    lea rax, [rsi+rsi*2]
+    ret rax
+
+function @five
+  abi
+    param %k -> rdi : i32
+    param %x -> rsi : i64
+    return i64 -> rax
+  frame
+    stack_size N
+    scratch_bytes 0
+    frame_pointer keep
+    epilogues duplicated
+
+  block ^entry
+    cmp.i32 rdi, 9
+    jl ^switch.4
+    je ^three
+    cmp.i32 rdi, 40
+    je ^four
+    cmp.i32 rdi, 77
+    jne ^zero
+
+  block ^five
+    lea rax, [rsi+<off0>]
+    ret rax
+
+  block ^four
+    lea rax, [rsi-<off0>]
+    ret rax
+
+  block ^three
+    mov rax, rsi
+    xor rax, 7
+    ret rax
+
+  block ^switch.4
+    cmp.i32 rdi, 1
+    je ^one
+    cmp.i32 rdi, 5
+    je ^two
+
+  block ^zero
+    mov rax, 0
+    ret rax
+
+  block ^two
+    lea rax, [rsi+rsi*4]
+    ret rax
+
+  block ^one
+    lea rax, [rsi+rsi*2]
+    ret rax
+
+function @consecutive
+  abi
+    param %k -> rdi : i32
+    param %x -> rsi : i64
+    return i64 -> rax
+  frame
+    stack_size N
+    scratch_bytes 0
+    frame_pointer keep
+    epilogues duplicated
+
+  block ^entry
+    cmp.i32 rdi, 20
+    je ^one
+    cmp.i32 rdi, 21
+    je ^two
+    cmp.i32 rdi, 22
+    je ^three
+    cmp.i32 rdi, 23
+    je ^four
+    cmp.i32 rdi, 24
+    je ^five
+
+  block ^zero
+    mov rax, 0
+    ret rax
+
+  block ^five
+    lea rax, [rsi+<off0>]
+    ret rax
+
+  block ^four
+    lea rax, [rsi-<off0>]
+    ret rax
+
+  block ^three
+    mov rax, rsi
+    xor rax, 7
+    ret rax
+
+  block ^two
+    lea rax, [rsi+rsi*4]
+    ret rax
+
+  block ^one
+    lea rax, [rsi+rsi*2]
+    ret rax
+
+function @main
+  abi
+    return i32 -> rax
+  frame
+    stack_size N
+    scratch_bytes 0
+    frame_pointer keep
+    epilogues duplicated
+    preserve <gpr0> <gpr1> <gpr2> <gpr3>
+
+  block ^entry
+    mov rdi, 1
+    mov rsi, 10
+    call @four [args=(rsi,rdi)]
+    mov <gpr0>, rax
+    mov rdi, 40
+    mov rsi, 10
+    call @four [args=(rsi,rdi)]
+    mov <gpr2>, rax
+    mov rdi, 6
+    mov rsi, 10
+    call @four [args=(rsi,rdi)]
+    mov <gpr3>, rax
+    mov rdi, -1
+    mov rsi, 10
+    call @four [args=(rsi,rdi)]
+    add <gpr0>, <gpr2>
+    add <gpr3>, rax
+    add <gpr0>, <gpr3>
+    cmp.i64 <gpr0>, 29
+    sete <gpr0>
+    mov rdi, 9
+    mov rsi, 10
+    call @five [args=(rsi,rdi)]
+    mov <gpr2>, rax
+    mov rdi, 77
+    mov rsi, 10
+    call @five [args=(rsi,rdi)]
+    mov <gpr3>, rax
+    mov rdi, 41
+    mov rsi, 10
+    call @five [args=(rsi,rdi)]
+    mov <gpr1>, rax
+    mov rdi, 5
+    mov rsi, 10
+    call @five [args=(rsi,rdi)]
+    add <gpr2>, <gpr3>
+    add <gpr1>, rax
+    add <gpr2>, <gpr1>
+    cmp.i64 <gpr2>, 86
+    sete <gpr2>
+    mov rdi, 24
+    mov rsi, 10
+    call @consecutive [args=(rsi,rdi)]
+    mov <gpr3>, rax
+    mov rdi, 19
+    mov rsi, 10
+    call @consecutive [args=(rsi,rdi)]
+    mov <gpr1>, rax
+    mov rdi, 21
+    mov rsi, 10
+    call @consecutive [args=(rsi,rdi)]
+    add <gpr3>, <gpr1>
+    add <gpr3>, rax
+    cmp.i64 <gpr3>, 73
+    sete <gpr3>
+    and.u8 <gpr0>, <gpr2>
+    test.u8 <gpr0>, <gpr3>
+    sete rax
+    movzx rax, rax
+    ret rax
