@@ -11,10 +11,10 @@ int main() {
     unsigned hash = 2166136261u;
     for (int value = 0; value < 12; ++value) {
         for (int i = 0; i < 200; ++i)
-            out[i] = -1;
+            out[i] = -1 - i;
         hash = (hash ^ static_cast<unsigned>(dispatch(ops, 200, value, out))) * 16777619u;
         for (int i = 0; i < 200; ++i)
             hash = (hash ^ static_cast<unsigned>(out[i])) * 16777619u;
     }
-    return hash == 3475252408u ? 42 : 1;
+    return hash == 494772228u ? 42 : 1;
 }
