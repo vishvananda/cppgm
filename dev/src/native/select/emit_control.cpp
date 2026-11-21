@@ -123,7 +123,7 @@ void FunctionSelector::select(lowir::SymbolId symbol, Function& out, uint32_t ex
 	allocate_globals();
 	layout_slots();
 	emit_blocks();
-	if (level_ >= 1 && precise_globals_ && body_->code_labels.empty())
+	if (level_ >= 1 && precise_globals_)
 		hoist_latch_transfers();
 	for (const lowir::CodeLabel& label : body_->code_labels)
 		out.code_labels.push_back(lowir::CodeLabel{ label.symbol, blocks_[layout_of_[label.block]].mir });
