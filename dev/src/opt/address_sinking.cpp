@@ -619,6 +619,99 @@ bool share_index_bases(FunctionContext& context)
 	return changed;
 }
 
+// Whether instruction `id` indexes a base by an element value (scaled by
+// two, four or eight bytes) for the vector load or store that follows it
+// alone.
+bool vector_indexed(const FunctionBody& body, const std::vector<uint32_t>& uses, InstId id)
+{
+	const Instruction& index = body.instructions[id];
+	if (index.op != Opcode::Index || index.next == kNoId || index.result == kNoId || uses[index.result] != 1 ||
+		!index.ops[0].is(ValueKind::Temp) || !index.ops[1].is(ValueKind::Temp) ||
+		integer_bits(body.temps[index.ops[1].index].type.kind()) != 64)
+		return false;
+	const uint64_t scale = storage_bytes(index.type);
+	const Instruction& use = body.instructions[index.next];
+	const bool store = use.op == Opcode::Store;
+	return (scale == 2 || scale == 4 || scale == 8) && (store || use.op == Opcode::Load) &&
+		use.type.kind() == TypeKind::V128 && use.ops[store ? 1 : 0] == Value::temp(index.result) &&
+		!(store && use.ops[0] == Value::temp(index.result));
+}
+
+// A Q access takes a register offset in bytes, or one scaled by sixteen,
+// but not an element index: each such access first adds the scaled index to
+// its base. Two or more vector accesses of a block that index bases by one
+// element value read its byte offset instead, computed once in the block
+// (a vector loop over rows of a matrix reads many rows at one column).
+bool share_vector_offsets(FunctionContext& context)
+{
+	auto& body = context.body;
+	const auto& uses = context.entry_uses(sink_addresses);
+	constexpr unsigned kOffsets = 8;
+	struct Offset
+	{
+		Value element;
+		uint64_t scale;
+		unsigned count;
+		Value bytes;
+	};
+	bool changed = false;
+	for (BlockId block : body.layout)
+	{
+		Offset offsets[kOffsets];
+		unsigned found = 0;
+		const auto lookup = [&](const Instruction& index) {
+			unsigned k = 0;
+			while (k < found && !(offsets[k].element == index.ops[1] && offsets[k].scale == storage_bytes(index.type)))
+				++k;
+			return k;
+		};
+		for (InstId id = body.blocks[block].first; id != kNoId; id = body.instructions[id].next)
+		{
+			if (!vector_indexed(body, uses, id))
+				continue;
+			const Instruction& index = body.instructions[id];
+			const unsigned k = lookup(index);
+			if (k < found)
+				++offsets[k].count;
+			else if (found < kOffsets)
+				offsets[found++] = Offset{ index.ops[1], storage_bytes(index.type), 1, Value::none() };
+		}
+		InstId prev = kNoId;
+		for (InstId id = body.blocks[block].first; id != kNoId; prev = id, id = body.instructions[id].next)
+		{
+			if (!vector_indexed(body, uses, id))
+				continue;
+			const unsigned k = lookup(body.instructions[id]);
+			if (k == found || offsets[k].count < 2)
+				continue;
+			Offset& offset = offsets[k];
+			if (offset.bytes.is(ValueKind::None))
+			{
+				Instruction shift = make_instruction(Opcode::Binary, Type::scalar(TypeKind::I64));
+				shift.sub = static_cast<uint8_t>(BinaryOp::Shl);
+				shift.ops[0] = offset.element;
+				shift.ops[1] = integer_value(body, integer_literal(__builtin_ctzll(offset.scale)));
+				shift.location = body.instructions[id].location;
+				const InstId made = append_instruction(body, shift);
+				body.instructions[made].result = append_temp(body, shift.type, made);
+				insert_after(body, block, prev, made);
+				offset.bytes = Value::temp(body.instructions[made].result);
+			}
+			Instruction& index = body.instructions[id];
+			index.type = Type::scalar(TypeKind::I8);
+			index.ops[1] = offset.bytes;
+			index.set_index_bounds(IndexBounds::None);
+			changed = true;
+		}
+	}
+	if (changed)
+	{
+		context.invalidate_uses();
+		context.invalidate_block_of();
+	}
+	return changed;
+}
+
 } // namespace
 
 bool sink_addresses(FunctionContext& context)
@@ -633,7 +726,8 @@ bool sink_addresses(FunctionContext& context)
 		return changed;
 	const bool scaled = fold_index_scales(context);
 	const bool placed = place_memory_addresses(context);
-	return share_index_bases(context) || placed || scaled || changed;
+	const bool shared = share_index_bases(context);
+	return share_vector_offsets(context) || shared || placed || scaled || changed;
 }
 
 } // namespace opt

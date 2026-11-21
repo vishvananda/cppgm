@@ -1,0 +1,16 @@
+extern "C" void blend(int* out, const int* a, const int* b, const int* c, int lo, int hi);
+
+int out[200], a[200], b[200], c[200];
+
+int main() {
+    for (int i = 0; i < 200; ++i) {
+        a[i] = i * 7 - 300;
+        b[i] = i ^ 0x55;
+        c[i] = 1000 - i * 3;
+    }
+    blend(out, a, b, c, 3, 197);
+    unsigned h = 0;
+    for (int i = 0; i < 200; ++i)
+        h = h * 31 + static_cast<unsigned>(out[i]);
+    return static_cast<int>(h % 251);
+}
