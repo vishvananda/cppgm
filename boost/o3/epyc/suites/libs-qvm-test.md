@@ -4,140 +4,140 @@ All original oracles passed for all three compilers. Seconds are child CPU, one 
 
 | Test | Kind | Compile cppgm | GCC | Clang | Test cppgm | GCC | Clang |
 |---|---|---:|---:|---:|---:|---:|---:|
-| math_test.test | RUN | 0.336567 | 0.893292 | 1.227721 | 0.002802 | 0.002714 | 0.002634 |
-| mat_traits_array_test.test | RUN | 0.252077 | 0.909181 | 0.972935 | 0.001539 | 0.001804 | 0.001656 |
-| mat_traits_std_array_test.test | RUN | 0.252864 | 0.699524 | 0.998274 | 0.001960 | 0.001878 | 0.001730 |
-| vec_traits_array_test.test | RUN | 0.228233 | 0.685573 | 0.844620 | 0.002002 | 0.001909 | 0.001513 |
-| vec_traits_gnuc_test.test | RUN | 0.417868 | 0.883934 | 1.667542 | 0.001614 | 0.002070 | 0.001782 |
-| vec_traits_std_array_test.test | RUN | 0.230221 | 0.551793 | 0.832571 | 0.002089 | 0.001836 | 0.001818 |
-| quat_traits_array_test.test | RUN | 0.226131 | 0.712426 | 0.830800 | 0.001952 | 0.001707 | 0.001772 |
-| quat_traits_std_array_test.test | RUN | 0.221982 | 0.547735 | 0.854233 | 0.002054 | 0.001782 | 0.002066 |
-| access_m_test.test | RUN | 0.354303 | 1.351355 | 1.804865 | 0.001860 | 0.002095 | 0.001884 |
-| access_m_fail1.test | COMPILE_FAIL | 0.035052 | 0.057535 | 0.130865 | — | — | — |
-| access_m_fail2.test | COMPILE_FAIL | 0.035089 | 0.063200 | 0.130033 | — | — | — |
-| access_q_test.test | RUN | 0.294126 | 0.666413 | 1.118604 | 0.001998 | 0.002232 | 0.001944 |
-| access_q_fail.test | COMPILE_FAIL | 0.028324 | 0.044548 | 0.087671 | — | — | — |
-| access_v_test.test | RUN | 0.292010 | 0.709092 | 1.079447 | 0.001836 | 0.002058 | 0.002121 |
-| access_v_fail1.test | COMPILE_FAIL | 0.023833 | 0.044491 | 0.089683 | — | — | — |
-| access_v_fail2.test | COMPILE_FAIL | 0.022768 | 0.044630 | 0.088908 | — | — | — |
-| assign_test.test | RUN | 0.454745 | 1.143060 | 1.918867 | 0.001972 | 0.002142 | 0.001936 |
-| to_string_test.test | RUN | 0.524538 | 1.805138 | 10.355334 | 0.002098 | 0.001911 | 0.002122 |
-| cmp_vv_test.test | RUN | 0.378300 | 0.888071 | 1.286298 | 0.001735 | 0.002021 | 0.001922 |
-| cross_test.test | RUN | 0.360266 | 0.834984 | 1.328675 | 0.001347 | 0.002017 | 0.002026 |
-| div_eq_vs_test.test | RUN | 0.343676 | 0.770202 | 1.275320 | 0.001935 | 0.001948 | 0.002327 |
-| div_vs_test.test | RUN | 0.358267 | 0.916884 | 1.366818 | 0.001671 | 0.002175 | 0.001710 |
-| dot_vv_test.test | RUN | 0.345818 | 0.819607 | 1.219327 | 0.001752 | 0.002206 | 0.001966 |
-| eq_vv_test.test | RUN | 0.378622 | 0.929182 | 1.309988 | 0.001796 | 0.002130 | 0.002036 |
-| mag_v_test.test | RUN | 0.337413 | 0.777601 | 1.258658 | 0.002031 | 0.002469 | 0.001827 |
-| mag_sqr_v_test.test | RUN | 0.338776 | 0.773169 | 1.250539 | 0.001844 | 0.002168 | 0.001752 |
-| minus_v_test.test | RUN | 0.348540 | 0.894208 | 1.262895 | 0.001851 | 0.002226 | 0.002059 |
-| minus_eq_vv_test.test | RUN | 0.341601 | 0.871587 | 1.342219 | 0.001781 | 0.002046 | 0.002066 |
-| minus_vv_test.test | RUN | 0.364845 | 0.939636 | 1.408396 | 0.001996 | 0.002068 | 0.001742 |
-| mul_eq_vs_test.test | RUN | 0.341051 | 0.777969 | 1.272970 | 0.001570 | 0.001976 | 0.002246 |
-| mul_vs_test.test | RUN | 0.359680 | 0.926263 | 1.313179 | 0.001960 | 0.002216 | 0.001872 |
-| mul_sv_test.test | RUN | 0.359037 | 0.941515 | 1.373788 | 0.001610 | 0.002138 | 0.002144 |
-| mul_vm_test.test | RUN | 0.508535 | 1.637469 | 2.097496 | 0.001735 | 0.002004 | 0.002190 |
-| normalize_v_test.test | RUN | 0.356687 | 1.151009 | 1.448867 | 0.002008 | 0.002060 | 0.001990 |
-| plus_eq_vv_test.test | RUN | 0.336535 | 0.863140 | 1.186426 | 0.001788 | 0.001798 | 0.001953 |
-| plus_vv_test.test | RUN | 0.372761 | 0.948957 | 1.307468 | 0.001856 | 0.002076 | 0.002082 |
-| scalar_cast_v_test.test | RUN | 0.333073 | 0.697597 | 1.139316 | 0.001929 | 0.002056 | 0.001983 |
-| vec_index_test.test | RUN | 0.290307 | 0.713078 | 1.029662 | 0.001822 | 0.002302 | 0.002190 |
-| vec_register_test.test | RUN | 0.190342 | 0.640418 | 0.767124 | 0.002146 | 0.001734 | 0.001796 |
-| cmp_mm_test.test | RUN | 0.549052 | 2.029268 | 2.653454 | 0.002158 | 0.002102 | 0.002294 |
-| determinant_test.test | RUN | 0.397651 | 1.033337 | 1.504152 | 0.001755 | 0.002140 | 0.001999 |
-| div_eq_ms_test.test | RUN | 0.400340 | 1.004766 | 1.714282 | 0.001884 | 0.002184 | 0.002222 |
-| div_ms_test.test | RUN | 0.473791 | 1.528874 | 1.999593 | 0.001742 | 0.002079 | 0.002122 |
-| eq_mm_test.test | RUN | 0.547617 | 1.889456 | 2.478852 | 0.002100 | 0.001971 | 0.001834 |
-| minus_m_test.test | RUN | 0.473128 | 1.516577 | 1.942640 | 0.002024 | 0.002170 | 0.002023 |
-| minus_eq_mm_test.test | RUN | 0.438508 | 1.391744 | 1.814275 | 0.001756 | 0.001956 | 0.001774 |
-| minus_mm_test.test | RUN | 0.507266 | 1.817992 | 2.124288 | 0.002071 | 0.002164 | 0.002165 |
-| mul_eq_mm_test.test | RUN | 0.418836 | 1.363586 | 1.711100 | 0.002130 | 0.002268 | 0.002283 |
-| mul_eq_ms_test.test | RUN | 0.421062 | 0.944230 | 1.636558 | 0.002118 | 0.002121 | 0.002158 |
-| mul_mm_test.test | RUN | 0.570380 | 2.934885 | 2.670637 | 0.001936 | 0.002119 | 0.001979 |
-| mul_ms_test.test | RUN | 0.487697 | 1.550444 | 2.093343 | 0.002009 | 0.002020 | 0.001980 |
-| mul_sm_test.test | RUN | 0.490267 | 1.548220 | 2.114517 | 0.002044 | 0.002028 | 0.001983 |
-| mul_mv_test.test | RUN | 0.510563 | 1.662793 | 2.198900 | 0.002101 | 0.002066 | 0.002146 |
-| inverse_m_test.test | RUN | 0.653060 | 2.936902 | 2.834403 | 0.002202 | 0.002024 | 0.001955 |
-| plus_eq_mm_test.test | RUN | 0.444947 | 1.429824 | 1.855802 | 0.002034 | 0.002116 | 0.002016 |
-| plus_mm_test.test | RUN | 0.508319 | 1.817120 | 2.110338 | 0.002000 | 0.002033 | 0.001916 |
-| scalar_cast_m_test.test | RUN | 0.387598 | 0.825101 | 1.431692 | 0.001960 | 0.002040 | 0.002092 |
-| mat_index_test.test | RUN | 0.303965 | 0.766367 | 1.080546 | 0.001866 | 0.001849 | 0.002117 |
-| cmp_qq_test.test | RUN | 0.335543 | 0.725383 | 1.215851 | 0.002087 | 0.001924 | 0.001870 |
-| conjugate_test.test | RUN | 0.345668 | 0.742712 | 1.233164 | 0.002023 | 0.002252 | 0.001729 |
-| normalize_q_test.test | RUN | 0.356379 | 0.857218 | 1.215792 | 0.001999 | 0.001792 | 0.002277 |
-| div_eq_qs_test.test | RUN | 0.333553 | 0.721940 | 1.172744 | 0.001880 | 0.002030 | 0.002345 |
-| div_qs_test.test | RUN | 0.331779 | 0.747117 | 1.191650 | 0.002110 | 0.002102 | 0.002294 |
-| dot_qq_test.test | RUN | 0.337851 | 0.717170 | 1.151404 | 0.002104 | 0.002120 | 0.001821 |
-| eq_qq_test.test | RUN | 0.337420 | 0.758059 | 1.159143 | 0.001896 | 0.001966 | 0.002193 |
-| inverse_q_test.test | RUN | 0.411257 | 0.977315 | 1.518275 | 0.001968 | 0.001872 | 0.002112 |
-| mag_q_test.test | RUN | 0.329709 | 0.743051 | 1.213546 | 0.001877 | 0.002081 | 0.001816 |
-| mag_sqr_q_test.test | RUN | 0.327569 | 0.733066 | 1.143944 | 0.002031 | 0.002127 | 0.002220 |
-| minus_q_test.test | RUN | 0.326312 | 0.734730 | 1.158568 | 0.001926 | 0.001799 | 0.002246 |
-| minus_eq_qq_test.test | RUN | 0.325726 | 0.744624 | 1.201508 | 0.001830 | 0.002066 | 0.002124 |
-| minus_qq_test.test | RUN | 0.326203 | 0.765818 | 1.219494 | 0.001806 | 0.001841 | 0.002068 |
-| mul_eq_qs_test.test | RUN | 0.329435 | 0.688478 | 1.185361 | 0.001964 | 0.002176 | 0.001942 |
-| mul_qs_test.test | RUN | 0.332192 | 0.740250 | 1.209454 | 0.001833 | 0.002208 | 0.002069 |
-| mul_qv_test.test | RUN | 0.404138 | 1.016092 | 1.542610 | 0.002026 | 0.002209 | 0.002290 |
-| mul_qq_test.test | RUN | 0.405223 | 1.032572 | 1.506858 | 0.001835 | 0.002188 | 0.001738 |
-| mul_eq_qq_test.test | RUN | 0.397872 | 1.012377 | 1.484138 | 0.001931 | 0.002034 | 0.002068 |
-| plus_eq_qq_test.test | RUN | 0.340173 | 0.748833 | 1.205381 | 0.001962 | 0.001963 | 0.001618 |
-| plus_qq_test.test | RUN | 0.332698 | 0.759437 | 1.176257 | 0.002095 | 0.002094 | 0.002220 |
-| scalar_cast_q_test.test | RUN | 0.336077 | 0.680180 | 1.179057 | 0.002192 | 0.001890 | 0.002278 |
-| slerp_test.test | RUN | 0.358626 | 1.418671 | 1.453285 | 0.024629 | 0.020458 | 0.021673 |
-| convert_to_test.test | RUN | 0.484980 | 1.302262 | 2.109243 | 0.001894 | 0.002146 | 0.002307 |
-| rot_mat_test.test | RUN | 0.729699 | 5.783499 | 6.277753 | 0.060429 | 0.054932 | 0.050368 |
-| rot_quat_test.test | RUN | 0.413600 | 1.191107 | 1.605453 | 0.002004 | 0.002282 | 0.002102 |
-| rotx_mat_test.test | RUN | 0.454988 | 1.591466 | 1.966759 | 0.001776 | 0.002045 | 0.002526 |
-| rotx_quat_test.test | RUN | 0.408670 | 1.014085 | 1.439207 | 0.002038 | 0.002152 | 0.001905 |
-| roty_mat_test.test | RUN | 0.454284 | 1.605875 | 1.925796 | 0.002097 | 0.002189 | 0.002114 |
-| roty_quat_test.test | RUN | 0.396361 | 1.012645 | 1.446565 | 0.001939 | 0.002225 | 0.002024 |
-| rotz_mat_test.test | RUN | 0.485916 | 1.780440 | 1.873423 | 0.001854 | 0.001829 | 0.002210 |
-| rotz_quat_test.test | RUN | 0.408666 | 1.060218 | 1.426223 | 0.001947 | 0.002244 | 0.002076 |
-| zero_vec_test.test | RUN | 0.349531 | 0.874292 | 1.129252 | 0.002158 | 0.001910 | 0.001732 |
-| zero_mat_test.test | RUN | 0.450242 | 1.444843 | 1.795851 | 0.002014 | 0.002118 | 0.002220 |
-| zero_quat_test.test | RUN | 0.319151 | 0.733471 | 1.174769 | 0.001788 | 0.002037 | 0.001812 |
-| identity_mat_test.test | RUN | 0.388193 | 1.082693 | 1.531842 | 0.002022 | 0.002011 | 0.002242 |
-| identity_quat_test.test | RUN | 0.328851 | 0.689990 | 1.191346 | 0.001956 | 0.002280 | 0.002347 |
-| col_test.test | RUN | 0.651109 | 2.307066 | 3.244804 | 0.001891 | 0.001798 | 0.002254 |
-| col_mat_test.test | RUN | 0.414472 | 1.067709 | 1.580126 | 0.002102 | 0.002026 | 0.002170 |
-| neg_col_test.test | RUN | 0.485870 | 1.409396 | 2.024870 | 0.001458 | 0.002150 | 0.002341 |
-| neg_row_test.test | RUN | 0.496236 | 1.480289 | 2.066367 | 0.002024 | 0.001966 | 0.002128 |
-| del_col_test.test | RUN | 0.506382 | 1.603373 | 2.023792 | 0.002261 | 0.002088 | 0.002117 |
-| del_row_test.test | RUN | 0.514755 | 1.576167 | 2.046838 | 0.002100 | 0.002138 | 0.002374 |
-| del_row_col_test.test | RUN | 0.706853 | 2.968454 | 3.860411 | 0.002167 | 0.002258 | 0.002116 |
-| swap_cols_test.test | RUN | 0.930531 | 3.964570 | 4.611704 | 0.002020 | 0.002100 | 0.002308 |
-| swap_rows_test.test | RUN | 1.023694 | 4.152949 | 4.503903 | 0.002026 | 0.001758 | 0.002210 |
-| diag_test.test | RUN | 0.446679 | 1.065227 | 1.837448 | 0.001942 | 0.002172 | 0.002231 |
-| diag_mat_test.test | RUN | 0.456683 | 1.076225 | 1.588866 | 0.002316 | 0.002154 | 0.001834 |
-| row_test.test | RUN | 0.667978 | 2.262800 | 3.408398 | 0.001984 | 0.002053 | 0.001900 |
-| row_mat_test.test | RUN | 0.432185 | 0.988434 | 1.629475 | 0.002026 | 0.002078 | 0.002276 |
-| transpose_test.test | RUN | 0.510072 | 1.551804 | 2.169462 | 0.002046 | 0.001802 | 0.002151 |
-| translation_test.test | RUN | 0.406499 | 0.968821 | 1.515260 | 0.002012 | 0.002018 | 0.002020 |
-| translation_mat_test.test | RUN | 0.448667 | 1.018802 | 1.674951 | 0.001613 | 0.001978 | 0.001967 |
-| swizzle_const_fail.test | COMPILE_FAIL | 0.144715 | 0.280079 | 0.515466 | — | — | — |
-| swizzle2_test2.test | RUN | 0.178940 | 0.418606 | 0.641869 | 0.002034 | 0.001920 | 0.002044 |
-| swizzle2_test3.test | RUN | 0.185367 | 0.418849 | 0.618927 | 0.001639 | 0.001712 | 0.002165 |
-| swizzle2_test4.test | RUN | 0.181633 | 0.418705 | 0.602727 | 0.001642 | 0.001856 | 0.002036 |
-| swizzle2_test.test | RUN | 0.566506 | 1.182644 | 2.174825 | 0.002026 | 0.001938 | 0.002150 |
-| swizzle3_test2.test | RUN | 0.200316 | 0.441897 | 0.711779 | 0.001820 | 0.002158 | 0.002247 |
-| swizzle3_test3.test | RUN | 0.201336 | 0.445424 | 0.713715 | 0.001878 | 0.001824 | 0.002110 |
-| swizzle3_test4.test | RUN | 0.200120 | 0.460149 | 0.747588 | 0.002141 | 0.001830 | 0.002165 |
-| swizzle3_test.test | RUN | 0.561923 | 1.214018 | 2.185979 | 0.001880 | 0.002055 | 0.002161 |
-| swizzle4_test2.test | RUN | 0.339117 | 0.665074 | 1.293363 | 0.001980 | 0.002104 | 0.002041 |
-| swizzle4_test3.test | RUN | 0.341419 | 0.651063 | 1.244332 | 0.002034 | 0.001996 | 0.002050 |
-| swizzle4_test4.test | RUN | 0.342633 | 0.677171 | 1.247658 | 0.002039 | 0.001836 | 0.002176 |
-| swizzle4_test.test | RUN | 0.571090 | 1.338179 | 2.233423 | 0.001720 | 0.001878 | 0.002096 |
-| deduce_scalar_test.test | COMPILE | 0.028771 | 0.059841 | 0.105704 | — | — | — |
-| deduce_scalar_mq_test.test | RUN | 0.226583 | 0.484267 | 0.821737 | 0.001856 | 0.002164 | 0.002109 |
-| deduce_scalar_mv_test.test | RUN | 0.273020 | 0.587604 | 0.916348 | 0.001654 | 0.001922 | 0.002130 |
-| deduce_scalar_fail.test | COMPILE_FAIL | 0.021879 | 0.042412 | 0.082807 | — | — | — |
-| deduce_mat_test.test | COMPILE | 0.024751 | 0.056944 | 0.090229 | — | — | — |
-| deduce_quat_test.test | COMPILE | 0.025128 | 0.052943 | 0.090657 | — | — | — |
-| deduce_vec_test.test | COMPILE | 0.024336 | 0.053025 | 0.095156 | — | — | — |
-| interop_test.test | RUN | 0.226292 | 0.634469 | 1.412015 | 0.000758 | 0.000679 | 0.001498 |
-| transform_test.test | RUN | 0.511401 | 0.968960 | 1.764232 | 0.001600 | 0.001464 | 0.001587 |
-| projection_test.test | RUN | 0.351266 | 0.771510 | 1.228953 | 0.001674 | 0.001464 | 0.001522 |
-| scalar_traits_test.test | COMPILE | 0.028374 | 0.056417 | 0.094307 | — | — | — |
+| math_test.test | RUN | 0.238808 | 0.643034 | 0.767822 | 0.001983 | 0.002118 | 0.002118 |
+| mat_traits_array_test.test | RUN | 0.186879 | 0.620533 | 0.612257 | 0.001712 | 0.001646 | 0.001531 |
+| mat_traits_std_array_test.test | RUN | 0.189946 | 0.486919 | 0.619840 | 0.001614 | 0.001632 | 0.001425 |
+| vec_traits_array_test.test | RUN | 0.169563 | 0.506335 | 0.527092 | 0.001600 | 0.001326 | 0.001348 |
+| vec_traits_gnuc_test.test | RUN | 0.300329 | 0.613543 | 1.064646 | 0.001392 | 0.001656 | 0.001671 |
+| vec_traits_std_array_test.test | RUN | 0.164631 | 0.403093 | 0.531841 | 0.001744 | 0.001643 | 0.001499 |
+| quat_traits_array_test.test | RUN | 0.163171 | 0.513280 | 0.494611 | 0.001436 | 0.001518 | 0.001487 |
+| quat_traits_std_array_test.test | RUN | 0.159008 | 0.398613 | 0.495346 | 0.001526 | 0.001568 | 0.001725 |
+| access_m_test.test | RUN | 0.262849 | 0.969196 | 1.171035 | 0.001593 | 0.001848 | 0.001523 |
+| access_m_fail1.test | COMPILE_FAIL | 0.025443 | 0.041196 | 0.072329 | — | — | — |
+| access_m_fail2.test | COMPILE_FAIL | 0.025201 | 0.041321 | 0.072251 | — | — | — |
+| access_q_test.test | RUN | 0.214388 | 0.479449 | 0.642715 | 0.001478 | 0.001922 | 0.001589 |
+| access_q_fail.test | COMPILE_FAIL | 0.018247 | 0.032892 | 0.068202 | — | — | — |
+| access_v_test.test | RUN | 0.217218 | 0.519856 | 0.680199 | 0.001484 | 0.001837 | 0.001652 |
+| access_v_fail1.test | COMPILE_FAIL | 0.018066 | 0.031666 | 0.058719 | — | — | — |
+| access_v_fail2.test | COMPILE_FAIL | 0.017612 | 0.030629 | 0.060123 | — | — | — |
+| assign_test.test | RUN | 0.322753 | 0.775914 | 1.198157 | 0.001762 | 0.001831 | 0.001706 |
+| to_string_test.test | RUN | 0.374376 | 1.285170 | 6.588783 | 0.001319 | 0.001733 | 0.001387 |
+| cmp_vv_test.test | RUN | 0.265384 | 0.654013 | 0.845458 | 0.001729 | 0.001838 | 0.001659 |
+| cross_test.test | RUN | 0.260219 | 0.585433 | 0.843030 | 0.001277 | 0.001786 | 0.001417 |
+| div_eq_vs_test.test | RUN | 0.244004 | 0.565441 | 0.771773 | 0.001649 | 0.001882 | 0.001667 |
+| div_vs_test.test | RUN | 0.255972 | 0.673593 | 0.878068 | 0.001336 | 0.001850 | 0.001530 |
+| dot_vv_test.test | RUN | 0.245283 | 0.602084 | 0.825614 | 0.001272 | 0.001830 | 0.001472 |
+| eq_vv_test.test | RUN | 0.269020 | 0.687978 | 0.825311 | 0.001436 | 0.001750 | 0.001712 |
+| mag_v_test.test | RUN | 0.241226 | 0.554296 | 0.773196 | 0.001620 | 0.001845 | 0.001458 |
+| mag_sqr_v_test.test | RUN | 0.241605 | 0.554661 | 0.769306 | 0.001665 | 0.001900 | 0.001471 |
+| minus_v_test.test | RUN | 0.250212 | 0.638993 | 0.786335 | 0.001358 | 0.001826 | 0.001645 |
+| minus_eq_vv_test.test | RUN | 0.247996 | 0.637545 | 0.812472 | 0.001413 | 0.001724 | 0.001754 |
+| minus_vv_test.test | RUN | 0.256677 | 0.669887 | 0.850990 | 0.001601 | 0.001817 | 0.001434 |
+| mul_eq_vs_test.test | RUN | 0.247956 | 0.550155 | 0.811901 | 0.001545 | 0.001907 | 0.001672 |
+| mul_vs_test.test | RUN | 0.257227 | 0.681772 | 0.876452 | 0.001582 | 0.001839 | 0.001582 |
+| mul_sv_test.test | RUN | 0.259748 | 0.678016 | 0.839636 | 0.001372 | 0.001836 | 0.001515 |
+| mul_vm_test.test | RUN | 0.349064 | 1.201913 | 1.320914 | 0.001229 | 0.001775 | 0.001592 |
+| normalize_v_test.test | RUN | 0.260010 | 0.833003 | 0.892259 | 0.001558 | 0.001817 | 0.001642 |
+| plus_eq_vv_test.test | RUN | 0.244071 | 0.644287 | 0.752692 | 0.001742 | 0.001400 | 0.001500 |
+| plus_vv_test.test | RUN | 0.258998 | 0.696454 | 0.882046 | 0.001491 | 0.001923 | 0.001598 |
+| scalar_cast_v_test.test | RUN | 0.241298 | 0.509020 | 0.787022 | 0.001467 | 0.001526 | 0.001296 |
+| vec_index_test.test | RUN | 0.208580 | 0.521244 | 0.670086 | 0.001598 | 0.001833 | 0.001577 |
+| vec_register_test.test | RUN | 0.139075 | 0.452613 | 0.499243 | 0.001734 | 0.001686 | 0.001566 |
+| cmp_mm_test.test | RUN | 0.401790 | 1.462101 | 1.652065 | 0.001732 | 0.001826 | 0.001732 |
+| determinant_test.test | RUN | 0.285543 | 0.749127 | 0.948340 | 0.001520 | 0.001830 | 0.001518 |
+| div_eq_ms_test.test | RUN | 0.289984 | 0.715657 | 1.056853 | 0.001584 | 0.001388 | 0.001713 |
+| div_ms_test.test | RUN | 0.336190 | 1.109050 | 1.284612 | 0.001625 | 0.001878 | 0.001606 |
+| eq_mm_test.test | RUN | 0.389214 | 1.354999 | 1.585442 | 0.001633 | 0.001860 | 0.001586 |
+| minus_m_test.test | RUN | 0.336832 | 1.100814 | 1.244357 | 0.001555 | 0.001806 | 0.001591 |
+| minus_eq_mm_test.test | RUN | 0.315923 | 1.040040 | 1.142011 | 0.001485 | 0.001885 | 0.001756 |
+| minus_mm_test.test | RUN | 0.354543 | 1.279233 | 1.346508 | 0.001766 | 0.001855 | 0.001700 |
+| mul_eq_mm_test.test | RUN | 0.291846 | 0.963176 | 1.031299 | 0.001729 | 0.001397 | 0.001669 |
+| mul_eq_ms_test.test | RUN | 0.294962 | 0.687105 | 1.038162 | 0.001572 | 0.001703 | 0.001740 |
+| mul_mm_test.test | RUN | 0.400807 | 2.073398 | 1.677112 | 0.001741 | 0.001806 | 0.001479 |
+| mul_ms_test.test | RUN | 0.347769 | 1.110456 | 1.309656 | 0.001655 | 0.001816 | 0.001538 |
+| mul_sm_test.test | RUN | 0.349098 | 1.093964 | 1.274222 | 0.001783 | 0.001723 | 0.001356 |
+| mul_mv_test.test | RUN | 0.354885 | 1.174957 | 1.333339 | 0.001586 | 0.001864 | 0.001723 |
+| inverse_m_test.test | RUN | 0.471412 | 2.140047 | 1.821074 | 0.001490 | 0.001895 | 0.001780 |
+| plus_eq_mm_test.test | RUN | 0.318753 | 1.023286 | 1.140221 | 0.002002 | 0.001861 | 0.001700 |
+| plus_mm_test.test | RUN | 0.358562 | 1.267560 | 1.345733 | 0.001541 | 0.001928 | 0.001726 |
+| scalar_cast_m_test.test | RUN | 0.275544 | 0.582610 | 0.832095 | 0.001718 | 0.001840 | 0.001772 |
+| mat_index_test.test | RUN | 0.220069 | 0.555874 | 0.727248 | 0.001569 | 0.001681 | 0.001660 |
+| cmp_qq_test.test | RUN | 0.242745 | 0.525795 | 0.699607 | 0.001750 | 0.001853 | 0.001687 |
+| conjugate_test.test | RUN | 0.244443 | 0.524559 | 0.727780 | 0.001591 | 0.001828 | 0.001708 |
+| normalize_q_test.test | RUN | 0.244003 | 0.586326 | 0.780388 | 0.002107 | 0.001795 | 0.002438 |
+| div_eq_qs_test.test | RUN | 0.236934 | 0.523039 | 0.705099 | 0.001527 | 0.001661 | 0.001557 |
+| div_qs_test.test | RUN | 0.243899 | 0.522017 | 0.733243 | 0.001731 | 0.001710 | 0.001679 |
+| dot_qq_test.test | RUN | 0.245000 | 0.519463 | 0.737902 | 0.001552 | 0.001898 | 0.001693 |
+| eq_qq_test.test | RUN | 0.247657 | 0.549986 | 0.746918 | 0.001614 | 0.001857 | 0.001802 |
+| inverse_q_test.test | RUN | 0.288266 | 0.723240 | 0.932607 | 0.001692 | 0.001540 | 0.001727 |
+| mag_q_test.test | RUN | 0.240576 | 0.558301 | 0.761809 | 0.001734 | 0.001844 | 0.001783 |
+| mag_sqr_q_test.test | RUN | 0.240313 | 0.530495 | 0.691469 | 0.001712 | 0.001838 | 0.001577 |
+| minus_q_test.test | RUN | 0.242079 | 0.537094 | 0.742587 | 0.001704 | 0.001925 | 0.001674 |
+| minus_eq_qq_test.test | RUN | 0.240255 | 0.541375 | 0.743673 | 0.001497 | 0.001778 | 0.001732 |
+| minus_qq_test.test | RUN | 0.247052 | 0.552497 | 0.732338 | 0.001455 | 0.001564 | 0.001736 |
+| mul_eq_qs_test.test | RUN | 0.239139 | 0.513800 | 0.760434 | 0.001755 | 0.001869 | 0.001618 |
+| mul_qs_test.test | RUN | 0.237351 | 0.554285 | 0.700344 | 0.001715 | 0.001864 | 0.001757 |
+| mul_qv_test.test | RUN | 0.294046 | 0.742390 | 0.914722 | 0.001694 | 0.001577 | 0.001704 |
+| mul_qq_test.test | RUN | 0.288338 | 0.751183 | 0.928547 | 0.001484 | 0.001601 | 0.001644 |
+| mul_eq_qq_test.test | RUN | 0.287790 | 0.755258 | 0.940845 | 0.001674 | 0.001828 | 0.001523 |
+| plus_eq_qq_test.test | RUN | 0.243927 | 0.556712 | 0.757251 | 0.001651 | 0.001908 | 0.001603 |
+| plus_qq_test.test | RUN | 0.242734 | 0.561581 | 0.749686 | 0.001607 | 0.001568 | 0.001676 |
+| scalar_cast_q_test.test | RUN | 0.237529 | 0.524080 | 0.745288 | 0.001493 | 0.001797 | 0.001601 |
+| slerp_test.test | RUN | 0.257275 | 1.048392 | 0.871297 | 0.018135 | 0.013961 | 0.015515 |
+| convert_to_test.test | RUN | 0.358768 | 0.973350 | 1.360166 | 0.001771 | 0.001679 | 0.001682 |
+| rot_mat_test.test | RUN | 0.523406 | 4.221893 | 3.951423 | 0.043266 | 0.038619 | 0.035476 |
+| rot_quat_test.test | RUN | 0.297524 | 0.881774 | 0.936773 | 0.001611 | 0.001844 | 0.001807 |
+| rotx_mat_test.test | RUN | 0.335106 | 1.136993 | 1.241372 | 0.001265 | 0.002054 | 0.001708 |
+| rotx_quat_test.test | RUN | 0.290438 | 0.751689 | 0.892926 | 0.001770 | 0.001889 | 0.001726 |
+| roty_mat_test.test | RUN | 0.335167 | 1.164978 | 1.257036 | 0.001750 | 0.001840 | 0.001750 |
+| roty_quat_test.test | RUN | 0.286263 | 0.757536 | 0.807517 | 0.001897 | 0.001827 | 0.001614 |
+| rotz_mat_test.test | RUN | 0.350357 | 1.320425 | 1.286715 | 0.001696 | 0.001692 | 0.001744 |
+| rotz_quat_test.test | RUN | 0.294871 | 0.765410 | 0.877585 | 0.001397 | 0.001858 | 0.001478 |
+| zero_vec_test.test | RUN | 0.251640 | 0.648468 | 0.716938 | 0.001714 | 0.001928 | 0.001598 |
+| zero_mat_test.test | RUN | 0.307293 | 1.077044 | 1.103207 | 0.001574 | 0.001694 | 0.001323 |
+| zero_quat_test.test | RUN | 0.240383 | 0.561853 | 0.757269 | 0.001550 | 0.001678 | 0.001632 |
+| identity_mat_test.test | RUN | 0.284961 | 0.775360 | 0.941381 | 0.001705 | 0.001824 | 0.001611 |
+| identity_quat_test.test | RUN | 0.245814 | 0.519754 | 0.758661 | 0.001749 | 0.001942 | 0.001738 |
+| col_test.test | RUN | 0.467723 | 1.674654 | 2.039712 | 0.001714 | 0.001866 | 0.001691 |
+| col_mat_test.test | RUN | 0.301567 | 0.779530 | 0.985083 | 0.001704 | 0.001891 | 0.001740 |
+| neg_col_test.test | RUN | 0.357218 | 1.036754 | 1.292114 | 0.001553 | 0.001936 | 0.001699 |
+| neg_row_test.test | RUN | 0.354170 | 1.081922 | 1.246459 | 0.001707 | 0.001836 | 0.001608 |
+| del_col_test.test | RUN | 0.365847 | 1.174551 | 1.282859 | 0.001541 | 0.001858 | 0.001704 |
+| del_row_test.test | RUN | 0.366299 | 1.152757 | 1.278821 | 0.001743 | 0.002017 | 0.001644 |
+| del_row_col_test.test | RUN | 0.511929 | 2.178496 | 2.465572 | 0.001775 | 0.001852 | 0.001682 |
+| swap_cols_test.test | RUN | 0.670824 | 2.894218 | 2.965263 | 0.001807 | 0.001832 | 0.001723 |
+| swap_rows_test.test | RUN | 0.729314 | 3.010701 | 2.893604 | 0.002182 | 0.001495 | 0.001634 |
+| diag_test.test | RUN | 0.321364 | 0.778045 | 1.121406 | 0.001700 | 0.002019 | 0.001728 |
+| diag_mat_test.test | RUN | 0.315138 | 0.785498 | 0.942818 | 0.001656 | 0.001846 | 0.001704 |
+| row_test.test | RUN | 0.472537 | 1.633750 | 2.022823 | 0.001614 | 0.001936 | 0.001676 |
+| row_mat_test.test | RUN | 0.305143 | 0.712807 | 0.923332 | 0.001550 | 0.001434 | 0.001697 |
+| transpose_test.test | RUN | 0.364077 | 1.129029 | 1.301810 | 0.001679 | 0.001530 | 0.001428 |
+| translation_test.test | RUN | 0.291547 | 0.709935 | 0.966972 | 0.001584 | 0.001867 | 0.001686 |
+| translation_mat_test.test | RUN | 0.318579 | 0.729300 | 1.059308 | 0.001542 | 0.001549 | 0.001246 |
+| swizzle_const_fail.test | COMPILE_FAIL | 0.107477 | 0.200266 | 0.275956 | — | — | — |
+| swizzle2_test2.test | RUN | 0.131581 | 0.311080 | 0.406244 | 0.001522 | 0.001625 | 0.001700 |
+| swizzle2_test3.test | RUN | 0.126733 | 0.311846 | 0.415410 | 0.001378 | 0.001476 | 0.001476 |
+| swizzle2_test4.test | RUN | 0.130579 | 0.299436 | 0.402295 | 0.001322 | 0.001856 | 0.001442 |
+| swizzle2_test.test | RUN | 0.417666 | 0.851204 | 1.375658 | 0.001626 | 0.001374 | 0.001525 |
+| swizzle3_test2.test | RUN | 0.144269 | 0.325488 | 0.451979 | 0.001610 | 0.001760 | 0.001342 |
+| swizzle3_test3.test | RUN | 0.142814 | 0.325272 | 0.470705 | 0.001573 | 0.001634 | 0.001561 |
+| swizzle3_test4.test | RUN | 0.141566 | 0.335685 | 0.451493 | 0.001296 | 0.001591 | 0.001409 |
+| swizzle3_test.test | RUN | 0.405047 | 0.884425 | 1.372354 | 0.001527 | 0.001770 | 0.001732 |
+| swizzle4_test2.test | RUN | 0.235775 | 0.478692 | 0.801979 | 0.001461 | 0.001874 | 0.001525 |
+| swizzle4_test3.test | RUN | 0.235809 | 0.461116 | 0.801879 | 0.001459 | 0.001356 | 0.001390 |
+| swizzle4_test4.test | RUN | 0.242325 | 0.462423 | 0.781363 | 0.001546 | 0.001420 | 0.001596 |
+| swizzle4_test.test | RUN | 0.413173 | 0.951926 | 1.384433 | 0.001533 | 0.001845 | 0.001689 |
+| deduce_scalar_test.test | COMPILE | 0.021797 | 0.045276 | 0.071744 | — | — | — |
+| deduce_scalar_mq_test.test | RUN | 0.156036 | 0.353776 | 0.509367 | 0.001500 | 0.001710 | 0.001513 |
+| deduce_scalar_mv_test.test | RUN | 0.182556 | 0.424387 | 0.546764 | 0.001551 | 0.001713 | 0.001705 |
+| deduce_scalar_fail.test | COMPILE_FAIL | 0.017312 | 0.030620 | 0.056511 | — | — | — |
+| deduce_mat_test.test | COMPILE | 0.019790 | 0.042402 | 0.062847 | — | — | — |
+| deduce_quat_test.test | COMPILE | 0.018871 | 0.038953 | 0.062797 | — | — | — |
+| deduce_vec_test.test | COMPILE | 0.019554 | 0.038884 | 0.061330 | — | — | — |
+| interop_test.test | RUN | 0.197159 | 0.468648 | 0.863400 | 0.000636 | 0.000612 | 0.001609 |
+| transform_test.test | RUN | 0.374514 | 0.769325 | 1.063095 | 0.001304 | 0.001260 | 0.001221 |
+| projection_test.test | RUN | 0.242390 | 0.568761 | 0.759820 | 0.001322 | 0.001339 | 0.001239 |
+| scalar_traits_test.test | COMPILE | 0.019958 | 0.042241 | 0.066437 | — | — | — |
 
 ## Native runtime replay
 
@@ -145,136 +145,136 @@ Child CPU of successful native tests, with process startup included; GDB and exp
 
 | Reference | CPU speedup ↑ | Paired blocks | A/A speedup |
 |---|---:|---|---:|
-| gcc | 0.975× | 0.979×, 0.970× | 0.977× |
-| clang | 1.079× | 1.054×, 1.104× | 1.007× |
+| gcc | 0.955×† | 0.954×, 0.955× | 1.083× |
+| clang | 0.930×† | 0.896×, 0.965× | 0.999× |
 
-† A/A drift or paired-block spread exceeds 5%; small differences are unresolved. 1375 native tests in the full cohort; 1360 have byte-identical output throughout. [Raw replay evidence in CI artifacts](https://github.com/vishvananda/cppgm/actions/runs/44612055398).
+† A/A drift or paired-block spread exceeds 5%; small differences are unresolved. 1375 native tests in the full cohort; 1362 have byte-identical output throughout. [Raw replay evidence in CI artifacts](https://github.com/vishvananda/cppgm/actions/runs/44813597235).
 
 | Test | Repeats | CPU cppgm | GCC | Clang | Output check |
 |---|---:|---:|---:|---:|---|
-| access_m_test.test | 10 | 0.001258s | 0.001248s | 0.001262s | byte equality observed |
-| access_q_test.test | 10 | 0.001294s | 0.001230s | 0.001264s | byte equality observed |
-| access_v_test.test | 10 | 0.001285s | 0.001213s | 0.001299s | byte equality observed |
-| assign_test.test | 10 | 0.001240s | 0.001268s | 0.001234s | byte equality observed |
-| cmp_mm_test.test | 10 | 0.001272s | 0.001306s | 0.001285s | byte equality observed |
-| cmp_qq_test.test | 10 | 0.001237s | 0.001283s | 0.001269s | byte equality observed |
-| cmp_vv_test.test | 10 | 0.001248s | 0.001281s | 0.001283s | byte equality observed |
-| col_mat_test.test | 10 | 0.001269s | 0.001280s | 0.001294s | byte equality observed |
-| col_test.test | 10 | 0.001270s | 0.001236s | 0.001241s | byte equality observed |
-| conjugate_test.test | 10 | 0.001279s | 0.001301s | 0.001292s | byte equality observed |
-| convert_to_test.test | 10 | 0.001250s | 0.001298s | 0.001274s | byte equality observed |
-| cross_test.test | 10 | 0.001291s | 0.001279s | 0.001227s | byte equality observed |
-| deduce_scalar_mq_test.test | 10 | 0.001303s | 0.001249s | 0.001253s | byte equality observed |
-| deduce_scalar_mv_test.test | 10 | 0.001285s | 0.001297s | 0.001249s | byte equality observed |
-| del_col_test.test | 10 | 0.001251s | 0.001272s | 0.001229s | byte equality observed |
-| del_row_col_test.test | 10 | 0.001270s | 0.001282s | 0.001262s | byte equality observed |
-| del_row_test.test | 10 | 0.001276s | 0.001330s | 0.001261s | byte equality observed |
-| determinant_test.test | 10 | 0.001257s | 0.001322s | 0.001267s | byte equality observed |
-| diag_mat_test.test | 10 | 0.001255s | 0.001291s | 0.001261s | byte equality observed |
-| diag_test.test | 9 | 0.001251s | 0.001257s | 0.001251s | byte equality observed |
-| div_eq_ms_test.test | 10 | 0.001273s | 0.001221s | 0.001251s | byte equality observed |
-| div_eq_qs_test.test | 10 | 0.001275s | 0.001261s | 0.001288s | byte equality observed |
-| div_eq_vs_test.test | 10 | 0.001238s | 0.001286s | 0.001253s | byte equality observed |
-| div_ms_test.test | 10 | 0.001243s | 0.001269s | 0.001266s | byte equality observed |
-| div_qs_test.test | 10 | 0.001292s | 0.001237s | 0.001266s | byte equality observed |
-| div_vs_test.test | 10 | 0.001293s | 0.001258s | 0.001306s | byte equality observed |
-| dot_qq_test.test | 10 | 0.001257s | 0.001249s | 0.001279s | byte equality observed |
-| dot_vv_test.test | 10 | 0.001249s | 0.001263s | 0.001296s | byte equality observed |
-| eq_mm_test.test | 10 | 0.001263s | 0.001316s | 0.001250s | byte equality observed |
-| eq_qq_test.test | 10 | 0.001254s | 0.001262s | 0.001246s | byte equality observed |
-| eq_vv_test.test | 10 | 0.001288s | 0.001280s | 0.001253s | byte equality observed |
-| identity_mat_test.test | 10 | 0.001275s | 0.001301s | 0.001257s | byte equality observed |
-| identity_quat_test.test | 10 | 0.001269s | 0.001281s | 0.001309s | byte equality observed |
-| interop_test.test | 10 | 0.000581s | 0.000598s | 0.001208s | byte equality observed |
-| inverse_m_test.test | 10 | 0.001354s | 0.001326s | 0.001282s | byte equality observed |
-| inverse_q_test.test | 10 | 0.001244s | 0.001291s | 0.001277s | byte equality observed |
-| mag_q_test.test | 10 | 0.001252s | 0.001242s | 0.001286s | byte equality observed |
-| mag_sqr_q_test.test | 10 | 0.001289s | 0.001321s | 0.001265s | byte equality observed |
-| mag_sqr_v_test.test | 10 | 0.001253s | 0.001290s | 0.001247s | byte equality observed |
-| mag_v_test.test | 10 | 0.001257s | 0.001333s | 0.001264s | byte equality observed |
-| mat_index_test.test | 10 | 0.001254s | 0.001278s | 0.001330s | byte equality observed |
-| mat_traits_array_test.test | 10 | 0.001279s | 0.001309s | 0.001277s | byte equality observed |
-| mat_traits_std_array_test.test | 10 | 0.001226s | 0.001264s | 0.001267s | byte equality observed |
-| math_test.test | 9 | 0.001883s | 0.001831s | 0.001609s | byte equality observed |
-| minus_eq_mm_test.test | 10 | 0.001247s | 0.001234s | 0.001238s | byte equality observed |
-| minus_eq_qq_test.test | 10 | 0.001231s | 0.001285s | 0.001257s | byte equality observed |
-| minus_eq_vv_test.test | 10 | 0.001256s | 0.001299s | 0.001254s | byte equality observed |
-| minus_m_test.test | 10 | 0.001282s | 0.001276s | 0.001280s | byte equality observed |
-| minus_mm_test.test | 10 | 0.001255s | 0.001259s | 0.001296s | byte equality observed |
-| minus_q_test.test | 10 | 0.001336s | 0.001253s | 0.001276s | byte equality observed |
-| minus_qq_test.test | 10 | 0.001301s | 0.001319s | 0.001318s | byte equality observed |
-| minus_v_test.test | 10 | 0.001244s | 0.001239s | 0.001294s | byte equality observed |
-| minus_vv_test.test | 9 | 0.001264s | 0.001263s | 0.001239s | byte equality observed |
-| mul_eq_mm_test.test | 10 | 0.001274s | 0.001291s | 0.001294s | byte equality observed |
-| mul_eq_ms_test.test | 10 | 0.001274s | 0.001249s | 0.001282s | byte equality observed |
-| mul_eq_qq_test.test | 10 | 0.001268s | 0.001267s | 0.001267s | byte equality observed |
-| mul_eq_qs_test.test | 10 | 0.001260s | 0.001282s | 0.001281s | byte equality observed |
-| mul_eq_vs_test.test | 10 | 0.001241s | 0.001288s | 0.001280s | byte equality observed |
-| mul_mm_test.test | 8 | 0.001255s | 0.001245s | 0.001261s | byte equality observed |
-| mul_ms_test.test | 10 | 0.001262s | 0.001277s | 0.001269s | byte equality observed |
-| mul_mv_test.test | 10 | 0.001247s | 0.001301s | 0.001325s | byte equality observed |
-| mul_qq_test.test | 10 | 0.001300s | 0.001275s | 0.001268s | byte equality observed |
-| mul_qs_test.test | 10 | 0.001250s | 0.001237s | 0.001296s | byte equality observed |
-| mul_qv_test.test | 10 | 0.001283s | 0.001256s | 0.001294s | byte equality observed |
-| mul_sm_test.test | 10 | 0.001259s | 0.001347s | 0.001304s | byte equality observed |
-| mul_sv_test.test | 10 | 0.001241s | 0.001286s | 0.001289s | byte equality observed |
-| mul_vm_test.test | 10 | 0.001260s | 0.001223s | 0.001306s | byte equality observed |
-| mul_vs_test.test | 10 | 0.001267s | 0.001262s | 0.001279s | byte equality observed |
-| neg_col_test.test | 10 | 0.001231s | 0.001271s | 0.001325s | byte equality observed |
-| neg_row_test.test | 10 | 0.001246s | 0.001270s | 0.001354s | byte equality observed |
-| normalize_q_test.test | 10 | 0.001234s | 0.001314s | 0.001249s | byte equality observed |
-| normalize_v_test.test | 10 | 0.001264s | 0.001313s | 0.001302s | byte equality observed |
-| plus_eq_mm_test.test | 10 | 0.001238s | 0.001258s | 0.001294s | byte equality observed |
-| plus_eq_qq_test.test | 10 | 0.001250s | 0.001284s | 0.001388s | byte equality observed |
-| plus_eq_vv_test.test | 10 | 0.001289s | 0.001270s | 0.001391s | byte equality observed |
-| plus_mm_test.test | 10 | 0.001265s | 0.001281s | 0.001386s | byte equality observed |
-| plus_qq_test.test | 10 | 0.001275s | 0.001298s | 0.001430s | byte equality observed |
-| plus_vv_test.test | 10 | 0.001310s | 0.001237s | 0.001456s | byte equality observed |
-| projection_test.test | 10 | 0.001262s | 0.001241s | 0.001399s | byte equality observed |
-| quat_traits_array_test.test | 10 | 0.001259s | 0.001248s | 0.001464s | byte equality observed |
-| quat_traits_std_array_test.test | 7 | 0.001256s | 0.001321s | 0.001420s | byte equality observed |
-| rot_mat_test.test | 1 | 0.037123s | 0.032607s | 0.046081s | byte equality observed |
-| rot_quat_test.test | 10 | 0.001173s | 0.001172s | 0.001434s | byte equality observed |
-| rotx_mat_test.test | 10 | 0.001178s | 0.001214s | 0.001491s | byte equality observed |
-| rotx_quat_test.test | 10 | 0.001306s | 0.001270s | 0.001433s | byte equality observed |
-| roty_mat_test.test | 10 | 0.001281s | 0.001260s | 0.001510s | byte equality observed |
-| roty_quat_test.test | 10 | 0.001246s | 0.001284s | 0.001524s | byte equality observed |
-| rotz_mat_test.test | 10 | 0.001265s | 0.001308s | 0.001531s | byte equality observed |
-| rotz_quat_test.test | 10 | 0.001274s | 0.001272s | 0.001492s | byte equality observed |
-| row_mat_test.test | 10 | 0.001274s | 0.001338s | 0.001465s | byte equality observed |
-| row_test.test | 10 | 0.001277s | 0.001242s | 0.001497s | byte equality observed |
-| scalar_cast_m_test.test | 10 | 0.001283s | 0.001273s | 0.001485s | byte equality observed |
-| scalar_cast_q_test.test | 10 | 0.001295s | 0.001240s | 0.001484s | byte equality observed |
-| scalar_cast_v_test.test | 10 | 0.001249s | 0.001239s | 0.001421s | byte equality observed |
-| slerp_test.test | 2 | 0.016806s | 0.013732s | 0.019681s | byte equality observed |
-| swap_cols_test.test | 9 | 0.001152s | 0.001162s | 0.001474s | byte equality observed |
-| swap_rows_test.test | 10 | 0.001183s | 0.001196s | 0.001432s | byte equality observed |
-| swizzle2_test.test | 10 | 0.001270s | 0.001247s | 0.001466s | byte equality observed |
-| swizzle2_test2.test | 10 | 0.001286s | 0.001260s | 0.001468s | byte equality observed |
-| swizzle2_test3.test | 10 | 0.001297s | 0.001293s | 0.001540s | byte equality observed |
-| swizzle2_test4.test | 10 | 0.001296s | 0.001336s | 0.001470s | byte equality observed |
-| swizzle3_test.test | 10 | 0.001296s | 0.001337s | 0.001501s | byte equality observed |
-| swizzle3_test2.test | 10 | 0.001388s | 0.001398s | 0.001528s | byte equality observed |
-| swizzle3_test3.test | 10 | 0.001369s | 0.001446s | 0.001491s | byte equality observed |
-| swizzle3_test4.test | 10 | 0.001426s | 0.001420s | 0.001501s | byte equality observed |
-| swizzle4_test.test | 10 | 0.001463s | 0.001477s | 0.001517s | byte equality observed |
-| swizzle4_test2.test | 10 | 0.001474s | 0.001458s | 0.001511s | byte equality observed |
-| swizzle4_test3.test | 10 | 0.001435s | 0.001480s | 0.001510s | byte equality observed |
-| swizzle4_test4.test | 10 | 0.001448s | 0.001489s | 0.001489s | byte equality observed |
-| to_string_test.test | 10 | 0.001542s | 0.001534s | 0.001569s | byte equality observed |
-| transform_test.test | 10 | 0.001504s | 0.001465s | 0.001452s | byte equality observed |
-| translation_mat_test.test | 10 | 0.001481s | 0.001473s | 0.001506s | byte equality observed |
-| translation_test.test | 10 | 0.001472s | 0.001505s | 0.001482s | byte equality observed |
-| transpose_test.test | 10 | 0.001467s | 0.001486s | 0.001507s | byte equality observed |
-| vec_index_test.test | 10 | 0.001491s | 0.001422s | 0.001512s | byte equality observed |
-| vec_register_test.test | 10 | 0.001528s | 0.001502s | 0.001516s | byte equality observed |
-| vec_traits_array_test.test | 10 | 0.001452s | 0.001494s | 0.001525s | byte equality observed |
-| vec_traits_gnuc_test.test | 10 | 0.001471s | 0.001478s | 0.001530s | byte equality observed |
-| vec_traits_std_array_test.test | 10 | 0.001478s | 0.001463s | 0.001524s | byte equality observed |
-| zero_mat_test.test | 10 | 0.001475s | 0.001485s | 0.001499s | byte equality observed |
-| zero_quat_test.test | 10 | 0.001508s | 0.001491s | 0.001508s | byte equality observed |
-| zero_vec_test.test | 10 | 0.001485s | 0.001450s | 0.001528s | byte equality observed |
+| access_m_test.test | 10 | 0.001010s | 0.000987s | 0.000983s | byte equality observed |
+| access_q_test.test | 10 | 0.001018s | 0.001006s | 0.001006s | byte equality observed |
+| access_v_test.test | 10 | 0.001015s | 0.001022s | 0.001016s | byte equality observed |
+| assign_test.test | 10 | 0.000986s | 0.001028s | 0.001000s | byte equality observed |
+| cmp_mm_test.test | 10 | 0.001005s | 0.000984s | 0.000980s | byte equality observed |
+| cmp_qq_test.test | 10 | 0.000994s | 0.001003s | 0.001010s | byte equality observed |
+| cmp_vv_test.test | 10 | 0.000988s | 0.000994s | 0.000997s | byte equality observed |
+| col_mat_test.test | 10 | 0.001011s | 0.000979s | 0.000978s | byte equality observed |
+| col_test.test | 10 | 0.001022s | 0.001003s | 0.001005s | byte equality observed |
+| conjugate_test.test | 10 | 0.001042s | 0.000979s | 0.000991s | byte equality observed |
+| convert_to_test.test | 10 | 0.001018s | 0.001005s | 0.001014s | byte equality observed |
+| cross_test.test | 10 | 0.001004s | 0.001009s | 0.001009s | byte equality observed |
+| deduce_scalar_mq_test.test | 10 | 0.001002s | 0.001019s | 0.000999s | byte equality observed |
+| deduce_scalar_mv_test.test | 10 | 0.001020s | 0.000984s | 0.001009s | byte equality observed |
+| del_col_test.test | 10 | 0.001032s | 0.000990s | 0.001005s | byte equality observed |
+| del_row_col_test.test | 10 | 0.000986s | 0.000987s | 0.000984s | byte equality observed |
+| del_row_test.test | 10 | 0.000992s | 0.001014s | 0.000993s | byte equality observed |
+| determinant_test.test | 10 | 0.001063s | 0.000998s | 0.001031s | byte equality observed |
+| diag_mat_test.test | 10 | 0.001001s | 0.001025s | 0.001001s | byte equality observed |
+| diag_test.test | 10 | 0.001002s | 0.001012s | 0.000998s | byte equality observed |
+| div_eq_ms_test.test | 10 | 0.001002s | 0.000981s | 0.000970s | byte equality observed |
+| div_eq_qs_test.test | 10 | 0.001001s | 0.001032s | 0.000991s | byte equality observed |
+| div_eq_vs_test.test | 10 | 0.000995s | 0.001053s | 0.000985s | byte equality observed |
+| div_ms_test.test | 10 | 0.000986s | 0.001007s | 0.000990s | byte equality observed |
+| div_qs_test.test | 10 | 0.000992s | 0.001005s | 0.001003s | byte equality observed |
+| div_vs_test.test | 10 | 0.000995s | 0.000991s | 0.001015s | byte equality observed |
+| dot_qq_test.test | 10 | 0.000998s | 0.001009s | 0.000999s | byte equality observed |
+| dot_vv_test.test | 10 | 0.000998s | 0.001016s | 0.001017s | byte equality observed |
+| eq_mm_test.test | 10 | 0.001029s | 0.000994s | 0.000997s | byte equality observed |
+| eq_qq_test.test | 10 | 0.001020s | 0.000994s | 0.000989s | byte equality observed |
+| eq_vv_test.test | 10 | 0.001031s | 0.001006s | 0.001028s | byte equality observed |
+| identity_mat_test.test | 10 | 0.001011s | 0.000975s | 0.000999s | byte equality observed |
+| identity_quat_test.test | 10 | 0.001020s | 0.001007s | 0.000988s | byte equality observed |
+| interop_test.test | 10 | 0.000468s | 0.000465s | 0.000975s | byte equality observed |
+| inverse_m_test.test | 10 | 0.001060s | 0.001015s | 0.001060s | byte equality observed |
+| inverse_q_test.test | 10 | 0.001007s | 0.000988s | 0.000979s | byte equality observed |
+| mag_q_test.test | 10 | 0.001036s | 0.000983s | 0.000977s | byte equality observed |
+| mag_sqr_q_test.test | 10 | 0.000987s | 0.000990s | 0.000996s | byte equality observed |
+| mag_sqr_v_test.test | 10 | 0.001006s | 0.001030s | 0.000992s | byte equality observed |
+| mag_v_test.test | 10 | 0.001034s | 0.001013s | 0.001028s | byte equality observed |
+| mat_index_test.test | 10 | 0.001006s | 0.001012s | 0.001006s | byte equality observed |
+| mat_traits_array_test.test | 10 | 0.001021s | 0.000998s | 0.001009s | byte equality observed |
+| mat_traits_std_array_test.test | 10 | 0.000984s | 0.000982s | 0.001021s | byte equality observed |
+| math_test.test | 10 | 0.001522s | 0.001482s | 0.001327s | byte equality observed |
+| minus_eq_mm_test.test | 10 | 0.000981s | 0.000995s | 0.000992s | byte equality observed |
+| minus_eq_qq_test.test | 10 | 0.001013s | 0.001055s | 0.000963s | byte equality observed |
+| minus_eq_vv_test.test | 10 | 0.001001s | 0.000988s | 0.000969s | byte equality observed |
+| minus_m_test.test | 10 | 0.001020s | 0.001024s | 0.001001s | byte equality observed |
+| minus_mm_test.test | 10 | 0.001003s | 0.000997s | 0.000993s | byte equality observed |
+| minus_q_test.test | 10 | 0.001002s | 0.001004s | 0.000989s | byte equality observed |
+| minus_qq_test.test | 10 | 0.000985s | 0.001034s | 0.000974s | byte equality observed |
+| minus_v_test.test | 10 | 0.001006s | 0.001003s | 0.001019s | byte equality observed |
+| minus_vv_test.test | 10 | 0.001030s | 0.001004s | 0.000984s | byte equality observed |
+| mul_eq_mm_test.test | 10 | 0.000996s | 0.001015s | 0.000991s | byte equality observed |
+| mul_eq_ms_test.test | 10 | 0.000997s | 0.000988s | 0.000988s | byte equality observed |
+| mul_eq_qq_test.test | 10 | 0.001036s | 0.001044s | 0.001037s | byte equality observed |
+| mul_eq_qs_test.test | 10 | 0.001024s | 0.000984s | 0.000994s | byte equality observed |
+| mul_eq_vs_test.test | 10 | 0.001014s | 0.000995s | 0.001008s | byte equality observed |
+| mul_mm_test.test | 10 | 0.001023s | 0.001005s | 0.001023s | byte equality observed |
+| mul_ms_test.test | 10 | 0.001023s | 0.000989s | 0.001009s | byte equality observed |
+| mul_mv_test.test | 10 | 0.001016s | 0.000978s | 0.000986s | byte equality observed |
+| mul_qq_test.test | 10 | 0.001024s | 0.000975s | 0.001004s | byte equality observed |
+| mul_qs_test.test | 10 | 0.000985s | 0.000995s | 0.000974s | byte equality observed |
+| mul_qv_test.test | 10 | 0.001024s | 0.001015s | 0.000999s | byte equality observed |
+| mul_sm_test.test | 10 | 0.000998s | 0.001014s | 0.000982s | byte equality observed |
+| mul_sv_test.test | 10 | 0.000994s | 0.001017s | 0.001004s | byte equality observed |
+| mul_vm_test.test | 10 | 0.001037s | 0.000964s | 0.000989s | byte equality observed |
+| mul_vs_test.test | 10 | 0.000999s | 0.000977s | 0.000986s | byte equality observed |
+| neg_col_test.test | 10 | 0.001031s | 0.000980s | 0.001013s | byte equality observed |
+| neg_row_test.test | 10 | 0.000989s | 0.001016s | 0.001008s | byte equality observed |
+| normalize_q_test.test | 10 | 0.001002s | 0.001036s | 0.000980s | byte equality observed |
+| normalize_v_test.test | 10 | 0.001048s | 0.001031s | 0.000983s | byte equality observed |
+| plus_eq_mm_test.test | 10 | 0.000995s | 0.001048s | 0.001004s | byte equality observed |
+| plus_eq_qq_test.test | 10 | 0.001009s | 0.001056s | 0.000994s | byte equality observed |
+| plus_eq_vv_test.test | 10 | 0.001008s | 0.001008s | 0.001002s | byte equality observed |
+| plus_mm_test.test | 10 | 0.001046s | 0.001022s | 0.000967s | byte equality observed |
+| plus_qq_test.test | 10 | 0.001032s | 0.001044s | 0.000990s | byte equality observed |
+| plus_vv_test.test | 10 | 0.000986s | 0.001006s | 0.000997s | byte equality observed |
+| projection_test.test | 10 | 0.001029s | 0.001018s | 0.001035s | byte equality observed |
+| quat_traits_array_test.test | 10 | 0.001010s | 0.001045s | 0.000997s | byte equality observed |
+| quat_traits_std_array_test.test | 10 | 0.000962s | 0.000997s | 0.000970s | byte equality observed |
+| rot_mat_test.test | 1 | 0.029900s | 0.024867s | 0.026184s | byte equality observed |
+| rot_quat_test.test | 10 | 0.000948s | 0.000991s | 0.000944s | byte equality observed |
+| rotx_mat_test.test | 10 | 0.000979s | 0.001004s | 0.000970s | byte equality observed |
+| rotx_quat_test.test | 10 | 0.001030s | 0.000988s | 0.001030s | byte equality observed |
+| roty_mat_test.test | 10 | 0.001054s | 0.001032s | 0.001023s | byte equality observed |
+| roty_quat_test.test | 10 | 0.001024s | 0.000996s | 0.000993s | byte equality observed |
+| rotz_mat_test.test | 10 | 0.001042s | 0.001032s | 0.001015s | byte equality observed |
+| rotz_quat_test.test | 10 | 0.001010s | 0.000985s | 0.000991s | byte equality observed |
+| row_mat_test.test | 10 | 0.001054s | 0.000982s | 0.001002s | byte equality observed |
+| row_test.test | 10 | 0.001002s | 0.001027s | 0.000973s | byte equality observed |
+| scalar_cast_m_test.test | 10 | 0.001024s | 0.001001s | 0.000995s | byte equality observed |
+| scalar_cast_q_test.test | 10 | 0.001002s | 0.000979s | 0.001012s | byte equality observed |
+| scalar_cast_v_test.test | 10 | 0.000987s | 0.000982s | 0.000978s | byte equality observed |
+| slerp_test.test | 2 | 0.013218s | 0.010992s | 0.011608s | byte equality observed |
+| swap_cols_test.test | 10 | 0.000967s | 0.000976s | 0.000958s | byte equality observed |
+| swap_rows_test.test | 10 | 0.001023s | 0.000988s | 0.000976s | byte equality observed |
+| swizzle2_test.test | 10 | 0.001011s | 0.001019s | 0.001004s | byte equality observed |
+| swizzle2_test2.test | 10 | 0.001036s | 0.001007s | 0.000984s | byte equality observed |
+| swizzle2_test3.test | 10 | 0.001028s | 0.000994s | 0.000997s | byte equality observed |
+| swizzle2_test4.test | 10 | 0.000995s | 0.000993s | 0.000979s | byte equality observed |
+| swizzle3_test.test | 10 | 0.001010s | 0.000970s | 0.001005s | byte equality observed |
+| swizzle3_test2.test | 10 | 0.000992s | 0.000968s | 0.000996s | byte equality observed |
+| swizzle3_test3.test | 10 | 0.001029s | 0.001012s | 0.001020s | byte equality observed |
+| swizzle3_test4.test | 10 | 0.001040s | 0.000994s | 0.001016s | byte equality observed |
+| swizzle4_test.test | 10 | 0.001022s | 0.001002s | 0.001014s | byte equality observed |
+| swizzle4_test2.test | 10 | 0.001025s | 0.001005s | 0.001013s | byte equality observed |
+| swizzle4_test3.test | 10 | 0.001008s | 0.001007s | 0.001004s | byte equality observed |
+| swizzle4_test4.test | 10 | 0.000998s | 0.000994s | 0.000989s | byte equality observed |
+| to_string_test.test | 10 | 0.001031s | 0.001048s | 0.001055s | byte equality observed |
+| transform_test.test | 10 | 0.001004s | 0.001045s | 0.001017s | byte equality observed |
+| translation_mat_test.test | 10 | 0.000990s | 0.001024s | 0.001021s | byte equality observed |
+| translation_test.test | 10 | 0.001005s | 0.001001s | 0.000980s | byte equality observed |
+| transpose_test.test | 10 | 0.001004s | 0.000992s | 0.001031s | byte equality observed |
+| vec_index_test.test | 10 | 0.001017s | 0.001044s | 0.000998s | byte equality observed |
+| vec_register_test.test | 10 | 0.001029s | 0.001010s | 0.001005s | byte equality observed |
+| vec_traits_array_test.test | 10 | 0.000998s | 0.000997s | 0.000991s | byte equality observed |
+| vec_traits_gnuc_test.test | 10 | 0.001018s | 0.001008s | 0.001007s | byte equality observed |
+| vec_traits_std_array_test.test | 10 | 0.001011s | 0.001032s | 0.000981s | byte equality observed |
+| zero_mat_test.test | 10 | 0.001010s | 0.001016s | 0.000988s | byte equality observed |
+| zero_quat_test.test | 10 | 0.001014s | 0.001034s | 0.000994s | byte equality observed |
+| zero_vec_test.test | 10 | 0.000999s | 0.001021s | 0.000958s | byte equality observed |
 
-[Raw outcomes, commands and timing observations in CI artifacts](https://github.com/vishvananda/cppgm/actions/runs/44612055398).
+[Raw outcomes, commands and timing observations in CI artifacts](https://github.com/vishvananda/cppgm/actions/runs/44813597235).
 
 [Comparison records](../results.json) · [Host and toolchains](../metadata.json)
