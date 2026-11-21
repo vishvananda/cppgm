@@ -118,7 +118,8 @@ InstId Selector::shift_accumulate(const lowir::Instruction& shift)
 }
 
 // Each lane of an arithmetic right shift by at least one bit, or of a splat
-// of a literal of at most 2^30 in magnitude, is within [-2^30, 2^30].
+// of a literal in the same range, is within [-2^30, 2^30): two such lanes
+// add without overflow.
 bool Selector::half_range(Value v, unsigned width) const
 {
 	if (!v.is(ValueKind::Temp) || body_.temps[v.index].def == kNoId)
@@ -134,7 +135,7 @@ bool Selector::half_range(Value v, unsigned width) const
 	if (!vector_op(made, VectorOp::Fromi32) || !made.ops[0].is(ValueKind::Integer))
 		return false;
 	const auto value = static_cast<int32_t>(body_.literals[made.ops[0].index].low);
-	return value >= -(1 << 30) && value <= (1 << 30);
+	return value >= -(1 << 30) && value < (1 << 30);
 }
 
 // A lane sum halved by an arithmetic shift is SHADD when neither operand can
