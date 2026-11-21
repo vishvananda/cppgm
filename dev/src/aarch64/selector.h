@@ -169,6 +169,7 @@ private:
 	void atomic(const lowir::Instruction& inst);
 	void switch_edges(const lowir::Instruction& inst, lowir::BlockId block);
 	unsigned condition_register(lowir::Value operand, unsigned scratch);
+	bool word_condition(lowir::Value operand) const;
 	unsigned operand_register(lowir::Value operand, lowir::Type type, unsigned scratch);
 	void narrow_left(lowir::Value src, lowir::Type type, lowir::TempId result, unsigned width, unsigned count);
 	bool constant_quotient(const lowir::Instruction& inst, uint64_t divisor, unsigned bits, unsigned lhs, unsigned dst);

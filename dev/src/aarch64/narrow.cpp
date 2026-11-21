@@ -16,9 +16,10 @@ bool narrow(Type type)
 // operand in slot `k` (ops[0..2], then the extra operands), which holds `t`.
 // Each case names a selection that uses W registers or a field of the
 // operand's width: the simple arithmetic and logical forms, shifts by a
-// literal, the stores of the same width, truncation and sign extension. The paths that
-// combine these instructions with a neighbour keep that property; a narrow
-// range test of a loose value is not combined (narrow_range_branch).
+// literal, 32-bit division, comparison, selection and branch conditions,
+// the stores of the same width, truncation and sign extension. The paths
+// that combine these instructions with a neighbour keep that property; a
+// narrow range test of a loose value is not combined (narrow_range_branch).
 bool low_bits(const FunctionBody& body, const lowir::Instruction& inst, unsigned k, Type type)
 {
 	const unsigned bits = integer_bits(type.kind());
@@ -42,10 +43,27 @@ bool low_bits(const FunctionBody& body, const lowir::Instruction& inst, unsigned
 		case BinaryOp::UShr:
 			return bits == 32 || (k == 0 && inst.ops[1].is(ValueKind::Integer));
 		case BinaryOp::Shr:
+		case BinaryOp::Div:
+		case BinaryOp::UDiv:
+		case BinaryOp::Mod:
+		case BinaryOp::UMod:
 			return bits == 32;
 		default:
 			return false;
 		}
+	case Opcode::Compare:
+		// Every comparison of 32-bit operands reads W registers; narrower
+		// comparisons read the normalized register.
+		return inst.type == type && k <= 1 && bits == 32;
+	case Opcode::Select:
+		// The condition and CSEL or CSINC of 32-bit alternatives read W
+		// registers; the path for objects and symbol alternatives does not.
+		if (bits != 32 || memory_value(inst.type) || inst.ops[1].is(ValueKind::Symbol) ||
+			inst.ops[2].is(ValueKind::Symbol))
+			return false;
+		return k == 0 || (inst.type == type && k <= 2);
+	case Opcode::Branch:
+		return k == 0 && bits == 32;
 	case Opcode::Unary:
 		return inst.type == type && k == 0 &&
 			(inst.sub == static_cast<unsigned>(UnaryOp::Neg) || inst.sub == static_cast<unsigned>(UnaryOp::BitNot));

@@ -245,7 +245,7 @@ void Selector::select(const lowir::Instruction& inst, BlockId block)
 			!inst.ops[2].is(ValueKind::Symbol))
 		{
 			const unsigned cond = condition_register(inst.ops[0], result_reg);
-			out_.emit(Op::Subs, 31, cond, 31);
+			out_.emit(word_condition(inst.ops[0]) ? Op::SubsW : Op::Subs, 31, cond, 31);
 			choose(inst, 1);
 			return;
 		}
@@ -276,7 +276,8 @@ void Selector::select(const lowir::Instruction& inst, BlockId block)
 			edge(block, inst.ops[0].index, true);
 		return;
 	case Opcode::Branch:
-		conditional_edges(block, inst, Op::Cbz, condition_register(inst.ops[0], left));
+		conditional_edges(
+			block, inst, word_condition(inst.ops[0]) ? Op::CbzW : Op::Cbz, condition_register(inst.ops[0], left));
 		return;
 	case Opcode::StackAlloc:
 		stack_alloc(inst);

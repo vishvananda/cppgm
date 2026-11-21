@@ -29,6 +29,12 @@ unsigned Selector::condition_register(Value operand, unsigned scratch)
 	return scratch;
 }
 
+// A 32-bit condition is tested in its W register (narrow.cpp).
+bool Selector::word_condition(Value operand) const
+{
+	return integer_bits(type_of(operand, Type::scalar(TypeKind::I64)).kind()) == 32;
+}
+
 // Insert the surviving low bits into their shifted position and clear the rest
 // of the result. A W bitfield operation also clears the top half of the X home.
 void Selector::narrow_left(Value src, Type type, TempId result, unsigned width, unsigned count)
