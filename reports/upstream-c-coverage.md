@@ -57,4 +57,15 @@ objects. These results cover the listed workloads.
 | --- | --- |
 | zlib 1.3.1 | Static library, example and minigzip built at `-O3`. The upstream `teststatic` target passed. [zlib](https://zlib.net/) |
 | Lua 5.4.8 | Linux static library, interpreter and bytecode compiler built at `-O2`. The version-matched documented basic suite passed. [Lua tests](https://www.lua.org/tests/#basic) |
-| SQLite 3.50.4 | Amalgamation and shell built at `-O0`. The SQL smoke run passed transaction, aggregation, JSON and integrity checks. The build exposed C's tokenization of macros adjacent to quoted literals, now covered by PA38. [SQLite version](https://sqlite.org/releaselog/3_50_4.html) · [PA38 regression](../pa38/tests/general/100-adjacent-literal-macros.t) |
+| SQLite 3.50.4 | Amalgamation and shell built at `-O0` and `-O2`. Both SQL smoke runs passed transaction, aggregation, JSON and integrity checks. The build exposed C's tokenization of macros adjacent to quoted literals, now covered by PA38. [SQLite version](https://sqlite.org/releaselog/3_50_4.html) · [PA38 regression](../pa38/tests/general/100-adjacent-literal-macros.t) |
+
+## Edition diagnostics to close
+
+With `-pedantic-errors`, GCC 15 and Clang 21 both rejected the C11 construct
+in each of seven C99 and GNU99 probes. The cases exercised static assertion,
+generic selection, atomic type syntax, thread-local declarations, alignment
+specifiers, alignment queries and nonreturning declarations. Both native
+compilers accepted each probe in C11 and when the same C99 or GNU99 source
+was reached through a system include. cppgm currently accepts all seven
+in every configuration. These are concrete gaps in the 6.4, 6.5 and 6.7
+edition rules.
