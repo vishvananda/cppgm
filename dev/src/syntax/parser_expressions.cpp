@@ -610,7 +610,8 @@ bool Parser::parse_sizeof_operand(TypeId*& type, Expr*& operand, bool& parenthes
 	type = nullptr;
 	operand = nullptr;
 	parenthesized = false;
-	if (typeof_operand && !at(TokenKind::OP_LPAREN))
+	const bool delimited = typeof_operand && c_source_;
+	if (delimited && !at(TokenKind::OP_LPAREN))
 		return fail();
 	// A name, or a GNU decltype-like specifier, read once (a GNU trait is
 	// an expression).
@@ -642,17 +643,17 @@ bool Parser::parse_sizeof_operand(TypeId*& type, Expr*& operand, bool& parenthes
 				return false;
 		}
 		Expr* primary = primary_from_name(name, info, name_start);
-		Expr* inner = primary == nullptr ? nullptr : continue_expression(primary);
-		angle_ = saved_angle;
-		if (inner == nullptr || !expect(TokenKind::OP_RPAREN))
-			return false;
-		if (typeof_operand)
+		if (delimited)
 		{
-			operand = inner;
-			return true;
+			operand = primary == nullptr ? nullptr : continue_expression(primary);
+			angle_ = saved_angle;
+			return operand != nullptr && expect(TokenKind::OP_RPAREN);
 		}
 		ParenExpr* paren = make<ParenExpr>(ExprKind::Paren, start);
-		paren->inner = inner;
+		paren->inner = primary == nullptr ? nullptr : continue_expression(primary);
+		angle_ = saved_angle;
+		if (paren->inner == nullptr || !expect(TokenKind::OP_RPAREN))
+			return false;
 		operand = parse_postfix_suffixes(paren);
 		if (operand == nullptr)
 			return false;
@@ -673,7 +674,7 @@ bool Parser::parse_sizeof_operand(TypeId*& type, Expr*& operand, bool& parenthes
 			angle_ = false;
 			TypeId* parsed = parse_type_id(DeclaratorMode::Abstract, false);
 			angle_ = saved_angle;
-			if (parsed != nullptr && at(TokenKind::OP_RPAREN) && (typeof_operand || !IsNamedFunctionType(parsed)))
+			if (parsed != nullptr && at(TokenKind::OP_RPAREN) && (delimited || !IsNamedFunctionType(parsed)))
 			{
 				next();
 				tentative.commit();
@@ -684,7 +685,7 @@ bool Parser::parse_sizeof_operand(TypeId*& type, Expr*& operand, bool& parenthes
 				return false;
 		}
 	}
-	if (typeof_operand)
+	if (delimited)
 	{
 		next();
 		const bool saved_angle = angle_;

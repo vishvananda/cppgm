@@ -415,8 +415,7 @@ private:
 	Expr* parse_keyword_functional_cast();
 	Expr* parse_sizeof();
 	// sizeof's operand is a parenthesized type-id or a unary expression.
-	// typeof requires parentheses, which delimit either a type-id (including
-	// a function type) or an expression.
+	// C typeof requires parentheses around the complete type-id or expression.
 	bool parse_sizeof_operand(TypeId*& type, Expr*& operand, bool& parenthesized, bool typeof_operand = false);
 	// At GNU `__typeof__`, form one TypeofOperand node for the type-id or expression.
 	Expr* parse_typeof_operand();

@@ -267,19 +267,19 @@ that to 47.24 million.
 Paired runs against `38f7e1746` used the same frozen C++ `-O3` and SQLite
 `-O2` inputs on Linux x86-64. The binaries were immutable and pinned to the
 same core. All emitted objects matched byte-for-byte. Task-clock variation
-in the A/A blocks was 2.9% for C++ and 38.5% for C, so the comparison uses
+in the A/A blocks was 14.3% for C++ and 1.2% for C, so the comparison uses
 retired instructions.
 
 | Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
 | --- | ---: | ---: | ---: |
-| C++ `semantic_overload.cpp` | 0.0050% | −0.0030% | −0.0012% |
-| SQLite `sqlite3.c` | 0.0016% | +0.0075% | +0.0083% |
+| C++ `semantic_overload.cpp` | 0.0031% | −0.0019% | −0.0023% |
+| SQLite `sqlite3.c` | 0.0006% | +0.0085% | +0.0095% |
 
 | Input | Block | Retired user-space instructions in trial order |
 | --- | --- | --- |
-| C++ | A/A | 9,039,401,166 / 9,039,510,526 / 9,039,470,919 / 9,039,063,014 |
-| C++ | ABBA | 9,039,360,114 / 9,038,996,336 / 9,039,148,426 / 9,039,325,794 |
-| C++ | BAAB | 9,039,076,366 / 9,039,258,171 / 9,039,265,576 / 9,039,237,818 |
-| SQLite | A/A | 16,514,960,929 / 16,515,053,184 / 16,515,222,333 / 16,515,150,338 |
-| SQLite | ABBA | 16,515,120,451 / 16,516,526,653 / 16,516,076,742 / 16,515,015,042 |
-| SQLite | BAAB | 16,516,362,961 / 16,514,974,893 / 16,514,959,810 / 16,516,302,194 |
+| C++ | A/A | 9,039,196,119 / 9,039,472,826 / 9,039,311,819 / 9,039,207,872 |
+| C++ | ABBA | 9,039,476,951 / 9,039,154,241 / 9,039,224,941 / 9,039,251,266 |
+| C++ | BAAB | 9,039,176,863 / 9,039,527,126 / 9,039,275,614 / 9,039,216,618 |
+| SQLite | A/A | 16,515,019,992 / 16,515,020,341 / 16,514,976,912 / 16,514,916,781 |
+| SQLite | ABBA | 16,515,306,990 / 16,516,183,491 / 16,517,029,892 / 16,515,104,465 |
+| SQLite | BAAB | 16,516,577,963 / 16,514,878,656 / 16,514,760,657 / 16,516,194,595 |
