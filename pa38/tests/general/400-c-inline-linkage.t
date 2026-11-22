@@ -1,4 +1,5 @@
 extern int declared_first(int);
+inline int declared_first(int);
 inline int declared_first(int n) { return n + 3; }
 
 static int increment = 5;

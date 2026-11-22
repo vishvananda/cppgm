@@ -1594,6 +1594,25 @@ Binding* Analyzer::declare_variable(const Specifiers& specifiers, const Declarat
 	return binding;
 }
 
+void Analyzer::finish_c_inline_constraints()
+{
+	// A later file-scope declaration can give a definition external
+	// status. Keep the first offending location until that status is final.
+	for (const CInlineConstraint& constraint : c_inline_constraints_)
+	{
+		if (constraint.function->gnu_inline)
+			continue;
+		if (constraint.definition_required)
+		{
+			if (!constraint.function->defined &&
+				(positions_ == nullptr || !positions_->allow_gnu_c_extension(constraint.location, constraint.message)))
+				error(constraint.location, constraint.message);
+		}
+		else if (!constraint.function->c_external_definition)
+			error(constraint.location, constraint.message);
+	}
+}
+
 void Analyzer::note_c_inline_reference(const Binding& binding, uint32_t location)
 {
 	if (c_inline_constraint_->message != nullptr)
@@ -2319,8 +2338,8 @@ Binding* Analyzer::declare_function(const Specifiers& specifiers, const Declarat
 	if (cxx20_)
 		attach_function_constraint(function, info, befriending);
 	const bool was_defined = function->defined;
-	if (c_source_ && where->kind == ScopeKind::Namespace && (specifiers.is_extern || !specifiers.is_inline))
-		function->c_external_definition = true;
+	if (c_source_ && where->kind == ScopeKind::Namespace)
+		note_c_inline_declaration(function, specifiers, definition, location);
 	function->is_inline = function->is_inline || specifiers.is_inline || specifiers.is_constexpr;
 	function->defined = function->defined || definition || deleted;
 	function->deleted = function->deleted || deleted;
@@ -2384,6 +2403,17 @@ Binding* Analyzer::declare_function(const Specifiers& specifiers, const Declarat
 		default_argument_names(function, info.parameters, info.after);
 	redeclared_ = !first;
 	return binding;
+}
+
+void Analyzer::note_c_inline_declaration(
+	FunctionEntity* function, const Specifiers& specifiers, bool definition, uint32_t location)
+{
+	if (specifiers.is_extern || !specifiers.is_inline)
+		function->c_external_definition = true;
+	if (specifiers.is_inline && !function->is_inline && !function->defined && !definition &&
+		!function->internal_linkage)
+		c_inline_constraints_.push_back({ function, location, true,
+			"an external C inline function must have a definition in the same translation unit" });
 }
 
 Binding* Analyzer::qualified_friend(

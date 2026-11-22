@@ -190,15 +190,6 @@ void Analyzer::analyze(const syntax::TranslationUnit& unit)
 	}
 }
 
-void Analyzer::finish_c_inline_constraints()
-{
-	// A later file-scope declaration can give a definition external
-	// status. Keep the first offending location until that status is final.
-	for (const CInlineConstraint& constraint : c_inline_constraints_)
-		if (!constraint.function->c_external_definition && !constraint.function->gnu_inline)
-			error(constraint.location, constraint.message);
-}
-
 void Analyzer::predeclare_allocation(TokenKind op, bool array, const Type* type, AllocationRole role, Scope* scope)
 {
 	const std::string spelling = std::string("operator") + TokenKindSpelling(op) + (array ? "[]" : "");

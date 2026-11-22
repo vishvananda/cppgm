@@ -258,6 +258,10 @@ tentative definition to be complete at its declaration.
 
 ## Conditional pointer types and C inline definitions
 
+C11 6.5.15p5 applies the usual arithmetic conversions even when
+arithmetic operands have the same type. The integer promotions can
+therefore change the result type of two narrow operands or two bit-fields.
+
 C11 6.5.15p6 combines the qualifiers of the pointed-to types of the two
 operands. When those types are compatible, it forms their composite
 under 6.2.7p3. A bound or a prototype can therefore come from either
@@ -268,7 +272,9 @@ avoid internal-linkage references and modifiable objects with static
 or thread storage duration. A reference in an unevaluated expression
 still counts. Under paragraph 7, an `extern` declaration or a
 file-scope declaration without `inline` can make the definition external
-even when the declaration follows the body.
+even when the declaration follows the body. The same paragraph requires
+a definition in the translation unit that declares an external function
+inline. The pedantic policy diagnoses a missing definition.
 
 [C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [PA38 conditional pointer types](../pa38/tests/general/500-conditional-composite-pointer.t) ·

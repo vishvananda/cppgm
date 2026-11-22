@@ -93,6 +93,8 @@ The first fixture set covers these parts of the C17 input profile:
   the composite pointed-to type and combine their qualifiers. A bound or
   a prototype from either operand can determine the result type. Evaluate
   the selected operand and preserve the existing null-pointer rules.
+  Apply the usual arithmetic conversions to two arithmetic operands,
+  including equal narrow integer and bit-field types.
 - Separate tag and ordinary identifier namespaces, including typedefs that
   reuse a tag spelling for an unrelated type; struct and enum tags, typedefs,
   aggregate initialization, C member and array
@@ -106,6 +108,8 @@ The first fixture set covers these parts of the C17 input profile:
   internal-linkage identifiers and definitions of modifiable static or
   thread-local objects. Use all file-scope declarations of the function to
   settle whether its definition supplies the external symbol.
+  Under `-pedantic-errors`, diagnose an external inline declaration that
+  still has no definition at the end of its translation unit.
 - Give a redeclared C object or function the composite of its compatible
   types. Combine bounds and prototypes through pointers, array elements,
   function parameters, and return types. A block declaration can refine

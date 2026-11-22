@@ -973,7 +973,7 @@ ExprFacts* Analyzer::conditional(const syntax::ConditionalExpr& expr, Scope* sco
 	const Type* a = decayed(second);
 	const Type* b = decayed(third);
 	const Type* type = nullptr;
-	if (a == b)
+	if (a == b && !(c_source_ && IsIntegralOrUnscopedEnum(a)))
 		type = a;
 	else if ((IsArithmetic(a) || IsIntegralOrUnscopedEnum(a) || IsComplex(a)) &&
 		(IsArithmetic(b) || IsIntegralOrUnscopedEnum(b) || IsComplex(b)))
