@@ -181,6 +181,20 @@ and their overlap and single-evaluation rules remain open.
 
 [Initializer scaling measurements](../docs/performance/c-frontend-scaling.md#designated-initializers)
 
+## Declaration and linkage baseline
+
+Small probes in C17 pedantic mode exposed the following gaps. The controls
+used GCC 15 and Clang 21 on Linux x86-64.
+
+| Rule | Probe and baseline result |
+| --- | --- |
+| 6.2.7p3, p4 | cppgm rejects `extern int (*p)[]; int (*p)[3];` as conflicting declarations. Both controls accept it and see a complete array through the pointer. |
+| 6.2.7p3, p4 and 6.7.6.3p15 | Given declarations of one function with parameters `int (*)[]` and `int (*)[3]`, cppgm rejects a call with a pointer to a three-element array. Both controls accept and compile the call. |
+| 6.9.2p2, p3, p5 | cppgm rejects an external tentative array definition that remains incomplete at the end of its translation unit. Both controls give it one element. cppgm accepts an incomplete internal tentative array followed by a declaration with a bound. Both controls diagnose the initial incomplete type in pedantic mode. |
+| 6.7.4p3, p7 | cppgm accepts an external inline-only definition that references an internal-linkage identifier or defines a modifiable static local. GCC diagnoses both. Clang diagnoses the internal-linkage reference and warns for the static local. Include a positive with a later file-scope external declaration, which makes the definition external. |
+
+[C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
+
 ## Cross-target smoke results
 
 The prototype array, tagged generic association, and structure return
