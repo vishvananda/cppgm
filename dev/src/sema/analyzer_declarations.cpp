@@ -731,7 +731,9 @@ void Analyzer::agree_block_linkage(const Entity* entity, bool c_linkage, bool in
 		}
 		else
 		{
-			if (!CompatibleVariableTypes(earlier->type, entity->type))
+			const bool compatible = c_source_ ? conversions_.c_type_compatible(earlier->type, entity->type)
+											  : CompatibleVariableTypes(earlier->type, entity->type);
+			if (!compatible)
 				error(location, "a declaration of a variable with another type than a block-scope declaration's");
 			if (static_cast<const VariableEntity*>(earlier)->is_thread_local !=
 				static_cast<const VariableEntity*>(entity)->is_thread_local)
@@ -1355,14 +1357,17 @@ Binding* Analyzer::declare_variable(const Specifiers& specifiers, const Declarat
 		inline_member;
 	check_variable_specifiers(specifiers, type, where, qualified, member, definition, initializer != nullptr, location);
 	check_parameter_redeclaration(name.key, where, location);
+	const Binding* c_visible = c_source_ && specifiers.is_extern && where->kind == ScopeKind::Block
+		? names_.unqualified(where, name.key, LookupFilter::Ordinary).binding
+		: nullptr;
 	VariableEntity* variable = earlier_variable(
-		specifiers, name, where, qualified, initializer != nullptr, definition, location);
+		specifiers, name, where, qualified, initializer != nullptr, definition, location, c_visible);
 	// 8.3.4p3: an earlier bound applies before any initializer deduction.
 	// The ordinary lookup above supplies that entity without a second lookup.
 	if (variable != nullptr)
 	{
 		if (c_source_)
-			type = c_variable_declaration_type(variable, type, where, location);
+			type = c_variable_declaration_type(variable, type, where, c_visible, location);
 		else if (type->kind == TypeKind::Array && !type->has_array_bound() &&
 			CompatibleVariableTypes(variable->type, type))
 			type = variable->type;
@@ -1387,6 +1392,8 @@ Binding* Analyzer::declare_variable(const Specifiers& specifiers, const Declarat
 	else
 		variable = new_variable(specifiers, info.asm_label, name, where, type, is_extern, member,
 			initializer != nullptr, location, structured_binding);
+	if (c_source_ && (is_extern || where->kind == ScopeKind::Namespace))
+		note_c_variable_linkage(variable, type, where, location);
 	const bool c_tentative = c_source_ && where->kind == ScopeKind::Namespace && definition && initializer == nullptr;
 	const bool deferred_tentative = c_tentative && defer_c_tentative_definition(variable, location);
 	const bool bound_from_list = check_variable_object(specifiers, type, where, initializer, member,
@@ -1501,6 +1508,8 @@ Binding* Analyzer::declare_variable(const Specifiers& specifiers, const Declarat
 					error(location, "variable of incomplete type");
 				variable->type = type;
 				binding->type = type;
+				if (c_source_ && where->kind == ScopeKind::Namespace)
+					note_c_variable_linkage(variable, type, where, location);
 			}
 		}
 		else if (member && semantic() && !qualified)
@@ -1591,18 +1600,37 @@ void Analyzer::note_variably_modified_declaration(Scope* scope)
 }
 
 const Type* Analyzer::c_variable_declaration_type(
-	const VariableEntity* variable, const Type* type, Scope* where, uint32_t location)
+	const VariableEntity* variable, const Type* type, const Scope* where, const Binding* visible, uint32_t location)
 {
 	const Type* prior = variable->type;
 	if (where->kind == ScopeKind::Block)
 	{
-		const LookupResult visible = names_.unqualified(where, variable->name, LookupFilter::Ordinary);
-		if (visible.binding != nullptr && visible.binding->entity == variable)
-			prior = visible.binding->type;
+		if (visible == nullptr || visible->entity != variable)
+			return type;
+		prior = visible->type;
 	}
 	if (!conversions_.c_type_compatible(prior, type))
 		error(location, "conflicting declaration of a variable");
 	return conversions_.c_composite_type(prior, type);
+}
+
+void Analyzer::note_c_variable_linkage(
+	const VariableEntity* variable, const Type* type, const Scope* where, uint32_t location)
+{
+	const uint32_t index = c_variable_linkage_index_.find(variable);
+	const Type* known = index == PointerMap::kMissing ? variable->type : c_variable_linkage_types_[index];
+	if (known == type)
+		return;
+	if (!conversions_.c_type_compatible(known, type))
+		error(location, "conflicting declarations of a C object with linkage");
+	const Type* composite = conversions_.c_composite_type(known, type);
+	if (index != PointerMap::kMissing)
+		c_variable_linkage_types_[index] = composite;
+	else if (where->kind == ScopeKind::Block && composite != variable->type)
+	{
+		c_variable_linkage_index_.set(variable, static_cast<uint32_t>(c_variable_linkage_types_.size()));
+		c_variable_linkage_types_.push_back(composite);
+	}
 }
 
 const Type* Analyzer::redeclare_variable(VariableEntity* variable, const Type* type, const Specifiers& specifiers,
@@ -1783,7 +1811,7 @@ void Analyzer::check_variable_specifiers(const Specifiers& specifiers, const Typ
 }
 
 VariableEntity* Analyzer::earlier_variable(const Specifiers& specifiers, const DeclaredName& name, Scope* where,
-	bool qualified, bool initialized, bool& definition, uint32_t location)
+	bool qualified, bool initialized, bool& definition, uint32_t location, const Binding* c_visible)
 {
 	// The variable an earlier declaration of the name declared: the member
 	// a qualified definition names (an explicit specialization's own, which
@@ -1820,7 +1848,7 @@ VariableEntity* Analyzer::earlier_variable(const Specifiers& specifiers, const D
 			// that entity need not itself have been declared extern first.
 			if (where->kind != ScopeKind::Namespace &&
 				(!specifiers.is_extern ||
-					!((variable->owner == where && variable->is_extern) ||
+					!((variable->owner == where && variable->is_extern) || (c_source_ && variable->is_extern) ||
 						variable->owner == enclosing_namespace(where))))
 				error(location, "redeclaration of a name in the same scope");
 		}
@@ -1835,6 +1863,12 @@ VariableEntity* Analyzer::earlier_variable(const Specifiers& specifiers, const D
 	}
 	if (variable == nullptr && where->kind == ScopeKind::Block && specifiers.is_extern)
 	{
+		if (c_visible != nullptr && c_visible->kind == BindingKind::Variable)
+		{
+			auto* visible_variable = static_cast<VariableEntity*>(c_visible->entity);
+			if (visible_variable->is_extern || visible_variable->owner->kind == ScopeKind::Namespace)
+				return visible_variable;
+		}
 		// CWG1839/P1787R6: the declaration targets its enclosing namespace.
 		// A corresponding declaration there denotes the same entity even
 		// when a local name hides it during ordinary use-site lookup.

@@ -384,15 +384,17 @@ private:
 	const Type* redeclare_variable(VariableEntity* variable, const Type* type, const Specifiers& specifiers,
 		const DeclaratorInfo& info, const Scope* where, bool qualified, bool initialized, bool& definition,
 		uint32_t location);
-	const Type* c_variable_declaration_type(
-		const VariableEntity* variable, const Type* type, Scope* where, uint32_t location);
+	const Type* c_variable_declaration_type(const VariableEntity* variable, const Type* type, const Scope* where,
+		const Binding* visible, uint32_t location);
+	void note_c_variable_linkage(
+		const VariableEntity* variable, const Type* type, const Scope* where, uint32_t location);
 	bool check_variable_object(const Specifiers& specifiers, const Type* type, Scope* where,
 		const syntax::Initializer* initializer, bool member, bool definition, bool typed_initialization,
 		uint32_t location);
 	void check_variable_specifiers(const Specifiers& specifiers, const Type* type, const Scope* where, bool qualified,
 		bool member, bool definition, bool initialized, uint32_t location);
 	VariableEntity* earlier_variable(const Specifiers& specifiers, const DeclaredName& name, Scope* where,
-		bool qualified, bool initialized, bool& definition, uint32_t location);
+		bool qualified, bool initialized, bool& definition, uint32_t location, const Binding* c_visible);
 	VariableEntity* new_variable(const Specifiers& specifiers, const char* asm_label, const DeclaredName& name,
 		Scope* where, const Type* type, bool is_extern, bool member, bool initialized, uint32_t location,
 		bool structured_binding = false);
@@ -2243,6 +2245,10 @@ private:
 	// (7.5p6); C++ overload lookup alone cannot establish that identity.
 	PointerMap c_function_index_;
 	std::vector<FunctionEntity*> c_functions_;
+	// A block declaration may constrain a linked entity without changing
+	// the type of that entity's binding in an enclosing scope.
+	PointerMap c_variable_linkage_index_;
+	std::vector<const Type*> c_variable_linkage_types_;
 	struct TentativeDefinition
 	{
 		VariableEntity* variable;
