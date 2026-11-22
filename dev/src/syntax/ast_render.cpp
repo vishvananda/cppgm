@@ -740,6 +740,7 @@ void SyntaxRenderer::operand(const Expr& expr)
 	{
 		const BracedInitList& list = static_cast<const BracedInitList&>(expr);
 		text("{");
+		const CDesignatedEntry* designation = list.c_designators.begin();
 		for (uint32_t i = 0; i < list.elements.size; ++i)
 		{
 			if (i != 0)
@@ -750,11 +751,24 @@ void SyntaxRenderer::operand(const Expr& expr)
 				identifier(list.designators[i]);
 				text("=");
 			}
-			if (list.array_designators != nullptr && list.array_designators[i] != nullptr)
+			if (designation != list.c_designators.end() && designation->element == i)
 			{
-				text("[");
-				expression(*list.array_designators[i]);
-				text("]=");
+				for (const CDesignator& step : designation->path)
+				{
+					if (step.member != nullptr)
+					{
+						text(".");
+						identifier(step.member);
+					}
+					else
+					{
+						text("[");
+						expression(*step.index);
+						text("]");
+					}
+				}
+				++designation;
+				text("=");
 			}
 			expression(*list.elements[i]);
 		}

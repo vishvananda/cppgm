@@ -319,20 +319,32 @@ struct LambdaExpr : Expr
 		Slice<const std::pair<const Identifier*, uint32_t>>();
 };
 
+struct CDesignator
+{
+	const Identifier* member;
+	Expr* index;
+	uint32_t location;
+};
+
+struct CDesignatedEntry
+{
+	Slice<CDesignator> path;
+	uint32_t element;
+};
+
 struct BracedInitList : Expr
 {
 	Slice<Expr*> elements;
 	bool trailing_comma;
+	bool has_c_designators = false;
 	// Designated initializers (hosted compilations): each element's
 	// designator `.member`, null for one without; null when none has one.
 	// The analysis rewrites a class's designated list into the equivalent
 	// list in member order (see Analyzer::designated_list), recording a
 	// union's designated member.
 	const Identifier** designators = nullptr;
-	// C array designators, parallel to elements. Nested designations are
-	// retained as single-element lists until typed aggregate initialization.
-	Expr** array_designators = nullptr;
-	bool c_designation_path = false;
+	// C designations in source order, with entries only for written paths.
+	Slice<CDesignatedEntry> c_designators = {};
 	mutable const sema::DataMember* union_member = nullptr;
 	// A same-class prvalue selected to initialize this list's result object.
 	mutable const Expr* result_source = nullptr;

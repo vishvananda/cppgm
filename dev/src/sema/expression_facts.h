@@ -246,6 +246,8 @@ enum : uint32_t
 	// `const E[N]` (`target`) its elements initialize, and the object
 	// referring to it (8.5.4p5).
 	kInitializerList = 33554432,
+	// A C braced-init-list with resolved sparse subobject initializers.
+	kCInitializer = kRuntimeCheck,
 	// A conditional operand known never to be evaluated (its temporaries
 	// made without cleanups). The analysis no longer guesses one from a
 	// local's literal initializer (the course keeps every emitted arm's
@@ -344,6 +346,7 @@ struct ExprFacts
 		const syntax::Expr* replacement;
 		// A co_await or co_yield expression's selected awaiter protocol.
 		const CoroutineAwait* coroutine_await;
+		const struct CInitializer* c_initializer;
 		// kImmediateValue: the complete constant result of an immediate call.
 		const ConstValue* immediate;
 	};

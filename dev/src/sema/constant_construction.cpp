@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include "sema/aggregates.h"
+#include "sema/c_initializer.h"
 #include "sema/analyzer.h"
 #include "support/small_list.h"
 
@@ -476,6 +477,8 @@ bool ConstantInterpreter::initialize_object(
 	{
 		if (type->kind == TypeKind::Array)
 		{
+			if (const CInitializer* plan = CInitializerOf(list))
+				return c_initialize(*plan, target, location);
 			if (list->elements.size == 1 && WithoutParentheses(list->elements[0])->kind == syntax::ExprKind::Literal &&
 				WithoutParentheses(list->elements[0])->facts->type->kind == TypeKind::Array)
 				return string_array(type, target, *list->elements[0], location);
@@ -628,6 +631,8 @@ bool ConstantInterpreter::list_object(
 bool ConstantInterpreter::aggregate(
 	const Type* type, const ConstPlace& target, const syntax::BracedInitList& list, uint32_t location)
 {
+	if (const CInitializer* plan = CInitializerOf(&list))
+		return c_initialize(*plan, target, location);
 	if (list.result_source != nullptr)
 		return materialize(*list.result_source, target);
 	// 8.5.1p2: the elements initialize the members (array elements) in
@@ -641,6 +646,56 @@ bool ConstantInterpreter::aggregate(
 	else if (!aggregate_members(ClassOf(type), target, list, next, location))
 		return false;
 	return next >= list.elements.size || fail(location, "too many initializers for the aggregate");
+}
+
+bool ConstantInterpreter::c_initialize(
+	const CInitializer& plan, const ConstPlace& target, uint32_t location, bool inherited)
+{
+	inherited = inherited && !plan.starts_value;
+	if (plan.value != nullptr)
+	{
+		syntax::Initializer view = syntax::Initializer();
+		view.kind = syntax::InitializerKind::Assign;
+		view.expression = const_cast<syntax::Expr*>(plan.value);
+		view.location = plan.value->location;
+		const syntax::Expr* operand = CInitializerOperand(plan.value);
+		if (operand->kind == syntax::ExprKind::FunctionalCast)
+		{
+			const auto* literal = static_cast<const syntax::FunctionalCastExpr*>(operand);
+			if (literal->compound_static)
+				view.expression = literal->braced;
+		}
+		if (!construct(plan.type, target, &view, nullptr, location))
+			return false;
+		if (plan.children.empty())
+			return true;
+		inherited = true;
+	}
+	if (!inherited)
+	{
+		ConstValue* storage = nullptr;
+		if (!locate(target, true, storage, location))
+			return false;
+		zero_into(*storage);
+	}
+	for (const CInitializerChild& child : plan.children)
+	{
+		ConstPlace place = target;
+		if (child.member != nullptr)
+		{
+			const auto* variable = static_cast<const VariableEntity*>(child.member->variable);
+			if (!member_slot(target, variable, place, location))
+				return false;
+		}
+		else
+		{
+			place.type = plan.type->element;
+			place.offset += static_cast<int64_t>(child.index * size_of(place.type, location));
+		}
+		if (!c_initialize(*child.initializer, place, location, inherited))
+			return false;
+	}
+	return true;
 }
 
 bool ConstantInterpreter::aggregate_members(const ClassEntity* entity, const ConstPlace& target,

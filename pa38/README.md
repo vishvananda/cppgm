@@ -98,6 +98,15 @@ The first fixture set covers these parts of the C17 input profile:
   external linkage supplies the external symbol if a file-scope declaration
   uses `extern` or leaves out `inline`. GNU `gnu_inline` and `always_inline`
   attributes can also occur after the return type's pointer operator.
+- Resolve each initializer designator from the aggregate of the closest
+  brace pair. Continue with the next subobject after the designated one,
+  including through nested arrays, records, and a union's selected member.
+  A later designator replaces the value of the subobject it names. An
+  initializer in braces supplies a new value for the whole subobject,
+  including implicit zeros. Check overwritten expressions for valid names,
+  types, and the constant-expression requirements for static storage.
+  Infer the size of an incomplete array from its highest initialized index
+  and keep implicit zero ranges compact.
 - A read or write of a volatile-qualified structure or union remains
   observable, including a discarded value, a return, an argument, or a copy.
   Use scalar volatile accesses for the qualified storage and ordinary accesses
@@ -138,8 +147,7 @@ The first fixture set covers these parts of the C17 input profile:
 
 This is an initial profile, not a claim of complete C17 conformance. Use
 `(void)` for a prototype with no parameters; an empty `()` declares a function
-without a prototype. Positional continuation after a nested designator
-remains outside this fixture set. Extend the profile and its tests together.
+without a prototype. Extend the profile and its tests together.
 Do not silently apply a C++ rule where a supported C construct has a
 different meaning.
 

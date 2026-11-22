@@ -1,4 +1,5 @@
 #include "lower/function_lowering.h"
+#include "sema/c_initializer.h"
 
 #include <algorithm>
 #include <cstring>
@@ -244,6 +245,12 @@ bool FunctionLowering::aggregate_needs_initialization(const sema::ClassEntity* e
 void FunctionLowering::aggregate_class(const sema::ClassEntity* entity, uint8_t cv, const AddressPath& path,
 	const syntax::BracedInitList* list, uint32_t& next, uint32_t location)
 {
+	if (const sema::CInitializer* plan = sema::CInitializerOf(list))
+	{
+		c_initialize(*plan, path, cv, location);
+		next = list->elements.size;
+		return;
+	}
 	if (list != nullptr && list->result_source != nullptr)
 	{
 		materialize(*list->result_source, path_address(path), location);
@@ -635,6 +642,11 @@ void FunctionLowering::aggregate_array(
 	if (literal != nullptr && literal->kind == syntax::ExprKind::BracedInit)
 	{
 		list = static_cast<const syntax::BracedInitList*>(literal);
+		if (const sema::CInitializer* plan = sema::CInitializerOf(list))
+		{
+			c_initialize(*plan, path, type->cv, location);
+			return;
+		}
 		const syntax::Expr* single = list->elements.size == 1 ? WithoutParentheses(list->elements[0]) : nullptr;
 		if (single != nullptr && single->kind == syntax::ExprKind::Literal && sema::IsCharacterArrayElement(element) &&
 			single->facts->type->kind == sema::TypeKind::Array)
@@ -934,6 +946,12 @@ void FunctionLowering::element_made(ElementCount& count, size_t first)
 void FunctionLowering::aggregate_array_object(const sema::Type* type, const Place& place,
 	const syntax::BracedInitList& list, const sema::VariableEntity* variable, uint32_t location)
 {
+	if (const sema::CInitializer* plan = sema::CInitializerOf(&list))
+	{
+		c_initialize(
+			*plan, AddressPath{ AddressPath::Root::Storage, place.storage, path_steps_.size() }, type->cv, location);
+		return;
+	}
 	// An automatic array of class aggregates, its address taken once: each
 	// element by a call of the class's initialization helper when every
 	// element gives each scalar member an initializer; otherwise every
@@ -1458,7 +1476,8 @@ void FunctionLowering::structured_class(const sema::ClassEntity* entity, uint8_t
 {
 	// Default member initializers need the containing object as `this`.
 	// The general path already retains that context and member cleanups.
-	if (entity->members_initialized || entity->bases != nullptr || (list != nullptr && list->result_source != nullptr))
+	if (entity->members_initialized || entity->bases != nullptr ||
+		(list != nullptr && (list->result_source != nullptr || sema::CInitializerOf(list) != nullptr)))
 	{
 		aggregate_class(
 			entity, cv, AddressPath{ AddressPath::Root::Value, object, path_steps_.size() }, list, next, location);
@@ -1649,6 +1668,12 @@ void FunctionLowering::structured_item(const sema::Type* type, lowir::Value addr
 void FunctionLowering::structured_array(const sema::Type* type, lowir::Value address,
 	const syntax::BracedInitList* list, uint32_t& next, uint32_t location, bool field)
 {
+	if (const sema::CInitializer* plan = sema::CInitializerOf(list))
+	{
+		c_initialize(*plan, AddressPath{ AddressPath::Root::Value, address, path_steps_.size() }, type->cv, location);
+		next = list->elements.size;
+		return;
+	}
 	// Each element from the list at `next` (its own list, or the enclosing
 	// one's elements); a character array from a string literal takes its
 	// code units (8.5.2).

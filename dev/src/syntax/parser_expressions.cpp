@@ -1,4 +1,5 @@
 #include "syntax/parser.h"
+#include "support/small_list.h"
 #include "syntax/generic_parameters.h"
 
 #include <cstring>
@@ -1593,7 +1594,7 @@ BracedInitList* Parser::parse_braced_init_list()
 	angle_ = false;
 	ListFrame<Expr*> elements(exprs_);
 	std::vector<const Identifier*> designators;
-	std::vector<Expr*> array_designators;
+	SmallList<CDesignatedEntry, 4> c_designators;
 	bool parsed = true;
 	while (!at(TokenKind::OP_RBRACE))
 	{
@@ -1601,17 +1602,26 @@ BracedInitList* Parser::parse_braced_init_list()
 		// A designator `.member =` or `.member {` (C99's and C++20's
 		// designated initializers; hosted compilations).
 		const Identifier* designator = nullptr;
-		Expr* index = nullptr;
 		Expr* element = nullptr;
 		if (c_source_ && (at(TokenKind::OP_DOT) || at(TokenKind::OP_LSQUARE)))
-			element = parse_c_designated_initializer(designator, index);
-		else if (hosted_ && at(TokenKind::OP_DOT) && at_identifier(1) &&
-			(at(TokenKind::OP_ASS, 2) || at(TokenKind::OP_LBRACE, 2)))
 		{
-			designator = tok(1).identifier;
-			next();
-			next();
-			accept(TokenKind::OP_ASS);
+			Slice<CDesignator> path = {};
+			element = parse_c_designated_initializer(path);
+			if (element != nullptr)
+				c_designators.push_back({ path, static_cast<uint32_t>(elements.size()) });
+			list->has_c_designators = true;
+		}
+		else
+		{
+			if (hosted_ && at(TokenKind::OP_DOT) && at_identifier(1) &&
+				(at(TokenKind::OP_ASS, 2) || at(TokenKind::OP_LBRACE, 2)))
+			{
+				designator = tok(1).identifier;
+				next();
+				next();
+				accept(TokenKind::OP_ASS);
+			}
+			element = parse_initializer_clause();
 		}
 		if (designator != nullptr)
 		{
@@ -1620,22 +1630,13 @@ BracedInitList* Parser::parse_braced_init_list()
 		}
 		else if (!designators.empty())
 			designators.push_back(nullptr);
-		if (index != nullptr)
-		{
-			array_designators.resize(elements.size(), nullptr);
-			array_designators.push_back(index);
-		}
-		else if (!array_designators.empty())
-			array_designators.push_back(nullptr);
-		if (element == nullptr && designator == nullptr && index == nullptr)
-			element = parse_initializer_clause();
-		else if (element == nullptr && !c_source_)
-			element = at(TokenKind::OP_LBRACE) ? parse_braced_init_list() : parse_initializer_clause();
 		if (element == nullptr)
 		{
 			parsed = false;
 			break;
 		}
+		if (element->kind == ExprKind::BracedInit && static_cast<BracedInitList*>(element)->has_c_designators)
+			list->has_c_designators = true;
 		if (at(TokenKind::OP_DOTS))
 		{
 			PackExpansionExpr* pack = make<PackExpansionExpr>(ExprKind::PackExpansion, element->location);
@@ -1656,22 +1657,18 @@ BracedInitList* Parser::parse_braced_init_list()
 	list->elements = elements.take(arena_);
 	if (!designators.empty())
 		list->designators = arena_.copy_array(designators.data(), designators.size());
-	if (!array_designators.empty())
-		list->array_designators = arena_.copy_array(array_designators.data(), array_designators.size());
+	if (!c_designators.empty())
+		list->c_designators = { arena_.copy_array(c_designators.data(), c_designators.size()),
+			static_cast<uint32_t>(c_designators.size()) };
 	return list;
 }
 
-Expr* Parser::parse_c_designated_initializer(const Identifier*& member, Expr*& index)
+Expr* Parser::parse_c_designated_initializer(Slice<CDesignator>& designators)
 {
-	struct Designator
-	{
-		const Identifier* member;
-		Expr* index;
-	};
-	std::vector<Designator> path;
+	SmallList<CDesignator, 4> path;
 	do
 	{
-		Designator step = {};
+		CDesignator step = { nullptr, nullptr, location() };
 		if (accept(TokenKind::OP_DOT))
 		{
 			if (!at_identifier())
@@ -1688,24 +1685,11 @@ Expr* Parser::parse_c_designated_initializer(const Identifier*& member, Expr*& i
 		}
 		path.push_back(step);
 	} while (at(TokenKind::OP_DOT) || at(TokenKind::OP_LSQUARE));
-	member = path[0].member;
-	index = path[0].index;
 	if (!expect(TokenKind::OP_ASS))
 		return nullptr;
 	Expr* value = parse_initializer_clause();
-	if (value == nullptr)
-		return nullptr;
-	for (size_t i = path.size(); i-- > 1;)
-	{
-		BracedInitList* nested = make<BracedInitList>(ExprKind::BracedInit, value->location);
-		nested->elements = { arena_.copy_array(&value, 1), 1 };
-		nested->c_designation_path = true;
-		if (path[i].member != nullptr)
-			nested->designators = arena_.copy_array(&path[i].member, 1);
-		else
-			nested->array_designators = arena_.copy_array(&path[i].index, 1);
-		value = nested;
-	}
+	if (value != nullptr)
+		designators = { arena_.copy_array(path.data(), path.size()), static_cast<uint32_t>(path.size()) };
 	return value;
 }
 

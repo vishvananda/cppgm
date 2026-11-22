@@ -432,7 +432,7 @@ private:
 	Expr* parse_lambda();
 	bool invent_lambda_parameters(LambdaExpr& lambda);
 	BracedInitList* parse_braced_init_list();
-	Expr* parse_c_designated_initializer(const Identifier*& member, Expr*& index);
+	Expr* parse_c_designated_initializer(Slice<CDesignator>& designators);
 	bool parse_expression_list(ListFrame<Expr*>& list, TokenKind close);
 	bool at_cast_operand_start();
 	int binary_precedence(TokenKind& op, uint32_t& width);

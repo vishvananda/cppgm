@@ -415,6 +415,7 @@ private:
 	bool aggregate_accepts(const syntax::BracedInitList& list, const ClassEntity* cls);
 	bool designated_list(
 		const syntax::BracedInitList& list, const ClassEntity* cls, syntax::BracedInitList& out, Scope* scope);
+	class CInitializerBuilder;
 	void c_designated_list(const syntax::BracedInitList& list, const Type* type, Scope* scope);
 	bool members_accept(const syntax::BracedInitList& list, uint32_t& next, const ClassEntity* cls);
 	bool elements_accept(const syntax::BracedInitList& list, uint32_t& next, const Type* array);
@@ -2307,6 +2308,7 @@ private:
 	const syntax::BracedInitList* flexible_list_ = nullptr;
 	const ClassEntity* flexible_class_ = nullptr;
 	bool flexible_given_ = false;
+	bool c_static_initializer_ = false;
 	// Nonzero where operands do not odr-use entities. Standard unevaluated
 	// operands count in the low bits. A GNU constant probe suppresses
 	// odr-use without imposing the standard's operand grammar.

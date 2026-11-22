@@ -1104,8 +1104,16 @@ Expr* SyntaxCloner::call_like(const Expr* expr)
 	{
 		BracedInitList* result = copy(static_cast<const BracedInitList*>(expr));
 		result->elements = exprs(result->elements);
-		if (result->array_designators != nullptr)
-			result->array_designators = exprs({ result->array_designators, result->elements.size }).data;
+		if (!result->c_designators.empty())
+		{
+			result->c_designators.data = arena_.copy_array(result->c_designators.data, result->c_designators.size);
+			for (CDesignatedEntry& entry : result->c_designators)
+			{
+				entry.path.data = arena_.copy_array(entry.path.data, entry.path.size);
+				for (CDesignator& step : entry.path)
+					step.index = this->expr(step.index);
+			}
+		}
 		result->union_member = nullptr;
 		result->result_source = nullptr;
 		return result;

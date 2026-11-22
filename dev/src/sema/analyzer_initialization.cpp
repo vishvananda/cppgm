@@ -336,9 +336,13 @@ void Analyzer::initialize_variable(
 	const syntax::BracedInitList* saved_flexible = flexible_list_;
 	const ClassEntity* saved_class = flexible_class_;
 	const bool saved_given = flexible_given_;
+	const bool saved_static = c_static_initializer_;
 	flexible_list_ = nullptr;
 	flexible_class_ = nullptr;
 	flexible_given_ = false;
+	if (c_source_)
+		c_static_initializer_ = variable->owner->kind == ScopeKind::Namespace || variable->is_static ||
+			variable->is_thread_local;
 	if (hosted_ && type->kind != TypeKind::Array && ClassOf(type) != nullptr &&
 		(variable->owner->kind == ScopeKind::Namespace || variable->is_static || variable->is_thread_local) &&
 		(initializer->kind == syntax::InitializerKind::Braced ||
@@ -349,6 +353,7 @@ void Analyzer::initialize_variable(
 		flexible_class_ = ClassOf(type);
 	}
 	variable->constructor = initialize_object(type, *initializer, scope, location);
+	c_static_initializer_ = saved_static;
 	flexible_list_ = saved_flexible;
 	flexible_class_ = saved_class;
 	flexible_given_ = saved_given;
@@ -411,8 +416,11 @@ bool Analyzer::direct_enum_list(const syntax::BracedInitList& list, const Type* 
 
 void Analyzer::list_initialize(const syntax::BracedInitList& list, const Type* type, Scope* scope, bool direct)
 {
-	if (c_source_ && (list.designators != nullptr || list.array_designators != nullptr))
+	if (c_source_ && list.has_c_designators)
+	{
 		c_designated_list(list, type, scope);
+		return;
+	}
 	// 8.5.4 for the slice: arrays element by element, scalars from at most
 	// one element without narrowing; an empty list value-initializes. A
 	// reference binds a single element of a reference-related type, else
@@ -548,8 +556,6 @@ void Analyzer::aggregate_initialize(const syntax::BracedInitList& list, ClassEnt
 	// from an empty initializer list (p7).
 	if (!require_complete(entity) || !IsAggregateClass(entity))
 		error(list.location, "list-initialization of a class that is not an aggregate");
-	if (c_source_ && (list.designators != nullptr || list.array_designators != nullptr))
-		c_designated_list(list, entity->type, scope);
 	if (list.designators != nullptr)
 	{
 		// The list becomes the one in member order it stands for (the walks

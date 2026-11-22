@@ -7,10 +7,10 @@ global @image [linkage=c, binding=strong] = {
   i32 42
 }
 global @values [linkage=c, binding=strong] = {
-  i32 0
+  zero 4
   i32 2
   i32 3
-  i32 0
+  zero 4
   i32 11
   zero 4
 }

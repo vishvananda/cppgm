@@ -1,4 +1,5 @@
 #include "lower/function_lowering.h"
+#include "sema/c_initializer.h"
 
 #include <cstring>
 
@@ -839,6 +840,12 @@ void FunctionLowering::initialize_storage(
 void FunctionLowering::initialize_object(
 	const sema::Type* type, lowir::Value base, const syntax::Expr& init, uint32_t location)
 {
+	if (init.kind == syntax::ExprKind::BracedInit)
+		if (const sema::CInitializer* plan = sema::CInitializerOf(static_cast<const syntax::BracedInitList*>(&init)))
+		{
+			c_initialize(*plan, AddressPath{ AddressPath::Root::Value, base, path_steps_.size() }, type->cv, location);
+			return;
+		}
 	if (type->kind == sema::TypeKind::Array && type->bound > 8 && type->element->kind != sema::TypeKind::Array &&
 		sema::ClassOf(type->element) == nullptr)
 	{

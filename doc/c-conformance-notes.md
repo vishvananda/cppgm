@@ -207,3 +207,24 @@ declarator belongs to the enclosing type name.
 [PA38 cast and compound literal](../pa38/tests/general/300-variable-array-cast.t) ·
 [PA38 evaluated `sizeof` operand](../pa38/tests/general/300-variable-array-sizeof-operand.t) ·
 [PA38 GNU `typeof`](../pa38/tests/general/300-variable-array-typeof.t)
+
+## Designated and overlapping initializers
+
+C11 6.7.9p17 and p18 associate each brace pair with a current object.
+After initializing a designated subobject, a positional initializer
+continues from that subobject. It can therefore finish the row of an
+array, the members of a record, or the subobjects of a selected union
+member before moving out to the next enclosing element.
+
+WG14 issue 0413 preserves the other members when a designator replaces
+one part of an earlier whole-subobject value. A new brace pair for the
+whole subobject includes implicit initialization of its omitted members
+under issue 0253. The compiler may elide the evaluation of an overwritten
+value. Name lookup, type checking, and the static initializer constraint
+in 6.7.9p4 still apply to the written expression.
+
+[C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[WG14 issue 0413](https://open-std.org/JTC1/SC22/WG14/issues/c11c17/issue0413.html) ·
+[WG14 issue 0253](https://www.open-std.org/jtc1/sc22/wg14/issues/c99/issue0253.html) ·
+[PA38 continuation case](../pa38/tests/general/300-designated-continuation.t) ·
+[PA38 overlap case](../pa38/tests/general/300-designated-retained-values.t)

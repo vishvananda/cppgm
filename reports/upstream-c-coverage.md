@@ -150,49 +150,35 @@ qualification remain open.
 
 ## Aggregate initializer requirements
 
-Three portable probes identify gaps in C17. GCC 15 and Clang 21 both
-continue positionally after a nested array or record designator. Examples
-include `{ [1][1] = 4, 5, 6 }` in a three-column array and
-`{ .point.x = 2, 3 }` in a record. cppgm rejects both. Both reference
-compilers also diagnose an undeclared identifier in an overridden
-initializer. cppgm currently discards that initializer before checking it.
-The right to elide overridden initializer effects still requires semantic
-and constraint checks on the written source.
+Each designation keeps its written path in the syntax tree. Analysis uses
+member lookup and array indices to build a sparse typed initializer plan.
+Positional entries advance from the selected subobject. Replacing a whole
+subobject discards its earlier plan, and replacing a member preserves the
+rest of its earlier aggregate value. Overridden expressions still receive
+semantic checks. Only the surviving expressions demand callable bodies.
+Gaps in an array emit zero ranges or observable scalar initialization when
+the element type requires it.
 
-A fourth probe initializes `.point` from a struct expression and then sets
-`.point.y`. cppgm rejects the overlay. GCC 15 zeroes the sibling member and
-Clang 21 preserves it. WG14 issue 0413 resolves this in favor of preserving
-the sibling. A later brace-enclosed initializer for the whole subobject
-has different coverage because it implicitly initializes omitted members
-within those braces. [WG14 issue 0413](https://open-std.org/JTC1/SC22/WG14/issues/c11c17/issue0413.html) ·
+| Rule | Evidence |
+| --- | --- |
+| 6.7.9p4, p19 | [Overwritten undeclared name](../pa38/tests/general/300-designator-overridden-name-bad.t) and [overwritten nonconstant static initializer](../pa38/tests/general/300-designator-overridden-static-bad.t) diagnose the written expressions. GCC 15 agrees on both. Clang 21 accepts the nonconstant overwritten expression. |
+| 6.7.2.1p13, 6.7.9p7 | [Anonymous member lookup](../pa38/tests/general/300-designated-retained-values.t) resolves a member injected through both an anonymous structure and an anonymous union. |
+| 6.7.9p14, p19, p21 | [Overlays and replacement](../pa38/tests/general/300-designated-retained-values.t) preserve other characters and members. A new brace pair supplies the entire subobject, including zeros for omitted members. Clang 21 agrees on these cases. GCC 15 zeroes the sibling when a member replaces part of an earlier record expression. WG14 issue 0413 calls for preserving the sibling. |
+| 6.7.9p17, p18, p20 | [Nested continuation](../pa38/tests/general/300-designated-continuation.t) reaches the remainder of an array row, record, or union member and continues in the enclosing object. GCC 15 and Clang 21 pass. |
+| 6.7.9p21, p22 | [Sparse incomplete arrays](../pa38/tests/general/300-designated-sparse.t) infer the highest index even after a later entry initializes a lower index. Static and automatic gaps are zeroed, and a volatile array retains typed stores. GCC 15 and Clang 21 pass. |
+| GNU static initializers | [Flexible array and compound-literal overlay](../pa38/tests/general/300-designated-gnu-flexible.t) agree with the GCC 15 results. |
+
+[C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[WG14 issue 0413](https://open-std.org/JTC1/SC22/WG14/issues/c11c17/issue0413.html) ·
 [WG14 issue 0253](https://www.open-std.org/jtc1/sc22/wg14/issues/c99/issue0253.html)
 
-| C11 clause | Additional probe | Result |
-| --- | --- | --- |
-| 6.7.9p4 | A function call in a static initializer is overwritten by a constant. | GCC diagnoses the nonconstant expression. Clang and cppgm accept it. The clause requires a constant expression or string literal for each expression in a static initializer. |
-| 6.7.2.1p13, 6.7.9p7 | Designate a member of an anonymous union directly in the containing record. | GCC and Clang pass. cppgm rejects the lookup. |
-| 6.7.9p14, p19 | Initialize a character array with a string and then replace one character with a designator. | GCC and Clang preserve the other characters. cppgm rejects the overlay. |
-| 6.7.9p17, p20 | Continue from a nested designator into the rest of a union's chosen record member and then into the containing record. | GCC and Clang pass. cppgm rejects positional continuation. |
-| 6.7.9p19, p21 | A later brace-enclosed initializer replaces the entire subobject and zeroes its omitted member. | GCC, Clang and cppgm pass. Keep this control when adding partial overlays. |
+The four portable positive fixtures, including the original designated
+initialization case, ran at `-O0` and `-O2` on Linux x86-64 and under
+AArch64 QEMU. Both Darwin targets emitted Mach-O objects. PA38 native
+and Wasm suites include the portable and GNU cases. GNU range designators
+and their overlap and single-evaluation rules remain open.
 
-[C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
-
-Repeating `.inner.member = i` in one initializer with a fixed record
-type took 4.80, 6.25, 10.43, 23.89, and 71.29 million retired instructions
-at 128, 256, 512, 1024, and 2048 entries in C17 syntax-only compilation.
-The destination remains one scalar subobject. The current merge repeatedly
-copies the earlier child list, and member designators search members from
-the start. These paths need an indexed typed representation that preserves
-the continuation cursor and tracks which writes survive. Keep semantic
-checks on every written initializer and retain implicit zero regions
-compactly until lowering.
-
-A single initializer at the last index of an incomplete `unsigned char`
-array also allocates a syntax node for every omitted element. The array
-bound is checked by `_Static_assert`. At lengths 16,384 through 131,072,
-syntax-only compilation went from 6.70 to 27.46 million retired instructions
-with one written designator in each input. Track the inferred bound
-separately from the sparse initializer entries.
+[Initializer scaling measurements](../docs/performance/c-frontend-scaling.md#designated-initializers)
 
 ## Cross-target smoke results
 

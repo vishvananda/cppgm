@@ -60,10 +60,15 @@ void FunctionLowering::elements_made(ElementCount& count, uint64_t amount)
 
 void FunctionLowering::omitted_array_tail(const sema::Type* type, lowir::Value base, uint64_t first, uint32_t location)
 {
+	omitted_array_range(type, base, first, type->bound - first, location);
+}
+
+void FunctionLowering::omitted_array_range(
+	const sema::Type* type, lowir::Value base, uint64_t first, uint64_t count, uint32_t location)
+{
 	// The explicit prefix has finished. A zero span or one repeated typed
 	// initialization handles its omitted suffix, including nested arrays.
 	const sema::Type* element = type->element;
-	const uint64_t count = type->bound - first;
 	const uint64_t size = lowering_.size_of(element, location);
 	const lowir::Value address = structured_element(base, element, first, location, false);
 	const sema::Type* tail = lowering_.graph().types.array(element, count);

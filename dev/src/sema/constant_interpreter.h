@@ -13,6 +13,7 @@
 #include "syntax/ast.h"
 
 namespace sema {
+struct CInitializer;
 
 class Analyzer;
 class ConstantMemo;
@@ -356,6 +357,7 @@ private:
 	static const syntax::Expr* reference_initializer(const syntax::Initializer* init);
 	bool initialize_object(
 		const Type* type, const ConstPlace& target, const syntax::Initializer& init, uint32_t location);
+	bool c_initialize(const CInitializer& plan, const ConstPlace& target, uint32_t location, bool inherited = false);
 	bool initialize_scalar(
 		const Type* type, const ConstPlace& target, const syntax::Expr* single, uint32_t location, bool extend = false);
 	bool aggregate(const Type* type, const ConstPlace& target, const syntax::BracedInitList& list, uint32_t location);

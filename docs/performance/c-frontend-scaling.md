@@ -285,3 +285,49 @@ retired instructions.
 | SQLite | BAAB | 16,516,577,963 / 16,514,878,656 / 16,514,760,657 / 16,516,194,595 |
 
 [Input generation](../../benchmarks/frontend_scaling/README.md#c)
+
+## Designated initializers
+
+The repeated-designator workload overwrites one nested field. The sparse
+workload gives one element of an incomplete array and checks the inferred
+extent. Analysis indexes the written subobjects and retains the surviving
+values. The following counts are millions of retired user-space instructions
+for C17 syntax-only compilation on Linux x86-64, relative to `8d841254a`.
+
+| Workload | Units | Before | With sparse plans |
+| --- | ---: | ---: | ---: |
+| Repeated nested designator | 128 | 4.80 | 4.74 |
+| Repeated nested designator | 256 | 6.25 | 5.72 |
+| Repeated nested designator | 512 | 10.43 | 7.67 |
+| Repeated nested designator | 1024 | 23.89 | 11.57 |
+| Repeated nested designator | 2048 | 71.29 | 19.46 |
+| Sparse array extent | 16,384 | 6.70 | 3.73 |
+| Sparse array extent | 32,768 | 9.66 | 3.73 |
+| Sparse array extent | 65,536 | 15.59 | 3.73 |
+| Sparse array extent | 131,072 | 27.46 | 3.73 |
+
+At the largest inputs, median maximum RSS across three runs fell from
+41,004 to 7,988 KiB for repeated designators and from 23,356 to 7,316 KiB
+for the sparse array. All four sparse arrays emitted four LowIR lines,
+including one zero item and one scalar. Emitting each array retired
+about 3.72 million instructions.
+
+The frozen C++ input at `-O3` and SQLite 3.50.4 at `-O2` emitted
+byte-identical objects in every run. The immutable compilers ran on the
+same core. The A/A task-clock ranges were 25.8% and 24.2%, respectively.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0039% | +0.0028% | +0.0024% |
+| SQLite `sqlite3.c` | 0.0013% | +0.0006% | +0.0019% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,039,481,816 / 9,039,140,847 / 9,039,128,656 / 9,039,353,762 |
+| C++ | ABBA | 9,039,319,906 / 9,039,689,159 / 9,039,340,412 / 9,039,201,238 |
+| C++ | BAAB | 9,039,472,874 / 9,039,308,800 / 9,039,041,564 / 9,039,319,197 |
+| SQLite | A/A | 16,516,364,157 / 16,516,157,628 / 16,516,167,865 / 16,516,159,609 |
+| SQLite | ABBA | 16,516,026,748 / 16,516,333,547 / 16,516,202,970 / 16,516,311,578 |
+| SQLite | BAAB | 16,516,851,816 / 16,516,425,275 / 16,516,181,334 / 16,516,388,026 |
+
+[Input generation](../../benchmarks/frontend_scaling/README.md#c)

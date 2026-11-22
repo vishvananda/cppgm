@@ -7,22 +7,7 @@ global @output : obj<8x4> [linkage=c, binding=internal] = {
 }
 global @row [linkage=c, binding=internal] = {
   u32 11
-  u32 0
-  u32 0
-  u32 0
-  u32 0
-  u32 0
-  u32 0
-  u32 0
-  u32 0
-  u32 0
-  u32 0
-  u32 0
-  u32 0
-  u32 0
-  u32 0
-  u32 0
-  u32 0
+  zero 64
   u32 13
 }
 

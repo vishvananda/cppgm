@@ -16,6 +16,7 @@
 namespace sema {
 struct CoroutineAwait;
 struct RepeatedTypeEvaluation;
+struct CInitializer;
 }
 
 namespace lower {
@@ -1347,6 +1348,12 @@ private:
 	void element_made(ElementCount& count, size_t first);
 	void elements_made(ElementCount& count, uint64_t amount);
 	void omitted_array_tail(const sema::Type* type, lowir::Value base, uint64_t first, uint32_t location);
+	void omitted_array_range(
+		const sema::Type* type, lowir::Value base, uint64_t first, uint64_t count, uint32_t location);
+	void c_initialize(
+		const sema::CInitializer& plan, const AddressPath& path, uint8_t cv, uint32_t location, bool inherited = false);
+	void c_initialize_record(
+		const sema::CInitializer& plan, const AddressPath& path, uint8_t cv, uint32_t location, bool inherited);
 	void omitted_array_loop(const sema::Type* type, lowir::Value base, uint32_t location);
 	void drop_member_cleanups(size_t first);
 	void aggregate_elements(const sema::Type* type, const AddressPath& path, const syntax::BracedInitList* list,

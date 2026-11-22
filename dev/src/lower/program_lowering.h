@@ -19,6 +19,7 @@
 class SourcePositions;
 
 namespace sema {
+struct CInitializer;
 class Analyzer;
 struct ConstValue;
 }
@@ -1415,7 +1416,9 @@ private:
 	bool static_element(const sema::Type* type, const syntax::Expr& element, StaticData& out);
 	bool static_item(
 		const sema::Type* type, bool member, const syntax::BracedInitList* list, uint32_t& next, StaticData& out);
-	bool static_aggregate(const sema::Type* type, const syntax::BracedInitList* list, uint32_t& next, StaticData& out);
+	bool static_c_initializer(const sema::CInitializer& plan, StaticData& out);
+	bool static_aggregate(const sema::Type* type, const syntax::BracedInitList* list, uint32_t& next, StaticData& out,
+		const sema::CInitializer* plan = nullptr);
 	void flush_bits(std::vector<uint8_t>& bits, uint64_t& position, StaticData& out);
 	bool static_string(const sema::Type* type, const syntax::Expr& element, StaticData& out);
 	bool static_vector(const sema::Type* type, const syntax::BracedInitList& list, StaticData& out);

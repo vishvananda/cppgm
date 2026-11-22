@@ -14,6 +14,7 @@
 #include "lowir/literals.h"
 #include "sema/aggregates.h"
 #include "sema/analyzer.h"
+#include "sema/c_initializer.h"
 #include "sema/conversions.h"
 #include "sema/integral_arithmetic.h"
 #include "sema/string_literals.h"
@@ -1550,6 +1551,9 @@ bool ProgramLowering::static_object(const sema::Type* type, const syntax::Initia
 
 bool ProgramLowering::static_element(const sema::Type* type, const syntax::Expr& element, StaticData& out)
 {
+	if (element.kind == syntax::ExprKind::BracedInit)
+		if (const sema::CInitializer* plan = sema::CInitializerOf(static_cast<const syntax::BracedInitList*>(&element)))
+			return static_c_initializer(*plan, out);
 	if (element.kind == syntax::ExprKind::FunctionalCast)
 	{
 		const auto& literal = static_cast<const syntax::FunctionalCastExpr&>(element);
@@ -1671,8 +1675,8 @@ bool ProgramLowering::static_item(
 	return static_element(type, *element, out);
 }
 
-bool ProgramLowering::static_aggregate(
-	const sema::Type* type, const syntax::BracedInitList* list, uint32_t& next, StaticData& out)
+bool ProgramLowering::static_aggregate(const sema::Type* type, const syntax::BracedInitList* list, uint32_t& next,
+	StaticData& out, const sema::CInitializer* plan)
 {
 	// Base subobjects may share tail padding with later elements. This
 	// sequential data builder cannot append their complete-object bytes;
@@ -1702,7 +1706,11 @@ bool ProgramLowering::static_aggregate(
 	// bytes of their units, each field's value truncated to its width (9.6).
 	const sema::ClassEntity* entity = sema::ClassOf(type);
 	const bool is_union = entity->key == TokenKind::KW_UNION;
-	const sema::DataMember* selected = is_union ? sema::ListUnionMember(entity, list, next) : nullptr;
+	const auto* explicit_member = plan != nullptr ? plan->children.begin() : nullptr;
+	const auto* explicit_end = plan != nullptr ? plan->children.end() : nullptr;
+	const sema::DataMember* selected = !is_union ? nullptr
+		: explicit_member != explicit_end        ? explicit_member->member
+												 : sema::ListUnionMember(entity, list, next);
 	const uint64_t size = size_of(type, 0);
 	uint64_t position = 0;
 	// The bytes of a flexible array member's elements (see below).
@@ -1715,6 +1723,9 @@ bool ProgramLowering::static_aggregate(
 		const sema::VariableEntity* variable = static_cast<const sema::VariableEntity*>(member->variable);
 		if (selected != nullptr && member != selected)
 			continue;
+		const sema::CInitializer* child = explicit_member != explicit_end && explicit_member->member == member
+			? (explicit_member++)->initializer
+			: nullptr;
 		// An omitted member uses its default initializer, including when
 		// it refers to an earlier member. Retain the typed initialization
 		// rather than treating the member as value-initialized zero bytes.
@@ -1724,8 +1735,9 @@ bool ProgramLowering::static_aggregate(
 		{
 			if (variable->name == nullptr)
 				continue;
-			const syntax::Expr* element = list != nullptr && next < list->elements.size ? list->elements[next++]
-																						: nullptr;
+			const syntax::Expr* element = child != nullptr      ? child->value
+				: list != nullptr && next < list->elements.size ? list->elements[next++]
+																: nullptr;
 			if (element != nullptr && element->kind == syntax::ExprKind::BracedInit)
 			{
 				const syntax::BracedInitList* inner = static_cast<const syntax::BracedInitList*>(element);
@@ -1765,6 +1777,19 @@ bool ProgramLowering::static_aggregate(
 		const uint64_t offset = member_offset(variable, 0);
 		if (offset > position)
 			append_zero(offset - position, out);
+		if (child != nullptr)
+		{
+			if (!static_c_initializer(*child, out))
+				return false;
+			const uint64_t bytes = size_of(child->type, 0);
+			if (child->type != variable->type && child->type->kind == sema::TypeKind::Array &&
+				!variable->type->has_array_bound())
+				trailing = bytes;
+			position = offset + bytes;
+			if (is_union)
+				break;
+			continue;
+		}
 		const syntax::Expr* element = list != nullptr && next < list->elements.size ? list->elements[next] : nullptr;
 		if (element != nullptr && list->facts != nullptr && (list->facts->flags & sema::kFlexibleElements) != 0 &&
 			member->next == nullptr && variable->type->kind == sema::TypeKind::Array &&
