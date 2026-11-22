@@ -605,11 +605,13 @@ Expr* Parser::parse_sizeof()
 	return parse_sizeof_operand(expr->type, expr->operand, expr->parenthesized) ? expr : nullptr;
 }
 
-bool Parser::parse_sizeof_operand(TypeId*& type, Expr*& operand, bool& parenthesized, bool function_types)
+bool Parser::parse_sizeof_operand(TypeId*& type, Expr*& operand, bool& parenthesized, bool typeof_operand)
 {
 	type = nullptr;
 	operand = nullptr;
 	parenthesized = false;
+	if (typeof_operand && !at(TokenKind::OP_LPAREN))
+		return fail();
 	// A name, or a GNU decltype-like specifier, read once (a GNU trait is
 	// an expression).
 	if (at(TokenKind::OP_LPAREN) &&
@@ -628,7 +630,7 @@ bool Parser::parse_sizeof_operand(TypeId*& type, Expr*& operand, bool& parenthes
 		{
 			Tentative tentative(*this);
 			TypeId* named = parse_type_id_from_name(name, info, name_start);
-			if (named != nullptr && at(TokenKind::OP_RPAREN) && (function_types || !IsNamedFunctionType(named)))
+			if (named != nullptr && at(TokenKind::OP_RPAREN) && (typeof_operand || !IsNamedFunctionType(named)))
 			{
 				next();
 				tentative.commit();
@@ -640,11 +642,17 @@ bool Parser::parse_sizeof_operand(TypeId*& type, Expr*& operand, bool& parenthes
 				return false;
 		}
 		Expr* primary = primary_from_name(name, info, name_start);
-		ParenExpr* paren = make<ParenExpr>(ExprKind::Paren, start);
-		paren->inner = primary == nullptr ? nullptr : continue_expression(primary);
+		Expr* inner = primary == nullptr ? nullptr : continue_expression(primary);
 		angle_ = saved_angle;
-		if (paren->inner == nullptr || !expect(TokenKind::OP_RPAREN))
+		if (inner == nullptr || !expect(TokenKind::OP_RPAREN))
 			return false;
+		if (typeof_operand)
+		{
+			operand = inner;
+			return true;
+		}
+		ParenExpr* paren = make<ParenExpr>(ExprKind::Paren, start);
+		paren->inner = inner;
 		operand = parse_postfix_suffixes(paren);
 		if (operand == nullptr)
 			return false;
@@ -665,7 +673,7 @@ bool Parser::parse_sizeof_operand(TypeId*& type, Expr*& operand, bool& parenthes
 			angle_ = false;
 			TypeId* parsed = parse_type_id(DeclaratorMode::Abstract, false);
 			angle_ = saved_angle;
-			if (parsed != nullptr && at(TokenKind::OP_RPAREN) && !IsNamedFunctionType(parsed))
+			if (parsed != nullptr && at(TokenKind::OP_RPAREN) && (typeof_operand || !IsNamedFunctionType(parsed)))
 			{
 				next();
 				tentative.commit();
@@ -675,6 +683,15 @@ bool Parser::parse_sizeof_operand(TypeId*& type, Expr*& operand, bool& parenthes
 			if (abandoning_lists_)
 				return false;
 		}
+	}
+	if (typeof_operand)
+	{
+		next();
+		const bool saved_angle = angle_;
+		angle_ = false;
+		operand = parse_expression();
+		angle_ = saved_angle;
+		return operand != nullptr && expect(TokenKind::OP_RPAREN);
 	}
 	operand = parse_unary_expression();
 	if (operand == nullptr)

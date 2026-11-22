@@ -18,6 +18,24 @@
 
 namespace sema {
 
+ExprFacts* Analyzer::runtime_type_operand(const syntax::Expr& operand, Scope* scope, bool for_typeof)
+{
+	const size_t first = deferred_uses_.size();
+	const uint32_t saved = deferring_;
+	deferring_ = ++unevaluated_;
+	ExprFacts* facts = typed_value(operand, scope);
+	--unevaluated_;
+	deferring_ = saved;
+	const bool evaluated = facts != nullptr && facts->type != nullptr &&
+		(for_typeof ? facts->type->c_variably_modified : facts->type->runtime_array());
+	if (evaluated && deferring())
+		return facts;
+	if (evaluated)
+		replay_uses(first);
+	deferred_uses_.resize(first);
+	return facts;
+}
+
 namespace {
 
 // A scalar type, or a GNU vector or complex type, which the class-property
@@ -100,9 +118,12 @@ ExprFacts* Analyzer::builtin_trait(const syntax::BuiltinTraitExpr& expr, Scope* 
 		// GNU typeof of a type-id: that type, as the decltype of an
 		// expression of the category a reference type gives (facts never
 		// hold a reference).
-		const Type* type = type_id(*expr.types[0], scope);
+		const RuntimeTypeEvaluation* bounds = nullptr;
+		const Type* type = type_id(*expr.types[0], scope, false, c_source_ ? &bounds : nullptr);
 		if (type == nullptr)
 			return nullptr;
+		if (bounds != nullptr)
+			graph_.set_runtime_bounds(&expr, bounds);
 		ValueCategory category = ValueCategory::PRValue;
 		if (type->kind == TypeKind::LValueReference)
 			category = ValueCategory::LValue;
@@ -114,9 +135,18 @@ ExprFacts* Analyzer::builtin_trait(const syntax::BuiltinTraitExpr& expr, Scope* 
 	{
 		// GNU typeof (an unevaluated operand): the expression's type, cv
 		// kept (facts never hold a reference).
-		const ExprFacts* operand = typed_value(*expr.operand, scope);
+		const ExprFacts* operand = c_source_ ? runtime_type_operand(*expr.operand, scope, true)
+											 : typed_value(*expr.operand, scope);
 		if (operand == nullptr)
 			return nullptr;
+		if (c_source_ && operand->type->c_variably_modified)
+		{
+			RuntimeTypeEvaluation* step = graph_.arena.allocate_array<RuntimeTypeEvaluation>(1);
+			step->operand = expr.operand;
+			step->next = nullptr;
+			step->kind = RuntimeTypeEvaluation::Kind::Operand;
+			graph_.set_runtime_bounds(&expr, step);
+		}
 		// A class prvalue operand is a temporary (12.2p1; no decltype
 		// exemption for a call, as GCC and Clang have it).
 		check_temporary_destruction(operand, expr.location);

@@ -25,7 +25,8 @@ class Parser : public ParserState
 {
 public:
 	Parser(ParseTokenStream& tokens, IdentifierTable& identifiers, Arena& arena, bool hosted = false,
-		bool cxx14 = false, bool cxx17 = false, bool c_source = false, bool lexical_hints = true, bool cxx20 = false);
+		bool cxx14 = false, bool cxx17 = false, bool c_source = false, bool lexical_hints = true, bool cxx20 = false,
+		bool gnu_c = false);
 
 	// The translation unit, or null after a syntax error.
 	TranslationUnit* parse_translation_unit();
@@ -413,14 +414,11 @@ private:
 	Expr* parse_id_expression_or_cast();
 	Expr* parse_keyword_functional_cast();
 	Expr* parse_sizeof();
-	// sizeof's operand after the keyword: `( type-id )` (type) or a
-	// unary-expression (operand, without the parentheses of a
-	// parenthesized one); `function_types`: `( T() )` is the function type
-	// (8.2p2), as __typeof__ reads it, not sizeof's functional cast.
-	bool parse_sizeof_operand(TypeId*& type, Expr*& operand, bool& parenthesized, bool function_types = false);
-	// At GNU `__typeof__`: its operand, read as sizeof's (as GCC does), in
-	// a TypeofOperand node (the type-id's type, or a prvalue of the
-	// expression's type).
+	// sizeof's operand is a parenthesized type-id or a unary expression.
+	// typeof requires parentheses, which delimit either a type-id (including
+	// a function type) or an expression.
+	bool parse_sizeof_operand(TypeId*& type, Expr*& operand, bool& parenthesized, bool typeof_operand = false);
+	// At GNU `__typeof__`, form one TypeofOperand node for the type-id or expression.
 	Expr* parse_typeof_operand();
 	// At a GNU decltype-like specifier (at_gnu_decltype): its operand node.
 	Expr* parse_gnu_decltype_operand();

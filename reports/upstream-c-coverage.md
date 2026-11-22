@@ -128,10 +128,10 @@ native and Wasm lanes.
 C99 requires variable-length arrays. cppgm defines `__STDC_NO_VLA__` in
 C11 and C17 while qualification continues. The seven portable probes
 for mixed dimensions, typedefs, pointers, parameters and `sizeof` type
-names pass after this batch. GCC 15 and Clang 21 accept the corresponding
-PA38 cases in pedantic C17. Casts and GNU `typeof` with variably modified
-type names, further compatibility rules and wider target ABI coverage
-remain open.
+names pass. GCC 15 and Clang 21 accept the corresponding PA38 cases in
+pedantic C17. The type-name checks now also cover casts, compound literals,
+and GNU `typeof`. Further compatibility rules and hosted target ABI
+qualification remain open.
 
 | C11 clause | Requirement | Current evidence |
 | --- | --- | --- |
@@ -140,10 +140,42 @@ remain open.
 | 6.7.6.2p4–p6, 6.7.6.3p7 | Prototype-scope bounds are treated as `[*]`. Outermost parameter arrays adjust to pointers. | [Outermost star](../pa38/tests/general/300-array-parameter-star.t), [nested prototype bounds](../pa38/tests/general/300-variable-array-parameter.t), and [conflicting fixed inner bounds](../pa38/tests/general/300-variable-array-parameter-conflict-bad.t). |
 | 6.7.8p3 | A typedef with a varying bound captures its extent each time execution reaches the declaration. | [Loop, alias composition, and extent reuse](../pa38/tests/general/300-variable-array-typedef.t). |
 | 6.5.3.4p2, 6.7.6.2p5 | `sizeof` uses a VLA's runtime size. A bound inside `sizeof` can be elided if its value cannot change the result. | [Runtime array type names and the elidable pointer-type bound](../pa38/tests/general/300-variable-array-typeid.t). |
+| 6.5.3.4p2 | A `sizeof` operand of VLA type is evaluated. Other expression operands are unevaluated, including their function calls. | [Side effects and C-only link](../pa38/tests/general/300-variable-array-sizeof-operand.t). |
+| 6.5.2.5p1, 6.5.4 | Allow casts and pointer compound literals with variably modified type names. Diagnose a compound literal of VLA type. | [Side-effecting cast and pointer compound literal](../pa38/tests/general/300-variable-array-cast.t) and [VLA compound literal rejection](../pa38/tests/general/300-variable-array-compound-bad.t). |
+| GNU `typeof` | Evaluate the operand of variably modified type. In a shared specifier, capture type-name bounds once and repeat expression effects per declarator. | [Type and expression operands, nested type names, and parameter adjustment](../pa38/tests/general/300-variable-array-typeof.t). |
 | 6.8.6.1p1, 6.8.4.2p2 | `goto` and switch labels cannot bypass entry into the scope of a variably modified identifier. | [Jump into a VLA scope](../pa38/tests/general/300-variable-array-goto-bad.t), [typedef](../pa38/tests/general/300-variable-array-goto-typedef-bad.t), and [pointer](../pa38/tests/general/300-variable-array-case-pointer-bad.t). |
 | 6.9.1p10 | Evaluate the size expressions of variably modified parameters on function entry. | [Inner strides and side effects in the adjusted outer bracket](../pa38/tests/general/300-variable-array-parameter.t), with and without `static`. |
 
 [C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
+
+## Aggregate initializer requirements
+
+Three portable probes identify gaps in C17. GCC 15 and Clang 21 both
+continue positionally after a nested array or record designator. Examples
+include `{ [1][1] = 4, 5, 6 }` in a three-column array and
+`{ .point.x = 2, 3 }` in a record. cppgm rejects both. Both reference
+compilers also diagnose an undeclared identifier in an overridden
+initializer. cppgm currently discards that initializer before checking it.
+The right to elide overridden initializer effects still requires semantic
+and constraint checks on the written source.
+
+A fourth probe initializes `.point` from a struct expression and then sets
+`.point.y`. cppgm rejects the overlay. GCC 15 zeroes the sibling member and
+Clang 21 preserves it. WG14 issue 0413 resolves this in favor of preserving
+the sibling. A later brace-enclosed initializer for the whole subobject
+has different coverage because it implicitly initializes omitted members
+within those braces. [WG14 issue 0413](https://open-std.org/JTC1/SC22/WG14/issues/c11c17/issue0413.html) ·
+[WG14 issue 0253](https://www.open-std.org/jtc1/sc22/wg14/issues/c99/issue0253.html)
+
+Repeating `.inner.member = i` in one initializer with a fixed record
+type took 4.80, 6.25, 10.43, 23.89, and 71.29 million retired instructions
+at 128, 256, 512, 1024, and 2048 entries in C17 syntax-only compilation.
+The destination remains one scalar subobject. The current merge repeatedly
+copies the earlier child list, and member designators search members from
+the start. These paths need an indexed typed representation that preserves
+the continuation cursor and tracks which writes survive. Keep semantic
+checks on every written initializer and retain implicit zero regions
+compactly until lowering.
 
 ## Cross-target smoke results
 
@@ -158,6 +190,12 @@ The five new VLA runtime fixtures ran at `-O0` and `-O2` on Linux x86-64
 and Linux AArch64 under QEMU. Both Darwin targets emitted Mach-O objects.
 The PA38 Wasm lane also ran the five fixtures and checked the associated
 rejection cases. [PA38 VLA parameter case](../pa38/tests/general/300-variable-array-parameter.t)
+
+The cast, `sizeof` expression, and GNU `typeof` fixtures ran at `-O0` and
+`-O2` on Linux x86-64 and Linux AArch64 under QEMU. Both Darwin targets
+emitted Mach-O objects at both optimization levels. The PA38 Wasm lane
+ran all three positives and rejected the VLA compound literal. GCC 15
+and Clang 21 agreed on the fixture outcomes. [PA38 GNU `typeof` case](../pa38/tests/general/300-variable-array-typeof.t)
 
 Copies of volatile-qualified records now use LowIR scalar accesses for
 the qualified storage, including by-value arguments and returns. The

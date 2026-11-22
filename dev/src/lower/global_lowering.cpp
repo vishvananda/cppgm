@@ -2410,6 +2410,8 @@ bool ProgramLowering::static_value(const syntax::Expr& expr, StaticValue& out, b
 	case syntax::ExprKind::Cast:
 	{
 		// An integral cast of an integral operand is as constant as it.
+		if ((facts->flags & sema::kRuntimeTypeEvaluation) != 0)
+			return false;
 		const syntax::Expr& operand = *static_cast<const syntax::CastExpr*>(e)->operand;
 		if (!static_converted(operand, type, out, integral && IntegralOperand(operand)))
 			return false;

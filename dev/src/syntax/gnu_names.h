@@ -29,12 +29,14 @@ public:
 	static const uint8_t kCGeneric = 0xf8;
 	static const uint8_t kFirstSpecial = 0xf8;
 
-	explicit GnuNames(IdentifierTable& identifiers)
+	explicit GnuNames(IdentifierTable& identifiers, bool gnu_c)
 	{
 		for (uint32_t i = 0; i < static_cast<uint32_t>(GnuTrait::Declval); ++i)
 			mark(identifiers, GnuTraitName(static_cast<GnuTrait>(i)), static_cast<uint8_t>(i + 1));
 		mark(identifiers, "__typeof__", kTypeof);
 		mark(identifiers, "__typeof", kTypeof);
+		if (gnu_c)
+			mark(identifiers, "typeof", kTypeof);
 		mark(identifiers, "__attribute__", kAttribute);
 		mark(identifiers, "__attribute", kAttribute);
 		for (const char* spelling : { "_Complex", "__complex__", "__complex" })

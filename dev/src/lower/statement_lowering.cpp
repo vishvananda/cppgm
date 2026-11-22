@@ -5,6 +5,7 @@
 #include "lex/identifier_table.h"
 #include "lowir/literals.h"
 #include "sema/aggregates.h"
+#include "sema/analyzer.h"
 #include "sema/conversions.h"
 #include "sema/statement_facts.h"
 #include "sema/string_literals.h"
@@ -525,8 +526,24 @@ void FunctionLowering::declaration_statement(const syntax::Decl& decl)
 			throw LoweringError(decl.location, "a local function definition");
 		return;
 	}
+	const sema::RuntimeTypeEvaluation* repeated = nullptr;
+	if (lowering_.analyzer_->c_source())
+	{
+		if (const sema::RuntimeTypeEvaluation* evaluation = lowering_.graph().runtime_bounds(&decl))
+		{
+			if (evaluation->kind == sema::RuntimeTypeEvaluation::Kind::Repeated)
+			{
+				initialize_repeated_type(*evaluation->repeated);
+				repeated = evaluation->repeated->sequence;
+			}
+			else
+				evaluate_runtime_bounds(evaluation, nullptr, decl.location);
+		}
+	}
 	for (const syntax::InitDeclarator& init : static_cast<const syntax::SimpleDecl&>(decl).declarators)
 	{
+		if (repeated != nullptr)
+			evaluate_runtime_bounds(repeated, nullptr, decl.location);
 		// A structured binding's names: an array's or class's designate
 		// parts of e (no storage, no declared variable); a tuple-like
 		// type's are reference variables bound to the get<i>(e) the
@@ -584,7 +601,7 @@ void FunctionLowering::local_object_variable(const sema::VariableEntity* variabl
 	const uint32_t location = init.declarator != nullptr ? init.declarator->location : 0;
 	if (variable->type->c_variably_modified)
 	{
-		const sema::RuntimeArrayBound* bounds = lowering_.graph().runtime_bounds(init.declarator);
+		const sema::RuntimeTypeEvaluation* bounds = lowering_.graph().runtime_bounds(init.declarator);
 		if (variable->type->runtime_array())
 		{
 			if (!unreachable_storage_)

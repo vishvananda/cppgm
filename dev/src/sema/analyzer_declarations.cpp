@@ -246,7 +246,10 @@ void Analyzer::simple_declaration(const syntax::SimpleDecl& decl, Scope* scope)
 		qualifying_template(decl, scope, &placeholder_home_);
 	const syntax::Attribute* saved_lone = lone_class_attributes_;
 	lone_class_attributes_ = lone ? decl.attributes : nullptr;
-	this->specifiers(decl.specifiers, scope, specifiers, lone, cxx17_ && !lone);
+	if (c_source_)
+		c_declaration_specifiers(decl, scope, specifiers);
+	else
+		this->specifiers(decl.specifiers, scope, specifiers, lone, cxx17_ && !lone);
 	lone_class_attributes_ = saved_lone;
 	owner_specifiers_ = saved_owner_specifiers;
 	placeholder_home_ = saved_home;

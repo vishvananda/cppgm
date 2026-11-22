@@ -7,6 +7,8 @@ namespace lower {
 
 Place FunctionLowering::compound_literal(const syntax::FunctionalCastExpr& expr)
 {
+	if ((expr.facts->flags & sema::kRuntimeTypeEvaluation) != 0)
+		evaluate_runtime_bounds(lowering_.graph().runtime_bounds(&expr), nullptr, expr.location);
 	Place object = Place();
 	const sema::Type* type = expr.facts->type;
 	if (expr.compound_static)

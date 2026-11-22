@@ -424,7 +424,7 @@ ExprFacts* Analyzer::typed_form(const syntax::Expr& expr, Scope* scope)
 			uint32_t aliased = 0;
 			if (trait.type != nullptr)
 			{
-				const RuntimeArrayBound* unused_bounds = nullptr;
+				const RuntimeTypeEvaluation* unused_bounds = nullptr;
 				type = type_id(*trait.type, scope, false, c_source_ ? &unused_bounds : nullptr);
 				aliased = type_id_alignment_;
 			}
@@ -2902,12 +2902,18 @@ ExprFacts* Analyzer::member_of_object(const syntax::Expr& expr, ExprFacts* objec
 
 ExprFacts* Analyzer::cast_expression(const syntax::CastExpr& expr, Scope* scope)
 {
-	const Type* target = type_id(*expr.type, scope);
+	const RuntimeTypeEvaluation* runtime_type = nullptr;
+	const Type* target = type_id(*expr.type, scope, false, c_source_ ? &runtime_type : nullptr);
 	if (target != nullptr && expr.cast == TokenKind::KW_DYNAMIC_CAST && semantic())
 		return dynamic_cast_expression(expr, target, scope);
 	ExprFacts* facts = target != nullptr ? explicit_conversion(expr, target, expr.operand, expr.cast, scope) : nullptr;
 	if (facts == nullptr)
 		return nullptr;
+	if (runtime_type != nullptr)
+	{
+		graph_.set_runtime_bounds(&expr, runtime_type);
+		facts->flags |= kRuntimeTypeEvaluation;
+	}
 	if (c_source_ && target->unqualified->kind == TypeKind::Pointer &&
 		target->unqualified->element == types_.fundamental(FundamentalType::Void))
 	{
@@ -2956,16 +2962,25 @@ ExprFacts* Analyzer::functional_cast(const syntax::FunctionalCastExpr& expr, Sco
 {
 	if (expr.compound_type != nullptr)
 	{
-		const Type* type = type_id(*expr.compound_type, scope, false);
+		const RuntimeTypeEvaluation* runtime_type = nullptr;
+		const Type* type = type_id(*expr.compound_type, scope, false, &runtime_type);
 		if (type == nullptr || failed())
 			return nullptr;
+		if (type->runtime_array())
+			error(expr.location, "a C compound literal cannot have variable length array type");
 		if (IsVoid(type) || type->kind == TypeKind::Function)
 			error(expr.location, "C compound literal requires an object type");
 		list_initialize(*expr.braced, type, scope);
 		if (failed())
 			return nullptr;
 		expr.compound_static = scope == graph_.global;
-		return new_facts(expr, expr.braced->facts->type, ValueCategory::LValue);
+		ExprFacts* facts = new_facts(expr, expr.braced->facts->type, ValueCategory::LValue);
+		if (runtime_type != nullptr)
+		{
+			graph_.set_runtime_bounds(&expr, runtime_type);
+			facts->flags |= kRuntimeTypeEvaluation;
+		}
+		return facts;
 	}
 
 	// 5.2.3: T(e) is the cast (T)e; T() and T{} value-initialize.
@@ -3375,7 +3390,7 @@ ExprFacts* Analyzer::size_of(const syntax::SizeofExpr& expr, Scope* scope)
 	const syntax::Name* named = expr.type == nullptr && expr.parenthesized && expr.operand->kind == syntax::ExprKind::Id
 		? static_cast<const syntax::IdExpr*>(expr.operand)->name
 		: nullptr;
-	const RuntimeArrayBound* runtime_bounds = nullptr;
+	const RuntimeTypeEvaluation* runtime_bounds = nullptr;
 	const Type* type = expr.type != nullptr ? type_id(*expr.type, scope, false, &runtime_bounds) : nullptr;
 	if (failed())
 		return nullptr;
@@ -3397,9 +3412,15 @@ ExprFacts* Analyzer::size_of(const syntax::SizeofExpr& expr, Scope* scope)
 	const bool expression_operand = type == nullptr;
 	if (expression_operand)
 	{
-		++unevaluated_;
-		ExprFacts* operand = typed(*expr.operand, scope);
-		--unevaluated_;
+		ExprFacts* operand = nullptr;
+		if (c_source_)
+			operand = runtime_type_operand(*expr.operand, scope, false);
+		else
+		{
+			++unevaluated_;
+			operand = typed(*expr.operand, scope);
+			--unevaluated_;
+		}
 		if (operand == nullptr)
 			return nullptr;
 		if (resolve_lone_function(*expr.operand))

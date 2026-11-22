@@ -52,8 +52,66 @@ RValue FunctionLowering::dynamic_stack_allocate(RValue bytes, uint64_t alignment
 	return address;
 }
 
+void FunctionLowering::initialize_repeated_type(const sema::RepeatedTypeEvaluation& evaluation)
+{
+	// Declarators repeat an evaluated typeof operand. Its written type-name
+	// bounds are shared, including when the operand only reaches a bound
+	// conditionally. Reset the captures on every entry to this declaration.
+	const lowir::Type flag = lowir::Type::scalar(lowir::TypeKind::U8);
+	for (const syntax::Expr* bound : evaluation.bounds)
+	{
+		auto slot = runtime_bound_guards_.find(bound);
+		if (slot == PointerMap::kMissing)
+		{
+			slot = generated_slot(lowir::SlotKind::Tmpobj, flag);
+			runtime_bound_guards_.set(bound, slot);
+		}
+		Place guard = Place();
+		guard.storage = lowir::Value::slot(slot);
+		store(flag, integer(flag, 0), guard);
+	}
+}
+
+RValue FunctionLowering::evaluate_array_bound(
+	const sema::Type* array, const sema::Type* size_type, lowir::Type size, bool use_extent)
+{
+	const syntax::Expr& bound = *array->runtime_bound;
+	const auto guard_slot = runtime_bound_guards_.find(&bound);
+	const lowir::Type flag = lowir::Type::scalar(lowir::TypeKind::U8);
+	Place guard = Place();
+	lowir::BlockId ready = lowir::kNoId;
+	if (guard_slot != PointerMap::kMissing)
+	{
+		guard.storage = lowir::Value::slot(guard_slot);
+		const lowir::BlockId capture = new_block(lowir::BlockKind::IfThen);
+		ready = new_block(lowir::BlockKind::IfEnd);
+		branch(compare(lowir::ComparePredicate::Eq, flag, load(flag, guard), integer(flag, 0)), capture, ready);
+		place(capture);
+	}
+	const RValue count = convert(rvalue(bound), bound.facts->type, size_type, ConversionContext::Initialization);
+	const RValue stride = array->element->runtime_array()
+		? runtime_array_size(array->element, bound.location)
+		: integer(size, lowering_.size_of(array->element, bound.location));
+	const RValue bytes = binary(lowir::BinaryOp::Mul, size, count, stride);
+	auto slot = runtime_sizes_.find(&bound);
+	if (slot == PointerMap::kMissing)
+	{
+		slot = generated_slot(lowir::SlotKind::Tmpobj, size);
+		runtime_sizes_.set(&bound, slot);
+	}
+	Place saved = Place();
+	saved.storage = lowir::Value::slot(slot);
+	store(size, bytes, saved);
+	if (ready == lowir::kNoId)
+		return bytes;
+	store(flag, integer(flag, 1), guard);
+	jump(ready);
+	place(ready);
+	return use_extent ? load(size, saved) : RValue();
+}
+
 RValue FunctionLowering::evaluate_runtime_bounds(
-	const sema::RuntimeArrayBound* bounds, const sema::Type* result, uint32_t location)
+	const sema::RuntimeTypeEvaluation* bounds, const sema::Type* result, uint32_t location)
 {
 	if (bounds == nullptr)
 		return result == nullptr ? RValue() : runtime_array_size(result, location);
@@ -62,24 +120,23 @@ RValue FunctionLowering::evaluate_runtime_bounds(
 	const lowir::Type size = lowering_.storage_type(size_type);
 	RValue result_bytes = RValue();
 	bool computed = false;
-	for (const sema::RuntimeArrayBound* current = bounds; current != nullptr; current = current->next)
+	for (const sema::RuntimeTypeEvaluation* current = bounds; current != nullptr; current = current->next)
 	{
-		const sema::Type* array = current->array;
-		const syntax::Expr& bound = *array->runtime_bound;
-		const RValue count = convert(rvalue(bound), bound.facts->type, size_type, ConversionContext::Initialization);
-		const RValue stride = array->element->runtime_array()
-			? runtime_array_size(array->element, bound.location)
-			: integer(size, lowering_.size_of(array->element, bound.location));
-		const RValue bytes = binary(lowir::BinaryOp::Mul, size, count, stride);
-		auto slot = runtime_sizes_.find(&bound);
-		if (slot == PointerMap::kMissing)
+		switch (current->kind)
 		{
-			slot = generated_slot(lowir::SlotKind::Tmpobj, size);
-			runtime_sizes_.set(&bound, slot);
+		case sema::RuntimeTypeEvaluation::Kind::Operand:
+			discard(*current->operand);
+			continue;
+		case sema::RuntimeTypeEvaluation::Kind::Sequence:
+			evaluate_runtime_bounds(current->sequence, nullptr, location);
+			continue;
+		case sema::RuntimeTypeEvaluation::Kind::Repeated:
+			throw LoweringError(location, "a repeated type evaluation needs a declaration");
+		case sema::RuntimeTypeEvaluation::Kind::ArrayBound:
+			break;
 		}
-		Place saved = Place();
-		saved.storage = lowir::Value::slot(slot);
-		store(size, bytes, saved);
+		const sema::Type* array = current->array;
+		const RValue bytes = evaluate_array_bound(array, size_type, size, array == result);
 		if (array == result)
 		{
 			result_bytes = bytes;
@@ -90,7 +147,7 @@ RValue FunctionLowering::evaluate_runtime_bounds(
 }
 
 void FunctionLowering::local_runtime_array(
-	const sema::VariableEntity* variable, const sema::RuntimeArrayBound* bounds, uint32_t location)
+	const sema::VariableEntity* variable, const sema::RuntimeTypeEvaluation* bounds, uint32_t location)
 {
 	const sema::Type* type = variable->type;
 	const RValue bytes = evaluate_runtime_bounds(bounds, type, location);

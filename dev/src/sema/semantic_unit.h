@@ -14,7 +14,7 @@
 namespace sema {
 
 struct CoroutineFacts;
-struct RuntimeArrayBound;
+struct RuntimeTypeEvaluation;
 
 // The semantic graph of one translation unit and the storage it lives in:
 // records in the arena, types interned in `types`, names indexed by
@@ -33,18 +33,18 @@ struct SemanticGraph
 	DemandList* last_root_demand;
 	// The scalar types a GNU may_alias typedef names.
 	std::vector<const Type*> may_alias_types;
-	const RuntimeArrayBound* runtime_bounds(const void* site) const
+	const RuntimeTypeEvaluation* runtime_bounds(const void* site) const
 	{
 		const uint32_t index = runtime_bound_sites.find(site);
 		return index == PointerMap::kMissing ? nullptr : runtime_bound_plans[index];
 	}
-	void set_runtime_bounds(const void* site, const RuntimeArrayBound* bounds)
+	void set_runtime_bounds(const void* site, const RuntimeTypeEvaluation* bounds)
 	{
 		runtime_bound_sites.set(site, static_cast<uint32_t>(runtime_bound_plans.size()));
 		runtime_bound_plans.push_back(bounds);
 	}
 	PointerMap runtime_bound_sites;
-	std::vector<const RuntimeArrayBound*> runtime_bound_plans;
+	std::vector<const RuntimeTypeEvaluation*> runtime_bound_plans;
 	uint32_t local_types;
 	uint32_t scopes;
 	uint32_t bindings;

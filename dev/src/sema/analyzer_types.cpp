@@ -294,7 +294,16 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 			out.type_specifier = &specifier;
 			break;
 		case syntax::DeclSpecKind::Decltype:
-			named = decltype_type(*specifier.operand, scope);
+			if (c_source_ && specifier.operand->kind == syntax::ExprKind::BuiltinTrait &&
+				static_cast<const syntax::BuiltinTraitExpr*>(specifier.operand)->trait == GnuTrait::TypeofOperand)
+			{
+				const ExprFacts* facts = typed_value(*specifier.operand, scope);
+				named = facts != nullptr ? facts->type : nullptr;
+				if (named != nullptr && named->c_variably_modified)
+					out.type_specifier = &specifier;
+			}
+			else
+				named = decltype_type(*specifier.operand, scope);
 			// `unsigned _BitInt ( N )`: the sign specifier is the _BitInt's.
 			if (specifier.operand->kind == syntax::ExprKind::BuiltinTrait &&
 				static_cast<const syntax::BuiltinTraitExpr*>(specifier.operand)->trait == GnuTrait::BitInt)
@@ -994,7 +1003,7 @@ DeclaratorInfo Analyzer::declarator(const syntax::Declarator* declarator, const 
 	uint32_t location, const Specifiers* specifiers, DeclaratorUse use)
 {
 	DeclaratorInfo info = DeclaratorInfo();
-	RuntimeArrayBound** next_bound = &info.runtime_bounds;
+	RuntimeTypeEvaluation** next_bound = &info.runtime_bounds;
 	info.location = declarator != nullptr ? declarator->location : location;
 	info.name = DeclaratorId(declarator);
 	// GNU's vector attributes after the declarator-id make the declared
@@ -1113,8 +1122,8 @@ DeclaratorInfo Analyzer::declarator(const syntax::Declarator* declarator, const 
 			if (c_source_ && suffix.kind == syntax::DeclaratorSuffixKind::Array && suffix.bound != nullptr &&
 				type->runtime_bound == suffix.bound)
 			{
-				*next_bound = graph_.arena.allocate_array<RuntimeArrayBound>(1);
-				**next_bound = RuntimeArrayBound{ type, nullptr };
+				*next_bound = graph_.arena.allocate_array<RuntimeTypeEvaluation>(1);
+				**next_bound = RuntimeTypeEvaluation{ { type }, nullptr, RuntimeTypeEvaluation::Kind::ArrayBound };
 				next_bound = &(*next_bound)->next;
 			}
 			// In C++11 the nested function's exception specification is not
@@ -1392,8 +1401,8 @@ const Type* Analyzer::apply_suffix(const syntax::DeclaratorSuffix& suffix, const
 	}
 	const syntax::ParameterClause& clause = *suffix.parameters;
 	const bool c_definition = c_source_ && &suffix == c_definition_suffix_;
-	RuntimeArrayBound* parameter_bounds = nullptr;
-	RuntimeArrayBound** next_parameter_bound = &parameter_bounds;
+	RuntimeTypeEvaluation* parameter_bounds = nullptr;
+	RuntimeTypeEvaluation** next_parameter_bound = &parameter_bounds;
 	const size_t base = parameter_scratch_.size();
 	const bool void_list = clause.parameters.size == 1 && !clause.ellipsis &&
 		clause.parameters[0]->default_argument == nullptr && DeclaratorId(clause.parameters[0]->declarator) == nullptr;
@@ -1674,7 +1683,7 @@ Binding* Analyzer::declare_parameter(
 }
 
 const Type* Analyzer::parameter_type(
-	const syntax::ParameterDeclaration& parameter, Scope* scope, RuntimeArrayBound** runtime_bounds)
+	const syntax::ParameterDeclaration& parameter, Scope* scope, RuntimeTypeEvaluation** runtime_bounds)
 {
 	Specifiers specifiers;
 	this->specifiers(parameter.specifiers, scope, specifiers, false);
@@ -1699,7 +1708,7 @@ const Type* Analyzer::parameter_type(
 	const DeclaratorInfo info = declarator(parameter.declarator, specifiers.type, scope, parameter.location,
 		specifiers.mode_specifiers.empty() ? nullptr : &specifiers, DeclaratorUse::Parameter);
 	if (runtime_bounds != nullptr)
-		*runtime_bounds = info.runtime_bounds;
+		*runtime_bounds = runtime_type_with_specifier(specifiers, info.runtime_bounds);
 	// A nested function declarator's trailing return type can resolve its
 	// leading auto. A parameter itself still cannot have an undeduced type.
 	if ((specifiers.type == auto_placeholder_ || specifiers.type == decltype_auto_placeholder_) &&
@@ -1717,7 +1726,7 @@ const Type* Analyzer::parameter_type(
 }
 
 const Type* Analyzer::type_id(
-	const syntax::TypeId& type, Scope* scope, bool allow_placeholder, const RuntimeArrayBound** runtime_bounds)
+	const syntax::TypeId& type, Scope* scope, bool allow_placeholder, const RuntimeTypeEvaluation** runtime_bounds)
 {
 	Specifiers specifiers;
 	this->specifiers(type.specifiers, scope, specifiers, false);
@@ -1745,10 +1754,72 @@ const Type* Analyzer::type_id(
 	{
 		if (runtime_bounds == nullptr)
 			error(type.location, "a variably modified type name is unsupported in this context");
-		*runtime_bounds = info.runtime_bounds;
+		*runtime_bounds = runtime_type_with_specifier(specifiers, info.runtime_bounds);
+		if (repeated_type_bounds_ != nullptr)
+			for (const RuntimeTypeEvaluation* bound = info.runtime_bounds; bound != nullptr; bound = bound->next)
+				repeated_type_bounds_->push_back(bound->array->runtime_bound);
 	}
 	type_id_alignment_ = info.type == specifiers.type ? specifiers.alias_alignment : 0;
 	return info.type;
+}
+
+RuntimeTypeEvaluation* Analyzer::runtime_type_with_specifier(
+	const Specifiers& specifiers, RuntimeTypeEvaluation* suffix)
+{
+	const syntax::DeclSpecifier* source = specifiers.type_specifier;
+	if (source == nullptr || source->kind != syntax::DeclSpecKind::Decltype)
+		return suffix;
+	const RuntimeTypeEvaluation* prefix = graph_.runtime_bounds(source->operand);
+	if (prefix == nullptr)
+		return suffix;
+	RuntimeTypeEvaluation* step = graph_.arena.allocate_array<RuntimeTypeEvaluation>(1);
+	step->sequence = prefix;
+	step->next = suffix;
+	step->kind = RuntimeTypeEvaluation::Kind::Sequence;
+	return step;
+}
+
+namespace {
+
+bool EvaluatesTypeofOperand(const RuntimeTypeEvaluation* step)
+{
+	for (; step != nullptr; step = step->next)
+	{
+		if (step->kind == RuntimeTypeEvaluation::Kind::Operand)
+			return true;
+		if (step->kind == RuntimeTypeEvaluation::Kind::Sequence && EvaluatesTypeofOperand(step->sequence))
+			return true;
+	}
+	return false;
+}
+
+} // namespace
+
+void Analyzer::c_declaration_specifiers(const syntax::SimpleDecl& decl, Scope* scope, Specifiers& out)
+{
+	SmallList<const syntax::Expr*, 8> bounds;
+	const bool multiple = decl.declarators.size > 1;
+	auto* saved = repeated_type_bounds_;
+	repeated_type_bounds_ = multiple ? &bounds : nullptr;
+	specifiers(decl.specifiers, scope, out, decl.declarators.empty());
+	repeated_type_bounds_ = saved;
+	if (out.type == nullptr || !out.type->c_variably_modified)
+		return;
+	RuntimeTypeEvaluation* plan = runtime_type_with_specifier(out, nullptr);
+	if (plan == nullptr)
+		return;
+	if (multiple && EvaluatesTypeofOperand(plan))
+	{
+		RepeatedTypeEvaluation* repeated = graph_.arena.allocate_array<RepeatedTypeEvaluation>(1);
+		repeated->sequence = plan;
+		repeated->bounds = { graph_.arena.copy_array(bounds.data(), bounds.size()),
+			static_cast<uint32_t>(bounds.size()) };
+		plan = graph_.arena.allocate_array<RuntimeTypeEvaluation>(1);
+		plan->repeated = repeated;
+		plan->kind = RuntimeTypeEvaluation::Kind::Repeated;
+		plan->next = nullptr;
+	}
+	graph_.set_runtime_bounds(&decl, plan);
 }
 
 void Analyzer::default_template_argument_names(const syntax::TypeId& type, Scope* scope)

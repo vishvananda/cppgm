@@ -423,6 +423,8 @@ bool ConstantInterpreter::rvalue(const syntax::Expr& expr, ConstValue& out)
 		return cast(*e, *static_cast<const syntax::CastExpr&>(*e).operand, out);
 	case syntax::ExprKind::FunctionalCast:
 	{
+		if ((facts->flags & kRuntimeTypeEvaluation) != 0)
+			return fail(e->location, "compound literal with an evaluated variably modified type name");
 		const syntax::FunctionalCastExpr& functional = static_cast<const syntax::FunctionalCastExpr&>(*e);
 		const syntax::Slice<syntax::Expr*>& operands = functional.braced != nullptr ? functional.braced->elements
 																					: functional.arguments;
@@ -2353,6 +2355,8 @@ bool ConstantInterpreter::cast(const syntax::Expr& expr, const syntax::Expr& ope
 	const Type* type = expr.facts->type;
 	if (expr.kind == syntax::ExprKind::Cast)
 	{
+		if ((expr.facts->flags & kRuntimeTypeEvaluation) != 0)
+			return fail(expr.location, "cast with an evaluated variably modified type name");
 		const TokenKind form = static_cast<const syntax::CastExpr&>(expr).cast;
 		if (form == TokenKind::KW_REINTERPET_CAST || form == TokenKind::KW_DYNAMIC_CAST)
 			return fail(expr.location, "a reinterpret_cast or dynamic_cast in a constant expression");

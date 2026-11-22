@@ -2334,6 +2334,8 @@ RValue FunctionLowering::cast(const syntax::Expr& expr, const syntax::Expr& oper
 	// cast's type (the recorded conversion, or the explicit one's).
 	if ((expr.facts->flags & sema::kRuntimeCheck) != 0)
 		return dynamic_cast_pointer(static_cast<const syntax::CastExpr&>(expr));
+	if ((expr.facts->flags & sema::kRuntimeTypeEvaluation) != 0)
+		evaluate_runtime_bounds(lowering_.graph().runtime_bounds(&expr), nullptr, expr.location);
 	const sema::Type* type = expr.facts->type;
 	if (sema::IsVoid(type))
 	{

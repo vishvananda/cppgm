@@ -238,6 +238,8 @@ enum : uint32_t
 	kRuntimeSize = kRuntimeCheck,
 	// On a C sizeof, evaluate the expression operand to designate its VLA.
 	kRuntimeSizeOperand = 33554432,
+	// A C cast or compound literal with an evaluated type name.
+	kRuntimeTypeEvaluation = kRuntimeSizeOperand,
 	// Binary comparison only: its separately typed equivalent.
 	kRewrittenComparison = kRuntimeCheck,
 	// A braced-init-list initializing std::initializer_list<E>: the array

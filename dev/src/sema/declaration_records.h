@@ -59,13 +59,35 @@ struct Specifiers
 	syntax::Slice<syntax::DeclSpecifier> mode_specifiers;
 };
 
-// Bounds introduced by one declarator, in the order that makes each
-// inner extent available to its enclosing array. Existing aliases do
-// not contribute entries to a new declarator's plan.
-struct RuntimeArrayBound
+struct RepeatedTypeEvaluation;
+
+// Actions introduced by a variably modified type. Array bounds follow
+// their inner extents. A typeof specifier can evaluate an operand or
+// carry the already analyzed actions of a nested type name.
+struct RuntimeTypeEvaluation
 {
-	const Type* array;
-	RuntimeArrayBound* next;
+	enum class Kind : uint8_t
+	{
+		ArrayBound,
+		Operand,
+		Sequence,
+		Repeated
+	};
+	union
+	{
+		const Type* array;
+		const syntax::Expr* operand;
+		const RuntimeTypeEvaluation* sequence;
+		const RepeatedTypeEvaluation* repeated;
+	};
+	RuntimeTypeEvaluation* next;
+	Kind kind;
+};
+
+struct RepeatedTypeEvaluation
+{
+	const RuntimeTypeEvaluation* sequence;
+	syntax::Slice<const syntax::Expr*> bounds;
 };
 
 // A declarator's type and declarator-id.
@@ -93,7 +115,7 @@ struct DeclaratorInfo
 	// When the declarator declares an array: its bound as written (null
 	// for an omitted one).
 	const syntax::Expr* bound;
-	RuntimeArrayBound* runtime_bounds;
+	RuntimeTypeEvaluation* runtime_bounds;
 	uint32_t location;
 	// A GNU asm label's symbol name (null for none).
 	const char* asm_label;

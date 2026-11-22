@@ -242,3 +242,38 @@ at `-O3` and SQLite at `-O2` emitted byte-identical objects.
 | SQLite `sqlite3.c` | 0.0023% | +0.0064% | +0.0035% |
 
 [Input generation](../../benchmarks/frontend_scaling/README.md#c)
+
+## Evaluated type names and GNU `typeof`
+
+A GNU17 scaling input adds typedef declarators to one `typeof` of an
+expression containing a runtime cast bound. Runtime checks require one
+bound increment, one operand increment per declarator, and a captured row
+size for every alias. GCC 15, Clang 21 and cppgm agree. Counts are millions
+of retired user-space instructions on Linux x86-64.
+
+| Declarators | Syntax-only | `-O0 -c` |
+| ---: | ---: | ---: |
+| 128 | 5.97 | 12.81 |
+| 256 | 8.22 | 21.62 |
+| 512 | 13.01 | 39.51 |
+| 1024 | 23.58 | 76.27 |
+
+Paired runs against `38f7e1746` used the same frozen C++ `-O3` and SQLite
+`-O2` inputs on Linux x86-64. The binaries were immutable and pinned to the
+same core. All emitted objects matched byte-for-byte. Task-clock variation
+in the A/A blocks was 31.8% for C++ and 12.9% for C, so the comparison uses
+retired instructions.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0036% | +0.0074% | +0.0090% |
+| SQLite `sqlite3.c` | 0.0038% | +0.0073% | +0.0084% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,039,058,544 / 9,038,975,007 / 9,039,297,714 / 9,039,301,529 |
+| C++ | ABBA | 9,039,443,777 / 9,040,079,667 / 9,039,835,027 / 9,039,133,859 |
+| C++ | BAAB | 9,039,927,877 / 9,039,040,257 / 9,039,042,921 / 9,039,785,165 |
+| SQLite | A/A | 16,515,027,050 / 16,515,012,121 / 16,515,348,916 / 16,515,640,392 |
+| SQLite | ABBA | 16,514,802,926 / 16,516,069,336 / 16,516,319,437 / 16,515,187,298 |
+| SQLite | BAAB | 16,516,723,135 / 16,515,106,741 / 16,515,260,993 / 16,516,412,285 |

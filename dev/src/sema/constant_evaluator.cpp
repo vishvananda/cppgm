@@ -223,6 +223,8 @@ bool ConstantEvaluator::eval(const syntax::Expr& expr, Constant& value)
 	case syntax::ExprKind::Cast:
 	{
 		const syntax::CastExpr& cast_expr = static_cast<const syntax::CastExpr&>(expr);
+		if (facts != nullptr && (facts->flags & kRuntimeTypeEvaluation) != 0 && skipping_ == 0)
+			return fail(expr.location, "cast with an evaluated variably modified type name");
 		if (cast_expr.cast != TokenKind::KW_STATIC_CAST && cast_expr.cast != TokenKind::OP_LPAREN)
 			return fail(expr.location, "cast is not allowed in a constant expression");
 		return cast(cast_target(expr, cast_expr.type), cast_expr.operand, expr.location, value);

@@ -15,6 +15,7 @@
 // (printed by ordinal), so no source name can redirect them.
 namespace sema {
 struct CoroutineAwait;
+struct RepeatedTypeEvaluation;
 }
 
 namespace lower {
@@ -775,8 +776,12 @@ private:
 	void local_object_variable(const sema::VariableEntity* variable, const syntax::InitDeclarator& init);
 	RValue dynamic_stack_allocate(RValue bytes, uint64_t alignment);
 	void local_runtime_array(
-		const sema::VariableEntity* variable, const sema::RuntimeArrayBound* bounds, uint32_t location);
-	RValue evaluate_runtime_bounds(const sema::RuntimeArrayBound* bounds, const sema::Type* result, uint32_t location);
+		const sema::VariableEntity* variable, const sema::RuntimeTypeEvaluation* bounds, uint32_t location);
+	RValue evaluate_runtime_bounds(
+		const sema::RuntimeTypeEvaluation* bounds, const sema::Type* result, uint32_t location);
+	void initialize_repeated_type(const sema::RepeatedTypeEvaluation& evaluation);
+	RValue evaluate_array_bound(
+		const sema::Type* array, const sema::Type* size_type, lowir::Type size, bool use_extent);
 	RValue runtime_array_size(const sema::Type* type, uint32_t location);
 	struct RuntimeArrayStride
 	{
@@ -1692,6 +1697,7 @@ private:
 	PointerMap compound_slots_;
 	// Bound-expression identity -> fixed slot holding its evaluated byte size.
 	PointerMap runtime_sizes_;
+	PointerMap runtime_bound_guards_;
 	FlatMap<const sema::Type*, RuntimeArrayStride, std::hash<const sema::Type*>> runtime_strides_;
 	// A class prvalue materialized in a temporary object of the frame,
 	// destroyed at the end of its full-expression (12.2p3).

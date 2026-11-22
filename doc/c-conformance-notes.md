@@ -181,3 +181,25 @@ can use the element alignment without evaluating bounds.
 [PA38 multidimensional arrays](../pa38/tests/general/300-variable-array-multidimensional.t) ·
 [PA38 captured typedef extents](../pa38/tests/general/300-variable-array-typedef.t) ·
 [PA38 parameter adjustment](../pa38/tests/general/300-variable-array-parameter.t)
+
+## Evaluated type names and GNU `typeof`
+
+The evaluation of a VLA size expression can be observable even when a cast's
+converted result is unused. C11 6.5.2.5p1 permits a compound literal with a
+pointer-to-VLA type and excludes a compound literal of VLA type. For an
+expression operand of `sizeof`, 6.5.3.4p2 makes evaluation depend on whether
+the expression has variable-length array type. Semantic analysis must still
+check an unevaluated operand.
+
+GNU `typeof` evaluates operands of variably modified type. In the tested
+declarations, GCC 15 and Clang 21 evaluate the expression operand for each
+declarator and share captured type-name bounds within the declaration. The
+bound captures reset when execution reenters the declaration. A nested
+`typeof` ends at its matching closing parenthesis, so a following array
+declarator belongs to the enclosing type name.
+
+[C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[GCC `typeof`](https://gcc.gnu.org/onlinedocs/gcc/Typeof.html) ·
+[PA38 cast and compound literal](../pa38/tests/general/300-variable-array-cast.t) ·
+[PA38 evaluated `sizeof` operand](../pa38/tests/general/300-variable-array-sizeof-operand.t) ·
+[PA38 GNU `typeof`](../pa38/tests/general/300-variable-array-typeof.t)

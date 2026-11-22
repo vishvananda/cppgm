@@ -7,7 +7,8 @@ SyntaxUnit::SyntaxUnit(const PreprocessorOptions& options, const std::string& pa
 										options.target, options.gnu_c(), options.cxx_edition),
 	  tokens_(post_tokens_, spellings_),
 	  parser_(tokens_, preprocessor_.identifiers(), arena_, options.hosted, options.cxx_edition >= 14,
-		  options.cxx_edition >= 17, options.language == SourceLanguage::C, syntax_only, options.cxx_edition >= 20),
+		  options.cxx_edition >= 17, options.language == SourceLanguage::C, syntax_only, options.cxx_edition >= 20,
+		  options.gnu_c()),
 	  tree_(nullptr)
 {
 	parser_.set_source_positions(preprocessor_);

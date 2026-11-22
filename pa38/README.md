@@ -123,16 +123,24 @@ The first fixture set covers these parts of the C17 input profile:
 - Evaluate the runtime bounds needed by a `sizeof` type name. A bound in a
   pointer type whose value cannot change the result may be elided.
   `_Alignof` uses the element alignment of a variable-length array.
+- Evaluate a `sizeof` expression operand when it has variable-length array
+  type. Preserve the effects of evaluated bounds in casts and compound
+  literals even if the pointer result is discarded. A compound literal may
+  have pointer-to-VLA type. Diagnose a compound literal of VLA type.
+- Accept `typeof` in GNU C and the alternate spellings `__typeof` and
+  `__typeof__` in all the C modes above. Preserve the operand type. Evaluate
+  the operand only when its type is variably modified. For declarators
+  sharing a specifier, repeat the evaluated expression operand for each
+  declarator and reuse the extents of written type-name bounds.
 - Hosted C header declarations and their builtin operations through the
   existing hosted environment, including PA30's GNU startup-function attributes.
 
 This is an initial profile, not a claim of complete C17 conformance. Use
 `(void)` for a prototype with no parameters; an empty `()` declares a function
-without a prototype. Variably modified typedefs, pointer declarations,
-parameters and type-ids, multidimensional runtime arrays, and positional
-continuation after a nested designator remain outside this fixture set. Diagnose
-these unsupported forms. Extend the profile and its tests together. Do not silently
-apply a C++ rule where a supported C construct has a different meaning.
+without a prototype. Positional continuation after a nested designator
+remains outside this fixture set. Extend the profile and its tests together.
+Do not silently apply a C++ rule where a supported C construct has a
+different meaning.
 
 Share preprocessing, declarator parsing, type storage, ABI classification,
 optimization and backend machinery with the C++ path. Record the source

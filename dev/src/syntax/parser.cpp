@@ -6,8 +6,8 @@
 namespace syntax {
 
 Parser::Parser(ParseTokenStream& tokens, IdentifierTable& identifiers, Arena& arena, bool hosted, bool cxx14,
-	bool cxx17, bool c_source, bool lexical_hints, bool cxx20)
-	: ParserState(tokens, identifiers, arena, hosted, cxx14, cxx17, c_source, lexical_hints, cxx20)
+	bool cxx17, bool c_source, bool lexical_hints, bool cxx20, bool gnu_c)
+	: ParserState(tokens, identifiers, arena, hosted, cxx14, cxx17, c_source, lexical_hints, cxx20, gnu_c)
 {}
 
 void Parser::require_cxx_extension(
