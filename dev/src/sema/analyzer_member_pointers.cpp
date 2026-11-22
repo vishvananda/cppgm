@@ -700,11 +700,17 @@ const Type* Analyzer::composite_pointer(const ExprFacts* a, const ExprFacts* b, 
 		return nullptr;
 	const Type* pa = ta->element;
 	const Type* pb = tb->element;
+	const uint8_t cv = pa->cv | pb->cv;
+	if (c_source_ && conversions_.c_type_compatible(pa->unqualified, pb->unqualified))
+	{
+		// C 6.5.15p6: combine the pointed-to types and the qualifiers.
+		const Type* composite = conversions_.c_composite_type(pa->unqualified, pb->unqualified);
+		return types_.pointer(types_.qualified(composite, cv));
+	}
 	if (conversions_.function_conversion(pa, pb))
 		return tb;
 	if (conversions_.function_conversion(pb, pa))
 		return ta;
-	const uint8_t cv = pa->cv | pb->cv;
 	if (IsVoid(pa) || IsVoid(pb))
 	{
 		if (c_source_ ||

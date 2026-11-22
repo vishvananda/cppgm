@@ -1418,6 +1418,8 @@ Binding* Analyzer::declare_variable(const Specifiers& specifiers, const Declarat
 	if (c_source_ && where->kind == ScopeKind::Namespace && definition)
 		variable->c_tentative = initializer == nullptr;
 	variable->defined = variable->defined || definition;
+	if (c_inline_constraint_ != nullptr && definition)
+		note_c_inline_object(*variable, location);
 	variable->is_constexpr = variable->is_constexpr || specifiers.is_constexpr;
 	variable->inline_member_definition = variable->inline_member_definition || inline_member;
 	// An out-of-class or namespace redeclaration may add explicit inline.
@@ -1590,6 +1592,36 @@ Binding* Analyzer::declare_variable(const Specifiers& specifiers, const Declarat
 	}
 	redeclared_ = redeclaration;
 	return binding;
+}
+
+void Analyzer::note_c_inline_reference(const Binding& binding, uint32_t location)
+{
+	if (c_inline_constraint_->message != nullptr)
+		return;
+	const bool internal = binding.kind == BindingKind::Variable
+		? static_cast<const VariableEntity*>(binding.entity)->internal_linkage
+		: binding.kind == BindingKind::Function && static_cast<const FunctionEntity*>(binding.entity)->internal_linkage;
+	if (internal)
+	{
+		c_inline_constraint_->location = location;
+		c_inline_constraint_->message = "an external C inline definition refers to an identifier with internal linkage";
+	}
+}
+
+void Analyzer::note_c_inline_object(const VariableEntity& variable, uint32_t location)
+{
+	if (c_inline_constraint_->message != nullptr || variable.owner->kind != ScopeKind::Block ||
+		(!variable.is_static && !variable.is_thread_local))
+		return;
+	const Type* element = variable.type;
+	while (element->kind == TypeKind::Array)
+		element = element->element;
+	if ((element->cv & kConst) == 0)
+	{
+		c_inline_constraint_->location = location;
+		c_inline_constraint_->message =
+			"an external C inline definition defines a modifiable object with static or thread storage duration";
+	}
 }
 
 void Analyzer::note_variably_modified_declaration(Scope* scope)

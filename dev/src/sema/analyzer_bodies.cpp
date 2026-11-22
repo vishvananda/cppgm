@@ -287,6 +287,11 @@ bool Analyzer::function_body(FunctionEntity* function, const Type* type, const s
 	}
 	if (body.body != nullptr && !shared)
 	{
+		CInlineConstraint constraint{ function, 0, nullptr };
+		CInlineConstraint* saved_inline_constraint = c_inline_constraint_;
+		if (c_source_ && semantic() && function->is_inline && !function->internal_linkage &&
+			!function->c_external_definition && !function->gnu_inline)
+			c_inline_constraint_ = &constraint;
 		if (semantic() && coroutine && body_ == &context && !context.pattern)
 			context.coroutine = analyze_coroutine(function, scope, body_location);
 		if (body.try_block)
@@ -315,6 +320,9 @@ bool Analyzer::function_body(FunctionEntity* function, const Type* type, const s
 			handlers(body.try_block->handlers, scope);
 			context.constructor_handlers = false;
 		}
+		c_inline_constraint_ = saved_inline_constraint;
+		if (constraint.message != nullptr)
+			c_inline_constraints_.push_back(constraint);
 	}
 	if (body_ == &context)
 		check_gotos(context);

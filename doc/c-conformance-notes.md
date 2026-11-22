@@ -255,3 +255,21 @@ tentative definition to be complete at its declaration.
 [C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [PA38 composite types](../pa38/tests/general/400-c-composite-types.t) ·
 [PA38 tentative definitions](../pa38/tests/general/400-c-tentative-incomplete.t)
+
+## Conditional pointer types and C inline definitions
+
+C11 6.5.15p6 combines the qualifiers of the pointed-to types of the two
+operands. When those types are compatible, it forms their composite
+under 6.2.7p3. A bound or a prototype can therefore come from either
+operand. The result type applies even when the condition is constant.
+
+Under 6.7.4p3, an inline-only definition with external linkage must
+avoid internal-linkage references and modifiable objects with static
+or thread storage duration. A reference in an unevaluated expression
+still counts. Under paragraph 7, an `extern` declaration or a
+file-scope declaration without `inline` can make the definition external
+even when the declaration follows the body.
+
+[C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[PA38 conditional pointer types](../pa38/tests/general/500-conditional-composite-pointer.t) ·
+[PA38 late inline linkage](../pa38/tests/general/400-c-inline-linkage.t)

@@ -381,6 +381,9 @@ private:
 		const syntax::Initializer* initializer, Scope* scope, uint32_t location, bool structured_binding = false);
 	bool defer_c_tentative_definition(VariableEntity* variable, uint32_t location);
 	void finish_c_tentative_definitions();
+	void note_c_inline_reference(const Binding& binding, uint32_t location);
+	void note_c_inline_object(const VariableEntity& variable, uint32_t location);
+	void finish_c_inline_constraints();
 	const Type* redeclare_variable(VariableEntity* variable, const Type* type, const Specifiers& specifiers,
 		const DeclaratorInfo& info, const Scope* where, bool qualified, bool initialized, bool& definition,
 		uint32_t location);
@@ -2262,6 +2265,14 @@ private:
 		uint32_t location;
 	};
 	std::vector<TentativeDefinition> c_tentative_definitions_;
+	struct CInlineConstraint
+	{
+		const FunctionEntity* function;
+		uint32_t location;
+		const char* message;
+	};
+	CInlineConstraint* c_inline_constraint_ = nullptr;
+	std::vector<CInlineConstraint> c_inline_constraints_;
 	uintptr_t stack_base_;
 	uintptr_t stack_budget_;
 	const Identifier* constructor_key_;

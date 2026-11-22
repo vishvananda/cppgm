@@ -681,6 +681,8 @@ ExprFacts* Analyzer::binding_expression(
 {
 	(void)scope;
 	const Binding* binding = result.binding;
+	if (c_inline_constraint_ != nullptr)
+		note_c_inline_reference(*binding, expr.location);
 	switch (binding->kind)
 	{
 	case BindingKind::Variable:

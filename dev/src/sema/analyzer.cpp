@@ -149,7 +149,10 @@ void Analyzer::analyze(const syntax::TranslationUnit& unit)
 	current_epoch_ = root_epoch_;
 	declarations(unit.declarations, scope);
 	if (c_source_)
+	{
 		finish_c_tentative_definitions();
+		finish_c_inline_constraints();
+	}
 	// The rules decided once every class of the unit is complete (PA6's
 	// types too: an unused member's noexcept-specification is valid).
 	if (!semantic())
@@ -185,6 +188,15 @@ void Analyzer::analyze(const syntax::TranslationUnit& unit)
 		}
 		check_immediate_names();
 	}
+}
+
+void Analyzer::finish_c_inline_constraints()
+{
+	// A later file-scope declaration can give a definition external
+	// status. Keep the first offending location until that status is final.
+	for (const CInlineConstraint& constraint : c_inline_constraints_)
+		if (!constraint.function->c_external_definition && !constraint.function->gnu_inline)
+			error(constraint.location, constraint.message);
 }
 
 void Analyzer::predeclare_allocation(TokenKind op, bool array, const Type* type, AllocationRole role, Scope* scope)

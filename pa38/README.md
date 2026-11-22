@@ -89,6 +89,10 @@ The first fixture set covers these parts of the C17 input profile:
   Comparisons and logical operators
   produce `int`. Assignment, comma, conditional and prefix increment results
   do not become C++ lvalues.
+- When the two pointer operands of `?:` point to compatible types, form
+  the composite pointed-to type and combine their qualifiers. A bound or
+  a prototype from either operand can determine the result type. Evaluate
+  the selected operand and preserve the existing null-pointer rules.
 - Separate tag and ordinary identifier namespaces, including typedefs that
   reuse a tag spelling for an unrelated type; struct and enum tags, typedefs,
   aggregate initialization, C member and array
@@ -98,6 +102,10 @@ The first fixture set covers these parts of the C17 input profile:
   external linkage supplies the external symbol if a file-scope declaration
   uses `extern` or leaves out `inline`. GNU `gnu_inline` and `always_inline`
   attributes can also occur after the return type's pointer operator.
+- In an inline-only definition with external linkage, diagnose references to
+  internal-linkage identifiers and definitions of modifiable static or
+  thread-local objects. Use all file-scope declarations of the function to
+  settle whether its definition supplies the external symbol.
 - Give a redeclared C object or function the composite of its compatible
   types. Combine bounds and prototypes through pointers, array elements,
   function parameters, and return types. A block declaration can refine
