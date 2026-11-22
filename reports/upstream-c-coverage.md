@@ -84,6 +84,20 @@ association. c-testsuite `00219.c` now passes at both optimization levels
 in C17 and GNU17.
 [PA38 tag association](../pa38/tests/general/500-generic-tag-association.t)
 
+## Cross-target smoke results
+
+The prototype array, tagged generic association, and structure return
+fixtures emit ELF objects for Linux x86-64 and AArch64 and Mach-O objects
+for Darwin x86-64 and arm64 at `-O0` and `-O2`. All six Linux AArch64
+objects linked with LLD and a minimal ELF startup routine and ran
+successfully under QEMU user mode 10.2.1. Hosted SDK and native Darwin
+execution are separate qualification items.
+
+The volatile aggregate case remains open. A C function that returns a
+volatile structure emits an ordinary object copy at `-O0`. At `-O2`, a
+caller that discards the return value can lose the read. The volatile
+access must survive the shared aggregate lowering and optimizer.
+
 ## GCC torture and Csmith pilots
 
 - **GCC torture.** At the GCC revision used by upstream CI, 1,339 C files
