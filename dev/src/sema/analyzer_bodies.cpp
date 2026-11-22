@@ -58,10 +58,22 @@ bool Analyzer::function_body(FunctionEntity* function, const Type* type, const s
 		pending_lambda_ = nullptr;
 	const uint32_t saved_depth = class_depth_;
 	class_depth_ = 0;
-	Scope* scope = new_scope(ScopeKind::Function, parent, print, function, function->label);
+	Scope* scope = c_source_ && parameters != nullptr ? graph_.c_parameter_scope(parameters) : nullptr;
+	const bool retained_parameters = scope != nullptr;
+	if (retained_parameters)
+	{
+		scope->entity = function;
+		scope->parent = parent;
+		scope->label = function->label;
+		scope->dumped = true;
+		scope->guarded = false;
+		attach_scope(scope, print);
+	}
+	else
+		scope = new_scope(ScopeKind::Function, parent, print, function, function->label);
 	function->scope = scope;
 	function->body = &body;
-	if (parameters != nullptr)
+	if (parameters != nullptr && !retained_parameters)
 	{
 		// The parameters of the definition, with their declared types and
 		// dependence; an

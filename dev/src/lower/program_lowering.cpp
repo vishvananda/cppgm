@@ -1506,6 +1506,8 @@ uint64_t ProgramLowering::size_of(const sema::Type* type, uint32_t location)
 
 uint64_t ProgramLowering::alignment_of(const sema::Type* type, uint32_t location)
 {
+	while (type->runtime_array())
+		type = type->element;
 	uint64_t size = 0, alignment = 0;
 	if (type->is_reference())
 		return 8;

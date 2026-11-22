@@ -565,9 +565,13 @@ void FunctionLowering::unreachable_declaration(const syntax::Decl& decl)
 void FunctionLowering::local_variable(const syntax::InitDeclarator& init)
 {
 	const sema::Binding* binding = init.declared;
-	if (binding == nullptr || binding->kind != sema::BindingKind::Variable)
+	if (binding == nullptr)
 		return;
-	local_object_variable(static_cast<const sema::VariableEntity*>(binding->entity), init);
+	if (binding->kind == sema::BindingKind::Variable)
+		local_object_variable(static_cast<const sema::VariableEntity*>(binding->entity), init);
+	else if (binding->kind == sema::BindingKind::TypeAlias && binding->type->c_variably_modified &&
+		!unreachable_storage_)
+		evaluate_runtime_bounds(lowering_.graph().runtime_bounds(init.declarator), nullptr, init.declarator->location);
 }
 
 void FunctionLowering::local_object_variable(const sema::VariableEntity* variable, const syntax::InitDeclarator& init)
@@ -578,11 +582,17 @@ void FunctionLowering::local_object_variable(const sema::VariableEntity* variabl
 	if (variable->is_extern || variable->owner->kind == sema::ScopeKind::Namespace)
 		return;
 	const uint32_t location = init.declarator != nullptr ? init.declarator->location : 0;
-	if (variable->type->runtime_array())
+	if (variable->type->c_variably_modified)
 	{
+		const sema::RuntimeArrayBound* bounds = lowering_.graph().runtime_bounds(init.declarator);
+		if (variable->type->runtime_array())
+		{
+			if (!unreachable_storage_)
+				local_runtime_array(variable, bounds, location);
+			return;
+		}
 		if (!unreachable_storage_)
-			local_runtime_array(variable, location);
-		return;
+			evaluate_runtime_bounds(bounds, nullptr, location);
 	}
 	if (variable->is_static || variable->is_thread_local)
 	{

@@ -119,7 +119,7 @@ struct Type
 	uint8_t cv;
 	// Function: a member function's cv-qualifier-seq. Vector: 1 for
 	// Clang's ext_vector_type (whose scalar casts broadcast), else 0.
-	// Array: 1 for an explicitly zero-length GNU array.
+	// Array: 1 for an explicitly zero-length GNU array, 2 for C [*].
 	uint8_t function_cv;
 	RefQualifier ref;
 	// Function: the parameter list ends with `...`.
@@ -131,6 +131,8 @@ struct Type
 	target_model::Target target : 3;
 	// Derived once for fundamental types; shares the existing flag byte.
 	uint8_t binary128 : 1;
+	uint8_t c_variably_modified : 1;
+	uint8_t c_runtime_size : 1;
 	// Dependence proven from immutable type structure or template facts
 	// (0 unknown, 1 no, 2 yes; see Analyzer::dependent_type). Nominal types
 	// can acquire template facts after creation, so their cache is seeded
@@ -163,15 +165,17 @@ struct Type
 	union
 	{
 		const Type* const* params;
-		// C array: the written, nonconstant bound. Evaluated once when
-		// the automatic object is declared, not a template dependence.
+		// C array: the written, nonconstant bound. The introducing
+		// declarator owns its evaluation.
 		const syntax::Expr* runtime_bound;
 	};
 
 	bool is(TypeKind k) const { return kind == k; }
-	bool runtime_array() const { return kind == TypeKind::Array && runtime_bound != nullptr; }
+	bool runtime_array() const { return c_runtime_size; }
 	bool has_array_bound() const { return bound != 0 || function_cv != 0; }
-	bool zero_length_array() const { return kind == TypeKind::Array && function_cv != 0; }
+	bool zero_length_array() const { return kind == TypeKind::Array && function_cv == 1; }
+	bool c_array_star() const { return kind == TypeKind::Array && function_cv == 2; }
+	bool constant_array_bound() const { return has_array_bound() && !c_array_star(); }
 	bool extended_vector() const { return kind == TypeKind::Vector && function_cv != 0; }
 	bool is_reference() const { return kind == TypeKind::LValueReference || kind == TypeKind::RValueReference; }
 	bool c_unprototyped() const { return kind == TypeKind::Function && bound != 0; }

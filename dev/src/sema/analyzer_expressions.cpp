@@ -424,7 +424,8 @@ ExprFacts* Analyzer::typed_form(const syntax::Expr& expr, Scope* scope)
 			uint32_t aliased = 0;
 			if (trait.type != nullptr)
 			{
-				type = type_id(*trait.type, scope);
+				const RuntimeArrayBound* unused_bounds = nullptr;
+				type = type_id(*trait.type, scope, false, c_source_ ? &unused_bounds : nullptr);
 				aliased = type_id_alignment_;
 			}
 			else
@@ -454,7 +455,7 @@ ExprFacts* Analyzer::typed_form(const syntax::Expr& expr, Scope* scope)
 			ExprFacts* facts = new_facts(
 				expr, types_.fundamental(FundamentalType::UnsignedLongInt), ValueCategory::PRValue);
 			facts->value = aliased != 0 ? aliased : alignment;
-			if (trait.type != nullptr && SpecializationType(type_id(*trait.type, scope)))
+			if (trait.type != nullptr && SpecializationType(type))
 				facts->flags |= kSpecializationQuery;
 			return facts;
 		}
@@ -1448,7 +1449,11 @@ ExprFacts* Analyzer::arithmetic(const syntax::BinaryExpr& expr, ExprFacts* left,
 		{
 			if (op == TokenKind::OP_MINUS && lp && rp)
 			{
-				if (lt->element->unqualified != rt->element->unqualified || IsVoid(lt->element))
+				const Type* left_element = lt->element->unqualified;
+				const Type* right_element = rt->element->unqualified;
+				if (IsVoid(left_element) ||
+					(left_element != right_element &&
+						!(c_source_ && conversions_.c_type_compatible(left_element, right_element))))
 				{
 					substitution_error(expr.location, "subtraction of pointers to different types");
 					return nullptr;
@@ -3370,7 +3375,8 @@ ExprFacts* Analyzer::size_of(const syntax::SizeofExpr& expr, Scope* scope)
 	const syntax::Name* named = expr.type == nullptr && expr.parenthesized && expr.operand->kind == syntax::ExprKind::Id
 		? static_cast<const syntax::IdExpr*>(expr.operand)->name
 		: nullptr;
-	const Type* type = expr.type != nullptr ? type_id(*expr.type, scope) : nullptr;
+	const RuntimeArrayBound* runtime_bounds = nullptr;
+	const Type* type = expr.type != nullptr ? type_id(*expr.type, scope, false, &runtime_bounds) : nullptr;
 	if (failed())
 		return nullptr;
 	if (named != nullptr && named->last().kind == syntax::NameComponentKind::Identifier)
@@ -3388,7 +3394,8 @@ ExprFacts* Analyzer::size_of(const syntax::SizeofExpr& expr, Scope* scope)
 		substitution_error(expr.location, "sizeof of a function type");
 		return nullptr;
 	}
-	if (type == nullptr)
+	const bool expression_operand = type == nullptr;
+	if (expression_operand)
 	{
 		++unevaluated_;
 		ExprFacts* operand = typed(*expr.operand, scope);
@@ -3423,6 +3430,10 @@ ExprFacts* Analyzer::size_of(const syntax::SizeofExpr& expr, Scope* scope)
 		ExprFacts* facts = new_facts(
 			expr, types_.fundamental(FundamentalType::UnsignedLongInt), ValueCategory::PRValue);
 		facts->flags |= kRuntimeSize;
+		if (expression_operand)
+			facts->flags |= kRuntimeSizeOperand;
+		if (runtime_bounds != nullptr)
+			graph_.set_runtime_bounds(&expr, runtime_bounds);
 		facts->target = type;
 		return facts;
 	}

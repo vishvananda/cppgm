@@ -108,16 +108,21 @@ The first fixture set covers these parts of the C17 input profile:
   array-bound deduction and designators. Each occurrence denotes an lvalue;
   block-scope objects survive the full expression and file-scope objects have
   static storage with constant initialization.
-- One-dimensional block-scope variable-length arrays with automatic or
-  register storage. Evaluate each bound once at its declaration, retain that
-  extent for `sizeof`, and release the storage on every scope exit, including
-  `break`, `continue`, `return` and `goto`. A jump or switch case must not enter
-  a runtime array's scope past its declaration. Preserve element alignment and
-  explicit alignment requests. Array decay and pointers formed by `&array`
-  use the actual saved extent.
-- An outermost prototype array parameter can use `[*]`, including after
-  qualifiers. Its parameter type adjusts to a pointer. A definition's
-  own parameters need a bound or ordinary `[]`, and `static` needs a bound.
+- Block-scope variable-length arrays with automatic or register storage can
+  mix fixed and runtime dimensions. Evaluate each written runtime bound once
+  at its declaration. A typedef captures its extent when execution reaches
+  the typedef, and later declarations using that typedef reuse it. Use the
+  captured sizes for `sizeof`, subscripting and pointer arithmetic. Release
+  the storage on every scope exit and preserve alignment requests. Diagnose
+  jumps and switch labels that enter the scope of a variably modified
+  identifier past its declaration.
+- An array parameter adjusts to a pointer. In a prototype, runtime bounds
+  and `[*]` describe unspecified variable lengths. In a definition, evaluate
+  the written runtime bounds on entry, including any bound in the adjusted
+  outer bracket. Retain the inner strides. Require a bound with `static`.
+- Evaluate the runtime bounds needed by a `sizeof` type name. A bound in a
+  pointer type whose value cannot change the result may be elided.
+  `_Alignof` uses the element alignment of a variable-length array.
 - Hosted C header declarations and their builtin operations through the
   existing hosted environment, including PA30's GNU startup-function attributes.
 

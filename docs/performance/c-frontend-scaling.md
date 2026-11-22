@@ -203,3 +203,42 @@ workloads used `-O3` and `-O2`, respectively.
 | SQLite `sqlite3.c` | 0.0019% | -0.0121% | -0.0106% |
 
 [Input generation](../../benchmarks/frontend_scaling/README.md#c)
+
+## Multidimensional VLA extents
+
+Analysis records each written runtime bound on its introducing declarator.
+Lowering evaluates the plan in dependency order and saves the byte extent.
+A typedef captures the extent at its declaration. For a fixed prefix above
+a runtime dimension, lowering memoizes the product of the fixed dimensions
+and loads the captured extent directly. These memos belong to the function.
+
+In the dimensions workload, analysis initially walked every nested array
+spine to check for C++ abstract-class elements. Bypassing that check in C
+made the syntax-only increase proportional to the number of dimensions.
+The extent-use workload controls for repeated use with the rank held fixed.
+Counts are millions of retired instructions on Linux x86-64. Every object
+linked through GCC's C driver and ran the input's size check successfully.
+
+| Workload | Units | Syntax-only | `-O0 -c` |
+| --- | ---: | ---: | ---: |
+| Runtime/fixed dimension pairs | 128 | 4.97 | 6.06 |
+| Runtime/fixed dimension pairs | 256 | 6.16 | 8.19 |
+| Runtime/fixed dimension pairs | 512 | 8.54 | 12.44 |
+| Runtime/fixed dimension pairs | 1024 | 13.30 | 20.92 |
+| Uses of a captured extent | 128 | 5.58 | 6.89 |
+| Uses of a captured extent | 256 | 7.12 | 9.57 |
+| Uses of a captured extent | 512 | 10.18 | 14.90 |
+| Uses of a captured extent | 1024 | 16.31 | 25.62 |
+
+At 1024 dimension pairs, the earlier candidate retired 21.74 million
+instructions for syntax and 29.36 million for object compilation.
+
+Compared with `e9d9624fd`, paired compile runs on the frozen C++ source
+at `-O3` and SQLite at `-O2` emitted byte-identical objects.
+
+| Input | A/A range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0028% | +0.0336% | +0.0340% |
+| SQLite `sqlite3.c` | 0.0023% | +0.0064% | +0.0035% |
+
+[Input generation](../../benchmarks/frontend_scaling/README.md#c)

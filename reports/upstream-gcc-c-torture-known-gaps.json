@@ -1,12 +1,12 @@
 {
   "20040423-1-O0": {
     "status": "compile-failed",
-    "diagnostic": "a runtime array bound requires a one-dimensional block-scope object",
+    "diagnostic": "a variably modified type requires block or function prototype scope",
     "reason": "GNU C accepts a variable-length member in a block-scope structure."
   },
   "20040423-1-O2": {
     "status": "compile-failed",
-    "diagnostic": "a runtime array bound requires a one-dimensional block-scope object",
+    "diagnostic": "a variably modified type requires block or function prototype scope",
     "reason": "GNU C accepts a variable-length member in a block-scope structure."
   },
   "complex-7-O0": {
@@ -31,13 +31,13 @@
   },
   "pr22061-4-O0": {
     "status": "compile-failed",
-    "diagnostic": "multidimensional variable-length arrays are outside the C profile",
-    "reason": "The array has multiple variable dimensions."
+    "diagnostic": "a local function definition",
+    "reason": "GNU C permits the VLA parameter in a nested function definition."
   },
   "pr22061-4-O2": {
     "status": "compile-failed",
-    "diagnostic": "multidimensional variable-length arrays are outside the C profile",
-    "reason": "The array has multiple variable dimensions."
+    "diagnostic": "a local function definition",
+    "reason": "GNU C permits the VLA parameter in a nested function definition."
   },
   "pr28865-O0": {
     "status": "compile-failed",

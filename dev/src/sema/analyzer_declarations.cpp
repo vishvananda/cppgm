@@ -867,6 +867,8 @@ void Analyzer::declare_declarator(
 		return;
 	if (info.name == nullptr)
 		error(location, "declarator without a name");
+	if (info.runtime_bounds != nullptr)
+		graph_.set_runtime_bounds(init.declarator, info.runtime_bounds);
 	// A template-id declarator-id of a variable declares a partial
 	// specialization of a variable template under a template-head, and an
 	// explicit one under `template<>`.
@@ -896,8 +898,8 @@ void Analyzer::declare_declarator(
 		error(info.location, "mutable in a typedef or function declaration");
 	if (specifiers.is_typedef)
 	{
-		if (info.type->runtime_array())
-			error(info.location, "a variably modified typedef is outside the C profile");
+		if (info.type->c_variably_modified)
+			note_variably_modified_declaration(declaration_scope(scope));
 		if (info.name->qualified() || init.initializer != nullptr || info.virt_suffix != nullptr)
 			error(info.location, "invalid typedef declarator");
 		// 7.1.5p1: a typedef declaration declares no variable or function.
@@ -1467,12 +1469,8 @@ Binding* Analyzer::declare_variable(const Specifiers& specifiers, const Declarat
 	const bool counted = !c_source_ && (typed_initialization || pattern_body) && body_ != nullptr &&
 		where->kind == ScopeKind::Block && !specifiers.is_static && !specifiers.is_extern &&
 		!specifiers.is_thread_local;
-	if (type->runtime_array() && body_ != nullptr)
-	{
-		++where->initialized;
-		if (body_->switch_statement != nullptr)
-			++body_->switch_statement->initialized;
-	}
+	if (type->c_variably_modified)
+		note_variably_modified_declaration(where);
 	if (counted && initializer != nullptr)
 	{
 		++where->initialized;
@@ -1592,6 +1590,15 @@ Binding* Analyzer::declare_variable(const Specifiers& specifiers, const Declarat
 	return binding;
 }
 
+void Analyzer::note_variably_modified_declaration(Scope* scope)
+{
+	if (scope->kind != ScopeKind::Block || body_ == nullptr)
+		return;
+	++scope->initialized;
+	if (body_->switch_statement != nullptr)
+		++body_->switch_statement->initialized;
+}
+
 bool Analyzer::check_variable_object(const Specifiers& specifiers, const Type* type, Scope* where,
 	const syntax::Initializer* initializer, bool member, bool definition, bool typed_initialization, uint32_t location)
 {
@@ -1605,6 +1612,8 @@ bool Analyzer::check_variable_object(const Specifiers& specifiers, const Type* t
 		(where->kind != ScopeKind::Block || specifiers.is_static || specifiers.is_extern ||
 			specifiers.is_thread_local || initializer != nullptr))
 		error(location, "a variable-length array requires automatic storage and no initializer");
+	if (type->c_variably_modified && (where->kind != ScopeKind::Block || specifiers.is_extern || member))
+		error(location, "a variably modified object must be declared without linkage at block scope");
 	if (member || definition)
 	{
 		// An array's bound may depend on template parameters (known in the
@@ -2675,7 +2684,11 @@ void Analyzer::function_definition(const syntax::FunctionDecl& decl, Scope* scop
 	auto_declarator_ = (specifiers.type == auto_placeholder_ || specifiers.type == decltype_auto_placeholder_) &&
 		!specifiers.is_typedef;
 	placeholder_suffix_ = !specifiers.is_typedef ? syntax::OwnFunctionSuffix(decl.declarator) : nullptr;
+	const syntax::DeclaratorSuffix* saved_c_definition = c_definition_suffix_;
+	if (c_source_)
+		c_definition_suffix_ = placeholder_suffix_;
 	const DeclaratorInfo info = declarator(decl.declarator, declared, scope, decl.location, &specifiers);
+	c_definition_suffix_ = saved_c_definition;
 	auto_declarator_ = saved_auto;
 	placeholder_suffix_ = saved_suffix;
 	if (info.type->kind != TypeKind::Function || info.name == nullptr)

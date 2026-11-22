@@ -125,20 +125,23 @@ native and Wasm lanes.
 
 ## Variably modified type requirements
 
-C99 requires variable-length arrays. cppgm implements a subset and defines
-`__STDC_NO_VLA__` in C11 and C17. GCC 15 and Clang 21 accept and run the
-pending portable probes in pedantic C17. Classifying a form as pending
-here records a language gap independently of the GNU extension inventory.
+C99 requires variable-length arrays. cppgm defines `__STDC_NO_VLA__` in
+C11 and C17 while qualification continues. The seven portable probes
+for mixed dimensions, typedefs, pointers, parameters and `sizeof` type
+names pass after this batch. GCC 15 and Clang 21 accept the corresponding
+PA38 cases in pedantic C17. Casts and GNU `typeof` with variably modified
+type names, further compatibility rules and wider target ABI coverage
+remain open.
 
 | C11 clause | Requirement | Current evidence |
 | --- | --- | --- |
-| 6.2.4p7, 6.7.6.2p5 | A VLA retains its size for its lifetime and releases automatic storage when its scope ends. | [Single-dimension VLA across a call](../pa38/tests/general/500-vla-call-c-unwind.t) and a C-only link of c-testsuite `00207.c`. Runtime dimensions nested with fixed or other runtime dimensions are pending. |
-| 6.7.6.2p2 | Variably modified identifiers obey block and prototype scope and linkage constraints, independently of whether they allocate storage. | Block-scope automatic VLA objects are covered. Pointers to VLAs and block-scope typedefs are pending. |
-| 6.7.6.2p4–p5, 6.7.6.3p7 | Prototype-scope bounds are treated as `[*]`. Outermost parameter arrays adjust to pointers. | [Outermost star and static constraint](../pa38/tests/general/300-array-parameter-star.t) and four passing configurations of c-testsuite `00162.c`. Nested prototype bounds are pending. |
-| 6.7.8p3 | A typedef with a varying bound captures its extent each time execution reaches the declaration. | Pending loop and reuse probes. |
-| 6.5.3.4p2, 6.7.6.2p5 | `sizeof` uses a VLA's runtime size. A bound inside `sizeof` can be elided if its value cannot change the result. | Existing one-dimensional object coverage. Runtime array type names and the elidable pointer-type bound are pending. |
-| 6.8.6.1p1, 6.8.4.2p2 | `goto` and switch labels cannot bypass entry into the scope of a variably modified identifier. | [Jump into a VLA scope](../pa38/tests/general/300-variable-array-goto-bad.t). Bypassing a variably modified typedef or pointer is pending. |
-| 6.9.1p10 | Evaluate the size expressions of variably modified parameters on function entry. | Pending probes cover inner strides and side effects in the adjusted outermost bracket, with and without `static`. |
+| 6.2.4p7, 6.7.6.2p5 | A VLA retains its size for its lifetime and releases automatic storage when its scope ends. | [Single-dimension VLA across a call](../pa38/tests/general/500-vla-call-c-unwind.t), [mixed and fully runtime dimensions](../pa38/tests/general/300-variable-array-multidimensional.t), and a C-only link of c-testsuite `00207.c`. |
+| 6.7.6.2p2 | Variably modified identifiers obey block and prototype scope and linkage constraints, independently of whether they allocate storage. | [Automatic and static pointers](../pa38/tests/general/300-variable-array-pointer.t) and [extern rejection](../pa38/tests/general/300-variable-array-extern-pointer-bad.t). |
+| 6.7.6.2p4–p6, 6.7.6.3p7 | Prototype-scope bounds are treated as `[*]`. Outermost parameter arrays adjust to pointers. | [Outermost star](../pa38/tests/general/300-array-parameter-star.t), [nested prototype bounds](../pa38/tests/general/300-variable-array-parameter.t), and [conflicting fixed inner bounds](../pa38/tests/general/300-variable-array-parameter-conflict-bad.t). |
+| 6.7.8p3 | A typedef with a varying bound captures its extent each time execution reaches the declaration. | [Loop, alias composition, and extent reuse](../pa38/tests/general/300-variable-array-typedef.t). |
+| 6.5.3.4p2, 6.7.6.2p5 | `sizeof` uses a VLA's runtime size. A bound inside `sizeof` can be elided if its value cannot change the result. | [Runtime array type names and the elidable pointer-type bound](../pa38/tests/general/300-variable-array-typeid.t). |
+| 6.8.6.1p1, 6.8.4.2p2 | `goto` and switch labels cannot bypass entry into the scope of a variably modified identifier. | [Jump into a VLA scope](../pa38/tests/general/300-variable-array-goto-bad.t), [typedef](../pa38/tests/general/300-variable-array-goto-typedef-bad.t), and [pointer](../pa38/tests/general/300-variable-array-case-pointer-bad.t). |
+| 6.9.1p10 | Evaluate the size expressions of variably modified parameters on function entry. | [Inner strides and side effects in the adjusted outer bracket](../pa38/tests/general/300-variable-array-parameter.t), with and without `static`. |
 
 [C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
 
@@ -150,6 +153,11 @@ for Darwin x86-64 and arm64 at `-O0` and `-O2`. All six Linux AArch64
 objects linked with LLD and a minimal ELF startup routine and ran
 successfully under QEMU user mode 10.2.1. Hosted SDK and native Darwin
 execution are separate qualification items.
+
+The five new VLA runtime fixtures ran at `-O0` and `-O2` on Linux x86-64
+and Linux AArch64 under QEMU. Both Darwin targets emitted Mach-O objects.
+The PA38 Wasm lane also ran the five fixtures and checked the associated
+rejection cases. [PA38 VLA parameter case](../pa38/tests/general/300-variable-array-parameter.t)
 
 Copies of volatile-qualified records now use LowIR scalar accesses for
 the qualified storage, including by-value arguments and returns. The

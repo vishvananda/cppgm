@@ -530,8 +530,11 @@ private:
 		Scope* prototype, const syntax::ParameterClause& clause, uint32_t index, const Type* type);
 	Scope* qualified_lookup_scope(Scope* qualifier, Scope* scope);
 	bool member_hides_parameter(Scope* qualifier, const Identifier* name);
-	const Type* parameter_type(const syntax::ParameterDeclaration& parameter, Scope* scope);
-	const Type* type_id(const syntax::TypeId& type, Scope* scope, bool allow_placeholder = false);
+	const Type* parameter_type(
+		const syntax::ParameterDeclaration& parameter, Scope* scope, RuntimeArrayBound** runtime_bounds = nullptr);
+	const Type* type_id(const syntax::TypeId& type, Scope* scope, bool allow_placeholder = false,
+		const RuntimeArrayBound** runtime_bounds = nullptr);
+	void note_variably_modified_declaration(Scope* scope);
 	const Type* decltype_type(const syntax::Expr& operand, Scope* scope);
 	const Type* decltype_result(const syntax::Expr& operand, const ExprFacts& facts);
 	uint64_t array_bound(const syntax::Expr& bound, Scope* scope, bool* runtime = nullptr, bool* zero_length = nullptr);
@@ -2431,6 +2434,7 @@ private:
 	// A function declaration's own function declarator, whose return type
 	// may hold auto (see apply_suffix); null elsewhere.
 	const syntax::DeclaratorSuffix* placeholder_suffix_ = nullptr;
+	const syntax::DeclaratorSuffix* c_definition_suffix_ = nullptr;
 	// The type that replaced auto in the declaration's earlier declarators
 	// (7.1.6.4p7; null before the first).
 	const Type* auto_deduced_ = nullptr;

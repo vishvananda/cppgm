@@ -161,3 +161,23 @@ with GCC's C driver. PA38 checks a VLA that stays live across a call.
 [C11 draft, N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [WG14 tracked editions](https://www.open-std.org/jtc1/sc22/wg14/www/projects.html) ·
 [PA38 VLA call regression](../pa38/tests/general/500-vla-call-c-unwind.t)
+
+## Variable dimensions and parameter adjustment
+
+C11 6.7.6.2p4 makes an array variable length when its element size is
+variable, including an array with a fixed outer count. A local declaration
+or typedef evaluates the bounds it introduces. Section 6.7.8p3 requires
+a typedef to capture its bounds each time execution reaches it. Uses of
+the typedef refer to the captured extent.
+
+The outermost array parameter adjusts to a pointer under 6.7.6.3p7.
+The definition still evaluates the written size expressions on function
+entry under 6.9.1p10. In prototype scope a variable bound has the meaning
+of `[*]`. For `sizeof`, cppgm elides evaluation when all variable bounds
+are behind a pointer and the resulting type has a fixed size. `_Alignof`
+can use the element alignment without evaluating bounds.
+
+[C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[PA38 multidimensional arrays](../pa38/tests/general/300-variable-array-multidimensional.t) ·
+[PA38 captured typedef extents](../pa38/tests/general/300-variable-array-typedef.t) ·
+[PA38 parameter adjustment](../pa38/tests/general/300-variable-array-parameter.t)

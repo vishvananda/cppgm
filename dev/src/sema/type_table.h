@@ -45,6 +45,7 @@ public:
 	// template parameters (`bound` 0).
 	const Type* array(const Type* element, uint64_t bound, const Type* dependent_bound = nullptr,
 		const syntax::Expr* runtime_bound = nullptr, bool zero_length = false);
+	const Type* c_array_star(const Type* element);
 	// `dependent_size`: the placeholder of a lane type or size that depends
 	// on template parameters (`lanes` 0), a byte size if `bytes`.
 	const Type* vector(const Type* lane, uint64_t lanes, const Type* dependent_size = nullptr, bool bytes = false,

@@ -59,6 +59,15 @@ struct Specifiers
 	syntax::Slice<syntax::DeclSpecifier> mode_specifiers;
 };
 
+// Bounds introduced by one declarator, in the order that makes each
+// inner extent available to its enclosing array. Existing aliases do
+// not contribute entries to a new declarator's plan.
+struct RuntimeArrayBound
+{
+	const Type* array;
+	RuntimeArrayBound* next;
+};
+
 // A declarator's type and declarator-id.
 struct DeclaratorInfo
 {
@@ -84,6 +93,7 @@ struct DeclaratorInfo
 	// When the declarator declares an array: its bound as written (null
 	// for an omitted one).
 	const syntax::Expr* bound;
+	RuntimeArrayBound* runtime_bounds;
 	uint32_t location;
 	// A GNU asm label's symbol name (null for none).
 	const char* asm_label;

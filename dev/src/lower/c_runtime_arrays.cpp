@@ -1,17 +1,34 @@
 #include "lower/function_lowering.h"
 
 #include "sema/conversions.h"
+#include "sema/declaration_records.h"
 
 namespace lower {
 
-RValue FunctionLowering::runtime_array_size(const sema::Type* type)
+FunctionLowering::RuntimeArrayStride FunctionLowering::runtime_array_stride(const sema::Type* type)
 {
-	const auto slot = runtime_sizes_.find(type->runtime_bound);
+	if (type->runtime_bound != nullptr)
+		return { type->runtime_bound, 1 };
+	if (const RuntimeArrayStride* retained = runtime_strides_.find(type))
+		return *retained;
+	RuntimeArrayStride stride = runtime_array_stride(type->element);
+	stride.multiplier *= type->bound;
+	runtime_strides_.insert(type, stride);
+	return stride;
+}
+
+RValue FunctionLowering::runtime_array_size(const sema::Type* type, uint32_t location)
+{
+	const RuntimeArrayStride stride = runtime_array_stride(type);
+	const auto slot = runtime_sizes_.find(stride.bound);
 	if (slot == PointerMap::kMissing)
-		throw LoweringError(type->runtime_bound->location, "a runtime array extent without an evaluated declaration");
+		throw LoweringError(location, "a runtime array extent without an evaluated declaration");
 	Place place = Place();
 	place.storage = lowir::Value::slot(slot);
-	return load(lowering_.storage_type(lowering_.graph().types.fundamental(FundamentalType::UnsignedLongInt)), place);
+	const lowir::Type size = lowering_.storage_type(
+		lowering_.graph().types.fundamental(FundamentalType::UnsignedLongInt));
+	const RValue bytes = load(size, place);
+	return stride.multiplier == 1 ? bytes : binary(lowir::BinaryOp::Mul, size, bytes, integer(size, stride.multiplier));
 }
 
 RValue FunctionLowering::dynamic_stack_allocate(RValue bytes, uint64_t alignment)
@@ -35,27 +52,50 @@ RValue FunctionLowering::dynamic_stack_allocate(RValue bytes, uint64_t alignment
 	return address;
 }
 
-void FunctionLowering::local_runtime_array(const sema::VariableEntity* variable, uint32_t location)
+RValue FunctionLowering::evaluate_runtime_bounds(
+	const sema::RuntimeArrayBound* bounds, const sema::Type* result, uint32_t location)
 {
-	const sema::Type* type = variable->type;
-	const syntax::Expr& bound = *type->runtime_bound;
+	if (bounds == nullptr)
+		return result == nullptr ? RValue() : runtime_array_size(result, location);
 	sema::TypeTable& types = lowering_.graph().types;
 	const sema::Type* size_type = types.fundamental(FundamentalType::UnsignedLongInt);
 	const lowir::Type size = lowering_.storage_type(size_type);
-	const lowir::Type pointer = program_.pointer_type();
-	// The bound is evaluated exactly once on each entry to the declaration.
-	RValue bytes = convert(rvalue(bound), bound.facts->type, size_type, ConversionContext::Initialization);
-	bytes = binary(lowir::BinaryOp::Mul, size, bytes, integer(size, lowering_.size_of(type->element, location)));
-	auto slot = runtime_sizes_.find(&bound);
-	if (slot == PointerMap::kMissing)
+	RValue result_bytes = RValue();
+	bool computed = false;
+	for (const sema::RuntimeArrayBound* current = bounds; current != nullptr; current = current->next)
 	{
-		slot = generated_slot(lowir::SlotKind::Tmpobj, size);
-		runtime_sizes_.set(&bound, slot);
+		const sema::Type* array = current->array;
+		const syntax::Expr& bound = *array->runtime_bound;
+		const RValue count = convert(rvalue(bound), bound.facts->type, size_type, ConversionContext::Initialization);
+		const RValue stride = array->element->runtime_array()
+			? runtime_array_size(array->element, bound.location)
+			: integer(size, lowering_.size_of(array->element, bound.location));
+		const RValue bytes = binary(lowir::BinaryOp::Mul, size, count, stride);
+		auto slot = runtime_sizes_.find(&bound);
+		if (slot == PointerMap::kMissing)
+		{
+			slot = generated_slot(lowir::SlotKind::Tmpobj, size);
+			runtime_sizes_.set(&bound, slot);
+		}
+		Place saved = Place();
+		saved.storage = lowir::Value::slot(slot);
+		store(size, bytes, saved);
+		if (array == result)
+		{
+			result_bytes = bytes;
+			computed = true;
+		}
 	}
-	Place saved_size = Place();
-	saved_size.storage = lowir::Value::slot(slot);
-	store(size, bytes, saved_size);
-	const uint64_t natural = lowering_.alignment_of(type->element, location);
+	return computed || result == nullptr ? result_bytes : runtime_array_size(result, location);
+}
+
+void FunctionLowering::local_runtime_array(
+	const sema::VariableEntity* variable, const sema::RuntimeArrayBound* bounds, uint32_t location)
+{
+	const sema::Type* type = variable->type;
+	const RValue bytes = evaluate_runtime_bounds(bounds, type, location);
+	const lowir::Type pointer = program_.pointer_type();
+	const uint64_t natural = lowering_.alignment_of(type, location);
 	const uint64_t alignment = variable->alignment_request > natural ? variable->alignment_request : natural;
 	// StackAlloc guarantees sixteen-byte alignment. Stronger alignments
 	// reserve padding and round the returned address, retaining the original

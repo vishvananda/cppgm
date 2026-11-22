@@ -210,6 +210,9 @@ void FunctionLowering::lower_definition()
 		++index;
 		++parameter_index;
 	}
+	if (function_->scope != nullptr && function_->scope->c_definition_parameters)
+		evaluate_runtime_bounds(
+			lowering_.graph().runtime_bounds(function_->scope), nullptr, function_->definition_location);
 	if (function_->scope == nullptr && !(base_entry_ && function_->inherits_virtual))
 	{
 		// An implicit copy or move function's parameter and an inheriting

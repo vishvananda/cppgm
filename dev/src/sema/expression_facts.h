@@ -236,6 +236,8 @@ enum : uint32_t
 	// Kind-specific use of the same bit: sizeof a C runtime array, whose
 	// type is retained in `target` rather than a folded integer `value`.
 	kRuntimeSize = kRuntimeCheck,
+	// On a C sizeof, evaluate the expression operand to designate its VLA.
+	kRuntimeSizeOperand = 33554432,
 	// Binary comparison only: its separately typed equivalent.
 	kRewrittenComparison = kRuntimeCheck,
 	// A braced-init-list initializing std::initializer_list<E>: the array

@@ -47,6 +47,26 @@ def c_array_declarators(size, bound):
         print(f'int f_{index}(int n) {{ int a[{bound}]; return sizeof(a); }}')
 
 
+def c_vla_dimensions(size):
+    print('static unsigned long run(int n) {')
+    print('typedef int Tensor' + '[n][1]' * size + ';')
+    print('Tensor value;')
+    print('return sizeof value;')
+    print('}')
+    print('int main(void) { return run(1) != sizeof(int); }')
+
+
+def c_vla_extent_uses(size):
+    print('static unsigned long run(int n) {')
+    print('typedef int Tensor' + '[1]' * 64 + '[n];')
+    print('unsigned long sum = 0;')
+    for _ in range(size):
+        print('sum += sizeof(Tensor);')
+    print('return sum;')
+    print('}')
+    print(f'int main(void) {{ return run(3) != {size}UL * 3 * sizeof(int); }}')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('case', choices=['parameter-bases', 'plain-templates',
@@ -55,6 +75,7 @@ def main():
                                         'c-macro-binding-stack', 'c-redeclarations',
                                         'c-generic-arrays', 'c-generic-prototypes', 'c-generic-short-lists',
                                         'c-vla-declarators', 'c-fixed-array-declarators',
+                                        'c-vla-dimensions', 'c-vla-extent-uses',
                                         *EDITIONS])
     parser.add_argument('size', type=int)
     args = parser.parse_args()
@@ -80,6 +101,12 @@ def main():
         return
     if args.case in ('c-vla-declarators', 'c-fixed-array-declarators'):
         c_array_declarators(args.size, 'n' if args.case == 'c-vla-declarators' else '2')
+        return
+    if args.case == 'c-vla-dimensions':
+        c_vla_dimensions(args.size)
+        return
+    if args.case == 'c-vla-extent-uses':
+        c_vla_extent_uses(args.size)
         return
     if args.case == 'macro-replacements':
         print('#define EMPTY()')

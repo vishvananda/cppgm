@@ -1607,9 +1607,12 @@ RValue FunctionLowering::size_query(const syntax::Expr& expr)
 {
 	if (expr.kind == syntax::ExprKind::Sizeof && (expr.facts->flags & sema::kRuntimeSize) != 0)
 	{
-		// A VLA operand is evaluated; its extent was saved at declaration.
-		glvalue(*static_cast<const syntax::SizeofExpr&>(expr).operand);
-		return runtime_array_size(expr.facts->target);
+		if ((expr.facts->flags & sema::kRuntimeSizeOperand) != 0)
+		{
+			glvalue(*static_cast<const syntax::SizeofExpr&>(expr).operand);
+			return runtime_array_size(expr.facts->target, expr.location);
+		}
+		return evaluate_runtime_bounds(lowering_.graph().runtime_bounds(&expr), expr.facts->target, expr.location);
 	}
 	// 5.3.3: sizeof (and alignof, 5.3.6) is its folded size_t value,
 	// materialized as a constant.
@@ -1805,7 +1808,7 @@ RValue FunctionLowering::pointer_offset(const RValue& pointer, const RValue& off
 	const uint64_t size = pointee->runtime_array() ? 0 : lowering_.size_of(pointee, location);
 	if (pointee->runtime_array())
 		count = binary(lowir::BinaryOp::Mul, i64, count,
-			convert_integer(runtime_array_size(pointee),
+			convert_integer(runtime_array_size(pointee, location),
 				lowering_.graph().types.fundamental(FundamentalType::UnsignedLongInt), i64, ConversionContext::Operand,
 				true, false));
 	else if (size != 1)
@@ -1839,7 +1842,7 @@ RValue FunctionLowering::pointer_difference(
 	const sema::Type* pointee = pointer_type->unqualified->element;
 	if (pointee->runtime_array())
 	{
-		RValue size = runtime_array_size(pointee);
+		RValue size = runtime_array_size(pointee, location);
 		size.type = i64;
 		return binary(lowir::BinaryOp::Div, i64, bytes, size, lowir::IF_EXACT);
 	}
@@ -2267,8 +2270,13 @@ Place FunctionLowering::subscript(const syntax::SubscriptExpr& expr)
 		const sema::Type* index_type = DecayedType(lowering_.graph().types, WithoutParentheses(&position)->facts->type);
 		RValue scaled = convert_integer(
 			offset, index_type, i64, ConversionContext::Additive, IsSigned(index_type), IsLiteralExpression(position));
-		scaled = binary(
-			lowir::BinaryOp::Mul, i64, scaled, integer(i64, lowering_.size_of(expr.facts->type, expr.location)));
+		const sema::Type* element = expr.facts->type;
+		const RValue stride = element->runtime_array()
+			? convert_integer(runtime_array_size(element, expr.location),
+				  lowering_.graph().types.fundamental(FundamentalType::UnsignedLongInt), i64,
+				  ConversionContext::Operand, true, false)
+			: integer(i64, lowering_.size_of(element, expr.location));
+		scaled = binary(lowir::BinaryOp::Mul, i64, scaled, stride);
 		place.storage = index(lowir::Type::scalar(lowir::TypeKind::I8), ir_model::IPK_ARRAY_ELEMENT, pointer.value,
 			scaled, lowir::IndexBounds::InBounds)
 							.value;

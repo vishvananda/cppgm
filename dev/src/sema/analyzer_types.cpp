@@ -994,6 +994,7 @@ DeclaratorInfo Analyzer::declarator(const syntax::Declarator* declarator, const 
 	uint32_t location, const Specifiers* specifiers, DeclaratorUse use)
 {
 	DeclaratorInfo info = DeclaratorInfo();
+	RuntimeArrayBound** next_bound = &info.runtime_bounds;
 	info.location = declarator != nullptr ? declarator->location : location;
 	info.name = DeclaratorId(declarator);
 	// GNU's vector attributes after the declarator-id make the declared
@@ -1069,8 +1070,6 @@ DeclaratorInfo Analyzer::declarator(const syntax::Declarator* declarator, const 
 		check_stack(current->location);
 		for (const syntax::PtrOperator& pointer : current->pointers)
 		{
-			if (type->runtime_array())
-				error(current->location, "a variably modified pointer declaration is outside the C profile");
 			// 8.3.2p5/p6: collapsing applies to a reference supplied by
 			// an alias, decltype or template parameter, not another
 			// reference formed directly in this declarator.
@@ -1092,7 +1091,7 @@ DeclaratorInfo Analyzer::declarator(const syntax::Declarator* declarator, const 
 		for (uint32_t i = current->suffixes.size; i-- > 0;)
 		{
 			const syntax::DeclaratorSuffix& suffix = current->suffixes[i];
-			if (suffix.array_cv != 0 || suffix.array_static || suffix.array_star)
+			if (suffix.array_cv != 0 || suffix.array_static)
 			{
 				if (use != DeclaratorUse::Parameter || c_parameter_array != nullptr)
 					error(current->location, "C array qualifiers require the outermost parameter array");
@@ -1111,6 +1110,13 @@ DeclaratorInfo Analyzer::declarator(const syntax::Declarator* declarator, const 
 				placeholder_home_ = saved_home;
 			if (failed())
 				return info;
+			if (c_source_ && suffix.kind == syntax::DeclaratorSuffixKind::Array && suffix.bound != nullptr &&
+				type->runtime_bound == suffix.bound)
+			{
+				*next_bound = graph_.arena.allocate_array<RuntimeArrayBound>(1);
+				**next_bound = RuntimeArrayBound{ type, nullptr };
+				next_bound = &(*next_bound)->next;
+			}
 			// In C++11 the nested function's exception specification is not
 			// part of its type, but its own prototype must still validate it.
 			// It cannot borrow the enclosing member function's implicit object.
@@ -1146,9 +1152,7 @@ DeclaratorInfo Analyzer::declarator(const syntax::Declarator* declarator, const 
 	if (c_parameter_array != nullptr)
 	{
 		if (type->kind != TypeKind::Array || array != c_parameter_array)
-			error(location,
-				c_parameter_array->array_star ? "a nested [*] bound is outside the C profile"
-											  : "C array qualifiers require the outermost parameter array");
+			error(location, "C array qualifiers require the outermost parameter array");
 		type = types_.qualified(types_.pointer(type->element), c_parameter_array->array_cv);
 	}
 	info.type = type;
@@ -1340,7 +1344,8 @@ const Type* Analyzer::checked_array(const Type* element, uint64_t bound, uint32_
 	const char* failure = element->is_reference()                           ? "array of references"
 		: element->kind == TypeKind::Function                               ? "array of functions"
 		: element->unqualified == types_.fundamental(FundamentalType::Void) ? "array of void"
-		: element->kind == TypeKind::Array && !element->has_array_bound() && element->owner == nullptr
+		: element->kind == TypeKind::Array && !element->has_array_bound() && !element->runtime_array() &&
+			element->owner == nullptr
 		? "array of arrays of unknown bound"
 		: nullptr;
 	if (failure != nullptr)
@@ -1348,7 +1353,7 @@ const Type* Analyzer::checked_array(const Type* element, uint64_t bound, uint32_
 		substitution_error(location, failure);
 		return nullptr;
 	}
-	if (semantic() && template_depth_ == 0 && !check_abstract_object(element, location))
+	if (!c_source_ && semantic() && template_depth_ == 0 && !check_abstract_object(element, location))
 		return nullptr;
 	return types_.array(element, bound, nullptr, nullptr, zero_length);
 }
@@ -1358,18 +1363,23 @@ const Type* Analyzer::apply_suffix(const syntax::DeclaratorSuffix& suffix, const
 {
 	if (suffix.kind == syntax::DeclaratorSuffixKind::Array)
 	{
+		if (suffix.array_star)
+		{
+			checked_array(type, 1, location);
+			return types_.c_array_star(type);
+		}
 		bool runtime = false;
 		bool zero_length = false;
 		const uint64_t bound = suffix.bound != nullptr ? array_bound(*suffix.bound, scope, &runtime, &zero_length) : 0;
 		if (runtime)
 		{
-			if (scope->kind != ScopeKind::Block || type->kind == TypeKind::Array)
-				error(location, "a runtime array bound requires a one-dimensional block-scope object");
+			if (scope->kind != ScopeKind::Block && scope->kind != ScopeKind::Function)
+				error(location, "a variably modified type requires block or function prototype scope");
 			checked_array(type, 1, location);
+			if (scope->kind == ScopeKind::Function && !scope->c_definition_parameters)
+				return types_.c_array_star(type);
 			return types_.array(type, 0, nullptr, suffix.bound);
 		}
-		if (type->runtime_array())
-			error(location, "multidimensional variable-length arrays are outside the C profile");
 		const Type* array = checked_array(type, bound, location, zero_length);
 		if (array == nullptr)
 			return type;
@@ -1381,6 +1391,9 @@ const Type* Analyzer::apply_suffix(const syntax::DeclaratorSuffix& suffix, const
 		return array;
 	}
 	const syntax::ParameterClause& clause = *suffix.parameters;
+	const bool c_definition = c_source_ && &suffix == c_definition_suffix_;
+	RuntimeArrayBound* parameter_bounds = nullptr;
+	RuntimeArrayBound** next_parameter_bound = &parameter_bounds;
 	const size_t base = parameter_scratch_.size();
 	const bool void_list = clause.parameters.size == 1 && !clause.ellipsis &&
 		clause.parameters[0]->default_argument == nullptr && DeclaratorId(clause.parameters[0]->declarator) == nullptr;
@@ -1395,13 +1408,14 @@ const Type* Analyzer::apply_suffix(const syntax::DeclaratorSuffix& suffix, const
 	for (const syntax::ParameterDeclaration* parameter : clause.parameters)
 	{
 		const uint32_t index = static_cast<uint32_t>(parameter_scratch_.size() - base);
-		if (earlier == nullptr && index != 0 && UsesDecltype(*parameter))
+		if (earlier == nullptr && (index != 0 || c_source_) && UsesDecltype(*parameter))
 		{
 			// The parameters' object types: an array or function parameter's
 			// adjusted to a pointer (8.3.5p5).
 			earlier = prototype_scope(clause, nullptr, 0, scope);
 			earlier->dumped = false;
 			earlier->guarded = true;
+			earlier->c_definition_parameters = c_definition;
 			for (uint32_t i = 0; i < index; ++i)
 				declare_parameter(earlier, clause, i, parameter_object_type(parameter_scratch_[base + i]));
 		}
@@ -1425,7 +1439,8 @@ const Type* Analyzer::apply_suffix(const syntax::DeclaratorSuffix& suffix, const
 		const syntax::Name* id = template_depth_ != 0 ? DeclaratorId(parameter->declarator) : nullptr;
 		if (id != nullptr && id->last().kind == syntax::NameComponentKind::Identifier)
 			check_template_parameter_name(scope, id->last().identifier, parameter->location);
-		const Type* parameter_type = this->parameter_type(*parameter, earlier != nullptr ? earlier : scope);
+		const Type* parameter_type = this->parameter_type(
+			*parameter, earlier != nullptr ? earlier : scope, c_definition ? next_parameter_bound : nullptr);
 		if (failed())
 		{
 			parameter_scratch_.resize(base);
@@ -1433,6 +1448,8 @@ const Type* Analyzer::apply_suffix(const syntax::DeclaratorSuffix& suffix, const
 		}
 		placed = placeholders_made_ != made;
 		parameter_scratch_.push_back(parameter_type);
+		while (*next_parameter_bound != nullptr)
+			next_parameter_bound = &(*next_parameter_bound)->next;
 		if (parameter->default_argument != nullptr &&
 			parameter->default_argument->expression->kind != syntax::ExprKind::Literal &&
 			parameter->default_argument->expression->kind != syntax::ExprKind::KeywordLiteral)
@@ -1458,6 +1475,13 @@ const Type* Analyzer::apply_suffix(const syntax::DeclaratorSuffix& suffix, const
 		}
 	}
 	uint32_t count = static_cast<uint32_t>(parameter_scratch_.size() - base);
+	if (c_definition && earlier != nullptr)
+	{
+		declare_parameter(earlier, clause, count - 1, parameter_object_type(parameter_scratch_.back()));
+		graph_.set_c_parameter_scope(&clause, earlier);
+		if (parameter_bounds != nullptr)
+			graph_.set_runtime_bounds(earlier, parameter_bounds);
+	}
 	// A sole unnamed parameter of non-dependent type void is an empty list
 	// (8.3.5p4): one of a template parameter's type that an instantiation
 	// makes void is a parameter of type void. Otherwise no parameter has
@@ -1636,6 +1660,8 @@ Binding* Analyzer::declare_parameter(
 	const Identifier* name = id != nullptr && id->last().kind == syntax::NameComponentKind::Identifier
 		? id->last().identifier
 		: nullptr;
+	if (c_source_ && name != nullptr && names_.find(prototype, name) != nullptr)
+		error(id->location, "duplicate parameter name");
 	Entity* parameter = new_entity<Entity>(EntityKind::Parameter, name, prototype, type);
 	Binding* binding = new_binding(BindingKind::Parameter, name, parameter, type);
 	prototype->has_parameter_packs = prototype->has_parameter_packs || type->kind == TypeKind::Expansion;
@@ -1647,7 +1673,8 @@ Binding* Analyzer::declare_parameter(
 	return binding;
 }
 
-const Type* Analyzer::parameter_type(const syntax::ParameterDeclaration& parameter, Scope* scope)
+const Type* Analyzer::parameter_type(
+	const syntax::ParameterDeclaration& parameter, Scope* scope, RuntimeArrayBound** runtime_bounds)
 {
 	Specifiers specifiers;
 	this->specifiers(parameter.specifiers, scope, specifiers, false);
@@ -1671,6 +1698,8 @@ const Type* Analyzer::parameter_type(const syntax::ParameterDeclaration& paramet
 		error(parameter.location, "constexpr in a parameter declaration");
 	const DeclaratorInfo info = declarator(parameter.declarator, specifiers.type, scope, parameter.location,
 		specifiers.mode_specifiers.empty() ? nullptr : &specifiers, DeclaratorUse::Parameter);
+	if (runtime_bounds != nullptr)
+		*runtime_bounds = info.runtime_bounds;
 	// A nested function declarator's trailing return type can resolve its
 	// leading auto. A parameter itself still cannot have an undeduced type.
 	if ((specifiers.type == auto_placeholder_ || specifiers.type == decltype_auto_placeholder_) &&
@@ -1687,7 +1716,8 @@ const Type* Analyzer::parameter_type(const syntax::ParameterDeclaration& paramet
 	return info.type;
 }
 
-const Type* Analyzer::type_id(const syntax::TypeId& type, Scope* scope, bool allow_placeholder)
+const Type* Analyzer::type_id(
+	const syntax::TypeId& type, Scope* scope, bool allow_placeholder, const RuntimeArrayBound** runtime_bounds)
 {
 	Specifiers specifiers;
 	this->specifiers(type.specifiers, scope, specifiers, false);
@@ -1711,8 +1741,12 @@ const Type* Analyzer::type_id(const syntax::TypeId& type, Scope* scope, bool all
 		error(type.location, "auto in a type-id");
 	if (info.virt_suffix != nullptr)
 		error(type.location, "a virt-specifier in a type-id");
-	if (info.type->runtime_array())
-		error(type.location, "a variable-length array type-id is outside the C profile");
+	if (info.type->c_variably_modified)
+	{
+		if (runtime_bounds == nullptr)
+			error(type.location, "a variably modified type name is unsupported in this context");
+		*runtime_bounds = info.runtime_bounds;
+	}
 	type_id_alignment_ = info.type == specifiers.type ? specifiers.alias_alignment : 0;
 	return info.type;
 }

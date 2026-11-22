@@ -253,7 +253,9 @@ bool ConversionRules::c_function_compatible(const Type* source, const Type* targ
 		return false;
 	if (source == target)
 		return true;
-	if (source->element != target->element || (!source->c_unprototyped() && !target->c_unprototyped()))
+	if (!source->c_unprototyped() && !target->c_unprototyped())
+		return c_type_compatible(source, target);
+	if (!c_type_compatible(source->element, target->element))
 		return false;
 	const Type* unprototyped = source->c_unprototyped() ? source : target;
 	const Type* other = source->c_unprototyped() ? target : source;
@@ -284,7 +286,7 @@ bool ConversionRules::c_type_compatible(const Type* source, const Type* target, 
 	if (source == nullptr || target == nullptr)
 		return false;
 	if (ignore_cv && source->kind == TypeKind::Array && target->kind == TypeKind::Array)
-		return (source->bound == target->bound || !source->has_array_bound() || !target->has_array_bound()) &&
+		return (source->bound == target->bound || !source->constant_array_bound() || !target->constant_array_bound()) &&
 			c_type_compatible(source->element, target->element, true);
 	if (ignore_cv)
 	{
@@ -308,7 +310,7 @@ bool ConversionRules::c_type_compatible(const Type* source, const Type* target, 
 	if (source->kind == TypeKind::Pointer)
 		return c_type_compatible(source->element, target->element);
 	if (source->kind == TypeKind::Array)
-		return (source->bound == target->bound || !source->has_array_bound() || !target->has_array_bound()) &&
+		return (source->bound == target->bound || !source->constant_array_bound() || !target->constant_array_bound()) &&
 			c_type_compatible(source->element, target->element);
 	if (source->kind != TypeKind::Function)
 		return false;
@@ -600,6 +602,13 @@ bool ConversionRules::value_conversion(
 	// 4.10p2: pointer to cv T (an object type) to pointer to cv void, then
 	// a qualification adjustment.
 	const Type* pointee = source->element;
+	if (c_source_ && (pointee->c_variably_modified || goal->element->c_variably_modified) &&
+		c_type_compatible(pointee, goal->element))
+	{
+		out.second = ValueConversion::CPointer;
+		out.result = goal;
+		return true;
+	}
 	if (c_source_ &&
 		(c_pointer_extension(pointee, goal->element) ||
 			(c_extensions_ && ((pointee->cv | goal->element->cv) & kAtomic) == 0 &&

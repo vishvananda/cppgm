@@ -14,6 +14,7 @@
 namespace sema {
 
 struct CoroutineFacts;
+struct RuntimeArrayBound;
 
 // The semantic graph of one translation unit and the storage it lives in:
 // records in the arena, types interned in `types`, names indexed by
@@ -32,6 +33,18 @@ struct SemanticGraph
 	DemandList* last_root_demand;
 	// The scalar types a GNU may_alias typedef names.
 	std::vector<const Type*> may_alias_types;
+	const RuntimeArrayBound* runtime_bounds(const void* site) const
+	{
+		const uint32_t index = runtime_bound_sites.find(site);
+		return index == PointerMap::kMissing ? nullptr : runtime_bound_plans[index];
+	}
+	void set_runtime_bounds(const void* site, const RuntimeArrayBound* bounds)
+	{
+		runtime_bound_sites.set(site, static_cast<uint32_t>(runtime_bound_plans.size()));
+		runtime_bound_plans.push_back(bounds);
+	}
+	PointerMap runtime_bound_sites;
+	std::vector<const RuntimeArrayBound*> runtime_bound_plans;
 	uint32_t local_types;
 	uint32_t scopes;
 	uint32_t bindings;
@@ -119,6 +132,18 @@ struct SemanticGraph
 	}
 	PointerMap c_parameter_index;
 	std::vector<const Type* const*> c_parameter_types;
+	Scope* c_parameter_scope(const syntax::ParameterClause* clause) const
+	{
+		const uint32_t index = c_parameter_scope_index.find(clause);
+		return index == PointerMap::kMissing ? nullptr : c_parameter_scopes[index];
+	}
+	void set_c_parameter_scope(const syntax::ParameterClause* clause, Scope* scope)
+	{
+		c_parameter_scope_index.set(clause, static_cast<uint32_t>(c_parameter_scopes.size()));
+		c_parameter_scopes.push_back(scope);
+	}
+	PointerMap c_parameter_scope_index;
+	std::vector<Scope*> c_parameter_scopes;
 	// The constructors (not trivial ones) a namespace-scope or static data
 	// member initializer names, which the variable's constant initialization
 	// may run uncalled: the lowering emits them with the variable (the

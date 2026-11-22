@@ -257,6 +257,8 @@ const Type* TypeTable::qualified_anew(const Type* type, uint8_t cv)
 	switch (type->kind)
 	{
 	case TypeKind::Array:
+		if (type->c_array_star())
+			return c_array_star(qualified(type->element, cv));
 		return array(
 			qualified(type->element, cv), type->bound, type->owner, type->runtime_bound, type->zero_length_array());
 	case TypeKind::LValueReference:
@@ -278,6 +280,7 @@ const Type* TypeTable::pointer(const Type* pointee)
 {
 	Type key = Key(TypeKind::Pointer);
 	key.element = pointee;
+	key.c_variably_modified = pointee->c_variably_modified;
 	return intern(key);
 }
 
@@ -310,6 +313,18 @@ const Type* TypeTable::array(const Type* element, uint64_t bound, const Type* de
 	key.function_cv = zero_length;
 	key.owner = dependent_bound;
 	key.runtime_bound = runtime_bound;
+	key.c_variably_modified = runtime_bound != nullptr || element->c_variably_modified;
+	key.c_runtime_size = runtime_bound != nullptr || (key.has_array_bound() && element->runtime_array());
+	return intern_array(key);
+}
+
+const Type* TypeTable::c_array_star(const Type* element)
+{
+	Type key = Key(TypeKind::Array);
+	key.element = element;
+	key.function_cv = 2;
+	key.c_variably_modified = true;
+	key.c_runtime_size = true;
 	return intern_array(key);
 }
 

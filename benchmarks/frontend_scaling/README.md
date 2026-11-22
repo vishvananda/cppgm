@@ -60,6 +60,11 @@ type and each have their own runtime bound. Compare it against
 `c-fixed-array-declarators` at 1024, 2048, 4096, and 8192 functions in C17
 syntax-only mode to isolate runtime array type interning.
 
+`c-vla-dimensions` grows one typedef with alternating runtime and fixed
+dimensions. `c-vla-extent-uses` holds the rank fixed and grows the number
+of references to a captured extent. Compare syntax-only and `-O0 -c`
+costs separately. Each generated program checks the resulting size.
+
 ## C++14, C++17 and C++20
 
 The edition inputs cover the feature families in [LANGUAGE_PROFILE.md](../../LANGUAGE_PROFILE.md).
