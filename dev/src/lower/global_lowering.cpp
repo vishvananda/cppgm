@@ -2380,13 +2380,20 @@ bool ProgramLowering::static_value(const syntax::Expr& expr, StaticValue& out, b
 			const syntax::Expr& count = left_pointer ? *binary->right : *binary->left;
 			StaticValue base = StaticValue();
 			sema::Constant offset;
-			if (!static_converted(pointer, type, base) || base.kind != StaticValue::Kind::Address ||
+			if (!static_converted(pointer, type, base))
+				return false;
+			const bool fixed_address = base.kind == StaticValue::Kind::Integer && analyzer_->c_source();
+			if ((!fixed_address && base.kind != StaticValue::Kind::Address) ||
 				!analyzer_->integral_constant(count, static_scope_, offset))
 				return false;
-			const int64_t scaled = static_cast<int64_t>(offset.bits) *
-				static_cast<int64_t>(size_of(type->unqualified->element, e->location));
+			uint64_t scaled = offset.bits * size_of(type->unqualified->element, e->location);
+			if (binary->op == TokenKind::OP_MINUS)
+				scaled = -scaled;
 			out = base;
-			out.offset += binary->op == TokenKind::OP_MINUS ? -scaled : scaled;
+			if (fixed_address)
+				out.bits += scaled;
+			else
+				out.offset = static_cast<int64_t>(static_cast<uint64_t>(base.offset) + scaled);
 			return true;
 		}
 		if (!sema::IsFloating(type) ||

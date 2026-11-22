@@ -4,6 +4,7 @@
 
 #include "sema/aggregates.h"
 #include "sema/c_initializer.h"
+#include "sema/constant_interpreter.h"
 
 namespace sema {
 namespace {
@@ -305,9 +306,11 @@ private:
 		node.uses_end = analyzer_.deferred_uses_.size();
 	}
 
-	void check_static(const syntax::Expr& value)
+	void check_static(const syntax::Expr& value, bool converted = true)
 	{
 		const syntax::Expr* operand = CInitializerOperand(&value);
+		if ((operand->facts->flags & kFolded) != 0 || operand->kind == syntax::ExprKind::Literal)
+			return;
 		if (operand->kind == syntax::ExprKind::BracedInit)
 		{
 			const auto* list = static_cast<const syntax::BracedInitList*>(operand);
@@ -325,9 +328,60 @@ private:
 				return;
 			}
 		}
-		if ((operand->facts->flags & kFolded) == 0 && operand->kind != syntax::ExprKind::Literal &&
-			analyzer_.constant_scalar_initializer(value) == nullptr)
+		if (operand->kind == syntax::ExprKind::Conditional)
+		{
+			const auto* choice = static_cast<const syntax::ConditionalExpr*>(operand);
+			Constant condition;
+			if (analyzer_.converted_constant(*choice->condition, condition, false))
+			{
+				check_static(condition.bits != 0 ? *choice->then_expr : *choice->else_expr, converted);
+				return;
+			}
+		}
+		if (operand->kind == syntax::ExprKind::Binary && operand->facts->type->kind == TypeKind::Pointer &&
+			check_static_address_offset(static_cast<const syntax::BinaryExpr&>(*operand)))
+			return;
+		if (operand->kind == syntax::ExprKind::Cast && (operand->facts->flags & kRuntimeTypeEvaluation) == 0)
+		{
+			const auto* cast = static_cast<const syntax::CastExpr*>(operand);
+			const Type* target = operand->facts->type;
+			const Type* source = cast->operand->facts->type;
+			const bool to_pointer = target->kind == TypeKind::Pointer;
+			const bool from_pointer = source->kind == TypeKind::Pointer;
+			// C address constants include integer constants cast to a
+			// pointer. The static data writer also accepts address-valued
+			// integer initializers on the hosted object path.
+			if (to_pointer && IsIntegralType(source))
+			{
+				Constant integer;
+				uint64_t high;
+				if (analyzer_.integral_constant(*cast->operand, scope_, integer, high))
+					return;
+			}
+			else if (from_pointer && (to_pointer || IsIntegralType(target)))
+			{
+				check_static(*cast->operand, false);
+				return;
+			}
+		}
+		const ConstValue* result = converted ? analyzer_.constant_scalar_initializer(value)
+											 : ConstantInterpreter(analyzer_).evaluate_initializer(value, false);
+		if (result == nullptr)
 			analyzer_.error(value.location, "a C static initializer requires a constant expression");
+	}
+
+	bool check_static_address_offset(const syntax::BinaryExpr& binary)
+	{
+		if (binary.op != TokenKind::OP_PLUS && binary.op != TokenKind::OP_MINUS)
+			return false;
+		const bool left_is_index = IsIntegralType(binary.left->facts->type);
+		const syntax::Expr& base = left_is_index ? *binary.right : *binary.left;
+		const syntax::Expr& index = left_is_index ? *binary.left : *binary.right;
+		Constant offset;
+		if (!analyzer_.integral_constant(index, scope_, offset))
+			return false;
+		check_static(base);
+		return true;
 	}
 
 	void check_flexible(const syntax::BracedInitList& list)

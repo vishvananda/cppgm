@@ -56,9 +56,9 @@ public:
 	const ConstValue* evaluate_immediate_conversion(const syntax::Expr& expr, const Conversion& conversion);
 	const ConstValue* evaluate_immediate_construction(
 		const Type* type, const syntax::Initializer* initializer, const FunctionEntity* constructor, uint32_t location);
-	// A scalar initializer after its recorded conversion, published with
-	// only constant-address roots that survive this evaluation.
-	const ConstValue* evaluate_initializer(const syntax::Expr& expr);
+	// A scalar initializer with its recorded conversion by default, published
+	// only if all its constant-address roots survive this evaluation.
+	const ConstValue* evaluate_initializer(const syntax::Expr& expr, bool converted = true);
 	// Its scalar value after the given conversion (a conversion function's
 	// result before its second standard conversion, see check_narrowing).
 	bool evaluate_after(const syntax::Expr& expr, const Conversion* conversion, ConstValue& out);

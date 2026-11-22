@@ -7,12 +7,23 @@ global @holder [linkage=c, binding=internal] = {
   i32 3
   i32 13
 }
+global @addresses [linkage=c, binding=internal] = {
+  zero 8
+  ptr 4096
+  zero 8
+  ptr 8192
+  ptr 4099
+}
 
 function @main() -> i32 [role=entry, binding=strong, keep_alias=yes] {
   slot $land__1 : i64
   slot $land__2 : i64
   slot $land__3 : i64
   slot $land__4 : i64
+  slot $land__5 : i64
+  slot $land__6 : i64
+  slot $land__7 : i64
+  slot $land__8 : i64
 
   block ^entry:
     %t1 = addr @flex
@@ -96,8 +107,83 @@ function @main() -> i32 [role=entry, binding=strong, keep_alias=yes] {
 
   block ^land_end_12:
     %t37 = load typed i64 $land__4
-    %t38 = convert trunc i32 i64 %t37
-    %t39 = cmp eq i32 %t38, 0
-    %t40 = convert trunc i32 i64 %t39
-    return i32 %t40
+    branch %t37, ^land_rhs_13, ^land_short_14
+
+  block ^land_rhs_13:
+    %t38 = addr @addresses
+    %t39 = index inbounds ptr [projection=array_element] %t38, 0
+    %t40 = load typed ptr %t39
+    %t41 = cmp eq ptr %t40, 0
+    %t42 = convert trunc i32 i64 %t41
+    %t43 = cmp ne i32 %t42, 0
+    store typed i64 %t43, $land__5
+    jump ^land_end_15
+
+  block ^land_short_14:
+    store typed i64 0, $land__5
+    jump ^land_end_15
+
+  block ^land_end_15:
+    %t44 = load typed i64 $land__5
+    branch %t44, ^land_rhs_16, ^land_short_17
+
+  block ^land_rhs_16:
+    %t45 = addr @addresses
+    %t46 = index inbounds ptr [projection=array_element] %t45, 1
+    %t47 = load typed ptr %t46
+    %t48 = copy ptr 4096
+    %t49 = cmp eq ptr %t47, %t48
+    %t50 = convert trunc i32 i64 %t49
+    %t51 = cmp ne i32 %t50, 0
+    store typed i64 %t51, $land__6
+    jump ^land_end_18
+
+  block ^land_short_17:
+    store typed i64 0, $land__6
+    jump ^land_end_18
+
+  block ^land_end_18:
+    %t52 = load typed i64 $land__6
+    branch %t52, ^land_rhs_19, ^land_short_20
+
+  block ^land_rhs_19:
+    %t53 = addr @addresses
+    %t54 = index inbounds ptr [projection=array_element] %t53, 3
+    %t55 = load typed ptr %t54
+    %t56 = copy ptr 8192
+    %t57 = cmp eq ptr %t55, %t56
+    %t58 = convert trunc i32 i64 %t57
+    %t59 = cmp ne i32 %t58, 0
+    store typed i64 %t59, $land__7
+    jump ^land_end_21
+
+  block ^land_short_20:
+    store typed i64 0, $land__7
+    jump ^land_end_21
+
+  block ^land_end_21:
+    %t60 = load typed i64 $land__7
+    branch %t60, ^land_rhs_22, ^land_short_23
+
+  block ^land_rhs_22:
+    %t61 = addr @addresses
+    %t62 = index inbounds ptr [projection=array_element] %t61, 4
+    %t63 = load typed ptr %t62
+    %t64 = copy ptr 4099
+    %t65 = cmp eq ptr %t63, %t64
+    %t66 = convert trunc i32 i64 %t65
+    %t67 = cmp ne i32 %t66, 0
+    store typed i64 %t67, $land__8
+    jump ^land_end_24
+
+  block ^land_short_23:
+    store typed i64 0, $land__8
+    jump ^land_end_24
+
+  block ^land_end_24:
+    %t68 = load typed i64 $land__8
+    %t69 = convert trunc i32 i64 %t68
+    %t70 = cmp eq i32 %t69, 0
+    %t71 = convert trunc i32 i64 %t70
+    return i32 %t71
 }

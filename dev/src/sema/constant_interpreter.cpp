@@ -1979,10 +1979,10 @@ bool ConstantInterpreter::evaluate_after(const syntax::Expr& expr, const Convers
 		finish_allocations(expr.location);
 }
 
-const ConstValue* ConstantInterpreter::evaluate_initializer(const syntax::Expr& expr)
+const ConstValue* ConstantInterpreter::evaluate_initializer(const syntax::Expr& expr, bool converted)
 {
 	ConstValue value;
-	return evaluate(expr, true, value) && !incomplete_class_ ? publish(value, expr.location) : nullptr;
+	return evaluate(expr, converted, value) && !incomplete_class_ ? publish(value, expr.location) : nullptr;
 }
 
 bool ConstantInterpreter::static_variable_place(const ConstPlace& place) const
