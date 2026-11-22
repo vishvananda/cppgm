@@ -12,6 +12,8 @@
 struct PPLexerOptions
 {
 	bool c_source = false;
+	// ISO C before C11 recognizes only the wide L prefix.
+	bool unicode_literal_prefixes = true;
 	// Added to token offsets: the buffer's base in a translation unit's
 	// location space. SourceError offsets stay buffer offsets.
 	uint32_t location_base = 0;
@@ -187,6 +189,7 @@ private:
 	bool dirty_;
 	bool header_names_on_request_;
 	bool c_source_;
+	bool unicode_literal_prefixes_;
 	bool binary_exponents_;
 	bool digit_separators_;
 	bool utf8_character_literals_;

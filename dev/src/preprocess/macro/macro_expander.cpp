@@ -977,6 +977,7 @@ PPToken MacroExpander::paste_tokens(const PPToken& left, const PPToken& right)
 	PPLexerOptions options;
 	options.cxx_edition = cxx_edition_;
 	options.c_source = identifiers_.language() == SourceLanguage::C;
+	options.unicode_literal_prefixes = unicode_literal_prefixes_;
 	options.conditional_escapes = conditional_escapes_;
 	options.header_names_on_request = true;
 	options.token_text = true;

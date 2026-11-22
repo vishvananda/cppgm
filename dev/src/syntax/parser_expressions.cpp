@@ -714,7 +714,8 @@ Expr* Parser::parse_gnu_decltype_operand()
 
 Expr* Parser::parse_type_trait(TokenKind keyword)
 {
-	if (keyword == TokenKind::KW_ALIGNOF && c_source_ && tok().spelling.text[1] != '_')
+	const bool c_alignof = keyword == TokenKind::KW_ALIGNOF && c_source_ && tok().spelling.text[1] != '_';
+	if (c_alignof)
 		require_c_extension(location(), CEdition::C11, "_Alignof is a C11 extension");
 	TypeTraitExpr* expr = make<TypeTraitExpr>(ExprKind::TypeTrait, location());
 	expr->keyword = keyword;
@@ -781,6 +782,8 @@ Expr* Parser::parse_type_trait(TokenKind keyword)
 	angle_ = saved_angle;
 	if ((expr->type == nullptr && expr->operand == nullptr) || !expect(TokenKind::OP_RPAREN))
 		return nullptr;
+	if (c_alignof && expr->type == nullptr)
+		require_gnu_c_extension(expr->location, "_Alignof applied to an expression is a GNU extension");
 	return expr;
 }
 

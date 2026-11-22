@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <string>
 
+#include "lex/source_language.h"
+
 // The language modes the hosted feature probes answer by (-fno-exceptions,
 // -fno-rtti).
 struct FeatureModes
@@ -11,6 +13,7 @@ struct FeatureModes
 	bool rtti = true;
 	uint8_t language = 11;
 	bool pedantic_errors = false;
+	CEdition c_edition = CEdition::C17;
 };
 
 // Clang's `__has_feature ( identifier )` and `__has_extension`: whether

@@ -50,6 +50,27 @@ extension spellings in C99.
 [C23 draft, N3096](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
 [PA38 edition control](../pa38/tests/general/500-c11-edition-syntax.t)
 
+## Literal prefixes and feature probes by edition
+
+C11 6.4.4.4 and 6.4.5 add Unicode character and string prefixes. In
+ISO C99, `u`, `U`, and `u8` before a quote are identifiers, so a
+macro can expand there. Token pasting follows the same edition as source
+lexing. GNU99 retains GCC's Unicode literal extensions. The wide `L`
+prefix remains available in each mode.
+
+C11's `_Alignof` takes a type name under 6.5.3.4. With pedantic
+diagnostics enabled, the expression form is a GNU extension. The GNU
+spelling `__alignof__` accepts the expression. The C23 optional
+variadic macro syntax is available as an extension in earlier modes and
+has a C23 diagnostic there when requested. The C11 feature and extension
+probe answers follow the selected edition and the pedantic policy.
+
+[C99 with corrigenda, N1256](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
+[C11 draft, N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[C23 draft, N3096](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
+[PA38 C99 prefix regression](../pa38/tests/general/100-c99-literal-prefix-macros.t) ·
+[PA38 C11 prefix regression](../pa38/tests/general/100-c11-unicode-prefixes.t)
+
 ## Conditional pointers and null pointer constants
 
 C11 6.3.2.3p3 defines a null pointer constant as an integer constant

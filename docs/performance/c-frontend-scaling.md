@@ -78,3 +78,15 @@ the same bounded scalar loop as volatile arrays.
 | --- | ---: | ---: | ---: |
 | C++ `semantic_overload.cpp` | 0.0024% | +0.0042% | +0.0018% |
 | SQLite `sqlite3.c` | 0.0008% | +0.0110% | +0.0055% |
+
+## C edition tokenization and feature probes
+
+The same comparison against `facb0a137` produced byte-identical objects
+in every trial. The source lexer and token pasting use the same prefix
+setting. It is tested when an identifier is immediately followed by a
+quote, and edition comparisons for feature probes run when queried.
+
+| Input | A/A range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0022% | -0.0082% | -0.0090% |
+| SQLite `sqlite3.c` | 0.0012% | -0.0003% | -0.0006% |

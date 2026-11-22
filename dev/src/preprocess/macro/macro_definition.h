@@ -119,7 +119,7 @@ public:
 	// Whether __VA_ARGS__ may be read: only in the replacement list of a
 	// variadic macro (16.3p5).
 	virtual void allow_va_args(bool allow) = 0;
-	virtual bool allow_va_opt(uint32_t location) const = 0;
+	virtual void check_va_opt(uint32_t location) const = 0;
 
 protected:
 	~DefinitionTokens() {}

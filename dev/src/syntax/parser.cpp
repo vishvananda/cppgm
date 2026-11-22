@@ -24,6 +24,12 @@ void Parser::require_c_extension(uint32_t location, CEdition edition, const char
 		throw ParseError(location, message);
 }
 
+void Parser::require_gnu_c_extension(uint32_t location, const char* message)
+{
+	if (source_positions_ != nullptr && !source_positions_->allow_gnu_c_extension(location, message))
+		throw ParseError(location, message);
+}
+
 TranslationUnit* Parser::parse_translation_unit()
 {
 	char marker;

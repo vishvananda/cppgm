@@ -165,9 +165,10 @@ Preprocessor::Preprocessor(const PreprocessorOptions& options, const std::string
 				  options.extension_warnings == ExtensionWarnings::Disabled
 			  ? ExtensionWarnings::Pedantic
 			  : options.extension_warnings),
-	  c_edition_(options.c_edition), warn_system_headers_(options.warn_system_headers)
+	  warn_system_headers_(options.warn_system_headers)
 {
 	modes_.language = options.cxx_edition;
+	modes_.c_edition = options.c_edition;
 	modes_.pedantic_errors = options.extension_warnings == ExtensionWarnings::Errors;
 	expander_.set_input(&source_);
 	source_.set_hosted(hosted_);
@@ -175,6 +176,10 @@ Preprocessor::Preprocessor(const PreprocessorOptions& options, const std::string
 	source_.set_cxx_edition(options.cxx_edition);
 	expander_.set_conditional_escapes(options.gnu_c());
 	expander_.set_cxx_edition(options.cxx_edition);
+	const bool unicode_literal_prefixes = options.language != SourceLanguage::C || !options.strict ||
+		options.c_edition >= CEdition::C11;
+	source_.set_unicode_literal_prefixes(unicode_literal_prefixes);
+	expander_.set_unicode_literal_prefixes(unicode_literal_prefixes);
 	evaluator_.set_conditional_escapes(options.gnu_c());
 	evaluator_.set_cxx_edition(options.cxx_edition);
 	const bool separators = HasNumberSyntax(options.literals, number_syntax::Separators);
@@ -466,8 +471,24 @@ bool Preprocessor::allow_cxx_extension(
 
 bool Preprocessor::allow_c_extension(uint32_t location, CEdition edition, const char* message) const
 {
-	return c_edition_ >= edition || extension_warnings_ == ExtensionWarnings::Disabled ||
-		allow_extension(location, 0, message);
+	return modes_.c_edition >= edition || allow_gnu_c_extension(location, message);
+}
+
+bool Preprocessor::allow_gnu_c_extension(uint32_t location, const char* message) const
+{
+	return extension_warnings_ == ExtensionWarnings::Disabled || allow_extension(location, 0, message);
+}
+
+void Preprocessor::LineTokens::check_va_opt(uint32_t location) const
+{
+	if (preprocessor_.modes_.language == 0)
+	{
+		if (!preprocessor_.allow_c_extension(location, CEdition::C23, "__VA_OPT__ is a C23 extension"))
+			throw PreprocessError(location, "__VA_OPT__ requires C23");
+	}
+	else if (preprocessor_.modes_.language < 20 &&
+		!preprocessor_.allow_cxx_extension(location, 20, "__VA_OPT__ is a C++20 extension", true))
+		throw PreprocessError(location, "__VA_OPT__ requires C++20");
 }
 
 bool Preprocessor::allow_extension(uint32_t location, uint8_t group, const char* message) const

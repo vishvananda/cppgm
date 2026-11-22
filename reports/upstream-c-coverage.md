@@ -69,9 +69,19 @@ nonreturning declarations. They also check GNU keyword spellings, omitted
 assertion messages, and the effect of `-Wsystem-headers`. The checks run
 in the native and Wasm PA38 lanes.
 
+Additional C99 and C11 tests cover Unicode prefix tokenization, direct
+macro expansion, token pasting, and Clang's C11 feature and extension
+probes. ISO C99 agrees with both native compilers. GNU99 follows GCC's
+retention of Unicode literal extensions. Both native compilers agree on
+the pedantic constraint for `_Alignof(expression)`. C17 now reports the
+edition for `__VA_OPT__` under pedantic diagnostics, following GCC.
+
 Outermost prototype array parameters with `[*]` now pass the four
 configurations of c-testsuite `00162.c`. The assignment checks scope and
-the `static` constraint. Nested variably modified types remain open. A
+the `static` constraint. Seven additional probes pass GCC and Clang and
+identify pending extent work in cppgm. They cover an outer, inner, or
+two runtime dimensions, a variably modified typedef, pointer and
+parameter, and a runtime array in `sizeof(type-name)`. A
 defined PA38 test covers conditional expressions with integer zero and
 `(void *)0` in both operand orders, and with qualified void pointers.
 

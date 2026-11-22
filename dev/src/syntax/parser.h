@@ -35,6 +35,7 @@ private:
 	void require_cxx_extension(
 		uint32_t location, uint8_t edition, const char* message, bool suppressible_in_headers = true);
 	void require_c_extension(uint32_t location, CEdition edition, const char* message);
+	void require_gnu_c_extension(uint32_t location, const char* message);
 	const SourcePositions* source_positions_ = nullptr;
 
 	enum class DeclContext : uint8_t

@@ -230,8 +230,7 @@ bool MacroDefinitionParser::mark_va_opt(const DefinitionTokens& tokens)
 				throw PreprocessError(token.begin, "nested __VA_OPT__");
 			if (i + 1 == size || !IsPunctuatorToken(body_[i + 1].token, TokenKind::OP_LPAREN))
 				throw PreprocessError(token.begin, "__VA_OPT__ requires a parenthesized replacement list");
-			if (!tokens.allow_va_opt(token.begin))
-				throw PreprocessError(token.begin, "__VA_OPT__ requires C++20");
+			tokens.check_va_opt(token.begin);
 			start = i++;
 			depth = 1;
 			found = true;

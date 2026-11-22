@@ -341,7 +341,8 @@ bool PPLexer::is_encoding_prefix() const
 	const char* spelling;
 	uint32_t length;
 	current_spelling(spelling, length);
-	return SpellingIn(spelling, length, kEncodingPrefixes);
+	return unicode_literal_prefixes_ ? SpellingIn(spelling, length, kEncodingPrefixes)
+									 : length == 1 && spelling[0] == 'L';
 }
 
 bool PPLexer::is_character_prefix() const
@@ -349,6 +350,8 @@ bool PPLexer::is_character_prefix() const
 	const char* spelling;
 	uint32_t length;
 	current_spelling(spelling, length);
+	if (!unicode_literal_prefixes_)
+		return length == 1 && spelling[0] == 'L';
 	return (length == 2 && spelling[0] == 'u' && spelling[1] == '8' && utf8_character_literals_) ||
 		SpellingIn(spelling, length, kCharacterPrefixes);
 }

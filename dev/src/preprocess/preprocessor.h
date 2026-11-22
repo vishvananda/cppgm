@@ -108,6 +108,7 @@ public:
 	virtual bool allow_cxx_extension(
 		uint32_t location, uint8_t edition, const char* message, bool suppressible_in_headers = true) const = 0;
 	virtual bool allow_c_extension(uint32_t location, CEdition edition, const char* message) const = 0;
+	virtual bool allow_gnu_c_extension(uint32_t location, const char* message) const = 0;
 
 protected:
 	~SourcePositions() {}
@@ -176,6 +177,7 @@ public:
 	bool allow_cxx_extension(
 		uint32_t location, uint8_t edition, const char* message, bool suppressible_in_headers) const override;
 	bool allow_c_extension(uint32_t location, CEdition edition, const char* message) const override;
+	bool allow_gnu_c_extension(uint32_t location, const char* message) const override;
 
 	// The translation unit's interned identifiers, shared with the parser.
 	IdentifierTable& identifiers() { return identifiers_; }
@@ -219,11 +221,7 @@ private:
 		explicit LineTokens(Preprocessor& preprocessor) : preprocessor_(preprocessor) {}
 		const PPToken& next() override { return preprocessor_.source_.next_in_line(); }
 		void allow_va_args(bool allow) override { preprocessor_.source_.allow_va_args(allow); }
-		bool allow_va_opt(uint32_t location) const override
-		{
-			return preprocessor_.modes_.language >= 20 ||
-				preprocessor_.allow_cxx_extension(location, 20, "__VA_OPT__ is a C++20 extension", true);
-		}
+		void check_va_opt(uint32_t location) const override;
 
 	private:
 		Preprocessor& preprocessor_;
@@ -339,7 +337,6 @@ private:
 	FlatMap<uint32_t, SavedMacro*, std::hash<uint32_t>> saved_macros_;
 	SavedMacro* free_saved_macros_ = nullptr;
 	ExtensionWarnings extension_warnings_;
-	CEdition c_edition_;
 	bool warn_system_headers_;
 	uint8_t ignored_extension_groups_ = 0;
 	std::vector<uint8_t> saved_extension_groups_;

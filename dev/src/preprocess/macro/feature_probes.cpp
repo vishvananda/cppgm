@@ -67,6 +67,15 @@ bool IsProvidedFeature(const char* spelling, uint32_t length, const FeatureModes
 	}
 	if (modes.language == 0 && length >= 4 && std::memcmp(spelling, "cxx_", 4) == 0)
 		return false;
+	if (modes.language == 0 && length > 2 && spelling[0] == 'c' && spelling[1] == '_')
+	{
+		static const char* const c11[] = { "c_alignas", "c_alignof", "c_atomic", "c_generic_selections",
+			"c_static_assert", "c_thread_local" };
+		for (const char* feature : c11)
+			if (Equals(feature, spelling, length))
+				return modes.c_edition >= CEdition::C11 || (extension && !modes.pedantic_errors);
+		return false;
+	}
 	if (Equals("cxx_exceptions", spelling, length))
 		return modes.exceptions;
 	if (Equals("cxx_rtti", spelling, length))

@@ -40,6 +40,14 @@ With `-pedantic`, diagnose C11 syntax such as `_Generic` and `_Atomic` in
 C99 modes. With `-pedantic-errors`, reject those uses. System headers suppress
 these diagnostics unless `-Wsystem-headers` is set. A message-free
 `_Static_assert` is a C23 extension in the C modes above.
+`__VA_OPT__` also receives a C23 extension diagnostic in the earlier
+editions when pedantic diagnostics are enabled. Treat
+`_Alignof(expression)` as a GNU extension. The GNU spelling
+`__alignof__` accepts the expression.
+
+In ISO C99, lex `u`, `U`, and `u8` before a quote as identifiers.
+Use the same edition for macro pasting. C11 and GNU99 accept Unicode
+literal prefixes.
 
 The output is ordinary [PA8 LowIR](../pa8/lowir.md). Preserve target sizes,
 alignment, function signatures, object names, qualifiers and conversions. C
