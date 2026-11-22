@@ -96,8 +96,14 @@ in C17 and GNU17.
 
 A controlling `int (*)[]` can match both `int (*)[1]` and `int (*)[2]`.
 GCC 15 and Clang 21 diagnose the multiple matches in pedantic C17.
-cppgm accepts the expression. Association validation also grows
-quadratically for long lists of pairwise distinct pointer types.
+cppgm now diagnoses the case as well. Added controls for duplicate
+associations involving incomplete arrays, enums within prototypes, and
+unprototyped functions. The latter test distinguishes a compatible
+`int` parameter from a `float` parameter that default promotion changes.
+Long lists of distinct pointers to complete arrays and fully prototyped
+functions now scale near-linearly.
+[PA38 multiple matches](../pa38/tests/general/500-generic-multiple-matches-bad.t) ·
+[PA38 structural compatibility](../pa38/tests/general/500-generic-structural-compatibility.t) ·
 [C frontend scaling](../docs/performance/c-frontend-scaling.md#generic-association-baseline)
 
 The GNU conditional expression with one void operand now passes all

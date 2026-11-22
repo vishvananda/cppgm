@@ -105,6 +105,22 @@ block-scope definition.
 [C11 draft, N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [PA38 association regression](../pa38/tests/general/500-generic-tag-association.t)
 
+## Generic association compatibility
+
+C11 6.5.1.1p2 constrains both the association list and the match for the
+controlling expression. Array types with distinct constant lengths are
+incompatible with one another. Each can be compatible with an array of
+unspecified length under 6.7.6.2p6, which can give a controlling pointer
+multiple matches. Section 6.7.6.3p15 makes an unprototyped function type
+compatible with certain prototypes subject to default argument promotions.
+The PA38 regressions exercise each constraint as well as distinct valid
+types in the same list.
+
+[C11 draft, N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[PA38 multiple matches](../pa38/tests/general/500-generic-multiple-matches-bad.t) ·
+[PA38 incomplete array associations](../pa38/tests/general/500-generic-array-compatibility-bad.t) ·
+[PA38 unprototyped association](../pa38/tests/general/500-generic-unprototyped-compatibility-bad.t)
+
 ## Hosted floating limits and structure returns
 
 C11 5.2.4.2.2 describes the floating-point characteristics available

@@ -27,12 +27,29 @@ def c_redeclarations(size):
     print('int main(void) { return matrix[1][2] != 6; }')
 
 
+def c_generic_associations(size, type_pattern):
+    print(f'_Static_assert(_Generic(({type_pattern.format(1)})0,')
+    for bound in range(1, size + 1):
+        print(f'{type_pattern.format(bound)}: {bound},')
+    print('default: 0) == 1, "first compatible type");')
+    print('int main(void) { return 0; }')
+
+
+def c_generic_short_lists(size):
+    print('#define SELECT_INT(value) _Generic((value), int: 1, float: 2, double: 3, default: 0)')
+    for index in range(size):
+        print(f'_Static_assert(SELECT_INT({index}) == 1, "integer type");')
+    print('int main(void) { return 0; }')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('case', choices=['parameter-bases', 'plain-templates',
                                         'independent-defaults', 'chained-defaults',
                                         'nested-chained-defaults', 'macro-replacements',
-                                        'c-macro-binding-stack', 'c-redeclarations', *EDITIONS])
+                                        'c-macro-binding-stack', 'c-redeclarations',
+                                        'c-generic-arrays', 'c-generic-prototypes', 'c-generic-short-lists',
+                                        *EDITIONS])
     parser.add_argument('size', type=int)
     args = parser.parse_args()
     if args.size < 1:
@@ -45,6 +62,15 @@ def main():
         return
     if args.case == 'c-redeclarations':
         c_redeclarations(args.size)
+        return
+    if args.case == 'c-generic-arrays':
+        c_generic_associations(args.size, 'int (*)[{}]')
+        return
+    if args.case == 'c-generic-prototypes':
+        c_generic_associations(args.size, 'int (*)(int (*)[{}])')
+        return
+    if args.case == 'c-generic-short-lists':
+        c_generic_short_lists(args.size)
         return
     if args.case == 'macro-replacements':
         print('#define EMPTY()')

@@ -78,6 +78,8 @@ The first fixture set covers these parts of the C17 input profile:
   for `_Generic` or `__builtin_types_compatible_p`.
 - `_Generic` selections preserve the selected expression's type and value
   category. The control and unselected associations are not evaluated.
+  Diagnose compatible types in the same association list and a controlling
+  type compatible with more than one association.
 - The GNU conditional expression with one void arm has type `void`.
   Evaluate the selected arm for effects and diagnose the extension under
   the pedantic policy.

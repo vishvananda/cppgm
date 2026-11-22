@@ -48,6 +48,13 @@ source-to-object compilation. Check the program exit through the same C link
 driver for each measured input. Use the retired instruction deltas between
 successive sizes to compare incremental work.
 
+`c-generic-arrays` and `c-generic-prototypes` generate one list of distinct
+pointer types and check selection with a static assertion. Compare 512,
+1024, 2048, and 4096 associations in C17 syntax-only mode.
+`c-generic-short-lists` repeats a small type-generic macro in different
+static assertions. Compare it using calibrated runs at 4096, 8192, and
+16384 uses to isolate the cost of ordinary short lists.
+
 ## C++14, C++17 and C++20
 
 The edition inputs cover the feature families in [LANGUAGE_PROFILE.md](../../LANGUAGE_PROFILE.md).

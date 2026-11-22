@@ -124,10 +124,41 @@ by −0.0032% and −0.0023% in ABBA and BAAB. SQLite changed by +0.0091% and
 
 ## Generic association baseline
 
-A C17 `_Generic` with distinct `int (*)[N]` association types exercises
-compatibility checking without generating code. With 512, 1024, 2048, and
-4096 associations, the compiler retired 19.78, 55.23, 184.46, and 675.70
-million instructions in syntax-only mode on Linux x86-64. The second
-increment in the last three sizes was 3.80 times the first. Each new
-association currently compares against every previous association.
-This workload leaves a concrete scaling gate for an indexed replacement.
+The C17 array and prototype cases each generate a `_Generic` with distinct
+association types. Both use static assertions to check the selection.
+The following are retired user-space instructions in millions for
+syntax-only compilation on Linux x86-64, compared with `b0025944c`.
+
+| Input | Associations | Before | With index |
+| --- | ---: | ---: | ---: |
+| Array pointers | 512 | 19.80 | 10.39 |
+| Array pointers | 1024 | 55.24 | 17.01 |
+| Array pointers | 2048 | 184.47 | 30.38 |
+| Array pointers | 4096 | 675.71 | 57.15 |
+| Prototyped function pointers | 512 | 39.30 | 15.09 |
+| Prototyped function pointers | 1024 | 124.39 | 26.40 |
+| Prototyped function pointers | 2048 | 443.35 | 49.17 |
+| Prototyped function pointers | 4096 | 1675.80 | 94.72 |
+
+The ratio of the last two increments fell from 3.80 to 2.00 for array
+pointers and from 3.86 to 2.00 for prototypes. Canonical identity handles
+exact types, while potentially compatible distinct types still go through
+the existing compatibility check within their family. The family keys
+depend only on immutable type structure. In particular, they group enums
+with integers without caching an enum's underlying type. The index and its
+memo belong to one long selection and are released when its analysis ends.
+Short lists use inline storage. Further scaling checks should cover large
+families of wildcard-bearing types that still require structural comparison.
+
+Paired compile runs used the same pinned core and immutable binaries.
+Every object was byte-identical across the 12 trials for each workload.
+The short-list source used 16,384 independent four-arm selections at
+`-O0`. The frozen C++ input used `-O3` and SQLite 3.50.4 used `-O2`.
+
+| Input | A/A range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C short lists | <0.0001% | -1.0768% | -1.0767% |
+| C++ `semantic_overload.cpp` | 0.0032% | +0.0021% | -0.0014% |
+| SQLite `sqlite3.c` | 0.0024% | +0.0006% | +0.0018% |
+
+[Input generation](../../benchmarks/frontend_scaling/README.md#c)
