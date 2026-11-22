@@ -486,6 +486,8 @@ UsingDecl* Parser::parse_using_declarator(uint32_t start)
 
 Decl* Parser::parse_static_assert()
 {
+	if (c_source_)
+		require_c_extension(location(), CEdition::C11, "_Static_assert is a C11 extension");
 	StaticAssertDecl* assertion = make<StaticAssertDecl>(DeclKind::StaticAssert, location());
 	assertion->has_message = false;
 	assertion->user_defined_message = false;
@@ -508,8 +510,14 @@ Decl* Parser::parse_static_assert()
 	}
 	if (!expect(TokenKind::OP_RPAREN) || !expect(TokenKind::OP_SEMICOLON))
 		return nullptr;
-	if (!assertion->has_message && !cxx17_)
-		require_cxx_extension(assertion->location, 17, "static_assert without a message is a C++17 extension");
+	if (!assertion->has_message)
+	{
+		if (c_source_)
+			require_c_extension(
+				assertion->location, CEdition::C23, "_Static_assert without a message is a C23 extension");
+		else if (!cxx17_)
+			require_cxx_extension(assertion->location, 17, "static_assert without a message is a C++17 extension");
+	}
 	return assertion;
 }
 

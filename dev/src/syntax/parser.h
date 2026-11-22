@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "lex/source_language.h"
 #include "syntax/parser_regions.h"
 
 class SourcePositions;
@@ -33,6 +34,7 @@ public:
 private:
 	void require_cxx_extension(
 		uint32_t location, uint8_t edition, const char* message, bool suppressible_in_headers = true);
+	void require_c_extension(uint32_t location, CEdition edition, const char* message);
 	const SourcePositions* source_positions_ = nullptr;
 
 	enum class DeclContext : uint8_t

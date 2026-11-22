@@ -612,6 +612,8 @@ void AstDumper::declarator_suffix(const DeclaratorSuffix& suffix)
 			line("cv-qualifier", "const");
 		if ((suffix.array_cv & 2) != 0)
 			line("cv-qualifier", "volatile");
+		if (suffix.array_star)
+			line("unspecified-vla-bound", "*");
 		if (suffix.bound != nullptr)
 			expression(*suffix.bound);
 		close();

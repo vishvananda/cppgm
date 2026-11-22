@@ -14,5 +14,6 @@ enum class CEdition : uint8_t
 {
 	C99,
 	C11,
-	C17
+	C17,
+	C23
 };

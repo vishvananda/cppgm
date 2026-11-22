@@ -654,7 +654,13 @@ const Type* Analyzer::composite_pointer(const ExprFacts* a, const ExprFacts* b, 
 	const bool a_null = (a->flags & kNullLiteral) != 0 || IsNullptrType(ta);
 	const bool b_null = (b->flags & kNullLiteral) != 0 || IsNullptrType(tb);
 	if (a_null && b_null)
+	{
+		// C17 6.5.15p6: an integer null pointer constant adopts the
+		// type of the pointer operand, even when that operand is (void*)0.
+		if (c_source_ && IsPointer(ta) && !IsPointer(tb))
+			return ta;
 		return IsNullptrType(ta) ? ta : tb;
+	}
 	if (a_null)
 		return IsPointer(tb) || IsMemberPointer(tb) ? tb : nullptr;
 	if (b_null)

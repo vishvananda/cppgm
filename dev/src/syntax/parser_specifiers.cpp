@@ -395,6 +395,8 @@ bool Parser::collect_attribute_specifiers(Attribute*& list, bool* standard)
 		}
 		if (at(TokenKind::KW_ALIGNAS))
 		{
+			if (c_source_)
+				require_c_extension(start, CEdition::C11, "_Alignas is a C11 extension");
 			next();
 			if (!expect(TokenKind::OP_LPAREN))
 				return false;
@@ -544,6 +546,7 @@ bool Parser::parse_decl_specifiers(ListFrame<DeclSpecifier>& list, SpecifierInfo
 		const ParseToken token = tok();
 		if (c_source_ && token.is_identifier() && gnu_names_.kind(token.identifier) == GnuNames::kCNoReturn)
 		{
+			require_c_extension(token.location, CEdition::C11, "_Noreturn is a C11 extension");
 			Attribute* attribute = make<Attribute>();
 			*attribute = Attribute();
 			attribute->kind = AttributeKind::NoReturn;
@@ -572,6 +575,8 @@ bool Parser::parse_decl_specifiers(ListFrame<DeclSpecifier>& list, SpecifierInfo
 				DeclSpecifier specifier = KeywordSpecifier(kind, token.location);
 				if (kind == TokenKind::KW_CONSTINIT)
 					specifier.kind = DeclSpecKind::Constinit;
+				if (kind == TokenKind::KW_THREAD_LOCAL && c_source_ && token.spelling.text[1] != '_')
+					require_c_extension(token.location, CEdition::C11, "_Thread_local is a C11 extension");
 				next();
 				if (kind == TokenKind::KW_EXPLICIT && at(TokenKind::OP_LPAREN))
 				{
@@ -783,6 +788,7 @@ bool Parser::parse_c_atomic_qualifier(ListFrame<DeclSpecifier>& list)
 		gnu_names_.kind(tok().identifier) != static_cast<uint8_t>(GnuTrait::AddAtomic) + 1 ||
 		at(TokenKind::OP_LPAREN, 1))
 		return false;
+	require_c_extension(location(), CEdition::C11, "the _Atomic qualifier is a C11 extension");
 	DeclSpecifier specifier = DeclSpecifier();
 	specifier.kind = DeclSpecKind::AtomicQualifier;
 	specifier.location = location();

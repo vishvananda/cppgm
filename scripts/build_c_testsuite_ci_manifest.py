@@ -26,8 +26,12 @@ def build(root, gaps):
     def entry(path):
         return dict(path=path.relative_to(root).as_posix(), sha256=sha256(path))
 
-    cases = []
+    cases, exclusions = [], []
     for source in sources:
+        gap = gaps.get(source.name)
+        if gap and 'exclude' in gap:
+            exclusions.append(dict(**entry(source), reason=gap['exclude']))
+            continue
         provenance = [entry(source.with_suffix('.c.tags'))]
         origin = source.with_suffix('.c.otags')
         if origin.is_file():
@@ -38,11 +42,11 @@ def build(root, gaps):
                 case = dict(id=f'{source.stem}-{dialect}-{opt}', **entry(source), dialect=dialect,
                             action='run', expect='accept', candidate_flags=['-' + opt], upstream_flags=['-' + opt],
                             link_flags=['-lm'], input_files=provenance, expected_output=oracle)
-                if source.name in gaps:
-                    case['known_failure'] = dict(status='compile-failed', **gaps[source.name])
+                if gap:
+                    case['known_failure'] = dict(status='compile-failed', **gap)
                 cases.append(case)
-    return dict(schema=1, suite='c-testsuite', language='c', edition=17, revision=revision, cases=cases, exclusions=[],
-                coverage='All 220 single-executable cases in C17 and GNU17 at -O0 and -O2.',
+    return dict(schema=1, suite='c-testsuite', language='c', edition=17, revision=revision, cases=cases,
+                exclusions=exclusions, coverage='All non-excluded single-executable cases in C17 and GNU17 at -O0 and -O2.',
                 limitations=['Includes GNU extensions accepted by the native control. The results measure suite compatibility.',
                              'Both compilers use the pinned C driver for linking. Output combines stdout and stderr.'])
 

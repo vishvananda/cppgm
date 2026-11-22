@@ -208,6 +208,7 @@ struct FunctionQualifier
 struct ParameterClause
 {
 	bool c_identifier_list = false;
+	bool c_prototype_star = false;
 	Slice<ParameterDeclaration*> parameters;
 	// Ends with `...` (C varargs), with or without a preceding comma.
 	bool ellipsis;
@@ -240,6 +241,7 @@ struct DeclaratorSuffix
 	// qualifiers. `static` states a minimum bound supplied by every call.
 	uint8_t array_cv;
 	bool array_static;
+	bool array_star;
 };
 
 inline const Expr* RequiresClause(const DeclaratorSuffix* suffix)
@@ -265,6 +267,7 @@ struct Declarator
 {
 	bool abstract;
 	PackPosition pack;
+	bool c_prototype_star;
 	uint32_t location;
 	Slice<PtrOperator> pointers;
 	Name* name;

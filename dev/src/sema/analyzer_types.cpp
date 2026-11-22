@@ -1092,7 +1092,7 @@ DeclaratorInfo Analyzer::declarator(const syntax::Declarator* declarator, const 
 		for (uint32_t i = current->suffixes.size; i-- > 0;)
 		{
 			const syntax::DeclaratorSuffix& suffix = current->suffixes[i];
-			if (suffix.array_cv != 0 || suffix.array_static)
+			if (suffix.array_cv != 0 || suffix.array_static || suffix.array_star)
 			{
 				if (use != DeclaratorUse::Parameter || c_parameter_array != nullptr)
 					error(current->location, "C array qualifiers require the outermost parameter array");
@@ -1146,7 +1146,9 @@ DeclaratorInfo Analyzer::declarator(const syntax::Declarator* declarator, const 
 	if (c_parameter_array != nullptr)
 	{
 		if (type->kind != TypeKind::Array || array != c_parameter_array)
-			error(location, "C array qualifiers require the outermost parameter array");
+			error(location,
+				c_parameter_array->array_star ? "a nested [*] bound is outside the C profile"
+											  : "C array qualifiers require the outermost parameter array");
 		type = types_.qualified(types_.pointer(type->element), c_parameter_array->array_cv);
 	}
 	info.type = type;

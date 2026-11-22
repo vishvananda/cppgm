@@ -2680,6 +2680,8 @@ void Analyzer::function_definition(const syntax::FunctionDecl& decl, Scope* scop
 	placeholder_suffix_ = saved_suffix;
 	if (info.type->kind != TypeKind::Function || info.name == nullptr)
 		error(decl.location, "function definition of a non-function");
+	if (c_source_ && info.parameters != nullptr && info.parameters->c_prototype_star)
+		error(decl.location, "[*] is allowed only in C function prototype scope");
 	Binding* binding = declare_function(specifiers, info, scope, true, decl.location);
 	settle_declaration_access(pending, pending, binding);
 	access_deferral_ = saved_deferral;

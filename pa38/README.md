@@ -36,6 +36,11 @@ are separate choices. `-x c++` continues to select C++; a language and standard
 that disagree must be diagnosed. The existing `.c` handling is unchanged unless
 C is selected explicitly.
 
+With `-pedantic`, diagnose C11 syntax such as `_Generic` and `_Atomic` in
+C99 modes. With `-pedantic-errors`, reject those uses. System headers suppress
+these diagnostics unless `-Wsystem-headers` is set. A message-free
+`_Static_assert` is a C23 extension in the C modes above.
+
 The output is ordinary [PA8 LowIR](../pa8/lowir.md). Preserve target sizes,
 alignment, function signatures, object names, qualifiers and conversions. C
 functions and objects use their C ABI names. A C++ `extern "C"` declaration
@@ -93,6 +98,9 @@ The first fixture set covers these parts of the C17 input profile:
   a runtime array's scope past its declaration. Preserve element alignment and
   explicit alignment requests. Array decay and pointers formed by `&array`
   use the actual saved extent.
+- An outermost prototype array parameter can use `[*]`, including after
+  qualifiers. Its parameter type adjusts to a pointer. A definition's
+  own parameters need a bound or ordinary `[]`, and `static` needs a bound.
 - Hosted C header declarations and their builtin operations through the
   existing hosted environment, including PA30's GNU startup-function attributes.
 

@@ -302,6 +302,8 @@ void SyntaxRenderer::declarator(const Declarator& declarator)
 				text("const ");
 			if ((suffix.array_cv & 2) != 0)
 				text("volatile ");
+			if (suffix.array_star)
+				text("*");
 			if (suffix.bound != nullptr)
 				expression(*suffix.bound);
 			text("]");

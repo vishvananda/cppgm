@@ -107,6 +107,7 @@ public:
 	// Called only for recognized syntax that predates its introducing edition.
 	virtual bool allow_cxx_extension(
 		uint32_t location, uint8_t edition, const char* message, bool suppressible_in_headers = true) const = 0;
+	virtual bool allow_c_extension(uint32_t location, CEdition edition, const char* message) const = 0;
 
 protected:
 	~SourcePositions() {}
@@ -174,6 +175,7 @@ public:
 	bool in_system_header(uint32_t location) const override;
 	bool allow_cxx_extension(
 		uint32_t location, uint8_t edition, const char* message, bool suppressible_in_headers) const override;
+	bool allow_c_extension(uint32_t location, CEdition edition, const char* message) const override;
 
 	// The translation unit's interned identifiers, shared with the parser.
 	IdentifierTable& identifiers() { return identifiers_; }
@@ -269,6 +271,7 @@ private:
 	void apply_language_pragma(uint32_t location, const PPToken& name, const PPToken& action, const PPToken& warning);
 	static bool language_pragma_family(const PPToken& token);
 	static uint8_t extension_group(uint8_t edition) { return static_cast<uint8_t>(1u << ((edition - 11) / 3)); }
+	bool allow_extension(uint32_t location, uint8_t group, const char* message) const;
 	void run_pack_pragma(const PPToken& directive);
 	void apply_pack_pragma(const std::vector<PPToken>& operands);
 	enum class MacroPragma : uint8_t
@@ -336,6 +339,7 @@ private:
 	FlatMap<uint32_t, SavedMacro*, std::hash<uint32_t>> saved_macros_;
 	SavedMacro* free_saved_macros_ = nullptr;
 	ExtensionWarnings extension_warnings_;
+	CEdition c_edition_;
 	bool warn_system_headers_;
 	uint8_t ignored_extension_groups_ = 0;
 	std::vector<uint8_t> saved_extension_groups_;

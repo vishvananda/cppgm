@@ -714,6 +714,8 @@ Expr* Parser::parse_gnu_decltype_operand()
 
 Expr* Parser::parse_type_trait(TokenKind keyword)
 {
+	if (keyword == TokenKind::KW_ALIGNOF && c_source_ && tok().spelling.text[1] != '_')
+		require_c_extension(location(), CEdition::C11, "_Alignof is a C11 extension");
 	TypeTraitExpr* expr = make<TypeTraitExpr>(ExprKind::TypeTrait, location());
 	expr->keyword = keyword;
 	expr->type = nullptr;
@@ -784,6 +786,8 @@ Expr* Parser::parse_type_trait(TokenKind keyword)
 
 Expr* Parser::parse_builtin_trait(GnuTrait trait)
 {
+	if (trait == GnuTrait::AddAtomic && c_source_)
+		require_c_extension(location(), CEdition::C11, "the _Atomic type specifier is a C11 extension");
 	BuiltinTraitExpr* expr = make<BuiltinTraitExpr>(ExprKind::BuiltinTrait, location());
 	expr->trait = trait;
 	expr->types = Slice<TypeId*>{ nullptr, 0 };

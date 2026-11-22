@@ -1,11 +1,6 @@
 {
   "00144.c": {
-    "diagnostic": "invalid implicit conversion",
-    "reason": "Conditional operands include a void pointer and an integer null pointer constant."
-  },
-  "00162.c": {
-    "diagnostic": "syntax error",
-    "reason": "An array parameter has a prototype-scope star bound with a qualifier."
+    "exclude": "The first conditional reads an uninitialized automatic int. The assignment of a const void pointer to void* also has a C constraint violation. PA38 covers the null pointer combinations with defined inputs."
   },
   "00170.c": {
     "diagnostic": "an opaque unscoped enumeration needs an underlying type",

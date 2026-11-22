@@ -2903,7 +2903,8 @@ ExprFacts* Analyzer::cast_expression(const syntax::CastExpr& expr, Scope* scope)
 	ExprFacts* facts = target != nullptr ? explicit_conversion(expr, target, expr.operand, expr.cast, scope) : nullptr;
 	if (facts == nullptr)
 		return nullptr;
-	if (c_source_ && target->unqualified->kind == TypeKind::Pointer && IsVoid(target->unqualified->element))
+	if (c_source_ && target->unqualified->kind == TypeKind::Pointer &&
+		target->unqualified->element == types_.fundamental(FundamentalType::Void))
 	{
 		// C17 6.3.2.3: an integer constant zero cast to void* is also a
 		// null pointer constant, including when the destination is a

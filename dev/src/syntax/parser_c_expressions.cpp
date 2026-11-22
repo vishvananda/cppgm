@@ -4,6 +4,7 @@ namespace syntax {
 
 Expr* Parser::parse_generic_selection()
 {
+	require_c_extension(location(), CEdition::C11, "_Generic is a C11 extension");
 	GenericExpr* expr = make<GenericExpr>(ExprKind::Generic, location());
 	next();
 	if (!expect(TokenKind::OP_LPAREN))

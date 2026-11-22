@@ -36,6 +36,43 @@ adjacent string literals are concatenated. PA38 covers both forms.
 [C11 draft, N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [PA38 literal regression](../pa38/tests/general/100-adjacent-literal-macros.t)
 
+## C11 syntax in earlier modes
+
+C11 adds generic selection (6.5.1.1), alignment queries (6.5.3.4), atomic
+types and qualifiers (6.7.2.4 and 6.7.3), thread-local storage (6.7.1),
+nonreturning functions (6.7.4), alignment specifiers (6.7.5), and static
+assertions (6.7.10). C23 permits omission of the static assertion message.
+PA38 exercises those edition boundaries and the system-header exception
+used by GCC and Clang. GNU `__thread` and `__alignof__` use their existing
+extension spellings in C99.
+
+[C11 draft, N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[C23 draft, N3096](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
+[PA38 edition control](../pa38/tests/general/500-c11-edition-syntax.t)
+
+## Conditional pointers and null pointer constants
+
+C11 6.3.2.3p3 defines a null pointer constant as an integer constant
+expression with value zero or such an expression cast to `void *`.
+C11 6.5.15p6 gives a conditional expression with an integer null pointer
+constant and a pointer the pointer operand's type, in either order.
+The PA38 case checks `(void *)0`, qualification, and conversion to a
+function pointer. A cast to `const void *` retains its qualification.
+
+[C11 draft, N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[PA38 conditional pointer regression](../pa38/tests/general/500-conditional-null-pointer.t)
+
+## Array parameters with an unspecified prototype bound
+
+C11 6.7.6.2 and 6.7.6.3 allow `[*]` in function prototype scope. For the
+outermost array parameter, pointer adjustment retains the qualifiers
+written inside the brackets. PA38 checks compatible declarations and
+rejects a star in a function definition, an ordinary object declaration,
+and a parameter with a `static` minimum bound.
+
+[C11 draft, N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[PA38 prototype array regression](../pa38/tests/general/300-array-parameter-star.t)
+
 ## VLA scope and C objects
 
 C17 6.2.4 specifies the lifetime of a variable-length array. C17 6.8.6.1

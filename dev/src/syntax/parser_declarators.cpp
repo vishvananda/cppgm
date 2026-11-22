@@ -188,6 +188,7 @@ bool Parser::parse_ptr_operator(ListFrame<PtrOperator>& pointers, Attribute** in
 			if (c_source_ && tok().is_identifier() &&
 				gnu_names_.kind(tok().identifier) == static_cast<uint8_t>(GnuTrait::AddAtomic) + 1)
 			{
+				require_c_extension(location(), CEdition::C11, "the _Atomic qualifier is a C11 extension");
 				pointer.atomic = true;
 				next();
 				continue;
@@ -303,6 +304,7 @@ bool Parser::parse_declarator_into(
 		if (!parse_declarator_into(mode, nested, type_only, parameter) || !expect(TokenKind::OP_RPAREN))
 			return false;
 		declarator->nested = nested;
+		declarator->c_prototype_star = nested->c_prototype_star;
 		// The suffixes after `)` follow the nested declarator-id too.
 		member_of = declarator_member_of_;
 	}
@@ -373,7 +375,15 @@ bool Parser::parse_declarator_suffixes(
 			}
 			if (suffix.array_static && at(TokenKind::OP_RSQUARE))
 				return fail();
-			if (!at(TokenKind::OP_RSQUARE))
+			if (c_source_ && at(TokenKind::OP_STAR) && at(TokenKind::OP_RSQUARE, 1))
+			{
+				if (mode != DeclaratorMode::Parameter || suffix.array_static)
+					throw ParseError(location(), "[*] requires a C prototype parameter without a static minimum bound");
+				suffix.array_star = true;
+				declarator->c_prototype_star = true;
+				next();
+			}
+			else if (!at(TokenKind::OP_RSQUARE))
 			{
 				const bool saved_angle = angle_;
 				angle_ = false;
@@ -519,6 +529,8 @@ ParameterClause* Parser::parse_parameter_clause(Scope* member_of, bool definite,
 		definite = true;
 		if (parameter->default_argument != nullptr)
 			clause->has_defaults = true;
+		if (c_source_ && parameter->declarator != nullptr && parameter->declarator->c_prototype_star)
+			clause->c_prototype_star = true;
 		parameters.push(parameter);
 		if (accept(TokenKind::OP_COMMA))
 			continue;

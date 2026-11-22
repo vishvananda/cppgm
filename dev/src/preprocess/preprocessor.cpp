@@ -58,6 +58,8 @@ const char* CVersionMacro(CEdition edition)
 		return "201112L";
 	case CEdition::C17:
 		return "201710L";
+	case CEdition::C23:
+		return "202311L";
 	}
 	return "";
 }
@@ -159,10 +161,11 @@ Preprocessor::Preprocessor(const PreprocessorOptions& options, const std::string
 	  missing_headers_note_(options.missing_headers_note), hosted_(options.hosted), assembler_(options.assembler),
 	  modes_(options.modes), wasm_attributes_(target_model::is_wasm(options.target)), directives_(0),
 	  skipped_directives_(0), includes_(0), guarded_skips_(0), finished_(false), pack_(0),
-	  extension_warnings_(options.strict && options.extension_warnings == ExtensionWarnings::Disabled
+	  extension_warnings_(options.language == SourceLanguage::Cxx && options.strict &&
+				  options.extension_warnings == ExtensionWarnings::Disabled
 			  ? ExtensionWarnings::Pedantic
 			  : options.extension_warnings),
-	  warn_system_headers_(options.warn_system_headers)
+	  c_edition_(options.c_edition), warn_system_headers_(options.warn_system_headers)
 {
 	modes_.language = options.cxx_edition;
 	modes_.pedantic_errors = options.extension_warnings == ExtensionWarnings::Errors;
@@ -458,18 +461,29 @@ bool Preprocessor::allow_cxx_extension(
 {
 	if (extension_warnings_ == ExtensionWarnings::Disabled)
 		return true;
-	if (!suppressible_in_headers)
-		return false;
+	return suppressible_in_headers && allow_extension(location, extension_group(edition), message);
+}
+
+bool Preprocessor::allow_c_extension(uint32_t location, CEdition edition, const char* message) const
+{
+	return c_edition_ >= edition || extension_warnings_ == ExtensionWarnings::Disabled ||
+		allow_extension(location, 0, message);
+}
+
+bool Preprocessor::allow_extension(uint32_t location, uint8_t group, const char* message) const
+{
 	const SourceInclusion& inclusion = files_.inclusion_at(location);
 	if (!warn_system_headers_ && inclusion.is_system(location))
 		return true;
-	const auto after = extension_group_changes_.upper_bound(location);
-	if (after != extension_group_changes_.begin())
+	if (group != 0)
 	{
-		const auto state = std::prev(after);
-		const uint8_t group = extension_group(edition);
-		if (state->first >= inclusion.base && (state->second & group) != 0)
-			return true;
+		const auto after = extension_group_changes_.upper_bound(location);
+		if (after != extension_group_changes_.begin())
+		{
+			const auto state = std::prev(after);
+			if (state->first >= inclusion.base && (state->second & group) != 0)
+				return true;
+		}
 	}
 	if (extension_warnings_ == ExtensionWarnings::Errors)
 		return false;
