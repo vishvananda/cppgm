@@ -127,7 +127,8 @@ def execute(command, prefix, config):
     result = {"command": command, "classification": "started"}
     stdout_path, stderr_path = Path(str(prefix) + ".stdout"), Path(str(prefix) + ".stderr")
     with stdout_path.open("wb") as out, stderr_path.open("wb") as err:
-        process = subprocess.Popen(command, stdout=out, stderr=err,
+        process = subprocess.Popen(command, stdout=out,
+                                   stderr=subprocess.STDOUT if config.get("combine_output") else err,
                                    start_new_session=True, preexec_fn=limits)
         try:
             try:

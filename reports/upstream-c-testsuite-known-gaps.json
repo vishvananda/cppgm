@@ -1,0 +1,34 @@
+{
+  "00144.c": {
+    "diagnostic": "invalid implicit conversion",
+    "reason": "Conditional operands include a void pointer and an integer null pointer constant."
+  },
+  "00162.c": {
+    "diagnostic": "syntax error",
+    "reason": "An array parameter has a prototype-scope star bound with a qualifier."
+  },
+  "00170.c": {
+    "diagnostic": "an opaque unscoped enumeration needs an underlying type",
+    "reason": "The suite exercises GNU C forward enum declarations."
+  },
+  "00209.c": {
+    "diagnostic": "undeclared name",
+    "reason": "GNU C introduces an incomplete enum tag in the pointer declaration."
+  },
+  "00210.c": {
+    "diagnostic": "syntax error",
+    "reason": "A GNU attribute occurs inside a nested abstract pointer declarator."
+  },
+  "00213.c": {
+    "diagnostic": "only one operand of ?: is void",
+    "reason": "The suite uses a GNU conditional expression with a void statement expression in one arm."
+  },
+  "00216.c": {
+    "diagnostic": "syntax error",
+    "reason": "The initializer uses overlapping GNU range designators."
+  },
+  "00219.c": {
+    "diagnostic": "syntax error",
+    "reason": "The suite exercises generic selection on same-spelled struct tags in different scopes."
+  }
+}

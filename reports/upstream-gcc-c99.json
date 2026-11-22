@@ -1,0 +1,105 @@
+{
+  "schema": 1,
+  "suite": "gcc",
+  "language": "c",
+  "edition": 99,
+  "revision": "5115c7e447fc07457443df874bf57840e8316d5f",
+  "coverage": "Reviewed gcc C99 language configurations on Linux x86-64.",
+  "limitations": [
+    "Checks the listed compile, diagnostic or execution outcomes.",
+    "Upstream diagnostic wording and compiler-specific intermediate forms are ungraded."
+  ],
+  "exclusions": [],
+  "cases": [
+    {
+      "id": "c99-bool-1",
+      "path": "gcc/testsuite/gcc.dg/c99-bool-1.c",
+      "sha256": "ff0a641f3ab9ac4840ae81f62129986c47ed17265de79bc8902fed3cc0a03cfb",
+      "dialect": "c99",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "C99 _Bool and stdbool.h macros"
+    },
+    {
+      "id": "c99-bool-2",
+      "path": "gcc/testsuite/gcc.dg/c99-bool-2.c",
+      "sha256": "795f8d2b14a2f2c51c18851317358ae8ea284d80ae0d88fb742f3d4805bc34dc",
+      "dialect": "c99",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "_Bool bit-field width constraint"
+    },
+    {
+      "id": "c99-bool-3",
+      "path": "gcc/testsuite/gcc.dg/c99-bool-3.c",
+      "sha256": "902e1a861bb7fab20617e2be21aa0b512ba1ed0a30ae1eec9e74a8cc0d219105",
+      "dialect": "c99",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "DR 335 _Bool bit-field semantics"
+    },
+    {
+      "id": "c99-bool-4",
+      "path": "gcc/testsuite/gcc.dg/c99-bool-4.c",
+      "sha256": "f937ffd1334feca5f3c883c2abd2d54cc77f3358f190fdfcf9ca951aa331448c",
+      "dialect": "c99",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "C99 stdbool.h macro expansions"
+    },
+    {
+      "id": "c99-hexfloat-1",
+      "path": "gcc/testsuite/gcc.dg/c99-hexfloat-1.c",
+      "sha256": "c310ffc5711685596c76a5a8a9eb0dff87e292024e2a441a8cda25718cc658c9",
+      "dialect": "c99",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "C99 hexadecimal floating constants"
+    },
+    {
+      "id": "c99-fordecl-1",
+      "path": "gcc/testsuite/gcc.dg/c99-fordecl-1.c",
+      "sha256": "74576689288181c0d1f37e11a2eaf410d211644c85e8533fed54b986e17a5f2e",
+      "dialect": "c99",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "C99 for-loop declarations and scope"
+    }
+  ]
+}

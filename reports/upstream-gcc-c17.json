@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "suite": "gcc",
+  "language": "c",
+  "edition": 17,
+  "revision": "5115c7e447fc07457443df874bf57840e8316d5f",
+  "coverage": "Reviewed gcc C17 language configurations on Linux x86-64.",
+  "limitations": [
+    "Checks the listed compile, diagnostic or execution outcomes.",
+    "Upstream diagnostic wording and compiler-specific intermediate forms are ungraded."
+  ],
+  "exclusions": [],
+  "cases": [
+    {
+      "id": "c11-generic-1",
+      "path": "gcc/testsuite/gcc.dg/c11-generic-1.c",
+      "sha256": "12c7397c91027e2d885830bee32694ba75f96a2914840433b9b720f79216a27a",
+      "dialect": "c17",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Generic selection inherited from C11"
+    },
+    {
+      "id": "c11-align-1",
+      "path": "gcc/testsuite/gcc.dg/c11-align-1.c",
+      "sha256": "5692de0c8739383bed9fe5793b1cc80fc4f0d7611124fc98b490361ddaa08da6",
+      "dialect": "c17",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Alignment specifiers inherited from C11",
+      "known_failure": {
+        "status": "compile-failed",
+        "diagnostic": "an alignment-specifier applied to a type",
+        "reason": "Alignment specifiers inherited from C11"
+      }
+    },
+    {
+      "id": "c11-static-assert-1",
+      "path": "gcc/testsuite/gcc.dg/c11-static-assert-1.c",
+      "sha256": "7aaffd244f12511f17d3e16c76f9d283f39eb313a2851071b27bbf4c7bcae4c9",
+      "dialect": "c17",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Static assertions inherited from C11",
+      "known_failure": {
+        "status": "compile-failed",
+        "diagnostic": "syntax error",
+        "reason": "Static assertions inherited from C11"
+      }
+    }
+  ]
+}

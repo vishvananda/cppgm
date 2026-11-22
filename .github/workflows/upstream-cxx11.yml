@@ -43,6 +43,7 @@ jobs:
               gcc/testsuite/g++.dg/cpp2a
               gcc/testsuite/g++.dg/concepts
               gcc/testsuite/g++.dg/coroutines
+              gcc/testsuite/gcc.dg
               libstdc++-v3/testsuite/18_support/coroutines
               libstdc++-v3/testsuite/20_util/exchange
               libstdc++-v3/testsuite/20_util/is_invocable
@@ -135,6 +136,15 @@ jobs:
           sparse-checkout: ${{ matrix.sparse }}
           persist-credentials: false
 
+      - name: Check out pinned C runtime tests
+        if: matrix.suite == 'gcc'
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: c-testsuite/c-testsuite
+          ref: 5c7275656d751de0e68b2d340a95b5681858ed07
+          path: c-testsuite
+          persist-credentials: false
+
       - name: Retain source license notices
         run: |
           python3 - <<'PYCODE'
@@ -143,9 +153,12 @@ jobs:
           output = Path(os.environ['RUNNER_TEMP'])/'cxx11/licenses'
           output.mkdir()
           records = []
-          for root, names in [(Path('.'), ['NOTICE', 'LICENSE', 'LICENSE.txt', 'COPYING']),
-                              (Path('upstream-sources'), ['COPYING', 'COPYING3', 'COPYING.RUNTIME',
-                                                        'LICENSE.TXT', 'clang/LICENSE.TXT', 'llvm/LICENSE.TXT'])]:
+          sources = [(Path('.'), ['NOTICE', 'LICENSE', 'LICENSE.txt', 'COPYING']),
+                     (Path('upstream-sources'), ['COPYING', 'COPYING3', 'COPYING.RUNTIME',
+                                                 'LICENSE.TXT', 'clang/LICENSE.TXT', 'llvm/LICENSE.TXT'])]
+          if Path('c-testsuite').is_dir():
+              sources.append((Path('c-testsuite'), ['LICENSE', 'tests/LICENSE']))
+          for root, names in sources:
               found = 0
               for name in names:
                   source = root/name
@@ -299,6 +312,36 @@ jobs:
           done
           exit "$failed"
 
+      - name: Run C language and runtime tests
+        if: ${{ !cancelled() && steps.candidate.outcome == 'success' }}
+        env:
+          SUITE: ${{ matrix.suite }}
+          UPSTREAM_VERSION: ${{ matrix.version }}
+        run: |
+          set -euo pipefail
+          case "$SUITE" in
+            gcc) upstream_c=gcc-15 ;;
+            clang) upstream_c=clang-21 ;;
+          esac
+          failed=0
+          for edition in 99 17; do
+            python3 scripts/run_cxx11_ci_suite.py \
+              --manifest "reports/upstream-$SUITE-c$edition.json" \
+              --source-root upstream-sources --candidate dev/cppgm \
+              --upstream "$upstream_c" --upstream-version "$UPSTREAM_VERSION" \
+              --workers 2 --output "$RUNNER_TEMP/cxx11/c$edition" || failed=1
+          done
+          if [ "$SUITE" = gcc ]; then
+            python3 scripts/build_c_testsuite_ci_manifest.py \
+              --source-root c-testsuite --known-gaps reports/upstream-c-testsuite-known-gaps.json \
+              --output "$RUNNER_TEMP/cxx11/c-testsuite.json"
+            python3 scripts/run_cxx11_ci_suite.py --manifest "$RUNNER_TEMP/cxx11/c-testsuite.json" \
+              --source-root c-testsuite --candidate dev/cppgm \
+              --upstream "$upstream_c" --upstream-version "$UPSTREAM_VERSION" \
+              --workers 2 --output "$RUNNER_TEMP/cxx11/c-testsuite" || failed=1
+          fi
+          exit "$failed"
+
       - name: Publish counts and elapsed-time ratio
         if: always()
         run: |
@@ -321,6 +364,12 @@ jobs:
           done
           for edition in 17 20; do
             summary="$RUNNER_TEMP/cxx11/hosted-cxx$edition/summary.md"
+            if [ -f "$summary" ]; then
+              cat "$summary" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+          for report in c99 c17 c-testsuite; do
+            summary="$RUNNER_TEMP/cxx11/$report/summary.md"
             if [ -f "$summary" ]; then
               cat "$summary" >> "$GITHUB_STEP_SUMMARY"
             fi

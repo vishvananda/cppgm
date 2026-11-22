@@ -279,6 +279,31 @@ class Suite(unittest.TestCase):
         self.assertEqual(result['status'], 'runtime-failed')
         self.assertEqual([row['name'] for row in result['stages']], ['compile', 'link', 'execute'])
 
+    def test_c_runtime_oracle_checks_combined_output(self):
+        program = "#!/bin/sh\nprintf first >&2\nprintf second\nprintf third >&2\n"
+        self.compiler.write_text(FAKE.replace('    output.chmod(0o755)',
+                                              f'    output.write_text({program!r})\n'
+                                              '    output.chmod(0o755)'))
+        case = self.case(action='run')
+        case['dialect'] = 'gnu17'
+        oracle = self.root / 'expected.txt'
+        oracle.write_text('firstsecond')
+        case['expected_output'] = dict(path=oracle.name, sha256=sha256(oracle))
+        manifest = dict(schema=1, suite='c-testsuite', language='c', edition=17, cases=[case])
+        validate_manifest(manifest, self.root)
+        result = self.run_one(case)
+        self.assertEqual(result['status'], 'wrong-output')
+        self.assertIn('-std=gnu17', result['stages'][0]['command'])
+        self.assertEqual(Path(result['stages'][-1]['stdout_path']).read_text(), 'firstsecondthird')
+
+    def test_c_known_gap_does_not_hide_an_unrelated_compiler_error(self):
+        case = self.case('REJECT')
+        case['dialect'] = 'c17'
+        case['known_failure'] = dict(status='compile-failed', diagnostic='unrelated', reason='known test gap')
+        manifest = dict(schema=1, suite='gcc', language='c', edition=17, cases=[case])
+        validate_manifest(manifest, self.root)
+        self.assertEqual(self.run_one(case)['status'], 'compile-failed')
+
     def test_cc1_action_is_emit_obj(self):
         result = self.run_one(self.case(flags=['-cc1']), 'upstream')
         self.assertEqual(result['status'], 'passed')

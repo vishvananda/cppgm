@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "suite": "clang",
+  "language": "c",
+  "edition": 17,
+  "revision": "2078da43e25a4623cab2d0d60decddf709aaea28",
+  "coverage": "Reviewed clang C17 language configurations on Linux x86-64.",
+  "limitations": [
+    "Checks the listed compile, diagnostic or execution outcomes.",
+    "Upstream diagnostic wording and compiler-specific intermediate forms are ungraded."
+  ],
+  "exclusions": [],
+  "cases": [
+    {
+      "id": "n629",
+      "path": "clang/test/C/C99/n629.c",
+      "sha256": "9f1dff443205f100b0075a7dd0462e1964d24536cdc8f4a5dcd0960efa2b53ac",
+      "dialect": "c17",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Integer literal types on the Linux x86-64 ABI"
+    },
+    {
+      "id": "n725",
+      "path": "clang/test/C/C99/n725.c",
+      "sha256": "1cb6c2588425c31c5f120c7cb5204c442fb34988d6e9b5457bd638e211461077",
+      "dialect": "c17",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Integer literal type rules on the 64-bit configuration"
+    },
+    {
+      "id": "n1460",
+      "path": "clang/test/C/C11/n1460.c",
+      "sha256": "cbcd5e11be22f34ff7c7733dc3a46ca0f4d0a51928fdc032664f83ca52e176c1",
+      "dialect": "c17",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "C11 conditional features as exercised by the native configuration",
+      "known_failure": {
+        "status": "compile-failed",
+        "diagnostic": ":32:4: #error",
+        "reason": "C11 conditional features as exercised by the native configuration"
+      }
+    }
+  ]
+}

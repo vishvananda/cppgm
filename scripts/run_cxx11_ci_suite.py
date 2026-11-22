@@ -27,15 +27,35 @@ from upstream_dg_proxy import execute, sha256, write_json
 
 LIMITS = dict(timeout_seconds=30, cpu_seconds=30, address_space_bytes=2 * 1024 ** 3,
               file_bytes=64 * 1024 ** 2, compiler_error_scan=True)
+C_EDITIONS = {90, 95, 99, 11, 17, 23}
+C_ACTIONS = {'preprocess', 'syntax', 'compile', 'link', 'run'}
+
+
+def checked_file(root, entry, label):
+    path = Path(entry['path'])
+    if path.is_absolute() or '..' in path.parts or not (root / path).resolve().is_relative_to(root):
+        raise ValueError(label + ' outside corpus')
+    if sha256(root / path) != entry['sha256']:
+        raise ValueError(label + ' hash mismatch: ' + str(path))
 
 
 def validate_manifest(manifest, root):
-    if manifest['schema'] != 1 or manifest['suite'] not in {'gcc', 'clang'}:
+    language = manifest.get('language', 'c++')
+    suites = {'gcc', 'clang', 'c-testsuite'} if language == 'c' else {'gcc', 'clang'}
+    if manifest['schema'] != 1 or language not in {'c', 'c++'} or manifest['suite'] not in suites:
         raise ValueError('Unknown suite/schema')
     edition = manifest.get('edition', 11)
-    if edition not in ALIASES:
+    if edition not in (C_EDITIONS if language == 'c' else ALIASES):
         raise ValueError('Unsupported manifest edition')
-    dialects = {f'c++{edition}', f'gnu++{edition}'}
+    if language == 'c':
+        dialects = {f'c{edition}', f'gnu{edition}'}
+        if edition == 90:
+            dialects.update({'c89', 'gnu89'})
+        elif edition == 95:
+            dialects = {'iso9899:199409'}
+    else:
+        dialects = {f'c++{edition}', f'gnu++{edition}'}
+    actions = C_ACTIONS if language == 'c' else {'compile', 'run'}
     if not manifest['cases']:
         raise ValueError('An empty manifest cannot pass CI')
     seen = set()
@@ -45,11 +65,8 @@ def validate_manifest(manifest, root):
         if case['id'] in seen:
             raise ValueError('Duplicate case identity: ' + case['id'])
         seen.add(case['id'])
+        checked_file(root, case, 'Source')
         path = Path(case['path'])
-        if path.is_absolute() or '..' in path.parts or not (root / path).resolve().is_relative_to(root):
-            raise ValueError('Source outside corpus')
-        if sha256(root / path) != case['sha256']:
-            raise ValueError('Source hash mismatch: ' + str(path))
         if '_prepared_source' in case:
             raise ValueError('Prepared source paths are owned by the runner')
         if case.get('source_projection'):
@@ -59,12 +76,7 @@ def validate_manifest(manifest, root):
             if case['action'] != 'compile' or case['expect'] != 'accept':
                 raise ValueError('Source projection requires a compile acceptance check')
         for dependency in case.get('input_files', []):
-            path = Path(dependency['path'])
-            if (path.is_absolute() or '..' in path.parts or
-                    not (root / path).resolve().is_relative_to(root)):
-                raise ValueError('Input dependency outside corpus')
-            if sha256(root / path) != dependency['sha256']:
-                raise ValueError('Input dependency hash mismatch: ' + str(path))
+            checked_file(root, dependency, 'Input dependency')
         for spelling in case.get('include_directories', []):
             path = Path(spelling)
             if (path.is_absolute() or '..' in path.parts or
@@ -83,12 +95,27 @@ def validate_manifest(manifest, root):
             selected = next((p.resolve() for p in searched if p.is_file()), None)
             if selected != (root / edge['resolved']).resolve():
                 raise ValueError('Include resolution changed: ' + edge['spelling'])
-        if case['dialect'] not in dialects or case['action'] not in {'compile', 'run'}:
+        if case['dialect'] not in dialects or case['action'] not in actions:
             raise ValueError('Unsupported dialect/action')
         if case['expect'] not in {'accept', 'diagnostic', 'reject'}:
             raise ValueError('Unknown language expectation')
-        if case['action'] == 'run' and case['expect'] != 'accept':
+        if case['action'] in {'link', 'run'} and case['expect'] != 'accept':
             raise ValueError('A required diagnostic has no defined runtime oracle')
+        if 'expected_output' in case:
+            if case['action'] != 'run':
+                raise ValueError('Output oracle requires an execution action')
+            checked_file(root, case['expected_output'], 'Runtime oracle')
+        if 'known_failure' in case:
+            gap = case['known_failure']
+            if (language != 'c' or set(gap) != {'status', 'diagnostic', 'reason'} or
+                    gap['status'] != 'compile-failed' or case['expect'] != 'accept' or
+                    not all(isinstance(value, str) and value for value in gap.values())):
+                raise ValueError('Invalid C compiler gap')
+        if 'link_flags' in case:
+            flags = case['link_flags']
+            if (case['action'] not in {'link', 'run'} or not isinstance(flags, list) or
+                    not all(isinstance(flag, str) and re.fullmatch(r'-l[A-Za-z0-9_+.-]+', flag) for flag in flags)):
+                raise ValueError('Invalid link flags')
         for key in ['candidate_flags', 'upstream_flags']:
             if not isinstance(case[key], list) or not all(isinstance(x, str) for x in case[key]):
                 raise ValueError('Flags must be a literal argument list')
@@ -105,10 +132,11 @@ def run_case(arguments):
     result = dict(id=case['id'], path=case['path'], expect=case['expect'],
                   action=case['action'], dialect=case['dialect'], stages=[])
 
-    def stage(name, command, compiler_error_scan=True):
+    def stage(name, command, compiler_error_scan=True, combine_output=False):
         before = resource.getrusage(resource.RUSAGE_CHILDREN)
         receipt, _, stderr = execute(command, directory / name,
-                                     dict(LIMITS, compiler_error_scan=compiler_error_scan))
+                                     dict(LIMITS, compiler_error_scan=compiler_error_scan,
+                                          combine_output=combine_output))
         after = resource.getrusage(resource.RUSAGE_CHILDREN)
         receipt.update(child_user_seconds=after.ru_utime - before.ru_utime,
                        child_system_seconds=after.ru_stime - before.ru_stime)
@@ -116,6 +144,13 @@ def run_case(arguments):
         return receipt, stderr
 
     def finish(status):
+        gap = case.get('known_failure')
+        if role == 'cppgm' and gap is not None:
+            result['known_failure'] = gap
+            if status == gap['status'] and gap['diagnostic'] in diagnostic:
+                status = 'known-failure'
+            elif status == 'passed':
+                status = 'resolved-known-failure'
         result['status'] = status
         try:
             write_json(directory / 'result.json', result)
@@ -124,6 +159,7 @@ def run_case(arguments):
             result['status'] = 'harness-error'
         return result
 
+    diagnostic = ''
     try:
         directory.mkdir()
         os.chdir(directory)
@@ -133,11 +169,20 @@ def run_case(arguments):
         flags = case['candidate_flags' if role == 'cppgm' else 'upstream_flags']
         include_flags = ['-I' + str(Path(root) / path) for path in case.get('include_directories', [])]
         cc1 = flags[:1] == ['-cc1']
-        command = [compiler, *(['-cc1'] if cc1 else []), '-std=' + case['dialect'],
-                   *(flags[1:] if cc1 else flags), *include_flags, '-emit-obj' if cc1 else '-c',
-                   source, '-o', str(obj)]
-        compile_result, diagnostic = stage('compile', command)
+        is_c = '++' not in case['dialect']
+        command = [compiler, *(['-cc1'] if cc1 else []), *(['-x', 'c'] if is_c else []),
+                   '-std=' + case['dialect'], *(flags[1:] if cc1 else flags), *include_flags]
+        action = case['action']
+        if action == 'preprocess':
+            command.extend(['-E', source])
+        elif action == 'syntax':
+            command.extend(['-fsyntax-only', source])
+        else:
+            command.extend(['-emit-obj' if cc1 else '-c', source, '-o', str(obj)])
+        compile_result, diagnostic = stage(action if action in {'preprocess', 'syntax'} else 'compile', command)
         classification = compile_result['classification']
+        if is_c and classification == 'timeout':
+            return finish('compiler-timeout')
         if classification not in {'success', 'rejection'}:
             return finish('compiler-abnormal')
         if case['expect'] == 'diagnostic':
@@ -148,16 +193,27 @@ def run_case(arguments):
             return finish('passed' if diagnostic.strip() else 'diagnostic-missing')
         if classification != 'success':
             return finish('compile-failed')
+        if action in {'preprocess', 'syntax'}:
+            return finish('passed')
         if not obj.is_file() or not elf_object(obj):
             return finish('invalid-object')
-        if case['action'] == 'run':
+        if action in {'link', 'run'}:
             executable = directory / 'test.exe'
-            linked, _ = stage('link', [linker, str(obj), '-o', str(executable)])
+            linked, _ = stage('link', [linker, str(obj), *case.get('link_flags', []), '-o', str(executable)])
+            if is_c and linked['classification'] == 'timeout':
+                return finish('link-timeout')
             if linked['classification'] != 'success' or not executable.is_file():
                 return finish('link-failed')
-            runtime, _ = stage('execute', [str(executable)], compiler_error_scan=False)
+        if action == 'run':
+            oracle = case.get('expected_output')
+            runtime, _ = stage('execute', [str(executable)], compiler_error_scan=False,
+                               combine_output=oracle is not None)
+            if is_c and runtime['classification'] == 'timeout':
+                return finish('runtime-timeout')
             if runtime['classification'] != 'success':
                 return finish('runtime-failed')
+            if oracle is not None and runtime['stdout_sha256'] != oracle['sha256']:
+                return finish('wrong-output')
         return finish('passed')
     except Exception as error:
         result['error'] = str(error)
@@ -188,7 +244,8 @@ def run_suite(cases, root, compiler, linker, role, output, workers, prepared_sou
         error = str(failure)
     elapsed = time.monotonic() - start
     counts = dict(Counter(row['status'] for row in results))
-    executed = sum(any(stage['name'] == 'compile' for stage in row['stages']) for row in results)
+    executed = sum(any(stage['name'] in {'compile', 'preprocess', 'syntax'} for stage in row['stages'])
+                   for row in results)
     return dict(elapsed_seconds=elapsed, selected=len(cases), executed=executed, error=error,
                 passed=counts.get('passed', 0), counts=counts, results=results,
                 child_user_seconds=sum(stage['child_user_seconds'] for row in results for stage in row['stages']),
@@ -218,7 +275,8 @@ def comparison(cppgm, upstream, total):
 
 
 def markdown(report):
-    lines = [f"### {report['suite'].upper()} C++{report.get('edition', 11)} language checks", '',
+    language = report.get('language', 'c++').upper()
+    lines = [f"### {report['suite'].upper()} {language}{report.get('edition', 11)} language checks", '',
              '| Compiler | Executed / selected | Passed | Suite elapsed (s) |',
              '|---|---:|---:|---:|']
     for role in ['cppgm', 'upstream']:
@@ -243,6 +301,11 @@ def markdown(report):
             for dialect, expectations in sorted(report['selection']['by_dialect'].items()):
                 for expect, selected in sorted(expectations.items()):
                     lines.append(f'| {role} | {dialect} | {expect} | {observed[dialect, expect]} / {selected} |')
+        lines.append('')
+    if language == 'C':
+        for role in ('cppgm', 'upstream'):
+            counts = report[role]['counts']
+            lines.append(f"{role} outcomes: " + ', '.join(f'{status} {count}' for status, count in sorted(counts.items())))
         lines.append('')
     return '\n'.join(lines)
 
@@ -274,7 +337,8 @@ def main():
     for case in manifest['cases']:
         if not case.get('source_projection'):
             continue
-        target = output / 'projected-sources' / (case['id'] + '.C')
+        extension = '.c' if manifest.get('language') == 'c' else '.C'
+        target = output / 'projected-sources' / (case['id'] + extension)
         target.parent.mkdir(exist_ok=True)
         target.write_bytes(project_source((root / case['path']).read_bytes(), case['source_projection']['kind']))
         prepared_sources[case['id']] = str(target)
@@ -303,6 +367,8 @@ def main():
         for case in manifest['cases']:
             expected = report['selection']['by_dialect'].setdefault(case['dialect'], {})
             expected[case['expect']] = expected.get(case['expect'], 0) + 1
+    if 'language' in manifest:
+        report['language'] = manifest['language']
     for role in ['cppgm', 'upstream']:
         report[role] = run_suite(manifest['cases'], root, binaries[role]['path'],
                                  binaries['upstream']['path'], role, output / role, args.workers, prepared_sources)
@@ -315,16 +381,25 @@ def main():
     except (ValueError, OSError) as error:
         report['input_verification_error'] = str(error)
     report['comparison'] = comparison(report['cppgm'], report['upstream'], len(manifest['cases']))
+    verified_inputs = 'input_verification_error' not in report
     if report.get('input_verification_error'):
         report['comparison'].update(comparable=False, interpretation='Non-comparable: corpus changed during execution')
     if (any(sha256(row['path']) != row['sha256'] for row in binaries.values()) or
             any(sha256(script_directory / name) != digest for name, digest in scripts.items())):
         report['comparison'].update(comparable=False, interpretation='Non-comparable: compiler/runner changed during execution')
+        verified_inputs = False
+    if report.get('language') == 'c':
+        cppgm, upstream = report['cppgm'], report['upstream']
+        total = len(manifest['cases'])
+        report['checks_passed'] = (verified_inputs and
+                                   all(row['error'] is None and row['executed'] == total for row in (cppgm, upstream)) and
+                                   cppgm['passed'] + cppgm['counts'].get('known-failure', 0) == total and
+                                   upstream['passed'] == total)
     write_json(output / 'results.json', report)
     summary = markdown(report)
     (output / 'summary.md').write_text(summary)
     print(summary)
-    return 0 if report['comparison']['comparable'] else 1
+    return 0 if report.get('checks_passed', report['comparison']['comparable']) else 1
 
 
 if __name__ == '__main__':

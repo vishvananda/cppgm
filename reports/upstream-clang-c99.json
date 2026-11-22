@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "suite": "clang",
+  "language": "c",
+  "edition": 99,
+  "revision": "2078da43e25a4623cab2d0d60decddf709aaea28",
+  "coverage": "Reviewed clang C99 language configurations on Linux x86-64.",
+  "limitations": [
+    "Checks the listed compile, diagnostic or execution outcomes.",
+    "Upstream diagnostic wording and compiler-specific intermediate forms are ungraded."
+  ],
+  "exclusions": [
+    {
+      "path": "clang/test/C/C99/n570.c",
+      "reason": "Independent FileCheck output oracle and a C99 extension for static assertions."
+    }
+  ],
+  "cases": [
+    {
+      "id": "n505",
+      "path": "clang/test/C/C99/n505.c",
+      "sha256": "22eca5ce356d6ac76cea2385509d73f961c8b9d7d2d54d95084658cf228970e9",
+      "dialect": "c99",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "C99 accepts repeated type qualifiers with an optional warning",
+      "known_failure": {
+        "status": "compile-failed",
+        "diagnostic": "a cv-qualifier repeated in a decl-specifier-seq",
+        "reason": "C99 accepts repeated type qualifiers with an optional warning"
+      }
+    }
+  ]
+}
