@@ -113,9 +113,13 @@ The first fixture set covers these parts of the C17 input profile:
 - Give a redeclared C object or function the composite of its compatible
   types. Combine bounds and prototypes through pointers, array elements,
   function parameters, and return types. A block declaration can refine
-  its local view of an object and constrain the types of later declarations
-  of that same linked object. Keep the refined bound visible only where
-  its declaration applies. At the end of a translation unit, complete
+  its local view of an object or function and constrain later declarations
+  of the same entity. Keep the refined bound or prototype visible only
+  where the declaration applies. A block function declaration inherits the
+  linkage of a visible prior declaration with linkage and forms a composite
+  type with that declaration. Otherwise it has external linkage and uses
+  its written type.
+  At the end of a translation unit, complete
   a still-incomplete tentative array with external linkage as a one-element
   array. Use a bound or a record definition supplied later in the file
   when available. Under `-pedantic-errors`, reject an incomplete tentative

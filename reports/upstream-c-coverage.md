@@ -193,7 +193,7 @@ tentative definitions at the end of the translation unit.
 | Rule | Evidence or remaining gap |
 | --- | --- |
 | 6.2.7p3, p4 and 6.7.6.3p15 | [Composite types](../pa38/tests/general/400-c-composite-types.t) combine array bounds through pointers, function parameters, and return types. The fixture checks implicit compatible-pointer conversion, bounds in nested scopes, and reads from two blocks that declare an object before its file-scope declaration. |
-| 6.2.7p2, p4 | [Conflicting linked bounds](../pa38/tests/general/400-c-composite-linked-bounds-bad.t) diagnose a conflict after the enclosing block ends. [Shadowed array bound](../pa38/tests/general/400-c-composite-shadowed-bad.t) diagnoses a `sizeof` whose visible declaration has no bound. Six pinned GCC cases cover these cases and other combinations. The remaining block-function cases are described below. |
+| 6.2.7p2, p4 | [Conflicting linked bounds](../pa38/tests/general/400-c-composite-linked-bounds-bad.t) diagnose a conflict after the enclosing block ends. [Shadowed array bound](../pa38/tests/general/400-c-composite-shadowed-bad.t) diagnoses a `sizeof` whose visible declaration has no bound. The pinned GCC cases include the same compatibility check for functions. |
 | 6.5.15p5, p6 | [Conditional pointers](../pa38/tests/general/500-conditional-composite-pointer.t) retain a complete array bound in both operand orders, combine qualifiers, and evaluate the selected operand. A [prototype regression](../pa38/tests/general/500-conditional-composite-prototype-bad.t) checks arity when one operand lacks a prototype. [Integer promotions](../pa38/tests/general/500-conditional-integer-promotions.t) cover equal signed-character, boolean, and bit-field operands. The pinned GCC case checks arithmetic, aggregate, void, and pointer results in both orders. |
 | 6.9.2p2, p3, p5 | [Incomplete tentative definitions](../pa38/tests/general/400-c-tentative-incomplete.t) emit one zeroed element for an external array with no bound by the end of its translation unit. A later bound or tag definition controls storage when supplied. [Internal tentative arrays](../pa38/tests/general/400-c-tentative-internal-bad.t) are checked at their declaration under the pedantic policy. An [uncompleted record](../pa38/tests/general/400-c-tentative-record-bad.t) is diagnosed at the end of its translation unit. The pinned Clang case exercises a tentative array. |
 | 6.7.4p3, p7 | PA38 diagnoses an inline-only definition that [calls an internal function](../pa38/tests/general/400-c-inline-internal-call-bad.t), [references an internal object through `sizeof`](../pa38/tests/general/400-c-inline-internal-object-bad.t), [defines a modifiable static array](../pa38/tests/general/400-c-inline-static-bad.t), or [defines a modifiable thread-local object](../pa38/tests/general/400-c-inline-thread-bad.t). [Late linkage](../pa38/tests/general/400-c-inline-linkage.t) covers a later external declaration, an earlier inline declaration followed by its body, and an immutable static local. The [missing definition fixture](../pa38/tests/general/400-c-inline-missing-body-bad.t) uses the pedantic policy. The pinned GCC cases cover declaration order, internal linkage, diagnostics, and missing bodies. |
@@ -218,18 +218,27 @@ rejects static archives, as does the parent compiler.
 [GCC C17 manifest](upstream-gcc-c17.json) · [Clang C17 manifest](upstream-clang-c17.json) ·
 [Declaration scaling measurements](../docs/performance/c-frontend-scaling.md#declarations-and-linkage)
 
-### Remaining block-scope function redeclaration cases
+### Block-scope function declarations
 
-In C17, GCC and Clang keep a visible file-scope prototype when an inner
-block redeclares the function without a prototype. cppgm currently accepts
-an extra argument in that case. Both controls and cppgm accept a call
-through a block declaration without a prototype when an automatic object
-hides the file-scope prototype. A block-scope declaration with a compatible
-but different array bound must also inherit the visible function's linkage.
-cppgm currently emits an unresolved external reference when that function
-has internal linkage. GCC's pinned `redecl-11.c` also checks a later
-file-scope function declaration for compatibility with a declaration in
-an exited block. Clang and cppgm accept that conflict.
+[Block function linkage](../pa38/tests/general/400-c-block-function-linkage.t)
+checks inherited internal linkage, a hidden file-scope prototype, a nested
+composite return type, and calls to functions first declared in a block.
+A block prototype can supply the ABI boundary for a call to an external
+symbol whose first declaration left the parameters unspecified. The fixture
+includes a second translation unit that provides that function's definition.
+The typed call uses that boundary through direct object emission and the
+LowIR round trip.
+
+The [visible prototype case](../pa38/tests/general/400-c-block-function-prototype-bad.t)
+diagnoses an extra argument. The [file-scope bound case](../pa38/tests/general/400-c-block-function-hidden-bad.t)
+checks that the first file-scope declaration starts with its written type.
+Two cases check agreement between a block prototype and an empty identifier
+list in a definition, [definition first](../pa38/tests/general/500-c-block-function-later-arity-bad.t)
+and [prototype first](../pa38/tests/general/500-c-block-function-arity-bad.t).
+The [GCC C17 manifest](upstream-gcc-c17.json) includes `redecl-11.c` for
+conflicting array bounds in function parameters after a block ends. Clang
+accepts that case. The compatibility requirement comes from C11 6.2.7p2,
+which leaves the behavior of incompatible declarations undefined.
 
 ## Cross-target smoke results
 

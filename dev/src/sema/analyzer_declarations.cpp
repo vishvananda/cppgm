@@ -2181,6 +2181,8 @@ Binding* Analyzer::declare_function(const Specifiers& specifiers, const Declarat
 		error(location, "a default argument or inline in a friend declaration of a specialization");
 	Scope* where = declaration_scope(scope);
 	Scope* print = scope;
+	if (c_source_ && where->kind == ScopeKind::Block && specifiers.is_static)
+		error(location, "a block-scope C function declaration cannot be static");
 	const bool qualified = info.qualifier != nullptr;
 	bool invisible = false;
 	bool pattern_friend = false;
@@ -2273,7 +2275,7 @@ Binding* Analyzer::declare_function(const Specifiers& specifiers, const Declarat
 	if (qualified && function != nullptr)
 		print = where = function->owner;
 	function = c_redeclared_function(function, name.key, where, info.type, definition, location);
-	if (c_language_ && !templated && !specifiers.is_static && where->kind == ScopeKind::Namespace)
+	if (c_language_ && !templated && (!specifiers.is_static || c_source_) && where->kind == ScopeKind::Namespace)
 	{
 		const uint32_t index = c_function_index_.find(name.key);
 		if (index != PointerMap::kMissing)
@@ -2301,6 +2303,8 @@ Binding* Analyzer::declare_function(const Specifiers& specifiers, const Declarat
 		error(location, "main declared inline, static or constexpr");
 	if (function != nullptr)
 	{
+		if (c_source_ && where->kind == ScopeKind::Namespace && !c_function_linkages_.empty())
+			note_c_function_linkage(function, info.type, definition, location);
 		redeclare_function(function, specifiers, info, scope, where, definition, deleted,
 			template_depth_ == 0 || pattern_member || templated, location);
 	}
@@ -2309,10 +2313,12 @@ Binding* Analyzer::declare_function(const Specifiers& specifiers, const Declarat
 		function = new_function(specifiers, info, name, scope, where, signature, templated, location);
 		first = true;
 	}
+	if (c_source_ && where->kind == ScopeKind::Block)
+		note_c_function_linkage(function, info.type, false, location);
 	if (function->c_linkage && !function->internal_linkage && c_function_index_.find(name.key) == PointerMap::kMissing)
 	{
 		c_function_index_.set(name.key, static_cast<uint32_t>(c_functions_.size()));
-		c_functions_.push_back(function);
+		c_functions_.push_back(c_source_ && function->denotes != nullptr ? function->denotes : function);
 	}
 	// 8.3.6p6: a class template member's default arguments are given on
 	// its declaration in the class; 8.3.6p4: only a non-template function's
@@ -2627,8 +2633,9 @@ void Analyzer::redeclare_function(FunctionEntity* function, const Specifiers& sp
 		if (composite != function->type)
 		{
 			check_startup_redeclaration(function, composite, location);
+			// Keep the C declaration's lookup slot stable as its visible type
+			// acquires a prototype or a completed bound.
 			function->type = composite;
-			function->signature = signature_of(composite);
 		}
 	}
 }
@@ -2680,6 +2687,8 @@ FunctionEntity* Analyzer::new_function(const Specifiers& specifiers, const Decla
 		if (!templated)
 			agree_block_linkage(function, function->c_linkage, function->internal_linkage, location);
 	}
+	else if (c_source_ && where->kind == ScopeKind::Block)
+		bind_c_block_function(function, specifiers, info, name, scope, where, location);
 	else if (where->kind == ScopeKind::Block && !templated)
 	{
 		// CWG1839/P1787R6: a block declaration targets its enclosing

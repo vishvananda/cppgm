@@ -415,6 +415,9 @@ private:
 		bool& invisible, const DeclaratorInfo& info);
 	FunctionEntity* c_redeclared_function(FunctionEntity* previous, const Identifier* name, Scope* where,
 		const Type* type, bool definition, uint32_t location);
+	void bind_c_block_function(FunctionEntity* function, const Specifiers& specifiers, const DeclaratorInfo& info,
+		const DeclaredName& name, Scope* scope, Scope* where, uint32_t location);
+	void note_c_function_linkage(FunctionEntity* function, const Type* type, bool definition, uint32_t location);
 	void redeclare_function(FunctionEntity* function, const Specifiers& specifiers, const DeclaratorInfo& info,
 		Scope* scope, const Scope* where, bool definition, bool deleted, bool exceptions, uint32_t location);
 	FunctionEntity* new_function(const Specifiers& specifiers, const DeclaratorInfo& info, const DeclaredName& name,
@@ -2251,6 +2254,15 @@ private:
 	// (7.5p6); C++ overload lookup alone cannot establish that identity.
 	PointerMap c_function_index_;
 	std::vector<FunctionEntity*> c_functions_;
+	// Only functions declared in a block need a composite across lexical
+	// scopes in addition to their visible declaration types.
+	struct CFunctionLinkage
+	{
+		const Type* type;
+		bool file_declared;
+	};
+	PointerMap c_function_linkage_index_;
+	std::vector<CFunctionLinkage> c_function_linkages_;
 	// Name identity and compatibility for C linked objects declared in a
 	// block. A name gains a lexical file-scope binding at its declaration.
 	struct CVariableLinkage

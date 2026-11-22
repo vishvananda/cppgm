@@ -121,6 +121,24 @@
       ]
     },
     {
+      "id": "redecl-11",
+      "path": "gcc/testsuite/gcc.dg/redecl-11.c",
+      "sha256": "29f80d56774f6c6dd7997a5a09d06a93031bfd57241c4f7af7c670b9a7b608ca",
+      "dialect": "c17",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "A file-scope declaration must be compatible with earlier block declarations of the same function",
+      "adaptations": [
+        "Selects C17 for the declaration rule. Checks acceptance or rejection without matching GCC wording."
+      ]
+    },
+    {
       "id": "redecl-14",
       "path": "gcc/testsuite/gcc.dg/redecl-14.c",
       "sha256": "44586e286f2c2b9110024cc7c0617e877d674c68f79bd7b52ca319b95462572b",

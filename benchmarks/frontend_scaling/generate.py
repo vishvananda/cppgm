@@ -48,6 +48,17 @@ def c_linked_redeclarations(size, file_first):
     print('}\nint (*object)[3];')
 
 
+def c_block_function_redeclarations(size, distinct):
+    print('void use(void) {')
+    for index in range(size):
+        name = f'read_{index}' if distinct else 'read'
+        print(f'    {{ extern int (*{name}(void))[3]; (void)sizeof *{name}(); }}')
+    print('}')
+    for index in range(size if distinct else 1):
+        name = f'read_{index}' if distinct else 'read'
+        print(f'extern int (*{name}(void))[];')
+
+
 def c_conditional_composites(size):
     print('extern int (*a)[];\nextern int (*b)[3];')
     for _ in range(size):
@@ -136,6 +147,7 @@ def main():
                                         'c-macro-binding-stack', 'c-redeclarations',
                                         'c-composite-redeclarations', 'c-tentative-arrays',
                                         'c-linked-redeclarations', 'c-block-first-redeclarations',
+                                        'c-block-function-redeclarations', 'c-block-function-names',
                                         'c-conditional-composites', 'c-inline-late-linkage',
                                         'c-generic-arrays', 'c-generic-prototypes', 'c-generic-short-lists',
                                         'c-vla-declarators', 'c-fixed-array-declarators',
@@ -163,6 +175,9 @@ def main():
         return
     if args.case in ('c-linked-redeclarations', 'c-block-first-redeclarations'):
         c_linked_redeclarations(args.size, file_first=args.case == 'c-linked-redeclarations')
+        return
+    if args.case in ('c-block-function-redeclarations', 'c-block-function-names'):
+        c_block_function_redeclarations(args.size, distinct=args.case == 'c-block-function-names')
         return
     if args.case == 'c-conditional-composites':
         c_conditional_composites(args.size)

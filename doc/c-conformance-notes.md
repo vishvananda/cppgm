@@ -246,6 +246,14 @@ requires those declared types to be compatible even when a block has ended
 or a nearer automatic object hides an earlier declaration. Apply paragraph
 4 to the visible declaration when determining the type of a use.
 
+Under 6.2.2p4 and p5, a block function declaration with or without an
+explicit `extern` inherits the linkage of a visible prior declaration
+with linkage. In its absence the function has external linkage. A visible
+prototype remains in effect for a compatible declaration without a
+prototype. Under 6.2.7p2, a block prototype also constrains compatible
+declarations in other scopes. Its parameters and array bounds do not
+become visible there.
+
 Under 6.9.2p2, a remaining tentative definition uses the composite type
 at the end of the translation unit and receives zero initialization.
 Paragraph 5 exemplifies completing an otherwise incomplete external
@@ -254,6 +262,7 @@ tentative definition to be complete at its declaration.
 
 [C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [PA38 composite types](../pa38/tests/general/400-c-composite-types.t) ·
+[PA38 block function linkage](../pa38/tests/general/400-c-block-function-linkage.t) ·
 [PA38 tentative definitions](../pa38/tests/general/400-c-tentative-incomplete.t)
 
 ## Conditional pointer types and C inline definitions

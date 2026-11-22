@@ -85,6 +85,10 @@ blocks that refine the declaration of an object with external linkage.
 `c-block-first-redeclarations` introduces the same object in a block first
 and declares it at file scope after the blocks.
 Measure C17 syntax-only from 256 through 4096 by successive doublings.
+`c-block-function-redeclarations` introduces one function across a growing
+number of sibling scopes before its first file-scope declaration.
+`c-block-function-names` uses a distinct function per block. Use the same
+size series for both and compare the incremental cost per declaration.
 `c-conditional-composites` checks the result bound of repeated conditional
 expressions. `c-inline-late-linkage` defines functions whose later
 file-scope declarations supply external definitions, exercising the deferred

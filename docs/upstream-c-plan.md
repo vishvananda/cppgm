@@ -23,13 +23,15 @@ Track evidence as each milestone lands in the
 [C conformance inventory](../reports/upstream-c-coverage.md) and the
 [C frontend scaling report](performance/c-frontend-scaling.md).
 
-Start the next batch with a reviewed slice for declarations, linkage, and
-constant expressions. Replay the current C99, C11, and C17 manifests before
-changing the compiler. Use the slice to pin down failures in redeclarations,
-tentative definitions, C inline linkage, and static initializers before
-expanding the import. Keep the existing VLA, generic selection, and sparse
-initializer tests in the fast iteration loop for changes to their shared
-analysis paths.
+The declarations batch now covers calls through inherited and hidden
+prototypes, internal linkage, functions first declared in a block, and
+conflicts between scopes. Keep the prototype visible at each declaration
+separate from the compatibility requirements of the linked entity. Continue
+with a reviewed slice of integer, arithmetic, and address constant
+expressions, including static initializers. Replay the affected C99, C11,
+and C17 cases before each fix. Keep the existing VLA, generic selection, and
+sparse initializer tests in the fast iteration loop for changes to their
+shared analysis paths.
 
 ## Implementation order
 
@@ -317,7 +319,7 @@ which operations are proportional to tokens, demanded work, or output.
 | Path | Review and measurement |
 | --- | --- |
 | Mode selection and preprocessing | Decode options once. Use compact edition or feature values at the construct that needs them. Put extra work on the relevant token or construct paths so ordinary input retains the existing fast path. Use shared tokenization and macro machinery with bounded lookahead. For macro push/pop, index by interned name and save only the affected binding. |
-| Types, scopes, and linkage | Keep interned identities and direct scope/name indexes. Fast-path equal canonical types. Resolve C compatibility and composite type work where required and retain the result on its owner. Index redeclaration and tentative-definition work by entity. If a memo is useful, document its typed key, lifetime and dependence on completion state. Measure type comparisons and work per redeclaration in long chains. |
+| Types, scopes, and linkage | Keep interned identities and direct scope/name indexes. Fast-path equal canonical types. Keep lexical composite types on declarations and cross-scope compatibility facts on the linked entity where needed. Lower calls from their recorded conversions and resolve the symbol through the linked entity. Index redeclaration and tentative-definition work by entity. If a memo is useful, document its typed key, lifetime and dependence on completion state. Measure work as the number of declarations per entity and the number of independently linked names grow. |
 | Array bounds, generic selection, and initializers | Keep evaluated VLA extents in compact declaration- or use-owned records with the required evaluation and lifetime. Lowering reads retained extents and conversions. Check each required generic association once, retain the selected expression and evaluate only that arm at runtime. Resolve initializer paths once. Keep sparse designators and zero fill compact until emission. Count bound visits, designator steps and subobjects to catch repeated scans of a dimension list, initializer or record. |
 | Constant expressions and wide integers | Reuse typed evaluation with the constraints of each required C constant context. Retain the result where later phases consume it. Keep single-word values on the ordinary path and allocate wide storage only for values that require it. Measure widths and operation counts independently. |
 | Lowering and code generation | Consume typed facts directly, emit each entity once and reuse target layout, ABI, optimizer and backend machinery. Preserve streaming at `-O0`. Add typed LowIR vocabulary only when an operation requires it, with its existing text adapter and validator coverage. Reuse per-function scratch. Audit VLA cleanup, storage ownership, volatility and aliasing at optimized levels. |

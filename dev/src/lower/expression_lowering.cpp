@@ -2559,6 +2559,11 @@ RValue FunctionLowering::call(const syntax::CallExpr& expr, lowir::Value destina
 				return copied;
 			}
 			callee = member_callee(function, object, (facts->flags & sema::kVirtualCall) != 0, signature);
+			// A block's prototype can supply a boundary the linked C symbol's
+			// file-scope declaration does not state.
+			if (function->denotes != nullptr && function->denotes->type->c_unprototyped() &&
+				lowering_.analyzer_->c_source())
+				signature = lowering_.call_signature(function->type, lowering_.function_nothrow(function));
 			result = result_type(function);
 			// The course defines the table of a class with virtual bases a
 			// virtual call names its object by (a host object only the
