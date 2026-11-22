@@ -89,6 +89,13 @@ The first fixture set covers these parts of the C17 input profile:
   Comparisons and logical operators
   produce `int`. Assignment, comma, conditional and prefix increment results
   do not become C++ lvalues.
+- Check the operand forms of integer constant expressions for assertions,
+  case labels, enumeration values, bit-field widths, alignment, and array
+  designators. An evaluated comma operator is invalid in these expressions.
+  A floating literal may be the immediate operand of a cast to an integer.
+  Check operand forms in conditional branches that evaluation skips. A
+  foldable array bound can still declare a variable-length array. Use C's
+  integer constant expressions of value zero for null pointer conversions.
 - When the two pointer operands of `?:` point to compatible types, form
   the composite pointed-to type and combine their qualifiers. A bound or
   a prototype from either operand can determine the result type. Evaluate

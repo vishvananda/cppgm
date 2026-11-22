@@ -1089,7 +1089,7 @@ void Analyzer::case_label(const syntax::CaseStmt& stmt, Scope* scope)
 	// type's copy-initialization selects (5.19p3).
 	convert_to_scalar(*stmt.value, context->type, false);
 	Constant value;
-	constant_value(*stmt.value, scope, value, true);
+	integer_constant_expression(*stmt.value, scope, value, true);
 	convert_operand(*stmt.value, context->type);
 	IntegralKind kind;
 	IntegralKindOf(context->type, kind);

@@ -1834,6 +1834,8 @@ private:
 
 	// ------------------------------------------------ constants
 	bool constant_value(const syntax::Expr& expr, Scope* scope, Constant& value, bool required);
+	bool integer_constant_expression(const syntax::Expr& expr, Scope* scope, Constant& value, bool required);
+	bool note_c_null_constant(const syntax::Expr& expr);
 	bool converted_constant(const syntax::Expr& expr, Constant& value, bool required);
 	void constant_operand(const syntax::Expr& expr, Scope* scope, bool resolved = true);
 	// 5.19 for an expression of floating type the analysis typed: its value

@@ -178,6 +178,77 @@
         "-pedantic-errors"
       ],
       "obligation": "A prior static declaration gives an inline function internal linkage"
+    },
+    {
+      "id": "c99-const-expr-1",
+      "path": "gcc/testsuite/gcc.dg/c99-const-expr-1.c",
+      "sha256": "8acb12a788575ebc1008b86e913ff28436606beed50c3df7cfde1a1d97970886",
+      "dialect": "c99",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Unevaluated subexpressions in constant expressions"
+    },
+    {
+      "id": "c99-const-expr-2",
+      "path": "gcc/testsuite/gcc.dg/c99-const-expr-2.c",
+      "sha256": "ba9c150133900d8c0bc0ac452dea13a610e5988eb393f7bccc447b57521928ca",
+      "dialect": "c99",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [],
+      "upstream_flags": [],
+      "obligation": "C99 integer constant zeros and casts to unqualified void pointer"
+    },
+    {
+      "id": "c99-const-expr-3",
+      "path": "gcc/testsuite/gcc.dg/c99-const-expr-3.c",
+      "sha256": "c57abe4d46a550c5a1bfd6769407976486da382e45db55f4a88727e410b29124",
+      "dialect": "c99",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-O2"
+      ],
+      "upstream_flags": [
+        "-O2"
+      ],
+      "obligation": "Constant folding does not turn the value of a const object into a null pointer constant"
+    },
+    {
+      "id": "c99-const-expr-4",
+      "path": "gcc/testsuite/gcc.dg/c99-const-expr-4.c",
+      "sha256": "7eee8ec17a81974ac087334caec34947931df8b0607ef8e0c847d8ba68ca5199",
+      "dialect": "c99",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-O2"
+      ],
+      "upstream_flags": [
+        "-O2"
+      ],
+      "obligation": "A conditional with an object pointer and a void pointer object has void pointer type"
+    },
+    {
+      "id": "c99-const-expr-15",
+      "path": "gcc/testsuite/gcc.dg/c99-const-expr-15.c",
+      "sha256": "7852791fd948b19077800e0400160168c13f8a256a182b44a7ff64fa51a18dd7",
+      "dialect": "c99",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "An unused arithmetic branch can contain an operation that overflows if evaluated"
     }
   ]
 }

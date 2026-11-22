@@ -1865,7 +1865,8 @@ uint64_t Analyzer::array_bound(const syntax::Expr& bound, Scope* scope, bool* ru
 		names_.note_dependent_use();
 	// A bound in a template may depend on its parameters: evaluated when
 	// it can be, otherwise left unknown for instantiation.
-	if (!constant_value(bound, scope, value, !c_runtime && template_depth_ == 0 && soft_substitution_ == 0))
+	if (!integer_constant_expression(
+			bound, scope, value, !c_runtime && template_depth_ == 0 && soft_substitution_ == 0))
 	{
 		if (c_runtime)
 		{

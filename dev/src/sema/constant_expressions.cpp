@@ -1225,7 +1225,8 @@ bool ConstantInterpreter::binary(const syntax::BinaryExpr& expr, ConstValue& out
 	if ((expr.facts->flags & kOperatorCall) != 0)
 		return call_value(expr, out);
 	if (expr.op == TokenKind::OP_COMMA)
-		return discard(*expr.left) && rvalue(*expr.right, out);
+		return c_constant_expression_ ? fail(expr.location, "an evaluated comma operator in a C constant expression")
+									  : discard(*expr.left) && rvalue(*expr.right, out);
 	if (expr.op == TokenKind::OP_LAND || expr.op == TokenKind::OP_LOR)
 		return logical(expr, out);
 	if (expr.op == TokenKind::OP_DOTSTAR || expr.op == TokenKind::OP_ARROWSTAR)

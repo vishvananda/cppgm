@@ -265,6 +265,31 @@ tentative definition to be complete at its declaration.
 [PA38 block function linkage](../pa38/tests/general/400-c-block-function-linkage.t) ·
 [PA38 tentative definitions](../pa38/tests/general/400-c-tentative-incomplete.t)
 
+## Integer constant expressions
+
+C11 6.6p6 restricts both the type and the operands of an integer constant
+expression. Apply the rule wherever the surrounding construct requires an
+integer constant. Evaluate only the selected path of `?:`, `&&`, and `||`.
+The operand forms still apply to the skipped paths. An evaluated comma
+operator is excluded by 6.6p3, while a comma between eligible operands can
+appear in an unevaluated branch. A floating literal can be the immediate
+operand of an arithmetic-to-integer cast. A fixed `sizeof` or `_Alignof`
+supplies its result directly, using the operand in that operator's own
+context. A generic selection takes its expression from the selected
+association.
+
+Under 6.7.6.2p4, a foldable integer bound can still produce a variable-length
+array if its expression fails the integer constant rules. Under 6.3.2.3p3,
+an eligible integer expression with value zero is a null pointer constant,
+as is its cast to a pointer to unqualified `void`. A comma whose evaluated
+result is zero leaves an ordinary integer, or an ordinary `void *` when
+explicitly cast.
+
+[C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[WG14 DR 261](https://www.open-std.org/JTC1/SC22/WG14/www/docs/dr_261.htm) ·
+[WG14 issue 0489](https://open-std.org/JTC1/SC22/WG14/issues/c11c17/issue0489.html) ·
+[PA38 constant expressions](../pa38/tests/general/500-c-integer-constant-expressions.t)
+
 ## Conditional pointer types and C inline definitions
 
 C11 6.5.15p5 applies the usual arithmetic conversions even when

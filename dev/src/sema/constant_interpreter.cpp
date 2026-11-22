@@ -1956,6 +1956,12 @@ bool ConstantInterpreter::evaluate(const syntax::Expr& expr, bool converted, Con
 		finish_allocations(expr.location);
 }
 
+bool ConstantInterpreter::evaluate_c_constant(const syntax::Expr& expr, bool converted, ConstValue& out)
+{
+	c_constant_expression_ = true;
+	return evaluate(expr, converted, out);
+}
+
 bool ConstantInterpreter::evaluate_designation(const syntax::Expr& expr, ConstValue& out)
 {
 	++analyzer_.graph_.constant_evaluations;

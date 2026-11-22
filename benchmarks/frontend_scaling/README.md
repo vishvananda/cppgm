@@ -55,6 +55,12 @@ pointer types and check selection with a static assertion. Compare 512,
 static assertions. Compare it using calibrated runs at 4096, 8192, and
 16384 uses to isolate the cost of ordinary short lists.
 
+`c-ice-atoms` repeats a static assertion with a single integer literal.
+`c-ice-chain` grows the number of additions in one static assertion. Measure
+both in C17 syntax-only mode by successive doublings. The atomic input
+isolates fixed overhead per query. The arithmetic chain checks work growth
+when each operand needs classification and evaluation.
+
 `c-vla-declarators` generates independent declarations that share an element
 type and each have their own runtime bound. Compare it against
 `c-fixed-array-declarators` at 1024, 2048, 4096, and 8192 functions in C17

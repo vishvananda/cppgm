@@ -3137,7 +3137,7 @@ void Analyzer::bit_field_declaration(const syntax::BitFieldDecl& decl, Scope* sc
 			Constant value;
 			if (semantic())
 				integral_constant_operand(*field.width, scope, nullptr);
-			constant_value(*field.width, scope, value, true);
+			integer_constant_expression(*field.width, scope, value, true);
 			if (IsScopedEnumeration(value.type) || (IsSignedConstant(value) && static_cast<int64_t>(value.bits) < 0))
 				error(field.width->location, "invalid bit-field width");
 			width = value.bits;

@@ -27,10 +27,11 @@ The declarations batch now covers calls through inherited and hidden
 prototypes, internal linkage, functions first declared in a block, and
 conflicts between scopes. Keep the prototype visible at each declaration
 separate from the compatibility requirements of the linked entity. Continue
-with a reviewed slice of integer, arithmetic, and address constant
-expressions, including static initializers. Replay the affected C99, C11,
-and C17 cases before each fix. Keep the existing VLA, generic selection, and
-sparse initializer tests in the fast iteration loop for changes to their
+with arithmetic and address constant expressions in static initializers.
+The integer constant-expression batch now covers the declaration and
+expression contexts that require those constants. Replay the affected C99,
+C11, and C17 cases before each fix. Keep the existing VLA, generic selection,
+and sparse initializer tests in the fast iteration loop for changes to their
 shared analysis paths.
 
 ## Implementation order
@@ -228,7 +229,7 @@ through the relevant semantic query so that VLA classification and lowering
 can use the result directly. Preserve ordinary folding for expressions in
 runtime contexts. Measure short constant expressions and long expression
 chains independently.
-[Baseline probes and WG14 decisions](../reports/upstream-c-coverage.md#constant-expression-baseline)
+[Constant-expression evidence and WG14 decisions](../reports/upstream-c-coverage.md#constant-expressions)
 
 [Driver mode setup](../dev/src/driver/toolchain.cpp) ·
 [C function parsing](../dev/src/syntax/parser_c_functions.cpp) ·

@@ -1254,7 +1254,13 @@ void Analyzer::static_assertion(const syntax::StaticAssertDecl& decl, Scope* sco
 	// unevaluated operands, 5.3.3), contextually converted to bool (7p4):
 	// the conversion is evaluated with it.
 	Constant value;
-	if (semantic())
+	if (c_source_ && semantic())
+	{
+		constant_operand(*decl.condition, scope);
+		if (!integer_constant_expression(*decl.condition, scope, value, true))
+			return;
+	}
+	else if (semantic())
 	{
 		BodyContext* saved = body_;
 		BodyContext context = BodyContext();

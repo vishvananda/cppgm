@@ -87,6 +87,15 @@ def c_generic_short_lists(size):
     print('int main(void) { return 0; }')
 
 
+def c_integer_constant_expressions(size, chain):
+    if chain:
+        terms = ' + '.join('1' for _ in range(size))
+        print(f'_Static_assert({terms} == {size}, "arithmetic chain");')
+    else:
+        for _ in range(size):
+            print('_Static_assert(1, "integer literal");')
+
+
 def c_array_declarators(size, bound):
     for index in range(size):
         print(f'int f_{index}(int n) {{ int a[{bound}]; return sizeof(a); }}')
@@ -150,6 +159,7 @@ def main():
                                         'c-block-function-redeclarations', 'c-block-function-names',
                                         'c-conditional-composites', 'c-inline-late-linkage',
                                         'c-generic-arrays', 'c-generic-prototypes', 'c-generic-short-lists',
+                                        'c-ice-atoms', 'c-ice-chain',
                                         'c-vla-declarators', 'c-fixed-array-declarators',
                                         'c-vla-dimensions', 'c-vla-extent-uses',
                                         'c-typeof-shared-bounds', 'c-designated-overwrites', 'c-designated-sparse',
@@ -193,6 +203,9 @@ def main():
         return
     if args.case == 'c-generic-short-lists':
         c_generic_short_lists(args.size)
+        return
+    if args.case in ('c-ice-atoms', 'c-ice-chain'):
+        c_integer_constant_expressions(args.size, chain=args.case == 'c-ice-chain')
         return
     if args.case in ('c-vla-declarators', 'c-fixed-array-declarators'):
         c_array_declarators(args.size, 'n' if args.case == 'c-vla-declarators' else '2')

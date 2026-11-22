@@ -1129,7 +1129,9 @@ const Conversion* Analyzer::convert(const syntax::Expr& expr, const Type* target
 		return substitution_error(expr.location, "a member function must be called"), nullptr;
 	Conversion conversion = Conversion();
 	conversions_.set_arithmetic_operand(operand);
-	const bool converts = !IsVoid(facts->type) && conversions_.implicit(operand_of(facts), target, direct, conversion);
+	bool converts = !IsVoid(facts->type) && conversions_.implicit(operand_of(facts), target, direct, conversion);
+	if (!converts && c_source_ && IsPointer(target) && note_c_null_constant(expr))
+		converts = conversions_.implicit(operand_of(facts), target, direct, conversion);
 	conversions_.set_arithmetic_operand(false);
 	if (!converts && (IsVoid(facts->type) || operand || !lanewise_result(facts, target, conversion)) &&
 		(IsVoid(facts->type) || operand || !user_conversion(facts, target, conversion, direct)))
@@ -1822,6 +1824,9 @@ ExprFacts* Analyzer::comparison(const syntax::BinaryExpr& expr, ExprFacts* left,
 	// (5.9p2, 5.10p1): two objects of a class without an operator function
 	// are none.
 	const Type* composite = composite_pointer(left, right, true);
+	if (composite == nullptr && c_source_ && equality &&
+		((IsPointer(lt) && note_c_null_constant(*expr.right)) || (IsPointer(rt) && note_c_null_constant(*expr.left))))
+		composite = composite_pointer(left, right, true);
 	if (composite == nullptr || !(IsPointer(composite) || IsMemberPointer(composite) || IsNullptrType(composite)) ||
 		(!equality && (IsMemberPointer(composite) || IsNullptrType(composite))))
 	{
@@ -2922,8 +2927,7 @@ ExprFacts* Analyzer::cast_expression(const syntax::CastExpr& expr, Scope* scope)
 		// C17 6.3.2.3: an integer constant zero cast to void* is also a
 		// null pointer constant, including when the destination is a
 		// function pointer. An arbitrary void* value is not one.
-		Constant value;
-		if (integral_constant(*expr.operand, scope, value) && value.bits == 0)
+		if (IsIntegralOrUnscopedEnum(expr.operand->facts->type) && note_c_null_constant(*expr.operand))
 			facts->flags |= kNullLiteral;
 	}
 	if (expr.cast == TokenKind::KW_DYNAMIC_CAST && semantic())

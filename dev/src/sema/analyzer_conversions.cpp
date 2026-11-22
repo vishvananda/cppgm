@@ -979,7 +979,13 @@ ExprFacts* Analyzer::conditional(const syntax::ConditionalExpr& expr, Scope* sco
 		(IsArithmetic(b) || IsIntegralOrUnscopedEnum(b) || IsComplex(b)))
 		type = usual_arithmetic(field_promoted(second, a), field_promoted(third, b));
 	else
+	{
 		type = composite_pointer(second, third);
+		if (type == nullptr && c_source_ &&
+			((a->kind == TypeKind::Pointer && note_c_null_constant(*expr.else_expr)) ||
+				(b->kind == TypeKind::Pointer && note_c_null_constant(*expr.then_expr))))
+			type = composite_pointer(second, third);
+	}
 	if (type == nullptr)
 	{
 		substitution_error(expr.location, "incompatible operands of ?:");

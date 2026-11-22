@@ -48,6 +48,7 @@ public:
 	// recorded (a converted constant expression, 5.19p3, or a contextual
 	// conversion to bool).
 	bool evaluate(const syntax::Expr& expr, bool converted, ConstValue& out);
+	bool evaluate_c_constant(const syntax::Expr& expr, bool converted, ConstValue& out);
 	bool evaluate_designation(const syntax::Expr& expr, ConstValue& out);
 	// A C++20 immediate invocation, including object, reference and void results.
 	const ConstValue* evaluate_immediate(const syntax::Expr& expr);
@@ -470,6 +471,8 @@ private:
 	// The hypothetical destruction of a constexpr variable considers its
 	// non-mutable subobjects to begin their lifetimes in this evaluation.
 	bool checking_destruction_ = false;
+	// C 6.6p3 permits comma operators only on an unevaluated path.
+	bool c_constant_expression_ = false;
 	// GNU constant_p conditionals permit foldable reference casts in the
 	// selected expression. A called function starts its own strict context.
 	bool folding_ = false;

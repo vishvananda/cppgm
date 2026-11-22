@@ -1040,6 +1040,8 @@ bool Analyzer::implicit_sequence(const syntax::Expr& argument, const Type* param
 		return false;
 	if (conversions_.implicit(operand_of(facts), parameter, false, out))
 		return true;
+	if (c_source_ && parameter->kind == TypeKind::Pointer && note_c_null_constant(argument))
+		return conversions_.implicit(operand_of(facts), parameter, false, out);
 	if (standard_only_)
 		return false;
 	// 13.3.1.4p1, 13.3.1.6p1 (CWG 899): a reference to the class a single

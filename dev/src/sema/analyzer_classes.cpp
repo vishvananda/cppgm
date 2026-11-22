@@ -358,7 +358,10 @@ uint64_t Analyzer::attribute_alignment(
 				// A deferred reserved builtin call (see deferrable_statement).
 				if (deferred_reserved_call())
 					return alignment;
-				constant_value(*attribute->expression, scope, constant, true);
+				if (attribute->kind == syntax::AttributeKind::Alignas)
+					integer_constant_expression(*attribute->expression, scope, constant, true);
+				else
+					constant_value(*attribute->expression, scope, constant, true);
 				value = constant.bits;
 				if ((value & (value - 1)) != 0)
 					error(attribute->location, "an alignment that is not a power of two");
@@ -1385,7 +1388,7 @@ void Analyzer::enumerators(EnumEntity* entity, const syntax::EnumSpecifier& spec
 			// A deferred reserved builtin call (see deferrable_statement).
 			if (deferred_reserved_call())
 				return;
-			constant_value(*enumerator.value, values, value, true);
+			integer_constant_expression(*enumerator.value, values, value, true);
 			if (IsScopedEnumeration(value.type))
 				error(
 					enumerator.value->location, "a scoped enumeration value does not convert implicitly to an integer");
