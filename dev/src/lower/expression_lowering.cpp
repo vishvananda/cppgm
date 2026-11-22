@@ -1398,7 +1398,17 @@ RValue FunctionLowering::load_glvalue(const syntax::Expr& expr)
 	// stored (C11 6.5.16p3, 6.5.16.2p3), not a later read of the object.
 	if (place.has_known && (!place.is_volatile || place.is_atomic))
 		return place.known;
-	return load(lowering_.storage_type(facts->type), place);
+	const lowir::Type storage = lowering_.storage_type(facts->type);
+	if (place.is_volatile && storage.is_object() && lowering_.analyzer_->c_source())
+	{
+		Place snapshot = Place();
+		snapshot.storage = lowir::Value::slot(generated_slot(lowir::SlotKind::Tmpobj, storage));
+		const lowir::Value source = address_of(place);
+		const lowir::Value destination = address_of(snapshot);
+		copy_volatile_record(facts->type, source, destination, true, false, expr.location);
+		return load(storage, snapshot);
+	}
+	return load(storage, place);
 }
 
 // -------------------------------------------------------------- literals
@@ -1965,7 +1975,18 @@ Place FunctionLowering::assignment(const syntax::BinaryExpr& expr)
 	}
 	value = fit(value, type);
 	Place place = glvalue(*expr.left);
-	store(lowering_.storage_type(type), value, place);
+	const lowir::Type storage = lowering_.storage_type(type);
+	if (place.is_volatile && storage.is_object() && lowering_.analyzer_->c_source())
+	{
+		Place snapshot = Place();
+		snapshot.storage = lowir::Value::slot(generated_slot(lowir::SlotKind::Tmpobj, storage));
+		store(storage, value, snapshot);
+		const lowir::Value source = address_of(snapshot);
+		const lowir::Value destination = address_of(place);
+		copy_volatile_record(type, source, destination, false, true, expr.location);
+	}
+	else
+		store(storage, value, place);
 	place.has_known = !place.is_volatile || place.is_atomic;
 	place.known = value;
 	return place;

@@ -93,10 +93,14 @@ objects linked with LLD and a minimal ELF startup routine and ran
 successfully under QEMU user mode 10.2.1. Hosted SDK and native Darwin
 execution are separate qualification items.
 
-The volatile aggregate case remains open. A C function that returns a
-volatile structure emits an ordinary object copy at `-O0`. At `-O2`, a
-caller that discards the return value can lose the read. The volatile
-access must survive the shared aggregate lowering and optimizer.
+Copies of volatile-qualified records now use LowIR scalar accesses for
+the qualified storage, including by-value arguments and returns. The
+new PA38 case also covers discarded reads and a larger copy that uses
+a loop. The volatile accesses remain in optimized LowIR. The case ran at
+`-O0` and `-O2` on Linux x86-64 and Linux AArch64 under QEMU. The Wasm
+lane passed and both Darwin targets emitted Mach-O. Aggregate transfers
+involving individually qualified subobjects remain an audit item.
+[PA38 volatile record case](../pa38/tests/general/400-volatile-record-access.t)
 
 ## GCC torture and Csmith pilots
 

@@ -570,8 +570,8 @@ bool FunctionLowering::copy_volatile_array(
 	return true;
 }
 
-void FunctionLowering::copy_volatile_elements(
-	lowir::Type stored, lowir::Value source, lowir::Value destination, uint64_t count, uint64_t stride)
+void FunctionLowering::copy_volatile_elements(lowir::Type stored, lowir::Value source, lowir::Value destination,
+	uint64_t count, uint64_t stride, bool volatile_read, bool volatile_write)
 {
 	// Copy scalar array elements with their original widths. A union's opaque
 	// representation uses bytes: its active member cannot be selected here.
@@ -580,10 +580,17 @@ void FunctionLowering::copy_volatile_elements(
 	const auto transfer = [&](const RValue& offset) {
 		Place from = Place();
 		from.storage = index(i8, ir_model::IPK_ARRAY_ELEMENT, source, offset).value;
-		from.is_volatile = true;
+		from.is_volatile = volatile_read;
+		from.untyped = true;
+		if (destination.kind == lowir::ValueKind::None)
+		{
+			load(stored, from);
+			return;
+		}
 		Place to = Place();
 		to.storage = index(i8, ir_model::IPK_ARRAY_ELEMENT, destination, offset).value;
-		to.is_volatile = true;
+		to.is_volatile = volatile_write;
+		to.untyped = true;
 		store(stored, load(stored, from), to);
 	};
 	if (count <= 8)
@@ -607,6 +614,24 @@ void FunctionLowering::copy_volatile_elements(
 	store(i64, binary(lowir::BinaryOp::Add, i64, current, integer(i64, 1)), index_slot);
 	jump(condition);
 	place(end);
+}
+
+void FunctionLowering::copy_volatile_record(const sema::Type* type, lowir::Value source, lowir::Value destination,
+	bool volatile_read, bool volatile_write, uint32_t location)
+{
+	// C 6.7.3: the whole object's representation is accessed in chunks up
+	// to its alignment and eight bytes. Large copies use the scalar loop.
+	const uint64_t size = lowering_.size_of(type, location);
+	const uint64_t alignment = lowering_.alignment_of(type, location);
+	uint64_t stride = std::min<uint64_t>(alignment, 8);
+	while (size % stride != 0)
+		stride /= 2;
+	const lowir::TypeKind kind = stride == 8 ? lowir::TypeKind::I64
+		: stride == 4                        ? lowir::TypeKind::U32
+		: stride == 2                        ? lowir::TypeKind::U16
+											 : lowir::TypeKind::U8;
+	copy_volatile_elements(
+		lowir::Type::scalar(kind), source, destination, size / stride, stride, volatile_read, volatile_write);
 }
 
 void FunctionLowering::copy_elements(const sema::SubobjectInit& init, const sema::Type* type, uint32_t location)

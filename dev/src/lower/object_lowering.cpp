@@ -340,7 +340,9 @@ void FunctionLowering::initialize_from(
 		const sema::ClassEntity* target = sema::ClassOf(
 			conversion != nullptr && conversion->result != nullptr ? conversion->result : e->facts->type);
 		const lowir::Value source = to_base(address(*e), sema::ClassOf(e->facts->type), target, location);
-		if (!target->empty)
+		if ((e->facts->type->cv & sema::kVolatile) != 0 && lowering_.analyzer_->c_source())
+			copy_volatile_record(e->facts->type, source, object, true, false, location);
+		else if (!target->empty)
 			copy_object(target->type, source, object, location);
 		return;
 	}
@@ -423,7 +425,15 @@ void FunctionLowering::construct(const sema::Type* type, lowir::Value object, co
 	if (constructor == nullptr)
 	{
 		const sema::Conversion* conversion = WithoutParentheses(init->expression)->facts->conversion;
-		if (conversion_function(conversion))
+		if ((type->cv & sema::kVolatile) != 0 && sema::ClassOf(type) != nullptr && lowering_.analyzer_->c_source())
+		{
+			const syntax::Expr& source = *WithoutParentheses(init->expression);
+			const bool lvalue = source.facts->category == sema::ValueCategory::LValue;
+			const lowir::Value value = lvalue ? address(source) : temporary_object(source);
+			copy_volatile_record(
+				type, value, object, lvalue && (source.facts->type->cv & sema::kVolatile) != 0, true, location);
+		}
+		else if (conversion_function(conversion))
 			initialize_from(*init->expression, conversion, object, location);
 		else
 			materialize(*init->expression, object, location);

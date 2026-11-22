@@ -65,3 +65,16 @@ The full observations, in trial order, were as follows.
 | SQLite | A/A | 16,513,092,604 / 16,512,923,825 / 16,513,112,176 / 16,512,946,636 |
 | SQLite | ABBA | 16,512,871,312 / 16,513,684,617 / 16,514,114,059 / 16,512,884,321 |
 | SQLite | BAAB | 16,513,845,693 / 16,512,988,037 / 16,513,150,915 / 16,514,807,738 |
+
+## Volatile C record transfers
+
+Compared the batch with its parent `e45edef6e` using the same frozen
+inputs, compiler flags, pinned CPU and immutable compiler binaries.
+Every emitted object matched by bytes. The new work occurs when
+lowering a volatile-qualified C record transfer. Large transfers use
+the same bounded scalar loop as volatile arrays.
+
+| Input | A/A range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0024% | +0.0042% | +0.0018% |
+| SQLite `sqlite3.c` | 0.0008% | +0.0110% | +0.0055% |

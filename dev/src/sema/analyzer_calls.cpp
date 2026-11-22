@@ -1516,7 +1516,7 @@ void Analyzer::convert_arguments(
 			// 8.5p16: a class parameter from an expression of its class (or
 			// a derived one) is initialized by the constructor it selects.
 			ClassEntity* cls = parameter->is_reference() ? nullptr : const_cast<ClassEntity*>(ClassOf(parameter));
-			if (cls != nullptr && same_class_source(cls, argument))
+			if (cls != nullptr && !c_source_ && same_class_source(cls, argument))
 				record_copy(cls, parameter, argument, argument.location);
 			continue;
 		}
@@ -1554,7 +1554,7 @@ void Analyzer::convert_arguments(
 		record_conversion(facts, conversion);
 		// 4.1p2: an evaluated class glvalue copy-initializes the temporary
 		// used by its lvalue-to-rvalue conversion (5.2.2p7).
-		if (type->unqualified->kind == TypeKind::Class && unevaluated_ == 0 &&
+		if (type->unqualified->kind == TypeKind::Class && !c_source_ && unevaluated_ == 0 &&
 			facts->category != ValueCategory::PRValue)
 			record_copy(const_cast<ClassEntity*>(ClassOf(type)), type, argument, argument.location);
 	}

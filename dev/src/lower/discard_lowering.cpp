@@ -1,5 +1,6 @@
 #include "lower/function_lowering.h"
 
+#include "sema/analyzer.h"
 #include "sema/conversions.h"
 #include "sema/expression_facts.h"
 
@@ -101,7 +102,11 @@ void FunctionLowering::read_discarded(const syntax::Expr& expr)
 	}
 	Place place = glvalue(*e);
 	place.is_volatile = true;
-	load(lowering_.storage_type(e->facts->type), place);
+	const sema::Type* type = e->facts->type;
+	if (type->kind == sema::TypeKind::Class && lowering_.analyzer_->c_source())
+		copy_volatile_record(type, address_of(place), lowir::Value::none(), true, false, e->location);
+	else
+		load(lowering_.storage_type(type), place);
 }
 
 void FunctionLowering::discard(const syntax::Expr& expr)
@@ -422,7 +427,8 @@ void FunctionLowering::discard_to_void(const syntax::Expr& expr)
 		return;
 	}
 	if (facts != nullptr && facts->type != nullptr && (facts->type->cv & sema::kVolatile) != 0 &&
-		facts->type->unqualified->kind != sema::TypeKind::Class && facts->type->kind != sema::TypeKind::Array)
+		facts->type->kind != sema::TypeKind::Array &&
+		(facts->type->unqualified->kind != sema::TypeKind::Class || lowering_.analyzer_->c_source()))
 	{
 		discard(*e);
 		return;

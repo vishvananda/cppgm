@@ -85,6 +85,10 @@ The first fixture set covers these parts of the C17 input profile:
   external linkage supplies the external symbol if a file-scope declaration
   uses `extern` or leaves out `inline`. GNU `gnu_inline` and `always_inline`
   attributes can also occur after the return type's pointer operator.
+- A read or write of a volatile-qualified structure or union remains
+  observable, including a discarded value, a return, an argument, or a copy.
+  Use scalar volatile accesses for the qualified storage and ordinary accesses
+  for any unqualified temporary. Keep the accesses through optimization.
 - Bit-field widths fit the C declared type. A `_Bool` member has at most one
   value bit. Diagnose a wider declaration.
 - C compound literals of scalar, pointer, record and array types, including

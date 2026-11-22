@@ -1,0 +1,262 @@
+global @input [linkage=c, binding=internal] = {
+  i32 5
+  i32 7
+}
+global @output : obj<8x4> [linkage=c, binding=internal] = {
+  zero 8
+}
+global @row [linkage=c, binding=internal] = {
+  u32 11
+  u32 0
+  u32 0
+  u32 0
+  u32 0
+  u32 0
+  u32 0
+  u32 0
+  u32 0
+  u32 0
+  u32 0
+  u32 0
+  u32 0
+  u32 0
+  u32 0
+  u32 0
+  u32 0
+  u32 13
+}
+
+function @read_pair(%source : ptr) -> obj<8x4> [linkage=c, binding=internal] {
+  slot $source : ptr
+  slot $retobj__1 : obj<8x4>
+
+  block ^entry:
+    store typed ptr %source, $source
+    %t1 = addr $retobj__1
+    %t2 = load typed ptr $source
+    %t3 = index i8 [projection=array_element] %t2, 0
+    %t4 = index i8 [projection=array_element] %t1, 0
+    %t5 = load volatile u32 %t3
+    store u32 %t5, %t4
+    %t6 = index i8 [projection=array_element] %t2, 4
+    %t7 = index i8 [projection=array_element] %t1, 4
+    %t8 = load volatile u32 %t6
+    store u32 %t8, %t7
+    return obj<8x4> $retobj__1
+}
+function @sum(%value : obj<8x4>) -> i32 [linkage=c, binding=internal] {
+  slot $value : obj<8x4>
+
+  block ^entry:
+    %t1 = addr $value
+    copyobj 8x4 %value, %t1
+    %t2 = addr $value
+    %t3 = index inbounds i8 [projection=field] %t2, 0
+    %t4 = load typed i32 %t3
+    %t5 = addr $value
+    %t6 = index inbounds i8 [projection=field] %t5, 4
+    %t7 = load typed i32 %t6
+    %t8 = binary add nowrap i32 %t4, %t7
+    return i32 %t8
+}
+function @main() -> i32 [role=entry, binding=strong, keep_alias=yes] {
+  slot $local : obj<8x4>
+  slot $plain : obj<8x4>
+  slot $tmpobj__1 : obj<8x4>
+  slot $argobj__2 : obj<8x4>
+  slot $tmpobj__3 : obj<8x4>
+  slot $discard__4 : obj<8x4>
+  slot $saved : obj<72x4>
+  slot $tmpobj__5 : obj<72x4>
+  slot $copy_array_index__6 : i64
+  slot $tmpobj__7 : obj<72x4>
+  slot $copy_array_index__8 : i64
+  slot $land__9 : i64
+  slot $land__10 : i64
+  slot $land__11 : i64
+
+  block ^entry:
+    %t1 = addr $local
+    %t2 = addr @input
+    %t3 = index i8 [projection=array_element] %t2, 0
+    %t4 = index i8 [projection=array_element] %t1, 0
+    %t5 = load volatile u32 %t3
+    store volatile u32 %t5, %t4
+    %t6 = index i8 [projection=array_element] %t2, 4
+    %t7 = index i8 [projection=array_element] %t1, 4
+    %t8 = load volatile u32 %t6
+    store volatile u32 %t8, %t7
+    %t9 = addr $plain
+    %t10 = addr $plain
+    %t11 = index inbounds i8 [projection=field] %t10, 0
+    store typed i32 2, %t11
+    %t12 = addr $plain
+    %t13 = index inbounds i8 [projection=field] %t12, 4
+    store typed i32 3, %t13
+    %t14 = addr $tmpobj__1
+    %t15 = addr $argobj__2
+    %t16 = addr @input
+    %t17 = index i8 [projection=array_element] %t16, 0
+    %t18 = index i8 [projection=array_element] %t15, 0
+    %t19 = load volatile u32 %t17
+    store u32 %t19, %t18
+    %t20 = index i8 [projection=array_element] %t16, 4
+    %t21 = index i8 [projection=array_element] %t15, 4
+    %t22 = load volatile u32 %t20
+    store u32 %t22, %t21
+    %t23 = call i32 @sum($argobj__2)
+    %t24 = cmp eq i32 %t23, 12
+    %t25 = convert trunc i32 i64 %t24
+    branch %t25, ^condobj_then_1, ^condobj_else_2
+
+  block ^condobj_then_1:
+    %t26 = addr $local
+    %t27 = call obj<8x4> @read_pair(%t26)
+    copyobj 8x4 %t27, %t14
+    jump ^condobj_end_3
+
+  block ^condobj_else_2:
+    %t28 = addr $plain
+    copyobj 8x4 %t28, %t14
+    jump ^condobj_end_3
+
+  block ^condobj_end_3:
+    %t29 = load obj<8x4> %t14
+    store obj<8x4> %t29, $tmpobj__3
+    %t30 = addr $tmpobj__3
+    %t31 = addr @output
+    %t32 = index i8 [projection=array_element] %t30, 0
+    %t33 = index i8 [projection=array_element] %t31, 0
+    %t34 = load u32 %t32
+    store volatile u32 %t34, %t33
+    %t35 = index i8 [projection=array_element] %t30, 4
+    %t36 = index i8 [projection=array_element] %t31, 4
+    %t37 = load u32 %t35
+    store volatile u32 %t37, %t36
+    %t38 = addr @input
+    %t39 = index i8 [projection=array_element] %t38, 0
+    %t40 = load volatile u32 %t39
+    %t41 = index i8 [projection=array_element] %t38, 4
+    %t42 = load volatile u32 %t41
+    %t43 = addr @input
+    %t44 = index i8 [projection=array_element] %t43, 0
+    %t45 = load volatile u32 %t44
+    %t46 = index i8 [projection=array_element] %t43, 4
+    %t47 = load volatile u32 %t46
+    %t48 = addr $discard__4
+    %t49 = addr @input
+    %t50 = call obj<8x4> @read_pair(%t49)
+    copyobj 8x4 %t50, %t48
+    %t51 = addr $saved
+    %t52 = addr @row
+    %t53 = addr $tmpobj__5
+    store typed i64 0, $copy_array_index__6
+    jump ^copy_array_cond_4
+
+  block ^copy_array_cond_4:
+    %t54 = load typed i64 $copy_array_index__6
+    %t55 = cmp ult i64 %t54, 18
+    branch %t55, ^copy_array_body_5, ^copy_array_end_6
+
+  block ^copy_array_body_5:
+    %t56 = binary mul i64 %t54, 4
+    %t57 = index i8 [projection=array_element] %t52, %t56
+    %t58 = index i8 [projection=array_element] %t53, %t56
+    %t59 = load volatile u32 %t57
+    store u32 %t59, %t58
+    %t60 = binary add i64 %t54, 1
+    store typed i64 %t60, $copy_array_index__6
+    jump ^copy_array_cond_4
+
+  block ^copy_array_end_6:
+    %t61 = load obj<72x4> $tmpobj__5
+    store obj<72x4> %t61, %t51
+    %t62 = load obj<72x4> $saved
+    store obj<72x4> %t62, $tmpobj__7
+    %t63 = addr $tmpobj__7
+    %t64 = addr @row
+    store typed i64 0, $copy_array_index__8
+    jump ^copy_array_cond_7
+
+  block ^copy_array_cond_7:
+    %t65 = load typed i64 $copy_array_index__8
+    %t66 = cmp ult i64 %t65, 18
+    branch %t66, ^copy_array_body_8, ^copy_array_end_9
+
+  block ^copy_array_body_8:
+    %t67 = binary mul i64 %t65, 4
+    %t68 = index i8 [projection=array_element] %t63, %t67
+    %t69 = index i8 [projection=array_element] %t64, %t67
+    %t70 = load u32 %t68
+    store volatile u32 %t70, %t69
+    %t71 = binary add i64 %t65, 1
+    store typed i64 %t71, $copy_array_index__8
+    jump ^copy_array_cond_7
+
+  block ^copy_array_end_9:
+    %t72 = addr @output
+    %t73 = index inbounds i8 [projection=field] %t72, 0
+    %t74 = load volatile i32 %t73
+    %t75 = cmp eq i32 %t74, 5
+    %t76 = convert trunc i32 i64 %t75
+    branch %t76, ^land_rhs_10, ^land_short_11
+
+  block ^land_rhs_10:
+    %t77 = addr @output
+    %t78 = index inbounds i8 [projection=field] %t77, 4
+    %t79 = load volatile i32 %t78
+    %t80 = cmp eq i32 %t79, 7
+    %t81 = convert trunc i32 i64 %t80
+    %t82 = cmp ne i32 %t81, 0
+    store typed i64 %t82, $land__9
+    jump ^land_end_12
+
+  block ^land_short_11:
+    store typed i64 0, $land__9
+    jump ^land_end_12
+
+  block ^land_end_12:
+    %t83 = load typed i64 $land__9
+    branch %t83, ^land_rhs_13, ^land_short_14
+
+  block ^land_rhs_13:
+    %t84 = addr $saved
+    %t85 = index inbounds i8 [projection=field] %t84, 0
+    %t86 = index inbounds u32 [projection=array_element] %t85, 0
+    %t87 = load typed u32 %t86
+    %t88 = cmp eq u32 %t87, 11
+    %t89 = convert trunc i32 i64 %t88
+    %t90 = cmp ne i32 %t89, 0
+    store typed i64 %t90, $land__10
+    jump ^land_end_15
+
+  block ^land_short_14:
+    store typed i64 0, $land__10
+    jump ^land_end_15
+
+  block ^land_end_15:
+    %t91 = load typed i64 $land__10
+    branch %t91, ^land_rhs_16, ^land_short_17
+
+  block ^land_rhs_16:
+    %t92 = addr @row
+    %t93 = index inbounds i8 [projection=field] %t92, 0
+    %t94 = index inbounds u32 [projection=array_element] %t93, 17
+    %t95 = load volatile u32 %t94
+    %t96 = cmp eq u32 %t95, 13
+    %t97 = convert trunc i32 i64 %t96
+    %t98 = cmp ne i32 %t97, 0
+    store typed i64 %t98, $land__11
+    jump ^land_end_18
+
+  block ^land_short_17:
+    store typed i64 0, $land__11
+    jump ^land_end_18
+
+  block ^land_end_18:
+    %t99 = load typed i64 $land__11
+    %t100 = convert trunc i32 i64 %t99
+    %t101 = cmp eq i32 %t100, 0
+    %t102 = convert trunc i32 i64 %t101
+    return i32 %t102
+}

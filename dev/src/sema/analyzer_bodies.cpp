@@ -1968,7 +1968,7 @@ ExprFacts* Analyzer::statement_expression(const syntax::StatementExpr& expr, Sco
 		type = types_.pointer(type->element);
 	else if (type->kind == TypeKind::Function)
 		type = types_.pointer(type);
-	if (type->kind == TypeKind::Class)
+	if (type->kind == TypeKind::Class && !c_source_)
 	{
 		ClassEntity* cls = static_cast<ClassEntity*>(type->entity);
 		expression_scope_ = scope;

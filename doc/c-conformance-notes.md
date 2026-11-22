@@ -97,6 +97,21 @@ result and a larger aggregate returned through caller-provided storage.
 [PA38 floating limits](../pa38/tests/general/500-hosted-c-float-limits.t) ·
 [PA38 structure return](../pa38/tests/general/500-c-record-return.t)
 
+## Volatile-qualified record accesses
+
+C11 5.1.2.3 and 6.7.3 make volatile accesses observable. A by-value
+argument or return reads the record through its lvalue before transferring
+its value. A discarded volatile-qualified record still needs a read. For
+a whole qualified record, cppgm transfers the representation in scalar
+chunks up to eight bytes and within the record layout's alignment. The
+qualified endpoint carries the volatile operation. Copies to or from
+ordinary temporaries allow ordinary optimization. A large representation
+uses the shared scalar copy loop.
+
+[C11 draft, N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[WG14 DR 476](https://www.open-std.org/jtc1/sc22/wg14/issues/c11c17/issue0476.html) ·
+[PA38 volatile record regression](../pa38/tests/general/400-volatile-record-access.t)
+
 ## VLA scope and C objects
 
 C17 6.2.4 specifies the lifetime of a variable-length array. C17 6.8.6.1

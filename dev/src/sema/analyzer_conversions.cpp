@@ -949,7 +949,7 @@ ExprFacts* Analyzer::conditional(const syntax::ConditionalExpr& expr, Scope* sco
 		facts->flags = (second->flags | third->flags) & kBitField;
 		return facts;
 	}
-	if (t2->unqualified->kind == TypeKind::Class || t3->unqualified->kind == TypeKind::Class)
+	if ((t2->unqualified->kind == TypeKind::Class || t3->unqualified->kind == TypeKind::Class) && !c_source_)
 	{
 		if (t2->unqualified != t3->unqualified)
 			return converted_conditional(expr, scope);
