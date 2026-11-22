@@ -94,6 +94,12 @@ association. c-testsuite `00219.c` now passes at both optimization levels
 in C17 and GNU17.
 [PA38 tag association](../pa38/tests/general/500-generic-tag-association.t)
 
+A controlling `int (*)[]` can match both `int (*)[1]` and `int (*)[2]`.
+GCC 15 and Clang 21 diagnose the multiple matches in pedantic C17.
+cppgm accepts the expression. Association validation also grows
+quadratically for long lists of pairwise distinct pointer types.
+[C frontend scaling](../docs/performance/c-frontend-scaling.md#generic-association-baseline)
+
 The GNU conditional expression with one void operand now passes all
 four configurations of c-testsuite `00213.c`, including its labels
 inside loops and statement expressions. The extension gives the

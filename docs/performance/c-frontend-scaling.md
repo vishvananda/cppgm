@@ -121,3 +121,13 @@ by −0.0032% and −0.0023% in ABBA and BAAB. SQLite changed by +0.0091% and
 | SQLite | A/A | 16,514,240,520 / 16,513,937,189 / 16,513,908,740 / 16,514,090,466 |
 | SQLite | ABBA | 16,513,829,111 / 16,515,239,802 / 16,515,608,953 / 16,514,003,896 |
 | SQLite | BAAB | 16,515,791,110 / 16,513,892,892 / 16,514,018,447 / 16,515,484,313 |
+
+## Generic association baseline
+
+A C17 `_Generic` with distinct `int (*)[N]` association types exercises
+compatibility checking without generating code. With 512, 1024, 2048, and
+4096 associations, the compiler retired 19.78, 55.23, 184.46, and 675.70
+million instructions in syntax-only mode on Linux x86-64. The second
+increment in the last three sizes was 3.80 times the first. Each new
+association currently compares against every previous association.
+This workload leaves a concrete scaling gate for an indexed replacement.

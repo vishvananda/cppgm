@@ -146,7 +146,19 @@ required bounds and reuse those values for `sizeof`, indexing and pointer
 arithmetic. An alias reuses the extents captured at its declaration. Add
 side-effecting bound tests for evaluation count, parameter adjustment, and
 cleanup across loop iterations and scope exits. Include a case where the
-standard permits either evaluation outcome.
+standard permits either evaluation outcome. Keep the written bounds for
+definition parameters through pointer adjustment. A size expression in the
+outermost bracket can have an effect on function entry even though it
+contributes no stride.
+
+Audit `_Generic` compatibility before optimizing duplicate checks. Two
+distinct pointers to complete array types can both be compatible with a
+controlling pointer to an incomplete array. Diagnose multiple matches.
+For association validation, index canonical identities where identity is
+sufficient and use a compatible-type index or targeted comparisons for
+cases such as enums, incomplete nested arrays, and unprototyped function
+pointers. Measure a long list of distinct association types and check that
+ordinary short lists keep their existing cost.
 
 [Driver mode setup](../dev/src/driver/toolchain.cpp) ·
 [C function parsing](../dev/src/syntax/parser_c_functions.cpp) ·
