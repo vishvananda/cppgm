@@ -76,17 +76,10 @@ retention of Unicode literal extensions. Both native compilers agree on
 the pedantic constraint for `_Alignof(expression)`. C17 now reports the
 edition for `__VA_OPT__` under pedantic diagnostics, following GCC.
 
-Outermost prototype array parameters with `[*]` now pass the four
-configurations of c-testsuite `00162.c`. The assignment checks scope and
-the `static` constraint. Seven additional probes pass GCC and Clang and
-identify pending extent work in cppgm. They cover an outer, inner, or
-two runtime dimensions, a variably modified typedef, pointer and
-parameter, and a runtime array in `sizeof(type-name)`. A
-defined PA38 test covers conditional expressions with integer zero and
+A PA38 test covers conditional expressions with integer zero and
 `(void *)0` in both operand orders, and with qualified void pointers.
 
 [PA38 edition check](../pa38/tests/general/500-c11-edition-syntax.t) ·
-[PA38 prototype array check](../pa38/tests/general/300-array-parameter-star.t) ·
 [PA38 conditional pointer check](../pa38/tests/general/500-conditional-null-pointer.t)
 
 Tagged struct, union, and enum names can precede the colon of a generic
@@ -112,6 +105,42 @@ inside loops and statement expressions. The extension gives the
 expression a void result and evaluates the selected arm for effects.
 Pedantic diagnostics follow GCC and Clang.
 [PA38 conditional control](../pa38/tests/general/500-gnu-conditional-void.t)
+
+## Generic selection requirements
+
+The rules apply in C11 and C17. C99 edition tests separately exercise
+the diagnostic for the extension. The listed fixtures run in PA38's
+native and Wasm lanes.
+
+| C11 6.5.1.1 | Evidence | Pending qualification |
+| --- | --- | --- |
+| p2 At most one default | [Duplicate default](../pa38/tests/general/500-generic-duplicate-default-bad.t) | |
+| p2 Association names a complete object type | [Incomplete array](../pa38/tests/general/500-generic-incomplete-array-bad.t), [incomplete record](../pa38/tests/general/500-generic-incomplete-record-bad.t), [function](../pa38/tests/general/500-generic-function-association-bad.t) | |
+| p2 Association type has no variable modification | Existing declaration restrictions reject VLA type names. | Exercise the restriction specifically for pointers to VLAs when the type names are supported. |
+| p2 Association types are pairwise incompatible | [Typedef aliases](../pa38/tests/general/500-generic-duplicate-compatible-bad.t), [array bounds](../pa38/tests/general/500-generic-array-compatibility-bad.t), [enums in prototypes](../pa38/tests/general/500-generic-prototype-compatibility-bad.t), [unprototyped functions](../pa38/tests/general/500-generic-unprototyped-compatibility-bad.t) | Complete the underlying compatibility audit in 6.2.7. |
+| p2 Control has at most one match | [Two pointer-to-array matches](../pa38/tests/general/500-generic-multiple-matches-bad.t) with an incomplete array under the controlling pointer. | |
+| p2 Control has a match in the absence of a default | [No match](../pa38/tests/general/500-generic-no-match-bad.t), [qualification of the control](../pa38/tests/general/500-generic-qualified-no-match-bad.t) | Audit qualification and conversion outcomes against applicable WG14 decisions. |
+| p3 Control and unselected expressions are unevaluated | [Effect counts and unreferenced call](../pa38/tests/general/500-generic-selection.t), [diagnostic for an invalid unselected expression](../pa38/tests/general/500-generic-invalid-unselected-bad.t) | |
+| p4 Result retains type and expression category | [Record, lvalue, array, function designator and void results](../pa38/tests/general/500-generic-selection.t), [bit-field address constraint](../pa38/tests/general/500-generic-bit-field-address-bad.t) | |
+
+## Variably modified type requirements
+
+C99 requires variable-length arrays. cppgm implements a subset and defines
+`__STDC_NO_VLA__` in C11 and C17. GCC 15 and Clang 21 accept and run the
+pending portable probes in pedantic C17. Classifying a form as pending
+here records a language gap independently of the GNU extension inventory.
+
+| C11 clause | Requirement | Current evidence |
+| --- | --- | --- |
+| 6.2.4p7, 6.7.6.2p5 | A VLA retains its size for its lifetime and releases automatic storage when its scope ends. | [Single-dimension VLA across a call](../pa38/tests/general/500-vla-call-c-unwind.t) and a C-only link of c-testsuite `00207.c`. Runtime dimensions nested with fixed or other runtime dimensions are pending. |
+| 6.7.6.2p2 | Variably modified identifiers obey block and prototype scope and linkage constraints, independently of whether they allocate storage. | Block-scope automatic VLA objects are covered. Pointers to VLAs and block-scope typedefs are pending. |
+| 6.7.6.2p4–p5, 6.7.6.3p7 | Prototype-scope bounds are treated as `[*]`. Outermost parameter arrays adjust to pointers. | [Outermost star and static constraint](../pa38/tests/general/300-array-parameter-star.t) and four passing configurations of c-testsuite `00162.c`. Nested prototype bounds are pending. |
+| 6.7.8p3 | A typedef with a varying bound captures its extent each time execution reaches the declaration. | Pending loop and reuse probes. |
+| 6.5.3.4p2, 6.7.6.2p5 | `sizeof` uses a VLA's runtime size. A bound inside `sizeof` can be elided if its value cannot change the result. | Existing one-dimensional object coverage. Runtime array type names and the elidable pointer-type bound are pending. |
+| 6.8.6.1p1, 6.8.4.2p2 | `goto` and switch labels cannot bypass entry into the scope of a variably modified identifier. | [Jump into a VLA scope](../pa38/tests/general/300-variable-array-goto-bad.t). Bypassing a variably modified typedef or pointer is pending. |
+| 6.9.1p10 | Evaluate the size expressions of variably modified parameters on function entry. | Pending probes cover inner strides and side effects in the adjusted outermost bracket, with and without `static`. |
+
+[C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
 
 ## Cross-target smoke results
 
