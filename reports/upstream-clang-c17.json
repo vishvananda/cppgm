@@ -60,6 +60,25 @@
         "diagnostic": ":32:4: #error",
         "reason": "C11 conditional features as exercised by the native configuration"
       }
+    },
+    {
+      "id": "tentative-array-decl",
+      "path": "clang/test/Sema/tentative-array-decl.c",
+      "sha256": "a304a5c26bfdaed00bd0a78e9520ab2227fea39be577fdcc2db47b367ff82668",
+      "dialect": "c17",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors",
+        "-Wno-tentative-definition-array"
+      ],
+      "obligation": "Complete an external tentative array with one element at the end of the translation unit",
+      "adaptations": [
+        "Uses the upstream diagnostic-free configuration. Optional warnings are ungraded."
+      ]
     }
   ]
 }

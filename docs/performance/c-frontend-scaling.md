@@ -165,6 +165,49 @@ The short-list source used 16,384 independent four-arm selections at
 
 [Input generation](../../benchmarks/frontend_scaling/README.md#c)
 
+## Declarations and linkage
+
+All values are millions of retired user-space instructions for native
+x86-64 C17 syntax-only compilation. The block-first columns compare
+`310163dff` with `5bff6184b`. The other columns use `5bff6184b`.
+
+| Declarations | Composite types | Tentative arrays | File declaration first | Block declaration first before | Block declaration first with index |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 256 | 7.09 | 6.18 | 10.88 | 12.43 | 10.82 |
+| 512 | 10.41 | 8.69 | 18.04 | 24.23 | 17.94 |
+| 1024 | 17.08 | 13.58 | 32.36 | 57.07 | 32.17 |
+| 2048 | 30.40 | 23.44 | 60.98 | 159.74 | 60.64 |
+| 4096 | 56.98 | 43.12 | 118.25 | 512.85 | 117.57 |
+
+Earlier block declarations were scanned repeatedly when the file
+declaration came later. One indexed entity now serves every declaration
+of that object, with a compatibility type independent of the lexical
+types. At 4096 declarations this reduces retired instructions by 77.1%.
+The ratio of the final two cost increments falls from 3.44 to 2.00.
+The final ratios for the composite type, tentative array, and file-first
+inputs are also 2.00 when rounded to two decimal places.
+
+For the whole batch, compare `02e2b4c6e` with `5bff6184b` on the same
+pinned CPU. The frozen C++ input at `-O3` and SQLite 3.50.4 at `-O2`
+produced byte-identical objects in all trials. The A/A task-clock ranges
+were 2.62% for C++ and 25.45% for SQLite.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.00300% | +0.00087% | +0.00391% |
+| SQLite `sqlite3.c` | 0.00153% | +0.00406% | +0.00219% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,039,542,875 / 9,039,663,467 / 9,039,742,606 / 9,039,471,788 |
+| C++ | ABBA | 9,039,743,241 / 9,039,650,974 / 9,039,841,738 / 9,039,591,809 |
+| C++ | BAAB | 9,039,907,668 / 9,039,663,764 / 9,039,300,600 / 9,039,763,126 |
+| SQLite | A/A | 16,516,388,353 / 16,516,232,859 / 16,516,346,400 / 16,516,486,026 |
+| SQLite | ABBA | 16,516,079,010 / 16,516,734,700 / 16,517,078,849 / 16,516,393,046 |
+| SQLite | BAAB | 16,516,995,718 / 16,516,545,297 / 16,516,542,501 / 16,516,815,269 |
+
+[Input generation](../../benchmarks/frontend_scaling/README.md#c)
+
 ## Runtime array type interning
 
 Each declaration in `c-vla-declarators` gives an array of the same element

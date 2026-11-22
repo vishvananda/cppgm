@@ -65,6 +65,114 @@
         "diagnostic": "syntax error",
         "reason": "Static assertions inherited from C11"
       }
+    },
+    {
+      "id": "redecl-9",
+      "path": "gcc/testsuite/gcc.dg/redecl-9.c",
+      "sha256": "419aad723d376a42dcabc7a33eaac0da28c112dc9c747e4443c1ae5bebe11ccc",
+      "dialect": "c17",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Composite array type survives an inner scope with a shadowed object",
+      "adaptations": [
+        "Selects C17 for the declaration rule. Checks acceptance or rejection without matching GCC wording."
+      ]
+    },
+    {
+      "id": "redecl-12",
+      "path": "gcc/testsuite/gcc.dg/redecl-12.c",
+      "sha256": "cb50ab9c193d0dddc2bc43fbd090b72b2dd08ac5a8f9520e7ff3f8b800274141",
+      "dialect": "c17",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Repeated block declarations keep the bound for linkage compatibility",
+      "adaptations": [
+        "Selects C17 for the declaration rule. Checks acceptance or rejection without matching GCC wording."
+      ]
+    },
+    {
+      "id": "redecl-13",
+      "path": "gcc/testsuite/gcc.dg/redecl-13.c",
+      "sha256": "2fe2524425f00f9043115794e2e4f86e4c28dc2a391d897ed47c68e4b9d5746a",
+      "dialect": "c17",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "A bound in an exited block constrains subsequent declarations of the linked object",
+      "adaptations": [
+        "Selects C17 for the declaration rule. Checks acceptance or rejection without matching GCC wording."
+      ]
+    },
+    {
+      "id": "redecl-14",
+      "path": "gcc/testsuite/gcc.dg/redecl-14.c",
+      "sha256": "44586e286f2c2b9110024cc7c0617e877d674c68f79bd7b52ca319b95462572b",
+      "dialect": "c17",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Bound refinement in an inner scope does not complete a type used for sizeof in an enclosing scope",
+      "adaptations": [
+        "Selects C17 for the declaration rule. Checks acceptance or rejection without matching GCC wording."
+      ]
+    },
+    {
+      "id": "redecl-16",
+      "path": "gcc/testsuite/gcc.dg/redecl-16.c",
+      "sha256": "9b520ec0c3f350f47d9e54d243c4b44bda9c79eed791b2eb3832835b5ce3c883",
+      "dialect": "c17",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Later incompatible nested array bounds after a block declaration and initializer",
+      "adaptations": [
+        "Selects C17 for the declaration rule. Checks acceptance or rejection without matching GCC wording."
+      ]
+    },
+    {
+      "id": "redecl-18",
+      "path": "gcc/testsuite/gcc.dg/redecl-18.c",
+      "sha256": "da1b9e24f676a7e07eba06adf50aebbfb3b31088c428c7b3a8f214d0feaa152e",
+      "dialect": "c17",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "A hidden linked declaration does not provide a visible array bound",
+      "adaptations": [
+        "Selects C17 for the declaration rule. Checks acceptance or rejection without matching GCC wording."
+      ]
     }
   ]
 }

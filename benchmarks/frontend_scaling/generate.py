@@ -27,6 +27,27 @@ def c_redeclarations(size):
     print('int main(void) { return matrix[1][2] != 6; }')
 
 
+def c_composite_redeclarations(size):
+    print('extern int (*object)[];\nint (*object)[3];')
+    for _ in range(size):
+        print('extern int (*object)[];')
+    print('_Static_assert(sizeof *object == 3 * sizeof(int), "array bound");')
+
+
+def c_tentative_arrays(size):
+    for index in range(size):
+        print(f'int array_{index}[];')
+
+
+def c_linked_redeclarations(size, file_first):
+    if file_first:
+        print('extern int (*object)[];')
+    print('void use(void) {')
+    for _ in range(size):
+        print('    { extern int (*object)[3]; (void)sizeof *object; }')
+    print('}\nint (*object)[3];')
+
+
 def c_generic_associations(size, type_pattern):
     print(f'_Static_assert(_Generic(({type_pattern.format(1)})0,')
     for bound in range(1, size + 1):
@@ -100,6 +121,8 @@ def main():
                                         'independent-defaults', 'chained-defaults',
                                         'nested-chained-defaults', 'macro-replacements',
                                         'c-macro-binding-stack', 'c-redeclarations',
+                                        'c-composite-redeclarations', 'c-tentative-arrays',
+                                        'c-linked-redeclarations', 'c-block-first-redeclarations',
                                         'c-generic-arrays', 'c-generic-prototypes', 'c-generic-short-lists',
                                         'c-vla-declarators', 'c-fixed-array-declarators',
                                         'c-vla-dimensions', 'c-vla-extent-uses',
@@ -117,6 +140,15 @@ def main():
         return
     if args.case == 'c-redeclarations':
         c_redeclarations(args.size)
+        return
+    if args.case == 'c-composite-redeclarations':
+        c_composite_redeclarations(args.size)
+        return
+    if args.case == 'c-tentative-arrays':
+        c_tentative_arrays(args.size)
+        return
+    if args.case in ('c-linked-redeclarations', 'c-block-first-redeclarations'):
+        c_linked_redeclarations(args.size, file_first=args.case == 'c-linked-redeclarations')
         return
     if args.case == 'c-generic-arrays':
         c_generic_associations(args.size, 'int (*)[{}]')

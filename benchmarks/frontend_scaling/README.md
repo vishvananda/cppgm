@@ -77,6 +77,15 @@ the final value. Measure 128 through 2048 entries by successive doublings.
 length from 16,384 through 131,072. Measure C17 syntax-only for both inputs
 to isolate the cost of analyzing the written initializers.
 
+`c-composite-redeclarations` grows a chain of compatible declarations
+with a bound supplied through a pointer. `c-tentative-arrays` grows the
+number of distinct file-scope arrays that are still incomplete at the end
+of the translation unit. `c-linked-redeclarations` grows the number of
+blocks that refine the declaration of an object with external linkage.
+`c-block-first-redeclarations` introduces the same object in a block first
+and declares it at file scope after the blocks.
+Measure C17 syntax-only from 256 through 4096 by successive doublings.
+
 ## C++14, C++17 and C++20
 
 The edition inputs cover the feature families in [LANGUAGE_PROFILE.md](../../LANGUAGE_PROFILE.md).

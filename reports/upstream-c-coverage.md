@@ -181,19 +181,32 @@ and their overlap and single-evaluation rules remain open.
 
 [Initializer scaling measurements](../docs/performance/c-frontend-scaling.md#designated-initializers)
 
-## Declaration and linkage baseline
+## Composite types, tentative definitions, and linkage
 
-Small probes in C17 pedantic mode exposed the following gaps. The controls
-used GCC 15 and Clang 21 on Linux x86-64.
+GCC 15 and Clang 21 on Linux x86-64 served as controls for the reduced
+C17 cases. A declaration's lexical binding carries the type visible in
+its scope. Linked objects first declared in a block share an entity
+indexed by interned name. The compatibility type keeps the constraints
+from all declarations of that entity. Analysis visits only incomplete
+tentative definitions at the end of the translation unit.
 
-| Rule | Probe and baseline result |
+| Rule | Evidence or remaining gap |
 | --- | --- |
-| 6.2.7p3, p4 | cppgm rejects `extern int (*p)[]; int (*p)[3];` as conflicting declarations. Both controls accept it and see a complete array through the pointer. |
-| 6.2.7p3, p4 and 6.7.6.3p15 | Given declarations of one function with parameters `int (*)[]` and `int (*)[3]`, cppgm rejects a call with a pointer to a three-element array. Both controls accept and compile the call. |
-| 6.9.2p2, p3, p5 | cppgm rejects an external tentative array definition that remains incomplete at the end of its translation unit. Both controls give it one element. cppgm accepts an incomplete internal tentative array followed by a declaration with a bound. Both controls diagnose the initial incomplete type in pedantic mode. |
+| 6.2.7p3, p4 and 6.7.6.3p15 | [Composite types](../pa38/tests/general/400-c-composite-types.t) combine array bounds through pointers, function parameters, and return types. The fixture checks implicit compatible-pointer conversion, bounds in nested scopes, and reads from two blocks that declare an object before its file-scope declaration. |
+| 6.2.7p2, p4 | [Conflicting linked bounds](../pa38/tests/general/400-c-composite-linked-bounds-bad.t) diagnose a conflict after the enclosing block ends. [Shadowed array bound](../pa38/tests/general/400-c-composite-shadowed-bad.t) diagnoses a `sizeof` whose visible declaration has no bound. Six pinned GCC cases cover these cases and other combinations. GCC's `redecl-11.c` still exposes a gap for functions first refined in a block, which Clang also accepts. |
+| 6.9.2p2, p3, p5 | [Incomplete tentative definitions](../pa38/tests/general/400-c-tentative-incomplete.t) emit one zeroed element for an external array with no bound by the end of its translation unit. A later bound or tag definition controls storage when supplied. [Internal tentative arrays](../pa38/tests/general/400-c-tentative-internal-bad.t) are checked at their declaration under the pedantic policy. An [uncompleted record](../pa38/tests/general/400-c-tentative-record-bad.t) is diagnosed at the end of its translation unit. The pinned Clang case exercises a tentative array. |
 | 6.7.4p3, p7 | cppgm accepts an external inline-only definition that references an internal-linkage identifier or defines a modifiable static local. GCC diagnoses both. Clang diagnoses the internal-linkage reference and warns for the static local. Include a positive with a later file-scope external declaration, which makes the definition external. |
 
-[C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
+The two positive PA38 cases ran at `-O0` and `-O2` on Linux x86-64 and
+under AArch64 QEMU. Mach-O object emission passed for both Darwin
+architectures at both levels. PA38 exercises the cases in its native
+and Wasm lanes. A separate reader with two block-scope declarations
+linked and ran with an object definition in a second translation unit.
+cppgm and GCC each compiled both sides in turn at `-O0` and `-O2`.
+
+[C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[GCC C17 manifest](upstream-gcc-c17.json) · [Clang C17 manifest](upstream-clang-c17.json) ·
+[Declaration scaling measurements](../docs/performance/c-frontend-scaling.md#declarations-and-linkage)
 
 ## Cross-target smoke results
 
