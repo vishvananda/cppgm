@@ -37,8 +37,17 @@ Keep the relevant references and clause notes under `doc/` as gaps are fixed.
 
 [C99 draft with corrigenda](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
 [C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
-[C11 and C17 defect reports](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2243.htm) ·
-[C23 working draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+[C11 and C17 clarification requests](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2396.htm) ·
+[Published C23 edition](https://www.iso.org/standard/82075.html) ·
+[WG14's nearby public draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+
+Use one inventory entry per independently testable rule or requirement.
+Record the expected oracle as well as the observed outcome. Where a rule
+allows multiple outcomes, state the set or invariant the test checks.
+Keep target and edition applicability on the entry and link results for
+each applicable configuration. A suite pass count measures compatibility
+with that suite. Coverage grows as individual rules gain evidence, with
+uncovered requirements and unqualified targets visible in the same matrix.
 
 | Source | Initial selection |
 | --- | --- |
@@ -129,6 +138,16 @@ Some inputs tagged as portable use GNU extensions.
    existing object and linker contracts. Keep header names and project
    identities out of semantic decisions.
 
+Qualify variably modified types as one batch. Separate whether a type is
+variably modified from whether an object has a runtime size. Keep bound
+expressions and their evaluation points with the declaration or type-name
+that owns them. Derive byte strides in one pass after evaluating the
+required bounds and reuse those values for `sizeof`, indexing and pointer
+arithmetic. An alias reuses the extents captured at its declaration. Add
+side-effecting bound tests for evaluation count, parameter adjustment, and
+cleanup across loop iterations and scope exits. Include a case where the
+standard permits either evaluation outcome.
+
 [Driver mode setup](../dev/src/driver/toolchain.cpp) ·
 [C function parsing](../dev/src/syntax/parser_c_functions.cpp) ·
 [GCC system-header behavior](https://gcc.gnu.org/onlinedocs/cpp/System-Headers.html)
@@ -179,7 +198,8 @@ Some inputs tagged as portable use GNU extensions.
   Recheck conditional-feature rules, including the C23 distinction between
   variably modified types and automatic-storage VLA objects. Verify C23
   header and library additions against each hosted runtime before making a
-  hosted C23 claim for that configuration.
+  hosted C23 claim for that configuration. Test `#embed` cost against produced
+  tokens and check that a small `limit` on a large input stays bounded.
 
 [WG14 edition index](https://www.open-std.org/jtc1/sc22/wg14/www/projects.html) ·
 [Clang C feature inventory](https://clang.llvm.org/c_status.html)
@@ -221,7 +241,12 @@ tools, and link drivers for already emitted objects.
    produced output implies. Require linear or near-linear behavior where
    `spec.md` calls for it, and document any standard- or ABI-required work
    above that bound. Profile confirmed bottlenecks before introducing caches
-   or fast paths and remeasure the affected counters afterward.
+   or fast paths and remeasure the affected counters afterward. Vary one axis
+   at a time. Examples include redeclarations per entity, dimensions per VLA,
+   uses per captured extent, and entries per sparse initializer. Measure the
+   feature with a constructed input and its dormant overhead with a workload
+   that never uses it. Budget hot-record growth explicitly if a change adds a
+   field shared with unrelated C or C++ input.
 3. **Compare immutable binaries.** Use identical inputs and tools, A/A
    calibration and paired ABBA/BAAB blocks. Retain every observation. Verify
    unchanged outputs and use independent runtime and diagnostic oracles for
