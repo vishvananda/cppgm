@@ -193,10 +193,10 @@ tentative definitions at the end of the translation unit.
 | Rule | Evidence or remaining gap |
 | --- | --- |
 | 6.2.7p3, p4 and 6.7.6.3p15 | [Composite types](../pa38/tests/general/400-c-composite-types.t) combine array bounds through pointers, function parameters, and return types. The fixture checks implicit compatible-pointer conversion, bounds in nested scopes, and reads from two blocks that declare an object before its file-scope declaration. |
-| 6.2.7p2, p4 | [Conflicting linked bounds](../pa38/tests/general/400-c-composite-linked-bounds-bad.t) diagnose a conflict after the enclosing block ends. [Shadowed array bound](../pa38/tests/general/400-c-composite-shadowed-bad.t) diagnoses a `sizeof` whose visible declaration has no bound. Six pinned GCC cases cover these cases and other combinations. GCC's `redecl-11.c` still exposes a gap for functions first refined in a block, which Clang also accepts. |
-| 6.5.15p6 | GCC 15 and Clang 21 form a pointer to a complete array from conditional operands of types `int (*)[]` and `int (*)[3]`, in either order. cppgm diagnoses incompatible operands. The conditional result should use the same typed composite operation as declarations. |
+| 6.2.7p2, p4 | [Conflicting linked bounds](../pa38/tests/general/400-c-composite-linked-bounds-bad.t) diagnose a conflict after the enclosing block ends. [Shadowed array bound](../pa38/tests/general/400-c-composite-shadowed-bad.t) diagnoses a `sizeof` whose visible declaration has no bound. Six pinned GCC cases cover these cases and other combinations. The remaining block-function cases are described below. |
+| 6.5.15p5, p6 | [Conditional pointers](../pa38/tests/general/500-conditional-composite-pointer.t) retain a complete array bound in both operand orders, combine qualifiers, and evaluate the selected operand. A [prototype regression](../pa38/tests/general/500-conditional-composite-prototype-bad.t) checks arity when one operand lacks a prototype. [Integer promotions](../pa38/tests/general/500-conditional-integer-promotions.t) cover equal signed-character, boolean, and bit-field operands. The pinned GCC case checks arithmetic, aggregate, void, and pointer results in both orders. |
 | 6.9.2p2, p3, p5 | [Incomplete tentative definitions](../pa38/tests/general/400-c-tentative-incomplete.t) emit one zeroed element for an external array with no bound by the end of its translation unit. A later bound or tag definition controls storage when supplied. [Internal tentative arrays](../pa38/tests/general/400-c-tentative-internal-bad.t) are checked at their declaration under the pedantic policy. An [uncompleted record](../pa38/tests/general/400-c-tentative-record-bad.t) is diagnosed at the end of its translation unit. The pinned Clang case exercises a tentative array. |
-| 6.7.4p3, p7 | cppgm accepts an external inline-only definition that references an internal-linkage identifier or defines a modifiable static local. GCC diagnoses both. Clang diagnoses the internal-linkage reference and warns for the static local. Include a positive with a later file-scope external declaration, which makes the definition external. |
+| 6.7.4p3, p7 | PA38 diagnoses an inline-only definition that [calls an internal function](../pa38/tests/general/400-c-inline-internal-call-bad.t), [references an internal object through `sizeof`](../pa38/tests/general/400-c-inline-internal-object-bad.t), [defines a modifiable static array](../pa38/tests/general/400-c-inline-static-bad.t), or [defines a modifiable thread-local object](../pa38/tests/general/400-c-inline-thread-bad.t). [Late linkage](../pa38/tests/general/400-c-inline-linkage.t) covers a later external declaration, an earlier inline declaration followed by its body, and an immutable static local. The [missing definition fixture](../pa38/tests/general/400-c-inline-missing-body-bad.t) uses the pedantic policy. The pinned GCC cases cover declaration order, internal linkage, diagnostics, and missing bodies. |
 
 The two positive PA38 cases ran at `-O0` and `-O2` on Linux x86-64 and
 under AArch64 QEMU. Mach-O object emission passed for both Darwin
@@ -214,8 +214,22 @@ also used GCC 15. The C branch's direct native link path still
 rejects static archives, as does the parent compiler.
 
 [C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[GCC C99 manifest](upstream-gcc-c99.json) ·
 [GCC C17 manifest](upstream-gcc-c17.json) · [Clang C17 manifest](upstream-clang-c17.json) ·
 [Declaration scaling measurements](../docs/performance/c-frontend-scaling.md#declarations-and-linkage)
+
+### Remaining block-scope function redeclaration cases
+
+In C17, GCC and Clang keep a visible file-scope prototype when an inner
+block redeclares the function without a prototype. cppgm currently accepts
+an extra argument in that case. Both controls and cppgm accept a call
+through a block declaration without a prototype when an automatic object
+hides the file-scope prototype. A block-scope declaration with a compatible
+but different array bound must also inherit the visible function's linkage.
+cppgm currently emits an unresolved external reference when that function
+has internal linkage. GCC's pinned `redecl-11.c` also checks a later
+file-scope function declaration for compatibility with a declaration in
+an exited block. Clang and cppgm accept that conflict.
 
 ## Cross-target smoke results
 

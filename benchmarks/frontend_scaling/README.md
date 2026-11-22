@@ -85,6 +85,10 @@ blocks that refine the declaration of an object with external linkage.
 `c-block-first-redeclarations` introduces the same object in a block first
 and declares it at file scope after the blocks.
 Measure C17 syntax-only from 256 through 4096 by successive doublings.
+`c-conditional-composites` checks the result bound of repeated conditional
+expressions. `c-inline-late-linkage` defines functions whose later
+file-scope declarations supply external definitions, exercising the deferred
+inline constraints. Use the same syntax-only size series for both.
 
 ## C++14, C++17 and C++20
 

@@ -48,6 +48,19 @@ def c_linked_redeclarations(size, file_first):
     print('}\nint (*object)[3];')
 
 
+def c_conditional_composites(size):
+    print('extern int (*a)[];\nextern int (*b)[3];')
+    for _ in range(size):
+        print('_Static_assert(sizeof *(1 ? a : b) == 3 * sizeof(int), "conditional result");')
+
+
+def c_inline_late_linkage(size):
+    for index in range(size):
+        print(f'inline int f_{index}(int n) {{ static int value; return value += n; }}')
+    for index in range(size):
+        print(f'extern int f_{index}(int);')
+
+
 def c_generic_associations(size, type_pattern):
     print(f'_Static_assert(_Generic(({type_pattern.format(1)})0,')
     for bound in range(1, size + 1):
@@ -123,6 +136,7 @@ def main():
                                         'c-macro-binding-stack', 'c-redeclarations',
                                         'c-composite-redeclarations', 'c-tentative-arrays',
                                         'c-linked-redeclarations', 'c-block-first-redeclarations',
+                                        'c-conditional-composites', 'c-inline-late-linkage',
                                         'c-generic-arrays', 'c-generic-prototypes', 'c-generic-short-lists',
                                         'c-vla-declarators', 'c-fixed-array-declarators',
                                         'c-vla-dimensions', 'c-vla-extent-uses',
@@ -149,6 +163,12 @@ def main():
         return
     if args.case in ('c-linked-redeclarations', 'c-block-first-redeclarations'):
         c_linked_redeclarations(args.size, file_first=args.case == 'c-linked-redeclarations')
+        return
+    if args.case == 'c-conditional-composites':
+        c_conditional_composites(args.size)
+        return
+    if args.case == 'c-inline-late-linkage':
+        c_inline_late_linkage(args.size)
         return
     if args.case == 'c-generic-arrays':
         c_generic_associations(args.size, 'int (*)[{}]')

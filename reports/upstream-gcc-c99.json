@@ -100,6 +100,84 @@
         "-pedantic-errors"
       ],
       "obligation": "C99 for-loop declarations and scope"
+    },
+    {
+      "id": "c99-condexpr-1",
+      "path": "gcc/testsuite/gcc.dg/c99-condexpr-1.c",
+      "sha256": "43c06f247ad5e4436f1061d0ff9352c8728da622a820b53ddc2e4651743462d7",
+      "dialect": "c99",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Conditional arithmetic promotions and pointer result types in both operand orders"
+    },
+    {
+      "id": "inline-15",
+      "path": "gcc/testsuite/gcc.dg/inline-15.c",
+      "sha256": "4a2583bc3814a0f8dbf8a2988e789baa9796d1918951252b2659643cdb72860f",
+      "dialect": "c99",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "External inline declarations require a definition in their translation unit",
+      "adaptations": [
+        "Runs in pedantic-errors mode to require rejection for the missing definitions."
+      ]
+    },
+    {
+      "id": "inline-25",
+      "path": "gcc/testsuite/gcc.dg/inline-25.c",
+      "sha256": "554a03abf8da7b412d617a8d70423a789b750391d9a19abb8207970995ee209e",
+      "dialect": "c99",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Constraints on references and modifiable static storage in an inline-only definition"
+    },
+    {
+      "id": "inline-34",
+      "path": "gcc/testsuite/gcc.dg/inline-34.c",
+      "sha256": "6552e5160f5002f2b1b582f99f0e2faeab988f009a1323d437ac47b68746721c",
+      "dialect": "c99",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "A later external declaration removes the inline-only restriction on internal references"
+    },
+    {
+      "id": "inline-35",
+      "path": "gcc/testsuite/gcc.dg/inline-35.c",
+      "sha256": "831bc8dea38519231228064b0c3ff533a9e8c48c1de22dfd4caa61d80f611b71",
+      "dialect": "c99",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "A prior static declaration gives an inline function internal linkage"
     }
   ]
 }
