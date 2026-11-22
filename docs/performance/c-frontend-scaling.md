@@ -469,3 +469,49 @@ and 23.4%, respectively.
 | SQLite | BAAB | 16,516,041,403 / 16,516,006,512 / 16,516,179,684 / 16,516,266,403 |
 
 [Input generation](../../benchmarks/frontend_scaling/README.md#c)
+
+## Integer constant expressions
+
+Compared with `5cdedd943`, a literal assertion reads its typed value
+without constructing a constant evaluator. A compound expression checks
+each required operand form before using the existing evaluator. The
+eligibility walk processes left-nested arithmetic with bounded pending
+operands, and the evaluator already processes those chains iteratively.
+Computed null pointer recognition runs after ordinary pointer resolution
+fails, using the same integer constant query.
+
+The table gives median millions of retired user-space instructions across
+three C17 syntax-only runs at each size on Linux x86-64.
+
+| Units | Literal assertions before | Literal assertions after | Arithmetic terms before | Arithmetic terms after |
+| ---: | ---: | ---: | ---: | ---: |
+| 1024 | 12.06 | 10.92 | 8.08 | 8.22 |
+| 2048 | 20.41 | 18.14 | 12.45 | 12.73 |
+| 4096 | 37.11 | 32.56 | 21.17 | 21.73 |
+| 8192 | 70.51 | 61.41 | 38.61 | 39.73 |
+
+The incremental cost stayed near 7,044 instructions per literal assertion
+and 4,395 per arithmetic term in the candidate. At 8192 units, median peak
+RSS went from 17,384 to 17,440 KiB for literal assertions and from 17,400
+to 17,372 KiB for arithmetic chains.
+
+The frozen C++ `-O3` and SQLite `-O2` objects matched byte-for-byte in every
+run. The immutable binaries ran on the same core. A/A task-clock variation
+was 34.8% for C++ and 12.6% for SQLite, so the comparison uses retired
+instructions.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0020% | +0.0089% | +0.0098% |
+| SQLite `sqlite3.c` | 0.0030% | +0.0016% | +0.0025% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,039,642,121 / 9,039,525,286 / 9,039,704,085 / 9,039,547,494 |
+| C++ | ABBA | 9,039,409,068 / 9,040,233,567 / 9,040,210,838 / 9,039,432,367 |
+| C++ | BAAB | 9,040,397,150 / 9,039,513,761 / 9,039,541,445 / 9,040,429,241 |
+| SQLite | A/A | 16,519,267,173 / 16,519,286,272 / 16,519,118,550 / 16,519,620,258 |
+| SQLite | ABBA | 16,519,400,828 / 16,519,587,189 / 16,519,656,474 / 16,519,325,392 |
+| SQLite | BAAB | 16,519,698,500 / 16,519,242,436 / 16,519,277,768 / 16,519,649,631 |
+
+[Input generation](../../benchmarks/frontend_scaling/README.md#c)

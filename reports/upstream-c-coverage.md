@@ -258,6 +258,34 @@ operands.
 [WG14 DR 261](https://www.open-std.org/JTC1/SC22/WG14/www/docs/dr_261.htm) ·
 [WG14 issue 0489](https://open-std.org/JTC1/SC22/WG14/issues/c11c17/issue0489.html)
 
+The positive fixture passes on Linux x86-64 and AArch64 QEMU at `-O0` and
+`-O2`. Both Darwin architectures emit Mach-O objects at both levels. PA38
+runs the fixture through native and Wasm. The GCC C99 manifest passes all
+16 selected cases. The pinned Clang C11 signed-character representation case
+continues to accept `__builtin_bit_cast` in its assertions. Hosted GNU17
+replays passed the zlib example and compression round trip, the Lua basic
+suite, and the frozen SQLite shell workload.
+[Constant-expression scaling](../docs/performance/c-frontend-scaling.md#integer-constant-expressions)
+
+### Static initialization baseline
+
+GCC 15 and Clang 21 diagnose the following cases in C17. cppgm accepts them
+under `-fsyntax-only`, so the required check belongs in semantic analysis.
+
+| Static initializer | Current object emission |
+| --- | --- |
+| File-scope `int value = f()` where `f` is an ordinary function | Emits a startup entry and a call to `f`. |
+| Block-scope `static int value = f()` | Emits a dynamic initialization guard. |
+| File-scope `int value = source` where `source` is an ordinary external `int` | Emits runtime initialization. |
+| Block-scope `static int *pointer = &value` where `value` is automatic | Emits dynamic initialization of the pointer. |
+| File-scope `int *pointer = &(int){f()}` | Rejects object emission. The compound literal's static initializer needs a semantic diagnostic. |
+
+Controls that pass both actions include `&values[1] + (int)2.0` for a
+static array and `2 || 1 / 0` for an arithmetic initializer. Reuse the
+existing constant evaluator and initially exercise scalar and braced leaves,
+static compound literals, and the retained initializer checks for overridden
+subobjects. Have emission consume the checked value or symbolic address.
+
 ## Cross-target smoke results
 
 The prototype array, tagged generic association, and structure return
