@@ -324,7 +324,7 @@ jobs:
             clang) upstream_c=clang-21 ;;
           esac
           failed=0
-          for edition in 99 17; do
+          for edition in 99 11 17; do
             python3 scripts/run_cxx11_ci_suite.py \
               --manifest "reports/upstream-$SUITE-c$edition.json" \
               --source-root upstream-sources --candidate dev/cppgm \
@@ -368,7 +368,7 @@ jobs:
               cat "$summary" >> "$GITHUB_STEP_SUMMARY"
             fi
           done
-          for report in c99 c17 c-testsuite; do
+          for report in c99 c11 c17 c-testsuite; do
             summary="$RUNNER_TEMP/cxx11/$report/summary.md"
             if [ -f "$summary" ]; then
               cat "$summary" >> "$GITHUB_STEP_SUMMARY"

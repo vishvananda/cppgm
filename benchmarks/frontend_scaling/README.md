@@ -35,6 +35,19 @@ so a full compile measures the macro workload without a large parser, semantic
 or backend workload obscuring it. Use sizes 8000, 16000 and 32000; compare GCC
 on exactly the same generated input as well as comparing compiler snapshots.
 
+## C
+
+`c-macro-binding-stack` nests saves of one macro and interleaves them with
+saves of fresh names. The preprocessor checks that each pop restores the
+previous value or the undefined binding. `c-redeclarations` alternates
+compatible complete and incomplete array declarations for one entity. The
+final program checks the completed array and its initializer.
+
+Generate each at 4096, 8192 and 16384 units. Measure C17 syntax-only and
+source-to-object compilation. Check the program exit through the same C link
+driver for each measured input. Use the retired instruction deltas between
+successive sizes to compare incremental work.
+
 ## C++14, C++17 and C++20
 
 The edition inputs cover the feature families in [LANGUAGE_PROFILE.md](../../LANGUAGE_PROFILE.md).

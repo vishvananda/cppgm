@@ -19,6 +19,10 @@ assignment for changes to shared behavior.
 [PA38 handout](../pa38/README.md) · [CI test jobs](../.github/workflows/tests.yml) ·
 [WG14 editions and defect reports](https://www.open-std.org/jtc1/sc22/wg14/www/projects.html)
 
+Track evidence as each milestone lands in the
+[C conformance inventory](../reports/upstream-c-coverage.md) and the
+[C frontend scaling report](performance/c-frontend-scaling.md).
+
 ## 1. Freeze the baseline and put a small suite in CI
 
 Create a clause inventory covering lexical translation, preprocessing, types

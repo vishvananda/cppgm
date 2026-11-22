@@ -1,21 +1,50 @@
 #!/usr/bin/env python3
-"""Generate C++ inputs that expose frontend complexity as their size grows."""
+"""Generate C and C++ inputs that expose frontend complexity as their size grows."""
 import argparse
 
 from editions import EDITIONS, source
+
+
+def c_macro_binding_stack(size):
+    print('#define VALUE 0')
+    for index in range(1, size + 1):
+        print('#pragma push_macro("VALUE")')
+        print(f'#pragma push_macro("TEMP_{index}")\n#define TEMP_{index} 1')
+        print(f'#undef VALUE\n#define VALUE {index}')
+    for index in range(size, 0, -1):
+        print(f'#pragma pop_macro("TEMP_{index}")')
+        print(f'#ifdef TEMP_{index}\n#error undefined binding was not restored\n#endif')
+        print('#pragma pop_macro("VALUE")')
+        print(f'#if VALUE != {index - 1}\n#error wrong saved binding\n#endif')
+    print('int main(void) { return VALUE; }')
+
+
+def c_redeclarations(size):
+    for _ in range(size):
+        print('extern const int matrix[][3];')
+        print('extern const int matrix[2][3];')
+    print('const int matrix[2][3] = {{1, 2, 3}, {4, 5, 6}};')
+    print('int main(void) { return matrix[1][2] != 6; }')
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('case', choices=['parameter-bases', 'plain-templates',
                                         'independent-defaults', 'chained-defaults',
-                                        'nested-chained-defaults', 'macro-replacements', *EDITIONS])
+                                        'nested-chained-defaults', 'macro-replacements',
+                                        'c-macro-binding-stack', 'c-redeclarations', *EDITIONS])
     parser.add_argument('size', type=int)
     args = parser.parse_args()
     if args.size < 1:
         parser.error('size must be positive')
     if args.case in EDITIONS:
         print(source(args.case, args.size), end='')
+        return
+    if args.case == 'c-macro-binding-stack':
+        c_macro_binding_stack(args.size)
+        return
+    if args.case == 'c-redeclarations':
+        c_redeclarations(args.size)
         return
     if args.case == 'macro-replacements':
         print('#define EMPTY()')

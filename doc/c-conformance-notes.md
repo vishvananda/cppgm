@@ -17,6 +17,25 @@ runtime case exercises valid one-bit fields.
 [WG14 DR 335](https://www.open-std.org/jtc1/sc22/wg14/www/docs/dr_335.htm) ·
 [PA38 width regression](../pa38/tests/general/300-bool-bitfield-width-bad.t)
 
+## Repeated qualifiers in C99
+
+C99 6.7.3 makes a repeated type qualifier equivalent to one occurrence.
+The declaration already retains qualifiers as bits. Reapplying the same
+bit gives the C type directly. PA38 exercises duplicate const and volatile
+specifiers in C99, and the pinned Clang cohort checks WG14 N505.
+
+[C99 with corrigenda, N1256](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
+[PA38 qualifier regression](../pa38/tests/general/300-repeated-qualifiers.t)
+
+## Macros adjacent to quoted literals
+
+C17 6.4 tokenizes an identifier after a string or character literal as a
+separate preprocessing token. The identifier can be expanded before
+adjacent string literals are concatenated. PA38 covers both forms.
+
+[C11 draft, N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[PA38 literal regression](../pa38/tests/general/100-adjacent-literal-macros.t)
+
 ## VLA scope and C objects
 
 C17 6.2.4 specifies the lifetime of a variable-length array. C17 6.8.6.1

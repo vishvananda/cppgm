@@ -9,3 +9,10 @@ enum class SourceLanguage : uint8_t
 	Cxx,
 	C
 };
+
+enum class CEdition : uint8_t
+{
+	C99,
+	C11,
+	C17
+};

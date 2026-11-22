@@ -228,10 +228,10 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 		case TokenKind::KW_CONST:
 		case TokenKind::KW_VOLATILE:
 		{
-			// 7.1.6p2: const and volatile each combine with any type
-			// specifier but itself.
+			// C99 6.7.3 makes repeated qualifiers idempotent. C++11
+			// 7.1.6p2 disallows repeating a qualifier in this sequence.
 			const uint8_t bit = specifier.keyword == TokenKind::KW_CONST ? kConst : kVolatile;
-			if ((cv & bit) != 0)
+			if ((cv & bit) != 0 && !c_source_)
 				error(specifier.location, "a cv-qualifier repeated in a decl-specifier-seq (7.1.6p2)");
 			cv |= bit;
 			break;

@@ -30,8 +30,8 @@ such as `\%` (whose value is `%`), as hosted GNU C libraries require. This does
 not make differently qualified types compatible or allow unrelated pointer
 conversions, nested qualifier removal, or removal of atomic qualification.
 Strict `-std=c17` retains its qualifier and escape diagnostics. The C input
-profile also accepts `-std=c99` and `-std=gnu99`, with the C99 value of
-`__STDC_VERSION__`. The input language and target
+profile also accepts `-std=c99`, `-std=gnu99`, `-std=c11`, and `-std=gnu11`,
+with the selected edition's value of `__STDC_VERSION__`. The input language and target
 are separate choices. `-x c++` continues to select C++; a language and standard
 that disagree must be diagnosed. The existing `.c` handling is unchanged unless
 C is selected explicitly.
@@ -66,7 +66,9 @@ The first fixture set covers these parts of the C17 input profile:
 - `_Generic` selections preserve the selected expression's type and value
   category. The control and unselected associations are not evaluated.
 - C character and string literal types, including the compatible integer
-  types of wide, UTF-16 and UTF-32 literals. Comparisons and logical operators
+  types of wide, UTF-16 and UTF-32 literals. An identifier immediately after a
+  quoted literal is a separate preprocessing token and can expand as a macro.
+  Comparisons and logical operators
   produce `int`. Assignment, comma, conditional and prefix increment results
   do not become C++ lvalues.
 - Separate tag and ordinary identifier namespaces, including typedefs that
@@ -120,7 +122,8 @@ make ref-test
 ```
 
 `tests/general/*.t` inputs produce LowIR and are compared with the checked-in
-reference outputs. A `.c-standard` sidecar selects `c99`, `gnu99`, `c17` or `gnu17` for an
+reference outputs. A `.c-standard` sidecar selects `c99`, `gnu99`, `c11`, `gnu11`,
+`c17`, or `gnu17` for an
 individual fixture; controls use the same convention. Rejected inputs have the usual failure-status reference.
 An adjacent `.t.1` adds another translation unit, as in the earlier source
 assignments. `tests/controls/*.t` state an expected program result and run the

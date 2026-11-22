@@ -48,14 +48,31 @@ const char* CxxVersionMacro(uint8_t edition)
 	}
 }
 
+const char* CVersionMacro(CEdition edition)
+{
+	switch (edition)
+	{
+	case CEdition::C99:
+		return "199901L";
+	case CEdition::C11:
+		return "201112L";
+	case CEdition::C17:
+		return "201710L";
+	}
+	return "";
+}
+
 std::string PredefinedText(const PreprocessorOptions& options, const FeatureModes& modes)
 {
 	std::string text = "#define __CPPGM__ 201303L\n";
 	if (options.assembler)
 		text += "#define __ASSEMBLER__ 1\n";
 	if (options.language == SourceLanguage::C)
-		text += std::string("#define __STDC__ 1\n#define __STDC_VERSION__ ") + options.c_version +
-			"\n#define __STDC_NO_VLA__ 1\n#define __STDC_NO_THREADS__ 1\n";
+	{
+		text += std::string("#define __STDC__ 1\n#define __STDC_VERSION__ ") + CVersionMacro(options.c_edition) + "\n";
+		if (options.c_edition >= CEdition::C11)
+			text += "#define __STDC_NO_VLA__ 1\n#define __STDC_NO_THREADS__ 1\n";
+	}
 	else
 		text += std::string("#define __cplusplus ") + CxxVersionMacro(options.cxx_edition) + "\n";
 	if (options.strict)

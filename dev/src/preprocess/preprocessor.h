@@ -78,8 +78,7 @@ struct PreprocessorOptions
 	FeatureModes modes;
 	// The decoded language edition used by the frontend, or zero for C.
 	uint8_t cxx_edition = 11;
-	// __STDC_VERSION__ for C source.
-	const char* c_version = "201710L";
+	CEdition c_edition = CEdition::C17;
 	// The strict ISO dialect (-std=c++11, c++14, c++17): the host's
 	// predefined macros for it (__STRICT_ANSI__) instead of the GNU
 	// dialect's (gnu++11 ..., and the default).

@@ -194,8 +194,8 @@ void PPLexer::lex_literal_universal_character_name(const SourceChar& backslash)
 
 const PPToken& PPLexer::finish_literal(PPTokenKind plain, PPTokenKind user_defined)
 {
-	// A literal directly followed by an identifier has that ud-suffix.
-	if (!take_identifier_start())
+	// Only C++ treats an adjacent identifier as a user-defined suffix.
+	if (c_source_ || !take_identifier_start())
 		return finish(plain);
 	while (take_identifier_continue())
 	{

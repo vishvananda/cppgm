@@ -29,12 +29,7 @@
       "upstream_flags": [
         "-pedantic-errors"
       ],
-      "obligation": "C99 accepts repeated type qualifiers with an optional warning",
-      "known_failure": {
-        "status": "compile-failed",
-        "diagnostic": "a cv-qualifier repeated in a decl-specifier-seq",
-        "reason": "C99 accepts repeated type qualifiers with an optional warning"
-      }
+      "obligation": "C99 accepts repeated type qualifiers with an optional warning"
     }
   ]
 }

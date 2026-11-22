@@ -49,15 +49,25 @@ namespace driver {
 // Source dialect and feature gates share the token tools' standard names.
 void language_standard(const std::string& standard, PreprocessorOptions& options)
 {
-	const bool c99 = standard == "c99" || standard == "gnu99";
-	if (c99 || standard == "c17" || standard == "gnu17")
+	static const struct
 	{
-		options.language = SourceLanguage::C;
-		options.cxx_edition = 0;
-		options.c_version = c99 ? "199901L" : "201710L";
-		options.strict = standard == "c99" || standard == "c17";
-		return;
-	}
+		const char* spelling;
+		CEdition edition;
+		bool strict;
+	} c_modes[] = { { "c99", CEdition::C99, true }, { "gnu99", CEdition::C99, false }, { "c11", CEdition::C11, true },
+		{ "gnu11", CEdition::C11, false }, { "c17", CEdition::C17, true }, { "gnu17", CEdition::C17, false },
+		{ "c18", CEdition::C17, true }, { "gnu18", CEdition::C17, false }, { "iso9899:1999", CEdition::C99, true },
+		{ "iso9899:2011", CEdition::C11, true }, { "iso9899:2017", CEdition::C17, true },
+		{ "iso9899:2018", CEdition::C17, true } };
+	for (const auto& mode : c_modes)
+		if (standard == mode.spelling)
+		{
+			options.language = SourceLanguage::C;
+			options.cxx_edition = 0;
+			options.c_edition = mode.edition;
+			options.strict = mode.strict;
+			return;
+		}
 	options.language = SourceLanguage::Cxx;
 	const LanguageMode mode = ReadLanguageMode(standard);
 	options.cxx_edition = mode.edition;
