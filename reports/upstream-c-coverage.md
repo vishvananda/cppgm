@@ -205,6 +205,14 @@ and Wasm lanes. A separate reader with two block-scope declarations
 linked and ran with an object definition in a second translation unit.
 cppgm and GCC each compiled both sides in turn at `-O0` and `-O2`.
 
+The same compiler built the C sources for zlib 1.3.1, Lua 5.4.8, and
+SQLite 3.50.4 in GNU17 at `-O2`. GCC 15 linked the emitted objects.
+Both zlib static test modes passed, Lua's basic suite reported
+`final OK`, and the SQLite shell returned `2|16` for the aggregate
+query over rows 4, 7, and 9 filtered above 4. zlib's configuration
+also used GCC 15. The C branch's direct native link path still
+rejects static archives, as does the parent compiler.
+
 [C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [GCC C17 manifest](upstream-gcc-c17.json) · [Clang C17 manifest](upstream-clang-c17.json) ·
 [Declaration scaling measurements](../docs/performance/c-frontend-scaling.md#declarations-and-linkage)
