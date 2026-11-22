@@ -42,6 +42,11 @@ def c_generic_short_lists(size):
     print('int main(void) { return 0; }')
 
 
+def c_array_declarators(size, bound):
+    for index in range(size):
+        print(f'int f_{index}(int n) {{ int a[{bound}]; return sizeof(a); }}')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('case', choices=['parameter-bases', 'plain-templates',
@@ -49,6 +54,7 @@ def main():
                                         'nested-chained-defaults', 'macro-replacements',
                                         'c-macro-binding-stack', 'c-redeclarations',
                                         'c-generic-arrays', 'c-generic-prototypes', 'c-generic-short-lists',
+                                        'c-vla-declarators', 'c-fixed-array-declarators',
                                         *EDITIONS])
     parser.add_argument('size', type=int)
     args = parser.parse_args()
@@ -71,6 +77,9 @@ def main():
         return
     if args.case == 'c-generic-short-lists':
         c_generic_short_lists(args.size)
+        return
+    if args.case in ('c-vla-declarators', 'c-fixed-array-declarators'):
+        c_array_declarators(args.size, 'n' if args.case == 'c-vla-declarators' else '2')
         return
     if args.case == 'macro-replacements':
         print('#define EMPTY()')

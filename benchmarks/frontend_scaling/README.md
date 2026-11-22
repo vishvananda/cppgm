@@ -55,6 +55,11 @@ pointer types and check selection with a static assertion. Compare 512,
 static assertions. Compare it using calibrated runs at 4096, 8192, and
 16384 uses to isolate the cost of ordinary short lists.
 
+`c-vla-declarators` generates independent declarations that share an element
+type and each have their own runtime bound. Compare it against
+`c-fixed-array-declarators` at 1024, 2048, 4096, and 8192 functions in C17
+syntax-only mode to isolate runtime array type interning.
+
 ## C++14, C++17 and C++20
 
 The edition inputs cover the feature families in [LANGUAGE_PROFILE.md](../../LANGUAGE_PROFILE.md).

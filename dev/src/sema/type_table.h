@@ -85,9 +85,11 @@ public:
 
 private:
 	const Type* intern(const Type& key);
+	const Type* intern_hashed(const Type& key, uint32_t hash);
+	const Type* intern_array(const Type& key);
 	const Type* insert(const Type& key, uint32_t hash, uint32_t index);
 	const Type* canonical_of(const Type& type);
-	static uint32_t hash_of(const Type& type);
+	static uint32_t hash_of(const Type& type, const syntax::Expr* runtime_bound = nullptr);
 	static bool same(const Type& a, const Type& b);
 	void grow();
 

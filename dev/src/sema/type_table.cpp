@@ -58,7 +58,7 @@ void TypeTable::enable_char8()
 	fundamentals_[index] = intern(key);
 }
 
-__attribute__((always_inline)) inline uint32_t TypeTable::hash_of(const Type& type)
+__attribute__((always_inline)) inline uint32_t TypeTable::hash_of(const Type& type, const syntax::Expr* runtime_bound)
 {
 	// The byte fields nine bits apart: no byte-aligned layout, so no host
 	// compiler reads them as one wide load, which could not be forwarded
@@ -71,8 +71,8 @@ __attribute__((always_inline)) inline uint32_t TypeTable::hash_of(const Type& ty
 	wide = Mix(wide, Bits(type.element));
 	wide = Mix(wide, Bits(type.owner));
 	wide = Mix(wide, Bits(type.entity));
-	// A runtime array's bound is not hashed: every type would pay for the
-	// test, and same() tells apart the few such arrays of one element type.
+	if (runtime_bound != nullptr)
+		wide = Mix(wide, Bits(runtime_bound));
 	for (uint32_t i = 0; i < type.param_count; ++i)
 		wide = Mix(wide, Bits(type.params[i]));
 	// A final avalanche for the low bits the table indexes by.
@@ -122,8 +122,19 @@ void TypeTable::grow()
 
 const Type* TypeTable::intern(const Type& key)
 {
+	return intern_hashed(key, hash_of(key));
+}
+
+const Type* TypeTable::intern_array(const Type& key)
+{
+	// Runtime array identity includes the bound's syntax node. Salt only
+	// this path, keeping the common hash for all other types.
+	return key.runtime_bound != nullptr ? intern_hashed(key, hash_of(key, key.runtime_bound)) : intern(key);
+}
+
+const Type* TypeTable::intern_hashed(const Type& key, uint32_t hash)
+{
 	// Slots carry the hash, so a probe touches a type only on a hash match.
-	const uint32_t hash = hash_of(key);
 	const uint32_t mask = mask_;
 	uint32_t index = hash & mask;
 	while (slots_[index].type != nullptr)
@@ -228,7 +239,7 @@ const Type* TypeTable::canonical_of(const Type& type)
 	}
 	if (!changed)
 		return &type;
-	return intern(key);
+	return key.kind == TypeKind::Array ? intern_array(key) : intern(key);
 }
 
 const Type* TypeTable::adjusted_parameter(const Type* type)
@@ -299,7 +310,7 @@ const Type* TypeTable::array(const Type* element, uint64_t bound, const Type* de
 	key.function_cv = zero_length;
 	key.owner = dependent_bound;
 	key.runtime_bound = runtime_bound;
-	return intern(key);
+	return intern_array(key);
 }
 
 const Type* TypeTable::vector(const Type* lane, uint64_t lanes, const Type* dependent_size, bool bytes, bool extended)

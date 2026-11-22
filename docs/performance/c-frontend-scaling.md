@@ -149,6 +149,8 @@ with integers without caching an enum's underlying type. The index and its
 memo belong to one long selection and are released when its analysis ends.
 Short lists use inline storage. Further scaling checks should cover large
 families of wildcard-bearing types that still require structural comparison.
+At 4096 prototype associations, the median peak RSS in the paired blocks
+rose from 13.9 to 15.3 MiB with the index.
 
 Paired compile runs used the same pinned core and immutable binaries.
 Every object was byte-identical across the 12 trials for each workload.
@@ -160,5 +162,44 @@ The short-list source used 16,384 independent four-arm selections at
 | C short lists | <0.0001% | -1.0768% | -1.0767% |
 | C++ `semantic_overload.cpp` | 0.0032% | +0.0021% | -0.0014% |
 | SQLite `sqlite3.c` | 0.0024% | +0.0006% | +0.0018% |
+
+[Input generation](../../benchmarks/frontend_scaling/README.md#c)
+
+## Runtime array type interning
+
+Each declaration in `c-vla-declarators` gives an array of the same element
+type a distinct bound expression. Previously, the type table checked that
+expression for identity while omitting it from its hash. Arrays of one
+element type therefore probed the same chain. A profile at 8192 declarations
+attributed 72.4% of sampled cycles to type interning and 8.9% to table growth.
+The runtime-array path now hashes the bound node. Other types retain the
+ordinary hash. Canonicalization and qualifier propagation use the same
+runtime-array key as initial type creation.
+
+The counts are millions of retired instructions for C17 syntax-only
+compilation on Linux x86-64.
+
+| Functions | VLA before | VLA after | Fixed array before | Fixed array after |
+| ---: | ---: | ---: | ---: | ---: |
+| 1024 | 72.61 | 42.29 | 41.06 | 40.98 |
+| 2048 | 203.98 | 82.21 | 79.76 | 79.59 |
+| 4096 | 653.36 | 165.00 | 160.07 | 159.76 |
+| 8192 | 2306.95 | 326.43 | 316.51 | 316.08 |
+
+At 8192 declarations GCC 15 and Clang 21 accepted the identical VLA
+input and retired 524.19 and 765.80 million instructions, respectively.
+The original and updated cppgm counts differ by 85.85% on this input.
+Peak RSS varied between 31.7 and 33.3 MiB across the paired runs. The
+change stays within the A/A range for both paired block averages.
+
+All emitted objects were byte-identical in A/A, ABBA, and BAAB. The
+8192-declaration object workload used `-O0`. The frozen C++ and SQLite
+workloads used `-O3` and `-O2`, respectively.
+
+| Input | A/A range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C VLA declarations | 1.300% | -75.62% | -75.91% |
+| C++ `semantic_overload.cpp` | 0.0031% | -0.2414% | -0.2419% |
+| SQLite `sqlite3.c` | 0.0019% | -0.0121% | -0.0106% |
 
 [Input generation](../../benchmarks/frontend_scaling/README.md#c)
