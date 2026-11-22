@@ -65,6 +65,18 @@ dimensions. `c-vla-extent-uses` holds the rank fixed and grows the number
 of references to a captured extent. Compare syntax-only and `-O0 -c`
 costs separately. Each generated program checks the resulting size.
 
+`c-typeof-shared-bounds` varies the number of typedef declarators sharing a
+GNU `typeof` specifier. The program checks that the cast bound is captured
+once, the other effects run for each declarator, and all aliases use the
+captured extent. Compare 128, 256, 512, and 1024 declarators in GNU17 mode.
+Measure syntax-only and `-O0 -c` separately, then link and run the objects.
+
+`c-designated-overwrites` repeatedly designates one nested member and checks
+the final value. Measure 128 through 2048 entries by successive doublings.
+`c-designated-sparse` uses one designator and varies the inferred array
+length from 16,384 through 131,072. Measure C17 syntax-only for both inputs
+to isolate the cost of analyzing the written initializers.
+
 ## C++14, C++17 and C++20
 
 The edition inputs cover the feature families in [LANGUAGE_PROFILE.md](../../LANGUAGE_PROFILE.md).

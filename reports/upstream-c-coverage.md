@@ -167,6 +167,16 @@ has different coverage because it implicitly initializes omitted members
 within those braces. [WG14 issue 0413](https://open-std.org/JTC1/SC22/WG14/issues/c11c17/issue0413.html) ·
 [WG14 issue 0253](https://www.open-std.org/jtc1/sc22/wg14/issues/c99/issue0253.html)
 
+| C11 clause | Additional probe | Result |
+| --- | --- | --- |
+| 6.7.9p4 | A function call in a static initializer is overwritten by a constant. | GCC diagnoses the nonconstant expression. Clang and cppgm accept it. The clause requires a constant expression or string literal for each expression in a static initializer. |
+| 6.7.2.1p13, 6.7.9p7 | Designate a member of an anonymous union directly in the containing record. | GCC and Clang pass. cppgm rejects the lookup. |
+| 6.7.9p14, p19 | Initialize a character array with a string and then replace one character with a designator. | GCC and Clang preserve the other characters. cppgm rejects the overlay. |
+| 6.7.9p17, p20 | Continue from a nested designator into the rest of a union's chosen record member and then into the containing record. | GCC and Clang pass. cppgm rejects positional continuation. |
+| 6.7.9p19, p21 | A later brace-enclosed initializer replaces the entire subobject and zeroes its omitted member. | GCC, Clang and cppgm pass. Keep this control when adding partial overlays. |
+
+[C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
+
 Repeating `.inner.member = i` in one initializer with a fixed record
 type took 4.80, 6.25, 10.43, 23.89, and 71.29 million retired instructions
 at 128, 256, 512, 1024, and 2048 entries in C17 syntax-only compilation.

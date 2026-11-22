@@ -67,6 +67,33 @@ def c_vla_extent_uses(size):
     print(f'int main(void) {{ return run(3) != {size}UL * 3 * sizeof(int); }}')
 
 
+def c_typeof_shared_bounds(size):
+    print('static int increment(int *value) { return ++*value; }')
+    print('int main(void) {')
+    print('    int matrix[2][3], n = 3, effects = 0; unsigned long bytes = 0;')
+    aliases = ', '.join(f'Row{index}' for index in range(size))
+    print('    typedef __typeof__(*(int (*)[n++])(increment(&effects), matrix)) ' + aliases + ';')
+    for index in range(size):
+        print(f'    bytes += sizeof (Row{index});')
+    print(f'    return !(n == 4 && effects == {size} && bytes == {size} * sizeof matrix[0]);')
+    print('}')
+
+
+def c_designated_overwrites(size):
+    print('struct inner { int member; };')
+    print('struct outer { struct inner inner; };')
+    print('static struct outer object = {')
+    for value in range(1, size + 1):
+        print(f'    .inner.member = {value},')
+    print('};')
+    print(f'int main(void) {{ return object.inner.member != {size}; }}')
+
+
+def c_designated_sparse(size):
+    print(f'unsigned char table[] = {{ [{size - 1}] = 7 }};')
+    print(f'_Static_assert(sizeof table == {size}, "completed bound");')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('case', choices=['parameter-bases', 'plain-templates',
@@ -76,6 +103,7 @@ def main():
                                         'c-generic-arrays', 'c-generic-prototypes', 'c-generic-short-lists',
                                         'c-vla-declarators', 'c-fixed-array-declarators',
                                         'c-vla-dimensions', 'c-vla-extent-uses',
+                                        'c-typeof-shared-bounds', 'c-designated-overwrites', 'c-designated-sparse',
                                         *EDITIONS])
     parser.add_argument('size', type=int)
     args = parser.parse_args()
@@ -107,6 +135,15 @@ def main():
         return
     if args.case == 'c-vla-extent-uses':
         c_vla_extent_uses(args.size)
+        return
+    if args.case == 'c-typeof-shared-bounds':
+        c_typeof_shared_bounds(args.size)
+        return
+    if args.case == 'c-designated-overwrites':
+        c_designated_overwrites(args.size)
+        return
+    if args.case == 'c-designated-sparse':
+        c_designated_sparse(args.size)
         return
     if args.case == 'macro-replacements':
         print('#define EMPTY()')
