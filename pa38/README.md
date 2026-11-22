@@ -131,7 +131,8 @@ The first fixture set covers these parts of the C17 input profile:
   `__typeof__` in all the C modes above. Preserve the operand type. Evaluate
   the operand only when its type is variably modified. For declarators
   sharing a specifier, repeat the evaluated expression operand for each
-  declarator and reuse the extents of written type-name bounds.
+  declarator and capture written type-name bounds during the first
+  declarator's evaluation.
 - Hosted C header declarations and their builtin operations through the
   existing hosted environment, including PA30's GNU startup-function attributes.
 

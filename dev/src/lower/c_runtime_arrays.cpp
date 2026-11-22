@@ -54,60 +54,30 @@ RValue FunctionLowering::dynamic_stack_allocate(RValue bytes, uint64_t alignment
 
 void FunctionLowering::initialize_repeated_type(const sema::RepeatedTypeEvaluation& evaluation)
 {
-	// Declarators repeat an evaluated typeof operand. Its written type-name
-	// bounds are shared, including when the operand only reaches a bound
-	// conditionally. Reset the captures on every entry to this declaration.
-	const lowir::Type flag = lowir::Type::scalar(lowir::TypeKind::U8);
+	// The first declarator evaluates written bounds. Later declarators can
+	// reach a conditional path the first skipped. Give any unread capture a
+	// deterministic zero until its first-declarator evaluation stores it.
+	const lowir::Type size = lowering_.storage_type(
+		lowering_.graph().types.fundamental(FundamentalType::UnsignedLongInt));
 	for (const syntax::Expr* bound : evaluation.bounds)
 	{
-		auto slot = runtime_bound_guards_.find(bound);
+		replayed_type_bounds_.set(bound, 0);
+		auto slot = runtime_sizes_.find(bound);
 		if (slot == PointerMap::kMissing)
 		{
-			slot = generated_slot(lowir::SlotKind::Tmpobj, flag);
-			runtime_bound_guards_.set(bound, slot);
+			slot = generated_slot(lowir::SlotKind::Tmpobj, size);
+			runtime_sizes_.set(bound, slot);
 		}
-		Place guard = Place();
-		guard.storage = lowir::Value::slot(slot);
-		store(flag, integer(flag, 0), guard);
+		Place capture = Place();
+		capture.storage = lowir::Value::slot(slot);
+		store(size, integer(size, 0), capture);
 	}
 }
 
-RValue FunctionLowering::evaluate_array_bound(
-	const sema::Type* array, const sema::Type* size_type, lowir::Type size, bool use_extent)
+void FunctionLowering::reuse_repeated_type_bounds(const sema::RepeatedTypeEvaluation& evaluation)
 {
-	const syntax::Expr& bound = *array->runtime_bound;
-	const auto guard_slot = runtime_bound_guards_.find(&bound);
-	const lowir::Type flag = lowir::Type::scalar(lowir::TypeKind::U8);
-	Place guard = Place();
-	lowir::BlockId ready = lowir::kNoId;
-	if (guard_slot != PointerMap::kMissing)
-	{
-		guard.storage = lowir::Value::slot(guard_slot);
-		const lowir::BlockId capture = new_block(lowir::BlockKind::IfThen);
-		ready = new_block(lowir::BlockKind::IfEnd);
-		branch(compare(lowir::ComparePredicate::Eq, flag, load(flag, guard), integer(flag, 0)), capture, ready);
-		place(capture);
-	}
-	const RValue count = convert(rvalue(bound), bound.facts->type, size_type, ConversionContext::Initialization);
-	const RValue stride = array->element->runtime_array()
-		? runtime_array_size(array->element, bound.location)
-		: integer(size, lowering_.size_of(array->element, bound.location));
-	const RValue bytes = binary(lowir::BinaryOp::Mul, size, count, stride);
-	auto slot = runtime_sizes_.find(&bound);
-	if (slot == PointerMap::kMissing)
-	{
-		slot = generated_slot(lowir::SlotKind::Tmpobj, size);
-		runtime_sizes_.set(&bound, slot);
-	}
-	Place saved = Place();
-	saved.storage = lowir::Value::slot(slot);
-	store(size, bytes, saved);
-	if (ready == lowir::kNoId)
-		return bytes;
-	store(flag, integer(flag, 1), guard);
-	jump(ready);
-	place(ready);
-	return use_extent ? load(size, saved) : RValue();
+	for (const syntax::Expr* bound : evaluation.bounds)
+		replayed_type_bounds_.set(bound, 1);
 }
 
 RValue FunctionLowering::evaluate_runtime_bounds(
@@ -136,7 +106,23 @@ RValue FunctionLowering::evaluate_runtime_bounds(
 			break;
 		}
 		const sema::Type* array = current->array;
-		const RValue bytes = evaluate_array_bound(array, size_type, size, array == result);
+		const syntax::Expr& bound = *array->runtime_bound;
+		if (replayed_type_bounds_.find(&bound) == 1)
+			continue;
+		const RValue count = convert(rvalue(bound), bound.facts->type, size_type, ConversionContext::Initialization);
+		const RValue stride = array->element->runtime_array()
+			? runtime_array_size(array->element, bound.location)
+			: integer(size, lowering_.size_of(array->element, bound.location));
+		const RValue bytes = binary(lowir::BinaryOp::Mul, size, count, stride);
+		auto slot = runtime_sizes_.find(&bound);
+		if (slot == PointerMap::kMissing)
+		{
+			slot = generated_slot(lowir::SlotKind::Tmpobj, size);
+			runtime_sizes_.set(&bound, slot);
+		}
+		Place saved = Place();
+		saved.storage = lowir::Value::slot(slot);
+		store(size, bytes, saved);
 		if (array == result)
 		{
 			result_bytes = bytes;

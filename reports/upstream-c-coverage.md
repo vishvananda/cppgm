@@ -177,6 +177,13 @@ the continuation cursor and tracks which writes survive. Keep semantic
 checks on every written initializer and retain implicit zero regions
 compactly until lowering.
 
+A single initializer at the last index of an incomplete `unsigned char`
+array also allocates a syntax node for every omitted element. The array
+bound is checked by `_Static_assert`. At lengths 16,384 through 131,072,
+syntax-only compilation went from 6.70 to 27.46 million retired instructions
+with one written designator in each input. Track the inferred bound
+separately from the sparse initializer entries.
+
 ## Cross-target smoke results
 
 The prototype array, tagged generic association, and structure return

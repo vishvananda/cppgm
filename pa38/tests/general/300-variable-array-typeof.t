@@ -28,6 +28,14 @@ static int shared_type_names(void)
     return 1;
 }
 
+static int first_declarator_captures_bounds(void)
+{
+    int n = 3, index = 0, width = 3;
+    int matrix[1][width];
+    __typeof__((index++ ? sizeof(int[n++]) : 0, &matrix[0])) first, second;
+    return n == 3 && index == 2;
+}
+
 int main(void)
 {
     int n = 3;
@@ -49,5 +57,6 @@ int main(void)
         sizeof(Row) == 4 * sizeof(int) && sizeof(Alias) == sizeof(Row) &&
         sizeof(Matrix) == 8 * sizeof(int) && sizeof *pointer == sizeof row &&
         nested == 2 && outer == 3 && sizeof planes == 2 * sizeof(Row) &&
-        sizeof copies == sizeof planes && row[3] == 7 && ordinary == 1 && shared_type_names());
+        sizeof copies == sizeof planes && row[3] == 7 && ordinary == 1 &&
+        shared_type_names() && first_declarator_captures_bounds());
 }

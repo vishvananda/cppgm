@@ -194,7 +194,11 @@ check an unevaluated operand.
 GNU `typeof` evaluates operands of variably modified type. In the tested
 declarations, GCC 15 and Clang 21 evaluate the expression operand for each
 declarator and share captured type-name bounds within the declaration. The
-bound captures reset when execution reenters the declaration. A nested
+first declarator's evaluation can skip a conditional bound. In that case
+later declarators also skip its evaluation, even when their execution
+takes the other branch. In a probe that reads such an uncaptured extent,
+GCC returned zero and Clang's value varied by optimization level. cppgm
+initializes the extent slot to zero on entry to the declaration. A nested
 `typeof` ends at its matching closing parenthesis, so a following array
 declarator belongs to the enclosing type name.
 
