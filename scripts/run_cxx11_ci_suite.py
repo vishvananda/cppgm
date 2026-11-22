@@ -41,7 +41,7 @@ def checked_file(root, entry, label):
 
 def validate_manifest(manifest, root):
     language = manifest.get('language', 'c++')
-    suites = {'gcc', 'clang', 'c-testsuite'} if language == 'c' else {'gcc', 'clang'}
+    suites = {'gcc', 'clang', 'c-testsuite', 'csmith'} if language == 'c' else {'gcc', 'clang'}
     if manifest['schema'] != 1 or language not in {'c', 'c++'} or manifest['suite'] not in suites:
         raise ValueError('Unknown suite/schema')
     edition = manifest.get('edition', 11)
@@ -253,7 +253,7 @@ def run_suite(cases, root, compiler, linker, role, output, workers, prepared_sou
                 before=before, after=dict(load_average=os.getloadavg(), unix_seconds=time.time()))
 
 
-def describe(command):
+def describe(command, cwd=None):
     binary = shutil.which(command)
     if not binary:
         raise ValueError('Compiler not found: ' + command)
@@ -261,7 +261,7 @@ def describe(command):
     # Preserve the invocation spelling while hashing its actual executable.
     binary = str(Path(binary).absolute())
     resolved = str(Path(binary).resolve())
-    version = subprocess.run([binary, '--version'], check=True, capture_output=True, text=True).stdout
+    version = subprocess.run([binary, '--version'], cwd=cwd, check=True, capture_output=True, text=True).stdout
     return dict(path=binary, resolved_path=resolved, sha256=sha256(resolved), version=version)
 
 

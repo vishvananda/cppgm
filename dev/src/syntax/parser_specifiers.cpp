@@ -976,14 +976,15 @@ bool Parser::parse_class_or_enum_specifier(ListFrame<DeclSpecifier>& list, Speci
 			return false;
 	}
 	bool final = false;
-	if (definition_allowed && at_identifier(final_) && (at(TokenKind::OP_LBRACE, 1) || at(TokenKind::OP_COLON, 1)))
+	if (!c_source_ && definition_allowed && at_identifier(final_) &&
+		(at(TokenKind::OP_LBRACE, 1) || at(TokenKind::OP_COLON, 1)))
 	{
 		final = true;
 		next();
 	}
 	// A class-key and `:` start a base-clause, the class named or not
 	// (9p1: the class-head-name is optional).
-	if (definition_allowed && (at(TokenKind::OP_LBRACE) || at(TokenKind::OP_COLON)))
+	if (definition_allowed && (at(TokenKind::OP_LBRACE) || (!c_source_ && at(TokenKind::OP_COLON))))
 	{
 		pending_template_ = is_template;
 		specifier.kind = DeclSpecKind::Class;
@@ -1419,7 +1420,8 @@ EnumSpecifier* Parser::parse_enum_specifier(TypeIdContext context)
 		fail();
 		return nullptr;
 	}
-	if (accept(TokenKind::OP_COLON))
+	// In a C generic association the expression may follow the tag directly.
+	if (context != TypeIdContext::CGenericAssociation && accept(TokenKind::OP_COLON))
 	{
 		TypeId* underlying = make<TypeId>();
 		underlying->location = location();

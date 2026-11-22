@@ -18,7 +18,8 @@ Expr* Parser::parse_generic_selection()
 		GenericAssociation association = {};
 		if (!accept(TokenKind::KW_DEFAULT))
 		{
-			association.type = parse_type_id(DeclaratorMode::Abstract, false);
+			association.type = parse_type_id(
+				DeclaratorMode::Abstract, false, nullptr, TypeIdContext::CGenericAssociation);
 			if (association.type == nullptr)
 				return nullptr;
 		}

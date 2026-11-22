@@ -120,6 +120,12 @@ jobs:
             tcl=8.6.16build1 dejagnu=1.6.3-2
           if [ '${{ matrix.suite }}' = clang ]; then
             apt-get "${apt_options[@]}" install -y --no-install-recommends clang-21=1:21.1.8-6ubuntu1
+            case "$GITHUB_EVENT_NAME" in
+              schedule|workflow_dispatch)
+                apt-get "${apt_options[@]}" install -y --no-install-recommends \
+                  csmith=2.3.0-8build1 libcsmith-dev=2.3.0-8build1
+                ;;
+            esac
           fi
           dpkg-query -W > "$RUNNER_TEMP/cxx11/environment/packages.txt"
           env | sort | sed -n '/^CPPGM_/p; /^CXX=/p' > "$RUNNER_TEMP/cxx11/environment/build.txt"
@@ -342,6 +348,13 @@ jobs:
           fi
           exit "$failed"
 
+      - name: Run pinned Csmith differential checks
+        if: ${{ !cancelled() && steps.candidate.outcome == 'success' && matrix.suite == 'clang' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+        run: |
+          python3 scripts/run_csmith_ci_suite.py --candidate dev/cppgm \
+            --runtime-headers /usr/include/csmith --gcc gcc-15 --clang clang-21 \
+            --workers 2 --output "$RUNNER_TEMP/cxx11/csmith"
+
       - name: Publish counts and elapsed-time ratio
         if: always()
         run: |
@@ -368,7 +381,7 @@ jobs:
               cat "$summary" >> "$GITHUB_STEP_SUMMARY"
             fi
           done
-          for report in c99 c11 c17 c-testsuite; do
+          for report in c99 c11 c17 c-testsuite csmith; do
             summary="$RUNNER_TEMP/cxx11/$report/summary.md"
             if [ -f "$summary" ]; then
               cat "$summary" >> "$GITHUB_STEP_SUMMARY"

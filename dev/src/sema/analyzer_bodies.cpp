@@ -1123,7 +1123,7 @@ void Analyzer::return_statement(const syntax::ValueStmt& stmt, Scope* scope)
 			error(stmt.location, "return with a value in a function returning void");
 		return;
 	}
-	if (result->unqualified->kind == TypeKind::Class)
+	if (!c_source_ && result->unqualified->kind == TypeKind::Class)
 	{
 		// 6.6.3p2, 8.5p16: the result is copy-initialized, from an
 		// expression of its class (or a derived one) by the constructor it

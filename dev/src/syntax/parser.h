@@ -125,7 +125,8 @@ private:
 	enum class TypeIdContext : uint8_t
 	{
 		General,
-		TrailingReturn
+		TrailingReturn,
+		CGenericAssociation
 	};
 
 	// What a decl-specifier-seq contained.

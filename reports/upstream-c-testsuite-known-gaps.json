@@ -21,9 +21,5 @@
   "00216.c": {
     "diagnostic": "syntax error",
     "reason": "The initializer uses overlapping GNU range designators."
-  },
-  "00219.c": {
-    "diagnostic": "syntax error",
-    "reason": "The suite exercises generic selection on same-spelled struct tags in different scopes."
   }
 }

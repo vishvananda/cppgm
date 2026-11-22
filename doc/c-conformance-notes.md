@@ -73,6 +73,30 @@ and a parameter with a `static` minimum bound.
 [C11 draft, N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [PA38 prototype array regression](../pa38/tests/general/300-array-parameter-star.t)
 
+## Generic associations with tagged types
+
+A generic association in C11 6.5.1.1 places a colon directly after a type
+name. Struct and union specifiers have no base clause. In C11 and C17,
+an enum specifier also ends before the association colon. PA38 checks
+struct, union and enum associations and a struct tag shadowed by a
+block-scope definition.
+
+[C11 draft, N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[PA38 association regression](../pa38/tests/general/500-generic-tag-association.t)
+
+## Hosted floating limits and structure returns
+
+C11 5.2.4.2.2 describes the floating-point characteristics available
+through `<float.h>`. The hosted compiler's limit-macro replacements must
+be valid expressions in C. C11 6.8.6.4 converts the return expression to
+the result type as if by assignment. A structure return uses the typed
+object copy and target return convention. PA38 tests both an ABI register
+result and a larger aggregate returned through caller-provided storage.
+
+[C11 draft, N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[PA38 floating limits](../pa38/tests/general/500-hosted-c-float-limits.t) ·
+[PA38 structure return](../pa38/tests/general/500-c-record-return.t)
+
 ## VLA scope and C objects
 
 C17 6.2.4 specifies the lifetime of a variable-length array. C17 6.8.6.1

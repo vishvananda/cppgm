@@ -37,8 +37,8 @@ open column lists work to qualify the remainder of each group.
 ## Pinned suite receipts
 
 - **c-testsuite** inventories 220 programs in two dialects and at two
-  optimization levels. cppgm passes 852 of 876 selected configurations.
-  Six known source gaps account for 24 configurations. One source that
+  optimization levels. cppgm passes 856 of 876 selected configurations.
+  Five known source gaps account for 20 configurations. One source that
   reads an uninitialized automatic object is excluded from the runtime
   comparison. [Suite builder](../scripts/build_c_testsuite_ci_manifest.py) ·
   [Known gaps](upstream-c-testsuite-known-gaps.json)
@@ -78,3 +78,35 @@ defined PA38 test covers conditional expressions with integer zero and
 [PA38 edition check](../pa38/tests/general/500-c11-edition-syntax.t) ·
 [PA38 prototype array check](../pa38/tests/general/300-array-parameter-star.t) ·
 [PA38 conditional pointer check](../pa38/tests/general/500-conditional-null-pointer.t)
+
+Tagged struct, union, and enum names can precede the colon of a generic
+association. c-testsuite `00219.c` now passes at both optimization levels
+in C17 and GNU17.
+[PA38 tag association](../pa38/tests/general/500-generic-tag-association.t)
+
+## GCC torture and Csmith pilots
+
+- **GCC torture.** At the GCC revision used by upstream CI, 1,339 C files
+  in the top-level execute directory passed the initial standalone screen.
+  A deterministic sample selected the 64 lowest SHA-256 digests of the
+  basenames. GCC 15 agreed at `-O0` and `-O2` on all 64. cppgm matched
+  107 of the 128 configurations in GNU17 on Linux x86-64. The failures
+  include multidimensional and variably modified arrays, GNU inline
+  assembly, imaginary literal suffixes, GNU flexible member initialization,
+  an always-inline call, and an optimized-only unresolved symbol.
+  [Pinned execute corpus](https://github.com/gcc-mirror/gcc/tree/5115c7e447fc07457443df874bf57840e8316d5f/gcc/testsuite/gcc.c-torture/execute) ·
+  [GCC suite instructions](https://gcc.gnu.org/onlinedocs/gccint/C-Tests.html)
+- **Csmith 2.3.0.** Ran seeds 1 through 16 with at most three functions
+  and a block depth limit of three. GCC 15 and Clang 21 agreed on 15 seeds
+  at both optimization levels. Seed 16 timed out in all four native runs
+  under the 40-second limit. cppgm initially could not parse the hosted
+  floating-point limit macros. Probing host predefined macros in C mode
+  closed that gap. Two of the seeds also exposed C++ copy
+  constructor calls in C struct returns. With both fixes, cppgm matched
+  all 30 qualified configurations in Linux x86-64 C17.
+  The scheduled and manually dispatched upstream workflow now repeats
+  these differential checks and retains the generated source, native
+  checksums, and compiler receipts.
+  [Pinned generator](https://github.com/csmith-project/csmith/tree/30dccd73b78652c4719f36572994778a5b233a4e) ·
+  [PA38 floating limits](../pa38/tests/general/500-hosted-c-float-limits.t) ·
+  [PA38 struct returns](../pa38/tests/general/500-c-record-return.t)

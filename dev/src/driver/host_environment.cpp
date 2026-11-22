@@ -176,8 +176,14 @@ bool ReservedMacro(const char* name, size_t length)
 std::string HostMacroText(const FeatureModes& modes, bool strict)
 {
 	std::string text = "#define __STDC__ 1\n";
-	const char* line = strict ? cppgm_builtin_host_config::kHostStrictPredefinedMacros
-							  : cppgm_builtin_host_config::kHostPredefinedMacros;
+	const bool c_source = modes.language == 0;
+	const char* line;
+	if (c_source)
+		line = strict ? cppgm_builtin_host_config::kHostStrictCPredefinedMacros
+					  : cppgm_builtin_host_config::kHostCPredefinedMacros;
+	else
+		line = strict ? cppgm_builtin_host_config::kHostStrictPredefinedMacros
+					  : cppgm_builtin_host_config::kHostPredefinedMacros;
 	while (*line != '\0')
 	{
 		const char* end = std::strchr(line, '\n');
@@ -193,7 +199,7 @@ std::string HostMacroText(const FeatureModes& modes, bool strict)
 				++name_end;
 			const size_t length = static_cast<size_t>(name_end - name);
 			if (ReservedMacro(name, length) && !OwnMacro(name, length) && !UnsupportedTypeMacro(name, length) &&
-				(modes.language != 0 || !CxxMacro(name, length)))
+				(!c_source || !CxxMacro(name, length)))
 			{
 				text.append(line, end);
 				text.push_back('\n');
