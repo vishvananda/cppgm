@@ -112,11 +112,12 @@ execution are separate qualification items.
 
 Copies of volatile-qualified records now use LowIR scalar accesses for
 the qualified storage, including by-value arguments and returns. The
-new PA38 case also covers discarded reads and a larger copy that uses
-a loop. The volatile accesses remain in optimized LowIR. The case ran at
-`-O0` and `-O2` on Linux x86-64 and Linux AArch64 under QEMU. The Wasm
-lane passed and both Darwin targets emitted Mach-O. Aggregate transfers
-involving individually qualified subobjects remain an audit item.
+new PA38 case also covers discarded reads, use of the assignment's value,
+and a larger copy that uses a loop. The assignment reuses the right-hand
+snapshot for the result. The volatile accesses remain in optimized LowIR.
+The case ran at `-O0` and `-O2` on Linux x86-64 and Linux AArch64 under
+QEMU. The Wasm lane passed and both Darwin targets emitted Mach-O. Aggregate
+transfers involving individually qualified subobjects remain an audit item.
 [PA38 volatile record case](../pa38/tests/general/400-volatile-record-access.t)
 
 ## GCC torture and Csmith pilots

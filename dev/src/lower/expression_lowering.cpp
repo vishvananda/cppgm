@@ -1934,6 +1934,22 @@ Place FunctionLowering::assignment(const syntax::BinaryExpr& expr)
 	// 5.17p1: the right operand is evaluated before the left's address.
 	const sema::ExprFacts* left_facts = WithoutParentheses(expr.left)->facts;
 	const sema::Type* type = left_facts->type;
+	if ((type->cv & sema::kVolatile) != 0 && type->kind == sema::TypeKind::Class && lowering_.analyzer_->c_source())
+	{
+		// The converted right operand is the result of the assignment
+		// (6.5.16p3). Keep its snapshot through the destination access.
+		const syntax::Expr* source = WithoutParentheses(expr.right);
+		const lowir::Type storage = lowering_.storage_type(type);
+		Place snapshot = Place();
+		snapshot.storage = lowir::Value::slot(generated_slot(lowir::SlotKind::Tmpobj, storage));
+		const lowir::Value value = address_of(snapshot);
+		initialize_from(*source, source->facts->conversion, value, expr.location);
+		Place place = glvalue(*expr.left);
+		const lowir::Value destination = address_of(place);
+		copy_volatile_record(type, value, destination, false, true, expr.location);
+		place.known = load(storage, snapshot);
+		return place;
+	}
 	RValue value;
 	if (expr.right->kind == syntax::ExprKind::BracedInit)
 	{
@@ -1975,18 +1991,7 @@ Place FunctionLowering::assignment(const syntax::BinaryExpr& expr)
 	}
 	value = fit(value, type);
 	Place place = glvalue(*expr.left);
-	const lowir::Type storage = lowering_.storage_type(type);
-	if (place.is_volatile && storage.is_object() && lowering_.analyzer_->c_source())
-	{
-		Place snapshot = Place();
-		snapshot.storage = lowir::Value::slot(generated_slot(lowir::SlotKind::Tmpobj, storage));
-		store(storage, value, snapshot);
-		const lowir::Value source = address_of(snapshot);
-		const lowir::Value destination = address_of(place);
-		copy_volatile_record(type, source, destination, false, true, expr.location);
-	}
-	else
-		store(storage, value, place);
+	store(lowering_.storage_type(type), value, place);
 	place.has_known = !place.is_volatile || place.is_atomic;
 	place.known = value;
 	return place;

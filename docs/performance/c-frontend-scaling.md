@@ -90,3 +90,34 @@ quote, and edition comparisons for feature probes run when queried.
 | --- | ---: | ---: | ---: |
 | C++ `semantic_overload.cpp` | 0.0022% | -0.0082% | -0.0090% |
 | SQLite `sqlite3.c` | 0.0012% | -0.0003% | -0.0006% |
+
+## Volatile assignment code generation
+
+The same source functions returning and discarding a volatile record
+emitted 54 LowIR lines at `-O0` and 92 at `-O2` for records from 72 through
+131,072 bytes. The loop keeps code size independent of the record size
+through that range.
+
+A Linux x86-64 workload assigns a 144-byte volatile record two million
+times and prints a checksum. At `-O2`, the earlier lowering retired
+304.12 million instructions. It copied the right operand between two
+temporary buffers before writing the destination. Reusing the right
+operand's snapshot removed that copy and reduced the count to 268.12
+million in both ABBA and BAAB blocks, down 11.84%. The object's text
+shrank from 533 to 398 bytes. GCC 15 and Clang 21 retired 68.12 and
+82.12 million instructions, respectively, on the same source. All
+binaries printed the same checksum.
+
+The combined compiler changes since `e45edef6e` produced byte-identical
+objects on the same frozen workloads. The C++ instruction count changed
+by −0.0032% and −0.0023% in ABBA and BAAB. SQLite changed by +0.0091% and
++0.0102%. The A/A ranges were 0.0027% and 0.0020%, respectively.
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,059,040,621 / 9,058,885,158 / 9,058,879,099 / 9,059,122,579 |
+| C++ | ABBA | 9,058,788,364 / 9,058,392,958 / 9,058,764,553 / 9,058,942,551 |
+| C++ | BAAB | 9,058,584,540 / 9,058,791,655 / 9,058,712,152 / 9,058,499,093 |
+| SQLite | A/A | 16,514,240,520 / 16,513,937,189 / 16,513,908,740 / 16,514,090,466 |
+| SQLite | ABBA | 16,513,829,111 / 16,515,239,802 / 16,515,608,953 / 16,514,003,896 |
+| SQLite | BAAB | 16,515,791,110 / 16,513,892,892 / 16,514,018,447 / 16,515,484,313 |

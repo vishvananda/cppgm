@@ -970,6 +970,11 @@ void FunctionLowering::materialize_prvalue(const syntax::Expr& expr, lowir::Valu
 	if (lowering_.analyzer_->c_source() && sema::ClassOf(facts->type) != nullptr)
 	{
 		// C records initialize from their values, without a copy constructor.
+		if (facts->category == sema::ValueCategory::LValue && (facts->type->cv & sema::kVolatile) != 0)
+		{
+			initialize_from(*e, facts->conversion, object, location);
+			return;
+		}
 		if (facts->category == sema::ValueCategory::LValue || e->kind == syntax::ExprKind::Assign)
 		{
 			Place target = Place();

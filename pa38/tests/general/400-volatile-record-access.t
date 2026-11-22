@@ -19,13 +19,15 @@ int main(void)
 {
     volatile struct Pair local = input;
     struct Pair plain = { 2, 3 };
-    output = (sum(input) == 12 ? read_pair(&local) : plain);
+    struct Pair assigned = (output = (sum(input) == 12 ? read_pair(&local) : plain));
+    output = input;
     (void)input;
     input;
     read_pair(&input);
 
     struct Row saved = row;
     row = saved;
-    return !(output.first == 5 && output.last == 7 &&
+    return !(assigned.first == 5 && assigned.last == 7 &&
+             output.first == 5 && output.last == 7 &&
              saved.elements[0] == 11 && row.elements[17] == 13);
 }
