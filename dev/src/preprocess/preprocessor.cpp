@@ -344,6 +344,13 @@ void Preprocessor::run_pragma(const char* text, uint32_t length, uint32_t locati
 	options.header_names_on_request = true;
 	options.token_text = true;
 	PPLexer lexer(buffer, options);
+	auto operand = [&lexer]() {
+		const PPToken* next;
+		do
+			next = &lexer.next();
+		while (next->kind == PPTokenKind::WhitespaceSequence);
+		return *next;
+	};
 	try
 	{
 		for (;;)
@@ -368,17 +375,21 @@ void Preprocessor::run_pragma(const char* text, uint32_t length, uint32_t locati
 			}
 			else if (language_pragma_family(token))
 			{
-				auto operand = [&lexer]() {
-					const PPToken* next;
-					do
-						next = &lexer.next();
-					while (next->kind == PPTokenKind::WhitespaceSequence);
-					return *next;
-				};
 				const PPToken name = operand();
 				const PPToken action = operand();
 				const PPToken warning = operand();
 				apply_language_pragma(location, name, action, warning);
+			}
+			else
+			{
+				const MacroPragma pragma = macro_pragma(token);
+				if (pragma != MacroPragma::None)
+				{
+					const PPToken open = operand();
+					const PPToken name = operand();
+					const PPToken close = operand();
+					apply_macro_pragma(pragma, open, name, close);
+				}
 			}
 			return;
 		}

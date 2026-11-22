@@ -78,6 +78,8 @@ The first fixture set covers these parts of the C17 input profile:
   external linkage supplies the external symbol if a file-scope declaration
   uses `extern` or leaves out `inline`. GNU `gnu_inline` and `always_inline`
   attributes can also occur after the return type's pointer operator.
+- Bit-field widths fit the C declared type. A `_Bool` member has at most one
+  value bit. Diagnose a wider declaration.
 - C compound literals of scalar, pointer, record and array types, including
   array-bound deduction and designators. Each occurrence denotes an lvalue;
   block-scope objects survive the full expression and file-scope objects have

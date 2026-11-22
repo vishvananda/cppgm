@@ -51,7 +51,14 @@ int run_toolchain(const std::vector<std::string>& args, const PreprocessorOption
 
 // Select the supported language mode and the host macro dialect.
 void language_standard(const std::string& standard, PreprocessorOptions& options);
-void configure_source_language(const std::string& language, const std::string& standard, PreprocessorOptions& options);
+enum class SourceExceptions : uint8_t
+{
+	Default,
+	Enabled,
+	Disabled
+};
+void configure_source_language(const std::string& language, const std::string& standard, SourceExceptions exceptions,
+	PreprocessorOptions& options);
 
 // Select how to report C++ language extension diagnostics.
 bool diagnostic_option(

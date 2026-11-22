@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <iosfwd>
 #include <map>
 #include <string>
@@ -18,6 +19,7 @@
 #include "preprocess/source/source_files.h"
 #include "preprocess/source/source_stack.h"
 #include "preprocess/tokens/pp_token_cursor.h"
+#include "support/flat_map.h"
 #include "support/memory/arena.h"
 #include "support/telemetry.h"
 #include "target_model.h"
@@ -270,6 +272,15 @@ private:
 	static uint8_t extension_group(uint8_t edition) { return static_cast<uint8_t>(1u << ((edition - 11) / 3)); }
 	void run_pack_pragma(const PPToken& directive);
 	void apply_pack_pragma(const std::vector<PPToken>& operands);
+	enum class MacroPragma : uint8_t
+	{
+		None,
+		Push,
+		Pop
+	};
+	static MacroPragma macro_pragma(const PPToken& name);
+	void run_macro_pragma(MacroPragma pragma);
+	void apply_macro_pragma(MacroPragma pragma, const PPToken& open, const PPToken& name, const PPToken& close);
 	void read_replaced_line(std::vector<PPToken>& tokens);
 
 	Arena arena_;
@@ -317,6 +328,14 @@ private:
 	// #pragma pack: the packing in effect and the pushed ones.
 	uint32_t pack_;
 	std::vector<uint32_t> pack_stack_;
+	// Each name has its own stack. An undefined binding is saved as nullptr.
+	struct SavedMacro
+	{
+		MacroDefinition* binding;
+		SavedMacro* next;
+	};
+	FlatMap<uint32_t, SavedMacro*, std::hash<uint32_t>> saved_macros_;
+	SavedMacro* free_saved_macros_ = nullptr;
 	ExtensionWarnings extension_warnings_;
 	bool warn_system_headers_;
 	uint8_t ignored_extension_groups_ = 0;

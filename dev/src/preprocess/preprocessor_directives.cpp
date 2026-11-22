@@ -693,7 +693,76 @@ void Preprocessor::run_pragma_directive()
 		run_language_pragma(first.begin);
 		return;
 	}
+	else
+	{
+		const MacroPragma pragma = macro_pragma(first);
+		if (pragma != MacroPragma::None)
+		{
+			run_macro_pragma(pragma);
+			return;
+		}
+	}
 	source_.skip_line();
+}
+
+Preprocessor::MacroPragma Preprocessor::macro_pragma(const PPToken& token)
+{
+	if (token.kind == PPTokenKind::Identifier)
+	{
+		if (token.length == 10 && std::memcmp(token.spelling, "push_macro", 10) == 0)
+			return MacroPragma::Push;
+		if (token.length == 9 && std::memcmp(token.spelling, "pop_macro", 9) == 0)
+			return MacroPragma::Pop;
+	}
+	return MacroPragma::None;
+}
+
+void Preprocessor::run_macro_pragma(MacroPragma pragma)
+{
+	PPToken operands[3];
+	for (PPToken& operand : operands)
+	{
+		operand = source_.next_in_line();
+		if (operand.kind == PPTokenKind::NewLine)
+			return;
+	}
+	apply_macro_pragma(pragma, operands[0], operands[1], operands[2]);
+	source_.skip_line();
+}
+
+void Preprocessor::apply_macro_pragma(
+	MacroPragma pragma, const PPToken& open, const PPToken& name, const PPToken& close)
+{
+	if (!IsPunctuatorToken(open, TokenKind::OP_LPAREN) || name.kind != PPTokenKind::StringLiteral ||
+		!IsPunctuatorToken(close, TokenKind::OP_RPAREN))
+		return;
+	TextLiteralParts parts;
+	if (!SplitTextLiteral(name.spelling, name.length, parts) || parts.prefix != EncodingPrefix::None || parts.raw ||
+		parts.suffix_begin != name.length || parts.body_begin == parts.body_end)
+		return;
+	Identifier* identifier = identifiers_.intern(name.spelling + parts.body_begin, parts.body_end - parts.body_begin);
+	SavedMacro** top = saved_macros_.find(identifier->id);
+	if (pragma == MacroPragma::Push)
+	{
+		SavedMacro* saved = free_saved_macros_;
+		if (saved != nullptr)
+			free_saved_macros_ = saved->next;
+		else
+			saved = arena_.allocate_array<SavedMacro>(1);
+		*saved = SavedMacro{ identifier->macro, top != nullptr ? *top : nullptr };
+		if (top != nullptr)
+			*top = saved;
+		else
+			saved_macros_.insert(identifier->id, saved);
+	}
+	else if (top != nullptr && *top != nullptr)
+	{
+		SavedMacro* saved = *top;
+		identifier->macro = saved->binding;
+		*top = saved->next;
+		saved->next = free_saved_macros_;
+		free_saved_macros_ = saved;
+	}
 }
 
 void Preprocessor::run_pack_pragma(const PPToken& directive)

@@ -11,6 +11,39 @@
 // away once at the end (compact_body), so a pass never renumbers ids.
 namespace opt {
 
+// Compact type identity for expression keys.
+inline uint64_t type_bits(lowir::Type type)
+{
+	uint64_t bits;
+	static_assert(sizeof bits == sizeof type, "Type is 8 bytes");
+	__builtin_memcpy(&bits, &type, sizeof bits);
+	return bits;
+}
+
+// Floating add and multiply commute as well. Which of two NaN payloads
+// they return is unspecified.
+inline bool is_commutative(const lowir::Instruction& inst)
+{
+	using namespace lowir;
+	if (inst.op == Opcode::Binary && inst.type.is_float())
+		return static_cast<BinaryOp>(inst.sub) == BinaryOp::Add || static_cast<BinaryOp>(inst.sub) == BinaryOp::Mul;
+	if (inst.op == Opcode::Binary && inst.type.is_integer())
+		switch (static_cast<BinaryOp>(inst.sub))
+		{
+		case BinaryOp::Add:
+		case BinaryOp::Mul:
+		case BinaryOp::And:
+		case BinaryOp::Or:
+		case BinaryOp::Xor:
+			return true;
+		default:
+			return false;
+		}
+	return inst.op == Opcode::Compare &&
+		(static_cast<ComparePredicate>(inst.sub) == ComparePredicate::Eq ||
+			static_cast<ComparePredicate>(inst.sub) == ComparePredicate::Ne);
+}
+
 // Calls f(Value&) for each operand slot of `inst`: ops[0..2], then its extra
 // operands (call arguments, phi (block, value) pairs, switch (case, block)
 // pairs). Callers select the kinds they need.

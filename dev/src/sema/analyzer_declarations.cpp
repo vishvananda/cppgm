@@ -2917,6 +2917,15 @@ void Analyzer::bit_field_declaration(const syntax::BitFieldDecl& decl, Scope* sc
 			if (IsScopedEnumeration(value.type) || (IsSignedConstant(value) && static_cast<int64_t>(value.bits) < 0))
 				error(field.width->location, "invalid bit-field width");
 			width = value.bits;
+			if (c_source_)
+			{
+				uint64_t size = 0, alignment = 0;
+				const Type* base = type->unqualified;
+				const bool boolean = base->kind == TypeKind::Fundamental && base->fundamental == FundamentalType::Bool;
+				const uint64_t limit = boolean ? 1 : type_size(base, size, alignment, 0) ? size * 8 : 0;
+				if (width > limit)
+					error(field.width->location, "bit-field width exceeds the width of its type");
+			}
 		}
 		if (info.name == nullptr)
 		{

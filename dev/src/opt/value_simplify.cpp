@@ -70,37 +70,6 @@ struct ExprHash
 	}
 };
 
-uint64_t type_bits(Type type)
-{
-	uint64_t bits;
-	static_assert(sizeof bits == sizeof type, "Type is 8 bytes");
-	__builtin_memcpy(&bits, &type, sizeof bits);
-	return bits;
-}
-
-// (Floating add and mul commute too: only which of two NaNs' payloads comes
-// out could differ, and no program can rely on that.)
-bool is_commutative(const Instruction& inst)
-{
-	if (inst.op == Opcode::Binary && inst.type.is_float())
-		return static_cast<BinaryOp>(inst.sub) == BinaryOp::Add || static_cast<BinaryOp>(inst.sub) == BinaryOp::Mul;
-	if (inst.op == Opcode::Binary && inst.type.is_integer())
-		switch (static_cast<BinaryOp>(inst.sub))
-		{
-		case BinaryOp::Add:
-		case BinaryOp::Mul:
-		case BinaryOp::And:
-		case BinaryOp::Or:
-		case BinaryOp::Xor:
-			return true;
-		default:
-			return false;
-		}
-	return inst.op == Opcode::Compare &&
-		(static_cast<ComparePredicate>(inst.sub) == ComparePredicate::Eq ||
-			static_cast<ComparePredicate>(inst.sub) == ComparePredicate::Ne);
-}
-
 class Simplifier final : public IntegerPatternFacts
 {
 public:
@@ -127,7 +96,8 @@ private:
 			? &body_.instructions[body_.temps[v.index].def]
 			: nullptr;
 	}
-	void substitute(Instruction& inst);
+	Value substitute(Instruction& inst);
+	void substitute_in_block(BlockId block, InstId& prev, InstId id);
 	bool fold(const Instruction& inst, Value& out);
 	bool identity(Instruction& inst, Value& out);
 	bool readonly_load(const Instruction& inst, Value& out);
@@ -516,8 +486,9 @@ bool Simplifier::boolean(Value v, unsigned depth)
 	}
 }
 
-void Simplifier::substitute(Instruction& inst)
+Value Simplifier::substitute(Instruction& inst)
 {
+	Value call_address = Value::none();
 	// (Only a temporary operand may change.)
 	for (uint32_t i = 0; i < 3; ++i)
 	{
@@ -529,7 +500,10 @@ void Simplifier::substitute(Instruction& inst)
 			r = equal_[r.index];
 		// A callee stays a temporary or symbol.
 		if (inst.op == Opcode::Call && i == 0 && r.is_literal())
+		{
+			call_address = r;
 			continue;
+		}
 		// O2+: a call through a function's address is a direct call (its
 		// stated signature kept; O1 keeps it, pa33 pins the address-taken
 		// callee's survival there).
@@ -558,6 +532,29 @@ void Simplifier::substitute(Instruction& inst)
 			v = equal_[v.index];
 		edited_ = edited_ || !(was == v);
 	}
+	return call_address;
+}
+
+void Simplifier::substitute_in_block(BlockId block, InstId& prev, InstId id)
+{
+	const Value address = substitute(body_.instructions[id]);
+	if (!address.is_literal())
+		return;
+	// The fold may already have unlinked the old definition. LowIR needs
+	// an indirect call target in a temporary even when its address is known.
+	const Type pointer = body_.temps[body_.instructions[id].ops[0].index].type;
+	Instruction constant = make_instruction(Opcode::Const, pointer);
+	constant.ops[0] = address;
+	constant.location = body_.instructions[id].location;
+	const InstId definition = append_instruction(body_, constant);
+	const TempId target = append_temp(body_, pointer, definition);
+	body_.instructions[definition].result = target;
+	insert_after(body_, block, prev, definition);
+	prev = definition;
+	body_.instructions[id].ops[0] = Value::temp(target);
+	grow_facts();
+	uses_[target] = 1;
+	edited_ = true;
 }
 
 bool Simplifier::fold(const Instruction& inst, Value& out)
@@ -3038,15 +3035,16 @@ void Simplifier::process_block(BlockId block)
 	InstId prev = kNoId;
 	for (InstId id = body_.blocks[block].first; id != kNoId;)
 	{
-		Instruction& inst = body_.instructions[id];
-		const InstId next = inst.next;
-		if (inst.op == Opcode::Phi && !repl_[inst.result].is(ValueKind::None))
+		const Instruction& before = body_.instructions[id];
+		const InstId next = before.next;
+		if (before.op == Opcode::Phi && !repl_[before.result].is(ValueKind::None))
 		{
 			readers_.unlink(body_, block, prev, id);
 			id = next;
 			continue;
 		}
-		substitute(inst);
+		substitute_in_block(block, prev, id);
+		Instruction& inst = body_.instructions[id];
 		if (packed_load_candidate(inst) && simplify_packed_load(body_, uses_, c_.block_of, block, prev, id))
 		{
 			grow_facts();
@@ -3267,12 +3265,12 @@ void Simplifier::finish(bool full)
 	for (BlockId b : body_.layout)
 	{
 		const bool walked = !full && b < walked_.size() && walked_[b];
-		for (InstId i = body_.blocks[b].first; i != kNoId; i = body_.instructions[i].next)
+		for (InstId i = body_.blocks[b].first, prev = kNoId; i != kNoId; prev = i, i = body_.instructions[i].next)
 		{
 			if (walked && body_.instructions[i].op != Opcode::Phi)
 				break;
 			if (any || body_.instructions[i].op == Opcode::Call)
-				substitute(body_.instructions[i]);
+				substitute_in_block(b, prev, i);
 		}
 	}
 }

@@ -218,7 +218,7 @@ struct SourceOutputInvocation
 	bool strict_aliasing = true;
 	ExtensionWarnings extension_warnings = ExtensionWarnings::Disabled;
 	bool warn_system_headers = false;
-	bool exceptions = true;
+	driver::SourceExceptions exceptions = driver::SourceExceptions::Default;
 	bool rtti = true;
 	vector<string> include_paths;
 	vector<string> quote_include_paths;
@@ -361,7 +361,8 @@ SourceOutputInvocation parse_source_output_invocation(const vector<string>& args
 		}
 		if (args[i] == "-fno-exceptions" || args[i] == "-fexceptions")
 		{
-			invocation.exceptions = args[i] == "-fexceptions";
+			invocation.exceptions = args[i] == "-fexceptions" ? driver::SourceExceptions::Enabled
+															  : driver::SourceExceptions::Disabled;
 			continue;
 		}
 		if (args[i] == "-fno-rtti" || args[i] == "-frtti")
@@ -782,11 +783,10 @@ PreprocessorOptions source_preprocessor_options(const SourceOutputInvocation& in
 	options.command_line = invocation.command_line;
 	options.extension_warnings = invocation.extension_warnings;
 	options.warn_system_headers = invocation.warn_system_headers;
-	driver::configure_source_language(invocation.language, invocation.standard, options);
+	driver::configure_source_language(invocation.language, invocation.standard, invocation.exceptions, options);
 	options.plain_char_unsigned = invocation.plain_char_unsigned < 0 ? invocation.target == native::Target::AArch64Linux
 																	 : invocation.plain_char_unsigned != 0;
 	options.popcnt = invocation.popcnt;
-	options.modes.exceptions = invocation.exceptions;
 	options.modes.rtti = invocation.rtti;
 	options.sse_level = invocation.sse_level;
 	if (invocation.hosted)

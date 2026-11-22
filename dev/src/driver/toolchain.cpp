@@ -74,12 +74,14 @@ static NumberDialect hosted_number_dialect(const PreprocessorOptions& options)
 	return NumberDialect::Gnu;
 }
 
-void configure_source_language(const std::string& language, const std::string& standard, PreprocessorOptions& options)
+void configure_source_language(
+	const std::string& language, const std::string& standard, SourceExceptions exceptions, PreprocessorOptions& options)
 {
 	if (language == "assembler-with-cpp")
 	{
 		language_standard("gnu17", options);
 		options.assembler = true;
+		options.modes.exceptions = exceptions != SourceExceptions::Disabled;
 		return;
 	}
 
@@ -91,6 +93,8 @@ void configure_source_language(const std::string& language, const std::string& s
 		throw InvocationError("unsupported language: " + language);
 	if (!language.empty() && (language == "c") != (options.language == SourceLanguage::C))
 		throw InvocationError("language standard does not match -x " + language);
+	options.modes.exceptions = exceptions == SourceExceptions::Default ? options.language == SourceLanguage::Cxx
+																	   : exceptions == SourceExceptions::Enabled;
 	if (options.language == SourceLanguage::Cxx)
 	{
 		options.literals = hosted_number_dialect(options);
@@ -182,6 +186,7 @@ struct Invocation
 {
 	std::string source_language;
 	std::string standard;
+	SourceExceptions exceptions = SourceExceptions::Default;
 	native::Target target = native::host_target();
 	bool compile_only = false;
 	// -S -emit-lowir: each input's program as -c compiles it, after the
@@ -503,7 +508,8 @@ void configure_preprocessor(Invocation& invocation, StandardIncludes includes, c
 	for (const Input& input : invocation.inputs)
 		if (input.name == "-" && !preprocess_only)
 			throw InvocationError("standard input requires -E");
-	configure_source_language(invocation.source_language, invocation.standard, invocation.preprocessor);
+	configure_source_language(
+		invocation.source_language, invocation.standard, invocation.exceptions, invocation.preprocessor);
 	std::string host_error;
 	if (!add_host_environment(invocation.preprocessor,
 			invocation.target == native::host_target() ? includes : StandardIncludes::None, gcc_install_dir,
@@ -621,7 +627,7 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 			invocation.source_language = args[++i];
 		}
 		else if (arg == "-fno-exceptions" || arg == "-fexceptions")
-			invocation.preprocessor.modes.exceptions = arg == "-fexceptions";
+			invocation.exceptions = arg == "-fexceptions" ? SourceExceptions::Enabled : SourceExceptions::Disabled;
 		else if (visibility_option(arg, invocation))
 			continue;
 		else if (arg == "-fno-strict-aliasing" || arg == "-fstrict-aliasing")

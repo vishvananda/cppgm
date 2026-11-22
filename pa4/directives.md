@@ -70,6 +70,13 @@ You may conditionally-implement any other pre-defined macros provided they start
 The following pragmas shall be supported:
 
     #pragma once
+    #pragma push_macro("name")
+    #pragma pop_macro("name")
+
+Save and restore macro bindings by name. Each name has its own stack, and an
+undefined name can be saved and restored. A pop with no saved binding leaves
+the name alone. The directive names themselves are read without macro
+replacement. The same pragmas can be executed through `_Pragma`.
 
 The following pragma shall NOT be supported (and so should be ignored):
 
