@@ -16,6 +16,21 @@ static int read_scoped(void)
 }
 int (*scoped)[3] = &row;
 
+static int read_first_block(void)
+{
+    extern int block_first[];
+    return block_first[2];
+}
+
+static int read_second_block(void)
+{
+    extern int block_first[3];
+    return block_first[0];
+}
+
+extern int block_first[];
+int block_first[3] = { 11, 0, 13 };
+
 int read(int (*)[]);
 int read(int (*value)[3]) { return (*value)[2]; }
 int read(int (*)[]);
@@ -33,6 +48,6 @@ _Static_assert(sizeof *get() == 3 * sizeof(int), "composite result type");
 
 int main(void)
 {
-    return !(first() == &row && read_scoped() == 7 && read(&row) == 9 && combine(load, &row) == 7 &&
-        (*get())[0] == 4);
+    return !(first() == &row && read_scoped() == 7 && read_first_block() == 13 &&
+        read_second_block() == 11 && read(&row) == 9 && combine(load, &row) == 7 && (*get())[0] == 4);
 }

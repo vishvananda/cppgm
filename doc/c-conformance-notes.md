@@ -240,6 +240,12 @@ Implicit pointer conversion follows the compatible-pointee and
 qualification rules in 6.5.16.1. Each use keeps the type visible at its
 point of use.
 
+C11 6.2.2 gives every declaration with external linkage of one identifier
+in the program the same entity. Within a translation unit, 6.2.7p2
+requires those declared types to be compatible even when a block has ended
+or a nearer automatic object hides an earlier declaration. Apply paragraph
+4 to the visible declaration when determining the type of a use.
+
 Under 6.9.2p2, a remaining tentative definition uses the composite type
 at the end of the translation unit and receives zero initialization.
 Paragraph 5 exemplifies completing an otherwise incomplete external

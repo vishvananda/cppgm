@@ -384,10 +384,11 @@ private:
 	const Type* redeclare_variable(VariableEntity* variable, const Type* type, const Specifiers& specifiers,
 		const DeclaratorInfo& info, const Scope* where, bool qualified, bool initialized, bool& definition,
 		uint32_t location);
+	struct CVariableLinkage;
+	CVariableLinkage* c_variable_linkage(const Identifier* name);
 	const Type* c_variable_declaration_type(const VariableEntity* variable, const Type* type, const Scope* where,
 		const Binding* visible, uint32_t location);
-	void note_c_variable_linkage(
-		const VariableEntity* variable, const Type* type, const Scope* where, uint32_t location);
+	void note_c_variable_linkage(VariableEntity* variable, const Type* type, const Scope* where, uint32_t location);
 	bool check_variable_object(const Specifiers& specifiers, const Type* type, Scope* where,
 		const syntax::Initializer* initializer, bool member, bool definition, bool typed_initialization,
 		uint32_t location);
@@ -2245,10 +2246,16 @@ private:
 	// (7.5p6); C++ overload lookup alone cannot establish that identity.
 	PointerMap c_function_index_;
 	std::vector<FunctionEntity*> c_functions_;
-	// A block declaration may constrain a linked entity without changing
-	// the type of that entity's binding in an enclosing scope.
+	// Name identity and compatibility for C linked objects declared in a
+	// block. A name gains a lexical file-scope binding at its declaration.
+	struct CVariableLinkage
+	{
+		VariableEntity* variable;
+		const Type* type;
+		bool file_declared;
+	};
 	PointerMap c_variable_linkage_index_;
-	std::vector<const Type*> c_variable_linkage_types_;
+	std::vector<CVariableLinkage> c_variable_linkages_;
 	struct TentativeDefinition
 	{
 		VariableEntity* variable;

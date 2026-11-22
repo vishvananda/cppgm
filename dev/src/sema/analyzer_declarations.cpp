@@ -1392,7 +1392,9 @@ Binding* Analyzer::declare_variable(const Specifiers& specifiers, const Declarat
 	else
 		variable = new_variable(specifiers, info.asm_label, name, where, type, is_extern, member,
 			initializer != nullptr, location, structured_binding);
-	if (c_source_ && (is_extern || where->kind == ScopeKind::Namespace))
+	if (c_source_ &&
+		(where->kind == ScopeKind::Block ? is_extern
+										 : where->kind == ScopeKind::Namespace && !c_variable_linkages_.empty()))
 		note_c_variable_linkage(variable, type, where, location);
 	const bool c_tentative = c_source_ && where->kind == ScopeKind::Namespace && definition && initializer == nullptr;
 	const bool deferred_tentative = c_tentative && defer_c_tentative_definition(variable, location);
@@ -1508,7 +1510,7 @@ Binding* Analyzer::declare_variable(const Specifiers& specifiers, const Declarat
 					error(location, "variable of incomplete type");
 				variable->type = type;
 				binding->type = type;
-				if (c_source_ && where->kind == ScopeKind::Namespace)
+				if (c_source_ && where->kind == ScopeKind::Namespace && !c_variable_linkages_.empty())
 					note_c_variable_linkage(variable, type, where, location);
 			}
 		}
@@ -1599,6 +1601,12 @@ void Analyzer::note_variably_modified_declaration(Scope* scope)
 		++body_->switch_statement->initialized;
 }
 
+Analyzer::CVariableLinkage* Analyzer::c_variable_linkage(const Identifier* name)
+{
+	const uint32_t index = c_variable_linkage_index_.find(name);
+	return index == PointerMap::kMissing ? nullptr : &c_variable_linkages_[index];
+}
+
 const Type* Analyzer::c_variable_declaration_type(
 	const VariableEntity* variable, const Type* type, const Scope* where, const Binding* visible, uint32_t location)
 {
@@ -1609,28 +1617,37 @@ const Type* Analyzer::c_variable_declaration_type(
 			return type;
 		prior = visible->type;
 	}
+	else if (const CVariableLinkage* linkage = c_variable_linkage(variable->name))
+	{
+		if (!linkage->file_declared)
+			return type;
+	}
 	if (!conversions_.c_type_compatible(prior, type))
 		error(location, "conflicting declaration of a variable");
 	return conversions_.c_composite_type(prior, type);
 }
 
 void Analyzer::note_c_variable_linkage(
-	const VariableEntity* variable, const Type* type, const Scope* where, uint32_t location)
+	VariableEntity* variable, const Type* type, const Scope* where, uint32_t location)
 {
-	const uint32_t index = c_variable_linkage_index_.find(variable);
-	const Type* known = index == PointerMap::kMissing ? variable->type : c_variable_linkage_types_[index];
-	if (known == type)
+	CVariableLinkage* linkage = c_variable_linkage(variable->name);
+	const bool file = where->kind == ScopeKind::Namespace;
+	if (linkage == nullptr && file)
 		return;
+	const Type* known = linkage == nullptr ? variable->type : linkage->type;
 	if (!conversions_.c_type_compatible(known, type))
 		error(location, "conflicting declarations of a C object with linkage");
 	const Type* composite = conversions_.c_composite_type(known, type);
-	if (index != PointerMap::kMissing)
-		c_variable_linkage_types_[index] = composite;
-	else if (where->kind == ScopeKind::Block && composite != variable->type)
+	if (linkage != nullptr)
 	{
-		c_variable_linkage_index_.set(variable, static_cast<uint32_t>(c_variable_linkage_types_.size()));
-		c_variable_linkage_types_.push_back(composite);
+		linkage->type = composite;
+		linkage->file_declared = linkage->file_declared || file;
+		return;
 	}
+	const NameEntry* entry = names_.find(variable->owner, variable->name);
+	const bool file_declared = entry != nullptr && entry->value != nullptr && entry->value->entity == variable;
+	c_variable_linkage_index_.set(variable->name, static_cast<uint32_t>(c_variable_linkages_.size()));
+	c_variable_linkages_.push_back({ variable, composite, file_declared });
 }
 
 const Type* Analyzer::redeclare_variable(VariableEntity* variable, const Type* type, const Specifiers& specifiers,
@@ -1848,7 +1865,7 @@ VariableEntity* Analyzer::earlier_variable(const Specifiers& specifiers, const D
 			// that entity need not itself have been declared extern first.
 			if (where->kind != ScopeKind::Namespace &&
 				(!specifiers.is_extern ||
-					!((variable->owner == where && variable->is_extern) || (c_source_ && variable->is_extern) ||
+					!((variable->owner == where && variable->is_extern) ||
 						variable->owner == enclosing_namespace(where))))
 				error(location, "redeclaration of a name in the same scope");
 		}
@@ -1880,6 +1897,10 @@ VariableEntity* Analyzer::earlier_variable(const Specifiers& specifiers, const D
 				variable = static_cast<VariableEntity*>(outer->value->entity);
 		}
 	}
+	if (variable == nullptr && c_source_ &&
+		(where->kind == ScopeKind::Namespace || (where->kind == ScopeKind::Block && specifiers.is_extern)))
+		if (const CVariableLinkage* linkage = c_variable_linkage(name.key))
+			variable = linkage->variable;
 	return variable;
 }
 
@@ -1891,9 +1912,11 @@ VariableEntity* Analyzer::new_variable(const Specifiers& specifiers, const char*
 	// language linkage (7.5p1), a data member's place in its class; a
 	// tuple-like structured binding's reference variable (11.5p3) records
 	// its binding facts too.
+	const bool c_block_extern = c_source_ && is_extern && where->kind == ScopeKind::Block;
+	Scope* owner = c_block_extern ? enclosing_namespace(where) : where;
 	VariableEntity* variable = structured_binding
 		? new_entity<BindingEntity>(EntityKind::Variable, name.key, where, type)
-		: new_entity<VariableEntity>(EntityKind::Variable, name.key, where, type);
+		: new_entity<VariableEntity>(EntityKind::Variable, name.key, owner, type);
 	variable->structured_binding = structured_binding;
 	if (asm_label != nullptr)
 		graph_.set_asm_label(variable, asm_label);
@@ -1932,6 +1955,7 @@ VariableEntity* Analyzer::new_variable(const Specifiers& specifiers, const char*
 	}
 	else if (where->kind == ScopeKind::Block && is_extern)
 	{
+		variable->c_linkage = c_block_extern;
 		agree_block_linkage(variable, c_language_, false, location);
 		note_block_linkage(variable, where, c_language_);
 	}
