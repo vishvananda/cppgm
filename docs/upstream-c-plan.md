@@ -10,11 +10,11 @@ features and implementation-defined choices by edition and target, and publish
 only the feature macros that describe that configuration. Track GNU C
 compatibility separately from ISO conformance.
 
-The baseline is `v0.10.3` (`7bc2ee420`). PA38 has 106 LowIR fixtures and 36
-native behavior controls. Its CI job checks those lanes and the Wasm fixtures.
-It exposes `c99`, `gnu99`, `c17`, and `gnu17`. Keep the coverage campaign in
-maintainer CI. Teach C-specific behavior in PA38 and use the earliest owning
-assignment for changes to shared behavior.
+The pre-campaign baseline is `v0.10.3` (`7bc2ee420`). The C branch now has
+C99, C11, and C17 modes with ISO and GNU variants, PA38 tests on native and
+Wasm, and pinned upstream jobs. Keep the upstream campaign in maintainer CI.
+Teach C-specific behavior in PA38 and use the earliest owning assignment for
+changes to shared behavior. Preserve the existing default language and edition.
 
 [PA38 handout](../pa38/README.md) · [CI test jobs](../.github/workflows/tests.yml) ·
 [WG14 editions and defect reports](https://www.open-std.org/jtc1/sc22/wg14/www/projects.html)
@@ -22,6 +22,16 @@ assignment for changes to shared behavior.
 Track evidence as each milestone lands in the
 [C conformance inventory](../reports/upstream-c-coverage.md) and the
 [C frontend scaling report](performance/c-frontend-scaling.md).
+
+## Implementation order
+
+| Milestone | Next work | Evidence required to close it |
+| --- | --- | --- |
+| Baseline and CI | Start with the existing GCC, Clang, `c-testsuite`, GCC torture, and Csmith lanes. Expand selection by uncovered rule. | Frozen inputs, native controls, and a recorded disposition for the selected, excluded, and failing cases. |
+| C99, C11, C17 core | Finish variably modified type-names and compatibility. Next cover aggregate initialization, redeclarations and linkage, constant expressions and effectful accesses. | Clause-level acceptance, diagnostics, and execution evidence in the applicable editions. Earlier-edition and GNU controls where the rule changes. |
+| Target and library qualification | Qualify each completed feature on the affected ABIs. Run the hosted and freestanding matrices once the language and runtime pieces are in place. | Mixed-compiler objects, target execution, feature macro checks, and runtime results for each published environment. |
+| C90 and C95 | Reuse the same rules for legacy forms and the amendment. | Legacy positives and edition-boundary diagnostics, with the amendment's macros, characters, and library obligations exercised. |
+| C23 | Land preprocessing, then type and declaration changes, then execution and library integration. | Individual C23 rules and their earlier-mode controls, target ABI and runtime evidence, and scaling checks for each substantial new path. |
 
 ## 1. Freeze the baseline and put a small suite in CI
 
@@ -39,7 +49,8 @@ Keep the relevant references and clause notes under `doc/` as gaps are fixed.
 [C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [C11 and C17 clarification requests](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2396.htm) ·
 [Published C23 edition](https://www.iso.org/standard/82075.html) ·
-[WG14's nearby public draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+[WG14's nearby public draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
+[WG14 issue index](https://open-std.org/JTC1/SC22/WG14/issues/)
 
 Use one inventory entry per independently testable rule or requirement.
 Record the expected oracle as well as the observed outcome. Where a rule
@@ -49,18 +60,31 @@ each applicable configuration. A suite pass count measures compatibility
 with that suite. Coverage grows as individual rules gain evidence, with
 uncovered requirements and unqualified targets visible in the same matrix.
 
+Give each entry a stable clause and rule identifier. Attach the normative
+source and any resolved WG14 issue, the requirement class, applicable
+editions, and the target and environment dimensions that affect it. Link
+tests and their receipts by ID. Use explicit states for uncovered, failing,
+passing, and inapplicable configurations, with a reason for inapplicability.
+For a behavior that depends on target properties, test the documented choice
+against the platform ABI. For unspecified behavior, test the allowed set or
+the invariant. For a constraint, test the diagnostic requested by the rule.
+Track open WG14 questions as such and record the policy for each affected
+edition. Include combined translation-limit cases where the edition requires
+limits to be supported together.
+
 | Source | Initial selection |
 | --- | --- |
-| GCC `gcc.dg` | C99/C11/C17 feature and diagnostic cases. Include `cpp` for preprocessing, `compat` for mixed objects, and later the C23 cases named `c23-*` or `c2x-*` at the pinned revision. [GCC C suites](https://gcc.gnu.org/onlinedocs/gccint/C-Tests.html) |
-| Clang `clang/test/C` | `C99`, `C11`, and `drs`, then `C23`. Add selected C inputs from `Sema`, `Preprocessor`, and `CodeGen` where a portable observable outcome can be checked. [Clang test tree](https://github.com/llvm/llvm-project/tree/llvmorg-21.1.8/clang/test) |
+| GCC `gcc.dg` | Expand the existing C99/C11/C17 feature and diagnostic manifests. Include `cpp` for preprocessing, `compat` for mixed objects, and later the C23 cases named `c23-*` or `c2x-*` at the pinned revision. Use the GCC feature inventory to find cases outside the edition prefixes. [GCC C suites](https://gcc.gnu.org/onlinedocs/gccint/C-Tests.html) · [GCC feature inventory](https://gcc.gnu.org/projects/c-status.html) |
+| Clang `clang/test/C` | Expand `C99`, `C11`, and `drs`, then add `C23`. Add selected C inputs from `Sema`, `Preprocessor`, and `CodeGen` where an observable outcome can be checked. [Pinned Clang test tree](https://github.com/llvm/llvm-project/tree/llvmorg-21.1.8/clang/test/C) · [Clang feature inventory](https://clang.llvm.org/c_status.html) |
 | `c-testsuite` | All 220 programs at revision `5c7275656d751de0e68b2d340a95b5681858ed07`. Check exit status and combined output, with an explicit disposition for GNU-only or target-specific cases. [Pinned suite](https://github.com/c-testsuite/c-testsuite/tree/5c7275656d751de0e68b2d340a95b5681858ed07) |
 | GCC torture and Csmith | Run `gcc.c-torture/execute` at `-O0` and `-O2`. Expand optimization levels as the baseline stabilizes. Add pinned Csmith seeds and compare output with GCC and Clang on the same ABI. Retain and reduce mismatches. [GCC C suites](https://gcc.gnu.org/onlinedocs/gccint/C-Tests.html) · [Csmith](https://github.com/csmith-project/csmith) |
+| LLVM `test-suite` | Add C single-source regressions and multi-source execution cases with checked output. Deduplicate the bundled GCC torture cases against the pinned GCC corpus. Exercise these in the scheduled runtime campaign. [LLVM test-suite guide](https://llvm.org/docs/TestSuiteGuide.html) |
 
-Start with the GCC and LLVM revisions already pinned in the C++ workflow.
-Extend the manifest and runner with a source language and dialect, explicit
-actions for preprocessing, compiling, linking and running, and a runtime
-output oracle when the case requires one. Preserve the meaning of existing
-C++ manifests. Reuse DejaGnu and lit metadata extraction where applicable.
+Use the GCC and LLVM revisions already pinned in the upstream workflow. The
+shared manifest runner already accepts C editions and explicit preprocessing,
+syntax, object, link, and execution actions. Reuse those actions and extend
+them where cases need multiple objects or a new oracle. Preserve the meaning
+of existing C++ manifests. Reuse DejaGnu and lit metadata extraction.
 Review projections that drop GCC dump or LLVM IR checks and record the omitted
 obligation. Do not turn a dump-only case into conformance evidence based
 solely on successful compilation. Freeze test files and support inputs by
@@ -73,13 +97,22 @@ the corresponding GNU or later-edition acceptance case. Distinguish a required
 diagnostic from a required rejection. Record unexpected acceptance, wrong
 output, link failures, abnormal termination and timeouts independently.
 Preserve the reason for every exclusion or known failure. A known cppgm gap
-stays visible in the report until it passes.
+stays visible in the report until it passes. A known failure records the
+expected failure stage and symptom. An improvement, changed symptom, or new
+failure requires review. Keep undefined inputs, native disagreements, and
+inapplicable target cases out of differential pass denominators, with their
+original provenance and disposition retained.
 
-Add the reviewed GCC/Clang set and `c-testsuite` after the existing Linux
-build, using its compiler artifact. Scan larger corpora and run seeded
-torture and differential checks on a schedule or by dispatch. Use portable
-runtime cases for the other target lanes. Keep the PR lane bounded and reuse
-the build and tools those lanes already prepare.
+Keep the reviewed GCC/Clang set and `c-testsuite` after the existing Linux
+build, using its compiler artifact. For PRs, run a pinned edition and clause
+slice plus existing PA38 checks and portable controls in the affected target
+jobs. Expand scheduled and dispatched jobs to deterministic shards of the
+applicable torture and regression corpus, with reproducible Csmith seed ranges
+and bounded generation profiles. Cache pinned source and tool setup, bound
+worker counts by the job's CPU and memory, and publish failures and timeouts
+per shard. Use scheduled or release qualification for the larger hosted
+projects and optimization matrix. Reuse the compiler artifacts and target
+tools already prepared by each lane.
 
 [Existing manifest runner](../scripts/run_cxx11_ci_suite.py) ·
 [C++ upstream CI workflow](../.github/workflows/upstream-cxx11.yml) ·
@@ -94,26 +127,23 @@ at `-O0` and `-O2` in both `c17` and `gnu17`. cppgm passed 210/220 at `-O0`
 and 209/220 at `-O2` in both modes. These are suite compatibility counts.
 Some inputs tagged as portable use GNU extensions.
 
-1. **Triage the pilot first.** Reduce the optimizer crash in `00159.c`, which
-   disappears with LowIR passes disabled. Check whether the shared optimizer
-   reproduces it from a small LowIR program. Reduce the `push_macro` and
-   `pop_macro` mismatch in `00206.c` for the PA4 preprocessor lane. Investigate
-   why the C VLA case `00207.c` references `__gxx_personality_v0`. Its object
-   links and runs with a C++ driver, so add a C-only object-link control.
-   Review the eight compile failures against the applicable ISO and GNU rules.
-   Include minimized tests for the conditional operator with null pointer
-   constants, prototype-scope array declarators, and `_Generic` as applicable.
-   [Pinned pilot cases](https://github.com/c-testsuite/c-testsuite/tree/5c7275656d751de0e68b2d340a95b5681858ed07/tests/single-exec)
-2. **Unify mode setup.** Resolve input language, edition, GNU mode, diagnostic
-   policy and target capabilities before the first token. Keep the existing
-   source-language selection and `.c` driver behavior while adding `c11` and
-   `gnu11`. Verify preset macros and feature probes in every mode, including
+The branch has regressions for the optimizer crash, macro stack mismatch,
+and C-only VLA link found in the pilot. Continue from the four reviewed
+`c-testsuite` source gaps and the larger clause inventory. Fix shared defects
+in the layer that owns them and rerun unrelated language controls that use it.
+[Pinned pilot cases](https://github.com/c-testsuite/c-testsuite/tree/5c7275656d751de0e68b2d340a95b5681858ed07/tests/single-exec) ·
+[Current known gaps](../reports/upstream-c-testsuite-known-gaps.json)
+
+1. **Unify mode setup.** Resolve input language, edition, GNU mode, diagnostic
+   policy and target environment before the first token. Reuse the existing
+   language selection and `.c` driver behavior. Verify predefined macros and
+   feature probes in every mode, including
    `__STDC_VERSION__`, `__STDC_HOSTED__`, and conditional-feature macros.
    At each changed rule, pair acceptance in its defining edition with the
    earlier-mode diagnostic when required. Exercise interfaces where mode state
    can diverge, including preprocessing, syntax checks, LowIR emission and
    object emission.
-3. **Complete declarators, initializers, and compatibility.** Cover
+2. **Complete declarators, initializers, and compatibility.** Cover
    multidimensional VLAs, variably modified typedefs, pointer types and
    parameters, prototype-scope `[*]`, alignment, and scope exits. Cover
    nested designators and positional continuation, overwritten initializers,
@@ -125,8 +155,11 @@ Some inputs tagged as portable use GNU extensions.
    bit-fields, `restrict`, aliasing, and volatile effects at both optimization
    levels. Check `_Atomic`, thread-local objects, and complex arithmetic
    through the target ABI and the corresponding hosted interfaces where
-   supported.
-4. **Qualify hosted extensions.** Find the general language or header behavior
+   supported. Qualify their feature macros with the underlying operations and
+   link-time helpers, including atomic ordering and lock-free reporting where
+   applicable. Exercise aliasing and side effects under optimization with
+   inputs that stay within the language rules.
+3. **Qualify hosted extensions.** Find the general language or header behavior
    behind each failure. Use the existing system-header provenance and
    diagnostic policy, including `-isystem`, `#pragma GCC system_header` and
    `-Wsystem-headers`. Compare the same source through an ordinary header and
@@ -149,7 +182,11 @@ cleanup across loop iterations and scope exits. Include a case where the
 standard permits either evaluation outcome. Keep the written bounds for
 definition parameters through pointer adjustment. A size expression in the
 outermost bracket can have an effect on function entry even though it
-contributes no stride.
+contributes no stride. Include object declarations, `sizeof` and `_Alignof`,
+casts, compound literals, and `typeof` in their applicable dialects. Preserve
+the distinction between diagnosing an unevaluated operand and demanding its
+runtime work. Test both evaluated and elided bounds and the lifetime of
+captured extents under repeated execution.
 
 Audit `_Generic` compatibility before optimizing duplicate checks. Two
 distinct pointers to complete array types can both be compatible with a
@@ -159,6 +196,15 @@ sufficient and use a compatible-type index or targeted comparisons for
 cases such as enums, incomplete nested arrays, and unprototyped function
 pointers. Measure a long list of distinct association types and check that
 ordinary short lists keep their existing cost.
+
+For aggregate initialization, resolve the current object and each designator
+against typed layout once. Preserve the positional continuation and which
+initializers supply the final values. Retain source locations for required
+diagnostics. Use sparse paths or ranges when one source entry covers many
+subobjects. Check nested continuation, overlapping writes, aggregate and
+string initialization, flexible-array constraints, and required zero fill.
+Measure analysis and emission separately so a large array's data does not
+hide repeated traversal of the input initializers.
 
 [Driver mode setup](../dev/src/driver/toolchain.cpp) ·
 [C function parsing](../dev/src/syntax/parser_c_functions.cpp) ·
@@ -172,6 +218,15 @@ ordinary short lists keep their existing cost.
   Mach-O against Clang and the pinned SDK. On Wasm, exercise the bare target
   with freestanding inputs and WASI with the pinned SDK and Wasmtime. Record
   the SDK and runtime's availability for each hosted feature and edition.
+- Track translation, object inspection, link and execution separately for
+  every environment. Use QEMU user mode for fast AArch64 Linux correctness
+  replays and native AArch64 for release ABI and performance measurements.
+  Use native Intel macOS and Apple Silicon jobs for the Mach-O link and
+  execution checks. Run bare Wasm with explicit imports and startup as needed,
+  and WASI tests with the pinned sysroot and startup files. Exercise the
+  freestanding header set, `__STDC_HOSTED__`, startup contract and required
+  helper symbols against the advertised edition. Record availability of
+  hosted headers independently from language support.
 - Compile both sides of each native ABI test in both directions (cppgm caller
   and native callee, then native caller and cppgm callee). Cover aggregate
   arguments and returns, variadics, bit-fields, long double, complex types,
@@ -199,19 +254,31 @@ ordinary short lists keep their existing cost.
   function declaration rules with paired C99 diagnostics. Check old-style
   definitions, declaration placement, comment and preprocessing rules,
   the C95 additions, and the advertised library/header profile. Include
-  the applicable language and driver aliases in the mode matrix.
+  the applicable language and driver aliases in the mode matrix, including
+  `c90`, `c89` and `iso9899:199409`. Test amendment digraphs and
+  `__STDC_VERSION__` separately from its library additions.
+  [GCC edition options](https://gcc.gnu.org/onlinedocs/gcc/Standards.html)
 - **C23.** Inventory every mandatory change against the published edition
   and applicable resolutions. Batch the preprocessing and literal changes
-  first (`#embed`, feature probes, new directives, trigraph removal), then
-  declaration and type semantics (`typeof`, `typeof_unqual`, `nullptr`,
-  `_BitInt`, attributes, type inference and `constexpr` objects), followed by
-  interface and execution behavior. Pair older-mode acceptance of K&R
-  definitions and non-prototype calls with the C23 rules for those forms.
+  first (`#embed`, feature probes, new directives, trigraph removal, digit
+  separators, Unicode changes), then declaration and type semantics (`typeof`,
+  `typeof_unqual`, `nullptr`, `_BitInt`, fixed underlying enum types, attributes,
+  `auto` inference and `constexpr` objects), followed by initializer, statement
+  and execution behavior. Cover empty initialization, compound literals with
+  storage classes, and labels before declarations and at block ends. Pair
+  older-mode acceptance of K&R definitions and non-prototype calls with the
+  C23 rules for those forms. Qualify `_BitInt` across constant evaluation,
+  promotions and conversions, storage, calls and the target ABI. Use the
+  typed integer and ABI paths and cover widths around representation and
+  calling convention boundaries.
   Recheck conditional-feature rules, including the C23 distinction between
-  variably modified types and automatic-storage VLA objects. Verify C23
-  header and library additions against each hosted runtime before making a
-  hosted C23 claim for that configuration. Test `#embed` cost against produced
-  tokens and check that a small `limit` on a large input stays bounded.
+  mandatory variably modified types and conditional automatic-storage VLA
+  objects. Verify C23 header and library additions against each hosted
+  runtime before making a hosted C23 claim for that configuration. Include
+  checked arithmetic, bit utilities, updated variadics and header version
+  macros. Test `#embed` cost against produced tokens and check that a small
+  `limit` keeps work bounded even for a large resource.
+  [WG14 variably modified types](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf)
 
 [WG14 edition index](https://www.open-std.org/jtc1/sc22/wg14/www/projects.html) ·
 [Clang C feature inventory](https://clang.llvm.org/c_status.html)
@@ -225,14 +292,17 @@ Put common facts on their node or in dense arrays and reserve side tables for
 sparse facts. Allocate frontend records from the translation-unit arena and
 reclaim scratch in bulk. Schedule deferred work by entity or scope event.
 Keep source-language and target choices independent. Use cppgm for source
-through object emission. External compilers serve as test references, build
-tools, and link drivers for already emitted objects.
+through direct object emission. External compilers serve as test references,
+build tools, and link drivers for already emitted objects. Per-section review
+should identify the phase and owner of each new fact, its last consumer, and
+which operations are proportional to tokens, demanded work, or output.
 
 | Path | Review and measurement |
 | --- | --- |
 | Mode selection and preprocessing | Decode options once. Use compact edition or feature values at the construct that needs them. Put extra work on the relevant token or construct paths so ordinary input retains the existing fast path. Use shared tokenization and macro machinery with bounded lookahead. For macro push/pop, index by interned name and save only the affected binding. |
 | Types, scopes, and linkage | Keep interned identities and direct scope/name indexes. Fast-path equal canonical types. Resolve C compatibility and composite type work where required and retain the result on its owner. Index redeclaration and tentative-definition work by entity. If a memo is useful, document its typed key, lifetime and dependence on completion state. Measure type comparisons and work per redeclaration in long chains. |
 | Array bounds, generic selection, and initializers | Keep evaluated VLA extents in compact declaration- or use-owned records with the required evaluation and lifetime. Lowering reads retained extents and conversions. Check each required generic association once, retain the selected expression and evaluate only that arm at runtime. Resolve initializer paths once. Keep sparse designators and zero fill compact until emission. Count bound visits, designator steps and subobjects to catch repeated scans of a dimension list, initializer or record. |
+| Constant expressions and wide integers | Reuse typed evaluation with the constraints of each required C constant context. Retain the result where later phases consume it. Keep single-word values on the ordinary path and allocate wide storage only for values that require it. Measure widths and operation counts independently. |
 | Lowering and code generation | Consume typed facts directly, emit each entity once and reuse target layout, ABI, optimizer and backend machinery. Preserve streaming at `-O0`. Add typed LowIR vocabulary only when an operation requires it, with its existing text adapter and validator coverage. Reuse per-function scratch. Audit VLA cleanup, storage ownership, volatility and aliasing at optimized levels. |
 
 1. **Measure both C and the existing hot path.** Keep the frozen C++
@@ -243,8 +313,10 @@ tools, and link drivers for already emitted objects.
    VLA bounds and scope exits, generic selections, and each new C23 family.
    Include a frozen hosted C workload such as the SQLite amalgamation and
    representative zlib or Lua translation units. Pin their source and header
-   closure. Measure syntax-only, `-O0 -c`, and `-O2 -c` where they isolate
-   distinct costs.
+   closure. Start with preprocess-only for token changes, syntax-only for
+   parser or semantic changes, and `-O0 -c` and `-O2 -c` for lowering and
+   optimizer changes. Keep fixed-size, feature-free controls for each new
+   benchmark and include workloads dominated by small ordinary constructs.
 2. **Check work growth and memory before tuning wall time.** Generate immutable
    inputs at successive doublings and compare the incremental cost per unit.
    Collect phase timing, peak RSS, allocation and IR sizes where available,
@@ -258,14 +330,22 @@ tools, and link drivers for already emitted objects.
    uses per captured extent, and entries per sparse initializer. Measure the
    feature with a constructed input and its dormant overhead with a workload
    that never uses it. Budget hot-record growth explicitly if a change adds a
-   field shared with unrelated C or C++ input.
+   field shared with unrelated C or C++ input. Check the sizes and counts of
+   hot records as well as process RSS. Use low-overhead counters that observe
+   the production path, with counter collection measured separately. The
+   existing generic association, runtime array interning, and VLA dimension
+   benchmarks are examples of patterns where counts exposed avoidable scans.
 3. **Compare immutable binaries.** Use identical inputs and tools, A/A
    calibration and paired ABBA/BAAB blocks. Retain every observation. Verify
    unchanged outputs and use independent runtime and diagnostic oracles for
    intentional changes. Run the existing hardware-counter gate on its
    supported macOS host. Use GCC and Clang on the same covered C workloads to
-   see where remaining compile-time costs concentrate. Resolve reproducible
-   regressions in existing C and C++ paths before landing a batch.
+   see where remaining compile-time costs concentrate. Compare each batch
+   with its parent and the combined implementation with current main before
+   release. Report counter and wall-time results separately from CI suite
+   timing. Resolve reproducible regressions in existing C and C++ paths
+   before landing a batch. Profile any remaining new-feature cost beyond
+   the measured work required by the standard or ABI.
 4. **Check the cost of emitted code where lowering changes.** Compare
    output-checked runtime and code size on the affected native targets at
    matching optimization levels. Use representative project workloads and
@@ -292,16 +372,19 @@ tools, and link drivers for already emitted objects.
   implementation shape. Keep imported suites and this plan in the
   maintainer checkout. Retain source provenance and license information
   for any copied fixture.
-- For each batch, run the reduced cases and relevant manifest slice first,
-  then PA38 native and Wasm and the impacted target jobs. Before merging,
-  run the strict report, debug-info checks, PA35 through PA5, and the
-  architecture and placement audits from [AGENTS.md](../AGENTS.md). Run
-  inception for shared self-host changes and the PA36 smoke suite for
-  lowering, optimization, or backend changes. Check harness and export
-  behavior when changing their inputs or wiring.
+- During iteration, run the reduced cases, relevant manifest slice and
+  feature-specific scaling input. Group related changes once those checks
+  pass. Before merging the batch, run PA38 native and Wasm, the impacted
+  target jobs, the strict report, debug-info checks, PA35 through PA5,
+  and the architecture and placement audits. Run inception for shared
+  self-host changes and the PA36 smoke suite for lowering, optimization,
+  or backend changes. Run `make test-harness` after harness changes and
+  validate a student export when shipped inputs or their discovery change.
+  [Repository validation](../AGENTS.md)
 - Mark an edition and target complete when every applicable mandatory rule in
   the inventory has evidence, the selected upstream and target configurations
   have no unexplained failures, the hosted or freestanding checks and ABI
   probes pass, and the scaling and existing compile-performance gates pass.
   Publish the coverage matrix and the remaining conditional-feature, GNU
-  extension and host-runtime limitations alongside each claim.
+  extension and host-runtime limitations alongside each claim. Advertise
+  hosted conformance only for a tested compiler, SDK, and runtime pairing.
