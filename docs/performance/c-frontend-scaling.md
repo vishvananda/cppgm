@@ -186,6 +186,8 @@ types. At 4096 declarations this reduces retired instructions by 77.1%.
 The ratio of the final two cost increments falls from 3.44 to 2.00.
 The final ratios for the composite type, tentative array, and file-first
 inputs are also 2.00 when rounded to two decimal places.
+Median peak RSS for the 4096-declaration block-first case was 13,596 KiB
+before and 13,508 KiB with the index across three runs each.
 
 For the whole batch, compare `02e2b4c6e` with `5bff6184b` on the same
 pinned CPU. The frozen C++ input at `-O3` and SQLite 3.50.4 at `-O2`
