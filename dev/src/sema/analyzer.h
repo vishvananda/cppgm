@@ -379,6 +379,13 @@ private:
 	bool predeclared_extended_float(const Binding* existing, const Scope* where) const;
 	Binding* declare_variable(const Specifiers& specifiers, const DeclaratorInfo& info,
 		const syntax::Initializer* initializer, Scope* scope, uint32_t location, bool structured_binding = false);
+	bool defer_c_tentative_definition(VariableEntity* variable, uint32_t location);
+	void finish_c_tentative_definitions();
+	const Type* redeclare_variable(VariableEntity* variable, const Type* type, const Specifiers& specifiers,
+		const DeclaratorInfo& info, const Scope* where, bool qualified, bool initialized, bool& definition,
+		uint32_t location);
+	const Type* c_variable_declaration_type(
+		const VariableEntity* variable, const Type* type, Scope* where, uint32_t location);
 	bool check_variable_object(const Specifiers& specifiers, const Type* type, Scope* where,
 		const syntax::Initializer* initializer, bool member, bool definition, bool typed_initialization,
 		uint32_t location);
@@ -2236,6 +2243,12 @@ private:
 	// (7.5p6); C++ overload lookup alone cannot establish that identity.
 	PointerMap c_function_index_;
 	std::vector<FunctionEntity*> c_functions_;
+	struct TentativeDefinition
+	{
+		VariableEntity* variable;
+		uint32_t location;
+	};
+	std::vector<TentativeDefinition> c_tentative_definitions_;
 	uintptr_t stack_base_;
 	uintptr_t stack_budget_;
 	const Identifier* constructor_key_;

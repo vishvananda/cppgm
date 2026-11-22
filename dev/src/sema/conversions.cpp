@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "sema/integral_arithmetic.h"
+#include "support/small_list.h"
 
 namespace sema {
 
@@ -325,6 +326,73 @@ bool ConversionRules::c_type_compatible(const Type* source, const Type* target, 
 	return true;
 }
 
+const Type* ConversionRules::c_composite_type(const Type* prior, const Type* declared)
+{
+	if (prior->canonical == declared->canonical)
+		return declared;
+	// 6.2.7p3: preserve the stronger bounds and prototypes through each
+	// derived type. Reuse either existing type if its children already fit.
+	switch (declared->kind)
+	{
+	case TypeKind::Pointer:
+	{
+		const Type* element = c_composite_type(prior->element, declared->element);
+		return element == declared->element ? declared
+			: element == prior->element     ? prior
+											: types_.qualified(types_.pointer(element), declared->cv);
+	}
+	case TypeKind::Array:
+	{
+		const Type* bounds = declared;
+		if (!declared->constant_array_bound() &&
+			(prior->constant_array_bound() ||
+				(declared->runtime_bound == nullptr && (prior->runtime_bound != nullptr || prior->c_array_star()))))
+			bounds = prior;
+		const Type* element = c_composite_type(prior->element, declared->element);
+		if (element == bounds->element)
+			return bounds;
+		if (bounds->c_array_star())
+			return types_.c_array_star(element);
+		return types_.array(element, bounds->bound, nullptr, bounds->runtime_bound, bounds->zero_length_array());
+	}
+	case TypeKind::Function:
+		return c_composite_function(prior, declared);
+	default:
+		return declared;
+	}
+}
+
+const Type* ConversionRules::c_composite_function(const Type* prior, const Type* declared)
+{
+	const Type* result = c_composite_type(prior->element, declared->element);
+	const Type* shape = declared;
+	if (declared->c_unprototyped() && (!prior->c_unprototyped() || prior->param_count > declared->param_count))
+		shape = prior;
+	const Type* const* parameters = shape->params;
+	SmallList<const Type*, 8> combined;
+	if (!prior->c_unprototyped() && !declared->c_unprototyped())
+	{
+		for (uint32_t i = 0; i < declared->param_count; ++i)
+		{
+			const Type* type = c_composite_type(prior->params[i]->unqualified, declared->params[i]->unqualified);
+			if (combined.empty())
+			{
+				if (type == declared->params[i]->unqualified)
+					continue;
+				combined.assign(declared->params, i);
+			}
+			combined.push_back(type);
+		}
+		if (!combined.empty())
+			parameters = combined.data();
+	}
+	if (result == shape->element && parameters == shape->params)
+		return shape;
+	const Type* type = types_.function(
+		result, parameters, shape->param_count, shape->variadic, shape->function_cv, shape->ref);
+	return shape->c_unprototyped() ? types_.c_unprototyped(type) : type;
+}
+
 bool ConversionRules::c_pointer_extension(const Type* source, const Type* target)
 {
 	if ((IsVoid(source) && target->kind == TypeKind::Function) ||
@@ -602,23 +670,22 @@ bool ConversionRules::value_conversion(
 	// 4.10p2: pointer to cv T (an object type) to pointer to cv void, then
 	// a qualification adjustment.
 	const Type* pointee = source->element;
-	if (c_source_ && (pointee->c_variably_modified || goal->element->c_variably_modified) &&
-		c_type_compatible(pointee, goal->element))
+	if (c_source_)
 	{
-		out.second = ValueConversion::CPointer;
-		out.result = goal;
-		return true;
-	}
-	if (c_source_ &&
-		(c_pointer_extension(pointee, goal->element) ||
-			(c_extensions_ && ((pointee->cv | goal->element->cv) & kAtomic) == 0 &&
-				(c_type_compatible(pointee->unqualified, goal->element->unqualified) ||
-					(IsVoid(pointee) && goal->element->kind != TypeKind::Function) ||
-					(IsVoid(goal->element) && pointee->kind != TypeKind::Function)))))
-	{
-		out.second = ValueConversion::CPointer;
-		out.result = goal;
-		return true;
+		const Type* destination = goal->element;
+		const bool qualified = (pointee->cv & ~destination->cv) == 0 &&
+			((pointee->cv ^ destination->cv) & kAtomic) == 0;
+		const bool relaxed = c_extensions_ && ((pointee->cv | destination->cv) & kAtomic) == 0;
+		if (c_pointer_extension(pointee, destination) ||
+			((qualified || relaxed) && c_type_compatible(pointee->unqualified, destination->unqualified)) ||
+			(relaxed &&
+				((IsVoid(pointee) && destination->kind != TypeKind::Function) ||
+					(IsVoid(destination) && pointee->kind != TypeKind::Function))))
+		{
+			out.second = ValueConversion::CPointer;
+			out.result = goal;
+			return true;
+		}
 	}
 	if (c_source_ && IsVoid(pointee) && goal->element->kind != TypeKind::Function &&
 		(CvOf(pointee) & ~CvOf(goal->element)) == 0)

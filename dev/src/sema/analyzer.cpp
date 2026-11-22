@@ -148,6 +148,8 @@ void Analyzer::analyze(const syntax::TranslationUnit& unit)
 	root_epoch_ = ++demand_epoch_;
 	current_epoch_ = root_epoch_;
 	declarations(unit.declarations, scope);
+	if (c_source_)
+		finish_c_tentative_definitions();
 	// The rules decided once every class of the unit is complete (PA6's
 	// types too: an unused member's noexcept-specification is valid).
 	if (!semantic())

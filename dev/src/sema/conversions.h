@@ -77,6 +77,8 @@ public:
 	bool function_conversion(const Type* source, const Type* target);
 	bool c_function_compatible(const Type* source, const Type* target);
 	bool c_type_compatible(const Type* source, const Type* target, bool ignore_cv = false);
+	// The composite of types already checked for C compatibility.
+	const Type* c_composite_type(const Type* prior, const Type* declared);
 	// Pointee types accepted by C's implicit function/void-pointer and
 	// corresponding integer signedness extensions. No C++ conversion.
 	static bool c_pointer_extension(const Type* source, const Type* target);
@@ -98,6 +100,7 @@ private:
 	bool standard(const Operand& from, const Type* target, bool direct, Conversion& out);
 	bool reference(const Operand& from, const Type* target, Conversion& out);
 	bool value_conversion(const Type* source, uint16_t flags, const Type* target, bool direct, Conversion& out);
+	const Type* c_composite_function(const Type* prior, const Type* declared);
 
 	TypeTable& types_;
 	// Scratch of is_base_of, reused across queries, and its visit mark.

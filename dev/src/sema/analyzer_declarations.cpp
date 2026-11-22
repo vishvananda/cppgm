@@ -43,6 +43,18 @@ bool CompatibleVariableTypes(const Type* a, const Type* b)
 		(!a->has_array_bound() || !b->has_array_bound());
 }
 
+bool IncompleteCTentativeType(const Type* type)
+{
+	if (type->kind == TypeKind::Array && !type->has_array_bound())
+		return true;
+	if (const ClassEntity* record = ClassOf(type))
+		return !record->complete;
+	if (type->kind != TypeKind::Enum)
+		return false;
+	const auto* enumeration = static_cast<const EnumEntity*>(type->entity);
+	return !enumeration->defined && !enumeration->fixed;
+}
+
 const syntax::Name* DeclaratorId(const syntax::Declarator* declarator)
 {
 	for (; declarator != nullptr; declarator = declarator->nested)
@@ -1347,9 +1359,14 @@ Binding* Analyzer::declare_variable(const Specifiers& specifiers, const Declarat
 		specifiers, name, where, qualified, initializer != nullptr, definition, location);
 	// 8.3.4p3: an earlier bound applies before any initializer deduction.
 	// The ordinary lookup above supplies that entity without a second lookup.
-	if (variable != nullptr && type->kind == TypeKind::Array && !type->has_array_bound() &&
-		CompatibleVariableTypes(variable->type, type))
-		type = variable->type;
+	if (variable != nullptr)
+	{
+		if (c_source_)
+			type = c_variable_declaration_type(variable, type, where, location);
+		else if (type->kind == TypeKind::Array && !type->has_array_bound() &&
+			CompatibleVariableTypes(variable->type, type))
+			type = variable->type;
+	}
 	type = complete_array_from_initializer(type, initializer, typed_initialization);
 	const bool redeclaration = variable != nullptr;
 	// 9.4.2p3: a static data member initialized in its class (const
@@ -1365,44 +1382,15 @@ Binding* Analyzer::declare_variable(const Specifiers& specifiers, const Declarat
 	if (initialized_in_class && cxx17_ && variable->is_inline && initializer == nullptr)
 		definition = false;
 	if (variable != nullptr)
-	{
-		// A dependent block extern may match after substitution (14.6p8).
-		// Its instantiations repeat this check with concrete types; static
-		// member definitions still match their declaration's pattern now.
-		if (!CompatibleVariableTypes(variable->type, type) &&
-			(where->kind != ScopeKind::Block || !specifiers.is_extern || template_depth_ == 0 ||
-				(!dependent_type(variable->type) && !dependent_type(type))))
-			error(location, "conflicting declaration of a variable");
-		// 7.1.1p1: ordinary declarations all spell thread_local, or none do.
-		// Explicit-instantiation directives use their separate entity path.
-		if (variable->is_thread_local != specifiers.is_thread_local)
-			error(location, "declarations of a variable with different thread storage duration");
-		// 7.1.1p7-p8 (`extern int d; static int d;`).
-		if (specifiers.is_static && where->kind == ScopeKind::Namespace && !variable->internal_linkage)
-			error(location, "a static declaration of a variable declared with external linkage");
-		if (where->kind == ScopeKind::Namespace && !qualified && variable->c_linkage != c_language_)
-			agree_language_linkage(variable->c_linkage, location);
-		if (definition && variable->defined)
-		{
-			if (!c_source_ || where->kind != ScopeKind::Namespace || (initializer != nullptr && !variable->c_tentative))
-				error(location, "redefinition of a variable");
-			if (initializer == nullptr)
-				definition = false;
-		}
-		if (variable->type->kind == TypeKind::Array && !variable->type->has_array_bound())
-			variable->type = type;
-		// 8.3.4p3: an omitted bound is the bound an earlier declaration
-		// of the entity specified.
-		else if (type->kind == TypeKind::Array && !type->has_array_bound() && variable->type->kind == TypeKind::Array)
-			type = variable->type;
-		if (info.asm_label != nullptr && graph_.asm_label(variable) == nullptr)
-			graph_.set_asm_label(variable, info.asm_label);
-	}
+		type = redeclare_variable(
+			variable, type, specifiers, info, where, qualified, initializer != nullptr, definition, location);
 	else
 		variable = new_variable(specifiers, info.asm_label, name, where, type, is_extern, member,
 			initializer != nullptr, location, structured_binding);
-	const bool bound_from_list = check_variable_object(
-		specifiers, type, where, initializer, member, definition, typed_initialization, location);
+	const bool c_tentative = c_source_ && where->kind == ScopeKind::Namespace && definition && initializer == nullptr;
+	const bool deferred_tentative = c_tentative && defer_c_tentative_definition(variable, location);
+	const bool bound_from_list = check_variable_object(specifiers, type, where, initializer, member,
+		definition && !deferred_tentative, typed_initialization, location);
 	// A static data member of a templated class defined out of it: its
 	// instances instantiate this definition when needed (14.7.1p1); one
 	// defined inline in it, a definition whose initializer is each
@@ -1600,6 +1588,89 @@ void Analyzer::note_variably_modified_declaration(Scope* scope)
 	++scope->initialized;
 	if (body_->switch_statement != nullptr)
 		++body_->switch_statement->initialized;
+}
+
+const Type* Analyzer::c_variable_declaration_type(
+	const VariableEntity* variable, const Type* type, Scope* where, uint32_t location)
+{
+	const Type* prior = variable->type;
+	if (where->kind == ScopeKind::Block)
+	{
+		const LookupResult visible = names_.unqualified(where, variable->name, LookupFilter::Ordinary);
+		if (visible.binding != nullptr && visible.binding->entity == variable)
+			prior = visible.binding->type;
+	}
+	if (!conversions_.c_type_compatible(prior, type))
+		error(location, "conflicting declaration of a variable");
+	return conversions_.c_composite_type(prior, type);
+}
+
+const Type* Analyzer::redeclare_variable(VariableEntity* variable, const Type* type, const Specifiers& specifiers,
+	const DeclaratorInfo& info, const Scope* where, bool qualified, bool initialized, bool& definition,
+	uint32_t location)
+{
+	// Dependent C++ block extern types are checked at substitution.
+	if (!c_source_ && !CompatibleVariableTypes(variable->type, type) &&
+		(where->kind != ScopeKind::Block || !specifiers.is_extern || template_depth_ == 0 ||
+			(!dependent_type(variable->type) && !dependent_type(type))))
+		error(location, "conflicting declaration of a variable");
+	if (variable->is_thread_local != specifiers.is_thread_local)
+		error(location, "declarations of a variable with different thread storage duration");
+	if (specifiers.is_static && where->kind == ScopeKind::Namespace && !variable->internal_linkage)
+		error(location, "a static declaration of a variable declared with external linkage");
+	if (where->kind == ScopeKind::Namespace && !qualified && variable->c_linkage != c_language_)
+		agree_language_linkage(variable->c_linkage, location);
+	if (definition && variable->defined)
+	{
+		if (!c_source_ || where->kind != ScopeKind::Namespace || (initialized && !variable->c_tentative))
+			error(location, "redefinition of a variable");
+		if (!initialized)
+			definition = false;
+	}
+	if (c_source_)
+	{
+		// A C block extern can refine its own binding without changing
+		// the type of the binding in the enclosing file scope.
+		if (variable->owner == where)
+			variable->type = type;
+	}
+	else if (variable->type->kind == TypeKind::Array && !variable->type->has_array_bound())
+		variable->type = type;
+	else if (type->kind == TypeKind::Array && !type->has_array_bound() && variable->type->kind == TypeKind::Array)
+		type = variable->type;
+	if (info.asm_label != nullptr && graph_.asm_label(variable) == nullptr)
+		graph_.set_asm_label(variable, info.asm_label);
+	return type;
+}
+
+bool Analyzer::defer_c_tentative_definition(VariableEntity* variable, uint32_t location)
+{
+	if (!IncompleteCTentativeType(variable->type))
+		return false;
+	if (variable->internal_linkage &&
+		(positions_ == nullptr ||
+			!positions_->allow_gnu_c_extension(
+				location, "a tentative definition with internal linkage has incomplete type")))
+		error(location, "a tentative definition with internal linkage has incomplete type");
+	c_tentative_definitions_.push_back({ variable, location });
+	return true;
+}
+
+void Analyzer::finish_c_tentative_definitions()
+{
+	for (const TentativeDefinition& entry : c_tentative_definitions_)
+	{
+		VariableEntity* variable = entry.variable;
+		const Type* type = variable->type;
+		if (!variable->c_tentative || !IncompleteCTentativeType(type))
+			continue;
+		if (type->kind != TypeKind::Array)
+			error(
+				entry.location, "a tentative definition still has incomplete type at the end of the translation unit");
+		// 6.9.2: an external tentative array still lacking a bound at
+		// the end of the translation unit defines one zeroed element.
+		variable->type = types_.array(type->element, 1);
+	}
 }
 
 bool Analyzer::check_variable_object(const Specifiers& specifiers, const Type* type, Scope* where,
@@ -2100,7 +2171,8 @@ Binding* Analyzer::declare_function(const Specifiers& specifiers, const Declarat
 		{
 			FunctionEntity* earlier = c_functions_[index];
 			if ((signature_of(earlier->type) != signature &&
-					!(c_source_ && conversions_.c_function_compatible(earlier->type, info.type))) ||
+					!(c_source_ &&
+						(function == earlier || conversions_.c_function_compatible(earlier->type, info.type)))) ||
 				(function != nullptr && function != earlier))
 				error(location, "conflicting declaration of a C-linkage function");
 			function = earlier;
@@ -2122,13 +2194,6 @@ Binding* Analyzer::declare_function(const Specifiers& specifiers, const Declarat
 	{
 		redeclare_function(function, specifiers, info, scope, where, definition, deleted,
 			template_depth_ == 0 || pattern_member || templated, location);
-		if (c_source_ && function->type->c_unprototyped() &&
-			(!info.type->c_unprototyped() || (definition && info.type->param_count != 0)))
-		{
-			check_startup_redeclaration(function, info.type, location);
-			function->type = info.type;
-			function->signature = signature;
-		}
 	}
 	else
 	{
@@ -2382,7 +2447,9 @@ void Analyzer::redeclare_function(FunctionEntity* function, const Specifiers& sp
 	// 13.1p2: functions differing only in return type cannot overload;
 	// C++14's 7.1.6.4p13: a placeholder return type is redeclared as
 	// the placeholder (not the type its definition deduced).
-	if (declared_type(function->type)->element != declared_type(info.type)->element ||
+	const Type* prior_result = declared_type(function->type)->element;
+	const Type* new_result = declared_type(info.type)->element;
+	if ((prior_result != new_result && !(c_source_ && conversions_.c_type_compatible(prior_result, new_result))) ||
 		function->placeholder_result != holds_auto(info.type->element))
 		error(location, "functions that differ only in their return type");
 	if (where->kind == ScopeKind::Class && info.qualifier == nullptr && !specifiers.is_friend)
@@ -2434,6 +2501,16 @@ void Analyzer::redeclare_function(FunctionEntity* function, const Specifiers& sp
 		graph_.set_asm_label(function, info.asm_label);
 	if (definition && function->templated && info.type != function->type)
 		function_template_facts(function)->definition_type = info.type;
+	if (c_source_ && function->type != info.type)
+	{
+		const Type* composite = conversions_.c_composite_type(function->type, info.type);
+		if (composite != function->type)
+		{
+			check_startup_redeclaration(function, composite, location);
+			function->type = composite;
+			function->signature = signature_of(composite);
+		}
+	}
 }
 
 FunctionEntity* Analyzer::new_function(const Specifiers& specifiers, const DeclaratorInfo& info,

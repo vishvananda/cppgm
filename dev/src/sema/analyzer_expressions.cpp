@@ -755,7 +755,7 @@ ExprFacts* Analyzer::binding_expression(
 			variable->type->kind == TypeKind::Array && !variable->type->has_array_bound() &&
 			variable->type->owner == nullptr && template_depth_ == 0 && semantic())
 			instantiate_variable(variable);
-		const Type* type = variable->type;
+		const Type* type = c_source_ ? binding->type : variable->type;
 		if (type->is_reference())
 			type = type->element;
 		ExprFacts* facts = new_facts(expr, type, ValueCategory::LValue);

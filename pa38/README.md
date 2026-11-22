@@ -98,6 +98,14 @@ The first fixture set covers these parts of the C17 input profile:
   external linkage supplies the external symbol if a file-scope declaration
   uses `extern` or leaves out `inline`. GNU `gnu_inline` and `always_inline`
   attributes can also occur after the return type's pointer operator.
+- Give a redeclared C object or function the composite of its compatible
+  types. Combine bounds and prototypes through pointers, array elements,
+  function parameters, and return types. A block declaration can refine
+  its local view of an object. At the end of a translation unit, complete
+  a still-incomplete tentative array with external linkage as a one-element
+  array. Use a bound or a record definition supplied later in the file
+  when available. Under `-pedantic-errors`, reject an incomplete tentative
+  declaration with internal linkage at its declaration.
 - Resolve each initializer designator from the aggregate of the closest
   brace pair. Continue with the next subobject after the designated one,
   including through nested arrays, records, and a union's selected member.

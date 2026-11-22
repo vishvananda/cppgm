@@ -228,3 +228,24 @@ in 6.7.9p4 still apply to the written expression.
 [WG14 issue 0253](https://www.open-std.org/jtc1/sc22/wg14/issues/c99/issue0253.html) ·
 [PA38 continuation case](../pa38/tests/general/300-designated-continuation.t) ·
 [PA38 overlap case](../pa38/tests/general/300-designated-retained-values.t)
+
+## Composite types and tentative definitions
+
+C11 6.2.7p3 and p4 combine compatible types at a redeclaration that can
+see the earlier declaration with linkage. The combination is recursive.
+An incomplete array contributes its element type, and the completed
+array contributes the bound. Prototyped function parameters contribute
+their types in preference to a declaration without a prototype.
+Implicit pointer conversion follows the compatible-pointee and
+qualification rules in 6.5.16.1. Each use keeps the type visible at its
+point of use.
+
+Under 6.9.2p2, a remaining tentative definition uses the composite type
+at the end of the translation unit and receives zero initialization.
+Paragraph 5 exemplifies completing an otherwise incomplete external
+tentative array with one element. Paragraph 3 requires an internal
+tentative definition to be complete at its declaration.
+
+[C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[PA38 composite types](../pa38/tests/general/400-c-composite-types.t) ·
+[PA38 tentative definitions](../pa38/tests/general/400-c-tentative-incomplete.t)
