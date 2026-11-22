@@ -23,6 +23,14 @@ Track evidence as each milestone lands in the
 [C conformance inventory](../reports/upstream-c-coverage.md) and the
 [C frontend scaling report](performance/c-frontend-scaling.md).
 
+Start the next batch with a reviewed slice for declarations, linkage, and
+constant expressions. Replay the current C99, C11, and C17 manifests before
+changing the compiler. Use the slice to pin down failures in redeclarations,
+tentative definitions, C inline linkage, and static initializers before
+expanding the import. Keep the existing VLA, generic selection, and sparse
+initializer tests in the fast iteration loop for changes to their shared
+analysis paths.
+
 ## Implementation order
 
 | Milestone | Next work | Evidence required to close it |
@@ -60,25 +68,25 @@ each applicable configuration. A suite pass count measures compatibility
 with that suite. Coverage grows as individual rules gain evidence, with
 uncovered requirements and unqualified targets visible in the same matrix.
 
-Give each entry a stable clause and rule identifier. Attach the normative
-source and any resolved WG14 issue, the requirement class, applicable
-editions, and the target and environment dimensions that affect it. Link
-tests and their receipts by ID. Use explicit states for uncovered, failing,
-passing, and inapplicable configurations, with a reason for inapplicability.
-For a behavior that depends on target properties, test the documented choice
-against the platform ABI. For unspecified behavior, test the allowed set or
-the invariant. For a constraint, test the diagnostic requested by the rule.
-Track open WG14 questions as such and record the policy for each affected
-edition. Include combined translation-limit cases where the edition requires
-limits to be supported together.
+Use stable rule IDs in the inventory and the CI manifests so one test can
+provide evidence for several requirements across editions or targets.
+Validate the inventory for duplicate IDs and missing evidence links. Report
+applicable requirements as uncovered, failing, or passing, and give a reason
+for inapplicability. For implementation-defined behavior, check the documented
+choice against the target ABI. For a constraint, check the diagnostic
+requested by the rule. Record the policy for open WG14 issues by edition.
+Derive missing cases from the clauses themselves, including combined
+translation limits where required and cases that differ only in scope,
+linkage, or mode. Publish the uncovered entries even when a manifest is green.
 
 | Source | Initial selection |
 | --- | --- |
-| GCC `gcc.dg` | Expand the existing C99/C11/C17 feature and diagnostic manifests. Include `cpp` for preprocessing, `compat` for mixed objects, and later the C23 cases named `c23-*` or `c2x-*` at the pinned revision. Use the GCC feature inventory to find cases outside the edition prefixes. [GCC C suites](https://gcc.gnu.org/onlinedocs/gccint/C-Tests.html) · [GCC feature inventory](https://gcc.gnu.org/projects/c-status.html) |
+| GCC `gcc.dg` | Expand the existing C99/C11/C17 feature and diagnostic manifests. Include `cpp` for preprocessing, `noncompile` for invalid-input handling, `compat` for mixed objects, and later the C23 cases named `c23-*` or `c2x-*` at the pinned revision. Use the GCC feature inventory to find cases outside the edition prefixes. [GCC C suites](https://gcc.gnu.org/onlinedocs/gccint/C-Tests.html) · [GCC feature inventory](https://gcc.gnu.org/projects/c-status.html) |
 | Clang `clang/test/C` | Expand `C99`, `C11`, and `drs`, then add `C23`. Add selected C inputs from `Sema`, `Preprocessor`, and `CodeGen` where an observable outcome can be checked. [Pinned Clang test tree](https://github.com/llvm/llvm-project/tree/llvmorg-21.1.8/clang/test/C) · [Clang feature inventory](https://clang.llvm.org/c_status.html) |
 | `c-testsuite` | All 220 programs at revision `5c7275656d751de0e68b2d340a95b5681858ed07`. Check exit status and combined output, with an explicit disposition for GNU-only or target-specific cases. [Pinned suite](https://github.com/c-testsuite/c-testsuite/tree/5c7275656d751de0e68b2d340a95b5681858ed07) |
 | GCC torture and Csmith | Run `gcc.c-torture/execute` at `-O0` and `-O2`. Expand optimization levels as the baseline stabilizes. Add pinned Csmith seeds and compare output with GCC and Clang on the same ABI. Retain and reduce mismatches. [GCC C suites](https://gcc.gnu.org/onlinedocs/gccint/C-Tests.html) · [Csmith](https://github.com/csmith-project/csmith) |
 | LLVM `test-suite` | Add C single-source regressions and multi-source execution cases with checked output. Deduplicate the bundled GCC torture cases against the pinned GCC corpus. Exercise these in the scheduled runtime campaign. [LLVM test-suite guide](https://llvm.org/docs/TestSuiteGuide.html) |
+| WG14 defect resolutions | Turn examples into focused cases for uncovered clauses and edition differences. Use the published rule and its applicable resolution as the oracle when GCC and Clang disagree. Write small original tests for requirements without suitable upstream inputs. [WG14 issue index](https://open-std.org/JTC1/SC22/WG14/issues/) |
 
 Use the GCC and LLVM revisions already pinned in the upstream workflow. The
 shared manifest runner already accepts C editions and explicit preprocessing,
@@ -242,6 +250,15 @@ hide repeated traversal of the input initializers.
   amalgamation with a reproducible SQL smoke workload. Expand to upstream
   runtime subsets after both compilers pass the same configuration. Record
   toolchain settings, project versions, test counts, and disabled components.
+- Build a per-edition header and library checklist from the standard. Test
+  the required headers in isolation and in combination, including repeated
+  inclusion where permitted. Exercise mandatory macros, types and function
+  declarations at translation time, then check symbols and behavior with
+  programs linked against the selected runtime. Include the permitted
+  macro/function forms, calls through function pointers, and interfaces that
+  use compiler-specific operations such as variadics and atomics. Record
+  the standard's required versus conditional interfaces for each environment
+  before using an SDK result to qualify the compiler and runtime together.
 
 [musl libc-test](https://wiki.musl-libc.org/libc-test.html) ·
 [zlib](https://zlib.net/) · [Lua tests](https://www.lua.org/tests/) ·
@@ -305,6 +322,16 @@ which operations are proportional to tokens, demanded work, or output.
 | Constant expressions and wide integers | Reuse typed evaluation with the constraints of each required C constant context. Retain the result where later phases consume it. Keep single-word values on the ordinary path and allocate wide storage only for values that require it. Measure widths and operation counts independently. |
 | Lowering and code generation | Consume typed facts directly, emit each entity once and reuse target layout, ABI, optimizer and backend machinery. Preserve streaming at `-O0`. Add typed LowIR vocabulary only when an operation requires it, with its existing text adapter and validator coverage. Reuse per-function scratch. Audit VLA cleanup, storage ownership, volatility and aliasing at optimized levels. |
 
+At the start of each batch, identify the producer and consumers of the new
+typed fact, the work and storage bounds in terms of inputs and output, and
+the unaffected path used as a control. Select target facts once before
+preprocessing. Keep type identity independent of mutable completion state:
+attach captured VLA extents to their evaluation owner and update
+redeclarations on the entity. Retain offsets, conversions, and linker-facing
+properties in typed records so consumers can perform direct reads. Change
+shared parser and semantic hot records only when the measurements justify the
+cost on ordinary inputs. [Architecture requirements](../spec.md)
+
 1. **Measure both C and the existing hot path.** Keep the frozen C++
    self-compile workload intact and run the established baseline comparison for
    shared changes. Add C inputs to the existing frontend scaling suite, with
@@ -335,6 +362,13 @@ which operations are proportional to tokens, demanded work, or output.
    the production path, with counter collection measured separately. The
    existing generic association, runtime array interning, and VLA dimension
    benchmarks are examples of patterns where counts exposed avoidable scans.
+   For each sparse feature, vary written entries and the represented extent
+   independently, and record the ratio of incremental work at successive
+   doublings after fixed startup costs. Use the feature's work counter when
+   available, then confirm with retired instructions and peak memory. Add a
+   small repeatable scaling check to the maintainer suite if the same
+   algorithmic regression could recur. Keep wall-clock comparisons on
+   controlled hosts.
 3. **Compare immutable binaries.** Use identical inputs and tools, A/A
    calibration and paired ABBA/BAAB blocks. Retain every observation. Verify
    unchanged outputs and use independent runtime and diagnostic oracles for
