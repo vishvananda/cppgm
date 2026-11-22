@@ -37,8 +37,8 @@ open column lists work to qualify the remainder of each group.
 ## Pinned suite receipts
 
 - **c-testsuite** inventories 220 programs in two dialects and at two
-  optimization levels. cppgm passes 856 of 876 selected configurations.
-  Five known source gaps account for 20 configurations. One source that
+  optimization levels. cppgm passes 860 of 876 selected configurations.
+  Four known source gaps account for 16 configurations. One source that
   reads an uninitialized automatic object is excluded from the runtime
   comparison. [Suite builder](../scripts/build_c_testsuite_ci_manifest.py) ·
   [Known gaps](upstream-c-testsuite-known-gaps.json)
@@ -93,6 +93,13 @@ Tagged struct, union, and enum names can precede the colon of a generic
 association. c-testsuite `00219.c` now passes at both optimization levels
 in C17 and GNU17.
 [PA38 tag association](../pa38/tests/general/500-generic-tag-association.t)
+
+The GNU conditional expression with one void operand now passes all
+four configurations of c-testsuite `00213.c`, including its labels
+inside loops and statement expressions. The extension gives the
+expression a void result and evaluates the selected arm for effects.
+Pedantic diagnostics follow GCC and Clang.
+[PA38 conditional control](../pa38/tests/general/500-gnu-conditional-void.t)
 
 ## Cross-target smoke results
 

@@ -78,6 +78,9 @@ The first fixture set covers these parts of the C17 input profile:
   for `_Generic` or `__builtin_types_compatible_p`.
 - `_Generic` selections preserve the selected expression's type and value
   category. The control and unselected associations are not evaluated.
+- The GNU conditional expression with one void arm has type `void`.
+  Evaluate the selected arm for effects and diagnose the extension under
+  the pedantic policy.
 - C character and string literal types, including the compatible integer
   types of wide, UTF-16 and UTF-32 literals. An identifier immediately after a
   quoted literal is a separate preprocessing token and can expand as a macro.

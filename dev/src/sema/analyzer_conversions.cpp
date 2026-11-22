@@ -1,6 +1,7 @@
 #include "sema/analyzer.h"
 
 #include "lex/identifier_table.h"
+#include "preprocess/preprocessor.h"
 
 // User-defined conversions (12.3; semantics mode): converting constructors
 // and conversion functions as implicit conversion sequences (13.3.1.4-
@@ -934,8 +935,13 @@ ExprFacts* Analyzer::conditional(const syntax::ConditionalExpr& expr, Scope* sco
 		}
 		if (!IsVoid(t2) || !IsVoid(t3))
 		{
-			substitution_error(expr.location, "only one operand of ?: is void");
-			return nullptr;
+			const char* message = c_source_ ? "a conditional expression with one void operand is a GNU extension"
+											: "only one operand of ?: is void";
+			if (!c_source_ || (positions_ != nullptr && !positions_->allow_gnu_c_extension(expr.location, message)))
+			{
+				substitution_error(expr.location, message);
+				return nullptr;
+			}
 		}
 		return new_facts(expr, types_.fundamental(FundamentalType::Void), ValueCategory::PRValue);
 	}
