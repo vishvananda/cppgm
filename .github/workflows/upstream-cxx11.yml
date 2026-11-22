@@ -44,6 +44,7 @@ jobs:
               gcc/testsuite/g++.dg/concepts
               gcc/testsuite/g++.dg/coroutines
               gcc/testsuite/gcc.dg
+              gcc/testsuite/gcc.c-torture/execute
               libstdc++-v3/testsuite/18_support/coroutines
               libstdc++-v3/testsuite/20_util/exchange
               libstdc++-v3/testsuite/20_util/is_invocable
@@ -355,6 +356,14 @@ jobs:
             --runtime-headers /usr/include/csmith --gcc gcc-15 --clang clang-21 \
             --workers 2 --output "$RUNNER_TEMP/cxx11/csmith"
 
+      - name: Run GCC C torture checks
+        if: ${{ !cancelled() && steps.candidate.outcome == 'success' && matrix.suite == 'gcc' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+        run: |
+          python3 scripts/run_gcc_c_torture_ci_suite.py --candidate dev/cppgm \
+            --gcc gcc-15 --source-root upstream-sources \
+            --known-gaps reports/upstream-gcc-c-torture-known-gaps.json \
+            --workers 2 --output "$RUNNER_TEMP/cxx11/gcc-c-torture"
+
       - name: Publish counts and elapsed-time ratio
         if: always()
         run: |
@@ -381,7 +390,7 @@ jobs:
               cat "$summary" >> "$GITHUB_STEP_SUMMARY"
             fi
           done
-          for report in c99 c11 c17 c-testsuite csmith; do
+          for report in c99 c11 c17 c-testsuite csmith gcc-c-torture; do
             summary="$RUNNER_TEMP/cxx11/$report/summary.md"
             if [ -f "$summary" ]; then
               cat "$summary" >> "$GITHUB_STEP_SUMMARY"

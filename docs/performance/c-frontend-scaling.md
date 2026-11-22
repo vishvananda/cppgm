@@ -38,3 +38,30 @@ frozen project-header closure and the same GCC 15 hosted environment.
 | BAAB | 9,057,345,564 / 9,057,216,931 | 9,057,834,486 / 9,057,714,437 |
 
 [Frozen source and header policy](../../benchmarks/self_compile/README.md)
+
+## Edition and hosted C changes
+
+Compared the compiler before the edition diagnostic and declarator fixes
+(`fbb85e362`) with `109b27433`, using immutable binaries and A/A, ABBA and
+BAAB blocks on Linux x86-64. The SQLite 3.50.4 amalgamation was compiled as
+GNU17 at `-O2`. The frozen C++ compile used `-O3` and the same GCC 15
+header environment. Each input produced a byte-identical object in all
+12 trials.
+
+| Input | A/A range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0021% | +0.0153% | +0.0163% |
+| SQLite `sqlite3.c` | 0.0011% | +0.0062% | +0.0076% |
+
+The SQLite source SHA-256 was
+`e3f5d6901e7492af4a1fc8c4d745cae84c264942524c3fbfc02b82a5ca8818c8`.
+The full observations, in trial order, were as follows.
+
+| Input | Block | Retired user-space instructions |
+| --- | --- | --- |
+| C++ | A/A | 9,057,548,681 / 9,057,695,502 / 9,057,740,154 / 9,057,657,050 |
+| C++ | ABBA | 9,057,462,698 / 9,058,764,931 / 9,058,850,291 / 9,057,374,834 |
+| C++ | BAAB | 9,058,903,125 / 9,057,386,534 / 9,057,576,650 / 9,059,006,036 |
+| SQLite | A/A | 16,513,092,604 / 16,512,923,825 / 16,513,112,176 / 16,512,946,636 |
+| SQLite | ABBA | 16,512,871,312 / 16,513,684,617 / 16,514,114,059 / 16,512,884,321 |
+| SQLite | BAAB | 16,513,845,693 / 16,512,988,037 / 16,513,150,915 / 16,514,807,738 |

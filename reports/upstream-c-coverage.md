@@ -93,7 +93,9 @@ in C17 and GNU17.
   107 of the 128 configurations in GNU17 on Linux x86-64. The failures
   include multidimensional and variably modified arrays, GNU inline
   assembly, imaginary literal suffixes, GNU flexible member initialization,
-  an always-inline call, and an optimized-only unresolved symbol.
+  an always-inline call, and an optimized-only unresolved symbol. The
+  scheduled and manually dispatched upstream workflow runs this sample
+  and records unexpected differences independently of the known gaps.
   [Pinned execute corpus](https://github.com/gcc-mirror/gcc/tree/5115c7e447fc07457443df874bf57840e8316d5f/gcc/testsuite/gcc.c-torture/execute) ·
   [GCC suite instructions](https://gcc.gnu.org/onlinedocs/gccint/C-Tests.html)
 - **Csmith 2.3.0.** Ran seeds 1 through 16 with at most three functions
