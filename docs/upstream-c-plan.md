@@ -216,6 +216,20 @@ string initialization, flexible-array constraints, and required zero fill.
 Measure analysis and emission separately so a large array's data does not
 hide repeated traversal of the input initializers.
 
+For constant expressions, distinguish eligibility for the required C
+context from the ability to fold a value. Start with static assertions,
+case labels, enumerators, bit-fields, array bounds, and designator indices.
+Then cover null pointer constants and static arithmetic and address
+initializers. Check operand eligibility even when a short-circuit or
+conditional expression skips evaluation, including the specific exception
+for operators in unevaluated subexpressions. Use typed expression facts and
+the existing evaluator. Carry required eligibility and value information
+through the relevant semantic query so that VLA classification and lowering
+can use the result directly. Preserve ordinary folding for expressions in
+runtime contexts. Measure short constant expressions and long expression
+chains independently.
+[Baseline probes and WG14 decisions](../reports/upstream-c-coverage.md#constant-expression-baseline)
+
 [Driver mode setup](../dev/src/driver/toolchain.cpp) ·
 [C function parsing](../dev/src/syntax/parser_c_functions.cpp) ·
 [GCC system-header behavior](https://gcc.gnu.org/onlinedocs/cpp/System-Headers.html)

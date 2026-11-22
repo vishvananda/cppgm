@@ -165,6 +165,52 @@ The short-list source used 16,384 independent four-arm selections at
 
 [Input generation](../../benchmarks/frontend_scaling/README.md#c)
 
+## Block-scope function declarations
+
+Compared with `7695a1c36`, the C17 syntax-only workloads grow either the
+number of sibling redeclarations of one function or the number of names
+first declared in a block. A final file-scope declaration exercises the
+transition to a visible file binding. The analyzer keeps one compatibility
+record per linked function that participates in a block declaration. Each
+additional declaration checks its visible type and that indexed record.
+
+Median retired user-space instructions in millions across three runs per
+configuration, on Linux x86-64:
+
+| Blocks | One name before | One name after | Distinct names before | Distinct names after |
+| ---: | ---: | ---: | ---: | ---: |
+| 256 | 12.88 | 12.94 | 18.53 | 18.83 |
+| 512 | 22.06 | 22.18 | 33.84 | 34.43 |
+| 1024 | 40.39 | 40.65 | 63.46 | 64.65 |
+| 2048 | 77.05 | 77.59 | 121.09 | 123.45 |
+| 4096 | 150.44 | 151.43 | 236.39 | 241.08 |
+
+From 1024 to 4096 blocks, the incremental instruction cost per added
+block stayed within 0.1% for one name and within 1% for distinct names.
+At 4096 blocks, median peak RSS was 17,764 to 17,756 KiB for one name
+and 23,364 to 24,776 KiB for distinct names.
+
+The frozen C++ `-O3` and SQLite `-O2` objects matched byte-for-byte in
+all runs. Both immutable compilers ran on the same core. A/A task-clock
+variation was 46.4% for C++ and 16.8% for SQLite, so the comparison uses
+retired instructions.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0032% | −0.0024% | −0.0013% |
+| SQLite `sqlite3.c` | 0.0009% | +0.0012% | +0.0013% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,039,736,691 / 9,039,731,633 / 9,040,018,311 / 9,039,886,930 |
+| C++ | ABBA | 9,039,928,974 / 9,039,693,303 / 9,039,687,477 / 9,039,891,663 |
+| C++ | BAAB | 9,039,869,807 / 9,039,827,741 / 9,039,802,354 / 9,039,520,279 |
+| SQLite | A/A | 16,518,960,231 / 16,519,062,881 / 16,518,922,452 / 16,519,029,512 |
+| SQLite | ABBA | 16,518,981,969 / 16,519,139,807 / 16,519,215,311 / 16,518,988,927 |
+| SQLite | BAAB | 16,519,541,456 / 16,519,187,113 / 16,519,230,714 / 16,519,311,757 |
+
+[Input generation](../../benchmarks/frontend_scaling/README.md#c)
+
 ## Declarations and linkage
 
 All values are millions of retired user-space instructions for native

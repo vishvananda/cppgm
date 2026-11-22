@@ -240,6 +240,26 @@ conflicting array bounds in function parameters after a block ends. Clang
 accepts that case. The compatibility requirement comes from C11 6.2.7p2,
 which leaves the behavior of incompatible declarations undefined.
 
+## Constant-expression baseline
+
+The next C17 slice uses `-pedantic-errors` and tests the context that
+requires a particular kind of constant expression. GCC 15 and Clang 21
+agree on the first five rows. WG14 DR 261 distinguishes a constant value
+from eligibility as a constant expression. Issue 0489 addresses the
+constraints that still apply in unevaluated operands.
+
+| Context | Reduced probe | cppgm status |
+| --- | --- | --- |
+| Integer constant expression | `_Static_assert((1, 1), "value")` and `_Static_assert((int)(1.5 + 1.5) == 3, "value")` | Accepted. Both controls diagnose the operand forms. |
+| Conditional evaluation | `_Static_assert(1 ? 1 : (0, 0), "value")` | Accepted by all three. The comma expression is unevaluated. |
+| Operand eligibility | `_Static_assert(1 ? 1 : n, "value")` where `n` is an external object | Accepted. Both controls diagnose the object operand. |
+| Array bounds | File-scope `int array[(0, 3)]` | Accepted. Both controls diagnose a variably modified declaration at file scope. |
+| Controls | `_Static_assert((int)1.5 == 1, "value")` and automatic `int *p = (1, 0)` | The immediate literal cast is accepted. All three diagnose the non-ICE pointer initializer. |
+| Static initializers | `int value = (0, 7)` and `int *p = array + (0, 1)` | Accepted by cppgm and Clang. GCC diagnoses both. Review against 6.6 and DR 261 before recording the oracle. |
+
+[WG14 DR 261](https://www.open-std.org/JTC1/SC22/WG14/www/docs/dr_261.htm) ·
+[WG14 issue 0489](https://open-std.org/JTC1/SC22/WG14/issues/c11c17/issue0489.html)
+
 ## Cross-target smoke results
 
 The prototype array, tagged generic association, and structure return
