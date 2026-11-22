@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <string>
 
+#include "lowir/builder.h"
 #include "lowir/literals.h"
 #include "support/flat_map.h"
 
@@ -779,6 +780,20 @@ void insert_after(FunctionBody& body, BlockId block, InstId after, InstId inst)
 	body.instructions[after].next = inst;
 	if (b.last == after)
 		b.last = inst;
+}
+
+void materialize_call_target(FunctionBody& body, BlockId block, InstId previous, InstId id, Value address)
+{
+	const Instruction& call = body.instructions[id];
+	const Type pointer = body.temps[call.ops[0].index].type;
+	Instruction constant = make_instruction(Opcode::Const, pointer);
+	constant.ops[0] = address;
+	constant.location = call.location;
+	const InstId definition = append_instruction(body, constant);
+	const TempId target = append_temp(body, pointer, definition);
+	body.instructions[definition].result = target;
+	insert_after(body, block, previous, definition);
+	body.instructions[id].ops[0] = Value::temp(target);
 }
 
 void unlink_after(FunctionBody& body, BlockId block, InstId prev, InstId inst)

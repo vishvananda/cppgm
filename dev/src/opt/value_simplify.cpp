@@ -96,8 +96,8 @@ private:
 			? &body_.instructions[body_.temps[v.index].def]
 			: nullptr;
 	}
-	Value substitute(Instruction& inst);
-	void substitute_in_block(BlockId block, InstId& prev, InstId id);
+	void substitute(Instruction& inst);
+	void materialize_callees();
 	bool fold(const Instruction& inst, Value& out);
 	bool identity(Instruction& inst, Value& out);
 	bool readonly_load(const Instruction& inst, Value& out);
@@ -158,6 +158,7 @@ private:
 	BlockId current_block_ = kNoId;
 	std::vector<Value> repl_;
 	bool has_replacements_ = false;
+	bool has_literal_callees_ = false;
 	// (The readers of a replaced temporary read its value from here on:
 	// `own` of the value's counted readers were the replaced instruction's.)
 	void replace(TempId temp, Value value, uint32_t own = 0)
@@ -486,9 +487,8 @@ bool Simplifier::boolean(Value v, unsigned depth)
 	}
 }
 
-Value Simplifier::substitute(Instruction& inst)
+void Simplifier::substitute(Instruction& inst)
 {
-	Value call_address = Value::none();
 	// (Only a temporary operand may change.)
 	for (uint32_t i = 0; i < 3; ++i)
 	{
@@ -501,7 +501,7 @@ Value Simplifier::substitute(Instruction& inst)
 		// A callee stays a temporary or symbol.
 		if (inst.op == Opcode::Call && i == 0 && r.is_literal())
 		{
-			call_address = r;
+			has_literal_callees_ = true;
 			continue;
 		}
 		// O2+: a call through a function's address is a direct call (its
@@ -532,29 +532,25 @@ Value Simplifier::substitute(Instruction& inst)
 			v = equal_[v.index];
 		edited_ = edited_ || !(was == v);
 	}
-	return call_address;
 }
 
-void Simplifier::substitute_in_block(BlockId block, InstId& prev, InstId id)
+void Simplifier::materialize_callees()
 {
-	const Value address = substitute(body_.instructions[id]);
-	if (!address.is_literal())
-		return;
-	// The fold may already have unlinked the old definition. LowIR needs
-	// an indirect call target in a temporary even when its address is known.
-	const Type pointer = body_.temps[body_.instructions[id].ops[0].index].type;
-	Instruction constant = make_instruction(Opcode::Const, pointer);
-	constant.ops[0] = address;
-	constant.location = body_.instructions[id].location;
-	const InstId definition = append_instruction(body_, constant);
-	const TempId target = append_temp(body_, pointer, definition);
-	body_.instructions[definition].result = target;
-	insert_after(body_, block, prev, definition);
-	prev = definition;
-	body_.instructions[id].ops[0] = Value::temp(target);
-	grow_facts();
-	uses_[target] = 1;
-	edited_ = true;
+	// A literal replacement may already have unlinked the old definition.
+	// Finish the rare indirect calls together. Their targets must be temps.
+	for (BlockId block : body_.layout)
+		for (InstId id = body_.blocks[block].first, prev = kNoId; id != kNoId;
+			prev = id, id = body_.instructions[id].next)
+		{
+			const Instruction& call = body_.instructions[id];
+			if (call.op != Opcode::Call || !call.ops[0].is(ValueKind::Temp))
+				continue;
+			const Value address = resolve(call.ops[0]);
+			if (!address.is_literal())
+				continue;
+			materialize_call_target(body_, block, prev, id, address);
+			changed_ = true;
+		}
 }
 
 bool Simplifier::fold(const Instruction& inst, Value& out)
@@ -3035,16 +3031,15 @@ void Simplifier::process_block(BlockId block)
 	InstId prev = kNoId;
 	for (InstId id = body_.blocks[block].first; id != kNoId;)
 	{
-		const Instruction& before = body_.instructions[id];
-		const InstId next = before.next;
-		if (before.op == Opcode::Phi && !repl_[before.result].is(ValueKind::None))
+		Instruction& inst = body_.instructions[id];
+		const InstId next = inst.next;
+		if (inst.op == Opcode::Phi && !repl_[inst.result].is(ValueKind::None))
 		{
 			readers_.unlink(body_, block, prev, id);
 			id = next;
 			continue;
 		}
-		substitute_in_block(block, prev, id);
-		Instruction& inst = body_.instructions[id];
+		substitute(inst);
 		if (packed_load_candidate(inst) && simplify_packed_load(body_, uses_, c_.block_of, block, prev, id))
 		{
 			grow_facts();
@@ -3265,12 +3260,12 @@ void Simplifier::finish(bool full)
 	for (BlockId b : body_.layout)
 	{
 		const bool walked = !full && b < walked_.size() && walked_[b];
-		for (InstId i = body_.blocks[b].first, prev = kNoId; i != kNoId; prev = i, i = body_.instructions[i].next)
+		for (InstId i = body_.blocks[b].first; i != kNoId; i = body_.instructions[i].next)
 		{
 			if (walked && body_.instructions[i].op != Opcode::Phi)
 				break;
 			if (any || body_.instructions[i].op == Opcode::Call)
-				substitute_in_block(b, prev, i);
+				substitute(body_.instructions[i]);
 		}
 	}
 }
@@ -3359,6 +3354,8 @@ bool Simplifier::run()
 		changed_ = true;
 		finish(true);
 	}
+	if (has_literal_callees_)
+		materialize_callees();
 	return changed_;
 }
 

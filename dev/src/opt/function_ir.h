@@ -449,6 +449,8 @@ uint32_t append_operands(lowir::FunctionBody& body, const lowir::Value* values, 
 // Inserts `inst` (linked nowhere) after `after` in `block` (at the start
 // when `after` is kNoId).
 void insert_after(lowir::FunctionBody& body, lowir::BlockId block, lowir::InstId after, lowir::InstId inst);
+void materialize_call_target(
+	lowir::FunctionBody& body, lowir::BlockId block, lowir::InstId previous, lowir::InstId call, lowir::Value address);
 // Unlinks `inst` from `block`, given its predecessor in the list.
 void unlink_after(lowir::FunctionBody& body, lowir::BlockId block, lowir::InstId prev, lowir::InstId inst);
 // The instruction before `inst` in its block (linear in the block).
