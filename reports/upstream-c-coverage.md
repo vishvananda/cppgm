@@ -290,23 +290,53 @@ Darwin architectures emitted Mach-O objects. The x86-64 object has neither
 a startup initializer nor a C++ guard. The [compound literal fixture](../pa38/tests/general/500-compound-literals.t)
 now emits its scalar copy as static data as well.
 
-## C11 alignment baseline
+## C11 alignment and assertions
 
-GCC 15 and Clang 21 accept `_Alignas(16) extern char object;` and the
-equivalent spelling with `extern` first. cppgm accepts the first spelling
-and treats the second as an alignment on a type. The same problem occurs
-when `_Alignas` follows `static`, a type qualifier, or a type specifier.
-This reproduces the pinned `c11-align-1.c` failure at its second declaration
-of `c`. Both controls also diagnose an alignment specifier on a function
-parameter, which cppgm currently accepts.
+The pinned GCC C17 manifest passes all ten cases. cppgm now accepts C
+alignment specifiers interleaved with storage, type, and qualifier
+specifiers, and checks the contexts that forbid them. The PA38 layout
+case verifies the strongest nonzero request, the address of static and
+automatic objects, and the offsets of named and anonymous members. The
+type operand uses the element alignment of a VLA without running its
+bound. A standalone tag with `_Alignas(0)` remains valid. GCC diagnoses
+an invalid alignment value there, while Clang discards the unused specifier.
 
-Retain controls for a valid zero request, a weaker-than-natural request,
-and multiple requests whose strongest alignment satisfies the object type.
-Test the layout and address of the declared object and the natural alignment
-of its type independently. Under `-pedantic-errors`, both controls accept a
-standalone tag with `_Alignas(0)`. GCC diagnoses an invalid alignment value
-in that position, while Clang discards the unused specifier.
-[GCC C17 manifest](upstream-gcc-c17.json)
+The C11 alignment case runs on Linux x86-64, AArch64 under QEMU, and
+Wasm. The freestanding copy used for cross-checking emitted objects
+that LLVM inspected and linked for both Darwin architectures at `-O0`
+and `-O2`. The prior Intel Mach-O failure came from a segment base
+that allowed file padding to exceed the virtual segment extent. The
+existing PA26 host check exercises a 128-byte-aligned data symbol.
+
+The second repaired GCC test puts a static assertion in a `for`
+initializer. Both native controls accept it. PA38 checks a true
+assertion and the diagnostic for a false one.
+
+Alignment agreement across declarations and definitions still needs a
+policy and tests. GCC accepts conflicting spellings that Clang diagnoses,
+including comparisons between a tentative and an explicit definition.
+WG14 issue 1044 tracks ambiguity over what constitutes equivalent
+alignment. Target-specific limits for extended alignment also need
+qualification.
+
+[GCC C17 manifest](upstream-gcc-c17.json) ·
+[PA38 layout case](../pa38/tests/general/500-c11-alignment.t) ·
+[PA38 assertion case](../pa38/tests/general/500-c11-for-static-assert.t) ·
+[PA26 Mach-O host check](../pa26/tests/macho/100-handler-rejoin.cpp) ·
+[WG14 C23 issue log](https://open-std.org/jtc1/sc22/wg14/www/docs/n3977.htm)
+
+## C loop declaration baseline
+
+GCC 15 and Clang 21 both reject a static, external, or thread-local
+object, a typedef, a function declaration, or a standalone tag in a C17
+`for` initializer. cppgm still accepts all six. All three accept an
+automatic or register object, a static assertion, and an object whose type
+is an anonymous record defined in place. GCC diagnoses a named tag
+definition or an enumerator accompanying the object, while Clang accepts
+those forms. Apply the common cases in the ordinary declaration analysis
+using the storage, entity kind, and scope already determined there.
+
+[C11 draft, N1570 §6.8.5](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
 
 ## Cross-target smoke results
 
