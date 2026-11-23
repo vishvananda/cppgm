@@ -327,11 +327,11 @@ jobs:
         run: |
           set -euo pipefail
           case "$SUITE" in
-            gcc) upstream_c=gcc-15 ;;
-            clang) upstream_c=clang-21 ;;
+            gcc) upstream_c=gcc-15; editions=(90 95 99 11 17) ;;
+            clang) upstream_c=clang-21; editions=(90 99 11 17) ;;
           esac
           failed=0
-          for edition in 99 11 17; do
+          for edition in "${editions[@]}"; do
             python3 scripts/run_cxx11_ci_suite.py \
               --manifest "reports/upstream-$SUITE-c$edition.json" \
               --source-root upstream-sources --candidate dev/cppgm \

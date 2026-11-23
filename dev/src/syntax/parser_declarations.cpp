@@ -1010,14 +1010,17 @@ Decl* Parser::parse_simple_or_function(DeclContext context)
 	const bool type_only = context == DeclContext::Namespace || context == DeclContext::Class;
 	if (!parse_decl_specifier_seq(list, info, false, type_only))
 		return nullptr;
-	if (list.size() == 0)
+	const bool omitted_specifiers = list.size() == 0;
+	if (omitted_specifiers && !(c_before_c99_ && context == DeclContext::Namespace))
 	{
 		fail();
 		return nullptr;
 	}
+	if (c_before_c99_ && !info.has_type)
+		add_default_c_int(list, info, start);
 	Slice<DeclSpecifier> specifiers = list.take(arena_);
 	pending_template_ = is_template && !info.defines_type;
-	Decl* decl = finish_simple_declaration(context, specifiers, info, start);
+	Decl* decl = finish_simple_declaration(context, specifiers, info, start, omitted_specifiers);
 	pending_template_ = false;
 	return decl;
 }
@@ -1052,9 +1055,14 @@ void Parser::declare_declarator(const Declarator* declarator, const SpecifierInf
 	scopes_.declare(declaration_scope(), name->last().identifier, binding);
 }
 
-Decl* Parser::finish_simple_declaration(
-	DeclContext context, Slice<DeclSpecifier> specifiers, const SpecifierInfo& info, uint32_t start)
+Decl* Parser::finish_simple_declaration(DeclContext context, Slice<DeclSpecifier> specifiers, const SpecifierInfo& info,
+	uint32_t start, bool omitted_specifiers)
 {
+	if (omitted_specifiers && at(TokenKind::OP_SEMICOLON))
+	{
+		fail();
+		return nullptr;
+	}
 	if (info.c_auto_type &&
 		(info.has_typedef || (context != DeclContext::Namespace && context != DeclContext::Block) ||
 			at(TokenKind::OP_SEMICOLON)))
@@ -1184,6 +1192,8 @@ Decl* Parser::finish_simple_declaration(
 		scopes_.set_current(saved);
 		return parsed ? function : nullptr;
 	}
+	if (omitted_specifiers)
+		require_gnu_c_extension(start, "a declaration without specifiers requires a function definition in ISO C90");
 	current.declarator = declarator;
 	ListFrame<InitDeclarator> declarators(init_declarators_);
 	for (;;)

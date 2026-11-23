@@ -188,6 +188,6 @@ inline bool IsAlternativeSpelling(const char* spelling, uint32_t length)
 bool FindSimpleToken(const char* spelling, uint32_t length, TokenKind& kind);
 
 // `=` and the compound assignment operators (5.17).
-bool FindCKeyword(const char* spelling, uint32_t length, TokenKind& kind);
+bool FindCKeyword(const char* spelling, uint32_t length, bool inline_keyword, bool restrict_keyword, TokenKind& kind);
 
 bool IsAssignmentOperator(TokenKind kind);

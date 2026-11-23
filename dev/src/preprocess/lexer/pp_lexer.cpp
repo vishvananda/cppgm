@@ -10,10 +10,11 @@ PPLexer::PPLexer(const SourceBuffer& source, const PPLexerOptions& options)
 	  cur_(reader_.logical(source.begin_offset())), token_(), token_begin_(0), clean_end_(0), token_end_(0),
 	  base_(options.location_base), dirty_(false), header_names_on_request_(options.header_names_on_request),
 	  c_source_(options.c_source), unicode_literal_prefixes_(options.unicode_literal_prefixes),
-	  c99_identifiers_(options.c99_identifiers), binary_exponents_(options.binary_exponents),
-	  digit_separators_(options.digit_separators), utf8_character_literals_(options.cxx_edition >= 17),
-	  cxx20_(options.cxx_edition >= 20), legacy_comment_bytes_(options.legacy_comment_bytes),
-	  lone_quotes_(options.lone_quotes), gnu_escapes_(options.gnu_escapes), keyword_macros_(options.keyword_macros),
+	  c99_identifiers_(options.c99_identifiers), line_comments_(options.line_comments), digraphs_(options.digraphs),
+	  binary_exponents_(options.binary_exponents), digit_separators_(options.digit_separators),
+	  utf8_character_literals_(options.cxx_edition >= 17), cxx20_(options.cxx_edition >= 20),
+	  legacy_comment_bytes_(options.legacy_comment_bytes), lone_quotes_(options.lone_quotes),
+	  gnu_escapes_(options.gnu_escapes), keyword_macros_(options.keyword_macros),
 	  conditional_escapes_(options.conditional_escapes), dollar_identifiers_(options.dollar_identifiers),
 	  context_(options.header_names_on_request ? DirectiveContext::Other : DirectiveContext::LineStart)
 {}
@@ -226,7 +227,7 @@ bool PPLexer::skip_whitespace_sequence()
 		if (cur_.code_point != '/')
 			return token_end_ != token_begin_;
 		const SourceChar second = peek_after(cur_);
-		if (second.code_point == '/')
+		if (second.code_point == '/' && line_comments_)
 		{
 			skip_comment(second);
 			while (cur_.code_point != '\n' && cur_.code_point != kEndOfSource)
@@ -260,7 +261,7 @@ uint32_t PPLexer::plain_line_end(uint32_t at) const
 			return at;
 		if (text[at] != '/' || text[at + 1] == '*')
 			return kNoOffset;
-		if (text[at + 1] != '/')
+		if (text[at + 1] != '/' || !line_comments_)
 		{
 			++at;
 			continue;

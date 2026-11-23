@@ -12,6 +12,8 @@ enum class SourceLanguage : uint8_t
 
 enum class CEdition : uint8_t
 {
+	C90,
+	C95,
 	C99,
 	C11,
 	C17,

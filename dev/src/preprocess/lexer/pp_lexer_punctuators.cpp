@@ -16,7 +16,7 @@ struct PunctuatorSpelling
 // [lex.operators] 2.13 preprocessing-op-or-punc spellings made of
 // punctuation, grouped by first character and ordered longest first so the
 // first match is the longest one. Lists end with a null spelling.
-const PunctuatorSpelling* PunctuatorCandidates(int32_t first, bool cxx20)
+const PunctuatorSpelling* PunctuatorCandidates(int32_t first, bool cxx20, bool digraphs)
 {
 	static const PunctuatorSpelling kLeftBrace[] = { CPPGM_PUNCTUATOR("{", OP_LBRACE), { nullptr, 0 } };
 	static const PunctuatorSpelling kRightBrace[] = { CPPGM_PUNCTUATOR("}", OP_RBRACE), { nullptr, 0 } };
@@ -32,6 +32,7 @@ const PunctuatorSpelling* PunctuatorCandidates(int32_t first, bool cxx20)
 		{ nullptr, 0 } };
 	static const PunctuatorSpelling kColon[] = { CPPGM_PUNCTUATOR("::", OP_COLON2), CPPGM_PUNCTUATOR(":>", OP_RSQUARE),
 		CPPGM_PUNCTUATOR(":", OP_COLON), { nullptr, 0 } };
+	static const PunctuatorSpelling kC90Colon[] = { CPPGM_PUNCTUATOR(":", OP_COLON), { nullptr, 0 } };
 	static const PunctuatorSpelling kDot[] = { CPPGM_PUNCTUATOR("...", OP_DOTS), CPPGM_PUNCTUATOR(".*", OP_DOTSTAR),
 		CPPGM_PUNCTUATOR(".", OP_DOT), { nullptr, 0 } };
 	static const PunctuatorSpelling kPlus[] = { CPPGM_PUNCTUATOR("++", OP_INC), CPPGM_PUNCTUATOR("+=", OP_PLUSASS),
@@ -45,6 +46,8 @@ const PunctuatorSpelling* PunctuatorCandidates(int32_t first, bool cxx20)
 		{ nullptr, 0 } };
 	static const PunctuatorSpelling kPercent[] = { { "%:%:", kHashHashPunctuator }, CPPGM_PUNCTUATOR("%=", OP_MODASS),
 		CPPGM_PUNCTUATOR("%>", OP_RBRACE), { "%:", kHashPunctuator }, CPPGM_PUNCTUATOR("%", OP_MOD), { nullptr, 0 } };
+	static const PunctuatorSpelling kC90Percent[] = { CPPGM_PUNCTUATOR("%=", OP_MODASS), CPPGM_PUNCTUATOR("%", OP_MOD),
+		{ nullptr, 0 } };
 	static const PunctuatorSpelling kCaret[] = { CPPGM_PUNCTUATOR("^=", OP_XORASS), CPPGM_PUNCTUATOR("^", OP_XOR),
 		{ nullptr, 0 } };
 	static const PunctuatorSpelling kAmpersand[] = { CPPGM_PUNCTUATOR("&&", OP_LAND),
@@ -58,6 +61,9 @@ const PunctuatorSpelling* PunctuatorCandidates(int32_t first, bool cxx20)
 	static const PunctuatorSpelling kLess[] = { CPPGM_PUNCTUATOR("<<=", OP_LSHIFTASS),
 		CPPGM_PUNCTUATOR("<<", OP_LSHIFT), CPPGM_PUNCTUATOR("<=", OP_LE), CPPGM_PUNCTUATOR("<%", OP_LBRACE),
 		CPPGM_PUNCTUATOR("<:", OP_LSQUARE), CPPGM_PUNCTUATOR("<", OP_LT), { nullptr, 0 } };
+	static const PunctuatorSpelling kC90Less[] = { CPPGM_PUNCTUATOR("<<=", OP_LSHIFTASS),
+		CPPGM_PUNCTUATOR("<<", OP_LSHIFT), CPPGM_PUNCTUATOR("<=", OP_LE), CPPGM_PUNCTUATOR("<", OP_LT),
+		{ nullptr, 0 } };
 	static const PunctuatorSpelling kLess20[] = { CPPGM_PUNCTUATOR("<=>", OP_SPACESHIP),
 		CPPGM_PUNCTUATOR("<<=", OP_LSHIFTASS), CPPGM_PUNCTUATOR("<<", OP_LSHIFT), CPPGM_PUNCTUATOR("<=", OP_LE),
 		CPPGM_PUNCTUATOR("<%", OP_LBRACE), CPPGM_PUNCTUATOR("<:", OP_LSQUARE), CPPGM_PUNCTUATOR("<", OP_LT),
@@ -91,7 +97,7 @@ const PunctuatorSpelling* PunctuatorCandidates(int32_t first, bool cxx20)
 	case '#':
 		return kHash;
 	case ':':
-		return kColon;
+		return digraphs ? kColon : kC90Colon;
 	case '.':
 		return kDot;
 	case '+':
@@ -103,7 +109,7 @@ const PunctuatorSpelling* PunctuatorCandidates(int32_t first, bool cxx20)
 	case '/':
 		return kSlash;
 	case '%':
-		return kPercent;
+		return digraphs ? kPercent : kC90Percent;
 	case '^':
 		return kCaret;
 	case '&':
@@ -115,7 +121,9 @@ const PunctuatorSpelling* PunctuatorCandidates(int32_t first, bool cxx20)
 	case '=':
 		return kEquals;
 	case '<':
-		return cxx20 ? kLess20 : kLess;
+		if (cxx20)
+			return kLess20;
+		return digraphs ? kLess : kC90Less;
 	case '>':
 		return kGreater;
 	default:
@@ -281,7 +289,7 @@ unsigned PlainPunctuator(const PlainBytes& bytes, const PunctuatorSpelling*& can
 
 uint8_t PPLexer::try_lex_punctuator()
 {
-	const PunctuatorSpelling* candidates = PunctuatorCandidates(cur_.code_point, cxx20_);
+	const PunctuatorSpelling* candidates = PunctuatorCandidates(cur_.code_point, cxx20_, digraphs_);
 	if (candidates == nullptr)
 		return kNoPunctuator;
 

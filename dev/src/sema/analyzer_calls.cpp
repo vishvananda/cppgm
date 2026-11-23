@@ -274,6 +274,8 @@ ExprFacts* Analyzer::call_form(const syntax::CallExpr& expr, Scope* scope, ExprF
 											: unqualified(scope, name, LookupFilter::Ordinary);
 		if (failed())
 			return nullptr;
+		if (!result.found() && c_before_c99_ && unqualified_name)
+			result.binding = implicit_c_function(*named->name, scope);
 		// A builtin function of an intrinsic or query form (lex/gnu_builtins.h;
 		// lookup declares one when first named, as `::__builtin_x` too).
 		if (result.found() && result.binding->kind == BindingKind::Function)

@@ -2,6 +2,20 @@
 
 namespace sema {
 
+Binding* Analyzer::implicit_c_function(const syntax::Name& name, Scope* scope)
+{
+	// A C90 call to an undeclared identifier declares extern int name()
+	// in its block. The normal C linkage index connects later declarations.
+	Specifiers specifiers = {};
+	specifiers.type = types_.fundamental(FundamentalType::Int);
+	specifiers.is_extern = true;
+	DeclaratorInfo info = {};
+	info.name = &name;
+	info.location = name.location;
+	info.type = types_.c_unprototyped(types_.function(specifiers.type, nullptr, 0, false, 0, RefQualifier::None));
+	return declare_function(specifiers, info, scope, false, name.location);
+}
+
 void Analyzer::check_main(const Specifiers& specifiers, const Type* type, bool definition, uint32_t location)
 {
 	// C++11 3.6.1p3 and the supported hosted C entry point.

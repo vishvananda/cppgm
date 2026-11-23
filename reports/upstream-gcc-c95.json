@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "suite": "gcc",
+  "language": "c",
+  "edition": 95,
+  "revision": "5115c7e447fc07457443df874bf57840e8316d5f",
+  "coverage": "Reviewed gcc C95 language configurations on Linux x86-64.",
+  "limitations": [
+    "Checks the listed acceptance, rejection, or execution outcomes.",
+    "Compiler-specific intermediate forms and diagnostic wording are ungraded."
+  ],
+  "exclusions": [],
+  "cases": [
+    {
+      "id": "c94-digraph-1",
+      "path": "gcc/testsuite/gcc.dg/c94-digraph-1.c",
+      "sha256": "8cae5a3fa472aa86c837ae72ea352d5ba11594629e13fb660099ba96cbbc8f1e",
+      "dialect": "iso9899:199409",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "The C95 digraph for token pasting combines macro arguments while stringization retains the original spelling"
+    },
+    {
+      "id": "c94-version-1",
+      "path": "gcc/testsuite/gcc.dg/c94-version-1.c",
+      "sha256": "184abc9fcb088051b2d7b21ef54c28b64ec48b46ae9dad9218bfc19a771a4999",
+      "dialect": "iso9899:199409",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "The C95 amendment predefines __STDC_VERSION__ as 199409L"
+    }
+  ]
+}

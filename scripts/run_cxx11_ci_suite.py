@@ -50,7 +50,7 @@ def validate_manifest(manifest, root):
     if language == 'c':
         dialects = {f'c{edition}', f'gnu{edition}'}
         if edition == 90:
-            dialects.update({'c89', 'gnu89'})
+            dialects.update({'c89', 'gnu89', 'iso9899:1990'})
         elif edition == 95:
             dialects = {'iso9899:199409'}
     else:

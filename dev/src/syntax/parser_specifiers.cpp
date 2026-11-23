@@ -113,6 +113,12 @@ DeclSpecifier KeywordSpecifier(TokenKind kind, uint32_t location)
 
 } // namespace
 
+void Parser::add_default_c_int(ListFrame<DeclSpecifier>& list, SpecifierInfo& info, uint32_t location)
+{
+	list.push(KeywordSpecifier(TokenKind::KW_INT, location));
+	info.has_type = true;
+}
+
 bool Parser::parse_decl_specifier_seq(
 	ListFrame<DeclSpecifier>& list, SpecifierInfo& info, bool definite, bool type_only, CAlignment alignment)
 {

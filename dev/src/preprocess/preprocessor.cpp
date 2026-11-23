@@ -52,6 +52,10 @@ const char* CVersionMacro(CEdition edition)
 {
 	switch (edition)
 	{
+	case CEdition::C90:
+		return nullptr;
+	case CEdition::C95:
+		return "199409L";
 	case CEdition::C99:
 		return "199901L";
 	case CEdition::C11:
@@ -71,7 +75,13 @@ std::string PredefinedText(const PreprocessorOptions& options, const FeatureMode
 		text += "#define __ASSEMBLER__ 1\n";
 	if (options.language == SourceLanguage::C)
 	{
-		text += std::string("#define __STDC__ 1\n#define __STDC_VERSION__ ") + CVersionMacro(options.c_edition) + "\n";
+		text += "#define __STDC__ 1\n";
+		if (const char* version = CVersionMacro(options.c_edition))
+		{
+			text += "#define __STDC_VERSION__ ";
+			text += version;
+			text += '\n';
+		}
 		if (options.c_edition >= CEdition::C11)
 			text += "#define __STDC_NO_VLA__ 1\n";
 	}
@@ -169,8 +179,8 @@ static SourceTranslation TranslationOptions(const PreprocessorOptions& options)
 }
 
 Preprocessor::Preprocessor(const PreprocessorOptions& options, const std::string& path, std::istream* input)
-	: identifiers_(arena_, options.language, options.cxx_edition >= 20), names_(identifiers_),
-	  files_(TranslationOptions(options)), source_(files_, identifiers_, arena_, names_, *this),
+	: identifiers_(arena_, options.language, options.cxx_edition >= 20, options.c_edition, options.gnu_c()),
+	  names_(identifiers_), files_(TranslationOptions(options)), source_(files_, identifiers_, arena_, names_, *this),
 	  expander_(arena_, identifiers_, names_, *this, macro_state_), directive_expander_(&expander_),
 	  macro_query_(identifiers_), evaluator_(macro_query_, options.literals, options.plain_char_unsigned),
 	  definition_parser_(arena_, names_.va_args, options.hosted), predefined_(nullptr), command_line_begin_(0),
@@ -204,6 +214,11 @@ Preprocessor::Preprocessor(const PreprocessorOptions& options, const std::string
 	const bool c99_identifiers = options.language == SourceLanguage::C && options.c_edition == CEdition::C99;
 	source_.set_c99_identifiers(c99_identifiers);
 	expander_.set_c99_identifiers(c99_identifiers);
+	const bool iso_c = options.language == SourceLanguage::C && options.strict;
+	source_.set_line_comments(!iso_c || options.c_edition >= CEdition::C99);
+	const bool digraphs = !iso_c || options.c_edition >= CEdition::C95;
+	source_.set_digraphs(digraphs);
+	expander_.set_digraphs(digraphs);
 	evaluator_.set_conditional_escapes(options.gnu_c());
 	evaluator_.set_cxx_edition(options.cxx_edition);
 	const bool separators = HasNumberSyntax(options.literals, number_syntax::Separators);

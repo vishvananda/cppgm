@@ -232,22 +232,40 @@ deprecation diagnostics so they could check the language boundary.
 
 | Rule | Reference outcomes | Current cppgm evidence |
 | --- | --- | --- |
-| `c90.version` | The C90 aliases compile a plain C function and leave `__STDC_VERSION__` undefined. | C90 driver support is open. |
-| `c95.version` | `iso9899:199409` defines `__STDC_VERSION__` as `199409L`. | C95 driver support is open. |
-| `c90.implicit-int` | A definition with omitted return type is accepted in C90 and C95. C99 diagnoses the missing type. | The C99 probe is rejected. |
-| `c90.implicit-call` | Calling a function before its declaration is accepted in C90 and C95. C99 diagnoses the missing declaration. | The C99 probe is rejected. |
-| `c90.block-declarations` | A declaration following a statement is diagnosed in pedantic C90 and C95. The input is valid in C99. | The C99 probe compiles. |
-| `c90.line-comment` | A `//` comment after a function definition is diagnosed in pedantic C90 and C95 and accepted in C99. | The C99 probe compiles. |
-| `c95.digraphs` | A body delimited by `<%` and `%>` is accepted in C95 and diagnosed in pedantic C90. | The C99 digraph control compiles. |
-| `c95.wide-headers` | `<iso646.h>`, `<wchar.h>`, and `<wctype.h>` compose in C95. A linked program in the C locale classifies `L'a'` and `L'0'` correctly. | C99 and C17 objects passed with the host C linker and glibc. The C95 SDK pairing remains open. |
+| `c90.version` | The C90 aliases compile a plain C function and leave `__STDC_VERSION__` undefined. | `c90`, `c89`, `iso9899:1990`, `gnu89`, and `gnu90` passed. |
+| `c95.version` | `iso9899:199409` defines `__STDC_VERSION__` as `199409L`. | The PA38 and pinned GCC probes passed. |
+| `c90.implicit-int` | A definition with omitted return type is accepted in C90 and C95. C99 diagnoses the missing type. | PA38 covers the definition, a declaration with a storage class, and an identifier-list parameter. It also checks the C99 rejection. |
+| `c90.implicit-call` | Calling a function before its declaration is accepted in C90 and C95. C99 diagnoses the missing declaration. | PA38 checks the C99 rejection and runs a C90 call that passes a promoted integer and double to a later definition. |
+| `c90.block-declarations` | A declaration following a statement is diagnosed in pedantic C90 and C95. The input is valid in C99. | PA38 and pinned GCC cases passed the legacy rejection probes. The C99 control compiles. |
+| `c90.line-comment` | A `//` comment after a function definition is diagnosed in pedantic C90 and C95 and accepted in C99. | PA38 checks ISO C90 rejection, skipped ISO C90 input and GNU89 acceptance. |
+| `c95.digraphs` | A body delimited by `<%` and `%>` is accepted in C95 and diagnosed in pedantic C90. | PA38 checks directive delimiters and token pasting. Pinned GCC cases check stringization in both editions. |
+| `c95.wide-headers` | `<iso646.h>`, `<wchar.h>`, and `<wctype.h>` compose in C95. A linked program in the C locale classifies `L'a'` and `L'0'` correctly. | The Linux x86-64 glibc probe passed with cppgm, GCC 15 and Clang 22 objects linked with the host C driver. |
 | `c23.version` | `-std=c23` compiles a plain C function and defines `202311L`. | C23 driver support is open. |
 | `c23.trigraphs` | Trigraph braces form a valid body through C17. The same source is diagnosed in C23. | The C17 control compiles. |
 | `c23.empty-parameters` | A call with an argument through a declaration with empty parentheses is accepted through C17 and diagnosed in C23. | The C17 control compiles. |
 | `c23.identifier-list` | An identifier-list definition with explicit parameter types compiles through C17 and is diagnosed in C23. | The C17 control compiles. |
 
-Coverage of translation limits, preprocessing and integer changes,
-type and initializer changes, and hosted library obligations is still
-open for these editions.
+The pinned legacy smoke cohorts cover seven GCC C90 configurations, two GCC
+C95 configurations, and two Clang C90 configurations. A broader screening
+of GCC's `c90-*.c` files with directly applicable options found 31 agreement
+cases out of 59 configurations that passed the reference check. The
+remaining differences include later syntax accepted in pedantic C90, C90
+array and constant-expression constraints, and two runtime outcomes. The
+combined legacy translation-limits inputs and full hosted library
+qualification are still open.
+
+On Linux x86-64, the ABBA and BAAB blocks produced byte-identical objects
+for the frozen C++ overload input and GNU17 SQLite. Retired instructions
+changed by less than 0.006% and peak RSS by less than 0.11% on both inputs.
+Task-clock readings were noisy. Generated C90 files with 128 to 1,024
+implicit calls produced byte-identical objects to files using explicit
+block-scope declarations. At each doubling, retired instructions grew
+by less than 1.9 times, both for repeated declarations of one function
+and for distinct names.
+
+[GCC C90 manifest](upstream-gcc-c90.json) ·
+[GCC C95 manifest](upstream-gcc-c95.json) ·
+[Clang C90 manifest](upstream-clang-c90.json) ·
 [WG14 C amendment summary](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2310.pdf) ·
 [WG14 N3220](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
 [GCC edition options](https://gcc.gnu.org/onlinedocs/gcc/Standards.html)

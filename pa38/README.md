@@ -36,6 +36,22 @@ are separate choices. `-x c++` continues to select C++; a language and standard
 that disagree must be diagnosed. The existing `.c` handling is unchanged unless
 C is selected explicitly.
 
+Use `-std=c90`, `-std=c89`, or `-std=iso9899:1990` for ISO C90. These
+modes leave `__STDC_VERSION__` undefined. The C95 amendment mode,
+`-std=iso9899:199409`, defines it as `199409L` and recognizes digraphs in
+source and after token pasting. In both ISO modes, `inline` and `restrict`
+are ordinary identifiers and `//` does not start a comment.
+`-std=gnu89` and `-std=gnu90` select C90 with GNU extensions, including
+`inline`, line comments, and digraphs.
+
+In the legacy editions, where a declaration permits an omitted type, use
+`int`. This includes an old-style parameter without a declaration. A direct
+call to an undeclared identifier introduces a block-scope `extern int`
+function declaration without a prototype. Apply default argument promotions
+at that call and check later declarations for compatibility. With
+`-pedantic-errors`, reject declarations after statements and declarations
+in a `for` initializer in C90 and C95.
+
 `-ffreestanding` and `-fhosted` select the C execution environment. Bare
 Wasm defaults to freestanding and requires WASI for hosted C. Native
 targets and WASI default to hosted. The last environment flag wins.
@@ -111,7 +127,7 @@ operands before forming the computed name. After the name, allow
 macros that expand to nothing before the closing parenthesis.
 Diagnose an empty header name or unexpected tokens after the name.
 
-ISO C99, C11, and C17 enable trigraphs. GNU modes leave the three
+The ISO C modes above enable trigraphs. GNU modes leave the three
 characters as written unless `-trigraphs` is supplied. A backslash
 separated from a line ending by spaces, tabs, vertical tabs, or form
 feeds also continues the line as an extension. Report this with a

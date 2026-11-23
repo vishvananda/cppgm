@@ -20,9 +20,14 @@ void Parser::require_cxx_extension(
 
 void Parser::require_c_extension(const ParseToken& token, CEdition edition, const char* message)
 {
-	if ((token.flags & kQuietSystemToken) == 0 && source_positions_ != nullptr &&
-		!source_positions_->allow_c_extension(token.location, edition, message))
-		throw ParseError(token.location, message);
+	if ((token.flags & kQuietSystemToken) == 0)
+		require_c_extension(token.location, edition, message);
+}
+
+void Parser::require_c_extension(uint32_t location, CEdition edition, const char* message)
+{
+	if (source_positions_ != nullptr && !source_positions_->allow_c_extension(location, edition, message))
+		throw ParseError(location, message);
 }
 
 void Parser::require_gnu_c_extension(uint32_t location, const char* message)

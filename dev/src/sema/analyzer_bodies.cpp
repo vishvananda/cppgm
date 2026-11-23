@@ -1293,7 +1293,7 @@ void Analyzer::initializer_names(const syntax::Initializer* initializer, Scope* 
 }
 
 const Binding* Analyzer::check_id_expression(
-	const syntax::Name& name, Scope* scope, bool allow_undeclared, bool allow_type)
+	const syntax::Name& name, Scope* scope, bool allow_undeclared, bool allow_type, bool implicit_c_call)
 {
 	// Names in expressions must be declared (3.4.1); an unqualified callee
 	// may still be found by argument-dependent lookup (3.4.2), which needs
@@ -1316,6 +1316,8 @@ const Binding* Analyzer::check_id_expression(
 			error(name.location, "ambiguous name");
 		if (!result.found())
 		{
+			if (implicit_c_call)
+				return implicit_c_function(name, scope);
 			if (!allow_undeclared)
 				error(name.location, "undeclared name");
 			return nullptr;
@@ -1370,7 +1372,7 @@ void Analyzer::call_names(const syntax::CallExpr& call, Scope* scope, bool uneva
 	if (deferring_reserved_ != 0 && DeferredBuiltinName(name) &&
 		!unqualified(scope, name.last().identifier, LookupFilter::Ordinary).found())
 		return;
-	const Binding* callee = check_id_expression(name, scope, !call.arguments.empty(), true);
+	const Binding* callee = check_id_expression(name, scope, !call.arguments.empty(), true, c_before_c99_);
 	// The lookup itself is unevaluated, but a named callable object is an
 	// evaluated use in a call. Generic-lambda capture discovery must retain
 	// it just as it retains names used as other expression operands.

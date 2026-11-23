@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "suite": "clang",
+  "language": "c",
+  "edition": 90,
+  "revision": "2078da43e25a4623cab2d0d60decddf709aaea28",
+  "coverage": "Reviewed clang C90 language configurations on Linux x86-64.",
+  "limitations": [
+    "Checks the listed acceptance, rejection, or execution outcomes.",
+    "Compiler-specific intermediate forms and diagnostic wording are ungraded."
+  ],
+  "exclusions": [],
+  "cases": [
+    {
+      "id": "implicit-def",
+      "path": "clang/test/Sema/implicit-def.c",
+      "sha256": "a84a08b5c104c2d33c3cad271275aa1e438587f6b2a9542196465f6d9ce43bb4",
+      "dialect": "c89",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": [],
+      "upstream_flags": [],
+      "obligation": "A C90 direct call to an undeclared function introduces a declaration"
+    },
+    {
+      "id": "dr268",
+      "path": "clang/test/C/drs/dr268.c",
+      "sha256": "7e18cb93d2f9f1c8d70bf609745e12a57cf07efa8fa5952e521d4f5676037c82",
+      "dialect": "c89",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic"
+      ],
+      "upstream_flags": [
+        "-pedantic"
+      ],
+      "obligation": "DR268 permits a goto into a for loop body when it does not cross a variable-length array declaration"
+    }
+  ]
+}

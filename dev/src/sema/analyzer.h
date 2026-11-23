@@ -60,9 +60,10 @@ public:
 	// The two distinguished placeholder types retained in declared signatures.
 	const Type* auto_placeholder() const { return auto_placeholder_; }
 	const Type* decltype_auto_placeholder() const { return decltype_auto_placeholder_; }
-	void set_source_language(SourceLanguage language, bool extensions = false, bool freestanding = false)
+	void set_source_language(SourceLanguage language, CEdition edition, bool extensions, bool freestanding)
 	{
 		c_source_ = language == SourceLanguage::C;
+		c_before_c99_ = c_source_ && edition < CEdition::C99;
 		c_freestanding_ = freestanding;
 		c_language_ = c_source_;
 		conversions_.set_c_source(c_source_, extensions);
@@ -666,7 +667,8 @@ private:
 	bool dependent_object(const syntax::Expr& object, bool arrow, Scope* scope);
 	void new_expression(const syntax::NewExpr& expr, Scope* scope, bool unevaluated);
 	void initializer_names(const syntax::Initializer* initializer, Scope* scope, bool constructs_class);
-	const Binding* check_id_expression(const syntax::Name& name, Scope* scope, bool allow_undeclared, bool allow_type);
+	const Binding* check_id_expression(
+		const syntax::Name& name, Scope* scope, bool allow_undeclared, bool allow_type, bool implicit_c_call = false);
 	void template_argument_names(
 		const syntax::NameComponent& component, Scope* scope, const TemplateHead* head = nullptr);
 	void default_argument_names(FunctionEntity* function, const syntax::ParameterClause* clause, Scope* scope);
@@ -1409,6 +1411,7 @@ private:
 	void check_immediate_construction(const void* key, const Type* type, const syntax::Initializer* initializer,
 		const FunctionEntity* constructor, uint32_t location);
 	ExprFacts* indirect_call(const syntax::CallExpr& expr, ExprFacts* callee);
+	Binding* implicit_c_function(const syntax::Name& name, Scope* scope);
 	ExprFacts* c_unprototyped_call(const syntax::CallExpr& expr, ExprFacts* callee, const Type* function);
 	ExprFacts* resolved_call(const syntax::CallExpr& expr, const FunctionList* functions, ExprFacts* object,
 		bool implicit_this, const ClassEntity* naming, bool operator_object = false,
@@ -2273,6 +2276,7 @@ private:
 	// not braced (its declaration is treated as extern, 7.5p7), and inside
 	// any linkage-specification (an explicit language linkage, 7.5p5).
 	bool c_source_;
+	bool c_before_c99_ = false;
 	bool c_freestanding_ = false;
 	bool c_language_;
 	bool linkage_extern_;

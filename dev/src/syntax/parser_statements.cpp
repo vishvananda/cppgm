@@ -32,6 +32,7 @@ CompoundStmt* Parser::parse_compound_statement(bool new_scope)
 		scopes_.push(ScopeKind::Block, nullptr);
 	ListFrame<Stmt*> items(stmts_);
 	bool parsed = true;
+	bool statements = false;
 	while (!at(TokenKind::OP_RBRACE))
 	{
 		if (tentative_depth_ == 0)
@@ -49,6 +50,13 @@ CompoundStmt* Parser::parse_compound_statement(bool new_scope)
 		{
 			parsed = false;
 			break;
+		}
+		if (c_before_c99_)
+		{
+			if (item->kind != StmtKind::Declaration)
+				statements = true;
+			else if (statements)
+				require_c_extension(item->location, CEdition::C99, "a declaration after a statement requires C99");
 		}
 		items.push(item);
 	}
@@ -1004,6 +1012,8 @@ Stmt* Parser::parse_for()
 		else if (init->kind == StmtKind::Declaration)
 		{
 			Decl* declaration = static_cast<DeclarationStmt*>(init)->declaration;
+			if (c_before_c99_)
+				require_c_extension(declaration->location, CEdition::C99, "a for-loop declaration requires C99");
 			// In C a static assertion is a declaration and declares no
 			// identifier (6.8.5p3). C++ requires a simple-declaration.
 			if (declaration->kind != DeclKind::Simple && declaration->kind != DeclKind::Class &&

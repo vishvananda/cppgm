@@ -50,7 +50,8 @@ struct alignas(8) Identifier
 class IdentifierTable
 {
 public:
-	explicit IdentifierTable(Arena& arena, SourceLanguage language = SourceLanguage::Cxx, bool cxx20 = false);
+	explicit IdentifierTable(Arena& arena, SourceLanguage language = SourceLanguage::Cxx, bool cxx20 = false,
+		CEdition c_edition = CEdition::C17, bool gnu_c = false);
 
 	Identifier* intern(const char* spelling, uint32_t length);
 
@@ -64,6 +65,8 @@ private:
 	Arena& arena_;
 	SourceLanguage language_;
 	bool cxx20_;
+	bool c_inline_;
+	bool c_restrict_;
 	std::vector<Identifier*> slots_;
 	uint32_t count_;
 };

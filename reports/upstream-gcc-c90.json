@@ -1,0 +1,120 @@
+{
+  "schema": 1,
+  "suite": "gcc",
+  "language": "c",
+  "edition": 90,
+  "revision": "5115c7e447fc07457443df874bf57840e8316d5f",
+  "coverage": "Reviewed gcc C90 language configurations on Linux x86-64.",
+  "limitations": [
+    "Checks the listed acceptance, rejection, or execution outcomes.",
+    "Compiler-specific intermediate forms and diagnostic wording are ungraded."
+  ],
+  "exclusions": [],
+  "cases": [
+    {
+      "id": "c90-digraph-1",
+      "path": "gcc/testsuite/gcc.dg/c90-digraph-1.c",
+      "sha256": "b8ebbaadfb705446ef916f1ada4e8baaf7c91d682dc5d32e92c8ed358c4995ee",
+      "dialect": "iso9899:1990",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "C90 stringization preserves spellings that the C95 amendment treats as digraphs"
+    },
+    {
+      "id": "c90-fordecl-1",
+      "path": "gcc/testsuite/gcc.dg/c90-fordecl-1.c",
+      "sha256": "a52a81d1b447bcd688bce1686e2809d45f397a7aa4ff5bb2a934e3ad67cdf5c0",
+      "dialect": "iso9899:1990",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "A declaration cannot initialize a C90 for loop"
+    },
+    {
+      "id": "c90-impl-decl-1",
+      "path": "gcc/testsuite/gcc.dg/c90-impl-decl-1.c",
+      "sha256": "d6c1ebc774d01b7528df40556ff4d65aa2a0605110096eae7ec8531aecb7f3ff",
+      "dialect": "iso9899:1990",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Calling an undeclared function introduces a declaration with external linkage"
+    },
+    {
+      "id": "c90-impl-int-1",
+      "path": "gcc/testsuite/gcc.dg/c90-impl-int-1.c",
+      "sha256": "e8e90291c901c56dde92ffdf9c4b5402482167990e57fd1a5a7b5d55945f3c32",
+      "dialect": "iso9899:1990",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "An extern declaration or function definition can default its type to int"
+    },
+    {
+      "id": "c90-impl-int-2",
+      "path": "gcc/testsuite/gcc.dg/c90-impl-int-2.c",
+      "sha256": "a7c0c58bd91a10c7ca02e125ef18ab0b11473bad0ee0d1d5af92ba7a2c7b221c",
+      "dialect": "iso9899:1990",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "An undeclared parameter in an identifier-list definition defaults to int"
+    },
+    {
+      "id": "c90-mixdecl-1",
+      "path": "gcc/testsuite/gcc.dg/c90-mixdecl-1.c",
+      "sha256": "df00f4a0fa4d25709d937ef8a2c3cde7b29157971ce739bbe88c21bcc2308fe9",
+      "dialect": "iso9899:1990",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Declarations precede statements in a C90 compound statement"
+    },
+    {
+      "id": "c90-restrict-1",
+      "path": "gcc/testsuite/gcc.dg/c90-restrict-1.c",
+      "sha256": "6903861b6ca0ea080fcc7928b41df510cd901b1dc5d9bd5e46d319a477911f38",
+      "dialect": "iso9899:1990",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "The spelling restrict is an ordinary identifier in ISO C90"
+    }
+  ]
+}

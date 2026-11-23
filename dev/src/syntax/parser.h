@@ -31,16 +31,19 @@ public:
 	// The translation unit, or null after a syntax error.
 	TranslationUnit* parse_translation_unit();
 	void set_c_contract_default(bool enabled) { c_contract_by_default_ = enabled; }
+	void set_c_edition(CEdition edition) { c_before_c99_ = edition < CEdition::C99; }
 	void set_source_positions(const SourcePositions& positions) { source_positions_ = &positions; }
 
 private:
 	void require_cxx_extension(
 		uint32_t location, uint8_t edition, const char* message, bool suppressible_in_headers = true);
 	void require_c_extension(const ParseToken& token, CEdition edition, const char* message);
+	void require_c_extension(uint32_t location, CEdition edition, const char* message);
 	void require_gnu_c_extension(uint32_t location, const char* message);
 	bool at_c_extension() { return c_source_ && at_identifier(c_extension_); }
 	CFloatPragmas c_float_pragmas_;
 	bool c_contract_by_default_ = false;
+	bool c_before_c99_ = false;
 	void consume_c_extensions();
 	const SourcePositions* source_positions_ = nullptr;
 	bool in_c_extension_ = false;
@@ -190,8 +193,9 @@ private:
 	bool special_member_ahead(DeclContext context, Name*& name, bool parenthesized = false);
 	Declarator* parse_special_member_declarator(Name* name, Scope*& member_of);
 	Declarator* parse_parenthesized_special_member(DeclContext context, Name*& name, Scope*& member_of);
-	Decl* finish_simple_declaration(
-		DeclContext context, Slice<DeclSpecifier> specifiers, const SpecifierInfo& info, uint32_t start);
+	Decl* finish_simple_declaration(DeclContext context, Slice<DeclSpecifier> specifiers, const SpecifierInfo& info,
+		uint32_t start, bool omitted_specifiers = false);
+	void add_default_c_int(ListFrame<DeclSpecifier>& list, SpecifierInfo& info, uint32_t location);
 	struct DeclarationList
 	{
 		Slice<DeclSpecifier> specifiers;

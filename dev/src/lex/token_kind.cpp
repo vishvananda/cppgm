@@ -305,7 +305,7 @@ bool FindSimpleToken(const char* spelling, uint32_t length, TokenKind& kind)
 	return true;
 }
 
-bool FindCKeyword(const char* spelling, uint32_t length, TokenKind& kind)
+bool FindCKeyword(const char* spelling, uint32_t length, bool inline_keyword, bool restrict_keyword, TokenKind& kind)
 {
 	if (FindSimpleToken(spelling, length, kind))
 	{
@@ -314,6 +314,8 @@ bool FindCKeyword(const char* spelling, uint32_t length, TokenKind& kind)
 		case TokenKind::KW_AUTO:
 			kind = TokenKind::KW_REGISTER;
 			return true;
+		case TokenKind::KW_INLINE:
+			return inline_keyword;
 		case TokenKind::KW_BREAK:
 		case TokenKind::KW_CASE:
 		case TokenKind::KW_CHAR:
@@ -329,7 +331,6 @@ bool FindCKeyword(const char* spelling, uint32_t length, TokenKind& kind)
 		case TokenKind::KW_FOR:
 		case TokenKind::KW_GOTO:
 		case TokenKind::KW_IF:
-		case TokenKind::KW_INLINE:
 		case TokenKind::KW_INT:
 		case TokenKind::KW_LONG:
 		case TokenKind::KW_REGISTER:
@@ -351,7 +352,7 @@ bool FindCKeyword(const char* spelling, uint32_t length, TokenKind& kind)
 			break;
 		}
 	}
-	if (length == 8 && spelling[0] == 'r' && std::memcmp(spelling, "restrict", 8) == 0)
+	if (length == 8 && spelling[0] == 'r' && restrict_keyword && std::memcmp(spelling, "restrict", 8) == 0)
 	{
 		kind = TokenKind::KW_RESTRICT;
 		return true;

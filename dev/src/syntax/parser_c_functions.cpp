@@ -36,7 +36,8 @@ bool Parser::parse_c_parameter_declarations(Declarator* declarator)
 	const char* missing_declaration = "a C identifier-list definition requires a declaration for each parameter";
 	if (at(TokenKind::OP_LBRACE))
 	{
-		require_gnu_c_extension(clause->parameters[0]->location, missing_declaration);
+		if (!c_before_c99_)
+			require_gnu_c_extension(clause->parameters[0]->location, missing_declaration);
 		return true;
 	}
 	PointerMap positions;
@@ -89,7 +90,7 @@ bool Parser::parse_c_parameter_declarations(Declarator* declarator)
 	function_scope_ = function;
 	if (!parsed)
 		fail();
-	else
+	else if (!c_before_c99_)
 		for (uint32_t index = 0; index < clause->parameters.size; ++index)
 			if (!declared[index])
 				require_gnu_c_extension(clause->parameters[index]->location, missing_declaration);

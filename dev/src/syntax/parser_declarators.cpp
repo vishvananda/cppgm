@@ -639,6 +639,8 @@ ParameterDeclaration* Parser::parse_parameter_declaration(
 			fail();
 			return nullptr;
 		}
+		if (c_before_c99_ && !info.has_type)
+			add_default_c_int(specifiers, info, parameter->location);
 		parameter->specifiers = specifiers.take(arena_);
 	}
 	Declarator* declarator = nullptr;

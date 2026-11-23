@@ -966,7 +966,8 @@ int run_emit_types_mode(vector<string> args)
 			try
 			{
 				sema::Analyzer analyzer(graph, unit.identifiers());
-				analyzer.set_source_language(options.language, options.gnu_c(), options.c_freestanding);
+				analyzer.set_source_language(
+					options.language, options.c_edition, options.gnu_c(), options.c_freestanding);
 				analyzer.set_atomics_enabled(options.atomics_enabled);
 				analyzer.set_hosted(options.hosted);
 				analyzer.set_cxx_edition(options.cxx_edition, options.diagnose_cxx_extensions());
@@ -1050,7 +1051,8 @@ int run_emit_semantics_mode(vector<string> args)
 			try
 			{
 				sema::Analyzer analyzer(graph, unit.identifiers(), sema::AnalysisMode::Semantics);
-				analyzer.set_source_language(options.language, options.gnu_c(), options.c_freestanding);
+				analyzer.set_source_language(
+					options.language, options.c_edition, options.gnu_c(), options.c_freestanding);
 				analyzer.set_atomics_enabled(options.atomics_enabled);
 				analyzer.set_hosted(options.hosted);
 				analyzer.set_cxx_edition(options.cxx_edition, options.diagnose_cxx_extensions());
@@ -1208,7 +1210,7 @@ int run_emit_lowir_mode(vector<string> args)
 			sema::SemanticGraph graph(options.plain_char_unsigned, options.target);
 			graph.names.reserve(unit.counters().bindings);
 			sema::Analyzer analyzer(graph, unit.identifiers(), sema::AnalysisMode::Semantics);
-			analyzer.set_source_language(options.language, options.gnu_c(), options.c_freestanding);
+			analyzer.set_source_language(options.language, options.c_edition, options.gnu_c(), options.c_freestanding);
 			analyzer.set_atomics_enabled(options.atomics_enabled);
 			analyzer.set_hosted(options.hosted);
 			analyzer.set_cxx_edition(options.cxx_edition, options.diagnose_cxx_extensions());

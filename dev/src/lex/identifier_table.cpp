@@ -42,8 +42,9 @@ uint32_t HashSpelling(const char* spelling, uint32_t length)
 
 } // namespace
 
-IdentifierTable::IdentifierTable(Arena& arena, SourceLanguage language, bool cxx20)
-	: arena_(arena), language_(language), cxx20_(cxx20), slots_(kInitialSlots, nullptr), count_(0)
+IdentifierTable::IdentifierTable(Arena& arena, SourceLanguage language, bool cxx20, CEdition c_edition, bool gnu_c)
+	: arena_(arena), language_(language), cxx20_(cxx20), c_inline_(gnu_c || c_edition >= CEdition::C99),
+	  c_restrict_(c_edition >= CEdition::C99), slots_(kInitialSlots, nullptr), count_(0)
 {}
 
 Identifier* IdentifierTable::intern(const char* spelling, uint32_t length)
@@ -72,7 +73,7 @@ Identifier* IdentifierTable::intern(const char* spelling, uint32_t length)
 	identifier->parameter_slot = 0;
 	identifier->role = 0;
 	TokenKind kind;
-	const bool keyword = language_ == SourceLanguage::C ? FindCKeyword(spelling, length, kind)
+	const bool keyword = language_ == SourceLanguage::C ? FindCKeyword(spelling, length, c_inline_, c_restrict_, kind)
 														: FindSimpleToken(spelling, length, kind);
 	identifier->keyword = keyword && (!IsCxx20Keyword(kind) || cxx20_)
 		? static_cast<uint8_t>(static_cast<uint8_t>(kind) + 1)

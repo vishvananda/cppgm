@@ -19,6 +19,7 @@ SyntaxUnit::SyntaxUnit(const PreprocessorOptions& options, const std::string& pa
 	{
 		preprocessor_.observe_c_float_pragma(&tokens_, ParseTokenStream::note_c_float_pragma);
 		parser_.set_c_contract_default(options.c_contract_by_default);
+		parser_.set_c_edition(options.c_edition);
 	}
 	tokens_.set_prelude(preprocessor_.builtin_begin(), preprocessor_.builtin_end());
 }
