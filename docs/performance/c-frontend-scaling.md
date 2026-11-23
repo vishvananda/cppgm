@@ -2737,3 +2737,22 @@ one ABBA block per size on CPU 71.
 | 256 | 38,614,054 | 38,665,916 | 51,862 |
 | 512 | 73,608,456 | 73,706,366 | 97,910 |
 | 1,024 | 143,665,205 | 143,870,257 | 205,052 |
+
+## Intel Darwin flexible-record ABI
+
+Compared `1e50c1c35` with `e852f29a7` using immutable GCC 15 builds
+on CPU 71. Each frozen input emitted byte-identical objects in every
+A/A, ABBA, and BAAB observation. ABI classification reads the existing
+typed record flag and uses the same eightbyte-class cache.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.00136% | +0.00069% | +0.00082% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.00126% | +0.00096% | −0.00035% |
+| 256 ordinary C99 aggregate boundaries, Mach-O at `-O0` | 0.02866% | +0.01181% | +0.03486% |
+| 512 ordinary C99 aggregate boundaries, Mach-O at `-O0` | 0.03056% | +0.01677% | +0.03679% |
+| 1,024 ordinary C99 aggregate boundaries, Mach-O at `-O0` | 0.01760% | −0.00245% | +0.00795% |
+
+The Mach-O probe declares one distinct fixed-size record per function
+and passes and returns it by value. A/A task-clock spread ranged from
+2% to 15%, so the samples do not resolve a wall-time difference.
