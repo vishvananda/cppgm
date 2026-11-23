@@ -324,9 +324,13 @@ chains independently.
   runtime effects. Include C99 complex-to-real conversions in the fallback
   replay. Measure the direct conversion and type-query paths independently
   of macro expansion.
-  For the Clang resource header used by WASI, qualify C `overloadable` declarations, ranking,
-  and mangling through the existing overload and ABI machinery. Check nested
-  calls with one argument-level increase at a time to catch repeated work.
+  For the Clang resource header used by WASI, retain `overloadable` on
+  function declarations and reuse the existing overload and ABI machinery.
+  Keep ordinary C declaration and call paths direct. Qualify prototype and
+  redeclaration rules, the unmarked overload's C symbol, and Clang-compatible
+  names for marked declarations. Exercise the header's unavailable ellipsis
+  fallback and its unevaluated promotion queries. Check nested calls with
+  one argument-level increase at a time to catch repeated work.
   Compare the same token stream with and without wrapper macros. The current
   measurements isolate superlinear work in argument substitution and rescan.
   Reuse expanded ranges across enclosing replacements while preserving

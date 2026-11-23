@@ -116,6 +116,13 @@ the shared C++ forms, including dependent queries and constant evaluation.
 [PA38 conversions](../pa38/tests/general/500-c-complex-to-real.t) ·
 [PA30 classifier](../pa30/tests/run/800-builtin-classify-type.t)
 
+With the pinned WASI SDK resource directory, Clang compiles and runs the
+C99 math selection probe. cppgm stops with conflicting C function
+declarations on the second `__tg_promote` declaration. The header uses an
+unavailable ellipsis overload for unsupported argument types before the
+arithmetic overload declarations.
+[Clang overloadable declarations](https://clang.llvm.org/docs/AttributeReference.html#overloadable)
+
 [C99 library clauses, §§7.3 and 7.22](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
 [GCC complex literal extension](https://gcc.gnu.org/onlinedocs/gcc/Complex.html) ·
 [GCC type-generic math builtin](https://gcc.gnu.org/onlinedocs/gcc-15.2.0/gcc/Other-Builtins.html)
@@ -203,10 +210,10 @@ objects in both caller and callee directions for C99, C11 and C17 at both
 optimization levels. It runs on Linux x86-64, AArch64 under QEMU, and bare
 Wasm under Wasmtime, and cross-links for both Darwin architectures.
 
-Preprocessing reports `__STDC_HOSTED__` as zero on bare Wasm and
-one on WASI and the native targets. On this branch an explicit
-`-ffreestanding` request is rejected, so native freestanding mode still
-needs driver work. These checks leave `__STDC_NO_VLA__` as currently defined.
+Preprocessing defaults `__STDC_HOSTED__` to zero on bare Wasm and one
+on WASI and the native targets. The
+[execution environment checks](#execution-environment-selection) cover
+explicit mode selection. These VLA checks leave `__STDC_NO_VLA__` defined.
 
 | C11 clause | Requirement | Current evidence |
 | --- | --- | --- |
