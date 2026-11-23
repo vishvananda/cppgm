@@ -97,6 +97,8 @@ Implement the following at `-O0`, `-O1`, `-O2` and `-O3`:
 - The scalar Wasm `__builtin_wasm_min_f32/f64` and
   `__builtin_wasm_max_f32/f64` builtins, including NaN propagation and signed
   zero. Advertise these builtins only for Wasm targets.
+- `__builtin_flt_rounds()` returns 1, the code for round-to-nearest.
+  The query works in modules built with `-nostdlib`.
 - Scalar arithmetic and conversions, narrow integer behavior, pointers,
   aggregates, globals, volatile memory, alignment and address-taken locals.
   Preserve wide integer and floating types through valid legalization/helper

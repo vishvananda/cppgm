@@ -2447,3 +2447,22 @@ of 5,838 KiB. The computed input changes by −0.12%. Both paths take
 linear work as the number of queries grows. Frozen C++ and SQLite
 instructions change by −0.14% and −0.10%, respectively, with identical
 object output in each trial.
+
+## Floating rounding query
+
+The lowering path only selects the target's rounding representation when
+compiling an explicit rounding query. Bare Wasm turns the query into a
+constant and links the resulting module without a `fegetround` import.
+Frozen instruction counts changed by +0.00167% and +0.00363% for C++
+in ABBA and BAAB blocks. SQLite changed by −0.00039% and +0.00205%.
+Each block used the same pinned CPU, immutable binaries, and frozen
+inputs. Every object matched byte for byte.
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,046,722,147 / 9,046,798,440 / 9,046,719,818 / 9,046,560,195 |
+| C++ | ABBA | 9,046,599,616 / 9,046,681,559 / 9,046,984,122 / 9,046,763,432 |
+| C++ | BAAB | 9,046,846,403 / 9,046,517,416 / 9,046,705,477 / 9,047,034,085 |
+| SQLite | A/A | 16,509,566,288 / 16,509,798,559 / 16,509,421,167 / 16,509,543,883 |
+| SQLite | ABBA | 16,509,468,027 / 16,509,367,359 / 16,509,446,574 / 16,509,475,478 |
+| SQLite | BAAB | 16,509,718,112 / 16,509,384,921 / 16,509,433,798 / 16,509,776,966 |

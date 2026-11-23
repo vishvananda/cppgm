@@ -466,6 +466,136 @@
       ]
     },
     {
+      "id": "limits.integer-ranges",
+      "clause": "5.2.4.2.1p1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Provide the specified minimum integer ranges as preprocessing integer constant expressions and a positive MB_LEN_MAX.",
+      "cases": [
+        "limits.integer"
+      ]
+    },
+    {
+      "id": "limits.plain-char-range",
+      "clause": "5.2.4.2.1p2",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Make CHAR_MIN and CHAR_MAX agree with the actual signedness of plain char.",
+      "cases": [
+        "limits.integer"
+      ]
+    },
+    {
+      "id": "limits.integer-macro-types",
+      "clause": "5.2.4.2.1p1",
+      "kind": "required",
+      "editions": [
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Give each integer limit the type of the corresponding standard integer type after integer promotion.",
+      "cases": [
+        "limits.integer"
+      ]
+    },
+    {
+      "id": "limits.floating-model",
+      "clause": "5.2.4.2.2",
+      "kind": "implementation-defined",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Report the selected floating formats, evaluation method, significand digits, exponents, finite extrema and epsilon in float.h.",
+      "cases": [
+        "limits.float"
+      ]
+    },
+    {
+      "id": "limits.floating-subnormal",
+      "clause": "5.2.4.2.2p10,p13",
+      "kind": "implementation-defined",
+      "editions": [
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Advertise the supported subnormals and expose the exact least positive value of each type.",
+      "cases": [
+        "limits.float"
+      ]
+    },
+    {
+      "id": "limits.floating-rounds-default",
+      "clause": "5.2.4.2.2p8 (C99 p7)",
+      "kind": "implementation-defined",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Report default round-to-nearest through FLT_ROUNDS in the selected header and runtime.",
+      "cases": [
+        "limits.rounding-default"
+      ]
+    },
+    {
+      "id": "limits.native-rounding-query",
+      "clause": "5.2.4.2.2p8 (C99 p7), 7.6.3",
+      "kind": "gnu",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "hosted",
+      "profiles": [
+        "linux-x86_64-hosted",
+        "linux-aarch64-hosted",
+        "darwin-x86_64-hosted",
+        "darwin-arm64-hosted"
+      ],
+      "outside_profile": "Wasm selects round-to-nearest for ordinary arithmetic and has no directed rounding modes.",
+      "requirement": "Map all four native C fenv modes to the standard rounding codes through __builtin_flt_rounds.",
+      "cases": [
+        "limits.rounding-query"
+      ]
+    },
+    {
+      "id": "floating.fenv-access",
+      "clause": "7.6.1, F.8.4",
+      "kind": "conditional",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "hosted",
+      "profiles": [
+        "linux-x86_64-hosted",
+        "linux-aarch64-hosted",
+        "darwin-x86_64-hosted",
+        "darwin-arm64-hosted"
+      ],
+      "outside_profile": "This rule checks arithmetic under a non-default native rounding mode.",
+      "requirement": "Honor the active rounding mode for a runtime floating expression when FENV_ACCESS is ON.",
+      "cases": []
+    },
+    {
       "id": "limits.numeric-macros",
       "clause": "5.2.4.2",
       "kind": "required",

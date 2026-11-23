@@ -64,6 +64,48 @@ uncovered even when the same case passes on another target.
 [Evidence runner](../scripts/c_conformance.py) ·
 [CI job](../.github/workflows/tests.yml)
 
+## Numerical limits and rounding modes
+
+The integer-limit probe checks the target ranges in `#if`, the plain
+char range against the runtime signedness, and the promoted types in
+C11 and C17. Separate floating probes check significand and exponent
+macros, decimal precision, finite extrema, epsilon, C11 subnormals,
+and the default rounding code. The probes use the actual headers.
+They check `long` width and `long double` precision against the
+expected target independently of the compiler's macro values.
+
+The bare Wasm header replay uses the pinned SDK's compiler resource
+headers and no libc. It links its binary128 comparisons with the
+pinned compiler-rt archive. The runner hashes those inputs and
+records them with the tested configurations. The default rounding
+probe links without the archive. The WASI hosted probe passes the
+same resource directory at compilation and link time so the driver
+can supply binary128 helpers from its selected SDK.
+
+The native rounding probe checks the four C rounding codes after
+`fesetround()` and restores the entry mode. AArch64 previously used
+the x86 rounding field to decode `fegetround()` and returned 1 for
+toward zero. Bare Wasm previously tried to link a `fegetround()`
+import. The regressions exercise observable results and the Wasm
+module links without libc.
+
+The C99 through C17 probes pass at `-O0` and `-O2` on Linux x86-64,
+Linux AArch64 under QEMU, WASI, and bare Wasm. The AArch64 replay passes
+with both GCC and Clang's compiler headers. Clang's `<float.h>` also
+reports all four dynamic codes on x86-64 and AArch64. The installed GCC
+headers use a fixed code for nearest.
+
+Native macOS evidence and C99 integer macro type checks remain open.
+A separate `FENV_ACCESS ON` probe calls `fesetround(FE_UPWARD)` before
+evaluating `1.0 + 0x1p-53` in a function. cppgm returns the upward
+result at `-O0` and folds to nearest at `-O2`. Clang 21 and GCC 15
+with `-frounding-math` return the upward result at both levels.
+[WG14 N1570 §7.6.1 and F.8.4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[Integer probe](../scripts/tests/c_integer_limits.c) ·
+[Floating probe](../scripts/tests/c_float_limits.c) ·
+[Default rounding probe](../scripts/tests/c_default_rounding.c) ·
+[Clause inventory](c-conformance.json)
+
 ## Additional editions
 
 The driver baseline at `39e13e127` rejects `c90`, `c89`,

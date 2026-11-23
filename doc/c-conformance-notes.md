@@ -355,6 +355,32 @@ result and a larger aggregate returned through caller-provided storage.
 [PA38 floating limits](../pa38/tests/general/500-hosted-c-float-limits.t) ·
 [PA38 structure return](../pa38/tests/general/500-c-record-return.t)
 
+## Numerical limits and rounding modes
+
+C99 through C17 specify the minimum integer ranges and the promoted
+types of the integer limit macros. The supported profiles use eight-bit
+bytes and two's complement. Native `long` is 64 bits and Wasm
+`long` is 32 bits. `CHAR_MIN` and `CHAR_MAX` follow the selected
+plain-char signedness. The floating limit macros describe binary32
+`float` and binary64 `double`. The `long double` format is x87
+extended on x86-64, binary64 on Apple Silicon, and binary128 on
+AArch64 Linux and Wasm. The header probes check numerical values using
+exact hexadecimal literals and volatile reads.
+
+`FLT_ROUNDS` is the rounding code for floating addition. A header can
+obtain it through `__builtin_flt_rounds()`. Native lowering translates
+the selected C library's `fegetround()` representation. The AArch64
+Linux and Darwin representations use the FPCR mode bits, and the x86
+representations use the x87 rounding field. Wasm uses round-to-nearest.
+The query there needs no C runtime call. The native regression changes
+the rounding mode through the C library and checks each code before
+restoring the previous mode.
+
+[WG14 N1570, §§5.2.4.2, 7.6.3](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf#page=44) ·
+[WebAssembly numerics](https://webassembly.github.io/spec/core/exec/numerics.html#floating-point-operations) ·
+[PA30 native query](../pa30/tests/run/800-builtin-fp-rounds.t.1) ·
+[PA37 Wasm query](../pa37/tests/module/100-source-wasm-flt-rounds.t)
+
 ## Volatile-qualified record accesses
 
 C11 5.1.2.3 and 6.7.3 make volatile accesses observable. A by-value

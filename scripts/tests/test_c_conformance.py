@@ -25,6 +25,13 @@ class CoverageTests(unittest.TestCase):
         self.assertEqual(rows[('limits.object-size', 99, 'wasm-freestanding')], 'inapplicable')
         self.assertEqual(rows[('limits.numeric-macros', 99, self.native)], 'uncovered')
 
+    def test_native_rounding_query_uses_target_applicability(self):
+        rule = {'limits.native-rounding-query': self.rules['limits.native-rounding-query']}
+        rows = {r['profile']: r for r in coverage(self.profiles, rule, {}) if r['edition'] == 99}
+        self.assertEqual(rows[self.native]['status'], 'uncovered')
+        self.assertEqual(rows['wasi-hosted']['status'], 'inapplicable')
+        self.assertIn('Wasm selects round-to-nearest', rows['wasi-hosted']['reason'])
+
     def test_incomplete_or_failing_variant_never_passes(self):
         key = ('limits.combined', self.native, 99, 'O0')
         for result, expected in (('passed', 'uncovered'), ('failed', 'failing')):

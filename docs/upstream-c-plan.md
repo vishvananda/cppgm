@@ -66,6 +66,9 @@ Start the next batches from the existing receipts.
    native Intel macOS and Apple Silicon. Expand the C99 header and musl
    replays to the mandatory C11 and C17 interfaces for each applicable SDK.
    Qualify capability macros against their operations and runtime helpers.
+   The integer and floating limit probes exercise the selected headers,
+   ABI formats, and rounding query. Extend the remaining numeric and
+   floating-environment checks.
    Run the same probes in the corresponding freestanding profiles where
    applicable.
 3. Advance GNU compatibility alongside the ISO inventory. Extend initializer

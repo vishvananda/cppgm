@@ -602,7 +602,9 @@ To complete PA30, implement hosted compatibility for:
   to a call to the C function of the same name, except `__builtin_fabsf`
   and `__builtin_fabs`, which clear only the sign bit inline, preserving
   NaN payloads and evaluating the converted argument once.
-  `__builtin_fabsl` retains the C-library call.  A builtin is a
+  `__builtin_fabsl` retains the C-library call. Report the active native
+  rounding mode from `__builtin_flt_rounds()`. Its result is 0 for toward
+  zero, 1 for nearest, 2 for upward, and 3 for downward. A builtin is a
   global-namespace name, so `::__builtin_x` names the same one as
   `__builtin_x`, which is how a hosted library keeps a user's macro from
   intercepting the call; any deeper qualification names something else.  It

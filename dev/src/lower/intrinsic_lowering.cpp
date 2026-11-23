@@ -1277,14 +1277,25 @@ RValue FunctionLowering::quiet_bit(const RValue& x)
 
 RValue FunctionLowering::flt_rounds()
 {
-	// FLT_ROUNDS of the C library's fegetround(): its x87/SSE rounding
-	// control (bits 10-11: nearest, down, up, toward zero) maps to 1, 3,
-	// 2, 0 -- (45 >> ((mode >> 9) & 6)) & 3.
 	const lowir::Type i32 = lowir::Type::scalar(lowir::TypeKind::I32);
+	// Wasm arithmetic always uses round-to-nearest and needs no C runtime query.
+	if (target_model::is_wasm(program_.target))
+		return constant(i32, 1);
+
 	RValue mode;
 	mode.type = i32;
 	mode.value = emit_call(
 		i32, lowir::Value::symbol(lowering_.fegetround_function()), arguments_.size(), lowir::kNoId, false);
+	if (target_model::is_aarch64(program_.target))
+	{
+		// AArch64 Linux and Darwin expose FPCR bits 23:22 in fegetround().
+		// Nearest, up, down, toward zero map to 1, 2, 3, 0.
+		const RValue next = binary(lowir::BinaryOp::Add, i32, mode, integer(i32, 1u << 22));
+		const RValue shifted = binary(lowir::BinaryOp::Shr, i32, next, integer(i32, 22));
+		return binary(lowir::BinaryOp::And, i32, shifted, integer(i32, 3));
+	}
+
+	// x87/SSE control bits 11:10 order the modes nearest, down, up, toward zero.
 	const RValue shift = binary(
 		lowir::BinaryOp::And, i32, binary(lowir::BinaryOp::Shr, i32, mode, integer(i32, 9)), integer(i32, 6));
 	return binary(

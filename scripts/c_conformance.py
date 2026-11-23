@@ -26,11 +26,28 @@ NATIVE_PROFILES = {
 RUN_STAGES = ('compile', 'link', 'run')
 CASES = {
     'limits.combined': (RUN_STAGES, ('O0', 'O2')),
+    'limits.integer': (RUN_STAGES, ('O0', 'O2')),
+    'limits.float': (RUN_STAGES, ('O0', 'O2')),
+    'limits.rounding-default': (RUN_STAGES, ('O0', 'O2')),
+    'limits.rounding-query': (RUN_STAGES, ('O0', 'O2')),
     'include.physical': (RUN_STAGES, ('O0',)),
     'include.query': (RUN_STAGES, ('O0',)),
     'literal.code-units': (RUN_STAGES, ('O0', 'O2')),
     'line.diagnostic-location': (('preprocess',), ('default',)),
     'error.message': (('preprocess',), ('default',)),
+}
+INTEGER_LIMITS = ROOT / 'scripts/tests/c_integer_limits.c'
+FLOAT_LIMITS = ROOT / 'scripts/tests/c_float_limits.c'
+DEFAULT_ROUNDING = ROOT / 'scripts/tests/c_default_rounding.c'
+ROUNDING_QUERY = ROOT / 'pa30/tests/run/800-builtin-fp-rounds.t.1'
+# Precision of the target ABI's long double, independent of the candidate's predefines.
+LONG_DOUBLE_PRECISION = {
+    'x86_64-linux-gnu': 64,
+    'aarch64-linux-gnu': 113,
+    'x86_64-apple-darwin': 64,
+    'arm64-apple-darwin': 53,
+    'wasm32-unknown-unknown': 113,
+    'wasm32-wasip1': 113,
 }
 INCLUDE_SOURCE = ROOT / 'pa38/tests/general/100-c-include-physical.t'
 STRING_SOURCE = ROOT / 'pa38/tests/general/500-c-string-code-units.t'
@@ -72,6 +89,11 @@ def inventory(path):
             raise ValueError(f'invalid applicability on {name}')
         if rule['kind'] not in {'required', 'conditional', 'implementation-defined', 'gnu'}:
             raise ValueError(f'invalid rule kind on {name}')
+        target_limits = rule.get('profiles')
+        if target_limits is not None and (
+                not target_limits or len(set(target_limits)) != len(target_limits)
+                or set(target_limits) - profiles.keys() or not rule.get('outside_profile')):
+            raise ValueError(f'invalid profiles or missing reason on {name}')
         if len(set(cases)) != len(cases) or set(cases) - CASES.keys():
             raise ValueError(f'duplicate or unrecognized case on {name}')
     return profiles, rules
@@ -122,7 +144,12 @@ def coverage(profiles, rules, receipts):
             for profile, info in profiles.items():
                 keys = [(case, profile, edition, variant)
                         for case in rule['cases'] for variant in CASES[case][1]]
+                outside_profile = None
                 if rule['environment'] not in {'all', info['environment']}:
+                    outside_profile = f"rule applies to {rule['environment']} environments"
+                if 'profiles' in rule and profile not in rule['profiles']:
+                    outside_profile = rule['outside_profile']
+                if outside_profile:
                     status = 'inapplicable'
                 elif any(receipts.get(key) == 'failed' for key in keys):
                     status = 'failing'
@@ -130,10 +157,13 @@ def coverage(profiles, rules, receipts):
                     status = 'passing'
                 else:
                     status = 'uncovered'
-                yield dict(rule=rule['id'], clause=rule['clause'], kind=rule['kind'],
+                row = dict(rule=rule['id'], clause=rule['clause'], kind=rule['kind'],
                            requirement=rule['requirement'], edition=edition, profile=profile,
                            status=status, environment=rule['environment'],
                            missing=[list(key) for key in keys if key not in receipts] if status == 'uncovered' else [])
+                if outside_profile:
+                    row['reason'] = outside_profile
+                yield row
 
 
 def report(receipts, output, profiles, rules):
@@ -173,25 +203,51 @@ def receipt(case, profile, edition, variant, passed, stages):
                 status='passed' if passed else 'failed', stages=stages)
 
 
-def probe_target(output, profile, compiler, setup, link, runner):
+def numeric_sources(profile, bare_sdk):
+    target = profile['target']
+    wasm = target.startswith('wasm32-')
+    rounding_link = () if wasm else ('-lm',)
+    float_link = ()
+    if profile['id'] == 'wasm-freestanding':
+        if not bare_sdk:
+            return []
+        include_dir, builtins = bare_sdk
+        include = ('-isystem', str(include_dir))
+        float_link = (str(builtins),)
+    else:
+        include = ()
+    long_bits = 32 if wasm else 64
+    sources = [
+        ('limits.integer', INTEGER_LIMITS, (*include, f'-DEXPECT_LONG_BITS={long_bits}'), ()),
+        ('limits.float', FLOAT_LIMITS, (*include, f'-DEXPECT_LDBL_MANT_DIG={LONG_DOUBLE_PRECISION[target]}'), float_link),
+        ('limits.rounding-default', DEFAULT_ROUNDING, include, rounding_link),
+    ]
+    if not wasm:
+        sources.append(('limits.rounding-query', ROUNDING_QUERY, (), rounding_link))
+    return sources
+
+
+def probe_target(output, profile, compiler, setup, link, runner, bare_sdk=()):
     bare_wasm = profile['id'] == 'wasm-freestanding'
+    numeric = numeric_sources(profile, bare_sdk)
     for edition in PILOT_EDITIONS:
         flags = [compiler, '--target=' + profile['target'], *setup, '-x', 'c', f'-std=c{edition}', '-pedantic-errors']
         work = output / profile['id'] / f'c{edition}'
         sources = [
-            ('limits.combined', output / 'inputs/combined.c', ()),
-            ('include.physical', INCLUDE_SOURCE, ()),
-            ('include.query', INCLUDE_QUERY, ('-I' + str(INCLUDE_QUERY.parent),)),
+            ('limits.combined', output / 'inputs/combined.c', (), ()),
+            ('include.physical', INCLUDE_SOURCE, (), ()),
+            ('include.query', INCLUDE_QUERY, ('-I' + str(INCLUDE_QUERY.parent),), ()),
+            *numeric,
         ]
         if edition in (11, 17):
-            sources.append(('literal.code-units', STRING_SOURCE, ()))
-        for case, source, source_flags in sources:
+            sources.append(('literal.code-units', STRING_SOURCE, (), ()))
+        for case, source, source_flags, link_flags in sources:
             for variant in CASES[case][1]:
                 directory = work / case / variant
                 obj, binary = str(directory / 'case.o'), str(directory / 'case.exe')
                 stages, _ = run_stages(directory, [
                     ('compile', [*flags, *source_flags, '-' + variant, '-c', str(source), '-o', obj]),
-                    ('link', [*link, obj, '-o', binary]),
+                    ('link', [*link, obj, *link_flags, '-o', binary]),
                     ('run', [*runner, binary]),
                 ], capture_run_stdout=bare_wasm)
                 last = stages[-1]
@@ -231,15 +287,24 @@ def probes(args, profiles, rules):
             raise ValueError('--wasi-resource-dir is required for a WASI replay')
         sysroot = '--sysroot=' + str(args.wasi_sysroot)
         setup = [sysroot, '-resource-dir=' + str(args.wasi_resource_dir)]
-        link = [compiler, '--target=' + wasi['target'], sysroot]
+        link = [compiler, '--target=' + wasi['target'], *setup]
         results.extend(probe_target(output, wasi, compiler, setup, link, [args.wasmtime, 'run']))
+    numeric_sdk_inputs = []
     if args.bare_wasm:
         bare = profiles['wasm-freestanding']
+        bare_sdk = ()
+        if args.wasi_resource_dir:
+            resource_dir = args.wasi_resource_dir.resolve()
+            include_dir = resource_dir / 'include'
+            builtins = resource_dir / 'lib/wasm32-unknown-wasip1/libclang_rt.builtins.a'
+            bare_sdk = (include_dir, builtins)
+            numeric_sdk_inputs = [include_dir / 'float.h', include_dir / '__float_float.h', include_dir / 'limits.h', builtins]
         link = [compiler, '--target=' + bare['target'], '-nostdlib', '--export', 'main']
         runner = [args.wasmtime, 'run', '--invoke', 'main']
-        results.extend(probe_target(output, bare, compiler, ['-ffreestanding', '-nostdinc'], link, runner))
+        results.extend(probe_target(output, bare, compiler, ['-ffreestanding', '-nostdinc'], link, runner, bare_sdk))
     revision = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
     inputs = sorted([*work.glob('*.h'), limits, ERROR_SOURCE, INCLUDE_SOURCE, STRING_SOURCE, INCLUDE_QUERY,
+                     INTEGER_LIMITS, FLOAT_LIMITS, DEFAULT_ROUNDING, ROUNDING_QUERY, *numeric_sdk_inputs,
                      INCLUDE_QUERY.parent / 'c-header  spaces.h',
                      INCLUDE_SOURCE.parent / 'c-include-physical.h', INCLUDE_SOURCE.parent / 'c-include-local.h'])
     receipt_path = output / 'receipts.json'
