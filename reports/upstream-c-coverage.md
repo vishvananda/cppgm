@@ -620,6 +620,15 @@ read from the ordinary desired value or written to the expected value.
 [PA37 Wasm runtime query](../pa37/tests/values/200-source-atomic-queries.t) ·
 [PA38 C atomic capability](../pa38/tests/general/500-c-atomic-disabled.t)
 
+The strict report passed 11,652 tests. PA36 smoke, PA37, PA38, PA39,
+debug information, PA35 through PA5, and the native inception
+comparison passed. The placement audit scanned 11,245 inputs with
+zero placement findings. The student export verified 26,147 reference
+files and passed the new PA30, PA37 and PA38 cases using its bundled
+tools. The pinned upstream and differential runs retained their
+reviewed outcomes.
+[Compile-time measurements](../docs/performance/c-frontend-scaling.md#atomic-capability-queries)
+
 ## Cross-target smoke results
 
 The prototype array, tagged generic association, and structure return
