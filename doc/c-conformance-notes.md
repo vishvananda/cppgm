@@ -510,3 +510,18 @@ count the same as for an explicitly typed declaration.
 [GCC GNU C deduction rules](https://gcc.gnu.org/onlinedocs/gcc-15.2.0/gcc/Typeof.html) ·
 [PA38 deduction case](../pa38/tests/general/300-c-gnu-auto-type.t) ·
 [PA38 hosted atomic case](../pa38/tests/controls/500-c11-stdatomic.t)
+
+## C integer headers by target
+
+`<stdint.h>` can use compiler predefined type names, integer limits,
+and literal suffixes. These names describe distinct ABI roles. The
+Darwin targets use `long long` for the exact 64-bit type and `long` for
+the maximum-width integer and pointer-sized signed types. The wasm32
+profiles use `long long` for the exact 64-bit and maximum-width types
+and 32-bit `long` for pointer-sized signed integers. Match the type
+rank along with the width, including in the literal forms returned by
+`INT64_C` and `INTMAX_C`.
+
+[Clang predefined integer macros](https://github.com/llvm/llvm-project/blob/llvmorg-21.1.8/clang/lib/Frontend/InitPreprocessor.cpp) ·
+[Clang resource stdint.h](https://github.com/llvm/llvm-project/blob/llvmorg-21.1.8/clang/lib/Headers/stdint.h) ·
+[PA38 integer header case](../pa38/tests/general/500-c-integer-headers.t)

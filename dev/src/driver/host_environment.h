@@ -29,12 +29,12 @@ bool select_standard_includes(const std::string& arg, StandardIncludes& includes
 // (--gcc-install-dir) names the installation instead. Only directories are
 // read: no program runs. When no installation is found, the build's
 // directories stay and an `#include <...>` that finds no file says so
-// (PreprocessorOptions::missing_headers_note). The predefined macros are
-// always the build's.
+// (PreprocessorOptions::missing_headers_note). Arm Linux, cross Apple Silicon
+// and Wasm supply their own macro and builtin declarations during target setup.
 //
 // False, with `error`, for a `gcc_install_dir` that cannot be used.
-bool add_host_environment(
-	PreprocessorOptions& options, StandardIncludes includes, const std::string& gcc_install_dir, std::string& error);
+bool add_host_environment(PreprocessorOptions& options, native::Target target, StandardIncludes includes,
+	const std::string& gcc_install_dir, std::string& error);
 
 // The selected target's platform macros, including the native host target.
 // Foreign SDK paths must be explicit; baked host paths are not a foreign SDK.

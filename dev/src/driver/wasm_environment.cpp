@@ -1,6 +1,7 @@
 #include "driver/wasm_environment.h"
 
 #include "driver/binary128_predefines.h"
+#include "driver/integer_predefines.h"
 
 namespace driver {
 
@@ -43,26 +44,13 @@ void configure_wasm_environment(PreprocessorOptions& options)
 	std::string text = "#undef __linux__\n#undef __linux\n#undef __gnu_linux__\n#undef __ELF__\n"
 					   "#undef __APPLE__\n#undef __MACH__\n#undef __x86_64__\n#undef __SSE__\n#undef __SSE2__\n"
 					   "#define __wasm__ 1\n#define __wasm32__ 1\n#define __ILP32__ 1\n"
-					   "#define __CHAR_BIT__ 8\n#define __SIZEOF_POINTER__ 4\n#define __SIZEOF_LONG__ 4\n"
-					   "#define __SIZEOF_INT__ 4\n#define __SIZEOF_SHORT__ 2\n#define __SIZEOF_LONG_LONG__ 8\n"
 					   "#define __SIZEOF_FLOAT__ 4\n#define __SIZEOF_DOUBLE__ 8\n#define __SIZEOF_LONG_DOUBLE__ 16\n"
-					   "#define __SIZEOF_SIZE_T__ 4\n#define __SIZEOF_PTRDIFF_T__ 4\n"
-					   "#define __SIZE_TYPE__ long unsigned int\n#define __PTRDIFF_TYPE__ long int\n"
-					   "#define __INTPTR_TYPE__ long int\n#define __UINTPTR_TYPE__ long unsigned int\n"
-					   "#define __INT64_TYPE__ long long int\n#define __UINT64_TYPE__ long long unsigned int\n"
-					   "#define __INT32_TYPE__ int\n#define __UINT32_TYPE__ unsigned int\n"
-					   "#define __WCHAR_TYPE__ int\n#define __WCHAR_MAX__ 2147483647\n"
-					   "#define __WCHAR_MIN__ (-2147483647 - 1)\n#define __WCHAR_WIDTH__ 32\n"
-					   "#define __WINT_TYPE__ int\n#define __WINT_MAX__ 2147483647\n"
-					   "#define __WINT_MIN__ (-2147483647 - 1)\n#define __WINT_WIDTH__ 32\n"
 					   "#define __ATOMIC_RELAXED 0\n#define __ATOMIC_CONSUME 1\n#define __ATOMIC_ACQUIRE 2\n"
 					   "#define __ATOMIC_RELEASE 3\n#define __ATOMIC_ACQ_REL 4\n#define __ATOMIC_SEQ_CST 5\n"
 					   "#define __GCC_CONSTRUCTIVE_SIZE 64\n#define __GCC_DESTRUCTIVE_SIZE 64\n"
-					   "#define __LONG_MAX__ 2147483647L\n#define __SIZE_MAX__ 4294967295UL\n"
-					   "#define __INTPTR_MAX__ 2147483647L\n#define __UINTPTR_MAX__ 4294967295UL\n"
-					   "#define __PTRDIFF_MAX__ 2147483647L\n"
 					   "#define __ORDER_LITTLE_ENDIAN__ 1234\n#define __ORDER_BIG_ENDIAN__ 4321\n"
 					   "#define __BYTE_ORDER__ __ORDER_LITTLE_ENDIAN__\n";
+	text += target_integer_predefines(options.target);
 	text += kFloatingNumericPredefines;
 	text += kBinary128NumericPredefines;
 	if (options.target == target_model::Target::Wasi)

@@ -72,7 +72,7 @@ FRONTEND_PHASE_BASENAMES_object := native/object/object_file native/object/elf_o
 FRONTEND_PHASE_BASENAMES_link := native/link/routine_builder native/link/runtime_support native/link/runtime_library native/link/linker
 # lowir2native links an executable needing link mode's runtime library.
 FRONTEND_OBJ_BASENAMES_lowir2native += $(FRONTEND_PHASE_BASENAMES_object) $(FRONTEND_PHASE_BASENAMES_link)
-FRONTEND_OBJ_BASENAMES_cppgm += $(FRONTEND_PHASE_BASENAMES_native) $(FRONTEND_PHASE_BASENAMES_object) $(FRONTEND_PHASE_BASENAMES_link) driver/host_environment driver/aarch64_environment driver/wasm_environment driver/native_assembly driver/make_dependencies driver/toolchain
+FRONTEND_OBJ_BASENAMES_cppgm += $(FRONTEND_PHASE_BASENAMES_native) $(FRONTEND_PHASE_BASENAMES_object) $(FRONTEND_PHASE_BASENAMES_link) driver/host_environment driver/integer_predefines driver/aarch64_environment driver/wasm_environment driver/native_assembly driver/make_dependencies driver/toolchain
 # PA33: the optimizer, and the LowIR reader for LowIR object inputs.
 FRONTEND_OBJ_BASENAMES_cppgm += lowir/text_lexer lowir/text_parser lowir/text_parser_debug lowir/text_parser_debug_scopes lowir/text_parser_body lowir/text_parser_assembly lowir/text_reader $(FRONTEND_PHASE_BASENAMES_opt)
 FRONTEND_OBJ_BASENAMES_cppgm += asm/registers

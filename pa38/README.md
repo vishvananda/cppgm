@@ -42,6 +42,9 @@ targets and WASI default to hosted. The last environment flag wins.
 Define `__STDC_HOSTED__` as zero in freestanding mode and one in hosted
 mode. Keep header search and startup options independent of this choice.
 Use the target's C system include paths for C input.
+Supply the target's scalar integer types, widths, limits and constant
+spellings to its headers. For example, on 64-bit Darwin `int64_t` is
+`long long` and `intmax_t` is `long`. Both have width 64.
 When linking with `cppgm`, `-nostartfiles` omits the supplied startup,
 `-nodefaultlibs` omits the supplied runtime libraries, and `-nostdlib`
 omits both. On Linux, supply `_start` if you omit startup. On bare

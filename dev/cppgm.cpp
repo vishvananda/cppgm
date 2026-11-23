@@ -771,9 +771,8 @@ PreprocessorOptions source_preprocessor_options()
 void add_host_environment(PreprocessorOptions& options, const SourceOutputInvocation& invocation)
 {
 	string error;
-	if (!driver::add_host_environment(options,
-			invocation.target == native::host_target() ? invocation.includes : driver::StandardIncludes::None,
-			invocation.gcc_install_dir, error))
+	if (!driver::add_host_environment(
+			options, invocation.target, invocation.includes, invocation.gcc_install_dir, error))
 		throw InvocationError(error);
 }
 

@@ -152,7 +152,8 @@ alignment, literals, constant evaluation and calling conventions. Target
 headers and builtin macros must describe the target rather than the host.
 Keep language builtin templates available across targets while adapting types
 such as `va_list`. Numeric-limit and wide-character declarations must agree
-with the target headers, including binary128 `long double` limits.
+with the target headers, including binary128 `long double` limits and the
+integer types, limits and literal suffixes used by `<stdint.h>`.
 
 Carry target/layout metadata and sufficient typed ABI facts in LowIR. Reject
 incompatible inputs; do not reinterpret existing x86-layout LowIR as wasm32.

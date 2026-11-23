@@ -1,5 +1,6 @@
 #include "driver/host_environment.h"
 #include "driver/aarch64_environment.h"
+#include "driver/integer_predefines.h"
 
 #include <dirent.h>
 #include <sys/stat.h>
@@ -103,6 +104,8 @@ void configure_target_environment(PreprocessorOptions& options, native::Target t
 	// this compiler is running on Darwin.
 	if (target == native::Target::Linux && target == native::host_target())
 		return;
+	if (target != native::host_target())
+		options.command_line.insert(0, target_integer_predefines(target));
 	options.command_line.insert(0,
 		target == native::Target::MacOS
 			? "#undef __linux__\n#undef __linux\n#undef __gnu_linux__\n#undef __ELF__\n#define __APPLE__ 1\n#define "
@@ -493,20 +496,29 @@ void InstallationDirectories(const GccInstallation& built, const GccInstallation
 
 } // namespace
 
-bool add_host_environment(
-	PreprocessorOptions& options, StandardIncludes includes, const std::string& gcc_install_dir, std::string& error)
+bool add_host_environment(PreprocessorOptions& options, native::Target target, StandardIncludes includes,
+	const std::string& gcc_install_dir, std::string& error)
 {
 	options.modes.language = options.cxx_edition;
 	options.hosted = true;
-	options.host_predefines = HostMacroText(options.modes, options.strict);
-	options.builtin_declarations = kBuiltinDeclarations;
-	if (options.language == SourceLanguage::C)
-		options.builtin_declarations =
-			"struct __va_list_tag { unsigned int gp_offset; unsigned int fp_offset; "
-			"void* overflow_arg_area; void* reg_save_area; }; typedef struct __va_list_tag __builtin_va_list[1];\n";
-	else
-		options.builtin_declarations += builtin_template_declarations();
-	if (includes == StandardIncludes::None)
+	const native::Target host = native::host_target();
+	// The Arm Linux and Wasm environments supply their own macros and
+	// builtin declarations, as does a cross build for Apple Silicon.
+	if (!target_model::is_wasm(target) && target != native::Target::AArch64Linux &&
+		(target != native::Target::AArch64MacOS || target == host))
+	{
+		options.host_predefines = HostMacroText(options.modes, options.strict);
+		if (options.language == SourceLanguage::C)
+			options.builtin_declarations =
+				"struct __va_list_tag { unsigned int gp_offset; unsigned int fp_offset; "
+				"void* overflow_arg_area; void* reg_save_area; }; typedef struct __va_list_tag __builtin_va_list[1];\n";
+		else
+		{
+			options.builtin_declarations = kBuiltinDeclarations;
+			options.builtin_declarations += builtin_template_declarations();
+		}
+	}
+	if (target != host || includes == StandardIncludes::None)
 		return true;
 	const bool c_only = options.language == SourceLanguage::C || includes == StandardIncludes::COnly;
 	const char* const* paths = c_only ? cppgm_builtin_host_config::kCStandardIncludePaths

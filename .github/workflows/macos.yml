@@ -52,7 +52,7 @@ jobs:
         if: matrix.llvm == 21
         run: |
           make -C pa38 test-native-driver CPPGM_SKIP_DEV_REBUILD=1 CXX="$CXX" CPPGM_HOST_CXX="$CPPGM_HOST_CXX" \
-            NATIVE_DRIVER_TESTS=300-c-environment-hosted
+            NATIVE_DRIVER_TESTS='300-c-environment-hosted 500-c-integer-headers'
           make -C pa38 check CPPGM_SKIP_DEV_REBUILD=1 CXX="$CXX" CPPGM_HOST_CXX="$CPPGM_HOST_CXX" \
             TEST=tests/controls/500-c11-stdatomic.t
       - name: Install pinned Wasm validation tools

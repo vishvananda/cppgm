@@ -540,26 +540,37 @@ x86-64 Linux headers and with the pinned WASI SDK. It exercises scalar
 and aggregate operations, compare-exchange success and failure, and
 single evaluation of a macro argument.
 
-With Clang's resource headers, bare Wasm, Linux AArch64, and arm64 Darwin
-fail in `<stdint.h>` with their default predefines. Intel Darwin compiles
-the probe but inherits Linux host definitions such as `__INT64_TYPE__`
-with type `long`. Clang 21 defines it as `long long` on both Darwin ABIs.
-Supplying the relevant Clang predefines for diagnosis let the atomic
-case run under AArch64 QEMU and bare Wasm at both levels and let the
-Darwin targets cross-link Mach-O. The header-free `__auto_type` fixture
-passes at both levels on AArch64 Linux, bare Wasm, and WASI with the
-default predefines, and emits linkable objects for both Darwin targets.
-Native Darwin execution and direct cross-target header qualification
-remain open. The hosted probes cover a subset of public atomic and
-thread interfaces.
-
-This batch passed the strict course report (11,650), PA35 through PA5
+The deduction batch passed the strict course report (11,650), PA35 through PA5
 (341), the debug-info checks, and the PA38 native and Wasm lanes. The
 student export regenerated 26,138 verified reference files and repeated
 PA38 using the bundled self-built tools. The expanded pinned manifests
 and differential corpora kept their existing reviewed gaps.
 [PA38 hosted atomic case](../pa38/tests/controls/500-c11-stdatomic.t) ·
 [GCC C17 manifest](upstream-gcc-c17.json)
+
+### Cross-target integer headers
+
+The target environment supplies compiler integer predefines independently
+of the host data model. Darwin uses `long long` for the exact 64-bit
+type and `long` for `intmax_t`. Bare Wasm and WASI use `long long` for
+both 64-bit roles and 32-bit `long` for the pointer-sized signed type.
+The PA38 case checks the C integer headers, including the types of
+literal macros and the limits they expose. PA37 checks the Emscripten
+resource headers and PA39 checks the Arm Linux type predefines.
+
+The integer and atomic cases pass with the configured cppgm predefines
+at `-O0` and `-O2` on bare Wasm and AArch64 Linux, with Clang 21 and
+23 resource headers. Intel and Arm Darwin compile and cross-link Mach-O
+with those headers. The pinned WASI SDK and the GCC 14 and glibc
+2.43 AArch64 Linux sysroot also run both cases at both levels. The same
+Arm sysroot runs the thread and TLS probe under QEMU. The pinned Clang
+23 header exercises the explicit `__SIG_ATOMIC_MIN__` predefine, and
+GCC's C atomic header exercises the unsigned character type predefines.
+Native Darwin execution, atomic lock-free macros and queries, wider
+atomics, and full optional-feature qualification remain open.
+[PA38 integer header case](../pa38/tests/general/500-c-integer-headers.t) ·
+[PA37 Emscripten layout](../pa37/tests/values/200-source-emscripten-layout.t) ·
+[PA39 Linux data model](../pa39/tests/target/100-linux-data-model.t)
 
 ## Cross-target smoke results
 

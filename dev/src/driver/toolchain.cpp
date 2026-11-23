@@ -547,9 +547,7 @@ void configure_preprocessor(Invocation& invocation, StandardIncludes includes, c
 		invocation.source_language, invocation.standard, invocation.exceptions, invocation.preprocessor);
 	configure_c_environment(invocation.preprocessor, invocation.target, invocation.c_environment);
 	std::string host_error;
-	if (!add_host_environment(invocation.preprocessor,
-			invocation.target == native::host_target() ? includes : StandardIncludes::None, gcc_install_dir,
-			host_error))
+	if (!add_host_environment(invocation.preprocessor, invocation.target, includes, gcc_install_dir, host_error))
 		throw InvocationError(host_error);
 	configure_target_runtime(invocation, includes);
 	prune_include_paths(invocation.preprocessor);

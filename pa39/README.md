@@ -41,8 +41,9 @@ On Linux, advertise the GNU attribute syntax so glibc leaves `__attribute__`
 available when a C header precedes the C++ headers. ABI tags must survive that
 include order so separately compiled callers and definitions agree. Supply
 the signed and unsigned fixed-width type predefines for the target's data
-model and the corresponding 32-bit and 64-bit maximum values. Headers can
-use those macros without including `<stdint.h>`. In GNU dialects, also define
+model, including the limits and integer-constant spellings used by
+`<stdint.h>`. On Darwin, the exact 64-bit type is `long long` and the
+maximum-width type is `long`. In GNU dialects, also define
 `__GLIBCXX_TYPE_INT_N_0` as `__int128` and `__GLIBCXX_BITSIZE_INT_N_0` as 128,
 as GCC does; libstdc++ reads them to treat `__int128` as an integer type. Unwind
 ranges describe the code in each object even when another shared library
