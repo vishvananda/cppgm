@@ -245,7 +245,7 @@ protected:
 	ScratchStack<Handler> handlers_;
 	ScratchStack<BaseSpecifier> bases_;
 	ScratchStack<Enumerator> enumerators_;
-	ScratchStack<BitFieldDeclarator> bit_fields_;
+	ScratchStack<BitFieldWidth> bit_fields_;
 	ScratchStack<TemplateParameter*> template_params_;
 	ScratchStack<LambdaCapture> captures_;
 

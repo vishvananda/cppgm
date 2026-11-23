@@ -2677,6 +2677,7 @@ void Analyzer::link_member_patterns(
 			source[0] = static_cast<const syntax::SpecialMemberDecl*>(from)->declared;
 			target[0] = static_cast<const syntax::SpecialMemberDecl*>(to)->declared;
 			break;
+		case syntax::DeclKind::BitField:
 		case syntax::DeclKind::Simple:
 		{
 			const syntax::SimpleDecl* a = static_cast<const syntax::SimpleDecl*>(from);
@@ -2842,7 +2843,7 @@ const FunctionEntity* Analyzer::outside_pattern_member(const FunctionEntity* mem
 		else if (a->kind == syntax::DeclKind::SpecialMember)
 			pair(static_cast<const syntax::SpecialMemberDecl*>(a)->declared,
 				static_cast<const syntax::SpecialMemberDecl*>(b)->declared);
-		else if (a->kind == syntax::DeclKind::Simple)
+		else if (a->kind == syntax::DeclKind::Simple || a->kind == syntax::DeclKind::BitField)
 		{
 			const syntax::SimpleDecl* first = static_cast<const syntax::SimpleDecl*>(a);
 			const syntax::SimpleDecl* second = static_cast<const syntax::SimpleDecl*>(b);

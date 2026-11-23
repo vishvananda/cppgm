@@ -1358,16 +1358,24 @@ void SyntaxRenderer::declaration(const Decl& decl)
 	{
 		const BitFieldDecl& field = static_cast<const BitFieldDecl&>(decl);
 		specifiers(field.specifiers);
+		uint32_t next = 0;
 		for (uint32_t i = 0; i < field.declarators.size; ++i)
 		{
+			const Expr* width = field.take_width(i, next);
 			if (i != 0)
 				text(",");
-			if (field.declarators[i].declarator != nullptr)
-				declarator(*field.declarators[i].declarator);
+			if (width == nullptr)
+			{
+				init_declarators(Slice<InitDeclarator>{ field.declarators.data + i, 1 });
+				continue;
+			}
+			const InitDeclarator& member = field.declarators[i];
+			if (member.declarator != nullptr)
+				declarator(*member.declarator);
 			text(":");
-			expression(*field.declarators[i].width);
-			if (field.declarators[i].initializer != nullptr)
-				initializer(*field.declarators[i].initializer);
+			expression(*width);
+			if (member.initializer != nullptr)
+				initializer(*member.initializer);
 		}
 		text(";");
 		break;

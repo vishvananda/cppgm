@@ -66,6 +66,7 @@ public:
 		c_freestanding_ = freestanding;
 		c_language_ = c_source_;
 		conversions_.set_c_source(c_source_, extensions);
+		names_.set_c_source(c_source_);
 	}
 	// Hosted compilations take GNU's zero-length and flexible array
 	// members (see array_bound and member_size).
@@ -500,7 +501,8 @@ private:
 	void comparison_elements(FunctionEntity* function, const Type* type, syntax::Expr* left, syntax::Expr* right,
 		Scope* scope, std::vector<syntax::Stmt*>& statements, uint32_t location, uint8_t& category, bool& eligible,
 		bool& nothrow, uint32_t depth = 0);
-	void bit_field_declaration(const syntax::BitFieldDecl& decl, Scope* scope);
+	void bit_field_member(const Specifiers& specifiers, const syntax::InitDeclarator& field, const syntax::Expr& width,
+		Scope* scope, uint32_t location, uint64_t alignment, bool packed);
 	void require_definition_types(const Type* type, uint32_t location);
 	void check_coroutine_definition(const FunctionEntity* function, const syntax::CompoundStmt& body);
 	CoroutineFacts* analyze_coroutine(const FunctionEntity* function, Scope* scope, uint32_t location);

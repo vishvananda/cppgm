@@ -250,18 +250,21 @@ struct LinkageDecl : Decl
 	Slice<Decl*> declarations;
 };
 
-struct BitFieldDeclarator
+struct BitFieldWidth
 {
-	Declarator* declarator;
+	uint32_t index;
 	Expr* width;
-	Initializer* initializer;
 };
 
-struct BitFieldDecl : Decl
+struct BitFieldDecl : SimpleDecl
 {
-	Slice<DeclSpecifier> specifiers;
-	Slice<BitFieldDeclarator> declarators;
-	Attribute* attributes = nullptr;
+	// The ordered subset of declarators that have widths.
+	Slice<BitFieldWidth> widths;
+
+	const Expr* take_width(uint32_t index, uint32_t& next) const
+	{
+		return next < widths.size && widths[next].index == index ? widths[next++].width : nullptr;
+	}
 };
 
 struct AccessDecl : Decl

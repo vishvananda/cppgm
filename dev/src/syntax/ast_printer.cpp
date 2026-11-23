@@ -293,12 +293,16 @@ void AstDumper::declaration(const Decl& decl)
 		const BitFieldDecl& bit_field = static_cast<const BitFieldDecl&>(decl);
 		open("bit-field-declaration");
 		decl_specifier_seq(bit_field.specifiers);
-		for (const BitFieldDeclarator& member : bit_field.declarators)
+		uint32_t next = 0;
+		for (uint32_t i = 0; i < bit_field.declarators.size; ++i)
 		{
-			open("bit-field-declarator");
+			const InitDeclarator& member = bit_field.declarators[i];
+			const Expr* width = bit_field.take_width(i, next);
+			open(width != nullptr ? "bit-field-declarator" : "init-declarator");
 			if (member.declarator != nullptr)
 				declarator(*member.declarator);
-			expression(*member.width);
+			if (width != nullptr)
+				expression(*width);
 			if (member.initializer != nullptr)
 				initializer(*member.initializer);
 			close();

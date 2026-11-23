@@ -71,6 +71,7 @@ class NameLookup
 {
 public:
 	explicit NameLookup(Arena& arena);
+	void set_c_source(bool on) { c_source_ = on; }
 
 	// Sizes the name table for about `names` (scope, name) pairs.
 	void reserve(uint32_t names);
@@ -353,6 +354,7 @@ private:
 	uint64_t dependent_uses_ = 0;
 	uint64_t value_parameter_uses_ = 0;
 	uint32_t limit_ = kNoLimit;
+	bool c_source_ = false;
 	// By entry index, the checkpoints of the sets limited lookups found
 	// long (see Checkpoints); by (class scope, name), the invisible friend
 	// functions a class declared.

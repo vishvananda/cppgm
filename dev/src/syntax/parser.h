@@ -192,7 +192,17 @@ private:
 	Declarator* parse_parenthesized_special_member(DeclContext context, Name*& name, Scope*& member_of);
 	Decl* finish_simple_declaration(
 		DeclContext context, Slice<DeclSpecifier> specifiers, const SpecifierInfo& info, uint32_t start);
-	Decl* parse_bit_field_rest(Slice<DeclSpecifier> specifiers, Declarator* first, uint32_t start);
+	struct DeclarationList
+	{
+		Slice<DeclSpecifier> specifiers;
+		const SpecifierInfo& info;
+		Attribute* attributes;
+		uint32_t location;
+	};
+	Decl* parse_bit_field_rest(
+		const DeclarationList& list, ListFrame<InitDeclarator>& declarators, InitDeclarator current);
+	Expr* parse_bit_field_width(InitDeclarator& member);
+	bool parse_declarator_initializer(InitDeclarator& init, DeclContext context);
 	enum class CAlignment
 	{
 		Forbidden,

@@ -1869,17 +1869,11 @@ Decl* SyntaxCloner::decl(const Decl* decl)
 		const BitFieldDecl* field = static_cast<const BitFieldDecl*>(decl);
 		BitFieldDecl* result = copy(field);
 		result->specifiers = specifiers(field->specifiers);
-		if (field->declarators.size != 0)
-		{
-			BitFieldDeclarator* items = arena_.copy_array(field->declarators.data, field->declarators.size);
-			for (uint32_t i = 0; i < field->declarators.size; ++i)
-			{
-				items[i].declarator = declarator(items[i].declarator);
-				items[i].width = expr(items[i].width);
-				items[i].initializer = initializer(items[i].initializer);
-			}
-			result->declarators = Slice<BitFieldDeclarator>{ items, field->declarators.size };
-		}
+		result->declarators = init_declarators(field->declarators);
+		BitFieldWidth* widths = arena_.copy_array(field->widths.data, field->widths.size);
+		for (uint32_t i = 0; i < field->widths.size; ++i)
+			widths[i].width = expr(widths[i].width);
+		result->widths = Slice<BitFieldWidth>{ widths, field->widths.size };
 		result->attributes = attributes(field->attributes);
 		return result;
 	}

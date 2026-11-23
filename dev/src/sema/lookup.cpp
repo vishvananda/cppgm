@@ -1155,7 +1155,13 @@ LookupResult NameLookup::unqualified(Scope* scope, const Identifier* name, Looku
 			outside = bridged;
 		LookupResult result;
 		if (current->kind == ScopeKind::Class)
+		{
+			// C 6.2.3: each structure or union has a member name space.
+			// Unqualified lookup follows the enclosing ordinary scopes.
+			if (c_source_)
+				continue;
 			result = class_members(current, name, filter, !concrete_members);
+		}
 		else if (current->kind == ScopeKind::Function)
 		{
 			result = own(current, name, filter);

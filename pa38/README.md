@@ -199,6 +199,13 @@ The first fixture set covers these parts of the C17 input profile:
   alignment specifiers on typedefs, bit-fields, functions, parameters, and
   register objects, and requests weaker than an object's type. A type
   operand uses the type's alignment without evaluating VLA bounds.
+  A struct or union declaration can mix ordinary declarators and bit-fields
+  in either order, including an unnamed zero-width separator. For a list
+  that defines an enum, every declarator uses that same enum type. Apply
+  the usual type constraints to each declarator. Member names use a separate
+  name space. An unqualified name in a width expression can still refer to
+  an enclosing typedef or enumerator with the same spelling. See C99
+  through C17 §§6.2.3 and 6.7.2.1.
   GNU `aligned` can accompany a bit-field in its declaration specifiers
   or after its width. A named field's request affects its position and
   record alignment. On an unnamed zero-width field, it can increase the

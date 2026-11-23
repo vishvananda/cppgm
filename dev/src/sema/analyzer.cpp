@@ -441,7 +441,7 @@ void Analyzer::declaration(const syntax::Decl& decl, Scope* scope)
 		return;
 	}
 	case syntax::DeclKind::BitField:
-		return bit_field_declaration(static_cast<const syntax::BitFieldDecl&>(decl), scope);
+		return simple_declaration(static_cast<const syntax::BitFieldDecl&>(decl), scope);
 	}
 }
 

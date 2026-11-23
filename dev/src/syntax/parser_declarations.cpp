@@ -1115,15 +1115,18 @@ Decl* Parser::finish_simple_declaration(
 		pending_attributes_ = nullptr;
 		return decl;
 	}
-	if (context == DeclContext::Class && at(TokenKind::OP_COLON))
-		return parse_bit_field_rest(specifiers, nullptr, start);
-
 	if (context != DeclContext::Class && at_structured_binding())
 		return parse_structured_binding(specifiers, info, start);
 	function_scope_ = nullptr;
 	Attribute* attributes = pending_attributes_;
 	pending_attributes_ = nullptr;
-	uint32_t first_token = static_cast<uint32_t>(tokens_.unit_position());
+	InitDeclarator current = InitDeclarator();
+	current.first_token = static_cast<uint32_t>(tokens_.unit_position());
+	if (context == DeclContext::Class && at(TokenKind::OP_COLON))
+	{
+		ListFrame<InitDeclarator> declarators(init_declarators_);
+		return parse_bit_field_rest(DeclarationList{ specifiers, info, attributes, start }, declarators, current);
+	}
 	const bool saved_friend = friend_declarator_;
 	friend_declarator_ = info.has_friend;
 	const auto mode = context == DeclContext::CParameter ? DeclaratorMode::Parameter : DeclaratorMode::Named;
@@ -1181,139 +1184,159 @@ Decl* Parser::finish_simple_declaration(
 		scopes_.set_current(saved);
 		return parsed ? function : nullptr;
 	}
-	if (context == DeclContext::Class && at(TokenKind::OP_COLON))
-	{
-		pending_attributes_ = attributes;
-		return parse_bit_field_rest(specifiers, declarator, start);
-	}
-
-	SimpleDecl* decl = make<SimpleDecl>(DeclKind::Simple, start);
-	decl->specifiers = specifiers;
-	decl->attributes = attributes;
+	current.declarator = declarator;
 	ListFrame<InitDeclarator> declarators(init_declarators_);
 	for (;;)
 	{
-		Scope* const member_of = declarator_member_of_;
+		if (context == DeclContext::Class && at(TokenKind::OP_COLON))
+			return parse_bit_field_rest(DeclarationList{ specifiers, info, attributes, start }, declarators, current);
 		if (!info.c_auto_type)
-			declare_declarator(declarator, info);
-		InitDeclarator init = InitDeclarator();
-		init.declarator = declarator;
-		init.first_token = first_token;
-		if (at(TokenKind::OP_ASS) || at(TokenKind::OP_LBRACE) || at(TokenKind::OP_LPAREN))
-		{
-			if (c_source_ && context == DeclContext::Class)
-			{
-				fail();
-				return nullptr;
-			}
-			const bool saved_template = pending_template_;
-			pending_template_ = false;
-			// A static data member's initializer is in the scope of its
-			// class (9.4.2p2), a namespace member's in its namespace's
-			// (3.4.3p3).
-			Scope* outer = member_of != nullptr ? scopes_.enter(member_lookup_scope(member_of)) : nullptr;
-			init.initializer = parse_initializer(true);
-			if (outer != nullptr)
-				scopes_.set_current(outer);
-			pending_template_ = saved_template;
-			if (init.initializer == nullptr)
-				return nullptr;
-		}
-		init.end_token = static_cast<uint32_t>(tokens_.unit_position());
+			declare_declarator(current.declarator, info);
+		if ((at(TokenKind::OP_ASS) || at(TokenKind::OP_LBRACE) || at(TokenKind::OP_LPAREN)) &&
+			!parse_declarator_initializer(current, context))
+			return nullptr;
+		current.end_token = static_cast<uint32_t>(tokens_.unit_position());
 		if (info.c_auto_type)
 		{
-			if (init.initializer == nullptr || init.initializer->kind != InitializerKind::Assign ||
-				init.initializer->expression->kind == ExprKind::BracedInit)
-				throw ParseError(declarator->location, "__auto_type requires an expression initializer");
+			if (current.initializer == nullptr || current.initializer->kind != InitializerKind::Assign ||
+				current.initializer->expression->kind == ExprKind::BracedInit)
+				throw ParseError(current.declarator->location, "__auto_type requires an expression initializer");
 			if (at(TokenKind::OP_COMMA))
 				throw ParseError(location(), "__auto_type requires a single declarator");
-			declare_declarator(declarator, info);
+			declare_declarator(current.declarator, info);
 		}
-		declarators.push(init);
+		declarators.push(current);
 		if (!accept(TokenKind::OP_COMMA))
 			break;
-		first_token = static_cast<uint32_t>(tokens_.unit_position());
+		current = InitDeclarator();
+		current.first_token = static_cast<uint32_t>(tokens_.unit_position());
+		if (context == DeclContext::Class && at(TokenKind::OP_COLON))
+			return parse_bit_field_rest(DeclarationList{ specifiers, info, attributes, start }, declarators, current);
 		friend_declarator_ = info.has_friend;
-		declarator = parse_declarator(mode);
+		current.declarator = parse_declarator(mode);
 		friend_declarator_ = saved_friend;
-		if (declarator == nullptr)
+		if (current.declarator == nullptr)
 			return nullptr;
 	}
 	if (!expect(TokenKind::OP_SEMICOLON))
 		return nullptr;
+	SimpleDecl* decl = make<SimpleDecl>(DeclKind::Simple, start);
+	decl->specifiers = specifiers;
+	decl->attributes = attributes;
 	decl->declarators = declarators.take(arena_);
 	return decl;
 }
 
-Decl* Parser::parse_bit_field_rest(Slice<DeclSpecifier> specifiers, Declarator* first, uint32_t start)
+bool Parser::parse_declarator_initializer(InitDeclarator& init, DeclContext context)
 {
-	BitFieldDecl* decl = make<BitFieldDecl>(DeclKind::BitField, start);
-	decl->specifiers = specifiers;
-	decl->attributes = pending_attributes_;
-	pending_attributes_ = nullptr;
-	ListFrame<BitFieldDeclarator> members(bit_fields_);
-	Declarator* declarator = first;
+	if (c_source_ && context == DeclContext::Class)
+	{
+		fail();
+		return false;
+	}
+	const bool saved_template = pending_template_;
+	pending_template_ = false;
+	// A static data member's initializer uses its class scope (9.4.2p2).
+	// A namespace member's uses its namespace (3.4.3p3).
+	Scope* outer = declarator_member_of_ != nullptr ? scopes_.enter(member_lookup_scope(declarator_member_of_))
+													: nullptr;
+	init.initializer = parse_initializer(true);
+	if (outer != nullptr)
+		scopes_.set_current(outer);
+	pending_template_ = saved_template;
+	return init.initializer != nullptr;
+}
+
+Decl* Parser::parse_bit_field_rest(
+	const DeclarationList& list, ListFrame<InitDeclarator>& declarators, InitDeclarator current)
+{
+	ListFrame<BitFieldWidth> widths(bit_fields_);
+	const bool saved_friend = friend_declarator_;
 	for (;;)
 	{
-		BitFieldDeclarator member = BitFieldDeclarator();
-		member.declarator = declarator;
-		if (declarator != nullptr)
+		if (accept(TokenKind::OP_COLON))
 		{
-			for (const Declarator* part = declarator; part != nullptr; part = part->nested)
-				for (const Attribute* attribute = part->attributes; attribute != nullptr; attribute = attribute->next)
-					if (!attribute->standard &&
-						(attribute->kind == AttributeKind::Packed ||
-							(attribute->kind == AttributeKind::Alignas && attribute->gnu)))
-						throw ParseError(attribute->location, "a GNU bit-field attribute before the width");
-			const Name* name = declarator_name(declarator);
-			if (name != nullptr && !name->qualified() && name->last().kind == NameComponentKind::Identifier)
-				scopes_.declare(
-					scopes_.current(), name->last().identifier, NameBinding{ NameCategory::Value, false, nullptr });
-		}
-		if (!expect(TokenKind::OP_COLON))
-			return nullptr;
-		// [class.bit]: the longest conditional-expression forms the width.
-		member.width = parse_conditional_expression();
-		if (member.width == nullptr)
-			return nullptr;
-		if (tok().is_identifier() && gnu_names_.kind(tok().identifier) == GnuNames::kAttribute)
-		{
-			Attribute* unnamed_attributes = nullptr;
-			Attribute*& attributes = declarator != nullptr ? declarator->attributes : unnamed_attributes;
-			if (!collect_attributes(attributes))
+			Expr* width = parse_bit_field_width(current);
+			if (width == nullptr)
 				return nullptr;
-			if (declarator == nullptr && attributes != nullptr)
-			{
-				member.declarator = make<Declarator>();
-				*member.declarator = Declarator();
-				member.declarator->abstract = true;
-				member.declarator->location = attributes->location;
-				member.declarator->attributes = attributes;
-			}
+			widths.push(BitFieldWidth{ declarators.size(), width });
 		}
-		if (!c_source_ && declarator != nullptr && (at(TokenKind::OP_ASS) || at(TokenKind::OP_LBRACE)))
+		else
 		{
-			if (!cxx20_)
-				require_cxx_extension(location(), 20, "a bit-field default member initializer requires C++20");
-			member.initializer = parse_initializer(false);
-			if (member.initializer == nullptr)
+			declare_declarator(current.declarator, list.info);
+			if ((at(TokenKind::OP_ASS) || at(TokenKind::OP_LBRACE) || at(TokenKind::OP_LPAREN)) &&
+				!parse_declarator_initializer(current, DeclContext::Class))
 				return nullptr;
 		}
-		members.push(member);
+		current.end_token = static_cast<uint32_t>(tokens_.unit_position());
+		declarators.push(current);
 		if (!accept(TokenKind::OP_COMMA))
 			break;
-		declarator = nullptr;
+		current = InitDeclarator();
+		current.first_token = static_cast<uint32_t>(tokens_.unit_position());
 		if (!at(TokenKind::OP_COLON))
 		{
-			declarator = parse_declarator(DeclaratorMode::Named);
-			if (declarator == nullptr)
+			friend_declarator_ = list.info.has_friend;
+			current.declarator = parse_declarator(DeclaratorMode::Named);
+			friend_declarator_ = saved_friend;
+			if (current.declarator == nullptr)
 				return nullptr;
 		}
 	}
 	if (!expect(TokenKind::OP_SEMICOLON))
 		return nullptr;
-	decl->declarators = members.take(arena_);
+	BitFieldDecl* decl = make<BitFieldDecl>(DeclKind::BitField, list.location);
+	decl->specifiers = list.specifiers;
+	decl->attributes = list.attributes;
+	decl->declarators = declarators.take(arena_);
+	decl->widths = widths.take(arena_);
 	return decl;
+}
+
+Expr* Parser::parse_bit_field_width(InitDeclarator& member)
+{
+	Declarator* declarator = member.declarator;
+	if (declarator != nullptr)
+	{
+		for (const Declarator* part = declarator; part != nullptr; part = part->nested)
+			for (const Attribute* attribute = part->attributes; attribute != nullptr; attribute = attribute->next)
+				if (!attribute->standard &&
+					(attribute->kind == AttributeKind::Packed ||
+						(attribute->kind == AttributeKind::Alignas && attribute->gnu)))
+					throw ParseError(attribute->location, "a GNU bit-field attribute before the width");
+		const Name* name = declarator_name(declarator);
+		if (name != nullptr && !name->qualified() && name->last().kind == NameComponentKind::Identifier)
+			scopes_.declare(
+				scopes_.current(), name->last().identifier, NameBinding{ NameCategory::Value, false, nullptr });
+	}
+	// [class.bit]: the longest conditional-expression forms the width.
+	Expr* width = parse_conditional_expression();
+	if (width == nullptr)
+		return nullptr;
+	if (tok().is_identifier() && gnu_names_.kind(tok().identifier) == GnuNames::kAttribute)
+	{
+		Attribute* unnamed_attributes = nullptr;
+		Attribute*& attributes = declarator != nullptr ? declarator->attributes : unnamed_attributes;
+		if (!collect_attributes(attributes))
+			return nullptr;
+		if (declarator == nullptr && attributes != nullptr)
+		{
+			member.declarator = make<Declarator>();
+			*member.declarator = Declarator();
+			member.declarator->abstract = true;
+			member.declarator->location = attributes->location;
+			member.declarator->attributes = attributes;
+		}
+	}
+	if (!c_source_ && declarator != nullptr && (at(TokenKind::OP_ASS) || at(TokenKind::OP_LBRACE)))
+	{
+		if (!cxx20_)
+			require_cxx_extension(location(), 20, "a bit-field default member initializer requires C++20");
+		member.initializer = parse_initializer(false);
+		if (member.initializer == nullptr)
+			return nullptr;
+	}
+	return width;
 }
 
 Initializer* Parser::parse_initializer(bool allow_parenthesized)

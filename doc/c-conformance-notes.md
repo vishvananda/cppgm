@@ -73,6 +73,22 @@ presumed filename and line.
 [GCC computed includes](https://gcc.gnu.org/onlinedocs/cpp/Computed-Includes.html) ·
 [GCC C99 include cases](../reports/upstream-gcc-c99.json)
 
+## Structure and union declarator lists
+
+C99 through C17 §6.7.2.1 permits a list in which each declarator can
+independently include a bit-field width. An unnamed bit-field can appear
+between ordinary members. One specifier-qualifier list supplies the base
+type for the entire declaration, including when it defines a new
+enumeration. Type constraints still apply to each member, including
+the prohibition on a member of function type. C §6.2.3 gives each record
+a separate member name space. A width expression uses the ordinary
+name space, so a member name does not hide a typedef or enumerator
+with the same spelling.
+
+[C99 with corrigenda, N1256 §6.7.2.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
+[C11 draft, N1570 §6.7.2.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[PA38 mixed declarators](../pa38/tests/general/300-c-mixed-member-declarators.t)
+
 ## C99 bit-field width
 
 C99 6.7.2.1 constrains a bit-field's width by the declared type. Its

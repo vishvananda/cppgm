@@ -1135,11 +1135,19 @@ and both Darwin profiles through SDK-free Mach-O replay.
 [PA30 guard-page fixture](../pa30/tests/run/800-gnu-aligned-bit-field-run.t.1) ·
 [Compile-work measurements](../docs/performance/c-frontend-scaling.md#gnu-aligned-and-packed-bit-fields)
 
-Comma-separated declarations that combine ordinary fields and bit-fields
-remain open. GCC 15 and Clang 22 accept either order in C17, including a
-list whose declaration introduces an enum type. Both orders currently
-fail in cppgm. A C++11 list with a bit-field and a member function also
-fails in cppgm and passes with G++ and Clang.
+Comma-separated declarations may combine ordinary fields and bit-fields.
+The PA38 runtime case covers both orders, a zero-width separator and a list
+that defines the enum used by its members. GCC 15, Clang 22 and cppgm
+passed it in strict C99, C11 and C17. The negative cases exercise function
+members and pointer bit-fields in mixed lists. PA11 covers an ordinary
+member function alongside bit-fields, and PA14 covers instantiation of its
+out-of-class definition with a dependent field width. A separate PA38
+case checks that width expressions still see an enclosing typedef or
+enumerator with the same spelling as a member.
+[PA38 member name space](../pa38/tests/general/300-c-member-name-space.t) ·
+[PA38 mixed declarators](../pa38/tests/general/300-c-mixed-member-declarators.t) ·
+[PA11 shared declarations](../pa11/tests/general/400-mixed-member-declarators.t) ·
+[PA14 template declarations](../pa14/tests/general/300-mixed-template-member-declarators.t)
 
 ## Composite types, tentative definitions, and linkage
 

@@ -396,8 +396,13 @@ void Analyzer::simple_declaration(const syntax::SimpleDecl& decl, Scope* scope)
 	// initializer's nested declarations (a lambda's body) their own.
 	const Type* saved_auto = auto_deduced_;
 	auto_deduced_ = nullptr;
-	for (const syntax::InitDeclarator& init : decl.declarators)
+	const auto* bit_fields = decl.kind == syntax::DeclKind::BitField ? &static_cast<const syntax::BitFieldDecl&>(decl)
+																	 : nullptr;
+	uint32_t next_width = 0;
+	for (uint32_t i = 0; i < decl.declarators.size; ++i)
 	{
+		const syntax::InitDeclarator& init = decl.declarators[i];
+		const syntax::Expr* width = bit_fields == nullptr ? nullptr : bit_fields->take_width(i, next_width);
 		// 7p1, 8.3p1: the attributes before the declaration and those after
 		// its declarator-id appertain to the declared entity (as GNU ones
 		// after an array suffix do for GCC).
@@ -413,6 +418,15 @@ void Analyzer::simple_declaration(const syntax::SimpleDecl& decl, Scope* scope)
 			if (specifier == nullptr)
 				specifier = AlignmentSpecifier(part->attributes);
 		}
+		const size_t retained = i + 1 == decl.declarators.size ? pending : shared;
+		if (width != nullptr)
+		{
+			if (specifier != nullptr)
+				error(specifier->location, "an alignment-specifier on a bit-field");
+			bit_field_member(specifiers, init, *width, scope, decl.location, entity_alignment, entity_packed);
+			settle_declaration_access(pending, retained, init.declared);
+			continue;
+		}
 		const AlignmentRequest request{ entity_alignment, specifier, c_standard_alignment };
 		declare_declarator(specifiers, init, scope, decl.location,
 			c_source_ && entity_alignment != 0 ? &request : nullptr, decl.attributes);
@@ -420,8 +434,7 @@ void Analyzer::simple_declaration(const syntax::SimpleDecl& decl, Scope* scope)
 		// declaration is analyzed again, names only.
 		if (deferred_reserved_call())
 			break;
-		settle_declaration_access(
-			pending, &init == &decl.declarators[decl.declarators.size - 1] ? pending : shared, init.declared);
+		settle_declaration_access(pending, retained, init.declared);
 		// 7.6.2p1: an alignment-specifier applies to a variable or data
 		// member, not a typedef or function.
 		Entity* entity = init.declared != nullptr ? init.declared->entity : nullptr;
@@ -3228,90 +3241,72 @@ void Analyzer::default_definition(FunctionEntity* function, bool first, uint32_t
 	virtual_definition(function, location);
 }
 
-void Analyzer::bit_field_declaration(const syntax::BitFieldDecl& decl, Scope* scope)
+void Analyzer::bit_field_member(const Specifiers& specifiers, const syntax::InitDeclarator& field,
+	const syntax::Expr& width_expr, Scope* scope, uint32_t location, uint64_t alignment, bool packed)
 {
 	if (scope->kind != ScopeKind::Class)
-		error(decl.location, "bit-field outside a class");
-	Specifiers specifiers;
-	this->specifiers(decl.specifiers, scope, specifiers, false);
-	if (specifiers.type == nullptr || specifiers.type == auto_placeholder_ ||
-		specifiers.type == decltype_auto_placeholder_)
-		error(decl.location, "bit-field without a type");
-	// 7.6.2p1: an alignment-specifier may not apply to a bit-field.
-	if (const syntax::Attribute* attribute = AlignmentSpecifier(decl.attributes))
-		error(attribute->location, "an alignment-specifier on a bit-field");
-	bool packed = false, no_inline = false;
-	const uint64_t alignment = decl.attributes != nullptr && template_depth_ == 0
-		? attribute_alignment(decl.attributes, scope, packed, no_inline)
-		: 0;
-	ClassEntity* owner = static_cast<ClassEntity*>(scope->entity);
-	for (const syntax::BitFieldDeclarator& field : decl.declarators)
+		error(location, "bit-field outside a class");
+	const Type* type = specifiers.type;
+	if (type == auto_placeholder_ || type == decltype_auto_placeholder_ || specifiers.deduction != nullptr)
+		error(location, "bit-field without a type");
+	if (specifiers.is_static || specifiers.is_extern || specifiers.is_thread_local || specifiers.is_typedef ||
+		specifiers.is_friend || specifiers.is_constexpr)
+		error(location, "a bit-field must be a non-static data member");
+	DeclaratorInfo info = DeclaratorInfo();
+	if (field.declarator != nullptr || !specifiers.mode_specifiers.empty())
 	{
-		const Type* type = specifiers.type;
-		DeclaratorInfo info = DeclaratorInfo();
-		uint64_t field_alignment = alignment;
-		bool field_packed = packed;
-		for (const syntax::Declarator* part = field.declarator; part != nullptr; part = part->nested)
-		{
-			if (const syntax::Attribute* attribute = AlignmentSpecifier(part->attributes))
-				error(attribute->location, "an alignment-specifier on a bit-field");
-			if (part->attributes != nullptr && template_depth_ == 0)
-				field_alignment = std::max(
-					field_alignment, attribute_alignment(part->attributes, scope, field_packed, no_inline));
-		}
-		if (field.declarator != nullptr || !specifiers.mode_specifiers.empty())
-		{
-			info = declarator(field.declarator, type, scope, decl.location, &specifiers);
-			type = info.type;
-		}
-		// 9.6p3: an integral or enumeration type and a non-negative width,
-		// zero only when unnamed; not an atomic one (C11 6.7.2.1p5, Clang).
-		if (!IsIntegralType(type) && type->unqualified->kind != TypeKind::Enum &&
-			!(template_depth_ != 0 && dependent_type(type)))
-			error(decl.location, "bit-field of non-integral type");
-		if ((type->cv & kAtomic) != 0)
-			error(decl.location, "bit-field of an atomic type");
-		uint64_t width = 0;
-		if (template_depth_ == 0)
-		{
-			Constant value;
-			if (semantic())
-				integral_constant_operand(*field.width, scope, nullptr);
-			integer_constant_expression(*field.width, scope, value, true);
-			if (IsScopedEnumeration(value.type) || (IsSignedConstant(value) && static_cast<int64_t>(value.bits) < 0))
-				error(field.width->location, "invalid bit-field width");
-			width = value.bits;
-			if (c_source_)
-			{
-				uint64_t size = 0, alignment = 0;
-				const Type* base = type->unqualified;
-				const bool boolean = base->kind == TypeKind::Fundamental && base->fundamental == FundamentalType::Bool;
-				const uint64_t limit = boolean ? 1 : type_size(base, size, alignment, 0) ? size * 8 : 0;
-				if (width > limit)
-					error(field.width->location, "bit-field width exceeds the width of its type");
-			}
-		}
-		VariableEntity* variable;
-		if (info.name == nullptr)
-		{
-			variable = new_entity<VariableEntity>(EntityKind::Variable, nullptr, scope, type);
-			add_data_member(owner, variable, width, true, decl.location);
-		}
-		else
-		{
-			if (width == 0 && template_depth_ == 0)
-				error(decl.location, "named bit-field of width zero");
-			Binding* binding = declare_variable(specifiers, info, field.initializer, scope, decl.location);
-			if (owner->last_member == nullptr || owner->last_member->variable != binding->entity)
-				continue;
-			variable = static_cast<VariableEntity*>(binding->entity);
-		}
-		owner->last_member->width = width;
-		owner->last_member->bit_field = true;
-		owner->last_member->packed = field_packed;
-		variable->bit_field = true;
-		request_alignment(variable, field_alignment, nullptr);
+		info = declarator(field.declarator, type, scope, location, &specifiers);
+		type = info.type;
 	}
+	// 9.6p3: an integral or enumeration type and a non-negative width,
+	// zero only when unnamed; not an atomic one (C11 6.7.2.1p5, Clang).
+	if (!IsIntegralType(type) && type->unqualified->kind != TypeKind::Enum &&
+		!(template_depth_ != 0 && dependent_type(type)))
+		error(location, "bit-field of non-integral type");
+	if ((type->cv & kAtomic) != 0)
+		error(location, "bit-field of an atomic type");
+	uint64_t width = 0;
+	if (template_depth_ == 0)
+	{
+		Constant value;
+		if (semantic())
+			integral_constant_operand(width_expr, scope, nullptr);
+		integer_constant_expression(width_expr, scope, value, true);
+		if (IsScopedEnumeration(value.type) || (IsSignedConstant(value) && static_cast<int64_t>(value.bits) < 0))
+			error(width_expr.location, "invalid bit-field width");
+		width = value.bits;
+		if (c_source_)
+		{
+			uint64_t size = 0, natural = 0;
+			const Type* base = type->unqualified;
+			const bool boolean = base->kind == TypeKind::Fundamental && base->fundamental == FundamentalType::Bool;
+			const uint64_t limit = boolean ? 1 : type_size(base, size, natural, 0) ? size * 8 : 0;
+			if (width > limit)
+				error(width_expr.location, "bit-field width exceeds the width of its type");
+		}
+	}
+	ClassEntity* owner = static_cast<ClassEntity*>(scope->entity);
+	VariableEntity* variable;
+	if (info.name == nullptr)
+	{
+		variable = new_entity<VariableEntity>(EntityKind::Variable, nullptr, scope, type);
+		add_data_member(owner, variable, width, true, location);
+	}
+	else
+	{
+		if (width == 0 && template_depth_ == 0)
+			error(location, "named bit-field of width zero");
+		Binding* binding = declare_variable(specifiers, info, field.initializer, scope, location);
+		field.declared = binding;
+		if (owner->last_member == nullptr || owner->last_member->variable != binding->entity)
+			return;
+		variable = static_cast<VariableEntity*>(binding->entity);
+	}
+	owner->last_member->width = width;
+	owner->last_member->bit_field = true;
+	owner->last_member->packed = packed;
+	variable->bit_field = true;
+	request_alignment(variable, alignment, nullptr);
 }
 
 void Analyzer::require_definition_types(const Type* type, uint32_t location)
