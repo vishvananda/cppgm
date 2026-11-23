@@ -1,5 +1,5 @@
-<svg data-original-label="Public programs runtime vs gcc" data-original-message="1.07×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="Public programs runtime vs gcc; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured 7bc2ee42070147be1668ff16a16841c6e02b47e3; 0 commits behind main: 1.07×">
-  <title>Public programs runtime vs gcc; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured 7bc2ee42070147be1668ff16a16841c6e02b47e3; 0 commits behind main: 1.07×</title>
+<svg data-original-label="Public programs runtime vs gcc" data-original-message="1.07×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="Public programs runtime vs gcc; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured 7bc2ee42070147be1668ff16a16841c6e02b47e3; 1 commits behind main: 1.07×">
+  <title>Public programs runtime vs gcc; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured 7bc2ee42070147be1668ff16a16841c6e02b47e3; 1 commits behind main: 1.07×</title>
   <defs><clipPath id="badge"><rect width="120" height="24" rx="4"/></clipPath></defs>
   <g clip-path="url(#badge)">
     <rect width="64" height="24" fill="#555"/>
