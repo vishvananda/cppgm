@@ -418,7 +418,8 @@ private:
 	VariableEntity* new_variable(const Specifiers& specifiers, const char* asm_label, const DeclaredName& name,
 		Scope* where, const Type* type, bool is_extern, bool member, bool initialized, uint32_t location,
 		bool structured_binding = false);
-	void add_data_member(ClassEntity* entity, Entity* variable, uint64_t width, bool bit_field);
+	void add_data_member(ClassEntity* entity, Entity* variable, uint64_t width, bool bit_field, uint32_t location = 0);
+	void check_c_record_member(ClassEntity* entity, const Entity* variable, uint32_t location);
 	void note_user_provided(const FunctionEntity* function, const syntax::Initializer* initializer);
 	Binding* declare_function(const Specifiers& specifiers, const DeclaratorInfo& info, Scope* scope, bool definition,
 		uint32_t location, bool deleted = false);
@@ -450,6 +451,7 @@ private:
 		const syntax::BracedInitList& list, const ClassEntity* cls, syntax::BracedInitList& out, Scope* scope);
 	class CInitializerBuilder;
 	void c_designated_list(const syntax::BracedInitList& list, const Type* type, Scope* scope);
+	void check_c_flexible_initializer(uint32_t location);
 	bool members_accept(const syntax::BracedInitList& list, uint32_t& next, const ClassEntity* cls);
 	bool elements_accept(const syntax::BracedInitList& list, uint32_t& next, const Type* array);
 	bool element_accepts(const syntax::BracedInitList& list, uint32_t& next, const Type* type);

@@ -83,12 +83,13 @@ class CoverageTests(unittest.TestCase):
         last['stdout'] = '0\n'
         self.assertEqual(evidence_key(row, self.profiles), ('limits.combined', profile['id'], 99, 'O0'))
 
-    def test_preprocessing_receipts_distinguish_success_and_diagnostics(self):
+    def test_single_stage_receipts_distinguish_success_and_diagnostics(self):
         success = dict(name='preprocess', classification='success', returncode=0)
         rejection = dict(name='preprocess', classification='rejection', returncode=1)
         for case, expected, unexpected in (
             ('environment.thread-predefine', success, rejection),
             ('error.message', rejection, success),
+            ('record.flexible-only-member', dict(rejection, name='compile'), dict(success, name='compile')),
         ):
             with self.subTest(case=case):
                 row = dict(self.valid_runtime(), case=case, variant='default', stages=[expected])

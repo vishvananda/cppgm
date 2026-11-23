@@ -580,6 +580,25 @@ still require complete object types.
 [PA38 evaluated `sizeof` operand](../pa38/tests/general/300-variable-array-sizeof-operand.t) ·
 [PA38 GNU `typeof`](../pa38/tests/general/300-variable-array-typeof.t)
 
+## Flexible arrays and record members
+
+A flexible array is an incomplete array at the end of a struct with at
+least one other named member. Names injected through C11 anonymous
+records count. The restriction on embedding a flexible record in a
+struct or array applies to unions that contain it, including through
+another union. A pointer to such a record is a complete pointer type.
+An ordinary struct copy uses the struct's fixed layout. Access through
+the flexible member can use the storage supplied for the containing
+object, as in the allocation example in the standard.
+
+Use the declaration's typed members to recognize those constraints. In
+pedantic mode, apply the GNU extension diagnostic to an embedding in a
+struct or array and to a nonempty initializer of the flexible member.
+GCC and Clang also require the member type itself to be an object type,
+so a function typedef cannot declare a field.
+[C11 draft, §6.7.2.1p3, p18, p20–p23](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[GCC flexible array extensions](https://gcc.gnu.org/onlinedocs/gcc/Zero-Length.html)
+
 ## Designated and overlapping initializers
 
 C11 6.7.9p17 and p18 associate each brace pair with a current object.

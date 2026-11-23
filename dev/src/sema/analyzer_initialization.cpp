@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "lex/identifier_table.h"
+#include "preprocess/preprocessor.h"
 #include "sema/aggregates.h"
 #include "sema/constant_interpreter.h"
 #include "sema/constant_floating.h"
@@ -575,6 +576,13 @@ void Analyzer::aggregate_initialize(const syntax::BracedInitList& list, ClassEnt
 		substitution_error(list.elements[next]->location, "too many initializers for the aggregate");
 }
 
+void Analyzer::check_c_flexible_initializer(uint32_t location)
+{
+	const char* message = "initializing a flexible array member is a GNU C extension";
+	if (positions_ != nullptr && !positions_->allow_gnu_c_extension(location, message))
+		error(location, message);
+}
+
 void Analyzer::aggregate_members(const syntax::BracedInitList& list, uint32_t& next, ClassEntity* entity, Scope* scope)
 {
 	for (const BaseClass* base = entity->bases; base != nullptr; base = base->next)
@@ -611,6 +619,8 @@ void Analyzer::aggregate_members(const syntax::BracedInitList& list, uint32_t& n
 					error(element->location,
 						"a flexible array member initialized outside the initializer of an object of "
 						"static storage duration");
+				if (c_source_)
+					check_c_flexible_initializer(element->location);
 				flexible_given_ = true;
 			}
 		}

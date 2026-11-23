@@ -438,6 +438,7 @@ private:
 				analyzer_.error(list.location,
 					"a flexible array member initialized outside the initializer of an object of static storage "
 					"duration");
+			analyzer_.check_c_flexible_initializer(list.location);
 			analyzer_.flexible_given_ = true;
 		}
 	}

@@ -443,6 +443,36 @@ void Analyzer::note_may_alias(const Type* type)
 		graph_.may_alias_types.push_back(type);
 }
 
+static bool FlexibleMemberType(const Type* type)
+{
+	return type->kind == TypeKind::Array && !type->has_array_bound() && !type->runtime_array();
+}
+
+void Analyzer::check_c_record_member(ClassEntity* entity, const Entity* variable, uint32_t location)
+{
+	const char* invalid_tail = "a flexible array must be the last member of a struct with another named member";
+	if (entity->c_contains_flexible_array && FlexibleMemberType(entity->last_member->variable->type))
+		error(location, invalid_tail);
+	const Type* type = variable->type;
+	const bool is_union = IsUnion(entity->key);
+	if (FlexibleMemberType(type))
+	{
+		// C17 6.7.2.1p3. The earlier named member can come from an anonymous record.
+		if (is_union || !entity->c_has_named_member)
+			error(location, invalid_tail);
+		entity->c_contains_flexible_array = true;
+	}
+	const ClassEntity* nested = ClassOf(type);
+	if (nested != nullptr && nested->c_contains_flexible_array)
+	{
+		const char* message = "a struct member containing a flexible array is a GNU C extension";
+		if (!is_union && positions_ != nullptr && !positions_->allow_gnu_c_extension(location, message))
+			error(location, message);
+		entity->c_contains_flexible_array = true;
+	}
+	entity->c_has_named_member |= variable->name != nullptr || (nested != nullptr && nested->c_has_named_member);
+}
+
 void Analyzer::class_body(ClassEntity* entity, const syntax::ClassSpecifier& specifier, Scope* parent, Scope* print)
 {
 	Scope* scope = new_scope(ScopeKind::Class, parent, print, entity, entity->label);
@@ -789,7 +819,7 @@ void Analyzer::anonymous_union(ClassEntity* entity, const Specifiers& specifiers
 		auto* storage = new_entity<VariableEntity>(EntityKind::Variable, nullptr, where, entity->type);
 		if (alignment_specifier != nullptr)
 			request_alignment(storage, alignment, alignment_specifier);
-		add_data_member(owner, storage, 0, false);
+		add_data_member(owner, storage, 0, false, location);
 		Binding* binding = new_binding(BindingKind::Variable, nullptr, storage, entity->type);
 		binding->hidden = true;
 		entity->storage = binding;

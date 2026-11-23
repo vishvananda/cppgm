@@ -285,6 +285,9 @@ struct ClassEntity : Entity
 	// A const object of the class may be default-initialized (8.5p6, CWG
 	// 253), once established (see check_const_default).
 	bool const_default_constructible;
+	// C record constraints, accumulated in declaration order.
+	bool c_has_named_member;
+	bool c_contains_flexible_array;
 	// The aggregate initialization that last value-initialized the class
 	// as a member without an initializer (see aggregate_element).
 	uint32_t empty_list_mark;

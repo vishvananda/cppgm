@@ -877,6 +877,100 @@
       "cases": []
     },
     {
+      "id": "record.flexible-member-placement",
+      "clause": "6.7.2.1p3",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Diagnose a flexible array in a union, before a later member, or in a struct with no other named member.",
+      "cases": [
+        "record.flexible-only-member",
+        "record.flexible-nonfinal",
+        "record.flexible-union-member"
+      ]
+    },
+    {
+      "id": "record.flexible-containing-types",
+      "clause": "6.7.2.1p3",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Diagnose by-value use of a flexible record as a struct member or array element under the pedantic policy, including through recursively containing unions.",
+      "cases": [
+        "record.flexible-struct-member",
+        "record.flexible-array-element"
+      ]
+    },
+    {
+      "id": "record.function-member-type",
+      "clause": "6.7.2.1p3",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Diagnose a record member of function type even when the type comes from a typedef.",
+      "cases": [
+        "record.function-member"
+      ]
+    },
+    {
+      "id": "record.flexible-member-initializers",
+      "clause": "6.7.2.1p18, 6.7.9",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Diagnose a nonempty direct initializer of a flexible array member under the pedantic policy, with both positional and designated forms.",
+      "cases": [
+        "record.flexible-positional-initializer",
+        "record.flexible-designated-initializer"
+      ]
+    },
+    {
+      "id": "record.flexible-member-access",
+      "clause": "6.7.2.1p18, p20–p23",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "hosted",
+      "requirement": "Access the flexible tail within allocated storage and check the header after an ordinary struct copy.",
+      "cases": [
+        "record.flexible-array"
+      ]
+    },
+    {
+      "id": "record.flexible-member-valid-types",
+      "clause": "6.7.2.1p3, p18",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Accept a flexible record as a union member including through another union, and accept arrays of pointers to the record. In C11 and C17, count a name injected by an anonymous union when checking the struct's named members.",
+      "cases": [
+        "record.flexible-array"
+      ]
+    },
+    {
       "id": "library.c11-header-facilities",
       "clause": "7.2, 7.15, 7.23",
       "kind": "required",

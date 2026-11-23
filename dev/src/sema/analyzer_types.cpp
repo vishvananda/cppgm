@@ -1449,6 +1449,12 @@ const Type* Analyzer::checked_array(const Type* element, uint64_t bound, uint32_
 		substitution_error(location, "a C array has incomplete element type");
 		return nullptr;
 	}
+	if (c_source_ && element->kind == TypeKind::Class && ClassOf(element)->c_contains_flexible_array)
+	{
+		const char* message = "an array element containing a flexible array is a GNU C extension";
+		if (positions_ != nullptr && !positions_->allow_gnu_c_extension(location, message))
+			error(location, message);
+	}
 	if (!c_source_ && semantic() && template_depth_ == 0 && !check_abstract_object(element, location))
 		return nullptr;
 	return types_.array(element, bound, nullptr, nullptr, zero_length);

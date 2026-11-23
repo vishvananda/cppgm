@@ -76,6 +76,9 @@ Start the next batches from the existing receipts.
    the Wasm runtime ABI for double and binary128 complex helpers.
    Hosted math probes cover `sqrt` rounding and inexact, discarded `pow`
    with divide-by-zero, and independent trigonometric status effects.
+   C record probes cover flexible-member placement, transitive containment
+   through unions, allocated tail access, function-type member diagnostics,
+   and the pedantic boundary for GNU flexible-member initializers.
    Extend the remaining software floating operations. Continue with
    declarators, initializers, conversions, constant expressions, and
    linkage. Pair edition boundaries with native reference runs and

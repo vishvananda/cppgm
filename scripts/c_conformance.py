@@ -26,6 +26,21 @@ NATIVE_PROFILES = {
 }
 RUN_STAGES = ('compile', 'link', 'run')
 THREAD_PREDEFINE = ROOT / 'scripts/tests/c_thread_predefine.c'
+PA38_GENERAL = ROOT / 'pa38/tests/general'
+FLEXIBLE_ARRAY = PA38_GENERAL / '300-c-flexible-array.t'
+RECORD_CONSTRAINTS = {
+    'record.flexible-only-member': ('200-c-flexible-only-member-bad.t', 'a flexible array must be the last member'),
+    'record.flexible-nonfinal': ('200-c-flexible-nonfinal-bad.t', 'a flexible array must be the last member'),
+    'record.flexible-union-member': ('200-c-flexible-union-member-bad.t', 'a flexible array must be the last member'),
+    'record.flexible-struct-member': ('200-c-flexible-struct-member-bad.t', 'a struct member containing a flexible array'),
+    'record.flexible-array-element': ('200-c-flexible-array-element-bad.t', 'an array element containing a flexible array'),
+    'record.function-member': ('200-c-function-member-bad.t', 'a C record member cannot have function type'),
+    'record.flexible-positional-initializer': ('300-c-flexible-positional-initializer-bad.t',
+                                             'initializing a flexible array member'),
+    'record.flexible-designated-initializer': ('300-c-flexible-designated-initializer-bad.t',
+                                             'initializing a flexible array member'),
+}
+REJECTED_CASES = {'line.diagnostic-location', 'error.message', *RECORD_CONSTRAINTS}
 C11_LIBRARY_SOURCES = {
     'library.c11-header-facilities': ROOT / 'scripts/tests/c_c11_header_facilities.c',
     'library.aligned-allocation': ROOT / 'scripts/tests/c_c11_allocation.c',
@@ -55,10 +70,12 @@ CASES = {
     'include.physical': (RUN_STAGES, ('O0',)),
     'include.query': (RUN_STAGES, ('O0',)),
     'literal.code-units': (RUN_STAGES, ('O0', 'O2')),
+    'record.flexible-array': (RUN_STAGES, ('O0', 'O2')),
     'line.diagnostic-location': (('preprocess',), ('default',)),
     'error.message': (('preprocess',), ('default',)),
     'environment.thread-predefine': (('preprocess',), ('default',)),
     **{case: (RUN_STAGES, ('O0', 'O2')) for case in C11_LIBRARY_SOURCES},
+    **{case: (('compile',), ('default',)) for case in RECORD_CONSTRAINTS},
 }
 INTEGER_LIMITS = ROOT / 'scripts/tests/c_integer_limits.c'
 FLOAT_LIMITS = ROOT / 'scripts/tests/c_float_limits.c'
@@ -144,7 +161,7 @@ def evidence_key(row, profiles):
     if not names or names != stages[:len(names)] or row['status'] not in {'passed', 'failed'}:
         raise ValueError(f'invalid stage history or outcome: {key}')
     if row['status'] == 'passed':
-        want = ('rejection', 1) if case in {'line.diagnostic-location', 'error.message'} else ('success', 0)
+        want = ('rejection', 1) if case in REJECTED_CASES else ('success', 0)
         outcomes = [(stage['classification'], stage['returncode']) for stage in row['stages']]
         if names != stages or outcomes != [want] * len(stages):
             raise ValueError(f'passing result lacks stage evidence: {key}')
@@ -316,6 +333,7 @@ def probe_target(output, profile, compiler, setup, link, runner, bare_sdk=()):
             ('limits.combined', output / 'inputs/combined.c', (), ()),
             ('include.physical', INCLUDE_SOURCE, (), ()),
             ('include.query', INCLUDE_QUERY, ('-I' + str(INCLUDE_QUERY.parent),), ()),
+            ('record.flexible-array', FLEXIBLE_ARRAY, (), ()),
             *numeric,
         ]
         if edition in (11, 17):
@@ -336,6 +354,12 @@ def probe_target(output, profile, compiler, setup, link, runner, bare_sdk=()):
                     # Wasmtime's process succeeds even when the exported function returns nonzero.
                     passed = last['stdout'] == '0\n'
                 yield receipt(case, profile, edition, variant, passed, stages)
+        for case, (source, diagnostic) in RECORD_CONSTRAINTS.items():
+            stages, text = run_stages(work / case, [
+                ('compile', [*flags, '-fsyntax-only', str(PA38_GENERAL / source)]),
+            ])
+            matched = diagnostic in text and stages[0]['classification'] == 'rejection' and stages[0]['returncode'] == 1
+            yield receipt(case, profile, edition, 'default', matched, stages)
         stages, text = run_stages(work / 'error', [
             ('preprocess', [*flags, '-E', str(ERROR_SOURCE), '-o', '/dev/null']),
         ])
@@ -386,7 +410,8 @@ def probes(args, profiles, rules):
     inputs = sorted([*work.glob('*.h'), limits, ERROR_SOURCE, INCLUDE_SOURCE, STRING_SOURCE, INCLUDE_QUERY, THREAD_PREDEFINE,
                      INTEGER_LIMITS, FLOAT_LIMITS, DEFAULT_ROUNDING, ROUNDING_QUERY,
                      FENV_BINARY, FENV_CONVERT, FENV_COMPARE, FENV_QUAD, FENV_LIBM, FP_CONTRACT,
-                     COMPLEX_RANGE, COMPLEX_FENV, FENV_ZERO_DIVISION, HOSTED_MATH,
+                     COMPLEX_RANGE, COMPLEX_FENV, FENV_ZERO_DIVISION, HOSTED_MATH, FLEXIBLE_ARRAY,
+                     *(PA38_GENERAL / source for source, _ in RECORD_CONSTRAINTS.values()),
                      *numeric_sdk_inputs, *C11_LIBRARY_SOURCES.values(),
                      INCLUDE_QUERY.parent / 'c-header  spaces.h',
                      INCLUDE_SOURCE.parent / 'c-include-physical.h', INCLUDE_SOURCE.parent / 'c-include-local.h'])

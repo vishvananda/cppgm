@@ -343,6 +343,13 @@ The first fixture set covers these parts of the C17 input profile:
   array. Use a bound or a record definition supplied later in the file
   when available. Under `-pedantic-errors`, reject an incomplete tentative
   declaration with internal linkage at its declaration.
+- A flexible array member is the last member of a struct with at least
+  one other named member. A name injected by an anonymous struct or
+  union counts. A union may hold a flexible record, including through
+  another union. Under the pedantic policy, diagnose a flexible record
+  as a struct member or array element and a nonempty initializer of the
+  flexible member itself. Reject members of function type. A pointer to
+  a flexible record or to a function is a valid member type.
 - Resolve each initializer designator from the aggregate of the closest
   brace pair. Continue with the next subobject after the designated one,
   including through nested arrays, records, and a union's selected member.

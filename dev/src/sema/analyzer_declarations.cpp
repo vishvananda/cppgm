@@ -997,6 +997,8 @@ void Analyzer::declare_declarator(const Specifiers& specifiers, const syntax::In
 	// inline not on a block-scope function declaration (nor a block-scope
 	// variable's, which the course's inline variables exclude too).
 	const bool function = !specifiers.is_typedef && info.type->kind == TypeKind::Function;
+	if (function && c_source_ && scope->kind == ScopeKind::Class)
+		error(info.location, "a C record member cannot have function type");
 	if (c_language_ &&
 		(leading != nullptr || init.declarator->attributes != nullptr || init.declarator->nested != nullptr))
 	{
@@ -2123,7 +2125,7 @@ VariableEntity* Analyzer::new_variable(const Specifiers& specifiers, const char*
 	if (member && where->entity != nullptr && where->entity->kind == EntityKind::Class)
 	{
 		ClassEntity* owner = static_cast<ClassEntity*>(where->entity);
-		add_data_member(owner, variable, 0, false);
+		add_data_member(owner, variable, 0, false, location);
 		owner->non_pod = owner->non_pod || current_access_ != TokenKind::KW_PUBLIC || initialized ||
 			type->is_reference();
 		// C++14 permits default member initializers in an aggregate (N3653).
@@ -2134,8 +2136,10 @@ VariableEntity* Analyzer::new_variable(const Specifiers& specifiers, const char*
 	return variable;
 }
 
-void Analyzer::add_data_member(ClassEntity* entity, Entity* variable, uint64_t width, bool bit_field)
+void Analyzer::add_data_member(ClassEntity* entity, Entity* variable, uint64_t width, bool bit_field, uint32_t location)
 {
+	if (c_source_)
+		check_c_record_member(entity, variable, location);
 	DataMember* member = static_cast<DataMember*>(arena_.allocate(sizeof(DataMember), alignof(DataMember)));
 	const Access access = current_access_ == TokenKind::KW_PRIVATE ? Access::Private
 		: current_access_ == TokenKind::KW_PROTECTED               ? Access::Protected
@@ -3288,7 +3292,7 @@ void Analyzer::bit_field_declaration(const syntax::BitFieldDecl& decl, Scope* sc
 		if (info.name == nullptr)
 		{
 			Entity* unnamed = new_entity<VariableEntity>(EntityKind::Variable, nullptr, scope, type);
-			add_data_member(owner, unnamed, width, true);
+			add_data_member(owner, unnamed, width, true, decl.location);
 			continue;
 		}
 		if (width == 0 && template_depth_ == 0)
