@@ -266,8 +266,9 @@ from a record expression, followed by a whole-row reset.
 Nested member overlaps preserve siblings across complete brace and
 record-valued replacements. PA38 checks continuation within the final
 ranged record, fixed array indices within a path, bit-fields, and
-pointer relocations. The fixture passes on x86-64 Linux, AArch64 QEMU,
-and WASI. Intel and Apple Silicon Mach-O objects cross-link. The
+pointer relocations. The fixture passes in GNU99, GNU11, and GNU17 on
+x86-64 Linux, and in GNU17 on AArch64 QEMU and WASI. Intel and Apple
+Silicon Mach-O objects cross-link. The
 previously rejected nested brace case now matches GCC 15. A separate
 128-case oracle checks static and automatic storage at `-O0` and
 `-O2`. GCC runs the equivalent brace forms of the generated tests.

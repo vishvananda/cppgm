@@ -2086,3 +2086,60 @@ and 0.00306%, respectively.
 | SQLite | A/A | 16,529,825,049 / 16,530,330,362 / 16,529,950,485 / 16,530,242,186 |
 | SQLite | ABBA | 16,530,421,592 / 16,530,018,226 / 16,530,249,168 / 16,530,101,641 |
 | SQLite | BAAB | 16,530,123,848 / 16,530,571,714 / 16,530,019,200 / 16,530,846,415 |
+
+## Overlaps through nested member paths
+
+Four writes through the same nested record member emit 89 LowIR lines
+at every automatic array width from 128 to 4,194,304. Retired instructions
+range from 4,264,679 to 4,266,361 and peak RSS from 7,928 to 8,104 KiB.
+Five static records with sparse source data and member patches emit 14
+LowIR lines across the same range of omitted padding bytes.
+
+The independent-field series initializes one nested record field in
+each of many short regions, then issues a broad zero write to every
+other nested member. An additional replacement resets one region.
+Each member consults the shared ancestor reset index. The static
+emitter skips byte ranges with no source data before composing patches.
+
+| Nested fields and source records | Syntax only instructions | LowIR instructions | LowIR lines | Peak LowIR RSS (KiB) |
+| ---: | ---: | ---: | ---: | ---: |
+| 128 | 11,189,517 | 12,838,774 | 1,026 | 7,964 |
+| 256 | 18,404,461 | 21,859,890 | 2,050 | 8,740 |
+| 512 | 33,271,614 | 40,148,514 | 4,098 | 9,952 |
+| 1024 | 62,933,107 | 76,614,736 | 8,194 | 12,728 |
+| 2048 | 123,489,257 | 151,257,444 | 16,386 | 17,344 |
+| 4096 | 248,100,313 | 304,720,707 | 32,770 | 26,912 |
+
+At fixed width and write count, increasing the path from two to 64
+intermediate record members raises instructions from 9,248,374 to
+26,544,539. The emitted LowIR remains 2,601 lines through depth 32.
+At depth 64 the existing implicit-zero depth limit selects a bounded
+loop and emits 2,686 lines.
+
+The 4,096-field direct-member control produces byte-identical LowIR.
+Selecting the direct planner for that shape reduces syntax-only
+instruction overhead from 5.176% to 0.843% and total LowIR instruction
+overhead from 2.510% to 0.412%, measured against `aea63dc5a`.
+
+| Mode | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| Syntax only | A/A | 165,574,265 / 165,574,325 / 165,574,236 / 165,574,352 |
+| Syntax only | ABBA | 165,574,235 / 166,969,533 / 166,969,538 / 165,574,362 |
+| Syntax only | BAAB | 166,969,459 / 165,574,291 / 165,574,278 / 166,969,430 |
+| LowIR | A/A | 341,747,517 / 341,747,512 / 341,747,488 / 341,747,473 |
+| LowIR | ABBA | 341,747,423 / 343,155,015 / 343,154,886 / 341,747,255 |
+| LowIR | BAAB | 343,154,962 / 341,747,518 / 341,747,507 / 343,154,939 |
+
+The frozen C++ and SQLite objects match `aea63dc5a` in every trial.
+C++ instructions change by −0.00216% and −0.00220% in ABBA and BAAB.
+SQLite changes by −0.00247% and −0.00028%. The A/A ranges are 0.00130%
+and 0.01036%, respectively.
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,057,149,943 / 9,057,156,402 / 9,057,267,672 / 9,057,246,991 |
+| C++ | ABBA | 9,057,393,850 / 9,057,109,730 / 9,057,189,056 / 9,057,296,834 |
+| C++ | BAAB | 9,057,038,204 / 9,057,258,395 / 9,057,382,218 / 9,057,203,839 |
+| SQLite | A/A | 16,529,577,734 / 16,529,624,790 / 16,529,303,118 / 16,531,016,073 |
+| SQLite | ABBA | 16,529,749,695 / 16,529,579,402 / 16,529,455,825 / 16,530,101,958 |
+| SQLite | BAAB | 16,529,507,871 / 16,529,694,321 / 16,529,880,423 / 16,529,975,506 |
