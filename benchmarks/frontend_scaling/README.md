@@ -37,6 +37,16 @@ on exactly the same generated input as well as comparing compiler snapshots.
 
 ## C
 
+`c-nested-tgmath-macros` and `c-nested-tgmath-direct` produce the same
+type-generic calls in 48 functions. The first input uses a single-use
+macro parameter at each nesting level. The second spells the resulting
+builtin calls directly. Use depths 8, 16, 32, 64, and 128 in GNU17.
+Compare the typed `-E` output after removing the input filename record,
+then compare retired instructions in preprocess-only mode. Compare
+object output at `-O2` and use the staged `preproc --stats` separately to
+count macro-produced tokens across intermediate replacements. The number
+of functions stays fixed as the nesting depth grows.
+
 `c-macro-binding-stack` nests saves of one macro and interleaves them with
 saves of fresh names. The preprocessor checks that each pop restores the
 previous value or the undefined binding. `c-redeclarations` alternates

@@ -1396,6 +1396,32 @@ Nested argument collection already indexes raw argument boundaries. Repeated
 copying and rescanning of expanded arguments accounts for the remaining
 growth. Keep this case when qualifying changes to replacement and rescanning.
 
+The two maintainer generators reproduce this comparison. With the
+overloadable compiler, the generated forms produce identical typed
+preprocessing output after removing the filename record and identical
+`-O2` objects. These are individual Linux x86-64 instruction measurements.
+The separate staged `preproc --stats` pass counts intermediate replacement
+tokens using its course expansion rules.
+[Maintainer generators](../../benchmarks/frontend_scaling/README.md#c)
+
+| Calls nested per function | Final token-stream lines | Wrapped preprocessing instructions | Direct preprocessing instructions | Wrapped intermediate replacement tokens |
+| ---: | ---: | ---: | ---: | ---: |
+| 8 | 7,105 | 10,209,364 | 8,870,355 | 29,760 |
+| 16 | 13,633 | 21,898,103 | 13,699,293 | 111,744 |
+| 32 | 26,689 | 61,883,122 | 23,360,374 | 432,384 |
+| 64 | 52,801 | 208,309,957 | 42,675,356 | 1,700,352 |
+| 128 | 105,025 | 767,026,642 | 81,304,076 | 6,743,040 |
+
+Each macro invocation contributes a fixed prefix and suffix and uses its
+argument once. The intermediate work grows about fourfold on the last
+doubling, while the final token stream nearly doubles. The optimization
+must eliminate repeated materialization of already-expanded interiors.
+Keep the token boundary where a trailing function-like name can meet an
+opening parenthesis from the surrounding replacement. Revalidate reusable
+ranges when macro bindings change, including directives encountered while
+collecting arguments and push/pop of a definition. Check GNU and course
+recursion rules independently and preserve source provenance in both.
+
 The dormant controls compared `75a3086f9` and `dba87c421` on CPU 71. Both
 compilers used GCC 15. Frozen C++ at `-O3` and SQLite at `-O2` emitted
 byte-identical objects. The A/A task-clock ranges were 31.71% and 12.14%.

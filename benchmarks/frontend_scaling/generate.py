@@ -19,6 +19,18 @@ def c_macro_binding_stack(size):
     print('int main(void) { return VALUE; }')
 
 
+def c_type_generic_math(depth, wrapped):
+    print('float sf(float); double sd(double); long double sl(long double);')
+    print('_Complex float cf(_Complex float); _Complex double cd(_Complex double);')
+    print('_Complex long double cl(_Complex long double);')
+    if wrapped:
+        print('#define GENERIC(x) __builtin_tgmath(sd, sf, sl, cf, cd, cl, (x))')
+    prefix, suffix = ('GENERIC(', ')') if wrapped else ('__builtin_tgmath(sd, sf, sl, cf, cd, cl, (', '))')
+    expression = prefix * depth + 'x' + suffix * depth
+    for index in range(48):
+        print(f'float f{index}(float x) {{ return {expression}; }}')
+
+
 def c_redeclarations(size):
     for _ in range(size):
         print('extern const int matrix[][3];')
@@ -244,6 +256,7 @@ def main():
                                         'independent-defaults', 'chained-defaults',
                                         'nested-chained-defaults', 'macro-replacements',
                                         'c-macro-binding-stack', 'c-redeclarations',
+                                        'c-nested-tgmath-macros', 'c-nested-tgmath-direct',
                                         'c-composite-redeclarations', 'c-tentative-arrays',
                                         'c-linked-redeclarations', 'c-block-first-redeclarations',
                                         'c-block-function-redeclarations', 'c-block-function-names',
@@ -273,6 +286,9 @@ def main():
         return
     if args.case == 'c-macro-binding-stack':
         c_macro_binding_stack(args.size)
+        return
+    if args.case in ('c-nested-tgmath-macros', 'c-nested-tgmath-direct'):
+        c_type_generic_math(args.size, wrapped=args.case == 'c-nested-tgmath-macros')
         return
     if args.case == 'c-redeclarations':
         c_redeclarations(args.size)
