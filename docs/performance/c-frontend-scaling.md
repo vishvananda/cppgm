@@ -2045,3 +2045,44 @@ ranges are 0.00409% and 0.00191%.
 | SQLite | A/A | 16,529,748,106 / 16,529,960,052 / 16,529,645,053 / 16,529,922,317 |
 | SQLite | ABBA | 16,530,249,097 / 16,530,417,317 / 16,529,630,752 / 16,530,585,086 |
 | SQLite | BAAB | 16,529,467,623 / 16,529,850,259 / 16,530,049,126 / 16,529,661,624 |
+
+## Overlapping GNU array ranges in two dimensions
+
+Two partly overlapping rectangles emit 158 LowIR lines at every
+tested width from `16 × 16` to `8192 × 8192` automatic elements.
+Retired instructions range from 4,232,792 to 4,238,411 and peak RSS
+from 7,960 to 8,024 KiB. The corresponding all-zero static matrices
+emit three LowIR lines across the series.
+
+The column series writes one full-height interval per column and a
+single short overwrite for each at a distinct row. Most columns remain
+unchanged at an event. At 4,096 columns with writes, the matrix has
+more than 100 million logical cells.
+
+| Columns with writes | Syntax only instructions | LowIR emission instructions | LowIR lines | Peak LowIR RSS (KiB) |
+| ---: | ---: | ---: | ---: | ---: |
+| 128 | 9,189,313 | 16,872,850 | 7,532 | 10,036 |
+| 256 | 14,542,303 | 30,108,589 | 15,084 | 11,392 |
+| 512 | 25,483,168 | 57,010,755 | 30,188 | 14,228 |
+| 1024 | 47,899,933 | 112,161,157 | 60,396 | 19,524 |
+| 2048 | 93,248,488 | 224,187,559 | 120,812 | 31,592 |
+| 4096 | 186,728,582 | 453,376,583 | 241,644 | 54,892 |
+
+A standalone run of the same sweep with 65,536 columns and endpoints
+scaled by 100 million returns 196,608 rectangles. It retires
+1,090,274,983 instructions. A pointwise oracle checks 10,000 smaller
+overlap cases, including masks and repeated source identities.
+
+The frozen C++ and SQLite objects match `3d5d3f42b` in every trial.
+C++ instructions change by −0.00047% and +0.00071% in ABBA and BAAB.
+SQLite changes by −0.00077% and +0.00115%. The A/A ranges are 0.00374%
+and 0.00306%, respectively.
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,057,220,572 / 9,057,372,802 / 9,057,241,614 / 9,057,559,448 |
+| C++ | ABBA | 9,057,108,225 / 9,057,091,472 / 9,057,079,492 / 9,057,148,500 |
+| C++ | BAAB | 9,057,082,014 / 9,057,263,969 / 9,056,932,214 / 9,057,243,554 |
+| SQLite | A/A | 16,529,825,049 / 16,530,330,362 / 16,529,950,485 / 16,530,242,186 |
+| SQLite | ABBA | 16,530,421,592 / 16,530,018,226 / 16,530,249,168 / 16,530,101,641 |
+| SQLite | BAAB | 16,530,123,848 / 16,530,571,714 / 16,530,019,200 / 16,530,846,415 |

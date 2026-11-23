@@ -258,7 +258,9 @@ oracle checks 10,000 priority and reset cases. Another oracle checks
 128 generated pairs of automatic and static matrices at both
 optimization levels. GCC 15 runs the constant-valued forms and
 diagnoses some generated repeating braced rows containing nonconstant
-expressions. cppgm also checks the call counts in those rows.
+expressions. cppgm also checks the call counts in those rows. A
+static and automatic probe checks preservation of cells inherited
+from a record expression, followed by a whole-row reset.
 [PA38 two-dimensional range fixture](../pa38/tests/general/300-designated-gnu-rectangle-overlaps.t)
 
 ## Initial hosted replays
