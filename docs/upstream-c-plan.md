@@ -46,14 +46,13 @@ behavior independent of the edition work that exposed them.
 Start the next batches from the existing receipts.
 
 1. Extend GNU initializer coverage to overlaps that diverge below a
-   record's immediate members or span distinct multidimensional regions.
+   record's immediate members or below the second array dimension.
    Cover nested brace elision and positional continuation, union member
    changes, and automatic ranges of aggregates with qualified subobjects.
-   PA38 covers whole-element ranges, member and subscript suffixes,
-   same-path overlap, and overlap between direct member and whole-record
-   writes. The direct-member tests include brace elision, positional
-   continuation within the final ranged record, and static patching of
-   large objects with nonzero record expressions.
+   PA38 covers overlapping writes to direct record members, static
+   patches to large records, and two-dimensional overlaps of whole
+   cells. The matrix tests include whole-row resets, string-backed rows,
+   aggregate cells, and positional continuation within the final row.
    [Initializer evidence](../reports/upstream-c-coverage.md#gnu-range-designators-and-empty-records)
 2. Finish the C99–C17 lexical inventory using the trigraph, digraph,
    universal-character, and macro redefinition receipts. Cover the
@@ -337,6 +336,15 @@ dense repeated record when measuring this path.
 Carry the same typed coverage and source-value identities into nested
 overlaps. Extend the scaling cases to independently vary the number of
 written paths, their depth, and the resulting fragments.
+
+For two array dimensions, sweep written row endpoints. Index active
+column intervals by source rank and compare the old and new winners
+along affected tree paths. Keep unchanged winners open across row
+events. Whole-row replacements mask lower-ranked cells across their
+row interval. Keep one retained value per source and use bounded
+automatic loops or the existing static data writer for its disjoint
+rectangles. Test independently changing columns so repeated full
+scans of the active intervals show up in the scaling results.
 [GCC range designators](https://gcc.gnu.org/onlinedocs/gcc/Designated-Inits.html)
 
 For constant expressions, distinguish eligibility for the required C

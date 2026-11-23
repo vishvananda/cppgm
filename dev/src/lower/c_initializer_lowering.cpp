@@ -19,7 +19,7 @@ void FunctionLowering::c_initialize(
 		view.elements = { &value, 1 };
 		uint32_t next = 0;
 		aggregate_item(type, path, &view, next, true, value->location);
-		if (plan.children.empty() && !plan.has_field_spans)
+		if (plan.children.empty() && plan.projection == sema::CInitializerProjection::None)
 			return;
 		inherited = true;
 	}
@@ -86,8 +86,10 @@ void FunctionLowering::c_initialize_spans(
 	}
 	if (!inherited && next < array->bound)
 		omitted_array_tail(array, base, next, location);
-	if (plan.has_field_spans)
+	if (plan.projection == sema::CInitializerProjection::Fields)
 		c_initialize_field_spans(plan, base, location);
+	else if (plan.projection == sema::CInitializerProjection::Rectangles)
+		c_initialize_rectangles(plan, base, location);
 }
 
 RValue FunctionLowering::c_initializer_span_value(
@@ -97,9 +99,12 @@ RValue FunctionLowering::c_initializer_span_value(
 	{
 		const auto slot = generated_slot(lowir::SlotKind::Tmpobj, lowering_.storage_type(element));
 		const AddressPath path{ AddressPath::Root::Storage, lowir::Value::slot(slot), path_steps_.size() };
-		sema::CInitializerWithFieldSpans snapshot;
+		sema::CInitializerWithSpans snapshot;
 		static_cast<sema::CInitializer&>(snapshot) = initializer;
-		snapshot.fields = initializer.field_spans();
+		if (initializer.projection == sema::CInitializerProjection::Rectangles)
+			snapshot.regions = initializer.rectangles();
+		else
+			snapshot.fields = initializer.field_spans();
 		snapshot.type = initializer.type->unqualified;
 		c_initialize(snapshot, path, 0, location);
 		return RValue{ path_address(path), program_.pointer_type() };
@@ -212,6 +217,37 @@ void FunctionLowering::c_initialize_field_spans(const sema::CInitializer& plan, 
 					store_initializer_value(type, value, address, location);
 			});
 		}
+	}
+}
+
+void FunctionLowering::c_initialize_rectangles(const sema::CInitializer& plan, lowir::Value base, uint32_t location)
+{
+	const sema::Type* row_type = plan.type->element;
+	const sema::Type* cell_type = row_type->element;
+	const uint64_t cell_size = lowering_.size_of(cell_type, location);
+	PointerMap saved;
+	std::vector<RValue> values;
+	for (const auto& rectangle : plan.rectangles())
+	{
+		uint32_t entry = saved.find(rectangle.initializer);
+		if (entry == PointerMap::kMissing)
+		{
+			entry = static_cast<uint32_t>(values.size());
+			values.push_back(c_initializer_span_value(*rectangle.initializer, cell_type, location));
+			saved.set(rectangle.initializer, entry);
+		}
+		const RValue value = values[entry];
+		if (cell_size == 0)
+			continue;
+		if (rectangle.column == 0 && rectangle.column_limit == row_type->bound)
+		{
+			store_initializer_span(cell_type, base, rectangle.row * row_type->bound,
+				rectangle.row_limit * row_type->bound, value, location);
+			continue;
+		}
+		for_initializer_span(row_type, base, rectangle.row, rectangle.row_limit, location, [&](lowir::Value row) {
+			store_initializer_span(cell_type, row, rectangle.column, rectangle.column_limit, value, location);
+		});
 	}
 }
 

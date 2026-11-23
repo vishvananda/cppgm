@@ -667,7 +667,7 @@ bool ConstantInterpreter::c_initialize(
 		}
 		if (!construct(plan.type, target, &view, nullptr, location))
 			return false;
-		if (plan.children.empty() && !plan.has_field_spans)
+		if (plan.children.empty() && plan.projection == CInitializerProjection::None)
 			return true;
 		inherited = true;
 	}
@@ -722,7 +722,11 @@ bool ConstantInterpreter::c_initialize(
 		else if (!c_initialize(*child.initializer, place, location, inherited))
 			return false;
 	}
-	return !plan.has_field_spans || c_initialize_field_spans(plan, target, location);
+	if (plan.projection == CInitializerProjection::Fields)
+		return c_initialize_field_spans(plan, target, location);
+	if (plan.projection == CInitializerProjection::Rectangles)
+		return c_initialize_rectangles(plan, target, location);
+	return true;
 }
 
 bool ConstantInterpreter::c_initialize_field_spans(
@@ -743,25 +747,60 @@ bool ConstantInterpreter::c_initialize_field_spans(
 				ConstPlace row = target, field;
 				row.type = element;
 				row.offset += static_cast<int64_t>(index * stride);
-				if (!step(location) || !member_slot(row, variable, field, location))
+				if (!step(location) || !member_slot(row, variable, field, location) ||
+					!c_initialize_shared(*span.initializer, field, location, entry, saved, values))
 					return false;
-				ConstValue* value = nullptr;
-				if (entry == PointerMap::kMissing)
-				{
-					if (!c_initialize(*span.initializer, field, location) || !locate(field, false, value, location))
-						return false;
-					entry = static_cast<uint32_t>(values.size());
-					values.push_back(*value);
-					saved.set(span.initializer, entry);
-				}
-				else
-				{
-					if (!locate(field, true, value, location))
-						return false;
-					copy_into(*value, values[entry]);
-				}
 			}
 		}
+	}
+	return true;
+}
+
+bool ConstantInterpreter::c_initialize_rectangles(const CInitializer& plan, const ConstPlace& target, uint32_t location)
+{
+	const Type* row_type = plan.type->element;
+	const Type* cell_type = row_type->element;
+	const uint64_t row_stride = size_of(row_type, location);
+	const uint64_t cell_stride = size_of(cell_type, location);
+	PointerMap saved;
+	std::vector<ConstValue> values;
+	for (const CInitializerRectangle& rectangle : plan.rectangles())
+	{
+		uint32_t entry = saved.find(rectangle.initializer);
+		for (uint64_t row = rectangle.row; row < rectangle.row_limit; ++row)
+		{
+			ConstPlace cell = target;
+			cell.type = cell_type;
+			cell.offset += static_cast<int64_t>(row * row_stride + rectangle.column * cell_stride);
+			for (uint64_t column = rectangle.column; column < rectangle.column_limit; ++column)
+			{
+				if (!step(location) ||
+					!c_initialize_shared(*rectangle.initializer, cell, location, entry, saved, values))
+					return false;
+				cell.offset += static_cast<int64_t>(cell_stride);
+			}
+		}
+	}
+	return true;
+}
+
+bool ConstantInterpreter::c_initialize_shared(const CInitializer& initializer, const ConstPlace& target,
+	uint32_t location, uint32_t& entry, PointerMap& saved, std::vector<ConstValue>& values)
+{
+	ConstValue* value = nullptr;
+	if (entry == PointerMap::kMissing)
+	{
+		if (!c_initialize(initializer, target, location) || !locate(target, false, value, location))
+			return false;
+		entry = static_cast<uint32_t>(values.size());
+		saved.set(&initializer, entry);
+		values.push_back(*value);
+	}
+	else
+	{
+		if (!locate(target, true, value, location))
+			return false;
+		copy_into(*value, values[entry]);
 	}
 	return true;
 }

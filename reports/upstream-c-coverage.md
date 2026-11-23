@@ -230,9 +230,9 @@ storage durations. GCC 15 and cppgm match those results at `-O0` and
 `-O2`. The PA38 fixture passes on Linux x86-64, AArch64 QEMU, and WASI.
 The Intel and Apple Silicon Mach-O objects both cross-link.
 
-The remaining range cases include composition below a direct member,
-overlap between distinct multidimensional suffixes, union member
-changes, and qualified aggregates in automatic storage.
+The remaining range cases include composition below a direct member
+or the second array dimension, union member changes, and qualified
+aggregates in automatic storage.
 [PA38 field overlap fixture](../pa38/tests/general/300-designated-gnu-field-overlaps.t) ·
 [WG14 DR 413](https://www.open-std.org/Jtc1/sc22/WG14/www/docs/dr_413.htm) ·
 [WG14 DR 253](https://www.open-std.org/JTC1/SC22/WG14/www/docs/dr_253.htm)
@@ -247,6 +247,19 @@ data and a linked program checks every record. A pointwise oracle checks
 128 generated static initializers with mixed brace and record-expression
 writes at `-O0` and `-O2`.
 [PA38 static record fixture](../pa38/tests/general/300-designated-gnu-static-record-overlaps.t)
+
+Two-dimensional overlaps now preserve each surviving cell, including
+when later clauses replace a whole row. The PA38 case exercises scalar
+and aggregate cells, string-backed rows, positional continuation,
+and once-only evaluation after splitting a range. It matches GCC 15
+on Linux x86-64 at `-O0` and `-O2`, runs under AArch64 QEMU and WASI,
+and cross-links for both Darwin architectures. A pointwise sweep
+oracle checks 10,000 priority and reset cases. Another oracle checks
+128 generated pairs of automatic and static matrices at both
+optimization levels. GCC 15 runs the constant-valued forms and
+diagnoses some generated repeating braced rows containing nonconstant
+expressions. cppgm also checks the call counts in those rows.
+[PA38 two-dimensional range fixture](../pa38/tests/general/300-designated-gnu-rectangle-overlaps.t)
 
 ## Initial hosted replays
 

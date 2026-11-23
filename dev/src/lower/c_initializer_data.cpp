@@ -60,11 +60,28 @@ struct FieldData
 	uint64_t first = 0, limit = 0;
 	Placements items;
 	SmallList<ByteWrite, 4> bits;
+	const Placements* repeated = nullptr;
+	uint64_t stride = 0;
+
+	bool has_items() const { return repeated == nullptr ? !items.empty() : !repeated->empty(); }
 
 	bool has_data() const
 	{
-		return !items.empty() ||
+		return has_items() ||
 			std::any_of(bits.begin(), bits.end(), [](const ByteWrite& byte) { return byte.value != 0; });
+	}
+
+	void append(Placements& output) const
+	{
+		if (repeated == nullptr)
+			output.insert(output.end(), items.begin(), items.end());
+		else
+			for (uint64_t offset = first; offset < limit; offset += stride)
+				for (StaticPlacement placement : *repeated)
+				{
+					placement.offset += offset;
+					output.push_back(placement);
+				}
 	}
 };
 
@@ -86,7 +103,7 @@ public:
 			if (enter)
 			{
 				fields_[field.first] = &field;
-				if (!field.items.empty())
+				if (field.has_items())
 					nonzero_fields_[field.first] = &field;
 			}
 			else
@@ -103,7 +120,7 @@ public:
 		if (!keep_base(base, output))
 			return false;
 		for (const auto& field : nonzero_fields_)
-			output.insert(output.end(), field.second->items.begin(), field.second->items.end());
+			field.second->append(output);
 		for (uint64_t offset : nonzero_bits_)
 		{
 			const auto next = after(base, offset);
@@ -226,9 +243,16 @@ public:
 			return false;
 		const uint64_t width = lowering_.size_of(plan.type->element, 0);
 		std::deque<Placements> bases;
+		std::deque<Placements> cells;
 		std::deque<FieldData> fields;
 		std::vector<RecordDataEvent> events;
-		if (!base_events(plan, width, bases, events) || !field_events(plan, !events.empty(), fields, events))
+		if (!base_events(plan, width, bases, events))
+			return false;
+		const bool has_base = !events.empty();
+		const bool ready = plan.projection == sema::CInitializerProjection::Rectangles
+			? rectangle_events(plan, has_base, cells, fields, events)
+			: field_events(plan, has_base, fields, events);
+		if (!ready)
 			return false;
 		return emit_rows(events, width, plan.type->bound, out);
 	}
@@ -352,6 +376,38 @@ private:
 					events.push_back({ span.limit, nullptr, &fields[entry], false });
 				}
 			}
+		return true;
+	}
+
+	bool rectangle_events(const sema::CInitializer& plan, bool has_base, std::deque<Placements>& cells,
+		std::deque<FieldData>& fields, std::vector<RecordDataEvent>& events)
+	{
+		const uint64_t stride = lowering_.size_of(plan.type->element->element, 0);
+		PointerMap saved;
+		for (const auto& rectangle : plan.rectangles())
+		{
+			uint32_t entry = saved.find(rectangle.initializer);
+			if (entry == PointerMap::kMissing)
+			{
+				entry = static_cast<uint32_t>(cells.size());
+				cells.emplace_back();
+				sample_.items.clear();
+				if (!source_value(*rectangle.initializer, sample_) ||
+					!CollectPlacements(sample_, 0, stride, pointer_bytes_, cells.back()))
+					return false;
+				saved.set(rectangle.initializer, entry);
+			}
+			if (stride == 0 || (!has_base && cells[entry].empty()))
+				continue;
+			fields.emplace_back();
+			FieldData& field = fields.back();
+			field.first = rectangle.column * stride;
+			field.limit = rectangle.column_limit * stride;
+			field.stride = stride;
+			field.repeated = &cells[entry];
+			events.push_back({ rectangle.row, nullptr, &field, true });
+			events.push_back({ rectangle.row_limit, nullptr, &field, false });
+		}
 		return true;
 	}
 
@@ -496,7 +552,7 @@ bool ProgramLowering::static_c_value(const sema::ConstValue& value, StaticValue&
 
 bool ProgramLowering::static_c_initializer(const sema::CInitializer& plan, StaticData& out)
 {
-	if (plan.has_field_spans)
+	if (plan.projection != sema::CInitializerProjection::None)
 		return CStaticData(*this).array(plan, out);
 	const sema::Type* type = plan.type;
 	if (plan.value != nullptr && plan.children.empty())

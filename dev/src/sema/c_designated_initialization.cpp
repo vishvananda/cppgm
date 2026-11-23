@@ -451,18 +451,29 @@ private:
 		if (node.has_spans)
 		{
 			syntax::Slice<const CInitializerFieldSpans> fields = {};
-			const auto entries = freeze_spans(node, first, live, inherited, fields);
+			syntax::Slice<const CInitializerRectangle> rectangles = {};
+			const auto entries = freeze_spans(node, first, live, inherited, fields, rectangles);
 			CInitializer* plan;
-			if (fields.empty())
+			CInitializerProjection projection = CInitializerProjection::None;
+			if (fields.empty() && rectangles.empty())
 				plan = analyzer_.arena_.allocate_array<CInitializer>(1);
 			else
 			{
-				auto* projected = analyzer_.arena_.allocate_array<CInitializerWithFieldSpans>(1);
-				projected->fields = fields;
+				auto* projected = analyzer_.arena_.allocate_array<CInitializerWithSpans>(1);
+				if (rectangles.empty())
+				{
+					projection = CInitializerProjection::Fields;
+					projected->fields = fields;
+				}
+				else
+				{
+					projection = CInitializerProjection::Rectangles;
+					projected->regions = rectangles;
+				}
 				plan = projected;
 			}
 			*plan = CInitializer{ completed_type(node), node.value, entries, node.starts_value, true, node.repeat_value,
-				!fields.empty() };
+				projection };
 			return plan;
 		}
 		auto* entries = analyzer_.arena_.allocate_array<CInitializerChild>(node.child_count);
@@ -481,12 +492,13 @@ private:
 				[](const CInitializerChild& left, const CInitializerChild& right) { return left.index < right.index; });
 		auto* plan = analyzer_.arena_.allocate_array<CInitializer>(1);
 		*plan = CInitializer{ completed_type(node), node.value, { entries, count }, node.starts_value, false,
-			node.repeat_value, false };
+			node.repeat_value, CInitializerProjection::None };
 		return plan;
 	}
 
 	syntax::Slice<const CInitializerChild> freeze_spans(const Node& node, size_t first, std::vector<uint8_t>& live,
-		bool inherited, syntax::Slice<const CInitializerFieldSpans>& fields)
+		bool inherited, syntax::Slice<const CInitializerFieldSpans>& fields,
+		syntax::Slice<const CInitializerRectangle>& rectangles)
 	{
 		std::vector<CArrayWrite> writes;
 		writes.reserve(node.child_count);
@@ -494,12 +506,16 @@ private:
 			writes.push_back(CArrayWrite{ nodes_[sub].index, array_limit(sub), sub, sub });
 		auto spans = WinningInitializerSpans(writes);
 		if (IsSubaggregate(node.type->element) && !independent_spans(writes, spans, inherited))
+		{
+			if (node.type->element->kind == TypeKind::Array)
+				return freeze_rectangular_spans(node, writes, first, live, inherited, rectangles);
 			fields = freeze_field_spans(node, writes, spans, first, live, inherited);
+		}
 		return freeze_interval_values(spans, first, live, inherited, node.type->element);
 	}
 
 	syntax::Slice<const CInitializerChild> freeze_interval_values(const std::vector<CArrayWrite>& spans, size_t first,
-		std::vector<uint8_t>& live, bool inherited, const Type* zero_type = nullptr)
+		std::vector<uint8_t>& live, bool inherited, const Type* zero_type = nullptr, bool row_bases = false)
 	{
 		auto* entries = analyzer_.arena_.allocate_array<CInitializerChild>(spans.size());
 		FlatMap<uint32_t, const CInitializer*, std::hash<uint32_t>> frozen;
@@ -510,7 +526,12 @@ private:
 			const CInitializer* value;
 			if (reused == nullptr)
 			{
-				value = span.value == kNone ? empty_span(zero_type) : freeze(span.value, first, live, inherited);
+				if (span.value == kNone)
+					value = empty_span(zero_type);
+				else if (row_bases)
+					value = freeze_row_value(span.value, first, live);
+				else
+					value = freeze(span.value, first, live, inherited);
 				if (spans.size() > 1)
 					frozen.insert(span.value, value);
 			}
@@ -526,8 +547,78 @@ private:
 	const CInitializer* empty_span(const Type* type)
 	{
 		auto* plan = analyzer_.arena_.allocate_array<CInitializer>(1);
-		*plan = CInitializer{ type, nullptr, {}, true, false, true, false };
+		*plan = CInitializer{ type, nullptr, {}, true, false, true, CInitializerProjection::None };
 		return plan;
+	}
+
+	const CInitializer* freeze_row_value(uint32_t id, size_t first, std::vector<uint8_t>& live)
+	{
+		const Node& row = nodes_[id];
+		for (size_t i = row.uses_begin; i < row.uses_end; ++i)
+			live[i - first] = 1;
+		auto* plan = analyzer_.arena_.allocate_array<CInitializer>(1);
+		*plan = CInitializer{ row.type, row.value, {}, true, false, true, CInitializerProjection::None };
+		return plan;
+	}
+
+	void rectangle_writes(const Node& node, std::vector<CArrayWrite>& writes, std::vector<CArrayWrite>& whole,
+		std::vector<CArrayRectangle>& input)
+	{
+		const Type* row = node.type->element;
+		if (!analyzer_.c_static_initializer_ && qualified_container(node))
+			analyzer_.error(location_, "overlapping range initialization of qualified arrays is not yet supported");
+		std::sort(
+			writes.begin(), writes.end(), [](const CArrayWrite& a, const CArrayWrite& b) { return a.rank < b.rank; });
+		SmallList<uint32_t, 8> columns;
+		for (const CArrayWrite& write : writes)
+		{
+			const Node& element = nodes_[write.value];
+			if (element.starts_value)
+			{
+				whole.push_back(write);
+				if (row->bound != 0)
+					input.push_back({ write.first, write.limit, 0, row->bound, kNone });
+			}
+			for (uint32_t id = element.first; id != kNone; id = nodes_[id].next)
+				columns.push_back(id);
+			while (!columns.empty())
+			{
+				const uint32_t id = columns.back();
+				columns.pop_back();
+				if (!nodes_[id].starts_value)
+					analyzer_.error(
+						location_, "a partial overwrite below two ranged array dimensions is not yet supported");
+				input.push_back({ write.first, write.limit, nodes_[id].index, array_limit(id), id });
+			}
+		}
+	}
+
+	syntax::Slice<const CInitializerChild> freeze_rectangular_spans(const Node& node, std::vector<CArrayWrite>& writes,
+		size_t first, std::vector<uint8_t>& live, bool inherited,
+		syntax::Slice<const CInitializerRectangle>& rectangles)
+	{
+		std::vector<CArrayWrite> whole;
+		std::vector<CArrayRectangle> input;
+		rectangle_writes(node, writes, whole, input);
+		const auto regions = WinningInitializerRectangles(input, kNone);
+		auto* entries = analyzer_.arena_.allocate_array<CInitializerRectangle>(regions.size());
+		FlatMap<uint32_t, const CInitializer*, std::hash<uint32_t>> frozen;
+		uint32_t count = 0;
+		for (const CArrayRectangle& region : regions)
+		{
+			const auto* saved = frozen.find(region.value);
+			const auto* plan = saved != nullptr ? *saved : freeze(region.value, first, live, false);
+			if (saved == nullptr)
+				frozen.insert(region.value, plan);
+			entries[count++] = { plan, region.row, region.row_limit, region.column, region.column_limit };
+		}
+		rectangles = { entries, count };
+		auto spans = WinningInitializerSpans(whole);
+		if (!inherited)
+			spans.erase(std::remove_if(spans.begin(), spans.end(),
+							[&](const CArrayWrite& span) { return nodes_[span.value].value == nullptr; }),
+				spans.end());
+		return freeze_interval_values(spans, first, live, inherited, node.type->element, true);
 	}
 
 	struct MemberWrite

@@ -7,6 +7,14 @@ namespace sema {
 
 struct CInitializerChild;
 struct CInitializerFieldSpans;
+struct CInitializerRectangle;
+
+enum class CInitializerProjection : uint8_t
+{
+	None,
+	Fields,
+	Rectangles
+};
 
 // A resolved C initializer. Children are sparse and ordered by storage
 // position. A whole-object expression may supply the value the children
@@ -20,9 +28,10 @@ struct CInitializer
 	bool has_spans;
 	// A source expression shared by all surviving spans of one write.
 	bool repeat_value;
-	bool has_field_spans;
+	CInitializerProjection projection;
 
 	syntax::Slice<const CInitializerFieldSpans> field_spans() const;
+	syntax::Slice<const CInitializerRectangle> rectangles() const;
 };
 
 struct CInitializerChild
@@ -44,15 +53,31 @@ struct CInitializerFieldSpans
 	syntax::Slice<const CInitializerChild> spans;
 };
 
-struct CInitializerWithFieldSpans : CInitializer
+struct CInitializerRectangle
 {
-	syntax::Slice<const CInitializerFieldSpans> fields;
+	const CInitializer* initializer;
+	uint64_t row, row_limit, column, column_limit;
+};
+
+struct CInitializerWithSpans : CInitializer
+{
+	union
+	{
+		syntax::Slice<const CInitializerFieldSpans> fields;
+		syntax::Slice<const CInitializerRectangle> regions;
+	};
 };
 
 inline syntax::Slice<const CInitializerFieldSpans> CInitializer::field_spans() const
 {
-	return has_field_spans ? static_cast<const CInitializerWithFieldSpans*>(this)->fields
-						   : syntax::Slice<const CInitializerFieldSpans>{};
+	return projection == CInitializerProjection::Fields ? static_cast<const CInitializerWithSpans*>(this)->fields
+														: syntax::Slice<const CInitializerFieldSpans>{};
+}
+
+inline syntax::Slice<const CInitializerRectangle> CInitializer::rectangles() const
+{
+	return projection == CInitializerProjection::Rectangles ? static_cast<const CInitializerWithSpans*>(this)->regions
+															: syntax::Slice<const CInitializerRectangle>{};
 }
 
 inline const syntax::Expr* CInitializerOperand(const syntax::Expr* value)

@@ -14,6 +14,17 @@ struct CArrayWrite
 
 std::vector<CArrayWrite> WinningInitializerSpans(std::vector<CArrayWrite>& writes);
 
+struct CArrayRectangle
+{
+	uint64_t row, row_limit, column, column_limit;
+	uint32_t value;
+};
+
+// Input writes run in source order. A write carrying no_value masks older
+// writes in its rectangle without contributing a value to the result.
+std::vector<CArrayRectangle> WinningInitializerRectangles(
+	const std::vector<CArrayRectangle>& writes, uint32_t no_value);
+
 // Index disjoint whole-object writes so an independent member update
 // skips entire regions whose resets are uniformly older or newer.
 class CInitializerResets
