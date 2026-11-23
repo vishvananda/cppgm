@@ -2006,9 +2006,9 @@ ExprFacts* Analyzer::unary(const syntax::UnaryExpr& expr, Scope* scope)
 	{
 	case TokenKind::OP_STAR:
 	{
-		// 5.3.1p1: indirection through a pointer to an object or function
-		// type yields an lvalue.
-		if (!IsPointer(type) || IsVoid(type->element))
+		// C 6.5.3.2 also permits recovering the pointed-to type from a
+		// void pointer, for example in typeof or &*p. Its type stays void.
+		if (!IsPointer(type) || (IsVoid(type->element) && !c_source_))
 		{
 			substitution_error(expr.location, "indirection requires a pointer to an object or function type");
 			return nullptr;

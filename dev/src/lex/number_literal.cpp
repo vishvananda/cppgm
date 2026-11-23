@@ -398,6 +398,30 @@ bool UserIntegerValue(const char* spelling, uint32_t suffix_begin, uint64_t& val
 	return AccumulateDigits(spelling, 0, suffix_begin, spelling[0] == '0' ? 8 : 10, value);
 }
 
+namespace {
+
+bool ScanInterchangeLiteral(const std::string& text, const InterchangeFormat& format, uint64_t& low, uint64_t& high)
+{
+	if (ScanInterchangeValue(text.data(), text.size(), format, low, high))
+		return true;
+	const uint64_t exponent = 2 * format.max_exponent + 1;
+	const unsigned fraction = format.precision - 1;
+	low = 0;
+	high = 0;
+	if (format.precision == 64)
+	{
+		low = uint64_t(1) << 63;
+		high = exponent;
+	}
+	else if (fraction < 64)
+		low = exponent << fraction;
+	else
+		high = exponent << (fraction - 64);
+	return false;
+}
+
+} // namespace
+
 bool ScanFloatingValue(const char* text, uint32_t length, FundamentalType type, std::string& scratch,
 	unsigned char* bytes, target_model::Target target)
 {
@@ -424,16 +448,15 @@ bool ScanFloatingValue(const char* text, uint32_t length, FundamentalType type, 
 		const FundamentalType representation = FloatingRepresentation(type, target);
 		const bool half = representation == FundamentalType::Float16 || representation == FundamentalType::BFloat16;
 		uint64_t low = 0, high = 0;
-		if (!ScanInterchangeValue(scratch.data(), scratch.size(),
-				representation == FundamentalType::BFloat16 ? kBFloat16
-					: half                                  ? kBinary16
-															: kBinary128,
-				low, high))
-			return false;
+		const bool finite = ScanInterchangeLiteral(scratch,
+			representation == FundamentalType::BFloat16 ? kBFloat16
+				: half                                  ? kBinary16
+														: kBinary128,
+			low, high);
 		std::memcpy(bytes, &low, half ? 2 : 8);
 		if (!half)
 			std::memcpy(bytes + 8, &high, 8);
-		return true;
+		return finite;
 	}
 	case FundamentalType::Float:
 	{
@@ -445,12 +468,11 @@ bool ScanFloatingValue(const char* text, uint32_t length, FundamentalType type, 
 	{
 #if __LDBL_MANT_DIG__ != 64
 		uint64_t low = 0, high = 0;
-		if (!ScanInterchangeValue(scratch.data(), scratch.size(), kExtended80, low, high))
-			return false;
+		const bool finite = ScanInterchangeLiteral(scratch, kExtended80, low, high);
 		std::memset(bytes, 0, 16);
 		std::memcpy(bytes, &low, 8);
 		std::memcpy(bytes + 8, &high, 2);
-		return true;
+		return finite;
 #else
 		const long double value = std::strtold(scratch.c_str(), nullptr);
 		std::memset(bytes, 0, sizeof value);

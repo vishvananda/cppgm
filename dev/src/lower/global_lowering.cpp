@@ -2325,14 +2325,22 @@ bool ProgramLowering::static_value(const syntax::Expr& expr, StaticValue& out, b
 		const syntax::LiteralExpr* literal = static_cast<const syntax::LiteralExpr*>(e);
 		if (!sema::IsFloating(type) || (facts->flags & sema::kUserLiteral) != 0)
 			return false;
-		unsigned char bytes[16] = {};
-		std::string scratch;
-		if (!ScanFloatingValue(literal->spelling.text, static_cast<uint32_t>(facts->value),
-				type->unqualified->fundamental, scratch, bytes, type->target))
-			return false;
 		lowir::Literal bits = {};
-		std::memcpy(&bits.low, bytes, 8);
-		std::memcpy(&bits.high, bytes + 8, 8);
+		if (literal->floating)
+		{
+			const uint64_t* encoding = static_cast<const syntax::FloatingLiteralExpr*>(literal)->bits;
+			bits = lowir::Literal{ encoding[0], encoding[1] };
+		}
+		else
+		{
+			unsigned char bytes[16] = {};
+			std::string scratch;
+			if (!ScanFloatingValue(literal->spelling.text, static_cast<uint32_t>(facts->value),
+					type->unqualified->fundamental, scratch, bytes, type->target))
+				return false;
+			std::memcpy(&bits.low, bytes, 8);
+			std::memcpy(&bits.high, bytes + 8, 8);
+		}
 		if (SoftFloatOf(type) != SoftFloat::None)
 		{
 			out = StaticValue();

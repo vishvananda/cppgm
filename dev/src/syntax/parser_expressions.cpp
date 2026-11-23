@@ -1137,6 +1137,16 @@ Expr* Parser::parse_primary_expression()
 	}
 	if (token.is_literal())
 	{
+		if (token.kind == ParseTokenKind::FloatingLiteral)
+		{
+			FloatingLiteralExpr* literal = make<FloatingLiteralExpr>(ExprKind::Literal, start);
+			literal->spelling = token.spelling;
+			literal->floating = true;
+			literal->bits = token.floating_bits;
+			literal->type = static_cast<FundamentalType>(token.flags);
+			next();
+			return literal;
+		}
 		LiteralExpr* literal = make<LiteralExpr>(ExprKind::Literal, start);
 		literal->spelling = token.spelling;
 		literal->token_form = false;

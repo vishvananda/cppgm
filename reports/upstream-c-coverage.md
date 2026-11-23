@@ -182,7 +182,7 @@ C99 mode at `-O0` and `-O2`. Both used musl's GCC driver for static linking.
 [musl 1.2.5](https://musl.libc.org/releases/musl-1.2.5.tar.gz) ·
 [libc-test](https://wiki.musl-libc.org/libc-test.html)
 
-GCC passed all 44 configurations. cppgm passed 40, including the selected
+GCC and cppgm now pass all 44 configurations, including the selected
 locale, multibyte, string, formatted I/O, math conversion, pthread TLS,
 local-exec TLS, and `setjmp` tests. The 22 sources were `clocale_mbfuncs`,
 `fnmatch`, `fscanf`, `fwscanf`, `inet_pton`, `mbc`, `memstream`,
@@ -190,10 +190,14 @@ local-exec TLS, and `setjmp` tests. The 22 sources were `clocale_mbfuncs`,
 `strtold`, `tgmath`, `time`, `tls_init`, `tls_local_exec`, `udiv`, `ungetc`,
 and `wcsstr` from `src/functional`.
 
-| Open case | Reduced compiler behavior |
+| Resolved case | Compiler behavior exercised |
 | --- | --- |
-| `sscanf` at both levels | cppgm rejects the floating constant `1.234e1234` as an invalid token. GCC 15 and Clang 21 accept it with an overflow warning. The `1.234e-1234` underflow control compiles in cppgm. |
-| `tgmath` at both levels | musl's GNU `typeof` selection uses an unevaluated dereference that can have type `void`. cppgm rejects `__typeof__(*(void *)0)` and GCC 15 and Clang 21 accept it. |
+| `sscanf` | Overflowing constants produce target-format infinities. The reduced PA38 case also checks rounding ties, subnormals, and signed zero. GCC 15 and Clang 21 emit range warnings. [PA38 range case](../pa38/tests/general/500-c-floating-literal-overflow.t) |
+| `tgmath` | GNU `typeof` accepts an unevaluated dereference with type `void`. The reduced PA38 case checks type and qualifier selection, `&*p`, pointer evaluation count, and rejection of void sizing and stores. [PA38 type selection](../pa38/tests/general/500-c-typeof-void-indirection.t) |
+
+Both reduced positive cases passed at `-O0` and `-O2` on Linux x86-64,
+Linux AArch64 under QEMU, WASI, and bare Wasm. Both macOS targets
+cross-linked. Native macOS execution and its SDK headers remain open.
 
 Header-isolation checks passed for all 24 C99 headers and all 29 C11 and
 C17 headers with `-pedantic-errors`. The C11 and C17 configurations use

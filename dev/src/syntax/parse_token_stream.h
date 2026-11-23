@@ -17,6 +17,7 @@ enum class ParseTokenKind : uint8_t
 	Literal,
 	UserDefinedLiteral,
 	ImaginaryLiteral,
+	FloatingLiteral,
 	EndOfFile
 };
 
@@ -55,6 +56,7 @@ struct ParseToken
 		const Identifier* identifier;
 		std::uintptr_t imaginary_value;
 		const uint64_t* wide_imaginary_value;
+		const uint64_t* floating_bits;
 	};
 
 	bool is(TokenKind kind_) const { return kind == ParseTokenKind::Simple && simple == kind_; }
@@ -62,7 +64,7 @@ struct ParseToken
 	bool is_literal() const
 	{
 		return kind == ParseTokenKind::Literal || kind == ParseTokenKind::UserDefinedLiteral ||
-			kind == ParseTokenKind::ImaginaryLiteral;
+			kind == ParseTokenKind::ImaginaryLiteral || kind == ParseTokenKind::FloatingLiteral;
 	}
 	bool is_end() const { return kind == ParseTokenKind::EndOfFile; }
 	FundamentalType imaginary_type() const { return static_cast<FundamentalType>(flags & kImaginaryTypeMask); }

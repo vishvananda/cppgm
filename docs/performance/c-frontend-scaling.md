@@ -1605,3 +1605,42 @@ and +0.0015% on SQLite. Task-clock A/A ranges were 25.79% and 20.05%.
 | SQLite | A/A | 16,526,398,400 / 16,526,111,538 / 16,526,136,291 / 16,526,376,891 |
 | SQLite | ABBA | 16,526,637,155 / 16,526,144,970 / 16,527,039,941 / 16,526,067,193 |
 | SQLite | BAAB | 16,526,011,191 / 16,526,623,191 / 16,525,847,028 / 16,526,144,855 |
+
+## Retaining floating literal encodings
+
+The compiler now carries an ordinary floating constant's target type and
+rounded bits from phase 7 to semantic evaluation and lowering. The
+streaming token keeps a pointer to the two-word encoding in the spelling
+arena. Only the floating literal nodes retain that pointer. Both native
+scanner formats and software-rounded formats use the same path.
+
+Each input contains one initialized global per literal, with 19 fractional
+digits for double and 50 for binary128. The compiler builds each C input
+with `-O0 -c -std=gnu17` and the same GCC 15 host environment. The
+baseline is `fde6c550c`. Each pair emits byte-identical objects.
+Values below are median retired user-space instructions in paired AABB
+and BBAA blocks pinned to the same Linux x86-64 CPU.
+
+| Literals | Double before | Double after | Binary128 before | Binary128 after |
+| ---: | ---: | ---: | ---: | ---: |
+| 128 | 6,156,494 | 5,879,575 | 12,580,368 | 9,216,958 |
+| 256 | 8,486,408 | 7,932,187 | 21,331,056 | 14,605,182 |
+| 512 | 13,207,403 | 12,091,418 | 38,895,438 | 25,442,480 |
+| 1024 | 22,584,096 | 20,357,139 | 73,960,807 | 47,057,886 |
+| 2048 | 41,520,614 | 37,073,285 | 144,272,389 | 90,470,564 |
+| 4096 | 79,765,844 | 70,857,854 | 285,265,629 | 177,667,492 |
+
+At 4096 literals, the instruction count drops by 11.17% for double and
+37.72% for binary128. The frozen GNU C++11 `-O3` and SQLite GNU17
+`-O2` controls also emit byte-identical objects. The paired C++
+instruction changes are +0.00495% and +0.00658%. The SQLite changes are
+−0.00417% and −0.00025%. The A/A task-clock ranges are 10.38% and 2.77%.
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,052,371,263 / 9,052,700,665 / 9,052,590,894 / 9,052,478,408 |
+| C++ | ABBA | 9,052,648,459 / 9,053,206,250 / 9,053,121,456 / 9,052,782,787 |
+| C++ | BAAB | 9,053,198,425 / 9,052,438,948 / 9,052,571,169 / 9,053,002,126 |
+| SQLite | A/A | 16,526,331,461 / 16,526,012,575 / 16,526,182,594 / 16,526,018,237 |
+| SQLite | ABBA | 16,526,043,266 / 16,525,783,818 / 16,525,668,162 / 16,526,787,873 |
+| SQLite | BAAB | 16,526,395,805 / 16,526,237,799 / 16,526,376,595 / 16,526,136,389 |

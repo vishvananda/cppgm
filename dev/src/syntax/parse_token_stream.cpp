@@ -1,5 +1,7 @@
 #include "syntax/parse_token_stream.h"
 
+#include <cstring>
+
 namespace syntax {
 
 namespace {
@@ -169,6 +171,16 @@ void ParseTokenStream::pull()
 			}
 			else
 				token.imaginary_value = static_cast<std::uintptr_t>(post.imaginary_value);
+		}
+		else if (post.form == LiteralForm::Floating && post.kind == PostTokenKind::Literal)
+		{
+			// Keep the target representation through parsing and lowering.
+			uint64_t* bits = spellings_.allocate_array<uint64_t>(2);
+			bits[0] = bits[1] = 0;
+			std::memcpy(bits, post.data, post.size);
+			token.kind = ParseTokenKind::FloatingLiteral;
+			token.flags = static_cast<uint8_t>(post.type);
+			token.floating_bits = bits;
 		}
 		break;
 	case PostTokenKind::EndOfFile:

@@ -535,12 +535,19 @@ bool ConstantInterpreter::scalar_literal(const syntax::LiteralExpr& expr, const 
 		out = IntegerValue(type, facts->value);
 		return true;
 	}
-	unsigned char bytes[16];
-	std::string scratch;
+	unsigned char scanned[16];
+	const unsigned char* bytes = scanned;
+	if (expr.floating)
+		bytes = reinterpret_cast<const unsigned char*>(static_cast<const syntax::FloatingLiteralExpr&>(expr).bits);
+	else
+	{
+		std::string scratch;
+		if (!ScanFloatingValue(expr.spelling.text, facts->value, type->fundamental, scratch, scanned, type->target) &&
+			!expr.imaginary)
+			return fail(expr.location, "a floating literal outside constant evaluation");
+	}
 	if (Binary128Type(type))
 	{
-		if (!ScanFloatingValue(expr.spelling.text, facts->value, type->fundamental, scratch, bytes, type->target))
-			return fail(expr.location, "a binary128 literal outside constant evaluation");
 		uint64_t low = 0, high = 0;
 		std::memcpy(&low, bytes, 8);
 		std::memcpy(&high, bytes + 8, 8);
@@ -550,8 +557,6 @@ bool ConstantInterpreter::scalar_literal(const syntax::LiteralExpr& expr, const 
 	if (const char* diagnostic = UnsupportedFloatingConstant(type))
 		return fail(expr.location, diagnostic);
 	const FundamentalType representation = FloatingRepresentation(type->fundamental, type->target);
-	if (!ScanFloatingValue(expr.spelling.text, facts->value, representation, scratch, bytes, type->target))
-		return fail(expr.location, "a floating literal outside constant evaluation");
 	long double value = 0;
 	if (representation == FundamentalType::Float)
 	{
@@ -1769,6 +1774,14 @@ bool ConstantInterpreter::unary(const syntax::UnaryExpr& expr, ConstValue& out)
 	{
 	case TokenKind::OP_AMP:
 	{
+		// C 6.5.3.2p3 cancels &* before attempting to designate an object.
+		if (analyzer_.c_source_)
+		{
+			const syntax::Expr* inner = WithoutParentheses(expr.operand);
+			if (inner->kind == syntax::ExprKind::Unary &&
+				static_cast<const syntax::UnaryExpr*>(inner)->op == TokenKind::OP_STAR)
+				return operand(*static_cast<const syntax::UnaryExpr*>(inner)->operand, out);
+		}
 		// 5.3.1p3: the address of the lvalue or function; `&C::m`, the
 		// member at no adjustment.
 		if (expr.facts->type->unqualified->kind == TypeKind::MemberPointer)

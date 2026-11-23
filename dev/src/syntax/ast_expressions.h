@@ -77,6 +77,13 @@ struct LiteralExpr : Expr
 	// template parameter.
 	bool token_form;
 	bool imaginary = false;
+	bool floating = false;
+};
+
+struct FloatingLiteralExpr : LiteralExpr
+{
+	const uint64_t* bits; // two words in target encoding, low word first
+	FundamentalType type;
 };
 
 struct ImaginaryLiteralExpr : LiteralExpr

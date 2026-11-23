@@ -165,6 +165,10 @@ The first fixture set covers these parts of the C17 input profile:
   and system-header macros. `-Wsystem-headers` enables diagnostics for those
   macros. In the typed `-E` stream, `_Complex` precedes the component type
   and the bytes of the real part precede those of the imaginary part.
+- Round floating constants in the target format during translation.
+  A value that rounds past the largest finite number gives an infinity of
+  the selected type. Preserve subnormal values and the sign of a zero
+  produced by applying unary minus after rounding.
 - An implicit or explicit conversion from complex to real uses the real
   component and converts it to the destination type. Conversion to `_Bool`
   compares both components to zero. Preserve the source's evaluation and
@@ -317,7 +321,11 @@ The first fixture set covers these parts of the C17 input profile:
   have pointer-to-VLA type. Diagnose a compound literal of VLA type.
 - Accept `typeof` in GNU C and the alternate spellings `__typeof` and
   `__typeof__` in all the C modes above. Preserve the operand type. Evaluate
-  the operand only when its type is variably modified. For declarators
+  the operand only when its type is variably modified. An indirection of
+  `void *` has type `void`. Applying `&*` preserves the pointer, including a
+  null pointer. A discarded void indirection evaluates the pointer's
+  effects without a data access. Require an object type for a store or
+  standard `sizeof`. For declarators
   sharing a specifier, repeat the evaluated expression operand for each
   declarator and capture written type-name bounds during the first
   declarator's evaluation.

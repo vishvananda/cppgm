@@ -203,7 +203,7 @@ void FunctionLowering::discard(const syntax::Expr& expr)
 	if (facts != nullptr && facts->type != nullptr && facts->category == sema::ValueCategory::LValue &&
 		((facts->type->cv & sema::kVolatile) != 0 ||
 			((facts->type->cv & sema::kAtomic) != 0 && lowering_.analyzer_->c_source())) &&
-		facts->type->kind != sema::TypeKind::Array && read_when_discarded(*e))
+		facts->type->kind != sema::TypeKind::Array && !sema::IsVoid(facts->type) && read_when_discarded(*e))
 	{
 		read_discarded(*e);
 		return;

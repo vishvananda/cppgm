@@ -150,7 +150,8 @@ void PostTokenizer::convert_number(const PPToken& pp)
 		set_scalar(LiteralForm::Integer, number.type, number.integer);
 		return;
 	case NumberLiteralKind::Floating:
-		if (!ScanFloatingValue(pp.spelling, number.suffix_begin, number.type, floating_text_, scalar_, target_))
+		if (!ScanFloatingValue(pp.spelling, number.suffix_begin, number.type, floating_text_, scalar_, target_) &&
+			cxx_edition_ != 0)
 			return;
 		token_.kind = PostTokenKind::Literal;
 		token_.form = LiteralForm::Floating;
@@ -182,10 +183,9 @@ void PostTokenizer::convert_imaginary(const PPToken& pp, const NumberLiteral& nu
 	const bool floating = number.kind == NumberLiteralKind::ImaginaryFloating;
 	if (!defer_imaginary_values_)
 	{
-		if (floating &&
-			!ScanFloatingValue(pp.spelling, number.suffix_begin, number.type, floating_text_, scalar_, target_))
-			return;
-		if (!floating)
+		if (floating)
+			ScanFloatingValue(pp.spelling, number.suffix_begin, number.type, floating_text_, scalar_, target_);
+		else
 			set_scalar(LiteralForm::Imaginary, number.type, number.integer);
 		token_.size = FundamentalTypeSize(number.type, target_);
 		token_.data = scalar_;

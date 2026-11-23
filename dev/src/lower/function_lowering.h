@@ -1403,7 +1403,9 @@ private:
 	// (`second`: a binary routine's right operand).
 	RValue soft_call(SoftFloatHelper which, const RValue& first, const RValue* second = nullptr);
 	RValue soft_constant(SoftFloat kind, uint64_t low, uint64_t high);
-	RValue source_floating_literal(const sema::Type* type, const char* text, uint32_t length, uint32_t location);
+	RValue floating_encoding(const sema::Type* type, lowir::Literal bits);
+	RValue source_floating_literal(
+		const sema::Type* type, const char* text, uint32_t length, uint32_t location, bool allow_overflow = false);
 	RValue soft_zero(SoftFloat kind);
 	RValue soft_convert(const RValue& value, const sema::Type* from, const sema::Type* to);
 	RValue bfloat_convert(const RValue& value, const sema::Type* from, const sema::Type* to);

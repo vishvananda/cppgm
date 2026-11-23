@@ -265,7 +265,10 @@ void Analyzer::fixed_expression(const syntax::Expr& expr, Scope* scope, uint32_t
 	switch (e->kind)
 	{
 	case syntax::ExprKind::Literal:
-		out = FixedLiteral(static_cast<const syntax::LiteralExpr*>(e)->spelling, types_, cxx_edition_);
+		if (static_cast<const syntax::LiteralExpr*>(e)->floating)
+			out = Value(types_.fundamental(static_cast<const syntax::FloatingLiteralExpr*>(e)->type), true);
+		else
+			out = FixedLiteral(static_cast<const syntax::LiteralExpr*>(e)->spelling, types_, cxx_edition_);
 		return;
 	case syntax::ExprKind::KeywordLiteral:
 	{

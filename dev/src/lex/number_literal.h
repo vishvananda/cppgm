@@ -93,8 +93,8 @@ bool UserIntegerValue(const char* spelling, uint32_t suffix_begin, uint64_t& val
 // Scans the value of a floating literal of `type` (a standard or extended
 // floating type) from `text`, its spelling without the floating-suffix,
 // into `bytes`: FundamentalTypeSize(type) bytes in the x86-64
-// representation, with the padding of long double zeroed. Returns false if the value is
-// outside the range of the type ([lex.fcon] 2.14.4p1). `scratch` receives
-// the NUL-terminated copy of `text` that the C library scanner needs.
+// representation, with the padding of long double zeroed. Overflow writes
+// positive infinity and returns false, so the caller can apply its language's
+// range policy. `scratch` receives the NUL-terminated copy for the host scanner.
 bool ScanFloatingValue(const char* text, uint32_t length, FundamentalType type, std::string& scratch,
 	unsigned char* bytes, target_model::Target target = target_model::Target::Linux);

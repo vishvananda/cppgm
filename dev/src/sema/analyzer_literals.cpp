@@ -76,6 +76,9 @@ void Analyzer::literal_operator_declaration(const FunctionEntity& function, uint
 
 ExprFacts* Analyzer::literal(const syntax::LiteralExpr& expr)
 {
+	if (expr.floating)
+		return new_facts(expr, types_.fundamental(static_cast<const syntax::FloatingLiteralExpr&>(expr).type),
+			ValueCategory::PRValue);
 	if (expr.imaginary)
 	{
 		const auto& imaginary = static_cast<const syntax::ImaginaryLiteralExpr&>(expr);

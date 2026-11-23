@@ -1208,6 +1208,8 @@ Expr* SyntaxCloner::expr(const Expr* expr)
 	case ExprKind::Literal:
 		if (static_cast<const LiteralExpr*>(expr)->imaginary)
 			result = copy(static_cast<const ImaginaryLiteralExpr*>(expr));
+		else if (static_cast<const LiteralExpr*>(expr)->floating)
+			result = copy(static_cast<const FloatingLiteralExpr*>(expr));
 		else
 			result = copy(static_cast<const LiteralExpr*>(expr));
 		break;

@@ -239,6 +239,20 @@ types in the same list.
 [PA38 incomplete array associations](../pa38/tests/general/500-generic-array-compatibility-bad.t) ·
 [PA38 unprototyped association](../pa38/tests/general/500-generic-unprototyped-compatibility-bad.t)
 
+## Floating constant range
+
+C99–C17 6.4.4.2 places the conversion of a floating constant at translation
+time. The target representations round past the finite range to infinity.
+Keep the suffix-selected type and round directly to its format. This
+preserves the largest finite values, subnormals, and unary-minus signed zero.
+The PA38 case exercises static initialization, expression values, and a
+hexadecimal tie at the upper boundary of `float`. GCC 15 and Clang 21
+accept overflowing constants and emit range warnings. cppgm emits the
+rounded values.
+[C99 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
+[C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[PA38 range case](../pa38/tests/general/500-c-floating-literal-overflow.t)
+
 ## Hosted floating limits and structure returns
 
 C11 5.2.4.2.2 describes the floating-point characteristics available
@@ -387,6 +401,13 @@ GCC returned zero and Clang's value varied by optimization level. cppgm
 initializes the extent slot to zero on entry to the declaration. A nested
 `typeof` ends at its matching closing parenthesis, so a following array
 declarator belongs to the enclosing type name.
+
+C11 6.5.3.2 supplies the result type from the pointer operand. A GNU
+`typeof` query can therefore recover `void` or a qualified `void` through
+indirection without evaluating the pointer. The same clause cancels
+`&*p` even when `p` is null. musl's `<tgmath.h>` uses the unevaluated
+form with conditional pointer types. Standard `sizeof` and assignment
+still require complete object types.
 
 [C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [GCC `typeof`](https://gcc.gnu.org/onlinedocs/gcc/Typeof.html) ·
