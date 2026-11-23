@@ -6,6 +6,7 @@ on:
   pull_request:
     paths:
       - dev/**
+      - pa25/tests/general/200-runtime-custom-entry.*
       - pa38/**
       - pa39/**
       - pa35/**
@@ -130,6 +131,12 @@ jobs:
         run: make -C dev cppgm lowir2native lowir-library CXX=clang++ CPPGM_HOST_CXX=clang++
       - name: Run C variable array programs on Apple Silicon
         run: make -C pa38 test-native-driver CPPGM_SKIP_DEV_REBUILD=1 CXX=clang++ CPPGM_HOST_CXX=clang++
+      - name: Check C environment and custom startup on Apple Silicon
+        run: |
+          make -C pa38 test-native-driver CPPGM_SKIP_DEV_REBUILD=1 CXX=clang++ CPPGM_HOST_CXX=clang++ \
+            NATIVE_DRIVER_TESTS=300-c-environment-hosted
+          make -C pa25 check RUN_CHECK_DEPS= CXX=clang++ CPPGM_HOST_CXX=clang++ \
+            TEST=tests/general/200-runtime-custom-entry.t
       - name: Link and run typed LowIR library objects on Apple Silicon
         env:
           CPPGM_HOST_CXX: clang++

@@ -519,7 +519,10 @@ the user supplies none. Native Linux also runs the three-parameter
 hosted entry with `-nodefaultlibs`. Both execution modes can include
 `<stddef.h>` with `-nostdlib` on Linux x86-64 and with the pinned WASI
 SDK. The hosted WASI case also links through cppgm with that SDK.
-Native Darwin execution and library coverage are tracked separately.
+The hosted case is in the two native macOS workflows. Intel runs the
+custom entry in its strict report, and the Apple Silicon job runs the
+PA25 case explicitly. Native execution results and library coverage
+remain pending.
 [PA38 environment cases](../pa38/tests/general/c-environment.h) ·
 [PA25 custom entry](../pa25/tests/general/200-runtime-custom-entry.t)
 
