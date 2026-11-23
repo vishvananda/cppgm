@@ -108,10 +108,28 @@ runtime case exercises valid one-bit fields.
 C99 6.7.3 makes a repeated type qualifier equivalent to one occurrence.
 The declaration already retains qualifiers as bits. Reapplying the same
 bit gives the C type directly. PA38 exercises duplicate const and volatile
-specifiers in C99, and the pinned Clang cohort checks WG14 N505.
+specifiers in C99 and pedantic C90 diagnostics for repeats in specifiers,
+pointer declarators, or qualifiers applied through a typedef. The
+typedef case includes arrays of qualified elements. The pinned Clang
+cohort checks WG14 N505.
 
 [C99 with corrigenda, N1256](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
 [PA38 qualifier regression](../pa38/tests/general/300-repeated-qualifiers.t)
+
+## Control statement scope
+
+C99 6.8.4p3 and 6.8.5p5 give each selection or iteration statement and
+its substatements block scopes. An unbraced nested statement can
+introduce a tag or enumerator, for example through a type name in an
+`if` condition. Its names do not affect typedef recognition in the
+enclosing statement's alternate branch. In a `do` statement, a name
+introduced by the trailing condition belongs to the loop scope.
+Keep the parser's name scopes aligned with those used in semantic
+analysis. C90 and C95 put these names in the enclosing block.
+
+[C99 with corrigenda, N1256](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
+[PA38 C99 scope fixture](../pa38/tests/general/500-c99-control-local-type-names.t) ·
+[PA38 C90 scope fixture](../pa38/tests/general/500-c90-control-scopes.t)
 
 ## Macros adjacent to quoted literals
 

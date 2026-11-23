@@ -399,7 +399,7 @@ jobs:
               cat "$summary" >> "$GITHUB_STEP_SUMMARY"
             fi
           done
-          for report in c99 c11 c17 c-testsuite csmith gcc-c-torture libc-test; do
+          for report in c90 c95 c99 c11 c17 c-testsuite csmith gcc-c-torture libc-test; do
             summary="$RUNNER_TEMP/cxx11/$report/summary.md"
             if [ -f "$summary" ]; then
               cat "$summary" >> "$GITHUB_STEP_SUMMARY"

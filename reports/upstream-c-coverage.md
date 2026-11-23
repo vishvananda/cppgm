@@ -261,7 +261,8 @@ deprecation diagnostics so they could check the language boundary.
 
 The pinned legacy cohorts pass 23 GCC C90 configurations, five GCC C95
 configurations, and two Clang C90 configurations. In the broader GCC
-`c90-*.c` screen, 46 of 59 usable reference configurations agree. The
+`c90-*.c` screen, 47 of 60 configurations agree, up from 34 of 60
+when both binaries use the complete pinned source directory. The
 remaining 13 differences cover non-lvalue array conversions, constant
 expressions, signed left shifts, `__func__`, and diagnostics for missing
 definitions of used static functions. Full hosted library qualification
@@ -293,16 +294,26 @@ produced byte-identical objects in the A/A, ABBA and BAAB blocks.
 
 With the additional edition checks and C99 statement scopes, the frozen
 C++ overload and GNU17 SQLite objects were byte-identical again. Retired
-instructions rose by 0.049% and 0.025%, and peak RSS by 0.028% and 0.392%,
-respectively. Task-clock A/A spreads exceeded 25%. On the control-heavy
-synthetic inputs, instructions rose by 0.029% to 0.054% in C90 and 0.423%
-to 0.542% in C99.
+instructions rose by 0.046% to 0.050% for C++ and 0.025% to 0.028% for
+SQLite over three A/A, ABBA and BAAB trials. Peak RSS changed by -0.051%
+to +0.050% for C++ and +0.259% to +0.393% for SQLite. Task-clock effects
+stayed within the corresponding A/A spreads. On the control-heavy
+synthetic inputs, instructions rose by 0.029% to 0.054% in C90 and
+0.423% to 0.542% in C99.
 
 The four new positive PA38 fixtures passed at `-O0` and `-O2` on all six
 target profiles. The Mach-O runs used local loaders and independent
 linking. GCC and cppgm suppress the `long long` diagnostic for a replacement
 token supplied by a system macro but diagnose the same spelling in a
 user-supplied macro argument. Clang 21 diagnoses both uses.
+
+The strict report passed all 11,673 checks. PA38 passed 449 native tests,
+512 WASI tests, and three native ABI tests in the solution and student
+export. PA39 passed 106 tests, and the clause runner passed 451 probes
+across Linux x86-64, WASI, and bare Wasm. The 876 runtime cases and the
+113 of 128 GCC torture configurations reproduced their prior results.
+Debug-info checks, inception, self-hosting through PA5, the harness
+tests, and the source and placement audits passed.
 
 [GCC C90 manifest](upstream-gcc-c90.json) ·
 [GCC C95 manifest](upstream-gcc-c95.json) ·
