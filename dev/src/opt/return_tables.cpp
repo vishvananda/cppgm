@@ -809,7 +809,7 @@ void ReturnTables::rewrite_sparse_dispatch(
 	test.ops[0] = term.ops[0];
 	test.ops[1] = cell;
 	test.location = term.location;
-	const Value match = emit(block, after, test, Type::scalar(TypeKind::I1));
+	const Value match = emit(block, after, test, instruction_result_type(test, b_.pointer_type()));
 	Instruction branch = make_instruction(Opcode::Branch, Type::scalar(TypeKind::Void));
 	branch.ops[0] = match;
 	branch.ops[1] = Value::block(hit);
