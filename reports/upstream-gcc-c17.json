@@ -214,6 +214,118 @@
       "candidate_flags": [],
       "upstream_flags": [],
       "obligation": "Reject invalid GNU inferred object declarations"
+    },
+    {
+      "id": "builtin-tgmath-1-O0",
+      "path": "gcc/testsuite/gcc.dg/builtin-tgmath-1.c",
+      "sha256": "129eac4833a56458a3424cc30e2f6d767e7b671a33cb8e8879312bdfd4dbf3dc",
+      "dialect": "gnu17",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": ["-O0"],
+      "upstream_flags": ["-O0"],
+      "obligation": "GNU type-generic math with standard real and complex floating types",
+      "adaptations": [
+        "Runs the unchanged input in GNU17 at the selected optimization level."
+      ]
+    },
+    {
+      "id": "builtin-tgmath-1-O2",
+      "path": "gcc/testsuite/gcc.dg/builtin-tgmath-1.c",
+      "sha256": "129eac4833a56458a3424cc30e2f6d767e7b671a33cb8e8879312bdfd4dbf3dc",
+      "dialect": "gnu17",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": ["-O2"],
+      "upstream_flags": ["-O2"],
+      "obligation": "GNU type-generic math with standard real and complex floating types",
+      "adaptations": [
+        "Runs the unchanged input in GNU17 at the selected optimization level."
+      ]
+    },
+    {
+      "id": "builtin-tgmath-2-O0",
+      "path": "gcc/testsuite/gcc.dg/builtin-tgmath-2.c",
+      "sha256": "516f3691964ce55cbdc3aa81a68fdb31ff454dae036cb02ac7bc1dc271b05739",
+      "dialect": "gnu17",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": ["-O0"],
+      "upstream_flags": ["-O0"],
+      "obligation": "GNU type-generic math with interchange floating types",
+      "adaptations": [
+        "Runs the unchanged input on the reviewed Linux x86-64 configuration, which supplies the required extended floating types."
+      ]
+    },
+    {
+      "id": "builtin-tgmath-2-O2",
+      "path": "gcc/testsuite/gcc.dg/builtin-tgmath-2.c",
+      "sha256": "516f3691964ce55cbdc3aa81a68fdb31ff454dae036cb02ac7bc1dc271b05739",
+      "dialect": "gnu17",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": ["-O2"],
+      "upstream_flags": ["-O2"],
+      "obligation": "GNU type-generic math with interchange floating types",
+      "adaptations": [
+        "Runs the unchanged input on the reviewed Linux x86-64 configuration, which supplies the required extended floating types."
+      ]
+    },
+    {
+      "id": "builtin-tgmath-3-O0",
+      "path": "gcc/testsuite/gcc.dg/builtin-tgmath-3.c",
+      "sha256": "98abad0d163934938d9cb89c718c14ce3178a0d7c45e043d4a2f966a960f208b",
+      "dialect": "gnu17",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": ["-O0"],
+      "upstream_flags": ["-O0"],
+      "obligation": "Integer argument promotion with interchange and extended floating types",
+      "adaptations": [
+        "Runs the unchanged input on the reviewed Linux x86-64 configuration, which supplies the required extended floating types."
+      ]
+    },
+    {
+      "id": "builtin-tgmath-3-O2",
+      "path": "gcc/testsuite/gcc.dg/builtin-tgmath-3.c",
+      "sha256": "98abad0d163934938d9cb89c718c14ce3178a0d7c45e043d4a2f966a960f208b",
+      "dialect": "gnu17",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": ["-O2"],
+      "upstream_flags": ["-O2"],
+      "obligation": "Integer argument promotion with interchange and extended floating types",
+      "adaptations": [
+        "Runs the unchanged input on the reviewed Linux x86-64 configuration, which supplies the required extended floating types."
+      ]
+    },
+    {
+      "id": "builtin-tgmath-err-1",
+      "path": "gcc/testsuite/gcc.dg/builtin-tgmath-err-1.c",
+      "sha256": "ab1808b5d9823b2fcdabf21245e8a69c1653217ff93601bbdeeb055b7efe9aa6",
+      "dialect": "gnu17",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [],
+      "upstream_flags": [],
+      "obligation": "Reject invalid GNU type-generic candidate lists",
+      "adaptations": [
+        "Checks failure of the complete input. Individual dg-error expectations are ungraded."
+      ]
+    },
+    {
+      "id": "builtin-tgmath-err-2",
+      "path": "gcc/testsuite/gcc.dg/builtin-tgmath-err-2.c",
+      "sha256": "0d372f7d3d937d278f48882a4eca53952536debbb848b3f240ce29d12f0b7b16",
+      "dialect": "gnu17",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [],
+      "upstream_flags": [],
+      "obligation": "Reject invalid arguments to a GNU type-generic math family",
+      "adaptations": [
+        "Checks failure of the complete input. Individual dg-error expectations are ungraded."
+      ]
     }
   ]
 }

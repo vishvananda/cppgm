@@ -309,8 +309,9 @@ chains independently.
   real and complex families, integer promotion, and fixed results. Verify
   that `sizeof` leaves both candidate and argument expressions unevaluated.
   At runtime, evaluate only the selected candidate expression and each call
-  argument once. For the Clang
-  resource header used by WASI, qualify C `overloadable` declarations, ranking,
+  argument once. Exercise the `__builtin_classify_type` fallback selected by
+  glibc with the cross AArch64 Linux configuration's GNU compatibility macros.
+  For the Clang resource header used by WASI, qualify C `overloadable` declarations, ranking,
   and mangling through the existing overload and ABI machinery. Check nested
   calls with one argument-level increase at a time to catch repeated work.
   [GCC built-ins](https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html) ·

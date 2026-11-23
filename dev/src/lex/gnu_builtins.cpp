@@ -747,6 +747,7 @@ const struct
 	{ "__builtin_strstr", { GnuBuiltin::Library, 0, "c*Cc*Cc*", 0 } },
 	{ "__builtin_sub_overflow", { GnuBuiltin::Overflow, 1, nullptr, 0 } },
 	{ "__builtin_sub_overflow_p", { GnuBuiltin::Overflow, 4, nullptr, 0 } },
+	{ "__builtin_tgmath", { GnuBuiltin::TypeGenericMath, 0, nullptr, 0 } },
 	{ "__builtin_trap", { GnuBuiltin::Trap, 0, "v", 0 } },
 	{ "__builtin_uadd_overflow", { GnuBuiltin::TypedOverflow, 3, nullptr, 0 } },
 	{ "__builtin_uaddl_overflow", { GnuBuiltin::TypedOverflow, 4, nullptr, 0 } },
@@ -967,7 +968,7 @@ const GnuC11Operation kGnuC11Operations[] = { { "init", 2, "pv", '-', 1, 0xff },
 	{ "is_lock_free", 25, "s", 'L', 0, 0xff } };
 const unsigned kGnuC11OperationCount = sizeof kGnuC11Operations / sizeof kGnuC11Operations[0];
 
-uint32_t ProvidedBuiltinVersion(const char* spelling, uint32_t length, bool wasm, bool cxx20)
+uint32_t ProvidedBuiltinVersion(const char* spelling, uint32_t length, bool wasm, bool cxx20, bool c_source)
 {
 	// Clang's builtin templates, which the hosted builtin declarations
 	// declare (driver/host_environment.cpp).
@@ -986,6 +987,8 @@ uint32_t ProvidedBuiltinVersion(const char* spelling, uint32_t length, bool wasm
 	if ((entry.builtin == GnuBuiltin::WasmMemory || entry.builtin == GnuBuiltin::WasmMinMax) && !wasm)
 		return 0;
 	if (!cxx20 && IsCoroutineBuiltin(entry.builtin))
+		return 0;
+	if (!c_source && entry.builtin == GnuBuiltin::TypeGenericMath)
 		return 0;
 	return entry.builtin == GnuBuiltin::OperatorNew || entry.builtin == GnuBuiltin::OperatorDelete ? 201802 : 1;
 }

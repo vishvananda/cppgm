@@ -566,7 +566,7 @@ uint32_t Preprocessor::builtin_version(const char* spelling, uint32_t length, ui
 		in_system_header(location) && macro_query_.is_defined("__GNUC__", sizeof("__GNUC__") - 1) &&
 		!macro_query_.is_defined("__clang__", sizeof("__clang__") - 1))
 		return 0;
-	return ProvidedBuiltinVersion(spelling, length, wasm_attributes_, modes_.language >= 20);
+	return ProvidedBuiltinVersion(spelling, length, wasm_attributes_, modes_.language >= 20, modes_.language == 0);
 }
 
 bool Preprocessor::has_target_attribute(const char* spelling, uint32_t length)

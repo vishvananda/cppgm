@@ -52,6 +52,23 @@ diagnostic with `-Wsystem-headers`.
 [GCC complex types and constants](https://gcc.gnu.org/onlinedocs/gcc/Complex.html) ·
 [PA38 runtime and diagnostic fixtures](../pa38/tests/general/500-c-imaginary-extension.t)
 
+## C99 type-generic math
+
+C99 7.22 determines a type-generic math function from the types of its
+generic arguments. Glibc uses GNU `__builtin_tgmath` to express the
+selection. The compiler checks the candidates' prototypes and the type
+relationships between their varying parameters and results. Standard
+families select an exact match after promoting integer arguments to the
+appropriate floating type. For the GNU narrowing families with a fixed
+floating result, a missing exact match selects the first candidate of the
+same domain that covers the argument format's precision and exponent range.
+Only the chosen candidate expression and the actual call arguments are
+evaluated. The tests also cover the result type in unevaluated contexts.
+
+[C99 with corrigenda, N1256](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
+[GCC builtin rules](https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html) ·
+[PA38 selection regression](../pa38/tests/general/500-c-type-generic-math.t)
+
 ## C11 syntax in earlier modes
 
 C11 adds generic selection (6.5.1.1), alignment queries (6.5.3.4), atomic

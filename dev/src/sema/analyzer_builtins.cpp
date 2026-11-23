@@ -113,7 +113,7 @@ FunctionEntity* Analyzer::builtin_function(const Identifier* name)
 	}
 	GnuBuiltinEntry entry;
 	const bool found = FindGnuBuiltin(name->spelling, name->length, entry) &&
-		(cxx20_ || !IsCoroutineBuiltin(entry.builtin));
+		(cxx20_ || !IsCoroutineBuiltin(entry.builtin)) && (c_source_ || entry.builtin != GnuBuiltin::TypeGenericMath);
 	builtin_names_[name->id] = found ? 2 : 1;
 	if (!found)
 		return nullptr;
@@ -244,6 +244,8 @@ ExprFacts* Analyzer::builtin_operation(const syntax::CallExpr& expr, const Funct
 		return object_size_call(expr, scope);
 	case GnuBuiltin::Invoke:
 		return builtin_invoke(expr, scope);
+	case GnuBuiltin::TypeGenericMath:
+		return type_generic_math(expr, scope);
 	case GnuBuiltin::FloatClassify:
 	case GnuBuiltin::FloatCompare:
 	case GnuBuiltin::FloatConstant:

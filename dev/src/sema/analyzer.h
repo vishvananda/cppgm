@@ -1390,6 +1390,7 @@ private:
 	ExprFacts* atomic_lock_free(const syntax::CallExpr& expr, bool compile_time, bool pointer_operand, Scope* scope);
 	uint64_t atomic_pointer_alignment(const syntax::Expr& expr, Scope* scope);
 	ExprFacts* builtin_invoke(const syntax::CallExpr& expr, Scope* scope);
+	ExprFacts* type_generic_math(const syntax::CallExpr& expr, Scope* scope);
 	ExprFacts* invoke_call(
 		const syntax::CallExpr& rewritten, const syntax::Expr* callable, const syntax::Expr* object, Scope* scope);
 	ExprFacts* call_form(const syntax::CallExpr& expr, Scope* scope, ExprFacts* move_argument = nullptr);

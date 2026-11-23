@@ -127,6 +127,14 @@ The first fixture set covers these parts of the C17 input profile:
   category. The control and unselected associations are not evaluated.
   Diagnose compatible types in the same association list and a controlling
   type compatible with more than one association.
+- In C, accept GNU `__builtin_tgmath`. The first function's prototype gives
+  the number of trailing call arguments, and at least two candidates are
+  required. Validate the signatures as one type-generic family and select
+  by the common type of the arguments in the varying positions. Apply the
+  type-generic math rules for integer promotion, real and complex domains,
+  and fixed floating return types. Evaluate only the selected function
+  expression and the call arguments. In an unevaluated context, evaluate
+  neither. Give the call the selected function's return type.
 - The GNU conditional expression with one void arm has type `void`.
   Evaluate the selected arm for effects and diagnose the extension under
   the pedantic policy.

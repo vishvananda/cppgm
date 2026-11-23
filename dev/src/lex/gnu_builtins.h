@@ -9,7 +9,8 @@
 // and the type traits and transforms (__is_class ...). Hosted headers ask
 // `__has_builtin` before using an optional one; it answers from these
 // registries, which the parser and analyzer read the names from.
-uint32_t ProvidedBuiltinVersion(const char* spelling, uint32_t length, bool wasm = false, bool cxx20 = false);
+uint32_t ProvidedBuiltinVersion(
+	const char* spelling, uint32_t length, bool wasm = false, bool cxx20 = false, bool c_source = false);
 
 // The builtin functions (GCC's and Clang's): the analyzer declares each in
 // the global namespace from its entry when a call first names it.
@@ -131,7 +132,8 @@ enum class GnuBuiltin : uint8_t
 	FloatAbs,
 	// Clang's __builtin_nondeterministic_value(x): a value of x's type that
 	// is not specified (x is not evaluated).
-	NondeterministicValue
+	NondeterministicValue,
+	TypeGenericMath
 };
 
 inline bool IsCoroutineBuiltin(GnuBuiltin builtin)
