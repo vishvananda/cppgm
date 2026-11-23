@@ -2701,6 +2701,8 @@ RValue FunctionLowering::call(const syntax::CallExpr& expr, lowir::Value destina
 	}
 	RValue value;
 	value.type = result;
+	if (fenv_access())
+		signature = lowering_.fenv_library_signature(callee, signature);
 	value.value = emit_call(result, callee, base, signature, throws);
 	end_call(throws);
 	if (result.kind() == lowir::TypeKind::Obj)

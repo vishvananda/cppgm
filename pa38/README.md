@@ -165,8 +165,10 @@ builtins use `fenv_cmp`. A quiet NaN raises invalid for the signaling
 comparison. Preserve status effects of complex arithmetic as well. A
 call to a complex runtime routine can read rounding state and raise
 exceptions. Its call boundary must keep those effects observable even
-when the result is unused. Static-storage initializers use translation-time
-arithmetic.
+when the result is unused. Hosted math calls also retain the effects of
+rounding and status updates. For example, `sqrt` rounds in the current
+direction, and a flag clear between calls to `sin` and `cos` remains
+observable. Static-storage initializers use translation-time arithmetic.
 Real floating division by zero in a static initializer produces a quiet NaN
 for a zero numerator or a signed infinity for a nonzero numeric numerator.
 This computation leaves the execution-time status flags clear.

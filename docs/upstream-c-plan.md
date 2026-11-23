@@ -74,8 +74,10 @@ Start the next batches from the existing receipts.
    scaled division and infinity recovery. The complex environment probe
    checks status effects even when a quotient is discarded. PA37 exercises
    the Wasm runtime ABI for double and binary128 complex helpers.
-   Extend the remaining software floating operations. Continue with declarators, initializers,
-   conversions, constant expressions, and
+   Hosted math probes cover `sqrt` rounding and inexact, discarded `pow`
+   with divide-by-zero, and independent trigonometric status effects.
+   Extend the remaining software floating operations. Continue with
+   declarators, initializers, conversions, constant expressions, and
    linkage. Pair edition boundaries with native reference runs and
    earliest-assignment regressions.
    [Literal measurements](performance/c-frontend-scaling.md#escape-heavy-c-literals)

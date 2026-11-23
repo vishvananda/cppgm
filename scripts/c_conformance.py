@@ -46,6 +46,7 @@ CASES = {
     'floating.fenv-convert': (RUN_STAGES, ('O0', 'O2')),
     'floating.fenv-compare': (RUN_STAGES, ('O0', 'O2')),
     'floating.fenv-quad': (RUN_STAGES, ('O0', 'O2')),
+    'floating.fenv-libm': (RUN_STAGES, ('O0', 'O2')),
     'floating.fp-contract': (RUN_STAGES, ('O0', 'O2')),
     'floating.complex-range': (RUN_STAGES, ('O0', 'O2')),
     'floating.complex-fenv': (RUN_STAGES, ('O0', 'O2')),
@@ -67,6 +68,7 @@ FENV_BINARY = ROOT / 'pa38/tests/general/500-c-fenv-binary.t'
 FENV_CONVERT = ROOT / 'pa38/tests/general/500-c-fenv-convert.t'
 FENV_COMPARE = ROOT / 'pa38/tests/general/500-c-fenv-compare.t'
 FENV_QUAD = ROOT / 'pa38/tests/general/500-c-fenv-quad.t'
+FENV_LIBM = ROOT / 'pa38/tests/general/500-c-fenv-libm.t'
 FP_CONTRACT = ROOT / 'pa38/tests/general/500-c-fp-contract.t'
 COMPLEX_RANGE = ROOT / 'pa38/tests/general/500-c-complex-limited-range.t'
 COMPLEX_FENV = ROOT / 'pa38/tests/general/500-c-complex-fenv.t'
@@ -264,7 +266,10 @@ def numeric_sources(profile, bare_sdk):
         ('floating.static-zero-division', FENV_ZERO_DIVISION, include, rounding_link),
     ]
     if profile['environment'] == 'hosted':
-        sources.append(('floating.hosted-math', HOSTED_MATH, (), rounding_link))
+        sources.extend([
+            ('floating.hosted-math', HOSTED_MATH, (), rounding_link),
+            ('floating.fenv-libm', FENV_LIBM, (), rounding_link),
+        ])
     if not wasm:
         sources.extend([
             ('limits.rounding-query', ROUNDING_QUERY, (), rounding_link),
@@ -380,7 +385,7 @@ def probes(args, profiles, rules):
     revision = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
     inputs = sorted([*work.glob('*.h'), limits, ERROR_SOURCE, INCLUDE_SOURCE, STRING_SOURCE, INCLUDE_QUERY, THREAD_PREDEFINE,
                      INTEGER_LIMITS, FLOAT_LIMITS, DEFAULT_ROUNDING, ROUNDING_QUERY,
-                     FENV_BINARY, FENV_CONVERT, FENV_COMPARE, FENV_QUAD, FP_CONTRACT,
+                     FENV_BINARY, FENV_CONVERT, FENV_COMPARE, FENV_QUAD, FENV_LIBM, FP_CONTRACT,
                      COMPLEX_RANGE, COMPLEX_FENV, FENV_ZERO_DIVISION, HOSTED_MATH,
                      *numeric_sdk_inputs, *C11_LIBRARY_SOURCES.values(),
                      INCLUDE_QUERY.parent / 'c-header  spaces.h',

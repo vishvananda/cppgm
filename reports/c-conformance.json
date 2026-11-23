@@ -714,6 +714,47 @@
       ]
     },
     {
+      "id": "floating.fenv-library-calls",
+      "clause": "7.6.1, 7.12.7, Annex F.3 and F.10",
+      "kind": "conditional",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "hosted",
+      "profiles": [
+        "linux-x86_64-hosted",
+        "linux-aarch64-hosted",
+        "darwin-x86_64-hosted",
+        "darwin-arm64-hosted"
+      ],
+      "outside_profile": "This test requires a hosted runtime with accessible floating-point status and rounding controls.",
+      "requirement": "In a scope with FENV_ACCESS ON, sqrt observes downward rounding and raises inexact when the result is discarded. A discarded pow raises divide-by-zero on a negative zero raised to -1. Calls to sin and cos of infinity each raise invalid when a flag clear intervenes.",
+      "cases": [
+        "floating.fenv-libm"
+      ]
+    },
+    {
+      "id": "floating.library-fixed-rounding",
+      "clause": "7.12.7",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "hosted",
+      "profiles": [
+        "wasi-hosted"
+      ],
+      "outside_profile": "This probe qualifies default rounding results of the math library on WASI.",
+      "requirement": "Check the square root interfaces and a double power result with the selected WASI math library.",
+      "cases": [
+        "floating.fenv-libm"
+      ]
+    },
+    {
       "id": "floating.fenv-ordered-comparison",
       "clause": "7.6.1, F.3",
       "kind": "conditional",

@@ -393,6 +393,7 @@ struct Program
 	bool memcmp_function(SymbolId symbol) const; // C 7.24.4.1
 	// The C library math function `symbol` declares (not defines).
 	MathFunction math_function(SymbolId symbol) const;
+	MathFunction declared_math_function(SymbolId symbol, const SymbolMetadata& metadata) const;
 	NonlocalFunction nonlocal_function(SymbolId symbol) const;
 	// Whether `symbol` is the runtime's trap (`object=cppgm_builtin_trap`,
 	// __builtin_trap), which the back end encodes as a trap instruction.

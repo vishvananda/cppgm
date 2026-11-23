@@ -269,8 +269,13 @@ bool Program::memcmp_function(SymbolId symbol) const
 MathFunction Program::math_function(SymbolId symbol) const
 {
 	const Symbol& callee = symbols[symbol];
-	if (callee.kind != SymbolKind::FunctionDeclaration || callee.metadata.linkage != ir_model::LLM_C ||
-		callee.metadata.no_builtin)
+	return callee.kind == SymbolKind::FunctionDeclaration ? declared_math_function(symbol, callee.metadata)
+														  : MathFunction::None;
+}
+
+MathFunction Program::declared_math_function(SymbolId symbol, const SymbolMetadata& metadata) const
+{
+	if (metadata.linkage != ir_model::LLM_C || metadata.no_builtin)
 		return MathFunction::None;
 	static const struct
 	{
@@ -281,7 +286,7 @@ MathFunction Program::math_function(SymbolId symbol) const
 		{ "powf", MathFunction::Pow }, { "sqrt", MathFunction::Sqrt }, { "sqrtf", MathFunction::Sqrt },
 		{ "sin", MathFunction::Sin }, { "sinf", MathFunction::Sin }, { "cos", MathFunction::Cos },
 		{ "cosf", MathFunction::Cos } };
-	const char* spelling = this->spelling(callee.metadata.object != 0 ? callee.metadata.object : callee.name);
+	const char* spelling = this->spelling(metadata.object != 0 ? metadata.object : symbols[symbol].name);
 	for (const auto& f : kFunctions)
 		if (std::strcmp(spelling, f.name) == 0)
 			return f.function;

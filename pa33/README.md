@@ -500,6 +500,9 @@ pass:
 - A function that only forwards a call and returns its result may not need a
   separate call at each use. Preserve argument order, conversions, object
   materialization and cleanup when composing such boundaries.
+- For library math rewrites, use the effective call boundary. A direct
+  call with an explicit boundary can have effects beyond the result and
+  `errno`, including reads and writes of floating-point state.
 - A write fully replaced through the same address before any possible read
   need not reach memory. Address identity can prove this even when an array
   index is dynamic. Preserve alias reads, volatile and atomic accesses,

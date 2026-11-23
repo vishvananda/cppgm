@@ -92,8 +92,8 @@ bool SinCos::run()
 		for (InstId i = body_.blocks[b].first; i != kNoId; i = body_.instructions[i].next)
 		{
 			const Instruction& inst = body_.instructions[i];
-			if (inst.op != Opcode::Call || !inst.ops[0].is(ValueKind::Symbol) || inst.extra_count != 1 ||
-				inst.result == kNoId)
+			if (inst.op != Opcode::Call || (inst.flags & IF_SIGNATURE) != 0 || !inst.ops[0].is(ValueKind::Symbol) ||
+				inst.extra_count != 1 || inst.result == kNoId)
 				continue;
 			const MathFunction function = c_.program.math_function(inst.ops[0].index);
 			if ((function != MathFunction::Sin && function != MathFunction::Cos) ||
@@ -321,8 +321,9 @@ bool SqrtGuards::tested_not_negative(BlockId block, Value x) const
 bool SqrtGuards::guarded(InstId id) const
 {
 	const Instruction& call = body_.instructions[id];
-	if (call.op != Opcode::Call || !call.ops[0].is(ValueKind::Symbol) || call.result == kNoId ||
-		call.extra_count != 1 || c_.program.math_function(call.ops[0].index) != MathFunction::Sqrt)
+	if (call.op != Opcode::Call || (call.flags & IF_SIGNATURE) != 0 || !call.ops[0].is(ValueKind::Symbol) ||
+		call.result == kNoId || call.extra_count != 1 ||
+		c_.program.math_function(call.ops[0].index) != MathFunction::Sqrt)
 		return false;
 	const TypeKind kind = call.type.kind();
 	const Value x = body_.operands[call.extra_first];
@@ -495,8 +496,8 @@ bool simplify_math_call(FunctionContext& context, BlockId block, InstId& prev, I
 {
 	FunctionBody& body = context.body;
 	const Instruction call = body.instructions[id];
-	if (context.level < 2 || !call.ops[0].is(ValueKind::Symbol) || call.result == kNoId || call.extra_count == 0 ||
-		call.extra_count > 2)
+	if (context.level < 2 || (call.flags & IF_SIGNATURE) != 0 || !call.ops[0].is(ValueKind::Symbol) ||
+		call.result == kNoId || call.extra_count == 0 || call.extra_count > 2)
 		return false;
 	const MathFunction function = context.program.math_function(call.ops[0].index);
 	if (function == MathFunction::None || function == MathFunction::Sin || function == MathFunction::Cos)

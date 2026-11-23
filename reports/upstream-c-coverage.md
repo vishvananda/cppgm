@@ -126,6 +126,24 @@ and software-floating environment profiles remain open.
 [Default rounding probe](../scripts/tests/c_default_rounding.c) ·
 [Clause inventory](c-conformance.json)
 
+With `FENV_ACCESS ON`, hosted math call boundaries preserve observable
+rounding and exception effects. The previous optimizer discarded the
+inexact effect of an unused `sqrt` result and could replace `pow` with
+ordinary arithmetic or combine `sin` and `cos` across a flag clear. PA33
+checks explicit math call boundaries. PA38 checks downward rounding of
+`sqrt`, an unused square root and power, and independent invalid flags
+from `sin` and `cos` on infinity.
+
+Linux x86-64 and AArch64 under QEMU pass direct and LowIR round-trip
+execution in C99, C11, and C17 at `-O0`, `-O2`, and `-O3`. GCC 15 and
+Clang 21 on x86-64 pass the same libm fixture when their builtin
+substitutions are disabled. The WASI replay checks default-rounding
+results for the three real square root interfaces and `pow`. Native
+macOS execution remains open.
+[PA33 call-boundary probe](../pa33/tests/o2/600-math-call-boundaries.t) ·
+[PA38 hosted math probe](../pa38/tests/general/500-c-fenv-libm.t) ·
+[WG14 N1570 §§7.6.1, 7.12.7, F.3, and F.10](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
+
 The `FP_CONTRACT` probe uses a product that rounds to one before
 addition and a fused result that is exactly nonzero. It checks file scope,
 nested block scope, `_Pragma`, DEFAULT, and the intermediate rounding of

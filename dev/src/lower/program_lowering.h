@@ -686,6 +686,7 @@ public:
 	// The call boundary of a function type (an indirect call's `as`),
 	// `unwind=no` when the callee is declared non-throwing.
 	lowir::SignatureId call_signature(const sema::Type* function, bool nothrow = false);
+	lowir::SignatureId fenv_library_signature(lowir::Value callee, lowir::SignatureId boundary);
 	// A call through a pointer to member function: the function type's
 	// boundary with the object first.
 	lowir::SignatureId member_call_signature(const sema::Type* member_pointer, bool nothrow = false);
@@ -2074,6 +2075,7 @@ private:
 	// those of callees declared non-throwing apart.
 	PointerMap call_signatures_;
 	PointerMap nothrow_call_signatures_;
+	FlatMap<lowir::SignatureId, lowir::SignatureId, std::hash<lowir::SignatureId>> fenv_library_signatures_;
 	// Slot names in use by the bodies being lowered: a mark per NameId set
 	// to the claiming body's slot scope, so no body clears or sizes a table
 	// of its own (the bodies that interleave with others claim no names).

@@ -3561,4 +3561,45 @@ lowir::SignatureId ProgramLowering::call_signature(const sema::Type* function, b
 	return id;
 }
 
+lowir::SignatureId ProgramLowering::fenv_library_signature(lowir::Value callee, lowir::SignatureId boundary)
+{
+	if (!callee.is(lowir::ValueKind::Symbol))
+		return boundary;
+	const auto& symbol = program_.symbols[callee.index];
+	PendingDeclaration* pending = symbol.kind == lowir::SymbolKind::Unresolved &&
+			callee.index < pending_index_.size() && pending_index_[callee.index] != 0
+		? &pending_[pending_index_[callee.index] - 1]
+		: nullptr;
+	const lowir::MathFunction math = pending != nullptr && pending->function
+		? program_.declared_math_function(callee.index, pending->metadata)
+		: program_.math_function(callee.index);
+	if (math == lowir::MathFunction::None || math == lowir::MathFunction::Abs || math == lowir::MathFunction::Fabs)
+		return boundary;
+	// An explicit boundary keeps math rewrites from assuming the result and errno
+	// are the only observations. Retain the original ABI, including for old-style calls.
+	if (boundary == lowir::kNoId)
+	{
+		if (pending == nullptr)
+			boundary = program_.functions[symbol.detail].signature;
+		else
+		{
+			if (pending->signature == lowir::kNoId && pending->entity != nullptr)
+				pending->signature = function_signature(pending->entity, false, pending->variant);
+			boundary = pending->signature;
+		}
+	}
+	if (boundary == lowir::kNoId)
+		return boundary;
+	lowir::Signature signature = program_.signatures[boundary];
+	if (signature.boundary.effects == ir_model::CFXM_DEFAULT)
+		return boundary;
+	if (const auto* known = fenv_library_signatures_.find(boundary))
+		return *known;
+	signature.boundary.effects = ir_model::CFXM_DEFAULT;
+	signature.boundary.repeatable = false;
+	const lowir::SignatureId effectful = program_.add_signature(signature);
+	fenv_library_signatures_.insert(boundary, effectful);
+	return effectful;
+}
+
 } // namespace lower
