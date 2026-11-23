@@ -1565,3 +1565,43 @@ ordinary compilation path. The A/A task-clock ranges were 11.76% and 22.58%.
 | SQLite | A/A | 16,518,259,786 / 16,518,085,204 / 16,518,325,483 / 16,517,978,577 |
 | SQLite | ABBA | 16,517,777,818 / 16,526,044,313 / 16,526,601,404 / 16,518,151,027 |
 | SQLite | BAAB | 16,525,895,996 / 16,517,894,047 / 16,518,367,857 / 16,525,976,252 |
+
+## C enumeration constants
+
+An ordinary C enum records each constant's `int` value as it is analyzed
+and chooses the compatible enum object type from whether any member is
+negative. The nonnegative `int` range uses a single value comparison.
+The GNU wide-enum path uses the existing bounded search over integer
+representations. Tag lookup probes the existing name index once per
+enclosing scope and shares the enum entity across forward declarations.
+
+The syntax-only C17 workload increases the number of members in one enum.
+Each initializer after the first adds `1UL` to the preceding enumerator.
+The `-O2` objects return the last value and match byte-for-byte. The table
+gives median user-space instructions from three runs pinned to one Linux
+x86-64 CPU. The baseline is `c8fc31e02` and the compiler with the range
+check and completion checks is `d912aaebb`.
+
+| Members | Baseline | Updated | Change |
+| ---: | ---: | ---: | ---: |
+| 128 | 5,442,933 | 5,476,179 | +0.61% |
+| 256 | 7,290,494 | 7,357,336 | +0.92% |
+| 512 | 11,065,221 | 11,199,289 | +1.21% |
+| 1024 | 17,753,653 | 18,022,447 | +1.51% |
+| 2048 | 33,348,151 | 33,886,304 | +1.61% |
+| 4096 | 64,385,599 | 65,462,355 | +1.67% |
+
+The additional work is about 263 instructions per member at the larger
+sizes. Before the direct range check, the 4096-member test used 65,989,937
+instructions. The frozen C++ `-O3` and SQLite `-O2` objects are also
+byte-identical. The largest paired instruction change is +0.0037% on C++
+and +0.0015% on SQLite. Task-clock A/A ranges were 25.79% and 20.05%.
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,052,368,807 / 9,052,141,346 / 9,052,308,515 / 9,052,371,738 |
+| C++ | ABBA | 9,052,326,357 / 9,052,585,298 / 9,052,780,679 / 9,052,372,666 |
+| C++ | BAAB | 9,052,812,474 / 9,052,419,735 / 9,052,294,721 / 9,052,502,853 |
+| SQLite | A/A | 16,526,398,400 / 16,526,111,538 / 16,526,136,291 / 16,526,376,891 |
+| SQLite | ABBA | 16,526,637,155 / 16,526,144,970 / 16,527,039,941 / 16,526,067,193 |
+| SQLite | BAAB | 16,526,011,191 / 16,526,623,191 / 16,525,847,028 / 16,526,144,855 |

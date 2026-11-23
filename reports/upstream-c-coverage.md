@@ -172,6 +172,37 @@ rule for C++ declarations with C linkage.
 [GCC complex literal extension](https://gcc.gnu.org/onlinedocs/gcc/Complex.html) ·
 [GCC type-generic math builtin](https://gcc.gnu.org/onlinedocs/gcc-15.2.0/gcc/Other-Builtins.html)
 
+### musl libc-test pilot
+
+The first replay used musl 1.2.5 and `libc-test` revision
+`63e36e934e8f2bedf645303a90b64098e2af6c8f` on Linux x86-64. GCC 15 built
+the static musl runtime and the upstream `libtest.a` support library.
+Each compiler compiled the selected test source with musl headers in
+C99 mode at `-O0` and `-O2`. Both used musl's GCC driver for static linking.
+[musl 1.2.5](https://musl.libc.org/releases/musl-1.2.5.tar.gz) ·
+[libc-test](https://wiki.musl-libc.org/libc-test.html)
+
+GCC passed all 44 configurations. cppgm passed 40, including the selected
+locale, multibyte, string, formatted I/O, math conversion, pthread TLS,
+local-exec TLS, and `setjmp` tests. The 22 sources were `clocale_mbfuncs`,
+`fnmatch`, `fscanf`, `fwscanf`, `inet_pton`, `mbc`, `memstream`,
+`pthread_tsd`, `qsort`, `setjmp`, `snprintf`, `sscanf`, `strtod`, `strtof`,
+`strtold`, `tgmath`, `time`, `tls_init`, `tls_local_exec`, `udiv`, `ungetc`,
+and `wcsstr` from `src/functional`.
+
+| Open case | Reduced compiler behavior |
+| --- | --- |
+| `sscanf` at both levels | cppgm rejects the floating constant `1.234e1234` as an invalid token. GCC 15 and Clang 21 accept it with an overflow warning. The `1.234e-1234` underflow control compiles in cppgm. |
+| `tgmath` at both levels | musl's GNU `typeof` selection uses an unevaluated dereference that can have type `void`. cppgm rejects `__typeof__(*(void *)0)` and GCC 15 and Clang 21 accept it. |
+
+Header-isolation checks passed for all 24 C99 headers and all 29 C11 and
+C17 headers with `-pedantic-errors`. The C11 and C17 configurations use
+GCC 15's resource `<stdatomic.h>` after the musl include directory, as
+the native musl driver does. A statically linked C11/C17 probe exercised
+`thrd_create`, `thrd_join`, `_Thread_local` isolation, and relaxed atomic
+updates at both optimization levels in both compilers.
+[C11 standard headers, §7.1.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
+
 ## Edition and declarator checks
 
 The 15 edition fixtures agree with GCC 15 and Clang 21. They cover C11
