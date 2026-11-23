@@ -2809,3 +2809,38 @@ linear work in the number of declarations.
 | 256 | 60,071,176 | 12,357 |
 | 512 | 117,166,207 | 16,377 |
 | 1,024 | 230,437,224 | 24,850 |
+
+## Mixed record member declarations
+
+Compared immutable GCC 15 builds of `3e1993e75` and `2eaf645ce` on CPU 71.
+The frozen C++ and SQLite inputs emitted byte-identical objects in every
+observation. Instruction changes stayed below 0.007% in the paired blocks.
+A/A task-clock spreads were 14.6% and 10.5%, so the run leaves wall-time
+differences unresolved.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.00252% | +0.00413% | +0.00617% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.00288% | −0.00383% | −0.00074% |
+
+The C99 scaling probe uses one record with alternating ordinary and
+five-bit fields. It compiles a function accessing the last pair for
+Linux AArch64 at `-O0`. The old and new compilers accept the separate
+declarations. The new compiler also accepts all pairs in one list.
+Both forms produce the same object in all observations.
+
+| Field pairs | Baseline separate, instructions | Candidate separate, instructions | Candidate mixed, instructions |
+| ---: | ---: | ---: | ---: |
+| 128 | 5,608,354 | 5,669,049 | 5,031,640 |
+| 256 | 8,018,128 | 8,140,138 | 6,869,202 |
+| 512 | 12,888,035 | 13,130,638 | 10,587,161 |
+| 1,024 | 22,950,238 | 23,436,386 | 18,349,258 |
+| 2,048 | 43,255,979 | 44,228,141 | 34,049,952 |
+
+The common declaration record retains the declarator and binding. Only a
+list containing bit-fields allocates the ordered width index. Each list
+resolves its specifiers once and walks forward through its widths. The
+separate form adds about 475 instructions per pair at the larger sizes.
+Both forms scale linearly over the measured range. Mean peak RSS for
+each configuration stays within 400 KiB of the others. All 60
+observations span 860 KiB.

@@ -1149,6 +1149,16 @@ enumerator with the same spelling as a member.
 [PA11 shared declarations](../pa11/tests/general/400-mixed-member-declarators.t) ·
 [PA14 template declarations](../pa14/tests/general/300-mixed-template-member-declarators.t)
 
+Both C fixtures passed at `-O0` and `-O2` in C99, C11 and C17 with
+cppgm and the target controls. The runs used GCC 15 on Linux x86-64, GCC
+14 on Linux AArch64 under QEMU, and Clang 22 on the two Mach-O and two
+Wasm profiles. Mach-O execution used the SDK-free replay. Bare Wasm and
+WASI ran in Wasmtime. The two negative fixtures produced their expected
+diagnostics on each target. The pinned c-testsuite run passed all 876
+selected configurations. The GCC torture sample matched 111 of 128
+configurations, with the same 17 reviewed gaps.
+[Compile-work measurements](../docs/performance/c-frontend-scaling.md#mixed-record-member-declarations)
+
 ## Composite types, tentative definitions, and linkage
 
 GCC 15 and Clang 21 on Linux x86-64 served as controls for the reduced
