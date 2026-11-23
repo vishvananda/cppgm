@@ -57,6 +57,9 @@ The following naming conventions are used:
 These are LowIR symbol names, not necessarily raw source-level identifiers. Later C++
 lowering assignments may encode qualified or overloaded source names into deterministic
 LowIR symbol spellings as long as they remain valid `@name` tokens.
+Names introduced by a sigil accept ASCII letters, digits, `_`, `.`,
+`$`, and non-ASCII Unicode scalar values encoded in UTF-8. Preserve
+the Unicode spelling when reading and writing these names.
 
 ## Target profiles
 

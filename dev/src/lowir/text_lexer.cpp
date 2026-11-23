@@ -3,6 +3,8 @@
 #include <cstring>
 #include <string>
 
+#include "support/unicode/utf8.h"
+
 namespace lowir {
 
 namespace {
@@ -171,8 +173,23 @@ void Lexer::scan(Token& token)
 
 void Lexer::scan_word(Token& token, TokenKind kind, const char* start)
 {
-	while (position_ < end_ && is_name_char(*position_))
-		++position_;
+	for (;;)
+	{
+		while (position_ < end_ && is_name_char(*position_))
+			++position_;
+		if (kind == TokenKind::Word || position_ == end_ || static_cast<unsigned char>(*position_) < 0x80)
+			break;
+		const auto decoded = DecodeUtf8(reinterpret_cast<const unsigned char*>(position_), end_ - position_);
+		if (decoded.status != Utf8DecodeStatus::Ok)
+		{
+			token.kind = TokenKind::Invalid;
+			token.problem = "invalid UTF-8 in a name";
+			++position_;
+			token.length = static_cast<uint32_t>(position_ - start);
+			return;
+		}
+		position_ += decoded.length;
+	}
 	// `obj<bytesxalign>` is one type word.
 	if (kind == TokenKind::Word && position_ - start == 3 && std::memcmp(start, "obj", 3) == 0 && position_ < end_ &&
 		*position_ == '<')
