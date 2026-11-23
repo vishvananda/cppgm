@@ -51,7 +51,7 @@ jobs:
       - name: Check the hosted C environment on Intel macOS
         if: matrix.llvm == 21
         run: |
-          make -C pa38 test-native-abi CPPGM_SKIP_DEV_REBUILD=1 CXX="$CXX" CPPGM_HOST_CXX="$CPPGM_HOST_CXX"
+          make -C pa38 test-native-abi CPPGM_SKIP_DEV_REBUILD=1 CXX="$CXX" CPPGM_HOST_CXX="$CPPGM_HOST_CXX" CPPGM_HOST_CC=clang
           make -C pa38 test-native-driver CPPGM_SKIP_DEV_REBUILD=1 CXX="$CXX" CPPGM_HOST_CXX="$CPPGM_HOST_CXX" \
             NATIVE_DRIVER_TESTS='300-c-environment-hosted 500-c-integer-headers'
           make -C pa38 check CPPGM_SKIP_DEV_REBUILD=1 CXX="$CXX" CPPGM_HOST_CXX="$CPPGM_HOST_CXX" \
