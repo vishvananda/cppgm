@@ -117,7 +117,9 @@ bool snapshot_plan(const Program& program, SymbolId symbol, SnapshotPlan& plan)
 				unsigned words = 0;
 				for (Type word : plan.words)
 					words += !word.is_void();
-				return signature.parameter_count - 1 + words <= 6;
+				// Filling more argument registers pays only when a word
+				// of the original snapshot can be omitted.
+				return words < bytes / 8 && signature.parameter_count - 1 + words <= 6;
 			}
 			return false;
 		}
