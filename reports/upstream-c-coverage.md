@@ -107,20 +107,36 @@ under QEMU, and WASI, and cross-link on both Darwin architectures.
 [PA38 condition](../pa38/tests/general/100-c17-universal-escape-condition-bad.t) ·
 [Scaling](../docs/performance/c-frontend-scaling.md#c-literal-universal-character-names)
 
-The identifier rules have a separate edition gap. GCC 15 and Clang 21
-reject escaped U+01F6, U+0384, and U+200D in both identifier positions in
-pedantic C99 and GNU99. They accept those values in C11 and C17. They
-accept the Thai digit U+0E50 only after the first character in C99, and
-accept it in either position in C11 and C17. cppgm currently uses the
-C11 results in both editions. Keep the shared ranges for C11 and C17,
-and apply the C99 Annex D ranges on the non-ASCII identifier path.
-The C99 ranges reduce to 245 disjoint allowed intervals and 14 digit
-intervals. Clang 21 accepts all tested allowed interval endpoints.
-GCC 15 rejects initial U+0E4F even though it is in the allowed Thai
-range outside the digit intervals. Use the published ranges for this
-boundary.
+The C99 and GNU99 lexer uses the 245 disjoint allowed intervals and
+14 digit intervals derived from C99 Annex D. C11 and C17 use their
+shared repertoire. The lexer applies the edition in source and when
+lexing a pasted token, and interns raw UTF-8 and its matching escape
+as the same name. The PA38 cases check U+01F6 across the edition
+boundary, the initial and continuation rules for U+0E50, token
+pasting and the independent literal rules. They run on Linux x86-64,
+AArch64 under QEMU and WASI, and cross-link on both Darwin targets.
+
+The C99 lexer passed the allowed interval endpoint runs and rejected
+all 1,506 raw or escaped probes at disallowed boundaries. Clang 21
+also accepts the allowed runs. GCC 15 rejects initial U+0E4F, which
+the published Thai interval permits outside the digit ranges. GCC 15
+allows the newer identifier repertoire when pedantic diagnostics are
+disabled. cppgm and Clang 21 use the C99 repertoire whenever that mode
+is selected. The GCC C99 manifest adds 13 configurations for macro
+lookup, stringization, token pasting, preprocessing numbers, and
+valid and invalid identifier characters. Both compilers pass all 40
+reviewed cases.
 [C99 Annex D](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
-[C11 Annex D](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
+[C11 Annex D](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[GCC C99 manifest](upstream-gcc-c99.json) ·
+[Scaling](../docs/performance/c-frontend-scaling.md#c99-identifier-ranges)
+
+The macro redefinition check still compares normalized names and token
+spellings for GCC `ucnid-11`. GCC 15 diagnoses changes in the escape
+spelling of a parameter or replacement-list token. Clang 21 and cppgm
+accept those redefinitions. Audit the spelling comparison in 6.10.3
+independently of the identifier identity used for macro lookup.
+[C99 6.10.3](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf)
 
 ## Pinned suite receipts
 

@@ -1722,3 +1722,43 @@ The A/A task clock varied by about 12% and 14% respectively.
 | SQLite | A/A | 16,527,246,618 / 16,527,646,795 / 16,527,118,443 / 16,527,301,660 |
 | SQLite | ABBA | 16,527,313,862 / 16,529,403,345 / 16,529,268,711 / 16,527,110,804 |
 | SQLite | BAAB | 16,529,394,686 / 16,527,442,789 / 16,527,584,106 / 16,529,494,391 |
+
+## C99 identifier ranges
+
+The ASCII classification and byte-run scan use the same tests in
+every mode. The C99 non-ASCII path searches a fixed set of 245 sorted
+intervals with 16-bit endpoints. First characters also check the
+Annex D digit intervals. A raw code point and its escaped spelling
+use the same classification and interned name. Token pasting uses
+the edition already resolved for the translation unit.
+
+Each C99 `-O2` input declares and defines the same set of global names.
+The ASCII input uses `name` before each numeric suffix. The Unicode
+inputs use a Greek pi followed by a Thai digit, with the declaration
+written in raw UTF-8 or as two UCNs. Each pair emits byte-identical
+objects. Median user-space instructions from ABBA and BAAB blocks
+compare with baseline `9b288ff72` on one Linux x86-64 CPU.
+
+| Names | ASCII before | ASCII after | UTF-8 before | UTF-8 after | UCN before | UCN after |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 128 | 6,953,864 | 6,956,462 | 7,111,954 | 7,133,360 | 7,179,641 | 7,201,989 |
+| 256 | 10,100,752 | 10,104,214 | 10,268,658 | 10,312,148 | 10,407,282 | 10,450,696 |
+| 512 | 16,707,922 | 16,711,162 | 16,671,049 | 16,753,759 | 16,953,186 | 17,037,382 |
+| 1024 | 29,280,160 | 29,285,672 | 29,278,212 | 29,438,040 | 29,850,642 | 30,013,276 |
+| 2048 | 53,987,794 | 53,999,072 | 54,759,115 | 55,082,845 | 55,920,434 | 56,250,933 |
+| 4096 | 102,980,068 | 103,004,037 | 105,642,014 | 106,285,056 | 107,988,802 | 108,660,817 |
+
+The largest inputs use 0.023% more instructions for ASCII and 0.61%
+and 0.62% more for the two Unicode inputs. The frozen C++ and SQLite
+objects match byte-for-byte. C++ paired changes are +0.0014% and
++0.0025%. SQLite changes are −0.0005% and +0.0012%. Task-clock A/A
+ranges were about 14% and 12%, so the comparison uses instructions.
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,057,949,595 / 9,057,998,850 / 9,057,673,853 / 9,057,824,387 |
+| C++ | ABBA | 9,057,730,011 / 9,057,806,214 / 9,057,941,896 / 9,057,772,091 |
+| C++ | BAAB | 9,058,064,938 / 9,057,839,365 / 9,057,891,507 / 9,058,113,780 |
+| SQLite | A/A | 16,529,246,728 / 16,529,209,661 / 16,529,410,992 / 16,529,834,957 |
+| SQLite | ABBA | 16,529,877,995 / 16,529,471,978 / 16,529,452,640 / 16,529,199,682 |
+| SQLite | BAAB | 16,529,622,166 / 16,529,457,787 / 16,529,279,597 / 16,529,511,099 |

@@ -12,6 +12,181 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "ucnid-1",
+      "path": "gcc/testsuite/gcc.dg/cpp/ucnid-1.c",
+      "sha256": "fabcdc855b24caab84a9205d077626f103445cd853bcbcd2a442c9ff00bfde1d",
+      "dialect": "c99",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-g3"
+      ],
+      "upstream_flags": [
+        "-g3"
+      ],
+      "obligation": "C99 macro lookup uses the code point named by either UCN form"
+    },
+    {
+      "id": "ucnid-1-utf8",
+      "path": "gcc/testsuite/gcc.dg/cpp/ucnid-1-utf8.c",
+      "sha256": "fd3de8c63ba64fef6c92ae7580c0565197b803d2e4fb40bfa413dd3a23633164",
+      "dialect": "c99",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-g3"
+      ],
+      "upstream_flags": [
+        "-g3"
+      ],
+      "obligation": "C99 macro lookup uses the code point named by either UCN form"
+    },
+    {
+      "id": "ucnid-2",
+      "path": "gcc/testsuite/gcc.dg/cpp/ucnid-2.c",
+      "sha256": "60ac7cda5258ee42265ed3f7f0252b6be2df4c4d83ee779cd7f0adf95ee8308c",
+      "dialect": "c99",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [],
+      "upstream_flags": [],
+      "obligation": "C99 stringization of an extended identifier retains its character value"
+    },
+    {
+      "id": "ucnid-2-utf8",
+      "path": "gcc/testsuite/gcc.dg/cpp/ucnid-2-utf8.c",
+      "sha256": "414366c5e853e58f9f41037e34fe5aae6be427ea765b4a27e740c588f34f3467",
+      "dialect": "c99",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [],
+      "upstream_flags": [],
+      "obligation": "C99 stringization of an extended identifier retains its character value"
+    },
+    {
+      "id": "ucnid-3",
+      "path": "gcc/testsuite/gcc.dg/cpp/ucnid-3.c",
+      "sha256": "cb454845ff0362008121f391e3b556876c310e0e214dd8dd0f26d4fcff5fc152",
+      "dialect": "c99",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [],
+      "upstream_flags": [],
+      "obligation": "C99 token pasting forms an identifier from two extended identifier tokens"
+    },
+    {
+      "id": "ucnid-3-utf8",
+      "path": "gcc/testsuite/gcc.dg/cpp/ucnid-3-utf8.c",
+      "sha256": "9397f8ec84f22e9b0d2fd7155e2c87ba9855692bd72979046bcd1715c5d25501",
+      "dialect": "c99",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [],
+      "upstream_flags": [],
+      "obligation": "C99 token pasting forms an identifier from two extended identifier tokens"
+    },
+    {
+      "id": "ucnid-9",
+      "path": "gcc/testsuite/gcc.dg/cpp/ucnid-9.c",
+      "sha256": "08c1cec682279fbfcbbf9a33af9493889eb53ca9b4c19aea6749bb6aed2553e7",
+      "dialect": "c99",
+      "action": "preprocess",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic"
+      ],
+      "upstream_flags": [
+        "-pedantic"
+      ],
+      "obligation": "C99 Annex D special identifier characters are accepted"
+    },
+    {
+      "id": "ucnid-9-utf8",
+      "path": "gcc/testsuite/gcc.dg/cpp/ucnid-9-utf8.c",
+      "sha256": "ff4322863d0377216b370edf23abd662b1243ad719b0cd863cbf51a78815e6bd",
+      "dialect": "c99",
+      "action": "preprocess",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic"
+      ],
+      "upstream_flags": [
+        "-pedantic"
+      ],
+      "obligation": "C99 Annex D special identifier characters are accepted"
+    },
+    {
+      "id": "ucnid-10",
+      "path": "gcc/testsuite/gcc.dg/cpp/ucnid-10.c",
+      "sha256": "5767e0fe261458b03de034c515208c74a68a53f48a4967296904aa8694073fc6",
+      "dialect": "c99",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [],
+      "upstream_flags": [],
+      "obligation": "C99 preprocessing numbers may continue with an allowed universal character name"
+    },
+    {
+      "id": "ucnid-10-utf8",
+      "path": "gcc/testsuite/gcc.dg/cpp/ucnid-10-utf8.c",
+      "sha256": "5912da8af3dec6a30ddc38ec1dffbd1f910f75e6a0e190f9925a6ea5cd7b1e7f",
+      "dialect": "c99",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [],
+      "upstream_flags": [],
+      "obligation": "C99 preprocessing numbers may continue with an allowed universal character name"
+    },
+    {
+      "id": "ucnid-12",
+      "path": "gcc/testsuite/gcc.dg/cpp/ucnid-12.c",
+      "sha256": "e013d1d14b10a8e883a819a41c3fa9bf5b3d40ecf96283cb4f9feaae718f19ed",
+      "dialect": "c99",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "C99 macro names and parameters bind across UCN hex-digit case"
+    },
+    {
+      "id": "ucnid-12-utf8",
+      "path": "gcc/testsuite/gcc.dg/cpp/ucnid-12-utf8.c",
+      "sha256": "e36cd84806f75a7431ea18a280b0a3051e5b60b2990172f044b0f56055f603b2",
+      "dialect": "c99",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "C99 macro names and parameters bind across UCN hex-digit case"
+    },
+    {
+      "id": "ucnid-5",
+      "path": "gcc/testsuite/gcc.dg/cpp/ucnid-5.c",
+      "sha256": "55a21d5d3ff70bf2c7a0a4df794d4afc300f48c69cc7b27944b2abca378d24e4",
+      "dialect": "c99",
+      "action": "preprocess",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "A UCN outside C99 Annex D is diagnosed during preprocessing",
+      "diagnostic_contains": {
+        "cppgm": "universal character name cannot start a C99 identifier",
+        "upstream": "universal character \\u00AB is not valid in an identifier"
+      }
+    },
+    {
       "id": "c99-digraphs",
       "path": "gcc/testsuite/gcc.dg/cpp/digraphs.c",
       "sha256": "3401641dfe94eac3090fbefea70670dfcddd49bd1a690fbee33f1e3afff8f17e",
