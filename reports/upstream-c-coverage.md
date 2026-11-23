@@ -290,6 +290,24 @@ Darwin architectures emitted Mach-O objects. The x86-64 object has neither
 a startup initializer nor a C++ guard. The [compound literal fixture](../pa38/tests/general/500-compound-literals.t)
 now emits its scalar copy as static data as well.
 
+## C11 alignment baseline
+
+GCC 15 and Clang 21 accept `_Alignas(16) extern char object;` and the
+equivalent spelling with `extern` first. cppgm accepts the first spelling
+and treats the second as an alignment on a type. The same problem occurs
+when `_Alignas` follows `static`, a type qualifier, or a type specifier.
+This reproduces the pinned `c11-align-1.c` failure at its second declaration
+of `c`. Both controls also diagnose an alignment specifier on a function
+parameter, which cppgm currently accepts.
+
+Retain controls for a valid zero request, a weaker-than-natural request,
+and multiple requests whose strongest alignment satisfies the object type.
+Test the layout and address of the declared object and the natural alignment
+of its type independently. Under `-pedantic-errors`, both controls accept a
+standalone tag with `_Alignas(0)`. GCC diagnoses an invalid alignment value
+in that position, while Clang discards the unused specifier.
+[GCC C17 manifest](upstream-gcc-c17.json)
+
 ## Cross-target smoke results
 
 The prototype array, tagged generic association, and structure return

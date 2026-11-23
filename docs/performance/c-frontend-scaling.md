@@ -515,3 +515,46 @@ instructions.
 | SQLite | BAAB | 16,519,698,500 / 16,519,242,436 / 16,519,277,768 / 16,519,649,631 |
 
 [Input generation](../../benchmarks/frontend_scaling/README.md#c)
+
+## Static initializers
+
+Scalar initialization reuses typed literal values and retains the results of
+constant evaluation for emission. The two workloads generate static scalar
+definitions with either simple values or arithmetic expressions. The counts
+are median millions of retired user-space instructions in three runs per
+size and action, compared with `a85bae5da` on Linux x86-64 in C17 mode.
+
+| Definitions | Literal syntax before | Literal syntax after | Literal object before | Literal object after | Arithmetic syntax before | Arithmetic syntax after | Arithmetic object before | Arithmetic object after |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 512 | 5.27 | 5.30 | 6.09 | 5.88 | 7.16 | 8.04 | 8.44 | 8.64 |
+| 1024 | 6.79 | 6.84 | 8.27 | 7.86 | 10.56 | 12.33 | 12.98 | 13.36 |
+| 2048 | 9.91 | 10.01 | 12.72 | 11.88 | 17.44 | 20.96 | 22.12 | 22.88 |
+| 4096 | 16.13 | 16.33 | 21.59 | 19.91 | 31.19 | 38.22 | 40.40 | 41.92 |
+
+The extra syntax cost stayed near 47 instructions per literal definition
+and 1,720 per arithmetic definition across doublings. At 4096 definitions,
+object compilation used 7.76% fewer instructions for literals and 3.77%
+more for arithmetic. Differences in median peak RSS at that size were
+under 200 KiB in both modes. Both compilers emitted identical objects, and
+the resulting executables verified the initialized values.
+
+The frozen C++ input at `-O3` and SQLite 3.50.4 at `-O2` also emitted
+byte-identical objects in every run. The immutable binaries ran on the
+same core. A/A task-clock ranges of 19.9% for C++ and 14.1% for SQLite
+limit the comparison to retired instructions.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0040% | +0.0001% | +0.0002% |
+| SQLite `sqlite3.c` | 0.0023% | −0.0194% | −0.0217% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,040,513,116 / 9,040,150,435 / 9,040,222,873 / 9,040,234,358 |
+| C++ | ABBA | 9,040,485,186 / 9,040,280,055 / 9,040,294,945 / 9,040,068,370 |
+| C++ | BAAB | 9,040,266,032 / 9,040,421,592 / 9,040,334,558 / 9,040,520,251 |
+| SQLite | A/A | 16,519,693,943 / 16,519,309,335 / 16,519,478,215 / 16,519,499,244 |
+| SQLite | ABBA | 16,519,270,632 / 16,515,969,528 / 16,516,141,973 / 16,519,243,323 |
+| SQLite | BAAB | 16,516,118,943 / 16,519,329,529 / 16,519,578,596 / 16,515,637,030 |
+
+[Input generation](../../benchmarks/frontend_scaling/README.md#c)

@@ -27,12 +27,14 @@ The declarations batch now covers calls through inherited and hidden
 prototypes, internal linkage, functions first declared in a block, and
 conflicts between scopes. Keep the prototype visible at each declaration
 separate from the compatibility requirements of the linked entity. Continue
-with arithmetic and address constant expressions in static initializers.
-The integer constant-expression batch now covers the declaration and
-expression contexts that require those constants. Replay the affected C99,
-C11, and C17 cases before each fix. Keep the existing VLA, generic selection,
-and sparse initializer tests in the fast iteration loop for changes to their
-shared analysis paths.
+with the C11 alignment cases exposed by the pinned GCC suite. Resolve where
+an alignment specifier applies before passing its result to layout. Cover
+declaration-specifier order, forbidden contexts, and agreement between
+declarations and definitions. The constant-expression batch covers integer
+constant contexts and static arithmetic and address initializers. Replay
+the affected C99, C11, and C17 cases before each fix. Keep the existing VLA,
+generic selection, and sparse initializer tests in the fast iteration loop
+for changes to their shared analysis paths.
 
 ## Implementation order
 
