@@ -279,8 +279,6 @@ bool ProgramLowering::constant_item(
 	}
 }
 
-namespace {
-
 // A data item's bytes and alignment as the object writer places it.
 uint64_t DataItemBytes(const lowir::DataItem& item, uint64_t& align, uint8_t pointer_bytes)
 {
@@ -303,8 +301,6 @@ uint64_t DataItemBytes(const lowir::DataItem& item, uint64_t& align, uint8_t poi
 	align = size;
 	return size;
 }
-
-} // namespace
 
 void PreserveStaticOffsets(StaticData& data, uint8_t pointer_bytes)
 {

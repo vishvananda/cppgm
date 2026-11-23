@@ -232,13 +232,21 @@ The Intel and Apple Silicon Mach-O objects both cross-link.
 
 The remaining range cases include composition below a direct member,
 overlap between distinct multidimensional suffixes, union member
-changes, and qualified aggregates in automatic storage. A static
-nonzero record expression with a member patch currently uses constant
-evaluation to emit the overlaid data. A three-million-record probe
-exceeds its object budget and fails data emission.
+changes, and qualified aggregates in automatic storage.
 [PA38 field overlap fixture](../pa38/tests/general/300-designated-gnu-field-overlaps.t) ·
 [WG14 DR 413](https://www.open-std.org/Jtc1/sc22/WG14/www/docs/dr_413.htm) ·
 [WG14 DR 253](https://www.open-std.org/JTC1/SC22/WG14/www/docs/dr_253.htm)
+
+Static overlap tests now cover nonzero record expressions with more
+than five million logical subobjects. The fixture checks pointer
+relocations, packed and ordinary bit-fields, member replacement by
+zero, and a complete record reset. It runs on x86-64 Linux, AArch64
+QEMU, and WASI. Both Darwin architectures cross-link. The previously
+failing three-million-record program emits its 24 MB array as static
+data and a linked program checks every record. A pointwise oracle checks
+128 generated static initializers with mixed brace and record-expression
+writes at `-O0` and `-O2`.
+[PA38 static record fixture](../pa38/tests/general/300-designated-gnu-static-record-overlaps.t)
 
 ## Initial hosted replays
 

@@ -133,6 +133,7 @@ struct StaticData
 };
 
 void PreserveStaticOffsets(StaticData& data, uint8_t pointer_bytes);
+uint64_t DataItemBytes(const lowir::DataItem& item, uint64_t& align, uint8_t pointer_bytes);
 
 // A subobject null_fill visits: its offset in its class, type, whether it
 // is a complete object (its virtual bases are its own), its end and the
@@ -1417,11 +1418,11 @@ private:
 	bool static_item(
 		const sema::Type* type, bool member, const syntax::BracedInitList* list, uint32_t& next, StaticData& out);
 	bool static_c_initializer(const sema::CInitializer& plan, StaticData& out);
-	bool static_c_field_spans(const sema::CInitializer& plan, StaticData& out);
+	class CStaticData;
 	void append_c_initializer_repeat(const StaticData& value, uint64_t count, uint64_t width, StaticData& out);
 	bool static_c_value(const sema::ConstValue& value, StaticValue& out, uint32_t location);
 	bool static_aggregate(const sema::Type* type, const syntax::BracedInitList* list, uint32_t& next, StaticData& out,
-		const sema::CInitializer* plan = nullptr, bool sparse_c_fields = false);
+		const sema::CInitializer* plan = nullptr, bool omit_c_tail = false);
 	void flush_bits(std::vector<uint8_t>& bits, uint64_t& position, StaticData& out);
 	bool static_string(const sema::Type* type, const syntax::Expr& element, StaticData& out);
 	bool static_vector(const sema::Type* type, const syntax::BracedInitList& list, StaticData& out);

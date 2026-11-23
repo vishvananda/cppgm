@@ -249,7 +249,10 @@ ProgramLowering::StaticOutcome ProgramLowering::static_global(lowir::SymbolId sy
 		global.init = lowir::GlobalInit::Data;
 		global.first_item = static_cast<uint32_t>(program_.data_items.size());
 		global.item_count = static_cast<uint32_t>(data.items.size());
-		program_.data_items.insert(program_.data_items.end(), data.items.begin(), data.items.end());
+		if (program_.data_items.empty())
+			program_.data_items.swap(data.items);
+		else
+			program_.data_items.insert(program_.data_items.end(), data.items.begin(), data.items.end());
 	}
 	else if (type->unqualified->kind == sema::TypeKind::MemberPointer && initializer != nullptr)
 	{
@@ -1685,7 +1688,7 @@ bool ProgramLowering::static_item(
 }
 
 bool ProgramLowering::static_aggregate(const sema::Type* type, const syntax::BracedInitList* list, uint32_t& next,
-	StaticData& out, const sema::CInitializer* plan, bool sparse_c_fields)
+	StaticData& out, const sema::CInitializer* plan, bool omit_c_tail)
 {
 	// Base subobjects may share tail padding with later elements. This
 	// sequential data builder cannot append their complete-object bytes;
@@ -1727,12 +1730,10 @@ bool ProgramLowering::static_aggregate(const sema::Type* type, const syntax::Bra
 	// The bytes of the bit-field storage unit being filled, at `unit_at`.
 	std::vector<uint8_t> bits;
 	uint64_t unit_at = 0;
-	// A C field-span row already lists its nonzero members in layout
-	// order. The ordinary offset and tail handling fills the omitted bytes.
-	const auto next_member = [&]() { return explicit_member != explicit_end ? explicit_member->member : nullptr; };
-	for (const sema::DataMember* member = sparse_c_fields ? next_member() : entity->members; member != nullptr;
-		member = sparse_c_fields ? next_member() : member->next)
+	for (const sema::DataMember* member = entity->members; member != nullptr; member = member->next)
 	{
+		if (omit_c_tail && next == list->elements.size)
+			break;
 		const sema::VariableEntity* variable = static_cast<const sema::VariableEntity*>(member->variable);
 		if (selected != nullptr && member != selected)
 			continue;

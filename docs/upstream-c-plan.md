@@ -49,13 +49,11 @@ Start the next batches from the existing receipts.
    record's immediate members or span distinct multidimensional regions.
    Cover nested brace elision and positional continuation, union member
    changes, and automatic ranges of aggregates with qualified subobjects.
-   Emit patched nonzero static record expressions from sparse data
-   fragments so the constant interpreter's object budget does not bound
-   these initializers.
    PA38 covers whole-element ranges, member and subscript suffixes,
    same-path overlap, and overlap between direct member and whole-record
-   writes. The direct-member tests include brace elision and positional
-   continuation within the final ranged record.
+   writes. The direct-member tests include brace elision, positional
+   continuation within the final ranged record, and static patching of
+   large objects with nonzero record expressions.
    [Initializer evidence](../reports/upstream-c-coverage.md#gnu-range-designators-and-empty-records)
 2. Finish the C99–C17 lexical inventory using the trigraph, digraph,
    universal-character, and macro redefinition receipts. Cover the
@@ -329,6 +327,12 @@ earliest and latest whole-record reset within each interval. The index
 skips boundaries whose ordering is uniform. Automatic storage lowers
 each surviving value once and uses a strided loop for the ranges that
 consume it. Static fields with zero data need no endpoint events.
+Static record expressions provide sparse, offset-ordered data once
+per source value. Apply member replacements and bit masks to those data
+before repeating the published row. Keep pointer relocations typed and
+evaluate a source record through the constant interpreter only when
+its layout requires that fallback. Include a wide sparse record and a
+dense repeated record when measuring this path.
 Carry the same typed coverage and source-value identities into nested
 overlaps. Extend the scaling cases to independently vary the number of
 written paths, their depth, and the resulting fragments.
