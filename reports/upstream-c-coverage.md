@@ -199,6 +199,21 @@ Both reduced positive cases passed at `-O0` and `-O2` on Linux x86-64,
 Linux AArch64 under QEMU, WASI, and bare Wasm. Both macOS targets
 cross-linked. Native macOS execution and its SDK headers remain open.
 
+The scheduled and manually dispatched upstream GCC job runs this pilot
+with the shared manifest runner. It pins the musl source archive and the
+libc-test checkout, records both archive hashes used for linking, and
+publishes the commands and outcomes. The complete CI command passed
+locally with GCC 15 and cppgm.
+[CI script](../scripts/run_musl_libc_test_ci_suite.py) ·
+[Upstream workflow](../.github/workflows/upstream-cxx11.yml)
+
+A local expansion ran all 70 functional files without upstream build
+fragments at both optimization levels. Each compiler passed 134 of 140
+configurations, and all 140 execution outputs matched. The native
+runtime also fails `mntent`, `strptime`, and `wordexp` at both levels.
+Seven sources with upstream build fragments require a separate
+dynamic-link or multiple-input qualification.
+
 Header-isolation checks passed for all 24 C99 headers and all 29 C11 and
 C17 headers with `-pedantic-errors`. The C11 and C17 configurations use
 GCC 15's resource `<stdatomic.h>` after the musl include directory, as

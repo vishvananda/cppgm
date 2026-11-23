@@ -41,7 +41,7 @@ def checked_file(root, entry, label):
 
 def validate_manifest(manifest, root):
     language = manifest.get('language', 'c++')
-    suites = {'gcc', 'clang', 'c-testsuite', 'csmith'} if language == 'c' else {'gcc', 'clang'}
+    suites = {'gcc', 'clang', 'c-testsuite', 'csmith', 'libc-test'} if language == 'c' else {'gcc', 'clang'}
     if manifest['schema'] != 1 or language not in {'c', 'c++'} or manifest['suite'] not in suites:
         raise ValueError('Unknown suite/schema')
     edition = manifest.get('edition', 11)
@@ -114,7 +114,8 @@ def validate_manifest(manifest, root):
         if 'link_flags' in case:
             flags = case['link_flags']
             if (case['action'] not in {'link', 'run'} or not isinstance(flags, list) or
-                    not all(isinstance(flag, str) and re.fullmatch(r'-l[A-Za-z0-9_+.-]+', flag) for flag in flags)):
+                    not all(isinstance(flag, str) and
+                            (flag == '-static' or re.fullmatch(r'-l[A-Za-z0-9_+.-]+', flag)) for flag in flags)):
                 raise ValueError('Invalid link flags')
         for key in ['candidate_flags', 'upstream_flags']:
             if not isinstance(case[key], list) or not all(isinstance(x, str) for x in case[key]):

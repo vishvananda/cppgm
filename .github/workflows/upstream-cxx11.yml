@@ -364,6 +364,15 @@ jobs:
             --known-gaps reports/upstream-gcc-c-torture-known-gaps.json \
             --workers 2 --output "$RUNNER_TEMP/cxx11/gcc-c-torture"
 
+      - name: Run pinned musl libc-test cases
+        if: ${{ !cancelled() && steps.candidate.outcome == 'success' && matrix.suite == 'gcc' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+        env:
+          UPSTREAM_VERSION: ${{ matrix.version }}
+        run: |
+          python3 scripts/run_musl_libc_test_ci_suite.py --candidate dev/cppgm \
+            --gcc gcc-15 --upstream-version "$UPSTREAM_VERSION" --workers 2 \
+            --work "$RUNNER_TEMP/musl-libc-test-build" --output "$RUNNER_TEMP/cxx11/libc-test"
+
       - name: Publish counts and elapsed-time ratio
         if: always()
         run: |
@@ -390,7 +399,7 @@ jobs:
               cat "$summary" >> "$GITHUB_STEP_SUMMARY"
             fi
           done
-          for report in c99 c11 c17 c-testsuite csmith gcc-c-torture; do
+          for report in c99 c11 c17 c-testsuite csmith gcc-c-torture libc-test; do
             summary="$RUNNER_TEMP/cxx11/$report/summary.md"
             if [ -f "$summary" ]; then
               cat "$summary" >> "$GITHUB_STEP_SUMMARY"
