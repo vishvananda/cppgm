@@ -360,25 +360,27 @@ void PPLexer::skip_comment_bytes(bool block)
 	uint32_t end = cur_.end;
 	if (legacy_comment_bytes_)
 	{
-		// A hosted comment's bytes are opaque characters, so its end is
-		// searched for as a byte. No trigraph or splice holds or makes a
-		// `*`. A new-line ends the comment unless a splice deletes it, and
-		// then the characters are read one by one.
-		const unsigned char* const found = static_cast<const unsigned char*>(
-			std::memchr(text + end, block ? '*' : '\n', size - end));
-		const uint32_t last = found != nullptr ? static_cast<uint32_t>(found - text) : size;
-		if (block || (found != nullptr && !spliced_new_line(end, last)))
+		// Opaque comments can jump straight to their next delimiter.
+		// Each escaped new-line advances the scan to a new physical line.
+		for (;;)
 		{
-			token_end_ = last;
-			cur_ = reader_.logical(last, true);
-			return;
+			const auto* found = static_cast<const unsigned char*>(
+				std::memchr(text + end, block ? '*' : '\n', size - end));
+			const uint32_t last = found == nullptr ? size : static_cast<uint32_t>(found - text);
+			if (block || found == nullptr || !spliced_new_line(end, last))
+			{
+				token_end_ = last;
+				cur_ = reader_.logical(last, true);
+				return;
+			}
+			end = last + 1;
 		}
 	}
 	const uint8_t wanted = block ? kBlockCommentByte : kLineCommentByte;
-	while (end < size && ((kByteClasses[text[end]] & wanted) != 0 || (legacy_comment_bytes_ && text[end] >= 0x80)))
+	while (end < size && (kByteClasses[text[end]] & wanted) != 0)
 		++end;
 	token_end_ = end;
-	cur_ = reader_.logical(end, legacy_comment_bytes_);
+	cur_ = reader_.logical(end);
 }
 
 void PPLexer::skip_block_comment()

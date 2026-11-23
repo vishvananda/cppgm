@@ -2203,3 +2203,45 @@ at most 0.002% in paired instruction counts.
 | SQLite | A/A | 16,529,736,374 / 16,529,721,207 / 16,529,477,141 / 16,530,118,493 |
 | SQLite | ABBA | 16,530,103,105 / 16,529,683,722 / 16,529,798,677 / 16,529,427,500 |
 | SQLite | BAAB | 16,529,534,763 / 16,529,505,082 / 16,529,579,062 / 16,529,947,676 |
+
+## C physical line endings and continued comments
+
+C input maps bare carriage returns in the source buffer before publishing
+it. The scan keeps physical offsets and uses the existing lazy line index.
+The hosted lexer now visits each physical line of a continued comment once.
+Previously, a line with a trailing splice and many earlier question marks
+repeated the search for that same ending.
+
+| Bytes before the splice | Previous instructions | Current instructions | Current peak RSS (KiB) |
+| ---: | ---: | ---: | ---: |
+| 16,384 | 20,439,527 | 3,758,560 | 5,068 |
+| 32,768 | 64,393,508 | 3,763,994 | 5,116 |
+| 65,536 | 234,089,634 | 3,774,102 | 4,412 |
+| 131,072 | 900,473,559 | 3,793,497 | 4,440 |
+| 262,144 | 3,542,029,316 | 3,833,922 | 5,824 |
+| 1,048,576 | — | 4,076,363 | 5,812 |
+| 16,777,216 | — | 8,927,281 | 20,596 |
+
+The medians are from three pinned-CPU preprocessing runs per input.
+The old incremental counts approach 4× per doubling. The new increments
+approach 2×. Identical inputs produce identical preprocessor output.
+The 16 MiB run's RSS includes the input buffer.
+
+The bare-CR search adds one byte scan to C file acquisition. The 4 MiB
+LF-only block-comment control isolates that cost and adds about 427,000
+instructions, or 9.2% of that preprocessing run. The frozen SQLite
+compile changes by +0.00342% and +0.00382% in paired blocks. The
+frozen C++ compile changes by −0.00456% and −0.00490%. The object
+outputs match `e79259155` byte for byte in every trial.
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| LF-only block comment | A/A | 4,620,053 / 4,620,040 / 4,620,051 / 4,620,041 |
+| LF-only block comment | ABBA | 4,620,047 / 5,046,715 / 5,046,704 / 4,620,044 |
+| LF-only block comment | BAAB | 5,046,740 / 4,620,090 / 4,620,055 / 5,046,714 |
+| C++ | A/A | 9,057,220,569 / 9,057,344,209 / 9,057,108,478 / 9,057,487,017 |
+| C++ | ABBA | 9,057,424,483 / 9,056,933,270 / 9,056,765,303 / 9,057,100,223 |
+| C++ | BAAB | 9,056,865,440 / 9,057,386,645 / 9,057,424,396 / 9,057,058,509 |
+| SQLite | A/A | 16,530,247,765 / 16,529,934,886 / 16,530,026,410 / 16,530,326,360 |
+| SQLite | ABBA | 16,530,093,284 / 16,530,667,809 / 16,531,035,885 / 16,530,479,493 |
+| SQLite | BAAB | 16,530,702,706 / 16,529,959,228 / 16,530,193,624 / 16,530,712,614 |

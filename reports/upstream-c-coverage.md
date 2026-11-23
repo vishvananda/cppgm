@@ -89,6 +89,38 @@ line-comment control uses `-Wno-comment` to keep its spliced-comment
 warning from becoming an error.
 [GCC C99 manifest](upstream-gcc-c99.json) · [GCC C11 manifest](upstream-gcc-c11.json)
 
+C source files and headers accept LF, CRLF, and standalone CR. The
+physical-line fixture combines a BOM, ordinary and trigraph continuations,
+a skipped conditional, `__LINE__`, and a presumed line set by `#line`.
+GCC 15 and Clang 21 agree on the C99 fixture. A generated comparison
+exercises 128 mixed-ending headers, and 128 C and C++ configurations
+preserve preprocessing output for LF and CRLF continued comments.
+Additional cases check recovery when the last physical line is spliced.
+An LF, CRLF, CR, and mixed-ending replay also verifies an identical
+presumed filename, line, and byte column in a diagnostic.
+GCC's pinned `line4.c`, `line7.c`, and `line8.c` add CI evidence for
+macro-expanded `#line` numbers, missing expanded operands, and empty
+presumed filenames. cppgm and GCC pass all 44 reviewed C99 configurations.
+
+The preprocessing-number fixture observes maximal munch by making a
+macro name immediately after an exponent sign part of the number.
+It checks a number produced by a paste, stringization of a number
+that has no numeric value, and hexadecimal floating constants. The
+negative case diagnoses an invalid number used in an expression.
+Both positive fixtures run on Linux x86-64 in C99, C11, and C17, and on
+AArch64 Linux under QEMU and WASI in C99. Both macOS architectures
+cross-link. Native macOS execution remains open.
+
+GNU-mode trigraph defaults and space-separated continuations remain
+compatibility gaps. GCC and Clang disable trigraphs by default in GNU C
+and accept whitespace between a backslash and its line ending with
+a warning. cppgm currently enables trigraphs in GNU C and splices
+adjacent backslash and line endings.
+[PA38 physical lines](../pa38/tests/general/100-c-physical-lines.t) ·
+[PA38 preprocessing numbers](../pa38/tests/general/100-c-preprocessing-numbers.t) ·
+[WG14 notes](../doc/c-conformance-notes.md#source-line-mapping-and-preprocessing-numbers) ·
+[GCC initial processing](https://gcc.gnu.org/onlinedocs/cpp/Initial-processing.html)
+
 C99 through C17 require a diagnostic for universal character names
 below U+00A0 except U+0024, U+0040, and U+0060. cppgm applies the
 pedantic policy when it converts a literal, including in a controlling

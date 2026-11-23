@@ -9,17 +9,15 @@
 // An immutable physical source file image. Source offsets are byte offsets
 // into this image; tokens and diagnostics refer to it instead of copying text.
 //
-// Construction applies the two whole-file rules of translation phases 1-2:
-// a leading UTF-8 byte order mark is not part of the source text, and a
-// non-empty file that does not end in a new-line, or ends in a new-line
-// preceded by a backslash (possibly spelled `??/`), is processed as if one
-// more new-line were appended ([lex.phases] 2.2p1).
+// Construction skips a leading UTF-8 byte order mark and supplies a final
+// new-line when needed. In C mode a standalone carriage return maps to a
+// new-line in place, preserving the physical byte offsets.
 class SourceBuffer
 {
 public:
-	explicit SourceBuffer(std::string bytes);
+	explicit SourceBuffer(std::string bytes, bool c_line_endings = false);
 
-	static SourceBuffer ReadFrom(std::istream& in);
+	static SourceBuffer ReadFrom(std::istream& in, bool c_line_endings = false);
 
 	// Token spellings to be lexed again, as pasted tokens are: no byte order
 	// mark is recognized, and a new-line always ends the text.
@@ -36,7 +34,7 @@ private:
 	{};
 	SourceBuffer(std::string bytes, TokenTextTag);
 
-	bool ends_with_spliced_new_line() const;
+	bool ends_with_spliced_new_line(bool c_line_endings) const;
 
 	std::string bytes_;
 	uint32_t begin_;

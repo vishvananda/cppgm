@@ -8,7 +8,24 @@
 
 #include "support/tool_errors.h"
 
-SourceBuffer::SourceBuffer(std::string bytes) : bytes_(std::move(bytes)), begin_(0)
+namespace {
+
+void NormalizeCarriageReturns(char* at, char* end)
+{
+	while (at != end)
+	{
+		at = static_cast<char*>(std::memchr(at, '\r', end - at));
+		if (at == nullptr)
+			return;
+		if (at + 1 == end || at[1] != '\n')
+			*at = '\n';
+		++at;
+	}
+}
+
+} // namespace
+
+SourceBuffer::SourceBuffer(std::string bytes, bool c_line_endings) : bytes_(std::move(bytes)), begin_(0)
 {
 	// Offsets are 32-bit; keep one position free for the appended new-line.
 	if (bytes_.size() >= std::numeric_limits<uint32_t>::max())
@@ -17,7 +34,11 @@ SourceBuffer::SourceBuffer(std::string bytes) : bytes_(std::move(bytes)), begin_
 	if (bytes_.compare(0, 3, "\xEF\xBB\xBF") == 0)
 		begin_ = 3;
 
-	if (bytes_.size() > begin_ && (bytes_[bytes_.size() - 1] != '\n' || ends_with_spliced_new_line()))
+	if (bytes_.size() == begin_)
+		return;
+	if (c_line_endings)
+		NormalizeCarriageReturns(&bytes_[begin_], &bytes_[0] + bytes_.size());
+	if (bytes_.back() != '\n' || ends_with_spliced_new_line(c_line_endings))
 	{
 		bytes_.push_back('\n');
 	}
@@ -35,16 +56,19 @@ SourceBuffer SourceBuffer::ForTokenText(std::string text)
 	return SourceBuffer(std::move(text), TokenTextTag());
 }
 
-bool SourceBuffer::ends_with_spliced_new_line() const
+bool SourceBuffer::ends_with_spliced_new_line(bool c_line_endings) const
 {
-	const std::size_t length = bytes_.size() - begin_;
-	const char* end = bytes_.data() + bytes_.size();
-	if (length >= 2 && end[-2] == '\\')
+	const char* const start = bytes_.data() + begin_;
+	const char* newline = bytes_.data() + bytes_.size() - 1;
+	if (c_line_endings && newline > start && newline[-1] == '\r')
+		--newline;
+	const std::ptrdiff_t length = newline - start;
+	if (length >= 1 && newline[-1] == '\\')
 		return true;
-	return length >= 4 && std::memcmp(end - 4, "?\?/", 3) == 0;
+	return length >= 3 && std::memcmp(newline - 3, "?\?/", 3) == 0;
 }
 
-SourceBuffer SourceBuffer::ReadFrom(std::istream& in)
+SourceBuffer SourceBuffer::ReadFrom(std::istream& in, bool c_line_endings)
 {
 	std::string bytes;
 	std::streambuf* buffer = in.rdbuf();
@@ -69,7 +93,7 @@ SourceBuffer SourceBuffer::ReadFrom(std::istream& in)
 			break;
 		bytes.append(chunk, static_cast<std::size_t>(count));
 	}
-	return SourceBuffer(std::move(bytes));
+	return SourceBuffer(std::move(bytes), c_line_endings);
 }
 
 SourceLineCursor::SourceLineCursor(const SourceBuffer& source)

@@ -86,6 +86,19 @@ initial and subsequent characters. An allowed UTF-8 character and its
 universal character name spell the same identifier. Apply the selected
 edition when lexing the result of `##` as well as in source.
 
+In C source, LF, CRLF, and standalone CR are physical line endings.
+Recognize a UTF-8 byte order mark at the start of a file. Replace
+trigraphs before splicing a backslash and its following line ending.
+Count physical line endings for `__LINE__`, including endings deleted
+by splicing. A `#line` directive changes the presumed line number for the
+following line.
+
+A C preprocessing number can include the sign after an `e`, `E`, `p`,
+or `P`. Use the longest preprocessing token in source and when
+re-lexing a paste. A number-like spelling may be stringized without
+converting it to a constant. Diagnose an invalid spelling when a
+number is needed in an expression.
+
 For a macro redefinition, compare parameter spellings and replacement
 token spellings after line splicing. Diagnose a change to a universal
 character name's written escape even when it names the same character.

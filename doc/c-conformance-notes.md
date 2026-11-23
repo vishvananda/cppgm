@@ -3,6 +3,29 @@
 These notes record WG14 rules exercised by the course regressions and the
 initial upstream campaign. Clause numbers use the named edition or draft.
 
+## Source line mapping and preprocessing numbers
+
+Translation phase 1 maps physical line endings. The C source mapping
+accepts UTF-8 with an optional initial BOM and accepts LF, CRLF and
+standalone CR as line endings. Phase 2 deletes a backslash and its
+following line ending after trigraph replacement. A continued
+`//` comment consequently extends over the following physical line.
+Presumed locations count physical lines before those deletions.
+For `#line __LINE__`, WG14 DR 464 allows the difference between
+expanding the token as it is read and first reading the entire
+directive. cppgm uses the token's current presumed line.
+
+The grammar of preprocessing numbers is broader than that of
+integer and floating constants. The longest preprocessing token
+can include a sign after `e`, `E`, `p`, or `P` even when it cannot
+be converted to a constant. Token pasting uses the preprocessing
+grammar, and stringization can preserve the spelling for later
+use as text.
+
+[WG14 N1256, §§5.1.1.2, 6.4.8, 6.10.4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
+[WG14 N1570, §§5.1.1.2, 6.4.8, 6.10.4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[WG14 DR 464](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2243.htm#dr_464)
+
 ## C99 bit-field width
 
 C99 6.7.2.1 constrains a bit-field's width by the declared type. Its

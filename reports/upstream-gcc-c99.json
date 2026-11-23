@@ -296,6 +296,44 @@
       "obligation": "C99 hexadecimal floating constants"
     },
     {
+      "id": "c99-line-number",
+      "path": "gcc/testsuite/gcc.dg/cpp/line4.c",
+      "sha256": "1e532017c9d268f0f5fe790838b3c1ba749609ce1ae547ad308998f96d8340c7",
+      "dialect": "c99",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "C99 #line accepts a macro-expanded number and sets the presumed number of the following line"
+    },
+    {
+      "id": "c99-line-empty-argument",
+      "path": "gcc/testsuite/gcc.dg/cpp/line7.c",
+      "sha256": "ab89cd72b077aedc27efcf2ad72e3dfd025c3923864682930e4dbc552954960d",
+      "dialect": "c99",
+      "action": "preprocess",
+      "expect": "reject",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "diagnostic_contains": {
+        "cppgm": "#line requires a line number",
+        "upstream": "unexpected end of file after"
+      },
+      "obligation": "C99 diagnoses a #line directive whose expanded arguments contain no line number",
+      "adaptations": ["Check the first required diagnostic; subsequent recovery diagnostics are ungraded."]
+    },
+    {
+      "id": "c99-line-empty-filename",
+      "path": "gcc/testsuite/gcc.dg/cpp/line8.c",
+      "sha256": "d05029ed795c64b696986b8b37d69975bd3c310411240e099a61609457ea778b",
+      "dialect": "c99",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "C99 #line may set an empty presumed filename, which __FILE__ then expands to"
+    },
+    {
       "id": "c99-fordecl-1",
       "path": "gcc/testsuite/gcc.dg/c99-fordecl-1.c",
       "sha256": "74576689288181c0d1f37e11a2eaf410d211644c85e8533fed54b986e17a5f2e",

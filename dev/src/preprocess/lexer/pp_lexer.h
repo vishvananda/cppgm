@@ -46,7 +46,7 @@ struct PPLexerOptions
 	bool conditional_escapes = false;
 	// Hosted GNU headers may use dollar signs in identifiers and macros.
 	bool dollar_identifiers = false;
-	// Hosted sources may end lines in CRLF: a splice deletes the CR too.
+	// C and hosted sources may end lines in CRLF: a splice deletes the CR too.
 	bool crlf_splices = false;
 };
 

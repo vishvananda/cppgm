@@ -122,7 +122,7 @@ struct SourceInclusion
 class SourceFiles
 {
 public:
-	SourceFiles();
+	explicit SourceFiles(bool c_line_endings);
 	~SourceFiles();
 
 	// The file at `path` if it names a readable regular file, else null.
@@ -158,5 +158,6 @@ private:
 	std::unordered_map<std::string, SourceFile*> by_path_;
 	std::vector<SourceInclusion> inclusions_;
 	uint32_t next_base_;
+	bool c_line_endings_;
 	telemetry::Counter bytes_read_;
 };

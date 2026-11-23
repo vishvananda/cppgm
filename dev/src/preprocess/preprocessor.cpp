@@ -155,7 +155,7 @@ bool Preprocessor::MacroQuery::is_defined(const char* spelling, uint32_t length)
 
 Preprocessor::Preprocessor(const PreprocessorOptions& options, const std::string& path, std::istream* input)
 	: identifiers_(arena_, options.language, options.cxx_edition >= 20), names_(identifiers_),
-	  source_(files_, identifiers_, arena_, names_, *this),
+	  files_(options.language == SourceLanguage::C), source_(files_, identifiers_, arena_, names_, *this),
 	  expander_(arena_, identifiers_, names_, *this, macro_state_), directive_expander_(&expander_),
 	  macro_query_(identifiers_), evaluator_(macro_query_, options.literals, options.plain_char_unsigned),
 	  definition_parser_(arena_, names_.va_args, options.hosted), predefined_(nullptr), command_line_begin_(0),
