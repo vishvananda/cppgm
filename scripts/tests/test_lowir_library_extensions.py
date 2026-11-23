@@ -24,7 +24,7 @@ LINUX, MACOS = 0, 1
 # What the written text states for each addition.
 TEXT = (
     'classes=sse_integer', 'return=noreturn', 'unwind=no', 'arity=variadic', 'object=pair_sum', 'cold=yes',
-    'no_inline=yes', 'storage=readonly', 'classes=1:sse_integer', 'argument_type=2:i32', 'assembly @',
+    'no_inline=yes', 'no_builtin=yes', 'storage=readonly', 'classes=1:sse_integer', 'argument_type=2:i32', 'assembly @',
     'asm @', '!dbg(ext.c, 11, 5, 1)', '!dbg(ext.c, 12, 12, 2)', 'debug_type 5 ', 'debug_scope 2 ', 'debug_local ',
 )
 # Each bad record, and words of the error that reports it.

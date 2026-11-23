@@ -110,7 +110,7 @@ record of version 2: a version 2 client works with a version 3 library.
 | Addition | Functions | LowIR text |
 | --- | --- | --- |
 | Boundary metadata | `cppgm_lowir_boundary` | `arity=`, `effects=`, `unwind=`, `return=`, `repeatable=`, `noalias_result=`, `this_return=`, `result_classes=`, `result_shape=`; parameter `pass=`, `alias=`, `object_bytes=`, `classes=`, `shape=` |
-| Symbol metadata | `cppgm_lowir_symbol_fact`, `cppgm_lowir_symbol_name` | `role=`, `linkage=`, `binding=`, `storage=`, `tls_for=`, `keep_alias=` to `cold=`; `object=`, `section=` |
+| Symbol metadata | `cppgm_lowir_symbol_fact`, `cppgm_lowir_symbol_name` | `role=`, `linkage=`, `binding=`, `storage=`, `tls_for=`, `keep_alias=` to `cold=`, `no_builtin=`; `object=`, `section=` |
 | Argument facts | `cppgm_lowir_body_argument_facts` | call `classes=N:`, `argument_type=N:`, `argument_shape=N:`; `va_arg` `classes=`, `shape=` |
 | Assembly templates | `cppgm_lowir_assembly` | `assembly @name ... { ... }`, invoked by an `asm` instruction |
 | Debug information | `cppgm_lowir_debug_file`, `cppgm_lowir_function_location`, `cppgm_lowir_body_locations`, `cppgm_lowir_debug_type`, `cppgm_lowir_debug_scope`, `cppgm_lowir_debug_local` | `!dbg(file, line, column, scope)`, `debug_type`, `debug_scope`, `debug_local` |

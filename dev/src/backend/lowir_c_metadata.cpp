@@ -187,6 +187,13 @@ bool CppgmLowir::symbol_fact(uint32_t id, uint32_t key_number, uint32_t value)
 			return fail("invalid symbol visibility");
 		metadata.visibility = static_cast<ir_model::SymbolVisibility>(value);
 		return true;
+	case MetadataKey::NoBuiltin:
+		if (on_global)
+			return fail("no_builtin metadata requires a function");
+		if (value > 1)
+			return fail("no_builtin metadata is 1 or 0");
+		metadata.no_builtin = value != 0;
+		return true;
 	case MetadataKey::TlsFor:
 		if (on_global)
 			return fail("tls_for metadata requires a function");

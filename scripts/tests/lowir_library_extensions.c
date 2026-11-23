@@ -187,6 +187,7 @@ static void stop(void)
 	facts.returns = CPPGM_RETURN_NORETURN;
 	uint32_t signature = id(cppgm_lowir_boundary(module, CPPGM_TYPE_VOID, &parameter, 1, &facts));
 	check(cppgm_lowir_function(module, exit_symbol, signature, CPPGM_BINDING_DEFAULT, CPPGM_FUNCTION_DECLARATION));
+	check(cppgm_lowir_symbol_fact(module, exit_symbol, CPPGM_KEY_NO_BUILTIN, 1));
 	check(cppgm_lowir_function(module, symbol, signature, CPPGM_BINDING_STRONG, CPPGM_FUNCTION_DEFINITION));
 	check(cppgm_lowir_symbol_fact(module, symbol, CPPGM_KEY_COLD, 1));
 	if (is("bad-symbol-fact"))
