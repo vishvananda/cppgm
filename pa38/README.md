@@ -195,12 +195,19 @@ The first fixture set covers these parts of the C17 input profile:
   bound as an assignment expression. A comma expression can appear in
   parentheses within the bound.
 - An array parameter adjusts to a pointer. Qualifiers in the outer brackets
-  apply to the adjusted pointer object, including `_Atomic` from C11.
+  apply to the adjusted pointer object, including `restrict` and C11 `_Atomic`.
   Apply the same adjustment to identifier-list parameters. In a prototype,
   runtime bounds and `[*]` describe unspecified variable lengths. In a
   definition, evaluate the written runtime bounds on entry, including any
   bound in the adjusted outer bracket. Retain the inner strides. Require a
   bound with `static`.
+- Apply `restrict` to pointers to object types, including `void` and
+  incomplete record types. The GNU spellings `__restrict` and `__restrict__`
+  use the same qualifier in C. Apply lvalue conversion and function signature
+  adjustment to the top-level qualifier as for `const`. Preserve qualifiers
+  on pointed-to types and diagnose an implicit conversion that discards them
+  in pedantic mode. Treat a `restrict` qualifier on an array typedef of
+  pointers as a C23 extension in earlier editions.
 - Evaluate the runtime bounds needed by a `sizeof` type name. A bound in a
   pointer type whose value cannot change the result may be elided.
   `_Alignof` uses the element alignment of a variable-length array.

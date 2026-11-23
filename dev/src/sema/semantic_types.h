@@ -88,14 +88,14 @@ enum class Access : uint8_t
 	Private
 };
 
-// cv-qualifier bits, and C11's _Atomic (Clang's C++ extension, PA30): an
-// atomic type is its type so qualified, of its own size and alignment, read
-// and written atomically.
+// Type qualifier bits. C11 _Atomic also applies to a Clang C++ extension
+// in PA30. The qualified atomic type supplies its layout and atomic accesses.
 enum : uint8_t
 {
 	kConst = 1,
 	kVolatile = 2,
-	kAtomic = 4
+	kAtomic = 4,
+	kRestrict = 8
 };
 
 enum class RefQualifier : uint8_t

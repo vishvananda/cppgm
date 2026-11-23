@@ -104,7 +104,8 @@ bool SimilarLevels(const Type* a, const Type* b, bool& added, bool& convertible)
 		if (ca != cb)
 		{
 			added = true;
-			if (!const_so_far)
+			// C restrict changes only at the first pointed-to type.
+			if (!const_so_far || (level != 0 && ((ca ^ cb) & kRestrict) != 0))
 				convertible = false;
 		}
 		const_so_far = const_so_far && (cb & kConst) != 0;

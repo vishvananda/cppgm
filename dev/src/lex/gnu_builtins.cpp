@@ -903,8 +903,8 @@ const GnuKeyword kGnuKeywords[] = { { "__inline", TokenKind::KW_INLINE, false },
 	{ "__signed__", TokenKind::KW_SIGNED, false }, { "__decltype", TokenKind::KW_DECLTYPE, false },
 	{ "__alignof", TokenKind::KW_ALIGNOF, false }, { "__alignof__", TokenKind::KW_ALIGNOF, false },
 	{ "__asm", TokenKind::KW_ASM, false }, { "__asm__", TokenKind::KW_ASM, false },
-	{ "__thread", TokenKind::KW_THREAD_LOCAL, false }, { "__restrict", TokenKind::KW_INLINE, true },
-	{ "__restrict__", TokenKind::KW_INLINE, true }, { "__extension__", TokenKind::KW_INLINE, true } };
+	{ "__thread", TokenKind::KW_THREAD_LOCAL, false }, { "__restrict", TokenKind::KW_RESTRICT, true },
+	{ "__restrict__", TokenKind::KW_RESTRICT, true }, { "__extension__", TokenKind::KW_INLINE, true } };
 const unsigned kGnuKeywordCount = sizeof kGnuKeywords / sizeof kGnuKeywords[0];
 
 bool IsGnuKeyword(const char* spelling, uint32_t length)

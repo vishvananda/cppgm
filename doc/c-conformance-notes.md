@@ -263,6 +263,30 @@ can use the element alignment without evaluating bounds.
 [PA38 atomic parameter adjustment](../pa38/tests/general/300-array-parameter-atomic.t) ·
 [PA38 parameter adjustment](../pa38/tests/general/300-variable-array-parameter.t)
 
+## Restricted pointer types
+
+C11 6.7.3 permits `restrict` on pointers to object types. This includes
+pointers to `void` and incomplete records. Array parameter brackets qualify
+the adjusted pointer object under 6.7.6.3p7. The top-level qualifier goes
+away for lvalue conversion and when comparing function parameter types.
+It remains observable in the type of the parameter's address. Pointer
+qualification conversion under 6.3.2.3p2 adds qualifiers at the first
+pointed-to type. Pointer assignment in 6.5.16.1 preserves the source's
+pointed-to qualifiers. A conditional expression uses their union under
+6.5.15p6.
+
+C23 expands the constraint on `restrict` to arrays whose elements are
+object pointers, including multidimensional arrays. In earlier editions
+cppgm treats direct qualification through such an array typedef as an
+extension. C11's `_Atomic` qualifier can appear alongside qualifiers on
+the adjusted pointer object, using the pointer qualification combinations
+discussed in DR 423.
+
+[C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[WG14 DR 423](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1846.htm#dr_423) ·
+[WG14 N2607](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2607.pdf) ·
+[PA38 parameter and conversion case](../pa38/tests/general/300-restrict-parameters.t)
+
 ## Evaluated type names and GNU `typeof`
 
 The evaluation of a VLA size expression can be observable even when a cast's

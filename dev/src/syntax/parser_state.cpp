@@ -23,8 +23,6 @@ ParserState::ParserState(ParseTokenStream& tokens, IdentifierTable& identifiers,
 	  cxx14_(cxx14 || cxx17), cxx17_(cxx17), cxx20_(cxx20), gnu_names_(identifiers, gnu_c)
 {
 	scopes_.set_c_source(c_source_);
-	if (c_source_)
-		tokens_.ignore(identifiers.intern("restrict", 8));
 	final_ = identifiers.intern("final", 5);
 	coroutine_keywords_[0] = identifiers.intern("co_await", 8);
 	coroutine_keywords_[1] = identifiers.intern("co_yield", 8);
@@ -41,7 +39,7 @@ ParserState::ParserState(ParseTokenStream& tokens, IdentifierTable& identifiers,
 	{
 		const GnuKeyword& gnu = kGnuKeywords[i];
 		Identifier* identifier = identifiers.intern(gnu.spelling, static_cast<uint32_t>(std::strlen(gnu.spelling)));
-		if (gnu.dropped)
+		if (gnu.dropped && !(c_source_ && gnu.kind == TokenKind::KW_RESTRICT))
 			tokens.ignore(identifier);
 		else
 			identifier->keyword = static_cast<uint8_t>(static_cast<uint8_t>(gnu.kind) + 1);

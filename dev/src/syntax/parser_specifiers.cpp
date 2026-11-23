@@ -78,6 +78,7 @@ bool IsKeywordSpecifier(TokenKind kind)
 	case TokenKind::KW_REGISTER:
 	case TokenKind::KW_CONST:
 	case TokenKind::KW_VOLATILE:
+	case TokenKind::KW_RESTRICT:
 		return true;
 	default:
 		return false;
@@ -733,7 +734,8 @@ bool Parser::continue_type_specifier_seq(ListFrame<DeclSpecifier>& list, Specifi
 		if (token.kind == ParseTokenKind::Simple)
 		{
 			const TokenKind kind = token.simple;
-			if (kind == TokenKind::KW_CONST || kind == TokenKind::KW_VOLATILE || IsSimpleTypeKeyword(kind))
+			if (kind == TokenKind::KW_CONST || kind == TokenKind::KW_VOLATILE || kind == TokenKind::KW_RESTRICT ||
+				IsSimpleTypeKeyword(kind))
 			{
 				if (IsSimpleTypeKeyword(kind))
 				{

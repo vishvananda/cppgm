@@ -14,7 +14,7 @@ bool IsWordStart(char c)
 
 bool IsCvKeyword(TokenKind kind)
 {
-	return kind == TokenKind::KW_CONST || kind == TokenKind::KW_VOLATILE;
+	return kind == TokenKind::KW_CONST || kind == TokenKind::KW_VOLATILE || kind == TokenKind::KW_RESTRICT;
 }
 
 } // namespace
@@ -304,6 +304,8 @@ void SyntaxRenderer::declarator(const Declarator& declarator)
 				text("volatile ");
 			if ((suffix.array_cv & DeclaratorSuffix::kArrayAtomic) != 0)
 				text("_Atomic ");
+			if ((suffix.array_cv & DeclaratorSuffix::kArrayRestrict) != 0)
+				text("restrict ");
 			if (suffix.array_star)
 				text("*");
 			if (suffix.bound != nullptr)

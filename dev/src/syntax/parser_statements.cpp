@@ -393,6 +393,7 @@ bool Parser::statement_starts_declaration(bool& tentative)
 		case TokenKind::KW_TEMPLATE:
 		case TokenKind::KW_CONST:
 		case TokenKind::KW_VOLATILE:
+		case TokenKind::KW_RESTRICT:
 		case TokenKind::KW_AUTO:
 			return true;
 		case TokenKind::KW_BOOL:

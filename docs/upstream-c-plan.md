@@ -38,7 +38,8 @@ explicit definitions in the same translation unit. Extended alignment
 limits still need separate qualification by storage duration and ABI.
 Array declarator coverage now checks the bound grammar, complete element
 types, qualifier adjustment in identifier-list definitions, and atomic
-bracket qualifiers. Continue with `restrict` and VLA compatibility, then
+bracket qualifiers. `restrict` is now part of C type qualification and
+array parameter adjustment. Continue with VLA compatibility, then
 qualify the other C11 optional features. Alongside target qualification, add
 explicit C environment selection for native targets. Expand the pinned
 C99, C11, and C17 manifests from the uncovered clauses. Keep
@@ -224,14 +225,12 @@ optional feature macro from the resolved edition and target configuration before
 preprocessing starts, and exercise that configuration through object
 emission and runtime before changing what it advertises.
 
-Record C `restrict` on the type that owns it. Check its permitted types,
-pointer conversions and array parameter adjustment, then use the adjusted
-unqualified type for function compatibility. Distinguish ISO `restrict`
-from GNU spelling variants and preserve their C++ behavior. Test qualifier
-discard in GCC's `c99-arraydecl-3` and add focused PA38 cases for nested
-pointer conversions, typedefs, and declarations without an array. Measure
-ordinary C declarators and frozen C++ input before adding any work to
-shared parser or type paths.
+The restrict qualifier is retained on the canonical type that owns it.
+GCC's `c99-arraydecl-3` and PA38 exercise pointer conversions, typedefs,
+array parameter adjustment and function compatibility. The tests distinguish
+the C23 array-typedef rule from its extension behavior in earlier editions.
+Keep these cases in the VLA qualification run and include qualified pointer
+types in the C23 array-compatibility audit.
 
 Audit `_Generic` compatibility before optimizing duplicate checks. Two
 distinct pointers to complete array types can both be compatible with a

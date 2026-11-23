@@ -29,6 +29,8 @@ void AppendCv(uint8_t cv, std::string& out)
 		out += "const ";
 	if (cv & kVolatile)
 		out += "volatile ";
+	if (cv & kRestrict)
+		out += "restrict ";
 }
 
 const char* EntityLabel(const Entity* entity)

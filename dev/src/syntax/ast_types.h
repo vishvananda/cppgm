@@ -243,7 +243,8 @@ struct DeclaratorSuffix
 	{
 		kArrayConst = 1,
 		kArrayVolatile = 2,
-		kArrayAtomic = 4
+		kArrayAtomic = 4,
+		kArrayRestrict = 8
 	};
 	uint8_t array_cv;
 	bool array_static;

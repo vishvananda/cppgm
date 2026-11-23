@@ -1155,6 +1155,7 @@ bool Parser::at_type_specifier_start(uint32_t ahead)
 	case TokenKind::OP_COLON2:
 	case TokenKind::KW_CONST:
 	case TokenKind::KW_VOLATILE:
+	case TokenKind::KW_RESTRICT:
 	case TokenKind::KW_TYPENAME:
 	case TokenKind::KW_DECLTYPE:
 	case TokenKind::KW_CLASS:

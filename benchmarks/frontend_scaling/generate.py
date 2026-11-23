@@ -109,6 +109,12 @@ def c_array_declarators(size, bound):
         print(f'int f_{index}(int n) {{ int a[{bound}]; return sizeof(a); }}')
 
 
+def c_restrict_parameters(size):
+    for index in range(size):
+        print(f'int f_{index}(int n, int source[restrict static n], int *restrict extra)')
+        print('{ return source[n - 1] + *extra; }')
+
+
 def c_identifier_list_parameters(size):
     print('int sample(' + ', '.join(f'arg{index}' for index in range(size)) + ')')
     for index in reversed(range(size)):
@@ -220,7 +226,7 @@ def main():
                                         'c-alignment-definitions', 'c-for-declarators',
                                         'c-prototype-tag-references', 'c-member-alignment-queries',
                                         'c-vla-declarators', 'c-fixed-array-declarators',
-                                        'c-identifier-list-parameters',
+                                        'c-identifier-list-parameters', 'c-restrict-parameters',
                                         'c-vla-dimensions', 'c-vla-extent-uses',
                                         'c-typeof-shared-bounds', 'c-designated-overwrites', 'c-designated-sparse',
                                         *EDITIONS])
@@ -290,6 +296,9 @@ def main():
         return
     if args.case == 'c-identifier-list-parameters':
         c_identifier_list_parameters(args.size)
+        return
+    if args.case == 'c-restrict-parameters':
+        c_restrict_parameters(args.size)
         return
     if args.case == 'c-vla-dimensions':
         c_vla_dimensions(args.size)

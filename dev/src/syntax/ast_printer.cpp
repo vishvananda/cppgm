@@ -11,7 +11,7 @@ namespace {
 
 bool IsCvKeyword(TokenKind kind)
 {
-	return kind == TokenKind::KW_CONST || kind == TokenKind::KW_VOLATILE;
+	return kind == TokenKind::KW_CONST || kind == TokenKind::KW_VOLATILE || kind == TokenKind::KW_RESTRICT;
 }
 
 std::string Spelling(const Identifier* identifier)
@@ -614,6 +614,8 @@ void AstDumper::declarator_suffix(const DeclaratorSuffix& suffix)
 			line("cv-qualifier", "volatile");
 		if ((suffix.array_cv & DeclaratorSuffix::kArrayAtomic) != 0)
 			line("cv-qualifier", "_Atomic");
+		if ((suffix.array_cv & DeclaratorSuffix::kArrayRestrict) != 0)
+			line("cv-qualifier", "restrict");
 		if (suffix.array_star)
 			line("unspecified-vla-bound", "*");
 		if (suffix.bound != nullptr)

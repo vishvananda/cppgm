@@ -352,9 +352,9 @@ extern const unsigned kGnuC11OperationCount;
 
 // GCC's alternative keyword spellings, names reserved to the
 // implementation (17.6.4.3.2): `__inline`, `__const__` ... spell the
-// keyword `kind` (`__thread` thread_local); `__restrict`, `__restrict__` and `__extension__` are
-// dropped (`dropped`). The parser reads them so; `__is_identifier` (a
-// hosted preprocessor probe) answers that they are not identifiers.
+// keyword `kind` (`__thread` thread_local). The parser retains GNU restrict
+// qualifiers in C and drops them in C++. It drops `__extension__` in both modes.
+// The hosted `__is_identifier` probe recognizes these reserved spellings.
 struct GnuKeyword
 {
 	const char* spelling;

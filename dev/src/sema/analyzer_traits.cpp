@@ -387,7 +387,7 @@ const Type* Analyzer::transformed_type(GnuTrait trait, const Type* type, uint32_
 	case GnuTrait::RemoveReferenceGnu:
 		return referee;
 	case GnuTrait::RemoveRestrict:
-		return type;
+		return (type->cv & kRestrict) != 0 ? without_cv(type, kRestrict) : type;
 	case GnuTrait::AddAtomic:
 		// C11 6.7.2.4p3: not of an array, function, atomic or
 		// cv-qualified type (a reference names no object type).

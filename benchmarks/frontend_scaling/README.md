@@ -91,6 +91,11 @@ identifier-list definition. Declarations appear in reverse identifier-list
 order. Use syntax-only mode with `-pedantic-errors` to measure matching the
 declarations back to the identifiers. Compare the emitted `-O0` objects.
 
+`c-restrict-parameters` generates independent C99 functions with a restrict
+qualifier on a variably modified array parameter and on an ordinary pointer
+parameter. Measure syntax-only cost by successive doublings and compare the
+emitted `-O0` objects.
+
 `c-member-alignment-queries` grows one record and queries each member once.
 Measure in C11 syntax-only mode. The first query can require the record's
 layout. Later queries read the computed alignment of their members.

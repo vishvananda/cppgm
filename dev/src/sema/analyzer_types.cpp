@@ -1,6 +1,7 @@
 #include "sema/analyzer.h"
 
 #include "lex/identifier_table.h"
+#include "preprocess/preprocessor.h"
 
 namespace sema {
 
@@ -39,12 +40,36 @@ bool HasVirtSpecifier(const syntax::DeclaratorSuffix& suffix)
 	return false;
 }
 
+uint8_t CvBit(TokenKind kind)
+{
+	switch (kind)
+	{
+	case TokenKind::KW_CONST:
+		return kConst;
+	case TokenKind::KW_VOLATILE:
+		return kVolatile;
+	case TokenKind::KW_RESTRICT:
+		return kRestrict;
+	default:
+		return 0;
+	}
+}
+
 uint8_t CvBits(const syntax::Slice<TokenKind>& cv)
 {
 	uint8_t bits = 0;
 	for (TokenKind kind : cv)
-		bits |= kind == TokenKind::KW_CONST ? kConst : kVolatile;
+		bits |= CvBit(kind);
 	return bits;
+}
+
+bool SupportsCRestrict(const Type* type)
+{
+	// Object pointers may be restricted. In C23 that includes an
+	// array of such pointers, even through intermediate array types.
+	while (type->kind == TypeKind::Array)
+		type = type->element;
+	return type->kind == TypeKind::Pointer && type->element->kind != TypeKind::Function;
 }
 
 bool IsTypeKeyword(TokenKind kind)
@@ -232,10 +257,11 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 			break;
 		case TokenKind::KW_CONST:
 		case TokenKind::KW_VOLATILE:
+		case TokenKind::KW_RESTRICT:
 		{
 			// C99 6.7.3 makes repeated qualifiers idempotent. C++11
 			// 7.1.6p2 disallows repeating a qualifier in this sequence.
-			const uint8_t bit = specifier.keyword == TokenKind::KW_CONST ? kConst : kVolatile;
+			const uint8_t bit = CvBit(specifier.keyword);
 			if ((cv & bit) != 0 && !c_source_)
 				error(specifier.location, "a cv-qualifier repeated in a decl-specifier-seq (7.1.6p2)");
 			cv |= bit;
@@ -389,6 +415,15 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 		error(out.location, "decltype(auto) cannot be cv-qualified");
 	if ((cv & kAtomic) != 0 && (type->kind == TypeKind::Array || type->kind == TypeKind::Function || IsVoid(type)))
 		error(out.location, "_Atomic qualifier requires an object type other than an array");
+	if ((cv & kRestrict) != 0)
+	{
+		if (!SupportsCRestrict(type))
+			error(out.location, "restrict requires a pointer to an object type");
+		const char* message = "restrict on an array of pointers is a C23 extension";
+		if (type->kind == TypeKind::Array && positions_ != nullptr &&
+			!positions_->allow_c_extension(out.location, CEdition::C23, message))
+			error(out.location, message);
+	}
 	out.type = type == auto_placeholder_ || type == decltype_auto_placeholder_ ? type : types_.qualified(type, cv);
 	out.cv = cv;
 	for (const syntax::DeclSpecifier& specifier : list)
@@ -1169,7 +1204,8 @@ DeclaratorInfo Analyzer::declarator(const syntax::Declarator* declarator, const 
 			error(location, "C array qualifiers require the outermost parameter array");
 		static_assert(kConst == static_cast<uint8_t>(syntax::DeclaratorSuffix::kArrayConst) &&
 			kVolatile == static_cast<uint8_t>(syntax::DeclaratorSuffix::kArrayVolatile) &&
-			kAtomic == static_cast<uint8_t>(syntax::DeclaratorSuffix::kArrayAtomic));
+			kAtomic == static_cast<uint8_t>(syntax::DeclaratorSuffix::kArrayAtomic) &&
+			kRestrict == static_cast<uint8_t>(syntax::DeclaratorSuffix::kArrayRestrict));
 		type = types_.qualified(types_.pointer(type->element), c_parameter_array->array_cv);
 	}
 	info.type = type;
@@ -1287,6 +1323,8 @@ const Type* Analyzer::ptr_operator(
 	if (type == auto_placeholder_ && !auto_declarator_)
 		error(location, "auto with a declarator operator is not supported here");
 	const uint8_t cv = CvBits(pointer.cv) | (pointer.atomic ? kAtomic : 0);
+	if ((cv & kRestrict) != 0 && (pointer.kind != TokenKind::OP_STAR || type->kind == TypeKind::Function))
+		error(location, "restrict requires a pointer to an object type");
 	switch (pointer.kind)
 	{
 	case TokenKind::OP_STAR:

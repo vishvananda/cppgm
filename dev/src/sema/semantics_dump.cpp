@@ -48,6 +48,8 @@ void AppendCv(uint8_t cv, std::string& out)
 		out += "const ";
 	if (cv & kVolatile)
 		out += "volatile ";
+	if (cv & kRestrict)
+		out += "restrict ";
 }
 
 // The presentation name of a class: an unnamed class's stable name, else

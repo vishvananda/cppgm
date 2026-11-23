@@ -315,6 +315,24 @@
       "adaptations": [
         "Checks translation failure for the source. PA38 independently checks block-scope and parameter bounds and the valid parenthesized form."
       ]
+    },
+    {
+      "id": "c99-arraydecl-3",
+      "path": "gcc/testsuite/gcc.dg/c99-arraydecl-3.c",
+      "sha256": "257fbb96cfbda14e8d9ac6ba5d22730448e4dec5e55051d2b0ca1fae877ad01f",
+      "dialect": "c99",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "The restrict qualifier of an adjusted array parameter cannot be discarded by converting a pointer to that parameter object",
+      "adaptations": [
+        "Checks translation failure for the source. PA38 independently covers prototype and identifier-list definitions and compatible conversions."
+      ]
     }
   ]
 }

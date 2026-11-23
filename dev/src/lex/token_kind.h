@@ -141,7 +141,8 @@
 	X(KW_CO_AWAIT) \
 	X(KW_CO_RETURN) \
 	X(KW_CO_YIELD) \
-	X(OP_SPACESHIP)
+	X(OP_SPACESHIP) \
+	X(KW_RESTRICT)
 // clang-format on
 
 enum class TokenKind : uint8_t

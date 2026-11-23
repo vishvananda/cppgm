@@ -260,6 +260,7 @@ public:
 			else if (alternative_[kind] == nullptr)
 				alternative_[kind] = entry.text;
 		}
+		primary_[static_cast<unsigned>(TokenKind::KW_RESTRICT)] = "restrict";
 	}
 
 	const char* spelling(TokenKind kind, bool alternative) const
@@ -349,6 +350,11 @@ bool FindCKeyword(const char* spelling, uint32_t length, TokenKind& kind)
 		default:
 			break;
 		}
+	}
+	if (length == 8 && spelling[0] == 'r' && std::memcmp(spelling, "restrict", 8) == 0)
+	{
+		kind = TokenKind::KW_RESTRICT;
+		return true;
 	}
 	const struct
 	{

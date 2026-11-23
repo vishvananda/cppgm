@@ -201,9 +201,12 @@ bool Parser::parse_ptr_operator(ListFrame<PtrOperator>& pointers, Attribute** in
 				next();
 				continue;
 			}
-			if (!at(TokenKind::KW_CONST) && !at(TokenKind::KW_VOLATILE))
+			const ParseToken token = tok();
+			if (token.kind != ParseTokenKind::Simple ||
+				(token.simple != TokenKind::KW_CONST && token.simple != TokenKind::KW_VOLATILE &&
+					token.simple != TokenKind::KW_RESTRICT))
 				break;
-			cv.push(tok().simple);
+			cv.push(token.simple);
 			next();
 		}
 		pointer.cv = cv.take(arena_);
@@ -371,6 +374,8 @@ bool Parser::parse_declarator_suffixes(
 						suffix.array_cv |= DeclaratorSuffix::kArrayConst;
 					else if (at(TokenKind::KW_VOLATILE))
 						suffix.array_cv |= DeclaratorSuffix::kArrayVolatile;
+					else if (at(TokenKind::KW_RESTRICT))
+						suffix.array_cv |= DeclaratorSuffix::kArrayRestrict;
 					else if (tok().is_identifier() &&
 						gnu_names_.kind(tok().identifier) == static_cast<uint8_t>(GnuTrait::AddAtomic) + 1)
 					{
