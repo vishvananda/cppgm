@@ -704,6 +704,32 @@ the native musl driver does. A statically linked C11/C17 probe exercised
 updates at both optimization levels in both compilers.
 [C11 standard headers, §7.1.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
 
+### Hosted C11 and C17 library probes
+
+The C clause runner compiles, links, and runs focused fixtures in C11 and
+C17 at `-O0` and `-O2`. The shared hosted cases cover the assertion,
+alignment, and `noreturn` headers, aligned allocation, `timespec_get`,
+the four `<uchar.h>` conversion functions, `quick_exit` handler order,
+exclusive `fopen` mode, and the optional atomic interface. Each run owns
+its working directory, so the file-mode test can create a fresh file.
+
+All 32 new configurations passed on Linux x86-64 with glibc, Linux AArch64
+with glibc under QEMU, and WASI under Wasmtime. Four single-threaded
+bare Wasm configurations also passed. The eight Linux cases passed
+locally in all four configurations with both GCC and cppgm linked
+statically against musl 1.2.5. The native macOS jobs run the applicable
+fixtures. Native macOS results remain to be collected, and the required
+Unicode conversion rule remains uncovered for the Darwin SDK.
+
+The Linux thread fixture verifies start and join, thread-local isolation,
+one-time initialization, thread-specific storage and destruction, and a
+condition-variable handoff. cppgm currently defines `__STDC_NO_THREADS__`
+as `1` in C11 and C17 even with a Linux SDK that passes this API probe.
+C11 permits an implementation that defines the macro to supply the
+header and its facilities. A portable program can use the macro to skip
+the API. The single-threaded Wasm probes check the opt-out as advertised.
+[C11 feature macros and threads, §§6.10.8.3 and 7.26.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
+
 ## Edition and declarator checks
 
 GNU attributes at the start of a parenthesized declarator are parsed before

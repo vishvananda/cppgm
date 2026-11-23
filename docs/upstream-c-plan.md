@@ -80,9 +80,16 @@ Start the next batches from the existing receipts.
    earliest-assignment regressions.
    [Literal measurements](performance/c-frontend-scaling.md#escape-heavy-c-literals)
 2. Run the existing translation-limit, mixed-object, and header probes on
-   native Intel macOS and Apple Silicon. Expand the C99 header and musl
-   replays to the mandatory C11 and C17 interfaces for each applicable SDK.
-   Qualify capability macros against their operations and runtime helpers.
+   native Intel macOS and Apple Silicon. The C clause runner now checks
+   C11 and C17 header facilities, aligned allocation, time, Unicode
+   conversions, quick exit, exclusive file creation, and atomics where
+   the SDK provides them. The same fixtures passed locally with musl.
+   Expand the mandatory library checks for each SDK. Qualify capability
+   macros against their operations and runtime helpers. The Linux C11
+   threading probes exercise the selected runtime while cppgm still
+   advertises the C11 thread opt-out. Tie thread feature advertisement to
+   the configured implementation and retain the opt-out on single-threaded
+   Wasm profiles.
    The integer and floating limit probes exercise the selected headers,
    ABI formats, and rounding query. Extend the remaining numeric and
    floating-environment checks.

@@ -13,6 +13,7 @@ on:
       - pa37/benchmarks/**
       - scripts/check_arm_simd.pl
       - scripts/c_conformance.py
+      - scripts/tests/c_c11_*.c
       - scripts/generate_c_translation_limits.py
       - reports/c-conformance.json
       - scripts/CppgmWasmBenchmark.pm

@@ -835,6 +835,142 @@
       "cases": []
     },
     {
+      "id": "library.c11-header-facilities",
+      "clause": "7.2, 7.15, 7.23",
+      "kind": "required",
+      "editions": [
+        11,
+        17
+      ],
+      "environment": "hosted",
+      "requirement": "Expose static_assert, alignas, alignof and noreturn in their headers. A member alignment raises the aggregate alignment, the static object meets that alignment and the noreturn declaration is usable.",
+      "cases": [
+        "library.c11-header-facilities"
+      ]
+    },
+    {
+      "id": "library.aligned-allocation",
+      "clause": "7.22.3.1",
+      "kind": "required",
+      "editions": [
+        11,
+        17
+      ],
+      "environment": "hosted",
+      "requirement": "Allocate a 128-byte object at 64-byte alignment, permit access at both ends and free it using the selected libc.",
+      "cases": [
+        "library.aligned-allocation"
+      ]
+    },
+    {
+      "id": "library.timespec-get",
+      "clause": "7.27.2.5",
+      "kind": "required",
+      "editions": [
+        11,
+        17
+      ],
+      "environment": "hosted",
+      "requirement": "Use TIME_UTC and struct timespec from <time.h>. Obtain the requested time base and a normalized nanosecond field.",
+      "cases": [
+        "library.timespec-get"
+      ]
+    },
+    {
+      "id": "library.uchar-conversions",
+      "clause": "7.28.1, 7.28.1.1–4",
+      "kind": "required",
+      "editions": [
+        11,
+        17
+      ],
+      "environment": "hosted",
+      "requirement": "Convert basic execution characters and the null character through the C-locale UTF-16 and UTF-32 interfaces. Verify byte counts and code units.",
+      "cases": [
+        "library.uchar-conversions"
+      ]
+    },
+    {
+      "id": "library.quick-exit",
+      "clause": "7.22.4.3, 7.22.4.7",
+      "kind": "required",
+      "editions": [
+        11,
+        17
+      ],
+      "environment": "hosted",
+      "requirement": "Call successfully registered at_quick_exit handlers in reverse registration order.",
+      "cases": [
+        "library.quick-exit"
+      ]
+    },
+    {
+      "id": "library.exclusive-fopen",
+      "clause": "7.21.5.3",
+      "kind": "required",
+      "editions": [
+        11,
+        17
+      ],
+      "environment": "hosted",
+      "requirement": "Create a file with mode wx, reject a second exclusive open and retain the original contents.",
+      "cases": [
+        "library.exclusive-fopen"
+      ]
+    },
+    {
+      "id": "library.c11-atomics",
+      "clause": "6.10.8.3, 7.17.5, 7.17.7, 7.17.8",
+      "kind": "conditional",
+      "editions": [
+        11,
+        17
+      ],
+      "environment": "hosted",
+      "requirement": "Expose the default hosted atomic interface. Check read-modify-write, compare-exchange, flag operations and agreement with the lock-free macro.",
+      "cases": [
+        "library.c11-atomics"
+      ]
+    },
+    {
+      "id": "library.c11-threads",
+      "clause": "6.2.4, 7.26",
+      "kind": "conditional",
+      "editions": [
+        11,
+        17
+      ],
+      "environment": "hosted",
+      "profiles": [
+        "linux-x86_64-hosted",
+        "linux-aarch64-hosted"
+      ],
+      "outside_profile": "This probe qualifies the C11 thread entry points of the selected Linux runtimes.",
+      "requirement": "Verify the start callback and join result, thread-local isolation, call_once, thread-specific storage and its destructor, and condition-variable handoff under a mutex. Test the library API independently of feature advertisement.",
+      "cases": [
+        "library.c11-threads"
+      ]
+    },
+    {
+      "id": "library.c11-thread-opt-out",
+      "clause": "6.10.8.3",
+      "kind": "implementation-defined",
+      "editions": [
+        11,
+        17
+      ],
+      "environment": "all",
+      "profiles": [
+        "wasi-hosted",
+        "wasm-freestanding"
+      ],
+      "outside_profile": "This probe checks the advertised single-threaded Wasm profiles.",
+      "requirement": "Define __STDC_NO_THREADS__ as 1 for the single-threaded WASI and bare Wasm profiles.",
+      "cases": [
+        "library.c11-thread-opt-out"
+      ]
+    },
+    {
       "id": "c90.version",
       "clause": "C90 6.8.8",
       "kind": "implementation-defined",

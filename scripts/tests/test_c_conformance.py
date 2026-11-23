@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from c_conformance import coverage, evidence_key, inventory, read_evidence, INVENTORY
+from c_conformance import coverage, evidence_key, inventory, read_evidence, run_stages, INVENTORY
 
 
 class CoverageTests(unittest.TestCase):
@@ -82,6 +82,16 @@ class CoverageTests(unittest.TestCase):
                     evidence_key(row, self.profiles)
         last['stdout'] = '0\n'
         self.assertEqual(evidence_key(row, self.profiles), ('limits.combined', profile['id'], 99, 'O0'))
+
+    def test_runtime_case_uses_a_fresh_working_directory(self):
+        command = [sys.executable, '-c', 'from pathlib import Path; Path("output").touch(exist_ok=False)']
+        with tempfile.TemporaryDirectory() as directory:
+            for case in ('one', 'two'):
+                work = Path(directory) / case
+                stages, _ = run_stages(work, [('run', command)])
+                self.assertEqual(stages[0]['classification'], 'success')
+                self.assertEqual(Path(stages[0]['cwd']), work)
+                self.assertTrue((work / 'output').is_file())
 
     def test_rejects_wrong_target_and_duplicate_receipts(self):
         row = self.valid_runtime()

@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import platform
 import re
+from shutil import which
 import subprocess
 import sys
 
@@ -24,6 +25,17 @@ NATIVE_PROFILES = {
     ('Darwin', 'arm64'): 'darwin-arm64-hosted',
 }
 RUN_STAGES = ('compile', 'link', 'run')
+C11_LIBRARY_SOURCES = {
+    'library.c11-header-facilities': ROOT / 'scripts/tests/c_c11_header_facilities.c',
+    'library.aligned-allocation': ROOT / 'scripts/tests/c_c11_allocation.c',
+    'library.timespec-get': ROOT / 'scripts/tests/c_c11_time.c',
+    'library.uchar-conversions': ROOT / 'scripts/tests/c_c11_unicode.c',
+    'library.quick-exit': ROOT / 'scripts/tests/c_c11_quick_exit.c',
+    'library.exclusive-fopen': ROOT / 'scripts/tests/c_c11_exclusive_fopen.c',
+    'library.c11-atomics': ROOT / 'scripts/tests/c_c11_atomics.c',
+    'library.c11-threads': ROOT / 'scripts/tests/c_c11_threads.c',
+    'library.c11-thread-opt-out': ROOT / 'scripts/tests/c_c11_no_threads.c',
+}
 CASES = {
     'limits.combined': (RUN_STAGES, ('O0', 'O2')),
     'limits.integer': (RUN_STAGES, ('O0', 'O2')),
@@ -44,6 +56,7 @@ CASES = {
     'literal.code-units': (RUN_STAGES, ('O0', 'O2')),
     'line.diagnostic-location': (('preprocess',), ('default',)),
     'error.message': (('preprocess',), ('default',)),
+    **{case: (RUN_STAGES, ('O0', 'O2')) for case in C11_LIBRARY_SOURCES},
 }
 INTEGER_LIMITS = ROOT / 'scripts/tests/c_integer_limits.c'
 FLOAT_LIMITS = ROOT / 'scripts/tests/c_float_limits.c'
@@ -206,7 +219,8 @@ def run_stages(directory, commands, capture_run_stdout=False):
     for name, command in commands:
         # Wasmtime reserves virtual memory for guards as well as linear memory.
         limits = dict(LIMITS, address_space_bytes=64 * 1024 ** 3) if name == 'run' else LIMITS
-        result, stdout, diagnostic = execute(command, directory / name, limits)
+        cwd = directory if name == 'run' else None
+        result, stdout, diagnostic = execute(command, directory / name, limits, cwd=cwd)
         if capture_run_stdout and name == 'run':
             result['stdout'] = stdout
         stages.append(dict(name=name, **result))
@@ -260,8 +274,32 @@ def numeric_sources(profile, bare_sdk):
     return sources
 
 
+def c11_library_sources(profile):
+    target = profile['target']
+    wasm = target.startswith('wasm32-')
+    linux = target.endswith('-linux-gnu')
+    for case, source in C11_LIBRARY_SOURCES.items():
+        if case == 'library.c11-thread-opt-out':
+            if wasm:
+                yield case, source, (), ()
+            continue
+        if profile['environment'] != 'hosted':
+            continue
+        if case == 'library.c11-threads':
+            if linux:
+                yield case, source, ('-pthread',), ('-pthread',)
+            continue
+        # The selected Darwin SDK's Unicode conversion interface is still
+        # unqualified. Its required rule remains uncovered in the matrix.
+        if case == 'library.uchar-conversions' and not (linux or wasm):
+            continue
+        yield case, source, (), ()
+
+
 def probe_target(output, profile, compiler, setup, link, runner, bare_sdk=()):
     bare_wasm = profile['id'] == 'wasm-freestanding'
+    if runner and (executable := which(runner[0])):
+        runner = [str(Path(executable).absolute()), *runner[1:]]
     numeric = numeric_sources(profile, bare_sdk)
     for edition in PILOT_EDITIONS:
         flags = [compiler, '--target=' + profile['target'], *setup, '-x', 'c', f'-std=c{edition}', '-pedantic-errors']
@@ -274,6 +312,7 @@ def probe_target(output, profile, compiler, setup, link, runner, bare_sdk=()):
         ]
         if edition in (11, 17):
             sources.append(('literal.code-units', STRING_SOURCE, (), ()))
+            sources.extend(c11_library_sources(profile))
         for case, source, source_flags, link_flags in sources:
             for variant in CASES[case][1]:
                 directory = work / case / variant
@@ -321,7 +360,7 @@ def probes(args, profiles, rules):
         sysroot = '--sysroot=' + str(args.wasi_sysroot)
         setup = [sysroot, '-resource-dir=' + str(args.wasi_resource_dir)]
         link = [compiler, '--target=' + wasi['target'], *setup]
-        results.extend(probe_target(output, wasi, compiler, setup, link, [args.wasmtime, 'run']))
+        results.extend(probe_target(output, wasi, compiler, setup, link, [args.wasmtime, 'run', '--dir=.']))
     numeric_sdk_inputs = []
     if args.bare_wasm:
         bare = profiles['wasm-freestanding']
@@ -340,7 +379,7 @@ def probes(args, profiles, rules):
                      INTEGER_LIMITS, FLOAT_LIMITS, DEFAULT_ROUNDING, ROUNDING_QUERY,
                      FENV_BINARY, FENV_CONVERT, FENV_COMPARE, FENV_QUAD, FP_CONTRACT,
                      COMPLEX_RANGE, COMPLEX_FENV, FENV_ZERO_DIVISION, HOSTED_MATH,
-                     *numeric_sdk_inputs,
+                     *numeric_sdk_inputs, *C11_LIBRARY_SOURCES.values(),
                      INCLUDE_QUERY.parent / 'c-header  spaces.h',
                      INCLUDE_SOURCE.parent / 'c-include-physical.h', INCLUDE_SOURCE.parent / 'c-include-local.h'])
     receipt_path = output / 'receipts.json'
