@@ -238,6 +238,10 @@ declarator. The tests observe calls and type sizes.
 [GCC attribute rules](https://gcc.gnu.org/onlinedocs/gcc/Attribute-Syntax.html) ·
 [Scaling](../docs/performance/c-frontend-scaling.md#gnu-attributes-in-c-declarators)
 
+The fixture runs on Linux x86-64, AArch64 Linux under QEMU, and WASI.
+Both Darwin targets emit and cross-link Mach-O at `-O0` and `-O2`.
+Native Darwin execution remains open.
+
 The 15 edition fixtures agree with GCC 15 and Clang 21. They cover C11
 static assertions, generic selection, atomic specifiers and qualifiers,
 thread-local declarations, alignment specifiers and queries, and
