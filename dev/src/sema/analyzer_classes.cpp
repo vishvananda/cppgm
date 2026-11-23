@@ -470,6 +470,9 @@ void Analyzer::check_c_record_member(ClassEntity* entity, const Entity* variable
 			error(location, message);
 		entity->c_contains_flexible_array = true;
 	}
+	const ClassEntity* element = type->kind == TypeKind::Array ? ObjectClassOf(type) : nested;
+	entity->c_contains_nested_flexible_array |= element != nullptr &&
+		(element->c_contains_flexible_array || element->c_contains_nested_flexible_array);
 	entity->c_has_named_member |= variable->name != nullptr || (nested != nullptr && nested->c_has_named_member);
 }
 

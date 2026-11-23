@@ -19,16 +19,6 @@
     "diagnostic": "a local function definition",
     "reason": "GNU C permits the VLA parameter in a nested function definition."
   },
-  "pr28865-O0": {
-    "status": "compile-failed",
-    "diagnostic": "a flexible array member initialized outside the initializer of an object of static storage duration",
-    "reason": "GNU C accepts this flexible array member initializer."
-  },
-  "pr28865-O2": {
-    "status": "compile-failed",
-    "diagnostic": "a flexible array member initialized outside the initializer of an object of static storage duration",
-    "reason": "GNU C accepts this flexible array member initializer."
-  },
   "pr43560-O0": {
     "status": "compile-failed",
     "diagnostic": "syntax error",

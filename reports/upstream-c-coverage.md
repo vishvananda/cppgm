@@ -1020,8 +1020,9 @@ the element type requires it.
 The four portable positive fixtures, including the original designated
 initialization case, ran at `-O0` and `-O2` on Linux x86-64 and under
 AArch64 QEMU. Both Darwin targets emitted Mach-O objects. PA38 native
-and Wasm suites include the portable and GNU cases. GNU range designators
-and their overlap and single-evaluation rules remain open.
+and Wasm suites include the portable and GNU cases. The GNU range cases
+track overlap and single evaluation in the dedicated inventory.
+[GNU range designators](#gnu-range-designators-and-empty-records)
 
 [Initializer scaling measurements](../docs/performance/c-frontend-scaling.md#designated-initializers)
 
@@ -1042,10 +1043,21 @@ The ten clause configurations per edition passed in C99, C11, and C17
 on Linux x86-64, AArch64 Linux under QEMU, WASI, and freestanding Wasm.
 The positive fixture also ran with GCC 15 and Clang 21 on x86-64 Linux,
 and its freestanding form cross-linked as Mach-O for both Darwin targets
-at `-O0` and `-O2`. The pinned GCC standalone torture comparison still
-matches 111 of 128 configurations with 17 previously reviewed gaps.
-GCC's nested flexible-array initializer in `pr28865.c` remains open.
+at `-O0` and `-O2`.
 [Compile-work measurements](../docs/performance/c-frontend-scaling.md#c-flexible-array-member-constraints)
+
+The GNU static initializer path now supports nested flexible-array strings
+through records and unions. It retains the declared type and carries the
+initialized storage extent in the initializer plan. The GNU case
+`pr28865.c` passes at both optimization levels. PA38 checks both
+positional and designated initializers, file-scope compound literal
+storage, and the offset of a later initialized member. GCC 15 emits the
+later member at the wrong offset in that last case. The negative cases
+cover strict ISO modes, nested element lists and writes, automatic
+storage, array elements, and overlap with a following member.
+[PA38 GNU strings](../pa38/tests/general/300-c-gnu-nested-flexible-strings.t) ·
+[PA38 following member](../pa38/tests/general/300-c-gnu-nested-flexible-following-member.t) ·
+[PA38 compound literal](../pa38/tests/general/300-c-gnu-flexible-compound-literal.t)
 
 The separate by-value ABI probe passed with cppgm and GCC 15 objects
 in both caller/callee directions on Linux x86-64. For a structure with

@@ -204,11 +204,11 @@ ProgramLowering::StaticOutcome ProgramLowering::static_global(lowir::SymbolId sy
 		StaticData data;
 		const sema::FunctionEntity* constructor = variable->constructor;
 		const bool constructed = constructor != nullptr && (!constructor->trivial || initializer != nullptr);
-		// A list giving GNU's flexible array member elements: the object's
-		// data are its list's, the elements after its other members (see
-		// static_aggregate); a dynamic initialization would write them past
-		// the object (Clang refuses that initializer too).
+		// Use the static initializer's storage extent when it gives a
+		// flexible array member elements.
 		const syntax::Expr* list = initializer != nullptr ? initializer->expression : nullptr;
+		if (const auto* literal = sema::StaticCompoundInitializer(list))
+			list = literal;
 		const bool flexible = list != nullptr && list->kind == syntax::ExprKind::BracedInit && list->facts != nullptr &&
 			(list->facts->flags & sema::kFlexibleElements) != 0;
 		evaluated = !flexible && recorded != nullptr && constant_data(type, *recorded, data, location);
@@ -1723,9 +1723,10 @@ bool ProgramLowering::static_aggregate(const sema::Type* type, const syntax::Bra
 	const sema::DataMember* selected = !is_union ? nullptr
 		: explicit_member != explicit_end        ? explicit_member->member
 												 : sema::ListUnionMember(entity, list, next);
-	const uint64_t size = size_of(type, 0);
+	const uint64_t extent = plan != nullptr ? plan->storage_extent() : 0;
+	const uint64_t size = extent != 0 ? extent : size_of(type, 0);
 	uint64_t position = 0;
-	// The bytes of a flexible array member's elements (see below).
+	// The bytes of a direct flexible array member's elements (see below).
 	uint64_t trailing = 0;
 	// The bytes of the bit-field storage unit being filled, at `unit_at`.
 	std::vector<uint8_t> bits;
@@ -1795,8 +1796,8 @@ bool ProgramLowering::static_aggregate(const sema::Type* type, const syntax::Bra
 		{
 			if (!static_c_initializer(*child, out))
 				return false;
-			const uint64_t bytes = size_of(child->type, 0);
-			if (child->type != variable->type && child->type->kind == sema::TypeKind::Array &&
+			const uint64_t bytes = c_initializer_size(*child);
+			if (extent == 0 && child->type != variable->type && child->type->kind == sema::TypeKind::Array &&
 				!variable->type->has_array_bound())
 				trailing = bytes;
 			position = offset + bytes;

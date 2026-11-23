@@ -384,12 +384,14 @@ public:
 		if (record == nullptr || record->key == TokenKind::KW_UNION)
 			return false;
 		Placements base;
-		const uint64_t width = lowering_.size_of(plan.type, 0);
+		const auto* source = sema::CInitializerOf(sema::StaticCompoundInitializer(plan.value));
+		const uint64_t width = source != nullptr ? lowering_.c_initializer_size(*source)
+												 : lowering_.size_of(plan.type, 0);
 		sample_.items.clear();
 		if (!record_value(plan.type, *plan.value, sample_) ||
 			!CollectPlacements(sample_, 0, width, pointer_bytes_, base))
 			return false;
-		return record_members(plan, base, width, true, out);
+		return record_members(plan, base, lowering_.c_initializer_size(plan), true, out);
 	}
 
 private:
@@ -427,7 +429,8 @@ private:
 					if (lowering_.static_aggregate(type, literal.braced, next, out, nullptr, true))
 						return true;
 				}
-				else if (CStaticData(lowering_).record_members(*source, {}, lowering_.size_of(type, 0), false, out))
+				else if (CStaticData(lowering_).record_members(
+							 *source, {}, lowering_.c_initializer_size(*source), false, out))
 					return true;
 				out.items.resize(start);
 			}
@@ -555,7 +558,7 @@ private:
 		const auto* variable = member == nullptr ? nullptr : static_cast<const sema::VariableEntity*>(member->variable);
 		if (member != nullptr && member->bit_field)
 			return prepare_bits(*member, variable, plan.value, offset, out);
-		const uint64_t size = lowering_.size_of(plan.type, 0);
+		const uint64_t size = lowering_.c_initializer_size(plan);
 		out.first = variable == nullptr ? offset : offset + lowering_.member_offset(variable, 0);
 		out.limit = out.first + size;
 		sample_.items.clear();
@@ -762,6 +765,12 @@ bool ProgramLowering::static_c_value(const sema::ConstValue& value, StaticValue&
 	default:
 		return false;
 	}
+}
+
+uint64_t ProgramLowering::c_initializer_size(const sema::CInitializer& plan)
+{
+	const uint64_t extent = plan.storage_extent();
+	return extent != 0 ? extent : size_of(plan.type, 0);
 }
 
 bool ProgramLowering::static_c_initializer(const sema::CInitializer& plan, StaticData& out)

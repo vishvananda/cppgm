@@ -30,7 +30,9 @@ struct CInitializer
 	// A source expression shared by all surviving spans of one write.
 	bool repeat_value;
 	CInitializerProjection projection;
+	bool has_storage_extent;
 
+	uint64_t storage_extent() const;
 	syntax::Slice<const CInitializerFieldSpans> field_spans() const;
 	syntax::Slice<const CInitializerRectangle> rectangles() const;
 };
@@ -87,6 +89,18 @@ struct CInitializerWithSpans : CInitializer
 	};
 };
 
+struct CInitializerWithStorageExtent : CInitializer
+{
+	// Bytes emitted for a record on the path to a nested flexible member.
+	// The declared type keeps its ordinary size.
+	uint64_t extent;
+};
+
+inline uint64_t CInitializer::storage_extent() const
+{
+	return has_storage_extent ? static_cast<const CInitializerWithStorageExtent*>(this)->extent : 0;
+}
+
 inline syntax::Slice<const CInitializerFieldSpans> CInitializer::field_spans() const
 {
 	return projection == CInitializerProjection::Fields || projection == CInitializerProjection::NestedFields
@@ -105,6 +119,17 @@ inline const syntax::Expr* CInitializerOperand(const syntax::Expr* value)
 	while (value->kind == syntax::ExprKind::Paren)
 		value = static_cast<const syntax::ParenExpr*>(value)->inner;
 	return value;
+}
+
+inline const syntax::BracedInitList* StaticCompoundInitializer(const syntax::Expr* expr)
+{
+	if (expr == nullptr)
+		return nullptr;
+	expr = CInitializerOperand(expr);
+	if (expr->kind != syntax::ExprKind::FunctionalCast)
+		return nullptr;
+	const auto& literal = static_cast<const syntax::FunctionalCastExpr&>(*expr);
+	return literal.compound_static ? literal.braced : nullptr;
 }
 
 inline const CInitializer* CInitializerOf(const syntax::BracedInitList* list)

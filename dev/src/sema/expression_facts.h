@@ -266,9 +266,9 @@ enum : uint32_t
 	// object's array then has a cookie (Itanium 2.7).
 	kSizedArrayDelete = 268435456,
 	// The braced list of an object of static storage duration's own
-	// initializer that gives its class's flexible array member (GNU, hosted
-	// compilations) elements: the object's data hold them after its other
-	// members, the object growing by their bytes (GCC's size).
+	// initializer that supplies elements for a flexible array member
+	// (GNU, hosted compilations). Static data retain the member's bytes
+	// and any resulting extension to the storage extent.
 	kFlexibleElements = 536870912,
 	// A delete-expression whose object's class is incomplete at it
 	// (5.3.5p5): no destructor runs and the global deallocation function

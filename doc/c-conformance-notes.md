@@ -612,6 +612,15 @@ pedantic mode, apply the GNU extension diagnostic to an embedding in a
 struct or array and to a nonempty initializer of the flexible member.
 GCC and Clang also require the member type itself to be an object type,
 so a function typedef cannot declare a field.
+
+GCC also accepts a string initializer for a nested flexible member in a
+static record, including a file-scope compound literal. It rejects a nested
+element list or a flexible tail within an array element. A string can use a
+containing union's storage or extend the static object's end. cppgm keeps
+the real member offsets when emitting data and reports a string that would
+overlap a following member. Clang 22 rejects the nested string form.
+[PA38 GNU strings](../pa38/tests/general/300-c-gnu-nested-flexible-strings.t) ·
+[GCC 15 initializer implementation](https://github.com/gcc-mirror/gcc/blob/releases/gcc-15.2.0/gcc/c/c-typeck.cc) ·
 [C11 draft, §6.7.2.1p3, p18, p20–p23](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [GCC flexible array extensions](https://gcc.gnu.org/onlinedocs/gcc/Zero-Length.html)
 

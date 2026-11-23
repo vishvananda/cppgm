@@ -1419,6 +1419,7 @@ private:
 	bool static_element(const sema::Type* type, const syntax::Expr& element, StaticData& out);
 	bool static_item(
 		const sema::Type* type, bool member, const syntax::BracedInitList* list, uint32_t& next, StaticData& out);
+	uint64_t c_initializer_size(const sema::CInitializer& plan);
 	bool static_c_initializer(const sema::CInitializer& plan, StaticData& out);
 	class CStaticData;
 	void append_c_initializer_repeat(const StaticData& value, uint64_t count, uint64_t width, StaticData& out);

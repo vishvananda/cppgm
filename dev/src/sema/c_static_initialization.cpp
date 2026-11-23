@@ -162,7 +162,12 @@ void Analyzer::c_initialize_compound_literal(const syntax::FunctionalCastExpr& e
 	expr.compound_static = scope == graph_.global;
 	const bool saved_static = c_static_initializer_;
 	c_static_initializer_ = expr.compound_static;
-	list_initialize(*expr.braced, type, scope);
+	const ClassEntity* record = ClassOf(type);
+	if (expr.compound_static && hosted_ && record != nullptr &&
+		(record->c_contains_flexible_array || record->c_contains_nested_flexible_array))
+		c_designated_list(*expr.braced, type, scope, true);
+	else
+		list_initialize(*expr.braced, type, scope);
 	c_static_initializer_ = saved_static;
 	if (expr.compound_static && !failed())
 		check_c_static_initializer(*expr.braced);

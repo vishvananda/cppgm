@@ -331,9 +331,9 @@ void Analyzer::initialize_variable(
 			variable->templ->pattern != nullptr)
 			context.closure_context = variable;
 	}
-	// GNU's flexible array member is given elements only by the list of an
-	// object of static storage duration's own initializer (GCC and Clang
-	// alike: the object's data can grow by them).
+	// The braced initializer of a static record can supply a flexible tail.
+	// The declared type keeps its ordinary layout. Save the current context
+	// so a nested expression initializes its own object independently.
 	const syntax::BracedInitList* saved_flexible = flexible_list_;
 	const ClassEntity* saved_class = flexible_class_;
 	const bool saved_given = flexible_given_;
@@ -419,10 +419,17 @@ bool Analyzer::direct_enum_list(const syntax::BracedInitList& list, const Type* 
 
 void Analyzer::list_initialize(const syntax::BracedInitList& list, const Type* type, Scope* scope, bool direct)
 {
-	if (c_source_ && list.has_c_designators)
+	if (c_source_)
 	{
-		c_designated_list(list, type, scope);
-		return;
+		const bool static_flexible = &list == flexible_list_;
+		const ClassEntity* element = c_static_initializer_ && type->kind == TypeKind::Array ? ObjectClassOf(type)
+																							: nullptr;
+		if (list.has_c_designators || (static_flexible && flexible_class_->c_contains_nested_flexible_array) ||
+			(element != nullptr && (element->c_contains_flexible_array || element->c_contains_nested_flexible_array)))
+		{
+			c_designated_list(list, type, scope, static_flexible);
+			return;
+		}
 	}
 	// 8.5.4 for the slice: arrays element by element, scalars from at most
 	// one element without narrowing; an empty list value-initializes. A

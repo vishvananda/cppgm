@@ -288,6 +288,7 @@ struct ClassEntity : Entity
 	// C record constraints, accumulated in declaration order.
 	bool c_has_named_member;
 	bool c_contains_flexible_array;
+	bool c_contains_nested_flexible_array;
 	// The aggregate initialization that last value-initialized the class
 	// as a member without an initializer (see aggregate_element).
 	uint32_t empty_list_mark;

@@ -80,7 +80,9 @@ class Analyzer::CInitializerBuilder
 public:
 	explicit CInitializerBuilder(Analyzer& analyzer, Scope* scope) : analyzer_(analyzer), scope_(scope) {}
 
-	const CInitializer* build(const syntax::BracedInitList& list, const Type* type)
+	bool has_flexible_elements() const { return has_flexible_elements_; }
+
+	const CInitializer* build(const syntax::BracedInitList& list, const Type* type, bool static_flexible)
 	{
 		location_ = list.location;
 		if (!IsSubaggregate(type))
@@ -100,7 +102,7 @@ public:
 			analyzer_.deferred_uses_.resize(first);
 			return nullptr;
 		}
-		check_flexible(list);
+		check_flexible(list, static_flexible);
 		std::vector<uint8_t> live(analyzer_.deferred_uses_.size() - first);
 		const CInitializer* plan = freeze(0, first, live);
 		size_t kept = first;
@@ -425,22 +427,118 @@ private:
 		node.uses_end = analyzer_.deferred_uses_.size();
 	}
 
-	void check_flexible(const syntax::BracedInitList& list)
+	static bool flexible_member(const DataMember* member)
 	{
+		return member != nullptr && member->variable->type->kind == TypeKind::Array &&
+			!member->variable->type->has_array_bound();
+	}
+
+	static bool flexible_string(const Node& node)
+	{
+		if (node.value == nullptr || !IsCharacterArrayElement(node.type->element))
+			return false;
+		const syntax::Expr* value = CInitializerOperand(node.value);
+		if (value->kind == syntax::ExprKind::BracedInit)
+		{
+			const auto& list = static_cast<const syntax::BracedInitList&>(*value);
+			if (list.elements.size != 1 || list.has_c_designators)
+				return false;
+			value = CInitializerOperand(list.elements[0]);
+		}
+		return value->kind == syntax::ExprKind::Literal && value->facts->type->kind == TypeKind::Array;
+	}
+
+	static uint64_t compound_extent(const Node& node)
+	{
+		if (node.value == nullptr || node.type->kind != TypeKind::Class)
+			return 0;
+		const CInitializer* source = CInitializerOf(StaticCompoundInitializer(node.value));
+		return source != nullptr ? source->storage_extent() : 0;
+	}
+
+	bool in_array(uint32_t id, std::vector<uint8_t>& array_ancestors)
+	{
+		if (array_ancestors.empty())
+		{
+			array_ancestors.resize(nodes_.size());
+			for (size_t i = 1; i < nodes_.size(); ++i)
+			{
+				const uint32_t parent = nodes_[i].parent;
+				array_ancestors[i] = array_ancestors[parent] || nodes_[parent].type->kind == TypeKind::Array;
+			}
+		}
+		return array_ancestors[id];
+	}
+
+	void check_flexible(const syntax::BracedInitList& list, bool static_flexible)
+	{
+		std::vector<uint8_t> array_ancestors;
 		for (uint32_t i = 1; i < nodes_.size(); ++i)
 		{
 			const Node& node = nodes_[i];
-			if (node.member == nullptr || node.member->variable->type->kind != TypeKind::Array ||
-				node.member->variable->type->has_array_bound() || node.count == 0)
+			if (node.count != 0 && flexible_member(node.member))
+			{
+				if (!static_flexible || node.member->next != nullptr)
+					analyzer_.error(list.location,
+						"a flexible array member initialized outside the initializer of an object of static storage "
+						"duration");
+				analyzer_.check_c_flexible_initializer(list.location);
+				// Initializing an array element must preserve its stride.
+				if (node.parent != 0 &&
+					(node.child_count != 0 || !flexible_string(node) || in_array(i, array_ancestors)))
+					analyzer_.error(list.location, "initialization of a flexible array member in a nested context");
+			}
+			else if (compound_extent(node) != 0)
+			{
+				if (!static_flexible || in_array(i, array_ancestors))
+					analyzer_.error(list.location, "initialization of a flexible array member in a nested context");
+			}
+			else
 				continue;
-			if (!analyzer_.hosted_ || node.member->next != nullptr || node.parent != 0 ||
-				&list != analyzer_.flexible_list_)
-				analyzer_.error(list.location,
-					"a flexible array member initialized outside the initializer of an object of static storage "
-					"duration");
-			analyzer_.check_c_flexible_initializer(list.location);
-			analyzer_.flexible_given_ = true;
+			has_flexible_elements_ = true;
 		}
+	}
+
+	uint64_t checked_size(const Type* type)
+	{
+		uint64_t size = 0, alignment = 0;
+		if (!analyzer_.type_size(type, size, alignment, location_))
+			analyzer_.error(location_, "invalid object size in a flexible array initializer");
+		return size;
+	}
+
+	uint64_t record_storage_extent(uint32_t id, const Node& node, syntax::Slice<const CInitializerChild> entries)
+	{
+		uint64_t ordinary = 0;
+		uint64_t extent = compound_extent(node);
+		const bool is_union = ClassOf(node.type)->key == TokenKind::KW_UNION;
+		for (const CInitializerChild& entry : entries)
+		{
+			const auto& child = *entry.initializer;
+			const bool flexible = flexible_member(entry.member) && child.type->has_array_bound();
+			const uint64_t child_extent = flexible ? checked_size(child.type) : child.storage_extent();
+			if (child_extent == 0)
+				continue;
+			if (ordinary == 0)
+				ordinary = checked_size(node.type);
+			// At the root preserve GNU's extension of a direct flexible
+			// member past the declared size, including any tail padding.
+			const uint64_t offset = id == 0 && flexible ? ordinary : entry.member->offset / 8;
+			if (child_extent > uint64_t(INT64_MAX) - offset)
+				analyzer_.error(location_, "a flexible array initializer exceeds the maximum object size");
+			const uint64_t end = offset + child_extent;
+			analyzer_.check_class_size(end, location_);
+			if (!is_union)
+			{
+				const DataMember* next = entry.member->next;
+				while (next != nullptr && next->bit_field && next->width == 0)
+					next = next->next;
+				if (next != nullptr && end > next->offset / 8)
+					analyzer_.error(location_, "a nested flexible array initializer overlaps a following member");
+			}
+			extent = std::max(extent, std::max(ordinary, end));
+		}
+		return extent;
 	}
 
 	const CInitializer* freeze(uint32_t id, size_t first, std::vector<uint8_t>& live, bool inherited = false)
@@ -475,7 +573,7 @@ private:
 				plan = projected;
 			}
 			*plan = CInitializer{ completed_type(node), node.value, entries, node.starts_value, true, node.repeat_value,
-				projection };
+				projection, false };
 			return plan;
 		}
 		auto* entries = analyzer_.arena_.allocate_array<CInitializerChild>(node.child_count);
@@ -492,9 +590,22 @@ private:
 		if (count > 1)
 			std::sort(entries, entries + count,
 				[](const CInitializerChild& left, const CInitializerChild& right) { return left.index < right.index; });
-		auto* plan = analyzer_.arena_.allocate_array<CInitializer>(1);
-		*plan = CInitializer{ completed_type(node), node.value, { entries, count }, node.starts_value, false,
-			node.repeat_value, CInitializerProjection::None };
+		const syntax::Slice<const CInitializerChild> children{ entries, count };
+		const Type* type = completed_type(node);
+		const uint64_t extent = has_flexible_elements_ && ClassOf(type) != nullptr
+			? record_storage_extent(id, node, children)
+			: 0;
+		CInitializer* plan;
+		if (extent == 0)
+			plan = analyzer_.arena_.allocate_array<CInitializer>(1);
+		else
+		{
+			auto* expanded = analyzer_.arena_.allocate_array<CInitializerWithStorageExtent>(1);
+			expanded->extent = extent;
+			plan = expanded;
+		}
+		*plan = CInitializer{ type, node.value, children, node.starts_value, false, node.repeat_value,
+			CInitializerProjection::None, extent != 0 };
 		return plan;
 	}
 
@@ -549,7 +660,7 @@ private:
 	const CInitializer* empty_span(const Type* type)
 	{
 		auto* plan = analyzer_.arena_.allocate_array<CInitializer>(1);
-		*plan = CInitializer{ type, nullptr, {}, true, false, true, CInitializerProjection::None };
+		*plan = CInitializer{ type, nullptr, {}, true, false, true, CInitializerProjection::None, false };
 		return plan;
 	}
 
@@ -559,7 +670,7 @@ private:
 		for (size_t i = row.uses_begin; i < row.uses_end; ++i)
 			live[i - first] = 1;
 		auto* plan = analyzer_.arena_.allocate_array<CInitializer>(1);
-		*plan = CInitializer{ row.type, row.value, {}, true, false, true, CInitializerProjection::None };
+		*plan = CInitializer{ row.type, row.value, {}, true, false, true, CInitializerProjection::None, false };
 		return plan;
 	}
 
@@ -1062,16 +1173,19 @@ private:
 	FlatMap<PatchPath, uint32_t, PatchPathHash> patch_paths_;
 	uint32_t group_ = 0;
 	uint32_t location_ = 0;
+	bool has_flexible_elements_ = false;
 };
 
-void Analyzer::c_designated_list(const syntax::BracedInitList& list, const Type* type, Scope* scope)
+void Analyzer::c_designated_list(
+	const syntax::BracedInitList& list, const Type* type, Scope* scope, bool static_flexible)
 {
-	const CInitializer* plan = CInitializerBuilder(*this, scope).build(list, type);
+	CInitializerBuilder builder(*this, scope);
+	const CInitializer* plan = builder.build(list, type, static_flexible);
 	if (plan == nullptr)
 		return;
 	ExprFacts* facts = new_facts(list, plan->type, ValueCategory::LValue);
 	facts->flags |= kCInitializer;
-	if (&list == flexible_list_ && flexible_given_)
+	if (builder.has_flexible_elements())
 		facts->flags |= kFlexibleElements;
 	facts->c_initializer = plan;
 }

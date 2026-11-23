@@ -365,6 +365,15 @@ The first fixture set covers these parts of the C17 input profile:
   as a struct member or array element and a nonempty initializer of the
   flexible member itself. Reject members of function type. A pointer to
   a flexible record or to a function is a valid member type.
+- Under the GNU extension policy, a static record initializer can initialize
+  a nested flexible member with a string. This also applies to a file-scope
+  compound literal. Use the string's code units and terminator. Keep the
+  declared types, member offsets and array strides. Use storage already
+  supplied by a containing union where it fits. Extend the end of a static
+  object when necessary and diagnose an initializer that would overlap a
+  later member. Diagnose nested element lists, element designators into the
+  flexible array, and initialization of a flexible tail within an array
+  element or an automatic object.
 - Resolve each initializer designator from the aggregate of the closest
   brace pair. Continue with the next subobject after the designated one,
   including through nested arrays, records, and a union's selected member.

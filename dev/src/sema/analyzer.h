@@ -451,7 +451,7 @@ private:
 	bool designated_list(
 		const syntax::BracedInitList& list, const ClassEntity* cls, syntax::BracedInitList& out, Scope* scope);
 	class CInitializerBuilder;
-	void c_designated_list(const syntax::BracedInitList& list, const Type* type, Scope* scope);
+	void c_designated_list(const syntax::BracedInitList& list, const Type* type, Scope* scope, bool static_flexible);
 	void check_c_flexible_initializer(uint32_t location);
 	bool members_accept(const syntax::BracedInitList& list, uint32_t& next, const ClassEntity* cls);
 	bool elements_accept(const syntax::BracedInitList& list, uint32_t& next, const Type* array);
