@@ -48,6 +48,7 @@ struct PPLexerOptions
 	bool dollar_identifiers = false;
 	// C and hosted sources may end lines in CRLF: a splice deletes the CR too.
 	bool crlf_splices = false;
+	std::vector<uint32_t>* spaced_splice_offsets = nullptr;
 };
 
 // Streaming preprocessing tokenizer: translation phase 3 over the phase 1-2
@@ -152,7 +153,6 @@ private:
 	// characters one by one.
 	const unsigned char* bytes() const { return reinterpret_cast<const unsigned char*>(source_.data()); }
 	bool take_identifier_bytes();
-	bool spliced_new_line(uint32_t from, uint32_t new_line) const;
 	uint32_t plain_line_end(uint32_t at) const;
 	void take_digit_bytes();
 	void skip_comment_bytes(bool block);

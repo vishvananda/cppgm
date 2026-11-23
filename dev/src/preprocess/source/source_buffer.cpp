@@ -6,6 +6,7 @@
 #include <sstream>
 #include <utility>
 
+#include "preprocess/source/translation_reader.h"
 #include "support/tool_errors.h"
 
 namespace {
@@ -25,7 +26,8 @@ void NormalizeCarriageReturns(char* at, char* end)
 
 } // namespace
 
-SourceBuffer::SourceBuffer(std::string bytes, bool c_line_endings) : bytes_(std::move(bytes)), begin_(0)
+SourceBuffer::SourceBuffer(std::string bytes, SourceTranslation translation)
+	: bytes_(std::move(bytes)), begin_(0), translation_(translation)
 {
 	// Offsets are 32-bit; keep one position free for the appended new-line.
 	if (bytes_.size() >= std::numeric_limits<uint32_t>::max())
@@ -36,9 +38,10 @@ SourceBuffer::SourceBuffer(std::string bytes, bool c_line_endings) : bytes_(std:
 
 	if (bytes_.size() == begin_)
 		return;
-	if (c_line_endings)
+	if (translation_.c_line_endings)
 		NormalizeCarriageReturns(&bytes_[begin_], &bytes_[0] + bytes_.size());
-	if (bytes_.back() != '\n' || ends_with_spliced_new_line(c_line_endings))
+	if (bytes_.back() != '\n' ||
+		TranslationReader(*this, true, translation_.c_line_endings).spliced_new_line(begin_, size() - 1))
 	{
 		bytes_.push_back('\n');
 	}
@@ -56,19 +59,7 @@ SourceBuffer SourceBuffer::ForTokenText(std::string text)
 	return SourceBuffer(std::move(text), TokenTextTag());
 }
 
-bool SourceBuffer::ends_with_spliced_new_line(bool c_line_endings) const
-{
-	const char* const start = bytes_.data() + begin_;
-	const char* newline = bytes_.data() + bytes_.size() - 1;
-	if (c_line_endings && newline > start && newline[-1] == '\r')
-		--newline;
-	const std::ptrdiff_t length = newline - start;
-	if (length >= 1 && newline[-1] == '\\')
-		return true;
-	return length >= 3 && std::memcmp(newline - 3, "?\?/", 3) == 0;
-}
-
-SourceBuffer SourceBuffer::ReadFrom(std::istream& in, bool c_line_endings)
+SourceBuffer SourceBuffer::ReadFrom(std::istream& in, SourceTranslation translation)
 {
 	std::string bytes;
 	std::streambuf* buffer = in.rdbuf();
@@ -93,7 +84,7 @@ SourceBuffer SourceBuffer::ReadFrom(std::istream& in, bool c_line_endings)
 			break;
 		bytes.append(chunk, static_cast<std::size_t>(count));
 	}
-	return SourceBuffer(std::move(bytes), c_line_endings);
+	return SourceBuffer(std::move(bytes), translation);
 }
 
 SourceLineCursor::SourceLineCursor(const SourceBuffer& source)

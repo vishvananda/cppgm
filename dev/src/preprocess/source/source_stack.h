@@ -31,6 +31,8 @@ enum class GuardState : uint8_t
 struct SourceFrame
 {
 	SourceFile* file;
+	// Physical byte offsets of spaced splices in this inclusion.
+	std::vector<uint32_t> spaced_splices;
 	std::unique_ptr<PPLexer> lexer;
 	uint32_t inclusion;
 	uint32_t base;
@@ -111,6 +113,7 @@ public:
 	// Hosted lexical extensions (hexadecimal pp-numbers and opaque comment
 	// bytes) in the files entered from now on.
 	void set_hosted(bool enabled) { hosted_ = enabled; }
+	void set_report_splices(bool on) { report_splices_ = on; }
 	void set_conditional_escapes(bool on) { conditional_escapes_ = on; }
 	void set_cxx_edition(uint8_t edition) { cxx_edition_ = edition; }
 	void set_unicode_literal_prefixes(bool on) { unicode_literal_prefixes_ = on; }
@@ -151,6 +154,7 @@ private:
 	bool at_end_;
 	bool allow_va_args_;
 	bool hosted_;
+	bool report_splices_ = false;
 	bool conditional_escapes_ = false;
 	bool unicode_literal_prefixes_ = true;
 	bool c99_identifiers_ = false;

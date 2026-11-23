@@ -47,7 +47,7 @@ uint32_t SourceFile::physical_column(uint32_t offset)
 	return offset > start ? offset - start + 1 : 1;
 }
 
-SourceFiles::SourceFiles(bool c_line_endings) : next_base_(0), c_line_endings_(c_line_endings), bytes_read_(0)
+SourceFiles::SourceFiles(SourceTranslation translation) : next_base_(0), translation_(translation), bytes_read_(0)
 {}
 
 SourceFiles::~SourceFiles() = default;
@@ -73,7 +73,7 @@ SourceFile* SourceFiles::find_or_read(const std::string& path)
 	std::ifstream in(path, std::ios::binary);
 	if (!in)
 		return nullptr;
-	files_.emplace_back(new SourceFile(path, identity, true, SourceBuffer::ReadFrom(in, c_line_endings_)));
+	files_.emplace_back(new SourceFile(path, identity, true, SourceBuffer::ReadFrom(in, translation_)));
 	bytes_read_ += files_.back()->buffer().size();
 	by_identity_.emplace(identity, files_.back().get());
 	return files_.back().get();
@@ -82,7 +82,7 @@ SourceFile* SourceFiles::find_or_read(const std::string& path)
 SourceFile* SourceFiles::add_text(std::string name, std::string text)
 {
 	files_.emplace_back(
-		new SourceFile(std::move(name), FileIdentity{ 0, 0 }, false, SourceBuffer(std::move(text), c_line_endings_)));
+		new SourceFile(std::move(name), FileIdentity{ 0, 0 }, false, SourceBuffer(std::move(text), translation_)));
 	bytes_read_ += files_.back()->buffer().size();
 	return files_.back().get();
 }

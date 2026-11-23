@@ -160,6 +160,30 @@ bool diagnostic_option(
 	return true;
 }
 
+bool source_lex_option(const std::string& arg, SourceLexOptions& options)
+{
+	if (arg == "-trigraphs" || arg == "--trigraphs" || arg == "-ftrigraphs")
+		options.trigraphs = SourceOption::Enabled;
+	else if (arg == "-fno-trigraphs")
+		options.trigraphs = SourceOption::Disabled;
+	else if (arg == "-w")
+		options.suppress_warnings = true;
+	else if (arg == "-Werror" || arg == "-Wno-error")
+		options.warnings_as_errors = arg == "-Werror";
+	else if (arg == "-Wbackslash-newline-escape" || arg == "-Wno-backslash-newline-escape")
+		options.warn_spaced_splices = arg == "-Wbackslash-newline-escape";
+	else if (arg == "-Werror=backslash-newline-escape")
+	{
+		options.warn_spaced_splices = true;
+		options.splice_errors = SourceOption::Enabled;
+	}
+	else if (arg == "-Wno-error=backslash-newline-escape")
+		options.splice_errors = SourceOption::Disabled;
+	else
+		return false;
+	return true;
+}
+
 bool fixed_x18_option(const std::string& option, bool* fixed)
 {
 	if (option != "-ffixed-x18" &&
@@ -671,8 +695,7 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 			popcnt_explicit = true;
 		}
 		else if (sse_option(arg, invocation.preprocessor.sse_level))
-		{
-		}
+			continue;
 		else if (arg == "-fno-rtti" || arg == "-frtti")
 			invocation.preprocessor.modes.rtti = arg == "-frtti";
 		else if (arg == "-funsigned-char" || arg == "-fno-signed-char" || arg == "-fsigned-char" ||
@@ -682,6 +705,7 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 			invocation.preprocessor.plain_char_unsigned = arg == "-funsigned-char" || arg == "-fno-signed-char";
 		}
 		else if (c_environment_option(arg, invocation.c_environment) ||
+			source_lex_option(arg, invocation.preprocessor.source_lex) ||
 			diagnostic_option(arg, invocation.preprocessor.extension_warnings,
 				invocation.preprocessor.warn_system_headers, &invocation.ignore_narrowing))
 			continue;

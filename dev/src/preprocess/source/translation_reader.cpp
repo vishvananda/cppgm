@@ -45,31 +45,76 @@ int32_t Windows1252ContinuationByte(unsigned char byte)
 	return byte < 0xA0 ? kWindows1252C1[byte - 0x80] : byte;
 }
 
+bool SpliceWhitespace(unsigned char byte)
+{
+	return byte == ' ' || byte == '\t' || byte == '\v' || byte == '\f';
+}
+
 } // namespace
 
 uint32_t TranslationReader::skip_line_splices(uint32_t offset) const
 {
 	// Trigraphs are replaced (phase 1) before splicing (phase 2), so `??/`
 	// followed by a new-line splices just like a backslash does.
-	for (;;)
+	while (offset < size_)
 	{
 		uint32_t end = 0;
-		if (offset < size_ && bytes_[offset] == '\\')
-			end = new_line_end(offset + 1);
-		else if (offset + 2 < size_ && bytes_[offset] == '?' && bytes_[offset + 1] == '?' && bytes_[offset + 2] == '/')
-			end = new_line_end(offset + 3);
+		if (bytes_[offset] == '\\')
+			end = splice_end(offset, offset + 1);
+		else if (trigraphs_ && size_ - offset >= 3 && bytes_[offset] == '?' && bytes_[offset + 1] == '?' &&
+			bytes_[offset + 2] == '/')
+			end = splice_end(offset, offset + 3);
 		if (end == 0)
 			return offset;
 		offset = end;
 	}
+	return offset;
 }
 
-// The offset after the new-line at `offset`, or 0 where there is none.
-uint32_t TranslationReader::new_line_end(uint32_t offset) const
+uint32_t TranslationReader::splice_end(uint32_t backslash, uint32_t after) const
 {
+	uint32_t offset = after;
+	if (spaced_splices_)
+		while (offset < size_ && SpliceWhitespace(bytes_[offset]))
+			++offset;
+	const bool spaced = offset != after;
 	if (crlf_splices_ && offset < size_ && bytes_[offset] == '\r')
 		++offset;
-	return offset < size_ && bytes_[offset] == '\n' ? offset + 1 : 0;
+	if (offset == size_ || bytes_[offset] != '\n')
+		return 0;
+	if (spaced)
+		record_spaced_splice(backslash);
+	return offset + 1;
+}
+
+bool TranslationReader::spliced_new_line(uint32_t from, uint32_t newline, bool consumed) const
+{
+	if (!translate_)
+		return false;
+	uint32_t end = newline;
+	if (crlf_splices_ && end > from && bytes_[end - 1] == '\r')
+		--end;
+	const uint32_t adjacent = end;
+	if (spaced_splices_)
+		while (end > from && SpliceWhitespace(bytes_[end - 1]))
+			--end;
+	uint32_t width = 0;
+	if (end > from && bytes_[end - 1] == '\\')
+		width = 1;
+	else if (trigraphs_ && end - from >= 3 && bytes_[end - 3] == '?' && bytes_[end - 2] == '?' &&
+		bytes_[end - 1] == '/')
+		width = 3;
+	if (width != 0 && consumed && end != adjacent)
+		record_spaced_splice(end - width);
+	return width != 0;
+}
+
+void TranslationReader::record_spaced_splice(uint32_t offset) const
+{
+	// Lookahead can revisit a splice. First visits are in physical order.
+	auto* offsets = spaced_splice_offsets_;
+	if (offsets != nullptr && (offsets->empty() || offsets->back() < offset))
+		offsets->push_back(offset);
 }
 
 SourceChar TranslationReader::logical_slow(uint32_t offset, bool comment) const
@@ -81,7 +126,7 @@ SourceChar TranslationReader::logical_slow(uint32_t offset, bool comment) const
 		return SourceChar{ kEndOfSource, size_, size_ };
 
 	const unsigned char byte = bytes_[offset];
-	if (byte == '?' && offset + 2 < size_ && bytes_[offset + 1] == '?')
+	if (byte == '?' && trigraphs_ && size_ - offset >= 3 && bytes_[offset + 1] == '?')
 	{
 		if (int replacement = TrigraphReplacement(bytes_[offset + 2]))
 			return SourceChar{ replacement, offset, offset + 3 };

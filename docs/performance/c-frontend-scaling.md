@@ -2245,3 +2245,44 @@ outputs match `e79259155` byte for byte in every trial.
 | SQLite | A/A | 16,530,247,765 / 16,529,934,886 / 16,530,026,410 / 16,530,326,360 |
 | SQLite | ABBA | 16,530,093,284 / 16,530,667,809 / 16,531,035,885 / 16,530,479,493 |
 | SQLite | BAAB | 16,530,702,706 / 16,529,959,228 / 16,530,193,624 / 16,530,712,614 |
+
+## Trigraph mode and spaced line splices
+
+The driver resolves trigraph conversion before a source file is read. The
+reader examines whitespace only after a potential splice or before the
+physical ending found by the comment scan. A source frame retains offsets
+only for the splices that warrant diagnostics. Token-paste readers use no
+diagnostic buffer. Ordinary token spellings remain views of the source.
+
+A single macro definition containing consecutive spaced CRLF splices
+exercises translation and warning output independently. Each row is the
+median of three pinned-CPU preprocessing runs. The warning-enabled cases
+emit one warning per splice and produce the same preprocessed program.
+[Input generators](../../benchmarks/frontend_scaling/README.md#c)
+
+| Splices | Instructions with warnings disabled | Instructions with warnings enabled | Peak RSS with warnings enabled (KiB) |
+| ---: | ---: | ---: | ---: |
+| 1,024 | 3,880,373 | 8,588,565 | 5,140 |
+| 2,048 | 3,991,550 | 13,449,289 | 5,164 |
+| 4,096 | 4,214,950 | 23,204,129 | 5,096 |
+| 8,192 | 4,661,567 | 42,780,942 | 5,164 |
+| 16,384 | 5,555,058 | 82,155,484 | 5,796 |
+| 32,768 | 7,341,562 | 161,225,443 | 5,800 |
+
+Incremental work roughly doubles as the splice count doubles, including
+when emitting all warnings. An existing 4 MiB line comment with an adjacent
+splice adds about 0.052% instructions. Against `8b9c25d40`, the frozen C++
+compile adds 0.01310% and 0.01363% instructions in paired blocks. SQLite
+changes by +0.00308% and −0.00149%. Every paired object is byte-identical.
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| Existing comment | A/A | 5,047,024 / 5,046,995 / 5,046,994 / 5,046,997 |
+| Existing comment | ABBA | 5,046,995 / 5,049,608 / 5,049,605 / 5,046,999 |
+| Existing comment | BAAB | 5,049,604 / 5,046,998 / 5,046,995 / 5,049,611 |
+| C++ | A/A | 9,056,981,367 / 9,056,844,247 / 9,056,772,125 / 9,057,149,980 |
+| C++ | ABBA | 9,056,908,295 / 9,058,100,689 / 9,058,070,175 / 9,056,889,661 |
+| C++ | BAAB | 9,058,057,566 / 9,056,976,941 / 9,056,865,030 / 9,058,252,839 |
+| SQLite | A/A | 16,530,629,868 / 16,531,093,352 / 16,531,061,194 / 16,531,129,673 |
+| SQLite | ABBA | 16,530,610,685 / 16,531,060,040 / 16,531,812,777 / 16,531,243,262 |
+| SQLite | BAAB | 16,530,919,629 / 16,531,116,194 / 16,531,140,792 / 16,530,843,747 |

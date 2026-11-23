@@ -48,9 +48,11 @@ Start the next batches from the existing receipts.
 1. Extend the C99–C17 clause inventory from the existing trigraph,
    digraph, universal-character, macro redefinition, physical-line,
    and preprocessing-number evidence. Include header names and phase
-   ordering at include boundaries, then cover declarators, initializers,
-   conversions, constant expressions, and linkage. Pair edition boundaries
-   with native reference runs and earliest-assignment regressions.
+   ordering at include boundaries. Check that C includes use the physical
+   includer's directory after `#line` and that `#error` reports its
+   unexpanded tokens. Then cover declarators, initializers, conversions,
+   constant expressions, and linkage. Pair edition boundaries with
+   native reference runs and earliest-assignment regressions.
 2. Run the existing translation-limit, mixed-object, and header probes on
    native Intel macOS and Apple Silicon. Expand the C99 header and musl
    replays to the mandatory C11 and C17 interfaces for each applicable SDK.
@@ -64,8 +66,9 @@ Start the next batches from the existing receipts.
    nested record members, fixed array indices, union member switches,
    static patches to large records, and two-dimensional overlaps of whole
    cells. Keep each of these cases tied to its GNU-mode behavioral control.
-   Qualify the GNU trigraph default and explicit opt-in. Review
-   space-separated line splices and their warning policy as a GNU extension.
+   Carry the trigraph mode and whitespace-separated splice receipts into
+   the source-translation inventory. Recheck the default as part of C23's
+   trigraph removal.
    [Initializer evidence](../reports/upstream-c-coverage.md#gnu-range-designators-and-empty-records)
 
 [Pinned suite receipts](../reports/upstream-c-coverage.md#pinned-suite-receipts) ·

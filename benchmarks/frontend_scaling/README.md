@@ -37,6 +37,16 @@ on exactly the same generated input as well as comparing compiler snapshots.
 
 ## C
 
+`c-continued-comment` grows the run of question marks before a
+line-comment splice. The following physical line contains a directive
+that must stay inside the comment. Double from 16,384 to 262,144 bytes
+and measure retired instructions in C17 preprocessing mode.
+`c-spaced-line-splices` grows the number of CRLF splices in one macro.
+Double from 1,024 to 32,768. Compare output with warnings on and off
+using `-Wno-backslash-newline-escape`. The default run should report
+one warning per splice. Both workloads should scale with bytes read
+and, when enabled, the diagnostics emitted.
+
 `c-nested-tgmath-macros` and `c-nested-tgmath-direct` produce the same
 type-generic calls in 48 functions. The first input uses a single-use
 macro parameter at each nesting level. The second spells the resulting

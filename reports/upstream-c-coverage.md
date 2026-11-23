@@ -111,15 +111,38 @@ Both positive fixtures run on Linux x86-64 in C99, C11, and C17, and on
 AArch64 Linux under QEMU and WASI in C99. Both macOS architectures
 cross-link. Native macOS execution remains open.
 
-GNU-mode trigraph defaults and space-separated continuations remain
-compatibility gaps. GCC and Clang disable trigraphs by default in GNU C
-and accept whitespace between a backslash and its line ending with
-a warning. cppgm currently enables trigraphs in GNU C and splices
-adjacent backslash and line endings.
 [PA38 physical lines](../pa38/tests/general/100-c-physical-lines.t) ·
 [PA38 preprocessing numbers](../pa38/tests/general/100-c-preprocessing-numbers.t) ·
-[WG14 notes](../doc/c-conformance-notes.md#source-line-mapping-and-preprocessing-numbers) ·
+[WG14 notes](../doc/c-conformance-notes.md#source-line-mapping-and-preprocessing-numbers)
+
+ISO C99 through C17 convert trigraphs. GNU modes leave them unchanged
+unless `-trigraphs` is supplied. The PA38 tests observe the distinction
+in a directive, a string, and a continued comment. The pinned GCC C11
+job replays its trigraph program in both ISO C11 and GNU11 with explicit
+conversion. The C driver also accepts whitespace-separated splices with
+a warning. PA38 checks the effect on skipped conditionals, promotion to
+an error, and suppression in system headers. The GNU policy here covers
+translation and the spaced-splice warning. Trigraph-specific warnings
+remain a separate compatibility item.
+
+GCC 15, Clang 21, and cppgm pass 72 generated C99, C11, C17, and GNU C
+header cases with mixed line endings. A separate replay checks the
+warning and presumed location in preprocessing, syntax checks, LowIR,
+and object emission. The four positive fixtures run on x86-64 Linux,
+AArch64 Linux under QEMU, and WASI. Intel and Apple Silicon
+Mach-O objects cross-link. Native macOS execution remains open.
+[PA38 GNU defaults](../pa38/tests/general/100-c-gnu-trigraphs-default.t) ·
+[PA38 explicit conversion](../pa38/tests/general/100-c-gnu-trigraphs-enabled.t) ·
+[PA38 spaced splices](../pa38/tests/general/100-c-spaced-splices.t) ·
+[Scaling](../docs/performance/c-frontend-scaling.md#trigraph-mode-and-spaced-line-splices) ·
 [GCC initial processing](https://gcc.gnu.org/onlinedocs/cpp/Initial-processing.html)
+
+Two C directive gaps remain. `#line` currently changes the directory
+searched for a quoted include, while GCC and Clang use the physical
+includer's directory. An active `#error` produces a diagnostic but omits
+the directive's message tokens required by C 6.10.5.
+[GCC line control](https://gcc.gnu.org/onlinedocs/cpp/Line-Control.html) ·
+[WG14 N1570, §§6.10.2, 6.10.5](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
 
 C99 through C17 require a diagnostic for universal character names
 below U+00A0 except U+0024, U+0040, and U+0060. cppgm applies the

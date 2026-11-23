@@ -15,6 +15,15 @@ For `#line __LINE__`, WG14 DR 464 allows the difference between
 expanding the token as it is read and first reading the entire
 directive. cppgm uses the token's current presumed line.
 
+The C99 through C17 ISO dialects replace trigraphs before splicing.
+The GNU dialects leave trigraphs unchanged unless explicitly enabled.
+Both profiles also recognize horizontal whitespace before a spliced
+line ending as an extension. The warning uses the backslash's physical
+offset after applying the file's presumed-location and system-header
+rules.
+[GCC initial processing](https://gcc.gnu.org/onlinedocs/cpp/Initial-processing.html) ·
+[Clang splice warning](https://clang.llvm.org/docs/DiagnosticsReference.html#wbackslash-newline-escape)
+
 The grammar of preprocessing numbers is broader than that of
 integer and floating constants. The longest preprocessing token
 can include a sign after `e`, `E`, `p`, or `P` even when it cannot

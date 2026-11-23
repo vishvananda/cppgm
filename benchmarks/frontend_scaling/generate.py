@@ -1,8 +1,18 @@
 #!/usr/bin/env python3
 """Generate C and C++ inputs that expose frontend complexity as their size grows."""
 import argparse
+import sys
 
 from editions import EDITIONS, source
+
+
+def c_continued_comment(size):
+    print('// ' + '?' * size + '\\')
+    print('#error should stay inside the line comment\nint line = __LINE__;')
+
+
+def c_spaced_line_splices(size):
+    sys.stdout.buffer.write(b'#define VALUE 1' + b'\\ \t\r\n' * size + b'+ 2\nint sum = VALUE;\n')
 
 
 def c_macro_binding_stack(size):
@@ -255,6 +265,7 @@ def main():
     parser.add_argument('case', choices=['parameter-bases', 'plain-templates',
                                         'independent-defaults', 'chained-defaults',
                                         'nested-chained-defaults', 'macro-replacements',
+                                        'c-continued-comment', 'c-spaced-line-splices',
                                         'c-macro-binding-stack', 'c-redeclarations',
                                         'c-nested-tgmath-macros', 'c-nested-tgmath-direct',
                                         'c-composite-redeclarations', 'c-tentative-arrays',
@@ -283,6 +294,12 @@ def main():
         parser.error('size must be positive')
     if args.case in EDITIONS:
         print(source(args.case, args.size), end='')
+        return
+    if args.case == 'c-continued-comment':
+        c_continued_comment(args.size)
+        return
+    if args.case == 'c-spaced-line-splices':
+        c_spaced_line_splices(args.size)
         return
     if args.case == 'c-macro-binding-stack':
         c_macro_binding_stack(args.size)

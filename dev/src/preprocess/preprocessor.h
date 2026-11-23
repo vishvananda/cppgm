@@ -31,6 +31,22 @@ enum class ExtensionWarnings : uint8_t
 	Errors
 };
 
+enum class SourceOption : uint8_t
+{
+	Default,
+	Enabled,
+	Disabled
+};
+
+struct SourceLexOptions
+{
+	SourceOption trigraphs = SourceOption::Default;
+	SourceOption splice_errors = SourceOption::Default;
+	bool warnings_as_errors = false;
+	bool suppress_warnings = false;
+	bool warn_spaced_splices = true;
+};
+
 // Values of the predefined macros that come from outside the translation
 // unit ([cpp.predefined] 16.8, directives.md).
 struct PreprocessorOptions
@@ -87,6 +103,7 @@ struct PreprocessorOptions
 	bool strict = false;
 	ExtensionWarnings extension_warnings = ExtensionWarnings::Disabled;
 	bool warn_system_headers = false;
+	SourceLexOptions source_lex;
 	bool diagnose_cxx_extensions() const { return strict || extension_warnings != ExtensionWarnings::Disabled; }
 	bool gnu_c() const { return language == SourceLanguage::C && !strict; }
 	// -D and -U as #define and #undef lines, then each -include file as an
@@ -254,6 +271,7 @@ private:
 	bool continue_macro_arguments() override;
 	// SourceFrameObserver.
 	void leaving_file(const SourceFrame& frame) override;
+	void report_spaced_splices(const SourceFrame& frame) const;
 
 	void define_builtin_macros();
 	void run_pragma_operator(const PPToken& pragma);
@@ -356,6 +374,7 @@ private:
 	FlatMap<uint32_t, SavedMacro*, std::hash<uint32_t>> saved_macros_;
 	SavedMacro* free_saved_macros_ = nullptr;
 	ExtensionWarnings extension_warnings_;
+	bool splice_errors_;
 	bool warn_system_headers_;
 	uint8_t ignored_extension_groups_ = 0;
 	std::vector<uint8_t> saved_extension_groups_;

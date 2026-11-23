@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 #include "preprocess/source/source_buffer.h"
 
@@ -18,9 +19,9 @@ struct SourceChar
 	uint32_t end;
 };
 
-// Stateless, random-access view of translation phases 1 and 2 over a
-// SourceBuffer. Decoding depends only on the offset, so a lexer can look
-// ahead, backtrack, or switch to the raw view without buffered state.
+// Random-access view of translation phases 1 and 2 over a SourceBuffer.
+// Decoding depends only on the offset and translation options. The reader
+// retains diagnostic offsets separately from the decoded characters.
 class TranslationReader
 {
 public:
@@ -28,10 +29,15 @@ public:
 	// spellings that are already past phases 1-2.
 	// With `crlf_splices`, a CR before the new-line of a splice is deleted
 	// with it (hosted sources, as GCC reads them).
-	explicit TranslationReader(const SourceBuffer& source, bool translate = true, bool crlf_splices = false)
+	explicit TranslationReader(const SourceBuffer& source, bool translate = true, bool crlf_splices = false,
+		std::vector<uint32_t>* spaced_splice_offsets = nullptr)
 		: bytes_(reinterpret_cast<const unsigned char*>(source.data())), size_(source.size()), translate_(translate),
-		  crlf_splices_(crlf_splices)
+		  crlf_splices_(crlf_splices), trigraphs_(source.translation().trigraphs),
+		  spaced_splices_(source.translation().spaced_splices), spaced_splice_offsets_(spaced_splice_offsets)
 	{}
+
+	// Tests the physical suffix without crossing the start of this line.
+	bool spliced_new_line(uint32_t from, uint32_t newline, bool consumed = false) const;
 
 	// The next character at or after `offset` with physical characters
 	// mapped (UTF-8, or Windows-1252 for a stray continuation byte),
@@ -64,10 +70,14 @@ private:
 	[[gnu::cold]] SourceChar raw_slow(uint32_t offset) const;
 	SourceChar decode_multibyte(uint32_t offset) const;
 	uint32_t skip_line_splices(uint32_t offset) const;
-	uint32_t new_line_end(uint32_t offset) const;
+	uint32_t splice_end(uint32_t backslash, uint32_t after) const;
+	void record_spaced_splice(uint32_t offset) const;
 
 	const unsigned char* bytes_;
 	uint32_t size_;
 	bool translate_;
 	bool crlf_splices_;
+	bool trigraphs_;
+	bool spaced_splices_;
+	std::vector<uint32_t>* spaced_splice_offsets_;
 };

@@ -153,9 +153,21 @@ bool Preprocessor::MacroQuery::is_defined(const char* spelling, uint32_t length)
 	return identifiers_.intern(spelling, length)->macro != nullptr;
 }
 
+static SourceTranslation TranslationOptions(const PreprocessorOptions& options)
+{
+	SourceTranslation translation;
+	translation.c_line_endings = options.language == SourceLanguage::C;
+	translation.spaced_splices = translation.c_line_endings;
+	const SourceOption choice = options.source_lex.trigraphs;
+	translation.trigraphs = choice == SourceOption::Default
+		? !translation.c_line_endings || (options.strict && options.c_edition < CEdition::C23)
+		: choice == SourceOption::Enabled;
+	return translation;
+}
+
 Preprocessor::Preprocessor(const PreprocessorOptions& options, const std::string& path, std::istream* input)
 	: identifiers_(arena_, options.language, options.cxx_edition >= 20), names_(identifiers_),
-	  files_(options.language == SourceLanguage::C), source_(files_, identifiers_, arena_, names_, *this),
+	  files_(TranslationOptions(options)), source_(files_, identifiers_, arena_, names_, *this),
 	  expander_(arena_, identifiers_, names_, *this, macro_state_), directive_expander_(&expander_),
 	  macro_query_(identifiers_), evaluator_(macro_query_, options.literals, options.plain_char_unsigned),
 	  definition_parser_(arena_, names_.va_args, options.hosted), predefined_(nullptr), command_line_begin_(0),
@@ -167,6 +179,9 @@ Preprocessor::Preprocessor(const PreprocessorOptions& options, const std::string
 				  options.extension_warnings == ExtensionWarnings::Disabled
 			  ? ExtensionWarnings::Pedantic
 			  : options.extension_warnings),
+	  splice_errors_(options.source_lex.splice_errors == SourceOption::Default
+			  ? options.source_lex.warnings_as_errors
+			  : options.source_lex.splice_errors == SourceOption::Enabled),
 	  warn_system_headers_(options.warn_system_headers)
 {
 	modes_.language = options.cxx_edition;
@@ -174,6 +189,7 @@ Preprocessor::Preprocessor(const PreprocessorOptions& options, const std::string
 	modes_.pedantic_errors = options.extension_warnings == ExtensionWarnings::Errors;
 	expander_.set_input(&source_);
 	source_.set_hosted(hosted_);
+	source_.set_report_splices(options.source_lex.warn_spaced_splices && !options.source_lex.suppress_warnings);
 	source_.set_conditional_escapes(options.gnu_c());
 	source_.set_cxx_edition(options.cxx_edition);
 	expander_.set_conditional_escapes(options.gnu_c());
@@ -320,6 +336,7 @@ const PPToken& Preprocessor::next()
 			if (!finished_)
 			{
 				finished_ = true;
+				report_spaced_splices(source_.current());
 				if (!conditionals_.empty())
 					throw PreprocessError(conditionals_.back().location, "unterminated conditional directive");
 			}
@@ -587,6 +604,7 @@ bool Preprocessor::has_target_attribute(const char* spelling, uint32_t length)
 
 void Preprocessor::leaving_file(const SourceFrame& frame)
 {
+	report_spaced_splices(frame);
 	// Each if-section is contained in one file ([cpp.cond] 16.1).
 	if (conditionals_.size() != frame.conditional_depth)
 		throw PreprocessError(conditionals_.back().location, "unterminated conditional directive");
@@ -597,6 +615,24 @@ void Preprocessor::leaving_file(const SourceFrame& frame)
 		const uint32_t included_at = files_.inclusion(frame.inclusion).included_at;
 		if (included_at != kNoLocation)
 			extension_group_changes_[included_at + 1] = ignored_extension_groups_;
+	}
+}
+
+void Preprocessor::report_spaced_splices(const SourceFrame& frame) const
+{
+	// The directives in this inclusion have established presumed locations
+	// and system-header status by the time its physical offsets are reported.
+	const SourceInclusion& inclusion = files_.inclusion(frame.inclusion);
+	for (const uint32_t offset : frame.spaced_splices)
+	{
+		const uint32_t location = frame.base + offset;
+		if (!warn_system_headers_ && inclusion.is_system(location))
+			continue;
+		if (splice_errors_)
+			throw PreprocessError(location, "backslash and newline separated by space [-Wbackslash-newline-escape]");
+		std::cerr << describe(
+						 location, "warning: backslash and newline separated by space [-Wbackslash-newline-escape]")
+				  << '\n';
 	}
 }
 

@@ -218,6 +218,7 @@ struct SourceOutputInvocation
 	bool strict_aliasing = true;
 	ExtensionWarnings extension_warnings = ExtensionWarnings::Disabled;
 	bool warn_system_headers = false;
+	SourceLexOptions source_lex;
 	driver::SourceExceptions exceptions = driver::SourceExceptions::Default;
 	driver::CEnvironment c_environment = driver::CEnvironment::TargetDefault;
 	bool rtti = true;
@@ -318,7 +319,8 @@ SourceOutputInvocation parse_source_output_invocation(const vector<string>& args
 				invocation.standard = args[i].substr(5);
 			continue;
 		}
-		if (driver::diagnostic_option(args[i], invocation.extension_warnings, invocation.warn_system_headers))
+		if (driver::diagnostic_option(args[i], invocation.extension_warnings, invocation.warn_system_headers) ||
+			driver::source_lex_option(args[i], invocation.source_lex))
 			continue;
 		if (driver::c_environment_option(args[i], invocation.c_environment))
 			continue;
@@ -590,6 +592,8 @@ bool consume_dependency_option(const vector<string>& args, size_t& i)
 
 bool consume_toolchain_option(const vector<string>& args, size_t& i)
 {
+	if (args[i] == "-trigraphs" || args[i] == "--trigraphs")
+		return true;
 	backend::WasmLinkOptions link_options;
 	if (driver::parse_wasm_link_option(args, i, link_options))
 		return true;
@@ -785,6 +789,7 @@ PreprocessorOptions source_preprocessor_options(const SourceOutputInvocation& in
 	options.command_line = invocation.command_line;
 	options.extension_warnings = invocation.extension_warnings;
 	options.warn_system_headers = invocation.warn_system_headers;
+	options.source_lex = invocation.source_lex;
 	driver::configure_source_language(invocation.language, invocation.standard, invocation.exceptions, options);
 	driver::configure_c_environment(options, invocation.target, invocation.c_environment);
 	options.plain_char_unsigned = invocation.plain_char_unsigned < 0 ? invocation.target == native::Target::AArch64Linux

@@ -72,6 +72,7 @@ void configure_source_language(const std::string& language, const std::string& s
 // Select how to report C++ language extension diagnostics.
 bool diagnostic_option(
 	const std::string& option, ExtensionWarnings& warnings, bool& system_headers, bool* ignore_narrowing = nullptr);
+bool source_lex_option(const std::string& option, SourceLexOptions& options);
 
 // Enable an SSE extension and its prerequisites, or disable it and dependents.
 bool sse_option(const std::string& option, uint8_t& level);

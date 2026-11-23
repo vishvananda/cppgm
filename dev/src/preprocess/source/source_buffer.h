@@ -6,6 +6,13 @@
 #include <stdexcept>
 #include <string>
 
+struct SourceTranslation
+{
+	bool c_line_endings = false;
+	bool trigraphs = true;
+	bool spaced_splices = false;
+};
+
 // An immutable physical source file image. Source offsets are byte offsets
 // into this image; tokens and diagnostics refer to it instead of copying text.
 //
@@ -15,9 +22,9 @@
 class SourceBuffer
 {
 public:
-	explicit SourceBuffer(std::string bytes, bool c_line_endings = false);
+	explicit SourceBuffer(std::string bytes, SourceTranslation translation = {});
 
-	static SourceBuffer ReadFrom(std::istream& in, bool c_line_endings = false);
+	static SourceBuffer ReadFrom(std::istream& in, SourceTranslation translation = {});
 
 	// Token spellings to be lexed again, as pasted tokens are: no byte order
 	// mark is recognized, and a new-line always ends the text.
@@ -28,16 +35,16 @@ public:
 
 	// Offset of the first source character (after any byte order mark).
 	uint32_t begin_offset() const { return begin_; }
+	SourceTranslation translation() const { return translation_; }
 
 private:
 	struct TokenTextTag
 	{};
 	SourceBuffer(std::string bytes, TokenTextTag);
 
-	bool ends_with_spliced_new_line(bool c_line_endings) const;
-
 	std::string bytes_;
 	uint32_t begin_;
+	SourceTranslation translation_;
 };
 
 struct SourcePosition

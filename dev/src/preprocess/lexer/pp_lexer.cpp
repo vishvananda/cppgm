@@ -6,7 +6,7 @@
 #include "support/unicode/utf8.h"
 
 PPLexer::PPLexer(const SourceBuffer& source, const PPLexerOptions& options)
-	: source_(source), reader_(source, !options.token_text, options.crlf_splices),
+	: source_(source), reader_(source, !options.token_text, options.crlf_splices, options.spaced_splice_offsets),
 	  cur_(reader_.logical(source.begin_offset())), token_(), token_begin_(0), clean_end_(0), token_end_(0),
 	  base_(options.location_base), dirty_(false), header_names_on_request_(options.header_names_on_request),
 	  c_source_(options.c_source), unicode_literal_prefixes_(options.unicode_literal_prefixes),
@@ -244,19 +244,6 @@ bool PPLexer::skip_whitespace_sequence()
 	}
 }
 
-// Whether a splice may delete the new-line byte at `new_line`: a backslash
-// or `??/` stands before it in the bytes from `from` (a carriage return
-// between them may be the splice's).
-bool PPLexer::spliced_new_line(uint32_t from, uint32_t new_line) const
-{
-	const unsigned char* const text = bytes();
-	uint32_t last = new_line;
-	if (last > from && text[last - 1] == '\r')
-		--last;
-	return (last > from && text[last - 1] == '\\') ||
-		(last >= from + 3 && text[last - 3] == '?' && text[last - 2] == '?' && text[last - 1] == '/');
-}
-
 // The new-line byte that ends the line from `at` where the line's tokens
 // need no lexing to be discarded: they end on the line and none can be
 // ill-formed. The line holds bytes that are their own characters, no quote
@@ -284,7 +271,7 @@ uint32_t PPLexer::plain_line_end(uint32_t at) const
 			return kNoOffset;
 		const uint32_t last = static_cast<uint32_t>(found - text);
 		if (legacy_comment_bytes_)
-			return spliced_new_line(at + 2, last) ? kNoOffset : last;
+			return reader_.spliced_new_line(at + 2, last) ? kNoOffset : last;
 		for (at += 2; at < last; ++at)
 		{
 			if (kByteClasses[text[at]] == 0)
@@ -367,7 +354,7 @@ void PPLexer::skip_comment_bytes(bool block)
 			const auto* found = static_cast<const unsigned char*>(
 				std::memchr(text + end, block ? '*' : '\n', size - end));
 			const uint32_t last = found == nullptr ? size : static_cast<uint32_t>(found - text);
-			if (block || found == nullptr || !spliced_new_line(end, last))
+			if (block || found == nullptr || !reader_.spliced_new_line(end, last, true))
 			{
 				token_end_ = last;
 				cur_ = reader_.logical(last, true);

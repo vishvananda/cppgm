@@ -49,6 +49,8 @@ void SourceStack::enter(SourceFile* file, std::string presumed_name, std::size_t
 	options.keyword_macros = hosted_;
 	options.dollar_identifiers = hosted_;
 	options.crlf_splices = options.c_source || hosted_;
+	if (options.c_source && report_splices_)
+		options.spaced_splice_offsets = &frame->spaced_splices;
 	frame->lexer.reset(new PPLexer(file->buffer(), options));
 	frame->conditional_depth = conditional_depth;
 	frame->search_index = search_index;

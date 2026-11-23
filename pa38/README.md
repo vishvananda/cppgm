@@ -93,6 +93,14 @@ Count physical line endings for `__LINE__`, including endings deleted
 by splicing. A `#line` directive changes the presumed line number for the
 following line.
 
+ISO C99, C11, and C17 enable trigraphs. GNU modes leave the three
+characters as written unless `-trigraphs` is supplied. A backslash
+separated from a line ending by spaces, tabs, vertical tabs, or form
+feeds also continues the line as an extension. Report this with a
+warning, promoted to an error by `-Werror`. The warning follows the
+system-header policy and can be disabled with
+`-Wno-backslash-newline-escape`.
+
 A C preprocessing number can include the sign after an `e`, `E`, `p`,
 or `P`. Use the longest preprocessing token in source and when
 re-lexing a paste. A number-like spelling may be stringized without
