@@ -1070,25 +1070,44 @@ Linux AArch64 under QEMU in all six edition and optimization combinations.
 [GCC x86 classification](https://github.com/gcc-mirror/gcc/blob/releases/gcc-15.1.0/gcc/config/i386/i386.cc#L2119-L2137) ·
 [Clang x86 classification](https://github.com/llvm/llvm-project/blob/llvmorg-21.1.8/clang/lib/CodeGen/Targets/X86.cpp#L1885-L1889)
 
-### Unnamed bit-field ABI gaps
+### Unnamed bit-field layout and calls
 
-In AAPCS64, the container of an unnamed bit-field contributes to the
-aggregate's alignment, including for width zero. Clang 21 on Linux
-AArch64 reports size 8 and alignment 4 for
-`struct { unsigned char a:3; unsigned :0; unsigned char b:5; }`.
-cppgm reports size 5 and alignment 1. Clang and cppgm both report
-size 5 and alignment 1 on Darwin Arm64, both x86-64 targets, and Wasm.
-[AAPCS64 bit-field rules](https://github.com/ARM-software/abi-aa/blob/main/aapcs64/aapcs64.rst#bit-fields-subdivisions-of-containerized-types)
+Linux AAPCS64 includes the container of an unnamed bit-field in the
+aggregate alignment. cppgm, GCC 14 and Clang 22 report size 8 and
+alignment 4 for `struct { unsigned char a:3; unsigned :0; unsigned char b:5; }`
+on Linux AArch64, including under GNU packed and `#pragma pack(1)`.
+Darwin Arm64 gives the structure size 5 and alignment 1, as Clang does.
+[AAPCS64 bit-field rules](https://github.com/ARM-software/abi-aa/blob/main/aapcs64/aapcs64.rst#bit-fields)
 
-For `union { float f; unsigned :1; }`, Clang uses integer registers on
-both Arm targets. cppgm currently classifies the union as homogeneous
-floating-point. A mixed-object probe reproduces the mismatch in both
-directions on Linux AArch64 at `-O0` and `-O2`. Replacing the field width
-with zero yields a homogeneous aggregate in both compilers. The same
-mixed-object probes pass on both Wasm profiles with both widths. A local
-prototype passes the Linux AArch64 probes with the Linux container
-alignment rule and by including nonzero unnamed fields in the Arm
-aggregate classification.
+A nonzero unnamed integer field takes part in Arm aggregate
+classification. `union { float f; unsigned :1; }` crosses the call
+boundary in integer registers. The PA38 test compares sizes and
+alignments with a separately compiled provider, calls across that
+boundary and calls back with the same union. The test also checks a
+floating structure with a zero-width field. C11 and C17 pass at `-O0`
+and `-O2` with GCC 14 and Clang 22 on Linux AArch64 under QEMU. The
+same Clang checks pass for independently linked Arm64 Mach-O under the
+SDK-free replay. PA38 also runs this fixture in the native Arm workflows.
+PA39 exercises the layout and union calling convention in C++ on both
+Arm targets. [PA38 mixed-object test](../pa38/tests/abi/300-unnamed-bit-field-boundary.t) ·
+[Compile-work measurements](../docs/performance/c-frontend-scaling.md#arm-unnamed-bit-field-abi)
+
+For `union { float f; unsigned :0; }`, Clang 22 and cppgm use
+floating-point registers. GCC 14 on AArch64 Linux uses integer registers.
+Direct mixed GCC and Clang executables fail in both directions at `-O0`
+and `-O2`. Both compilers use floating-point registers for the equivalent
+structure. The Wasm reference uses its single-field convention for the
+union with either width.
+[GCC record and union classification](https://github.com/gcc-mirror/gcc/blob/releases/gcc-14.3.0/gcc/config/aarch64/aarch64.cc#L20309-L20369)
+
+GNU `aligned` on a bit-field remains a separate declaration and layout
+case. GCC 15 and Clang 22 accept `unsigned field : 2 __attribute__((aligned(8)))`.
+In the x86-64 probe, the record has one byte before the field and one
+after it. The following byte has offset 9, with record size 16 and
+alignment 8. cppgm diagnoses the trailing attribute as a syntax error.
+On an unnamed zero-width field, both references accept `aligned` before
+or after the width. On x86-64 the following byte moves to offset 8, with
+record alignment 1. cppgm currently rejects both forms.
 
 ## Composite types, tentative definitions, and linkage
 

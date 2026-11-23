@@ -2756,3 +2756,30 @@ typed record flag and uses the same eightbyte-class cache.
 The Mach-O probe declares one distinct fixed-size record per function
 and passes and returns it by value. A/A task-clock spread ranged from
 2% to 15%, so the samples do not resolve a wall-time difference.
+
+## Arm unnamed bit-field ABI
+
+Compared `b24329804` with `bcaa4a7ce` using immutable GCC 15 builds on
+CPU 71 in A/A, ABBA, and BAAB blocks. The frozen C++ and SQLite inputs
+produced byte-identical objects in all observations. The compiler uses
+the existing per-record layout and aggregate classification caches.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.00259% | +0.00075% | +0.00180% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.00169% | −0.00310% | +0.00412% |
+
+The C11 scaling probe compiles for Linux AArch64 at `-O0`. Each function
+passes and returns a union with a nonzero unnamed field and uses the size
+of a record with a zero-width separator. Each compiler emits reproducible
+objects. The corrected layout and calling convention change those objects.
+
+| Functions | Baseline instructions, ABBA | Candidate instructions, ABBA | ABBA / BAAB change |
+| ---: | ---: | ---: | ---: |
+| 256 | 41,538,160 | 41,626,620 | +0.213% / +0.246% |
+| 512 | 79,640,702 | 79,831,694 | +0.240% / +0.219% |
+| 1,024 | 155,952,196 | 156,300,664 | +0.223% / +0.244% |
+
+The added work grows in proportion to the number of record pairs. A/A
+task-clock spreads of 4% to 71% across these inputs leave wall time
+unresolved.
