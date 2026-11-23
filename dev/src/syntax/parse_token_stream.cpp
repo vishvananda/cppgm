@@ -156,10 +156,19 @@ void ParseTokenStream::pull()
 		else if (post.form == LiteralForm::Imaginary)
 		{
 			token.kind = ParseTokenKind::ImaginaryLiteral;
-			token.component_type = post.type;
-			token.imaginary_value = post.imaginary_value;
+			token.flags = static_cast<uint8_t>(post.type);
 			if (post.quiet_system_macro)
-				token.flags = kQuietSystemLiteral;
+				token.flags |= kQuietSystemLiteral;
+			if (post.imaginary_value > UINTPTR_MAX)
+			{
+				// Keep a pointer-sized payload in the streaming window on 32-bit hosts.
+				uint64_t* value = spellings_.allocate_array<uint64_t>(1);
+				*value = post.imaginary_value;
+				token.wide_imaginary_value = value;
+				token.flags |= kWideImaginaryLiteral;
+			}
+			else
+				token.imaginary_value = static_cast<std::uintptr_t>(post.imaginary_value);
 		}
 		break;
 	case PostTokenKind::EndOfFile:

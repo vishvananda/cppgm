@@ -1104,8 +1104,8 @@ Expr* Parser::parse_primary_expression()
 		ImaginaryLiteralExpr* literal = make<ImaginaryLiteralExpr>(ExprKind::Literal, start);
 		literal->spelling = token.spelling;
 		literal->imaginary = true;
-		literal->component_type = token.component_type;
-		literal->value = token.imaginary_value;
+		literal->component_type = token.imaginary_type();
+		literal->value = token.imaginary_component();
 		next();
 		return literal;
 	}

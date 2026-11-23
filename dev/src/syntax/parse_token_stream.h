@@ -30,9 +30,14 @@ enum ParseTokenFlag : uint8_t
 	kFirstShiftHalf = 1,
 	kSecondShiftHalf = 2,
 	// A string literal or a concatenation of string literals.
-	kStringLiteral = 4,
-	kQuietSystemLiteral = 8
+	kStringLiteral = 128,
+	// ImaginaryLiteral uses the low five bits for the component type.
+	kImaginaryTypeMask = 31,
+	kQuietSystemLiteral = 32,
+	kWideImaginaryLiteral = 64
 };
+
+static_assert(kFundamentalTypeCount <= kImaginaryTypeMask + 1, "the component type fits in the token flags");
 
 // A phase-7 token as the parser sees it: compact, with a stable spelling
 // (the preprocessor's token spellings live as long as the translation
@@ -41,18 +46,15 @@ enum ParseTokenFlag : uint8_t
 struct ParseToken
 {
 	ParseTokenKind kind;
-	union
-	{
-		TokenKind simple;
-		FundamentalType component_type;
-	};
+	TokenKind simple;
 	uint8_t flags;
 	uint32_t location;
 	TokenSpelling spelling;
 	union
 	{
 		const Identifier* identifier;
-		uint64_t imaginary_value;
+		std::uintptr_t imaginary_value;
+		const uint64_t* wide_imaginary_value;
 	};
 
 	bool is(TokenKind kind_) const { return kind == ParseTokenKind::Simple && simple == kind_; }
@@ -63,6 +65,13 @@ struct ParseToken
 			kind == ParseTokenKind::ImaginaryLiteral;
 	}
 	bool is_end() const { return kind == ParseTokenKind::EndOfFile; }
+	FundamentalType imaginary_type() const { return static_cast<FundamentalType>(flags & kImaginaryTypeMask); }
+	uint64_t imaginary_component() const
+	{
+		if (sizeof(std::uintptr_t) < sizeof(uint64_t) && (flags & kWideImaginaryLiteral) != 0)
+			return *wide_imaginary_value;
+		return imaginary_value;
+	}
 };
 
 // A retained token run (a member function body whose parsing waits for its
