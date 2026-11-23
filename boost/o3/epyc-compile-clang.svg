@@ -1,5 +1,5 @@
-<svg data-original-label="Boost compile CPU vs clang" data-original-message="4.49×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="Boost compile CPU vs clang; AMD EPYC 9V74 80-Core Processor; measured dbbd227db37c255596e3fc11a4d3df8700ea7be7; 2 commits behind main: 4.49×">
-  <title>Boost compile CPU vs clang; AMD EPYC 9V74 80-Core Processor; measured dbbd227db37c255596e3fc11a4d3df8700ea7be7; 2 commits behind main: 4.49×</title>
+<svg data-original-label="Boost compile CPU vs clang" data-original-message="4.49×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="Boost compile CPU vs clang; AMD EPYC 9V74 80-Core Processor; measured dbbd227db37c255596e3fc11a4d3df8700ea7be7; 8 commits behind main: 4.49×">
+  <title>Boost compile CPU vs clang; AMD EPYC 9V74 80-Core Processor; measured dbbd227db37c255596e3fc11a4d3df8700ea7be7; 8 commits behind main: 4.49×</title>
   <defs><clipPath id="badge"><rect width="120" height="24" rx="4"/></clipPath></defs>
   <g clip-path="url(#badge)">
     <rect width="64" height="24" fill="#555"/>
