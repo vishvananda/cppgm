@@ -515,8 +515,12 @@ Arm Darwin. Hosted tests at both levels run on the Linux targets and
 with the pinned WASI startup. Bare Wasm diagnoses an explicit hosted
 request. On Linux x86-64 an explicit builtin can use a compiler helper
 with `-nostartfiles`; `-nostdlib` reports the helper unresolved when
-the user supplies none. Native Darwin execution and library coverage
-are tracked separately. [PA38 environment cases](../pa38/tests/general/c-environment.h) ·
+the user supplies none. Native Linux also runs the three-parameter
+hosted entry with `-nodefaultlibs`. Both execution modes can include
+`<stddef.h>` with `-nostdlib` on Linux x86-64 and with the pinned WASI
+SDK. The hosted WASI case also links through cppgm with that SDK.
+Native Darwin execution and library coverage are tracked separately.
+[PA38 environment cases](../pa38/tests/general/c-environment.h) ·
 [PA25 custom entry](../pa25/tests/general/200-runtime-custom-entry.t)
 
 ## Cross-target smoke results

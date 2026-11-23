@@ -133,6 +133,12 @@ def c_array_type_queries(size, bound):
         print(f'int f_{index}(int n) {{ return __builtin_types_compatible_p(int[{bound}], int[4]); }}')
 
 
+def c_environment_calls(size):
+    print('unsigned consume(unsigned value);')
+    for index in range(size):
+        print(f'unsigned f_{index}(unsigned value) {{ return consume(value) + {index}u; }}')
+
+
 def c_identifier_list_parameters(size):
     print('int sample(' + ', '.join(f'arg{index}' for index in range(size)) + ')')
     for index in reversed(range(size)):
@@ -248,6 +254,7 @@ def main():
                                         'c-vla-prototype-type-names', 'c-fixed-prototype-type-names',
                                         'c-vla-atomic-type', 'c-vla-atomic-qualifier',
                                         'c-vla-type-queries', 'c-fixed-array-type-queries',
+                                        'c-environment-calls',
                                         'c-vla-dimensions', 'c-vla-extent-uses',
                                         'c-typeof-shared-bounds', 'c-designated-overwrites', 'c-designated-sparse',
                                         *EDITIONS])
@@ -329,6 +336,9 @@ def main():
         return
     if args.case in ('c-vla-type-queries', 'c-fixed-array-type-queries'):
         c_array_type_queries(args.size, 'n' if args.case == 'c-vla-type-queries' else '4')
+        return
+    if args.case == 'c-environment-calls':
+        c_environment_calls(args.size)
         return
     if args.case == 'c-vla-dimensions':
         c_vla_dimensions(args.size)

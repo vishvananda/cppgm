@@ -108,6 +108,11 @@ for the corresponding forms.
 fixed bounds. Measure C11 syntax-only cost by successive doublings and
 compare the emitted `-O0` objects.
 
+`c-environment-calls` grows the number of C definitions calling the same
+external function. Compile each size with `-fhosted` and
+`-ffreestanding` at `-O0 -c`. The objects should match. This
+measures the cost of carrying the environment through ordinary calls.
+
 `c-member-alignment-queries` grows one record and queries each member once.
 Measure in C11 syntax-only mode. The first query can require the record's
 layout. Later queries read the computed alignment of their members.

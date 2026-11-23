@@ -941,3 +941,52 @@ The comparison uses retired instructions.
 | SQLite | BAAB | 16,508,076,522 / 16,507,689,662 / 16,507,431,439 / 16,508,158,967 |
 
 [Input generation](../../benchmarks/frontend_scaling/README.md#c)
+
+## C execution environment
+
+The driver resolves the mode once. The freestanding source lowering
+marks ordinary C function symbols to suppress implicit library and
+legacy entry recognition during optimization and LowIR replay. On
+Linux x86-64, the named-symbol facts grow from six to seven bytes.
+The LowIR metadata and complete symbol remain 20 and 32 bytes.
+The preprocessor options and analyzer remain 328 and 11,584 bytes.
+
+The input defines functions that call the same external function.
+The parent is `b6d8a46d6` and the final compiler is `af1b5e2ed`,
+both built with GCC 15. All modes emitted byte-identical objects at
+`-O0`. Values are medians of three pinned Linux x86-64 runs in
+millions of retired user-space instructions.
+
+| Functions | Parent hosted | Current hosted | Current freestanding |
+| ---: | ---: | ---: | ---: |
+| 128 | 11.974 | 11.977 | 11.974 |
+| 256 | 20.029 | 20.024 | 20.023 |
+| 512 | 36.170 | 36.150 | 36.149 |
+| 1024 | 68.327 | 68.291 | 68.277 |
+| 2048 | 134.144 | 134.026 | 134.031 |
+| 4096 | 268.512 | 268.317 | 268.283 |
+
+The final doubling adds 2.04 times the work of the preceding interval
+in both current modes. At 4096 functions, median peak RSS is 22,740
+KiB hosted and 22,744 KiB freestanding.
+
+The frozen C++ input at `-O3` and SQLite at `-std=gnu17 -O2` emitted
+identical objects in every run. A/A task-clock ranges were 5.5% and
+22.8%. Both workloads changed task-clock direction between blocks, so
+use retired instructions for the comparison.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0034% | −0.0145% | −0.0110% |
+| SQLite `sqlite3.c` | 0.0015% | 0.0000% | +0.0008% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,046,006,541 / 9,046,317,272 / 9,046,102,669 / 9,046,277,439 |
+| C++ | ABBA | 9,046,257,414 / 9,045,102,967 / 9,045,085,417 / 9,046,557,924 |
+| C++ | BAAB | 9,045,008,082 / 9,045,883,918 / 9,046,157,032 / 9,045,048,979 |
+| SQLite | A/A | 16,507,652,708 / 16,507,827,593 / 16,507,900,985 / 16,507,884,333 |
+| SQLite | ABBA | 16,507,724,720 / 16,507,847,751 / 16,507,530,900 / 16,507,654,096 |
+| SQLite | BAAB | 16,507,588,566 / 16,507,874,162 / 16,507,674,882 / 16,508,227,482 |
+
+[Input generation](../../benchmarks/frontend_scaling/README.md#c)
