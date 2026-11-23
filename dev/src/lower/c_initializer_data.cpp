@@ -480,7 +480,24 @@ private:
 	{
 		PointerMap saved;
 		for (const auto& lane : plan.field_spans())
-			for (const auto& span : lane.spans)
+		{
+			if (lane.kind != sema::CInitializerFieldKind::Value)
+			{
+				if (lane.kind == sema::CInitializerFieldKind::ResetVariant)
+				{
+					fields.emplace_back();
+					auto& field = fields.back();
+					field.first = lane.offset;
+					field.limit = lane.offset + lowering_.size_of(lane.owner, 0);
+					for (const auto& span : lane.spans())
+					{
+						events.push_back({ span.index, nullptr, &field, true });
+						events.push_back({ span.limit, nullptr, &field, false });
+					}
+				}
+				continue;
+			}
+			for (const auto& span : lane.spans())
 			{
 				uint32_t entry = saved.find(span.initializer);
 				if (entry == PointerMap::kMissing)
@@ -497,6 +514,7 @@ private:
 					events.push_back({ span.limit, nullptr, &fields[entry], false });
 				}
 			}
+		}
 		return true;
 	}
 

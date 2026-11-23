@@ -273,9 +273,13 @@ The first fixture set covers these parts of the C17 input profile:
   A second range can select multiple subobjects within each element.
   Both endpoints are in-bounds integer constant expressions and the range
   includes both endpoints. A later write to the same subobject replaces
-  its previous value at the indices they share. A write to one member
-  preserves values already supplied for the other members. A replacement
-  for the whole record supplies new values for all of its members.
+  its previous value at the indices they share. A write to one struct
+  member preserves values supplied for other members. Switching the
+  selected union member discards earlier initializers through the
+  previous member at the affected indices. Further writes through the
+  same member preserve its already initialized subobjects. A replacement
+  for a whole aggregate supplies values for all its initialized subobjects,
+  including implicit zeros.
   Evaluate a surviving range's value once and use it for every element it
   still initializes. Braces can supply the entire aggregate value,
   including its implied zeros. Each nested brace pair has its own current

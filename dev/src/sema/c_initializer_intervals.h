@@ -14,6 +14,15 @@ struct CArrayWrite
 
 std::vector<CArrayWrite> WinningInitializerSpans(std::vector<CArrayWrite>& writes);
 
+struct CUnionSelectionSpan
+{
+	CArrayWrite selection;
+	uint32_t different;
+};
+
+// Record the last selection and the last different member in each span.
+std::vector<CUnionSelectionSpan> WinningUnionSelections(const std::vector<CArrayWrite>& writes);
+
 struct CArrayRectangle
 {
 	uint64_t row, row_limit, column, column_limit;
@@ -34,6 +43,7 @@ public:
 
 	uint32_t root(const std::vector<CArrayWrite>& spans);
 	uint32_t add(uint32_t root, const CArrayWrite& write);
+	uint32_t restrict_to(uint32_t root, const std::vector<CArrayWrite>& spans);
 	void clip(uint32_t root, const CArrayWrite& write, std::vector<CArrayWrite>& retained) const;
 
 private:
@@ -44,6 +54,8 @@ private:
 
 	uint32_t root(const std::vector<CArrayWrite>& spans, size_t& next, size_t lo, size_t hi);
 	uint32_t add(uint32_t node, size_t lo, size_t hi, const CArrayWrite& write);
+	uint32_t restrict_to(
+		uint32_t node, size_t lo, size_t hi, const std::vector<CArrayWrite>& spans, size_t& next, uint32_t blocked);
 	uint32_t save(Node node);
 	void clip(uint32_t node, size_t lo, size_t hi, const CArrayWrite& write, uint32_t floor,
 		std::vector<CArrayWrite>& retained) const;

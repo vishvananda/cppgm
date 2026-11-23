@@ -178,11 +178,22 @@ void FunctionLowering::c_initialize_field_spans(const sema::CInitializer& plan, 
 {
 	for (const auto& lane : plan.field_spans())
 	{
+		if (lane.kind != sema::CInitializerFieldKind::Value)
+		{
+			if (lane.kind == sema::CInitializerFieldKind::ResetVariant)
+			{
+				const uint64_t size = lowering_.size_of(lane.owner, location);
+				for (const auto& span : lane.spans())
+					for_initializer_span(plan.type->element, base, span.index, span.limit, location,
+						[&](lowir::Value row) { zero_bytes(field_address(row, lane.offset), size, 1); });
+			}
+			continue;
+		}
 		PointerMap saved;
 		std::vector<RValue> values;
 		const auto* variable = lane.member == nullptr ? nullptr
 													  : static_cast<const sema::VariableEntity*>(lane.member->variable);
-		const sema::Type* type = lane.spans[0].initializer->type;
+		const sema::Type* type = lane.spans()[0].initializer->type;
 		const bool has_bits = lane.member != nullptr && lane.member->bit_field;
 		BitField bits = {};
 		uint64_t offset = lane.offset;
@@ -193,7 +204,7 @@ void FunctionLowering::c_initialize_field_spans(const sema::CInitializer& plan, 
 		}
 		else if (variable != nullptr)
 			offset += lowering_.member_offset(variable, location);
-		for (const auto& span : lane.spans)
+		for (const auto& span : lane.spans())
 		{
 			uint32_t index = saved.find(span.initializer);
 			if (index == PointerMap::kMissing)
@@ -208,6 +219,8 @@ void FunctionLowering::c_initialize_field_spans(const sema::CInitializer& plan, 
 			const RValue value = values[index];
 			for_initializer_span(plan.type->element, base, span.index, span.limit, location, [&](lowir::Value row) {
 				const lowir::Value address = field_address(row, offset);
+				if (lane.through_union)
+					mark_untyped(address);
 				if (has_bits)
 				{
 					Place unit = {};

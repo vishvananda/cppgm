@@ -736,11 +736,17 @@ bool ConstantInterpreter::c_initialize_field_spans(
 	const uint64_t stride = size_of(element, location);
 	for (const CInitializerFieldSpans& lane : plan.field_spans())
 	{
+		if (lane.kind != CInitializerFieldKind::Value)
+		{
+			if (!c_select_variant(lane, target, stride, location))
+				return false;
+			continue;
+		}
 		const auto* variable = lane.member == nullptr ? nullptr
 													  : static_cast<const VariableEntity*>(lane.member->variable);
 		PointerMap saved;
 		std::vector<ConstValue> values;
-		for (const CInitializerChild& span : lane.spans)
+		for (const CInitializerChild& span : lane.spans())
 		{
 			uint32_t entry = saved.find(span.initializer);
 			for (uint64_t index = span.index; index < span.limit; ++index)
@@ -754,6 +760,33 @@ bool ConstantInterpreter::c_initialize_field_spans(
 			}
 		}
 	}
+	return true;
+}
+
+bool ConstantInterpreter::c_select_variant(
+	const CInitializerFieldSpans& lane, const ConstPlace& target, uint64_t stride, uint32_t location)
+{
+	const ClassEntity* owner = ClassOf(lane.owner);
+	const uint32_t ordinal = lane.member->ordinal;
+	for (const CInitializerChild& span : lane.spans())
+		for (uint64_t index = span.index; index < span.limit; ++index)
+		{
+			ConstPlace place = target;
+			place.type = lane.owner;
+			place.offset += static_cast<int64_t>(index * stride + lane.offset);
+			ConstValue* storage = nullptr;
+			if (!step(location) || !locate(place, true, storage, location))
+				return false;
+			if (storage->kind != ValueKind::Class)
+				return fail(location, "a union initializer outside the designated object");
+			if (storage->extra != ordinal + 1 && lane.kind == CInitializerFieldKind::PreserveVariant)
+				return fail(location, "a union initializer that preserves bytes of a different member");
+			if (storage->extra != ordinal + 1 || lane.kind == CInitializerFieldKind::ResetVariant)
+			{
+				storage->extra = ordinal + 1;
+				storage->elements[owner->base_count + ordinal] = prefix_value(lane.member->variable->type, 0, true);
+			}
+		}
 	return true;
 }
 

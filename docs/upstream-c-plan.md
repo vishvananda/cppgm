@@ -45,28 +45,27 @@ behavior independent of the edition work that exposed them.
 
 Start the next batches from the existing receipts.
 
-1. Extend GNU initializer coverage to overlaps across more than two
-   array dimensions and paths with additional ranges interleaved with
-   record members. Cover union member changes and automatic ranges of
-   aggregates with qualified subobjects. PA38 covers overlapping
-   writes to nested record members and fixed array indices, static
-   patches to large records, and two-dimensional overlaps of whole
-   cells. The tests exercise brace elision, positional continuation
-   within the final element, and whole-subobject replacements.
-   [Initializer evidence](../reports/upstream-c-coverage.md#gnu-range-designators-and-empty-records)
-2. Finish the C99–C17 lexical inventory using the trigraph, digraph,
+1. Finish the C99–C17 lexical inventory using the trigraph, digraph,
    universal-character, and macro redefinition receipts. Cover the
    remaining source-encoding, line-splicing, and preprocessing-number
    boundaries. Extend the same rule inventory to
    declarators, initializers, conversions, constant expressions, and linkage.
    Pair edition boundaries with native reference runs and earliest-assignment
    regressions.
-3. Run the existing translation-limit, mixed-object, and header probes on
+2. Run the existing translation-limit, mixed-object, and header probes on
    native Intel macOS and Apple Silicon. Expand the C99 header and musl
    replays to the mandatory C11 and C17 interfaces for each applicable SDK.
    Qualify capability macros against their operations and runtime helpers.
    Run the same probes in the corresponding freestanding profiles where
    applicable.
+3. Advance GNU compatibility alongside the ISO inventory. Extend initializer
+   coverage to overlaps across more than two array dimensions and paths
+   with additional ranges interleaved with record members. Cover automatic
+   ranges of aggregates with qualified subobjects. PA38 already exercises
+   nested record members, fixed array indices, union member switches,
+   static patches to large records, and two-dimensional overlaps of whole
+   cells. Keep each of these cases tied to its GNU-mode behavioral control.
+   [Initializer evidence](../reports/upstream-c-coverage.md#gnu-range-designators-and-empty-records)
 
 [Pinned suite receipts](../reports/upstream-c-coverage.md#pinned-suite-receipts) ·
 [Initial hosted replays](../reports/upstream-c-coverage.md#initial-hosted-replays)
@@ -168,6 +167,14 @@ expected failure stage and symptom. An improvement, changed symptom, or new
 failure requires review. Keep undefined inputs, native disagreements, and
 inapplicable target cases out of differential pass denominators, with their
 original provenance and disposition retained.
+
+Add deterministic generators for interactions that isolated upstream tests
+exercise only sparsely. Start with initializer overlap and brace boundaries,
+redeclaration order and scope, and VLA evaluation and exit paths. Give each
+generator a small independent oracle for values, evaluation counts, or
+diagnostic requirements. Use GCC and Clang as additional controls where they
+implement the case. Record the seed, edition, and flags for every failure
+and land the reduction in its owning assignment.
 
 Keep the reviewed GCC/Clang set and `c-testsuite` after the existing Linux
 build, using its compiler artifact. For PRs, run a pinned edition and clause

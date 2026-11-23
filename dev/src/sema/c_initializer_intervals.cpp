@@ -51,6 +51,86 @@ std::vector<CArrayWrite> WinningInitializerSpans(std::vector<CArrayWrite>& write
 	return result;
 }
 
+std::vector<CUnionSelectionSpan> WinningUnionSelections(const std::vector<CArrayWrite>& writes)
+{
+	if (writes.size() == 1)
+		return { { writes.front(), 0 } };
+	struct Choice
+	{
+		uint32_t member, rank;
+	};
+	struct Choices
+	{
+		Choice newest, different;
+		void add(Choice choice)
+		{
+			if (choice.rank > newest.rank)
+			{
+				if (choice.member != newest.member)
+					different = newest;
+				newest = choice;
+			}
+			else if (choice.rank > different.rank && choice.member != newest.member)
+				different = choice;
+		}
+	};
+	std::vector<uint64_t> edges;
+	edges.reserve(writes.size() * 2);
+	for (const auto& write : writes)
+	{
+		edges.push_back(write.first);
+		edges.push_back(write.limit);
+	}
+	if (edges.empty())
+		return {};
+	std::sort(edges.begin(), edges.end());
+	edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
+	const size_t leaves = edges.size() - 1;
+	std::vector<Choices> tree(leaves * 2);
+	// Each write is added to a disjoint cover of its intervals. Two
+	// distinct members per node suffice when combining any two covers.
+	for (const auto& write : writes)
+	{
+		size_t first = leaves + (std::lower_bound(edges.begin(), edges.end(), write.first) - edges.begin());
+		size_t limit = leaves + (std::lower_bound(edges.begin(), edges.end(), write.limit) - edges.begin());
+		while (first < limit)
+		{
+			if ((first & 1) != 0)
+				tree[first++].add({ write.value, write.rank });
+			if ((limit & 1) != 0)
+				tree[--limit].add({ write.value, write.rank });
+			first /= 2;
+			limit /= 2;
+		}
+	}
+	for (size_t i = 1; i < leaves; ++i)
+	{
+		const auto& choices = tree[i];
+		if (choices.newest.rank == 0)
+			continue;
+		tree[i * 2].add(choices.newest);
+		tree[i * 2].add(choices.different);
+		tree[i * 2 + 1].add(choices.newest);
+		tree[i * 2 + 1].add(choices.different);
+	}
+	std::vector<CUnionSelectionSpan> result;
+	for (size_t i = 0; i < leaves; ++i)
+	{
+		const auto& choices = tree[leaves + i];
+		const Choice winner = choices.newest;
+		if (winner.rank == 0)
+			continue;
+		const uint32_t different = choices.different.rank;
+		if (!result.empty() && result.back().selection.value == winner.member &&
+			result.back().selection.rank == winner.rank && result.back().selection.limit == edges[i] &&
+			result.back().different == different)
+			result.back().selection.limit = edges[i + 1];
+		else
+			result.push_back({ { edges[i], edges[i + 1], winner.member, winner.rank }, different });
+	}
+	return result;
+}
+
 CInitializerResets::CInitializerResets(const std::vector<CArrayWrite>& writes, uint64_t extent) : nodes_(1)
 {
 	edges_.reserve(writes.size() * 2 + (extent == 0 ? 0 : 2));
@@ -127,6 +207,32 @@ uint32_t CInitializerResets::save(Node node)
 	const auto result = static_cast<uint32_t>(nodes_.size());
 	nodes_.push_back(node);
 	return result;
+}
+
+uint32_t CInitializerResets::restrict_to(uint32_t root, const std::vector<CArrayWrite>& spans)
+{
+	const uint32_t blocked = save({ 0, 0, UINT32_MAX, UINT32_MAX, UINT32_MAX });
+	size_t next = 0;
+	return spans.empty() ? blocked : restrict_to(root, 0, edges_.size() - 1, spans, next, blocked);
+}
+
+uint32_t CInitializerResets::restrict_to(
+	uint32_t node, size_t lo, size_t hi, const std::vector<CArrayWrite>& spans, size_t& next, uint32_t blocked)
+{
+	while (next != spans.size() && spans[next].limit <= edges_[lo])
+		++next;
+	if (next == spans.size() || edges_[hi] <= spans[next].first)
+		return blocked;
+	const CArrayWrite& allowed = spans[next];
+	if (allowed.first <= edges_[lo] && edges_[hi] <= allowed.limit)
+		return add(node, lo, hi, allowed);
+	Node result = nodes_[node];
+	const size_t mid = lo + (hi - lo) / 2;
+	result.left = restrict_to(result.left, lo, mid, spans, next, blocked);
+	result.right = restrict_to(result.right, mid, hi, spans, next, blocked);
+	result.min = std::max(result.floor, std::min(nodes_[result.left].min, nodes_[result.right].min));
+	result.max = std::max(result.floor, std::max(nodes_[result.left].max, nodes_[result.right].max));
+	return save(result);
 }
 
 void CInitializerResets::clip(uint32_t root, const CArrayWrite& write, std::vector<CArrayWrite>& retained) const

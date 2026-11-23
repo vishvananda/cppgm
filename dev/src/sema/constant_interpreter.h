@@ -14,6 +14,7 @@
 
 namespace sema {
 struct CInitializer;
+struct CInitializerFieldSpans;
 
 class Analyzer;
 class ConstantMemo;
@@ -362,6 +363,8 @@ private:
 		const Type* type, const ConstPlace& target, const syntax::Initializer& init, uint32_t location);
 	bool c_initialize(const CInitializer& plan, const ConstPlace& target, uint32_t location, bool inherited = false);
 	bool c_initialize_field_spans(const CInitializer& plan, const ConstPlace& target, uint32_t location);
+	bool c_select_variant(
+		const CInitializerFieldSpans& lane, const ConstPlace& target, uint64_t stride, uint32_t location);
 	bool c_initialize_rectangles(const CInitializer& plan, const ConstPlace& target, uint32_t location);
 	bool c_initialize_shared(const CInitializer& initializer, const ConstPlace& target, uint32_t location,
 		uint32_t& entry, PointerMap& saved, std::vector<ConstValue>& values);

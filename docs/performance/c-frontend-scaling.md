@@ -2143,3 +2143,63 @@ and 0.01036%, respectively.
 | SQLite | A/A | 16,529,577,734 / 16,529,624,790 / 16,529,303,118 / 16,531,016,073 |
 | SQLite | ABBA | 16,529,749,695 / 16,529,579,402 / 16,529,455,825 / 16,530,101,958 |
 | SQLite | BAAB | 16,529,507,871 / 16,529,694,321 / 16,529,880,423 / 16,529,975,506 |
+
+## Union member switches in overlapping ranges
+
+The initializer planner indexes written interval boundaries and records the
+two latest distinct member choices. It restricts each member's descendant
+writes with the existing versioned reset index. The normal direct-member
+path uses the same-size field records and no selector table.
+
+The automatic-storage workload writes one field across the array, then
+alternates two member selections within each region. The number of written
+clauses is twice the region count plus one. These are medians of three
+measurements per input with the compiler pinned to one CPU.
+
+| Regions | Represented elements | Syntax only instructions | LowIR instructions | LowIR lines | Peak LowIR RSS (KiB) |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 256 | 262,144 | 13,099,202 | 24,385,947 | 10,514 | 9,292 |
+| 512 | 262,144 | 22,221,487 | 44,910,809 | 21,010 | 11,412 |
+| 1,024 | 262,144 | 40,560,484 | 86,542,884 | 42,002 | 16,240 |
+| 2,048 | 262,144 | 77,873,196 | 171,006,773 | 83,986 | 23,068 |
+| 4,096 | 262,144 | 152,682,526 | 340,698,223 | 167,954 | 38,884 |
+| 512 | 16,384 | 22,028,758 | 44,500,635 | 21,010 | 11,480 |
+| 512 | 65,536 | 22,107,403 | 44,668,755 | 21,010 | 12,188 |
+| 512 | 1,048,576 | 22,277,317 | 45,033,163 | 21,010 | 11,480 |
+| 512 | 16,777,216 | 22,491,759 | 45,486,248 | 21,010 | 12,200 |
+
+At fixed extent, incremental instruction counts grow by about 2.02× per
+doubling of the written regions. At fixed write count, a 1,024× increase
+in extent leaves LowIR length unchanged and raises measured instructions
+by about 2.2%. The automatic initializer expresses writes as bounded loops.
+
+The sparse static workload writes zero over the full array, switches member
+on eight rows, and patches eleven rows. It emits 23 LowIR lines at each
+tested extent and retains only the nonzero payload and its zero spans.
+
+| Represented elements | LowIR instructions | Peak RSS (KiB) |
+| ---: | ---: | ---: |
+| 1,024 | 4,077,384 | 7,168 |
+| 1,048,576 | 4,078,520 | 7,240 |
+| 16,777,216 | 4,079,088 | 7,276 |
+
+Against `e0951541f`, the 4,096-field direct-member control produces
+byte-identical LowIR. Instruction counts rise by 0.009% in syntax-only
+mode and 0.021% with LowIR emission in both paired blocks. The frozen
+C++ and SQLite objects are byte-identical in every trial and change by
+at most 0.002% in paired instruction counts.
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| Direct member, syntax | A/A | 166,969,086 / 166,968,966 / 166,968,934 / 166,968,926 |
+| Direct member, syntax | ABBA | 166,968,932 / 166,984,083 / 166,983,996 / 166,968,983 |
+| Direct member, syntax | BAAB | 166,984,025 / 166,968,898 / 166,968,927 / 166,983,996 |
+| Direct member, LowIR | A/A | 343,154,446 / 343,154,510 / 343,154,471 / 343,154,493 |
+| Direct member, LowIR | ABBA | 343,154,468 / 343,226,942 / 343,226,874 / 343,154,520 |
+| Direct member, LowIR | BAAB | 343,227,051 / 343,154,519 / 343,154,528 / 343,227,006 |
+| C++ | A/A | 9,057,243,718 / 9,057,295,108 / 9,056,957,793 / 9,057,052,436 |
+| C++ | ABBA | 9,057,436,538 / 9,057,319,508 / 9,057,161,751 / 9,057,258,392 |
+| C++ | BAAB | 9,057,301,641 / 9,057,203,215 / 9,057,296,895 / 9,057,224,616 |
+| SQLite | A/A | 16,529,736,374 / 16,529,721,207 / 16,529,477,141 / 16,530,118,493 |
+| SQLite | ABBA | 16,530,103,105 / 16,529,683,722 / 16,529,798,677 / 16,529,427,500 |
+| SQLite | BAAB | 16,529,534,763 / 16,529,505,082 / 16,529,579,062 / 16,529,947,676 |

@@ -231,8 +231,8 @@ storage durations. GCC 15 and cppgm match those results at `-O0` and
 The Intel and Apple Silicon Mach-O objects both cross-link.
 
 The remaining range cases include composition across a third array
-dimension or extra ranges interleaved with member paths, union member
-changes, and qualified aggregates in automatic storage.
+dimension, extra ranges interleaved with member paths, and qualified
+aggregates in automatic storage.
 [PA38 field overlap fixture](../pa38/tests/general/300-designated-gnu-field-overlaps.t) ·
 [WG14 DR 413](https://www.open-std.org/Jtc1/sc22/WG14/www/docs/dr_413.htm) ·
 [WG14 DR 253](https://www.open-std.org/JTC1/SC22/WG14/www/docs/dr_253.htm)
@@ -275,6 +275,25 @@ previously rejected nested brace case now matches GCC 15. A separate
 The versioned reset index also matches a pointwise oracle on 10,000
 generated cases.
 [PA38 nested member fixture](../pa38/tests/general/300-designated-gnu-nested-overlaps.t)
+
+The union overlap fixture checks same-member updates, a switch away and
+back, nested unions reached through fixed indices, once-only evaluation,
+and static bit-fields and pointer relocations. It also checks a patch to
+the member supplied by a whole union value. cppgm preserves that member's
+untouched sibling, as it does for point designators. GCC 15 clears the
+sibling in this case. Clang 22 preserves it in the equivalent point case
+and diagnoses the range form with side effects as unimplemented.
+The 128 generated cases with braced writes agree with a pointwise oracle
+under both cppgm and GCC 15 at `-O0` and `-O2`. A separate oracle checks
+10,000 sets of interval priorities and ancestor resets.
+
+The PA38 fixture passes in GNU99, GNU11, and GNU17 on x86-64 Linux and in
+GNU17 on AArch64 Linux under QEMU at both optimization levels. The WASI
+lane passes. Intel and Apple Silicon Mach-O objects cross-link at both
+levels. Native macOS execution remains open.
+[PA38 union overlap fixture](../pa38/tests/general/300-designated-gnu-union-overlaps.t) ·
+[GCC designators](https://gcc.gnu.org/onlinedocs/gcc/Designated-Inits.html) ·
+[WG14 DR 413](https://www.open-std.org/JTC1/SC22/WG14/www/docs/dr_413.htm)
 
 ## Initial hosted replays
 

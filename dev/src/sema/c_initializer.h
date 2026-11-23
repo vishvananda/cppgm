@@ -46,15 +46,30 @@ struct CInitializerChild
 	uint64_t index;
 };
 
+enum class CInitializerFieldKind : uint8_t
+{
+	Value,
+	SelectVariant,
+	PreserveVariant,
+	ResetVariant
+};
+
 // Each lane updates one typed subobject of an array's record elements.
 // The offset is to the containing record for a member, or to the
 // subobject itself for a fixed array index. Ancestors precede descendants.
+// Variant lanes select the active union member before any writes through
+// it. They carry intervals without initializer expressions.
 struct CInitializerFieldSpans
 {
 	const DataMember* member;
 	const Type* owner;
 	uint64_t offset;
-	syntax::Slice<const CInitializerChild> spans;
+	const CInitializerChild* span_data;
+	uint32_t span_count;
+	CInitializerFieldKind kind;
+	bool through_union;
+
+	syntax::Slice<const CInitializerChild> spans() const { return { span_data, span_count }; }
 };
 
 struct CInitializerRectangle
