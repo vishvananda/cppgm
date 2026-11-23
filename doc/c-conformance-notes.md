@@ -564,3 +564,16 @@ Clang-style rounding rule. A separate compiler using a different
 [WG14 DR 431](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2243.htm#dr_431) ·
 [Clang atomic lowering](https://github.com/llvm/llvm-project/blob/llvmorg-21.1.8/clang/lib/CodeGen/CGAtomic.cpp) ·
 [GCC atomic builtins](https://gcc.gnu.org/onlinedocs/gcc-15.2.0/gcc/_005f_005fatomic-Builtins.html)
+
+## Ordinary C atomic reads and assignments
+
+An lvalue conversion reads an atomic object with sequentially consistent
+ordering and produces a value of the unqualified type. This applies when
+copy-initializing, passing, returning, or discarding a value. An assignment
+stores the entire atomic representation with the same ordering. Its
+result is the stored value and requires no additional load. Initialization
+of an unpublished object writes the ordinary value and initializes any
+additional atomic padding.
+
+[WG14 N1570, §§6.2.6.1, 6.3.2.1, and 6.5.16](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[Clang atomic lowering](https://github.com/llvm/llvm-project/blob/llvmorg-21.1.8/clang/lib/CodeGen/CGAtomic.cpp)

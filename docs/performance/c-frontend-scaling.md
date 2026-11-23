@@ -1190,3 +1190,42 @@ retired instructions.
 | SQLite | A/A | 16,506,116,647 / 16,506,188,201 / 16,506,737,699 / 16,506,130,805 |
 | SQLite | ABBA | 16,506,115,215 / 16,506,260,891 / 16,506,251,507 / 16,506,167,898 |
 | SQLite | BAAB | 16,506,528,745 / 16,506,078,015 / 16,506,200,838 / 16,506,098,576 |
+
+## Ordinary C atomic aggregate expressions
+
+Each generated C11 function reads through an atomic pointer, assigns a
+new value, and returns the previous value. The three-, twelve-, and
+seventeen-byte values use the same storage widths as the builtin series.
+The retired user-space instruction counts are medians of three
+compilations with GCC 15-built cppgm `fef99fdb4` on CPU 71, at
+`-O2 -c -nostdinc`. Counts are in millions.
+
+| Functions | 3-byte value | 12-byte value | 17-byte value |
+| ---: | ---: | ---: | ---: |
+| 256 | 181.104 | 165.624 | 143.024 |
+| 1024 | 719.124 | 648.289 | 559.702 |
+| 4096 | 2863.825 | 2588.521 | 2232.245 |
+
+The final fourfold increase in function count increased instructions by
+3.98 to 3.99 times. At 4096 functions, median peak RSS was 40,964, 44,348,
+and 36,092 KiB. Each size produced identical objects in all three trials.
+
+Frozen `semantic_overload.cpp` at `-O3` and SQLite at
+`-std=gnu17 -O2` produced byte-identical objects with parent
+`325699231` and candidate `fef99fdb4`. The A/A task-clock ranges
+were 22.4% and 2.4%. The SQLite task-clock direction reversed across
+paired blocks. Retired instruction changes were below 0.003%.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0025% | +0.0003% | +0.0007% |
+| SQLite `sqlite3.c` | 0.0018% | +0.0026% | +0.0005% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,044,517,351 / 9,044,545,803 / 9,044,472,369 / 9,044,699,230 |
+| C++ | ABBA | 9,044,591,740 / 9,044,588,557 / 9,044,588,252 / 9,044,531,363 |
+| C++ | BAAB | 9,044,605,420 / 9,044,554,984 / 9,044,438,812 / 9,044,521,577 |
+| SQLite | A/A | 16,506,007,636 / 16,505,964,108 / 16,506,011,104 / 16,506,257,930 |
+| SQLite | ABBA | 16,506,453,078 / 16,507,130,012 / 16,506,102,685 / 16,505,937,357 |
+| SQLite | BAAB | 16,506,339,744 / 16,505,977,955 / 16,506,317,526 / 16,506,119,828 |

@@ -654,10 +654,6 @@ Wasm and WASI under Wasmtime with a single-thread ABI test provider.
 It linked as Mach-O for Intel and Arm Darwin with a supplied provider.
 Native Darwin execution and a concurrent wide Wasm runtime are still
 open qualification items.
-Direct C assignment and lvalue conversion on an atomic aggregate need
-further work. The three-byte return reads the value in multiple loads.
-The twelve-byte path uses ordinary copies and read torn values in three
-native runs of the publication probe using C assignment and reads.
 [Atomic aggregate rules](../doc/c-conformance-notes.md#atomic-aggregate-values) ·
 [Compile-time measurements](../docs/performance/c-frontend-scaling.md#atomic-aggregate-builtins)
 
@@ -668,6 +664,42 @@ student export verified 26,147 reference files and passed the two
 affected cases with its bundled tools. The pinned GCC, Clang,
 `c-testsuite`, GCC torture, and Csmith results retained their reviewed
 outcomes.
+
+### Ordinary C atomic aggregate expressions
+
+The direct three-byte aggregate return had split the read into ordinary
+loads. Ordinary C assignment and lvalue conversion for a twelve-byte
+object read torn values in all three native runs of the publication probe.
+They now share the sized atomic operations used by the builtin path.
+The assignment result reuses the ordinary value. Copies into arguments
+and returns use the unqualified layout. Initialization covers padding in
+local atomic objects and in explicitly initialized and omitted members.
+[PA38 inline case](../pa38/tests/general/500-c-atomic-record-access.t) ·
+[PA38 wide case](../pa38/tests/general/500-c-wide-atomic-record-access.t) ·
+[Direct atomic access rules](../doc/c-conformance-notes.md#ordinary-c-atomic-reads-and-assignments)
+
+The concurrent publication probe for 3-, 12-, and 17-byte values passed
+three runs each at `-O0` and `-O2` on Linux x86-64 and AArch64 QEMU.
+Clang and cppgm objects exchanged 12- and 17-byte values on x86-64 with
+`libatomic`. Both optimization levels passed for bare Wasm and WASI with
+a single-thread ABI test provider. Mach-O linked for both Darwin targets
+with a supplied provider. The disabled Wasm atomic profile rejected wide
+atomic access with an explicit diagnostic.
+
+The strict report passed 11,652 tests. PA36 smoke, PA37, PA38 native and
+Wasm, PA39, debug information, PA35 through PA5, and inception passed.
+The placement audit scanned 11,248 cases with zero findings. The export
+verified 26,153 reference outputs and passed the new native and Wasm
+cases with the bundled tools. The upstream tests, GCC torture, and
+Csmith retained their reviewed outcomes.
+
+Wide atomic read-modify-write remains open. A plain `long double`
+post-increment and compound assignment reach unsupported wide
+instructions on AArch64 Linux and Wasm. Those operations need the same
+runtime width selection and a retry loop with an atomic snapshot. The
+x86-64 update currently emits `cmpxchg16b`, while ordinary wide C
+loads and stores use the generic provider.
+[Compile-time measurements](../docs/performance/c-frontend-scaling.md#ordinary-c-atomic-aggregate-expressions)
 
 ## Cross-target smoke results
 
