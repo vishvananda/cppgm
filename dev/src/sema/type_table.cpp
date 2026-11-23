@@ -154,6 +154,11 @@ const Type* TypeTable::insert(const Type& key, uint32_t hash, uint32_t index)
 	*type = key;
 	type->target = target_;
 	type->hash = hash;
+	// A function derives from its result. A variably modified parameter
+	// belongs to its own parameter declaration. Compute this derived bit
+	// once per interned function, after the lookup.
+	if (key.kind == TypeKind::Function)
+		type->c_variably_modified = key.element != nullptr && key.element->c_variably_modified;
 	if (key.param_count != 0)
 		type->params = arena_.copy_array(key.params, key.param_count);
 	type->unqualified = type;
@@ -370,9 +375,6 @@ const Type* TypeTable::function(const Type* result, const Type* const* params, u
 {
 	Type key = Key(TypeKind::Function);
 	key.element = result;
-	// A function type derives from its result. Variably modified parameter
-	// declarations are local to the parameter list.
-	key.c_variably_modified = result != nullptr && result->c_variably_modified;
 	key.params = params;
 	key.param_count = count;
 	key.variadic = variadic;
