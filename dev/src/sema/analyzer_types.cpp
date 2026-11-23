@@ -82,8 +82,8 @@ const syntax::Name* DeclaratorId(const syntax::Declarator* declarator)
 	return nullptr;
 }
 
-// A parameter declaration whose type names a decltype-specifier.
-bool SpecifiersNameValues(const syntax::Slice<syntax::DeclSpecifier>& specifiers, uint32_t level);
+bool SpecifiersNeedParameterScope(
+	const syntax::Slice<syntax::DeclSpecifier>& specifiers, uint32_t level, bool c_source = false);
 
 // A name whose template arguments hold an expression (an unevaluated
 // operand in it may name an earlier parameter, 3.3.4p1), or a type-id
@@ -99,19 +99,23 @@ bool NameHoldsValues(const syntax::Name& name, uint32_t level)
 		for (const syntax::TemplateArgument& argument : component.arguments)
 		{
 			if (argument.expression != nullptr ||
-				(argument.type != nullptr && SpecifiersNameValues(argument.type->specifiers, level + 1)))
+				(argument.type != nullptr && SpecifiersNeedParameterScope(argument.type->specifiers, level + 1)))
 				return true;
 		}
 	}
 	return false;
 }
 
-bool SpecifiersNameValues(const syntax::Slice<syntax::DeclSpecifier>& specifiers, uint32_t level)
+bool SpecifiersNeedParameterScope(const syntax::Slice<syntax::DeclSpecifier>& specifiers, uint32_t level, bool c_source)
 {
 	for (const syntax::DeclSpecifier& specifier : specifiers)
 	{
 		if (specifier.kind == syntax::DeclSpecKind::Decltype ||
 			(specifier.kind == syntax::DeclSpecKind::Name && NameHoldsValues(*specifier.name, level)))
+			return true;
+		if (c_source &&
+			(specifier.kind == syntax::DeclSpecKind::Class || specifier.kind == syntax::DeclSpecKind::Elaborated ||
+				specifier.kind == syntax::DeclSpecKind::Enum))
 			return true;
 	}
 	return false;
@@ -121,7 +125,8 @@ bool SpecifiersNameValues(const syntax::Slice<syntax::DeclSpecifier>& specifiers
 // decltype-specifier, or a template argument expression, in its
 // decl-specifiers, or an array bound other than a literal in its
 // declarator (an unevaluated operand there may name one, 3.3.4p1).
-bool UsesDecltype(const syntax::ParameterDeclaration& parameter)
+// C parameters can also introduce tags or enumerators into this scope.
+bool NeedsParameterScope(const syntax::ParameterDeclaration& parameter, bool c_source)
 {
 	for (const syntax::Declarator* declarator = parameter.declarator; declarator != nullptr;
 		declarator = declarator->nested)
@@ -133,7 +138,7 @@ bool UsesDecltype(const syntax::ParameterDeclaration& parameter)
 				return true;
 		}
 	}
-	return SpecifiersNameValues(parameter.specifiers, 0);
+	return SpecifiersNeedParameterScope(parameter.specifiers, 0, c_source);
 }
 
 // A class template's name found other than as its injected-class-name
@@ -1417,7 +1422,7 @@ const Type* Analyzer::apply_suffix(const syntax::DeclaratorSuffix& suffix, const
 	for (const syntax::ParameterDeclaration* parameter : clause.parameters)
 	{
 		const uint32_t index = static_cast<uint32_t>(parameter_scratch_.size() - base);
-		if (earlier == nullptr && (index != 0 || c_source_) && UsesDecltype(*parameter))
+		if (earlier == nullptr && (index != 0 || c_source_) && NeedsParameterScope(*parameter, c_source_))
 		{
 			// The parameters' object types: an array or function parameter's
 			// adjusted to a pointer (8.3.5p5).

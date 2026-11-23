@@ -70,6 +70,31 @@ declaration, even when the loop body would never run.
 [Alignment fixture](../pa38/tests/general/500-c11-alignment.t) ·
 [For initializer fixture](../pa38/tests/general/500-c11-for-static-assert.t)
 
+## Declarations in a C for initializer
+
+From C99 through C17, 6.8.5p3 allows identifiers declared in the initializer
+to denote only objects with automatic or register storage class. WG14
+DR 277 confirms that the rule covers tags and enumerators. In addition
+to the lifetime of the object, check the kind of each declaration and
+its actual scope. A reference to an existing tag and the members of an
+anonymous record leave the rule satisfied. C23 removes this constraint.
+
+[WG14 DR 277](https://www.open-std.org/Jtc1/sc22/wg14/issues/c99/issue0277.html) ·
+[C23 draft, N3096](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
+[PA38 loop scope fixture](../pa38/tests/general/500-c-for-declarations.t)
+
+## Tags in C function declarators
+
+Under 6.2.1p4 and 6.7.2.3p8, introducing a tag in the parameter list of
+a prototype gives it scope through the end of that declarator. A visible
+tag can be reused there. A tag introduced in a definition's own parameter
+list has block scope through its body. Two otherwise identical prototypes
+that separately introduce a tag do not declare compatible function types.
+
+[C11 draft, N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[PA38 prototype scope fixture](../pa38/tests/general/500-c-prototype-tag-scope.t) ·
+[PA38 redeclaration fixture](../pa38/tests/general/300-c-prototype-tag-redeclaration-bad.t)
+
 ## Literal prefixes and feature probes by edition
 
 C11 6.4.4.4 and 6.4.5 add Unicode character and string prefixes. In

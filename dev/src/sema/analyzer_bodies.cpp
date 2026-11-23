@@ -715,7 +715,17 @@ void Analyzer::scoped_statement(const syntax::Stmt& stmt, Scope* scope, BodyCont
 		const syntax::ForStmt& loop = static_cast<const syntax::ForStmt&>(stmt);
 		Scope* block = new_scope(ScopeKind::Block, scope, scope, nullptr, nullptr);
 		if (loop.init_declaration != nullptr)
-			declaration(*loop.init_declaration, block);
+		{
+			if (c_source_)
+			{
+				const CForInitializer saved = c_for_initializer_;
+				c_for_initializer_ = { block, loop.init_declaration->location };
+				declaration(*loop.init_declaration, block);
+				c_for_initializer_ = saved;
+			}
+			else
+				declaration(*loop.init_declaration, block);
+		}
 		else
 			deferrable_expression(loop.init_expression, block);
 		if (loop.condition != nullptr && condition(*loop.condition, block) && body != nullptr && !body->pattern)

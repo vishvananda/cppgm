@@ -163,6 +163,19 @@ def c_alignment_specifiers(size, interleaved):
         print('_Alignas(16) ' * size + 'const ' * size + 'char value = 1;')
 
 
+def c_for_declarators(size):
+    print('int main(void) {')
+    print('    for (int ' + ',\n             '.join(f'value{i} = {i}' for i in range(size)) + '; ; )')
+    print(f'        return value0 + value{size - 1} != {size - 1};')
+    print('}')
+
+
+def c_prototype_tag_references(size):
+    print('struct Record { int value; };')
+    for index in range(size):
+        print(f'int use{index}(struct Record *item);')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('case', choices=['parameter-bases', 'plain-templates',
@@ -176,7 +189,8 @@ def main():
                                         'c-generic-arrays', 'c-generic-prototypes', 'c-generic-short-lists',
                                         'c-ice-atoms', 'c-ice-chain',
                                         'c-static-atoms', 'c-static-expressions', 'c-alignment-interleaved',
-                                        'c-alignment-prefix',
+                                        'c-alignment-prefix', 'c-for-declarators',
+                                        'c-prototype-tag-references',
                                         'c-vla-declarators', 'c-fixed-array-declarators',
                                         'c-vla-dimensions', 'c-vla-extent-uses',
                                         'c-typeof-shared-bounds', 'c-designated-overwrites', 'c-designated-sparse',
@@ -229,6 +243,12 @@ def main():
         return
     if args.case in ('c-alignment-prefix', 'c-alignment-interleaved'):
         c_alignment_specifiers(args.size, interleaved=args.case == 'c-alignment-interleaved')
+        return
+    if args.case == 'c-for-declarators':
+        c_for_declarators(args.size)
+        return
+    if args.case == 'c-prototype-tag-references':
+        c_prototype_tag_references(args.size)
         return
     if args.case in ('c-vla-declarators', 'c-fixed-array-declarators'):
         c_array_declarators(args.size, 'n' if args.case == 'c-vla-declarators' else '2')

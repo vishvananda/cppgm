@@ -1,5 +1,6 @@
 #include "sema/analyzer.h"
 
+#include "preprocess/preprocessor.h"
 #include "lex/identifier_table.h"
 
 // Member access control (clause 11; semantics mode): each class member
@@ -81,6 +82,18 @@ Access Analyzer::member_access() const
 													 : Access::Public;
 }
 
+namespace {
+
+bool AutomaticObject(const Binding& binding, const Scope* scope)
+{
+	if (binding.kind != BindingKind::Variable)
+		return false;
+	const auto* variable = static_cast<const VariableEntity*>(binding.entity);
+	return variable->owner == scope && !variable->is_extern && !variable->is_static && !variable->is_thread_local;
+}
+
+} // namespace
+
 void Analyzer::declare_in(Scope* scope, Binding* binding)
 {
 	// A member declaration in its class's member-specification takes the
@@ -96,8 +109,22 @@ void Analyzer::declare_in(Scope* scope, Binding* binding)
 	// declaration decides otherwise (see Binding::dependent).
 	if (scope->kind == ScopeKind::Block)
 		binding->dependent = true;
-	const bool tag_only = c_source_ && binding->kind == BindingKind::Type && binding->entity != nullptr &&
-		(binding->entity->kind == EntityKind::Class || binding->entity->kind == EntityKind::Enum);
+	bool tag_only = false;
+	if (c_source_)
+	{
+		// C99 through C17 6.8.5p3 and DR 277 also cover tags and enumerators
+		// declared in the initializer's scope.
+		if (scope == c_for_initializer_.scope && binding->name != nullptr && !AutomaticObject(*binding, scope))
+		{
+			const char* message =
+				"a for initializer declaration of an identifier other than an auto or register object";
+			if (positions_ != nullptr &&
+				!positions_->allow_c_extension(c_for_initializer_.location, CEdition::C23, message))
+				error(c_for_initializer_.location, message);
+		}
+		tag_only = binding->kind == BindingKind::Type && binding->entity != nullptr &&
+			(binding->entity->kind == EntityKind::Class || binding->entity->kind == EntityKind::Enum);
+	}
 	names_.declare(scope, binding, tag_only);
 }
 

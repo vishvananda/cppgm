@@ -102,6 +102,36 @@
       "obligation": "C99 for-loop declarations and scope"
     },
     {
+      "id": "c99-fordecl-2",
+      "path": "gcc/testsuite/gcc.dg/c99-fordecl-2.c",
+      "sha256": "ef3df63ebc22eb8f5a53a271487a4f237a97183f4ea96795abac87010a92be69",
+      "dialect": "c99",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "C99 for declaration constraints on storage, functions, typedefs, tags, and enumerators"
+    },
+    {
+      "id": "c99-fordecl-3",
+      "path": "gcc/testsuite/gcc.dg/c99-fordecl-3.c",
+      "sha256": "2fce26c292569a308bb05f790b0c0ee946eab6486db0e59fa064fd2bd4aaddcd",
+      "dialect": "c99",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "DR 277 forbids declaring struct and union tags in a for initializer"
+    },
+    {
       "id": "c99-condexpr-1",
       "path": "gcc/testsuite/gcc.dg/c99-condexpr-1.c",
       "sha256": "43c06f247ad5e4436f1061d0ff9352c8728da622a820b53ddc2e4651743462d7",

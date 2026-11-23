@@ -889,6 +889,8 @@ Entity* Analyzer::elaborated_class(
 	if (last.kind != syntax::NameComponentKind::Identifier)
 		error(name.location, "invalid class name");
 	Scope* where = declaration_scope(scope);
+	while (c_source_ && where->kind == ScopeKind::Class)
+		where = where->parent;
 	if (last.has_arguments)
 	{
 		// A class template specialization named by an elaborated-type-
@@ -1011,11 +1013,13 @@ Entity* Analyzer::elaborated_class(
 			result = names_.unqualified(scope, last.identifier, LookupFilter::Elaborated);
 			// 3.3.2p7: declared in the nearest enclosing namespace or block
 			// scope, as an earlier friend declaration may have declared it.
-			Scope* target = where;
-			while (!result.found() && target->kind != ScopeKind::Namespace && target->kind != ScopeKind::Block)
-				target = target->parent;
-			if (!result.found())
+			if (!c_source_ && !result.found())
+			{
+				Scope* target = where;
+				while (target->kind != ScopeKind::Namespace && target->kind != ScopeKind::Block)
+					target = target->parent;
 				result = earlier_class(target, last.identifier);
+			}
 		}
 		if (result.found())
 		{
@@ -1061,12 +1065,11 @@ Entity* Analyzer::elaborated_class(
 				befriend_class(entity, scope);
 			return entity;
 		}
-		// Not found: the class is declared in the nearest enclosing
-		// namespace or block scope (3.3.2p7), for a friend the innermost
-		// enclosing non-class scope (7.3.1.2p3, 11.3p11); a friend template
-		// declaration declares a class template there (14.5.4p1).
+		// In C a new tag belongs to the current scope (6.7.2.3p8),
+		// including a prototype. C++ uses the nearest namespace or block
+		// scope (3.3.2p7), which can receive a friend template (14.5.4p1).
 		Scope* target = where;
-		while (target->kind != ScopeKind::Namespace && target->kind != ScopeKind::Block)
+		while (!c_source_ && target->kind != ScopeKind::Namespace && target->kind != ScopeKind::Block)
 			target = target->parent;
 		check_type_name_conflict(target, last.identifier, nullptr, name.location);
 		entity = new_class(key, last.identifier, target);

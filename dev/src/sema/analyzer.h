@@ -2243,6 +2243,12 @@ private:
 	bool c_language_;
 	bool linkage_extern_;
 	bool linkage_specified_;
+	struct CForInitializer
+	{
+		const Scope* scope;
+		uint32_t location;
+	};
+	CForInitializer c_for_initializer_{};
 	// The block-scope declarations of functions and variables with linkage
 	// that denote no earlier declaration (3.5p6): members of their
 	// innermost enclosing namespace (`space`) whose names are not declared

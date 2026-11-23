@@ -74,6 +74,9 @@ The first fixture set covers these parts of the C17 input profile:
   definitions retain each parameter's declared object type while their public
   signature uses default argument promotions; declarations and earlier/later
   prototypes must remain compatible.
+  A tag introduced in a prototype's parameter list has scope through the
+  end of the declarator. A tag introduced in a function definition's own
+  parameter list remains visible in its body.
 - Implicit conversions between object pointers and qualified `void*`, without
   discarding pointee qualifiers; integral initialization of enumeration objects.
 - GNU C pointer extensions used by hosted libraries: implicit conversions
@@ -102,7 +105,10 @@ The first fixture set covers these parts of the C17 input profile:
   Check operand forms in conditional branches that evaluation skips. A
   foldable array bound can still declare a variable-length array. Use C's
   integer constant expressions of value zero for null pointer conversions.
-  A static assertion can also be the declaration in a `for` initializer.
+- Under the pedantic policy through C17, a declaration in a `for`
+  initializer may introduce identifiers only for automatic or register
+  objects. Reuse of a visible tag is allowed. A static assertion also fits
+  because it introduces no identifier. The restriction was removed in C23.
 - When the two pointer operands of `?:` point to compatible types, form
   the composite pointed-to type and combine their qualifiers. A bound or
   a prototype from either operand can determine the result type. Evaluate

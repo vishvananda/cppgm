@@ -72,6 +72,14 @@ over-aligned object. They place a growing number of alignment specifiers
 before or between repeated qualifiers, respectively. Double the count in
 C17 syntax-only mode, then check that both orders emit identical objects.
 
+`c-for-declarators` grows the number of automatic objects in one `for`
+initializer. Measure C99 syntax-only compilation with `-pedantic-errors`
+and compare `-O0` objects from the same source.
+
+`c-prototype-tag-references` repeats prototypes whose parameter type
+references an existing record tag. Compile in C99 syntax-only mode to
+measure the cost of prototype scope for declarations that can introduce tags.
+
 `c-vla-declarators` generates independent declarations that share an element
 type and each have their own runtime bound. Compare it against
 `c-fixed-array-declarators` at 1024, 2048, 4096, and 8192 functions in C17

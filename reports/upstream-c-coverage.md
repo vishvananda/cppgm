@@ -325,18 +325,29 @@ qualification.
 [PA26 Mach-O host check](../pa26/tests/macho/100-handler-rejoin.cpp) ·
 [WG14 C23 issue log](https://open-std.org/jtc1/sc22/wg14/www/docs/n3977.htm)
 
-## C loop declaration baseline
+## C loop declarations and prototype tags
 
-GCC 15 and Clang 21 both reject a static, external, or thread-local
-object, a typedef, a function declaration, or a standalone tag in a C17
-`for` initializer. cppgm still accepts all six. All three accept an
-automatic or register object, a static assertion, and an object whose type
-is an anonymous record defined in place. GCC diagnoses a named tag
-definition or an enumerator accompanying the object, while Clang accepts
-those forms. Apply the common cases in the ordinary declaration analysis
-using the storage, entity kind, and scope already determined there.
+The pre-C23 `for` initializer check uses the kind, scope, and storage
+of each typed binding introduced there. With `-pedantic-errors`, PA38
+rejects static, external, and thread-local objects, typedefs, functions,
+tags, and enumerators. The accepted cases exercise automatic and register
+objects, shadowing, an existing tag, and an anonymous record. The GNU17
+extension control exercises a static loop object. The pinned C99 manifest
+now checks both GCC rejection cases alongside its existing execution test.
+Where GCC and Clang differ on tags and enumerators, DR 277 is the oracle.
 
-[C11 draft, N1570 §6.8.5](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
+Tags introduced by a nested function prototype are scoped to that
+declarator. The accepted loop fixture includes a function pointer
+parameter with its own tag. Separate fixtures verify that a parameter
+tag is distinct from a subsequent file-scope tag, that a tag introduced
+in a function definition can be used in its body, and that two prototypes
+which independently introduce a tag have conflicting types.
+
+[C11 draft, N1570 §6.2.1 and §6.8.5](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[WG14 DR 277](https://www.open-std.org/Jtc1/sc22/wg14/issues/c99/issue0277.html) ·
+[GCC C99 manifest](upstream-gcc-c99.json) ·
+[PA38 loop scope](../pa38/tests/general/500-c-for-declarations.t) ·
+[PA38 prototype tag scope](../pa38/tests/general/500-c-prototype-tag-scope.t)
 
 ## Cross-target smoke results
 

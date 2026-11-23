@@ -29,9 +29,10 @@ conflicts between scopes. Keep the prototype visible at each declaration
 separate from the compatibility requirements of the linked entity. The
 constant-expression batch covers integer constant contexts and static
 arithmetic and address initializers. The C11 alignment and assertion
-cases in the pinned GCC C17 manifest now pass. Continue with alignment
-agreement and the remaining `for` declaration constraints. Expand the
-C99, C11, and C17 manifests from those clauses, and qualify the C11
+cases in the pinned GCC C17 manifest now pass. The declaration batch also
+covers `for` initializer constraints and prototypes that introduce tags.
+Continue with alignment agreement. Expand the C99, C11, and C17 manifests
+from those clauses, and qualify the C11
 optional-feature macros against the target matrix before changing the
 advertised support. Keep the existing VLA, generic selection, and sparse
 initializer tests in the fast iteration loop for changes to their shared
