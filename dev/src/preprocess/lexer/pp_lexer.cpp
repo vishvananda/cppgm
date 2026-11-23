@@ -10,10 +10,10 @@ PPLexer::PPLexer(const SourceBuffer& source, const PPLexerOptions& options)
 	  cur_(reader_.logical(source.begin_offset())), token_(), token_begin_(0), clean_end_(0), token_end_(0),
 	  base_(options.location_base), dirty_(false), header_names_on_request_(options.header_names_on_request),
 	  c_source_(options.c_source), unicode_literal_prefixes_(options.unicode_literal_prefixes),
-	  binary_exponents_(options.binary_exponents), digit_separators_(options.digit_separators),
-	  utf8_character_literals_(options.cxx_edition >= 17), cxx20_(options.cxx_edition >= 20),
-	  legacy_comment_bytes_(options.legacy_comment_bytes), lone_quotes_(options.lone_quotes),
-	  gnu_escapes_(options.gnu_escapes), keyword_macros_(options.keyword_macros),
+	  c99_identifiers_(options.c99_identifiers), binary_exponents_(options.binary_exponents),
+	  digit_separators_(options.digit_separators), utf8_character_literals_(options.cxx_edition >= 17),
+	  cxx20_(options.cxx_edition >= 20), legacy_comment_bytes_(options.legacy_comment_bytes),
+	  lone_quotes_(options.lone_quotes), gnu_escapes_(options.gnu_escapes), keyword_macros_(options.keyword_macros),
 	  conditional_escapes_(options.conditional_escapes), dollar_identifiers_(options.dollar_identifiers),
 	  context_(options.header_names_on_request ? DirectiveContext::Other : DirectiveContext::LineStart)
 {}
@@ -36,7 +36,7 @@ const PPToken& PPLexer::next()
 	if (__builtin_expect(context_ == DirectiveContext::AfterInclude, 0) && (c == '<' || c == '"') &&
 		try_lex_header_name())
 		return finish(PPTokenKind::HeaderName);
-	if (IsIdentifierStart(c) || (c == '$' && dollar_identifiers_))
+	if (IsIdentifierStart(c, c99_identifiers_) || (c == '$' && dollar_identifiers_))
 		return lex_identifier_or_prefixed_literal();
 	if (IsAsciiDigit(c) || (c == '.' && IsAsciiDigit(peek_after(cur_).code_point)))
 		return lex_pp_number();
@@ -468,12 +468,16 @@ bool PPLexer::take_identifier_continue()
 		if (!read_universal_character_name(cur_, ucn))
 			return false;
 		const SourceChar c = ucn_outside_literal(ucn);
-		if (!IsIdentifierContinue(c.code_point))
+		if (!IsIdentifierContinue(c.code_point, c99_identifiers_))
+		{
+			if (c99_identifiers_)
+				throw SourceError(ucn.begin, "universal character name is outside the C99 identifier ranges");
 			return false;
+		}
 		take(c);
 		return true;
 	}
-	if (!IsIdentifierContinue(cur_.code_point) && !(cur_.code_point == '$' && dollar_identifiers_))
+	if (!IsIdentifierContinue(cur_.code_point, c99_identifiers_) && !(cur_.code_point == '$' && dollar_identifiers_))
 		return false;
 	take(cur_);
 	return true;
@@ -550,8 +554,12 @@ const PPToken& PPLexer::lex_backslash()
 
 	const SourceChar c = ucn_outside_literal(ucn);
 	take(c);
-	if (!IsIdentifierStart(c.code_point))
+	if (!IsIdentifierStart(c.code_point, c99_identifiers_))
+	{
+		if (c99_identifiers_)
+			throw SourceError(ucn.begin, "universal character name cannot start a C99 identifier");
 		return finish(PPTokenKind::NonWhitespaceCharacter);
+	}
 	while (take_identifier_continue())
 	{
 	}
@@ -596,7 +604,8 @@ const PPToken& PPLexer::lex_pp_number()
 			if (sign.code_point == '+' || sign.code_point == '-')
 				take(sign);
 		}
-		else if (c == '.' || (digit_separators_ && c == '\'' && IsIdentifierContinue(peek_after(cur_).code_point)))
+		else if (c == '.' ||
+			(digit_separators_ && c == '\'' && IsIdentifierContinue(peek_after(cur_).code_point, c99_identifiers_)))
 		{
 			take(cur_);
 		}

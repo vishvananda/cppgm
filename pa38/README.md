@@ -80,6 +80,12 @@ low values are U+0024, U+0040, and U+0060. A token that is skipped,
 unused in a macro, or stringized does not require this literal
 conversion. Use the pedantic and system-header policy above.
 
+C99 and GNU99 use the C99 Annex D identifier ranges. The digit ranges
+may continue an identifier. C11 and C17 use their Annex D ranges for
+initial and subsequent characters. An allowed UTF-8 character and its
+universal character name spell the same identifier. Apply the selected
+edition when lexing the result of `##` as well as in source.
+
 In ISO C99, lex `u`, `U`, and `u8` before a quote as identifiers.
 Use the same edition for macro pasting. C11 and GNU99 accept Unicode
 literal prefixes.

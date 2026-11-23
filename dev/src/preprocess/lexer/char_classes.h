@@ -43,25 +43,30 @@ inline bool IsHorizontalWhitespace(int32_t c)
 	return c == ' ' || c == '\t' || c == '\v' || c == '\f' || c == '\r';
 }
 
-// Annex E.1: code points allowed in identifiers.
+// C++ Annex E.1 and C11 Annex D.1: code points allowed in identifiers.
 [[gnu::cold]] bool IsAnnexE1Allowed(int32_t c);
 
-// Annex E.2: code points not allowed as the first identifier character.
+// C++ Annex E.2 and C11 Annex D.2: code points disallowed initially.
 [[gnu::cold]] bool IsAnnexE2DisallowedInitially(int32_t c);
 
-inline bool IsIdentifierStart(int32_t c)
+// C99 Annex D: the older identifier repertoire and initial digit rule.
+[[gnu::cold]] bool IsC99IdentifierCharacter(int32_t c, bool initial);
+
+inline bool IsIdentifierStart(int32_t c, bool c99 = false)
 {
 	if (c < 0x80)
 		return IsAsciiNondigit(c);
+	if (c99)
+		return IsC99IdentifierCharacter(c, true);
 	return IsAnnexE1Allowed(c) && !IsAnnexE2DisallowedInitially(c);
 }
 
 // `identifier-nondigit` or `digit`.
-inline bool IsIdentifierContinue(int32_t c)
+inline bool IsIdentifierContinue(int32_t c, bool c99 = false)
 {
 	if (c < 0x80)
 		return IsAsciiNondigit(c) || IsAsciiDigit(c);
-	return IsAnnexE1Allowed(c);
+	return c99 ? IsC99IdentifierCharacter(c, false) : IsAnnexE1Allowed(c);
 }
 
 // [lex.charset] 2.3p1: the basic source character set.

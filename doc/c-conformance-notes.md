@@ -165,6 +165,16 @@ operand in a controlling expression still needs literal conversion.
 [PA38 preprocessing case](../pa38/tests/general/100-c17-universal-escape-condition-bad.t) ·
 [PA38 literal case](../pa38/tests/general/100-c99-universal-escape-literal-bad.t)
 
+C99 6.4.2.1p3 uses the character ranges in Annex D and excludes its
+digit ranges at the start of an identifier. C11 D.1 and D.2 replace
+the repertoire and the initial exclusions. In each edition the lexer
+uses the same ranges for a raw UTF-8 identifier character and its
+universal character name, and interns the resulting UTF-8 spelling.
+Apply the identifier rule when lexing the result of token pasting.
+Quoted literals have their own character rules.
+[PA38 C99 identifiers](../pa38/tests/general/100-c99-unicode-identifiers.t) ·
+[PA38 C11 identifiers](../pa38/tests/general/100-c11-unicode-identifiers.t)
+
 C11's `_Alignof` takes a type name under 6.5.3.4. With pedantic
 diagnostics enabled, the expression form is a GNU extension. The GNU
 spelling `__alignof__` accepts the expression. The C23 optional

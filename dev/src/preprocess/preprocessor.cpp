@@ -182,6 +182,9 @@ Preprocessor::Preprocessor(const PreprocessorOptions& options, const std::string
 		options.c_edition >= CEdition::C11;
 	source_.set_unicode_literal_prefixes(unicode_literal_prefixes);
 	expander_.set_unicode_literal_prefixes(unicode_literal_prefixes);
+	const bool c99_identifiers = options.language == SourceLanguage::C && options.c_edition == CEdition::C99;
+	source_.set_c99_identifiers(c99_identifiers);
+	expander_.set_c99_identifiers(c99_identifiers);
 	evaluator_.set_conditional_escapes(options.gnu_c());
 	evaluator_.set_cxx_edition(options.cxx_edition);
 	const bool separators = HasNumberSyntax(options.literals, number_syntax::Separators);

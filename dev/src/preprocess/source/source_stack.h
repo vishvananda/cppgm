@@ -114,6 +114,7 @@ public:
 	void set_conditional_escapes(bool on) { conditional_escapes_ = on; }
 	void set_cxx_edition(uint8_t edition) { cxx_edition_ = edition; }
 	void set_unicode_literal_prefixes(bool on) { unicode_literal_prefixes_ = on; }
+	void set_c99_identifiers(bool on) { c99_identifiers_ = on; }
 	bool digit_separators() const { return digit_separators_; }
 	bool binary_exponents() const { return binary_exponents_; }
 	void set_number_syntax(bool separators, bool exponents)
@@ -152,6 +153,7 @@ private:
 	bool hosted_;
 	bool conditional_escapes_ = false;
 	bool unicode_literal_prefixes_ = true;
+	bool c99_identifiers_ = false;
 	uint8_t cxx_edition_ = 11;
 	bool digit_separators_ = false;
 	bool binary_exponents_ = false;
