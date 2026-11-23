@@ -380,7 +380,8 @@ from a proven private snapshot or passing the saved fields to a closed
 internal callee both fit the bounds. The saved values must survive writes
 through an alias to the original object and remain available during
 unwinding. Keep every observable cleanup and any externally visible
-calling convention.
+calling convention. The repeated-query and private-snapshot outcome checks
+run in the Linux x86-64 course lane.
 
 The object-transfer fixtures use equivalent value-copy and whole-object
 memory forms. Preserve when each snapshot is taken while meeting their size
