@@ -1802,3 +1802,15 @@ The respective A/A ranges were 0.0009% and 0.0035%.
 | SQLite | A/A | 16,530,178,352 / 16,529,801,531 / 16,529,606,938 / 16,529,731,251 |
 | SQLite | ABBA | 16,529,503,384 / 16,529,641,847 / 16,529,604,469 / 16,529,544,246 |
 | SQLite | BAAB | 16,530,219,449 / 16,530,216,914 / 16,529,693,097 / 16,529,787,150 |
+
+An additional control uses 8,192 point designators at every second
+index, with a constant initializer and an implicit zero between writes.
+Each `-O0 -c` object matches its parent exactly. The static array control
+uses 0.6820% and 0.6821% more instructions in ABBA and BAAB. The automatic
+array uses 0.6395% and 0.6397% more. The `-fsyntax-only` automatic control
+rises from 66.58 to 67.02 million instructions, placing most of the added
+work before lowering. A scratch build that reuses the existing point
+nodes across ranges and orders writes by their initializer generation
+uses 66.91 million instructions on that input. That isolates part of
+the cost without changing the size of the typed records. Include the
+point-only control when changing range resolution for aggregate paths.

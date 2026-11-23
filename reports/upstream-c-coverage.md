@@ -131,11 +131,15 @@ reviewed cases.
 [GCC C99 manifest](upstream-gcc-c99.json) ·
 [Scaling](../docs/performance/c-frontend-scaling.md#c99-identifier-ranges)
 
-The macro redefinition check still compares normalized names and token
-spellings for GCC `ucnid-11`. GCC 15 diagnoses changes in the escape
-spelling of a parameter or replacement-list token. Clang 21 and cppgm
-accept those redefinitions. Audit the spelling comparison in 6.10.3
-independently of the identifier identity used for macro lookup.
+Three reduced `ucnid-11` probes change only the case of a hexadecimal
+digit in a macro parameter, the case of a digit in the replacement list,
+or the use of a UCN versus raw UTF-8 in the replacement list. GCC 15
+diagnoses all three with `-std=c99 -pedantic-errors -E`. Clang 21 and cppgm
+accept them. All three compilers match the escaped and raw identifiers
+in the macro lookup and argument substitution controls. The lexer decodes
+the UCN before the macro definition builder sees the token. Retain the
+spelling needed for the 6.10.3 check where that decoding happens, and keep
+the normalized identity for lookup and substitution.
 [C99 6.10.3](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf)
 
 ## Pinned suite receipts
@@ -166,9 +170,14 @@ layout, parenthesized compound literals, decreasing intervals, and pedantic
 rejection of range designators and empty records. The positive fixtures ran
 with GCC 15 and cppgm on Linux x86-64 at `-O0` and `-O2`, and with cppgm on
 AArch64 Linux under QEMU at both levels. PA38's Wasm lane passed, and both
-Darwin architectures cross-linked Mach-O at both levels. Native macOS
-execution, suffix paths following a range, and ranges of aggregate values
-remain open.
+Darwin architectures cross-linked Mach-O at both levels. On Linux x86-64,
+GCC 15 and Clang 21 each called and returned records containing an empty
+subobject across a cppgm object boundary in both directions. A generated
+128-case replay agreed with GCC 15 on overlapping intervals and exactly
+once evaluation of surviving ranges at `-O0` and `-O2`. A separate probe
+covered complex values, atomic integers, and static negative zero. All 44
+pinned musl libc-test configurations still pass. Native macOS execution,
+suffix paths following a range, and ranges of aggregate values remain open.
 [Range fixture](../pa38/tests/general/300-designated-gnu-ranges.t) ·
 [Empty record fixture](../pa38/tests/general/300-record-gnu-empty.t) ·
 [Compound literal fixture](../pa38/tests/general/500-c-static-parenthesized-compound.t) ·
