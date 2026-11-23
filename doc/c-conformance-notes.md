@@ -61,6 +61,14 @@ objects (6.7.5). The type-name form uses the type's alignment, so a
 variably modified array can supply its element alignment without running
 the bound expression (6.5.3.4 and 6.7.5).
 
+Standard `_Alignof` requires a complete type. Determine whether an array
+type is complete before looking at the element alignment. An incomplete
+array object is also accepted by GNU expression queries. For a named
+object or member the GNU query uses the alignment established by its
+declaration and layout. A query may appear in the object's own
+initializer. Reject a bit-field designator while allowing queries on the
+value of a C assignment to a bit-field.
+
 The `for` grammar also takes a declaration (6.8.5). A static assertion
 fits that grammar without introducing an identifier. Check it as a
 declaration, even when the loop body would never run.
@@ -68,6 +76,7 @@ declaration, even when the loop body would never run.
 [C11 draft, N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [WG14 defect report 444](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2059.htm#dr_444) ·
 [Alignment fixture](../pa38/tests/general/500-c11-alignment.t) ·
+[Alignment query fixture](../pa38/tests/general/500-c-alignment-queries.t) ·
 [For initializer fixture](../pa38/tests/general/500-c11-for-static-assert.t)
 
 ## Declarations in a C for initializer

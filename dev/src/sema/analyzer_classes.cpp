@@ -352,12 +352,9 @@ uint64_t Analyzer::attribute_alignment(
 				const uint32_t alias_alignment = c_alignas ? type_id_alignment_ : 0;
 				if (c_alignas)
 				{
-					while (type->kind == TypeKind::Array)
-					{
-						if (!type->has_array_bound() && !type->runtime_array())
-							error(attribute->location, "alignas of an incomplete array type");
-						type = type->element;
-					}
+					type = alignment_element(type, true);
+					if (type == nullptr)
+						error(attribute->location, "alignas of an incomplete array type");
 				}
 				uint64_t size = 0;
 				if (!type_size(type, size, value, attribute->location))

@@ -738,6 +738,7 @@ Expr* Parser::parse_type_trait(TokenKind keyword)
 		require_c_extension(location(), CEdition::C11, "_Alignof is a C11 extension");
 	TypeTraitExpr* expr = make<TypeTraitExpr>(ExprKind::TypeTrait, location());
 	expr->keyword = keyword;
+	expr->c_standard_alignof = c_alignof;
 	expr->type = nullptr;
 	expr->operand = nullptr;
 	next();

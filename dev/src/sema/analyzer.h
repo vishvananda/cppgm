@@ -362,9 +362,14 @@ private:
 	bool variable_partial_ordered(const VariableEntity* first, const VariableEntity* second);
 
 	// ------------------------------------------ simple declarations
+	struct AlignmentRequest
+	{
+		uint64_t bytes;
+		const syntax::Attribute* specifier;
+	};
 	void simple_declaration(const syntax::SimpleDecl& decl, Scope* scope);
-	void declare_declarator(
-		const Specifiers& specifiers, const syntax::InitDeclarator& init, Scope* scope, uint32_t location);
+	void declare_declarator(const Specifiers& specifiers, const syntax::InitDeclarator& init, Scope* scope,
+		uint32_t location, const AlignmentRequest* c_alignment = nullptr);
 	void request_alignment(VariableEntity* variable, uint64_t alignment, const syntax::Attribute* specifier);
 	void overlapping_attribute(
 		VariableEntity* variable, const syntax::Attribute* leading, const syntax::Declarator* declarator);
@@ -379,7 +384,8 @@ private:
 	// declares it: glibc's bits/floatn.h, `typedef __float128 _Float128;`.
 	bool predeclared_extended_float(const Binding* existing, const Scope* where) const;
 	Binding* declare_variable(const Specifiers& specifiers, const DeclaratorInfo& info,
-		const syntax::Initializer* initializer, Scope* scope, uint32_t location, bool structured_binding = false);
+		const syntax::Initializer* initializer, Scope* scope, uint32_t location, bool structured_binding = false,
+		const AlignmentRequest* c_alignment = nullptr);
 	bool defer_c_tentative_definition(VariableEntity* variable, uint32_t location);
 	void finish_c_tentative_definitions();
 	void note_c_inline_reference(const Binding& binding, uint32_t location);
@@ -1857,6 +1863,10 @@ private:
 	bool type_size(const Type* type, uint64_t& size, uint64_t& alignment, uint32_t location);
 	bool member_size(const Type* type, uint64_t& size, uint64_t& alignment, uint32_t location);
 	void record_alias_alignment(const Specifiers& specifiers, const Binding* declared, uint64_t own);
+	static bool specialization_type(const Type* type);
+	ExprFacts* alignof_expression(const syntax::TypeTraitExpr& expr, Scope* scope);
+	uint32_t c_expression_alignment(const syntax::Expr& expr);
+	static const Type* alignment_element(const Type* type, bool require_complete_array);
 	uint32_t alias_alignment_of(const syntax::Expr& expr, bool pointee) const;
 	uint64_t declared_alignment(const void* declared, uint64_t natural) const;
 	uint64_t declared_alignment(const DataMember* member, uint64_t natural) const;

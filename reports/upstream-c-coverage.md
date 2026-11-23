@@ -353,22 +353,30 @@ and Apple Silicon at `-O0` and `-O2`.
 [PA38 loop scope](../pa38/tests/general/500-c-for-declarations.t) ·
 [PA38 prototype tag scope](../pa38/tests/general/500-c-prototype-tag-scope.t)
 
-## Next alignment query cases
+## Alignment queries
 
-GCC 15 and Clang 21 diagnose `_Alignof(int[])` and an expression-form
-alignment query on a bit-field. cppgm currently accepts both. Both
-controls accept the GNU expression form on an incomplete array object.
-For GNU `__alignof__` applied to an object or member, they report the
-requested alignment, including the reduced alignment of a packed member.
-cppgm instead uses the natural alignment in the reduced examples. Preserve
-the valid C11 VLA type query, whose bound is unevaluated.
+PA38 diagnoses standard `_Alignof(int[])` and an expression-form query on
+a bit-field designator. It also rejects a request that weakens the known
+element alignment of an incomplete array object or VLA. GCC diagnoses
+both weakened requests, while Clang accepts the incomplete array case.
 
-The controls disagree on a GNU type-form query of an incomplete array and
-on whether dereferencing the address of an over-aligned object propagates
-its declaration alignment. Keep those cases distinct from the C11 operand
-constraint and the common GNU behavior for named objects and members.
+The runtime fixture reads an object's requested alignment from its own
+initializer, queries an aligned typedef and a packed or capped member,
+queries an incomplete array object in the GNU form, and leaves a VLA's
+bound unevaluated. It also verifies acceptance of alignment and size
+queries on the value of an assignment to a bit-field. Both native controls
+accept this value, with different sizes for the reduced example.
 
-[C11 draft, N1570 §6.5.3.4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
+cppgm retains the GNU type-form incomplete-array query accepted by Clang
+and preserves its previous handling of dereference expressions. GCC and
+Clang disagree on whether dereferencing the address of an over-aligned
+object propagates its declaration alignment. GNU alignment queries on
+functions and their interaction with code alignment remain open.
+
+[C11 draft, N1570 §6.5.3.4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[GCC alignment queries](https://gcc.gnu.org/onlinedocs/gcc/Alignment.html) ·
+[PA38 runtime fixture](../pa38/tests/general/500-c-alignment-queries.t) ·
+[GCC C11 manifest](upstream-gcc-c11.json)
 
 ## Cross-target smoke results
 

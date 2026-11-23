@@ -25,6 +25,36 @@
         "-pedantic-errors"
       ],
       "obligation": "C11 generic selection"
+    },
+    {
+      "id": "c11-align-2",
+      "path": "gcc/testsuite/gcc.dg/c11-align-2.c",
+      "sha256": "57d3039b09fbd573483806daf1e7d9d1a4e2b107fc769b55e43a6604f39859ca",
+      "dialect": "c11",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "C11 stdalign.h macros and valid alignment specifiers"
+    },
+    {
+      "id": "c11-align-4",
+      "path": "gcc/testsuite/gcc.dg/c11-align-4.c",
+      "sha256": "d553572b286f674e79c495ea0120effea35ebbae1903b31b41161ed29a7eef86",
+      "dialect": "c11",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "C11 alignment requests must preserve the natural alignment of max_align_t"
     }
   ]
 }

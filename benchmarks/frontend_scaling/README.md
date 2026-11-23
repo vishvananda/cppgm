@@ -80,6 +80,10 @@ and compare `-O0` objects from the same source.
 references an existing record tag. Compile in C99 syntax-only mode to
 measure the cost of prototype scope for declarations that can introduce tags.
 
+`c-member-alignment-queries` grows one record and queries each member once.
+Measure in C11 syntax-only mode. The first query can require the record's
+layout. Later queries read the computed alignment of their members.
+
 `c-vla-declarators` generates independent declarations that share an element
 type and each have their own runtime bound. Compare it against
 `c-fixed-array-declarators` at 1024, 2048, 4096, and 8192 functions in C17

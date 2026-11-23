@@ -16,15 +16,15 @@
 // conversions applied to operands are recorded on the operands.
 namespace sema {
 
-namespace {
-
 // A class template specialization (not a compound type built from one).
-bool SpecializationType(const Type* type)
+bool Analyzer::specialization_type(const Type* type)
 {
 	const Type* bare = type->unqualified;
 	return bare->kind == TypeKind::Class && static_cast<const ClassEntity*>(bare->entity)->templ != nullptr &&
 		static_cast<const ClassEntity*>(bare->entity)->templ->role == TemplateRole::Specialization;
 }
+
+namespace {
 
 // 13.3.1.2p1: only an operand of class or enumeration type (or one whose
 // type is not yet known) may make an operator a call of an operator
@@ -417,48 +417,7 @@ ExprFacts* Analyzer::typed_form(const syntax::Expr& expr, Scope* scope)
 	{
 		const syntax::TypeTraitExpr& trait = static_cast<const syntax::TypeTraitExpr&>(expr);
 		if (trait.keyword == TokenKind::KW_ALIGNOF)
-		{
-			// Of a type-id, or (GNU) of an expression's type, the operand not
-			// evaluated.
-			const Type* type = nullptr;
-			uint32_t aliased = 0;
-			if (trait.type != nullptr)
-			{
-				const RuntimeTypeEvaluation* unused_bounds = nullptr;
-				type = type_id(*trait.type, scope, false, c_source_ ? &unused_bounds : nullptr);
-				aliased = type_id_alignment_;
-			}
-			else
-			{
-				++unevaluated_;
-				const ExprFacts* operand = typed_value(*trait.operand, scope);
-				--unevaluated_;
-				type = operand != nullptr ? operand->type : nullptr;
-				aliased = operand != nullptr ? alias_alignment_of(*trait.operand, false) : 0;
-			}
-			if (type == nullptr)
-				return nullptr;
-			// 5.3.6p1: of a complete object type, an array of one or a
-			// reference to one (in a substitution, its failure otherwise).
-			const Type* object = type->is_reference() ? type->element : type;
-			while (object->kind == TypeKind::Array)
-				object = object->element;
-			uint64_t size = 0, alignment = 0;
-			if (object->kind == TypeKind::Function || IsVoid(object) ||
-				!type_size(object, size, alignment, expr.location))
-			{
-				substitution_error(
-					expr.location, "alignof of an incomplete or function type", ClassOf(object) != nullptr);
-				return nullptr;
-			}
-			// A std::size_t constant (5.3.6p2).
-			ExprFacts* facts = new_facts(
-				expr, types_.fundamental(FundamentalType::UnsignedLongInt), ValueCategory::PRValue);
-			facts->value = aliased != 0 ? aliased : alignment;
-			if (trait.type != nullptr && SpecializationType(type))
-				facts->flags |= kSpecializationQuery;
-			return facts;
-		}
+			return alignof_expression(trait, scope);
 		if (trait.keyword == TokenKind::KW_NOEXCEPT && trait.operand != nullptr)
 			return noexcept_expression(trait, scope);
 		if (trait.keyword == TokenKind::KW_TYPEID)
@@ -3435,7 +3394,7 @@ ExprFacts* Analyzer::size_of(const syntax::SizeofExpr& expr, Scope* scope)
 			substitution_error(expr.location, "sizeof of a function");
 			return nullptr;
 		}
-		if ((operand->flags & kBitField) != 0)
+		if ((operand->flags & kBitField) != 0 && (!c_source_ || operand->category != ValueCategory::PRValue))
 		{
 			substitution_error(expr.location, "sizeof of a bit-field");
 			return nullptr;
@@ -3472,7 +3431,7 @@ ExprFacts* Analyzer::size_of(const syntax::SizeofExpr& expr, Scope* scope)
 	}
 	ExprFacts* facts = new_facts(expr, types_.fundamental(FundamentalType::UnsignedLongInt), ValueCategory::PRValue);
 	facts->value = size;
-	if (SpecializationType(type))
+	if (specialization_type(type))
 		facts->flags |= kSpecializationQuery;
 	return facts;
 }

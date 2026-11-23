@@ -142,6 +142,8 @@ struct DataMember
 	uint64_t offset;
 	// Its position among the class's non-static data members.
 	uint32_t ordinal;
+	// The member alignment computed by layout for GNU C alignment queries.
+	uint32_t c_alignment;
 	DataMember* next;
 	// A bit-field's storage unit, once the class is laid out (Analyzer::
 	// assign_bit_units): its first byte in the class and its size in bytes;

@@ -176,6 +176,16 @@ def c_prototype_tag_references(size):
         print(f'int use{index}(struct Record *item);')
 
 
+def c_member_alignment_queries(size):
+    print('struct Record {')
+    for index in range(size):
+        print(f'    int field{index};')
+    print('};')
+    print('extern struct Record value;')
+    for index in range(size):
+        print(f'_Static_assert(__alignof__(value.field{index}) == _Alignof(int), "member");')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('case', choices=['parameter-bases', 'plain-templates',
@@ -190,7 +200,7 @@ def main():
                                         'c-ice-atoms', 'c-ice-chain',
                                         'c-static-atoms', 'c-static-expressions', 'c-alignment-interleaved',
                                         'c-alignment-prefix', 'c-for-declarators',
-                                        'c-prototype-tag-references',
+                                        'c-prototype-tag-references', 'c-member-alignment-queries',
                                         'c-vla-declarators', 'c-fixed-array-declarators',
                                         'c-vla-dimensions', 'c-vla-extent-uses',
                                         'c-typeof-shared-bounds', 'c-designated-overwrites', 'c-designated-sparse',
@@ -249,6 +259,9 @@ def main():
         return
     if args.case == 'c-prototype-tag-references':
         c_prototype_tag_references(args.size)
+        return
+    if args.case == 'c-member-alignment-queries':
+        c_member_alignment_queries(args.size)
         return
     if args.case in ('c-vla-declarators', 'c-fixed-array-declarators'):
         c_array_declarators(args.size, 'n' if args.case == 'c-vla-declarators' else '2')

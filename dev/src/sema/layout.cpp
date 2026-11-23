@@ -163,6 +163,84 @@ uint32_t Analyzer::alias_alignment_of(const syntax::Expr& expr, bool pointee) co
 	return aligned != PointerMap::kMissing ? aligned : 0;
 }
 
+const Type* Analyzer::alignment_element(const Type* type, bool require_complete_array)
+{
+	while (type->kind == TypeKind::Array)
+	{
+		if (require_complete_array && !type->has_array_bound() && !type->runtime_array())
+			return nullptr;
+		type = type->element;
+	}
+	return type;
+}
+
+uint32_t Analyzer::c_expression_alignment(const syntax::Expr& expr)
+{
+	const syntax::Expr* designator = &expr;
+	while (designator->kind == syntax::ExprKind::Paren)
+		designator = static_cast<const syntax::ParenExpr*>(designator)->inner;
+	const Entity* entity = designator->facts != nullptr ? designator->facts->entity : nullptr;
+	if ((designator->kind != syntax::ExprKind::Id && designator->kind != syntax::ExprKind::Member) ||
+		entity == nullptr || entity->kind != EntityKind::Variable)
+		return alias_alignment_of(*designator, false);
+	const auto* variable = static_cast<const VariableEntity*>(entity);
+	const DataMember* member = variable->data_member;
+	if (member == nullptr)
+		return std::max(variable->alignment_request, alias_alignment_of(*designator, false));
+	if (member->c_alignment == 0)
+	{
+		uint64_t size = 0, alignment = 0;
+		if (!type_size(variable->owner->entity->type, size, alignment, designator->location))
+			return 0;
+	}
+	return member->c_alignment;
+}
+
+ExprFacts* Analyzer::alignof_expression(const syntax::TypeTraitExpr& expr, Scope* scope)
+{
+	// C11 6.5.3.4 and C++ 5.3.6. GNU also accepts an unevaluated expression.
+	const Type* type = nullptr;
+	uint32_t declared = 0;
+	if (expr.type != nullptr)
+	{
+		const RuntimeTypeEvaluation* unused_bounds = nullptr;
+		type = type_id(*expr.type, scope, false, c_source_ ? &unused_bounds : nullptr);
+		declared = type_id_alignment_;
+	}
+	else
+	{
+		++unevaluated_;
+		const ExprFacts* operand = typed_value(*expr.operand, scope);
+		--unevaluated_;
+		if (operand == nullptr)
+			return nullptr;
+		if (c_source_ && operand->category != ValueCategory::PRValue && (operand->flags & kBitField) != 0)
+		{
+			substitution_error(expr.location, "alignof of a bit-field");
+			return nullptr;
+		}
+		type = operand->type;
+		declared = c_source_ ? c_expression_alignment(*expr.operand) : alias_alignment_of(*expr.operand, false);
+	}
+	if (type == nullptr)
+		return nullptr;
+	const Type* object = alignment_element(
+		type->is_reference() ? type->element : type, expr.c_standard_alignof && expr.type != nullptr);
+	uint64_t size = 0, alignment = 0;
+	if (object == nullptr || object->kind == TypeKind::Function || IsVoid(object) ||
+		!type_size(object, size, alignment, expr.location))
+	{
+		substitution_error(expr.location, "alignof of an incomplete or function type",
+			object != nullptr && ClassOf(object) != nullptr);
+		return nullptr;
+	}
+	ExprFacts* facts = new_facts(expr, types_.fundamental(FundamentalType::UnsignedLongInt), ValueCategory::PRValue);
+	facts->value = declared != 0 ? declared : alignment;
+	if (expr.type != nullptr && specialization_type(type))
+		facts->flags |= kSpecializationQuery;
+	return facts;
+}
+
 bool Analyzer::member_size(const Type* type, uint64_t& size, uint64_t& alignment, uint32_t location)
 {
 	// A flexible array member has unknown bound and takes no space.
@@ -521,6 +599,8 @@ bool Analyzer::class_layout(ClassEntity* entity, uint32_t location)
 			member_alignment = std::max(member_alignment, requested);
 		if (pack != 0)
 			member_alignment = std::min(member_alignment, pack);
+		if (c_source_)
+			member->c_alignment = static_cast<uint32_t>(member_alignment);
 		// The alignment it gives its class: a named or wide bit-field its
 		// type's, #pragma pack capping it (else GNU packed), a wide one also
 		// its own.

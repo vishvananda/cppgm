@@ -101,11 +101,14 @@ Decl* Parser::parse_declaration(DeclContext context, Attribute* leading)
 			break;
 		}
 	}
-	if (context != DeclContext::Block && at_deduction_guide())
-		return parse_deduction_guide(start);
-	Decl* special = nullptr;
-	if (context != DeclContext::Block && try_special_member(context, special))
-		return special;
+	if (!c_source_ && context != DeclContext::Block)
+	{
+		if (at_deduction_guide())
+			return parse_deduction_guide(start);
+		Decl* special = nullptr;
+		if (try_special_member(context, special))
+			return special;
+	}
 	return parse_simple_or_function(context);
 }
 

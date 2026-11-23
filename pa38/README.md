@@ -43,7 +43,10 @@ these diagnostics unless `-Wsystem-headers` is set. A message-free
 `__VA_OPT__` also receives a C23 extension diagnostic in the earlier
 editions when pedantic diagnostics are enabled. Treat
 `_Alignof(expression)` as a GNU extension. The GNU spelling
-`__alignof__` accepts the expression.
+`__alignof__` accepts the expression. A standard type-name operand must
+be complete. For an expression that names an object or member, report its
+declared alignment, including a packed member's reduced alignment. Reject
+bit-field designators. Alignment queries leave their operands unevaluated.
 
 In ISO C99, lex `u`, `U`, and `u8` before a quote as identifiers.
 Use the same edition for macro pasting. C11 and GNU99 accept Unicode

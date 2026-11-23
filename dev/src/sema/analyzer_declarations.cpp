@@ -397,7 +397,9 @@ void Analyzer::simple_declaration(const syntax::SimpleDecl& decl, Scope* scope)
 			if (specifier == nullptr)
 				specifier = AlignmentSpecifier(part->attributes);
 		}
-		declare_declarator(specifiers, init, scope, decl.location);
+		const AlignmentRequest request{ entity_alignment, specifier };
+		declare_declarator(
+			specifiers, init, scope, decl.location, c_source_ && entity_alignment != 0 ? &request : nullptr);
 		// A deferred reserved builtin call (see deferrable_statement): the
 		// declaration is analyzed again, names only.
 		if (deferred_reserved_call())
@@ -410,12 +412,14 @@ void Analyzer::simple_declaration(const syntax::SimpleDecl& decl, Scope* scope)
 		const bool variable = !specifiers.is_typedef && (entity == nullptr || entity->kind == EntityKind::Variable);
 		if (specifier != nullptr && !variable)
 			error(specifier->location, "an alignment-specifier on a typedef or function declaration");
-		if ((specifiers.alias_alignment != 0 || (specifiers.is_typedef && entity_alignment != 0)) &&
+		if ((!c_source_ || specifiers.is_typedef) &&
+			(specifiers.alias_alignment != 0 || (specifiers.is_typedef && entity_alignment != 0)) &&
 			init.declared != nullptr && template_depth_ == 0)
 			record_alias_alignment(specifiers, init.declared, specifiers.is_typedef ? entity_alignment : 0);
 		if (entity != nullptr && entity->kind == EntityKind::Variable)
 		{
-			request_alignment(static_cast<VariableEntity*>(entity), entity_alignment, specifier);
+			if (!c_source_)
+				request_alignment(static_cast<VariableEntity*>(entity), entity_alignment, specifier);
 			overlapping_attribute(static_cast<VariableEntity*>(entity), decl.attributes, init.declarator);
 			// GNU packed on a non-static data member: the member alone is
 			// packed (alignment 1 unless it requests one), as a packed
@@ -863,15 +867,25 @@ void Analyzer::request_alignment(VariableEntity* variable, uint64_t alignment, c
 	if (specifier != nullptr && alignment != 0 && template_depth_ == 0 && !variable->type->is_reference())
 	{
 		uint64_t size = 0, natural = 0;
-		if (object_layout(variable->type, size, natural) && alignment < natural)
-			error(specifier->location, "an alignment-specifier weaker than the alignment of the entity's type");
+		const Type* type = c_source_ ? alignment_element(variable->type, false) : variable->type;
+		if (object_layout(type, size, natural))
+		{
+			if (c_source_)
+			{
+				const uint32_t alias = aligned_variables_.find(variable);
+				if (alias != PointerMap::kMissing)
+					natural = alias;
+			}
+			if (alignment < natural)
+				error(specifier->location, "an alignment-specifier weaker than the alignment of the entity's type");
+		}
 	}
 	if (alignment > variable->alignment_request)
 		variable->alignment_request = static_cast<uint32_t>(alignment);
 }
 
-void Analyzer::declare_declarator(
-	const Specifiers& specifiers, const syntax::InitDeclarator& init, Scope* scope, uint32_t location)
+void Analyzer::declare_declarator(const Specifiers& specifiers, const syntax::InitDeclarator& init, Scope* scope,
+	uint32_t location, const AlignmentRequest* c_alignment)
 {
 	// A function declared with a placeholder return type (C++14's
 	// 7.1.6.4p2: its own function declarator; a definition later deduces
@@ -998,7 +1012,7 @@ void Analyzer::declare_declarator(
 		init.declared = binding;
 		return;
 	}
-	init.declared = declare_variable(specifiers, info, init.initializer, scope, info.location);
+	init.declared = declare_variable(specifiers, info, init.initializer, scope, info.location, false, c_alignment);
 	// An auto variable template whose initializer is dependent: its
 	// specializations deduce their types (see variable_specialization).
 	if (declared_auto != nullptr && template_depth_ != 0 && dependent_type(info.type) &&
@@ -1309,7 +1323,8 @@ const Type* Analyzer::complete_array_from_initializer(
 }
 
 Binding* Analyzer::declare_variable(const Specifiers& specifiers, const DeclaratorInfo& info,
-	const syntax::Initializer* initializer, Scope* scope, uint32_t location, bool structured_binding)
+	const syntax::Initializer* initializer, Scope* scope, uint32_t location, bool structured_binding,
+	const AlignmentRequest* c_alignment)
 {
 	if (specifiers.is_consteval)
 		error(location, "consteval requires a function declaration");
@@ -1455,6 +1470,11 @@ Binding* Analyzer::declare_variable(const Specifiers& specifiers, const Declarat
 		variable_template_of(names_.qualified(where, name.key, LookupFilter::Ordinary).binding) != nullptr)
 		declare_variable_template(variable, initializer, scope, info.after, location);
 	Binding* binding = new_binding(BindingKind::Variable, name.key, variable, type);
+	// A C initializer can query the alignment of its own declaration.
+	if (c_source_ && specifiers.alias_alignment != 0)
+		record_alias_alignment(specifiers, binding, 0);
+	if (c_alignment != nullptr)
+		request_alignment(variable, c_alignment->bytes, c_alignment->specifier);
 	print_in(print, binding);
 	declare_in(where, binding);
 	// A block-scope variable's type named something dependent (for auto,
@@ -2043,7 +2063,7 @@ void Analyzer::add_data_member(ClassEntity* entity, Entity* variable, uint64_t w
 	const Access access = current_access_ == TokenKind::KW_PRIVATE ? Access::Private
 		: current_access_ == TokenKind::KW_PROTECTED               ? Access::Protected
 																   : Access::Public;
-	*member = DataMember{ variable, width, bit_field, access, false, false, 0, entity->member_count++, nullptr };
+	*member = DataMember{ variable, width, bit_field, access, false, false, 0, entity->member_count++, 0, nullptr };
 	if (variable->kind == EntityKind::Variable)
 		static_cast<VariableEntity*>(variable)->data_member = member;
 	if (entity->last_member == nullptr)

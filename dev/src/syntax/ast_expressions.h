@@ -229,6 +229,7 @@ struct SizeofPackExpr : Expr
 struct TypeTraitExpr : Expr
 {
 	TokenKind keyword;
+	bool c_standard_alignof;
 	TypeId* type;
 	Expr* operand;
 };
