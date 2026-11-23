@@ -1037,3 +1037,60 @@ to compare this batch.
 | SQLite | BAAB | 16,505,338,489 / 16,508,033,157 / 16,507,919,863 / 16,505,026,591 |
 
 [Input generation](../../benchmarks/frontend_scaling/README.md#c)
+
+## Cross-target integer predefines
+
+Arm Linux, cross Apple Silicon, and Wasm construct their own predefines.
+The driver skips assembling the host macro and builtin declaration text
+for those configurations. Each cross integer profile derives its widths
+from the same layout functions as the source frontend and builds the
+profile text once per process. The Intel Darwin cross configuration
+overlays its integer roles on the existing host macro text.
+
+The following are medians of the four observations per binary in
+paired ABBA and BAAB blocks, in millions of retired user-space
+instructions. The GCC 15 builds are `7f2fd789a` and `5239de375`, pinned
+to CPU 71 on Linux x86-64. Empty-file preprocessing uses
+`-E -x c -std=c11 -nostdinc`.
+
+| Empty-file target | Parent | Current | Change |
+| --- | ---: | ---: | ---: |
+| Native x86-64 Linux | 3.700 | 3.703 | +0.08% |
+| AArch64 Linux | 3.187 | 3.096 | −2.87% |
+| Bare Wasm | 3.169 | 3.079 | −2.85% |
+| Intel Darwin | 3.715 | 4.196 | +12.93% |
+
+The Intel Darwin increase is about 481,000 instructions per empty
+translation unit. It includes reading the new target macro definitions
+and replacing their host versions. To measure scaling, compile the
+`c-environment-calls` input with `-O0 -c -x c -std=c11 -nostdinc`.
+The parent and current outputs are byte-identical for each row.
+
+| Calls | Arm parent | Arm current | Wasm parent | Wasm current |
+| ---: | ---: | ---: | ---: | ---: |
+| 128 | 11.075 | 10.995 | 13.945 | 13.866 |
+| 512 | 34.134 | 34.040 | 45.879 | 45.772 |
+| 2048 | 127.965 | 127.644 | 175.650 | 175.228 |
+| 4096 | 256.096 | 256.090 | 351.584 | 351.283 |
+
+At 4096 calls, peak RSS medians are 23,776 and 23,760 KiB on Arm and
+23,414 and 23,432 KiB on Wasm. The frozen C++ input at `-O3` and SQLite
+at `-std=gnu17 -O2` also give identical objects across the experiment.
+A/A task-clock ranges were 45.0% and 46.0%, so the comparison uses
+retired instructions.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0022% | +0.0017% | +0.0025% |
+| SQLite `sqlite3.c` | 0.0010% | +0.0062% | +0.0064% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,045,364,144 / 9,045,336,941 / 9,045,534,254 / 9,045,339,233 |
+| C++ | ABBA | 9,045,344,725 / 9,045,277,942 / 9,045,747,441 / 9,045,369,019 |
+| C++ | BAAB | 9,045,581,789 / 9,045,253,527 / 9,045,289,371 / 9,045,404,482 |
+| SQLite | A/A | 16,505,093,744 / 16,504,998,963 / 16,504,958,669 / 16,505,117,852 |
+| SQLite | ABBA | 16,505,241,764 / 16,506,314,014 / 16,506,180,525 / 16,505,194,088 |
+| SQLite | BAAB | 16,506,293,145 / 16,505,220,225 / 16,505,265,994 / 16,506,317,248 |
+
+[Input generation](../../benchmarks/frontend_scaling/README.md#c)

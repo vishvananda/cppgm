@@ -566,8 +566,12 @@ with those headers. The pinned WASI SDK and the GCC 14 and glibc
 Arm sysroot runs the thread and TLS probe under QEMU. The pinned Clang
 23 header exercises the explicit `__SIG_ATOMIC_MIN__` predefine, and
 GCC's C atomic header exercises the unsigned character type predefines.
+An additional 16-byte aggregate control exercises load, exchange, and
+both compare-exchange outcomes with the GNU `libatomic` ABI. It passes
+at `-O0` and `-O2` on native x86-64 Linux and on AArch64 Linux under QEMU.
 Native Darwin execution, atomic lock-free macros and queries, wider
-atomics, and full optional-feature qualification remain open.
+atomics on other runtimes, and full optional-feature qualification
+remain open.
 [PA38 integer header case](../pa38/tests/general/500-c-integer-headers.t) ·
 [PA37 Emscripten layout](../pa37/tests/values/200-source-emscripten-layout.t) ·
 [PA39 Linux data model](../pa39/tests/target/100-linux-data-model.t)
