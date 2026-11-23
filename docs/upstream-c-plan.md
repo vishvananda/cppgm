@@ -23,42 +23,27 @@ Track evidence as each milestone lands in the
 [C conformance inventory](../reports/upstream-c-coverage.md) and the
 [C frontend scaling report](performance/c-frontend-scaling.md).
 
-The declarations batch now covers calls through inherited and hidden
-prototypes, internal linkage, functions first declared in a block, and
-conflicts between scopes. Keep the prototype visible at each declaration
-separate from the compatibility requirements of the linked entity. The
-constant-expression batch covers integer constant contexts and static
-arithmetic and address initializers. The C11 alignment and assertion
-cases in the pinned GCC C17 manifest now pass. The declaration batch also
-covers `for` initializer constraints and prototypes that introduce tags.
-The alignment queries check completeness before reducing an array to its
-element alignment, and GNU queries read the declared alignment of objects
-and members. In pedantic modes, cppgm now checks alignment agreement with
-explicit definitions in the same translation unit. Extended alignment
-limits still need separate qualification by storage duration and ABI.
-Array declarator coverage now checks the bound grammar, complete element
-types, qualifier adjustment in identifier-list definitions, and atomic
-bracket qualifiers. `restrict` is now part of C type qualification and
-array parameter adjustment. The VLA cases now cover prototype-scope type
-names, atomic pointer type specifiers, and function types derived from
-variably modified results. File- and block-scope type queries now cover
-unevaluated runtime bounds. The Intel macOS and Apple Silicon workflows
-have a PA38 native driver slice. The driver now resolves explicit C
-environment selection before preprocessing. Complete native Darwin
-qualification and qualify the other C11 optional features. Expand the pinned
-C99, C11, and C17 manifests from the uncovered clauses. Keep
-the existing VLA, generic selection, and sparse initializer tests in the
-fast iteration loop for changes to their shared analysis paths.
+The initial release matrix covers x86-64 and AArch64 Linux, Intel macOS
+and Apple Silicon, bare Wasm, and WASI. Record results for each edition,
+target ABI, and environment. Use the clause inventory for implementation
+status and the matrix for qualification status. A cross-linked Mach-O
+object establishes link evidence. A native run establishes execution
+evidence for the tested SDK and runtime.
 
 ## Implementation order
 
 | Milestone | Next work | Evidence required to close it |
 | --- | --- | --- |
-| Baseline and CI | Start with the existing GCC, Clang, `c-testsuite`, GCC torture, and Csmith lanes. Expand selection by uncovered rule. | Frozen inputs, native controls, and a recorded disposition for the selected, excluded, and failing cases. |
-| C99, C11, C17 core | Finish variably modified type-names and compatibility. Next cover aggregate initialization, redeclarations and linkage, constant expressions and effectful accesses. | Clause-level acceptance, diagnostics, and execution evidence in the applicable editions. Earlier-edition and GNU controls where the rule changes. |
-| Target and library qualification | Qualify each completed feature on the affected ABIs. Run the hosted and freestanding matrices once the language and runtime pieces are in place. | Mixed-compiler objects, target execution, feature macro checks, and runtime results for each published environment. |
+| Baseline and CI | Start with the existing GCC, Clang, `c-testsuite`, GCC torture, and Csmith lanes. Expand by uncovered rule, beginning with lexical edition boundaries and translation limits. | Frozen inputs, native controls, and a recorded disposition for the selected, excluded, and failing cases. |
+| C99, C11, C17 core | Reuse the existing VLA, generic selection, and sparse initializer probes. Extend clause coverage for conversions, subobject effects, cross-unit linkage, and extended alignment. | Clause-level acceptance, diagnostics, and execution evidence in the applicable editions. Earlier-edition and GNU controls where the rule changes. |
+| Target and library qualification | Verify the target predefines consumed by C headers. Qualify optional C11 features and compiler helpers, then run the hosted and freestanding matrices. | Mixed-compiler objects, target execution, feature macro checks, and runtime results for each published environment. |
 | C90 and C95 | Reuse the same rules for legacy forms and the amendment. | Legacy positives and edition-boundary diagnostics, with the amendment's macros, characters, and library obligations exercised. |
 | C23 | Land preprocessing, then type and declaration changes, then execution and library integration. | Individual C23 rules and their earlier-mode controls, target ABI and runtime evidence, and scaling checks for each substantial new path. |
+
+Prepare the legacy and C23 inventories while C99 through C17 qualification
+is in progress. Expand the release matrix after the relevant mode and its
+preceding mode's controls pass. Keep fixes to shared translation and ABI
+behavior independent of the edition work that exposed them.
 
 ## 1. Freeze the baseline and put a small suite in CI
 
@@ -76,7 +61,7 @@ Keep the relevant references and clause notes under `doc/` as gaps are fixed.
 [C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [C11 and C17 clarification requests](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2396.htm) ·
 [Published C23 edition](https://www.iso.org/standard/82075.html) ·
-[WG14's nearby public draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
+[WG14 document log, including the C23 DIS and first C2y draft](https://www.open-std.org/jtc1/sc22/wg14/www/wg14_document_log) ·
 [WG14 issue index](https://open-std.org/JTC1/SC22/WG14/issues/)
 
 Use one inventory entry per independently testable rule or requirement.
@@ -97,6 +82,14 @@ requested by the rule. Record the policy for open WG14 issues by edition.
 Derive missing cases from the clauses themselves, including combined
 translation limits where required and cases that differ only in scope,
 linkage, or mode. Publish the uncovered entries even when a manifest is green.
+
+Use the existing inventory and manifests as the inputs for the matrix. Each
+row records an edition and clause or resolved issue, applicability, the
+observable requirement, and one or more test identifiers. Each result records
+the target, hosted or freestanding profile, action, and observed outcome.
+Join the two by test identifier so changing an oracle or replaying a target
+updates its evidence without duplicating the requirement. Use the published
+edition to resolve discrepancies between drafts and compiler behavior.
 
 | Source | Initial selection |
 | --- | --- |
@@ -284,6 +277,14 @@ chains independently.
   compiler-generated helper contract separately for each supported ABI.
   Keep header search and link options independent of the language mode.
   [Environment qualification](../reports/upstream-c-coverage.md#execution-environment-selection)
+- Derive target-dependent predefined macros from the resolved target data
+  model and compiler capabilities when building the initial macro table.
+  Check the type spellings, widths, limits, and literal suffixes consumed by
+  real `<stdint.h>`, `<limits.h>`, and `<stdatomic.h>` headers. Exercise
+  native defaults and explicit cross targets without manually supplying
+  predefines. Include targets where two integer types have the same width
+  but different ABI roles. Measure the fixed cost of constructing the
+  initial macro table separately from work that grows with source size.
 - On Linux x86-64 and AArch64, validate ELF objects against the pinned native
   toolchains and glibc. Add a musl header and runtime replay to expose
   assumptions coupled to one libc. On Intel macOS and Apple Silicon, validate
@@ -433,6 +434,10 @@ cost on ordinary inputs. [Architecture requirements](../spec.md)
    small repeatable scaling check to the maintainer suite if the same
    algorithmic regression could recur. Keep wall-clock comparisons on
    controlled hosts.
+   For example, explicit and inferred declarations with the same initializer
+   isolate the cost of deduction. Both should do one semantic analysis of
+   the initializer and emit equivalent objects. Retired instructions per
+   declaration should stabilize as the number of declarations grows.
 3. **Compare immutable binaries.** Use identical inputs and tools, A/A
    calibration and paired ABBA/BAAB blocks. Retain every observation. Verify
    unchanged outputs and use independent runtime and diagnostic oracles for
