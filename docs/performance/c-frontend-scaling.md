@@ -1272,3 +1272,44 @@ directions reversed for both. The narrow control changed by at most
 | SQLite | A/A | 16,506,430,547 / 16,507,015,463 / 16,506,575,784 / 16,506,199,923 |
 | SQLite | ABBA | 16,506,514,224 / 16,506,753,243 / 16,506,433,550 / 16,506,219,368 |
 | SQLite | BAAB | 16,506,250,004 / 16,506,586,558 / 16,506,432,324 / 16,506,394,030 |
+
+## Explicit 128-bit integer atomics
+
+The generated GNU C17 functions use one GNU atomic fetch-add and one
+xor-fetch. The 32-bit control retains inline operations. The 128-bit
+case uses the size-prefixed runtime ABI. Both GCC 15-built compilers ran
+on CPU 71 at `-O2 -c -nostdinc`. The narrow instruction changes are from
+paired ABBA and BAAB blocks with parent `cc32d7085` and candidate
+`656b391ec`. The wide instruction counts are medians in millions for
+three candidate trials.
+
+| Functions | 32-bit ABBA | 32-bit BAAB | 128-bit instructions | 128-bit peak RSS (KiB) |
+| ---: | ---: | ---: | ---: | ---: |
+| 256 | +0.464% | +0.462% | 278.955 | 13,576 |
+| 1024 | +0.044% | +0.043% | 1103.044 | 17,480 |
+| 4096 | −1.567% | −1.565% | 4401.887 | 42,448 |
+
+The wide instruction count grew by 3.99 times in the final fourfold
+increase. The narrow control produced byte-identical objects across
+builds. Each wide input produced the same object in its three trials.
+The small narrow workload used up to 0.47% more instructions. The
+largest used 1.57% fewer instructions.
+
+Frozen `semantic_overload.cpp` at `-O3` and SQLite at
+`-std=gnu17 -O2` also produced byte-identical objects across builds.
+Their A/A task-clock ranges were 33.2% and 34.1%. The paired retired
+instruction differences stayed below 0.002%.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0023% | −0.0004% | −0.0012% |
+| SQLite `sqlite3.c` | 0.0019% | +0.0013% | −0.0005% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,045,377,566 / 9,045,173,927 / 9,045,351,385 / 9,045,233,720 |
+| C++ | ABBA | 9,045,195,516 / 9,045,282,599 / 9,045,215,103 / 9,045,383,522 |
+| C++ | BAAB | 9,045,030,375 / 9,045,400,587 / 9,044,982,946 / 9,045,137,607 |
+| SQLite | A/A | 16,506,660,977 / 16,506,783,835 / 16,506,469,827 / 16,506,634,993 |
+| SQLite | ABBA | 16,506,625,591 / 16,507,328,780 / 16,506,502,345 / 16,506,762,598 |
+| SQLite | BAAB | 16,506,411,108 / 16,506,454,918 / 16,506,915,160 / 16,506,787,930 |

@@ -598,3 +598,23 @@ environment rules for discarded attempts belong to the outstanding
 [WG14 N1570, §§6.5.2.4, 6.5.3.1, and 6.5.16.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [WG14 N1567 on floating-point retries](https://www.open-std.org/JTC1/sc22/wg14/www/docs/n1567.htm) ·
 [LLVM atomic libcalls](https://llvm.org/docs/Atomics.html#libcalls-atomic)
+
+## Explicit 128-bit integer atomics
+
+The GCC and Clang C headers can use their atomic builtins on the
+`__int128` integer extension. GCC's scalar load, store, exchange, and
+compare-exchange forms use the same runtime representation as the C11
+forms. A scalar compare-exchange takes an expected pointer to the value
+type. A read-modify-write computes the wrapped result at the width of the
+object and returns either the old or the new value according to the
+builtin spelling.
+
+For a synthesized compare-exchange loop, the operation's order applies
+to a successful exchange. A failure reads the observed value. Release
+therefore becomes relaxed for failure, and acquire-release becomes
+acquire. A runtime-valued order takes the sequentially consistent
+fallback while its operand is still evaluated once.
+
+[GCC atomic builtins](https://gcc.gnu.org/onlinedocs/gcc-15.2.0/gcc/_005f_005fatomic-Builtins.html) ·
+[Clang atomic builtins](https://clang.llvm.org/docs/LanguageExtensions.html#c11-atomic-builtins) ·
+[WG14 N1570, §7.17.7](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)

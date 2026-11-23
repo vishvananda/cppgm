@@ -81,6 +81,23 @@ objects. These results cover the listed workloads.
 | Lua 5.4.8 | Linux static library, interpreter and bytecode compiler built at `-O2`. The version-matched documented basic suite passed. [Lua tests](https://www.lua.org/tests/#basic) |
 | SQLite 3.50.4 | Amalgamation and shell built at `-O0` and `-O2`. Both SQL smoke runs passed transaction, aggregation, JSON and integrity checks. The build exposed C's tokenization of macros adjacent to quoted literals, now covered by PA38. [SQLite version](https://sqlite.org/releaselog/3_50_4.html) · [PA38 regression](../pa38/tests/general/100-adjacent-literal-macros.t) |
 
+### Hosted C99 header-use probes
+
+All 24 C99 headers compiled in isolation with the Linux x86-64 GCC 15
+header search at `-std=c99 -pedantic-errors`. The include probes declared
+one ordinary object after each header. Two macro-use probes identified
+remaining compiler-dependent behavior. GCC 15 and Clang 21 compiled,
+linked with `libm`, and ran both probes on Linux.
+
+| Required interface | Probe and cppgm result |
+| --- | --- |
+| `complex.h` imaginary unit | Construct `3.0 + 4.0 * I` and check the real and imaginary parts and magnitude. The GNU imaginary literal used by the header is diagnosed as a user-defined literal on Linux and WASI. |
+| `tgmath.h` function selection | Check the result types of `sqrt(float)` and `pow(int, long double)`, as well as exactly-once argument evaluation. The Linux macro reaches the missing `__builtin_tgmath`. The Clang resource header on WASI fails earlier on its overloaded C declarations. |
+
+[C99 library clauses, §§7.3 and 7.22](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
+[GCC complex literal extension](https://gcc.gnu.org/onlinedocs/gcc/Complex.html) ·
+[GCC type-generic math builtin](https://gcc.gnu.org/onlinedocs/gcc-15.2.0/gcc/Other-Builtins.html)
+
 ## Edition and declarator checks
 
 The 15 edition fixtures agree with GCC 15 and Clang 21. They cover C11
@@ -748,10 +765,43 @@ export verified 26,156 reference outputs and passed the new native
 compilation and Wasm runtime cases with its bundled tools. The pinned
 upstream tests, GCC torture, and Csmith retained their reviewed outcomes.
 
-Explicit `atomic_fetch_add` on the GNU `__int128` extension still
-fails in cppgm with the C header. GCC 15 and Clang 21 accept the
-probe. Floating-point environment qualification remains open.
+Floating-point environment qualification remains open.
 [Compile-time measurements](../docs/performance/c-frontend-scaling.md#wide-c-atomic-arithmetic)
+
+### Explicit 128-bit integer atomics
+
+Modern GNU scalar builtins and Clang's C11 arithmetic builtins now
+accept 128-bit integers. The wide scalar memory operations use the
+generic ABI. The wide arithmetic and existing narrow bitwise operations
+share the compare-exchange loop. PA30 checks the old and new result
+forms, signed wrap, failed expected-value updates, a forced retry, and
+operand evaluation counts. Its rejection case checks the ordinary
+expected pointer type. PA38 exercises both builtin spellings on Wasm.
+[PA30 protocol fixture](../pa30/tests/run/800-gnu-atomic-runtime-protocol.t.1) ·
+[PA30 expected type](../pa30/tests/compile/700-gnu-atomic-wide-expected-type-reject.t) ·
+[PA38 arithmetic fixture](../pa38/tests/general/500-c-wide-atomic-arithmetic.t)
+
+At `-O0` and `-O2`, the load, store, exchange, compare-exchange, and
+fetch probe passed with both GCC and Clang C headers on Linux x86-64 and
+AArch64 under QEMU with `libatomic`. Clang's header passed in bare
+Wasm and WASI under Wasmtime with a single-thread test provider. Intel
+and Arm Darwin Mach-O linked with a supplied provider. Native Darwin
+execution remains open. The disabled Wasm atomic profile diagnosed the
+wide builtin call.
+
+Three threads each ran 10,001 fetch-add and fetch-xor operations. The
+counter and high-bit mask matched their expected values in three
+trials at each optimization level, using GCC's header on x86-64 and
+Clang's header on AArch64 QEMU.
+
+The strict report passed 11,653 tests. PA36 smoke, PA37, PA38 native
+and Wasm, PA39, debug information, PA35 through PA5, and inception
+passed. The placement audit scanned 11,250 cases with zero findings.
+The student export verified 26,158 reference outputs and passed the
+affected PA30 and PA38 cases, including the Wasm runtime case, with
+its bundled tools. The pinned upstream tests, GCC torture, and Csmith
+retained their reviewed outcomes.
+[Compile-time measurements](../docs/performance/c-frontend-scaling.md#explicit-128-bit-integer-atomics)
 
 ## Cross-target smoke results
 
