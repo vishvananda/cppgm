@@ -1070,6 +1070,26 @@ Linux AArch64 under QEMU in all six edition and optimization combinations.
 [GCC x86 classification](https://github.com/gcc-mirror/gcc/blob/releases/gcc-15.1.0/gcc/config/i386/i386.cc#L2119-L2137) ·
 [Clang x86 classification](https://github.com/llvm/llvm-project/blob/llvmorg-21.1.8/clang/lib/CodeGen/Targets/X86.cpp#L1885-L1889)
 
+### Unnamed bit-field ABI gaps
+
+In AAPCS64, the container of an unnamed bit-field contributes to the
+aggregate's alignment, including for width zero. Clang 21 on Linux
+AArch64 reports size 8 and alignment 4 for
+`struct { unsigned char a:3; unsigned :0; unsigned char b:5; }`.
+cppgm reports size 5 and alignment 1. Clang and cppgm both report
+size 5 and alignment 1 on Darwin Arm64, both x86-64 targets, and Wasm.
+[AAPCS64 bit-field rules](https://github.com/ARM-software/abi-aa/blob/main/aapcs64/aapcs64.rst#bit-fields-subdivisions-of-containerized-types)
+
+For `union { float f; unsigned :1; }`, Clang uses integer registers on
+both Arm targets. cppgm currently classifies the union as homogeneous
+floating-point. A mixed-object probe reproduces the mismatch in both
+directions on Linux AArch64 at `-O0` and `-O2`. Replacing the field width
+with zero yields a homogeneous aggregate in both compilers. The same
+mixed-object probes pass on both Wasm profiles with both widths. A local
+prototype passes the Linux AArch64 probes with the Linux container
+alignment rule and by including nonzero unnamed fields in the Arm
+aggregate classification.
+
 ## Composite types, tentative definitions, and linkage
 
 GCC 15 and Clang 21 on Linux x86-64 served as controls for the reduced
