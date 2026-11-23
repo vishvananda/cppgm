@@ -1120,6 +1120,17 @@ bool NameLookup::parameter_hidden(const Scope* scope, const Identifier* name) co
 	return false;
 }
 
+Binding* NameLookup::c_tag(const Scope* scope, const Identifier* name) const
+{
+	for (; scope != nullptr; scope = scope->parent)
+	{
+		const NameEntry* entry = find(scope, name);
+		if (entry != nullptr && entry->tag != nullptr)
+			return entry->tag;
+	}
+	return nullptr;
+}
+
 LookupResult NameLookup::unqualified(Scope* scope, const Identifier* name, LookupFilter filter)
 {
 	++lookups_;

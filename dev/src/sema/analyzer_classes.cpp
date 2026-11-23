@@ -5,6 +5,7 @@
 #include <string>
 
 #include "lex/identifier_table.h"
+#include "preprocess/preprocessor.h"
 #include "sema/aggregates.h"
 #include "sema/integral_arithmetic.h"
 #include "syntax/ast_render.h"
@@ -1010,7 +1011,10 @@ Entity* Analyzer::elaborated_class(
 		}
 		else
 		{
-			result = names_.unqualified(scope, last.identifier, LookupFilter::Elaborated);
+			if (c_source_)
+				result.binding = names_.c_tag(scope, last.identifier);
+			else
+				result = names_.unqualified(scope, last.identifier, LookupFilter::Elaborated);
 			// 3.3.2p7: declared in the nearest enclosing namespace or block
 			// scope, as an earlier friend declaration may have declared it.
 			if (!c_source_ && !result.found())
@@ -1155,6 +1159,8 @@ EnumEntity* Analyzer::redeclared_enum(const syntax::EnumSpecifier& specifier, Sc
 	// introduce a new opaque unscoped enumeration or change its base.
 	if (!specifier.has_body && !specifier.scoped && underlying == nullptr && !entity->scoped)
 		return entity;
+	if (c_source_ && !entity->fixed && !specifier.scoped && !entity->scoped && underlying == nullptr)
+		return entity;
 	const Type* expected = underlying;
 	if (expected == nullptr && specifier.scoped)
 		expected = types_.fundamental(FundamentalType::Int);
@@ -1188,6 +1194,8 @@ Entity* Analyzer::enum_specifier(
 	while (c_source_ && where->kind == ScopeKind::Class)
 		where = where->parent;
 	const syntax::Name* name = specifier.name;
+	if (c_source_ && name != nullptr && name->qualified())
+		error(name->location, "a C enumeration tag must be an unqualified identifier");
 	if (lone_declaration && scope == template_scope_ && (name == nullptr || !name->qualified()))
 		error(specifier.location, "an enumeration cannot be declared as a template");
 	if (name != nullptr && name->last().has_arguments)
@@ -1198,7 +1206,26 @@ Entity* Analyzer::enum_specifier(
 		check_template_parameter_name(scope, name->last().identifier, name->location);
 	for (uint32_t i = 0; template_depth_ != 0 && i < specifier.enumerators.size; ++i)
 		check_template_parameter_name(scope, specifier.enumerators[i].name, specifier.enumerators[i].location);
-	if (name != nullptr && !specifier.has_body && !lone_declaration)
+	if (c_source_ && name != nullptr && !specifier.has_body && underlying == nullptr && !specifier.scoped)
+	{
+		// C17 6.7.2.3p3 requires a complete enumeration. GNU C can
+		// introduce a tag or name an existing one before it is complete.
+		const Binding* tag = names_.c_tag(scope, name->last().identifier);
+		if (tag != nullptr && tag->entity->kind != EntityKind::Enum)
+			error(name->location, "elaborated enum specifier does not name an enumeration");
+		EnumEntity* entity = tag == nullptr ? nullptr : static_cast<EnumEntity*>(tag->entity);
+		const bool forward = entity == nullptr || entity->underlying == nullptr;
+		if (forward || lone_declaration)
+		{
+			const char* message = forward ? "a forward reference to an enumeration is a GNU C extension"
+										  : "an empty redeclaration of an enumeration is a GNU C extension";
+			if (positions_ != nullptr && !positions_->allow_gnu_c_extension(specifier.location, message))
+				error(specifier.location, message);
+		}
+		if (entity != nullptr)
+			return entity;
+	}
+	else if (name != nullptr && !specifier.has_body && !lone_declaration)
 	{
 		// An elaborated enum specifier names an existing enumeration
 		// (7.1.6.3p2) and is written without `class`/`struct`.
@@ -1256,7 +1283,7 @@ Entity* Analyzer::enum_specifier(
 		return entity;
 	}
 	check_type_name_conflict(where, identifier, nullptr, name->location);
-	if (!specifier.has_body && !specifier.scoped && underlying == nullptr)
+	if (!c_source_ && !specifier.has_body && !specifier.scoped && underlying == nullptr)
 		error(specifier.location, "an opaque unscoped enumeration needs an underlying type");
 	EnumEntity* entity = new_entity<EnumEntity>(EntityKind::Enum, identifier, where, nullptr);
 	entity->type = types_.named(TypeKind::Enum, entity);
@@ -1387,6 +1414,9 @@ void Analyzer::enumerators(EnumEntity* entity, const syntax::EnumSpecifier& spec
 	// the values to the instantiations: the pattern's count in int.
 	const bool dependent = entity->fixed && !IntegralKindOf(entity->underlying, fixed_kind);
 	const bool fixed = entity->fixed && !dependent;
+	const bool c_enum = c_source_ && !fixed;
+	const Type* int_type = types_.fundamental(FundamentalType::Int);
+	bool wide_c_enum = false;
 	// Whether a template's enumerator holds only its position, its value
 	// depending on a template parameter (an omitted value on the previous).
 	bool value_dependent = false;
@@ -1399,7 +1429,7 @@ void Analyzer::enumerators(EnumEntity* entity, const syntax::EnumSpecifier& spec
 			expression_walk(enumerator.value, values);
 			value_dependent = instantiation_dependent(*enumerator.value, values);
 		}
-		Constant value = Constant{ 0, fixed ? entity->underlying : types_.fundamental(FundamentalType::Int) };
+		Constant value = Constant{ 0, fixed ? entity->underlying : int_type };
 		if (enumerator.value != nullptr && template_depth_ == 0)
 		{
 			// Semantics mode types the value first (5.19: its operands'
@@ -1424,13 +1454,30 @@ void Analyzer::enumerators(EnumEntity* entity, const syntax::EnumSpecifier& spec
 						enumerator.value->location, "a 128-bit enumerator value beyond the 64-bit constants evaluated");
 				value = Constant{ ConvertIntegral(value.bits, fixed_kind), entity->underlying };
 			}
-			else
+			else if (!c_enum)
 				value.type = PromotedType(types_, value.type);
 		}
 		else if (previous.type != nullptr && dependent)
 			value = Constant{ previous.bits + 1, previous.type };
 		else if (previous.type != nullptr)
 			value = next_enumerator_value(entity, previous, fixed_kind, enumerator.location);
+		if (c_enum)
+		{
+			// Through C17 an enumeration constant has type int, including
+			// when it is named inside a later enumerator's initializer.
+			if (value.bits <= INT32_MAX || Representable(value, IntegralKind{ 32, true }))
+				value.type = int_type;
+			else
+			{
+				const char* message = "an enumeration constant outside the range of int is a GNU C extension";
+				if (positions_ != nullptr && !positions_->allow_gnu_c_extension(enumerator.location, message))
+					error(enumerator.location, message);
+				value.type = PromotedType(types_, value.type);
+				wide_c_enum = true;
+			}
+			if (!entity->negative && static_cast<int64_t>(value.bits) < 0)
+				entity->negative = value.type == int_type || IsSignedConstant(value);
+		}
 		previous = value;
 		const NameEntry* entry = names_.find(lookup, enumerator.name);
 		if (entry != nullptr &&
@@ -1453,20 +1500,27 @@ void Analyzer::enumerators(EnumEntity* entity, const syntax::EnumSpecifier& spec
 			binding->access = declaration->access;
 		enumerator_scratch_.push_back(constant);
 	}
-	if (!entity->fixed)
-		entity->underlying = enumeration_underlying(base);
-	// After the closing brace each enumerator has the enumeration's type.
-	IntegralKind kind = fixed_kind;
-	if (!dependent)
-		IntegralKindOf(entity->underlying, kind);
-	for (size_t i = base; i < enumerator_scratch_.size(); ++i)
+	if (c_enum && !wide_c_enum)
 	{
-		EnumeratorEntity* constant = enumerator_scratch_[i];
-		IntegralKind value_kind;
-		if (IntegralKindOf(constant->value.type, value_kind) && value_kind.is_signed &&
-			static_cast<int64_t>(constant->value.bits) < 0)
-			entity->negative = true;
-		constant->value = Constant{ ConvertIntegral(constant->value.bits, kind), entity->type };
+		entity->underlying = entity->negative ? int_type : types_.fundamental(FundamentalType::UnsignedInt);
+	}
+	else
+	{
+		if (!entity->fixed)
+			entity->underlying = enumeration_underlying(base, entity->negative);
+		// C++ enumerators take the enum type. GNU C wide enum constants
+		// use the underlying integer type after the body.
+		const Type* constant_type = c_enum ? entity->underlying : entity->type;
+		IntegralKind kind = fixed_kind;
+		if (!dependent)
+			IntegralKindOf(entity->underlying, kind);
+		for (size_t i = base; i < enumerator_scratch_.size(); ++i)
+		{
+			EnumeratorEntity* constant = enumerator_scratch_[i];
+			if (!c_enum && IsSignedConstant(constant->value) && static_cast<int64_t>(constant->value.bits) < 0)
+				entity->negative = true;
+			constant->value = Constant{ ConvertIntegral(constant->value.bits, kind), constant_type };
+		}
 	}
 	enumerator_scratch_.resize(base);
 	entity->definition = &specifier;
@@ -1503,10 +1557,11 @@ Constant Analyzer::next_enumerator_value(
 	return Constant{ next, SmallestTypeFor(types_, next, negative) };
 }
 
-const Type* Analyzer::enumeration_underlying(size_t base)
+const Type* Analyzer::enumeration_underlying(size_t base, bool negative)
 {
 	// The first of int, unsigned int, long, unsigned long, long long and
-	// unsigned long long that represents every value (GCC's choice).
+	// unsigned long long that represents every value. C uses an unsigned
+	// type for entirely nonnegative enumerations.
 	static const FundamentalType kCandidates[] = { FundamentalType::Int, FundamentalType::UnsignedInt,
 		FundamentalType::LongInt, FundamentalType::UnsignedLongInt, FundamentalType::LongLongInt,
 		FundamentalType::UnsignedLongLongInt };
@@ -1515,6 +1570,8 @@ const Type* Analyzer::enumeration_underlying(size_t base)
 		const Type* type = types_.fundamental(candidate);
 		IntegralKind kind;
 		IntegralKindOf(type, kind);
+		if (c_source_ && kind.is_signed != negative)
+			continue;
 		bool fits = true;
 		for (size_t i = base; fits && i < enumerator_scratch_.size(); ++i)
 			fits = Representable(enumerator_scratch_[i]->value, kind);

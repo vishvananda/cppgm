@@ -141,6 +141,8 @@ public:
 	};
 
 	LookupResult unqualified(Scope* scope, const Identifier* name, LookupFilter filter);
+	// C tags occupy a namespace separate from ordinary identifiers.
+	Binding* c_tag(const Scope* scope, const Identifier* name) const;
 	// Lookup in a namespace, class or scoped enumeration named by a
 	// nested-name-specifier.
 	LookupResult qualified(Scope* scope, const Identifier* name, LookupFilter filter);

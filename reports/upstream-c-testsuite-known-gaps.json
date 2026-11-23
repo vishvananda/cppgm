@@ -2,14 +2,6 @@
   "00144.c": {
     "exclude": "The first conditional reads an uninitialized automatic int. The assignment of a const void pointer to void* also has a C constraint violation. PA38 covers the null pointer combinations with defined inputs."
   },
-  "00170.c": {
-    "diagnostic": "an opaque unscoped enumeration needs an underlying type",
-    "reason": "The suite exercises GNU C forward enum declarations."
-  },
-  "00209.c": {
-    "diagnostic": "undeclared name",
-    "reason": "GNU C introduces an incomplete enum tag in the pointer declaration."
-  },
   "00210.c": {
     "diagnostic": "syntax error",
     "reason": "A GNU attribute occurs inside a nested abstract pointer declarator."

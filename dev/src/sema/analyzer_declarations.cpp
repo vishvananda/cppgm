@@ -43,16 +43,18 @@ bool CompatibleVariableTypes(const Type* a, const Type* b)
 		(!a->has_array_bound() || !b->has_array_bound());
 }
 
+bool IncompleteCEnum(const Type* type)
+{
+	return type->kind == TypeKind::Enum && static_cast<const EnumEntity*>(type->entity)->underlying == nullptr;
+}
+
 bool IncompleteCTentativeType(const Type* type)
 {
 	if (type->kind == TypeKind::Array && !type->has_array_bound())
 		return true;
 	if (const ClassEntity* record = ClassOf(type))
 		return !record->complete;
-	if (type->kind != TypeKind::Enum)
-		return false;
-	const auto* enumeration = static_cast<const EnumEntity*>(type->entity);
-	return !enumeration->defined && !enumeration->fixed;
+	return IncompleteCEnum(type);
 }
 
 const syntax::Name* DeclaratorId(const syntax::Declarator* declarator)
@@ -1900,7 +1902,7 @@ bool Analyzer::check_variable_object(const Specifiers& specifiers, const Type* t
 		while (object->kind == TypeKind::Array &&
 			(object->has_array_bound() || object->owner != nullptr || object->runtime_array() || member))
 			object = object->element;
-		if ((object->kind == TypeKind::Array && !specifiers.is_static) ||
+		if ((object->kind == TypeKind::Array && !specifiers.is_static) || (c_source_ && IncompleteCEnum(object)) ||
 			(object->unqualified->kind == TypeKind::Class && template_depth_ == 0 &&
 				!require_complete(static_cast<ClassEntity*>(object->unqualified->entity))))
 			error(location, "variable of incomplete type");
@@ -3311,8 +3313,9 @@ void Analyzer::require_definition_types(const Type* type, uint32_t location)
 	const Type* canonical = type->canonical;
 	for (uint32_t i = 0; i <= canonical->param_count; ++i)
 	{
-		const ClassEntity* cls = ClassOf(i < canonical->param_count ? canonical->params[i] : canonical->element);
-		if (cls != nullptr && !require_complete(cls))
+		const Type* part = i < canonical->param_count ? canonical->params[i] : canonical->element;
+		const ClassEntity* cls = ClassOf(part);
+		if ((cls != nullptr && !require_complete(cls)) || (c_source_ && IncompleteCEnum(part)))
 			error(location, "a parameter or return type of a function definition is incomplete");
 	}
 }

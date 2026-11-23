@@ -377,7 +377,13 @@ ExprFacts* Analyzer::typed_form(const syntax::Expr& expr, Scope* scope)
 	case syntax::ExprKind::Postfix:
 		return increment(static_cast<const syntax::UnaryExpr&>(expr), scope);
 	case syntax::ExprKind::Call:
-		return call(static_cast<const syntax::CallExpr&>(expr), scope);
+	{
+		ExprFacts* result = call(static_cast<const syntax::CallExpr&>(expr), scope);
+		if (c_source_ && result != nullptr && result->type != nullptr && result->type->kind == TypeKind::Enum &&
+			static_cast<const EnumEntity*>(result->type->entity)->underlying == nullptr)
+			error(expr.location, "a call has incomplete enumeration return type");
+		return result;
+	}
 	case syntax::ExprKind::FunctionalCast:
 		return functional_cast(static_cast<const syntax::FunctionalCastExpr&>(expr), scope);
 	case syntax::ExprKind::Subscript:

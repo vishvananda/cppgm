@@ -13,13 +13,14 @@ open column lists work to qualify the remainder of each group.
 | 5.1 Translation and execution environments | PA38 runs C on native and WASI. The pinned runtime suite links cppgm objects using a C driver. | Confirm initialization and termination and freestanding entry contracts by target. |
 | 5.2.4.1 Translation limits | One combined program passes under C99, C11, and C17 on Linux x86-64, Linux AArch64, WASI, and bare Wasm. | Run the combined program natively on Intel macOS and Apple Silicon. |
 | 5.2 Environment and character sets, 6.4 lexical elements | PA1 through PA4 cover shared source translation, tokens and macros. PA38 tests C literal types. Upstream cases exercise integer types and hexadecimal floating literals. | Audit C edition boundaries, trigraphs, UCNs, encodings, alternative tokens and numeric ranges. |
-| 6.2.1–6.2.3 Scopes, linkage and namespaces | PA38 covers distinct namespaces, nested tags, typedefs and cross-unit declarations. | Complete prototype and label scopes, nested redeclarations and GNU forward enum declarations. |
+| 6.2.1–6.2.3 Scopes, linkage and namespaces | PA38 covers distinct namespaces, nested tags, typedefs and cross-unit declarations. The GNU forward enum cases now pass. | Complete prototype and label scopes and nested redeclarations. |
 | 6.2.4 Storage duration and lifetime | PA38 checks compound literals and automatic VLA scope exits. The hosted VLA test verifies a C-only link. | Cover variably modified declarations, bound evaluation, limited temporary lifetime and cross-ABI TLS. |
 | 6.2.5–6.2.8 Types, compatibility and alignment | PA38 covers scalar kinds, pointer qualification, bit-fields and tentative definitions. GCC tests confirm the C99 boolean bit-field width and value rules. | Qualify composite types across units, array and function compatibility, C alignment rules, atomic representation and each ABI's bit-field layout. |
 | 6.3 Conversions | PA38 checks arithmetic, promotions, void-pointer conversions and GNU pointer extensions. | Cover integer constant expressions as null pointer constants, conditional pointer composites, qualification, complex conversions and default argument promotions. |
 | 6.5 Expressions | PA38 checks C value categories, generic selection, compound literals, casts and short-circuit effects. | Test aliasing, volatile and atomic effects, evaluation order and arithmetic boundaries across optimization levels. |
 | 6.6 Constant expressions | PA38 exercises array bounds, static initialization and static assertions. | Distinguish the integer, arithmetic and address constant expression requirements from ordinary folding. |
 | 6.7 Declarations and type names | PA38 covers tags, old and new function declarations, initializers, designators and one-dimensional VLAs. | Complete variably modified types, nested and overlapping designators, flexible arrays, repeated qualifiers and edition diagnostics. |
+| 6.7.2.2–6.7.2.3 Enumeration specifiers and tags | PA38 checks the `int` constant rule, compatible object types, out-of-range diagnostics and GNU incomplete tags. | Qualify C23 enum bases and wider constants when that edition is enabled. |
 | 6.8 Statements and blocks | PA38 checks control flow, switch conversion and VLA scope exits. GCC's C99 runtime test checks for-declaration scoping. | Qualify for-declaration constraints, nested scopes and jumps involving variably modified types. |
 | 6.9 External definitions | PA38 mixes units with common objects, inline definitions and identifier-list functions. | Check more cross-unit combinations, symbol visibility and inline linkage on each ABI. |
 | 6.10 Preprocessing | PA4 covers shared macro replacement, conditional inclusion, pragmas and line control. PA38 probes C predefined macros. | Pin the GCC preprocessing corpus and qualify required diagnostics, mode macros and hosted header extensions. |
@@ -80,8 +81,8 @@ open for these editions.
 ## Pinned suite receipts
 
 - **c-testsuite** inventories 220 programs in two dialects and at two
-  optimization levels. cppgm passes 860 of 876 selected configurations.
-  Four known source gaps account for 16 configurations. One source that
+  optimization levels. cppgm passes 868 of 876 selected configurations.
+  Two known source gaps account for eight configurations. One source that
   reads an uninitialized automatic object is excluded from the runtime
   comparison. [Suite builder](../scripts/build_c_testsuite_ci_manifest.py) ·
   [Known gaps](upstream-c-testsuite-known-gaps.json)
@@ -179,6 +180,24 @@ thread-local declarations, alignment specifiers and queries, and
 nonreturning declarations. They also check GNU keyword spellings, omitted
 assertion messages, and the effect of `-Wsystem-headers`. The checks run
 in the native and Wasm PA38 lanes.
+
+The enumeration fixtures cover §6.7.2.2's `int`-typed enumerators before
+and after the closing brace, the signed and unsigned compatible object
+types, and the diagnostic when an implicit increment exceeds `int`.
+Separate probes exercise GNU wide enums and forward tags whose object
+and function declarations share the identity resolved at completion. The
+pedantic, incomplete-definition, and incomplete-return rejections agree with GCC 15 and
+Clang 21. The positive fixtures pass at `-O0` and `-O2` on Linux x86-64,
+Linux AArch64 under QEMU, WASI, and bare Wasm. They cross-link for both
+Darwin architectures. The pinned `00170.c` and `00209.c` cases are now
+required in both C17 dialects at both optimization levels. Mixed cppgm and
+Clang 21 callers and callees pass in both directions on the running targets
+at both optimization levels. The probes pass and return enums and a record
+with unsigned, signed, and GNU wide enum members. The mixed objects also
+cross-link for both Darwin architectures.
+[C enum notes](../doc/c-conformance-notes.md#enumeration-constants-and-incomplete-tags) ·
+[PA38 forward tags](../pa38/tests/general/300-c-forward-enum.t) ·
+[PA38 enum constants](../pa38/tests/general/500-c-enum-types.t)
 
 Additional C99 and C11 tests cover Unicode prefix tokenization, direct
 macro expansion, token pasting, and Clang's C11 feature and extension

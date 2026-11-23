@@ -198,6 +198,18 @@ The first fixture set covers these parts of the C17 input profile:
   external linkage supplies the external symbol if a file-scope declaration
   uses `extern` or leaves out `inline`. GNU `gnu_inline` and `always_inline`
   attributes can also occur after the return type's pointer operator.
+- Give C99 through C17 enumeration constants type `int`, including inside
+  later enumerator initializers. The enumeration object type is compatible
+  with `unsigned int` for nonnegative values in the `int` range and `int`
+  when the enumeration has negative values in that range. Diagnose constants
+  outside the `int` range in pedantic modes. GNU C allows wider integer
+  representations when needed.
+- GNU C supports forward references to an enumeration tag. Keep the type
+  incomplete until its definition. A pointer or a non-defining declaration
+  can refer to it in the meantime. A storage definition or a function
+  definition needs a complete type. A call needs a complete return type.
+  Diagnose a forward reference or a
+  declarator-less enum redeclaration under the pedantic policy.
 - In an inline-only definition with external linkage, diagnose references to
   internal-linkage identifiers and definitions of modifiable static or
   thread-local objects. Use all file-scope declarations of the function to

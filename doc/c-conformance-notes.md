@@ -203,6 +203,26 @@ block-scope definition.
 [C11 draft, N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [PA38 association regression](../pa38/tests/general/500-generic-tag-association.t)
 
+## Enumeration constants and incomplete tags
+
+In C99 through C17, 6.7.2.2 requires each enumerator's value to fit `int`
+and gives the constant type `int`. This applies inside later initializers.
+The enumeration's compatible integer type is a separate choice. The target
+controls use `unsigned int` for an all-nonnegative range that fits in `int`
+and `int` if the range includes negative values. The GNU extension for
+wider values uses a compatible integer type that holds the range.
+
+Under 6.7.2.3, a reference to an enumeration tag without a definition
+requires a complete type. GNU C permits an incomplete tag and allows
+pointer, `extern`, and prototype declarations before completion. A later
+definition in the same scope completes the existing type. Tag lookup
+ignores ordinary identifiers through enclosing scopes. For a bare
+`enum E;` with a visible outer enum, cppgm follows GCC and references the
+existing tag. Clang can introduce a new local tag in this extension case.
+[C99 draft, N1256](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
+[C11 draft, N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[GCC enum extensions](https://gcc.gnu.org/onlinedocs/gcc/Enum-Extensions.html)
+
 ## Generic association compatibility
 
 C11 6.5.1.1p2 constrains both the association list and the match for the
