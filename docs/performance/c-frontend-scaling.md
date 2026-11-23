@@ -2844,3 +2844,35 @@ separate form adds about 475 instructions per pair at the larger sizes.
 Both forms scale linearly over the measured range. Mean peak RSS for
 each configuration stays within 400 KiB of the others. All 60
 observations span 860 KiB.
+
+## Nested flexible-array string initializers
+
+Compared immutable GCC 15 builds of `471dc679d` and `72f35f407` on CPU 71.
+The frozen C++ and SQLite builds emitted byte-identical objects in every
+observation. A/A task-clock spreads were 21.3% and 24.1%, which leave
+wall-time differences unresolved.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.00290% | −0.00166% | +0.00168% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.00296% | +0.00093% | −0.00399% |
+
+A Linux AArch64 `-O0` probe gives each global one nested string and a
+following record member. The alternate union member reserves the
+string's storage. Analysis uses the cached record layout and propagates
+the byte extent while freezing the typed initializer. Only affected
+records allocate an extent record. The four observations per size emitted
+identical objects and show linear compile work.
+
+| Objects | Retired instructions | Mean peak RSS (KiB) |
+| ---: | ---: | ---: |
+| 128 | 9,610,444 | 17,715 |
+| 256 | 16,040,194 | 17,651 |
+| 512 | 28,851,466 | 17,723 |
+| 1,024 | 54,665,018 | 17,763 |
+
+The paired direct-member controls use objects whose own flexible member
+has a positional string initializer. Baseline and candidate objects
+matched byte for byte at all four sizes. At 1,024 objects the instruction
+changes were +0.04417% in ABBA and +0.05505% in BAAB, with an A/A spread
+of 0.03588%.

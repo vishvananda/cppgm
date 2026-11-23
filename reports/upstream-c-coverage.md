@@ -1059,6 +1059,15 @@ storage, array elements, and overlap with a following member.
 [PA38 following member](../pa38/tests/general/300-c-gnu-nested-flexible-following-member.t) ·
 [PA38 compound literal](../pa38/tests/general/300-c-gnu-flexible-compound-literal.t)
 
+The three GNU fixtures passed on all six target profiles in GNU99, GNU11,
+and GNU17 at `-O0` and `-O2`. Linux AArch64 ran under QEMU, both Darwin
+profiles used SDK-free Mach-O replay, and both Wasm profiles used Wasmtime.
+All seven negative fixtures produced the expected diagnostic class on
+each target. A separate Linux x86-64 probe passed with GCC 15 and cppgm
+for a wide string with an embedded null. The pinned GCC torture run now
+matches 113 of 128 configurations, with 15 reviewed gaps.
+[Compile-work measurements](../docs/performance/c-frontend-scaling.md#nested-flexible-array-string-initializers)
+
 The separate by-value ABI probe passed with cppgm and GCC 15 objects
 in both caller/callee directions on Linux x86-64. For a structure with
 an `unsigned` prefix and a flexible `int` tail, GCC and cppgm pass and
