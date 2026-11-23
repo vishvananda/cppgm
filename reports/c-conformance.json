@@ -500,6 +500,7 @@
       "clause": "5.2.4.2.1p1",
       "kind": "required",
       "editions": [
+        99,
         11,
         17
       ],

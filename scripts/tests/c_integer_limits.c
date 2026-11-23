@@ -30,6 +30,10 @@
 
 #if __STDC_VERSION__ >= 201112L
 #define CHECK_TYPE(name, type) _Static_assert(_Generic((name), type: 1, default: 0), #name)
+#else
+#define CHECK_TYPE(name, type) \
+	typedef char type_of_##name[__builtin_types_compatible_p(__typeof__(name), type) ? 1 : -1]
+#endif
 CHECK_TYPE(CHAR_MIN, int);
 CHECK_TYPE(CHAR_MAX, int);
 CHECK_TYPE(SCHAR_MIN, int);
@@ -47,7 +51,6 @@ CHECK_TYPE(ULONG_MAX, unsigned long);
 CHECK_TYPE(LLONG_MIN, long long);
 CHECK_TYPE(LLONG_MAX, long long);
 CHECK_TYPE(ULLONG_MAX, unsigned long long);
-#endif
 
 int main(void)
 {

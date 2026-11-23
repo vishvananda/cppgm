@@ -68,7 +68,9 @@ uncovered even when the same case passes on another target.
 
 The integer-limit probe checks the target ranges in `#if`, the plain
 char range against the runtime signedness, and the promoted types in
-C11 and C17. Separate floating probes check significand and exponent
+C99, C11, and C17. The C99 fixture uses the reserved `__typeof__` and
+`__builtin_types_compatible_p` spellings for the type assertions.
+Separate floating probes check significand and exponent
 macros, decimal precision, finite extrema, epsilon, C11 subnormals,
 and the default rounding code. The probes use the actual headers.
 They check `long` width and `long double` precision against the
@@ -95,7 +97,7 @@ with both GCC and Clang's compiler headers. Clang's `<float.h>` also
 reports all four dynamic codes on x86-64 and AArch64. The installed GCC
 headers use a fixed code for nearest.
 
-Native macOS evidence and C99 integer macro type checks remain open.
+Native macOS evidence remains open.
 The `FENV_ACCESS ON` probe now preserves `1.0 + 0x1p-53` as runtime
 arithmetic. It checks upward and downward rounding in the same function
 and checks `FE_INEXACT` after a discarded addition. It also checks the
