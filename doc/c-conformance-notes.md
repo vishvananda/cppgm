@@ -122,6 +122,19 @@ diagnostic with `-Wsystem-headers`.
 [GCC complex types and constants](https://gcc.gnu.org/onlinedocs/gcc/Complex.html) ·
 [PA38 runtime and diagnostic fixtures](../pa38/tests/general/500-c-imaginary-extension.t)
 
+## Edition diagnostics in system macros
+
+The installed glibc header can use a C11 generic selection in a
+`<math.h>` macro expanded in C99, including in a size-optimized build.
+cppgm follows GCC's system macro policy for these diagnostics. A token
+written in the replacement list carries that policy into parsing. A
+paste of two such tokens carries it too. Tokens supplied as arguments
+retain their original policy. `-Wsystem-headers` enables the diagnostic
+for the replacement-list tokens.
+
+[GCC system headers](https://gcc.gnu.org/onlinedocs/cpp/System-Headers.html) ·
+[PA38 system macro fixture](../pa38/tests/general/500-c99-system-macro-generic.t)
+
 ## C99 type-generic math
 
 C99 7.22 determines a type-generic math function from the types of its
@@ -401,8 +414,14 @@ and a NaN from infinity. The quiet comparisons treat the two signed zeros
 as equal and keep NaNs unordered. In an enabled native scope, a binary128
 relational operator signals invalid independently of the comparison
 helpers in the runtime library.
+Division by a signed floating zero in a static C initializer is computed
+at translation time. The result is a quiet NaN for zero divided by zero
+or an infinity with the quotient's sign for a nonzero numeric numerator.
+This also supports the installed WASI header's `NAN` expansion. An
+automatic division in an enabled scope still raises its native exception.
 
 [WG14 N1570, §§7.6.1, 7.12.3, 7.12.14 and Annex F](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[PA38 static division and runtime status probe](../pa38/tests/general/500-c-fenv-static-zero-division.t) ·
 [PA38 long double classification and comparison probe](../pa38/tests/general/500-c-fenv-quad.t) ·
 [PA38 scope and runtime probe](../pa38/tests/general/500-c-fenv-binary.t)
 

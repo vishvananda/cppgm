@@ -414,7 +414,7 @@ bool Parser::collect_attribute_specifiers(Attribute*& list, bool* standard, CAli
 					break;
 				if (alignment == CAlignment::Forbidden)
 					throw ParseError(start, "an alignment specifier is not permitted here");
-				require_c_extension(start, CEdition::C11, "_Alignas is a C11 extension");
+				require_c_extension(tok(), CEdition::C11, "_Alignas is a C11 extension");
 			}
 			next();
 			if (!expect(TokenKind::OP_LPAREN))
@@ -579,7 +579,7 @@ bool Parser::parse_decl_specifiers(ListFrame<DeclSpecifier>& list, SpecifierInfo
 		}
 		if (gnu == GnuNames::kCNoReturn)
 		{
-			require_c_extension(token.location, CEdition::C11, "_Noreturn is a C11 extension");
+			require_c_extension(token, CEdition::C11, "_Noreturn is a C11 extension");
 			Attribute* attribute = make<Attribute>();
 			*attribute = Attribute();
 			attribute->kind = AttributeKind::NoReturn;
@@ -609,7 +609,7 @@ bool Parser::parse_decl_specifiers(ListFrame<DeclSpecifier>& list, SpecifierInfo
 				if (kind == TokenKind::KW_CONSTINIT)
 					specifier.kind = DeclSpecKind::Constinit;
 				if (kind == TokenKind::KW_THREAD_LOCAL && c_source_ && token.spelling.text[1] != '_')
-					require_c_extension(token.location, CEdition::C11, "_Thread_local is a C11 extension");
+					require_c_extension(token, CEdition::C11, "_Thread_local is a C11 extension");
 				next();
 				if (kind == TokenKind::KW_EXPLICIT && at(TokenKind::OP_LPAREN))
 				{
@@ -820,7 +820,7 @@ bool Parser::parse_c_atomic_qualifier(ListFrame<DeclSpecifier>& list)
 		gnu_names_.kind(tok().identifier) != static_cast<uint8_t>(GnuTrait::AddAtomic) + 1 ||
 		at(TokenKind::OP_LPAREN, 1))
 		return false;
-	require_c_extension(location(), CEdition::C11, "the _Atomic qualifier is a C11 extension");
+	require_c_extension(tok(), CEdition::C11, "the _Atomic qualifier is a C11 extension");
 	DeclSpecifier specifier = DeclSpecifier();
 	specifier.kind = DeclSpecKind::AtomicQualifier;
 	specifier.location = location();

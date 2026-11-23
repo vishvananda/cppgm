@@ -1392,6 +1392,8 @@ bool ConstantInterpreter::arithmetic(const syntax::BinaryExpr& expr, const Const
 	{
 		if (!convert_scalar(left, type, expr.location) || !convert_scalar(right, type, expr.location))
 			return false;
+		if (c_static_initializer_ && expr.op == TokenKind::OP_DIV && CStaticFloatingZeroDivision(left, right, out))
+			return true;
 		if (left.kind == ValueKind::Binary128)
 			return Binary128Operation(expr.op, type, left, right, out) ||
 				fail(expr.location, "a binary128 operation with an undefined result");

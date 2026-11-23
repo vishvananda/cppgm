@@ -34,6 +34,8 @@ CASES = {
     'floating.fenv-convert': (RUN_STAGES, ('O0', 'O2')),
     'floating.fenv-compare': (RUN_STAGES, ('O0', 'O2')),
     'floating.fenv-quad': (RUN_STAGES, ('O0', 'O2')),
+    'floating.static-zero-division': (RUN_STAGES, ('O0', 'O2')),
+    'floating.hosted-math': (RUN_STAGES, ('O0', 'O2', 'Oz')),
     'include.physical': (RUN_STAGES, ('O0',)),
     'include.query': (RUN_STAGES, ('O0',)),
     'literal.code-units': (RUN_STAGES, ('O0', 'O2')),
@@ -48,6 +50,8 @@ FENV_BINARY = ROOT / 'pa38/tests/general/500-c-fenv-binary.t'
 FENV_CONVERT = ROOT / 'pa38/tests/general/500-c-fenv-convert.t'
 FENV_COMPARE = ROOT / 'pa38/tests/general/500-c-fenv-compare.t'
 FENV_QUAD = ROOT / 'pa38/tests/general/500-c-fenv-quad.t'
+FENV_ZERO_DIVISION = ROOT / 'pa38/tests/general/500-c-fenv-static-zero-division.t'
+HOSTED_MATH = ROOT / 'pa38/tests/general/500-c-hosted-math-classification.t'
 # Precision of the target ABI's long double, independent of the candidate's predefines.
 LONG_DOUBLE_PRECISION = {
     'x86_64-linux-gnu': 64,
@@ -230,7 +234,10 @@ def numeric_sources(profile, bare_sdk):
         ('limits.float', FLOAT_LIMITS, (*include, f'-DEXPECT_LDBL_MANT_DIG={LONG_DOUBLE_PRECISION[target]}'), float_link),
         ('limits.rounding-default', DEFAULT_ROUNDING, include, rounding_link),
         ('floating.fenv-quad', FENV_QUAD, include, rounding_link),
+        ('floating.static-zero-division', FENV_ZERO_DIVISION, include, rounding_link),
     ]
+    if profile['environment'] == 'hosted':
+        sources.append(('floating.hosted-math', HOSTED_MATH, (), rounding_link))
     if not wasm:
         sources.extend([
             ('limits.rounding-query', ROUNDING_QUERY, (), rounding_link),
@@ -318,7 +325,8 @@ def probes(args, profiles, rules):
         results.extend(probe_target(output, bare, compiler, ['-ffreestanding', '-nostdinc'], link, runner, bare_sdk))
     revision = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
     inputs = sorted([*work.glob('*.h'), limits, ERROR_SOURCE, INCLUDE_SOURCE, STRING_SOURCE, INCLUDE_QUERY,
-                     INTEGER_LIMITS, FLOAT_LIMITS, DEFAULT_ROUNDING, ROUNDING_QUERY, FENV_BINARY, FENV_CONVERT, FENV_COMPARE,
+                     INTEGER_LIMITS, FLOAT_LIMITS, DEFAULT_ROUNDING, ROUNDING_QUERY,
+                     FENV_BINARY, FENV_CONVERT, FENV_COMPARE, FENV_QUAD, FENV_ZERO_DIVISION, HOSTED_MATH,
                      *numeric_sdk_inputs,
                      INCLUDE_QUERY.parent / 'c-header  spaces.h',
                      INCLUDE_SOURCE.parent / 'c-include-physical.h', INCLUDE_SOURCE.parent / 'c-include-local.h'])

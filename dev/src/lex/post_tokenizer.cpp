@@ -20,6 +20,7 @@ const PostToken& PostTokenizer::next()
 	if (__builtin_expect(split_suffix_.length != 0, 0))
 	{
 		start_token(PostTokenKind::Invalid, split_suffix_, split_suffix_begin_, split_suffix_end_);
+		token_.quiet_system_macro = false;
 		split_suffix_.length = 0;
 		convert_identifier(
 			identifiers_ != nullptr ? identifiers_->intern(token_.source.text, token_.source.length) : nullptr);
@@ -55,6 +56,7 @@ const PPToken& PostTokenizer::pull_input()
 void PostTokenizer::convert(const PPToken& pp)
 {
 	start_token(PostTokenKind::Invalid, TokenSpelling{ pp.spelling, pp.length }, pp.begin, pp.end);
+	token_.quiet_system_macro = (pp.flags & kQuietSystemMacro) != 0;
 	switch (pp.kind)
 	{
 	case PPTokenKind::Identifier:
@@ -194,7 +196,6 @@ void PostTokenizer::convert_imaginary(const PPToken& pp, const NumberLiteral& nu
 	token_.kind = PostTokenKind::Literal;
 	token_.form = LiteralForm::Imaginary;
 	token_.type = number.type;
-	token_.quiet_system_macro = (pp.flags & kQuietSystemMacro) != 0;
 	token_.imaginary_value = floating ? number.suffix_begin : number.integer;
 }
 

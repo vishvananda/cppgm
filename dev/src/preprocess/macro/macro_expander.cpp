@@ -1191,7 +1191,7 @@ PPToken MacroExpander::paste_tokens(const PPToken& left, const PPToken& right)
 	{
 		throw PreprocessError(head.begin, "token pasting does not form a valid preprocessing token");
 	}
-	result.flags = left.flags & (kLeadingSpace | kStartOfLine);
+	result.flags = (left.flags & (kLeadingSpace | kStartOfLine)) | (left.flags & right.flags & kQuietSystemMacro);
 	result.begin = head.begin;
 	result.end = head.end;
 	result.hide_set = building_chain_;

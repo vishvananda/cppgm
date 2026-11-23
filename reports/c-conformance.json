@@ -711,7 +711,24 @@
       ],
       "environment": "hosted",
       "requirement": "Exercise classification and quiet comparison through the selected hosted math.h macros for all three standard real floating types.",
-      "cases": []
+      "cases": [
+        "floating.hosted-math"
+      ]
+    },
+    {
+      "id": "floating.static-zero-division",
+      "clause": "F.8.2, F.8.4–5",
+      "kind": "conditional",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Initialize static real floating objects with a quiet NaN or signed infinity from division by zero. Native startup leaves the floating exception flags clear.",
+      "cases": [
+        "floating.static-zero-division"
+      ]
     },
     {
       "id": "floating.fenv-binary128-comparison",

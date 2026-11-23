@@ -32,11 +32,12 @@ enum ParseTokenFlag : uint8_t
 	// an adjacent pair back into one shift operator.
 	kFirstShiftHalf = 1,
 	kSecondShiftHalf = 2,
+	// From a system macro's replacement list, with diagnostics suppressed.
+	kQuietSystemToken = 32,
 	// A string literal or a concatenation of string literals.
 	kStringLiteral = 128,
 	// ImaginaryLiteral uses the low five bits for the component type.
 	kImaginaryTypeMask = 31,
-	kQuietSystemLiteral = 32,
 	kWideImaginaryLiteral = 64
 };
 

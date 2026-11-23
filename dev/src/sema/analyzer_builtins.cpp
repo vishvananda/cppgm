@@ -453,8 +453,9 @@ ExprFacts* Analyzer::floating_builtin(const syntax::CallExpr& expr, const Functi
 		facts->value = static_cast<uint64_t>(Intrinsic::IsGreater) + variant;
 		return facts;
 	}
-	// GCC's floating classification builtins return int. __builtin_signbitl
-	// takes long double. The generic forms take any floating type: __builtin_isfinite,
+	// GCC's floating classification builtins return int. The typed signbit
+	// forms convert to their declared parameter type. The generic forms take
+	// any floating type: __builtin_isfinite,
 	// __builtin_isinf, __builtin_isnan, __builtin_isnormal,
 	// __builtin_signbit, __builtin_isinf_sign and __builtin_issignaling (x),
 	// and __builtin_fpclassify(nan, infinite, normal, subnormal, zero, x).

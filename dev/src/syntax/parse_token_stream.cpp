@@ -131,7 +131,7 @@ void ParseTokenStream::pull()
 		prelude_tokens_ = base_ + window_.size();
 	}
 	ParseToken token;
-	token.flags = 0;
+	token.flags = post.quiet_system_macro ? kQuietSystemToken : 0;
 	token.location = post.begin;
 	token.spelling = post.source;
 	token.identifier = nullptr;
@@ -193,9 +193,7 @@ void ParseTokenStream::pull()
 		else if (post.form == LiteralForm::Imaginary)
 		{
 			token.kind = ParseTokenKind::ImaginaryLiteral;
-			token.flags = static_cast<uint8_t>(post.type);
-			if (post.quiet_system_macro)
-				token.flags |= kQuietSystemLiteral;
+			token.flags |= static_cast<uint8_t>(post.type);
 			if (post.imaginary_value > UINTPTR_MAX)
 			{
 				// Keep a pointer-sized payload in the streaming window on 32-bit hosts.

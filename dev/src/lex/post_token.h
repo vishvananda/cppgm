@@ -58,7 +58,7 @@ struct PostToken
 	// A multicharacter literal (lex/text_literal.h), which the PA2 writer
 	// reports as invalid.
 	bool multicharacter;
-	// Imaginary literal: whether it came from a system macro with warnings suppressed.
+	// A replacement-list token from a system macro with warnings suppressed.
 	bool quiet_system_macro;
 	// String literal: contains an octal or hexadecimal escape.
 	bool numeric_string_escapes;

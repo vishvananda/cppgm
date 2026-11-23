@@ -11,6 +11,7 @@ bool Binary128Operation(
 	TokenKind operation, const Type* type, const ConstValue& left, const ConstValue& right, ConstValue& result);
 bool Binary128Comparison(TokenKind operation, const ConstValue& left, const ConstValue& right);
 bool Binary128Zero(const ConstValue& value);
+bool CStaticFloatingZeroDivision(const ConstValue& left, const ConstValue& right, ConstValue& result);
 ConstValue ConstantSine(const ConstValue& value);
 
 } // namespace sema

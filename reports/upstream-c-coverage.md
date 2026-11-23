@@ -139,11 +139,27 @@ pass. The Wasm probes exercise the values and do not query exception flags.
 [WG14 N1570 §§7.12.3, 7.12.14, and Annex F.3](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [compiler-rt's binary128 comparison helpers](https://github.com/llvm/llvm-project/blob/main/compiler-rt/lib/builtins/comparetf2.c)
 
-Hosted header coverage still has a separate gap. The AArch64 glibc
-`signbit` macro names `__builtin_signbitf` in its float branch, including
-when the operand is long double. The compiler rejects that undeclared
-builtin. With a temporary typed alias for the float branch, the same
-test passed through the installed `<math.h>` macros under QEMU.
+The hosted probe exercises classification and all six quiet comparisons
+through the installed `<math.h>` on each standard real type. It also
+checks mixed-type comparisons, single evaluation of operands, and the
+native invalid flag. The AArch64 glibc `signbit` macro uses the typed
+`__builtin_signbitf` even when the argument selects another branch.
+PA30 checks the builtin's conversion and sign results. On x86-64,
+glibc's size-optimized fallback expands `_Generic` into C99 code.
+PA38 checks suppression for replacement-list tokens and re-enables
+diagnostics for user inputs and `-Wsystem-headers`.
+
+The hosted probe passes in C99, C11, and C17 at `-O0`, `-O2`, and
+`-Oz` with glibc 2.43 on Linux x86-64 and AArch64 under QEMU, with musl
+1.2.5 on Linux x86-64, and with the pinned WASI SDK. WASI's `NAN`
+expands to floating division in the selected preprocessing environment.
+A separate probe uses static division on all three real types and checks
+that an automatic division still raises invalid on native targets.
+
+[PA30 signbit fixture](../pa30/tests/run/800-builtin-fp-predicates-run.t.1) ·
+[PA38 hosted fixture](../pa38/tests/general/500-c-hosted-math-classification.t) ·
+[PA38 zero division fixture](../pa38/tests/general/500-c-fenv-static-zero-division.t) ·
+[WG14 N1570 §§7.12.3, 7.12.14, and Annex F.8](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
 
 ## Additional editions
 

@@ -741,7 +741,7 @@ Expr* Parser::parse_type_trait(TokenKind keyword)
 {
 	const bool c_alignof = keyword == TokenKind::KW_ALIGNOF && c_source_ && tok().spelling.text[1] != '_';
 	if (c_alignof)
-		require_c_extension(location(), CEdition::C11, "_Alignof is a C11 extension");
+		require_c_extension(tok(), CEdition::C11, "_Alignof is a C11 extension");
 	TypeTraitExpr* expr = make<TypeTraitExpr>(ExprKind::TypeTrait, location());
 	expr->keyword = keyword;
 	expr->c_standard_alignof = c_alignof;
@@ -842,7 +842,7 @@ Expr* Parser::try_parse_classification_type()
 Expr* Parser::parse_builtin_trait(GnuTrait trait)
 {
 	if (trait == GnuTrait::AddAtomic && c_source_)
-		require_c_extension(location(), CEdition::C11, "the _Atomic type specifier is a C11 extension");
+		require_c_extension(tok(), CEdition::C11, "the _Atomic type specifier is a C11 extension");
 	BuiltinTraitExpr* expr = make<BuiltinTraitExpr>(ExprKind::BuiltinTrait, location());
 	expr->trait = trait;
 	expr->types = Slice<TypeId*>{ nullptr, 0 };
@@ -1125,7 +1125,7 @@ Expr* Parser::parse_primary_expression()
 	const uint32_t start = token.location;
 	if (token.kind == ParseTokenKind::ImaginaryLiteral)
 	{
-		if (!in_c_extension_ && (token.flags & kQuietSystemLiteral) == 0)
+		if (!in_c_extension_ && (token.flags & kQuietSystemToken) == 0)
 			require_gnu_c_extension(start, "imaginary numeric literals are a GNU C extension");
 		ImaginaryLiteralExpr* literal = make<ImaginaryLiteralExpr>(ExprKind::Literal, start);
 		literal->spelling = token.spelling;

@@ -2564,3 +2564,51 @@ the unchanged code paths and use one pinned CPU with identical inputs.
 | SQLite `-O2` | A/A | 16,510,860,080 / 16,510,934,362 / 16,510,647,386 / 16,510,862,735 |
 | SQLite `-O2` | ABBA | 16,510,554,005 / 16,510,577,702 / 16,511,622,593 / 16,510,680,442 |
 | SQLite `-O2` | BAAB | 16,510,599,020 / 16,511,050,336 / 16,510,850,575 / 16,510,990,969 |
+
+## Hosted math macros and C edition diagnostics
+
+The replacement-list provenance uses the existing token flags. The token
+record sizes stay the same. The parser reads the flag when a C edition
+diagnostic applies.
+
+For the scaling probe, a system header defines
+`PICK(x) _Generic((x), int: (x), default: 1)`. Each generated function
+returns `PICK(v)` plus its function index. The same compiler compiles the
+same bytes at `-O0 -pedantic-errors` in C11 and in C99, where the system
+macro suppresses the extension diagnostic. The table shows the medians of
+four retired instruction counts per edition from ABBA and BAAB on CPU 71.
+Every object matches byte-for-byte. Both editions scale linearly.
+
+| Functions | C11 instructions | C99 instructions |
+| ---: | ---: | ---: |
+| 1,024 | 69,950,692 | 69,948,957 |
+| 2,048 | 136,027,831 | 136,032,644 |
+| 4,096 | 268,554,106 | 268,593,254 |
+
+The frozen controls compare the complete change against `0e6c2fd95` on
+the same CPU with immutable binaries and identical inputs. The C++
+instruction changes are +0.03063% and +0.03236% in ABBA and BAAB.
+SQLite changes by +0.01859% and +0.01967%. Every frozen object matches
+byte-for-byte.
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ `-O3` | A/A | 9,046,906,065 / 9,046,857,779 / 9,046,842,454 / 9,046,845,851 |
+| C++ `-O3` | ABBA | 9,046,889,569 / 9,049,663,832 / 9,049,599,129 / 9,046,830,650 |
+| C++ `-O3` | BAAB | 9,049,708,667 / 9,046,679,374 / 9,046,793,830 / 9,049,619,586 |
+| SQLite `-O2` | A/A | 16,510,721,524 / 16,510,691,660 / 16,510,610,211 / 16,511,626,335 |
+| SQLite `-O2` | ABBA | 16,510,871,545 / 16,513,733,011 / 16,514,066,175 / 16,510,788,792 |
+| SQLite `-O2` | BAAB | 16,514,682,758 / 16,510,924,738 / 16,510,997,709 / 16,513,733,578 |
+
+The static floating divide input compiles three volatile globals per group
+as C17 at `-O0` for AArch64. They hold a float NaN, a negative double
+infinity and a long double NaN. A command-line define switches between
+builtin spellings and constant division by zero. Both forms emit
+byte-identical objects. The new path scales linearly. These are the
+medians of four retired instruction counts per form on CPU 71.
+
+| Groups | Builtin values | Static division |
+| ---: | ---: | ---: |
+| 1,024 | 90,855,132 | 82,019,946 |
+| 2,048 | 177,113,008 | 160,940,279 |
+| 4,096 | 352,436,401 | 320,078,576 |

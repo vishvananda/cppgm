@@ -1,6 +1,7 @@
 #include "sema/constant_floating.h"
 
 #include <cmath>
+#include <limits>
 
 #include "lex/extended_float.h"
 #include "sema/floating/binary128.h"
@@ -28,6 +29,36 @@ ConstValue Binary128FromHost(const Type* type, long double value)
 bool Binary128Zero(const ConstValue& value)
 {
 	return binary128::zero(bits(value));
+}
+
+bool CStaticFloatingZeroDivision(const ConstValue& left, const ConstValue& right, ConstValue& result)
+{
+	// C Annex F.8.2 and F.8.4: translation produces the special value
+	// directly. There is no division whose status flags could be observed.
+	if (left.kind == ValueKind::Binary128)
+	{
+		const binary128::Bits a = bits(left), b = bits(right);
+		if (!binary128::zero(b))
+			return false;
+		binary128::Bits value = binary128::infinity();
+		if (binary128::nan(a))
+			value = binary128::Bits{ a.low, a.high | binary128::quiet_nan(0).high };
+		else if (binary128::zero(a))
+			value = binary128::quiet_nan(0);
+		else if (binary128::negative(a) != binary128::negative(b))
+			value = binary128::negate(value);
+		result = Binary128Value(left.type, value.low, value.high);
+		return true;
+	}
+	if (right.floating != 0)
+		return false;
+	const long double infinity = std::numeric_limits<long double>::infinity();
+	const long double value = std::isnan(left.floating)               ? left.floating
+		: left.floating == 0                                          ? std::numeric_limits<long double>::quiet_NaN()
+		: std::signbit(left.floating) != std::signbit(right.floating) ? -infinity
+																	  : infinity;
+	result = FloatingValue(left.type, value);
+	return true;
 }
 
 ConstValue ConstantSine(const ConstValue& value)

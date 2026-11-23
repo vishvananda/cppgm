@@ -495,9 +495,10 @@ UsingDecl* Parser::parse_using_declarator(uint32_t start)
 
 Decl* Parser::parse_static_assert()
 {
+	const ParseToken keyword = tok();
 	if (c_source_)
-		require_c_extension(location(), CEdition::C11, "_Static_assert is a C11 extension");
-	StaticAssertDecl* assertion = make<StaticAssertDecl>(DeclKind::StaticAssert, location());
+		require_c_extension(keyword, CEdition::C11, "_Static_assert is a C11 extension");
+	StaticAssertDecl* assertion = make<StaticAssertDecl>(DeclKind::StaticAssert, keyword.location);
 	assertion->has_message = false;
 	assertion->user_defined_message = false;
 	if (!expect(TokenKind::KW_STATIC_ASSERT) || !expect(TokenKind::OP_LPAREN))
@@ -522,8 +523,7 @@ Decl* Parser::parse_static_assert()
 	if (!assertion->has_message)
 	{
 		if (c_source_)
-			require_c_extension(
-				assertion->location, CEdition::C23, "_Static_assert without a message is a C23 extension");
+			require_c_extension(keyword, CEdition::C23, "_Static_assert without a message is a C23 extension");
 		else if (!cxx17_)
 			require_cxx_extension(assertion->location, 17, "static_assert without a message is a C++17 extension");
 	}

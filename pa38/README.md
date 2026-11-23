@@ -62,8 +62,10 @@ semantics from the names of ordinary freestanding functions. Preserve
 the behavior of explicit builtins and generated helpers.
 
 With `-pedantic`, diagnose C11 syntax such as `_Generic` and `_Atomic` in
-C99 modes. With `-pedantic-errors`, reject those uses. System headers suppress
-these diagnostics unless `-Wsystem-headers` is set. A message-free
+C99 modes. With `-pedantic-errors`, reject those uses. System headers and
+the tokens supplied by their macro replacement lists suppress these diagnostics
+unless `-Wsystem-headers` is set. Keep the diagnostic policy of a token passed
+as a macro argument. A message-free
 `_Static_assert` is a C23 extension in the C modes above.
 `__VA_OPT__` also receives a C23 extension diagnostic in the earlier
 editions when pedantic diagnostics are enabled. Treat
@@ -141,11 +143,17 @@ Use `fenv_convert` for real floating conversions and `fenv_cmp_signal`
 for the relational operators. Equality, inequality, and quiet comparison
 builtins use `fenv_cmp`. A quiet NaN raises invalid for the signaling
 comparison. Static-storage initializers use translation-time arithmetic.
+Real floating division by zero in a static initializer produces a quiet NaN
+for a zero numerator or a signed infinity for a nonzero numeric numerator.
+This computation leaves the execution-time status flags clear.
 For software binary128, implement the classification and quiet comparison
 results from the representation or through routines that preserve the
 floating-point status flags for quiet NaNs. Compare the two signed zeros as
 equal. A relational operator in an enabled scope still signals invalid
 for a quiet NaN on native targets, even if its result is discarded.
+The selected hosted `<math.h>` must classify `float`, `double`, and
+`long double` at their own precision. Each classification or quiet
+comparison evaluates its operands once.
 
 The output is ordinary [PA8 LowIR](../pa8/lowir.md). Preserve target sizes,
 alignment, function signatures, object names, qualifiers and conversions. C

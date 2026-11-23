@@ -188,7 +188,7 @@ bool Parser::parse_ptr_operator(ListFrame<PtrOperator>& pointers, Attribute** in
 			if (c_source_ && tok().is_identifier() &&
 				gnu_names_.kind(tok().identifier) == static_cast<uint8_t>(GnuTrait::AddAtomic) + 1)
 			{
-				require_c_extension(location(), CEdition::C11, "the _Atomic qualifier is a C11 extension");
+				require_c_extension(tok(), CEdition::C11, "the _Atomic qualifier is a C11 extension");
 				pointer.atomic = true;
 				next();
 				continue;
@@ -421,7 +421,7 @@ bool Parser::parse_declarator_suffixes(DeclaratorMode mode, Declarator* declarat
 					else if (tok().is_identifier() &&
 						gnu_names_.kind(tok().identifier) == static_cast<uint8_t>(GnuTrait::AddAtomic) + 1)
 					{
-						require_c_extension(location(), CEdition::C11, "the _Atomic qualifier is a C11 extension");
+						require_c_extension(tok(), CEdition::C11, "the _Atomic qualifier is a C11 extension");
 						suffix.array_cv |= DeclaratorSuffix::kArrayAtomic;
 					}
 					else

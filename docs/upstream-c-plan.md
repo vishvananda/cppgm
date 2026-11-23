@@ -64,6 +64,9 @@ Start the next batches from the existing receipts.
    The long double probe covers the quiet comparisons, classification,
    and signaling relational operators with binary128 on Linux AArch64.
    It checks classification and comparison results on WASI and bare Wasm.
+   Hosted classification and comparison probes exercise all three real
+   types, including glibc's size-optimized macro path. The static division
+   probes cover the WASI `NAN` fallback and native status flags.
    Extend pragma coverage to contraction, complex arithmetic, and the
    remaining software floating operations. Continue with declarators, initializers,
    conversions, constant expressions, and
