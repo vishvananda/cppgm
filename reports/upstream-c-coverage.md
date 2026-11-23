@@ -579,6 +579,20 @@ remain open.
 [PA37 Emscripten layout](../pa37/tests/values/200-source-emscripten-layout.t) ·
 [PA39 Linux data model](../pa39/tests/target/100-linux-data-model.t)
 
+The batch passed the strict course report (11,650), PA37 and PA39,
+PA38 native and Wasm, PA35 through PA5, and the native inception comparison.
+The placement audit scanned 11,242
+cases with zero placement findings. The student export regenerated
+26,141 verified reference files, and the bundled compiler passed
+the PA38 lanes and the Emscripten integer-header case.
+[Compile-time measurements](../docs/performance/c-frontend-scaling.md#cross-target-integer-predefines)
+
+The next atomic header probe checks `ATOMIC_INT_LOCK_FREE` and
+`ATOMIC_POINTER_LOCK_FREE` using Clang's resource header. With a GCC-built
+cppgm, their compiler macro spellings are currently missing on x86-64
+Linux, AArch64 Linux, and bare Wasm. The C11 Wasm profile with
+`-mno-atomics` currently omits `__STDC_NO_ATOMICS__`.
+
 ## Cross-target smoke results
 
 The prototype array, tagged generic association, and structure return
