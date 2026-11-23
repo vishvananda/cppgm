@@ -132,6 +132,15 @@ In ISO C99, lex `u`, `U`, and `u8` before a quote as identifiers.
 Use the same edition for macro pasting. C11 and GNU99 accept Unicode
 literal prefixes.
 
+Accept `#pragma STDC FP_CONTRACT ON`, `OFF`, and `DEFAULT` at file
+scope and before a compound block's first declaration or statement.
+Accept the same settings through `_Pragma`. Restore the enclosing setting
+on exit from the block. OFF requires separate rounding across operations.
+ON permits contraction within one expression. This implementation defaults
+to separate rounding and can contract a same-type scalar multiply-add on
+AArch64. A cast or assignment between the multiply and add keeps separate
+roundings. The runtime test allows either permitted outcome under ON.
+
 Apply `#pragma STDC FENV_ACCESS ON`, `OFF`, and `DEFAULT` at file scope
 or before the first declaration or statement in a compound block.
 Accept the corresponding `_Pragma` spelling. A block inherits the

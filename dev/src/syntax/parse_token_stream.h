@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "lex/post_tokenizer.h"
+#include "preprocess/c_float_pragmas.h"
 #include "support/memory/arena.h"
 #include "support/telemetry.h"
 
@@ -179,8 +180,8 @@ public:
 	void observe_pack(const uint32_t* state) { pack_state_ = state; }
 	uint32_t pack_at(uint64_t ordinal) const;
 
-	static void note_fenv(void* stream, bool enabled);
-	bool fenv_at_current_token(bool inherited);
+	static void note_c_float_pragma(void* stream, CFloatPragma pragma, CPragmaSetting setting);
+	void apply_c_float_pragmas(CFloatPragmas& state);
 
 private:
 	struct Replay
@@ -220,12 +221,12 @@ private:
 	const uint32_t* pack_state_;
 	uint32_t last_pack_;
 	std::vector<PackChange> pack_changes_;
-	struct FenvChange
+	struct FloatPragmaChange
 	{
 		uint64_t ordinal;
-		bool enabled;
+		CFloatPragmas settings;
 	};
-	std::vector<FenvChange> fenv_changes_;
+	std::vector<FloatPragmaChange> float_pragma_changes_;
 	const Identifier* ignored_[4];
 	uint32_t ignored_count_;
 	uint32_t prelude_begin_ = 0;

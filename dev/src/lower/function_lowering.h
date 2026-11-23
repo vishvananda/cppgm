@@ -779,6 +779,7 @@ private:
 	// construction or initialization records belongs there too.
 	struct ExpressionScope;
 	bool fenv_access_ = false;
+	bool float_contract_ = false;
 	RValue statement_expression(const syntax::StatementExpr& expr, lowir::Value object);
 	void enter_label(lowir::BlockId block);
 	lowir::BlockId goto_label(const Identifier* label);
@@ -1887,6 +1888,8 @@ private:
 	RValue size_query(const syntax::Expr& expr);
 	RValue binary_expression(const syntax::BinaryExpr& expr);
 	RValue arithmetic(const syntax::BinaryExpr& expr, const RValue* left_value);
+	RValue contracted_sum(
+		const syntax::BinaryExpr& sum, const syntax::BinaryExpr& product, const RValue* left, bool product_on_right);
 	RValue arithmetic_op(uint32_t op, const sema::Type* type, const RValue& left, const RValue& right);
 	RValue pointer_offset(const RValue& pointer, const RValue& offset, const sema::Type* index_type,
 		const sema::Type* pointer_type, bool subtract, bool literal, uint32_t location);

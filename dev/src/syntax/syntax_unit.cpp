@@ -16,7 +16,10 @@ SyntaxUnit::SyntaxUnit(const PreprocessorOptions& options, const std::string& pa
 	parser_.set_source_positions(preprocessor_);
 	tokens_.observe_pack(preprocessor_.pack_state());
 	if (options.language == SourceLanguage::C)
-		preprocessor_.observe_fenv(&tokens_, ParseTokenStream::note_fenv);
+	{
+		preprocessor_.observe_c_float_pragma(&tokens_, ParseTokenStream::note_c_float_pragma);
+		parser_.set_c_contract_default(options.c_contract_by_default);
+	}
 	tokens_.set_prelude(preprocessor_.builtin_begin(), preprocessor_.builtin_end());
 }
 

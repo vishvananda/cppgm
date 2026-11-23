@@ -159,6 +159,8 @@ private:
 		const lowir::Instruction& cmp, const lowir::Instruction& add, const lowir::Instruction& select);
 	lowir::InstId added_condition(const lowir::Instruction& cmp);
 	lowir::InstId contracted_float_sum(const lowir::Instruction& inst);
+	void fused_multiply_add(
+		lowir::Type type, lowir::TempId result, lowir::Value left, lowir::Value right, lowir::Value addend);
 	lowir::InstId magnitude(const lowir::Instruction& first);
 	lowir::InstId cleared_sign(const lowir::Instruction& bits) const;
 	void float_choice(const lowir::Instruction& inst, unsigned condition);
@@ -286,6 +288,7 @@ private:
 	// Linux leaves x18 to the program as a temporary unless -ffixed-x18
 	// reserves it; Darwin reserves it as the platform register.
 	bool pic_, minimize_size_, contract_float_, free_x18_;
+	bool has_fused_multiply_add_ = false;
 	const std::vector<uint32_t>& leaf_registers_;
 	bool dynamic_stack_ = false, stack_pair_ = false;
 	lowir::BlockId fallthrough_ = lowir::kNoId;

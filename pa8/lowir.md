@@ -2639,3 +2639,11 @@ mode. Like arithmetic, conversions retain their status effects.
 The signaling form is used for C relational operators and raises
 invalid when either operand is a quiet NaN. The quiet form is used
 for equality, inequality, and quiet comparison builtins.
+
+## Fused multiply-add
+
+On AArch64, `%result = fma <float-type> <left>, <right>, <addend>`
+rounds the product plus the addend once. All operands and the result have
+the same type, either `f32` or `f64`. The instruction records a contraction
+chosen during PA38 source lowering. Preserve the single rounding when
+optimizing or selecting instructions.

@@ -261,13 +261,25 @@ void FunctionLowering::leave_scope(size_t depth, const syntax::CompoundStmt& blo
 
 namespace {
 
-struct FenvScope
+struct FloatScope
 {
-	FenvScope(bool& state, bool enabled) : state(state), saved(state) { state = enabled; }
-	~FenvScope() { state = saved; }
+	FloatScope(bool& access, bool& contract, const syntax::CompoundStmt& stmt, target_model::Target target)
+		: access(access), contract(contract), saved_access(access), saved_contract(contract)
+	{
+		access = (stmt.c_float_settings & syntax::Stmt::FenvAccess) != 0;
+		contract = (stmt.c_float_settings & syntax::Stmt::FloatContract) != 0 && !access &&
+			target_model::is_aarch64(target);
+	}
+	~FloatScope()
+	{
+		access = saved_access;
+		contract = saved_contract;
+	}
 
-	bool& state;
-	bool saved;
+	bool& access;
+	bool& contract;
+	bool saved_access;
+	bool saved_contract;
 };
 
 } // namespace
@@ -275,7 +287,7 @@ struct FenvScope
 void FunctionLowering::compound(const syntax::CompoundStmt& stmt)
 {
 	LexicalScope lexical(*this);
-	const FenvScope fenv(fenv_access_, stmt.fenv_access);
+	const FloatScope floating(fenv_access_, float_contract_, stmt, program_.target);
 	// 6.3: the block's automatic objects are destroyed when control leaves
 	// its end.
 	const size_t depth = cleanups_.size();
@@ -441,7 +453,7 @@ RValue FunctionLowering::statement_expression(const syntax::StatementExpr& expr,
 	// enclosing expression unreachable.
 	ExpressionScope scope(*this);
 	const syntax::CompoundStmt& block = *expr.body;
-	const FenvScope fenv(fenv_access_, block.fenv_access);
+	const FloatScope floating(fenv_access_, float_contract_, block, program_.target);
 	const size_t depth = cleanups_.size();
 	if (block.items.size != 0)
 	{

@@ -20,7 +20,8 @@ bool Selector::floating(const lowir::Instruction& inst) const
 	if (is_conversion(inst.op))
 		return inst.type.is_float() || convert_source_type(inst).is_float();
 	return inst.type.is_float() &&
-		(is_compare(inst.op) || inst.op == Opcode::Binary || inst.op == Opcode::FenvBinary || inst.op == Opcode::Unary);
+		(is_compare(inst.op) || inst.op == Opcode::Binary || inst.op == Opcode::FenvBinary ||
+			inst.op == Opcode::Unary || inst.op == Opcode::FusedMultiplyAdd);
 }
 
 unsigned Selector::fp_operand(Value operand, Type type, unsigned scratch)
@@ -183,19 +184,26 @@ InstId Selector::contracted_float_sum(const lowir::Instruction& multiply)
 	if (!(left == right) && !(left == addend) && !(right == addend) && needs_scratch(left) && needs_scratch(right) &&
 		needs_scratch(addend))
 		return kNoId;
-	const unsigned first = fp_operand(left, multiply.type, 16);
-	const unsigned second = right == left ? first : fp_operand(right, multiply.type, 17);
+	fused_multiply_add(multiply.type, body_.instructions[multiply.next].result, left, right, addend);
+	return multiply.next;
+}
+
+void Selector::fused_multiply_add(Type type, TempId result, Value left, Value right, Value addend)
+{
+	const unsigned first = fp_operand(left, type, 16);
+	const unsigned second = right == left ? first : fp_operand(right, type, 17);
 	unsigned third = first;
 	if (addend == right)
 		third = second;
 	else if (!(addend == left))
-		third = fp_operand(addend, multiply.type, first == 16 ? 17 : 16);
-	const auto& sum = body_.instructions[multiply.next];
-	const unsigned dest = vectors_[sum.result] == kNoId ? 16 : vectors_[sum.result];
-	const unsigned width = multiply.type.kind() == TypeKind::F64 ? 1u << 22 : 0;
+	{
+		const unsigned scratch = first != 16 ? 16 : second != 17 ? 17 : 18;
+		third = fp_operand(addend, type, scratch);
+	}
+	const unsigned dest = vectors_[result] == kNoId ? 16 : vectors_[result];
+	const unsigned width = type.kind() == TypeKind::F64 ? 1u << 22 : 0;
 	out_.emit(Op::Fmadd, dest, first, second, width | (third << 10));
-	save_fp(dest, sum.result);
-	return multiply.next;
+	save_fp(dest, result);
 }
 
 // `bits` copies a floating value's bits to an integer, the next instruction
@@ -279,6 +287,11 @@ InstId Selector::scalar_lane_binary(const lowir::Instruction& inst)
 
 void Selector::float_instruction(const lowir::Instruction& inst)
 {
+	if (inst.op == Opcode::FusedMultiplyAdd)
+	{
+		fused_multiply_add(inst.type, inst.result, inst.ops[0], inst.ops[1], inst.ops[2]);
+		return;
+	}
 	if (is_compare(inst.op))
 	{
 		float_compare(inst);

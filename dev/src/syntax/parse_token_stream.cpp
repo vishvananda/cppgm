@@ -96,25 +96,34 @@ uint32_t ParseTokenStream::pack_at(uint64_t ordinal) const
 	return pack;
 }
 
-void ParseTokenStream::note_fenv(void* stream, bool enabled)
+void ParseTokenStream::note_c_float_pragma(void* stream, CFloatPragma pragma, CPragmaSetting setting)
 {
 	auto& tokens = *static_cast<ParseTokenStream*>(stream);
 	const uint64_t ordinal = tokens.base_ + tokens.window_.size();
-	if (!tokens.fenv_changes_.empty() && tokens.fenv_changes_.back().ordinal == ordinal)
-		tokens.fenv_changes_.back().enabled = enabled;
+	auto& changes = tokens.float_pragma_changes_;
+	if (changes.empty() || changes.back().ordinal != ordinal)
+		changes.push_back(FloatPragmaChange{ ordinal, {} });
+	CFloatPragmas& settings = changes.back().settings;
+	if (pragma == CFloatPragma::FenvAccess)
+		settings.fenv = setting;
 	else
-		tokens.fenv_changes_.push_back(FenvChange{ ordinal, enabled });
+		settings.contract = setting;
 }
 
-bool ParseTokenStream::fenv_at_current_token(bool inherited)
+void ParseTokenStream::apply_c_float_pragmas(CFloatPragmas& state)
 {
 	peek();
-	if (fenv_changes_.empty())
-		return inherited;
+	if (float_pragma_changes_.empty())
+		return;
 	const uint64_t ordinal = absolute_position();
-	const auto event = std::lower_bound(fenv_changes_.begin(), fenv_changes_.end(), ordinal,
-		[](const FenvChange& change, uint64_t position) { return change.ordinal < position; });
-	return event != fenv_changes_.end() && event->ordinal == ordinal ? event->enabled : inherited;
+	const auto event = std::lower_bound(float_pragma_changes_.begin(), float_pragma_changes_.end(), ordinal,
+		[](const FloatPragmaChange& change, uint64_t position) { return change.ordinal < position; });
+	if (event == float_pragma_changes_.end() || event->ordinal != ordinal)
+		return;
+	if (event->settings.fenv != CPragmaSetting::Unspecified)
+		state.fenv = event->settings.fenv;
+	if (event->settings.contract != CPragmaSetting::Unspecified)
+		state.contract = event->settings.contract;
 }
 
 void ParseTokenStream::pull()

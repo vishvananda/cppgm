@@ -34,6 +34,7 @@ CASES = {
     'floating.fenv-convert': (RUN_STAGES, ('O0', 'O2')),
     'floating.fenv-compare': (RUN_STAGES, ('O0', 'O2')),
     'floating.fenv-quad': (RUN_STAGES, ('O0', 'O2')),
+    'floating.fp-contract': (RUN_STAGES, ('O0', 'O2')),
     'floating.static-zero-division': (RUN_STAGES, ('O0', 'O2')),
     'floating.hosted-math': (RUN_STAGES, ('O0', 'O2', 'Oz')),
     'include.physical': (RUN_STAGES, ('O0',)),
@@ -50,6 +51,7 @@ FENV_BINARY = ROOT / 'pa38/tests/general/500-c-fenv-binary.t'
 FENV_CONVERT = ROOT / 'pa38/tests/general/500-c-fenv-convert.t'
 FENV_COMPARE = ROOT / 'pa38/tests/general/500-c-fenv-compare.t'
 FENV_QUAD = ROOT / 'pa38/tests/general/500-c-fenv-quad.t'
+FP_CONTRACT = ROOT / 'pa38/tests/general/500-c-fp-contract.t'
 FENV_ZERO_DIVISION = ROOT / 'pa38/tests/general/500-c-fenv-static-zero-division.t'
 HOSTED_MATH = ROOT / 'pa38/tests/general/500-c-hosted-math-classification.t'
 # Precision of the target ABI's long double, independent of the candidate's predefines.
@@ -229,11 +231,15 @@ def numeric_sources(profile, bare_sdk):
     else:
         include = ()
     long_bits = 32 if wasm else 64
+    contract_flags = ('-ffp-contract=off',)
+    if target.startswith(('aarch64-', 'arm64-')):
+        contract_flags += ('-DEXPECT_FUSED',)
     sources = [
         ('limits.integer', INTEGER_LIMITS, (*include, f'-DEXPECT_LONG_BITS={long_bits}'), ()),
         ('limits.float', FLOAT_LIMITS, (*include, f'-DEXPECT_LDBL_MANT_DIG={LONG_DOUBLE_PRECISION[target]}'), float_link),
         ('limits.rounding-default', DEFAULT_ROUNDING, include, rounding_link),
         ('floating.fenv-quad', FENV_QUAD, include, rounding_link),
+        ('floating.fp-contract', FP_CONTRACT, contract_flags, ()),
         ('floating.static-zero-division', FENV_ZERO_DIVISION, include, rounding_link),
     ]
     if profile['environment'] == 'hosted':
@@ -326,7 +332,7 @@ def probes(args, profiles, rules):
     revision = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
     inputs = sorted([*work.glob('*.h'), limits, ERROR_SOURCE, INCLUDE_SOURCE, STRING_SOURCE, INCLUDE_QUERY,
                      INTEGER_LIMITS, FLOAT_LIMITS, DEFAULT_ROUNDING, ROUNDING_QUERY,
-                     FENV_BINARY, FENV_CONVERT, FENV_COMPARE, FENV_QUAD, FENV_ZERO_DIVISION, HOSTED_MATH,
+                     FENV_BINARY, FENV_CONVERT, FENV_COMPARE, FENV_QUAD, FP_CONTRACT, FENV_ZERO_DIVISION, HOSTED_MATH,
                      *numeric_sdk_inputs,
                      INCLUDE_QUERY.parent / 'c-header  spaces.h',
                      INCLUDE_SOURCE.parent / 'c-include-physical.h', INCLUDE_SOURCE.parent / 'c-include-local.h'])

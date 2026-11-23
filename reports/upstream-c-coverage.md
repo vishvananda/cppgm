@@ -126,6 +126,18 @@ and software-floating environment profiles remain open.
 [Default rounding probe](../scripts/tests/c_default_rounding.c) ·
 [Clause inventory](c-conformance.json)
 
+The `FP_CONTRACT` probe uses a product that rounds to one before
+addition and a fused result that is exactly nonzero. It checks file scope,
+nested block scope, `_Pragma`, DEFAULT, and the intermediate rounding of
+a cast or separate assignment. The probe passes in C99, C11, and C17 at
+`-O0` and `-O2` on Linux x86-64, AArch64 Linux under QEMU, WASI, and bare
+Wasm. The AArch64 replay checks that ON fuses both scalar widths and
+passes after LowIR serialization through `-O3`. Apple Silicon emits
+Arm64 Mach-O objects from the same LowIR. Native macOS execution remains
+open.
+[PA38 probe](../pa38/tests/general/500-c-fp-contract.t) ·
+[WG14 N1570 §§6.5 and 7.12.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
+
 The long double probe exercises classification and all six quiet predicates
 over 196 ordered and unordered pairs. It checks invalid after a discarded
 relational comparison. On AArch64 Linux under QEMU, the prior compiler

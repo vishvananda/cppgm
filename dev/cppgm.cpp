@@ -216,6 +216,7 @@ struct SourceOutputInvocation
 	unsigned pic_level = 0;
 	unsigned pie_level = 0;
 	bool strict_aliasing = true;
+	driver::FloatContract float_contract = driver::FloatContract::Off;
 	ExtensionWarnings extension_warnings = ExtensionWarnings::Disabled;
 	bool warn_system_headers = false;
 	SourceLexOptions source_lex;
@@ -388,7 +389,8 @@ SourceOutputInvocation parse_source_output_invocation(const vector<string>& args
 		}
 		if (driver::sse_option(args[i], invocation.sse_level))
 			continue;
-		if (allow_lowir_options && (driver::float_contract_option(args[i]) || driver::fixed_x18_option(args[i])))
+		if (allow_lowir_options &&
+			(driver::float_contract_option(args[i], invocation.float_contract) || driver::fixed_x18_option(args[i])))
 			continue;
 		if (args[i] == "-funsigned-char" || args[i] == "-fno-signed-char" || args[i] == "-fsigned-char" ||
 			args[i] == "-fno-unsigned-char")
@@ -790,6 +792,7 @@ PreprocessorOptions source_preprocessor_options(const SourceOutputInvocation& in
 	options.extension_warnings = invocation.extension_warnings;
 	options.warn_system_headers = invocation.warn_system_headers;
 	options.source_lex = invocation.source_lex;
+	options.c_contract_by_default = invocation.float_contract == driver::FloatContract::Scoped;
 	driver::configure_source_language(invocation.language, invocation.standard, invocation.exceptions, options);
 	driver::configure_c_environment(options, invocation.target, invocation.c_environment);
 	options.plain_char_unsigned = invocation.plain_char_unsigned < 0 ? invocation.target == native::Target::AArch64Linux

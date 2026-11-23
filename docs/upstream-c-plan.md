@@ -67,8 +67,11 @@ Start the next batches from the existing receipts.
    Hosted classification and comparison probes exercise all three real
    types, including glibc's size-optimized macro path. The static division
    probes cover the WASI `NAN` fallback and native status flags.
-   Extend pragma coverage to contraction, complex arithmetic, and the
-   remaining software floating operations. Continue with declarators, initializers,
+   Scoped `FP_CONTRACT` probes check separate rounding under OFF, restoration
+   after nested blocks, and the chosen AArch64 contraction within an
+   expression. Direct and LowIR round-trip execution agree under QEMU.
+   Extend pragma coverage to complex arithmetic and the remaining software
+   floating operations. Continue with declarators, initializers,
    conversions, constant expressions, and
    linkage. Pair edition boundaries with native reference runs and
    earliest-assignment regressions.

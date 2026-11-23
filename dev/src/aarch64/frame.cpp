@@ -84,6 +84,7 @@ void Selector::plan()
 				inst.op == Opcode::ExceptionSelector;
 			calls |= inst.op == Opcode::Resume;
 			has_phi |= inst.op == Opcode::Phi;
+			has_fused_multiply_add_ |= inst.op == Opcode::FusedMultiplyAdd;
 			if (inst.op == Opcode::Call)
 			{
 				if (call_indices_.empty())

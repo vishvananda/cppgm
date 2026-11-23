@@ -869,11 +869,12 @@ bool Writer::write_value_instruction(const Instruction& inst)
 		}
 		out_.push_back(']');
 		return true;
+	case Opcode::FusedMultiplyAdd:
 	case Opcode::Select:
 		head(inst.op);
 		type(inst.type);
 		out_.push_back(' ');
-		operand(inst.ops[0], TypeKind::I64);
+		operand(inst.ops[0], inst.op == Opcode::Select ? TypeKind::I64 : inst.type.kind());
 		text(", ");
 		operand(inst.ops[1], inst.type.kind());
 		text(", ");

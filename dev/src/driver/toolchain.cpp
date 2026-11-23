@@ -195,15 +195,19 @@ bool fixed_x18_option(const std::string& option, bool* fixed)
 	return true;
 }
 
-bool float_contract_option(const std::string& option, bool* enabled)
+bool float_contract_option(const std::string& option, FloatContract& mode)
 {
 	const bool fast = option == "-ffast-math" || option == "-ffp-contract=fast";
 	if (!fast && option != "-fno-fast-math" && option.compare(0, 14, "-ffp-contract=") != 0 &&
 		option != "-frounding-math" && option != "-ftrapping-math" && option != "-ffp-exception-behavior=strict" &&
 		option != "-ffp-exception-behavior=maytrap" && option != "-ffp-model=strict" && option != "-ffp-model=precise")
 		return false;
-	if (enabled != nullptr)
-		*enabled = fast;
+	if (fast)
+		mode = FloatContract::Fast;
+	else if (option == "-ffp-contract=on" || option == "-ffp-contract=fast-honor-pragmas")
+		mode = FloatContract::Scoped;
+	else
+		mode = FloatContract::Off;
 	return true;
 }
 
@@ -260,7 +264,7 @@ struct Invocation
 	bool lowir_passes = true;
 	bool position_independent = false;
 	bool red_zone = true;
-	bool contract_float = false;
+	FloatContract float_contract = FloatContract::Off;
 	bool fixed_x18 = false;
 	// -ffunction-sections: each function in a section of its own.
 	bool function_sections = false;
@@ -569,6 +573,7 @@ void configure_preprocessor(Invocation& invocation, StandardIncludes includes, c
 	configure_source_language(
 		invocation.source_language, invocation.standard, invocation.exceptions, invocation.preprocessor);
 	configure_c_environment(invocation.preprocessor, invocation.target, invocation.c_environment);
+	invocation.preprocessor.c_contract_by_default = invocation.float_contract == FloatContract::Scoped;
 	std::string host_error;
 	if (!add_host_environment(invocation.preprocessor, invocation.target, includes, gcc_install_dir, host_error))
 		throw InvocationError(host_error);
@@ -603,7 +608,7 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 			invocation.emit_lowir = true;
 		else if (arg == "-flowir-passes" || arg == "-fno-lowir-passes")
 			invocation.lowir_passes = arg == "-flowir-passes";
-		else if (float_contract_option(arg, &invocation.contract_float) || fixed_x18_option(arg, &invocation.fixed_x18))
+		else if (float_contract_option(arg, invocation.float_contract) || fixed_x18_option(arg, &invocation.fixed_x18))
 			continue;
 		else if (arg == "-fPIC" || arg == "-fpic" || arg == "-fPIE" || arg == "-fpie")
 		{
@@ -1054,7 +1059,8 @@ bool compile_native_sources(SourceInputs sources, const Invocation& invocation, 
 		if (arm)
 			aarch64::compile_object(program, object, invocation.optimizer.level, invocation.position_independent,
 				nullptr, invocation.function_sections, eh_model == native::EhModel::Host,
-				invocation.optimizer.minimize_size, invocation.contract_float, invocation.fixed_x18);
+				invocation.optimizer.minimize_size, invocation.float_contract == FloatContract::Fast,
+				invocation.fixed_x18);
 		else
 			builder->finish(object);
 	}
@@ -1123,7 +1129,8 @@ bool compile_lowir_unit(const std::string& path, const Invocation& invocation, n
 		{
 			aarch64::compile_object(program, object, invocation.optimizer.level, invocation.position_independent,
 				nullptr, invocation.function_sections, eh_model == native::EhModel::Host,
-				invocation.optimizer.minimize_size, invocation.contract_float, invocation.fixed_x18);
+				invocation.optimizer.minimize_size, invocation.float_contract == FloatContract::Fast,
+				invocation.fixed_x18);
 		}
 		catch (const native::BackendError& e)
 		{

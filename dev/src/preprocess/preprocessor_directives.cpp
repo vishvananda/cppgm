@@ -726,23 +726,35 @@ void Preprocessor::apply_language_pragma(
 		extension_group_changes_[location] = ignored_extension_groups_;
 }
 
-bool Preprocessor::c_fenv_family(const PPToken& token) const
+bool Preprocessor::c_stdc_pragma(const PPToken& token) const
 {
 	return identifiers_.language() == SourceLanguage::C && PragmaWord(token, "STDC");
 }
 
-bool Preprocessor::c_fenv_name(const PPToken& token)
+CFloatPragma Preprocessor::c_float_pragma(const PPToken& token)
 {
-	return PragmaWord(token, "FENV_ACCESS");
+	if (PragmaWord(token, "FENV_ACCESS"))
+		return CFloatPragma::FenvAccess;
+	if (PragmaWord(token, "FP_CONTRACT"))
+		return CFloatPragma::FpContract;
+	return CFloatPragma::None;
 }
 
-void Preprocessor::apply_c_fenv(const PPToken& mode, bool complete, uint32_t location)
+void Preprocessor::apply_c_float_pragma(CFloatPragma pragma, const PPToken& mode, bool complete, uint32_t location)
 {
-	const bool enabled = PragmaWord(mode, "ON");
-	if (!complete || (!enabled && !PragmaWord(mode, "OFF") && !PragmaWord(mode, "DEFAULT")))
-		throw PreprocessError(location, "expected ON, OFF, or DEFAULT after STDC FENV_ACCESS");
-	if (fenv_observer_ != nullptr)
-		fenv_observer_(fenv_context_, enabled);
+	CPragmaSetting setting = CPragmaSetting::Unspecified;
+	if (PragmaWord(mode, "ON"))
+		setting = CPragmaSetting::On;
+	else if (PragmaWord(mode, "OFF"))
+		setting = CPragmaSetting::Off;
+	else if (PragmaWord(mode, "DEFAULT"))
+		setting = CPragmaSetting::Default;
+	if (!complete || setting == CPragmaSetting::Unspecified)
+		throw PreprocessError(location,
+			pragma == CFloatPragma::FenvAccess ? "expected ON, OFF, or DEFAULT after STDC FENV_ACCESS"
+											   : "expected ON, OFF, or DEFAULT after STDC FP_CONTRACT");
+	if (float_pragma_observer_ != nullptr)
+		float_pragma_observer_(float_pragma_context_, pragma, setting);
 }
 
 void Preprocessor::run_pragma_directive()
@@ -757,18 +769,19 @@ void Preprocessor::run_pragma_directive()
 		run_pack_pragma(first);
 		return;
 	}
-	else if (c_fenv_family(first))
+	else if (c_stdc_pragma(first))
 	{
 		const uint32_t location = first.begin;
 		const PPToken name = source_.next_in_line();
 		if (name.kind == PPTokenKind::NewLine)
 			return;
-		if (c_fenv_name(name))
+		const CFloatPragma pragma = c_float_pragma(name);
+		if (pragma != CFloatPragma::None)
 		{
 			const PPToken mode = source_.next_in_line();
 			const bool complete = mode.kind == PPTokenKind::NewLine ||
 				source_.next_in_line().kind == PPTokenKind::NewLine;
-			apply_c_fenv(mode, complete, location);
+			apply_c_float_pragma(pragma, mode, complete, location);
 			return;
 		}
 	}

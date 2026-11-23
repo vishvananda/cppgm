@@ -426,6 +426,15 @@ bool Parser::parse_value_instruction(FunctionBuilder& builder, Opcode keyword, I
 		inst.ops[2] = parse_value(builder, inst.type.kind());
 		return true;
 	}
+	case Opcode::FusedMultiplyAdd:
+		inst.op = keyword;
+		inst.type = result = parse_type();
+		inst.ops[0] = parse_value(builder, inst.type.kind());
+		expect(TokenKind::Comma, ",");
+		inst.ops[1] = parse_value(builder, inst.type.kind());
+		expect(TokenKind::Comma, ",");
+		inst.ops[2] = parse_value(builder, inst.type.kind());
+		return true;
 	case Opcode::Vector:
 		parse_vector(builder, inst, result);
 		return true;

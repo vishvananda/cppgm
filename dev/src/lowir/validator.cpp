@@ -265,6 +265,7 @@ const OperandRule kOperandRules[] = {
 	{ { kValueOperand, kValueOperand, kNoOperand }, ExtraOperands::None, kComparePredicateCount }, // FenvCompare
 	{ { kValueOperand, kValueOperand, kNoOperand }, ExtraOperands::None, kComparePredicateCount }, // FenvCompareSignal
 	{ { kValueOperand, kNoOperand, kNoOperand }, ExtraOperands::None, kConvertOpCount },           // FenvConvert
+	{ { kValueOperand, kValueOperand, kValueOperand }, ExtraOperands::None, 1 },                   // FusedMultiplyAdd
 };
 
 static_assert(sizeof kOperandRules / sizeof kOperandRules[0] == kOpcodeCount, "one operand rule per opcode");
@@ -1032,20 +1033,27 @@ bool Validator::check_instruction(InstId id, const Instruction& inst, BlockId bl
 				return fail("comparison operand type mismatch");
 		}
 		return true;
+	case Opcode::FusedMultiplyAdd:
 	case Opcode::FenvBinary:
 	case Opcode::FenvCompare:
 	case Opcode::FenvCompareSignal:
+	{
+		const bool fused = inst.op == Opcode::FusedMultiplyAdd;
+		if (fused && !target_model::is_aarch64(program_.target))
+			return fail("fma requires an AArch64 target");
 		if (!inst.type.is_float() || inst.flags != 0)
-			return fail("floating environment access requires scalar floating operands");
-		for (unsigned i = 0; i < 2; ++i)
+			return fail(fused ? "fma requires scalar floating operands"
+							  : "floating environment access requires scalar floating operands");
+		for (unsigned i = 0; i < (fused ? 3u : 2u); ++i)
 		{
 			const Value operand = inst.ops[i];
 			const bool matching = operand.is(ValueKind::Float) ? operand.float_kind == inst.type.kind()
 															   : value_type(operand, type) && type == inst.type;
 			if (!matching)
-				return fail("floating environment operand type mismatch");
+				return fail(fused ? "fma operand type mismatch" : "floating environment operand type mismatch");
 		}
 		return true;
+	}
 	case Opcode::Select:
 		if (!(inst.type.is_integer() || inst.type.is_pointer() || inst.type.kind() == TypeKind::F32 ||
 				inst.type.kind() == TypeKind::F64) ||

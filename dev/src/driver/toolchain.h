@@ -77,8 +77,13 @@ bool source_lex_option(const std::string& option, SourceLexOptions& options);
 // Enable an SSE extension and its prerequisites, or disable it and dependents.
 bool sse_option(const std::string& option, uint8_t& level);
 
-// Recognize a floating contraction option and update the object policy if supplied.
-bool float_contract_option(const std::string& option, bool* enabled = nullptr);
+enum class FloatContract : uint8_t
+{
+	Off,
+	Scoped,
+	Fast
+};
+bool float_contract_option(const std::string& option, FloatContract& mode);
 
 // -ffixed-x18, or a -fsanitize= list with shadow-call-stack, whose stack
 // pointer lives in x18: AArch64 Linux code leaves x18 alone. Sets `fixed`

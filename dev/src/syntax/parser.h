@@ -30,6 +30,7 @@ public:
 
 	// The translation unit, or null after a syntax error.
 	TranslationUnit* parse_translation_unit();
+	void set_c_contract_default(bool enabled) { c_contract_by_default_ = enabled; }
 	void set_source_positions(const SourcePositions& positions) { source_positions_ = &positions; }
 
 private:
@@ -38,7 +39,8 @@ private:
 	void require_c_extension(const ParseToken& token, CEdition edition, const char* message);
 	void require_gnu_c_extension(uint32_t location, const char* message);
 	bool at_c_extension() { return c_source_ && at_identifier(c_extension_); }
-	bool fenv_access_ = false;
+	CFloatPragmas c_float_pragmas_;
+	bool c_contract_by_default_ = false;
 	void consume_c_extensions();
 	const SourcePositions* source_positions_ = nullptr;
 	bool in_c_extension_ = false;

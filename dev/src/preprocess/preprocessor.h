@@ -10,6 +10,7 @@
 
 #include "lex/identifier_table.h"
 #include "lex/source_language.h"
+#include "preprocess/c_float_pragmas.h"
 #include "preprocess/expr/controlling_expression.h"
 #include "preprocess/macro/feature_probes.h"
 #include "preprocess/macro/macro_definition.h"
@@ -54,6 +55,7 @@ struct PreprocessorOptions
 	SourceLanguage language = SourceLanguage::Cxx;
 	target_model::Target target = target_model::Target::Linux;
 	bool c_freestanding = false;
+	bool c_contract_by_default = false;
 	bool atomics_enabled = true;
 	// __CPPGM_AUTHOR__'s string contents.
 	std::string author;
@@ -209,10 +211,10 @@ public:
 	const uint32_t* pack_state() const { return &pack_; }
 
 	// Notify the token consumer only when a C floating-environment pragma occurs.
-	void observe_fenv(void* context, void (*observer)(void*, bool))
+	void observe_c_float_pragma(void* context, void (*observer)(void*, CFloatPragma, CPragmaSetting))
 	{
-		fenv_context_ = context;
-		fenv_observer_ = observer;
+		float_pragma_context_ = context;
+		float_pragma_observer_ = observer;
 	}
 
 	// The location range of the built-in declarations (hosted mode), read
@@ -309,11 +311,11 @@ private:
 	[[noreturn]] void run_error(const PPToken& directive);
 	void run_line(const PPToken& directive);
 	void run_pragma_directive();
-	bool c_fenv_family(const PPToken& token) const;
-	static bool c_fenv_name(const PPToken& token);
-	void apply_c_fenv(const PPToken& mode, bool complete, uint32_t location);
-	void* fenv_context_ = nullptr;
-	void (*fenv_observer_)(void*, bool) = nullptr;
+	bool c_stdc_pragma(const PPToken& token) const;
+	static CFloatPragma c_float_pragma(const PPToken& token);
+	void apply_c_float_pragma(CFloatPragma pragma, const PPToken& mode, bool complete, uint32_t location);
+	void* float_pragma_context_ = nullptr;
+	void (*float_pragma_observer_)(void*, CFloatPragma, CPragmaSetting) = nullptr;
 	void run_language_pragma(uint32_t location);
 	void apply_language_pragma(uint32_t location, const PPToken& name, const PPToken& action, const PPToken& warning);
 	static bool language_pragma_family(const PPToken& token);

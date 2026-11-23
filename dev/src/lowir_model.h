@@ -267,10 +267,12 @@ enum class Opcode : std::uint8_t
 	FenvBinary,
 	FenvCompare,
 	FenvCompareSignal,
-	FenvConvert
+	FenvConvert,
+	// A single rounding of a floating product plus an addend.
+	FusedMultiplyAdd
 };
 
-const unsigned kOpcodeCount = static_cast<unsigned>(Opcode::FenvConvert) + 1;
+const unsigned kOpcodeCount = static_cast<unsigned>(Opcode::FusedMultiplyAdd) + 1;
 
 inline bool is_stack_instruction(Opcode op)
 {
@@ -286,7 +288,7 @@ inline bool is_terminator(Opcode op)
 // non-void result type).
 inline bool defines_value(Opcode op)
 {
-	return op <= Opcode::ExceptionSelector || (op >= Opcode::MemorySize && op <= Opcode::FenvConvert);
+	return op <= Opcode::ExceptionSelector || (op >= Opcode::MemorySize && op <= Opcode::FusedMultiplyAdd);
 }
 
 inline bool is_fenv_compare(Opcode op)
@@ -319,7 +321,8 @@ inline const char* spelling(Opcode op)
 		"exception", "exception_selector", "asm", "store", "atomic_store", "atomic_thread_fence", "atomic_signal_fence",
 		"va_start", "stack_restore", "write_mxcsr", "copyobj", "zeroinit", "eh_try", "eh_cleanup", "eh_catch",
 		"eh_filter", "eh_catch_all", "eh_end", "throw", "resume", "jump", "branch", "switch", "indirect_jump", "return",
-		"unreachable", "memory_size", "memory_grow", "fenv_binary", "fenv_cmp", "fenv_cmp_signal", "fenv_convert" };
+		"unreachable", "memory_size", "memory_grow", "fenv_binary", "fenv_cmp", "fenv_cmp_signal", "fenv_convert",
+		"fma" };
 	return kOpcodes[static_cast<unsigned>(op)];
 }
 

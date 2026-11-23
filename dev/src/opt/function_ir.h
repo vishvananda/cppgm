@@ -120,6 +120,7 @@ inline bool is_pure(const lowir::Instruction& inst)
 	case lowir::Opcode::Index:
 	case lowir::Opcode::Unary:
 	case lowir::Opcode::Binary:
+	case lowir::Opcode::FusedMultiplyAdd:
 	case lowir::Opcode::Compare:
 	case lowir::Opcode::Select:
 	case lowir::Opcode::Convert:

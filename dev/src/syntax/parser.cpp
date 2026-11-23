@@ -66,7 +66,7 @@ bool Parser::parse_declaration_seq(ListFrame<Decl*>& list, bool until_brace, Dec
 		if (tok().is_end())
 			return until_brace ? fail() : true;
 		if (c_source_)
-			fenv_access_ = tokens_.fenv_at_current_token(fenv_access_);
+			tokens_.apply_c_float_pragmas(c_float_pragmas_);
 		Decl* decl = parse_declaration(context);
 		if (decl == nullptr)
 			return false;

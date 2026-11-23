@@ -875,3 +875,17 @@ signatures, including C-compatible conversions and the C floating
 promotion ranks. These rules are independent of the header that uses
 the attribute.
 [Clang overloadable declarations](https://clang.llvm.org/docs/AttributeReference.html#overloadable)
+
+## C floating-point contraction
+
+C99 through C17 permit the implementation to contract a floating expression
+within a scope where `FP_CONTRACT` is ON. OFF requires separate operations.
+An explicit cast and a full-expression boundary can force intermediate
+rounding. The pragma follows the scope and restoration rules of
+`FENV_ACCESS`. cppgm defaults to OFF and may emit one rounded multiply-add
+for a direct scalar float or double expression on AArch64. The LowIR
+instruction records the decision before optimization.
+
+[WG14 N1256 §§6.5, 7.12.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
+[WG14 N1570 §§6.5, 7.12.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[PA38 scope and runtime case](../pa38/tests/general/500-c-fp-contract.t)

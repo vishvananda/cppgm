@@ -598,6 +598,21 @@
       ]
     },
     {
+      "id": "floating.fp-contract-scope",
+      "clause": "6.5p8, 7.12.2",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Honor file, block, and _Pragma settings for FP_CONTRACT. Preserve separate rounding under OFF and restore the enclosing setting after a block. The AArch64 profile also checks its chosen same-expression multiply-add contraction.",
+      "cases": [
+        "floating.fp-contract"
+      ]
+    },
+    {
       "id": "floating.fenv-status",
       "clause": "7.6.1, F.8.1",
       "kind": "conditional",

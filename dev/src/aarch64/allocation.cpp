@@ -1325,7 +1325,8 @@ void Selector::allocate()
 	bool frameless_known = minimize_size_ || named_.darwin || out_.exceptions || dynamic_stack_ ||
 		!body_.code_labels.empty() || calls.empty();
 	std::vector<uint32_t> frameless_blocks;
-	constexpr uint32_t high_caller_simd = 0xfffc0000; // v18 through v31, clear of argument and scratch registers.
+	// An explicit fma can need three scratch registers when all operands spill.
+	const uint32_t high_caller_simd = has_fused_multiply_add_ ? 0xfff80000 : 0xfffc0000;
 	RegisterBank general(segments, slots, (1u << 19) - 1), simd(segments, slots, ~kPreservedSimd);
 	std::vector<uint32_t> simd_web_regs;
 	uint32_t saved_fp = 0;

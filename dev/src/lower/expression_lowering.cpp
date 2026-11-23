@@ -1636,6 +1636,21 @@ RValue FunctionLowering::size_query(const syntax::Expr& expr)
 
 // ------------------------------------------------------------- operators
 
+// Keep the intermediate at the product's semantic precision and cross no
+// cast or full-expression boundary. Parentheses do not change that boundary.
+static const syntax::BinaryExpr* contraction_product(const syntax::BinaryExpr& sum, const syntax::Expr* operand)
+{
+	const auto* type = sum.facts->type->unqualified;
+	if (sum.op != TokenKind::OP_PLUS || type->kind != sema::TypeKind::Fundamental ||
+		(type->fundamental != FundamentalType::Float && type->fundamental != FundamentalType::Double))
+		return nullptr;
+	const auto* product = WithoutParentheses(operand);
+	if (product->kind != syntax::ExprKind::Binary || product->facts->type->unqualified != type)
+		return nullptr;
+	const auto* binary = static_cast<const syntax::BinaryExpr*>(product);
+	return binary->op == TokenKind::OP_STAR ? binary : nullptr;
+}
+
 RValue FunctionLowering::binary_expression(const syntax::BinaryExpr& expr)
 {
 	if ((expr.facts->flags & sema::kTypeIdentity) != 0)
@@ -1683,15 +1698,49 @@ RValue FunctionLowering::binary_expression(const syntax::BinaryExpr& expr)
 	{
 		const syntax::BinaryExpr& current = *spine_[i];
 		const RValue* left = known ? &value : nullptr;
-		value = IsComparisonOperator(current.op) ? comparison(current, left) : arithmetic(current, left);
+		// Consume the next operator with its product while walking the same
+		// spine. Each of the three operands is evaluated once.
+		const syntax::BinaryExpr* parent = float_contract_ && current.op == TokenKind::OP_STAR && i > base
+			? spine_[i - 1]
+			: nullptr;
+		if (parent != nullptr && contraction_product(*parent, parent->left) == &current)
+		{
+			value = contracted_sum(*parent, current, left, false);
+			--i;
+		}
+		else
+			value = IsComparisonOperator(current.op) ? comparison(current, left) : arithmetic(current, left);
 		known = true;
 	}
 	spine_.resize(base);
 	return value;
 }
 
+RValue FunctionLowering::contracted_sum(
+	const syntax::BinaryExpr& sum, const syntax::BinaryExpr& product, const RValue* left, bool product_on_right)
+{
+	const auto& addend = *(product_on_right ? sum.left : sum.right);
+	RValue third;
+	if (product_on_right)
+		third = apply_conversion(addend, left != nullptr ? *left : rvalue(addend), ConversionContext::Additive);
+	const RValue first = apply_conversion(*product.left,
+		!product_on_right && left != nullptr ? *left : rvalue(*product.left), ConversionContext::Operand);
+	const RValue second = apply_conversion(*product.right, rvalue(*product.right), ConversionContext::Operand);
+	if (!product_on_right)
+		third = apply_conversion(addend, rvalue(addend), ConversionContext::Additive);
+	const lowir::Type type = lowering_.storage_type(sum.facts->type);
+	auto inst = lowir::make_instruction(lowir::Opcode::FusedMultiplyAdd, type);
+	inst.ops[0] = first.value;
+	inst.ops[1] = second.value;
+	inst.ops[2] = third.value;
+	return { emit_value(inst, type), type };
+}
+
 RValue FunctionLowering::arithmetic(const syntax::BinaryExpr& expr, const RValue* left_value)
 {
+	if (float_contract_)
+		if (const syntax::BinaryExpr* product = contraction_product(expr, expr.right))
+			return contracted_sum(expr, *product, left_value, true);
 	const sema::Type* type = expr.facts->type;
 	const sema::ExprFacts* left_facts = WithoutParentheses(expr.left)->facts;
 	const sema::ExprFacts* right_facts = WithoutParentheses(expr.right)->facts;
