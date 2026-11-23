@@ -181,6 +181,39 @@
       "adaptations": [
         "Selects C17 for the declaration rule. Checks acceptance or rejection without matching GCC wording."
       ]
+    },
+    {
+      "id": "auto-type-1-O0",
+      "path": "gcc/testsuite/gcc.dg/auto-type-1.c",
+      "sha256": "960eb93259449a9c2a4d3c8947b1e1be74e6fb88dd1a009da3ff9fa012b76190",
+      "dialect": "gnu17",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": ["-O0"],
+      "upstream_flags": ["-O0"],
+      "obligation": "GNU inferred object types and one evaluation of a variably modified initializer"
+    },
+    {
+      "id": "auto-type-1-O2",
+      "path": "gcc/testsuite/gcc.dg/auto-type-1.c",
+      "sha256": "960eb93259449a9c2a4d3c8947b1e1be74e6fb88dd1a009da3ff9fa012b76190",
+      "dialect": "gnu17",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": ["-O2"],
+      "upstream_flags": ["-O2"],
+      "obligation": "GNU inferred object types and one evaluation of a variably modified initializer"
+    },
+    {
+      "id": "auto-type-2",
+      "path": "gcc/testsuite/gcc.dg/auto-type-2.c",
+      "sha256": "ece85f9f7f0445b34ee9a534d655560f24b79bcb06c77358392c2babd842ed3d",
+      "dialect": "gnu17",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [],
+      "upstream_flags": [],
+      "obligation": "Reject invalid GNU inferred object declarations"
     }
   ]
 }

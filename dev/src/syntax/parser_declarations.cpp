@@ -1049,6 +1049,10 @@ void Parser::declare_declarator(const Declarator* declarator, const SpecifierInf
 Decl* Parser::finish_simple_declaration(
 	DeclContext context, Slice<DeclSpecifier> specifiers, const SpecifierInfo& info, uint32_t start)
 {
+	if (info.c_auto_type &&
+		(info.has_typedef || (context != DeclContext::Namespace && context != DeclContext::Block) ||
+			at(TokenKind::OP_SEMICOLON)))
+		throw ParseError(start, "__auto_type requires an initialized object declaration");
 	if (accept(TokenKind::OP_SEMICOLON))
 	{
 		// A lone class or enumeration specifier declares just the type (the
@@ -1121,6 +1125,10 @@ Decl* Parser::finish_simple_declaration(
 	friend_declarator_ = saved_friend;
 	if (declarator == nullptr)
 		return nullptr;
+	if (info.c_auto_type)
+		for (const Declarator* part = declarator; part != nullptr; part = part->nested)
+			if (!part->pointers.empty() || !part->suffixes.empty())
+				throw ParseError(declarator->location, "__auto_type requires a plain identifier as declarator");
 	// In a block's tentative parenthesized declaration, `int(f()->member)`
 	// is an expression: a trailing-return declarator requires leading auto.
 	// Reject that reading so the existing statement checkpoint can select it.
@@ -1180,7 +1188,8 @@ Decl* Parser::finish_simple_declaration(
 	for (;;)
 	{
 		Scope* const member_of = declarator_member_of_;
-		declare_declarator(declarator, info);
+		if (!info.c_auto_type)
+			declare_declarator(declarator, info);
 		InitDeclarator init = InitDeclarator();
 		init.declarator = declarator;
 		init.first_token = first_token;
@@ -1205,6 +1214,15 @@ Decl* Parser::finish_simple_declaration(
 				return nullptr;
 		}
 		init.end_token = static_cast<uint32_t>(tokens_.unit_position());
+		if (info.c_auto_type)
+		{
+			if (init.initializer == nullptr || init.initializer->kind != InitializerKind::Assign ||
+				init.initializer->expression->kind == ExprKind::BracedInit)
+				throw ParseError(declarator->location, "__auto_type requires an expression initializer");
+			if (at(TokenKind::OP_COMMA))
+				throw ParseError(location(), "__auto_type requires a single declarator");
+			declare_declarator(declarator, info);
+		}
 		declarators.push(init);
 		if (!accept(TokenKind::OP_COMMA))
 			break;

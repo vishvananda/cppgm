@@ -428,19 +428,18 @@ bool Parser::statement_starts_declaration(bool& tentative)
 	{
 		return false;
 	}
-	else if (c_source_ && gnu_names_.kind(token.identifier) == static_cast<uint8_t>(GnuTrait::AddAtomic) + 1)
+	else
 	{
-		return true;
-	}
-	else if (gnu_names_.kind(token.identifier) == GnuNames::kConstinit && at_constinit_specifier())
-	{
-		return true;
-	}
-	else if (at_gnu_decltype())
-	{
-		// GNU `__typeof__ (` and `__underlying_type (`, as decltype.
-		tentative = true;
-		return true;
+		const uint8_t gnu = gnu_names_.kind(token.identifier);
+		if (gnu == GnuNames::kCAutoType || (c_source_ && gnu == static_cast<uint8_t>(GnuTrait::AddAtomic) + 1) ||
+			(gnu == GnuNames::kConstinit && at_constinit_specifier()))
+			return true;
+		if (at_gnu_decltype())
+		{
+			// GNU `__typeof__ (` and `__underlying_type (`, as decltype.
+			tentative = true;
+			return true;
+		}
 	}
 	Tentative probe(*this);
 	NameInfo info;
@@ -615,7 +614,7 @@ bool Parser::parse_condition(Condition& condition)
 		Tentative attempt(*this);
 		ListFrame<DeclSpecifier> specifiers(specs_);
 		SpecifierInfo info;
-		if (parse_decl_specifier_seq(specifiers, info) && info.has_type)
+		if (parse_decl_specifier_seq(specifiers, info) && info.has_type && !info.c_auto_type)
 		{
 			Declarator* declarator = parse_declarator(DeclaratorMode::Named);
 			if (declarator != nullptr && (at(TokenKind::OP_ASS) || at(TokenKind::OP_LBRACE)))

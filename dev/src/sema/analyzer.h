@@ -574,6 +574,7 @@ private:
 	RuntimeTypeEvaluation* runtime_type_with_specifier(const Specifiers& specifiers, RuntimeTypeEvaluation* suffix);
 	ExprFacts* runtime_type_operand(const syntax::Expr& operand, Scope* scope, bool for_typeof);
 	void c_declaration_specifiers(const syntax::SimpleDecl& decl, Scope* scope, Specifiers& out);
+	const Type* deduce_c_auto_type(const syntax::SimpleDecl& decl, const Specifiers& specifiers, Scope* scope);
 	void note_variably_modified_declaration(Scope* scope);
 	const Type* decltype_type(const syntax::Expr& operand, Scope* scope);
 	const Type* decltype_result(const syntax::Expr& operand, const ExprFacts& facts);

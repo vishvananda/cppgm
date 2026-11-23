@@ -508,7 +508,7 @@ bool add_host_environment(
 		options.builtin_declarations += builtin_template_declarations();
 	if (includes == StandardIncludes::None)
 		return true;
-	const bool c_only = includes == StandardIncludes::COnly;
+	const bool c_only = options.language == SourceLanguage::C || includes == StandardIncludes::COnly;
 	const char* const* paths = c_only ? cppgm_builtin_host_config::kCStandardIncludePaths
 									  : cppgm_builtin_host_config::kStandardIncludePaths;
 	GccInstallation built;

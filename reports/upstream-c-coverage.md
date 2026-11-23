@@ -530,13 +530,25 @@ remain pending.
 An x86-64 glibc C11 probe compiled with cppgm and linked with GCC 15
 passes thread creation and joining, thread-local storage, one-time
 initialization, mutexes, condition variables, and thread-specific data
-at `-O0` and `-O2`. A separate `<stdatomic.h>` probe exposes two
-header compatibility gaps. The default C include search selects
-libstdc++'s C++ compatibility header ahead of GCC's C header.
-`-nostdinc++` selects the C header, whose `atomic_load_explicit` macro
-uses GNU `__auto_type`. A direct local `__auto_type` declaration also
-fails. Resolve the include policy and deduction rule before
-qualifying the public C atomic interfaces.
+at `-O0` and `-O2`.
+
+C input now selects the host's C include paths, and GNU `__auto_type`
+supports GCC's C `<stdatomic.h>` macros. The pinned GCC C17 suite passes
+both deduction cases, with the positive executed at `-O0` and `-O2`.
+The PA38 hosted atomic case passes at both levels with GCC's native
+x86-64 Linux headers and with the pinned WASI SDK. It exercises scalar
+and aggregate operations, compare-exchange success and failure, and
+single evaluation of a macro argument.
+
+With the Clang resource headers, bare Wasm, Linux AArch64, and both
+Darwin cross targets still need target-specific integer predefines
+for `<stdint.h>`. Supplying the relevant predefines from Clang 21 for
+diagnosis let the case run under AArch64 QEMU and bare Wasm at both
+levels, and let both Darwin targets cross-link Mach-O. Native Darwin
+runs and direct cross-target header qualification are pending. The
+hosted probes cover a subset of the public atomic and thread interfaces.
+[PA38 hosted atomic case](../pa38/tests/controls/500-c11-stdatomic.t) ·
+[GCC C17 manifest](upstream-gcc-c17.json)
 
 ## Cross-target smoke results
 

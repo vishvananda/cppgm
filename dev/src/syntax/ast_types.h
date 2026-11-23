@@ -35,7 +35,9 @@ enum class DeclSpecKind : uint8_t
 	Mode,
 	// A type-constraint followed by auto or decltype(auto). `name` holds
 	// the constraint; `keyword` distinguishes the two placeholders.
-	ConstrainedAuto
+	ConstrainedAuto,
+	// GNU C's inferred object type.
+	CAutoType
 };
 
 struct DeclSpecifier

@@ -136,6 +136,7 @@ private:
 	struct SpecifierInfo
 	{
 		bool has_type;
+		bool c_auto_type;
 		bool has_typedef;
 		bool has_friend;
 		// A lone class or enum specifier (a class/enum declaration when no

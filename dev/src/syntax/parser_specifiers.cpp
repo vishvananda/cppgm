@@ -552,7 +552,20 @@ bool Parser::parse_decl_specifiers(ListFrame<DeclSpecifier>& list, SpecifierInfo
 		if (standard && standard_after == 0)
 			standard_after = list.size();
 		const ParseToken token = tok();
-		if (c_source_ && token.is_identifier() && gnu_names_.kind(token.identifier) == GnuNames::kCNoReturn)
+		const uint8_t gnu = token.is_identifier() ? gnu_names_.kind(token.identifier) : 0;
+		if (gnu == GnuNames::kCAutoType)
+		{
+			DeclSpecifier specifier = DeclSpecifier();
+			specifier.kind = DeclSpecKind::CAutoType;
+			specifier.location = token.location;
+			list.push(specifier);
+			info.c_auto_type = true;
+			info.has_type = true;
+			info.sign_only = false;
+			next();
+			continue;
+		}
+		if (gnu == GnuNames::kCNoReturn)
 		{
 			require_c_extension(token.location, CEdition::C11, "_Noreturn is a C11 extension");
 			Attribute* attribute = make<Attribute>();
@@ -619,8 +632,7 @@ bool Parser::parse_decl_specifiers(ListFrame<DeclSpecifier>& list, SpecifierInfo
 			}
 			break;
 		}
-		if (token.is_identifier() && gnu_names_.kind(token.identifier) == GnuNames::kConstinit &&
-			at_constinit_specifier())
+		if (gnu == GnuNames::kConstinit && at_constinit_specifier())
 		{
 			DeclSpecifier specifier = DeclSpecifier();
 			specifier.kind = DeclSpecKind::Constinit;
@@ -629,7 +641,7 @@ bool Parser::parse_decl_specifiers(ListFrame<DeclSpecifier>& list, SpecifierInfo
 			next();
 			continue;
 		}
-		if (token.is_identifier() && !info.has_type && at_typeof())
+		if (!info.has_type && gnu == GnuNames::kTypeof)
 		{
 			if (!parse_typeof_specifier(list, info))
 				return false;
@@ -645,8 +657,7 @@ bool Parser::parse_decl_specifiers(ListFrame<DeclSpecifier>& list, SpecifierInfo
 		}
 		if (!token.is_identifier() ||
 			(info.has_type && !(info.sign_only && token.identifier == extended_types_[0]) &&
-				!(info.complex_only && ExtendedType(extended_types_, token.identifier)) &&
-				gnu_names_.kind(token.identifier) != GnuNames::kComplex) ||
+				!(info.complex_only && ExtendedType(extended_types_, token.identifier)) && gnu != GnuNames::kComplex) ||
 			!parse_named_type_specifier(list, info))
 			break;
 	}

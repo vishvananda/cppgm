@@ -324,6 +324,10 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 			named = specifier.keyword == TokenKind::KW_AUTO ? auto_placeholder_ : decltype_auto_placeholder_;
 			out.type_specifier = &specifier;
 			break;
+		case syntax::DeclSpecKind::CAutoType:
+			named = auto_placeholder_;
+			out.type_specifier = &specifier;
+			break;
 		case syntax::DeclSpecKind::Decltype:
 		{
 			const auto* builtin = specifier.operand->kind == syntax::ExprKind::BuiltinTrait
@@ -413,6 +417,13 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 		out.type = nullptr;
 		if (cv != 0)
 			error(out.location, "cv-qualifier without a type");
+		return;
+	}
+	if (type == auto_placeholder_ && out.type_specifier != nullptr &&
+		out.type_specifier->kind == syntax::DeclSpecKind::CAutoType)
+	{
+		out.type = type;
+		out.cv = cv;
 		return;
 	}
 	if (type == decltype_auto_placeholder_ && cv != 0)
@@ -1881,6 +1892,12 @@ void Analyzer::c_declaration_specifiers(const syntax::SimpleDecl& decl, Scope* s
 	repeated_type_bounds_ = multiple ? &bounds : nullptr;
 	specifiers(decl.specifiers, scope, out, decl.declarators.empty());
 	repeated_type_bounds_ = saved;
+	if (out.type == auto_placeholder_ && out.type_specifier != nullptr &&
+		out.type_specifier->kind == syntax::DeclSpecKind::CAutoType)
+	{
+		out.type = deduce_c_auto_type(decl, out, scope);
+		return;
+	}
 	if (out.type == nullptr || !out.type->c_variably_modified)
 		return;
 	RuntimeTypeEvaluation* plan = runtime_type_with_specifier(out, nullptr);
@@ -1898,6 +1915,34 @@ void Analyzer::c_declaration_specifiers(const syntax::SimpleDecl& decl, Scope* s
 		plan->next = nullptr;
 	}
 	graph_.set_runtime_bounds(&decl, plan);
+}
+
+const Type* Analyzer::deduce_c_auto_type(const syntax::SimpleDecl& decl, const Specifiers& specifiers, Scope* scope)
+{
+	const syntax::Expr& initializer = *decl.declarators[0].initializer->expression;
+	// GCC's initializer sees the enclosing bindings. Keep those typed
+	// facts when the ordinary initialization applies the conversion.
+	if (body_ != nullptr)
+		typed_value(initializer, scope);
+	else
+		constant_operand(initializer, scope, true);
+	ExprFacts* facts = facts_of(initializer);
+	if (facts == nullptr || facts->type == nullptr)
+		error(initializer.location, "__auto_type initializer has no value type");
+	if ((facts->flags & kBitField) != 0)
+		error(initializer.location, "__auto_type cannot deduce from a bit-field");
+	facts->flags |= kImplicit;
+	const Type* type = decayed(facts);
+	if (IsVoid(type))
+		error(initializer.location, "__auto_type cannot deduce a void object");
+	if ((specifiers.cv & kRestrict) != 0 && !SupportsCRestrict(type))
+		error(decl.location, "restrict requires a pointer to an object type");
+	type = types_.qualified(type, specifiers.cv);
+	for (const auto& specifier : decl.specifiers)
+		if (specifier.kind == syntax::DeclSpecKind::Vector)
+			type = vector_type(
+				type, *specifier.operand, specifier.keyword == TokenKind::KW_SIZEOF, scope, specifier.location);
+	return type;
 }
 
 void Analyzer::default_template_argument_names(const syntax::TypeId& type, Scope* scope)

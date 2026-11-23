@@ -113,6 +113,11 @@ external function. Compile each size with `-fhosted` and
 `-ffreestanding` at `-O0 -c`. The objects should match. This
 measures the cost of carrying the environment through ordinary calls.
 
+`c-inferred-object-declarations` and `c-explicit-object-declarations`
+use GNU `__auto_type` or `int` for the same local initializers. Measure
+C11 syntax-only cost over successive doublings and compare the
+`-O0` objects to verify that both forms produce the same code.
+
 `c-member-alignment-queries` grows one record and queries each member once.
 Measure in C11 syntax-only mode. The first query can require the record's
 layout. Later queries read the computed alignment of their members.

@@ -765,6 +765,7 @@ bool SyntaxCloner::specifier(const DeclSpecifier& in, DeclSpecifier& out)
 	case DeclSpecKind::Constinit:
 	case DeclSpecKind::AtomicQualifier:
 	case DeclSpecKind::DecltypeAuto:
+	case DeclSpecKind::CAutoType:
 	case DeclSpecKind::Mode:
 		return false;
 	case DeclSpecKind::Keyword:

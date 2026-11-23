@@ -491,6 +491,9 @@ void AstDumper::owned_specifier(const DeclSpecifier& specifier)
 	case DeclSpecKind::AtomicQualifier:
 		line("cv-qualifier", "_Atomic");
 		break;
+	case DeclSpecKind::CAutoType:
+		line("decl-specifier", "__auto_type");
+		break;
 	case DeclSpecKind::Class:
 		class_specifier(*specifier.class_specifier);
 		break;

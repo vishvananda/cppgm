@@ -495,3 +495,18 @@ according to the link options. Header paths are selected separately.
 [C draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [GCC C dialect options](https://gcc.gnu.org/onlinedocs/gcc-15.1.0/gcc/C-Dialect-Options.html) ·
 [Clang freestanding builds](https://clang.llvm.org/docs/UsersManual.html#freestanding-builds)
+
+## GNU inferred object types in C headers
+
+GCC's C `<stdatomic.h>` uses the reserved spelling `__auto_type` to
+hold atomic arguments used by a macro. The declaration takes one plain
+identifier and one expression initializer. Its identifier enters scope
+after that initializer. Infer the type from the initializer's value
+conversions and apply any qualifiers written on the declaration.
+For an initializer with a variably modified type, reuse the bounds
+captured by the initializer. This keeps the effects and evaluation
+count the same as for an explicitly typed declaration.
+
+[GCC GNU C deduction rules](https://gcc.gnu.org/onlinedocs/gcc-15.2.0/gcc/Typeof.html) ·
+[PA38 deduction case](../pa38/tests/general/300-c-gnu-auto-type.t) ·
+[PA38 hosted atomic case](../pa38/tests/controls/500-c11-stdatomic.t)

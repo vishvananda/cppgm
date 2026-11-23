@@ -135,6 +135,8 @@ jobs:
         run: |
           make -C pa38 test-native-driver CPPGM_SKIP_DEV_REBUILD=1 CXX=clang++ CPPGM_HOST_CXX=clang++ \
             NATIVE_DRIVER_TESTS=300-c-environment-hosted
+          make -C pa38 check CPPGM_SKIP_DEV_REBUILD=1 CXX=clang++ CPPGM_HOST_CXX=clang++ \
+            TEST=tests/controls/500-c11-stdatomic.t
           make -C pa25 check RUN_CHECK_DEPS= CXX=clang++ CPPGM_HOST_CXX=clang++ \
             TEST=tests/general/200-runtime-custom-entry.t
       - name: Link and run typed LowIR library objects on Apple Silicon

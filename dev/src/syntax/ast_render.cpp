@@ -154,6 +154,9 @@ void SyntaxRenderer::specifier(const DeclSpecifier& specifier)
 	case DeclSpecKind::DecltypeAuto:
 		text("decltype(auto)");
 		break;
+	case DeclSpecKind::CAutoType:
+		text("__auto_type");
+		break;
 	case DeclSpecKind::Class:
 		class_specifier(*specifier.class_specifier);
 		break;

@@ -41,6 +41,7 @@ Wasm defaults to freestanding and requires WASI for hosted C. Native
 targets and WASI default to hosted. The last environment flag wins.
 Define `__STDC_HOSTED__` as zero in freestanding mode and one in hosted
 mode. Keep header search and startup options independent of this choice.
+Use the target's C system include paths for C input.
 When linking with `cppgm`, `-nostartfiles` omits the supplied startup,
 `-nodefaultlibs` omits the supplied runtime libraries, and `-nostdlib`
 omits both. On Linux, supply `_start` if you omit startup. On bare
@@ -254,6 +255,12 @@ The first fixture set covers these parts of the C17 input profile:
   declarator's evaluation.
 - Hosted C header declarations and their builtin operations through the
   existing hosted environment, including PA30's GNU startup-function attributes.
+- Support the reserved GNU spelling `__auto_type` in the C modes above.
+  It declares one object with a plain identifier and an expression
+  initializer. Bind the identifier after the initializer. Apply array and
+  function decay to infer the object type, then apply qualifiers written on
+  the declaration. Reject a bit-field or void initializer and preserve any
+  dynamic bounds captured by the initializer. Evaluate the initializer once.
 
 This is an initial profile, not a claim of complete C17 conformance. Use
 `(void)` for a prototype with no parameters; an empty `()` declares a function

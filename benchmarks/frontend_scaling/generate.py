@@ -233,6 +233,11 @@ def c_member_alignment_queries(size):
         print(f'_Static_assert(__alignof__(value.field{index}) == _Alignof(int), "member");')
 
 
+def c_object_declarations(size, specifier):
+    for index in range(size):
+        print(f'int f_{index}(int n) {{ {specifier} value = n + 1; return value; }}')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('case', choices=['parameter-bases', 'plain-templates',
@@ -255,6 +260,7 @@ def main():
                                         'c-vla-atomic-type', 'c-vla-atomic-qualifier',
                                         'c-vla-type-queries', 'c-fixed-array-type-queries',
                                         'c-environment-calls',
+                                        'c-inferred-object-declarations', 'c-explicit-object-declarations',
                                         'c-vla-dimensions', 'c-vla-extent-uses',
                                         'c-typeof-shared-bounds', 'c-designated-overwrites', 'c-designated-sparse',
                                         *EDITIONS])
@@ -339,6 +345,10 @@ def main():
         return
     if args.case == 'c-environment-calls':
         c_environment_calls(args.size)
+        return
+    if args.case in ('c-inferred-object-declarations', 'c-explicit-object-declarations'):
+        specifier = '__auto_type' if args.case == 'c-inferred-object-declarations' else 'int'
+        c_object_declarations(args.size, specifier)
         return
     if args.case == 'c-vla-dimensions':
         c_vla_dimensions(args.size)
