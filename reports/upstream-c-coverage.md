@@ -138,6 +138,33 @@ cross-links the fixture. Native macOS execution remains open.
 [PA38 probe](../pa38/tests/general/500-c-fp-contract.t) ·
 [WG14 N1570 §§6.5 and 7.12.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
 
+The `CX_LIMITED_RANGE` fixture exercises file scope, block scope,
+`_Pragma`, DEFAULT, and compound assignments. The OFF controls divide
+complex values whose component squares would overflow or underflow.
+They also check infinity recovery when the elementary product would
+produce two NaNs. Under ON, scalar floating complex multiplication
+and division use the elementary formulas.
+
+The complex environment fixture reproduced a discarded division that
+set invalid at `-O0` and disappeared at `-O2`. The call now carries
+an effectful LowIR signature at that call site. The native fixture
+checks invalid from a full-range division and inexact from a
+limited-range division. Its Wasm control checks the quotient at
+the target's round-to-nearest setting. Native x86-64 and Linux
+AArch64 under QEMU passed both probes and their LowIR round trips
+at `-O0`, `-O2`, and `-O3`. C99 through C17 clause replays
+passed on those targets, WASI, and bare Wasm. The PA37 runtime probe
+also covers double and binary128 complex helper calls against the
+SDK's compiler-rt. A separately compiled double complex quotient
+passed with cppgm in either caller or callee. The other compiler
+was GCC 15 on x86-64, Clang 21 on AArch64 under QEMU, and the
+WASI SDK's Clang on Wasm. The range probe cross-compiles into Intel
+and Arm64 Mach-O objects. Native macOS execution remains open.
+[PA38 range case](../pa38/tests/general/500-c-complex-limited-range.t) ·
+[PA38 environment case](../pa38/tests/general/500-c-complex-fenv.t) ·
+[PA37 runtime case](../pa37/tests/runtime/500-complex-runtime.t) ·
+[WG14 N1570 §§7.3.4, 7.6.1, G.5.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
+
 The long double probe exercises classification and all six quiet predicates
 over 196 ordered and unordered pairs. It checks invalid after a discarded
 relational comparison. On AArch64 Linux under QEMU, the prior compiler

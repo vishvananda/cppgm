@@ -2642,3 +2642,37 @@ function. The expression probe drives the iterative left-spine walk.
 | --- | ---: | ---: | ---: |
 | One nested expression with multiply-add pairs | 7,560,454 | 11,638,622 | 19,890,228 |
 | Functions with two pragma changes each | 32,420,514 | 61,652,297 | 120,146,556 |
+
+## Scoped complex arithmetic
+
+Compared `1b2a56b94` with `88024e5ad` on x86-64 Linux using immutable
+GCC 15 host builds and one A/A, ABBA, and BAAB block on CPU 71. Floating
+pragma state still fits the existing statement byte. The frozen inputs
+produced byte-identical objects in every run.
+
+| Frozen input | Retired instructions, ABBA / BAAB | Peak RSS, ABBA / BAAB |
+| --- | ---: | ---: |
+| C++ semantic overload, `-O3` | +0.002% / +0.001% | +0.038% / +0.030% |
+| SQLite 3.50.4, GNU C17, `-O2` | +0.001% / +0.001% | −0.092% / +0.016% |
+
+The A/A instruction spreads were at most 0.005%. Task-clock spreads of
+36% and 22% prevent a wall-time conclusion for the frozen inputs.
+
+The pragma scaling probe uses a limited-range quotient and product
+and an inner DEFAULT scope with a second quotient. An ABBA block
+at each size measured the work to compile it at `-O0`.
+
+| Functions | Baseline instructions | Candidate instructions | Change |
+| ---: | ---: | ---: | ---: |
+| 128 | 56,413,252 | 45,991,801 | −18.5% |
+| 256 | 108,811,332 | 87,979,058 | −19.1% |
+| 512 | 213,829,482 | 172,179,500 | −19.5% |
+
+For generated-code performance, an independent GCC 15 harness called
+the candidate's separately compiled quotient 10 million times with
+in-range operands and exact integral results. Inputs and printed
+checksums matched across the A/A, ABBA, and BAAB blocks. At `-O2`,
+the limited-range path used 34.5% fewer retired instructions across
+the entire program in each paired block. Its function object's
+`.text` grew from 100 to 148 bytes as it computed the quotient
+inline.
