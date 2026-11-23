@@ -367,6 +367,13 @@ bound unevaluated. It also verifies acceptance of alignment and size
 queries on the value of an assignment to a bit-field. Both native controls
 accept this value, with different sizes for the reduced example.
 
+The runtime fixture passes on Linux x86-64 and AArch64 under QEMU at
+`-O0` and `-O2`, and in the PA38 Wasm lane. Linux LLVM tools also inspect
+and link its objects for both Darwin architectures at those levels. The
+expanded GCC C11 manifest passes all three cases. The batch also passes
+the zlib 1.3.1 example and compression round trip and the Lua 5.4.8 basic
+suite on Linux x86-64.
+
 cppgm retains the GNU type-form incomplete-array query accepted by Clang
 and preserves its previous handling of dereference expressions. GCC and
 Clang disagree on whether dereferencing the address of an over-aligned

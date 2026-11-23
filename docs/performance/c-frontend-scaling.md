@@ -647,3 +647,47 @@ immutable binaries ran on the same core. A/A task-clock variation was
 | SQLite | BAAB | 16,514,318,975 / 16,513,983,879 / 16,514,017,921 / 16,514,236,337 |
 
 [Input generation](../../benchmarks/frontend_scaling/README.md#c)
+
+## C alignment queries
+
+The workload declares one record and queries the alignment of each
+member. The candidate computes the record layout on the first query
+and reads the retained member alignment thereafter. The batch also
+skips C++ member lookahead when parsing a C declaration. The counts
+include all compiler work and are median millions of retired user-space
+instructions in three C11 syntax-only runs with `-pedantic-errors`,
+against `dc84ee6dd` on Linux x86-64.
+
+| Members and queries | Before | After |
+| ---: | ---: | ---: |
+| 128 | 7.798 | 7.774 |
+| 256 | 11.776 | 11.732 |
+| 512 | 20.657 | 20.573 |
+| 1024 | 35.553 | 35.388 |
+| 2048 | 65.220 | 64.895 |
+| 4096 | 125.174 | 124.528 |
+
+At 4096 members the instruction count fell by 0.52% and median peak RSS
+went from 13,552 to 13,676 KiB. All measured sizes emitted
+byte-identical objects.
+
+The frozen C++ input at `-O3` and SQLite 3.50.4 in GNU17 mode at `-O2`
+also emitted identical objects in every run with `0f95332d3`. The
+immutable binaries ran on the same core. A/A task-clock variation was
+32.4% for C++ and 6.0% for SQLite, so the comparison uses retired instructions.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0041% | +0.0073% | +0.0072% |
+| SQLite `sqlite3.c` | 0.0020% | −0.0416% | −0.0411% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,041,802,496 / 9,041,631,756 / 9,041,430,347 / 9,041,605,303 |
+| C++ | ABBA | 9,041,570,022 / 9,042,444,081 / 9,042,061,390 / 9,041,622,920 |
+| C++ | BAAB | 9,042,224,850 / 9,041,688,466 / 9,041,621,254 / 9,042,384,750 |
+| SQLite | A/A | 16,514,653,631 / 16,514,869,376 / 16,514,765,664 / 16,514,980,255 |
+| SQLite | ABBA | 16,514,753,444 / 16,508,103,733 / 16,507,832,442 / 16,514,918,270 |
+| SQLite | BAAB | 16,508,114,557 / 16,514,999,004 / 16,514,876,467 / 16,508,189,873 |
+
+[Input generation](../../benchmarks/frontend_scaling/README.md#c)
