@@ -1094,3 +1094,55 @@ retired instructions.
 | SQLite | BAAB | 16,506,293,145 / 16,505,220,225 / 16,505,265,994 / 16,506,317,248 |
 
 [Input generation](../../benchmarks/frontend_scaling/README.md#c)
+
+## Atomic capability queries
+
+The driver resolves the atomic profile before preprocessing. The
+capability fits in existing padding in both compiler builds.
+`PreprocessorOptions` remains 328 bytes and the semantic analyzer
+11,584 bytes, each with alignment eight on Linux x86-64.
+
+The C11 query series uses one function per query at `-O0 -c -nostdinc`.
+The constant form returns `__atomic_always_lock_free(4, p)` for an
+`int *` parameter. The runtime form returns
+`__atomic_is_lock_free(size, p)` for `unsigned long` and `const void *`
+parameters. The runtime control uses the same signature and calls an
+ordinary C declaration bound to the runtime symbol with a `nothrow`
+attribute. Retired user-space instruction counts are in millions.
+Parent `ba36cb334` and current `84ae98515` were built with GCC 15 and
+pinned to CPU 71. The constant results are medians from paired ABBA
+and BAAB blocks. Runtime figures are the medians of three observations
+per form on the current binary.
+
+| Functions | Constant parent | Constant current | Runtime builtin | Runtime control |
+| ---: | ---: | ---: | ---: | ---: |
+| 128 | 10.405 | 10.446 | 13.199 | 13.255 |
+| 512 | 29.814 | 29.892 | 40.839 | 40.978 |
+| 2048 | 107.379 | 107.581 | 151.334 | 151.740 |
+| 4096 | 211.355 | 211.722 | 299.165 | 299.861 |
+
+The constant cases produce identical objects across builds. At 4096
+functions the additional compile work is 0.17%. The runtime forms
+produce identical machine-code bytes at each size. The runtime
+builtin's incremental cost is about 72,000 instructions per added
+function in the final two intervals. At 4096 functions, median peak
+RSS is 24,148 KiB for the builtin and 24,092 KiB for the direct call.
+
+The frozen C++ input at `-O3` and SQLite at `-std=gnu17 -O2` produced
+identical objects across the two builds. A/A task-clock ranges were
+31.7% and 12.3%, and paired task-clock directions reversed, so the
+comparison uses instructions.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0046% | −0.0081% | −0.0094% |
+| SQLite `sqlite3.c` | 0.0014% | +0.0006% | −0.0008% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,045,542,662 / 9,045,615,374 / 9,045,273,149 / 9,045,686,287 |
+| C++ | ABBA | 9,045,369,213 / 9,044,654,249 / 9,044,745,964 / 9,045,505,252 |
+| C++ | BAAB | 9,044,645,453 / 9,045,488,217 / 9,045,486,006 / 9,044,623,118 |
+| SQLite | A/A | 16,506,193,308 / 16,506,019,715 / 16,505,969,213 / 16,506,144,197 |
+| SQLite | ABBA | 16,506,084,254 / 16,505,983,331 / 16,506,471,680 / 16,506,171,360 |
+| SQLite | BAAB | 16,506,155,485 / 16,506,240,408 / 16,506,135,022 / 16,505,966,016 |

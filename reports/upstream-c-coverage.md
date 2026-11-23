@@ -572,9 +572,8 @@ at `-O0` and `-O2` on native x86-64 Linux and on AArch64 Linux under QEMU.
 A multi-threaded C11 control with relaxed compare-exchange increments
 and release/acquire publication also passes on both Linux targets and
 at both levels.
-Native Darwin execution, atomic lock-free macros and queries, wider
-atomics on other runtimes, and full optional-feature qualification
-remain open.
+Native Darwin execution, wider atomics on other runtimes, and full
+optional-feature qualification remain open.
 [PA38 integer header case](../pa38/tests/general/500-c-integer-headers.t) ·
 [PA37 Emscripten layout](../pa37/tests/values/200-source-emscripten-layout.t) ·
 [PA39 Linux data model](../pa39/tests/target/100-linux-data-model.t)
@@ -587,11 +586,39 @@ cases with zero placement findings. The student export regenerated
 the PA38 lanes and the Emscripten integer-header case.
 [Compile-time measurements](../docs/performance/c-frontend-scaling.md#cross-target-integer-predefines)
 
-The next atomic header probe checks `ATOMIC_INT_LOCK_FREE` and
-`ATOMIC_POINTER_LOCK_FREE` using Clang's resource header. With a GCC-built
-cppgm, their compiler macro spellings are currently missing on x86-64
-Linux, AArch64 Linux, and bare Wasm. The C11 Wasm profile with
-`-mno-atomics` currently omits `__STDC_NO_ATOMICS__`.
+### Atomic capability reporting
+
+The resolved instruction profile supplies the GCC and Clang header
+predefines. The scalar lock-free macros are usable in `#if`, as required
+by DR 458. The C11 and C17 Wasm profile with `-mno-atomics` defines
+`__STDC_NO_ATOMICS__` and reports false for the inline and runtime queries.
+The C99 profile omits that C11 feature macro. Explicit command-line
+`-D` and `-U` still control the macro table.
+
+The builtin with an always lock-free result takes a constant size.
+Other queries accept runtime arguments and evaluate them once on the
+runtime path. Constant aligned inline cases still fold. On Linux,
+runtime queries match the linked `libatomic` for sizes 0, 1, 2, 3, 4, 8,
+16, and 17 at multiple alignments. Both the pointer and size-only forms
+pass at `-O0` and `-O2` on x86-64 and under AArch64 QEMU. Enabled and
+disabled Wasm queries pass under Wasmtime. Linux and bare Wasm pass
+the scalar header cases with Clang 21 and 23 headers, and both Darwin
+targets cross-link those cases and the dynamic queries. Native Darwin
+runtime validation remains open.
+
+The GCC-based C atomic header uses the generic runtime ABI successfully
+for a 16-byte aggregate on Linux. The same operation through Clang's
+header still needs the by-value builtin to support the generic path.
+The layout also needs ABI-specific review for both header families.
+For an aggregate containing only 3, 12, 16, or 17 bytes, Clang 21 and
+cppgm use atomic size/alignment pairs of 4/4, 16/16, 16/16, and 17/1 on
+x86-64 Linux. GCC 15 uses 3/1, 12/1, 16/16, and 17/1. Test the amount
+of storage read through the atomic object separately from the bytes
+read from the ordinary desired value or written to the expected value.
+[WG14 lock-free defect reports](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2243.htm#dr_458) ·
+[PA30 runtime query](../pa30/tests/run/800-atomic-lock-free-query.t.1) ·
+[PA37 Wasm runtime query](../pa37/tests/values/200-source-atomic-queries.t) ·
+[PA38 C atomic capability](../pa38/tests/general/500-c-atomic-disabled.t)
 
 ## Cross-target smoke results
 
