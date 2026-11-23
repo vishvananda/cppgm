@@ -101,8 +101,17 @@ void FunctionLowering::read_discarded(const syntax::Expr& expr)
 		return;
 	}
 	Place place = glvalue(*e);
-	place.is_volatile = true;
 	const sema::Type* type = e->facts->type;
+	if (place.is_atomic && lowering_.analyzer_->c_source())
+	{
+		const lowir::Type storage = lowering_.storage_type(type);
+		if (uses_atomic_buffer(storage))
+			read_c_atomic_value(type, storage, place, e->location);
+		else
+			load(storage, place);
+		return;
+	}
+	place.is_volatile = true;
 	if (type->kind == sema::TypeKind::Class && lowering_.analyzer_->c_source())
 		copy_volatile_record(type, address_of(place), lowir::Value::none(), true, false, e->location);
 	else
@@ -192,8 +201,9 @@ void FunctionLowering::discard(const syntax::Expr& expr)
 		}
 	}
 	if (facts != nullptr && facts->type != nullptr && facts->category == sema::ValueCategory::LValue &&
-		(facts->type->cv & sema::kVolatile) != 0 && facts->type->kind != sema::TypeKind::Array &&
-		read_when_discarded(*e))
+		((facts->type->cv & sema::kVolatile) != 0 ||
+			((facts->type->cv & sema::kAtomic) != 0 && lowering_.analyzer_->c_source())) &&
+		facts->type->kind != sema::TypeKind::Array && read_when_discarded(*e))
 	{
 		read_discarded(*e);
 		return;
@@ -426,7 +436,9 @@ void FunctionLowering::discard_to_void(const syntax::Expr& expr)
 		discard(*e);
 		return;
 	}
-	if (facts != nullptr && facts->type != nullptr && (facts->type->cv & sema::kVolatile) != 0 &&
+	if (facts != nullptr && facts->type != nullptr &&
+		((facts->type->cv & sema::kVolatile) != 0 ||
+			((facts->type->cv & sema::kAtomic) != 0 && lowering_.analyzer_->c_source())) &&
 		facts->type->kind != sema::TypeKind::Array &&
 		(facts->type->unqualified->kind != sema::TypeKind::Class || lowering_.analyzer_->c_source()))
 	{

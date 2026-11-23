@@ -234,6 +234,13 @@ The first fixture set covers these parts of the C17 input profile:
   type derived from a pointer-to-VLA return type is variably modified.
   A function with linkage cannot have that type. A local pointer to such a
   function can use the runtime bounds of its own declaration.
+- Read and assign atomic records with the same sequentially consistent
+  ordering as atomic scalars. Load the entire atomic representation in
+  one operation when passing, returning, or copying its value. Pass
+  ordinary values using their unqualified type's size and alignment.
+  Initialize any added atomic padding before the object is shared.
+  The value of an assignment is the value it stored. Use the runtime
+  operations from PA30 for records wider than the inline widths.
 - Apply `restrict` to pointers to object types, including `void` and
   incomplete record types. The GNU spellings `__restrict` and `__restrict__`
   use the same qualifier in C. Apply lvalue conversion and function signature

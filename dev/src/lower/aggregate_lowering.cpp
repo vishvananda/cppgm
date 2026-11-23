@@ -473,6 +473,8 @@ void FunctionLowering::aggregate_class_item(const sema::ClassEntity* cls, const 
 	// constructor its element selects, its default constructor without one
 	// (value-initialization), or the class prvalue that initializes it.
 	const syntax::Expr* element = list != nullptr && next < list->elements.size ? list->elements[next] : nullptr;
+	if (element == nullptr && (type->cv & sema::kAtomic) != 0)
+		initialize_c_atomic_padding(type, path);
 	if (default_member == nullptr && sema::IsAggregateClass(cls))
 	{
 		// A tracked aggregate's aggregate member, once made, is one object

@@ -2,6 +2,7 @@
 #include "sema/analyzer.h"
 
 #include "sema/aggregates.h"
+#include "sema/c_initializer.h"
 #include "sema/conversions.h"
 #include "sema/constant_values.h"
 
@@ -336,6 +337,15 @@ void FunctionLowering::initialize_from(
 	}
 	if (e->facts->category != sema::ValueCategory::PRValue)
 	{
+		if ((e->facts->type->cv & sema::kAtomic) != 0 && lowering_.analyzer_->c_source())
+		{
+			// Pass and return a C atomic record by taking one unqualified snapshot.
+			const RValue value = load_glvalue(*e);
+			Place target = {};
+			target.storage = object;
+			store(value.type, value, target);
+			return;
+		}
 		// A glvalue whose copy the analysis left to the object's bytes.
 		const sema::ClassEntity* target = sema::ClassOf(
 			conversion != nullptr && conversion->result != nullptr ? conversion->result : e->facts->type);
@@ -370,7 +380,11 @@ void FunctionLowering::construct(const sema::Type* type, lowir::Value object, co
 			call_special(constructor, variant, object, none, location);
 		return;
 	}
-	if (const syntax::BracedInitList* list = BracedList(*init))
+	const syntax::BracedInitList* list = BracedList(*init);
+	if ((type->cv & sema::kAtomic) != 0 && type->kind == sema::TypeKind::Class && lowering_.analyzer_->c_source() &&
+		sema::CInitializerOf(list) == nullptr)
+		initialize_c_atomic_padding(type, AddressPath{ AddressPath::Root::Value, object, path_steps_.size() });
+	if (list != nullptr)
 	{
 		if (list->result_source != nullptr)
 		{
@@ -429,9 +443,10 @@ void FunctionLowering::construct(const sema::Type* type, lowir::Value object, co
 		{
 			const syntax::Expr& source = *WithoutParentheses(init->expression);
 			const bool lvalue = source.facts->category == sema::ValueCategory::LValue;
-			const lowir::Value value = lvalue ? address(source) : temporary_object(source);
-			copy_volatile_record(
-				type, value, object, lvalue && (source.facts->type->cv & sema::kVolatile) != 0, true, location);
+			const bool atomic = lvalue && (source.facts->type->cv & sema::kAtomic) != 0;
+			const lowir::Value value = lvalue && !atomic ? address(source) : temporary_object(source);
+			copy_volatile_record(type, value, object,
+				lvalue && !atomic && (source.facts->type->cv & sema::kVolatile) != 0, true, location);
 		}
 		else if (conversion_function(conversion))
 			initialize_from(*init->expression, conversion, object, location);
@@ -979,8 +994,8 @@ void FunctionLowering::materialize_prvalue(const syntax::Expr& expr, lowir::Valu
 		{
 			Place target = Place();
 			target.storage = object;
-			const lowir::Type storage = lowering_.storage_type(facts->type);
-			store(storage, rvalue(*e), target);
+			const RValue value = rvalue(*e);
+			store(value.type, value, target);
 			return;
 		}
 	}

@@ -104,6 +104,8 @@ void FunctionLowering::c_initialize(
 {
 	const sema::Type* type = lowering_.graph().types.qualified(plan.type, cv & sema::kVolatile);
 	inherited = inherited && !plan.starts_value;
+	if (!inherited && (type->cv & sema::kAtomic) != 0 && type->kind == sema::TypeKind::Class)
+		initialize_c_atomic_padding(type, path);
 	if (plan.value != nullptr)
 	{
 		syntax::Expr* value = const_cast<syntax::Expr*>(plan.value);

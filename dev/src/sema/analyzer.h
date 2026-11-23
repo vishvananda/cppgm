@@ -72,6 +72,7 @@ public:
 	void set_hosted(bool on) { hosted_ = on; }
 	void set_host_objects(bool on) { host_objects_ = on; }
 	void set_atomics_enabled(bool on) { atomics_enabled_ = on; }
+	bool atomics_enabled() const { return atomics_enabled_; }
 	bool hosted() const { return hosted_; }
 	static constexpr uint64_t default_constexpr_step_limit = uint64_t(1) << 24;
 	void set_constexpr_step_limit(uint64_t limit) { constexpr_step_limit_ = limit; }

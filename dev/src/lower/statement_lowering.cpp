@@ -1556,7 +1556,7 @@ void FunctionLowering::returned_local(const syntax::Stmt& stmt, const sema::Enti
 		const bool candidate = variable != nullptr && variable->owner != nullptr && !variable->structured_binding &&
 			variable->owner->kind == sema::ScopeKind::Block && !variable->is_static && !variable->is_extern &&
 			!variable->is_thread_local && !variable->type->is_reference() &&
-			(variable->type->cv & sema::kVolatile) == 0 &&
+			(variable->type->cv & (sema::kVolatile | sema::kAtomic)) == 0 &&
 			variable->type->unqualified == function_->type->canonical->element->unqualified;
 		bool own = false;
 		for (const sema::Scope* scope = candidate ? variable->owner : nullptr; scope != nullptr && !own;

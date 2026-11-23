@@ -269,7 +269,7 @@ bool FunctionLowering::side_effect_free(const syntax::Expr* expr, bool read, uin
 {
 	const syntax::Expr* e = WithoutParentheses(expr);
 	if (depth > 64 || e->facts == nullptr || e->facts->type == nullptr ||
-		(read && (e->facts->type->cv & sema::kVolatile) != 0))
+		(read && (e->facts->type->cv & (sema::kVolatile | sema::kAtomic)) != 0))
 		return false;
 	switch (e->kind)
 	{
@@ -346,7 +346,7 @@ RValue FunctionLowering::rvalue(const syntax::Expr& expr)
 		? static_cast<const sema::VariableEntity*>(facts->entity)
 		: nullptr;
 	if (constant != nullptr && !constant->member && !constant->type->is_reference() &&
-		constant->constant == sema::ConstantState::Value && (facts->type->cv & sema::kVolatile) == 0)
+		constant->constant == sema::ConstantState::Value && (facts->type->cv & (sema::kVolatile | sema::kAtomic)) == 0)
 	{
 		if (e->kind == syntax::ExprKind::Member)
 			member_object(static_cast<const syntax::MemberExpr&>(*e));
@@ -354,7 +354,7 @@ RValue FunctionLowering::rvalue(const syntax::Expr& expr)
 	}
 	// A constexpr 128-bit integer keeps its complete evaluated value.
 	if (constant != nullptr && constant->is_constexpr && constant->constant == sema::ConstantState::Object &&
-		sema::IsWideIntegral(facts->type) && (facts->type->cv & sema::kVolatile) == 0)
+		sema::IsWideIntegral(facts->type) && (facts->type->cv & (sema::kVolatile | sema::kAtomic)) == 0)
 	{
 		RValue value;
 		const sema::ConstValue* evaluated = lowering_.evaluated_value(constant);
@@ -1399,6 +1399,8 @@ RValue FunctionLowering::load_glvalue(const syntax::Expr& expr)
 	if (place.has_known && (!place.is_volatile || place.is_atomic))
 		return place.known;
 	const lowir::Type storage = lowering_.storage_type(facts->type);
+	if (place.is_atomic && uses_atomic_buffer(storage) && lowering_.analyzer_->c_source())
+		return read_c_atomic_value(facts->type, storage, place, expr.location);
 	if (place.is_volatile && storage.is_object() && lowering_.analyzer_->c_source())
 	{
 		Place snapshot = Place();
@@ -1937,7 +1939,10 @@ Place FunctionLowering::assignment(const syntax::BinaryExpr& expr)
 	// 5.17p1: the right operand is evaluated before the left's address.
 	const sema::ExprFacts* left_facts = WithoutParentheses(expr.left)->facts;
 	const sema::Type* type = left_facts->type;
-	if ((type->cv & sema::kVolatile) != 0 && type->kind == sema::TypeKind::Class && lowering_.analyzer_->c_source())
+	const bool atomic_record = (type->cv & sema::kAtomic) != 0 && type->kind == sema::TypeKind::Class &&
+		lowering_.analyzer_->c_source();
+	if (!atomic_record && (type->cv & sema::kVolatile) != 0 && type->kind == sema::TypeKind::Class &&
+		lowering_.analyzer_->c_source())
 	{
 		// The converted right operand is the result of the assignment
 		// (6.5.16p3). Keep its snapshot through the destination access.
@@ -1969,7 +1974,7 @@ Place FunctionLowering::assignment(const syntax::BinaryExpr& expr)
 		{
 			Place temporary = Place();
 			temporary.storage = temporary_object(*source);
-			value = load(lowering_.storage_type(type), temporary);
+			value = load(lowering_.storage_type(atomic_record ? type->unqualified : type), temporary);
 		}
 		else
 			value = rvalue(*source);
@@ -1994,7 +1999,11 @@ Place FunctionLowering::assignment(const syntax::BinaryExpr& expr)
 	}
 	value = fit(value, type);
 	Place place = glvalue(*expr.left);
-	store(lowering_.storage_type(type), value, place);
+	const lowir::Type storage = lowering_.storage_type(type);
+	if (place.is_atomic && uses_atomic_buffer(storage) && lowering_.analyzer_->c_source())
+		write_c_atomic_value(storage, value, place, expr.location);
+	else
+		store(storage, value, place);
 	place.has_known = !place.is_volatile || place.is_atomic;
 	place.known = value;
 	return place;

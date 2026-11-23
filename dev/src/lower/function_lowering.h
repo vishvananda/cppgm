@@ -1559,6 +1559,23 @@ private:
 	RValue atomic_lock_free(const syntax::CallExpr& expr);
 	RValue atomic_runtime_call(const syntax::CallExpr& expr, sema::Intrinsic kind);
 	RValue atomic_buffered(const syntax::CallExpr& expr, sema::Intrinsic kind);
+	struct AtomicAccess
+	{
+		lowir::Value object;
+		lowir::Value expected;
+		lowir::Value desired;
+		lowir::Value result;
+		lowir::MemoryOrder order = lowir::MemoryOrder::SeqCst;
+		lowir::MemoryOrder failure = lowir::MemoryOrder::Relaxed;
+	};
+	RValue emit_atomic_access(
+		lowir::Type storage, const AtomicAccess& access, const RValue& dynamic_order, uint32_t location);
+	static bool uses_atomic_buffer(lowir::Type storage);
+	Place atomic_buffer(lowir::SlotKind kind, lowir::Type storage);
+	void clear_atomic_padding(lowir::Value object, uint64_t size, uint64_t width);
+	void initialize_c_atomic_padding(const sema::Type* type, const AddressPath& path);
+	RValue read_c_atomic_value(const sema::Type* type, lowir::Type storage, const Place& place, uint32_t location);
+	void write_c_atomic_value(lowir::Type storage, const RValue& value, const Place& place, uint32_t location);
 	RValue atomic_update(
 		sema::Intrinsic kind, lowir::Type type, lowir::Value target, const RValue& value, lowir::MemoryOrder order);
 	lowir::MemoryOrder memory_order(const syntax::Expr& order, RValue* value = nullptr);
