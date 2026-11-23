@@ -38,6 +38,46 @@ struct ArrayWrite
 	uint32_t node;
 };
 
+struct PatchPath
+{
+	uint64_t index, limit;
+	uint32_t suffix;
+
+	bool operator==(const PatchPath& other) const
+	{
+		return index == other.index && limit == other.limit && suffix == other.suffix;
+	}
+};
+
+struct PatchPathHash
+{
+	uint64_t operator()(const PatchPath& path) const
+	{
+		return path.index ^ (path.limit * 0xc2b2ae3d27d4eb4full) ^ (path.suffix * 0x9e3779b97f4a7c15ull);
+	}
+};
+
+struct PatchEnd
+{
+	uint64_t path;
+	uint64_t limit;
+};
+
+// The two furthest endpoints with distinct coverage paths suffice to
+// detect an earlier write whose subobjects a winning patch would discard.
+void ExtendPatchEnds(PatchEnd& furthest, PatchEnd& other, PatchEnd write)
+{
+	if (write.path == furthest.path)
+		furthest.limit = std::max(furthest.limit, write.limit);
+	else if (write.limit > furthest.limit)
+	{
+		other = furthest;
+		furthest = write;
+	}
+	else if (write.limit > other.limit)
+		other = write;
+}
+
 // Sweep in index order. The heap orders active writes by source order,
 // retaining a write until it can no longer win any later span.
 std::vector<ArrayWrite> WinningSpans(std::vector<ArrayWrite>& writes)
@@ -137,13 +177,15 @@ private:
 		bool starts_value;
 		bool has_spans;
 		bool repeat_value;
+		bool in_range;
 	};
 
 	uint32_t new_node(const Type* type, uint32_t parent, uint64_t index, const DataMember* member)
 	{
 		const uint32_t id = static_cast<uint32_t>(nodes_.size());
-		nodes_.push_back(
-			Node{ type, nullptr, member, index, 0, 0, 0, parent, ++group_, kNone, kNone, 0, false, false, false });
+		const bool in_range = parent != kNone && (nodes_[parent].in_range || nodes_[parent].repeat_value);
+		nodes_.push_back(Node{
+			type, nullptr, member, index, 0, 0, 0, parent, ++group_, kNone, kNone, 0, false, false, false, in_range });
 		return id;
 	}
 
@@ -213,16 +255,36 @@ private:
 			const Node target = nodes_[node];
 			const Type* type = nodes_[target.parent].type;
 			const ClassEntity* record = ClassOf(type);
-			uint32_t next = kNone;
 			if (type->kind == TypeKind::Array)
-				next = array_child(target.parent, array_limit(node));
+			{
+				const uint64_t index = array_limit(node);
+				if (index < uint64_t(INT64_MAX) && (!type->has_array_bound() || index < type->bound))
+					return child(last_element_parent(target.parent, root), index, nullptr);
+			}
 			else if (record->key != TokenKind::KW_UNION)
-				next = member_child(target.parent, NextInitializableMember(target.member->next));
-			if (next != kNone)
-				return next;
+				if (const DataMember* next = NextInitializableMember(target.member->next))
+					return member_child(last_element_parent(target.parent, root), next);
 			node = target.parent;
 		}
 		return kNone;
+	}
+
+	uint32_t last_element_parent(uint32_t parent, uint32_t root)
+	{
+		if (parent == root || (!nodes_[parent].in_range && !nodes_[parent].repeat_value))
+			return parent;
+		SmallList<uint32_t, 8> suffix;
+		uint32_t base = parent;
+		for (; base != root && (nodes_[base].in_range || nodes_[base].repeat_value); base = nodes_[base].parent)
+			suffix.push_back(base);
+		while (!suffix.empty())
+		{
+			const uint32_t id = suffix.back();
+			suffix.pop_back();
+			const Node step = nodes_[id];
+			base = step.parent == base && !step.repeat_value ? id : child(base, array_limit(id) - 1, step.member);
+		}
+		return base;
 	}
 
 	uint32_t named_child(uint32_t parent, const Identifier* name, uint32_t location)
@@ -272,7 +334,7 @@ private:
 		return value.bits;
 	}
 
-	uint32_t indexed_child(uint32_t parent, const syntax::CDesignator& step, bool terminal)
+	uint32_t indexed_child(uint32_t parent, const syntax::CDesignator& step)
 	{
 		const Type* type = nodes_[parent].type;
 		const uint64_t first = subscript(type, *step.index);
@@ -281,8 +343,8 @@ private:
 		const uint64_t last = subscript(type, *step.range_end);
 		if (last < first)
 			analyzer_.error(step.location, "a C range designator has a decreasing interval");
-		if (!terminal)
-			analyzer_.error(step.location, "C range designators currently require a whole array element");
+		if (last == first)
+			return child(parent, first, nullptr);
 		check_repeated_element(type->element, step.location);
 		// Keep preceding point initializers. From this point on every write
 		// has its own node, ordered by its ID even when intervals overlap.
@@ -329,9 +391,8 @@ private:
 			{
 				destination = root;
 				for (const syntax::CDesignator& step : designation->path)
-					destination = step.index == nullptr
-						? named_child(destination, step.member, step.location)
-						: indexed_child(destination, step, &step + 1 == designation->path.end());
+					destination = step.index == nullptr ? named_child(destination, step.member, step.location)
+														: indexed_child(destination, step);
 				++designation;
 			}
 			else
@@ -425,14 +486,15 @@ private:
 		}
 	}
 
-	const CInitializer* freeze(uint32_t id, size_t first, std::vector<uint8_t>& live)
+	const CInitializer* freeze(uint32_t id, size_t first, std::vector<uint8_t>& live, bool inherited = false)
 	{
 		const Node& node = nodes_[id];
+		inherited = node.value != nullptr || (inherited && !node.starts_value);
 		for (size_t i = node.uses_begin; i < node.uses_end; ++i)
 			live[i - first] = 1;
 		if (node.has_spans)
 		{
-			const auto entries = freeze_spans(node, first, live);
+			const auto entries = freeze_spans(node, first, live, inherited);
 			auto* plan = analyzer_.arena_.allocate_array<CInitializer>(1);
 			*plan = CInitializer{ completed_type(node), node.value, entries, node.starts_value, true,
 				node.repeat_value };
@@ -445,7 +507,7 @@ private:
 		{
 			const Node& child = nodes_[sub];
 			auto& entry = entries[count++];
-			entry = CInitializerChild{ freeze(sub, first, live), { child.member }, child.index };
+			entry = CInitializerChild{ freeze(sub, first, live, inherited), { child.member }, child.index };
 			if (array)
 				entry.limit = child.index + 1;
 		}
@@ -458,7 +520,8 @@ private:
 		return plan;
 	}
 
-	syntax::Slice<const CInitializerChild> freeze_spans(const Node& node, size_t first, std::vector<uint8_t>& live)
+	syntax::Slice<const CInitializerChild> freeze_spans(
+		const Node& node, size_t first, std::vector<uint8_t>& live, bool inherited)
 	{
 		std::vector<ArrayWrite> writes;
 		writes.reserve(node.child_count);
@@ -466,14 +529,14 @@ private:
 			writes.push_back(ArrayWrite{ nodes_[sub].index, array_limit(sub), sub });
 		const auto spans = WinningSpans(writes);
 		if (IsSubaggregate(node.type->element))
-			check_aggregate_spans(writes, spans);
+			check_aggregate_spans(writes, spans, inherited);
 		auto* entries = analyzer_.arena_.allocate_array<CInitializerChild>(spans.size());
 		FlatMap<uint32_t, const CInitializer*, std::hash<uint32_t>> frozen;
 		uint32_t count = 0;
 		for (const ArrayWrite& span : spans)
 		{
 			const CInitializer* const* reused = frozen.find(span.node);
-			const CInitializer* value = reused != nullptr ? *reused : freeze(span.node, first, live);
+			const CInitializer* value = reused != nullptr ? *reused : freeze(span.node, first, live, inherited);
 			if (reused == nullptr)
 				frozen.insert(span.node, value);
 			auto& entry = entries[count++];
@@ -483,25 +546,68 @@ private:
 		return { entries, count };
 	}
 
-	void check_aggregate_spans(const std::vector<ArrayWrite>& writes, const std::vector<ArrayWrite>& spans)
+	uint32_t patch_path(uint32_t id)
 	{
-		// A partial update needs to compose with older coverage rather than
-		// replace the whole element. The second largest end in the prefix
-		// tells whether another write covered the winning point.
+		const Node& node = nodes_[id];
+		if (node.starts_value)
+			return 0;
+		if (node.first == kNone || (node.child_count != 1 && !node.has_spans))
+			return kNone;
+		if (const uint32_t* path = node_paths_.find(id))
+			return *path;
+		const PatchPath key = patch_step(node.first);
+		const uint32_t path = key.suffix != kNone && uniform_patch(key, nodes_[node.first].next)
+			? intern_patch_path(key)
+			: kNone;
+		node_paths_.insert(id, path);
+		return path;
+	}
+
+	PatchPath patch_step(uint32_t id) { return PatchPath{ nodes_[id].index, array_limit(id), patch_path(id) }; }
+
+	bool uniform_patch(const PatchPath& first, uint32_t id)
+	{
+		for (; id != kNone; id = nodes_[id].next)
+			if (!(patch_step(id) == first))
+				return false;
+		return true;
+	}
+
+	uint32_t intern_patch_path(const PatchPath& key)
+	{
+		const uint32_t* found = patch_paths_.find(key);
+		const uint32_t path = found != nullptr ? *found : static_cast<uint32_t>(patch_paths_.size() + 1);
+		if (found == nullptr)
+			patch_paths_.insert(key, path);
+		return path;
+	}
+
+	uint64_t write_path(uint32_t id)
+	{
+		const uint32_t path = patch_path(id);
+		// Patches without a single coverage path have not been compared.
+		return path == kNone ? uint64_t(kNone) + id : path;
+	}
+
+	void check_aggregate_spans(
+		const std::vector<ArrayWrite>& writes, const std::vector<ArrayWrite>& spans, bool inherited)
+	{
 		size_t next = 0;
-		uint64_t largest_end = 0;
-		uint64_t second_end = 0;
+		PatchEnd furthest = {}, other = {};
 		for (const ArrayWrite& span : spans)
 		{
 			if (nodes_[span.node].starts_value)
 				continue;
-			while (next != writes.size() && writes[next].first <= span.first)
+			if (inherited && nodes_[span.node].repeat_value)
+				analyzer_.error(
+					location_, "a partial overwrite of an aggregate range initializer is not yet supported");
+			while (next != writes.size() && writes[next].first < span.limit)
 			{
-				const uint64_t end = writes[next++].limit;
-				second_end = std::max(second_end, std::min(largest_end, end));
-				largest_end = std::max(largest_end, end);
+				const ArrayWrite& write = writes[next++];
+				ExtendPatchEnds(furthest, other, PatchEnd{ write_path(write.node), write.limit });
 			}
-			if (second_end > span.first)
+			const uint64_t different = write_path(span.node) == furthest.path ? other.limit : furthest.limit;
+			if (different > span.first)
 				analyzer_.error(
 					location_, "a partial overwrite of an aggregate range initializer is not yet supported");
 		}
@@ -512,6 +618,8 @@ private:
 	std::vector<Node> nodes_;
 	FlatMap<SubobjectKey, uint32_t, SubobjectHash> children_;
 	FlatMap<uint32_t, uint64_t, std::hash<uint32_t>> range_limits_;
+	FlatMap<uint32_t, uint32_t, std::hash<uint32_t>> node_paths_;
+	FlatMap<PatchPath, uint32_t, PatchPathHash> patch_paths_;
 	uint32_t group_ = 0;
 	uint32_t location_ = 0;
 };

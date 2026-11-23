@@ -269,13 +269,16 @@ The first fixture set covers these parts of the C17 input profile:
   and keep implicit zero ranges compact.
 - Under the GNU extension policy, allow `[first ... last]` to initialize
   whole array elements, including elements of record or array type.
-  Fixed designators may select the containing array.
+  A member or subscript after a range selects a subobject of each element.
+  A second range can select multiple subobjects within each element.
   Both endpoints are in-bounds integer constant expressions and the range
-  includes both endpoints. A later initializer can replace part of a range.
+  includes both endpoints. A later write to the same subobject replaces
+  its previous value at the indices they share.
   Evaluate a surviving range's value once and use it for every element it
   still initializes. Braces can supply the entire aggregate value,
   including its implied zeros. Each nested brace pair has its own current
-  object. A positional initializer resumes after the last index.
+  object. A positional initializer resumes after the designated subobject
+  of the final range element.
   The aggregate cases cover ordinary records and rows, including
   volatile-qualified record destinations with ordinary members.
   Diagnose a range under the pedantic policy.
