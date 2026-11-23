@@ -21,10 +21,12 @@ RUN_STAGES = ('compile', 'link', 'run')
 CASES = {
     'limits.combined': (RUN_STAGES, ('O0', 'O2')),
     'include.physical': (RUN_STAGES, ('O0',)),
+    'literal.code-units': (RUN_STAGES, ('O0', 'O2')),
     'line.diagnostic-location': (('preprocess',), ('default',)),
     'error.message': (('preprocess',), ('default',)),
 }
 INCLUDE_SOURCE = ROOT / 'pa38/tests/general/100-c-include-physical.t'
+STRING_SOURCE = ROOT / 'pa38/tests/general/500-c-string-code-units.t'
 ERROR_SOURCE = ROOT / 'pa4/tests/directives/150-error-message.t'
 ERROR_MESSAGE = '#error DETAIL: physical message "payload"'
 
@@ -163,7 +165,10 @@ def probe_target(output, profile, compiler, setup, link, runner):
     for edition in PILOT_EDITIONS:
         flags = [compiler, '--target=' + profile['target'], *setup, '-x', 'c', f'-std=c{edition}', '-pedantic-errors']
         work = output / profile['id'] / f'c{edition}'
-        for case, source in (('limits.combined', output / 'inputs/combined.c'), ('include.physical', INCLUDE_SOURCE)):
+        sources = [('limits.combined', output / 'inputs/combined.c'), ('include.physical', INCLUDE_SOURCE)]
+        if edition in (11, 17):
+            sources.append(('literal.code-units', STRING_SOURCE))
+        for case, source in sources:
             for variant in CASES[case][1]:
                 directory = work / case / variant
                 obj, binary = str(directory / 'case.o'), str(directory / 'case.exe')
@@ -206,7 +211,7 @@ def probes(args, profiles, _rules):
         link = [compiler, '--target=' + wasi['target'], sysroot]
         results.extend(probe_target(output, wasi, compiler, setup, link, [args.wasmtime, 'run']))
     revision = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
-    inputs = sorted([*work.glob('*.h'), limits, ERROR_SOURCE, INCLUDE_SOURCE,
+    inputs = sorted([*work.glob('*.h'), limits, ERROR_SOURCE, INCLUDE_SOURCE, STRING_SOURCE,
                      INCLUDE_SOURCE.parent / 'c-include-physical.h', INCLUDE_SOURCE.parent / 'c-include-local.h'])
     write_json(output / 'receipts.json', dict(schema=1, revision=revision, compiler_sha256=sha256(Path(compiler)),
                                             inputs={str(source): sha256(source) for source in inputs}, results=results))

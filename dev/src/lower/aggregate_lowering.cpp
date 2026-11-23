@@ -676,10 +676,12 @@ void FunctionLowering::aggregate_array(
 		aggregate_elements(type, path, list, next, location);
 		return;
 	}
-	std::vector<uint64_t> units;
-	sema::StringLiteralFacts facts;
-	if (literal->kind != syntax::ExprKind::Literal ||
-		!sema::StringLiteralUnits(static_cast<const syntax::LiteralExpr*>(literal)->spelling, facts, units))
+	if (literal->kind != syntax::ExprKind::Literal)
+		throw LoweringError(location, "an array member initialized from an expression");
+	std::vector<uint64_t> scratch;
+	const sema::StringCodeUnits units = sema::ReadStringCodeUnits(
+		static_cast<const syntax::LiteralExpr&>(*literal), scratch);
+	if (!units)
 		throw LoweringError(location, "an array member initialized from an expression");
 	for (uint64_t i = 0; i < type->bound; ++i)
 	{
@@ -1687,9 +1689,10 @@ void FunctionLowering::structured_array(const sema::Type* type, lowir::Value add
 		(element->kind == sema::TypeKind::Fundamental || element->unqualified->kind == sema::TypeKind::Fundamental))
 	{
 		++next;
-		std::vector<uint64_t> units;
-		sema::StringLiteralFacts facts;
-		if (!sema::StringLiteralUnits(static_cast<const syntax::LiteralExpr*>(first)->spelling, facts, units))
+		std::vector<uint64_t> scratch;
+		const sema::StringCodeUnits units = sema::ReadStringCodeUnits(
+			static_cast<const syntax::LiteralExpr&>(*first), scratch);
+		if (!units)
 			throw LoweringError(location, "an invalid string literal");
 		const lowir::Type storage = lowering_.storage_type(element);
 		for (uint64_t i = 0; i < type->bound; ++i)

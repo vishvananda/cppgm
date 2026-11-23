@@ -985,7 +985,7 @@ Finalizer ProgramLowering::finalizer_for(lowir::SymbolId symbol, const sema::Typ
 }
 
 bool ProgramLowering::same_string_object(
-	lowir::SymbolId symbol, lowir::Type unit, const std::vector<uint64_t>& units) const
+	lowir::SymbolId symbol, lowir::Type unit, const sema::StringCodeUnits& units) const
 {
 	// Whether a string literal object holds these code units of this type.
 	const lowir::Global& global = program_.globals[program_.symbols[symbol].detail];
@@ -1863,9 +1863,10 @@ bool ProgramLowering::static_string(const sema::Type* type, const syntax::Expr& 
 	if (literal->kind != syntax::ExprKind::Literal || type->kind != sema::TypeKind::Array ||
 		literal->facts->type->kind != sema::TypeKind::Array || !sema::IsCharacterArrayElement(type->element))
 		return false;
-	sema::StringLiteralFacts facts;
-	std::vector<uint64_t> units;
-	if (!sema::StringLiteralUnits(static_cast<const syntax::LiteralExpr*>(literal)->spelling, facts, units))
+	std::vector<uint64_t> scratch;
+	const sema::StringCodeUnits units = sema::ReadStringCodeUnits(
+		static_cast<const syntax::LiteralExpr&>(*literal), scratch);
+	if (!units)
 		return false;
 	const lowir::Type unit = storage_type(type->element);
 	for (uint64_t i = 0; i < type->bound; ++i)
@@ -2799,9 +2800,8 @@ lowir::SymbolId ProgramLowering::string_literal(const syntax::LiteralExpr& liter
 	if ((literal.facts->flags & sema::kUserLiteral) != 0 && (literal.facts->value & 255) == sema::kLiteralCallRaw)
 		return predefined_name(
 			std::string(literal.spelling.text, static_cast<uint32_t>(literal.facts->value >> 8)).c_str());
-	sema::StringLiteralFacts facts;
-	std::vector<uint64_t>& units = string_units_;
-	if (!sema::StringLiteralUnits(literal.spelling, facts, units))
+	const sema::StringCodeUnits units = sema::ReadStringCodeUnits(literal, string_units_);
+	if (!units)
 		throw LoweringError(literal.location, "an invalid string literal");
 	// A user-defined string literal's array is its literal operator's
 	// argument (2.14.8p5): of its own code units.
@@ -2823,7 +2823,7 @@ lowir::SymbolId ProgramLowering::predefined_name(const char* text)
 	for (const char* c = text; *c != '\0'; ++c)
 		units.push_back(static_cast<unsigned char>(*c));
 	units.push_back(0);
-	return string_object(lowir::Type::scalar(lowir::TypeKind::I8), units);
+	return string_object(lowir::Type::scalar(lowir::TypeKind::I8), sema::StringCodeUnits(units));
 }
 
 lowir::SymbolId ProgramLowering::predefined_variable(const sema::VariableEntity* variable)
@@ -2846,11 +2846,11 @@ std::string ProgramLowering::source_file(uint32_t location) const
 	return analyzer_ != nullptr ? analyzer_->source_file(location) : std::string();
 }
 
-lowir::SymbolId ProgramLowering::string_object(lowir::Type unit, const std::vector<uint64_t>& units)
+lowir::SymbolId ProgramLowering::string_object(lowir::Type unit, const sema::StringCodeUnits& units)
 {
 	uint64_t mixed = 0xcbf29ce484222325ull ^ static_cast<uint64_t>(unit.kind());
-	for (uint64_t value : units)
-		mixed = (mixed ^ value) * 0x100000001b3ull;
+	for (size_t i = 0; i < units.size(); ++i)
+		mixed = (mixed ^ units[i]) * 0x100000001b3ull;
 	const uint32_t hash = static_cast<uint32_t>(mixed ^ (mixed >> 32));
 	if (string_objects_.empty())
 		string_objects_.assign(64, StringObject{ 0, 0 });
@@ -2886,12 +2886,12 @@ lowir::SymbolId ProgramLowering::string_object(lowir::Type unit, const std::vect
 	global.init = lowir::GlobalInit::Data;
 	global.first_item = static_cast<uint32_t>(program_.data_items.size());
 	global.item_count = static_cast<uint32_t>(units.size());
-	for (uint64_t value : units)
+	for (size_t i = 0; i < units.size(); ++i)
 	{
 		lowir::DataItem item = lowir::DataItem();
 		item.kind = lowir::DataItemKind::Scalar;
 		item.type = unit;
-		item.constant = IntegerConstant(value);
+		item.constant = IntegerConstant(units[i]);
 		program_.data_items.push_back(item);
 	}
 	program_.declare_global(symbol, lowir::SymbolKind::GlobalDefinition, global);

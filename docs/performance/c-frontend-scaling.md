@@ -2380,10 +2380,47 @@ changes by 2.0%. The table separates the work at each stopping point.
 | Syntax and semantic analysis | 52,517,962 | 78,936,514 |
 | Compile at `-O0` | 103,787,930 | 138,762,810 |
 
-The work grows linearly, with 34% more instructions for full compilation
-on this input. The retained backslashes expose repeated scans in
+At `a44d2bbf5`, full compilation of this input took 34% more
+instructions. Retained backslashes exposed repeated scans in
 `TextLiteralPieceEnd` and `DecodeLiteralCharacter`, including in semantic
-analysis and static initialization. Retain the code units from token
-conversion on the string literal and pass them to those consumers.
-Measure each stopping point and the plain-string control to verify the
-change without growing unrelated syntax nodes.
+analysis and static initialization. C string expressions now keep the
+code units produced by token conversion in the translation-unit arena,
+with their byte width and element type. Consumers read those units
+directly. The raw spelling is still available for source views. The
+x86-64 sizes of `PostToken`, `ParseToken`, and the existing literal nodes
+are unchanged.
+
+These medians use a repeat measurement on one pinned CPU. A is before the
+header-spelling change, B is `a44d2bbf5`, and C retains the decoded
+units. Each object matches byte for byte. The token dump matches B
+verbatim and carries the same decoded values as A.
+
+| Input and action | A instructions | B instructions | C instructions |
+| --- | ---: | ---: | ---: |
+| Universal escapes, print tokens | 37,387,032 | 46,701,215 | 46,701,208 |
+| Universal escapes, syntax and semantic analysis | 52,665,587 | 79,084,126 | 45,063,788 |
+| Universal escapes, compile at `-O0` | 103,935,575 | 138,910,437 | 81,708,106 |
+| Octal escapes, compile at `-O0` | 77,678,650 | 79,253,077 | 50,527,384 |
+| Plain ASCII, compile at `-O0` | 118,399,090 | 118,400,429 | 67,064,197 |
+| 10,000 short ASCII strings, compile at `-O0` | 385,765,579 | 385,831,215 | 294,181,164 |
+
+At 2,048, 8,192 and 32,768 escape pairs, C needs 8.8, 23.2 and 81.7
+million instructions for the object. The incremental work remains
+linear. Compared with B, the largest escape input compiles with 41.2%
+fewer instructions and 2,136 KiB less peak RSS. The short string control
+uses 23.8% fewer instructions and 596 KiB more peak RSS. Separate C++11
+controls with a large escaped string and 10,000 short strings change by
++0.13% and +0.27%, with matching objects.
+
+Frozen C++ changes by +0.01237% and +0.01456% in ABBA and BAAB.
+SQLite changes by −0.03472% and −0.03140%. The frozen objects match in
+every trial.
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,058,074,664 / 9,058,157,576 / 9,058,017,594 / 9,057,955,572 |
+| C++ | ABBA | 9,058,093,783 / 9,059,261,607 / 9,059,268,917 / 9,058,195,671 |
+| C++ | BAAB | 9,059,156,152 / 9,057,888,025 / 9,058,093,284 / 9,059,463,523 |
+| SQLite | A/A | 16,531,225,203 / 16,531,312,444 / 16,531,884,618 / 16,531,192,827 |
+| SQLite | ABBA | 16,531,645,989 / 16,525,913,403 / 16,526,155,533 / 16,531,901,964 |
+| SQLite | BAAB | 16,526,088,882 / 16,531,379,050 / 16,531,263,019 / 16,526,171,710 |

@@ -8,6 +8,8 @@
 #include "support/memory/arena.h"
 #include "support/telemetry.h"
 
+struct StringLiteralValue;
+
 namespace syntax {
 
 enum class ParseTokenKind : uint8_t
@@ -57,6 +59,7 @@ struct ParseToken
 		std::uintptr_t imaginary_value;
 		const uint64_t* wide_imaginary_value;
 		const uint64_t* floating_bits;
+		const StringLiteralValue* string_value;
 	};
 
 	bool is(TokenKind kind_) const { return kind == ParseTokenKind::Simple && simple == kind_; }
@@ -107,7 +110,7 @@ private:
 class ParseTokenStream
 {
 public:
-	ParseTokenStream(PostTokenizer& input, Arena& spellings);
+	ParseTokenStream(PostTokenizer& input, Arena& spellings, bool c_source);
 
 	// Tokens are returned by value: a later peek may grow (reallocate) the
 	// window and advance() may compact it, so no reference into it may be
@@ -193,6 +196,7 @@ private:
 
 	PostTokenizer& input_;
 	Arena& spellings_;
+	bool c_source_;
 	std::vector<ParseToken> window_;
 	std::vector<Replay> replays_;
 	uint32_t position_;

@@ -610,8 +610,8 @@ bool Printer::string_initializer(const Type* type, const syntax::Initializer* in
 	}
 	if (expr->kind != syntax::ExprKind::Literal || expr->facts == nullptr || expr->facts->type->kind != TypeKind::Array)
 		return false;
-	StringLiteralFacts facts;
-	if (!StringLiteralUnits(static_cast<const syntax::LiteralExpr&>(*expr).spelling, facts, units_))
+	const StringCodeUnits units = ReadStringCodeUnits(static_cast<const syntax::LiteralExpr&>(*expr), units_);
+	if (!units)
 		return false;
 	begin(depth);
 	header("braced-init-list", ValueCategory::LValue, type);
@@ -621,7 +621,7 @@ bool Printer::string_initializer(const Type* type, const syntax::Initializer* in
 	IntegralKindOf(element, kind);
 	for (uint64_t i = 0; i < type->bound; ++i)
 	{
-		const uint64_t unit = i < units_.size() ? units_[i] : 0;
+		const uint64_t unit = i < units.size() ? units[i] : 0;
 		begin(depth + 1);
 		header("literal", ValueCategory::PRValue, element);
 		line_ += ' ';

@@ -52,9 +52,11 @@ Start the next batches from the existing receipts.
    C include lookup after `#line`, trailing macro expansion, and unexpanded
    `#error` messages. The computed-header cases cover literal backslashes
    and document the C angle whitespace policy. Qualify the direct
-   `__has_include` header token rules. Reuse the decoded code units in
-   semantic analysis and lowering to close the measured escape-heavy
-   string regression. Cover pragmas and their location and edition rules,
+   `__has_include` header token rules. C string expressions retain their
+   decoded code units through semantic analysis and lowering. This closes
+   the measured escape-heavy compile regression and adds C11 and C17
+   runtime evidence for adjacent storage and wide code units. Cover pragmas
+   and their location and edition rules,
    then declarators, initializers, conversions, constant expressions, and
    linkage. Pair edition boundaries with native reference runs and
    earliest-assignment regressions.

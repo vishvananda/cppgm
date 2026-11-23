@@ -934,9 +934,10 @@ void FunctionLowering::flatten_initializer(
 		if (literal != nullptr && literal->kind == syntax::ExprKind::Literal)
 		{
 			// 8.5.2: the literal's code units, then zeros.
-			sema::StringLiteralFacts facts;
-			std::vector<uint64_t> units;
-			if (!sema::StringLiteralUnits(static_cast<const syntax::LiteralExpr*>(literal)->spelling, facts, units))
+			std::vector<uint64_t> scratch;
+			const sema::StringCodeUnits units = sema::ReadStringCodeUnits(
+				static_cast<const syntax::LiteralExpr&>(*literal), scratch);
+			if (!units)
 				throw LoweringError(location, "an invalid string literal");
 			for (uint64_t i = 0; i < type->bound; ++i)
 				out.push_back(

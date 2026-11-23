@@ -50,6 +50,7 @@ public:
 	uint32_t size() const { return static_cast<uint32_t>(units_.size()); }
 	uint32_t element_count() const { return size() / CodeUnitWidth(prefix_); }
 	TokenSpelling ud_suffix() const { return suffix_; }
+	bool numeric_escapes() const { return numeric_escapes_; }
 
 private:
 	// Where a piece's spelling is in spellings_.
@@ -72,4 +73,5 @@ private:
 	TokenSpelling suffix_ = TokenSpelling{ nullptr, 0 };
 	bool reserved_suffixes_ = false;
 	bool conditional_escapes_ = false;
+	bool numeric_escapes_ = false;
 };

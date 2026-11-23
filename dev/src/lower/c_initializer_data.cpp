@@ -779,15 +779,17 @@ bool ProgramLowering::static_c_initializer(const sema::CInitializer& plan, Stati
 		return static_aggregate(type, nullptr, next, out, &plan);
 	}
 
-	std::vector<uint64_t> units;
+	std::vector<uint64_t> scratch;
+	sema::StringCodeUnits units;
 	if (plan.value != nullptr)
 	{
 		const syntax::Expr* literal = sema::CInitializerOperand(plan.value);
 		if (literal->kind == syntax::ExprKind::BracedInit)
 			literal = sema::CInitializerOperand(static_cast<const syntax::BracedInitList*>(literal)->elements[0]);
-		sema::StringLiteralFacts facts;
-		if (literal->kind != syntax::ExprKind::Literal ||
-			!sema::StringLiteralUnits(static_cast<const syntax::LiteralExpr*>(literal)->spelling, facts, units))
+		if (literal->kind != syntax::ExprKind::Literal)
+			return false;
+		units = sema::ReadStringCodeUnits(static_cast<const syntax::LiteralExpr&>(*literal), scratch);
+		if (!units)
 			return false;
 	}
 	const uint64_t stride = size_of(type->element, 0);

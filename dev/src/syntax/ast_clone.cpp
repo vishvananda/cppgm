@@ -1214,6 +1214,8 @@ Expr* SyntaxCloner::expr(const Expr* expr)
 			result = copy(static_cast<const ImaginaryLiteralExpr*>(expr));
 		else if (static_cast<const LiteralExpr*>(expr)->floating)
 			result = copy(static_cast<const FloatingLiteralExpr*>(expr));
+		else if (static_cast<const LiteralExpr*>(expr)->has_string_value)
+			result = copy(static_cast<const StringLiteralExpr*>(expr));
 		else
 			result = copy(static_cast<const LiteralExpr*>(expr));
 		break;

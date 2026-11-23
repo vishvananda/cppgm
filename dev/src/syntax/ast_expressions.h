@@ -6,6 +6,7 @@
 #include "syntax/ast_types.h"
 
 enum class FundamentalType : uint8_t;
+struct StringLiteralValue;
 
 // Syntax tree expressions (see syntax/ast.h).
 namespace syntax {
@@ -78,7 +79,20 @@ struct LiteralExpr : Expr
 	bool token_form;
 	bool imaginary = false;
 	bool floating = false;
+	bool has_string_value = false;
+
+	const StringLiteralValue* string_value() const;
 };
+
+struct StringLiteralExpr : LiteralExpr
+{
+	const StringLiteralValue* value;
+};
+
+inline const StringLiteralValue* LiteralExpr::string_value() const
+{
+	return has_string_value ? static_cast<const StringLiteralExpr*>(this)->value : nullptr;
+}
 
 struct FloatingLiteralExpr : LiteralExpr
 {

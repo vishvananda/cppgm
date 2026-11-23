@@ -284,6 +284,7 @@ void PostTokenizer::finish_string_sequence(uint32_t begin, uint32_t end)
 	token_.data = strings_.data();
 	token_.size = strings_.size();
 	token_.elements = strings_.element_count();
+	token_.numeric_string_escapes = strings_.numeric_escapes();
 }
 
 void PostTokenizer::set_scalar(LiteralForm form, FundamentalType type, uint64_t value)

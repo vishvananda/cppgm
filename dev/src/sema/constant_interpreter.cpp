@@ -287,21 +287,26 @@ const ConstValue* ConstantInterpreter::literal_object(const syntax::LiteralExpr*
 	const uint32_t index = analyzer_.literal_index_.find(literal);
 	if (index != PointerMap::kMissing)
 		return analyzer_.literal_values_[index];
-	StringLiteralFacts facts;
-	std::vector<uint64_t> units;
 	const ExprFacts* expr = literal->facts;
 	const bool user = expr != nullptr && (expr->flags & kUserLiteral) != 0;
-	// A raw literal operator's argument: the number's characters (2.14.8p3).
-	const bool raw = user && (expr->value & 255) == kLiteralCallRaw;
-	if (raw)
+	std::vector<uint64_t> scratch;
+	StringCodeUnits units;
+	if (expr != nullptr && expr->type != nullptr && (expr->type->kind == TypeKind::Array || user))
 	{
-		facts.element = FundamentalType::Char;
-		for (uint32_t i = 0; i < (expr->value >> 8); ++i)
-			units.push_back(static_cast<unsigned char>(literal->spelling.text[i]));
-		units.push_back(0);
+		// A raw literal operator's argument is the number's characters (2.14.8p3).
+		if (user && (expr->value & 255) == kLiteralCallRaw)
+		{
+			for (uint32_t i = 0; i < (expr->value >> 8); ++i)
+				scratch.push_back(static_cast<unsigned char>(literal->spelling.text[i]));
+			scratch.push_back(0);
+			units = StringCodeUnits(scratch);
+		}
+		else
+		{
+			units = ReadStringCodeUnits(*literal, scratch);
+		}
 	}
-	if (expr == nullptr || expr->type == nullptr || (expr->type->kind != TypeKind::Array && !user) ||
-		(!raw && !StringLiteralUnits(literal->spelling, facts, units)))
+	if (!units)
 	{
 		fail(location, "a string literal outside constant evaluation");
 		return nullptr;

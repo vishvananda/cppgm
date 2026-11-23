@@ -12,11 +12,13 @@ void Analyzer::object_alias_attribute(Entity* entity, const syntax::Attribute& s
 		error(attribute->location, "an alias attribute requires a namespace-scope function or variable");
 	if (target_model::is_darwin(graph_.types.target()))
 		error(attribute->location, "GNU object aliases are not supported by the Mach-O profile");
+	if (attribute->expression == nullptr || attribute->expression->kind != syntax::ExprKind::Literal)
+		error(attribute->location, "an alias target requires an ordinary string literal");
 	StringLiteralFacts facts;
-	std::vector<uint64_t> units;
-	if (attribute->expression == nullptr || attribute->expression->kind != syntax::ExprKind::Literal ||
-		!StringLiteralUnits(static_cast<const syntax::LiteralExpr*>(attribute->expression)->spelling, facts, units) ||
-		facts.element != FundamentalType::Char || facts.suffix_length != 0)
+	std::vector<uint64_t> scratch;
+	const StringCodeUnits units = ReadStringCodeUnits(
+		static_cast<const syntax::LiteralExpr&>(*attribute->expression), scratch, &facts);
+	if (!units || facts.element != FundamentalType::Char || facts.suffix_length != 0)
 		error(attribute->location, "an alias target requires an ordinary string literal");
 	std::string target;
 	for (size_t i = 0; i + 1 < units.size(); ++i)

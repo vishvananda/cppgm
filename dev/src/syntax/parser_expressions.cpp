@@ -1147,7 +1147,18 @@ Expr* Parser::parse_primary_expression()
 			next();
 			return literal;
 		}
-		LiteralExpr* literal = make<LiteralExpr>(ExprKind::Literal, start);
+		LiteralExpr* literal;
+		if ((token.flags & kStringLiteral) != 0 && token.string_value != nullptr)
+		{
+			StringLiteralExpr* string = make<StringLiteralExpr>(ExprKind::Literal, start);
+			string->has_string_value = true;
+			string->value = token.string_value;
+			literal = string;
+		}
+		else
+		{
+			literal = make<LiteralExpr>(ExprKind::Literal, start);
+		}
 		literal->spelling = token.spelling;
 		literal->token_form = false;
 		next();

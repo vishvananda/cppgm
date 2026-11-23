@@ -22,6 +22,7 @@ void StringLiteralSequence::add(const char* spelling, uint32_t length)
 bool StringLiteralSequence::concatenate()
 {
 	units_.clear();
+	numeric_escapes_ = false;
 	if (!combine_prefixes_and_suffixes())
 		return false;
 
@@ -114,6 +115,7 @@ bool StringLiteralSequence::encode_body(const char* text, const TextLiteralParts
 		// must fit in it (course rule).
 		if (c.numeric)
 		{
+			numeric_escapes_ = true;
 			if (c.value > max_unit)
 				return false;
 			append_unit(static_cast<uint32_t>(c.value));

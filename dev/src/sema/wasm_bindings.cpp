@@ -54,12 +54,13 @@ void Analyzer::wasm_binding_attributes(
 				function = function->denotes;
 			if (function->internal_linkage && !function->defined && attribute->kind != AttributeKind::WasmExportName)
 				error(attribute->location, "a Wasm import requires external linkage");
+			if (attribute->expression == nullptr || attribute->expression->kind != syntax::ExprKind::Literal)
+				error(attribute->location, "a Wasm binding name requires an ordinary string literal");
 			StringLiteralFacts facts;
-			std::vector<uint64_t> units;
-			if (attribute->expression == nullptr || attribute->expression->kind != syntax::ExprKind::Literal ||
-				!StringLiteralUnits(
-					static_cast<const syntax::LiteralExpr*>(attribute->expression)->spelling, facts, units) ||
-				facts.element != FundamentalType::Char || facts.suffix_length != 0 || facts.numeric_escapes)
+			std::vector<uint64_t> scratch;
+			const StringCodeUnits units = ReadStringCodeUnits(
+				static_cast<const syntax::LiteralExpr&>(*attribute->expression), scratch, &facts);
+			if (!units || facts.element != FundamentalType::Char || facts.suffix_length != 0 || facts.numeric_escapes)
 				error(attribute->location, "a Wasm binding name requires an ordinary string literal");
 			std::string name;
 			for (size_t i = 0; i + 1 < units.size(); ++i)

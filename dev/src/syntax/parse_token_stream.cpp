@@ -2,6 +2,8 @@
 
 #include <cstring>
 
+#include "lex/string_literal_value.h"
+
 namespace syntax {
 
 namespace {
@@ -12,10 +14,10 @@ const uint32_t kCompactThreshold = 4096;
 
 } // namespace
 
-ParseTokenStream::ParseTokenStream(PostTokenizer& input, Arena& spellings)
-	: input_(input), spellings_(spellings), position_(0), retained_(0), base_(0), finished_(false), end_(),
-	  tokens_read_(0), peak_window_(0), pack_state_(nullptr), last_pack_(0), ignored_count_(0), literal_name_(nullptr),
-	  literal_spelling_(TokenSpelling{ "", 0 })
+ParseTokenStream::ParseTokenStream(PostTokenizer& input, Arena& spellings, bool c_source)
+	: input_(input), spellings_(spellings), c_source_(c_source), position_(0), retained_(0), base_(0), finished_(false),
+	  end_(), tokens_read_(0), peak_window_(0), pack_state_(nullptr), last_pack_(0), ignored_count_(0),
+	  literal_name_(nullptr), literal_spelling_(TokenSpelling{ "", 0 })
 {
 	end_.kind = ParseTokenKind::EndOfFile;
 	end_.spelling = TokenSpelling{ "", 0 };
@@ -154,6 +156,17 @@ void ParseTokenStream::pull()
 			// scratch text.
 			token.flags = kStringLiteral;
 			token.spelling.text = spellings_.copy_string(post.source.text, post.source.length);
+			token.string_value = nullptr;
+			if (c_source_)
+			{
+				void* storage = spellings_.allocate(
+					sizeof(StringLiteralValue) + post.size, alignof(StringLiteralValue));
+				const uint8_t width = post.size == post.elements ? 1 : post.size == 2 * post.elements ? 2 : 4;
+				auto* value = new (storage)
+					StringLiteralValue{ post.elements, post.type, width, post.numeric_string_escapes };
+				std::memcpy(value + 1, post.data, post.size);
+				token.string_value = value;
+			}
 		}
 		else if (post.form == LiteralForm::Imaginary)
 		{

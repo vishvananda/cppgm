@@ -60,6 +60,8 @@ struct PostToken
 	bool multicharacter;
 	// Imaginary literal: whether it came from a system macro with warnings suppressed.
 	bool quiet_system_macro;
+	// String literal: contains an octal or hexadecimal escape.
+	bool numeric_string_escapes;
 	// UserDefinedLiteral: the ud-suffix. For integer and floating forms the
 	// rest of the source is the literal's text without it.
 	TokenSpelling ud_suffix;

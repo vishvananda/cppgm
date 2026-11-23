@@ -409,6 +409,48 @@
       ]
     },
     {
+      "id": "literal.adjacent-storage",
+      "clause": "6.4.5p5-p7",
+      "kind": "required",
+      "editions": [
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Initialize narrow string arrays from adjacent tokens with an embedded zero and a separate final null.",
+      "cases": [
+        "literal.code-units"
+      ]
+    },
+    {
+      "id": "literal.utf16-units",
+      "clause": "6.4.5p5-p7",
+      "kind": "required",
+      "editions": [
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Encode a supplementary character as two UTF-16 code units and retain both the embedded and final zeros.",
+      "cases": [
+        "literal.code-units"
+      ]
+    },
+    {
+      "id": "literal.utf32-units",
+      "clause": "6.4.5p5-p7",
+      "kind": "required",
+      "editions": [
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Encode a supplementary character as one UTF-32 code unit and retain both the embedded and final zeros.",
+      "cases": [
+        "literal.code-units"
+      ]
+    },
+    {
       "id": "limits.numeric-macros",
       "clause": "5.2.4.2",
       "kind": "required",

@@ -88,6 +88,17 @@ open for these editions.
 
 ## Lexical translation and preprocessing
 
+The PA38 code-unit fixture checks adjacent narrow strings containing an
+embedded zero, two UTF-16 surrogate units and one UTF-32 code unit. It
+checks the inferred bounds, final null, and zero fill for static, local
+aggregate, and volatile arrays. GCC 15 and Clang 21 agree with the values.
+The C clause job runs the fixture in C11 and C17 at `-O0` and `-O2` on
+Linux x86-64 and WASI. The C11 regression also runs on AArch64 under
+QEMU and cross-links on both Darwin architectures.
+[PA38 code-unit fixture](../pa38/tests/general/500-c-string-code-units.t) ·
+[WG14 N1570 §6.4.5](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf#page=89) ·
+[Clause matrix](c-conformance.json)
+
 The pinned GCC digraph and trigraph runtime cases pass in pedantic C99
 and C11 respectively. Reduced C99, C11, and C17 controls also pass for
 trigraph replacement before line splicing, digraph token pasting, UTF-8

@@ -1379,14 +1379,14 @@ const Type* Analyzer::complete_array_from_initializer(
 		{
 			const syntax::LiteralExpr* literal = static_cast<const syntax::LiteralExpr*>(single);
 			StringLiteralFacts string;
-			if (AnalyzeStringLiteral(literal->spelling, string, cxx20_) && string.suffix_length == 0)
+			if (AnalyzeStringLiteral(*literal, string, cxx20_) && string.suffix_length == 0)
 				bound = string.units;
 		}
 	}
 	else if (expr->kind == syntax::ExprKind::Literal)
 	{
 		StringLiteralFacts string;
-		if (AnalyzeStringLiteral(static_cast<const syntax::LiteralExpr*>(expr)->spelling, string, cxx20_) &&
+		if (AnalyzeStringLiteral(static_cast<const syntax::LiteralExpr&>(*expr), string, cxx20_) &&
 			string.suffix_length == 0)
 			bound = string.units;
 	}

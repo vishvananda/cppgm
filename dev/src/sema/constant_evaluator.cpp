@@ -282,12 +282,10 @@ bool ConstantEvaluator::string_element(const syntax::SubscriptExpr& expr, Consta
 	const syntax::Expr* base = WithoutParentheses(expr.base);
 	if (base->kind != syntax::ExprKind::Literal)
 		return fail(expr.location, "not an integral constant expression");
-	const TokenSpelling& spelling = static_cast<const syntax::LiteralExpr*>(base)->spelling;
 	StringLiteralFacts facts;
-	std::vector<uint64_t> units;
-	TextLiteralParts parts;
-	if (!SplitTextLiteral(spelling.text, spelling.length, parts) || parts.quote != '"' ||
-		!StringLiteralUnits(spelling, facts, units) || facts.suffix_length != 0)
+	std::vector<uint64_t> scratch;
+	const StringCodeUnits units = ReadStringCodeUnits(static_cast<const syntax::LiteralExpr&>(*base), scratch, &facts);
+	if (!units || facts.suffix_length != 0)
 		return fail(expr.location, "not an integral constant expression");
 	Constant index;
 	if (!eval(*expr.index, index))

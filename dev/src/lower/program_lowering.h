@@ -19,6 +19,7 @@
 class SourcePositions;
 
 namespace sema {
+class StringCodeUnits;
 struct CInitializer;
 class Analyzer;
 struct ConstValue;
@@ -680,8 +681,8 @@ public:
 	// builtins).
 	uint64_t source_line(uint32_t location) const;
 	std::string source_file(uint32_t location) const;
-	lowir::SymbolId string_object(lowir::Type unit, const std::vector<uint64_t>& units);
-	bool same_string_object(lowir::SymbolId symbol, lowir::Type unit, const std::vector<uint64_t>& units) const;
+	lowir::SymbolId string_object(lowir::Type unit, const sema::StringCodeUnits& units);
+	bool same_string_object(lowir::SymbolId symbol, lowir::Type unit, const sema::StringCodeUnits& units) const;
 	// The call boundary of a function type (an indirect call's `as`),
 	// `unwind=no` when the callee is declared non-throwing.
 	lowir::SignatureId call_signature(const sema::Type* function, bool nothrow = false);

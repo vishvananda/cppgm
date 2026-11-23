@@ -76,6 +76,11 @@ void Analyzer::literal_operator_declaration(const FunctionEntity& function, uint
 
 ExprFacts* Analyzer::literal(const syntax::LiteralExpr& expr)
 {
+	if (const StringLiteralValue* value = expr.string_value())
+	{
+		const Type* element = types_.fundamental(CCharacterType(value->element, types_.target()));
+		return new_facts(expr, types_.array(element, value->count), ValueCategory::LValue);
+	}
 	if (expr.floating)
 		return new_facts(expr, types_.fundamental(static_cast<const syntax::FloatingLiteralExpr&>(expr).type),
 			ValueCategory::PRValue);

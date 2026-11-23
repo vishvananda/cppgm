@@ -3,11 +3,13 @@
 #include <cstdint>
 #include <vector>
 
+#include "lex/string_literal_value.h"
 #include "lex/token_spelling.h"
 #include "types/fundamental_type.h"
 
 namespace syntax {
 struct Expr;
+struct LiteralExpr;
 }
 
 namespace sema {
@@ -53,8 +55,32 @@ struct StringLiteralFacts
 // or different ud-suffixes.
 bool AnalyzeStringLiteral(const TokenSpelling& spelling, StringLiteralFacts& out, bool cxx20 = false);
 
+bool AnalyzeStringLiteral(const syntax::LiteralExpr& literal, StringLiteralFacts& out, bool cxx20 = false);
+
 // Also the code units' values, the terminating null included.
 bool StringLiteralUnits(const TokenSpelling& spelling, StringLiteralFacts& out, std::vector<uint64_t>& units);
+
+// Borrow the token converter's compact code units or the caller's
+// scratch storage when a literal has only a spelling.
+class StringCodeUnits
+{
+public:
+	StringCodeUnits() = default;
+	explicit StringCodeUnits(const StringLiteralValue& value) : encoded_(&value), count_(value.count) {}
+	explicit StringCodeUnits(const std::vector<uint64_t>& units) : wide_(units.data()), count_(units.size()) {}
+
+	explicit operator bool() const { return count_ != 0; }
+	std::size_t size() const { return count_; }
+	uint64_t operator[](std::size_t index) const { return encoded_ != nullptr ? encoded_->unit(index) : wide_[index]; }
+
+private:
+	const StringLiteralValue* encoded_ = nullptr;
+	const uint64_t* wide_ = nullptr;
+	std::size_t count_ = 0;
+};
+
+StringCodeUnits ReadStringCodeUnits(
+	const syntax::LiteralExpr& literal, std::vector<uint64_t>& scratch, StringLiteralFacts* facts = nullptr);
 
 // GCC's __builtin_nan[f|l](text) of floating type `type`: a quiet NaN
 // whose significand holds, below its quiet bit, the number a string

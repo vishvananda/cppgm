@@ -98,6 +98,40 @@ bool StringLiteralUnits(const TokenSpelling& spelling, StringLiteralFacts& out, 
 	return DecodeStringLiteral(spelling, out, &units);
 }
 
+namespace {
+
+StringLiteralFacts FactsOfStringValue(const StringLiteralValue& value)
+{
+	return StringLiteralFacts{ value.element, value.numeric_escapes, value.count, nullptr, 0 };
+}
+
+} // namespace
+
+bool AnalyzeStringLiteral(const syntax::LiteralExpr& literal, StringLiteralFacts& out, bool cxx20)
+{
+	if (const StringLiteralValue* value = literal.string_value())
+	{
+		out = FactsOfStringValue(*value);
+		return true;
+	}
+	return AnalyzeStringLiteral(literal.spelling, out, cxx20);
+}
+
+StringCodeUnits ReadStringCodeUnits(
+	const syntax::LiteralExpr& literal, std::vector<uint64_t>& scratch, StringLiteralFacts* facts)
+{
+	if (const StringLiteralValue* value = literal.string_value())
+	{
+		if (facts != nullptr)
+			*facts = FactsOfStringValue(*value);
+		return StringCodeUnits(*value);
+	}
+	StringLiteralFacts ignored;
+	if (!StringLiteralUnits(literal.spelling, facts != nullptr ? *facts : ignored, scratch))
+		return StringCodeUnits();
+	return StringCodeUnits(scratch);
+}
+
 long double BuiltinNan(FundamentalType type, const syntax::Expr& text)
 {
 	const uint64_t payload = BuiltinNanPayload(text);
@@ -153,10 +187,11 @@ bool BuiltinNanText(const syntax::Expr& text, uint64_t& payload)
 		e = static_cast<const syntax::ParenExpr*>(e)->inner;
 	payload = 0;
 	StringLiteralFacts facts;
-	std::vector<uint64_t> units;
-	if (e->kind != syntax::ExprKind::Literal ||
-		!StringLiteralUnits(static_cast<const syntax::LiteralExpr*>(e)->spelling, facts, units) || units.empty() ||
-		facts.element != FundamentalType::Char)
+	if (e->kind != syntax::ExprKind::Literal)
+		return false;
+	std::vector<uint64_t> scratch;
+	const StringCodeUnits units = ReadStringCodeUnits(static_cast<const syntax::LiteralExpr&>(*e), scratch, &facts);
+	if (!units || facts.element != FundamentalType::Char)
 		return false;
 	const size_t length = units.size() - 1;
 	size_t at = 0;
