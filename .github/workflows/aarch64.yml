@@ -6,6 +6,7 @@ on:
   pull_request:
     paths:
       - dev/**
+      - pa38/**
       - pa39/**
       - pa35/**
       - pa37/benchmarks/**
@@ -15,6 +16,8 @@ on:
       - benchmarks/aarch64/**
       - pa36/kernels/**
       - scripts/check_aarch64.pl
+      - scripts/check_cppgm_native_programs.pl
+      - scripts/CppgmBatchWorker.pm
       - scripts/replay_aarch64.pl
       - scripts/CppgmBackendFixture.pm
       - scripts/CppgmArm64MachO.pm
@@ -124,7 +127,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Build cppgm on Apple Silicon
-        run: make -C dev cppgm lowir-library CXX=clang++ CPPGM_HOST_CXX=clang++
+        run: make -C dev cppgm lowir2native lowir-library CXX=clang++ CPPGM_HOST_CXX=clang++
+      - name: Run C variable array programs on Apple Silicon
+        run: make -C pa38 test-native-driver CPPGM_SKIP_DEV_REBUILD=1 CXX=clang++ CPPGM_HOST_CXX=clang++
       - name: Link and run typed LowIR library objects on Apple Silicon
         env:
           CPPGM_HOST_CXX: clang++
