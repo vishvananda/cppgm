@@ -1728,7 +1728,8 @@ Expr* Parser::parse_c_designated_initializer(Slice<CDesignator>& designators)
 	SmallList<CDesignator, 4> path;
 	do
 	{
-		CDesignator step = { nullptr, nullptr, location() };
+		CDesignator step = {};
+		step.location = location();
 		if (accept(TokenKind::OP_DOT))
 		{
 			if (!at_identifier())
@@ -1739,8 +1740,19 @@ Expr* Parser::parse_c_designated_initializer(Slice<CDesignator>& designators)
 		else
 		{
 			next();
+			step.range_end = nullptr;
 			step.index = parse_assignment_expression();
-			if (step.index == nullptr || !expect(TokenKind::OP_RSQUARE))
+			if (step.index == nullptr)
+				return nullptr;
+			if (at(TokenKind::OP_DOTS))
+			{
+				require_gnu_c_extension(location(), "array range designators are a GNU C extension");
+				next();
+				step.range_end = parse_assignment_expression();
+				if (step.range_end == nullptr)
+					return nullptr;
+			}
+			if (!expect(TokenKind::OP_RSQUARE))
 				return nullptr;
 		}
 		path.push_back(step);

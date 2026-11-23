@@ -1228,6 +1228,8 @@ ClassSpecifier* Parser::parse_class_body(
 	}
 	if (!expect(TokenKind::OP_LBRACE))
 		return nullptr;
+	if (c_source_ && at(TokenKind::OP_RBRACE))
+		require_gnu_c_extension(start, "an empty record is a GNU C extension");
 
 	scopes_.enter(scope);
 	class_names_.push_back(class_identifier);

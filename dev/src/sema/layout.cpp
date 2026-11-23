@@ -451,7 +451,7 @@ bool Analyzer::class_layout(ClassEntity* entity, uint32_t location)
 	const bool packed = entity->packed;
 	bool packs_all = true;
 	bool pod = !entity->non_pod && entity->bases == nullptr && !entity->polymorphic;
-	bool contains_empty = entity->empty;
+	bool contains_empty = !c_source_ && entity->empty;
 	bool volatile_or_union = is_union;
 	bool contains_volatile = false;
 	uint64_t empty_base_limit = 0;
@@ -690,10 +690,10 @@ bool Analyzer::class_layout(ClassEntity* entity, uint32_t location)
 			error(location, "a class alignment-specifier weaker than its natural alignment");
 	}
 	const uint64_t extent = is_union ? union_size : size;
-	// GNU classes with storage-bearing declarations whose total extent is
-	// zero (such as a zero-length array and classes containing it) stay
-	// zero-sized. An ordinary empty C++ class still has its minimum size.
-	entity->size = RoundUp(hosted_ && !entity->empty ? extent : std::max<uint64_t>(extent, 1), alignment);
+	// GNU C records use their actual extent. Ordinary empty C++ classes
+	// still have the minimum size and take part in empty subobject placement.
+	const bool minimum_size = !c_source_ && (!hosted_ || entity->empty);
+	entity->size = RoundUp(minimum_size ? std::max<uint64_t>(extent, 1) : extent, alignment);
 	entity->alignment = alignment;
 	// The last run may reach the class's end when no derived class can
 	// reuse its tail padding (a POD for the purpose of layout), else its

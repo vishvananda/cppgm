@@ -1,6 +1,7 @@
 #include "sema/analyzer.h"
 
 #include <algorithm>
+#include <functional>
 
 #include "sema/aggregates.h"
 #include "sema/c_initializer.h"
@@ -30,6 +31,49 @@ struct SubobjectHash
 		return key.index ^ (uint64_t(key.group) * 0x9e3779b97f4a7c15ull);
 	}
 };
+
+struct ArrayWrite
+{
+	uint64_t first, limit;
+	uint32_t node;
+};
+
+// Sweep in index order. The heap orders active writes by source order,
+// retaining a write until it can no longer win any later span.
+std::vector<ArrayWrite> WinningSpans(std::vector<ArrayWrite>& writes)
+{
+	std::sort(writes.begin(), writes.end(), [](const ArrayWrite& a, const ArrayWrite& b) { return a.first < b.first; });
+	const auto earlier = [](const ArrayWrite& a, const ArrayWrite& b) { return a.node < b.node; };
+	std::vector<ArrayWrite> active;
+	std::vector<ArrayWrite> result;
+	size_t next = 0;
+	uint64_t index = 0;
+	while (next != writes.size() || !active.empty())
+	{
+		if (active.empty())
+			index = writes[next].first;
+		while (next != writes.size() && writes[next].first <= index)
+		{
+			active.push_back(writes[next++]);
+			std::push_heap(active.begin(), active.end(), earlier);
+		}
+		while (!active.empty() && active.front().limit <= index)
+		{
+			std::pop_heap(active.begin(), active.end(), earlier);
+			active.pop_back();
+		}
+		if (active.empty())
+			continue;
+		const ArrayWrite& winner = active.front();
+		const uint64_t limit = next == writes.size() ? winner.limit : std::min(winner.limit, writes[next].first);
+		if (!result.empty() && result.back().node == winner.node && result.back().limit == index)
+			result.back().limit = limit;
+		else
+			result.push_back(ArrayWrite{ index, limit, winner.node });
+		index = limit;
+	}
+	return result;
+}
 
 } // namespace
 
@@ -90,12 +134,15 @@ private:
 		size_t uses_begin, uses_end;
 		uint32_t parent, group, first, next, child_count;
 		bool starts_value;
+		bool has_spans;
+		bool repeat_value;
 	};
 
 	uint32_t new_node(const Type* type, uint32_t parent, uint64_t index, const DataMember* member)
 	{
 		const uint32_t id = static_cast<uint32_t>(nodes_.size());
-		nodes_.push_back(Node{ type, nullptr, member, index, 0, 0, 0, parent, ++group_, kNone, kNone, 0, false });
+		nodes_.push_back(
+			Node{ type, nullptr, member, index, 0, 0, 0, parent, ++group_, kNone, kNone, 0, false, false, false });
 		return id;
 	}
 
@@ -109,6 +156,7 @@ private:
 		target.first = kNone;
 		target.child_count = 0;
 		target.starts_value = true;
+		target.has_spans = false;
 	}
 
 	uint32_t child(uint32_t parent, uint64_t index, const DataMember* member)
@@ -119,8 +167,10 @@ private:
 			nodes_[nodes_[parent].first].index != index)
 			reset(parent);
 		const SubobjectKey key{ nodes_[parent].group, index };
-		if (const uint32_t* existing = children_.find(key))
-			return *existing;
+		const bool reuse = !nodes_[parent].has_spans;
+		if (reuse)
+			if (const uint32_t* existing = children_.find(key))
+				return *existing;
 		const Type* child_type = member != nullptr ? member->variable->type : type->element;
 		const uint32_t id = new_node(child_type, parent, index, member);
 		Node& owner = nodes_[parent];
@@ -128,7 +178,8 @@ private:
 		owner.first = id;
 		++owner.child_count;
 		owner.count = std::max(owner.count, index + 1);
-		children_.insert(key, id);
+		if (reuse)
+			children_.insert(key, id);
 		return id;
 	}
 
@@ -163,7 +214,7 @@ private:
 			const ClassEntity* record = ClassOf(type);
 			uint32_t next = kNone;
 			if (type->kind == TypeKind::Array)
-				next = array_child(target.parent, target.index + 1);
+				next = array_child(target.parent, array_limit(node));
 			else if (record->key != TokenKind::KW_UNION)
 				next = member_child(target.parent, NextInitializableMember(target.member->next));
 			if (next != kNone)
@@ -199,9 +250,14 @@ private:
 		return parent;
 	}
 
-	uint32_t indexed_child(uint32_t parent, const syntax::Expr& index)
+	uint64_t array_limit(uint32_t node)
 	{
-		if (nodes_[parent].type->kind != TypeKind::Array)
+		return nodes_[node].repeat_value ? *range_limits_.find(node) : nodes_[node].index + 1;
+	}
+
+	uint64_t subscript(const Type* type, const syntax::Expr& index)
+	{
+		if (type->kind != TypeKind::Array)
 			analyzer_.error(index.location, "an array designator requires an array");
 		Constant value;
 		if (analyzer_.typed(index, scope_) == nullptr ||
@@ -210,9 +266,29 @@ private:
 		IntegralKind kind;
 		if (IntegralKindOf(value.type, kind) && kind.is_signed && static_cast<int64_t>(value.bits) < 0)
 			analyzer_.error(index.location, "a C array designator has a negative index");
-		const uint32_t result = array_child(parent, value.bits);
-		if (result == kNone)
+		if (value.bits >= uint64_t(INT64_MAX) || (type->has_array_bound() && value.bits >= type->bound))
 			analyzer_.error(index.location, "a C designator is outside its aggregate");
+		return value.bits;
+	}
+
+	uint32_t indexed_child(uint32_t parent, const syntax::CDesignator& step, bool terminal)
+	{
+		const Type* type = nodes_[parent].type;
+		const uint64_t first = subscript(type, *step.index);
+		if (step.range_end == nullptr)
+			return child(parent, first, nullptr);
+		const uint64_t last = subscript(type, *step.range_end);
+		if (last < first)
+			analyzer_.error(step.location, "a C range designator has a decreasing interval");
+		if (!terminal || (!IsScalar(type->element) && type->element->kind != TypeKind::Complex))
+			analyzer_.error(step.location, "C range designators currently require a whole scalar array element");
+		// Keep preceding point initializers. From this point on every write
+		// has its own node, ordered by its ID even when intervals overlap.
+		nodes_[parent].has_spans = true;
+		nodes_[parent].count = std::max(nodes_[parent].count, last + 1);
+		const uint32_t result = child(parent, first, nullptr);
+		range_limits_.insert(result, last + 1);
+		nodes_[result].repeat_value = true;
 		return result;
 	}
 
@@ -229,8 +305,9 @@ private:
 			{
 				destination = root;
 				for (const syntax::CDesignator& step : designation->path)
-					destination = step.member != nullptr ? named_child(destination, step.member, step.location)
-														 : indexed_child(destination, *step.index);
+					destination = step.index == nullptr
+						? named_child(destination, step.member, step.location)
+						: indexed_child(destination, step, &step + 1 == designation->path.end());
 				++designation;
 			}
 			else
@@ -327,25 +404,61 @@ private:
 		const Node& node = nodes_[id];
 		for (size_t i = node.uses_begin; i < node.uses_end; ++i)
 			live[i - first] = 1;
+		if (node.has_spans)
+		{
+			const auto entries = freeze_spans(node, first, live);
+			auto* plan = analyzer_.arena_.allocate_array<CInitializer>(1);
+			*plan = CInitializer{ completed_type(node), node.value, entries, node.starts_value, true, false };
+			return plan;
+		}
 		auto* entries = analyzer_.arena_.allocate_array<CInitializerChild>(node.child_count);
+		const bool array = node.type->kind == TypeKind::Array;
 		uint32_t count = 0;
 		for (uint32_t sub = node.first; sub != kNone; sub = nodes_[sub].next)
 		{
 			const Node& child = nodes_[sub];
-			entries[count++] = CInitializerChild{ freeze(sub, first, live), child.member, child.index };
+			auto& entry = entries[count++];
+			entry = CInitializerChild{ freeze(sub, first, live), { child.member }, child.index };
+			if (array)
+				entry.limit = child.index + 1;
 		}
 		if (count > 1)
 			std::sort(entries, entries + count,
 				[](const CInitializerChild& left, const CInitializerChild& right) { return left.index < right.index; });
 		auto* plan = analyzer_.arena_.allocate_array<CInitializer>(1);
-		*plan = CInitializer{ completed_type(node), node.value, { entries, count }, node.starts_value };
+		*plan = CInitializer{ completed_type(node), node.value, { entries, count }, node.starts_value, false,
+			node.repeat_value };
 		return plan;
+	}
+
+	syntax::Slice<const CInitializerChild> freeze_spans(const Node& node, size_t first, std::vector<uint8_t>& live)
+	{
+		std::vector<ArrayWrite> writes;
+		writes.reserve(node.child_count);
+		for (uint32_t sub = node.first; sub != kNone; sub = nodes_[sub].next)
+			writes.push_back(ArrayWrite{ nodes_[sub].index, array_limit(sub), sub });
+		const auto spans = WinningSpans(writes);
+		auto* entries = analyzer_.arena_.allocate_array<CInitializerChild>(spans.size());
+		FlatMap<uint32_t, const CInitializer*, std::hash<uint32_t>> frozen;
+		uint32_t count = 0;
+		for (const ArrayWrite& span : spans)
+		{
+			const CInitializer* const* reused = frozen.find(span.node);
+			const CInitializer* value = reused != nullptr ? *reused : freeze(span.node, first, live);
+			if (reused == nullptr)
+				frozen.insert(span.node, value);
+			auto& entry = entries[count++];
+			entry = CInitializerChild{ value, { nullptr }, span.first };
+			entry.limit = span.limit;
+		}
+		return { entries, count };
 	}
 
 	Analyzer& analyzer_;
 	Scope* scope_;
 	std::vector<Node> nodes_;
 	FlatMap<SubobjectKey, uint32_t, SubobjectHash> children_;
+	FlatMap<uint32_t, uint64_t, std::hash<uint32_t>> range_limits_;
 	uint32_t group_ = 0;
 };
 

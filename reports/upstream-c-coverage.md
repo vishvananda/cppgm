@@ -141,16 +141,39 @@ independently of the identifier identity used for macro lookup.
 ## Pinned suite receipts
 
 - **c-testsuite** inventories 220 programs in two dialects and at two
-  optimization levels. cppgm passes 872 of 876 selected configurations.
-  GNU range designators account for the four known failures. One source that
-  reads an uninitialized automatic object is excluded from the runtime
-  comparison. [Suite builder](../scripts/build_c_testsuite_ci_manifest.py) ·
+  optimization levels. cppgm and GCC 15 pass all 876 selected configurations.
+  One source that reads an uninitialized automatic object is excluded from
+  the runtime comparison. [Suite builder](../scripts/build_c_testsuite_ci_manifest.py) ·
   [Known gaps](upstream-c-testsuite-known-gaps.json)
 - **GCC and Clang** execute the reviewed C99, C11 and C17 configurations,
   recording known failures separately from passes.
   [GCC C99](upstream-gcc-c99.json) · [GCC C11](upstream-gcc-c11.json) ·
   [GCC C17](upstream-gcc-c17.json) · [Clang C99](upstream-clang-c99.json) ·
   [Clang C11](upstream-clang-c11.json) · [Clang C17](upstream-clang-c17.json)
+
+### GNU range designators and empty records
+
+The final pinned initializer program, `00216.c`, matches its expected Linux
+x86-64 output in C17 and GNU17 at `-O0` and `-O2`. The program exercises
+overlapping scalar ranges, parenthesized compound literals in static
+initializers, and a record containing a GNU empty struct. The empty struct
+has size zero in C, so its enclosing record's two byte members are adjacent.
+
+PA38 exercises retained and overwritten values, scalar braces and volatile
+stores, inferred bounds, positional continuation, and static function-pointer
+relocations. Separate fixtures check the empty record's size and enclosing
+layout, parenthesized compound literals, decreasing intervals, and pedantic
+rejection of range designators and empty records. The positive fixtures ran
+with GCC 15 and cppgm on Linux x86-64 at `-O0` and `-O2`, and with cppgm on
+AArch64 Linux under QEMU at both levels. PA38's Wasm lane passed, and both
+Darwin architectures cross-linked Mach-O at both levels. Native macOS
+execution, suffix paths following a range, and ranges of aggregate values
+remain open.
+[Range fixture](../pa38/tests/general/300-designated-gnu-ranges.t) ·
+[Empty record fixture](../pa38/tests/general/300-record-gnu-empty.t) ·
+[Compound literal fixture](../pa38/tests/general/500-c-static-parenthesized-compound.t) ·
+[GCC ranges](https://gcc.gnu.org/onlinedocs/gcc/Designated-Inits.html) ·
+[GCC empty structures](https://gcc.gnu.org/onlinedocs/gcc/Empty-Structures.html)
 
 ## Initial hosted replays
 

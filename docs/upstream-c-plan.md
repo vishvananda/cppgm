@@ -1,14 +1,12 @@
 # Full C coverage plan
 
-Close C99 and C17 first, with a distinct C11 mode and tests for the rules
-that differ by edition. Follow with legacy C90/C95 and C23. For each edition,
-cover every applicable mandatory compiler requirement, including required
-diagnostics, translation limits, and object and execution behavior. Track
-hosted and freestanding environments explicitly. A hosted conformance claim
-applies to the tested compiler, headers, and runtime together. Track conditional
-features and implementation-defined choices by edition and target, and publish
-only the feature macros that describe that configuration. Track GNU C
-compatibility separately from ISO conformance.
+Complete C99, C11, and C17 first, then add C90/C95 and C23. For each
+edition and target, collect evidence for every applicable mandatory rule,
+including required diagnostics, translation limits, object interoperability,
+and execution. A hosted claim applies to a tested compiler, SDK, and runtime
+pairing. The matrix also records freestanding profiles, conditional features,
+implementation-defined choices, and the macros that advertise them. GNU C
+compatibility has its own results and release criteria.
 
 The pre-campaign baseline is `v0.10.3` (`7bc2ee420`). The C branch now has
 C99, C11, and C17 modes with ISO and GNU variants, PA38 tests on native and
@@ -45,20 +43,28 @@ is in progress. Expand the release matrix after the relevant mode and its
 preceding mode's controls pass. Keep fixes to shared translation and ABI
 behavior independent of the edition work that exposed them.
 
-The next core coverage batch is lexical translation and preprocessing.
-Inventory source encodings, line splicing, universal character names,
-digraphs and trigraphs, preprocessing numbers, and required diagnostics.
-Use the existing GCC and Clang metadata to select a rule's positive and
-negative cases. Add portable boundary cases where the suites only exercise
-an extension. Run the cases through the public driver and qualify any
-shared changes in the earliest owning assignment. This establishes edition
-boundaries before enabling the legacy or C23 versions of the same rules.
+Start the next batches from the existing receipts.
 
-Finish the known GNU C compatibility cases and native macOS qualification
-alongside that inventory. Use published requirements for the ISO release
-gate and the GNU replay to qualify extension behavior. The next hosted
-batch starts with the C99 header probes and musl receipt, then adds the
-mandatory C11 and C17 library interfaces for each SDK.
+1. Extend GNU initializer coverage from the now-passing pinned corpus to
+   ranges followed by a subobject designator and ranges initialized with
+   aggregate values. Include whole-subobject replacement followed by
+   overlapping field writes in the scaling tests. The pinned scalar-range
+   case and the empty-record layout have PA38 regressions.
+   [Initializer evidence](../reports/upstream-c-coverage.md#gnu-range-designators-and-empty-records)
+2. Finish the C99–C17 lexical inventory using the existing trigraph, digraph,
+   and universal-character receipts. Close the macro token spelling and
+   redefinition case, then cover the remaining source-encoding, line-splicing,
+   and preprocessing-number boundaries. Extend the same rule inventory to
+   declarators, initializers, conversions, constant expressions, and linkage.
+   Pair edition boundaries with native reference runs and earliest-assignment
+   regressions.
+3. Run the existing translation-limit, mixed-object, and header probes on
+   native Intel macOS and Apple Silicon. Expand the C99 header and musl
+   replays to the mandatory C11 and C17 interfaces for each applicable SDK.
+   Qualify capability macros against their operations and runtime helpers.
+   Run the same probes in the corresponding freestanding profiles where
+   applicable.
+
 [Pinned suite receipts](../reports/upstream-c-coverage.md#pinned-suite-receipts) ·
 [Initial hosted replays](../reports/upstream-c-coverage.md#initial-hosted-replays)
 
@@ -86,7 +92,7 @@ Keep the relevant references and clause notes under `doc/` as gaps are fixed.
 [C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [C11 and C17 clarification requests](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2396.htm) ·
 [Published C23 edition](https://www.iso.org/standard/82075.html) ·
-[WG14 document log, including the C23 DIS and first C2y draft](https://www.open-std.org/jtc1/sc22/wg14/www/wg14_document_log) ·
+[C23 DIS draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3219.pdf) ·
 [WG14 issue index](https://open-std.org/JTC1/SC22/WG14/issues/)
 
 Use one inventory entry per independently testable rule or requirement.
@@ -452,6 +458,10 @@ chains independently.
   `__STDC_VERSION__` separately from its library additions.
   Parameterize the translation-limits generator by edition and verify each
   combined program against the applicable limits and execution environment.
+  Reuse the declaration parser and store any legacy default type or promotion
+  on the declaration or call that requires it. Use those facts for later
+  compatibility and ABI checks. Exercise a long chain of legacy
+  redeclarations as well as many distinct implicit function calls.
   [GCC edition options](https://gcc.gnu.org/onlinedocs/gcc/Standards.html)
 - **C23.** Inventory every mandatory change against the published edition
   and applicable resolutions. Batch the preprocessing and literal changes
@@ -475,6 +485,8 @@ chains independently.
   `limit` keeps work bounded even for a large resource.
   Recheck combined translation limits with the C23 rule set, and document
   target-specific limits, encodings, and ABI choices alongside the results.
+  Record the resolution status of each WG14 issue used as a C23 oracle
+  and identify any adopted changes that belong to later editions.
   [WG14 variably modified types](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf)
 
 [WG14 edition index](https://www.open-std.org/jtc1/sc22/wg14/www/projects.html) ·
@@ -497,9 +509,10 @@ which operations are proportional to tokens, demanded work, or output.
 | Path | Review and measurement |
 | --- | --- |
 | Mode selection and preprocessing | Decode options once. Use compact edition or feature values at the construct that needs them. Put extra work on the relevant token or construct paths so ordinary input retains the existing fast path. Use shared tokenization and macro machinery with bounded lookahead. For macro push/pop, index by interned name and save only the affected binding. |
+| C23 resource preprocessing | Resolve `#embed` in the preprocessor and feed its tokens through the existing stream. Account separately for resource lookup, bytes read, and tokens produced. Increase total resource size at a fixed small `limit`, then increase the limit on a fixed resource. The first run should keep the input bytes read, memory, and token work bounded. Test `__has_embed` independently because it produces a status even for large resources. |
 | Types, scopes, and linkage | Keep interned identities and direct scope/name indexes. Fast-path equal canonical types. Keep lexical composite types on declarations and cross-scope compatibility facts on the linked entity where needed. Lower calls from their recorded conversions and resolve the symbol through the linked entity. Index redeclaration and tentative-definition work by entity. If a memo is useful, document its typed key, lifetime and dependence on completion state. Measure work as the number of declarations per entity and the number of independently linked names grow. |
 | Array bounds, generic selection, and initializers | Keep evaluated VLA extents in compact declaration- or use-owned records with the required evaluation and lifetime. Lowering reads retained extents and conversions. Check each required generic association once, retain the selected expression and evaluate only that arm at runtime. Resolve initializer paths once. Keep sparse designators and zero fill compact until emission. Count bound visits, designator steps and subobjects to catch repeated scans of a dimension list, initializer or record. |
-| Constant expressions and wide integers | Reuse typed evaluation with the constraints of each required C constant context. Retain the result where later phases consume it. Keep single-word values on the ordinary path and allocate wide storage only for values that require it. Measure widths and operation counts independently. |
+| Constant expressions and wide integers | Reuse typed evaluation with the constraints of each required C constant context. Retain the result where later phases consume it. Intern `_BitInt` types by width and signedness in the target context and retain layout and call classifications on their existing owners. Keep single-word values on the ordinary path and allocate wide storage only for values that require it. Measure widths and operation counts independently, including near word and ABI boundaries. Compare the work of wide arithmetic against the operations on its significant words. |
 | Lowering and code generation | Consume typed facts directly, emit each entity once and reuse target layout, ABI, optimizer and backend machinery. Preserve streaming at `-O0`. Add typed LowIR vocabulary only when an operation requires it, with its existing text adapter and validator coverage. Reuse per-function scratch. Audit VLA cleanup, storage ownership, volatility and aliasing at optimized levels. |
 
 At the start of each batch, identify the producer and consumers of the new
@@ -524,6 +537,10 @@ cost on ordinary inputs. [Architecture requirements](../spec.md)
    parser or semantic changes, and `-O0 -c` and `-O2 -c` for lowering and
    optimizer changes. Keep fixed-size, feature-free controls for each new
    benchmark and include workloads dominated by small ordinary constructs.
+   For a feature that the parent compiler rejects, measure the first correct
+   implementation against a frozen, equivalent program using existing
+   constructs. Use that implementation as the baseline for later tuning.
+   Keep separate records for feature cost and feature-free overhead.
 2. **Check work growth and memory before tuning wall time.** Generate immutable
    inputs at successive doublings and compare the incremental cost per unit.
    Collect phase timing, peak RSS, allocation and IR sizes where available,

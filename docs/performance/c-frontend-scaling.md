@@ -1762,3 +1762,43 @@ ranges were about 14% and 12%, so the comparison uses instructions.
 | SQLite | A/A | 16,529,246,728 / 16,529,209,661 / 16,529,410,992 / 16,529,834,957 |
 | SQLite | ABBA | 16,529,877,995 / 16,529,471,978 / 16,529,452,640 / 16,529,199,682 |
 | SQLite | BAAB | 16,529,622,166 / 16,529,457,787 / 16,529,279,597 / 16,529,511,099 |
+
+## GNU scalar range designators
+
+The compiler resolves the winning scalar intervals from the written
+designators. It reuses the value of each surviving range and emits bounded
+loops for repeated automatic stores. One range and two overwrites emit 59
+lines of LowIR for an automatic array of 4,096, 262,144, 16,777,216 or
+268,435,456 bytes. Across those sizes the instruction counts range from
+3,948,198 to 3,949,827 and peak RSS ranges from 17,288 to 17,380 KiB.
+An explicitly zero-initialized static range at the same widths emits three
+lines and stays between 3,807,031 and 3,807,877 instructions. Nonzero static
+data still takes space proportional to the initialized bytes.
+
+At a fixed extent of 65,536 bytes, a full dynamic range is followed by
+two-element range overwrites at distinct intervals. `-fsyntax-only` rejects
+a decreasing range and therefore exercises endpoint analysis. The LowIR
+run includes lowering and text emission. Counts are retired user-space
+instructions on Linux x86-64 in GNU17 at `-O0`.
+
+| Written overwrites | Syntax only | LowIR emission | LowIR lines | LowIR peak KiB |
+| ---: | ---: | ---: | ---: | ---: |
+| 512 | 9,588,183 | 27,454,559 | 18,451 | 17,952 |
+| 1024 | 15,317,338 | 51,429,722 | 36,883 | 17,364 |
+| 2048 | 26,749,158 | 100,280,159 | 73,747 | 20,392 |
+| 4096 | 49,852,892 | 199,198,385 | 147,475 | 31,956 |
+| 8192 | 96,216,693 | 400,061,788 | 294,931 | 56,276 |
+
+Relative to `71cc67844`, the frozen C++ and SQLite objects matched by
+SHA-256 in every run. The C++ instruction changes were −0.0017% in ABBA
+and −0.0001% in BAAB. SQLite changed by +0.0006% and +0.0003%.
+The respective A/A ranges were 0.0009% and 0.0035%.
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,057,794,228 / 9,057,864,224 / 9,057,831,423 / 9,057,875,953 |
+| C++ | ABBA | 9,057,830,051 / 9,057,511,571 / 9,057,701,399 / 9,057,685,503 |
+| C++ | BAAB | 9,057,796,881 / 9,057,733,077 / 9,058,091,078 / 9,058,002,036 |
+| SQLite | A/A | 16,530,178,352 / 16,529,801,531 / 16,529,606,938 / 16,529,731,251 |
+| SQLite | ABBA | 16,529,503,384 / 16,529,641,847 / 16,529,604,469 / 16,529,544,246 |
+| SQLite | BAAB | 16,530,219,449 / 16,530,216,914 / 16,529,693,097 / 16,529,787,150 |

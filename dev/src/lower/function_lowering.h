@@ -1360,6 +1360,10 @@ private:
 		const sema::Type* type, lowir::Value base, uint64_t first, uint64_t count, uint32_t location);
 	void c_initialize(
 		const sema::CInitializer& plan, const AddressPath& path, uint8_t cv, uint32_t location, bool inherited = false);
+	void c_initialize_spans(const sema::CInitializer& plan, const sema::Type* array, const AddressPath& path,
+		uint32_t location, bool inherited);
+	void store_initializer_span(const sema::Type* element, lowir::Value base, uint64_t first, uint64_t limit,
+		const RValue& value, uint32_t location);
 	void c_initialize_record(
 		const sema::CInitializer& plan, const AddressPath& path, uint8_t cv, uint32_t location, bool inherited);
 	void omitted_array_loop(const sema::Type* type, lowir::Value base, uint32_t location);

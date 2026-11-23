@@ -16,12 +16,19 @@ struct CInitializer
 	const syntax::Expr* value;
 	syntax::Slice<const CInitializerChild> children;
 	bool starts_value;
+	bool has_spans;
+	// A source expression shared by all surviving spans of one write.
+	bool repeat_value;
 };
 
 struct CInitializerChild
 {
 	const CInitializer* initializer;
-	const DataMember* member;
+	union
+	{
+		const DataMember* member; // record member
+		uint64_t limit;           // exclusive end of an array span
+	};
 	uint64_t index;
 };
 

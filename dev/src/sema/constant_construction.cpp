@@ -678,10 +678,12 @@ bool ConstantInterpreter::c_initialize(
 			return false;
 		zero_into(*storage);
 	}
+	PointerMap saved_values;
+	std::vector<ConstValue> repeated;
 	for (const CInitializerChild& child : plan.children)
 	{
 		ConstPlace place = target;
-		if (child.member != nullptr)
+		if (plan.type->kind != TypeKind::Array)
 		{
 			const auto* variable = static_cast<const VariableEntity*>(child.member->variable);
 			if (!member_slot(target, variable, place, location))
@@ -692,7 +694,32 @@ bool ConstantInterpreter::c_initialize(
 			place.type = plan.type->element;
 			place.offset += static_cast<int64_t>(child.index * size_of(place.type, location));
 		}
-		if (!c_initialize(*child.initializer, place, location, inherited))
+		if (child.initializer->repeat_value)
+		{
+			uint32_t saved = saved_values.find(child.initializer);
+			uint64_t index = child.index;
+			const auto stride = static_cast<int64_t>(size_of(place.type, location));
+			if (saved == PointerMap::kMissing)
+			{
+				ConstValue* value = nullptr;
+				if (!c_initialize(*child.initializer, place, location, inherited) ||
+					!locate(place, false, value, location))
+					return false;
+				saved = static_cast<uint32_t>(repeated.size());
+				repeated.push_back(*value);
+				saved_values.set(child.initializer, saved);
+				++index;
+				place.offset += stride;
+			}
+			for (; index != child.limit; ++index, place.offset += stride)
+			{
+				ConstValue* value = nullptr;
+				if (!step(location) || !locate(place, true, value, location))
+					return false;
+				*value = repeated[saved];
+			}
+		}
+		else if (!c_initialize(*child.initializer, place, location, inherited))
 			return false;
 	}
 	return true;

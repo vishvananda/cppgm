@@ -762,7 +762,7 @@ void SyntaxRenderer::operand(const Expr& expr)
 			{
 				for (const CDesignator& step : designation->path)
 				{
-					if (step.member != nullptr)
+					if (step.index == nullptr)
 					{
 						text(".");
 						identifier(step.member);
@@ -771,6 +771,11 @@ void SyntaxRenderer::operand(const Expr& expr)
 					{
 						text("[");
 						expression(*step.index);
+						if (step.range_end != nullptr)
+						{
+							text(" ... ");
+							expression(*step.range_end);
+						}
 						text("]");
 					}
 				}

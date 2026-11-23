@@ -1112,7 +1112,11 @@ Expr* SyntaxCloner::call_like(const Expr* expr)
 			{
 				entry.path.data = arena_.copy_array(entry.path.data, entry.path.size);
 				for (CDesignator& step : entry.path)
-					step.index = this->expr(step.index);
+					if (step.index != nullptr)
+					{
+						step.index = this->expr(step.index);
+						step.range_end = this->expr(step.range_end);
+					}
 			}
 		}
 		result->union_member = nullptr;

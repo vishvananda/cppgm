@@ -339,7 +339,11 @@ struct LambdaExpr : Expr
 
 struct CDesignator
 {
-	const Identifier* member;
+	union
+	{
+		const Identifier* member; // index is null
+		Expr* range_end;          // array designator, null for a single index
+	};
 	Expr* index;
 	uint32_t location;
 };
