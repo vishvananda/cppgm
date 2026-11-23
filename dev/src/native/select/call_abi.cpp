@@ -1,5 +1,6 @@
 #include "native/select/call_abi.h"
 
+#include "lowir/object_classes.h"
 #include "native/backend_error.h"
 
 namespace native {
@@ -197,7 +198,7 @@ void classify_object_result(Type result, uint8_t classes, CallLayout& layout)
 		layout.result = ArgClass::X87Pair;
 		return;
 	}
-	if (bytes > 16 || bytes == 0 || (classes & lowir::OC_MEMORY))
+	if (lowir::sysv_object_result_in_memory(bytes, classes))
 	{
 		layout.result = ArgClass::Memory;
 		layout.sret = true;
@@ -265,7 +266,7 @@ void classify_call(
 		layout.result_parts = 2;
 		break;
 	case TypeKind::Obj:
-		if (result.bytes > 16 || result.bytes == 0)
+		if (lowir::sysv_object_result_in_memory(result.bytes, 0))
 		{
 			layout.result = ArgClass::Memory;
 			layout.sret = true;

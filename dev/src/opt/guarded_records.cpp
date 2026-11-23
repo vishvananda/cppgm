@@ -122,7 +122,7 @@ void distribute_guarded_stores(FunctionBody& body, BlockId entry, BlockId fast, 
 bool split_guarded_record(FunctionContext& context)
 {
 	FunctionBody& body = context.body;
-	if (body.layout.size() != 4 || body.slots.empty() || !body.locations.empty() || !context.no_eh())
+	if (body.layout.size() != 4 || body.slots.empty() || !body.locations.empty())
 		return false;
 	const BlockId entry = body.layout[0];
 	const Instruction& branch = body.instructions[body.blocks[entry].last];
@@ -147,7 +147,7 @@ bool split_guarded_record(FunctionContext& context)
 		return false;
 	const Located source = locate(body, copy.ops[0]);
 	if (!source.known || !source.root.is(ValueKind::Slot) || source.offset != 0 ||
-		body.slots[source.root.index].type.bytes != static_cast<uint64_t>(copy.immediate))
+		body.slots[source.root.index].type.bytes != static_cast<uint64_t>(copy.immediate) || !context.no_eh())
 		return false;
 	bool passed = false;
 	for_each_operand(body, call, [&](Value value) { passed = passed || locate(body, value).root == source.root; });

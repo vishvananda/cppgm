@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <array>
 #include "lowir/builder.h"
+#include "lowir/object_classes.h"
 
 #include "opt/interprocedural.h"
 #include "opt/loops.h"
@@ -78,7 +79,7 @@ bool snapshot_plan(const Program& program, SymbolId symbol, SnapshotPlan& plan)
 	const Function& f = program.functions[program.symbols[symbol].detail];
 	const FunctionBody& body = *f.body;
 	const Signature& signature = program.signatures[f.signature];
-	if (!body.locations.empty() || body.layout.empty() || !body.code_labels.empty() ||
+	if (body.slots.empty() || !body.locations.empty() || body.layout.empty() || !body.code_labels.empty() ||
 		signature.boundary.arity != ir_model::CAM_FIXED || signature.parameter_count > 5)
 		return false;
 	const Parameter* params = program.parameters_of(signature);
@@ -117,9 +118,10 @@ bool snapshot_plan(const Program& program, SymbolId symbol, SnapshotPlan& plan)
 				unsigned words = 0;
 				for (Type word : plan.words)
 					words += !word.is_void();
-				// Filling more argument registers pays only when a word
-				// of the original snapshot can be omitted.
-				return words < bytes / 8 && signature.parameter_count - 1 + words <= 6;
+				const bool hidden_result = signature.result.is_object() &&
+					sysv_object_result_in_memory(signature.result.bytes, signature.boundary.result_classes);
+				// Save a transported word and keep the new arguments in registers.
+				return words < bytes / 8 && signature.parameter_count - 1 + words + hidden_result <= 6;
 			}
 			return false;
 		}

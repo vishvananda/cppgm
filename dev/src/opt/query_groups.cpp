@@ -12,6 +12,8 @@ using namespace lowir;
 
 namespace {
 
+constexpr unsigned kMaxQueries = 8;
+
 struct QueryPrefix
 {
 	const FunctionBody* body;
@@ -127,10 +129,17 @@ InstId branching_call(const FunctionBody& body, BlockId block, bool entire)
 		: kNoId;
 }
 
+InstId matching_branching_call(const FunctionBody& body, BlockId block, const Instruction& first)
+{
+	const InstId call = branching_call(body, block, true);
+	if (call == kNoId)
+		return kNoId;
+	const Instruction& next = body.instructions[call];
+	return next.ops[0] == first.ops[0] && next.extra_count == first.extra_count ? call : kNoId;
+}
+
 bool matches_query(const FunctionBody& body, const Instruction& first, const Instruction& later, TempId key)
 {
-	if (!(later.ops[0] == first.ops[0]) || first.extra_count != later.extra_count)
-		return false;
 	for (TempId n = 0; n < first.extra_count; ++n)
 	{
 		const Value argument = body.operands[later.extra_first + n];
@@ -141,7 +150,7 @@ bool matches_query(const FunctionBody& body, const Instruction& first, const Ins
 }
 
 void emit_query_guard(FunctionBody& body, BlockId block, BlockId skip, InstId call_id, const QueryPrefix& prefix,
-	std::vector<Value>& keys)
+	const Value* keys, unsigned count)
 {
 	const Instruction call = body.instructions[call_id];
 	const InstId prior = previous_in_block(body, block, call_id);
@@ -183,17 +192,17 @@ void emit_query_guard(FunctionBody& body, BlockId block, BlockId skip, InstId ca
 		insert_after(body, block, tail, copy);
 		tail = copy;
 	}
-	std::vector<Value> cases;
-	for (Value key : keys)
+	std::array<Value, 2 * kMaxQueries> cases;
+	for (unsigned n = 0; n < count; ++n)
 	{
-		cases.push_back(key);
-		cases.push_back(Value::block(replay));
+		cases[2 * n] = keys[n];
+		cases[2 * n + 1] = Value::block(replay);
 	}
 	Instruction branch = make_instruction(Opcode::Switch, prefix.type);
 	branch.ops[0] = values[prefix.observed.index];
 	branch.ops[1] = Value::block(skip);
-	branch.extra_first = append_operands(body, cases.data(), cases.size());
-	branch.extra_count = cases.size();
+	branch.extra_first = append_operands(body, cases.data(), 2 * count);
+	branch.extra_count = 2 * count;
 	branch.location = call.location;
 	insert_after(body, block, tail, append_instruction(body, branch));
 }
@@ -211,36 +220,47 @@ bool group_queries(Program& program, FunctionBody& body, SymbolId owner)
 		const SymbolId symbol = first.ops[0].index;
 		if (symbol == owner)
 			continue;
+		const Instruction& branch = body.instructions[first.next];
+		BlockId next = branch.ops[2].index;
+		if (next == block || !plain_successor(body, branch.ops[1].index))
+			continue;
+		// Prove the caller has enough consecutive queries before looking at
+		// the callee. The bounded chain needs no temporary heap storage.
+		const InstId second = matching_branching_call(body, next, first);
+		if (second == kNoId ||
+			matching_branching_call(body, body.instructions[body.instructions[second].next].ops[2].index, first) ==
+				kNoId)
+			continue;
 		const QueryPrefix prefix = query_prefix(program, symbol);
 		if (prefix.body == nullptr || first.extra_count != prefix.body->parameter_count)
 			continue;
-		const Instruction& branch = body.instructions[first.next];
-		BlockId next = branch.ops[2].index;
 		const Value key = body.operands[first.extra_first + prefix.key];
-		if (!key.is(ValueKind::Integer) || next == block || !plain_successor(body, next) ||
-			!plain_successor(body, branch.ops[1].index))
+		if (!key.is(ValueKind::Integer))
 			continue;
-		std::vector<Value> keys{ key };
-		std::vector<BlockId> visited{ block };
-		std::vector<TempId> results{ first.result };
-		while (keys.size() < 8)
+		std::array<Value, kMaxQueries> keys{ key };
+		std::array<BlockId, kMaxQueries> visited{ block };
+		std::array<TempId, kMaxQueries> results{ first.result };
+		unsigned count = 1;
+		InstId later = second;
+		while (later != kNoId && std::find(visited.begin(), visited.begin() + count, next) == visited.begin() + count)
 		{
-			if (std::find(visited.begin(), visited.end(), next) != visited.end())
+			const Instruction& call = body.instructions[later];
+			if (!matches_query(body, first, call, prefix.key))
 				break;
-			const InstId later = branching_call(body, next, true);
-			if (later == kNoId || !matches_query(body, first, body.instructions[later], prefix.key))
+			keys[count] = body.operands[call.extra_first + prefix.key];
+			visited[count] = next;
+			results[count++] = call.result;
+			next = body.instructions[call.next].ops[2].index;
+			if (count == keys.size())
 				break;
-			keys.push_back(body.operands[body.instructions[later].extra_first + prefix.key]);
-			visited.push_back(next);
-			results.push_back(body.instructions[later].result);
-			next = body.instructions[body.instructions[later].next].ops[2].index;
+			later = matching_branching_call(body, next, first);
 		}
-		if (keys.size() < 3 || !plain_successor(body, next) ||
-			std::find(visited.begin(), visited.end(), next) != visited.end())
+		if (count < 3 || !plain_successor(body, next) ||
+			std::find(visited.begin(), visited.begin() + count, next) != visited.begin() + count)
 			continue;
 		std::vector<uint32_t> uses;
 		count_uses(body, uses);
-		if (std::any_of(results.begin(), results.end(), [&](TempId result) { return uses[result] != 1; }))
+		if (std::any_of(results.begin(), results.begin() + count, [&](TempId result) { return uses[result] != 1; }))
 			continue;
 		// The guard is the first query's effect-free work. A miss proves
 		// every skipped call would have taken its immediate zero return.
@@ -248,7 +268,7 @@ bool group_queries(Program& program, FunctionBody& body, SymbolId owner)
 		if (std::any_of(body.instructions.begin(), body.instructions.end(),
 				[](const Instruction& inst) { return is_eh_instruction(inst.op); }))
 			return false;
-		emit_query_guard(body, block, next, id, prefix, keys);
+		emit_query_guard(body, block, next, id, prefix, keys.data(), count);
 		return true;
 	}
 	return false;

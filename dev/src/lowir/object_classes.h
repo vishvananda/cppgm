@@ -66,4 +66,11 @@ inline uint8_t object_classes_value(uint8_t first, uint8_t second)
 	return ir_model::OC_STATED | ir_model::OC_MEMORY;
 }
 
+// A SysV object result returned through a hidden destination consumes one
+// integer argument register. A complex long double returns in the x87 pair.
+inline bool sysv_object_result_in_memory(uint64_t bytes, uint8_t classes)
+{
+	return !(classes & ir_model::OC_COMPLEX_X87) && (bytes == 0 || bytes > 16 || (classes & ir_model::OC_MEMORY));
+}
+
 } // namespace lowir
