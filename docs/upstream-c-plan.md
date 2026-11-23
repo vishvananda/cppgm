@@ -45,14 +45,14 @@ behavior independent of the edition work that exposed them.
 
 Start the next batches from the existing receipts.
 
-1. Extend GNU initializer coverage to overlapping writes with different
-   suffixes. Cover partial overwrites of aggregate values, brace elision
-   at a ranged element, positional continuation within the final ranged
-   element, and automatic ranges of aggregates with qualified subobjects.
-   Include whole-subobject
-   replacement followed by overlapping field writes in the scaling tests.
+1. Extend GNU initializer coverage to overlaps that diverge below a
+   record's immediate members or span distinct multidimensional regions.
+   Cover nested brace elision and positional continuation, union member
+   changes, and automatic ranges of aggregates with qualified subobjects.
    PA38 covers whole-element ranges, member and subscript suffixes,
-   same-path overlaps, and the empty-record layout.
+   same-path overlap, and overlap between direct member and whole-record
+   writes. The direct-member tests include brace elision and positional
+   continuation within the final ranged record.
    [Initializer evidence](../reports/upstream-c-coverage.md#gnu-range-designators-and-empty-records)
 2. Finish the C99–C17 lexical inventory using the trigraph, digraph,
    universal-character, and macro redefinition receipts. Cover the
@@ -320,16 +320,15 @@ same typed suffix or the winning write replaces the whole element.
 Memoize suffix identities on the resolved paths and check competing
 endpoints across the full winning interval.
 
-Add a case with independent fields and repeated covering writes to expose
-quadratic scans of fragmented ranges. Group field updates by typed member
-path. A shared index of the earliest and latest whole-object reset in
-each interval can clip every field's winning spans without visiting reset
-boundaries whose ordering is uniform. A prototype checked this query
-against a pointwise oracle on 10,000 generated inputs. At
-automatic-storage lowering, reuse
-each surviving value across the ranges that consume it. Use a loop or an
-existing bulk operation when repeated stores would make LowIR grow with
-the represented extent.
+Direct-member overlaps group writes by the resolved member. Each group
+finds its own winning spans and clips them against a shared index of the
+earliest and latest whole-record reset within each interval. The index
+skips boundaries whose ordering is uniform. Automatic storage lowers
+each surviving value once and uses a strided loop for the ranges that
+consume it. Static fields with zero data need no endpoint events.
+Carry the same typed coverage and source-value identities into nested
+overlaps. Extend the scaling cases to independently vary the number of
+written paths, their depth, and the resulting fragments.
 [GCC range designators](https://gcc.gnu.org/onlinedocs/gcc/Designated-Inits.html)
 
 For constant expressions, distinguish eligibility for the required C

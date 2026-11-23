@@ -361,6 +361,7 @@ private:
 	bool initialize_object(
 		const Type* type, const ConstPlace& target, const syntax::Initializer& init, uint32_t location);
 	bool c_initialize(const CInitializer& plan, const ConstPlace& target, uint32_t location, bool inherited = false);
+	bool c_initialize_field_spans(const CInitializer& plan, const ConstPlace& target, uint32_t location);
 	bool initialize_scalar(
 		const Type* type, const ConstPlace& target, const syntax::Expr* single, uint32_t location, bool extend = false);
 	bool aggregate(const Type* type, const ConstPlace& target, const syntax::BracedInitList& list, uint32_t location);

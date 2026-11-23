@@ -1685,7 +1685,7 @@ bool ProgramLowering::static_item(
 }
 
 bool ProgramLowering::static_aggregate(const sema::Type* type, const syntax::BracedInitList* list, uint32_t& next,
-	StaticData& out, const sema::CInitializer* plan)
+	StaticData& out, const sema::CInitializer* plan, bool sparse_c_fields)
 {
 	// Base subobjects may share tail padding with later elements. This
 	// sequential data builder cannot append their complete-object bytes;
@@ -1727,7 +1727,11 @@ bool ProgramLowering::static_aggregate(const sema::Type* type, const syntax::Bra
 	// The bytes of the bit-field storage unit being filled, at `unit_at`.
 	std::vector<uint8_t> bits;
 	uint64_t unit_at = 0;
-	for (const sema::DataMember* member = entity->members; member != nullptr; member = member->next)
+	// A C field-span row already lists its nonzero members in layout
+	// order. The ordinary offset and tail handling fills the omitted bytes.
+	const auto next_member = [&]() { return explicit_member != explicit_end ? explicit_member->member : nullptr; };
+	for (const sema::DataMember* member = sparse_c_fields ? next_member() : entity->members; member != nullptr;
+		member = sparse_c_fields ? next_member() : member->next)
 	{
 		const sema::VariableEntity* variable = static_cast<const sema::VariableEntity*>(member->variable);
 		if (selected != nullptr && member != selected)

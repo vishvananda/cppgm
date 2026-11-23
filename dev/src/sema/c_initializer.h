@@ -6,6 +6,7 @@
 namespace sema {
 
 struct CInitializerChild;
+struct CInitializerFieldSpans;
 
 // A resolved C initializer. Children are sparse and ordered by storage
 // position. A whole-object expression may supply the value the children
@@ -19,6 +20,9 @@ struct CInitializer
 	bool has_spans;
 	// A source expression shared by all surviving spans of one write.
 	bool repeat_value;
+	bool has_field_spans;
+
+	syntax::Slice<const CInitializerFieldSpans> field_spans() const;
 };
 
 struct CInitializerChild
@@ -31,6 +35,25 @@ struct CInitializerChild
 	};
 	uint64_t index;
 };
+
+// Each lane updates one member of an array's record elements. The
+// children of the array plan hold the surviving whole-record writes.
+struct CInitializerFieldSpans
+{
+	const DataMember* member;
+	syntax::Slice<const CInitializerChild> spans;
+};
+
+struct CInitializerWithFieldSpans : CInitializer
+{
+	syntax::Slice<const CInitializerFieldSpans> fields;
+};
+
+inline syntax::Slice<const CInitializerFieldSpans> CInitializer::field_spans() const
+{
+	return has_field_spans ? static_cast<const CInitializerWithFieldSpans*>(this)->fields
+						   : syntax::Slice<const CInitializerFieldSpans>{};
+}
 
 inline const syntax::Expr* CInitializerOperand(const syntax::Expr* value)
 {

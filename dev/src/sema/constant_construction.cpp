@@ -667,7 +667,7 @@ bool ConstantInterpreter::c_initialize(
 		}
 		if (!construct(plan.type, target, &view, nullptr, location))
 			return false;
-		if (plan.children.empty())
+		if (plan.children.empty() && !plan.has_field_spans)
 			return true;
 		inherited = true;
 	}
@@ -721,6 +721,47 @@ bool ConstantInterpreter::c_initialize(
 		}
 		else if (!c_initialize(*child.initializer, place, location, inherited))
 			return false;
+	}
+	return !plan.has_field_spans || c_initialize_field_spans(plan, target, location);
+}
+
+bool ConstantInterpreter::c_initialize_field_spans(
+	const CInitializer& plan, const ConstPlace& target, uint32_t location)
+{
+	const Type* element = plan.type->element;
+	const uint64_t stride = size_of(element, location);
+	for (const CInitializerFieldSpans& lane : plan.field_spans())
+	{
+		const auto* variable = static_cast<const VariableEntity*>(lane.member->variable);
+		PointerMap saved;
+		std::vector<ConstValue> values;
+		for (const CInitializerChild& span : lane.spans)
+		{
+			uint32_t entry = saved.find(span.initializer);
+			for (uint64_t index = span.index; index < span.limit; ++index)
+			{
+				ConstPlace row = target, field;
+				row.type = element;
+				row.offset += static_cast<int64_t>(index * stride);
+				if (!step(location) || !member_slot(row, variable, field, location))
+					return false;
+				ConstValue* value = nullptr;
+				if (entry == PointerMap::kMissing)
+				{
+					if (!c_initialize(*span.initializer, field, location) || !locate(field, false, value, location))
+						return false;
+					entry = static_cast<uint32_t>(values.size());
+					values.push_back(*value);
+					saved.set(span.initializer, entry);
+				}
+				else
+				{
+					if (!locate(field, true, value, location))
+						return false;
+					copy_into(*value, values[entry]);
+				}
+			}
+		}
 	}
 	return true;
 }

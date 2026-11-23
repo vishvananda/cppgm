@@ -5,6 +5,7 @@
 
 #include "sema/aggregates.h"
 #include "sema/c_initializer.h"
+#include "sema/c_initializer_intervals.h"
 
 namespace sema {
 namespace {
@@ -30,12 +31,6 @@ struct SubobjectHash
 	{
 		return key.index ^ (uint64_t(key.group) * 0x9e3779b97f4a7c15ull);
 	}
-};
-
-struct ArrayWrite
-{
-	uint64_t first, limit;
-	uint32_t node;
 };
 
 struct PatchPath
@@ -76,43 +71,6 @@ void ExtendPatchEnds(PatchEnd& furthest, PatchEnd& other, PatchEnd write)
 	}
 	else if (write.limit > other.limit)
 		other = write;
-}
-
-// Sweep in index order. The heap orders active writes by source order,
-// retaining a write until it can no longer win any later span.
-std::vector<ArrayWrite> WinningSpans(std::vector<ArrayWrite>& writes)
-{
-	std::sort(writes.begin(), writes.end(), [](const ArrayWrite& a, const ArrayWrite& b) { return a.first < b.first; });
-	const auto earlier = [](const ArrayWrite& a, const ArrayWrite& b) { return a.node < b.node; };
-	std::vector<ArrayWrite> active;
-	std::vector<ArrayWrite> result;
-	size_t next = 0;
-	uint64_t index = 0;
-	while (next != writes.size() || !active.empty())
-	{
-		if (active.empty())
-			index = writes[next].first;
-		while (next != writes.size() && writes[next].first <= index)
-		{
-			active.push_back(writes[next++]);
-			std::push_heap(active.begin(), active.end(), earlier);
-		}
-		while (!active.empty() && active.front().limit <= index)
-		{
-			std::pop_heap(active.begin(), active.end(), earlier);
-			active.pop_back();
-		}
-		if (active.empty())
-			continue;
-		const ArrayWrite& winner = active.front();
-		const uint64_t limit = next == writes.size() ? winner.limit : std::min(winner.limit, writes[next].first);
-		if (!result.empty() && result.back().node == winner.node && result.back().limit == index)
-			result.back().limit = limit;
-		else
-			result.push_back(ArrayWrite{ index, limit, winner.node });
-		index = limit;
-	}
-	return result;
 }
 
 } // namespace
@@ -440,8 +398,6 @@ private:
 		const Type* type = nodes_[destination].type;
 		while (IsSubaggregate(type) && !InitializesSubaggregate(type, value))
 		{
-			if (nodes_[destination].repeat_value)
-				analyzer_.error(value.location, "a C range initializer currently requires a whole aggregate value");
 			destination = first_child(destination);
 			if (destination == kNone)
 				analyzer_.error(value.location, "brace elision of an aggregate with no elements");
@@ -494,10 +450,19 @@ private:
 			live[i - first] = 1;
 		if (node.has_spans)
 		{
-			const auto entries = freeze_spans(node, first, live, inherited);
-			auto* plan = analyzer_.arena_.allocate_array<CInitializer>(1);
-			*plan = CInitializer{ completed_type(node), node.value, entries, node.starts_value, true,
-				node.repeat_value };
+			syntax::Slice<const CInitializerFieldSpans> fields = {};
+			const auto entries = freeze_spans(node, first, live, inherited, fields);
+			CInitializer* plan;
+			if (fields.empty())
+				plan = analyzer_.arena_.allocate_array<CInitializer>(1);
+			else
+			{
+				auto* projected = analyzer_.arena_.allocate_array<CInitializerWithFieldSpans>(1);
+				projected->fields = fields;
+				plan = projected;
+			}
+			*plan = CInitializer{ completed_type(node), node.value, entries, node.starts_value, true, node.repeat_value,
+				!fields.empty() };
 			return plan;
 		}
 		auto* entries = analyzer_.arena_.allocate_array<CInitializerChild>(node.child_count);
@@ -516,34 +481,141 @@ private:
 				[](const CInitializerChild& left, const CInitializerChild& right) { return left.index < right.index; });
 		auto* plan = analyzer_.arena_.allocate_array<CInitializer>(1);
 		*plan = CInitializer{ completed_type(node), node.value, { entries, count }, node.starts_value, false,
-			node.repeat_value };
+			node.repeat_value, false };
 		return plan;
 	}
 
-	syntax::Slice<const CInitializerChild> freeze_spans(
-		const Node& node, size_t first, std::vector<uint8_t>& live, bool inherited)
+	syntax::Slice<const CInitializerChild> freeze_spans(const Node& node, size_t first, std::vector<uint8_t>& live,
+		bool inherited, syntax::Slice<const CInitializerFieldSpans>& fields)
 	{
-		std::vector<ArrayWrite> writes;
+		std::vector<CArrayWrite> writes;
 		writes.reserve(node.child_count);
 		for (uint32_t sub = node.first; sub != kNone; sub = nodes_[sub].next)
-			writes.push_back(ArrayWrite{ nodes_[sub].index, array_limit(sub), sub });
-		const auto spans = WinningSpans(writes);
-		if (IsSubaggregate(node.type->element))
-			check_aggregate_spans(writes, spans, inherited);
+			writes.push_back(CArrayWrite{ nodes_[sub].index, array_limit(sub), sub, sub });
+		auto spans = WinningInitializerSpans(writes);
+		if (IsSubaggregate(node.type->element) && !independent_spans(writes, spans, inherited))
+			fields = freeze_field_spans(node, writes, spans, first, live, inherited);
+		return freeze_interval_values(spans, first, live, inherited, node.type->element);
+	}
+
+	syntax::Slice<const CInitializerChild> freeze_interval_values(const std::vector<CArrayWrite>& spans, size_t first,
+		std::vector<uint8_t>& live, bool inherited, const Type* zero_type = nullptr)
+	{
 		auto* entries = analyzer_.arena_.allocate_array<CInitializerChild>(spans.size());
 		FlatMap<uint32_t, const CInitializer*, std::hash<uint32_t>> frozen;
 		uint32_t count = 0;
-		for (const ArrayWrite& span : spans)
+		for (const CArrayWrite& span : spans)
 		{
-			const CInitializer* const* reused = frozen.find(span.node);
-			const CInitializer* value = reused != nullptr ? *reused : freeze(span.node, first, live, inherited);
+			const CInitializer* const* reused = frozen.find(span.value);
+			const CInitializer* value;
 			if (reused == nullptr)
-				frozen.insert(span.node, value);
+			{
+				value = span.value == kNone ? empty_span(zero_type) : freeze(span.value, first, live, inherited);
+				if (spans.size() > 1)
+					frozen.insert(span.value, value);
+			}
+			else
+				value = *reused;
 			auto& entry = entries[count++];
 			entry = CInitializerChild{ value, { nullptr }, span.first };
 			entry.limit = span.limit;
 		}
 		return { entries, count };
+	}
+
+	const CInitializer* empty_span(const Type* type)
+	{
+		auto* plan = analyzer_.arena_.allocate_array<CInitializer>(1);
+		*plan = CInitializer{ type, nullptr, {}, true, false, true, false };
+		return plan;
+	}
+
+	struct MemberWrite
+	{
+		const DataMember* member;
+		CArrayWrite write;
+	};
+
+	bool qualified_container(const Node& node)
+	{
+		for (const Node* owner = &node; owner != nullptr;
+			owner = owner->parent == kNone ? nullptr : &nodes_[owner->parent])
+			if ((owner->type->cv & (kVolatile | kAtomic)) != 0)
+				return true;
+		return false;
+	}
+
+	bool separate_field_writes(const Node& node, const std::vector<CArrayWrite>& writes,
+		std::vector<CArrayWrite>& whole, std::vector<MemberWrite>& patches)
+	{
+		const Type* type = node.type->element;
+		const ClassEntity* record = ClassOf(type);
+		if (record == nullptr || record->key == TokenKind::KW_UNION ||
+			(!analyzer_.c_static_initializer_ &&
+				((type->cv & (kVolatile | kAtomic)) != 0 || qualified_container(node))))
+			return false;
+		for (const CArrayWrite& write : writes)
+		{
+			const Node& value = nodes_[write.value];
+			if (value.starts_value)
+				whole.push_back(write);
+			if (value.value != nullptr)
+				continue;
+			for (uint32_t id = value.first; id != kNone; id = nodes_[id].next)
+			{
+				const Node& field = nodes_[id];
+				if (!field.starts_value && !value.starts_value)
+					return false;
+				patches.push_back({ field.member, { write.first, write.limit, id, write.rank } });
+			}
+		}
+		return true;
+	}
+
+	syntax::Slice<const CInitializerFieldSpans> freeze_field_spans(const Node& node,
+		const std::vector<CArrayWrite>& writes, std::vector<CArrayWrite>& spans, size_t first,
+		std::vector<uint8_t>& live, bool inherited)
+	{
+		std::vector<CArrayWrite> whole;
+		std::vector<MemberWrite> patches;
+		if (!separate_field_writes(node, writes, whole, patches))
+			analyzer_.error(location_, "a partial overwrite of an aggregate range initializer is not yet supported");
+		spans = WinningInitializerSpans(whole);
+		const CInitializerResets resets(spans, node.count);
+		// Braces reset the value and write their explicit members at the
+		// same rank. Keep the reset barriers in the index even when all
+		// of the explicit writes can be emitted through the member lanes.
+		if (inherited)
+		{
+			for (CArrayWrite& span : spans)
+				if (nodes_[span.value].value == nullptr)
+					span.value = kNone;
+		}
+		else
+			spans.erase(std::remove_if(spans.begin(), spans.end(),
+							[&](const CArrayWrite& span) { return nodes_[span.value].value == nullptr; }),
+				spans.end());
+		std::sort(patches.begin(), patches.end(),
+			[](const MemberWrite& a, const MemberWrite& b) { return a.member->ordinal < b.member->ordinal; });
+		std::vector<CInitializerFieldSpans> fields;
+		std::vector<CArrayWrite> member_writes, retained;
+		for (size_t begin = 0; begin != patches.size();)
+		{
+			const DataMember* member = patches[begin].member;
+			member_writes.clear();
+			retained.clear();
+			do
+				member_writes.push_back(patches[begin++].write);
+			while (begin != patches.size() && patches[begin].member == member);
+			for (const CArrayWrite& winner : WinningInitializerSpans(member_writes))
+				resets.clip(winner, retained);
+			if (!retained.empty())
+				fields.push_back({ member, freeze_interval_values(retained, first, live, false) });
+		}
+		auto* entries = analyzer_.arena_.allocate_array<CInitializerFieldSpans>(fields.size());
+		if (!fields.empty())
+			std::copy(fields.begin(), fields.end(), entries);
+		return { entries, static_cast<uint32_t>(fields.size()) };
 	}
 
 	uint32_t patch_path(uint32_t id)
@@ -589,28 +661,27 @@ private:
 		return path == kNone ? uint64_t(kNone) + id : path;
 	}
 
-	void check_aggregate_spans(
-		const std::vector<ArrayWrite>& writes, const std::vector<ArrayWrite>& spans, bool inherited)
+	bool independent_spans(
+		const std::vector<CArrayWrite>& writes, const std::vector<CArrayWrite>& spans, bool inherited)
 	{
 		size_t next = 0;
 		PatchEnd furthest = {}, other = {};
-		for (const ArrayWrite& span : spans)
+		for (const CArrayWrite& span : spans)
 		{
-			if (nodes_[span.node].starts_value)
+			if (nodes_[span.value].starts_value)
 				continue;
-			if (inherited && nodes_[span.node].repeat_value)
-				analyzer_.error(
-					location_, "a partial overwrite of an aggregate range initializer is not yet supported");
+			if (inherited && nodes_[span.value].repeat_value)
+				return false;
 			while (next != writes.size() && writes[next].first < span.limit)
 			{
-				const ArrayWrite& write = writes[next++];
-				ExtendPatchEnds(furthest, other, PatchEnd{ write_path(write.node), write.limit });
+				const CArrayWrite& write = writes[next++];
+				ExtendPatchEnds(furthest, other, PatchEnd{ write_path(write.value), write.limit });
 			}
-			const uint64_t different = write_path(span.node) == furthest.path ? other.limit : furthest.limit;
+			const uint64_t different = write_path(span.value) == furthest.path ? other.limit : furthest.limit;
 			if (different > span.first)
-				analyzer_.error(
-					location_, "a partial overwrite of an aggregate range initializer is not yet supported");
+				return false;
 		}
+		return true;
 	}
 
 	Analyzer& analyzer_;

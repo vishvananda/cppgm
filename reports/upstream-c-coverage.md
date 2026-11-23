@@ -217,17 +217,22 @@ oracle checks the results of 96 generated nested overlap cases against
 cppgm and GCC 15 at both optimization levels.
 [PA38 range suffix fixture](../pa38/tests/general/300-designated-gnu-range-suffixes.t)
 
-Overlapping writes to different suffixes, including ones introduced by
-positional continuation, still require subobject composition. Brace
-elision at a ranged aggregate and automatic ranges of atomic aggregates
-or aggregates with individually volatile subobjects remain open. With an
-aggregate-valued expression followed by a field designation, GCC
-15 clears a previously initialized sibling field. The same behavior
-occurs with point designators. cppgm and Clang 21 preserve that sibling
-in the point control, following the WG14 discussion of implicit
-initialization. A whole braced replacement still initializes omitted
-fields to zero. Carry these distinct cases into the general range
-implementation.
+PA38 covers overlapping writes to distinct direct members of ranged
+records in static and automatic storage. It checks bit-fields, a later
+whole-record reset, brace elision, positional continuation within the
+last record, and a patch to a record previously supplied by an
+expression. The expression case preserves sibling values in accordance
+with WG14 DR 413. GCC 15 clears a previously initialized sibling in
+this case, including with point designators. A braced replacement
+supplies zeros for its omitted fields, as in DR 253. A pointwise oracle
+checks 128 generated sets of member and braced record writes in both
+storage durations. GCC 15 and cppgm match those results at `-O0` and
+`-O2`.
+
+The remaining range cases include composition below a direct member,
+overlap between distinct multidimensional suffixes, union member
+changes, and qualified aggregates in automatic storage.
+[PA38 field overlap fixture](../pa38/tests/general/300-designated-gnu-field-overlaps.t) ·
 [WG14 DR 413](https://www.open-std.org/Jtc1/sc22/WG14/www/docs/dr_413.htm) ·
 [WG14 DR 253](https://www.open-std.org/JTC1/SC22/WG14/www/docs/dr_253.htm)
 

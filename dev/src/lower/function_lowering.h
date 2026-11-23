@@ -1366,6 +1366,11 @@ private:
 		const sema::CInitializer& initializer, const sema::Type* element, uint32_t location);
 	void store_initializer_span(const sema::Type* element, lowir::Value base, uint64_t first, uint64_t limit,
 		const RValue& value, uint32_t location);
+	template<typename Store>
+	void for_initializer_span(
+		const sema::Type* element, lowir::Value base, uint64_t first, uint64_t limit, uint32_t location, Store put);
+	void c_initialize_field_spans(const sema::CInitializer& plan, lowir::Value base, uint32_t location);
+	void store_initializer_value(const sema::Type* type, const RValue& value, lowir::Value address, uint32_t location);
 	void c_initialize_record(
 		const sema::CInitializer& plan, const AddressPath& path, uint8_t cv, uint32_t location, bool inherited);
 	void omitted_array_loop(const sema::Type* type, lowir::Value base, uint32_t location);

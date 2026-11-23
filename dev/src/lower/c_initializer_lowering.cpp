@@ -1,6 +1,7 @@
 #include "lower/function_lowering.h"
 
 #include <algorithm>
+#include <map>
 
 #include "lowir/literals.h"
 #include "sema/aggregates.h"
@@ -8,6 +9,24 @@
 #include "sema/c_initializer.h"
 
 namespace lower {
+namespace {
+
+bool IsZeroInitializerData(const StaticData& data)
+{
+	return std::all_of(data.items.begin(), data.items.end(), [](const lowir::DataItem& item) {
+		return item.kind == lowir::DataItemKind::Zero ||
+			(item.kind == lowir::DataItemKind::Scalar && item.constant.bits.low == 0 && item.constant.bits.high == 0);
+	});
+}
+
+struct StaticInitializerEvent
+{
+	uint64_t index;
+	const sema::DataMember* member;
+	const sema::CInitializer* value;
+};
+
+} // namespace
 
 bool ProgramLowering::static_c_value(const sema::ConstValue& value, StaticValue& out, uint32_t location)
 {
@@ -54,6 +73,8 @@ bool ProgramLowering::static_c_value(const sema::ConstValue& value, StaticValue&
 
 bool ProgramLowering::static_c_initializer(const sema::CInitializer& plan, StaticData& out)
 {
+	if (plan.has_field_spans)
+		return static_c_field_spans(plan, out);
 	const sema::Type* type = plan.type;
 	if (plan.value != nullptr && plan.children.empty())
 		return static_element(type, *plan.value, out);
@@ -109,28 +130,104 @@ bool ProgramLowering::static_c_initializer(const sema::CInitializer& plan, Stati
 				repeated.emplace_back();
 				if (!static_c_initializer(*child.initializer, repeated.back()))
 					return false;
-				auto& items = repeated.back().items;
-				if (std::all_of(items.begin(), items.end(), [](const lowir::DataItem& item) {
-						return item.kind == lowir::DataItemKind::Zero ||
-							(item.kind == lowir::DataItemKind::Scalar && item.constant.bits.low == 0 &&
-								item.constant.bits.high == 0);
-					}))
-					items.clear();
+				if (IsZeroInitializerData(repeated.back()))
+					repeated.back().items.clear();
 				saved_items.set(child.initializer, saved);
 			}
-			const auto& items = repeated[saved].items;
-			if (items.empty())
-				append_zero((child.limit - child.index) * stride, out);
-			else
-			{
-				for (uint64_t i = child.index; i != child.limit; ++i)
-					for (const lowir::DataItem& item : items)
-						append_item(item, out);
-			}
+			append_c_initializer_repeat(repeated[saved], child.limit - child.index, stride, out);
 		}
 		next = child.limit;
 	}
 	fill(type->bound);
+	return true;
+}
+
+void ProgramLowering::append_c_initializer_repeat(
+	const StaticData& value, uint64_t count, uint64_t width, StaticData& out)
+{
+	if (value.items.empty())
+		append_zero(count * width, out);
+	else
+		for (uint64_t i = 0; i < count; ++i)
+			for (const lowir::DataItem& item : value.items)
+				append_item(item, out);
+}
+
+bool ProgramLowering::static_c_field_spans(const sema::CInitializer& plan, StaticData& out)
+{
+	const sema::Type* element = plan.type->element;
+	const uint64_t width = size_of(element, 0);
+	const uint64_t bound = plan.type->bound;
+	if (plan.value != nullptr)
+		return false;
+	PointerMap nonzero;
+	StaticData sample;
+	const auto needs_data = [&](const sema::CInitializer* value) -> uint32_t {
+		uint32_t keep = nonzero.find(value);
+		if (keep == PointerMap::kMissing)
+		{
+			sample.items.clear();
+			if (!static_c_initializer(*value, sample))
+				return PointerMap::kMissing;
+			keep = !IsZeroInitializerData(sample);
+			nonzero.set(value, keep);
+		}
+		return keep;
+	};
+	for (const auto& base : plan.children)
+		if (needs_data(base.initializer) != 0)
+			return false;
+	std::vector<StaticInitializerEvent> events;
+	for (const auto& lane : plan.field_spans())
+		for (const auto& span : lane.spans)
+		{
+			const uint32_t keep = needs_data(span.initializer);
+			if (keep == PointerMap::kMissing)
+				return false;
+			if (!keep)
+				continue;
+			events.push_back({ span.index, lane.member, span.initializer });
+			events.push_back({ span.limit, lane.member, nullptr });
+		}
+	std::sort(events.begin(), events.end(), [](const StaticInitializerEvent& a, const StaticInitializerEvent& b) {
+		if (a.index != b.index)
+			return a.index < b.index;
+		return a.value == nullptr && b.value != nullptr;
+	});
+	std::map<uint64_t, sema::CInitializerChild> active;
+	std::vector<sema::CInitializerChild> fields;
+	StaticData value;
+	size_t event = 0;
+	uint64_t index = 0;
+	while (index < bound)
+	{
+		while (event != events.size() && events[event].index == index)
+		{
+			const auto& change = events[event++];
+			if (change.value == nullptr)
+				active.erase(change.member->ordinal);
+			else
+				active[change.member->ordinal] = sema::CInitializerChild{ change.value, { change.member },
+					change.member->ordinal };
+		}
+		const uint64_t limit = event != events.size() ? events[event].index : bound;
+		value.items.clear();
+		if (!active.empty())
+		{
+			fields.clear();
+			for (const auto& field : active)
+				fields.push_back(field.second);
+			const sema::CInitializer row{ element, nullptr, { fields.data(), static_cast<uint32_t>(fields.size()) },
+				true, false, false, false };
+			uint32_t next = 0;
+			if (!static_aggregate(element, nullptr, next, value, &row, true))
+				return false;
+			if (IsZeroInitializerData(value))
+				value.items.clear();
+		}
+		append_c_initializer_repeat(value, limit - index, width, out);
+		index = limit;
+	}
 	return true;
 }
 
@@ -148,7 +245,7 @@ void FunctionLowering::c_initialize(
 		view.elements = { &value, 1 };
 		uint32_t next = 0;
 		aggregate_item(type, path, &view, next, true, value->location);
-		if (plan.children.empty())
+		if (plan.children.empty() && !plan.has_field_spans)
 			return;
 		inherited = true;
 	}
@@ -215,6 +312,8 @@ void FunctionLowering::c_initialize_spans(
 	}
 	if (!inherited && next < array->bound)
 		omitted_array_tail(array, base, next, location);
+	if (plan.has_field_spans)
+		c_initialize_field_spans(plan, base, location);
 }
 
 RValue FunctionLowering::c_initializer_span_value(
@@ -224,7 +323,9 @@ RValue FunctionLowering::c_initializer_span_value(
 	{
 		const auto slot = generated_slot(lowir::SlotKind::Tmpobj, lowering_.storage_type(element));
 		const AddressPath path{ AddressPath::Root::Storage, lowir::Value::slot(slot), path_steps_.size() };
-		sema::CInitializer snapshot = initializer;
+		sema::CInitializerWithFieldSpans snapshot;
+		static_cast<sema::CInitializer&>(snapshot) = initializer;
+		snapshot.fields = initializer.field_spans();
 		snapshot.type = initializer.type->unqualified;
 		c_initialize(snapshot, path, 0, location);
 		return RValue{ path_address(path), program_.pointer_type() };
@@ -242,21 +343,31 @@ RValue FunctionLowering::c_initializer_span_value(
 void FunctionLowering::store_initializer_span(const sema::Type* element, lowir::Value base, uint64_t first,
 	uint64_t limit, const RValue& value, uint32_t location)
 {
-	const lowir::Type storage = lowering_.storage_type(element);
-	Place destination = {};
-	qualify(destination, element);
-	const bool aggregate = sema::IsSubaggregate(element);
-	const auto put = [&](lowir::Value address) {
-		if (aggregate && (element->cv & sema::kVolatile) != 0)
-			copy_volatile_record(element, value.value, address, false, true, location);
-		else if (aggregate)
-			copy_object(element, value.value, address, location);
+	for_initializer_span(element, base, first, limit, location,
+		[&](lowir::Value address) { store_initializer_value(element, value, address, location); });
+}
+
+void FunctionLowering::store_initializer_value(
+	const sema::Type* type, const RValue& value, lowir::Value address, uint32_t location)
+{
+	if (sema::IsSubaggregate(type))
+	{
+		if ((type->cv & sema::kVolatile) != 0)
+			copy_volatile_record(type, value.value, address, false, true, location);
 		else
-		{
-			destination.storage = address;
-			store_initializer(storage, value, destination);
-		}
-	};
+			copy_object(type, value.value, address, location);
+		return;
+	}
+	Place destination = {};
+	destination.storage = address;
+	qualify(destination, type);
+	store_initializer(lowering_.storage_type(type), value, destination);
+}
+
+template<typename Store>
+void FunctionLowering::for_initializer_span(
+	const sema::Type* element, lowir::Value base, uint64_t first, uint64_t limit, uint32_t location, Store put)
+{
 	if (limit == first + 1)
 	{
 		put(structured_element(base, element, first, location, false));
@@ -281,6 +392,53 @@ void FunctionLowering::store_initializer_span(const sema::Type* element, lowir::
 	store(i64, binary(lowir::BinaryOp::Add, i64, current, integer(i64, 1)), cursor);
 	jump(condition);
 	place(end);
+}
+
+void FunctionLowering::c_initialize_field_spans(const sema::CInitializer& plan, lowir::Value base, uint32_t location)
+{
+	for (const auto& lane : plan.field_spans())
+	{
+		PointerMap saved;
+		std::vector<RValue> values;
+		const auto* variable = static_cast<const sema::VariableEntity*>(lane.member->variable);
+		const sema::Type* type = variable->type;
+		BitField bits = {};
+		uint64_t offset;
+		if (lane.member->bit_field)
+		{
+			bits = bit_field(variable, location);
+			offset = bits.unit_offset;
+		}
+		else
+			offset = lowering_.member_offset(variable, location);
+		for (const auto& span : lane.spans)
+		{
+			uint32_t index = saved.find(span.initializer);
+			if (index == PointerMap::kMissing)
+			{
+				index = static_cast<uint32_t>(values.size());
+				RValue value = c_initializer_span_value(*span.initializer, type, location);
+				if (lane.member->bit_field)
+					value = to_unit(bits, value, type);
+				values.push_back(value);
+				saved.set(span.initializer, index);
+			}
+			const RValue value = values[index];
+			for_initializer_span(plan.type->element, base, span.index, span.limit, location, [&](lowir::Value row) {
+				const lowir::Value address = field_address(row, offset);
+				if (lane.member->bit_field)
+				{
+					Place unit = {};
+					unit.storage = address;
+					unit.untyped = true;
+					qualify(unit, type);
+					write_bit_field(bits, unit, value, false);
+				}
+				else
+					store_initializer_value(type, value, address, location);
+			});
+		}
+	}
 }
 
 void FunctionLowering::c_initialize_record(

@@ -273,12 +273,15 @@ The first fixture set covers these parts of the C17 input profile:
   A second range can select multiple subobjects within each element.
   Both endpoints are in-bounds integer constant expressions and the range
   includes both endpoints. A later write to the same subobject replaces
-  its previous value at the indices they share.
+  its previous value at the indices they share. A write to one member
+  preserves values already supplied for the other members. A replacement
+  for the whole record supplies new values for all of its members.
   Evaluate a surviving range's value once and use it for every element it
   still initializes. Braces can supply the entire aggregate value,
   including its implied zeros. Each nested brace pair has its own current
   object. A positional initializer resumes after the designated subobject
-  of the final range element.
+  of the final range element. Brace elision uses the first subobject as
+  usual when the expression initializes a member of each ranged element.
   The aggregate cases cover ordinary records and rows, including
   volatile-qualified record destinations with ordinary members.
   Diagnose a range under the pedantic policy.
