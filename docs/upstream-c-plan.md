@@ -53,12 +53,12 @@ Start the next batches from the existing receipts.
    `#error` messages. The computed-header cases cover literal backslashes
    and document the C angle whitespace policy. C99 through C17
    receipts now cover direct and computed `__has_include` operands.
-   Carry the same test into C23 when that mode is available. C string expressions retain their
-   decoded code units through semantic analysis and lowering. This closes
-   the measured escape-heavy compile regression and adds C11 and C17
-   runtime evidence for adjacent storage and wide code units. Cover pragmas
-   and their location and edition rules,
-   then declarators, initializers, conversions, constant expressions, and
+   Carry the same test into C23 when that mode is available. C string
+   expressions retain their decoded code units through semantic analysis
+   and lowering. This closes the measured escape-heavy compile regression
+   and adds C11 and C17 runtime evidence for adjacent storage and wide
+   code units. Cover pragmas and their location and edition rules, then
+   declarators, initializers, conversions, constant expressions, and
    linkage. Pair edition boundaries with native reference runs and
    earliest-assignment regressions.
    [Literal measurements](performance/c-frontend-scaling.md#escape-heavy-c-literals)
@@ -118,7 +118,8 @@ each applicable configuration. A suite pass count measures compatibility
 with that suite. Coverage grows as individual rules gain evidence, with
 uncovered requirements and unqualified targets visible in the same matrix.
 The combined C99–C17 translation-limits program runs in the C CI job on
-x86-64 Linux and WASI. Record the remaining native macOS executions in the
+x86-64 Linux, WASI, and bare Wasm. The native AArch64 Linux and macOS
+jobs run the same probes. Record their results in the
 [translation-limits inventory](../reports/upstream-c-coverage.md#combined-translation-limits).
 
 Use stable rule IDs in the inventory and the CI manifests so one test can
@@ -169,9 +170,10 @@ edition and target receipt. Keep uncovered mandatory rules visible even
 when all checked cases pass. Use the same structure for C90, C95, and C23
 and add the C fixtures and maintainer corpus without duplicating the rules.
 
-The Linux x86-64 and WASI CI job now pilots the join with the combined
-translation-limits program and directive rules. Extend the inventory and
-reuse the evidence format in the remaining target lanes. A single execution
+The C CI job now exercises the join on Linux x86-64, WASI, and bare
+Wasm with the combined translation-limits program and directive rules.
+Extend the inventory and collect the native CI results using the same
+receipt format. A single execution
 can supply evidence for multiple limit rows when the program exercises each
 minimum observably.
 [Versioned inventory](../reports/c-conformance.json) ·

@@ -253,20 +253,15 @@ jobs:
         run: make -C pa38 test CPPGM_SKIP_DEV_REBUILD=1
       - name: Check the same C fixtures on Wasm
         run: make -C pa38 test-wasm CPPGM_SKIP_DEV_REBUILD=1
-      - name: Record C clause evidence on Linux and WASI
+      - name: Record C clause evidence on Linux, WASI, and bare Wasm
         run: |
           set -euo pipefail
           work="$RUNNER_TEMP/c-conformance"
           resource="$(wasm-ref-clang++ -print-resource-dir)"
-          status=0
-          python3 scripts/c_conformance.py probe --output "$work" \
+          python3 scripts/c_conformance.py probe --output "$work" --report \
             --wasi-sysroot "$RUNNER_TEMP/wasm-tools/wasi-sdk/share/wasi-sysroot" \
-            --wasi-resource-dir "$resource" || status=$?
-          if [ -f "$work/receipts.json" ]; then
-            python3 scripts/c_conformance.py report "$work/receipts.json" --output "$work/matrix.json" \
-              | tee -a "$GITHUB_STEP_SUMMARY" || status=$?
-          fi
-          exit "$status"
+            --wasi-resource-dir "$resource" --bare-wasm \
+            | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Store C clause evidence
         if: always()
         uses: actions/upload-artifact@v6

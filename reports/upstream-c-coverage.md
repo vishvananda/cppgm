@@ -45,9 +45,17 @@ Wasm run invokes an exported entry point and also checks the large object.
 GCC 15 and Clang 21 passed the same edition and optimization matrix on
 Linux x86-64. Both Darwin targets emitted objects and cross-linked dylibs
 in all six configurations. Native macOS execution remains open. The C CI
-job runs the Linux x86-64 and WASI configurations. It records the object,
-link, and execution stages at both optimization levels. The rule inventory
-maps the combined executable to each applicable minimum. It also tracks
+job runs the Linux x86-64, WASI, and bare Wasm configurations. The bare
+compile uses `-ffreestanding -nostdinc`. The link exports the C entry
+without a sysroot or startup files. The receipt checks that the actual
+exported return value is zero, since Wasmtime reports it on stdout. The
+job records the object, link, and execution stages at both optimization
+levels. The native AArch64 Linux, Intel macOS, and Apple Silicon jobs
+now collect this evidence with their own host C linkers. All 22 C99
+through C17 cases pass on Linux AArch64 under QEMU with a cross-linked
+glibc runtime. Native results from these jobs remain pending. The
+rule inventory maps the combined executable to each applicable minimum.
+It also tracks
 the physical include check, the presumed diagnostic location, and the
 unexpanded `#error` message as separate results. The job publishes the
 target and edition matrix with the raw receipts. An absent result stays
@@ -93,8 +101,8 @@ embedded zero, two UTF-16 surrogate units and one UTF-32 code unit. It
 checks the inferred bounds, final null, and zero fill for static, local
 aggregate, and volatile arrays. GCC 15 and Clang 21 agree with the values.
 The C clause job runs the fixture in C11 and C17 at `-O0` and `-O2` on
-Linux x86-64 and WASI. The C11 regression also runs on AArch64 under
-QEMU and cross-links on both Darwin architectures.
+Linux x86-64, WASI, and bare Wasm. The C11 regression also runs on
+AArch64 under QEMU and cross-links on both Darwin architectures.
 [PA38 code-unit fixture](../pa38/tests/general/500-c-string-code-units.t) ·
 [WG14 N1570 §6.4.5](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf#page=89) ·
 [Clause matrix](c-conformance.json)

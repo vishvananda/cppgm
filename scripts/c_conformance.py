@@ -17,6 +17,12 @@ ROOT = Path(__file__).resolve().parents[1]
 INVENTORY = ROOT / 'reports/c-conformance.json'
 C_EDITIONS = (90, 95, 99, 11, 17, 23)
 PILOT_EDITIONS = (99, 11, 17)
+NATIVE_PROFILES = {
+    ('Linux', 'x86_64'): 'linux-x86_64-hosted',
+    ('Linux', 'aarch64'): 'linux-aarch64-hosted',
+    ('Darwin', 'x86_64'): 'darwin-x86_64-hosted',
+    ('Darwin', 'arm64'): 'darwin-arm64-hosted',
+}
 RUN_STAGES = ('compile', 'link', 'run')
 CASES = {
     'limits.combined': (RUN_STAGES, ('O0', 'O2')),
@@ -86,6 +92,8 @@ def evidence_key(row, profiles):
         outcomes = [(stage['classification'], stage['returncode']) for stage in row['stages']]
         if names != stages or outcomes != [want] * len(stages):
             raise ValueError(f'passing result lacks stage evidence: {key}')
+        if profile == 'wasm-freestanding' and names == RUN_STAGES and row['stages'][-1].get('stdout') != '0\n':
+            raise ValueError(f'passing result lacks bare Wasm return value: {key}')
     return key
 
 
@@ -128,8 +136,8 @@ def coverage(profiles, rules, receipts):
                            missing=[list(key) for key in keys if key not in receipts] if status == 'uncovered' else [])
 
 
-def report(args, profiles, rules):
-    rows = list(coverage(profiles, rules, read_evidence(args.receipts, profiles)))
+def report(receipts, output, profiles, rules):
+    rows = list(coverage(profiles, rules, read_evidence(receipts, profiles)))
     print('### C clause evidence\n')
     print('| Edition | Profile | Passing | Failing | Uncovered | Inapplicable |')
     print('| --- | --- | ---: | ---: | ---: | ---: |')
@@ -139,18 +147,20 @@ def report(args, profiles, rules):
     for (edition, profile), outcomes in counts.items():
         values = [outcomes[status] for status in ('passing', 'failing', 'uncovered', 'inapplicable')]
         print(f'| C{edition} | {profile} | ' + ' | '.join(map(str, values)) + ' |')
-    if args.output:
-        write_json(args.output, dict(schema=1, rows=rows))
+    if output:
+        write_json(output, dict(schema=1, rows=rows))
     return int(any(row['status'] == 'failing' for row in rows))
 
 
-def run_stages(directory, commands):
+def run_stages(directory, commands, capture_run_stdout=False):
     directory.mkdir(parents=True)
     stages = []
     for name, command in commands:
         # Wasmtime reserves virtual memory for guards as well as linear memory.
         limits = dict(LIMITS, address_space_bytes=64 * 1024 ** 3) if name == 'run' else LIMITS
-        result, _, diagnostic = execute(command, directory / name, limits)
+        result, stdout, diagnostic = execute(command, directory / name, limits)
+        if capture_run_stdout and name == 'run':
+            result['stdout'] = stdout
         stages.append(dict(name=name, **result))
         if result['classification'] != 'success':
             break
@@ -164,6 +174,7 @@ def receipt(case, profile, edition, variant, passed, stages):
 
 
 def probe_target(output, profile, compiler, setup, link, runner):
+    bare_wasm = profile['id'] == 'wasm-freestanding'
     for edition in PILOT_EDITIONS:
         flags = [compiler, '--target=' + profile['target'], *setup, '-x', 'c', f'-std=c{edition}', '-pedantic-errors']
         work = output / profile['id'] / f'c{edition}'
@@ -182,8 +193,12 @@ def probe_target(output, profile, compiler, setup, link, runner):
                     ('compile', [*flags, *source_flags, '-' + variant, '-c', str(source), '-o', obj]),
                     ('link', [*link, obj, '-o', binary]),
                     ('run', [*runner, binary]),
-                ])
-                passed = stages[-1]['name'] == 'run' and stages[-1]['classification'] == 'success'
+                ], capture_run_stdout=bare_wasm)
+                last = stages[-1]
+                passed = last['name'] == 'run' and last['classification'] == 'success'
+                if passed and bare_wasm:
+                    # Wasmtime's process succeeds even when the exported function returns nonzero.
+                    passed = last['stdout'] == '0\n'
                 yield receipt(case, profile, edition, variant, passed, stages)
         stages, text = run_stages(work / 'error', [
             ('preprocess', [*flags, '-E', str(ERROR_SOURCE), '-o', '/dev/null']),
@@ -196,9 +211,11 @@ def probe_target(output, profile, compiler, setup, link, runner):
             yield receipt(case, profile, edition, 'default', rejected and found, stages)
 
 
-def probes(args, profiles, _rules):
-    if platform.system() != 'Linux' or platform.machine() != 'x86_64':
-        raise ValueError('the pilot runner requires an x86-64 Linux host')
+def probes(args, profiles, rules):
+    host = (platform.system(), platform.machine())
+    native = NATIVE_PROFILES.get(host)
+    if native is None:
+        raise ValueError(f'no C probe profile for {host[0]} {host[1]}')
     output = args.output.resolve()
     work = output / 'inputs'
     work.mkdir(parents=True)
@@ -207,7 +224,7 @@ def probes(args, profiles, _rules):
         subprocess.run([sys.executable, str(ROOT / 'scripts/generate_c_translation_limits.py'), str(work)],
                        stdout=file, check=True)
     compiler = str(args.candidate.resolve())
-    results = list(probe_target(output, profiles['linux-x86_64-hosted'], compiler, [], [args.cc], []))
+    results = list(probe_target(output, profiles[native], compiler, [], [args.cc], []))
     if args.wasi_sysroot:
         wasi = profiles['wasi-hosted']
         if args.wasi_resource_dir is None:
@@ -216,13 +233,20 @@ def probes(args, profiles, _rules):
         setup = [sysroot, '-resource-dir=' + str(args.wasi_resource_dir)]
         link = [compiler, '--target=' + wasi['target'], sysroot]
         results.extend(probe_target(output, wasi, compiler, setup, link, [args.wasmtime, 'run']))
+    if args.bare_wasm:
+        bare = profiles['wasm-freestanding']
+        link = [compiler, '--target=' + bare['target'], '-nostdlib', '--export', 'main']
+        runner = [args.wasmtime, 'run', '--invoke', 'main']
+        results.extend(probe_target(output, bare, compiler, ['-ffreestanding', '-nostdinc'], link, runner))
     revision = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
     inputs = sorted([*work.glob('*.h'), limits, ERROR_SOURCE, INCLUDE_SOURCE, STRING_SOURCE, INCLUDE_QUERY,
                      INCLUDE_QUERY.parent / 'c-header  spaces.h',
                      INCLUDE_SOURCE.parent / 'c-include-physical.h', INCLUDE_SOURCE.parent / 'c-include-local.h'])
-    write_json(output / 'receipts.json', dict(schema=1, revision=revision, compiler_sha256=sha256(Path(compiler)),
-                                            inputs={str(source): sha256(source) for source in inputs}, results=results))
-    return int(any(row['status'] == 'failed' for row in results))
+    receipt_path = output / 'receipts.json'
+    write_json(receipt_path, dict(schema=1, revision=revision, compiler_sha256=sha256(Path(compiler)),
+                                  inputs={str(source): sha256(source) for source in inputs}, results=results))
+    report_status = report([receipt_path], output / 'matrix.json', profiles, rules) if args.report else 0
+    return report_status or int(any(row['status'] == 'failed' for row in results))
 
 
 def main():
@@ -236,11 +260,13 @@ def main():
     run.add_argument('--wasi-sysroot', type=Path)
     run.add_argument('--wasi-resource-dir', type=Path)
     run.add_argument('--wasmtime', default='wasmtime')
+    run.add_argument('--bare-wasm', action='store_true')
+    run.add_argument('--report', action='store_true', help='print and save the clause matrix after probing')
     run.set_defaults(command=probes)
     show = commands.add_parser('report')
     show.add_argument('receipts', nargs='*', type=Path)
     show.add_argument('--output', type=Path)
-    show.set_defaults(command=report)
+    show.set_defaults(command=lambda args, profiles, rules: report(args.receipts, args.output, profiles, rules))
     args = parser.parse_args()
     try:
         return args.command(args, *inventory(args.inventory))

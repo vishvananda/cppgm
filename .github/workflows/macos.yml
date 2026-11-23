@@ -55,6 +55,21 @@ jobs:
             NATIVE_DRIVER_TESTS='300-c-environment-hosted 500-c-integer-headers'
           make -C pa38 check CPPGM_SKIP_DEV_REBUILD=1 CXX="$CXX" CPPGM_HOST_CXX="$CPPGM_HOST_CXX" \
             TEST=tests/controls/500-c11-stdatomic.t
+      - name: Record native C clause evidence
+        if: matrix.llvm == 21
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/c-conformance"
+          python3 scripts/c_conformance.py probe --output "$work" --report \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Store C clause evidence
+        if: always() && matrix.llvm == 21
+        uses: actions/upload-artifact@v6
+        with:
+          name: c-conformance-darwin-x86_64
+          path: ${{ runner.temp }}/c-conformance
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Install pinned Wasm validation tools
         run: |
           perl scripts/install_wasm_tools.pl --prefix "$RUNNER_TEMP/wasm-tools" --benchmark-engine

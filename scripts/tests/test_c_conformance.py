@@ -63,6 +63,19 @@ class CoverageTests(unittest.TestCase):
         row['status'] = 'failed'
         self.assertEqual(evidence_key(row, self.profiles), expected)
 
+    def test_bare_wasm_result_checks_the_exported_value(self):
+        profile = self.profiles['wasm-freestanding']
+        row = dict(self.valid_runtime(), profile=profile['id'], target=profile['target'],
+                   environment=profile['environment'])
+        last = row['stages'][-1]
+        for extra in ({}, {'stdout': '1\n'}):
+            with self.subTest(extra=extra):
+                last.update(extra)
+                with self.assertRaisesRegex(ValueError, 'lacks bare Wasm return value'):
+                    evidence_key(row, self.profiles)
+        last['stdout'] = '0\n'
+        self.assertEqual(evidence_key(row, self.profiles), ('limits.combined', profile['id'], 99, 'O0'))
+
     def test_rejects_wrong_target_and_duplicate_receipts(self):
         row = self.valid_runtime()
         with self.assertRaisesRegex(ValueError, 'target or environment mismatch'):
