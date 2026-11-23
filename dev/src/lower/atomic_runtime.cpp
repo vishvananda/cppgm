@@ -77,6 +77,14 @@ RValue FunctionLowering::atomic_runtime_call(const syntax::CallExpr& expr, sema:
 	const bool compare = kind == sema::Intrinsic::AtomicCompareExchange;
 	const syntax::Slice<syntax::Expr*>& operands = expr.arguments;
 	const sema::Type* pointer = operands[0]->facts->type->unqualified;
+	if (kind >= sema::Intrinsic::AtomicAddFetch && kind <= sema::Intrinsic::AtomicFetchNand)
+	{
+		const lowir::Type type = lowering_.storage_type(pointer->element);
+		const lowir::Value target = operand(*operands[0], ConversionContext::Argument).value;
+		const RValue input = operand(*operands[1], ConversionContext::Argument);
+		const lowir::MemoryOrder order = memory_order(*operands[2]);
+		return atomic_update(kind, type, target, input, order, expr.location);
+	}
 	const size_t base = arguments_.size();
 	arguments_.push_back(integer(
 		lowir::Type::scalar(program_.pointer_type().pointer_bytes() == 4 ? lowir::TypeKind::I32 : lowir::TypeKind::I64),
@@ -492,11 +500,16 @@ RValue FunctionLowering::begin_atomic_loop(
 	return load(storage, view);
 }
 
-void FunctionLowering::end_atomic_loop(
-	const Place& object, lowir::Type storage, const AtomicLoop& loop, const RValue& updated, uint32_t location)
+void FunctionLowering::end_atomic_loop(const Place& object, lowir::Type storage, const AtomicLoop& loop,
+	const RValue& updated, uint32_t location, lowir::MemoryOrder order)
 {
 	// The new value's bits (over a copy of the old ones: a long double's
 	// padding unchanged), exchanged for the expected ones, else retried.
+	// Failure only reads the value and therefore has no release part.
+	using lowir::MemoryOrder;
+	const MemoryOrder failure = order == MemoryOrder::Release ? MemoryOrder::Relaxed
+		: order == MemoryOrder::AcqRel                        ? MemoryOrder::Acquire
+															  : order;
 	RValue exchanged;
 	if (loop.runtime)
 	{
@@ -511,7 +524,8 @@ void FunctionLowering::end_atomic_loop(
 		access.object = loop.object_address;
 		access.expected = loop.expected_address;
 		access.desired = desired.storage;
-		access.failure = lowir::MemoryOrder::SeqCst;
+		access.order = order;
+		access.failure = failure;
 		exchanged = emit_atomic_access(storage, access, RValue(), location);
 	}
 	else
@@ -535,14 +549,60 @@ void FunctionLowering::end_atomic_loop(
 		exchange.ops[0] = object.storage;
 		exchange.ops[1] = address_of(expected);
 		exchange.ops[2] = desired.value;
-		exchange.order = lowir::MemoryOrder::SeqCst;
-		exchange.sub = static_cast<uint8_t>(lowir::MemoryOrder::SeqCst);
+		exchange.order = order;
+		exchange.sub = static_cast<uint8_t>(failure);
 		exchanged.type = lowir::Type::scalar(lowir::TypeKind::I64);
 		exchanged.value = emit_value(exchange, exchanged.type);
 	}
 	const lowir::BlockId done = new_block(lowir::BlockKind::AtomicDone);
 	branch(exchanged, done, loop.retry);
 	place(done);
+}
+
+RValue FunctionLowering::atomic_update(sema::Intrinsic kind, lowir::Type type, lowir::Value target, const RValue& value,
+	lowir::MemoryOrder order, uint32_t location)
+{
+	// `__atomic_<op>_fetch` (the new value) and `__atomic_fetch_<op>` (the
+	// old). A subtraction adds the negated value; the bitwise updates retry
+	// a compare-exchange of the value last seen (a failed exchange writes
+	// the current value back into the expected slot) until it succeeds.
+	using sema::Intrinsic;
+	const bool fetch_first = kind >= Intrinsic::AtomicFetchAdd;
+	const Intrinsic op = fetch_first
+		? static_cast<Intrinsic>(static_cast<uint8_t>(kind) -
+			  (static_cast<uint8_t>(Intrinsic::AtomicFetchAdd) - static_cast<uint8_t>(Intrinsic::AtomicAddFetch)))
+		: kind;
+	const bool runtime = type.kind() == lowir::TypeKind::I128;
+	if (!runtime && (op == Intrinsic::AtomicAddFetch || op == Intrinsic::AtomicSubFetch))
+	{
+		const RValue delta = op == Intrinsic::AtomicAddFetch ? value : unary(lowir::UnaryOp::Neg, value);
+		lowir::Instruction inst = lowir::make_instruction(lowir::Opcode::AtomicAddFetch, type);
+		inst.ops[0] = target;
+		inst.ops[1] = delta.value;
+		inst.order = order;
+		RValue updated;
+		updated.value = emit_value(inst, type);
+		updated.type = type;
+		return fetch_first ? binary(lowir::BinaryOp::Sub, type, updated, delta) : updated;
+	}
+	Place object = {};
+	object.storage = target;
+	AtomicLoop loop;
+	loop.bits = type;
+	loop.runtime = runtime;
+	const RValue previous = begin_atomic_loop(object, type, loop, location);
+	using lowir::BinaryOp;
+	const BinaryOp operation = op == Intrinsic::AtomicAddFetch ? BinaryOp::Add
+		: op == Intrinsic::AtomicSubFetch                      ? BinaryOp::Sub
+		: op == Intrinsic::AtomicOrFetch                       ? BinaryOp::Or
+		: op == Intrinsic::AtomicXorFetch                      ? BinaryOp::Xor
+															   : BinaryOp::And;
+	// Builtin integer arithmetic wraps, even on signed operands.
+	RValue updated = binary(operation, type, previous, value);
+	if (op == Intrinsic::AtomicNandFetch)
+		updated = unary(lowir::UnaryOp::BitNot, updated);
+	end_atomic_loop(object, type, loop, updated, location, order);
+	return fetch_first ? previous : updated;
 }
 
 } // namespace lower

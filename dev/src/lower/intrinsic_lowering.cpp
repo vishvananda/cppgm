@@ -981,68 +981,6 @@ RValue FunctionLowering::atomic_intrinsic(const syntax::CallExpr& expr, sema::In
 	return result_of(atomic_update(kind, type, target, value, order_at(2)));
 }
 
-RValue FunctionLowering::atomic_update(
-	sema::Intrinsic kind, lowir::Type type, lowir::Value target, const RValue& value, lowir::MemoryOrder order)
-{
-	// `__atomic_<op>_fetch` (the new value) and `__atomic_fetch_<op>` (the
-	// old). A subtraction adds the negated value; the bitwise updates retry
-	// a compare-exchange of the value last seen (a failed exchange writes
-	// the current value back into the expected slot) until it succeeds.
-	using sema::Intrinsic;
-	const bool fetch_first = kind >= Intrinsic::AtomicFetchAdd;
-	const Intrinsic op = fetch_first
-		? static_cast<Intrinsic>(static_cast<uint8_t>(kind) -
-			  (static_cast<uint8_t>(Intrinsic::AtomicFetchAdd) - static_cast<uint8_t>(Intrinsic::AtomicAddFetch)))
-		: kind;
-	if (op == Intrinsic::AtomicAddFetch || op == Intrinsic::AtomicSubFetch)
-	{
-		const RValue delta = op == Intrinsic::AtomicAddFetch ? value : unary(lowir::UnaryOp::Neg, value);
-		lowir::Instruction inst = lowir::make_instruction(lowir::Opcode::AtomicAddFetch, type);
-		inst.ops[0] = target;
-		inst.ops[1] = delta.value;
-		inst.order = order;
-		RValue updated;
-		updated.value = emit_value(inst, type);
-		updated.type = type;
-		return fetch_first ? binary(lowir::BinaryOp::Sub, type, updated, delta) : updated;
-	}
-	Place expected = Place();
-	expected.storage = lowir::Value::slot(generated_slot(lowir::SlotKind::AtomicExpected, type));
-	lowir::Instruction first = lowir::make_instruction(lowir::Opcode::AtomicLoad, type);
-	first.ops[0] = target;
-	first.order = lowir::MemoryOrder::Relaxed;
-	RValue seen;
-	seen.value = emit_value(first, type);
-	seen.type = type;
-	store(type, seen, expected);
-	const lowir::BlockId retry = new_block(lowir::BlockKind::AtomicRetry);
-	const lowir::BlockId done = new_block(lowir::BlockKind::AtomicDone);
-	jump(retry);
-	place(retry);
-	const RValue previous = load(type, expected);
-	const lowir::BinaryOp bitwise = op == Intrinsic::AtomicOrFetch ? lowir::BinaryOp::Or
-		: op == Intrinsic::AtomicXorFetch                          ? lowir::BinaryOp::Xor
-																   : lowir::BinaryOp::And;
-	RValue updated = binary(bitwise, type, previous, value);
-	if (op == Intrinsic::AtomicNandFetch)
-		updated = unary(lowir::UnaryOp::BitNot, updated);
-	lowir::Instruction exchange = lowir::make_instruction(lowir::Opcode::AtomicCompareExchange, type);
-	exchange.ops[0] = target;
-	exchange.ops[1] = address_of(expected);
-	exchange.ops[2] = updated.value;
-	exchange.order = order;
-	// A failure only reads: no release part (C++11 29.6.5p20).
-	exchange.sub = static_cast<uint8_t>(order == lowir::MemoryOrder::Release ? lowir::MemoryOrder::Relaxed
-			: order == lowir::MemoryOrder::AcqRel                            ? lowir::MemoryOrder::Acquire
-																			 : order);
-	RValue exchanged;
-	exchanged.type = lowir::Type::scalar(lowir::TypeKind::I64);
-	exchanged.value = emit_value(exchange, exchanged.type);
-	branch(exchanged, done, retry);
-	place(done);
-	return fetch_first ? previous : updated;
-}
-
 RValue FunctionLowering::overflow_intrinsic(const syntax::CallExpr& expr, sema::Intrinsic kind)
 {
 	// a op b computed exactly and stored through r modulo r's type; the

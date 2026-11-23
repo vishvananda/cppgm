@@ -1957,7 +1957,8 @@ ExprFacts* Analyzer::atomic_builtin(const syntax::CallExpr& expr, const AtomicFo
 	// GCC's __atomic builtins ("Built-in Functions for Memory Model Aware
 	// Atomic Operations") and its legacy __sync ones (which imply their
 	// memory order). Operand roles (lex/gnu_builtins.h): p the object's
-	// address (an integral or pointer type of 1, 2, 4 or 8 bytes,
+	// address (an integral or pointer type of 1, 2, 4 or 8 bytes, or
+	// a 128-bit integer for the modern scalar forms,
 	// arithmetic on a pointer unscaled; for the generic load, store,
 	// exchange and compare_exchange any object type of those sizes, its
 	// bytes as the integer of that size, as PA27's inline forms;
@@ -2038,13 +2039,13 @@ ExprFacts* Analyzer::atomic_builtin(const syntax::CallExpr& expr, const AtomicFo
 				object = pointer->element->unqualified;
 				const bool sized = type_size(object, size, alignment, expr.location);
 				const bool scalar_size = target_model::is_inline_atomic_size(size);
-				if (!sized || size == 0 || (!scalar_size && !generic) ||
+				const bool wide_integer = size == 16 && form.implied == 0 && IsWideIntegral(object);
+				if (!sized || size == 0 || (!scalar_size && !generic && !wide_integer) ||
 					(!generic && !(IsIntegralOrUnscopedEnum(object) || object->kind == TypeKind::Pointer)))
 				{
 					substitution_error(expr.location,
-						generic
-							? "a generic atomic builtin on an incomplete or unsupported object type"
-							: "an atomic builtin on an object of no integral or pointer type of 1, 2, 4 or 8 bytes");
+						generic ? "a generic atomic builtin on an incomplete or unsupported object type"
+								: "an atomic builtin on an unsupported scalar type or width");
 					return nullptr;
 				}
 				uint64_t storage_size = size;
@@ -2054,7 +2055,8 @@ ExprFacts* Analyzer::atomic_builtin(const syntax::CallExpr& expr, const AtomicFo
 					type_size(pointer->element, storage_size, alignment, expr.location);
 				if (!target_model::is_inline_atomic_size(storage_size))
 					lowering_flags |= kAtomicRuntimeCall;
-				if (storage_size != size || (!indirect_generic && (lowering_flags & kAtomicRuntimeCall) != 0))
+				if (storage_size != size ||
+					(!indirect_generic && !arithmetic_kind && (lowering_flags & kAtomicRuntimeCall) != 0))
 					lowering_flags |= kAtomicBufferedCall;
 				if (!atomics_enabled_ && (lowering_flags & kAtomicRuntimeCall) != 0 && form.implied == 0)
 				{
@@ -2063,10 +2065,12 @@ ExprFacts* Analyzer::atomic_builtin(const syntax::CallExpr& expr, const AtomicFo
 					return nullptr;
 				}
 			}
-			// Clang takes T* for expected. The GNU pointer forms also
-			// accept a different type with the same representation size.
+			// Clang and wide scalar compare-exchange take T* for expected.
+			// The GNU generic forms accept a matching representation size.
 			uint64_t other = 0, other_alignment = 0;
-			if (role == 'r' && form.any_object)
+			if (role == 'r' &&
+				(form.any_object ||
+					(kind == Intrinsic::AtomicCompareExchangeN && (lowering_flags & kAtomicRuntimeCall) != 0)))
 				pointer = types_.pointer(object);
 			else if (role == 'r' && generic && object != nullptr &&
 				(!type_size(pointer->element->unqualified, other, other_alignment, argument.location) || other != size))
@@ -2083,8 +2087,7 @@ ExprFacts* Analyzer::atomic_builtin(const syntax::CallExpr& expr, const AtomicFo
 			: role == 'o'                  ? FundamentalType::Int
 										   : FundamentalType::Void;
 		// An update of a pointer adds or combines an integer (as uintptr_t).
-		const bool arithmetic = kind >= Intrinsic::AtomicAddFetch && kind <= Intrinsic::AtomicFetchNand;
-		if (type == FundamentalType::Void && object != nullptr && arithmetic && object->kind == TypeKind::Pointer)
+		if (type == FundamentalType::Void && object != nullptr && arithmetic_kind && object->kind == TypeKind::Pointer)
 			type = FundamentalType::LongInt;
 		if (type != FundamentalType::Void)
 			convert(argument, types_.fundamental(type), false);

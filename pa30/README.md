@@ -744,7 +744,7 @@ exceptions. Evaluate the input once and leave unused result bits zero.
 ### Atomic memory orders
 
 A memory order of the `__atomic` and `__c11_atomic` builtins that is not a
-constant is `seq_cst`, as GCC takes it, except at a store or thread fence
+constant is `seq_cst`, as GCC takes it, except at an inline store or thread fence
 (`__atomic_store_n`, `__atomic_store`, `__atomic_clear`,
 `__atomic_thread_fence`, `__c11_atomic_store` and
 `__c11_atomic_thread_fence`). There the lowering branches on `cmp ult` of
@@ -771,8 +771,13 @@ observed ordinary value to the caller's expected object only when
 compare-exchange fails. Use an inline operation where the atomic storage
 width allows it. The generic runtime receives the atomic storage width
 and needs a compatible provider such as Linux's `libatomic`, supplied by
-the host link command. Atomic arithmetic and GNU scalar-only forms retain
-their existing size restrictions.
+the host link command. The modern GNU scalar builtins and Clang's
+arithmetic builtins also accept 128-bit integers. Use the same runtime
+protocol for their loads, stores, exchange, and compare-exchange.
+For arithmetic, evaluate the operands once and use a compare-exchange
+loop with the requested success order. The failure order drops any
+release component. Integer arithmetic wraps at the object's width,
+and the builtin spelling selects the old or new value.
 
 The weak argument's value does not change the runtime ABI. cppgm preserves
 its expression's side effects once, as Clang does; GCC 15 discards that

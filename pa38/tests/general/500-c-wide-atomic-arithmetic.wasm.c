@@ -36,7 +36,8 @@ void store_value(size_t size, void *result, const void *source, int order)
 
 _Bool replace_value(size_t size, void *object, void *expected, const void *desired, int success, int failure)
 {
-    if (success != __ATOMIC_SEQ_CST || (failure != __ATOMIC_RELAXED && failure != __ATOMIC_SEQ_CST))
+    if (success != __ATOMIC_SEQ_CST || failure < __ATOMIC_RELAXED || failure > __ATOMIC_SEQ_CST ||
+        failure == __ATOMIC_RELEASE || failure == __ATOMIC_ACQ_REL)
         invalid_order = 1;
     if (retry_pending && object == (void *)&number && size == sizeof(long double)) {
         long double replacement = 8.0L;

@@ -42,8 +42,17 @@ static int integer_update(void)
     WideInt base = (WideInt)1 << 80;
     _Atomic(WideInt) local = base;
     struct Holder { _Atomic(WideInt) member; } holder = { .member = base };
-    return local++ == base && ++holder.member == base + 1 &&
-        (local += base) == 2 * base + 1 && local == 2 * base + 1;
+    if (local++ != base || ++holder.member != base + 1 ||
+        (local += base) != 2 * base + 1 || local != 2 * base + 1)
+        return 0;
+    WideInt value;
+    __atomic_store_n(&value, base, __ATOMIC_SEQ_CST);
+    if (__c11_atomic_fetch_add(&local, 1, __ATOMIC_SEQ_CST) != 2 * base + 1 ||
+        __atomic_fetch_add(&value, 7, __ATOMIC_SEQ_CST) != base)
+        return 0;
+    WideInt expected = base + 7;
+    return __atomic_compare_exchange_n(&value, &expected, base, 0, __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE) &&
+        __atomic_load_n(&value, __ATOMIC_SEQ_CST) == base && local == 2 * base + 2;
 }
 #endif
 

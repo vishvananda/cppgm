@@ -742,8 +742,8 @@ private:
 	static bool atomic_bits(lowir::Type storage, lowir::Type& bits);
 	bool prepare_atomic_loop(lowir::Type storage, AtomicLoop& loop);
 	RValue begin_atomic_loop(const Place& object, lowir::Type storage, AtomicLoop& loop, uint32_t location);
-	void end_atomic_loop(
-		const Place& object, lowir::Type storage, const AtomicLoop& loop, const RValue& updated, uint32_t location);
+	void end_atomic_loop(const Place& object, lowir::Type storage, const AtomicLoop& loop, const RValue& updated,
+		uint32_t location, lowir::MemoryOrder order = lowir::MemoryOrder::SeqCst);
 	void store(lowir::Type type, const RValue& value, const Place& place);
 	void store_initializer(lowir::Type type, const RValue& value, const Place& place);
 	// Each emitting helper appends at the insertion point. C++ leaves the
@@ -1584,8 +1584,8 @@ private:
 	void initialize_c_atomic_padding(const sema::Type* type, const AddressPath& path);
 	RValue read_c_atomic_value(const sema::Type* type, lowir::Type storage, const Place& place, uint32_t location);
 	void write_c_atomic_value(lowir::Type storage, const RValue& value, const Place& place, uint32_t location);
-	RValue atomic_update(
-		sema::Intrinsic kind, lowir::Type type, lowir::Value target, const RValue& value, lowir::MemoryOrder order);
+	RValue atomic_update(sema::Intrinsic kind, lowir::Type type, lowir::Value target, const RValue& value,
+		lowir::MemoryOrder order, uint32_t location = 0);
 	lowir::MemoryOrder memory_order(const syntax::Expr& order, RValue* value = nullptr);
 	void emit_ordered(lowir::Instruction inst, const RValue& order);
 	BitField bit_field(const sema::VariableEntity* variable, uint32_t location);
