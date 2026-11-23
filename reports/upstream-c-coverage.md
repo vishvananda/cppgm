@@ -140,8 +140,10 @@ Linux x86-64 and AArch64 under QEMU pass direct and LowIR round-trip
 execution in C99, C11, and C17 at `-O0`, `-O2`, and `-O3`. GCC 15 and
 Clang 21 on x86-64 pass the same libm fixture when their builtin
 substitutions are disabled. The WASI replay checks default-rounding
-results for the three real square root interfaces and `pow`. Native
-macOS execution remains open.
+results for the three real square root interfaces and `pow`. A separate
+header-free probe retains all four library imports in Intel and Arm64
+Mach-O objects. LLD links those objects as shared libraries with dynamic
+symbol lookup. Native macOS SDK execution remains open.
 [PA33 call-boundary probe](../pa33/tests/o2/600-math-call-boundaries.t) ·
 [PA38 hosted math probe](../pa38/tests/general/500-c-fenv-libm.t) ·
 [WG14 N1570 §§7.6.1, 7.12.7, F.3, and F.10](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)

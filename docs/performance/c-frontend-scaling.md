@@ -2688,3 +2688,26 @@ blocks.
 | --- | ---: | ---: | ---: |
 | C++ `semantic_overload.cpp` at `-O3` | 0.00239% | +0.00038% | +0.00158% |
 | SQLite 3.50.4 in GNU17 at `-O2` | 0.00055% | +0.01452% | +0.01431% |
+
+## Hosted math under floating-environment access
+
+Compared `4ab505c6a` with `854b675e3` using immutable GCC 15 builds on
+x86-64 Linux. Each frozen input produced byte-identical objects in the
+A/A, ABBA, and BAAB blocks on CPU 71.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.00353% | +0.00583% | +0.00686% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.00212% | −0.00009% | +0.00451% |
+
+The C99 scaling input has one hosted `sqrt` call per function with
+`FENV_ACCESS ON`. On this input `-O0` keeps the calls in both binaries and
+produces identical objects. The extra retired instructions in the ABBA
+block grow roughly in proportion to the number of calls.
+
+| Functions | Before | After | Added instructions |
+| ---: | ---: | ---: | ---: |
+| 128 | 12,571,371 | 12,610,632 | 39,261 |
+| 256 | 21,099,585 | 21,178,623 | 79,038 |
+| 512 | 38,363,328 | 38,505,721 | 142,394 |
+| 1,024 | 72,340,969 | 72,628,396 | 287,426 |
