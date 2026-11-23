@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 
+#include "lex/token_spelling.h"
 #include "preprocess/lexer/pp_token.h"
 #include "preprocess/source/source_buffer.h"
 #include "preprocess/source/translation_reader.h"
@@ -66,6 +67,15 @@ public:
 	// (header_names_on_request mode).
 	void request_header_name() { context_ = DirectiveContext::AfterInclude; }
 
+	struct MacroSpellingScratch
+	{
+		std::string text;
+		std::size_t normalized_prefix = 0;
+	};
+	void capture_macro_spelling(MacroSpellingScratch* scratch) { macro_spelling_ = scratch; }
+	// Called for a token carrying kWrittenMacroSpelling before advancing.
+	TokenSpelling written_macro_spelling();
+
 	// Passes over the white-space sequences and new-lines before the next
 	// other token, as next() would return them one by one. Returns the
 	// PPTokenFlag bits they give that token: kLeadingSpace for any of them,
@@ -99,6 +109,8 @@ private:
 		uint32_t value;
 		uint32_t begin;
 		uint32_t end;
+		char spelling[10];
+		uint8_t length;
 	};
 
 	// Token assembly (pp_lexer.cpp).
@@ -154,6 +166,7 @@ private:
 	void skip_block_comment();
 	bool read_universal_character_name(const SourceChar& backslash, UniversalCharacterName& ucn) const;
 	SourceChar ucn_outside_literal(const UniversalCharacterName& ucn) const;
+	void take_ucn(const UniversalCharacterName& ucn, const SourceChar& decoded);
 	bool take_identifier_start();
 	bool take_identifier_continue();
 	const PPToken& lex_identifier_or_prefixed_literal();
@@ -183,6 +196,7 @@ private:
 	// While !dirty_, the spelling is source bytes [token_begin_, clean_end_);
 	// the first translated character copies that prefix into scratch_.
 	std::string scratch_;
+	MacroSpellingScratch* macro_spelling_ = nullptr;
 	uint32_t token_begin_;
 	uint32_t clean_end_;
 	uint32_t token_end_;

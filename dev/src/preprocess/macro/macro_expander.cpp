@@ -1170,7 +1170,7 @@ PPToken MacroExpander::paste_tokens(const PPToken& left, const PPToken& right)
 		}
 		result.kind = token.kind;
 		result.punctuator = token.punctuator;
-		result.c23_literal_ucn = token.c23_literal_ucn;
+		result.spelling_flags = token.spelling_flags;
 		if (token.kind == PPTokenKind::Identifier)
 		{
 			result.identifier = identifiers_.intern(token.spelling, token.length);

@@ -59,6 +59,14 @@ enum PPTokenFlag : uint8_t
 	kQuietSystemMacro = 128
 };
 
+enum PPTokenSpellingFlag : uint8_t
+{
+	// Check basic and control characters when converting a C literal.
+	kC23LiteralUcn = 1,
+	// The lexer also has the written spelling of this C macro token.
+	kWrittenMacroSpelling = 2
+};
+
 // PPToken::punctuator of a preprocessing-op-or-punc: the phase-7 TokenKind
 // plus one (alternative spellings share it), or `#`/`%:` and `##`/`%:%:`,
 // which have no phase-7 token. Zero for every other token.
@@ -96,9 +104,7 @@ struct PPToken
 	PPTokenKind kind;
 	uint8_t flags;
 	uint8_t punctuator;
-	// A C quoted literal contains a universal character name for a
-	// basic or control character. Check the edition when it is converted.
-	bool c23_literal_ucn;
+	uint8_t spelling_flags;
 	uint32_t begin;
 	uint32_t end;
 	uint32_t length;

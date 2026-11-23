@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "lex/identifier_table.h"
+#include "lex/token_spelling.h"
 #include "preprocess/lexer/pp_token.h"
 #include "support/memory/arena.h"
 
@@ -87,8 +88,11 @@ struct MacroDefinition
 {
 	const Identifier* name;
 	uint32_t location;
+	// The sparse written spellings in the owning definition parser.
+	uint32_t written_first;
 	const ReplacementToken* body;
 	uint32_t body_size;
+	uint32_t written_count;
 	// A variadic macro's last parameter is __VA_ARGS__.
 	Identifier* const* parameters;
 	const uint8_t* parameter_uses;
@@ -104,10 +108,6 @@ struct MacroDefinition
 // no source replacement list and are omitted.
 void WriteMacroDefinition(std::ostream& out, const MacroDefinition& macro);
 
-// Whether a redefinition is allowed: same form, parameters and replacement
-// list, where white-space separations compare equal ([cpp.replace] 16.3p2).
-bool SameDefinition(const MacroDefinition& a, const MacroDefinition& b);
-
 // A builtin macro's definition.
 MacroDefinition* MakeBuiltinMacro(Arena& arena, const Identifier* name, BuiltinMacro builtin);
 
@@ -117,6 +117,7 @@ class DefinitionTokens
 {
 public:
 	virtual const PPToken& next() = 0;
+	virtual TokenSpelling written_macro_spelling() = 0;
 	// Whether __VA_ARGS__ may be read: only in the replacement list of a
 	// variadic macro (16.3p5).
 	virtual void allow_va_args(bool allow) = 0;
@@ -138,19 +139,29 @@ public:
 	{}
 
 	MacroDefinition* parse(DefinitionTokens& tokens, const PPToken& name);
+	bool same_definition(const MacroDefinition& a, const MacroDefinition& b) const;
 
 private:
+	struct WrittenSpelling
+	{
+		const char* text;
+		uint32_t length;
+		uint32_t slot;
+	};
+
 	void parse_parameters(DefinitionTokens& tokens, const PPToken& open);
 	void read_replacement_list(DefinitionTokens& tokens, PPToken token, uint8_t flags);
+	void record_spelling(DefinitionTokens& tokens, uint32_t slot);
 	bool mark_va_opt(const DefinitionTokens& tokens);
 	void assign_function_like_roles();
 	void assign_paste_roles(bool function_like);
-	MacroDefinition* finish(const PPToken& name, bool function_like, bool has_va_opt);
+	MacroDefinition* finish(const PPToken& name, bool function_like, bool has_va_opt, uint32_t written_first);
 
 	Arena& arena_;
 	Identifier* va_args_;
 	bool hosted_;
 	std::vector<ReplacementToken> body_;
 	std::vector<Identifier*> parameters_;
+	std::vector<WrittenSpelling> written_;
 	bool variadic_ = false;
 };

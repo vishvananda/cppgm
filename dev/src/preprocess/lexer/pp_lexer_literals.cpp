@@ -184,13 +184,14 @@ void PPLexer::lex_literal_universal_character_name(const SourceChar& backslash)
 		// Keep the escape spelled for phase 5 so a decoded quote cannot
 		// change the token's structure. In C the edition check also
 		// belongs to conversion, after macro replacement.
-		token_.c23_literal_ucn = c_source_;
+		if (c_source_)
+			token_.spelling_flags |= kC23LiteralUcn;
 		take(backslash);
 		while (cur_.begin < ucn.end)
 			take(cur_);
 		return;
 	}
-	take(SourceChar{ value, ucn.begin, ucn.end });
+	take_ucn(ucn, SourceChar{ value, ucn.begin, ucn.end });
 }
 
 const PPToken& PPLexer::finish_literal(PPTokenKind plain, PPTokenKind user_defined)

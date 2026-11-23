@@ -63,7 +63,7 @@ void PPLexer::start_token()
 	clean_end_ = cur_.begin;
 	token_end_ = cur_.begin;
 	dirty_ = false;
-	token_.c23_literal_ucn = false;
+	token_.spelling_flags = 0;
 }
 
 void PPLexer::make_dirty()
@@ -414,18 +414,50 @@ bool PPLexer::read_universal_character_name(const SourceChar& backslash, Univers
 	else
 		return false;
 
+	ucn.spelling[0] = '\\';
+	ucn.spelling[1] = static_cast<char>(c.code_point);
 	uint32_t value = 0;
 	for (int i = 0; i < digits; ++i)
 	{
 		c = peek_after(c);
 		if (!IsHexDigit(c.code_point))
 			return false;
+		ucn.spelling[i + 2] = static_cast<char>(c.code_point);
 		value = (value << 4) | static_cast<uint32_t>(HexDigitValue(c.code_point));
 	}
+	ucn.length = static_cast<uint8_t>(digits + 2);
 	ucn.value = value;
 	ucn.begin = backslash.begin;
 	ucn.end = c.end;
 	return true;
+}
+
+void PPLexer::take_ucn(const UniversalCharacterName& ucn, const SourceChar& decoded)
+{
+	if (macro_spelling_ != nullptr)
+	{
+		// Track the portions of the normalized token between escapes. The
+		// written escape was collected while reading the logical characters.
+		make_dirty();
+		if ((token_.spelling_flags & kWrittenMacroSpelling) == 0)
+		{
+			token_.spelling_flags |= kWrittenMacroSpelling;
+			macro_spelling_->text.clear();
+			macro_spelling_->normalized_prefix = 0;
+		}
+		macro_spelling_->text.append(scratch_, macro_spelling_->normalized_prefix, std::string::npos);
+		macro_spelling_->text.append(ucn.spelling, ucn.length);
+		macro_spelling_->normalized_prefix = scratch_.size() + Utf8EncodedLength(decoded.code_point);
+	}
+	take(decoded);
+}
+
+TokenSpelling PPLexer::written_macro_spelling()
+{
+	std::string& written = macro_spelling_->text;
+	written.append(scratch_, macro_spelling_->normalized_prefix, std::string::npos);
+	macro_spelling_->normalized_prefix = scratch_.size();
+	return TokenSpelling{ written.data(), static_cast<uint32_t>(written.size()) };
 }
 
 SourceChar PPLexer::ucn_outside_literal(const UniversalCharacterName& ucn) const
@@ -451,7 +483,7 @@ bool PPLexer::take_identifier_start()
 		const SourceChar c = ucn_outside_literal(ucn);
 		if (!IsIdentifierStart(c.code_point))
 			return false;
-		take(c);
+		take_ucn(ucn, c);
 		return true;
 	}
 	if (!IsIdentifierStart(cur_.code_point) && !(cur_.code_point == '$' && dollar_identifiers_))
@@ -474,7 +506,7 @@ bool PPLexer::take_identifier_continue()
 				throw SourceError(ucn.begin, "universal character name is outside the C99 identifier ranges");
 			return false;
 		}
-		take(c);
+		take_ucn(ucn, c);
 		return true;
 	}
 	if (!IsIdentifierContinue(cur_.code_point, c99_identifiers_) && !(cur_.code_point == '$' && dollar_identifiers_))
@@ -553,7 +585,7 @@ const PPToken& PPLexer::lex_backslash()
 	}
 
 	const SourceChar c = ucn_outside_literal(ucn);
-	take(c);
+	take_ucn(ucn, c);
 	if (!IsIdentifierStart(c.code_point, c99_identifiers_))
 	{
 		if (c99_identifiers_)

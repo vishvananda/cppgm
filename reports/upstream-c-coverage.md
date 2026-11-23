@@ -131,16 +131,27 @@ reviewed cases.
 [GCC C99 manifest](upstream-gcc-c99.json) ·
 [Scaling](../docs/performance/c-frontend-scaling.md#c99-identifier-ranges)
 
-Three reduced `ucnid-11` probes change only the case of a hexadecimal
-digit in a macro parameter, the case of a digit in the replacement list,
-or the use of a UCN versus raw UTF-8 in the replacement list. GCC 15
-diagnoses all three with `-std=c99 -pedantic-errors -E`. Clang 21 and cppgm
-accept them. All three compilers match the escaped and raw identifiers
-in the macro lookup and argument substitution controls. The lexer decodes
-the UCN before the macro definition builder sees the token. Retain the
-spelling needed for the 6.10.3 check where that decoding happens, and keep
-the normalized identity for lookup and substitution.
-[C99 6.10.3](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf)
+The C macro redefinition check compares written parameter and replacement
+spellings after line splicing. The lexer records a spelling only when
+decoding a universal character name changes the token in a macro definition.
+Lookup and substitution share the existing normalized identifier.
+cppgm and GCC 15 diagnose changes in parameter escapes, replacement-list
+identifiers, and string literals in pedantic C99, C11, and C17.
+Clang 21 diagnoses the changed literal and accepts the changed identifiers.
+All three accept the lookup and substitution controls. The pinned
+`ucnid-11` case now checks the reason for rejection in GCC CI.
+[C99 6.10.3](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
+[GCC C99 manifest](upstream-gcc-c99.json) ·
+[PA38 macro control](../pa38/tests/general/100-c99-macro-redefinition-ucn.t)
+
+The PA38 control uses a UTF-8 object name. It runs on Linux x86-64,
+AArch64 Linux under QEMU, and WASI, including the Wasm LowIR round trip.
+Both Darwin architectures cross-link. The LowIR reader validates and
+preserves UTF-8 names introduced by a sigil. A PA8 regression exercises
+that syntax. On Linux x86-64, a C name emitted by the compiler and read
+back through LowIR linked and ran across GCC 15 and Clang 21 object
+boundaries in both directions.
+[PA8 reader fixture](../pa8/tests/spec/100-unicode-names.t)
 
 ## Pinned suite receipts
 

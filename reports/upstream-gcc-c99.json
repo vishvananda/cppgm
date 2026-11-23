@@ -7,7 +7,7 @@
   "coverage": "Reviewed gcc C99 language configurations on Linux x86-64.",
   "limitations": [
     "Checks the listed compile, diagnostic or execution outcomes.",
-    "Upstream diagnostic wording and compiler-specific intermediate forms are ungraded."
+    "Compiler-specific intermediate forms are ungraded. Diagnostic wording is checked only for cases with an explicit oracle."
   ],
   "exclusions": [],
   "cases": [
@@ -136,6 +136,25 @@
       "candidate_flags": [],
       "upstream_flags": [],
       "obligation": "C99 preprocessing numbers may continue with an allowed universal character name"
+    },
+    {
+      "id": "ucnid-11",
+      "path": "gcc/testsuite/gcc.dg/cpp/ucnid-11.c",
+      "sha256": "e0c9da2e2fcda5741d3a9c311393c0d600e0c62bcf072b4ed988e502995b65cb",
+      "dialect": "c99",
+      "action": "preprocess",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "diagnostic_contains": {
+        "cppgm": "macro redefined differently",
+        "upstream": "redefined"
+      },
+      "obligation": "C99 macro redefinitions compare written parameter and replacement-list spellings"
     },
     {
       "id": "ucnid-12",

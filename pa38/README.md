@@ -86,6 +86,12 @@ initial and subsequent characters. An allowed UTF-8 character and its
 universal character name spell the same identifier. Apply the selected
 edition when lexing the result of `##` as well as in source.
 
+For a macro redefinition, compare parameter spellings and replacement
+token spellings after line splicing. Diagnose a change to a universal
+character name's written escape even when it names the same character.
+Lookup of the macro and substitution of its parameters use the identifier
+itself, including when the source spells it with a different escape.
+
 In ISO C99, lex `u`, `U`, and `u8` before a quote as identifiers.
 Use the same edition for macro pasting. C11 and GNU99 accept Unicode
 literal prefixes.

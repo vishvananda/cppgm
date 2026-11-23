@@ -51,10 +51,10 @@ Start the next batches from the existing receipts.
    overlapping field writes in the scaling tests. The pinned scalar-range
    case and the empty-record layout have PA38 regressions.
    [Initializer evidence](../reports/upstream-c-coverage.md#gnu-range-designators-and-empty-records)
-2. Finish the C99–C17 lexical inventory using the existing trigraph, digraph,
-   and universal-character receipts. Close the macro token spelling and
-   redefinition case, then cover the remaining source-encoding, line-splicing,
-   and preprocessing-number boundaries. Extend the same rule inventory to
+2. Finish the C99–C17 lexical inventory using the trigraph, digraph,
+   universal-character, and macro redefinition receipts. Cover the
+   remaining source-encoding, line-splicing, and preprocessing-number
+   boundaries. Extend the same rule inventory to
    declarators, initializers, conversions, constant expressions, and linkage.
    Pair edition boundaries with native reference runs and earliest-assignment
    regressions.

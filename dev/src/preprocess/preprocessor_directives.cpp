@@ -326,7 +326,7 @@ bool Preprocessor::evaluate_condition(const PPToken& directive)
 			const PPToken& token = expander_.next();
 			if (token.kind != PPTokenKind::EndOfFile)
 			{
-				if (token.c23_literal_ucn)
+				if ((token.spelling_flags & kC23LiteralUcn) != 0)
 					positions_.diagnose_c23_literal_ucn(token.begin);
 				return token;
 			}
@@ -403,7 +403,7 @@ void Preprocessor::run_define(const PPToken& directive)
 			bind_macro(identifier, macro);
 			return;
 		}
-		if (!SameDefinition(*identifier->macro, *macro))
+		if (!definition_parser_.same_definition(*identifier->macro, *macro))
 		{
 			// GNU system headers may replace a source's fallback definition;
 			// their macro-redefinition diagnostic is suppressed. Keep the

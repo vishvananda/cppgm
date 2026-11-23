@@ -222,8 +222,21 @@ private:
 	class LineTokens final : public DefinitionTokens
 	{
 	public:
-		explicit LineTokens(Preprocessor& preprocessor) : preprocessor_(preprocessor) {}
+		explicit LineTokens(Preprocessor& preprocessor) : preprocessor_(preprocessor)
+		{
+			if (preprocessor_.modes_.language == 0)
+				preprocessor_.source_.current().lexer->capture_macro_spelling(&preprocessor_.macro_spelling_);
+		}
+		~LineTokens()
+		{
+			if (preprocessor_.modes_.language == 0)
+				preprocessor_.source_.current().lexer->capture_macro_spelling(nullptr);
+		}
 		const PPToken& next() override { return preprocessor_.source_.next_in_line(); }
+		TokenSpelling written_macro_spelling() override
+		{
+			return preprocessor_.source_.current().lexer->written_macro_spelling();
+		}
 		void allow_va_args(bool allow) override { preprocessor_.source_.allow_va_args(allow); }
 		void check_va_opt(uint32_t location) const override;
 
@@ -299,6 +312,7 @@ private:
 	MacroQuery macro_query_;
 	ControllingExpressionEvaluator evaluator_;
 	MacroDefinitionParser definition_parser_;
+	PPLexer::MacroSpellingScratch macro_spelling_;
 	SourceFile* predefined_;
 	// The location ranges of the command-line definitions and of the host
 	// compiler's predefined macros (hosted mode), which later definitions

@@ -69,12 +69,19 @@ void WriteMacroDefinition(std::ostream& out, const MacroDefinition& macro)
 	out.put('\n');
 }
 
-bool SameDefinition(const MacroDefinition& a, const MacroDefinition& b)
+bool MacroDefinitionParser::same_definition(const MacroDefinition& a, const MacroDefinition& b) const
 {
 	if (a.builtin != b.builtin || a.function_like != b.function_like || a.variadic != b.variadic ||
-		a.parameter_count != b.parameter_count || a.body_size != b.body_size)
+		a.parameter_count != b.parameter_count || a.body_size != b.body_size || a.written_count != b.written_count)
 	{
 		return false;
+	}
+	for (uint32_t i = 0; i < a.written_count; ++i)
+	{
+		const WrittenSpelling& x = written_[a.written_first + i];
+		const WrittenSpelling& y = written_[b.written_first + i];
+		if (x.slot != y.slot || x.length != y.length || std::memcmp(x.text, y.text, x.length) != 0)
+			return false;
 	}
 	for (uint16_t i = 0; i < a.parameter_count; ++i)
 	{
@@ -100,6 +107,8 @@ MacroDefinition* MakeBuiltinMacro(Arena& arena, const Identifier* name, BuiltinM
 	MacroDefinition* macro = arena.allocate_array<MacroDefinition>(1);
 	macro->name = name;
 	macro->location = 0;
+	macro->written_first = 0;
+	macro->written_count = 0;
 	macro->body = nullptr;
 	macro->body_size = 0;
 	macro->parameters = nullptr;
@@ -118,6 +127,7 @@ MacroDefinition* MacroDefinitionParser::parse(DefinitionTokens& tokens, const PP
 	body_.clear();
 	parameters_.clear();
 	variadic_ = false;
+	const uint32_t written_first = static_cast<uint32_t>(written_.size());
 	ParameterSlotsGuard guard(parameters_);
 
 	// `identifier(` with no white space in between starts a parameter list;
@@ -141,7 +151,13 @@ MacroDefinition* MacroDefinitionParser::parse(DefinitionTokens& tokens, const PP
 	if (function_like)
 		assign_function_like_roles();
 	assign_paste_roles(function_like);
-	return finish(name, function_like, has_va_opt);
+	return finish(name, function_like, has_va_opt, written_first);
+}
+
+void MacroDefinitionParser::record_spelling(DefinitionTokens& tokens, uint32_t slot)
+{
+	const TokenSpelling written = tokens.written_macro_spelling();
+	written_.push_back(WrittenSpelling{ arena_.copy_string(written.text, written.length), written.length, slot });
 }
 
 void MacroDefinitionParser::parse_parameters(DefinitionTokens& tokens, const PPToken& open)
@@ -173,6 +189,8 @@ void MacroDefinitionParser::parse_parameters(DefinitionTokens& tokens, const PPT
 			throw PreprocessError(token.begin, "duplicate macro parameter name");
 		if (parameters_.size() >= 0xFFFF)
 			throw PreprocessError(token.begin, "too many macro parameters");
+		if ((token.spelling_flags & kWrittenMacroSpelling) != 0)
+			record_spelling(tokens, static_cast<uint32_t>(parameters_.size()));
 		parameters_.push_back(token.identifier);
 		token.identifier->parameter_slot = static_cast<uint16_t>(parameters_.size());
 
@@ -202,6 +220,11 @@ void MacroDefinitionParser::read_replacement_list(DefinitionTokens& tokens, PPTo
 {
 	while (token.kind != PPTokenKind::NewLine)
 	{
+		if ((token.spelling_flags & kWrittenMacroSpelling) != 0)
+		{
+			record_spelling(tokens, static_cast<uint32_t>(parameters_.size() + body_.size()));
+			token.spelling_flags &= ~kWrittenMacroSpelling;
+		}
 		ReplacementToken replacement;
 		replacement.token = token;
 		replacement.token.flags = (token.flags & kLeadingSpace) | flags;
@@ -319,11 +342,14 @@ void MacroDefinitionParser::assign_paste_roles(bool function_like)
 	}
 }
 
-MacroDefinition* MacroDefinitionParser::finish(const PPToken& name, bool function_like, bool has_va_opt)
+MacroDefinition* MacroDefinitionParser::finish(
+	const PPToken& name, bool function_like, bool has_va_opt, uint32_t written_first)
 {
 	MacroDefinition* macro = arena_.allocate_array<MacroDefinition>(1);
 	macro->name = name.identifier;
 	macro->location = name.begin;
+	macro->written_first = written_first;
+	macro->written_count = static_cast<uint32_t>(written_.size()) - written_first;
 	macro->body = arena_.copy_array(body_.data(), body_.size());
 	macro->body_size = static_cast<uint32_t>(body_.size());
 	macro->parameters = arena_.copy_array(parameters_.data(), parameters_.size());
