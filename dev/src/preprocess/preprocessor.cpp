@@ -481,6 +481,13 @@ bool Preprocessor::allow_gnu_c_extension(uint32_t location, const char* message)
 	return extension_warnings_ == ExtensionWarnings::Disabled || allow_extension(location, 0, message);
 }
 
+void Preprocessor::diagnose_c23_literal_ucn(uint32_t location) const
+{
+	const char* message = "a universal character name for a basic or control character in a literal requires C23";
+	if (!allow_c_extension(location, CEdition::C23, message))
+		throw PreprocessError(location, message);
+}
+
 void Preprocessor::LineTokens::check_va_opt(uint32_t location) const
 {
 	if (preprocessor_.modes_.language == 0)

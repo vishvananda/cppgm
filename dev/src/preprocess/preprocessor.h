@@ -111,6 +111,7 @@ public:
 		uint32_t location, uint8_t edition, const char* message, bool suppressible_in_headers = true) const = 0;
 	virtual bool allow_c_extension(uint32_t location, CEdition edition, const char* message) const = 0;
 	virtual bool allow_gnu_c_extension(uint32_t location, const char* message) const = 0;
+	virtual void diagnose_c23_literal_ucn(uint32_t location) const = 0;
 
 protected:
 	~SourcePositions() {}
@@ -180,6 +181,7 @@ public:
 		uint32_t location, uint8_t edition, const char* message, bool suppressible_in_headers) const override;
 	bool allow_c_extension(uint32_t location, CEdition edition, const char* message) const override;
 	bool allow_gnu_c_extension(uint32_t location, const char* message) const override;
+	void diagnose_c23_literal_ucn(uint32_t location) const override;
 
 	// The translation unit's interned identifiers, shared with the parser.
 	IdentifierTable& identifiers() { return identifiers_; }

@@ -318,12 +318,18 @@ bool Preprocessor::evaluate_condition(const PPToken& directive)
 	class ReplacedLine final : public PPTokenCursor
 	{
 	public:
-		explicit ReplacedLine(MacroExpander& expander) : expander_(expander), end_(PPToken()) {}
+		ReplacedLine(MacroExpander& expander, const SourcePositions& positions)
+			: expander_(expander), positions_(positions), end_(PPToken())
+		{}
 		const PPToken& next() override
 		{
 			const PPToken& token = expander_.next();
 			if (token.kind != PPTokenKind::EndOfFile)
+			{
+				if (token.c23_literal_ucn)
+					positions_.diagnose_c23_literal_ucn(token.begin);
 				return token;
+			}
 			end_.kind = PPTokenKind::NewLine;
 			end_.spelling = "";
 			return end_;
@@ -331,12 +337,13 @@ bool Preprocessor::evaluate_condition(const PPToken& directive)
 
 	private:
 		MacroExpander& expander_;
+		const SourcePositions& positions_;
 		PPToken end_;
 	};
 
 	source_.begin_line_input(nullptr);
 	directive_expander_->set_controlling_expression(true);
-	ReplacedLine line(*directive_expander_);
+	ReplacedLine line(*directive_expander_, *this);
 	const ControllingExpressionResult result = evaluator_.evaluate(line);
 	directive_expander_->set_controlling_expression(false);
 	source_.end_line_input();

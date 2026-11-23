@@ -9,6 +9,7 @@
 #include "preprocess/tokens/pp_token_cursor.h"
 
 class IdentifierTable;
+class SourcePositions;
 
 // Translation phases 5-7 as a streaming cursor over preprocessing tokens:
 // keywords, operators and punctuators become simple tokens (an interned
@@ -37,6 +38,7 @@ public:
 
 	// Syntax uses the classified component and converts its value on demand.
 	void defer_imaginary_values() { defer_imaginary_values_ = true; }
+	void set_source_positions(const SourcePositions& positions) { positions_ = &positions; }
 
 private:
 	const PPToken& pull();
@@ -56,6 +58,7 @@ private:
 
 	PPTokenCursor& input_;
 	IdentifierTable* identifiers_;
+	const SourcePositions* positions_ = nullptr;
 	NumberDialect literals_;
 	bool conditional_escapes_;
 	uint8_t cxx_edition_;

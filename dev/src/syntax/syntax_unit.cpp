@@ -12,6 +12,7 @@ SyntaxUnit::SyntaxUnit(const PreprocessorOptions& options, const std::string& pa
 	  tree_(nullptr)
 {
 	post_tokens_.defer_imaginary_values();
+	post_tokens_.set_source_positions(preprocessor_);
 	parser_.set_source_positions(preprocessor_);
 	tokens_.observe_pack(preprocessor_.pack_state());
 	tokens_.set_prelude(preprocessor_.builtin_begin(), preprocessor_.builtin_end());

@@ -63,6 +63,7 @@ void PPLexer::start_token()
 	clean_end_ = cur_.begin;
 	token_end_ = cur_.begin;
 	dirty_ = false;
+	token_.c23_literal_ucn = false;
 }
 
 void PPLexer::make_dirty()

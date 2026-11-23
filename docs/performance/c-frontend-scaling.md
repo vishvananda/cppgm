@@ -1683,3 +1683,42 @@ SQLite. The variation in A/A task clock was about 4% and 5% respectively.
 | SQLite | A/A | 16,525,575,170 / 16,525,757,170 / 16,525,736,309 / 16,525,587,276 |
 | SQLite | ABBA | 16,525,640,687 / 16,527,177,384 / 16,527,350,627 / 16,525,682,231 |
 | SQLite | BAAB | 16,527,380,228 / 16,526,144,427 / 16,526,095,194 / 16,527,892,020 |
+
+## C literal universal character names
+
+The lexer attaches one flag in an existing byte of padding.
+`PPToken` remains 40 bytes on the measured host. The escape path sets the
+flag while it decodes the hexadecimal value. String and character
+conversion read the flag after macro replacement. The location and
+edition policy are consulted only for a marked literal.
+
+Each GNU17 `-O2` input declares one character array per literal. The
+second set has three basic or control character escapes in each literal.
+The compiler uses the GNU extension policy without pedantic diagnostics
+for these two inputs. All objects match their baseline at `3eb732c30`
+byte-for-byte. The counts are median retired user-space instructions
+from ABBA and BAAB blocks pinned to one Linux x86-64 CPU.
+
+| Arrays | Ordinary before | Ordinary after | Escaped before | Escaped after |
+| ---: | ---: | ---: | ---: | ---: |
+| 128 | 7,162,760 | 7,170,846 | 7,225,262 | 7,237,968 |
+| 256 | 10,511,222 | 10,519,296 | 10,638,744 | 10,655,942 |
+| 512 | 17,454,596 | 17,467,178 | 17,707,814 | 17,748,443 |
+| 1024 | 30,860,627 | 30,888,426 | 31,374,696 | 31,434,520 |
+| 2048 | 57,494,665 | 57,534,904 | 58,537,196 | 58,641,968 |
+| 4096 | 110,322,388 | 110,409,723 | 112,405,719 | 112,658,594 |
+
+At 4096 arrays, ordinary literals use 0.079% more instructions and the
+escaped workload uses 0.225% more. The frozen C++ `-O3` and SQLite
+`-O2` objects also match byte-for-byte. Their paired instruction changes
+are +0.020% and +0.023% for C++ and +0.013% and +0.012% for SQLite.
+The A/A task clock varied by about 12% and 14% respectively.
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,055,693,959 / 9,055,895,567 / 9,055,852,213 / 9,055,850,917 |
+| C++ | ABBA | 9,055,947,864 / 9,057,659,138 / 9,057,729,143 / 9,055,804,934 |
+| C++ | BAAB | 9,058,106,755 / 9,056,181,532 / 9,055,566,762 / 9,057,787,817 |
+| SQLite | A/A | 16,527,246,618 / 16,527,646,795 / 16,527,118,443 / 16,527,301,660 |
+| SQLite | ABBA | 16,527,313,862 / 16,529,403,345 / 16,529,268,711 / 16,527,110,804 |
+| SQLite | BAAB | 16,529,394,686 / 16,527,442,789 / 16,527,584,106 / 16,529,494,391 |

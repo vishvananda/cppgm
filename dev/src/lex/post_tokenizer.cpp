@@ -3,6 +3,7 @@
 #include "lex/identifier_table.h"
 #include "lex/number_literal.h"
 #include "lex/text_literal.h"
+#include "preprocess/preprocessor.h"
 
 PostTokenizer::PostTokenizer(PPTokenCursor& input, IdentifierTable* identifiers, NumberDialect literals,
 	target_model::Target target, bool conditional_escapes, uint8_t cxx_edition)
@@ -199,6 +200,8 @@ void PostTokenizer::convert_imaginary(const PPToken& pp, const NumberLiteral& nu
 
 void PostTokenizer::convert_character(const PPToken& pp)
 {
+	if (pp.c23_literal_ucn && positions_ != nullptr)
+		positions_->diagnose_c23_literal_ucn(pp.begin);
 	const CharacterLiteralValue value = EvaluateCharacterLiteral(pp.spelling, pp.length,
 		HasNumberSyntax(literals_, number_syntax::GnuCharacter) ? CharacterDialect::Gnu : CharacterDialect::Course,
 		conditional_escapes_, cxx_edition_);
@@ -215,6 +218,8 @@ void PostTokenizer::convert_character(const PPToken& pp)
 
 void PostTokenizer::convert_string_sequence(const PPToken& first)
 {
+	if (first.c23_literal_ucn && positions_ != nullptr)
+		positions_->diagnose_c23_literal_ucn(first.begin);
 	strings_.clear();
 	strings_.add(first.spelling, first.length);
 	uint32_t end = first.end;
@@ -226,6 +231,8 @@ void PostTokenizer::convert_string_sequence(const PPToken& first)
 			lookahead_ = &pp;
 			break;
 		}
+		if (pp.c23_literal_ucn && positions_ != nullptr)
+			positions_->diagnose_c23_literal_ucn(pp.begin);
 		strings_.add(pp.spelling, pp.length);
 		end = pp.end;
 	}

@@ -96,6 +96,9 @@ struct PPToken
 	PPTokenKind kind;
 	uint8_t flags;
 	uint8_t punctuator;
+	// A C quoted literal contains a universal character name for a
+	// basic or control character. Check the edition when it is converted.
+	bool c23_literal_ucn;
 	uint32_t begin;
 	uint32_t end;
 	uint32_t length;

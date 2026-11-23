@@ -156,6 +156,15 @@ macro can expand there. Token pasting follows the same edition as source
 lexing. GNU99 retains GCC's Unicode literal extensions. The wide `L`
 prefix remains available in each mode.
 
+C99 6.4.3p2 and C11 6.4.3p2 restrict universal character names below
+U+00A0 to U+0024, U+0040, and U+0060, including in quoted literals.
+C23 lifts this limit in quoted literals. Surrogate values still fail.
+Record the earlier-edition requirement while lexing and apply the
+pedantic policy when converting an expanded literal. A short-circuit
+operand in a controlling expression still needs literal conversion.
+[PA38 preprocessing case](../pa38/tests/general/100-c17-universal-escape-condition-bad.t) ·
+[PA38 literal case](../pa38/tests/general/100-c99-universal-escape-literal-bad.t)
+
 C11's `_Alignof` takes a type name under 6.5.3.4. With pedantic
 diagnostics enabled, the expression form is a GNU extension. The GNU
 spelling `__alignof__` accepts the expression. The C23 optional

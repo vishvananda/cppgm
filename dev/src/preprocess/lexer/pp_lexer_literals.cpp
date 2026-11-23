@@ -181,9 +181,10 @@ void PPLexer::lex_literal_universal_character_name(const SourceChar& backslash)
 	const int32_t value = static_cast<int32_t>(ucn.value);
 	if (IsControlCharacter(value) || IsBasicSourceCharacter(value))
 	{
-		// Allowed inside literals ([lex.charset] 2.3p2), but decoding it
-		// would change the literal's lexical structure (`"""`), so the
-		// universal-character-name stays spelled for phase 5 to decode.
+		// Keep the escape spelled for phase 5 so a decoded quote cannot
+		// change the token's structure. In C the edition check also
+		// belongs to conversion, after macro replacement.
+		token_.c23_literal_ucn = c_source_;
 		take(backslash);
 		while (cur_.begin < ucn.end)
 			take(cur_);

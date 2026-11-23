@@ -73,6 +73,13 @@ be complete. For an expression that names an object or member, report its
 declared alignment, including a packed member's reduced alignment. Reject
 bit-field designators. Alignment queries leave their operands unevaluated.
 
+Before C23, diagnose universal character names for basic and control
+characters when converting a character constant or string literal.
+Apply the same rule in `#if` and `#elif` expressions. The permitted
+low values are U+0024, U+0040, and U+0060. A token that is skipped,
+unused in a macro, or stringized does not require this literal
+conversion. Use the pedantic and system-header policy above.
+
 In ISO C99, lex `u`, `U`, and `u8` before a quote as identifiers.
 Use the same edition for macro pasting. C11 and GNU99 accept Unicode
 literal prefixes.
