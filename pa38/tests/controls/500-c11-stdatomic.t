@@ -8,6 +8,37 @@ static atomic_int *address(void) { ++visits; return &value; }
 struct Pair { unsigned x, y; };
 static _Atomic(struct Pair) pair;
 
+struct Bytes { unsigned char data[3]; };
+struct GuardedBytes { struct Bytes value; unsigned char guard; };
+static _Atomic(struct Bytes) bytes;
+static int input_visits;
+
+static struct Bytes next_bytes(void)
+{
+    ++input_visits;
+    return (struct Bytes){{4, 5, 6}};
+}
+
+static int padded_atomic(void)
+{
+    struct Bytes first = {{1, 2, 3}};
+    struct GuardedBytes expected = {{{7, 8, 9}}, 99};
+    atomic_init(&bytes, first);
+    struct Bytes old = atomic_exchange(&bytes, next_bytes());
+    if (old.data[0] != 1 || old.data[1] != 2 || old.data[2] != 3)
+        return 1;
+    if (atomic_compare_exchange_strong(&bytes, &expected.value, first))
+        return 2;
+    if (expected.value.data[0] != 4 || expected.value.data[1] != 5 || expected.value.data[2] != 6 ||
+        expected.guard != 99)
+        return 3;
+    if (!atomic_compare_exchange_strong(&bytes, &expected.value, first) || expected.guard != 99)
+        return 4;
+    atomic_store(&bytes, next_bytes());
+    struct Bytes current = atomic_load(&bytes);
+    return current.data[0] != 4 || current.data[1] != 5 || current.data[2] != 6 || input_visits != 2;
+}
+
 int main(void)
 {
     atomic_init(&value, 3);
@@ -47,5 +78,7 @@ int main(void)
         return 11;
     atomic_store(&pair, next);
     struct Pair current = atomic_load(&pair);
-    return current.x != 3 || current.y != 4;
+    if (current.x != 3 || current.y != 4)
+        return 12;
+    return padded_atomic() ? 13 : 0;
 }

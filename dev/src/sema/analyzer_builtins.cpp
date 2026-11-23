@@ -1982,7 +1982,7 @@ ExprFacts* Analyzer::atomic_builtin(const syntax::CallExpr& expr, const AtomicFo
 	const bool indirect_generic = kind == Intrinsic::AtomicLoad || kind == Intrinsic::AtomicStore ||
 		kind == Intrinsic::AtomicExchange || kind == Intrinsic::AtomicCompareExchange;
 	const bool generic = indirect_generic || (form.any_object && !arithmetic_kind);
-	bool runtime_object = false;
+	uint64_t lowering_flags = 0;
 	const bool loads = kind == Intrinsic::AtomicLoadN || kind == Intrinsic::AtomicLoad;
 	const Type* object = nullptr;
 	uint64_t size = 0, alignment = 0;
@@ -2038,7 +2038,7 @@ ExprFacts* Analyzer::atomic_builtin(const syntax::CallExpr& expr, const AtomicFo
 				object = pointer->element->unqualified;
 				const bool sized = type_size(object, size, alignment, expr.location);
 				const bool scalar_size = target_model::is_inline_atomic_size(size);
-				if (!sized || (!scalar_size && !indirect_generic) ||
+				if (!sized || size == 0 || (!scalar_size && !generic) ||
 					(!generic && !(IsIntegralOrUnscopedEnum(object) || object->kind == TypeKind::Pointer)))
 				{
 					substitution_error(expr.location,
@@ -2047,18 +2047,36 @@ ExprFacts* Analyzer::atomic_builtin(const syntax::CallExpr& expr, const AtomicFo
 							: "an atomic builtin on an object of no integral or pointer type of 1, 2, 4 or 8 bytes");
 					return nullptr;
 				}
-				runtime_object = !scalar_size;
+				uint64_t storage_size = size;
+				// Only a non-power-of-two value below 16 bytes can acquire
+				// trailing padding from the atomic object layout.
+				if (generic && !scalar_size && size < 16 && (pointer->element->cv & kAtomic) != 0)
+					type_size(pointer->element, storage_size, alignment, expr.location);
+				if (!target_model::is_inline_atomic_size(storage_size))
+					lowering_flags |= kAtomicRuntimeCall;
+				if (storage_size != size || (!indirect_generic && (lowering_flags & kAtomicRuntimeCall) != 0))
+					lowering_flags |= kAtomicBufferedCall;
+				if (!atomics_enabled_ && (lowering_flags & kAtomicRuntimeCall) != 0 && form.implied == 0)
+				{
+					substitution_error(
+						argument.location, "a generic atomic runtime call with atomics disabled by -mno-atomics");
+					return nullptr;
+				}
 			}
-			// The generic forms' other objects are of the object's size.
+			// Clang takes T* for expected. The GNU pointer forms also
+			// accept a different type with the same representation size.
 			uint64_t other = 0, other_alignment = 0;
-			if (role == 'r' && generic && object != nullptr &&
+			if (role == 'r' && form.any_object)
+				pointer = types_.pointer(object);
+			else if (role == 'r' && generic && object != nullptr &&
 				(!type_size(pointer->element->unqualified, other, other_alignment, argument.location) || other != size))
 			{
 				substitution_error(
 					argument.location, "a generic atomic builtin's operand of another size than the object");
 				return nullptr;
 			}
-			convert_operand(argument, pointer->kind == TypeKind::Pointer ? pointer : operand->type->unqualified);
+			if (convert_operand(argument, pointer) == nullptr)
+				return nullptr;
 			continue;
 		}
 		FundamentalType type = role == 'b' ? FundamentalType::Bool
@@ -2100,8 +2118,7 @@ ExprFacts* Analyzer::atomic_builtin(const syntax::CallExpr& expr, const AtomicFo
 	}
 	ExprFacts* facts = new_facts(expr, result, ValueCategory::PRValue);
 	facts->flags |= kIntrinsic;
-	facts->value = static_cast<uint64_t>(kind) | static_cast<uint64_t>(form.implied) << 8 |
-		(runtime_object ? kAtomicRuntimeCall : 0);
+	facts->value = static_cast<uint64_t>(kind) | static_cast<uint64_t>(form.implied) << 8 | lowering_flags;
 	return facts;
 }
 

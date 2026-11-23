@@ -310,9 +310,11 @@ enum class Intrinsic : uint8_t
 	AtomicIsLockFree
 };
 
-// Generic GNU atomics whose object needs the size-prefixed runtime ABI.
+// Generic atomics whose storage needs the size-prefixed runtime ABI, or
+// whose ordinary value needs temporary storage for the operation.
 // Kept in ExprFacts::value above the intrinsic and implied-order bytes.
 const uint64_t kAtomicRuntimeCall = uint64_t(1) << 16;
+const uint64_t kAtomicBufferedCall = uint64_t(1) << 17;
 
 // One base or non-static data member initialization of a constructor, in
 // initialization order (12.6.2p10): by its mem-initializer, else by the

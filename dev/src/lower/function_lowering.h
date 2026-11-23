@@ -1379,6 +1379,7 @@ private:
 		lowir::Value array, const sema::Type* element, uint64_t index, uint32_t location, bool field);
 	bool copy_members(const sema::Type* type, lowir::Value source, lowir::Value destination);
 	void copy_object(const sema::Type* type, lowir::Value source, lowir::Value destination, uint32_t location);
+	void copy_bytes(lowir::Value source, lowir::Value destination, uint64_t size, uint64_t alignment);
 	lowir::Value va_list_tag(const syntax::Expr& list);
 	RValue gnu_intrinsic(const syntax::CallExpr& expr, sema::Intrinsic kind);
 	RValue coroutine_handle(const syntax::CallExpr& expr, sema::Intrinsic kind);
@@ -1557,6 +1558,7 @@ private:
 	RValue atomic_intrinsic(const syntax::CallExpr& expr, sema::Intrinsic kind);
 	RValue atomic_lock_free(const syntax::CallExpr& expr);
 	RValue atomic_runtime_call(const syntax::CallExpr& expr, sema::Intrinsic kind);
+	RValue atomic_buffered(const syntax::CallExpr& expr, sema::Intrinsic kind);
 	RValue atomic_update(
 		sema::Intrinsic kind, lowir::Type type, lowir::Value target, const RValue& value, lowir::MemoryOrder order);
 	lowir::MemoryOrder memory_order(const syntax::Expr& order, RValue* value = nullptr);

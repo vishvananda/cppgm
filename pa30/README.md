@@ -753,7 +753,7 @@ the order and 5 to two copies of the operation: below 5 the store is
 caller's constant order, such as one a `std::atomic` member passes on, then
 decides the branch. `tests/lowir/` checks the rule.
 
-### Generic GNU atomic runtime operations
+### Generic GNU and C11 atomic operations
 
 The pointer-based `__atomic_load`, `__atomic_store`, `__atomic_exchange` and
 `__atomic_compare_exchange` support complete objects beyond the inline
@@ -761,9 +761,18 @@ The pointer-based `__atomic_load`, `__atomic_store`, `__atomic_exchange` and
 call facts and use the generic runtime ABI in host object mode: prepend
 the object byte size; pass pointers and integer memory orders; omit the
 compare-exchange weak parameter while evaluating its expression once.
-Keep const-destination and operand-size checks. Other builtin forms retain
-their existing size restrictions. Linking needs a compatible runtime
-provider (`libatomic` on Linux, supplied by the host link command).
+Keep const-destination and operand-size checks. Clang's by-value
+`__c11_atomic_load`, `__c11_atomic_store`, `__c11_atomic_exchange` and
+compare-exchange forms also support complete objects. Only the atomic
+object has the size and alignment of `_Atomic(T)`. Read desired values and
+write results using the ordinary size of `T`. When these sizes differ,
+initialize the added padding in the atomic representation and copy the
+observed ordinary value to the caller's expected object only when
+compare-exchange fails. Use an inline operation where the atomic storage
+width allows it. The generic runtime receives the atomic storage width
+and needs a compatible provider such as Linux's `libatomic`, supplied by
+the host link command. Atomic arithmetic and GNU scalar-only forms retain
+their existing size restrictions.
 
 The weak argument's value does not change the runtime ABI. cppgm preserves
 its expression's side effects once, as Clang does; GCC 15 discards that

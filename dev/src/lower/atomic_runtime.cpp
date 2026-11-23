@@ -101,6 +101,176 @@ RValue FunctionLowering::atomic_runtime_call(const syntax::CallExpr& expr, sema:
 	return result;
 }
 
+RValue FunctionLowering::atomic_buffered(const syntax::CallExpr& expr, sema::Intrinsic kind)
+{
+	using lowir::Opcode;
+	using lowir::Type;
+	using lowir::TypeKind;
+	using lowir::Value;
+	using sema::Intrinsic;
+	const auto& operands = expr.arguments;
+	const auto address = [&](uint32_t i) { return operand(*operands[i], ConversionContext::Argument).value; };
+	const auto* object_type = operands[0]->facts->type->unqualified->element;
+	const auto* value_type = object_type->unqualified;
+	const Type value_storage = lowering_.storage_type(value_type);
+	const Type atomic_storage = lowering_.storage_type(object_type);
+	const uint64_t size = lowir::storage_bytes(value_storage);
+	const uint64_t width = lowir::storage_bytes(atomic_storage);
+	const bool padded = size != width;
+	const Value target = address(0);
+	const auto write_value = [&](uint32_t i, Value destination) {
+		const auto& source = *operands[i];
+		if (value_type->kind == sema::TypeKind::Class)
+			initialize_from(source, source.facts->conversion, destination, expr.location);
+		else
+		{
+			Place place = {};
+			place.storage = destination;
+			store(value_storage, operand(source, ConversionContext::Argument), place);
+		}
+	};
+	const auto clear_padding = [&](Value destination) {
+		if (padded)
+			zero_bytes(field_address(destination, size), width - size, 1);
+	};
+	if (kind == Intrinsic::AtomicStoreN && operands.size == 2)
+	{
+		// Clang's atomic_init initializes storage before it is shared.
+		write_value(1, target);
+		clear_padding(target);
+		return RValue();
+	}
+	const bool by_value = kind == Intrinsic::AtomicLoadN || kind == Intrinsic::AtomicStoreN ||
+		kind == Intrinsic::AtomicExchangeN || kind == Intrinsic::AtomicCompareExchangeN;
+	const bool reads = kind == Intrinsic::AtomicLoadN || kind == Intrinsic::AtomicLoad ||
+		kind == Intrinsic::AtomicExchangeN || kind == Intrinsic::AtomicExchange;
+	const bool writes = kind != Intrinsic::AtomicLoadN && kind != Intrinsic::AtomicLoad;
+	const bool compare = kind == Intrinsic::AtomicCompareExchangeN || kind == Intrinsic::AtomicCompareExchange;
+	const auto buffer = [&](lowir::SlotKind role) {
+		Place slot = {};
+		slot.storage = Value::slot(generated_slot(role, atomic_storage));
+		return address_of(slot);
+	};
+	const Value expected = compare ? address(1) : Value();
+	const uint32_t input_index = compare ? 2 : 1;
+	const Value input = writes && !by_value ? address(input_index) : Value();
+	const Value desired = writes ? buffer(lowir::SlotKind::AtomicArg) : Value();
+	if (writes && by_value)
+		write_value(input_index, desired);
+	const Value output = reads && !by_value ? address(writes ? 2 : 1) : Value();
+	const Value result = reads ? buffer(lowir::SlotKind::AtomicResult) : Value();
+	const Value staged_expected = compare && padded ? buffer(lowir::SlotKind::AtomicExpected) : expected;
+	if (compare)
+		discard(*operands[3]);
+	const bool runtime = (expr.facts->value & sema::kAtomicRuntimeCall) != 0;
+	RValue dynamic_order = {};
+	const lowir::MemoryOrder order = memory_order(
+		*operands[operands.size - (compare ? 2 : 1)], !runtime && !reads && !compare ? &dynamic_order : nullptr);
+	const lowir::MemoryOrder failure = compare ? memory_order(*operands[operands.size - 1])
+											   : lowir::MemoryOrder::Relaxed;
+	if (writes)
+	{
+		if (!by_value)
+			copy_bytes(input, desired, size, 1);
+		clear_padding(desired);
+	}
+	if (compare && padded)
+	{
+		copy_bytes(expected, staged_expected, size, 1);
+		clear_padding(staged_expected);
+	}
+
+	RValue success = {};
+	if (runtime)
+	{
+		if (!lowering_.host_objects() && !target_model::is_wasm(program_.target))
+			throw LoweringError(expr.location, "a generic atomic runtime call requires host object mode");
+		const Type i32 = Type::scalar(TypeKind::I32);
+		const Type size_type = program_.pointer_type().pointer_bytes() == 4 ? i32 : Type::scalar(TypeKind::I64);
+		const size_t base = arguments_.size();
+		arguments_.push_back(integer(size_type, width).value);
+		arguments_.push_back(target);
+		if (compare)
+			arguments_.push_back(staged_expected);
+		if (writes)
+			arguments_.push_back(desired);
+		if (reads)
+			arguments_.push_back(result);
+		arguments_.push_back(integer(i32, static_cast<uint64_t>(order)).value);
+		if (compare)
+			arguments_.push_back(integer(i32, static_cast<uint64_t>(failure)).value);
+		const Intrinsic operation = compare ? Intrinsic::AtomicCompareExchange
+			: !writes                       ? Intrinsic::AtomicLoad
+			: reads                         ? Intrinsic::AtomicExchange
+											: Intrinsic::AtomicStore;
+		success.type = Type::scalar(compare ? TypeKind::I1 : TypeKind::Void);
+		success.value = emit_call(
+			success.type, Value::symbol(lowering_.atomic_runtime_function(operation)), base, lowir::kNoId, false);
+	}
+	else
+	{
+		Type bits;
+		if (!atomic_bits(atomic_storage, bits))
+			throw LoweringError(expr.location, "an inline atomic object without an integer representation");
+		const auto raw = [](Value address) {
+			Place place = {};
+			place.storage = address;
+			place.untyped = true;
+			return place;
+		};
+		const Value value = writes ? load(bits, raw(desired)).value : Value();
+		const Opcode op = compare ? Opcode::AtomicCompareExchange
+			: !writes             ? Opcode::AtomicLoad
+			: reads               ? Opcode::AtomicExchange
+								  : Opcode::AtomicStore;
+		lowir::Instruction inst = lowir::make_instruction(op, bits);
+		inst.order = order;
+		if (compare)
+		{
+			inst.ops[0] = target;
+			inst.ops[1] = staged_expected;
+			inst.ops[2] = value;
+			inst.sub = static_cast<uint8_t>(failure);
+			success.type = Type::scalar(TypeKind::I64);
+			success.value = emit_value(inst, success.type);
+		}
+		else if (reads)
+		{
+			inst.ops[0] = target;
+			inst.ops[1] = value;
+			store(bits, RValue{ emit_value(inst, bits), bits }, raw(result));
+		}
+		else
+		{
+			inst.ops[0] = value;
+			inst.ops[1] = target;
+			emit_ordered(inst, dynamic_order);
+		}
+	}
+	if (compare && padded)
+	{
+		// Only failure changes the caller's expected object, and that
+		// object has space for the value bytes only.
+		const auto failed = new_block(lowir::BlockKind::IfElse);
+		const auto done = new_block(lowir::BlockKind::AtomicDone);
+		branch(success, done, failed);
+		place(failed);
+		copy_bytes(staged_expected, expected, size, 1);
+		jump(done);
+		place(done);
+	}
+	if (!reads)
+		return success;
+	if (by_value)
+	{
+		Place view = {};
+		view.storage = result;
+		return load(value_storage, view);
+	}
+	copy_bytes(result, output, size, 1);
+	return RValue();
+}
+
 RValue FunctionLowering::atomic_lock_free(const syntax::CallExpr& expr)
 {
 	const lowir::Type boolean = lowir::Type::scalar(lowir::TypeKind::U8);

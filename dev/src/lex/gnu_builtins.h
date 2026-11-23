@@ -334,8 +334,8 @@ const uint8_t kGnuSyncCompareSwap = 0xff;
 extern const GnuSyncOperation kGnuSyncOperations[];
 extern const unsigned kGnuSyncOperationCount;
 // Clang's __c11_atomic builtins on _Atomic objects: the __atomic operation
-// each performs, roles and result as above (an object of any type of 1, 2,
-// 4 or 8 bytes but for the arithmetic), the memory order it implies
+// each performs, roles and result as above (arithmetic requires an
+// integral or pointer type of 1, 2, 4 or 8 bytes), the memory order it implies
 // (init: relaxed, its encoding + 1; 0 when an operand gives it), and for
 // a compare-exchange its weakness (0, 1; 0xff for none).
 struct GnuC11Operation

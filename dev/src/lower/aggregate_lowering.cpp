@@ -1846,9 +1846,12 @@ void FunctionLowering::copy_object(
 	const sema::ClassEntity* cls = type->kind == sema::TypeKind::Array ? nullptr : sema::ClassOf(type);
 	if (cls != nullptr && cls->nvsize != 0 && !whole)
 		size = std::min(size, cls->nvsize);
-	if (size == 0)
-		return;
-	const uint64_t alignment = lowering_.alignment_of(type, location);
+	if (size != 0)
+		copy_bytes(source, destination, size, lowering_.alignment_of(type, location));
+}
+
+void FunctionLowering::copy_bytes(lowir::Value source, lowir::Value destination, uint64_t size, uint64_t alignment)
+{
 	lowir::Instruction inst = lowir::make_instruction(
 		lowir::Opcode::CopyObject, lowir::Type::scalar(lowir::TypeKind::Void));
 	inst.ops[0] = source;
