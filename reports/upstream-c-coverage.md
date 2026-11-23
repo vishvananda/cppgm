@@ -86,13 +86,13 @@ objects. These results cover the listed workloads.
 All 24 C99 headers compiled in isolation with the Linux x86-64 GCC 15
 header search at `-std=c99 -pedantic-errors`. The include probes declared
 one ordinary object after each header. Two macro-use probes identified
-remaining compiler-dependent behavior. GCC 15 and Clang 21 compiled,
+compiler-dependent behavior. GCC 15 and Clang 21 compiled,
 linked with `libm`, and ran both probes on Linux.
 
 | Required interface | Probe and cppgm result |
 | --- | --- |
-| `complex.h` imaginary unit | Construct `3.0 + 4.0 * I` and check the real and imaginary parts and magnitude. Passes with the real C library at `-std=c99 -pedantic-errors -O0` and `-O2` on x86-64 Linux, Linux AArch64 under QEMU, and WASI under Wasmtime. The typed `-E` stream accepts glibc's expansion. Both Darwin targets also cross-link the header-independent PA38 probe. Native Darwin and the SDK headers still require qualification. [PA38 value fixture](../pa38/tests/general/500-c-imaginary-literals.t) · [Extension policy fixture](../pa38/tests/general/500-c-imaginary-extension.t) |
-| `tgmath.h` function selection | Check the result types of `sqrt(float)` and `pow(int, long double)`, as well as exactly-once argument evaluation. The Linux macro reaches the missing `__builtin_tgmath`. The Clang resource header on WASI fails earlier on its overloaded C declarations. |
+| `complex.h` imaginary unit | Construct `3.0 + 4.0 * I` and check the real and imaginary parts and magnitude. Passes with the real C library at `-std=c99 -pedantic-errors -O0` and `-O2` on x86-64 Linux, Linux AArch64 under QEMU, and WASI under Wasmtime. The typed `-E` stream accepts glibc's expansion. The header-independent PA38 probe also runs on bare Wasm and cross-links for both Darwin targets. Native Darwin and the SDK headers still require qualification. [PA38 value fixture](../pa38/tests/general/500-c-imaginary-literals.t) · [Extension policy fixture](../pa38/tests/general/500-c-imaginary-extension.t) |
+| `tgmath.h` function selection | Check the result types of `sqrt(float)` and `pow(int, long double)`, as well as exactly-once argument evaluation. The Linux macro reaches the missing `__builtin_tgmath`. The Clang resource header on WASI fails on its overloaded C declarations. Selecting the wasi-libc header first still fails the `sqrt(float)` return-type check with cppgm's default predefines. |
 
 [C99 library clauses, §§7.3 and 7.22](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
 [GCC complex literal extension](https://gcc.gnu.org/onlinedocs/gcc/Complex.html) ·

@@ -1313,3 +1313,52 @@ instruction differences stayed below 0.002%.
 | SQLite | A/A | 16,506,660,977 / 16,506,783,835 / 16,506,469,827 / 16,506,634,993 |
 | SQLite | ABBA | 16,506,625,591 / 16,507,328,780 / 16,506,502,345 / 16,506,762,598 |
 | SQLite | BAAB | 16,506,411,108 / 16,506,454,918 / 16,506,915,160 / 16,506,787,930 |
+
+## GNU C imaginary literals
+
+The token classifier resolves the suffix once. The parser retains the component
+type and either the integer value or the end of the floating value text.
+The parser token and ordinary literal records keep their existing sizes. A
+WASI-hosted token-stream probe verifies the 20-byte parser token and the
+out-of-line payload for a value greater than 32 bits. Constant evaluation and
+lowering use the existing complex representation. The compiler checks system
+macro provenance at definition time when GNU C extension diagnostics are
+enabled, then carries it through replacement-list tokens.
+
+The feature workload emits functions returning one `_Complex float` literal
+each with `-std=gnu17 -nostdinc -O2 -c`. Four runs per input produced identical
+objects. Adding 768 functions cost 112.51 million retired instructions.
+Adding four times as many cost 451.84 million, a ratio of 4.02. Peak RSS
+values are medians.
+
+| Functions | Retired user-space instructions in trial order | Peak RSS (KiB) |
+| ---: | --- | ---: |
+| 256 | 41,531,494 / 41,533,066 / 41,548,389 / 41,534,933 | 12,180 |
+| 1024 | 154,048,206 / 154,051,015 / 154,042,680 / 154,045,167 | 13,510 |
+| 4096 | 605,885,063 / 605,969,805 / 605,893,789 / 605,885,099 | 20,570 |
+
+The dormant controls used GCC 15-built cppgm binaries from `bab6cc0f7` and
+`e7e193549` on CPU 71. The 4,096-function scalar workload used ordinary
+integer, decimal floating and hexadecimal floating literals. The hosted
+SQLite and frozen C++ `semantic_overload.cpp` workloads used `-O2` and
+`-O3`, respectively. Objects were byte-identical across builds for all
+three controls. The A/A task-clock ranges were 4.66%, 38.17%, and 4.13%
+respectively, so the comparison uses retired instructions.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| Scalar literals | 0.02212% | +0.11718% | +0.12037% |
+| SQLite `sqlite3.c` | 0.00114% | +0.05504% | +0.05379% |
+| C++ `semantic_overload.cpp` | 0.00399% | +0.01535% | +0.01585% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| Scalar literals | A/A | 724,093,782 / 724,236,832 / 724,076,701 / 724,093,993 |
+| Scalar literals | ABBA | 724,108,585 / 725,001,701 / 724,953,805 / 724,149,794 |
+| Scalar literals | BAAB | 724,953,689 / 724,083,160 / 724,094,806 / 724,967,494 |
+| SQLite | A/A | 16,506,170,785 / 16,506,101,372 / 16,506,007,455 / 16,506,196,225 |
+| SQLite | ABBA | 16,506,142,984 / 16,515,226,775 / 16,515,032,674 / 16,505,947,206 |
+| SQLite | BAAB | 16,514,916,860 / 16,505,880,151 / 16,505,958,464 / 16,514,678,610 |
+| C++ | A/A | 9,044,434,796 / 9,044,603,816 / 9,044,779,340 / 9,044,418,292 |
+| C++ | ABBA | 9,044,704,339 / 9,046,032,568 / 9,045,944,823 / 9,044,496,098 |
+| C++ | BAAB | 9,046,068,001 / 9,044,664,018 / 9,044,576,923 / 9,046,040,258 |

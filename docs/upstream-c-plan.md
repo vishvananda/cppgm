@@ -300,6 +300,21 @@ chains independently.
   freestanding header set, `__STDC_HOSTED__`, startup contract and required
   helper symbols against the advertised edition. Record availability of
   hosted headers independently from language support.
+- Qualify `<tgmath.h>` through each SDK's default header search. For glibc,
+  implement `__builtin_tgmath` using the canonical candidate signatures and
+  the typed call arguments. Determine fixed and varying positions in one
+  pass over the signatures, check their permitted type relationships, and
+  use an index by canonical type for candidate selection and duplicate checks.
+  Keep the selected callee and its conversions on the call. Exercise both
+  real and complex families, integer promotion, and fixed results. Verify
+  that `sizeof` leaves both candidate and argument expressions unevaluated.
+  At runtime, evaluate only the selected candidate expression and each call
+  argument once. For the Clang
+  resource header used by WASI, qualify C `overloadable` declarations, ranking,
+  and mangling through the existing overload and ABI machinery. Check nested
+  calls with one argument-level increase at a time to catch repeated work.
+  [GCC built-ins](https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html) ·
+  [Clang `overloadable`](https://clang.llvm.org/docs/AttributeReference.html#overloadable)
 - Compile both sides of each native ABI test in both directions (cppgm caller
   and native callee, then native caller and cppgm callee). Cover aggregate
   arguments and returns, variadics, bit-fields, long double, complex types,
