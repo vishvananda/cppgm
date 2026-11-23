@@ -198,17 +198,8 @@ void FunctionLowering::c_initialize_spans(
 			uint32_t saved = saved_values.find(child.initializer);
 			if (saved == PointerMap::kMissing)
 			{
-				const syntax::Expr* value = child.initializer->value;
-				if (value != nullptr && value->kind == syntax::ExprKind::BracedInit)
-				{
-					const auto& items = static_cast<const syntax::BracedInitList*>(value)->elements;
-					value = items.empty() ? nullptr : items[0];
-				}
-				const RValue converted = value == nullptr
-					? zero_value(element)
-					: fit(operand(*value, ConversionContext::Initialization), element);
 				saved = static_cast<uint32_t>(values.size());
-				values.push_back(converted);
+				values.push_back(c_initializer_span_value(*child.initializer, element, location));
 				saved_values.set(child.initializer, saved);
 			}
 			store_initializer_span(element, base, child.index, child.limit, values[saved], location);
@@ -226,16 +217,49 @@ void FunctionLowering::c_initialize_spans(
 		omitted_array_tail(array, base, next, location);
 }
 
+RValue FunctionLowering::c_initializer_span_value(
+	const sema::CInitializer& initializer, const sema::Type* element, uint32_t location)
+{
+	if (sema::IsSubaggregate(element))
+	{
+		const auto slot = generated_slot(lowir::SlotKind::Tmpobj, lowering_.storage_type(element));
+		const AddressPath path{ AddressPath::Root::Storage, lowir::Value::slot(slot), path_steps_.size() };
+		sema::CInitializer snapshot = initializer;
+		snapshot.type = initializer.type->unqualified;
+		c_initialize(snapshot, path, 0, location);
+		return RValue{ path_address(path), program_.pointer_type() };
+	}
+
+	const syntax::Expr* value = initializer.value;
+	if (value != nullptr && value->kind == syntax::ExprKind::BracedInit)
+	{
+		const auto& items = static_cast<const syntax::BracedInitList*>(value)->elements;
+		value = items.empty() ? nullptr : items[0];
+	}
+	return value == nullptr ? zero_value(element) : fit(operand(*value, ConversionContext::Initialization), element);
+}
+
 void FunctionLowering::store_initializer_span(const sema::Type* element, lowir::Value base, uint64_t first,
 	uint64_t limit, const RValue& value, uint32_t location)
 {
 	const lowir::Type storage = lowering_.storage_type(element);
 	Place destination = {};
 	qualify(destination, element);
+	const bool aggregate = sema::IsSubaggregate(element);
+	const auto put = [&](lowir::Value address) {
+		if (aggregate && (element->cv & sema::kVolatile) != 0)
+			copy_volatile_record(element, value.value, address, false, true, location);
+		else if (aggregate)
+			copy_object(element, value.value, address, location);
+		else
+		{
+			destination.storage = address;
+			store_initializer(storage, value, destination);
+		}
+	};
 	if (limit == first + 1)
 	{
-		destination.storage = structured_element(base, element, first, location, false);
-		store_initializer(storage, value, destination);
+		put(structured_element(base, element, first, location, false));
 		return;
 	}
 	const lowir::Type i64 = lowir::Type::scalar(lowir::TypeKind::I64);
@@ -253,9 +277,7 @@ void FunctionLowering::store_initializer_span(const sema::Type* element, lowir::
 	place(body);
 	const RValue offset = binary(
 		lowir::BinaryOp::Mul, i64, current, integer(i64, lowering_.size_of(element, location)));
-	destination.storage =
-		index(lowir::Type::scalar(lowir::TypeKind::I8), ir_model::IPK_ARRAY_ELEMENT, base, offset).value;
-	store_initializer(storage, value, destination);
+	put(index(lowir::Type::scalar(lowir::TypeKind::I8), ir_model::IPK_ARRAY_ELEMENT, base, offset).value);
 	store(i64, binary(lowir::BinaryOp::Add, i64, current, integer(i64, 1)), cursor);
 	jump(condition);
 	place(end);

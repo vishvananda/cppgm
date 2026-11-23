@@ -1362,6 +1362,8 @@ private:
 		const sema::CInitializer& plan, const AddressPath& path, uint8_t cv, uint32_t location, bool inherited = false);
 	void c_initialize_spans(const sema::CInitializer& plan, const sema::Type* array, const AddressPath& path,
 		uint32_t location, bool inherited);
+	RValue c_initializer_span_value(
+		const sema::CInitializer& initializer, const sema::Type* element, uint32_t location);
 	void store_initializer_span(const sema::Type* element, lowir::Value base, uint64_t first, uint64_t limit,
 		const RValue& value, uint32_t location);
 	void c_initialize_record(

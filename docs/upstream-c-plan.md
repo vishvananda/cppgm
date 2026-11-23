@@ -45,11 +45,12 @@ behavior independent of the edition work that exposed them.
 
 Start the next batches from the existing receipts.
 
-1. Extend GNU initializer coverage from the now-passing pinned corpus to
-   ranges followed by a subobject designator and ranges initialized with
-   aggregate values. Include whole-subobject replacement followed by
-   overlapping field writes in the scaling tests. The pinned scalar-range
-   case and the empty-record layout have PA38 regressions.
+1. Extend GNU initializer coverage from whole-element ranges to paths with
+   a member or another subscript after the range. Cover partial overwrites
+   of aggregate values and automatic aggregates with qualified subobjects.
+   Include whole-subobject replacement followed by overlapping field
+   writes in the scaling tests. PA38 covers scalar and aggregate
+   whole-element ranges and the empty-record layout.
    [Initializer evidence](../reports/upstream-c-coverage.md#gnu-range-designators-and-empty-records)
 2. Finish the C99–C17 lexical inventory using the trigraph, digraph,
    universal-character, and macro redefinition receipts. Cover the
@@ -313,7 +314,12 @@ same 16,383 spans when the represented extent grew from 16,384 to
 16.384 trillion elements. Retired instruction counts stayed within
 0.01% in that pair.
 Add a case with independent fields and repeated covering writes to expose
-quadratic scans of fragmented ranges. At automatic-storage lowering, reuse
+quadratic scans of fragmented ranges. Group field updates by typed member
+path. A shared index of the earliest and latest whole-object reset in
+each interval can clip every field's winning spans without visiting reset
+boundaries whose ordering is uniform. A prototype checked this query
+against a pointwise oracle on 10,000 generated inputs. At
+automatic-storage lowering, reuse
 each surviving value across the ranges that consume it. Use a loop or an
 existing bulk operation when repeated stores would make LowIR grow with
 the represented extent.

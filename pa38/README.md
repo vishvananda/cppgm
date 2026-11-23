@@ -267,12 +267,17 @@ The first fixture set covers these parts of the C17 input profile:
   types, and the constant-expression requirements for static storage.
   Infer the size of an incomplete array from its highest initialized index
   and keep implicit zero ranges compact.
-- Under the GNU extension policy, allow `[first ... last]` for a scalar
-  array element, including an array reached by other fixed designators.
+- Under the GNU extension policy, allow `[first ... last]` to initialize
+  whole array elements, including elements of record or array type.
+  Fixed designators may select the containing array.
   Both endpoints are in-bounds integer constant expressions and the range
   includes both endpoints. A later initializer can replace part of a range.
   Evaluate a surviving range's value once and use it for every element it
-  still initializes. A positional initializer resumes after the last index.
+  still initializes. Braces can supply the entire aggregate value,
+  including its implied zeros. Each nested brace pair has its own current
+  object. A positional initializer resumes after the last index.
+  The aggregate cases cover ordinary records and rows, including
+  volatile-qualified record destinations with ordinary members.
   Diagnose a range under the pedantic policy.
 - GNU C records with empty bodies have size zero. A member of empty record
   type consumes no bytes in its enclosing record. Diagnose empty record

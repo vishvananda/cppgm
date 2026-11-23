@@ -187,13 +187,26 @@ subobject across a cppgm object boundary in both directions. A generated
 128-case replay agreed with GCC 15 on overlapping intervals and exactly
 once evaluation of surviving ranges at `-O0` and `-O2`. A separate probe
 covered complex values, atomic integers, and static negative zero. All 44
-pinned musl libc-test configurations still pass. Native macOS execution,
-suffix paths following a range, and ranges of aggregate values remain open.
+pinned musl libc-test configurations still pass. Native macOS execution
+remains open.
 [Range fixture](../pa38/tests/general/300-designated-gnu-ranges.t) ·
 [Empty record fixture](../pa38/tests/general/300-record-gnu-empty.t) ·
 [Compound literal fixture](../pa38/tests/general/500-c-static-parenthesized-compound.t) ·
 [GCC ranges](https://gcc.gnu.org/onlinedocs/gcc/Designated-Inits.html) ·
 [GCC empty structures](https://gcc.gnu.org/onlinedocs/gcc/Empty-Structures.html)
+
+The PA38 aggregate fixture repeats complete records, union members
+selected by whole union values, and array rows. It covers an inferred
+outer bound, nested brace scopes, static and automatic storage, and
+volatile-qualified records with ordinary members. It also checks that a
+record-producing call runs once even when its surviving elements are
+split into separate spans. The fixture matches GCC 15 on Linux x86-64
+at `-O0` and `-O2`. It runs under QEMU on AArch64 Linux and in
+the WASI lane. Both Darwin architectures cross-link. Suffix paths
+following a range, surviving partial overwrites of aggregate values,
+and automatic ranges of atomic aggregates or aggregates with individually
+volatile subobjects remain open.
+[PA38 aggregate range fixture](../pa38/tests/general/300-designated-gnu-aggregate-ranges.t)
 
 The next GNU range probes cover field continuation at the final index,
 an aggregate-producing call evaluated once, and two ranged dimensions.

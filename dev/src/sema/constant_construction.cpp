@@ -716,7 +716,7 @@ bool ConstantInterpreter::c_initialize(
 				ConstValue* value = nullptr;
 				if (!step(location) || !locate(place, true, value, location))
 					return false;
-				*value = repeated[saved];
+				copy_into(*value, repeated[saved]);
 			}
 		}
 		else if (!c_initialize(*child.initializer, place, location, inherited))

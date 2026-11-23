@@ -84,6 +84,7 @@ public:
 
 	const CInitializer* build(const syntax::BracedInitList& list, const Type* type)
 	{
+		location_ = list.location;
 		if (!IsSubaggregate(type))
 			analyzer_.error(list.location, "a C designator requires an array or complete record");
 		if (const ClassEntity* record = ClassOf(type))
@@ -280,8 +281,9 @@ private:
 		const uint64_t last = subscript(type, *step.range_end);
 		if (last < first)
 			analyzer_.error(step.location, "a C range designator has a decreasing interval");
-		if (!terminal || (!IsScalar(type->element) && type->element->kind != TypeKind::Complex))
-			analyzer_.error(step.location, "C range designators currently require a whole scalar array element");
+		if (!terminal)
+			analyzer_.error(step.location, "C range designators currently require a whole array element");
+		check_repeated_element(type->element, step.location);
 		// Keep preceding point initializers. From this point on every write
 		// has its own node, ordered by its ID even when intervals overlap.
 		nodes_[parent].has_spans = true;
@@ -290,6 +292,28 @@ private:
 		range_limits_.insert(result, last + 1);
 		nodes_[result].repeat_value = true;
 		return result;
+	}
+
+	void check_repeated_element(const Type* element, uint32_t location)
+	{
+		if (!IsSubaggregate(element) || analyzer_.c_static_initializer_)
+			return;
+		const Type* leaf = element;
+		while (leaf->kind == TypeKind::Array)
+			leaf = leaf->element;
+		const ClassEntity* record = ClassOf(leaf);
+		if (record != nullptr && record->layout != FactState::Done)
+		{
+			uint64_t size = 0;
+			uint64_t alignment = 0;
+			if (!analyzer_.type_size(leaf, size, alignment, location))
+				return;
+		}
+		if ((element->cv & kAtomic) != 0 || (element->kind == TypeKind::Array && (leaf->cv & kVolatile) != 0) ||
+			(record != nullptr && record->contains_volatile))
+			analyzer_.error(location,
+				"range initialization of atomic aggregates or aggregates with volatile subobjects is not yet "
+				"supported");
 	}
 
 	void braced(uint32_t root, const syntax::BracedInitList& list)
@@ -355,6 +379,8 @@ private:
 		const Type* type = nodes_[destination].type;
 		while (IsSubaggregate(type) && !InitializesSubaggregate(type, value))
 		{
+			if (nodes_[destination].repeat_value)
+				analyzer_.error(value.location, "a C range initializer currently requires a whole aggregate value");
 			destination = first_child(destination);
 			if (destination == kNone)
 				analyzer_.error(value.location, "brace elision of an aggregate with no elements");
@@ -408,7 +434,8 @@ private:
 		{
 			const auto entries = freeze_spans(node, first, live);
 			auto* plan = analyzer_.arena_.allocate_array<CInitializer>(1);
-			*plan = CInitializer{ completed_type(node), node.value, entries, node.starts_value, true, false };
+			*plan = CInitializer{ completed_type(node), node.value, entries, node.starts_value, true,
+				node.repeat_value };
 			return plan;
 		}
 		auto* entries = analyzer_.arena_.allocate_array<CInitializerChild>(node.child_count);
@@ -438,6 +465,8 @@ private:
 		for (uint32_t sub = node.first; sub != kNone; sub = nodes_[sub].next)
 			writes.push_back(ArrayWrite{ nodes_[sub].index, array_limit(sub), sub });
 		const auto spans = WinningSpans(writes);
+		if (IsSubaggregate(node.type->element))
+			check_aggregate_spans(writes, spans);
 		auto* entries = analyzer_.arena_.allocate_array<CInitializerChild>(spans.size());
 		FlatMap<uint32_t, const CInitializer*, std::hash<uint32_t>> frozen;
 		uint32_t count = 0;
@@ -454,12 +483,37 @@ private:
 		return { entries, count };
 	}
 
+	void check_aggregate_spans(const std::vector<ArrayWrite>& writes, const std::vector<ArrayWrite>& spans)
+	{
+		// A partial update needs to compose with older coverage rather than
+		// replace the whole element. The second largest end in the prefix
+		// tells whether another write covered the winning point.
+		size_t next = 0;
+		uint64_t largest_end = 0;
+		uint64_t second_end = 0;
+		for (const ArrayWrite& span : spans)
+		{
+			if (nodes_[span.node].starts_value)
+				continue;
+			while (next != writes.size() && writes[next].first <= span.first)
+			{
+				const uint64_t end = writes[next++].limit;
+				second_end = std::max(second_end, std::min(largest_end, end));
+				largest_end = std::max(largest_end, end);
+			}
+			if (second_end > span.first)
+				analyzer_.error(
+					location_, "a partial overwrite of an aggregate range initializer is not yet supported");
+		}
+	}
+
 	Analyzer& analyzer_;
 	Scope* scope_;
 	std::vector<Node> nodes_;
 	FlatMap<SubobjectKey, uint32_t, SubobjectHash> children_;
 	FlatMap<uint32_t, uint64_t, std::hash<uint32_t>> range_limits_;
 	uint32_t group_ = 0;
+	uint32_t location_ = 0;
 };
 
 void Analyzer::c_designated_list(const syntax::BracedInitList& list, const Type* type, Scope* scope)
