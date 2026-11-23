@@ -45,6 +45,23 @@ is in progress. Expand the release matrix after the relevant mode and its
 preceding mode's controls pass. Keep fixes to shared translation and ABI
 behavior independent of the edition work that exposed them.
 
+The next core coverage batch is lexical translation and preprocessing.
+Inventory source encodings, line splicing, universal character names,
+digraphs and trigraphs, preprocessing numbers, and required diagnostics.
+Use the existing GCC and Clang metadata to select a rule's positive and
+negative cases. Add portable boundary cases where the suites only exercise
+an extension. Run the cases through the public driver and qualify any
+shared changes in the earliest owning assignment. This establishes edition
+boundaries before enabling the legacy or C23 versions of the same rules.
+
+Finish the known GNU C compatibility cases and native macOS qualification
+alongside that inventory. Keep the GNU replay separate from the ISO
+release gate. The next hosted batch starts with the C99 header probes and
+musl receipt, then adds the mandatory C11 and C17 library interfaces for
+each SDK.
+[Pinned suite receipts](../reports/upstream-c-coverage.md#pinned-suite-receipts) ·
+[Initial hosted replays](../reports/upstream-c-coverage.md#initial-hosted-replays)
+
 Linux glibc and WASI pass the initial hosted C99 math probes through
 their default header paths. Extend those results to the outstanding
 macOS SDK and library cases. Keep the nested macro scaling work in the
@@ -122,6 +139,15 @@ solely on successful compilation. Freeze test files and support inputs by
 hash and record the edition, target, optimizer flags, headers, linker,
 libraries, compiler versions, commands, and raw outcomes.
 
+Keep the source-to-rule mapping independent of an individual run. Start a
+versioned coverage table with the C99 through C17 translation limits and
+edition probes, using them to validate the evidence join before migrating
+the larger inventory. Have the report reject missing or duplicate rule
+identifiers, stale case identifiers, and passing rows without a matching
+edition and target receipt. Keep uncovered mandatory rules visible even
+when all checked cases pass. Use the same structure for C90, C95, and C23
+and add the C fixtures and maintainer corpus without duplicating the rules.
+
 Run the same applicable cases with cppgm and the pinned native compiler.
 Qualify inferred ISO modes with the native compiler in pedantic mode and check
 the corresponding GNU or later-edition acceptance case. Distinguish a required
@@ -159,9 +185,10 @@ and 209/220 at `-O2` in both modes. These are suite compatibility counts.
 Some inputs tagged as portable use GNU extensions.
 
 The branch has regressions for the optimizer crash, macro stack mismatch,
-and C-only VLA link found in the pilot. Continue from the four reviewed
-`c-testsuite` source gaps and the larger clause inventory. Fix shared defects
-in the layer that owns them and rerun unrelated language controls that use it.
+and C-only VLA link found in the pilot. Continue from the remaining cases
+in the pinned `c-testsuite` manifest and the larger clause inventory. Fix
+shared defects in the layer that owns them and rerun unrelated language
+controls that use it.
 [Pinned pilot cases](https://github.com/c-testsuite/c-testsuite/tree/5c7275656d751de0e68b2d340a95b5681858ed07/tests/single-exec) ·
 [Current known gaps](../reports/upstream-c-testsuite-known-gaps.json)
 
@@ -260,6 +287,17 @@ subobjects. Check nested continuation, overlapping writes, aggregate and
 string initialization, flexible-array constraints, and required zero fill.
 Measure analysis and emission separately so a large array's data does not
 hide repeated traversal of the input initializers.
+
+For GNU range designators, retain the written endpoints and suffix paths.
+Build a sparse initializer plan that resolves overlaps without enumerating
+every represented element in semantic analysis. Keep source entries and
+their value evaluation distinct from the covered intervals so a surviving
+range expression evaluates once. Test nested suffixes, later overwrites,
+positional continuation, complete and inferred bounds, and static and
+automatic storage. Vary the number of written entries, range width, and
+overlap independently. Account for required data emission separately from
+semantic work.
+[GCC range designators](https://gcc.gnu.org/onlinedocs/gcc/Designated-Inits.html)
 
 For constant expressions, distinguish eligibility for the required C
 context from the ability to fold a value. Start with static assertions,
@@ -398,6 +436,8 @@ chains independently.
   the applicable language and driver aliases in the mode matrix, including
   `c90`, `c89` and `iso9899:199409`. Test amendment digraphs and
   `__STDC_VERSION__` separately from its library additions.
+  Parameterize the translation-limits generator by edition and verify each
+  combined program against the applicable limits and execution environment.
   [GCC edition options](https://gcc.gnu.org/onlinedocs/gcc/Standards.html)
 - **C23.** Inventory every mandatory change against the published edition
   and applicable resolutions. Batch the preprocessing and literal changes
@@ -419,6 +459,8 @@ chains independently.
   checked arithmetic, bit utilities, updated variadics and header version
   macros. Test `#embed` cost against produced tokens and check that a small
   `limit` keeps work bounded even for a large resource.
+  Recheck combined translation limits with the C23 rule set, and document
+  target-specific limits, encodings, and ABI choices alongside the results.
   [WG14 variably modified types](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf)
 
 [WG14 edition index](https://www.open-std.org/jtc1/sc22/wg14/www/projects.html) ·
