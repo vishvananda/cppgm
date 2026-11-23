@@ -515,6 +515,10 @@ To complete PA30, implement hosted compatibility for:
   `section`, `vector_size`, `mode`, `gnu_inline`, `abi_tag`, `may_alias`, `using_if_exists` and
   `exclude_from_explicit_instantiation`, each also spelled `__name__`) and
   `0` for any other.
+  GNU `aligned` on a bit-field may follow its width. Preserve the field's
+  placement and its contribution to the record alignment, including when
+  the alignment depends on a template argument.
+  Keep reads and writes of a packed union bit-field within its storage.
   Directories added with `-iquote` are searched for quoted includes after
   the including file's directory and before `-I`. Angle-bracket lookups
   start at the ordinary include chain. `#include_next` continues from the

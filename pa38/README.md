@@ -199,6 +199,11 @@ The first fixture set covers these parts of the C17 input profile:
   alignment specifiers on typedefs, bit-fields, functions, parameters, and
   register objects, and requests weaker than an object's type. A type
   operand uses the type's alignment without evaluating VLA bounds.
+  GNU `aligned` can accompany a bit-field in its declaration specifiers
+  or after its width. A named field's request affects its position and
+  record alignment. On an unnamed zero-width field, it increases the
+  alignment of the following field and contributes to the record
+  alignment on Linux AArch64.
 - In pedantic modes, check an explicit definition against every declaration
   of the same linked object in the translation unit. If a declaration's
   strongest standard alignment request exceeds the type's alignment, the

@@ -1259,6 +1259,12 @@ Decl* Parser::parse_bit_field_rest(Slice<DeclSpecifier> specifiers, Declarator* 
 		member.declarator = declarator;
 		if (declarator != nullptr)
 		{
+			for (const Declarator* part = declarator; part != nullptr; part = part->nested)
+				for (const Attribute* attribute = part->attributes; attribute != nullptr; attribute = attribute->next)
+					if (!attribute->standard &&
+						(attribute->kind == AttributeKind::Packed ||
+							(attribute->kind == AttributeKind::Alignas && attribute->gnu)))
+						throw ParseError(attribute->location, "a GNU bit-field attribute before the width");
 			const Name* name = declarator_name(declarator);
 			if (name != nullptr && !name->qualified() && name->last().kind == NameComponentKind::Identifier)
 				scopes_.declare(
@@ -1270,7 +1276,22 @@ Decl* Parser::parse_bit_field_rest(Slice<DeclSpecifier> specifiers, Declarator* 
 		member.width = parse_conditional_expression();
 		if (member.width == nullptr)
 			return nullptr;
-		if (!c_source_ && member.declarator != nullptr && (at(TokenKind::OP_ASS) || at(TokenKind::OP_LBRACE)))
+		if (tok().is_identifier() && gnu_names_.kind(tok().identifier) == GnuNames::kAttribute)
+		{
+			Attribute* unnamed_attributes = nullptr;
+			Attribute*& attributes = declarator != nullptr ? declarator->attributes : unnamed_attributes;
+			if (!collect_attributes(attributes))
+				return nullptr;
+			if (declarator == nullptr && attributes != nullptr)
+			{
+				member.declarator = make<Declarator>();
+				*member.declarator = Declarator();
+				member.declarator->abstract = true;
+				member.declarator->location = attributes->location;
+				member.declarator->attributes = attributes;
+			}
+		}
+		if (!c_source_ && declarator != nullptr && (at(TokenKind::OP_ASS) || at(TokenKind::OP_LBRACE)))
 		{
 			if (!cxx20_)
 				require_cxx_extension(location(), 20, "a bit-field default member initializer requires C++20");

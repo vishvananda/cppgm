@@ -1931,6 +1931,7 @@ private:
 	};
 	void begin_bit_run(size_t first, uint64_t first_byte);
 	void end_bit_run(size_t first, uint64_t limit);
+	void assign_union_member_storage(DataMember& member, uint64_t declared_bytes, uint64_t member_bytes, bool packed);
 	void assign_bit_units(size_t first, uint64_t open_limit, uint32_t location);
 	void assign_bit_segment(
 		const BitRun& run, size_t first, size_t last, uint64_t begin, uint64_t bytes, uint32_t location);

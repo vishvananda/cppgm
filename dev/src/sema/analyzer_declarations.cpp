@@ -3238,24 +3238,26 @@ void Analyzer::bit_field_declaration(const syntax::BitFieldDecl& decl, Scope* sc
 		specifiers.type == decltype_auto_placeholder_)
 		error(decl.location, "bit-field without a type");
 	// 7.6.2p1: an alignment-specifier may not apply to a bit-field.
-	for (const syntax::Attribute* attribute = decl.attributes; attribute != nullptr; attribute = attribute->next)
-	{
-		if (attribute->kind == syntax::AttributeKind::Alignas)
-			error(attribute->location, "an alignment-specifier on a bit-field");
-	}
+	if (const syntax::Attribute* attribute = AlignmentSpecifier(decl.attributes))
+		error(attribute->location, "an alignment-specifier on a bit-field");
+	bool packed = false, no_inline = false;
+	const uint64_t alignment = decl.attributes != nullptr && template_depth_ == 0
+		? attribute_alignment(decl.attributes, scope, packed, no_inline)
+		: 0;
 	ClassEntity* owner = static_cast<ClassEntity*>(scope->entity);
 	for (const syntax::BitFieldDeclarator& field : decl.declarators)
 	{
 		const Type* type = specifiers.type;
 		DeclaratorInfo info = DeclaratorInfo();
+		uint64_t field_alignment = alignment;
+		bool field_packed = packed;
 		for (const syntax::Declarator* part = field.declarator; part != nullptr; part = part->nested)
 		{
-			for (const syntax::Attribute* attribute = part->attributes; attribute != nullptr;
-				attribute = attribute->next)
-			{
-				if (attribute->kind == syntax::AttributeKind::Alignas)
-					error(attribute->location, "an alignment-specifier on a bit-field");
-			}
+			if (const syntax::Attribute* attribute = AlignmentSpecifier(part->attributes))
+				error(attribute->location, "an alignment-specifier on a bit-field");
+			if (part->attributes != nullptr && template_depth_ == 0)
+				field_alignment = std::max(
+					field_alignment, attribute_alignment(part->attributes, scope, field_packed, no_inline));
 		}
 		if (field.declarator != nullptr || !specifiers.mode_specifiers.empty())
 		{
@@ -3289,21 +3291,26 @@ void Analyzer::bit_field_declaration(const syntax::BitFieldDecl& decl, Scope* sc
 					error(field.width->location, "bit-field width exceeds the width of its type");
 			}
 		}
+		VariableEntity* variable;
 		if (info.name == nullptr)
 		{
-			Entity* unnamed = new_entity<VariableEntity>(EntityKind::Variable, nullptr, scope, type);
-			add_data_member(owner, unnamed, width, true, decl.location);
-			continue;
+			variable = new_entity<VariableEntity>(EntityKind::Variable, nullptr, scope, type);
+			add_data_member(owner, variable, width, true, decl.location);
 		}
-		if (width == 0 && template_depth_ == 0)
-			error(decl.location, "named bit-field of width zero");
-		Binding* binding = declare_variable(specifiers, info, field.initializer, scope, decl.location);
-		if (owner->last_member != nullptr && owner->last_member->variable == binding->entity)
+		else
 		{
-			owner->last_member->width = width;
-			owner->last_member->bit_field = true;
-			static_cast<VariableEntity*>(binding->entity)->bit_field = true;
+			if (width == 0 && template_depth_ == 0)
+				error(decl.location, "named bit-field of width zero");
+			Binding* binding = declare_variable(specifiers, info, field.initializer, scope, decl.location);
+			if (owner->last_member == nullptr || owner->last_member->variable != binding->entity)
+				continue;
+			variable = static_cast<VariableEntity*>(binding->entity);
 		}
+		owner->last_member->width = width;
+		owner->last_member->bit_field = true;
+		owner->last_member->packed = field_packed;
+		variable->bit_field = true;
+		request_alignment(variable, field_alignment, nullptr);
 	}
 }
 

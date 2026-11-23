@@ -11,6 +11,15 @@ uint64_t RoundUp(uint64_t value, uint64_t alignment)
 	return (value + alignment - 1) / alignment * alignment;
 }
 
+uint64_t BitFieldPositionAlignment(uint64_t requested, uint64_t pack, target_model::Target target)
+{
+	if (pack == 0 || requested <= pack)
+		return requested;
+	// GCC caps a stronger request at the pack limit. Clang drops it
+	// when computing the field's position.
+	return target == target_model::Target::Linux || target == target_model::Target::AArch64Linux ? pack : 0;
+}
+
 // The class of the objects a member of this type holds (itself or its
 // array elements) and how many there are; null if not a class.
 ClassEntity* ElementClass(const Type* type, uint64_t& count)
@@ -440,9 +449,9 @@ bool Analyzer::class_layout(ClassEntity* entity, uint32_t location)
 	// alignment of non-empty bases and of members, even one an
 	// alignment-specifier requests; GNU packed gives members alignment 1
 	// unless their own alignment-specifier requests one, and leaves bases
-	// alone. Under either, bit-fields are placed at the next bit and a
-	// named one aligns the class by its type's alignment capped likewise;
-	// a zero-width bit-field still aligns the next member to its type.
+	// alone. An explicit GNU bit-field alignment affects its position.
+	// A zero-width field aligns the next member to its type's alignment
+	// or its stronger explicit request.
 	//
 	// lay_out() has laid out the base and member classes, so the sizes read
 	// below are finished facts.
@@ -601,30 +610,26 @@ bool Analyzer::class_layout(ClassEntity* entity, uint32_t location)
 		if (c_source_)
 			member->c_alignment = static_cast<uint32_t>(member_alignment);
 		// Linux AAPCS64 counts unnamed fields. A zero-width field gives
-		// its natural alignment even under packed and #pragma pack.
+		// its natural or requested alignment even under packed and #pragma pack.
 		uint64_t class_alignment = member_alignment;
-		if (member->bit_field)
+		if (wide)
 		{
-			class_alignment = pack != 0 ? std::min(natural, pack) : packed_member ? 1 : natural;
-			if (wide)
-				class_alignment = std::max(class_alignment, member_alignment);
-			else if (member->variable->name == nullptr)
-			{
-				if (!aarch64_linux)
-					class_alignment = 1;
-				else if (member->width == 0)
-					class_alignment = natural;
-			}
+			const uint64_t container_alignment = pack != 0 ? std::min(natural, pack) : packed_member ? 1 : natural;
+			class_alignment = std::max(container_alignment, class_alignment);
+		}
+		else if (member->bit_field && member->variable->name == nullptr)
+		{
+			if (!aarch64_linux)
+				class_alignment = 1;
+			else if (member->width == 0)
+				class_alignment = std::max(natural, requested);
 		}
 		if (is_union)
 		{
 			const uint64_t member_bytes = member->bit_field ? RoundUp(member->width, 8) / 8 : member_size;
 			union_size = std::max(union_size, member_bytes);
 			alignment = std::max(alignment, class_alignment);
-			member->offset = 0;
-			// A union's bit-field is read as an object of its type.
-			member->unit_offset = 0;
-			member->unit_bytes = static_cast<uint8_t>(member_size);
+			assign_union_member_storage(*member, member_size, member_bytes, pack != 0 || packed_member);
 			continue;
 		}
 		if (member->bit_field)
@@ -632,11 +637,17 @@ bool Analyzer::class_layout(ClassEntity* entity, uint32_t location)
 			const uint64_t unit = natural * 8;
 			uint64_t start = data_bits;
 			if (member->width == 0)
-				start = RoundUp(start, unit);
+				start = RoundUp(start, std::max(natural, requested) * 8);
 			else if (wide)
 				start = RoundUp(start, member_alignment * 8);
-			else if (pack == 0 && !packed_member && start / unit != (start + member->width - 1) / unit)
-				start = RoundUp(start, unit);
+			else
+			{
+				const uint64_t field_alignment = BitFieldPositionAlignment(requested, pack, types_.target());
+				if (field_alignment != 0)
+					start = RoundUp(start, field_alignment * 8);
+				if (pack == 0 && !packed_member && start / unit != (start + member->width - 1) / unit)
+					start = RoundUp(start, unit);
+			}
 			// A zero-width bit-field ends its run where it aligns; another
 			// joins the run open since the data size (assign_bit_units).
 			if (member->width == 0)
@@ -757,6 +768,22 @@ void Analyzer::end_bit_run(size_t first, uint64_t limit)
 		return;
 	bit_runs_.back().hi = limit;
 	bit_runs_.back().open = false;
+}
+
+void Analyzer::assign_union_member_storage(
+	DataMember& member, uint64_t declared_bytes, uint64_t member_bytes, bool packed)
+{
+	member.offset = 0;
+	member.unit_offset = 0;
+	member.unit_bytes = static_cast<uint8_t>(declared_bytes);
+	// A packed alternative can be smaller than its declared type. Give it
+	// its own run to keep accesses within that alternative's storage.
+	if (packed && member.bit_field && member_bytes != 0 && member_bytes < declared_bytes)
+	{
+		const size_t field = bit_run_fields_.size();
+		bit_run_fields_.push_back(BitRunField{ &member, 0, member.width, declared_bytes, 0, 0, 0, true, false });
+		bit_runs_.push_back(BitRun{ field, field + 1, 0, member_bytes, false });
+	}
 }
 
 void Analyzer::assign_bit_units(size_t first, uint64_t open_limit, uint32_t location)
