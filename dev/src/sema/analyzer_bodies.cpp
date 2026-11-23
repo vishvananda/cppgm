@@ -287,8 +287,8 @@ bool Analyzer::function_body(FunctionEntity* function, const Type* type, const s
 	}
 	if (body.body != nullptr && !shared)
 	{
-		const bool check_c_inline = c_source_ && semantic() && function->is_inline && !function->internal_linkage &&
-			!function->c_external_definition && !function->gnu_inline;
+		const bool check_c_inline = c_source_ && !c_before_c99_ && semantic() && function->is_inline &&
+			!function->internal_linkage && !function->c_external_definition && !function->gnu_inline;
 		CInlineConstraint constraint;
 		CInlineConstraint* saved_inline_constraint = nullptr;
 		if (check_c_inline)

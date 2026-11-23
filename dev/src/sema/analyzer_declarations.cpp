@@ -2558,6 +2558,15 @@ Binding* Analyzer::declare_function(const Specifiers& specifiers, const Declarat
 void Analyzer::note_c_inline_declaration(
 	FunctionEntity* function, const Specifiers& specifiers, bool definition, uint32_t location)
 {
+	if (c_before_c99_)
+	{
+		// GNU89 inline semantics depend on the definition's storage class.
+		// An extern inline body supplies an inlining candidate for calls
+		// while the named symbol comes from another translation unit.
+		if (definition)
+			function->c_external_definition = !specifiers.is_inline || !specifiers.is_extern;
+		return;
+	}
 	if (specifiers.is_extern || !specifiers.is_inline)
 		function->c_external_definition = true;
 	if (specifiers.is_inline && !function->is_inline && !function->defined && !definition &&

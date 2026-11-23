@@ -345,10 +345,16 @@ The first fixture set covers these parts of the C17 input profile:
   aggregate initialization, C member and array
   designators, member access,
   function parameters and results, compatible record copy and assignment, C object
-  linkage and tentative definitions. A C inline definition with
-  external linkage supplies the external symbol if a file-scope declaration
-  uses `extern` or leaves out `inline`. GNU `gnu_inline` and `always_inline`
-  attributes can also occur after the return type's pointer operator.
+  linkage and tentative definitions. Starting in C99, an ISO inline
+  definition with external linkage supplies the external symbol if a file-scope
+  declaration uses `extern` or leaves out `inline`. In the C90 and C95 modes,
+  apply GNU89 linkage to `inline`: an `extern inline` body can serve calls in
+  its translation unit and the external symbol is supplied by another unit.
+  An inline definition with external linkage and without `extern` supplies
+  the symbol itself. Advertise the selected C rules to hosted headers with
+  `__GNUC_GNU_INLINE__` or `__GNUC_STDC_INLINE__`.
+  GNU `gnu_inline` and `always_inline` attributes can also occur after the
+  return type's pointer operator.
 - Give C99 through C17 enumeration constants type `int`, including inside
   later enumerator initializers. The enumeration object type is compatible
   with `unsigned int` for nonnegative values in the `int` range and `int`

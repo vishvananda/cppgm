@@ -209,7 +209,7 @@ bool CxxMacro(const char* name, size_t length)
 		(length >= 6 && std::memcmp(name, "__cpp_", 6) == 0);
 }
 
-bool ReplacedCAtomicMacro(const char* name, size_t length)
+bool ReplacedCMacro(const char* name, size_t length)
 {
 	// C header support uses cppgm's target policy for both compiler
 	// spellings. Keep only that definition in the initial macro input.
@@ -220,7 +220,8 @@ bool ReplacedCAtomicMacro(const char* name, size_t length)
 	return (length > suffix_size && std::memcmp(name + length - suffix_size, suffix, suffix_size) == 0 &&
 			   ((length >= sizeof gcc - 1 && std::memcmp(name, gcc, sizeof gcc - 1) == 0) ||
 				   (length >= sizeof clang - 1 && std::memcmp(name, clang, sizeof clang - 1) == 0))) ||
-		Named(name, length, "__GCC_ATOMIC_TEST_AND_SET_TRUEVAL") || Named(name, length, "__STDC_NO_ATOMICS__");
+		Named(name, length, "__GCC_ATOMIC_TEST_AND_SET_TRUEVAL") || Named(name, length, "__STDC_NO_ATOMICS__") ||
+		Named(name, length, "__GNUC_GNU_INLINE__") || Named(name, length, "__GNUC_STDC_INLINE__");
 }
 
 // 16.8p4: an implementation's other predefined macro names begin with an
@@ -263,7 +264,7 @@ std::string HostMacroText(const FeatureModes& modes, bool strict)
 				++name_end;
 			const size_t length = static_cast<size_t>(name_end - name);
 			if (ReservedMacro(name, length) && !OwnMacro(name, length) && !UnsupportedTypeMacro(name, length) &&
-				(!c_source || (!CxxMacro(name, length) && !ReplacedCAtomicMacro(name, length))))
+				(!c_source || (!CxxMacro(name, length) && !ReplacedCMacro(name, length))))
 			{
 				text.append(line, end);
 				text.push_back('\n');

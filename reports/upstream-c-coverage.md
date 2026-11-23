@@ -250,6 +250,7 @@ deprecation diagnostics so they could check the language boundary.
 | `c90.pp-number` | The ISO C90 and C95 grammars allow signs after `e` and `E`. C99 adds signs after `p` and `P`. | PA38 checks macro substitution, stringization and pasting. cppgm and GCC follow the legacy grammar. Clang keeps the signed binary exponent together in its legacy modes. |
 | `c95.digraphs` | A body delimited by `<%` and `%>` is accepted in C95 and diagnosed in pedantic C90. | PA38 checks directive delimiters and token pasting. Pinned GCC cases check stringization in both editions. |
 | `c95.wide-headers` | `<iso646.h>`, `<wchar.h>`, and `<wctype.h>` compose in C95. | The hosted probe runs restartable conversions, wide-string operations and classification in the C locale. It passed on x86-64 Linux, AArch64 Linux under QEMU, and WASI. |
+| `c95.inline-linkage` | GNU89's plain inline definition supplies its external symbol. An `extern inline` definition refers to the external symbol when emitted as a call. | PA38 links cppgm and an independent C provider. The glibc wide-header test also checks calls through the installed `btowc` wrapper at `-O0` and `-O2`. |
 | `c23.version` | `-std=c23` compiles a plain C function and defines `202311L`. | C23 driver support is open. |
 | `c23.trigraphs` | Trigraph braces form a valid body through C17. The same source is diagnosed in C23. | The C17 control compiles. |
 | `c23.empty-parameters` | A call with an argument through a declaration with empty parentheses is accepted through C17 and diagnosed in C23. | The C17 control compiles. |
@@ -285,6 +286,7 @@ and for distinct names.
 [Clang C90 manifest](upstream-clang-c90.json) ·
 [WG14 C amendment summary](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2310.pdf) ·
 [WG14 scope resolution](https://www.open-std.org/JTC1/SC22/WG14/www/docs/n868.htm) ·
+[GCC inline linkage](https://gcc.gnu.org/onlinedocs/gcc/Inline.html) ·
 [WG14 N3220](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
 [GCC edition options](https://gcc.gnu.org/onlinedocs/gcc/Standards.html)
 

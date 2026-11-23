@@ -84,6 +84,9 @@ std::string PredefinedText(const PreprocessorOptions& options, const FeatureMode
 		}
 		if (options.c_edition >= CEdition::C11)
 			text += "#define __STDC_NO_VLA__ 1\n";
+		if (options.hosted)
+			text += options.c_edition < CEdition::C99 ? "#define __GNUC_GNU_INLINE__ 1\n"
+													  : "#define __GNUC_STDC_INLINE__ 1\n";
 	}
 	else
 		text += std::string("#define __cplusplus ") + CxxVersionMacro(options.cxx_edition) + "\n";
