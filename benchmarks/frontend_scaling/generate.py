@@ -109,6 +109,13 @@ def c_array_declarators(size, bound):
         print(f'int f_{index}(int n) {{ int a[{bound}]; return sizeof(a); }}')
 
 
+def c_identifier_list_parameters(size):
+    print('int sample(' + ', '.join(f'arg{index}' for index in range(size)) + ')')
+    for index in reversed(range(size)):
+        print(f'int arg{index};')
+    print(f'{{ return arg0 + arg{size - 1}; }}')
+
+
 def c_vla_dimensions(size):
     print('static unsigned long run(int n) {')
     print('typedef int Tensor' + '[n][1]' * size + ';')
@@ -213,6 +220,7 @@ def main():
                                         'c-alignment-definitions', 'c-for-declarators',
                                         'c-prototype-tag-references', 'c-member-alignment-queries',
                                         'c-vla-declarators', 'c-fixed-array-declarators',
+                                        'c-identifier-list-parameters',
                                         'c-vla-dimensions', 'c-vla-extent-uses',
                                         'c-typeof-shared-bounds', 'c-designated-overwrites', 'c-designated-sparse',
                                         *EDITIONS])
@@ -279,6 +287,9 @@ def main():
         return
     if args.case in ('c-vla-declarators', 'c-fixed-array-declarators'):
         c_array_declarators(args.size, 'n' if args.case == 'c-vla-declarators' else '2')
+        return
+    if args.case == 'c-identifier-list-parameters':
+        c_identifier_list_parameters(args.size)
         return
     if args.case == 'c-vla-dimensions':
         c_vla_dimensions(args.size)

@@ -239,6 +239,12 @@ struct DeclaratorSuffix
 	Expr* bound;
 	// C's outermost array parameter adjusts to a pointer with these cv
 	// qualifiers. `static` states a minimum bound supplied by every call.
+	enum : uint8_t
+	{
+		kArrayConst = 1,
+		kArrayVolatile = 2,
+		kArrayAtomic = 4
+	};
 	uint8_t array_cv;
 	bool array_static;
 	bool array_star;

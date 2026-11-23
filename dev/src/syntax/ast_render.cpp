@@ -298,10 +298,12 @@ void SyntaxRenderer::declarator(const Declarator& declarator)
 			text("[");
 			if (suffix.array_static)
 				text("static ");
-			if ((suffix.array_cv & 1) != 0)
+			if ((suffix.array_cv & DeclaratorSuffix::kArrayConst) != 0)
 				text("const ");
-			if ((suffix.array_cv & 2) != 0)
+			if ((suffix.array_cv & DeclaratorSuffix::kArrayVolatile) != 0)
 				text("volatile ");
+			if ((suffix.array_cv & DeclaratorSuffix::kArrayAtomic) != 0)
+				text("_Atomic ");
 			if (suffix.array_star)
 				text("*");
 			if (suffix.bound != nullptr)

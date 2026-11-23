@@ -1001,7 +1001,8 @@ Decl* Parser::parse_simple_or_function(DeclContext context)
 	ListFrame<DeclSpecifier> list(specs_);
 	pending_attributes_ = leading_attributes_;
 	leading_type_attributes(leading_attributes_, list);
-	if (!parse_decl_specifier_seq(list, info, false, context != DeclContext::Block))
+	const bool type_only = context == DeclContext::Namespace || context == DeclContext::Class;
+	if (!parse_decl_specifier_seq(list, info, false, type_only))
 		return nullptr;
 	if (list.size() == 0)
 	{
@@ -1115,7 +1116,8 @@ Decl* Parser::finish_simple_declaration(
 	uint32_t first_token = static_cast<uint32_t>(tokens_.unit_position());
 	const bool saved_friend = friend_declarator_;
 	friend_declarator_ = info.has_friend;
-	Declarator* declarator = parse_declarator(DeclaratorMode::Named);
+	const auto mode = context == DeclContext::CParameter ? DeclaratorMode::Parameter : DeclaratorMode::Named;
+	Declarator* declarator = parse_declarator(mode);
 	friend_declarator_ = saved_friend;
 	if (declarator == nullptr)
 		return nullptr;
@@ -1208,7 +1210,7 @@ Decl* Parser::finish_simple_declaration(
 			break;
 		first_token = static_cast<uint32_t>(tokens_.unit_position());
 		friend_declarator_ = info.has_friend;
-		declarator = parse_declarator(DeclaratorMode::Named);
+		declarator = parse_declarator(mode);
 		friend_declarator_ = saved_friend;
 		if (declarator == nullptr)
 			return nullptr;

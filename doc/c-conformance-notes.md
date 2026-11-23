@@ -229,6 +229,12 @@ with GCC's C driver. PA38 checks a VLA that stays live across a call.
 
 ## Variable dimensions and parameter adjustment
 
+C11 6.7.6.2p1 and p3 require a complete element type and an assignment
+expression for a written bound. Diagnose incomplete records even in a
+typedef, an external declaration, or a parameter whose array is later
+adjusted to a pointer. A parenthesized comma expression is permitted in
+the bound and can make the array variable length.
+
 C11 6.7.6.2p4 makes an array variable length when its element size is
 variable, including an array with a fixed outer count. A local declaration
 or typedef evaluates the bounds it introduces. Section 6.7.8p3 requires
@@ -236,6 +242,14 @@ a typedef to capture its bounds each time execution reaches it. Uses of
 the typedef refer to the captured extent.
 
 The outermost array parameter adjusts to a pointer under 6.7.6.3p7.
+The bracket qualifiers apply to the pointer object. This includes `_Atomic`
+in C11. A function signature uses the unqualified adjusted parameter type
+for compatibility. The definition retains the qualified parameter object.
+The same rules apply to array declarators in identifier-list definitions.
+C99 and later editions that retain identifier lists require every parameter
+to be declared under 6.9.1p6. cppgm diagnoses implicit declarations in
+pedantic modes for those editions.
+
 The definition still evaluates the written size expressions on function
 entry under 6.9.1p10. In prototype scope a variable bound has the meaning
 of `[*]`. For `sizeof`, cppgm elides evaluation when all variable bounds
@@ -245,6 +259,8 @@ can use the element alignment without evaluating bounds.
 [C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [PA38 multidimensional arrays](../pa38/tests/general/300-variable-array-multidimensional.t) ·
 [PA38 captured typedef extents](../pa38/tests/general/300-variable-array-typedef.t) ·
+[PA38 declarators and identifier-list parameters](../pa38/tests/general/300-array-declarator-constant-and-vla.t) ·
+[PA38 atomic parameter adjustment](../pa38/tests/general/300-array-parameter-atomic.t) ·
 [PA38 parameter adjustment](../pa38/tests/general/300-variable-array-parameter.t)
 
 ## Evaluated type names and GNU `typeof`

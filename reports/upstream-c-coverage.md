@@ -150,9 +150,11 @@ needs driver work. These checks leave `__STDC_NO_VLA__` as currently defined.
 
 | C11 clause | Requirement | Current evidence |
 | --- | --- | --- |
+| 6.7.6.2p1, p3 | An array has complete elements and a written bound uses the assignment-expression grammar. | [Incomplete external array](../pa38/tests/general/300-array-element-incomplete-bad.t), [typedef](../pa38/tests/general/300-array-typedef-element-incomplete-bad.t), [adjusted VLA parameter](../pa38/tests/general/300-array-vla-element-incomplete-bad.t), and [GCC `c99-arraydecl-2`](upstream-gcc-c99.json). [PA38 runtime case](../pa38/tests/general/300-array-declarator-constant-and-vla.t) covers a parenthesized comma and arrays of pointers to incomplete records. |
 | 6.2.4p7, 6.7.6.2p5 | A VLA retains its size for its lifetime and releases automatic storage when its scope ends. | [Single-dimension VLA across a call](../pa38/tests/general/500-vla-call-c-unwind.t), [mixed and fully runtime dimensions](../pa38/tests/general/300-variable-array-multidimensional.t), and a C-only link of c-testsuite `00207.c`. |
 | 6.7.6.2p2 | Variably modified identifiers obey block and prototype scope and linkage constraints, independently of whether they allocate storage. | [Automatic and static pointers](../pa38/tests/general/300-variable-array-pointer.t) and [extern rejection](../pa38/tests/general/300-variable-array-extern-pointer-bad.t). |
 | 6.7.6.2p4–p6, 6.7.6.3p7 | Prototype-scope bounds are treated as `[*]`. Outermost parameter arrays adjust to pointers. | [Outermost star](../pa38/tests/general/300-array-parameter-star.t), [nested prototype bounds](../pa38/tests/general/300-variable-array-parameter.t), and [conflicting fixed inner bounds](../pa38/tests/general/300-variable-array-parameter-conflict-bad.t). |
+| 6.7.6.3p7, p15 | The adjusted parameter object keeps bracket qualifiers. Function type compatibility uses the adjusted type without top-level qualifiers. | [C99 qualifiers in identifier-list definitions](../pa38/tests/general/300-array-declarator-constant-and-vla.t) and [C11 atomic bracket qualifier](../pa38/tests/general/300-array-parameter-atomic.t). The [atomic conversion rejection](../pa38/tests/general/300-array-parameter-atomic-discard-bad.t) agrees with GCC 15. Clang 21 drops the atomic qualifier in this form. `restrict` remains pending. |
 | 6.7.8p3 | A typedef with a varying bound captures its extent each time execution reaches the declaration. | [Loop, alias composition, and extent reuse](../pa38/tests/general/300-variable-array-typedef.t). |
 | 6.5.3.4p2, 6.7.6.2p5 | `sizeof` uses a VLA's runtime size. A bound inside `sizeof` can be elided if its value cannot change the result. | [Runtime array type names and the elidable pointer-type bound](../pa38/tests/general/300-variable-array-typeid.t). |
 | 6.5.3.4p2 | A `sizeof` operand of VLA type is evaluated. Other expression operands are unevaluated, including their function calls. | [Side effects and C-only link](../pa38/tests/general/300-variable-array-sizeof-operand.t). |
@@ -160,6 +162,13 @@ needs driver work. These checks leave `__STDC_NO_VLA__` as currently defined.
 | GNU `typeof` | Evaluate the operand of variably modified type. In a shared specifier, capture type-name bounds once and repeat expression effects per declarator. | [Type and expression operands, nested type names, and parameter adjustment](../pa38/tests/general/300-variable-array-typeof.t). |
 | 6.8.6.1p1, 6.8.4.2p2 | `goto` and switch labels cannot bypass entry into the scope of a variably modified identifier. | [Jump into a VLA scope](../pa38/tests/general/300-variable-array-goto-bad.t), [typedef](../pa38/tests/general/300-variable-array-goto-typedef-bad.t), and [pointer](../pa38/tests/general/300-variable-array-case-pointer-bad.t). |
 | 6.9.1p10 | Evaluate the size expressions of variably modified parameters on function entry. | [Inner strides and side effects in the adjusted outer bracket](../pa38/tests/general/300-variable-array-parameter.t), with and without `static`. |
+| 6.9.1p6 | An identifier-list definition declares every parameter in the list. | Pedantic checks for [all declarations omitted](../pa38/tests/general/300-array-kr-implicit-all-bad.t) and [one omitted](../pa38/tests/general/300-array-kr-implicit-some-bad.t). PA38 also [rejects `[*]` in an identifier-list definition](../pa38/tests/general/300-array-kr-unspecified-star-bad.t). |
+
+The two new array runtime cases pass at `-O0` and `-O2` on Linux x86-64,
+AArch64 under QEMU, and WASI under Wasmtime. Both Darwin architectures
+cross-link the cases at both levels. The identifier-list fixture also
+passes with Clang 21 and GCC 15 at `-O0`. GCC 15 reports an internal compiler
+error during the `-O2` build of that fixture.
 
 [C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
 

@@ -1,5 +1,7 @@
 #include "syntax/parser.h"
 
+#include "support/pointer_map.h"
+
 #include <vector>
 
 namespace syntax {
@@ -31,13 +33,28 @@ bool Parser::parse_c_parameter_declarations(Declarator* declarator)
 				clause = suffix.parameters;
 	if (clause == nullptr || at(TokenKind::OP_SEMICOLON))
 		return true;
+	const char* missing_declaration = "a C identifier-list definition requires a declaration for each parameter";
+	if (at(TokenKind::OP_LBRACE))
+	{
+		require_gnu_c_extension(clause->parameters[0]->location, missing_declaration);
+		return true;
+	}
+	PointerMap positions;
+	for (uint32_t index = 0; index < clause->parameters.size; ++index)
+	{
+		const Name* name = declarator_name(clause->parameters[index]->declarator);
+		const Identifier* identifier = name->last().identifier;
+		if (positions.find(identifier) != PointerMap::kMissing)
+			throw ParseError(name->location, "duplicate name in a C identifier list");
+		positions.set(identifier, index);
+	}
 	Scope* function = function_scope_;
 	Scope* outer = scopes_.enter(function);
 	std::vector<bool> declared(clause->parameters.size, false);
 	bool parsed = true;
 	while (!at(TokenKind::OP_LBRACE))
 	{
-		Decl* declaration = parse_declaration(DeclContext::Block);
+		Decl* declaration = parse_declaration(DeclContext::CParameter);
 		function_scope_ = function;
 		if (declaration == nullptr || declaration->kind != DeclKind::Simple)
 		{
@@ -52,13 +69,11 @@ bool Parser::parse_c_parameter_declarations(Declarator* declarator)
 			parsed = false;
 		for (const auto& init : simple.declarators)
 		{
+			if (init.declarator->c_prototype_star)
+				throw ParseError(init.declarator->location, "[*] is allowed only in C function prototype scope");
 			const Name* name = declarator_name(init.declarator);
-			uint32_t index = 0;
-			for (; name != nullptr && index < clause->parameters.size; ++index)
-				if (declarator_name(clause->parameters[index]->declarator)->last().identifier ==
-					name->last().identifier)
-					break;
-			if (name == nullptr || index == clause->parameters.size || declared[index] || init.initializer != nullptr)
+			const uint32_t index = name != nullptr ? positions.find(name->last().identifier) : PointerMap::kMissing;
+			if (index == PointerMap::kMissing || declared[index] || init.initializer != nullptr)
 			{
 				parsed = false;
 				break;
@@ -74,6 +89,10 @@ bool Parser::parse_c_parameter_declarations(Declarator* declarator)
 	function_scope_ = function;
 	if (!parsed)
 		fail();
+	else
+		for (uint32_t index = 0; index < clause->parameters.size; ++index)
+			if (!declared[index])
+				require_gnu_c_extension(clause->parameters[index]->location, missing_declaration);
 	return parsed;
 }
 

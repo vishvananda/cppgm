@@ -43,7 +43,8 @@ private:
 	{
 		Namespace,
 		Class,
-		Block
+		Block,
+		CParameter
 	};
 
 	enum class DeclaratorMode : uint8_t

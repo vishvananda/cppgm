@@ -83,8 +83,10 @@ The first fixture set covers these parts of the C17 input profile:
   declarations without prototypes use default argument promotions and compatible
   later prototypes retain their parameter checks. C17 identifier-list (K&R)
   definitions retain each parameter's declared object type while their public
-  signature uses default argument promotions; declarations and earlier/later
-  prototypes must remain compatible.
+  signature uses default argument promotions. Match declarations to their
+  parameter names. Require a declaration for each name in pedantic C99 and
+  later modes that support identifier lists. Check compatibility with earlier
+  and later prototypes.
   A tag introduced in a prototype's parameter list has scope through the
   end of the declarator. A tag introduced in a function definition's own
   parameter list remains visible in its body.
@@ -189,10 +191,16 @@ The first fixture set covers these parts of the C17 input profile:
   the storage on every scope exit and preserve alignment requests. Diagnose
   jumps and switch labels that enter the scope of a variably modified
   identifier past its declaration.
-- An array parameter adjusts to a pointer. In a prototype, runtime bounds
-  and `[*]` describe unspecified variable lengths. In a definition, evaluate
-  the written runtime bounds on entry, including any bound in the adjusted
-  outer bracket. Retain the inner strides. Require a bound with `static`.
+- Require a complete element type when forming an array type. Parse an array
+  bound as an assignment expression. A comma expression can appear in
+  parentheses within the bound.
+- An array parameter adjusts to a pointer. Qualifiers in the outer brackets
+  apply to the adjusted pointer object, including `_Atomic` from C11.
+  Apply the same adjustment to identifier-list parameters. In a prototype,
+  runtime bounds and `[*]` describe unspecified variable lengths. In a
+  definition, evaluate the written runtime bounds on entry, including any
+  bound in the adjusted outer bracket. Retain the inner strides. Require a
+  bound with `static`.
 - Evaluate the runtime bounds needed by a `sizeof` type name. A bound in a
   pointer type whose value cannot change the result may be elided.
   `_Alignof` uses the element alignment of a variable-length array.

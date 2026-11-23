@@ -608,10 +608,12 @@ void AstDumper::declarator_suffix(const DeclaratorSuffix& suffix)
 		open("array-suffix");
 		if (suffix.array_static)
 			line("minimum-bound");
-		if ((suffix.array_cv & 1) != 0)
+		if ((suffix.array_cv & DeclaratorSuffix::kArrayConst) != 0)
 			line("cv-qualifier", "const");
-		if ((suffix.array_cv & 2) != 0)
+		if ((suffix.array_cv & DeclaratorSuffix::kArrayVolatile) != 0)
 			line("cv-qualifier", "volatile");
+		if ((suffix.array_cv & DeclaratorSuffix::kArrayAtomic) != 0)
+			line("cv-qualifier", "_Atomic");
 		if (suffix.array_star)
 			line("unspecified-vla-bound", "*");
 		if (suffix.bound != nullptr)

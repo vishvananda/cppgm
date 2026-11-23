@@ -297,6 +297,24 @@
       "adaptations": [
         "Checks rejection of the mixed source. PA38 also checks independent acceptance of a bound without an evaluated side effect."
       ]
+    },
+    {
+      "id": "c99-arraydecl-2",
+      "path": "gcc/testsuite/gcc.dg/c99-arraydecl-2.c",
+      "sha256": "e85e0853a91c42f850d252f36c93d9f8f74098ddb326ca9e65c116fe74cf0d12",
+      "dialect": "c99",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "An unparenthesized comma cannot be part of a C array bound",
+      "adaptations": [
+        "Checks translation failure for the source. PA38 independently checks block-scope and parameter bounds and the valid parenthesized form."
+      ]
     }
   ]
 }

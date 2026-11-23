@@ -86,6 +86,11 @@ and compare `-O0` objects from the same source.
 references an existing record tag. Compile in C99 syntax-only mode to
 measure the cost of prototype scope for declarations that can introduce tags.
 
+`c-identifier-list-parameters` grows the parameter count of one C99
+identifier-list definition. Declarations appear in reverse identifier-list
+order. Use syntax-only mode with `-pedantic-errors` to measure matching the
+declarations back to the identifiers. Compare the emitted `-O0` objects.
+
 `c-member-alignment-queries` grows one record and queries each member once.
 Measure in C11 syntax-only mode. The first query can require the record's
 layout. Later queries read the computed alignment of their members.

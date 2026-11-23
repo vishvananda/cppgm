@@ -365,9 +365,20 @@ bool Parser::parse_declarator_suffixes(
 			if (c_source_ && mode == DeclaratorMode::Parameter && suffixes.size() == 0)
 			{
 				suffix.array_static = accept(TokenKind::KW_STATIC);
-				while (at(TokenKind::KW_CONST) || at(TokenKind::KW_VOLATILE))
+				for (;;)
 				{
-					suffix.array_cv |= at(TokenKind::KW_CONST) ? 1 : 2;
+					if (at(TokenKind::KW_CONST))
+						suffix.array_cv |= DeclaratorSuffix::kArrayConst;
+					else if (at(TokenKind::KW_VOLATILE))
+						suffix.array_cv |= DeclaratorSuffix::kArrayVolatile;
+					else if (tok().is_identifier() &&
+						gnu_names_.kind(tok().identifier) == static_cast<uint8_t>(GnuTrait::AddAtomic) + 1)
+					{
+						require_c_extension(location(), CEdition::C11, "the _Atomic qualifier is a C11 extension");
+						suffix.array_cv |= DeclaratorSuffix::kArrayAtomic;
+					}
+					else
+						break;
 					next();
 				}
 				if (!suffix.array_static)
@@ -394,7 +405,7 @@ bool Parser::parse_declarator_suffixes(
 						bound_scope = member_lookup_scope(member_of);
 					outer = scopes_.enter(bound_scope);
 				}
-				suffix.bound = parse_expression();
+				suffix.bound = c_source_ ? parse_assignment_expression() : parse_expression();
 				if (outer != nullptr)
 					scopes_.set_current(outer);
 				angle_ = saved_angle;

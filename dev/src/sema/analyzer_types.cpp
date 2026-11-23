@@ -1167,6 +1167,9 @@ DeclaratorInfo Analyzer::declarator(const syntax::Declarator* declarator, const 
 	{
 		if (type->kind != TypeKind::Array || array != c_parameter_array)
 			error(location, "C array qualifiers require the outermost parameter array");
+		static_assert(kConst == static_cast<uint8_t>(syntax::DeclaratorSuffix::kArrayConst) &&
+			kVolatile == static_cast<uint8_t>(syntax::DeclaratorSuffix::kArrayVolatile) &&
+			kAtomic == static_cast<uint8_t>(syntax::DeclaratorSuffix::kArrayAtomic));
 		type = types_.qualified(types_.pointer(type->element), c_parameter_array->array_cv);
 	}
 	info.type = type;
@@ -1365,6 +1368,14 @@ const Type* Analyzer::checked_array(const Type* element, uint64_t bound, uint32_
 	if (failure != nullptr)
 	{
 		substitution_error(location, failure);
+		return nullptr;
+	}
+	if (c_source_ &&
+		((element->kind == TypeKind::Class && !static_cast<const ClassEntity*>(element->entity)->complete) ||
+			(element->kind == TypeKind::Enum &&
+				static_cast<const EnumEntity*>(element->entity)->underlying == nullptr)))
+	{
+		substitution_error(location, "a C array has incomplete element type");
 		return nullptr;
 	}
 	if (!c_source_ && semantic() && template_depth_ == 0 && !check_abstract_object(element, location))
