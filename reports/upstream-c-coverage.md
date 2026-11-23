@@ -312,15 +312,23 @@ The second repaired GCC test puts a static assertion in a `for`
 initializer. Both native controls accept it. PA38 checks a true
 assertion and the diagnostic for a false one.
 
-Alignment agreement across declarations and definitions still needs a
-policy and tests. GCC accepts conflicting spellings that Clang diagnoses,
-including comparisons between a tentative and an explicit definition.
-WG14 issue 1044 tracks ambiguity over what constitutes equivalent
-alignment. Target-specific limits for extended alignment also need
-qualification.
+PA38 checks alignment agreement with explicit definitions in the same
+translation unit. The pedantic checks cover mismatched and missing requests
+in either declaration order, block-scope `extern`, and a conflict before
+an initialized definition. Runtime cases cover equal strongest requests,
+neutral zero and natural alignment, a type completed after its declaration,
+tentative storage, and alignment supplied by GNU attributes and typedefs.
+GCC 15 accepts the explicit-definition conflicts Clang 21 diagnoses. WG14
+issue 1044 leaves several details open. cppgm checks the strongest standard
+request when it exceeds natural alignment and permits equivalent alignment
+from a GNU-only definition. Declarations without an explicit definition
+in the current translation unit retain the prior storage-alignment rules.
+Target-specific extended alignment limits still need qualification.
 
 [GCC C17 manifest](upstream-gcc-c17.json) ·
 [PA38 layout case](../pa38/tests/general/500-c11-alignment.t) ·
+[PA38 agreement case](../pa38/tests/general/400-c-alignment-redeclarations.t) ·
+[PA38 neutral and GNU cases](../pa38/tests/general/400-c-alignment-redeclaration-extensions.t) ·
 [PA38 assertion case](../pa38/tests/general/500-c11-for-static-assert.t) ·
 [PA26 Mach-O host check](../pa26/tests/macho/100-handler-rejoin.cpp) ·
 [WG14 C23 issue log](https://open-std.org/jtc1/sc22/wg14/www/docs/n3977.htm)

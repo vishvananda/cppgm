@@ -69,12 +69,23 @@ declaration and layout. A query may appear in the object's own
 initializer. Reject a bit-field designator while allowing queries on the
 value of a C assignment to a bit-field.
 
+C11 6.7.5p7 requires equivalent alignment on the definition when any
+declaration carries an alignment specifier. WG14 issue 1044 asks how this
+applies to zero, natural alignment, tentative definitions, and multiple
+specifiers. Compare the strongest standard request per declaration with the
+explicit definition in the same translation unit, treating requests that
+leave natural alignment unchanged as neutral. Under the existing GNU
+compatibility policy, an equivalent GNU alignment on the definition can
+satisfy the check. Report local disagreements in pedantic modes. Keep the
+strongest storage alignment for tentative definitions without an initializer.
+
 The `for` grammar also takes a declaration (6.8.5). A static assertion
 fits that grammar without introducing an identifier. Check it as a
 declaration, even when the loop body would never run.
 
 [C11 draft, N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [WG14 defect report 444](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2059.htm#dr_444) ·
+[WG14 issue 1044](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3977.htm) ·
 [Alignment fixture](../pa38/tests/general/500-c11-alignment.t) ·
 [Alignment query fixture](../pa38/tests/general/500-c-alignment-queries.t) ·
 [For initializer fixture](../pa38/tests/general/500-c11-for-static-assert.t)

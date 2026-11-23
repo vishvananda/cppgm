@@ -368,8 +368,10 @@ void Analyzer::simple_declaration(const syntax::SimpleDecl& decl, Scope* scope)
 			name_local_type(static_cast<ClassEntity*>(specifiers.declared));
 	}
 	bool packed = false, no_inline = false;
+	uint32_t c_standard_alignment = 0;
 	const uint64_t alignment = decl.attributes != nullptr && template_depth_ == 0
-		? attribute_alignment(decl.attributes, scope, packed, no_inline)
+		? attribute_alignment(
+			  decl.attributes, scope, packed, no_inline, false, c_source_ ? &c_standard_alignment : nullptr)
 		: 0;
 	const syntax::Attribute* declaration_alignment = AlignmentSpecifier(decl.attributes);
 	if (c_source_ && declaration_alignment != nullptr)
@@ -397,7 +399,7 @@ void Analyzer::simple_declaration(const syntax::SimpleDecl& decl, Scope* scope)
 			if (specifier == nullptr)
 				specifier = AlignmentSpecifier(part->attributes);
 		}
-		const AlignmentRequest request{ entity_alignment, specifier };
+		const AlignmentRequest request{ entity_alignment, specifier, c_standard_alignment };
 		declare_declarator(
 			specifiers, init, scope, decl.location, c_source_ && entity_alignment != 0 ? &request : nullptr);
 		// A deferred reserved builtin call (see deferrable_statement): the
@@ -882,6 +884,54 @@ void Analyzer::request_alignment(VariableEntity* variable, uint64_t alignment, c
 	}
 	if (alignment > variable->alignment_request)
 		variable->alignment_request = static_cast<uint32_t>(alignment);
+}
+
+void Analyzer::check_c_alignment(VariableEntity* variable, const Type* type, const AlignmentRequest* alignment,
+	bool explicit_definition, uint32_t alias_alignment, uint32_t location)
+{
+	const uint32_t standard = alignment != nullptr ? alignment->standard : 0;
+	if (standard == 0 && !explicit_definition)
+		return;
+	uint32_t index = c_alignment_index_.find(variable);
+	if (index == PointerMap::kMissing)
+	{
+		if (standard == 0 && alignment == nullptr && alias_alignment == 0)
+			return;
+		index = static_cast<uint32_t>(c_alignment_declarations_.size());
+		c_alignment_index_.set(variable, index);
+		c_alignment_declarations_.emplace_back();
+	}
+	CAlignmentDeclaration& previous = c_alignment_declarations_[index];
+	uint32_t conflicting = 0;
+	if (explicit_definition)
+	{
+		// C11 6.7.5p7. Compare the maximum standard request on each
+		// declaration. A GNU-only definition can supply that alignment.
+		previous.definition = standard != 0
+			? standard
+			: std::max<uint64_t>(alias_alignment, alignment != nullptr ? alignment->bytes : 0);
+		conflicting = previous.strongest == previous.definition ? previous.second : previous.strongest;
+	}
+	else if (variable->defined && !variable->c_tentative)
+	{
+		if (standard != previous.definition)
+			conflicting = standard;
+	}
+	else if (standard > previous.strongest)
+	{
+		previous.second = previous.strongest;
+		previous.strongest = standard;
+	}
+	else if (standard < previous.strongest)
+		previous.second = std::max(previous.second, standard);
+	if (conflicting == 0)
+		return;
+	uint64_t size = 0, natural = 0;
+	if (!object_layout(alignment_element(type, false), size, natural) || conflicting <= natural)
+		return;
+	const char* message = "an alignment specifier disagrees with the object's explicit definition";
+	if (positions_ == nullptr || !positions_->allow_gnu_c_extension(location, message))
+		error(location, message);
 }
 
 void Analyzer::declare_declarator(const Specifiers& specifiers, const syntax::InitDeclarator& init, Scope* scope,
@@ -1424,6 +1474,10 @@ Binding* Analyzer::declare_variable(const Specifiers& specifiers, const Declarat
 		(where->kind == ScopeKind::Block ? is_extern
 										 : where->kind == ScopeKind::Namespace && !c_variable_linkages_.empty()))
 		note_c_variable_linkage(variable, type, where, location);
+	if (c_source_ && (c_alignment != nullptr || variable->alignment_request != 0 || specifiers.alias_alignment != 0) &&
+		variable->owner->kind == ScopeKind::Namespace)
+		check_c_alignment(variable, type, c_alignment, definition && initializer != nullptr,
+			type == specifiers.type ? specifiers.alias_alignment : 0, location);
 	const bool c_tentative = c_source_ && where->kind == ScopeKind::Namespace && definition && initializer == nullptr;
 	const bool deferred_tentative = c_tentative && defer_c_tentative_definition(variable, location);
 	const bool bound_from_list = check_variable_object(specifiers, type, where, initializer, member,

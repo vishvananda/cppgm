@@ -299,7 +299,7 @@ void Analyzer::explicit_member_class(ClassEntity* entity, const Scope* owner, co
 }
 
 uint64_t Analyzer::attribute_alignment(
-	const syntax::Attribute* list, Scope* scope, bool& packed, bool& no_inline, bool on_class)
+	const syntax::Attribute* list, Scope* scope, bool& packed, bool& no_inline, bool on_class, uint32_t* c_standard)
 {
 	// 7.6.2p2-p4: alignas(constant-expression) requests that alignment (0
 	// requests none), alignas(type-id) the type's; the strictest one wins.
@@ -382,6 +382,8 @@ uint64_t Analyzer::attribute_alignment(
 			}
 			if (value > alignment)
 				alignment = value;
+			if (c_standard != nullptr && !attribute->gnu && value > *c_standard)
+				*c_standard = static_cast<uint32_t>(value);
 			break;
 		}
 		case syntax::AttributeKind::NoInline:

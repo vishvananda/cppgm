@@ -366,11 +366,14 @@ private:
 	{
 		uint64_t bytes;
 		const syntax::Attribute* specifier;
+		uint32_t standard;
 	};
 	void simple_declaration(const syntax::SimpleDecl& decl, Scope* scope);
 	void declare_declarator(const Specifiers& specifiers, const syntax::InitDeclarator& init, Scope* scope,
 		uint32_t location, const AlignmentRequest* c_alignment = nullptr);
 	void request_alignment(VariableEntity* variable, uint64_t alignment, const syntax::Attribute* specifier);
+	void check_c_alignment(VariableEntity* variable, const Type* type, const AlignmentRequest* alignment,
+		bool explicit_definition, uint32_t alias_alignment, uint32_t location);
 	void overlapping_attribute(
 		VariableEntity* variable, const syntax::Attribute* leading, const syntax::Declarator* declarator);
 	bool holds_auto(const Type* type) const;
@@ -594,8 +597,8 @@ private:
 	void explicit_member_class(ClassEntity* entity, const Scope* owner, const Scope* scope, uint32_t location);
 	bool alias_template_id(const syntax::Name& name, Scope* scope);
 	void class_body(ClassEntity* entity, const syntax::ClassSpecifier& specifier, Scope* parent, Scope* print);
-	uint64_t attribute_alignment(
-		const syntax::Attribute* list, Scope* scope, bool& packed, bool& no_inline, bool on_class = false);
+	uint64_t attribute_alignment(const syntax::Attribute* list, Scope* scope, bool& packed, bool& no_inline,
+		bool on_class = false, uint32_t* c_standard = nullptr);
 	void base_classes(ClassEntity* entity, const syntax::ClassSpecifier& specifier, Scope* scope);
 	void virtual_base_list(ClassEntity* entity);
 	void distinct_direct_bases(const ClassEntity* entity, uint32_t location);
@@ -2296,6 +2299,17 @@ private:
 	};
 	PointerMap c_variable_linkage_index_;
 	std::vector<CVariableLinkage> c_variable_linkages_;
+	// Only linked objects with an alignment specifier or an aligned
+	// definition need agreement facts. Retain the two strongest distinct
+	// requests so a natural-alignment request can be ignored at comparison.
+	struct CAlignmentDeclaration
+	{
+		uint32_t strongest = 0;
+		uint32_t second = 0;
+		uint64_t definition = 0;
+	};
+	PointerMap c_alignment_index_;
+	std::vector<CAlignmentDeclaration> c_alignment_declarations_;
 	struct TentativeDefinition
 	{
 		VariableEntity* variable;

@@ -70,6 +70,14 @@ The first fixture set covers these parts of the C17 input profile:
   alignment specifiers on typedefs, bit-fields, functions, parameters, and
   register objects, and requests weaker than an object's type. A type
   operand uses the type's alignment without evaluating VLA bounds.
+- In pedantic modes, check an explicit definition against every declaration
+  of the same linked object in the translation unit. If a declaration's
+  strongest standard alignment request exceeds the type's alignment, the
+  definition must supply the same request. The definition may supply that
+  alignment through GNU `aligned` when it has no nonzero standard request.
+  Treat zero and the type's natural alignment as neutral requests. Use the
+  strongest applicable alignment for storage supplied by a tentative
+  definition alone.
 - Procedural scalar and pointer expressions, control flow, prototype-based
   function declarations, calls, callbacks and variadic argument promotions;
   declarations without prototypes use default argument promotions and compatible

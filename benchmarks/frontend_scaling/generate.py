@@ -163,6 +163,16 @@ def c_alignment_specifiers(size, interleaved):
         print('_Alignas(16) ' * size + 'const ' * size + 'char value = 1;')
 
 
+def c_alignment_agreement(size, distinct):
+    if distinct:
+        for index in range(size):
+            print(f'_Alignas(32) char value{index} = 1;')
+    else:
+        for _ in range(size):
+            print('extern _Alignas(32) char value;')
+        print('_Alignas(32) char value = 1;')
+
+
 def c_for_declarators(size):
     print('int main(void) {')
     print('    for (int ' + ',\n             '.join(f'value{i} = {i}' for i in range(size)) + '; ; )')
@@ -199,7 +209,8 @@ def main():
                                         'c-generic-arrays', 'c-generic-prototypes', 'c-generic-short-lists',
                                         'c-ice-atoms', 'c-ice-chain',
                                         'c-static-atoms', 'c-static-expressions', 'c-alignment-interleaved',
-                                        'c-alignment-prefix', 'c-for-declarators',
+                                        'c-alignment-prefix', 'c-alignment-redeclarations',
+                                        'c-alignment-definitions', 'c-for-declarators',
                                         'c-prototype-tag-references', 'c-member-alignment-queries',
                                         'c-vla-declarators', 'c-fixed-array-declarators',
                                         'c-vla-dimensions', 'c-vla-extent-uses',
@@ -253,6 +264,9 @@ def main():
         return
     if args.case in ('c-alignment-prefix', 'c-alignment-interleaved'):
         c_alignment_specifiers(args.size, interleaved=args.case == 'c-alignment-interleaved')
+        return
+    if args.case in ('c-alignment-redeclarations', 'c-alignment-definitions'):
+        c_alignment_agreement(args.size, distinct=args.case == 'c-alignment-definitions')
         return
     if args.case == 'c-for-declarators':
         c_for_declarators(args.size)

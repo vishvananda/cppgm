@@ -72,6 +72,12 @@ over-aligned object. They place a growing number of alignment specifiers
 before or between repeated qualifiers, respectively. Double the count in
 C17 syntax-only mode, then check that both orders emit identical objects.
 
+`c-alignment-redeclarations` grows the number of requests for a single
+linked object. `c-alignment-definitions` grows the number of independently
+aligned definitions. Measure both in C11 syntax-only mode with
+`-pedantic-errors` by successive doublings. Compare `-O0` objects with the
+parent build.
+
 `c-for-declarators` grows the number of automatic objects in one `for`
 initializer. Measure C99 syntax-only compilation with `-pedantic-errors`
 and compare `-O0` objects from the same source.

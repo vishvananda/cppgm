@@ -33,10 +33,12 @@ cases in the pinned GCC C17 manifest now pass. The declaration batch also
 covers `for` initializer constraints and prototypes that introduce tags.
 The alignment queries check completeness before reducing an array to its
 element alignment, and GNU queries read the declared alignment of objects
-and members. Continue with agreement between alignment declarations and
-definitions. Expand the C99, C11, and C17 manifests from those clauses, and
-qualify the C11 optional-feature macros
-against the target matrix before changing the advertised support. Keep
+and members. In pedantic modes, cppgm now checks alignment agreement with
+explicit definitions in the same translation unit. Extended alignment
+limits still need separate qualification by storage duration and ABI.
+Continue with C11 optional-feature qualification, starting with variably
+modified types and VLA objects. Expand the pinned C99, C11, and C17
+manifests from the uncovered clauses. Keep
 the existing VLA, generic selection, and sparse initializer tests in the
 fast iteration loop for changes to their shared analysis paths.
 
@@ -204,6 +206,17 @@ casts, compound literals, and `typeof` in their applicable dialects. Preserve
 the distinction between diagnosing an unevaluated operand and demanding its
 runtime work. Test both evaluated and elided bounds and the lifetime of
 captured extents under repeated execution.
+
+Before changing `__STDC_NO_VLA__`, run the same clause cases for
+declarations, type-names and parameters with the driver, at `-O0` and
+`-O2`, on every advertised target. Include native mixed-compiler calls
+where parameter adjustment crosses an ABI boundary and check storage
+cleanup on each exit edge. Audit standard diagnostics independently from
+GNU VLA extensions. Later, apply the distinct C23 rule for variably
+modified types and automatic-storage VLA objects. Emit each optional
+feature macro from the resolved edition and target configuration before
+preprocessing starts, and exercise that configuration through object
+emission and runtime before changing what it advertises.
 
 Audit `_Generic` compatibility before optimizing duplicate checks. Two
 distinct pointers to complete array types can both be compatible with a
