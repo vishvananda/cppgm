@@ -379,6 +379,18 @@
       "candidate_flags": ["-O2", "-pedantic-errors"],
       "upstream_flags": ["-O2", "-pedantic-errors"],
       "obligation": "Optimization preserves required VLA bound evaluation in casts and pointer compound literals"
+    },
+    {
+      "id": "c99-tgmath-1",
+      "path": "gcc/testsuite/gcc.dg/c99-tgmath-1.c",
+      "sha256": "d331371b610345c3837fbeec9a33ec1df8750a501890a24e3c1f17982cfd2578",
+      "dialect": "c99",
+      "action": "preprocess",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "The hosted C99 type-generic math header defines its required macro names",
+      "adaptations": ["Uses the Linux x86-64 glibc header and checks the original preprocessing assertions."]
     }
   ]
 }

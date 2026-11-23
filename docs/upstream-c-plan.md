@@ -314,6 +314,12 @@ chains independently.
   For the Clang resource header used by WASI, qualify C `overloadable` declarations, ranking,
   and mangling through the existing overload and ABI machinery. Check nested
   calls with one argument-level increase at a time to catch repeated work.
+  Compare the same token stream with and without wrapper macros. The current
+  measurements isolate superlinear work in argument substitution and rescan.
+  Reuse expanded ranges across enclosing replacements while preserving
+  rescanning at token boundaries, macro disablement, and argument provenance.
+  Verify the ordinary and variadic preprocessor suites, including `#`, `##`,
+  `__VA_OPT__`, and expansions that span a replacement boundary.
   [GCC built-ins](https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html) ·
   [Clang `overloadable`](https://clang.llvm.org/docs/AttributeReference.html#overloadable)
 - Compile both sides of each native ABI test in both directions (cppgm caller

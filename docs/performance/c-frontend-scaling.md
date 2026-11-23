@@ -1362,3 +1362,54 @@ respectively, so the comparison uses retired instructions.
 | C++ | A/A | 9,044,434,796 / 9,044,603,816 / 9,044,779,340 / 9,044,418,292 |
 | C++ | ABBA | 9,044,704,339 / 9,046,032,568 / 9,045,944,823 / 9,044,496,098 |
 | C++ | BAAB | 9,046,068,001 / 9,044,664,018 / 9,044,576,923 / 9,046,040,258 |
+
+## GNU C type-generic math
+
+The analyzer visits each candidate signature to identify its varying positions,
+then checks those positions against the family. A bounded index by floating
+component type and real or complex domain rejects duplicates and selects the
+function. The analyzer types each actual argument once and gives the normal C
+call path the selected callee and the existing slice of typed arguments.
+
+The generated GNU17 input has 48 functions and six candidates in each nested
+call. Each result is the same float function as in the direct-call control.
+The macro call and its plain-call control produced byte-identical objects.
+The preprocessing comparison checks the same tokens after expanding the
+wrapper or spelling the builtin directly. Counts are medians in millions of
+retired user-space instructions from four trials per cell. Object emission
+uses `-O2`. Preprocessing sends its typed output to `/dev/null`.
+
+| Calls nested per function | Final token-stream lines | Plain-call macro object | Type-generic macro object | Direct builtin object | Type-generic macro preprocessing | Direct builtin preprocessing |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 2 | 2,209 | 11.507 | 13.939 | 14.111 | 5.232 | 5.403 |
+| 8 | 7,105 | 18.400 | 29.744 | 28.594 | 10.349 | 9.023 |
+| 32 | 26,689 | 51.193 | 123.955 | 85.495 | 61.959 | 23.513 |
+| 128 | 105,025 | 268.107 | 998.915 | 313.651 | 766.848 | 81.445 |
+
+Direct builtin object emission cost 56.90 million more instructions from
+depth 8 to 32 and 228.16 million more from depth 32 to 128. The fourfold
+increase in additional calls cost 4.01 times as much and shows linear growth.
+The corresponding increases in macro preprocessing were 51.61 and 704.89
+million. At depth 128, an instruction-sampling profile of preprocessing put
+38% in `MacroExpander::read`, 26% in `substitute_list`, and 25% in `next`.
+Nested argument collection already indexes raw argument boundaries. Repeated
+copying and rescanning of expanded arguments accounts for the remaining
+growth. Keep this case when qualifying changes to replacement and rescanning.
+
+The dormant controls compared `75a3086f9` and `dba87c421` on CPU 71. Both
+compilers used GCC 15. Frozen C++ at `-O3` and SQLite at `-O2` emitted
+byte-identical objects. The A/A task-clock ranges were 31.71% and 12.14%.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.00492% | +0.00056% | +0.00152% |
+| SQLite `sqlite3.c` | 0.00329% | +0.00214% | +0.00376% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,046,550,039 / 9,046,756,768 / 9,046,479,453 / 9,046,924,746 |
+| C++ | ABBA | 9,046,888,651 / 9,046,735,951 / 9,046,926,185 / 9,046,671,629 |
+| C++ | BAAB | 9,046,692,664 / 9,046,581,110 / 9,046,733,613 / 9,046,896,184 |
+| SQLite | A/A | 16,515,252,642 / 16,515,194,721 / 16,515,277,166 / 16,515,738,012 |
+| SQLite | ABBA | 16,515,179,033 / 16,515,792,879 / 16,515,893,565 / 16,515,799,543 |
+| SQLite | BAAB | 16,515,831,965 / 16,515,795,755 / 16,514,868,281 / 16,516,074,552 |
