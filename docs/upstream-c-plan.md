@@ -324,6 +324,16 @@ chains independently.
   use compiler-specific operations such as variadics and atomics. Record
   the standard's required versus conditional interfaces for each environment
   before using an SDK result to qualify the compiler and runtime together.
+- Qualify C11 atomics, threads, complex arithmetic, and VLAs separately.
+  For atomics, cover valid and invalid memory orders, both outcomes of
+  compare-exchange, supported lock-free sizes and alignments, and the
+  runtime helper path for wider objects. Compare the lock-free queries
+  with emitted objects and test concurrency with defined C programs on
+  native targets. Pair the threads API with TLS initialization and
+  lifetime checks. Use the platform ABI for complex arguments and returns,
+  including supported floating formats. Record optional floating-point
+  and library annex support with the applicable standard macros and
+  target runtime requirements.
 
 [musl libc-test](https://wiki.musl-libc.org/libc-test.html) ·
 [zlib](https://zlib.net/) · [Lua tests](https://www.lua.org/tests/) ·
