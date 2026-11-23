@@ -2612,3 +2612,33 @@ medians of four retired instruction counts per form on CPU 71.
 | 1,024 | 90,855,132 | 82,019,946 |
 | 2,048 | 177,113,008 | 160,940,279 |
 | 4,096 | 352,436,401 | 320,078,576 |
+
+## Scoped floating-point contraction
+
+Compared `944180501` with `2f54e5175` on Linux x86-64 with GCC 15 host
+builds. Immutable compilers ran on CPU 71 in one A/A block, one ABBA block
+and one BAAB block. All samples for each frozen input produced identical
+objects. The pairs below use mean retired user instructions and peak RSS
+within each block.
+
+| Frozen input | Instructions, ABBA / BAAB | Peak RSS, ABBA / BAAB |
+| --- | ---: | ---: |
+| C++ semantic overload, `-O3` | +0.022% / +0.021% | +0.087% / +0.009% |
+| SQLite 3.50.4, GNU C17, `-O2` | +0.008% / +0.009% | −0.002% / −0.018% |
+
+A/A instruction spreads were below 0.003%. A/A task-clock spreads were
+16% and 18%, so the samples do not establish a time difference. The first
+implementation added a byte to the statement header and increased its
+size from 8 to 12 bytes. It increased frozen C++ peak RSS by 2.1%. Both
+pragma settings now occupy the same byte, restoring the 8-byte header.
+
+Four compilations per size on the same CPU measured the contracted Arm
+path at `-O0`. Doubling the added inputs from 256 to 512 and from 512
+to 1024 roughly doubled the incremental instructions in both probes.
+The scope probe alternates a file directive and an inner `_Pragma` per
+function. The expression probe drives the iterative left-spine walk.
+
+| Synthetic input | 256 items | 512 items | 1,024 items |
+| --- | ---: | ---: | ---: |
+| One nested expression with multiply-add pairs | 7,560,454 | 11,638,622 | 19,890,228 |
+| Functions with two pragma changes each | 32,420,514 | 61,652,297 | 120,146,556 |
