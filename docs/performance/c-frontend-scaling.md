@@ -791,3 +791,50 @@ retired instructions.
 | SQLite | BAAB | 16,509,000,084 / 16,508,523,822 / 16,508,210,924 / 16,508,244,656 |
 
 [Input generation](../../benchmarks/frontend_scaling/README.md#c)
+
+## C restrict qualifiers
+
+The compiler classifies `restrict` through the existing C identifier
+table. Its semantic type uses the existing qualifier byte. Function
+parameter adjustment and pointer qualification use the recorded type.
+
+These are median millions of retired user-space instructions from three
+C99 `-pedantic-errors -fsyntax-only` runs on Linux x86-64. The binaries
+are immutable builds of `4c7d6c9de` and `b177871a1`. The input has one
+variably modified array parameter and one ordinary pointer parameter with
+`restrict` on each function. The objects match byte-for-byte at `-O0`.
+
+| Functions | Before | After |
+| ---: | ---: | ---: |
+| 128 | 11.060 | 11.192 |
+| 256 | 18.334 | 18.547 |
+| 512 | 32.919 | 33.286 |
+| 1024 | 61.958 | 62.653 |
+| 2048 | 121.376 | 122.732 |
+| 4096 | 243.123 | 245.793 |
+
+The final doubling added 2.05 times the instructions of the previous
+interval for both binaries. At 4096 functions, keeping the qualifier used
+1.10% more instructions and median peak RSS went from 24,800 to 24,756
+KiB. The fixed-array control at 4096 functions, with no `restrict`, used
+0.12% fewer instructions and emitted the same object bytes.
+
+The frozen C++ input at `-O3` and SQLite at `-std=gnu17 -O2` emitted
+identical objects across all trial orders. The A/A task-clock ranges
+were 1.6% and 5.5%, so the comparison uses retired instructions.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0012% | +0.0012% | +0.0012% |
+| SQLite `sqlite3.c` | 0.0025% | −0.0045% | −0.0050% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,042,991,158 / 9,042,959,910 / 9,043,022,201 / 9,042,917,285 |
+| C++ | ABBA | 9,043,195,425 / 9,043,177,624 / 9,043,222,175 / 9,042,993,411 |
+| C++ | BAAB | 9,043,037,114 / 9,042,939,860 / 9,043,050,771 / 9,043,172,598 |
+| SQLite | A/A | 16,508,390,993 / 16,508,484,034 / 16,508,239,691 / 16,508,659,076 |
+| SQLite | ABBA | 16,508,316,717 / 16,507,736,106 / 16,507,761,427 / 16,508,677,116 |
+| SQLite | BAAB | 16,507,721,406 / 16,508,389,434 / 16,508,818,780 / 16,507,843,178 |
+
+[Input generation](../../benchmarks/frontend_scaling/README.md#c)

@@ -217,8 +217,9 @@ declarations, type-names and parameters with the driver, at `-O0` and
 where parameter adjustment crosses an ABI boundary and check storage
 cleanup on each exit edge. Audit standard diagnostics independently from
 GNU VLA extensions. Pair prototype-scope `[*]` with the definition-site
-constraint, and test compatible fixed and runtime bounds with defined
-inputs. Keep the current declaration's written bounds for evaluation and
+constraint, including `[*]` inside type names used by `_Alignof` in a
+prototype. Test compatible fixed and runtime bounds with defined inputs.
+Keep the current declaration's written bounds for evaluation and
 its adjusted type for compatibility. Later, apply the distinct C23 rule
 for variably modified types and automatic-storage VLA objects. Emit each
 optional feature macro from the resolved edition and target configuration before

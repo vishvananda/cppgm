@@ -176,6 +176,15 @@ suite on Linux x86-64. The SQLite amalgamation emits byte-identical
 
 [Declarator scaling and frozen compile controls](../docs/performance/c-frontend-scaling.md#c-identifier-list-parameter-declarations)
 
+The current VLA compatibility probes pass after fixed and `[*]`
+prototypes, for a conditional pointer with one fixed and one runtime
+bound, and for a conditional pointer with two compatible captured bounds.
+GCC 15 and Clang 21 agree. One remaining case uses `_Alignof(int[*])`
+inside a function prototype parameter declarator. C11 6.7.6.2p4 permits
+`[*]` in prototype-scope type names. GCC 15 accepts this form. cppgm and
+Clang 21 currently diagnose it. Test its declaration scope separately
+from the function definition and function body.
+
 ## Restricted pointer types
 
 PA38 checks restricted pointers to objects, type and object declaration
@@ -191,10 +200,19 @@ runtime case verifies element qualification in the extension. The combined
 atomic and restrict parameter test follows GCC 15 and C11's qualified
 atomic type rule. Clang 21 rejects the combination.
 
+A mixed-compiler probe pairs a fixed array pointer parameter in the caller
+with a restricted variably modified parameter in the definition. Both
+cppgm/Clang 21 caller and callee directions ran successfully in C99, C11,
+and C17 at `-O0` and `-O2` on Linux x86-64, AArch64 under QEMU, bare Wasm,
+and WASI. Both Darwin architectures cross-linked those configurations
+as Mach-O dylibs. The Linux hosted replays also passed zlib 1.3.1
+`teststatic` and the Lua 5.4.8 basic suite.
+
 [PA38 restrict parameter case](../pa38/tests/general/300-restrict-parameters.t) ·
 [GCC C99 manifest](upstream-gcc-c99.json) ·
 [WG14 N2607](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2607.pdf) ·
-[WG14 DR 423](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1846.htm#dr_423)
+[WG14 DR 423](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1846.htm#dr_423) ·
+[Compile-work measurements](../docs/performance/c-frontend-scaling.md#c-restrict-qualifiers)
 
 [C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
 
