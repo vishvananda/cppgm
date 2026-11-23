@@ -724,7 +724,7 @@ bool names_symbol(const FunctionBody& body, const std::vector<uint8_t>& marked)
 
 void finish_function(Program& program, SymbolId symbol, OptimizerStats& stats, const OptimizerOptions& options,
 	std::vector<uint8_t>& nounwind, std::vector<uint8_t>& unwritten, const std::vector<uint8_t>& sealed,
-	const std::vector<uint8_t>* moved, BitTablePool& bit_tables)
+	const std::vector<uint8_t>* moved, BitTablePool& bit_tables, uint32_t& return_table_names)
 {
 	const bool addressed = !program.functions[program.symbols[symbol].detail].body->code_labels.empty();
 	if (addressed && (options.level < 3 || options.minimize_size))
@@ -827,6 +827,12 @@ void finish_function(Program& program, SymbolId symbol, OptimizerStats& stats, c
 		changed = true;
 	}
 	changed = narrow_fields(context) || changed;
+	if (options.level >= 3 && !options.minimize_size && RUN_PASS(split_guarded_record))
+	{
+		RUN_PASS(forward_memory);
+		RUN_PASS(remove_dead_code);
+		changed = true;
+	}
 	if (options.level >= 2 && RUN_PASS(join_field_moves))
 	{
 		RUN_PASS(remove_dead_code);
@@ -863,6 +869,14 @@ void finish_function(Program& program, SymbolId symbol, OptimizerStats& stats, c
 	{
 		RUN_PASS(cleanup_cfg);
 		RUN_PASS(remove_dead_code);
+		changed = true;
+	}
+	context.return_table_names = &return_table_names;
+	if (options.level >= 3 && !options.minimize_size && copies_code(context) &&
+		program.target == target_model::Target::Linux && RUN_PASS(guard_sparse_switches))
+	{
+		nounwind.resize(program.symbols.size(), 0);
+		unwritten.resize(program.symbols.size(), 0);
 		changed = true;
 	}
 	if (!changed)
@@ -1148,6 +1162,8 @@ void optimize_program(Program& program, const OptimizerOptions& options, Optimiz
 		}
 		run_inline_wave(program, options, stats, InlineWave::Once, budgets, original, unrolled, nounwind, simplify);
 		prune_unreachable(program, stats);
+		if (level >= 3 && !options.minimize_size && program.target == target_model::Target::Linux)
+			share_query_misses(program, simplify);
 		run_inline_wave(program, options, stats, InlineWave::Late, budgets, original, unrolled, nounwind, simplify);
 		if (level >= 2 && elide_private_allocations(program, stats, simplify))
 		{
@@ -1158,6 +1174,8 @@ void optimize_program(Program& program, const OptimizerOptions& options, Optimiz
 		if (level >= 2)
 			forward_calls(program, stats);
 		prune_unreachable(program, stats);
+		if (level >= 3 && !options.minimize_size && program.target == target_model::Target::Linux)
+			scalarize_private_snapshots(program, simplify);
 		if (level >= 2 && specialize_arguments(program, stats, simplify))
 			prune_unreachable(program, stats);
 		if (level >= 2)
@@ -1172,8 +1190,8 @@ void optimize_program(Program& program, const OptimizerOptions& options, Optimiz
 		for (SymbolId s = 0; level >= 2 && s < program.symbols.size(); ++s)
 			if (program.symbols[s].kind == SymbolKind::FunctionDefinition &&
 				program.functions[program.symbols[s].detail].body != nullptr)
-				finish_function(
-					program, s, stats, options, nounwind, unwritten, sealed, moved_late ? &moved : nullptr, bit_tables);
+				finish_function(program, s, stats, options, nounwind, unwritten, sealed, moved_late ? &moved : nullptr,
+					bit_tables, return_table_names);
 		// Strong Wasm definitions in this link cannot be interposed. Keep
 		// the late pass in the size profile since it scans every live body.
 		if (options.minimize_size && target_model::is_wasm(program.target))

@@ -217,6 +217,7 @@ bool coalesce_copies(FunctionContext& context);
 // operations and calls' indirect results, and the result is used only in
 // returning blocks after the slot's last use there. O(instructions).
 bool name_returned_slot(FunctionContext& context);
+bool split_guarded_record(FunctionContext& context);
 
 // Jump threading: a branch on the value its block's only predecessor just
 // tested takes the known side; a predecessor whose phi inputs decide a
@@ -380,6 +381,7 @@ bool form_switches(FunctionContext& context);
 // pointer plus constant offsets use bounded readonly result tables. Keep
 // defined defaults and side effects; data growth is linear in case operands.
 bool form_return_tables(FunctionContext& context);
+bool guard_sparse_switches(FunctionContext& context);
 // O1+: dense constant case groups feeding one scalar phi use bounded result
 // tables, retaining other case/default paths and first-match semantics.
 bool form_phi_result_tables(FunctionContext& context);

@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <string>
 
 #include "lowir/builder.h"
@@ -55,12 +56,16 @@ public:
 	explicit ReturnTables(FunctionContext& context) : c_(context), p_(context.program), b_(context.body) {}
 	bool run();
 	bool run_phi();
+	bool run_sparse_dispatch();
 
 private:
 	bool returned(BlockId block, Result& result) const;
 	bool available(Value value, BlockId block);
 	bool candidate(BlockId block);
 	bool phi_candidate(BlockId block);
+	bool sparse_dispatch(BlockId block, InstId terminal, Instruction term);
+	void rewrite_sparse_dispatch(BlockId block, InstId terminal, Instruction term, Type type, uint32_t extent,
+		const std::vector<uint64_t>& cells);
 	bool value_bits(Type type, Value value, uint64_t& bits) const;
 	bool arm_bits(const Instruction& phi, BlockId arm, uint64_t& bits) const;
 	bool partition_phi(BlockId from, const Instruction& term, Type selector, BlockId join, InstId phi,
@@ -713,6 +718,132 @@ bool ReturnTables::run()
 	return changed;
 }
 
+bool ReturnTables::sparse_dispatch(BlockId block, InstId terminal, Instruction term)
+{
+	const unsigned count = term.extra_count / 2;
+	if (count < 10 || count > 32 || !term.ops[0].is(ValueKind::Temp))
+		return false;
+	const Type type = b_.temps[term.ops[0].index].type;
+	const unsigned width = integer_bits(type.kind());
+	if (width != 32 && width != 64)
+		return false;
+	const BlockId fallback = term.ops[1].index;
+	const Instruction& miss = b_.instructions[b_.blocks[fallback].first];
+	if (miss.op != Opcode::Return || !miss.ops[0].is_literal() || !c_.no_eh())
+		return false;
+
+	const uint64_t mask = width == 32 ? UINT32_MAX : UINT64_MAX;
+	std::array<uint64_t, 32> keys;
+	bool multiway = false;
+	const Value first_target = b_.operands[term.extra_first + 1];
+	for (unsigned n = 0; n < count; ++n)
+	{
+		const Value key = b_.operands[term.extra_first + 2 * n];
+		const BlockId target = b_.operands[term.extra_first + 2 * n + 1].index;
+		if (!key.is(ValueKind::Integer) || target == fallback ||
+			b_.instructions[b_.blocks[target].first].op == Opcode::Phi)
+			return false;
+		keys[n] = normalize_integer(type, b_.literals[key.index]).low & mask;
+		multiway = multiway || !(Value::block(target) == first_target);
+	}
+	if (!multiway)
+		return false;
+	std::array<uint64_t, 32> ordered = {};
+	std::copy_n(keys.begin(), count, ordered.begin());
+	std::sort(ordered.begin(), ordered.begin() + count);
+	uint64_t gap = (ordered[0] - ordered[count - 1]) & mask;
+	for (unsigned n = 1; n < count; ++n)
+		gap = std::max(gap, ordered[n] - ordered[n - 1]);
+	if (mask - gap < 8 * count)
+		return false;
+
+	for (unsigned extent = 16; extent <= 64 && extent <= 2 * count; extent *= 2)
+	{
+		if (extent < count)
+			continue;
+		uint64_t occupied = 0;
+		unsigned n = 0;
+		for (; n < count; ++n)
+		{
+			const uint64_t bit = uint64_t(1) << (keys[n] & (extent - 1));
+			if (occupied & bit)
+				break;
+			occupied |= bit;
+		}
+		if (n != count)
+			continue;
+		// An unoccupied cell holds a key that can only index its own cell.
+		std::vector<uint64_t> cells(extent, keys[0]);
+		for (unsigned i = 0; i < count; ++i)
+			cells[keys[i] & (extent - 1)] = keys[i];
+		rewrite_sparse_dispatch(block, terminal, term, type, extent, cells);
+		return true;
+	}
+	return false;
+}
+
+void ReturnTables::rewrite_sparse_dispatch(
+	BlockId block, InstId terminal, Instruction term, Type type, uint32_t extent, const std::vector<uint64_t>& cells)
+{
+	const SymbolId data = table(cells, type);
+	const BlockId hit = append_block(b_, BlockKind::SwitchCase);
+	b_.layout.push_back(hit);
+	InstId after = previous_in_block(b_, block, terminal);
+	Instruction mask = make_instruction(Opcode::Binary, type);
+	mask.sub = static_cast<uint8_t>(BinaryOp::And);
+	mask.ops[0] = term.ops[0];
+	mask.ops[1] = number(extent - 1);
+	mask.location = term.location;
+	const Value index = emit(block, after, mask, type);
+	Instruction address = make_instruction(Opcode::Index, type);
+	address.ops[0] = Value::symbol(data);
+	address.ops[1] = index;
+	address.location = term.location;
+	const Value at = emit(block, after, address, b_.pointer_type());
+	Instruction load = make_instruction(Opcode::Load, type);
+	load.ops[0] = at;
+	load.location = term.location;
+	const Value cell = emit(block, after, load, type);
+	Instruction test = make_instruction(Opcode::Compare, type);
+	test.sub = static_cast<uint8_t>(ComparePredicate::Eq);
+	test.ops[0] = term.ops[0];
+	test.ops[1] = cell;
+	test.location = term.location;
+	const Value match = emit(block, after, test, Type::scalar(TypeKind::I1));
+	Instruction branch = make_instruction(Opcode::Branch, Type::scalar(TypeKind::Void));
+	branch.ops[0] = match;
+	branch.ops[1] = Value::block(hit);
+	branch.ops[2] = term.ops[1];
+	branch.location = term.location;
+	b_.instructions[terminal] = branch;
+	term.ops[0] = index;
+	for (unsigned n = 0; n < term.extra_count; n += 2)
+	{
+		Value& key = b_.operands[term.extra_first + n];
+		const uint64_t bits = b_.literals[key.index].low;
+		key = number(bits & (extent - 1));
+	}
+	insert_after(b_, hit, kNoId, append_instruction(b_, term));
+	c_.invalidate_cfg();
+	c_.invalidate_block_of();
+}
+
+bool ReturnTables::run_sparse_dispatch()
+{
+	if (b_.layout.size() < 8)
+		return false;
+	bool changed = false;
+	const size_t count = b_.layout.size();
+	for (size_t n = 0; n < count; ++n)
+	{
+		const BlockId block = b_.layout[n];
+		const InstId last = b_.blocks[block].last;
+		if (last != kNoId && b_.instructions[last].op == Opcode::Switch)
+			changed = sparse_dispatch(block, last, b_.instructions[last]) || changed;
+	}
+	return changed;
+}
+
 } // namespace
 
 bool form_phi_result_tables(FunctionContext& context)
@@ -729,6 +860,11 @@ bool form_return_tables(FunctionContext& context)
 		return false;
 	ReturnTables pass(context);
 	return pass.run();
+}
+
+bool guard_sparse_switches(FunctionContext& context)
+{
+	return ReturnTables(context).run_sparse_dispatch();
 }
 
 } // namespace opt

@@ -24,6 +24,8 @@ bool infer_function_memory(lowir::Program& program);
 // repeatability, bounded-write or parameter-position facts are inferred.
 bool infer_optimized_readonly(lowir::Program& program, lowir::SymbolId symbol);
 
+bool share_query_misses(lowir::Program& program, const std::function<void(lowir::SymbolId)>& simplify);
+bool scalarize_private_snapshots(lowir::Program& program, const std::function<void(lowir::SymbolId)>& simplify);
 bool specialize_arguments(
 	lowir::Program& program, OptimizerStats& stats, const std::function<void(lowir::SymbolId)>& simplify);
 
