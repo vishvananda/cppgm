@@ -394,6 +394,21 @@
       ]
     },
     {
+      "id": "include.query-extension",
+      "clause": "GNU __has_include",
+      "kind": "gnu",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Recognize a source header-name token and resolve macro-produced header operands.",
+      "cases": [
+        "include.query"
+      ]
+    },
+    {
       "id": "error.message",
       "clause": "6.10.5",
       "kind": "required",
@@ -495,6 +510,19 @@
       "environment": "all",
       "requirement": "Define __STDC_VERSION__ as 202311L in the C23 profile.",
       "cases": []
+    },
+    {
+      "id": "c23.include-query",
+      "clause": "6.10.2p5-p6",
+      "kind": "required",
+      "editions": [
+        23
+      ],
+      "environment": "all",
+      "requirement": "Look up a direct header name as written and process a tokenized operand with normal macro replacement.",
+      "cases": [
+        "include.query"
+      ]
     }
   ]
 }

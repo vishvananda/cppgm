@@ -25,6 +25,9 @@ public:
 	virtual const PPToken& next() = 0;
 	// The token next() will return, left unread.
 	virtual const PPToken& peek() = 0;
+	// Read an operand from the source. An unread header name can be lexed
+	// as one token here, with the same rules as a direct #include.
+	virtual const PPToken& next_header_operand() = 0;
 
 protected:
 	~ExpansionInput() {}
@@ -243,6 +246,7 @@ private:
 	// searching.
 	static const std::size_t kTopProbe = 4;
 
+	template<bool HeaderOperand = false>
 	bool read(PPToken& token, bool keep_shared = false);
 	bool peek_is_left_paren();
 	void pop_context();

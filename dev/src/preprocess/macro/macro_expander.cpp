@@ -203,6 +203,7 @@ bool MacroExpander::disabled_here(const MacroDefinition& macro, uint32_t disable
 	return hide_sets_.contains(disabled, macro.name);
 }
 
+template<bool HeaderOperand>
 bool MacroExpander::read(PPToken& token, bool keep_shared)
 {
 	// False at the end of the argument being replaced.
@@ -210,7 +211,7 @@ bool MacroExpander::read(PPToken& token, bool keep_shared)
 	{
 		if (contexts_.empty())
 		{
-			token = input_->next();
+			token = HeaderOperand ? input_->next_header_operand() : input_->next();
 			read_serial_ = 0;
 			read_disabled_ = 0;
 			break;
@@ -1366,15 +1367,25 @@ void MacroExpander::replace_has_include(bool next)
 	read(token);
 	if (!IsPunctuatorToken(token, TokenKind::OP_LPAREN))
 		throw PreprocessError(operator_token.begin, "expected `(` after __has_include");
-	read(token);
-	const bool expand = token.kind != PPTokenKind::StringLiteral && !IsPunctuatorToken(token, TokenKind::OP_LT);
 	const bool c_source = identifiers_.language() == SourceLanguage::C;
+	if (c_source)
+		read<true>(token);
+	else
+		read(token);
+	const bool expand = c_source
+		? token.kind != PPTokenKind::HeaderName
+		: token.kind != PPTokenKind::StringLiteral && !IsPunctuatorToken(token, TokenKind::OP_LT);
 	if (expand)
 		token = expand_include_token(token);
 	std::string name;
 	bool angle = false;
 	TextLiteralParts parts;
-	if (token.kind == PPTokenKind::StringLiteral && SplitTextLiteral(token.spelling, token.length, parts) &&
+	if (token.kind == PPTokenKind::HeaderName)
+	{
+		name.assign(token.spelling + 1, token.length - 2);
+		angle = token.spelling[0] == '<';
+	}
+	else if (token.kind == PPTokenKind::StringLiteral && SplitTextLiteral(token.spelling, token.length, parts) &&
 		parts.prefix == EncodingPrefix::None && !parts.raw)
 	{
 		name.assign(token.spelling + parts.body_begin, parts.body_end - parts.body_begin);
@@ -1395,16 +1406,17 @@ void MacroExpander::replace_has_include(bool next)
 				name.push_back(' ');
 			name.append(token.spelling, token.length);
 		}
-		// Only computed angle names in C drop whitespace before `>`.
-		if (c_source && !expand && (token.flags & kLeadingSpace) != 0)
-			name.push_back(' ');
+		if (c_source && name.find('>') != std::string::npos)
+			throw PreprocessError(operator_token.begin, "invalid angle header name in __has_include");
 	}
 	else
 	{
 		throw PreprocessError(operator_token.begin, "expected a header name after __has_include");
 	}
+	if (c_source && name.empty())
+		throw PreprocessError(operator_token.begin, "empty header name in __has_include");
 	read(token);
-	if (expand)
+	if (c_source || expand)
 		token = expand_include_token(token);
 	if (!IsPunctuatorToken(token, TokenKind::OP_RPAREN))
 		throw PreprocessError(operator_token.begin, "expected `)` after the header name");

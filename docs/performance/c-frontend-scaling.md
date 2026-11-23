@@ -2424,3 +2424,26 @@ every trial.
 | SQLite | A/A | 16,531,225,203 / 16,531,312,444 / 16,531,884,618 / 16,531,192,827 |
 | SQLite | ABBA | 16,531,645,989 / 16,525,913,403 / 16,526,155,533 / 16,531,901,964 |
 | SQLite | BAAB | 16,526,088,882 / 16,531,379,050 / 16,531,263,019 / 16,526,171,710 |
+
+## Direct C header queries
+
+Direct `__has_include` operands use the existing header-name token
+mode. The compiler has one token to consume for a source-written
+header name. Computed operands keep using the macro expander.
+Measurements used immutable binaries, a pinned CPU, A/A calibration,
+and ABBA and BAAB blocks for each equivalent input. Equivalent
+preprocessing outputs matched after normalizing the input path.
+
+| Queries | Direct before | Direct after | Computed before | Computed after | Direct with repeated spaces after |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1,024 | 11,422,307 | 10,204,242 | 11,235,027 | 11,220,607 | 10,543,312 |
+| 2,048 | 19,077,736 | 16,648,630 | 18,702,963 | 18,679,336 | 17,325,575 |
+| 4,096 | 34,389,279 | 29,535,128 | 33,640,304 | 33,598,236 | 30,889,504 |
+| 8,192 | 65,012,116 | 55,309,829 | 63,512,981 | 63,434,050 | 58,018,357 |
+
+The table shows median retired user-space instructions. At 8,192
+ordinary direct queries they fall 14.9% with the same median peak RSS
+of 5,838 KiB. The computed input changes by −0.12%. Both paths take
+linear work as the number of queries grows. Frozen C++ and SQLite
+instructions change by −0.14% and −0.10%, respectively, with identical
+object output in each trial.

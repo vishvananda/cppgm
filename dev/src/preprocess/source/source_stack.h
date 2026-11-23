@@ -91,6 +91,7 @@ public:
 	// ExpansionInput.
 	const PPToken& next() override;
 	const PPToken& peek() override;
+	const PPToken& next_header_operand() override;
 
 	// The text stopped at a directive's `#`, or at the end of the
 	// translation unit.

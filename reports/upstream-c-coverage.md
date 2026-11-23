@@ -204,11 +204,21 @@ cross-link on both Darwin architectures.
 [Scaling](../docs/performance/c-frontend-scaling.md#computed-header-names) ·
 [GCC computed includes](https://gcc.gnu.org/onlinedocs/cpp/Computed-Includes.html)
 
-A direct `__has_include(<header  name.h>)` still collapses the two spaces
-when cppgm reconstructs the name from tokens. The corresponding direct
-`#include` succeeds. GCC 15 and Clang 21 accept both forms. C23 extends
-the header-name token context to the operand of `__has_include`.
-[WG14 N3220, §§6.4.7, 6.10.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+A direct `__has_include(<header  name.h>)` now preserves both spaces.
+PA38 exercises direct names, a macro alias for the operator, computed
+names with expandable tokens, and empty macro suffixes. GCC 15 and
+Clang 21 pass the positive fixture in C99, C11, C17, and C23. cppgm
+passes it in the three existing C modes and diagnoses empty names and
+nonempty suffixes. The positive fixture runs on Linux x86-64, AArch64
+under QEMU, and WASI, and cross-links on both Darwin targets. A
+separate GNU17 test with two include directories also passes for
+`__has_include_next` with all three compilers. The extension has its
+own C99 through C17 receipts. The C23 rule remains uncovered until
+cppgm selects and exercises that edition.
+[PA38 header operands](../pa38/tests/general/100-c-has-include-header-operands.t) ·
+[Clause inventory](c-conformance.json) ·
+[WG14 N3220, §§6.4.7, 6.10.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
+[Scaling](../docs/performance/c-frontend-scaling.md#direct-c-header-queries)
 
 C99 through C17 require a diagnostic for universal character names
 below U+00A0 except U+0024, U+0040, and U+0060. cppgm applies the

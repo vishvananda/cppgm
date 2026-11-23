@@ -100,7 +100,11 @@ in the written header name, including in a quoted name supplied by a
 macro. Check escape sequences when a string token is used as a literal.
 For an angle name assembled from macro tokens, collapse each stretch
 of separating whitespace to one space. Keep a space after `<` and
-drop one before `>`. Use the same computed names in `__has_include`.
+drop one before `>`. In `__has_include`, preserve the spelling of a
+direct header name, including repeated spaces. Expand macro-produced
+operands before forming the computed name. After the name, allow
+macros that expand to nothing before the closing parenthesis.
+Diagnose an empty header name or unexpected tokens after the name.
 
 ISO C99, C11, and C17 enable trigraphs. GNU modes leave the three
 characters as written unless `-trigraphs` is supplied. A backslash

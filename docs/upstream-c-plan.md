@@ -51,8 +51,9 @@ Start the next batches from the existing receipts.
    ordering at include boundaries. Use the existing receipts for physical
    C include lookup after `#line`, trailing macro expansion, and unexpanded
    `#error` messages. The computed-header cases cover literal backslashes
-   and document the C angle whitespace policy. Qualify the direct
-   `__has_include` header token rules. C string expressions retain their
+   and document the C angle whitespace policy. C99 through C17
+   receipts now cover direct and computed `__has_include` operands.
+   Carry the same test into C23 when that mode is available. C string expressions retain their
    decoded code units through semantic analysis and lowering. This closes
    the measured escape-heavy compile regression and adds C11 and C17
    runtime evidence for adjacent storage and wide code units. Cover pragmas

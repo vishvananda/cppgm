@@ -78,6 +78,14 @@ const PPToken& SourceStack::next()
 	return token_;
 }
 
+const PPToken& SourceStack::next_header_operand()
+{
+	// A token already read as ordinary input keeps that interpretation.
+	if (!has_peeked_ && (!line_mode_ || !line_ended_))
+		request_header_name();
+	return next();
+}
+
 const PPToken& SourceStack::peek()
 {
 	if (!has_peeked_)

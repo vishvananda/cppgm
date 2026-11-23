@@ -54,12 +54,21 @@ a run of separating whitespace counts as one space, including after
 the opening angle, and any whitespace before the closing angle is
 discarded. This follows GCC's computed-angle convention.
 
+A direct operand of `__has_include` is a header-name token and
+retains its written spacing. Operands supplied as ordinary
+preprocessing tokens undergo macro replacement before the name is
+formed. A suffix that expands to no tokens can precede the closing
+parenthesis. An empty name or an unexpected leftover token produces
+a diagnostic. The GNU `__has_include_next` extension applies the
+same operand rules.
+
 An active `#error` diagnostic includes the following preprocessing
 tokens. It preserves their spellings after splicing and comment
 replacement without expanding macro names. The diagnostic uses the
 presumed filename and line.
 
 [WG14 N1570, §§6.10.2, 6.10.4, 6.10.5](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[WG14 N3220, §§6.4.7, 6.10.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
 [GCC line control](https://gcc.gnu.org/onlinedocs/cpp/Line-Control.html) ·
 [GCC computed includes](https://gcc.gnu.org/onlinedocs/cpp/Computed-Includes.html) ·
 [GCC C99 include cases](../reports/upstream-gcc-c99.json)
