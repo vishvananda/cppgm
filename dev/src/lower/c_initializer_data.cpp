@@ -5,10 +5,12 @@
 #include <iterator>
 #include <map>
 #include <set>
+#include <utility>
 
 #include "lowir/literals.h"
 #include "sema/aggregates.h"
 #include "sema/c_initializer.h"
+#include "sema/c_initializer_intervals.h"
 #include "sema/constant_interpreter.h"
 #include "sema/constant_values.h"
 #include "support/small_list.h"
@@ -62,6 +64,7 @@ struct FieldData
 	SmallList<ByteWrite, 4> bits;
 	const Placements* repeated = nullptr;
 	uint64_t stride = 0;
+	uint64_t bit_first = 0, bit_limit = 0;
 
 	bool has_items() const { return repeated == nullptr ? !items.empty() : !repeated->empty(); }
 
@@ -98,7 +101,7 @@ public:
 			for (const ByteWrite& source : field.bits)
 				change_bits(source, enter);
 		}
-		else if (field.first < field.limit)
+		if (field.first < field.limit)
 		{
 			if (enter)
 			{
@@ -228,6 +231,121 @@ struct RecordDataEvent
 	bool enter;
 };
 
+struct DataColumn
+{
+	uint64_t first, limit, index;
+};
+
+// A zero replacement can affect only column positions that some source
+// supplies with data. Drop all other positions before composing layers.
+class StaticDataColumns
+{
+public:
+	explicit StaticDataColumns(std::vector<DataColumn>&& ranges) : columns_(std::move(ranges))
+	{
+		std::sort(columns_.begin(), columns_.end(),
+			[](const DataColumn& a, const DataColumn& b) { return a.first < b.first; });
+		size_t count = 0;
+		uint64_t index = 0;
+		for (DataColumn column : columns_)
+		{
+			if (count != 0 && column.first <= columns_[count - 1].limit)
+			{
+				auto& previous = columns_[count - 1];
+				previous.limit = std::max(previous.limit, column.limit);
+				index = previous.index + (previous.limit - previous.first);
+			}
+			else
+			{
+				column.index = index;
+				index += column.limit - column.first;
+				columns_[count++] = column;
+			}
+		}
+		columns_.resize(count);
+	}
+
+	uint64_t project(uint64_t bit) const
+	{
+		const auto after = std::upper_bound(columns_.begin(), columns_.end(), bit,
+			[](uint64_t value, const DataColumn& column) { return value < column.first; });
+		if (after == columns_.begin())
+			return 0;
+		const auto& column = *std::prev(after);
+		return column.index + (std::min(bit, column.limit) - column.first);
+	}
+
+	uint64_t physical_bit(uint64_t index) const
+	{
+		const auto after = std::upper_bound(columns_.begin(), columns_.end(), index,
+			[](uint64_t value, const DataColumn& column) { return value < column.index; });
+		const auto& column = *std::prev(after);
+		return column.first + (index - column.index);
+	}
+
+private:
+	std::vector<DataColumn> columns_;
+};
+
+struct StaticLayer
+{
+	const Placements* items;
+	const FieldData* field;
+	uint64_t first, limit;
+	bool has_data;
+};
+
+void AppendMaskedByte(ByteWrite byte, uint64_t first, uint64_t limit, FieldData& out)
+{
+	const uint64_t at = byte.offset * 8;
+	const uint64_t lo = std::max(first, at);
+	const uint64_t hi = std::min(limit, at + 8);
+	if (lo >= hi)
+		return;
+	const auto mask = static_cast<uint8_t>((0xffu << (lo - at)) & (0xffu >> (at + 8 - hi)));
+	byte.mask &= mask;
+	byte.value &= byte.mask;
+	if (byte.value != 0)
+		out.bits.push_back(byte);
+}
+
+bool AppendItemSlice(const StaticPlacement& entry, uint64_t first, uint64_t limit, FieldData& out)
+{
+	if (first <= 8 * entry.offset && 8 * (entry.offset + entry.size) <= limit)
+	{
+		out.items.push_back(entry);
+		return true;
+	}
+	if (entry.item.kind != lowir::DataItemKind::Scalar || entry.size > 16)
+		return false;
+	const auto bits = entry.item.constant.bits;
+	for (uint64_t i = 0; i != entry.size; ++i)
+	{
+		const auto value = static_cast<uint8_t>((i < 8 ? bits.low : bits.high) >> (8 * (i % 8)));
+		AppendMaskedByte({ entry.offset + i, 0xff, value }, first, limit, out);
+	}
+	return true;
+}
+
+bool SliceStaticLayer(const StaticLayer& source, uint64_t first, uint64_t limit, FieldData& out)
+{
+	const auto& items = *source.items;
+	auto item = std::upper_bound(items.begin(), items.end(), first,
+		[](uint64_t bit, const StaticPlacement& entry) { return bit < 8 * (entry.offset + entry.size); });
+	for (; item != items.end() && item->offset * 8 < limit; ++item)
+		if (!AppendItemSlice(*item, first, limit, out))
+			return false;
+	if (source.field != nullptr)
+		for (ByteWrite byte : source.field->bits)
+			AppendMaskedByte(byte, first, limit, out);
+	if (!out.items.empty())
+	{
+		out.first = out.items.front().offset;
+		out.limit = out.items.back().offset + out.items.back().size;
+	}
+	return true;
+}
+
 } // namespace
 
 class ProgramLowering::CStaticData
@@ -249,11 +367,14 @@ public:
 		if (!base_events(plan, width, bases, events))
 			return false;
 		const bool has_base = !events.empty();
+		const bool layered = plan.projection == sema::CInitializerProjection::NestedFields;
 		const bool ready = plan.projection == sema::CInitializerProjection::Rectangles
 			? rectangle_events(plan, has_base, cells, fields, events)
-			: field_events(plan, has_base, fields, events);
+			: field_events(plan, has_base || layered, fields, events);
 		if (!ready)
 			return false;
+		if (layered)
+			return emit_layered(events, width, plan.type->bound, out);
 		return emit_rows(events, width, plan.type->bound, out);
 	}
 
@@ -282,7 +403,7 @@ private:
 			if (inherited && !child.initializer->starts_value)
 				return false;
 			fields.emplace_back();
-			if (!prepare_field(*child.member, *child.initializer, fields.back()))
+			if (!prepare_field(child.member, *child.initializer, 0, fields.back()))
 				return false;
 			active.change(fields.back(), true);
 		}
@@ -366,7 +487,7 @@ private:
 				{
 					entry = static_cast<uint32_t>(fields.size());
 					fields.emplace_back();
-					if (!prepare_field(*lane.member, *span.initializer, fields.back()))
+					if (!prepare_field(lane.member, *span.initializer, lane.offset, fields.back()))
 						return false;
 					saved.set(span.initializer, entry);
 				}
@@ -411,20 +532,20 @@ private:
 		return true;
 	}
 
-	bool prepare_field(const sema::DataMember& member, const sema::CInitializer& plan, FieldData& out)
+	bool prepare_field(const sema::DataMember* member, const sema::CInitializer& plan, uint64_t offset, FieldData& out)
 	{
-		const auto* variable = static_cast<const sema::VariableEntity*>(member.variable);
-		if (member.bit_field)
-			return prepare_bits(member, variable, plan.value, out.bits);
+		const auto* variable = member == nullptr ? nullptr : static_cast<const sema::VariableEntity*>(member->variable);
+		if (member != nullptr && member->bit_field)
+			return prepare_bits(*member, variable, plan.value, offset, out);
 		const uint64_t size = lowering_.size_of(plan.type, 0);
-		out.first = lowering_.member_offset(variable, 0);
+		out.first = variable == nullptr ? offset : offset + lowering_.member_offset(variable, 0);
 		out.limit = out.first + size;
 		sample_.items.clear();
 		return source_value(plan, sample_) && CollectPlacements(sample_, out.first, size, pointer_bytes_, out.items);
 	}
 
 	bool prepare_bits(const sema::DataMember& member, const sema::VariableEntity* variable, const syntax::Expr* expr,
-		SmallList<ByteWrite, 4>& bytes)
+		uint64_t parent_offset, FieldData& out)
 	{
 		if (expr != nullptr && expr->kind == syntax::ExprKind::BracedInit)
 		{
@@ -437,7 +558,10 @@ private:
 				(!lowering_.static_converted(*expr, variable->type->unqualified, value) ||
 					value.kind != StaticValue::Kind::Integer)))
 			return false;
-		const uint64_t bit = lowering_.member_bit_offset(variable, 0);
+		const uint64_t bit = 8 * parent_offset + lowering_.member_bit_offset(variable, 0);
+		out.bit_first = bit;
+		out.bit_limit = bit + member.width;
+		auto& bytes = out.bits;
 		for (uint64_t k = 0; k < member.width; ++k)
 		{
 			const uint64_t offset = (bit + k) / 8;
@@ -449,6 +573,78 @@ private:
 				bytes.back().value |= mask;
 		}
 		return true;
+	}
+
+	bool emit_layered(const std::vector<RecordDataEvent>& events, uint64_t width, uint64_t count, StaticData& out)
+	{
+		if (width > UINT64_MAX / 8)
+			return false;
+		std::vector<StaticLayer> sources;
+		std::vector<DataColumn> occupied;
+		std::vector<sema::CArrayRectangle> writes;
+		PointerMap saved;
+		for (size_t i = 0; i < events.size(); i += 2)
+		{
+			const auto& enter = events[i];
+			const void* key = enter.field != nullptr ? static_cast<const void*>(enter.field) : enter.base;
+			uint32_t source = saved.find(key);
+			if (source == PointerMap::kMissing)
+			{
+				source = static_cast<uint32_t>(sources.size());
+				sources.push_back(static_layer(enter, width, occupied));
+				saved.set(key, source);
+			}
+			const auto& layer = sources[source];
+			writes.push_back(
+				{ enter.index, events[i + 1].index, layer.first, layer.limit, layer.has_data ? source : UINT32_MAX });
+		}
+		const StaticDataColumns columns(std::move(occupied));
+		size_t retained = 0;
+		for (auto write : writes)
+		{
+			write.column = columns.project(write.column);
+			write.column_limit = columns.project(write.column_limit);
+			if (write.column < write.column_limit)
+				writes[retained++] = write;
+		}
+		writes.resize(retained);
+		std::deque<FieldData> fields;
+		std::vector<RecordDataEvent> visible;
+		for (const auto& rectangle : sema::WinningInitializerRectangles(writes, UINT32_MAX))
+		{
+			fields.emplace_back();
+			FieldData& field = fields.back();
+			const uint64_t first = columns.physical_bit(rectangle.column);
+			const uint64_t limit = columns.physical_bit(rectangle.column_limit - 1) + 1;
+			if (!SliceStaticLayer(sources[rectangle.value], first, limit, field))
+				return false;
+			if (!field.has_data())
+				fields.pop_back();
+			else
+			{
+				visible.push_back({ rectangle.row, nullptr, &field, true });
+				visible.push_back({ rectangle.row_limit, nullptr, &field, false });
+			}
+		}
+		return emit_rows(visible, width, count, out);
+	}
+
+	static StaticLayer static_layer(const RecordDataEvent& event, uint64_t width, std::vector<DataColumn>& occupied)
+	{
+		const FieldData* field = event.field;
+		const Placements* items = field == nullptr ? event.base : &field->items;
+		for (const auto& placement : *items)
+			occupied.push_back({ placement.offset * 8, (placement.offset + placement.size) * 8, 0 });
+		if (field == nullptr)
+			return { items, nullptr, 0, width * 8, !items->empty() };
+		const bool has_data = field->has_data();
+		if (!field->bits.empty())
+		{
+			if (has_data)
+				occupied.push_back({ field->bit_first, field->bit_limit, 0 });
+			return { items, field, field->bit_first, field->bit_limit, has_data };
+		}
+		return { items, field, field->first * 8, field->limit * 8, has_data };
 	}
 
 	bool emit_rows(std::vector<RecordDataEvent>& events, uint64_t width, uint64_t count, StaticData& out)

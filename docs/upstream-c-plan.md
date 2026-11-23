@@ -45,14 +45,14 @@ behavior independent of the edition work that exposed them.
 
 Start the next batches from the existing receipts.
 
-1. Extend GNU initializer coverage to overlaps that diverge below a
-   record's immediate members or below the second array dimension.
-   Cover nested brace elision and positional continuation, union member
-   changes, and automatic ranges of aggregates with qualified subobjects.
-   PA38 covers overlapping writes to direct record members, static
+1. Extend GNU initializer coverage to overlaps across more than two
+   array dimensions and paths with additional ranges interleaved with
+   record members. Cover union member changes and automatic ranges of
+   aggregates with qualified subobjects. PA38 covers overlapping
+   writes to nested record members and fixed array indices, static
    patches to large records, and two-dimensional overlaps of whole
-   cells. The matrix tests include whole-row resets, string-backed rows,
-   aggregate cells, and positional continuation within the final row.
+   cells. The tests exercise brace elision, positional continuation
+   within the final element, and whole-subobject replacements.
    [Initializer evidence](../reports/upstream-c-coverage.md#gnu-range-designators-and-empty-records)
 2. Finish the C99–C17 lexical inventory using the trigraph, digraph,
    universal-character, and macro redefinition receipts. Cover the
@@ -333,9 +333,15 @@ before repeating the published row. Keep pointer relocations typed and
 evaluate a source record through the constant interpreter only when
 its layout requires that fallback. Include a wide sparse record and a
 dense repeated record when measuring this path.
-Carry the same typed coverage and source-value identities into nested
-overlaps. Extend the scaling cases to independently vary the number of
-written paths, their depth, and the resulting fragments.
+For nested record and fixed-index paths, share the preceding
+whole-object reset index between children. Each child path overlays
+its own resets onto a version of the index along the changed intervals.
+Resolve each path's writes against that version and lower ancestors
+before descendants. For static data with both an ancestor and a
+descendant write, apply the rectangle sweep to the occupied bits of
+their typed layouts. Preserve intact scalar and relocation items.
+Extend the scaling cases to independently vary the number of written
+paths, their depth, and the resulting fragments.
 
 For two array dimensions, sweep written row endpoints. Index active
 column intervals by source rank and compare the old and new winners

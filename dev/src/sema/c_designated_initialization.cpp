@@ -452,7 +452,8 @@ private:
 		{
 			syntax::Slice<const CInitializerFieldSpans> fields = {};
 			syntax::Slice<const CInitializerRectangle> rectangles = {};
-			const auto entries = freeze_spans(node, first, live, inherited, fields, rectangles);
+			bool nested = false;
+			const auto entries = freeze_spans(node, first, live, inherited, fields, rectangles, nested);
 			CInitializer* plan;
 			CInitializerProjection projection = CInitializerProjection::None;
 			if (fields.empty() && rectangles.empty())
@@ -462,7 +463,7 @@ private:
 				auto* projected = analyzer_.arena_.allocate_array<CInitializerWithSpans>(1);
 				if (rectangles.empty())
 				{
-					projection = CInitializerProjection::Fields;
+					projection = nested ? CInitializerProjection::NestedFields : CInitializerProjection::Fields;
 					projected->fields = fields;
 				}
 				else
@@ -498,7 +499,7 @@ private:
 
 	syntax::Slice<const CInitializerChild> freeze_spans(const Node& node, size_t first, std::vector<uint8_t>& live,
 		bool inherited, syntax::Slice<const CInitializerFieldSpans>& fields,
-		syntax::Slice<const CInitializerRectangle>& rectangles)
+		syntax::Slice<const CInitializerRectangle>& rectangles, bool& nested)
 	{
 		std::vector<CArrayWrite> writes;
 		writes.reserve(node.child_count);
@@ -509,7 +510,7 @@ private:
 		{
 			if (node.type->element->kind == TypeKind::Array)
 				return freeze_rectangular_spans(node, writes, first, live, inherited, rectangles);
-			fields = freeze_field_spans(node, writes, spans, first, live, inherited);
+			fields = freeze_field_spans(node, writes, spans, first, live, inherited, nested);
 		}
 		return freeze_interval_values(spans, first, live, inherited, node.type->element);
 	}
@@ -621,12 +622,6 @@ private:
 		return freeze_interval_values(spans, first, live, inherited, node.type->element, true);
 	}
 
-	struct MemberWrite
-	{
-		const DataMember* member;
-		CArrayWrite write;
-	};
-
 	bool qualified_container(const Node& node)
 	{
 		for (const Node* owner = &node; owner != nullptr;
@@ -636,77 +631,172 @@ private:
 		return false;
 	}
 
-	bool separate_field_writes(const Node& node, const std::vector<CArrayWrite>& writes,
-		std::vector<CArrayWrite>& whole, std::vector<MemberWrite>& patches)
+	struct FieldPath
+	{
+		const Type* type;
+		const DataMember* member;
+		uint64_t offset, index;
+		uint32_t parent, first, next;
+		std::vector<CArrayWrite> writes;
+	};
+
+	struct FieldPaths
+	{
+		std::vector<FieldPath> paths;
+		FlatMap<SubobjectKey, uint32_t, SubobjectHash> children;
+	};
+
+	bool expand_fields(const Node& value)
+	{
+		if (value.value != nullptr || value.has_spans)
+			return false;
+		if (value.type->kind == TypeKind::Array)
+			return true;
+		const ClassEntity* record = ClassOf(value.type);
+		return record != nullptr && record->key != TokenKind::KW_UNION;
+	}
+
+	uint32_t field_path(FieldPaths& fields, uint32_t parent, const Node& child)
+	{
+		const SubobjectKey key{ parent, child.index };
+		if (const uint32_t* saved = fields.children.find(key))
+			return *saved;
+		uint64_t offset = 0, alignment = 0;
+		if (child.member != nullptr)
+		{
+			if (!analyzer_.member_offset(static_cast<const VariableEntity*>(child.member->variable), offset))
+				analyzer_.error(location_, "a C range designator names a member without a layout");
+		}
+		else
+		{
+			if (!analyzer_.type_size(child.type, offset, alignment, location_))
+				analyzer_.error(location_, "a C range designator names an element without a layout");
+			offset *= child.index;
+		}
+		const auto id = static_cast<uint32_t>(fields.paths.size());
+		const FieldPath& owner = fields.paths[parent];
+		fields.paths.push_back(
+			{ child.type, child.member, owner.offset + offset, child.index, parent, kNone, owner.first, {} });
+		fields.paths[parent].first = id;
+		fields.children.insert(key, id);
+		return id;
+	}
+
+	void collect_field_write(FieldPaths& fields, uint32_t path, const CArrayWrite& write)
+	{
+		analyzer_.check_stack(location_);
+		const Node& value = nodes_[write.value];
+		if (value.starts_value)
+			fields.paths[path].writes.push_back(write);
+		if (!expand_fields(value))
+		{
+			if (!value.starts_value)
+				analyzer_.error(
+					location_, "a partial overwrite through an overlapping nested range or union is not yet supported");
+			return;
+		}
+		for (uint32_t id = value.first; id != kNone; id = nodes_[id].next)
+		{
+			const auto child = field_path(fields, path, nodes_[id]);
+			collect_field_write(fields, child, { write.first, write.limit, id, write.rank });
+		}
+	}
+
+	bool retain_field_values(std::vector<CArrayWrite>& spans, bool inherited)
+	{
+		bool has_value = false;
+		size_t count = 0;
+		for (CArrayWrite span : spans)
+		{
+			if (expand_fields(nodes_[span.value]))
+			{
+				if (!inherited)
+					continue;
+				span.value = kNone;
+			}
+			else
+				has_value = true;
+			spans[count++] = span;
+		}
+		spans.resize(count);
+		return inherited || has_value;
+	}
+
+	struct FieldFreeze
+	{
+		FieldPaths& fields;
+		CInitializerResets& resets;
+		std::vector<CInitializerFieldSpans>& lanes;
+		size_t first;
+		std::vector<uint8_t>& live;
+		bool nested;
+	};
+
+	void freeze_field_path(FieldFreeze& build, uint32_t id, uint32_t ancestors, bool inherited, bool layered)
+	{
+		analyzer_.check_stack(location_);
+		FieldPath& path = build.fields.paths[id];
+		const auto winners = WinningInitializerSpans(path.writes);
+		std::vector<CArrayWrite> retained;
+		uint32_t version = ancestors;
+		for (const auto& winner : winners)
+		{
+			build.resets.clip(ancestors, winner, retained);
+			if (path.first != kNone)
+				version = build.resets.add(version, winner);
+		}
+		const bool child_inherits = retain_field_values(retained, inherited);
+		if (!retained.empty())
+		{
+			const FieldPath& owner = build.fields.paths[path.parent];
+			const uint64_t offset = path.member != nullptr ? owner.offset : path.offset;
+			build.nested |= layered;
+			build.lanes.push_back({ path.member, owner.type, offset,
+				freeze_interval_values(retained, build.first, build.live, false, path.type) });
+			layered = true;
+		}
+		freeze_field_children(build, path.first, version, child_inherits, layered);
+	}
+
+	void freeze_field_children(FieldFreeze& build, uint32_t child, uint32_t ancestors, bool inherited, bool layered)
+	{
+		SmallList<uint32_t, 8> sorted;
+		for (; child != kNone; child = build.fields.paths[child].next)
+			sorted.push_back(child);
+		const auto& paths = build.fields.paths;
+		std::sort(
+			sorted.begin(), sorted.end(), [&](uint32_t a, uint32_t b) { return paths[a].index < paths[b].index; });
+		for (uint32_t id : sorted)
+			freeze_field_path(build, id, ancestors, inherited, layered);
+	}
+
+	syntax::Slice<const CInitializerFieldSpans> freeze_field_spans(const Node& node,
+		const std::vector<CArrayWrite>& writes, std::vector<CArrayWrite>& spans, size_t first,
+		std::vector<uint8_t>& live, bool inherited, bool& nested)
 	{
 		const Type* type = node.type->element;
 		const ClassEntity* record = ClassOf(type);
 		if (record == nullptr || record->key == TokenKind::KW_UNION ||
 			(!analyzer_.c_static_initializer_ &&
 				((type->cv & (kVolatile | kAtomic)) != 0 || qualified_container(node))))
-			return false;
-		for (const CArrayWrite& write : writes)
-		{
-			const Node& value = nodes_[write.value];
-			if (value.starts_value)
-				whole.push_back(write);
-			if (value.value != nullptr)
-				continue;
-			for (uint32_t id = value.first; id != kNone; id = nodes_[id].next)
-			{
-				const Node& field = nodes_[id];
-				if (!field.starts_value && !value.starts_value)
-					return false;
-				patches.push_back({ field.member, { write.first, write.limit, id, write.rank } });
-			}
-		}
-		return true;
-	}
-
-	syntax::Slice<const CInitializerFieldSpans> freeze_field_spans(const Node& node,
-		const std::vector<CArrayWrite>& writes, std::vector<CArrayWrite>& spans, size_t first,
-		std::vector<uint8_t>& live, bool inherited)
-	{
-		std::vector<CArrayWrite> whole;
-		std::vector<MemberWrite> patches;
-		if (!separate_field_writes(node, writes, whole, patches))
-			analyzer_.error(location_, "a partial overwrite of an aggregate range initializer is not yet supported");
-		spans = WinningInitializerSpans(whole);
-		const CInitializerResets resets(spans, node.count);
-		// Braces reset the value and write their explicit members at the
-		// same rank. Keep the reset barriers in the index even when all
-		// of the explicit writes can be emitted through the member lanes.
-		if (inherited)
-		{
-			for (CArrayWrite& span : spans)
-				if (nodes_[span.value].value == nullptr)
-					span.value = kNone;
-		}
-		else
-			spans.erase(std::remove_if(spans.begin(), spans.end(),
-							[&](const CArrayWrite& span) { return nodes_[span.value].value == nullptr; }),
-				spans.end());
-		std::sort(patches.begin(), patches.end(),
-			[](const MemberWrite& a, const MemberWrite& b) { return a.member->ordinal < b.member->ordinal; });
-		std::vector<CInitializerFieldSpans> fields;
-		std::vector<CArrayWrite> member_writes, retained;
-		for (size_t begin = 0; begin != patches.size();)
-		{
-			const DataMember* member = patches[begin].member;
-			member_writes.clear();
-			retained.clear();
-			do
-				member_writes.push_back(patches[begin++].write);
-			while (begin != patches.size() && patches[begin].member == member);
-			for (const CArrayWrite& winner : WinningInitializerSpans(member_writes))
-				resets.clip(winner, retained);
-			if (!retained.empty())
-				fields.push_back({ member, freeze_interval_values(retained, first, live, false) });
-		}
-		auto* entries = analyzer_.arena_.allocate_array<CInitializerFieldSpans>(fields.size());
-		if (!fields.empty())
-			std::copy(fields.begin(), fields.end(), entries);
-		return { entries, static_cast<uint32_t>(fields.size()) };
+			analyzer_.error(
+				location_, "overlapping range initialization of these record elements is not yet supported");
+		FieldPaths fields;
+		fields.paths.push_back({ type, nullptr, 0, 0, kNone, kNone, kNone, {} });
+		for (const auto& write : writes)
+			collect_field_write(fields, 0, write);
+		spans = WinningInitializerSpans(fields.paths[0].writes);
+		CInitializerResets resets(writes);
+		const uint32_t version = resets.root(spans);
+		const bool child_inherits = retain_field_values(spans, inherited);
+		std::vector<CInitializerFieldSpans> lanes;
+		FieldFreeze build{ fields, resets, lanes, first, live, false };
+		freeze_field_children(build, fields.paths[0].first, version, child_inherits, false);
+		nested = build.nested;
+		auto* entries = analyzer_.arena_.allocate_array<CInitializerFieldSpans>(lanes.size());
+		if (!lanes.empty())
+			std::copy(lanes.begin(), lanes.end(), entries);
+		return { entries, static_cast<uint32_t>(lanes.size()) };
 	}
 
 	uint32_t patch_path(uint32_t id)

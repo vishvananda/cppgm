@@ -230,9 +230,9 @@ storage durations. GCC 15 and cppgm match those results at `-O0` and
 `-O2`. The PA38 fixture passes on Linux x86-64, AArch64 QEMU, and WASI.
 The Intel and Apple Silicon Mach-O objects both cross-link.
 
-The remaining range cases include composition below a direct member
-or the second array dimension, union member changes, and qualified
-aggregates in automatic storage.
+The remaining range cases include composition across a third array
+dimension or extra ranges interleaved with member paths, union member
+changes, and qualified aggregates in automatic storage.
 [PA38 field overlap fixture](../pa38/tests/general/300-designated-gnu-field-overlaps.t) ·
 [WG14 DR 413](https://www.open-std.org/Jtc1/sc22/WG14/www/docs/dr_413.htm) ·
 [WG14 DR 253](https://www.open-std.org/JTC1/SC22/WG14/www/docs/dr_253.htm)
@@ -262,6 +262,18 @@ expressions. cppgm also checks the call counts in those rows. A
 static and automatic probe checks preservation of cells inherited
 from a record expression, followed by a whole-row reset.
 [PA38 two-dimensional range fixture](../pa38/tests/general/300-designated-gnu-rectangle-overlaps.t)
+
+Nested member overlaps preserve siblings across complete brace and
+record-valued replacements. PA38 checks continuation within the final
+ranged record, fixed array indices within a path, bit-fields, and
+pointer relocations. The fixture passes on x86-64 Linux, AArch64 QEMU,
+and WASI. Intel and Apple Silicon Mach-O objects cross-link. The
+previously rejected nested brace case now matches GCC 15. A separate
+128-case oracle checks static and automatic storage at `-O0` and
+`-O2`. GCC runs the equivalent brace forms of the generated tests.
+The versioned reset index also matches a pointwise oracle on 10,000
+generated cases.
+[PA38 nested member fixture](../pa38/tests/general/300-designated-gnu-nested-overlaps.t)
 
 ## Initial hosted replays
 

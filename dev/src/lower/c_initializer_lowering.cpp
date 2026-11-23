@@ -86,7 +86,8 @@ void FunctionLowering::c_initialize_spans(
 	}
 	if (!inherited && next < array->bound)
 		omitted_array_tail(array, base, next, location);
-	if (plan.projection == sema::CInitializerProjection::Fields)
+	if (plan.projection == sema::CInitializerProjection::Fields ||
+		plan.projection == sema::CInitializerProjection::NestedFields)
 		c_initialize_field_spans(plan, base, location);
 	else if (plan.projection == sema::CInitializerProjection::Rectangles)
 		c_initialize_rectangles(plan, base, location);
@@ -179,17 +180,19 @@ void FunctionLowering::c_initialize_field_spans(const sema::CInitializer& plan, 
 	{
 		PointerMap saved;
 		std::vector<RValue> values;
-		const auto* variable = static_cast<const sema::VariableEntity*>(lane.member->variable);
-		const sema::Type* type = variable->type;
+		const auto* variable = lane.member == nullptr ? nullptr
+													  : static_cast<const sema::VariableEntity*>(lane.member->variable);
+		const sema::Type* type = lane.spans[0].initializer->type;
+		const bool has_bits = lane.member != nullptr && lane.member->bit_field;
 		BitField bits = {};
-		uint64_t offset;
-		if (lane.member->bit_field)
+		uint64_t offset = lane.offset;
+		if (has_bits)
 		{
 			bits = bit_field(variable, location);
-			offset = bits.unit_offset;
+			offset += bits.unit_offset;
 		}
-		else
-			offset = lowering_.member_offset(variable, location);
+		else if (variable != nullptr)
+			offset += lowering_.member_offset(variable, location);
 		for (const auto& span : lane.spans)
 		{
 			uint32_t index = saved.find(span.initializer);
@@ -197,7 +200,7 @@ void FunctionLowering::c_initialize_field_spans(const sema::CInitializer& plan, 
 			{
 				index = static_cast<uint32_t>(values.size());
 				RValue value = c_initializer_span_value(*span.initializer, type, location);
-				if (lane.member->bit_field)
+				if (has_bits)
 					value = to_unit(bits, value, type);
 				values.push_back(value);
 				saved.set(span.initializer, index);
@@ -205,7 +208,7 @@ void FunctionLowering::c_initialize_field_spans(const sema::CInitializer& plan, 
 			const RValue value = values[index];
 			for_initializer_span(plan.type->element, base, span.index, span.limit, location, [&](lowir::Value row) {
 				const lowir::Value address = field_address(row, offset);
-				if (lane.member->bit_field)
+				if (has_bits)
 				{
 					Place unit = {};
 					unit.storage = address;

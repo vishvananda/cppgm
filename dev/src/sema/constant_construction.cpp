@@ -722,7 +722,7 @@ bool ConstantInterpreter::c_initialize(
 		else if (!c_initialize(*child.initializer, place, location, inherited))
 			return false;
 	}
-	if (plan.projection == CInitializerProjection::Fields)
+	if (plan.projection == CInitializerProjection::Fields || plan.projection == CInitializerProjection::NestedFields)
 		return c_initialize_field_spans(plan, target, location);
 	if (plan.projection == CInitializerProjection::Rectangles)
 		return c_initialize_rectangles(plan, target, location);
@@ -736,7 +736,8 @@ bool ConstantInterpreter::c_initialize_field_spans(
 	const uint64_t stride = size_of(element, location);
 	for (const CInitializerFieldSpans& lane : plan.field_spans())
 	{
-		const auto* variable = static_cast<const VariableEntity*>(lane.member->variable);
+		const auto* variable = lane.member == nullptr ? nullptr
+													  : static_cast<const VariableEntity*>(lane.member->variable);
 		PointerMap saved;
 		std::vector<ConstValue> values;
 		for (const CInitializerChild& span : lane.spans)
@@ -744,10 +745,10 @@ bool ConstantInterpreter::c_initialize_field_spans(
 			uint32_t entry = saved.find(span.initializer);
 			for (uint64_t index = span.index; index < span.limit; ++index)
 			{
-				ConstPlace row = target, field;
-				row.type = element;
-				row.offset += static_cast<int64_t>(index * stride);
-				if (!step(location) || !member_slot(row, variable, field, location) ||
+				ConstPlace field = target;
+				field.type = variable == nullptr ? span.initializer->type : lane.owner;
+				field.offset += static_cast<int64_t>(index * stride + lane.offset);
+				if (!step(location) || (variable != nullptr && !member_slot(field, variable, field, location)) ||
 					!c_initialize_shared(*span.initializer, field, location, entry, saved, values))
 					return false;
 			}

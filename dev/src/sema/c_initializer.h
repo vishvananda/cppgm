@@ -13,6 +13,7 @@ enum class CInitializerProjection : uint8_t
 {
 	None,
 	Fields,
+	NestedFields,
 	Rectangles
 };
 
@@ -45,11 +46,14 @@ struct CInitializerChild
 	uint64_t index;
 };
 
-// Each lane updates one member of an array's record elements. The
-// children of the array plan hold the surviving whole-record writes.
+// Each lane updates one typed subobject of an array's record elements.
+// The offset is to the containing record for a member, or to the
+// subobject itself for a fixed array index. Ancestors precede descendants.
 struct CInitializerFieldSpans
 {
 	const DataMember* member;
+	const Type* owner;
+	uint64_t offset;
 	syntax::Slice<const CInitializerChild> spans;
 };
 
@@ -70,8 +74,9 @@ struct CInitializerWithSpans : CInitializer
 
 inline syntax::Slice<const CInitializerFieldSpans> CInitializer::field_spans() const
 {
-	return projection == CInitializerProjection::Fields ? static_cast<const CInitializerWithSpans*>(this)->fields
-														: syntax::Slice<const CInitializerFieldSpans>{};
+	return projection == CInitializerProjection::Fields || projection == CInitializerProjection::NestedFields
+		? static_cast<const CInitializerWithSpans*>(this)->fields
+		: syntax::Slice<const CInitializerFieldSpans>{};
 }
 
 inline syntax::Slice<const CInitializerRectangle> CInitializer::rectangles() const

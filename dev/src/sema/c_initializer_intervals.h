@@ -25,26 +25,31 @@ struct CArrayRectangle
 std::vector<CArrayRectangle> WinningInitializerRectangles(
 	const std::vector<CArrayRectangle>& writes, uint32_t no_value);
 
-// Index disjoint whole-object writes so an independent member update
-// skips entire regions whose resets are uniformly older or newer.
+// Each version indexes the latest whole-object reset along a typed
+// destination path. Siblings share their ancestor's untouched intervals.
 class CInitializerResets
 {
 public:
-	CInitializerResets(const std::vector<CArrayWrite>& spans, uint64_t extent);
+	explicit CInitializerResets(const std::vector<CArrayWrite>& writes);
 
-	void clip(const CArrayWrite& write, std::vector<CArrayWrite>& retained) const;
+	uint32_t root(const std::vector<CArrayWrite>& spans);
+	uint32_t add(uint32_t root, const CArrayWrite& write);
+	void clip(uint32_t root, const CArrayWrite& write, std::vector<CArrayWrite>& retained) const;
 
 private:
-	struct RankBounds
+	struct Node
 	{
-		uint32_t min, max;
+		uint32_t left, right, floor, min, max;
 	};
 
-	void clip(size_t node, size_t lo, size_t hi, const CArrayWrite& write, std::vector<CArrayWrite>& retained) const;
+	uint32_t root(const std::vector<CArrayWrite>& spans, size_t& next, size_t lo, size_t hi);
+	uint32_t add(uint32_t node, size_t lo, size_t hi, const CArrayWrite& write);
+	uint32_t save(Node node);
+	void clip(uint32_t node, size_t lo, size_t hi, const CArrayWrite& write, uint32_t floor,
+		std::vector<CArrayWrite>& retained) const;
 
 	std::vector<uint64_t> edges_;
-	std::vector<RankBounds> bounds_;
-	size_t leaves_ = 0;
+	std::vector<Node> nodes_;
 };
 
 } // namespace sema
