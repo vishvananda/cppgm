@@ -1,3 +1,4 @@
+# Publish final bytes without a staging copy. The partial overwrite is a control.
 function @fallback(%in : ptr [pass=by_address, object_bytes=32], %out : ptr) -> void [no_inline=yes] {
   block ^entry:
     copyobj 32x8 %in, %out

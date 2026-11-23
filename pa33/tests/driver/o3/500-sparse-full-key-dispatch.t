@@ -1,3 +1,4 @@
+// Bound dispatch size and reject misses that share low bits with a case.
 extern "C" int dispatch(unsigned key, int* data) {
     switch (key) {
     case 2147500032u: return data[0] + 3;

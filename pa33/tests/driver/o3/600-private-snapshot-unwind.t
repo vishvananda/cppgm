@@ -1,3 +1,4 @@
+// Avoid a redundant copy while preserving saved fields and exception cleanup.
 struct Input {
     long key;
     long unused;

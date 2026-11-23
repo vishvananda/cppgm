@@ -1,3 +1,4 @@
+// Check the shared key before calls and preserve callbacks and unwinding.
 static unsigned visits;
 static unsigned long long last;
 
