@@ -51,9 +51,14 @@ std::vector<CArrayWrite> WinningInitializerSpans(std::vector<CArrayWrite>& write
 	return result;
 }
 
-CInitializerResets::CInitializerResets(const std::vector<CArrayWrite>& writes) : nodes_(1)
+CInitializerResets::CInitializerResets(const std::vector<CArrayWrite>& writes, uint64_t extent) : nodes_(1)
 {
-	edges_.reserve(writes.size() * 2);
+	edges_.reserve(writes.size() * 2 + (extent == 0 ? 0 : 2));
+	if (extent != 0)
+	{
+		edges_.push_back(0);
+		edges_.push_back(extent);
+	}
 	for (const auto& write : writes)
 	{
 		edges_.push_back(write.first);

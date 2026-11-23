@@ -30,7 +30,7 @@ std::vector<CArrayRectangle> WinningInitializerRectangles(
 class CInitializerResets
 {
 public:
-	explicit CInitializerResets(const std::vector<CArrayWrite>& writes);
+	explicit CInitializerResets(const std::vector<CArrayWrite>& writes, uint64_t extent = 0);
 
 	uint32_t root(const std::vector<CArrayWrite>& spans);
 	uint32_t add(uint32_t root, const CArrayWrite& write);
