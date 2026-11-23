@@ -299,6 +299,7 @@ private:
 	// The file an #include (#include_next with `next`) of the name finds,
 	// with its path and search directory index (-1 for none), or null.
 	SourceFile* find_include(const std::string& name, bool angle, bool next, std::string& path, int32_t& index);
+	[[noreturn]] void run_error(const PPToken& directive);
 	void run_line(const PPToken& directive);
 	void run_pragma_directive();
 	void run_language_pragma(uint32_t location);

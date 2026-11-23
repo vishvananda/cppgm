@@ -91,7 +91,11 @@ Recognize a UTF-8 byte order mark at the start of a file. Replace
 trigraphs before splicing a backslash and its following line ending.
 Count physical line endings for `__LINE__`, including endings deleted
 by splicing. A `#line` directive changes the presumed line number for the
-following line.
+following line. For a quoted C include, start with the directory of
+the file as opened, including when `#line` changes `__FILE__`. Then
+search the configured include directories. An angle include uses the
+configured angle search path. Apply this rule after macro substitution
+when the directive uses a macro to provide the name.
 
 ISO C99, C11, and C17 enable trigraphs. GNU modes leave the three
 characters as written unless `-trigraphs` is supplied. A backslash

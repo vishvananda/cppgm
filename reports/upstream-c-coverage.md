@@ -137,12 +137,45 @@ Mach-O objects cross-link. Native macOS execution remains open.
 [Scaling](../docs/performance/c-frontend-scaling.md#trigraph-mode-and-spaced-line-splices) ·
 [GCC initial processing](https://gcc.gnu.org/onlinedocs/cpp/Initial-processing.html)
 
-Two C directive gaps remain. `#line` currently changes the directory
-searched for a quoted include, while GCC and Clang use the physical
-includer's directory. An active `#error` produces a diagnostic but omits
-the directive's message tokens required by C 6.10.5.
-[GCC line control](https://gcc.gnu.org/onlinedocs/cpp/Line-Control.html) ·
-[WG14 N1570, §§6.10.2, 6.10.5](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
+C quoted includes use the directory of the path that opened the current
+inclusion. GCC 15 and Clang 21 agree in the `#line` controls. `__FILE__`
+and `__LINE__` still report the presumed location. cppgm and GCC use the
+path for each inclusion in a two-directory hard-link probe. Clang 21 uses
+the first path's directory for the second inclusion. With no angle
+directories, cppgm and Clang exclude quote paths from the angle search.
+GCC 15 accepts the angle header from `-iquote` in this configuration.
+PA4 retains its course-defined search and uses the opened file's identity
+for `#pragma once`.
+[PA38 include fixture](../pa38/tests/general/100-c-include-physical.t) ·
+[PA38 angle diagnostic](../pa38/tests/general/100-c-include-angle-local-bad.t) ·
+[GCC line control](https://gcc.gnu.org/onlinedocs/cpp/Line-Control.html)
+
+The pinned GCC `include4.c` and `include5.c` cases cover header names
+formed by macro replacement and empty expansions after direct header
+names. Both compilers pass all 46 reviewed GCC C99 configurations. The
+PA38 physical-include fixture runs at `-O0` and `-O2` on Linux x86-64
+and AArch64 under QEMU. It also passes the PA38 WASI lane and cross-links
+on both Darwin architectures. Native macOS execution remains open.
+[GCC C99 manifest](upstream-gcc-c99.json) ·
+[PA4 include fixture](../pa4/tests/directives/200-include-empty-suffix.t)
+
+An active `#error` includes its unexpanded message tokens. The PA4 case
+exercises a macro name, a replaced comment, a splice, and a presumed
+location. Maintainer C CI checks the translated message. Local
+preprocessing, syntax, LowIR and object actions report it and exit with an
+error. The skipped directive in the same fixture produces no diagnostic.
+[PA4 error fixture](../pa4/tests/directives/150-error-message.t) ·
+[WG14 N1570, §§6.10.2, 6.10.4, 6.10.5](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[Scaling](../docs/performance/c-frontend-scaling.md#include-lookup-and-directive-diagnostics)
+
+Computed header spelling still needs qualification. A macro-produced
+quoted name containing a literal backslash selects that filename in
+GCC 15 and Clang 21. cppgm applies string escape decoding and fails the
+lookup. The compilers also differ on whitespace inside a macro-produced
+angle name. For `< lead.h >`, GCC searches for a leading space and
+discards the trailing space. Clang 21 attempts both spaces and cppgm
+strips both. The angle whitespace rule is implementation-defined.
+[GCC computed includes](https://gcc.gnu.org/onlinedocs/cpp/Computed-Includes.html)
 
 C99 through C17 require a diagnostic for universal character names
 below U+00A0 except U+0024, U+0040, and U+0060. cppgm applies the

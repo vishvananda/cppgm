@@ -35,6 +35,26 @@ use as text.
 [WG14 N1570, §§5.1.1.2, 6.4.8, 6.10.4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [WG14 DR 464](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2243.htm#dr_464)
 
+## Include directives and error messages
+
+C99 through C17 leave the header search and the combination of tokens
+in a macro-produced header name implementation-defined. cppgm follows
+GCC and Clang for relative C search. Quoted names first use the path
+that opened the current inclusion, even after `#line`. Angle names
+search the configured angle paths. Absolute names are used directly.
+A direct header-name token can be followed by macros that expand to an
+empty sequence. When an angle header name cannot be lexed on the first
+pass, macro replacement can supply the closing delimiter.
+
+An active `#error` diagnostic includes the following preprocessing
+tokens. It preserves their spellings after splicing and comment
+replacement without expanding macro names. The diagnostic uses the
+presumed filename and line.
+
+[WG14 N1570, §§6.10.2, 6.10.4, 6.10.5](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[GCC line control](https://gcc.gnu.org/onlinedocs/cpp/Line-Control.html) ·
+[GCC C99 include cases](../reports/upstream-gcc-c99.json)
+
 ## C99 bit-field width
 
 C99 6.7.2.1 constrains a bit-field's width by the declared type. Its

@@ -12,6 +12,28 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "cpp-include4",
+      "path": "gcc/testsuite/gcc.dg/cpp/include4.c",
+      "sha256": "996094d8a7531c355a3ae4ab3ff5c2451b02cf2d777cf4198867023a64fb67aa",
+      "dialect": "c99",
+      "action": "preprocess",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "An incomplete angle header name is initially a token sequence and can be completed by macro replacement"
+    },
+    {
+      "id": "cpp-include5",
+      "path": "gcc/testsuite/gcc.dg/cpp/include5.c",
+      "sha256": "52b03decbbafe781e198388d3a8f70c0be82dc864978681c780767993ab00d0b",
+      "dialect": "c99",
+      "action": "preprocess",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Object-like and function-like macros after direct quoted and angle header names may expand to no additional tokens"
+    },
+    {
       "id": "ucnid-1",
       "path": "gcc/testsuite/gcc.dg/cpp/ucnid-1.c",
       "sha256": "fabcdc855b24caab84a9205d077626f103445cd853bcbcd2a442c9ff00bfde1d",

@@ -2286,3 +2286,46 @@ changes by +0.00308% and −0.00149%. Every paired object is byte-identical.
 | SQLite | A/A | 16,530,629,868 / 16,531,093,352 / 16,531,061,194 / 16,531,129,673 |
 | SQLite | ABBA | 16,530,610,685 / 16,531,060,040 / 16,531,812,777 / 16,531,243,262 |
 | SQLite | BAAB | 16,530,919,629 / 16,531,116,194 / 16,531,140,792 / 16,530,843,747 |
+
+## Include lookup and directive diagnostics
+
+The preprocessor uses the existing per-inclusion path history after
+`#line` and the opened file's cached identity for `#pragma once`. Plain
+includes read the newline and proceed to lookup. Includes with trailing
+tokens use the existing line expansion buffer. An active `#error`
+formats tokens as they arrive and passes one message to the diagnostic
+path.
+
+Each input in the first series opens distinct headers and repeats each
+include through an alias. The output is identical to the output from
+`523cf22a6`. In the second series, N pairs of includes request one
+header guarded by `#pragma once`. The control and feature both use the
+current compiler, with object-like and function-like empty suffixes
+added to the feature input. The resulting token streams match. The third
+series checks that the error payload contains N unexpanded tokens and
+the command exits with status 1. The table gives median retired
+user-space instructions on a pinned Linux core.
+
+| N | Once, previous | Once, current | Plain include pairs | Pairs with empty suffixes | Error payload |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 512 | 14,205,844 | 13,901,870 | 6,813,005 | 8,374,098 | 4,121,857 |
+| 1,024 | 24,625,907 | 24,017,601 | 9,848,985 | 12,970,056 | 4,417,999 |
+| 2,048 | 45,663,969 | 44,446,309 | 15,916,486 | 22,159,036 | 5,001,801 |
+| 4,096 | 87,652,657 | 85,213,550 | 28,050,864 | 40,534,944 | 6,170,387 |
+
+Incremental work doubles with N. Removing the extra identity lookup
+reduces instructions by 2.8% at 4,096 distinct headers, with both
+binaries using 9,332 KiB peak RSS. The longest error payload uses
+5,514 KiB peak RSS. It adds one message buffer for the fatal directive.
+The frozen C++ compile changes by −0.00265% and −0.00114% in paired
+blocks. SQLite changes by +0.00046% and +0.00112%. Object outputs match
+byte for byte in every trial.
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,058,259,297 / 9,057,974,065 / 9,058,261,948 / 9,058,315,621 |
+| C++ | ABBA | 9,058,270,833 / 9,057,890,770 / 9,057,947,955 / 9,058,047,368 |
+| C++ | BAAB | 9,057,949,400 / 9,058,120,204 / 9,058,151,648 / 9,058,115,980 |
+| SQLite | A/A | 16,530,929,504 / 16,531,041,790 / 16,531,113,654 / 16,530,796,807 |
+| SQLite | ABBA | 16,530,941,825 / 16,531,186,782 / 16,531,136,242 / 16,531,230,525 |
+| SQLite | BAAB | 16,531,275,055 / 16,531,051,142 / 16,531,280,864 / 16,531,428,066 |

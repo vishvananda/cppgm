@@ -39,6 +39,12 @@ If no tokens follow `#` on a logical line, it is a null directive and is always 
 
 If the first token after `#` is not an identifier, or not one of the identifiers in the above list, the logical line is a `non-directive`. It is an error if in an active `#if` section, or ignored if it is in an inactive one.
 
+#### Error Directive
+
+Report an active `#error` with its following preprocessing tokens after
+line splicing and comment replacement. Keep their unexpanded spellings.
+Ignore the directive in an inactive group.
+
 #### Pre-defined Macros
 
 The following pre-defined macros shall be implemented:
@@ -150,7 +156,8 @@ The course-defined `#pragma once` handling is specified as follows:
 A file that has executed `#pragma once` is not entered again in the same
 translation unit, however its path is spelled: a file's identity is the
 host's (device and inode), so distinct path spellings of one file share the
-once state. Reset that state for each primary source file.
+once state. Use the file opened for this inclusion even after `#line`
+changes its presumed name. Reset that state for each primary source file.
 
 The preprocessor scaffold supplies a helper for that identity, which uses the
 host `stat` interface and which you may use without implementing system calls:

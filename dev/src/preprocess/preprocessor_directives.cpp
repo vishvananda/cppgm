@@ -100,7 +100,7 @@ void Preprocessor::run_directive()
 		run_line(directive);
 		return;
 	case IdentifierRole::Error:
-		throw PreprocessError(directive.begin, "#error");
+		run_error(directive);
 	case IdentifierRole::Pragma:
 		run_pragma_directive();
 		return;
@@ -114,6 +114,19 @@ void Preprocessor::run_directive()
 		// (directives.md).
 		throw PreprocessError(directive.begin, "invalid preprocessing directive");
 	}
+}
+
+void Preprocessor::run_error(const PPToken& directive)
+{
+	std::string message = "#error";
+	for (const PPToken* token = &source_.next_in_line(); token->kind != PPTokenKind::NewLine;
+		token = &source_.next_in_line())
+	{
+		if (message.size() == sizeof("#error") - 1 || (token->flags & kLeadingSpace) != 0)
+			message.push_back(' ');
+		message.append(token->spelling, token->length);
+	}
+	throw PreprocessError(directive.begin, message.c_str());
 }
 
 // ---- conditional inclusion ----------------------------------------------------------------
@@ -445,9 +458,19 @@ void Preprocessor::run_include(const PPToken& directive, bool next)
 	bool angle = false;
 	if (first.kind == PPTokenKind::HeaderName)
 	{
+		// A header-name is already one token. Remaining tokens can be
+		// macro-replaced, including when they all expand to nothing.
+		const PPToken after = source_.next_in_line();
+		if (after.kind != PPTokenKind::NewLine)
+		{
+			source_.begin_line_input(&after);
+			read_replaced_line(line_tokens_);
+			source_.end_line_input();
+			if (!line_tokens_.empty())
+				throw PreprocessError(directive.begin, "extra tokens at the end of the directive");
+		}
 		name.assign(first.spelling + 1, first.length - 2);
 		angle = first.spelling[0] == '<';
-		expect_end_of_directive(directive);
 	}
 	else if (first.kind == PPTokenKind::NewLine)
 	{
@@ -472,17 +495,20 @@ std::string Preprocessor::read_replaced_include_name(const PPToken& directive, c
 	// The spellings between `<` and `>` form the name, with a space for each
 	// white-space separation (the implementation-defined combination of
 	// 16.2p4).
-	if (line_tokens_.size() >= 2 && IsPunctuatorToken(line_tokens_.front(), TokenKind::OP_LT) &&
+	if (line_tokens_.size() >= 3 && IsPunctuatorToken(line_tokens_.front(), TokenKind::OP_LT) &&
 		IsPunctuatorToken(line_tokens_.back(), TokenKind::OP_GT))
 	{
-		angle = true;
 		for (std::size_t i = 1; i + 1 < line_tokens_.size(); ++i)
 		{
 			if (i != 1 && (line_tokens_[i].flags & kLeadingSpace) != 0)
 				name.push_back(' ');
 			name.append(line_tokens_[i].spelling, line_tokens_[i].length);
 		}
-		return name;
+		if (name.find('>') == std::string::npos)
+		{
+			angle = true;
+			return name;
+		}
 	}
 	throw PreprocessError(directive.begin, "#include requires a header name or string literal");
 }
@@ -490,52 +516,46 @@ std::string Preprocessor::read_replaced_include_name(const PPToken& directive, c
 SourceFile* Preprocessor::find_include(
 	const std::string& name, bool angle, bool next, std::string& path, int32_t& index)
 {
-	// The course search: the directory of __FILE__ (the working directory
-	// for a name without one), then the working directory (directives.md).
-	// The -I directories come after the includer's directory for a quoted
-	// name and before it for an angle-bracket one, as host compilers search
-	// them; hosted mode's system directories follow the -I directories.
-	// #include_next (GNU) searches the directories after the one the
-	// current file was found in, or all of them for a file not found in
-	// one, and nothing else.
-	SourceFile* file = nullptr;
 	index = -1;
 	const size_t start = angle ? angle_paths_ : 0;
+	const auto search = [&](size_t first) -> SourceFile* {
+		for (size_t i = first; i < include_paths_.size(); ++i)
+			if (SourceFile* match = files_.open(path = joined_path(include_paths_[i], name)))
+			{
+				index = static_cast<int32_t>(i);
+				return match;
+			}
+		return nullptr;
+	};
 	if (next)
 	{
 		const int32_t found_in = source_.current().search_index;
-		for (size_t i = found_in < 0 ? start : static_cast<size_t>(found_in) + 1;
-			file == nullptr && i < include_paths_.size(); ++i)
-		{
-			if ((file = files_.open(path = joined_path(include_paths_[i], name))) != nullptr)
-				index = static_cast<int32_t>(i);
-		}
-		return file;
+		return search(found_in < 0 ? start : static_cast<size_t>(found_in) + 1);
 	}
-	const std::string current = source_.current_inclusion().presumed_name;
-	const std::size_t slash = current.rfind('/');
-	size_t i = start;
+	const bool c_source = modes_.language == 0;
+	if (c_source && !name.empty() && name.front() == '/')
+		return files_.open(path = name);
 	if (angle)
 	{
-		for (; file == nullptr && i < include_paths_.size(); ++i)
-		{
-			if ((file = files_.open(path = joined_path(include_paths_[i], name))) != nullptr)
-				index = static_cast<int32_t>(i);
-		}
+		SourceFile* match = search(start);
+		if (match != nullptr || c_source)
+			return match;
 	}
-	if (file == nullptr)
-		file = files_.open(path = slash != std::string::npos ? current.substr(0, slash + 1) + name : name);
-	for (; file == nullptr && i < include_paths_.size(); ++i)
-	{
-		if ((file = files_.open(path = joined_path(include_paths_[i], name))) != nullptr)
-			index = static_cast<int32_t>(i);
-	}
-	if (file == nullptr)
-	{
-		path = name;
-		file = files_.open(path);
-	}
-	return file;
+
+	// The course profile uses the presumed filename and falls back
+	// to the working directory. The C profile uses the path that named
+	// this inclusion and searches the configured quote and angle paths.
+	const SourceInclusion& inclusion = source_.current_inclusion();
+	const std::string& current = c_source ? inclusion.entry_name() : inclusion.presumed_name;
+	const std::size_t slash = current.rfind('/');
+	path.assign(current, 0, slash == std::string::npos ? 0 : slash + 1);
+	path.append(name);
+	if (SourceFile* match = files_.open(path))
+		return match;
+	if (!angle)
+		if (SourceFile* match = search(start))
+			return match;
+	return c_source || slash == std::string::npos ? nullptr : files_.open(path = name);
 }
 
 bool Preprocessor::can_include(const std::string& name, bool angle, bool next)

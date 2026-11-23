@@ -251,6 +251,14 @@ jobs:
         run: tar -xzf "$RUNNER_TEMP/cppgm-build-artifact/cppgm-build.tar.gz"
       - name: Check C LowIR and behavior
         run: make -C pa38 test CPPGM_SKIP_DEV_REBUILD=1
+      - name: Check C preprocessing diagnostic tokens
+        run: |
+          status=0
+          dev/cppgm -x c -std=c99 -E pa4/tests/directives/150-error-message.t \
+            -o /dev/null 2>"$RUNNER_TEMP/c-error.log" || status=$?
+          cat "$RUNNER_TEMP/c-error.log"
+          test "$status" -eq 1
+          grep -F 'generated-error.cpp:40:2: #error DETAIL: physical message "payload"' "$RUNNER_TEMP/c-error.log"
       - name: Check the same C fixtures on Wasm
         run: make -C pa38 test-wasm CPPGM_SKIP_DEV_REBUILD=1
       - name: Check combined C translation limits on Linux and WASI

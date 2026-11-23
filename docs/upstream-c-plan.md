@@ -48,11 +48,14 @@ Start the next batches from the existing receipts.
 1. Extend the C99–C17 clause inventory from the existing trigraph,
    digraph, universal-character, macro redefinition, physical-line,
    and preprocessing-number evidence. Include header names and phase
-   ordering at include boundaries. Check that C includes use the physical
-   includer's directory after `#line` and that `#error` reports its
-   unexpanded tokens. Then cover declarators, initializers, conversions,
-   constant expressions, and linkage. Pair edition boundaries with
-   native reference runs and earliest-assignment regressions.
+   ordering at include boundaries. Use the existing receipts for physical
+   C include lookup after `#line`, trailing macro expansion, and unexpanded
+   `#error` messages. Finish computed header names, starting with literal
+   backslashes in the quoted spelling, and document the angle name
+   whitespace policy. Cover pragma effects and their location and
+   edition rules, then declarators, initializers, conversions, constant
+   expressions, and linkage. Pair edition boundaries with native reference
+   runs and earliest-assignment regressions.
 2. Run the existing translation-limit, mixed-object, and header probes on
    native Intel macOS and Apple Silicon. Expand the C99 header and musl
    replays to the mandatory C11 and C17 interfaces for each applicable SDK.
@@ -159,6 +162,17 @@ identifiers, stale case identifiers, and passing rows without a matching
 edition and target receipt. Keep uncovered mandatory rules visible even
 when all checked cases pass. Use the same structure for C90, C95, and C23
 and add the C fixtures and maintainer corpus without duplicating the rules.
+
+Use the combined translation-limits program and a few directive rules to
+pilot the join. A single execution can supply evidence for multiple limit
+rows when the program exercises each minimum observably. The `#line` record
+should distinguish the required presumed location from the documented C
+include search, with separate outcomes for each. Record the stage that
+can establish a result. A successful preprocess can qualify token and
+directive behavior, a link can qualify mixed objects, and a run supplies
+execution evidence for the recorded ABI and environment. Keep missing
+receipts visible in PR reports and require them before claiming completion
+for that edition and target.
 
 Run the same applicable cases with cppgm and the pinned native compiler.
 Qualify inferred ISO modes with the native compiler in pedantic mode and check

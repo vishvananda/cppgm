@@ -449,11 +449,9 @@ void Preprocessor::run_pragma(const char* text, uint32_t length, uint32_t locati
 
 void Preprocessor::mark_once()
 {
-	// The file named by __FILE__ is not included again in this translation
-	// unit, whatever path names it (directives.md).
-	FileIdentity identity;
-	if (GetFileIdentity(source_.current_inclusion().presumed_name, identity))
-		once_files_.insert(identity);
+	const SourceFile& file = *source_.current().file;
+	if (file.has_identity())
+		once_files_.insert(file.identity());
 }
 
 // ---- ExpansionEnvironment and SourceFrameObserver ---------------------------------------

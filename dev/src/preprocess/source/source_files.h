@@ -86,8 +86,8 @@ const uint32_t kNoInclusion = 0xffffffffu;
 const uint32_t kNoLocation = 0xffffffffu;
 
 // One inclusion of a file: its locations are [base, base + size]. Line
-// control ([cpp.line] 16.4) changes its presumed name, which is __FILE__
-// and the base of relative #include paths, and its presumed line numbers:
+// control ([cpp.line] 16.4) changes its presumed name (used by __FILE__)
+// and its presumed line numbers:
 // physical line n is presumed line n + line_delta. The state stays with the
 // inclusion, so a token keeps naming its own file after the file ends; the
 // states earlier #line directives set stay too (`earlier`, in location
@@ -113,6 +113,9 @@ struct SourceInclusion
 	// system path or includer, or after a system_header pragma in the file.
 	uint32_t system_from;
 	bool is_system(uint32_t location) const { return location >= system_from; }
+
+	// The path used to open this inclusion. Aliases can share one SourceFile.
+	const std::string& entry_name() const { return earlier.empty() ? presumed_name : earlier.front().presumed_name; }
 };
 
 // The files of one translation unit and its location space. Each file is
