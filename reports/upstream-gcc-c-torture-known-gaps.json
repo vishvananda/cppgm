@@ -9,16 +9,6 @@
     "diagnostic": "a variably modified type requires block or function prototype scope",
     "reason": "GNU C accepts a variable-length member in a block-scope structure."
   },
-  "pr104604-O0": {
-    "status": "compile-failed",
-    "diagnostic": "invalid implicit conversion",
-    "reason": "The test converts the result of unsigned integer complex arithmetic to unsigned char."
-  },
-  "pr104604-O2": {
-    "status": "compile-failed",
-    "diagnostic": "invalid implicit conversion",
-    "reason": "The test converts the result of unsigned integer complex arithmetic to unsigned char."
-  },
   "pr22061-4-O0": {
     "status": "compile-failed",
     "diagnostic": "a local function definition",

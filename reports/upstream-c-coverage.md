@@ -116,6 +116,12 @@ the shared C++ forms, including dependent queries and constant evaluation.
 [PA38 conversions](../pa38/tests/general/500-c-complex-to-real.t) ·
 [PA30 classifier](../pa30/tests/run/800-builtin-classify-type.t)
 
+The pinned GCC torture case `pr104604` also passes at `-O0` and `-O2`.
+It exercises conversion from a GNU unsigned complex arithmetic result to
+`unsigned char`. The sample now matches GCC in 111 of 128 configurations,
+with 17 reviewed gaps.
+[GCC torture known gaps](upstream-gcc-c-torture-known-gaps.json)
+
 The pinned WASI SDK resource header compiles and runs the same two
 runtime probes. A PA38 header fixture now exercises the default
 `<tgmath.h>` search and the type and evaluation behavior of its macros.
