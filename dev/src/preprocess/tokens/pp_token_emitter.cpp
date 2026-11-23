@@ -41,6 +41,7 @@ void EmitSpelledToken(IPPTokenStream& output, PPTokenKind kind, const std::strin
 	case PPTokenKind::NewLine:
 	case PPTokenKind::EndOfFile:
 	case PPTokenKind::Placemarker:
+	case PPTokenKind::SharedExpansion:
 		break;
 	}
 }

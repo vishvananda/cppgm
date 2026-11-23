@@ -82,6 +82,7 @@ void PostTokenizer::convert(const PPToken& pp)
 	case PPTokenKind::WhitespaceSequence:
 	case PPTokenKind::NewLine:
 	case PPTokenKind::Placemarker:
+	case PPTokenKind::SharedExpansion:
 		return;
 	}
 }

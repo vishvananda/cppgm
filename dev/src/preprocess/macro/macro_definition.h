@@ -96,6 +96,7 @@ struct MacroDefinition
 	bool function_like;
 	bool variadic;
 	bool has_va_opt;
+	bool has_paste;
 	BuiltinMacro builtin;
 };
 

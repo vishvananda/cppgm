@@ -108,6 +108,7 @@ MacroDefinition* MakeBuiltinMacro(Arena& arena, const Identifier* name, BuiltinM
 	macro->function_like = false;
 	macro->variadic = false;
 	macro->has_va_opt = false;
+	macro->has_paste = false;
 	macro->builtin = builtin;
 	return macro;
 }
@@ -330,12 +331,15 @@ MacroDefinition* MacroDefinitionParser::finish(const PPToken& name, bool functio
 	uint8_t* uses = arena_.allocate_array<uint8_t>(parameters_.size());
 	for (std::size_t i = 0; i < parameters_.size(); ++i)
 		uses[i] = 0;
+	macro->has_paste = false;
 	for (const ReplacementToken& replacement : body_)
 	{
 		if (replacement.role == ReplacementRole::Parameter)
 			uses[replacement.parameter] |= kParameterExpanded;
 		else if (replacement.role == ReplacementRole::RawParameter || replacement.role == ReplacementRole::Stringize)
 			uses[replacement.parameter] |= kParameterRaw;
+		else if (replacement.role == ReplacementRole::Paste || replacement.role == ReplacementRole::CommaPaste)
+			macro->has_paste = true;
 	}
 	macro->parameter_uses = uses;
 	macro->function_like = function_like;

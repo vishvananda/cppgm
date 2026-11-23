@@ -257,6 +257,7 @@ private:
 	Conditional& innermost_conditional(const PPToken& directive);
 	void run_define(const PPToken& directive);
 	void run_undef(const PPToken& directive);
+	void bind_macro(Identifier* name, MacroDefinition* definition);
 	Identifier* read_macro_name(const PPToken& directive);
 	void run_include(const PPToken& directive, bool next);
 	// The name a replaced #include line spells; `angle` set for `< ... >`.

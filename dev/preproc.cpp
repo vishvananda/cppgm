@@ -68,7 +68,8 @@ void ReportCounters(const string& path, const PreprocessorCounters& counters)
 		 << " files=" << counters.files << " source_bytes=" << counters.source_bytes
 		 << " identifiers=" << counters.identifiers << " arena_bytes=" << counters.arena_bytes
 		 << " invocations=" << counters.expansion.invocations
-		 << " produced_tokens=" << counters.expansion.produced_tokens
+		 << " produced_tokens=" << counters.expansion.produced_tokens << " stored_replacement_tokens="
+		 << counters.expansion.produced_tokens - counters.expansion.shared_replacement_tokens
 		 << " argument_tokens=" << counters.expansion.argument_tokens
 		 << " argument_expansions=" << counters.expansion.argument_expansions
 		 << " nested_collections=" << counters.expansion.nested_collections << " pastes=" << counters.expansion.pastes

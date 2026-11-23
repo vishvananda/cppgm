@@ -331,10 +331,11 @@ chains independently.
   names for marked declarations. Exercise the header's unavailable ellipsis
   fallback and its unevaluated promotion queries. Check nested calls with
   one argument-level increase at a time to catch repeated work.
-  Compare the same token stream with and without wrapper macros. The current
-  measurements isolate superlinear work in argument substitution and rescan.
-  Reuse expanded ranges across enclosing replacements while preserving
+  Keep comparing the same token stream with and without wrapper macros.
+  Reuse expanded inert ranges across enclosing replacements while preserving
   rescanning at token boundaries, macro disablement, and argument provenance.
+  The nested type-generic math workload now scales linearly. Retain tests for
+  active names between reusable ranges and for changes to macro bindings.
   Verify the ordinary and variadic preprocessor suites, including `#`, `##`,
   `__VA_OPT__`, and expansions that span a replacement boundary.
   Use emitted token count as well as source size in the scaling analysis.

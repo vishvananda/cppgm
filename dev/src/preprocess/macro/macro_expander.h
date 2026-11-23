@@ -60,6 +60,7 @@ struct MacroExpansionCounters
 {
 	telemetry::Counter invocations = 0;
 	telemetry::Counter produced_tokens = 0;
+	telemetry::Counter shared_replacement_tokens = 0;
 	telemetry::Counter argument_tokens = 0;
 	telemetry::Counter argument_expansions = 0;
 	telemetry::Counter nested_collections = 0;
@@ -79,6 +80,7 @@ struct MacroExpansionState
 {
 	MacroExpansionCounters counters;
 	uint64_t counter = 0;
+	uint64_t binding_revision = 0;
 	uint32_t serial = 0;
 };
 
@@ -189,6 +191,7 @@ private:
 				uint32_t disabled_root;
 			} barrier;
 		};
+		bool has_shared;
 	};
 
 	// One invocation's arguments. Argument i is the range
@@ -239,7 +242,7 @@ private:
 	// searching.
 	static const std::size_t kTopProbe = 4;
 
-	bool read(PPToken& token);
+	bool read(PPToken& token, bool keep_shared = false);
 	bool peek_is_left_paren();
 	void pop_context();
 	const Context* find_open_context(uint32_t serial) const;
@@ -288,6 +291,13 @@ private:
 	}
 	void substitute(const std::vector<PPToken>& source, uint32_t begin, uint32_t end, const ReplacementToken& parameter,
 		uint32_t hide_set, bool replace_hide_set, bool& paste);
+	template<bool has_shared>
+	void copy_argument(const std::vector<PPToken>& source, uint32_t begin, uint32_t end, uint8_t flags,
+		uint32_t hide_set, bool replace_hide_set, bool& paste);
+	void share_argument(uint32_t begin, uint32_t end, uint8_t flags, uint32_t hide_set);
+	void emit_shared(uint32_t begin, uint32_t end, uint32_t length, uint8_t flags, uint32_t hide_set);
+	void append_shared(std::vector<PPToken>& output, const PPToken& token);
+	void materialize_context(Context& context);
 	void emit(const PPToken& token, bool& paste);
 	template<bool has_placemarkers = false>
 	PPToken stringize(const std::vector<PPToken>& tokens, uint32_t begin, uint32_t end,
@@ -331,6 +341,8 @@ private:
 	PPToken building_head_;
 	uint32_t building_serial_;
 	uint32_t building_chain_;
+	bool building_can_share_ = false;
+	bool building_has_shared_ = false;
 	// The expansion context the last token was read from (zero serial for
 	// the input and barriers): its serial, chain and root; and the names
 	// disabled in the context (none for the input).
@@ -350,6 +362,20 @@ private:
 	std::vector<Invocation> invocations_;
 	std::vector<PPToken> expanded_tokens_;
 	std::vector<uint32_t> expanded_bounds_;
+	// SharedExpansion records borrow an immutable range of this pool.
+	// begin/end index the range, length counts logical tokens, origin is
+	// the macro-binding revision, and flags/punctuator describe its first
+	// token. The range belongs to the enclosing active expansion.
+	std::vector<PPToken> shared_tokens_;
+	struct SharedRead
+	{
+		uint32_t cursor;
+		uint32_t end;
+		uint8_t first_spacing;
+		bool first;
+	};
+	std::vector<SharedRead> shared_reads_;
+	std::vector<PPToken> materialized_tokens_;
 	std::string scratch_;
 	MacroExpansionState& state_;
 };

@@ -393,7 +393,7 @@ void Preprocessor::run_define(const PPToken& directive)
 		if ((defined_at >= command_line_begin_ && defined_at < command_line_end_) ||
 			(defined_at >= host_predefines_begin_ && defined_at < host_predefines_end_))
 		{
-			identifier->macro = macro;
+			bind_macro(identifier, macro);
 			return;
 		}
 		if (!SameDefinition(*identifier->macro, *macro))
@@ -403,18 +403,26 @@ void Preprocessor::run_define(const PPToken& directive)
 			// ordinary source and non-hosted rules strict (16.3p2).
 			if (!hosted_ || !in_system_header(directive.begin))
 				throw PreprocessError(directive.begin, "macro redefined differently");
-			identifier->macro = macro;
+			bind_macro(identifier, macro);
 		}
 		return;
 	}
-	identifier->macro = macro;
+	bind_macro(identifier, macro);
 }
 
 void Preprocessor::run_undef(const PPToken& directive)
 {
 	Identifier* identifier = read_macro_name(directive);
 	expect_end_of_directive(directive);
-	identifier->macro = nullptr;
+	bind_macro(identifier, nullptr);
+}
+
+void Preprocessor::bind_macro(Identifier* name, MacroDefinition* definition)
+{
+	if (name->macro == definition)
+		return;
+	name->macro = definition;
+	++macro_state_.binding_revision;
 }
 
 // ---- source file inclusion -----------------------------------------------------------------
@@ -761,7 +769,7 @@ void Preprocessor::apply_macro_pragma(
 	else if (top != nullptr && *top != nullptr)
 	{
 		SavedMacro* saved = *top;
-		identifier->macro = saved->binding;
+		bind_macro(identifier, saved->binding);
 		*top = saved->next;
 		saved->next = free_saved_macros_;
 		free_saved_macros_ = saved;

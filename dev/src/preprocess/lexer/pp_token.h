@@ -22,7 +22,10 @@ enum class PPTokenKind : uint8_t
 	PreprocessingOpOrPunc,
 	NonWhitespaceCharacter,
 	EndOfFile,
-	Placemarker
+	Placemarker,
+	// Private to MacroExpander's buffers. Expanded before an ordinary
+	// preprocessing-token consumer sees it.
+	SharedExpansion
 };
 
 // PPToken::flags. The lexer leaves them clear and reports white space as

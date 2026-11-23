@@ -94,7 +94,7 @@ const PPToken& MacroExpander::next()
 {
 	for (;;)
 	{
-		if (!read(current_))
+		if (!read(current_, true))
 		{
 			// The argument being replaced has ended.
 			finish_argument();
@@ -203,7 +203,7 @@ bool MacroExpander::disabled_here(const MacroDefinition& macro, uint32_t disable
 	return hide_sets_.contains(disabled, macro.name);
 }
 
-bool MacroExpander::read(PPToken& token)
+bool MacroExpander::read(PPToken& token, bool keep_shared)
 {
 	// False at the end of the argument being replaced.
 	for (;;)
@@ -218,6 +218,13 @@ bool MacroExpander::read(PPToken& token)
 		Context& context = contexts_.back();
 		if (context.cursor < context.end)
 		{
+			if (context.has_shared)
+			{
+				const PPToken& next = context_tokens_[context.cursor];
+				if (next.kind == PPTokenKind::SharedExpansion &&
+					(!keep_shared || invocations_.empty() || next.origin != state_.binding_revision))
+					materialize_context(context);
+			}
 			token = tokens_of(context)[context.cursor++];
 			if (context.macro != nullptr)
 			{
@@ -258,7 +265,11 @@ bool MacroExpander::peek_is_left_paren()
 			return IsPunctuatorToken(input_->peek(), TokenKind::OP_LPAREN);
 		Context& context = contexts_.back();
 		if (context.cursor < context.end)
-			return IsPunctuatorToken(tokens_of(context)[context.cursor], TokenKind::OP_LPAREN);
+		{
+			const PPToken& next = tokens_of(context)[context.cursor];
+			return next.kind == PPTokenKind::SharedExpansion ? IsPunctuator(next.punctuator, TokenKind::OP_LPAREN)
+															 : IsPunctuatorToken(next, TokenKind::OP_LPAREN);
+		}
 		if (context.macro == nullptr)
 			return false;
 		pop_context();
@@ -274,6 +285,8 @@ void MacroExpander::pop_context()
 		context_tokens_.resize(context.begin);
 	}
 	contexts_.pop_back();
+	if (contexts_.empty() && invocations_.empty())
+		shared_tokens_.clear();
 }
 
 const MacroExpander::Context* MacroExpander::find_open_context(uint32_t serial) const
@@ -645,6 +658,7 @@ void MacroExpander::push_barrier(const Arguments& arguments, uint32_t begin, uin
 	context.barrier.outer = arguments.outer;
 	context.barrier.disabled_top = arguments.disabled_top;
 	context.barrier.disabled_root = arguments.disabled_root;
+	context.has_shared = false;
 	contexts_.push_back(context);
 }
 
@@ -707,6 +721,9 @@ void MacroExpander::push_expansion(MacroDefinition& macro, const PPToken& head, 
 	building_head_ = head;
 	building_serial_ = ++state_.serial;
 	building_chain_ = hosted_recursion_ ? 0 : hide_sets_.add(nesting.chain, macro.name);
+	building_can_share_ = invocations_.size() > 1 && arguments != nullptr && !macro.has_va_opt && !macro.has_paste &&
+		!controlling_expression_;
+	building_has_shared_ = false;
 	bool has_placemarkers = false;
 	bool first_item_emitted = substitute_list(
 		macro, arguments, argument_hide_set, 0, macro.body_size, has_placemarkers);
@@ -718,6 +735,14 @@ void MacroExpander::push_expansion(MacroDefinition& macro, const PPToken& head, 
 
 	const uint32_t end = static_cast<uint32_t>(context_tokens_.size());
 	state_.counters.produced_tokens += end - begin;
+	if (building_has_shared_)
+		for (uint32_t i = begin; i < end; ++i)
+			if (context_tokens_[i].kind == PPTokenKind::SharedExpansion)
+			{
+				const uint32_t saved = context_tokens_[i].length - 1u;
+				state_.counters.produced_tokens += saved;
+				state_.counters.shared_replacement_tokens += saved;
+			}
 	if (begin == end)
 	{
 		if ((head.flags & kLeadingSpace) != 0)
@@ -742,6 +767,7 @@ void MacroExpander::push_expansion(MacroDefinition& macro, const PPToken& head, 
 	context.expansion.chain = building_chain_;
 	context.expansion.root = chain_root(nesting.parent);
 	context.expansion.previous_open = macro.name->macro_open_serial;
+	context.has_shared = building_has_shared_;
 	contexts_.push_back(context);
 	macro.name->macro_open_serial = building_serial_;
 	telemetry::note_peak(state_.counters.peak_contexts, contexts_.size());
@@ -875,9 +901,41 @@ uint32_t MacroExpander::substitute_optional(const MacroDefinition& macro, const 
 void MacroExpander::substitute(const std::vector<PPToken>& source, uint32_t begin, uint32_t end,
 	const ReplacementToken& parameter, uint32_t hide_set, bool replace_hide_set, bool& paste)
 {
+	const uint32_t count = end - begin;
+	const uint8_t flags = parameter.token.flags;
+	if (replace_hide_set && building_can_share_ && !paste && count != 0 && (count >= 32 || !shared_tokens_.empty()) &&
+		state_.binding_revision <= UINT32_MAX)
+		share_argument(begin, end, flags, hide_set);
+	else if (replace_hide_set && !shared_tokens_.empty())
+		copy_argument<true>(source, begin, end, flags, hide_set, true, paste);
+	else
+		copy_argument<false>(source, begin, end, flags, hide_set, replace_hide_set, paste);
+}
+
+template<bool has_shared>
+void MacroExpander::copy_argument(const std::vector<PPToken>& source, uint32_t begin, uint32_t end, uint8_t flags,
+	uint32_t hide_set, bool replace_hide_set, bool& paste)
+{
 	for (uint32_t i = begin; i < end; ++i)
 	{
 		PPToken token = source[i];
+		if (has_shared && token.kind == PPTokenKind::SharedExpansion)
+		{
+			token.hide_set = hide_set;
+			token.flags &= static_cast<uint8_t>(~kStartOfLine);
+			if (i == begin)
+				token.flags = static_cast<uint8_t>((token.flags & ~kLeadingSpace) | (flags & kLeadingSpace));
+			if (paste)
+			{
+				materialized_tokens_.clear();
+				append_shared(materialized_tokens_, token);
+				for (const PPToken& materialized : materialized_tokens_)
+					emit(materialized, paste);
+			}
+			else
+				append_shared(context_tokens_, token);
+			continue;
+		}
 		// A macro-replaced argument's hide set is the macro plus, for an
 		// argument name token, that token's set; used as written, a token
 		// substituted that way loses that macro again (course reference).
@@ -893,10 +951,123 @@ void MacroExpander::substitute(const std::vector<PPToken>& source, uint32_t begi
 			(replace_hide_set ? kReplacedArgument : 0));
 		// The argument takes the place of the parameter, and its white space.
 		if (i == begin)
-			token.flags = static_cast<uint8_t>(
-				(token.flags & ~kLeadingSpace) | (parameter.token.flags & kLeadingSpace));
+			token.flags = static_cast<uint8_t>((token.flags & ~kLeadingSpace) | (flags & kLeadingSpace));
 		emit(token, paste);
 	}
+}
+
+void MacroExpander::share_argument(uint32_t begin, uint32_t end, uint8_t flags, uint32_t hide_set)
+{
+	// Unpainted bound names and outdated ranges need ordinary rescanning.
+	// Inert prefixes and suffixes can be forwarded around those boundaries.
+	bool paste = false;
+	for (uint32_t i = begin; i < end;)
+	{
+		const uint32_t first = i;
+		uint64_t length = 0;
+		bool existing = false;
+		for (; i < end; ++i)
+		{
+			const PPToken& token = expanded_tokens_[i];
+			if (token.kind == PPTokenKind::SharedExpansion)
+			{
+				if (token.origin != state_.binding_revision)
+					break;
+				existing = true;
+				length += token.length;
+			}
+			else
+			{
+				if (token.kind == PPTokenKind::Identifier && (token.flags & kPainted) == 0 &&
+					token.identifier->macro != nullptr)
+					break;
+				++length;
+			}
+		}
+		const uint32_t count = i - first;
+		const uint8_t spacing = first == begin ? flags : expanded_tokens_[first].flags;
+		if ((existing || count >= 32) && length <= UINT32_MAX && count <= UINT32_MAX - shared_tokens_.size())
+			emit_shared(first, i, static_cast<uint32_t>(length), spacing, hide_set);
+		else
+			copy_argument<true>(expanded_tokens_, first, i, spacing, hide_set, true, paste);
+		if (i == end)
+			break;
+		const uint8_t boundary = i == begin ? flags : expanded_tokens_[i].flags;
+		copy_argument<true>(expanded_tokens_, i, i + 1, boundary, hide_set, true, paste);
+		++i;
+	}
+}
+
+void MacroExpander::emit_shared(uint32_t begin, uint32_t end, uint32_t length, uint8_t flags, uint32_t hide_set)
+{
+	const PPToken& first = expanded_tokens_[begin];
+	PPToken shared = first;
+	if (end - begin != 1 || first.kind != PPTokenKind::SharedExpansion)
+	{
+		shared = PPToken();
+		shared.kind = PPTokenKind::SharedExpansion;
+		shared.punctuator = first.punctuator;
+		shared.begin = static_cast<uint32_t>(shared_tokens_.size());
+		shared.end = shared.begin + (end - begin);
+		shared.length = length;
+		shared.origin = static_cast<uint32_t>(state_.binding_revision);
+		shared_tokens_.insert(shared_tokens_.end(), expanded_tokens_.begin() + begin, expanded_tokens_.begin() + end);
+	}
+	shared.flags = flags & kLeadingSpace;
+	shared.hide_set = hide_set;
+	context_tokens_.push_back(shared);
+	building_has_shared_ = true;
+}
+
+void MacroExpander::append_shared(std::vector<PPToken>& output, const PPToken& root)
+{
+	// Apply the outer substitution's hide set to the range once. Spacing
+	// overrides affect only a range's first token and compose on descent.
+	const uint8_t spacing = kLeadingSpace | kStartOfLine;
+	const uint8_t reset = spacing | kReplacedArgument | kFollowsInContext | kFromArgument;
+	shared_reads_.clear();
+	shared_reads_.push_back(SharedRead{ root.begin, root.end, static_cast<uint8_t>(root.flags & spacing), true });
+	while (!shared_reads_.empty())
+	{
+		SharedRead& frame = shared_reads_.back();
+		if (frame.cursor == frame.end)
+		{
+			shared_reads_.pop_back();
+			continue;
+		}
+		const PPToken& entry = shared_tokens_[frame.cursor++];
+		const uint8_t leading = frame.first ? frame.first_spacing : entry.flags & kLeadingSpace;
+		frame.first = false;
+		if (entry.kind == PPTokenKind::SharedExpansion)
+		{
+			shared_reads_.push_back(SharedRead{ entry.begin, entry.end, leading, true });
+			continue;
+		}
+		PPToken token = entry;
+		token.flags = static_cast<uint8_t>((token.flags & ~reset) | leading | kArgument | kReplacedArgument);
+		token.hide_set = root.hide_set;
+		token.origin = 0;
+		output.push_back(token);
+	}
+}
+
+void MacroExpander::materialize_context(Context& context)
+{
+	// This is the top replacement context. Replace its unread suffix
+	// once, retaining the context's active macro and source provenance.
+	materialized_tokens_.clear();
+	for (uint32_t i = context.cursor; i < context.end; ++i)
+	{
+		const PPToken& token = context_tokens_[i];
+		if (token.kind == PPTokenKind::SharedExpansion)
+			append_shared(materialized_tokens_, token);
+		else
+			materialized_tokens_.push_back(token);
+	}
+	context_tokens_.resize(context.cursor);
+	context_tokens_.insert(context_tokens_.end(), materialized_tokens_.begin(), materialized_tokens_.end());
+	context.end = static_cast<uint32_t>(context_tokens_.size());
+	context.has_shared = false;
 }
 
 void MacroExpander::emit(const PPToken& token, bool& paste)

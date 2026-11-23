@@ -1516,3 +1516,52 @@ A/A task-clock ranges were 4.84% and 12.74%.
 | SQLite | A/A | 16,515,280,191 / 16,515,212,297 / 16,515,339,640 / 16,515,291,758 |
 | SQLite | ABBA | 16,515,504,037 / 16,517,034,642 / 16,517,061,987 / 16,515,649,122 |
 | SQLite | BAAB | 16,517,440,309 / 16,515,545,113 / 16,515,216,815 / 16,517,135,777 |
+
+## Forwarding expanded macro arguments
+
+An expanded argument can contain ranges that another replacement cannot
+expand further. The preprocessor retains these ranges across nested
+substitutions. It scans each newly encountered run once for unpainted
+bound identifiers. Those identifiers remain in the ordinary rescan, as
+does any range saved before a macro binding changed. Reading a run for
+ordinary tokens retains its whitespace, locations, and argument provenance.
+Raw arguments for stringizing and pasting still consume tokens in source order.
+
+The baseline is `828764da7`. Both binaries emit byte-identical typed
+preprocessing streams and `-O2` objects for each input. The table gives the
+median of three user-space instruction counts on the same Linux x86-64 CPU.
+The last column counts entries stored directly in replacement contexts
+using `preproc --stats`. A retained range takes one context entry.
+
+| Depth | Wrapped before | Wrapped after | Direct after | Wrapped stored replacement entries |
+| ---: | ---: | ---: | ---: | ---: |
+| 8 | 10,209,911 | 8,910,965 | 8,915,144 | 13,440 |
+| 16 | 21,898,693 | 13,848,351 | 13,776,780 | 26,880 |
+| 32 | 61,883,652 | 23,714,808 | 23,503,039 | 53,760 |
+| 64 | 208,310,479 | 43,438,585 | 42,948,627 | 107,520 |
+| 128 | 767,027,062 | 82,887,470 | 81,838,454 | 215,040 |
+
+At depth 128 the wrapped workload drops from 767.0 million to 82.9 million
+instructions, within 1.3% of the direct form. Each added level costs about
+616,000 instructions. A control with a bare bound function-like name at
+the deepest argument goes from 767.4 million to 88.3 million instructions
+at depth 128 and emits identical debug objects. That input exercises reuse
+on both sides of a name that still needs ordinary rescanning.
+
+The frozen C++ `-O3` and SQLite `-O2` controls also emit byte-identical
+objects. The paired instructions and A/A ranges quantify the cost on the
+ordinary compilation path. The A/A task-clock ranges were 11.76% and 22.58%.
+
+| Input | Instruction A/A range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0034% | +0.0468% | +0.0449% |
+| SQLite `sqlite3.c` | 0.0021% | +0.0506% | +0.0473% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,048,134,989 / 9,048,284,797 / 9,048,134,052 / 9,047,975,064 |
+| C++ | ABBA | 9,048,122,688 / 9,052,584,623 / 9,052,317,190 / 9,048,309,348 |
+| C++ | BAAB | 9,052,359,757 / 9,048,284,671 / 9,048,282,698 / 9,052,338,179 |
+| SQLite | A/A | 16,518,259,786 / 16,518,085,204 / 16,518,325,483 / 16,517,978,577 |
+| SQLite | ABBA | 16,517,777,818 / 16,526,044,313 / 16,526,601,404 / 16,518,151,027 |
+| SQLite | BAAB | 16,525,895,996 / 16,517,894,047 / 16,518,367,857 / 16,525,976,252 |
