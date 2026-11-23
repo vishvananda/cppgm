@@ -79,6 +79,9 @@ Keep target and edition applicability on the entry and link results for
 each applicable configuration. A suite pass count measures compatibility
 with that suite. Coverage grows as individual rules gain evidence, with
 uncovered requirements and unqualified targets visible in the same matrix.
+The combined C99–C17 translation-limits program runs in the C CI job on
+x86-64 Linux and WASI. Record the remaining native macOS executions in the
+[translation-limits inventory](../reports/upstream-c-coverage.md#combined-translation-limits).
 
 Use stable rule IDs in the inventory and the CI manifests so one test can
 provide evidence for several requirements across editions or targets.

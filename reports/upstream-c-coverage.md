@@ -10,7 +10,8 @@ open column lists work to qualify the remainder of each group.
 
 | Clauses | Current C99 through C17 evidence | Open checks |
 | --- | --- | --- |
-| 5.1 Translation and execution environments | PA38 runs C on native and WASI. The pinned runtime suite links cppgm objects using a C driver. | Confirm required translation limits, initialization and termination, and freestanding entry contracts by target. |
+| 5.1 Translation and execution environments | PA38 runs C on native and WASI. The pinned runtime suite links cppgm objects using a C driver. | Confirm initialization and termination and freestanding entry contracts by target. |
+| 5.2.4.1 Translation limits | One combined program passes under C99, C11, and C17 on Linux x86-64, Linux AArch64, WASI, and bare Wasm. | Run the combined program natively on Intel macOS and Apple Silicon. |
 | 5.2 Environment and character sets, 6.4 lexical elements | PA1 through PA4 cover shared source translation, tokens and macros. PA38 tests C literal types. Upstream cases exercise integer types and hexadecimal floating literals. | Audit C edition boundaries, trigraphs, UCNs, encodings, alternative tokens and numeric ranges. |
 | 6.2.1–6.2.3 Scopes, linkage and namespaces | PA38 covers distinct namespaces, nested tags, typedefs and cross-unit declarations. | Complete prototype and label scopes, nested redeclarations and GNU forward enum declarations. |
 | 6.2.4 Storage duration and lifetime | PA38 checks compound literals and automatic VLA scope exits. The hosted VLA test verifies a C-only link. | Cover variably modified declarations, bound evaluation, limited temporary lifetime and cross-ABI TLS. |
@@ -24,6 +25,27 @@ open column lists work to qualify the remainder of each group.
 | 6.10 Preprocessing | PA4 covers shared macro replacement, conditional inclusion, pragmas and line control. PA38 probes C predefined macros. | Pin the GCC preprocessing corpus and qualify required diagnostics, mode macros and hosted header extensions. |
 | 7 Library and language integration | PA38 hosted tests cover headers, varargs, builtins and startup attributes. The runtime matrix uses the host libc. | Qualify each SDK and its compiler-dependent headers. Add libc-test and hosted project builds. |
 | Annexes and implementation-defined options | The existing target models record data layout and native ABI choices. | Publish the supported choices, conditional features and evidence for every advertised environment. |
+
+## Combined translation limits
+
+Section 5.2.4.1 requires a single executable program that exercises every
+applicable translation limit. The generated C99–C17 program covers all 22,
+including nested preprocessing and declarations, identifier significance,
+function and macro arity, the length of a logical line and concatenated
+literals, aggregate sizes, and the 65,535-byte hosted object. It returns zero
+when the value checks pass and a distinct status for each failed check.
+[Generator](../scripts/generate_c_translation_limits.py) ·
+[C99 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
+[C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
+
+Pedantic C99, C11, and C17 passed at `-O0` and `-O2` on Linux x86-64,
+Linux AArch64 under QEMU, and WASI and bare Wasm under Wasmtime. The bare
+Wasm run invokes an exported entry point and also checks the large object.
+GCC 15 and Clang 21 passed the same edition and optimization matrix on
+Linux x86-64. Both Darwin targets emitted objects and cross-linked dylibs
+in all six configurations. Native macOS execution remains open. The C CI
+job runs the Linux x86-64 and WASI configurations.
+[CI job](../.github/workflows/tests.yml)
 
 ## Additional editions
 
