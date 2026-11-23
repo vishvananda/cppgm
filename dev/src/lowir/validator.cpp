@@ -261,7 +261,10 @@ const OperandRule kOperandRules[] = {
 	{ { kNoOperand, kNoOperand, kNoOperand }, ExtraOperands::None, 1 },                               // MemorySize
 	{ { kValueOperand, kNoOperand, kNoOperand }, ExtraOperands::None, 1 },                            // MemoryGrow
 	{ { kValueOperand, kValueOperand, kNoOperand }, ExtraOperands::None,
-		static_cast<unsigned>(BinaryOp::Div) + 1 }, // FenvBinary
+		static_cast<unsigned>(BinaryOp::Div) + 1 },                                                // FenvBinary
+	{ { kValueOperand, kValueOperand, kNoOperand }, ExtraOperands::None, kComparePredicateCount }, // FenvCompare
+	{ { kValueOperand, kValueOperand, kNoOperand }, ExtraOperands::None, kComparePredicateCount }, // FenvCompareSignal
+	{ { kValueOperand, kNoOperand, kNoOperand }, ExtraOperands::None, kConvertOpCount },           // FenvConvert
 };
 
 static_assert(sizeof kOperandRules / sizeof kOperandRules[0] == kOpcodeCount, "one operand rule per opcode");
@@ -696,7 +699,7 @@ bool Validator::check_target_types()
 			if (!valid(slot.type))
 				return fail("pointer slot and target layout differ");
 		for (const Instruction& inst : body.instructions)
-			if (!valid(inst.type) || (inst.op == Opcode::Convert && !valid(convert_source_type(inst))))
+			if (!valid(inst.type) || (is_conversion(inst.op) && !valid(convert_source_type(inst))))
 				return fail("pointer instruction and target layout differ");
 	}
 	return true;
@@ -1030,15 +1033,17 @@ bool Validator::check_instruction(InstId id, const Instruction& inst, BlockId bl
 		}
 		return true;
 	case Opcode::FenvBinary:
+	case Opcode::FenvCompare:
+	case Opcode::FenvCompareSignal:
 		if (!inst.type.is_float() || inst.flags != 0)
-			return fail("fenv_binary requires scalar floating arithmetic");
+			return fail("floating environment access requires scalar floating operands");
 		for (unsigned i = 0; i < 2; ++i)
 		{
 			const Value operand = inst.ops[i];
 			const bool matching = operand.is(ValueKind::Float) ? operand.float_kind == inst.type.kind()
 															   : value_type(operand, type) && type == inst.type;
 			if (!matching)
-				return fail("fenv_binary operand type mismatch");
+				return fail("floating environment operand type mismatch");
 		}
 		return true;
 	case Opcode::Select:
@@ -1050,6 +1055,10 @@ bool Validator::check_instruction(InstId id, const Instruction& inst, BlockId bl
 	case Opcode::Vector:
 		return check_vector(inst);
 	case Opcode::Convert:
+	case Opcode::FenvConvert:
+		if (inst.op == Opcode::FenvConvert &&
+			(inst.flags != 0 || !is_floating_conversion(static_cast<ConvertOp>(inst.sub))))
+			return fail("fenv_convert requires a floating conversion");
 		if (!is_valid_conversion(static_cast<ConvertOp>(inst.sub), inst.type, convert_source_type(inst)))
 			return fail("invalid conversion widths or categories");
 		return true;

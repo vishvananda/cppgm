@@ -330,7 +330,13 @@ void MirWriter::instruction(const Function& function, const Inst& inst)
 		text_ += extension_name(inst.type);
 		break;
 	case Op::FSetcc:
-		text_ += spelling(inst.op);
+		if (inst.flags & MF_SIGNALING_COMPARE)
+		{
+			text_ += lowir::spelling(lowir::Opcode::FenvCompareSignal);
+			text_ += '.';
+		}
+		else
+			text_ += spelling(inst.op);
 		text_ += lowir::spelling(static_cast<lowir::ComparePredicate>(inst.sub % 10));
 		text_ += '.';
 		text_ += lowir::spelling(inst.type);

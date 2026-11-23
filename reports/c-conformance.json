@@ -636,8 +636,10 @@
         "darwin-arm64-hosted"
       ],
       "outside_profile": "This rule checks arithmetic under a non-default native rounding mode.",
-      "requirement": "Honor dynamic modes and status flags for numeric conversions in an enabled FENV_ACCESS scope.",
-      "cases": []
+      "requirement": "Honor directed rounding for int to float and double to float and preserve invalid for an out-of-range float to int conversion.",
+      "cases": [
+        "floating.fenv-convert"
+      ]
     },
     {
       "id": "floating.fenv-ordered-comparison",
@@ -655,9 +657,33 @@
         "darwin-x86_64-hosted",
         "darwin-arm64-hosted"
       ],
-      "outside_profile": "This rule checks arithmetic under a non-default native rounding mode.",
+      "outside_profile": "This rule checks the native invalid exception flag for a floating comparison.",
       "requirement": "Raise invalid for an ordered relational comparison with a quiet NaN under FENV_ACCESS ON.",
-      "cases": []
+      "cases": [
+        "floating.fenv-compare"
+      ]
+    },
+    {
+      "id": "floating.fenv-quiet-comparison",
+      "clause": "7.12.14, F.3",
+      "kind": "conditional",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "hosted",
+      "profiles": [
+        "linux-x86_64-hosted",
+        "linux-aarch64-hosted",
+        "darwin-x86_64-hosted",
+        "darwin-arm64-hosted"
+      ],
+      "outside_profile": "This rule checks the native invalid exception flag for a floating comparison.",
+      "requirement": "Compare a quiet NaN through equality and isless without setting the invalid flag.",
+      "cases": [
+        "floating.fenv-compare"
+      ]
     },
     {
       "id": "limits.numeric-macros",

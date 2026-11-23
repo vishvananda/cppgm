@@ -46,7 +46,7 @@ Helper helper_for(const lowir::Instruction& inst, bool native_multiply)
 		}
 		return Helper{ name, wide, 2 };
 	}
-	if (inst.op != Opcode::Convert)
+	if (!is_conversion(inst.op))
 		return Helper{ nullptr, wide, 0 };
 	const Type from = convert_source_type(inst);
 	const auto conversion = static_cast<ConvertOp>(inst.sub);

@@ -389,7 +389,7 @@ bool single_instruction(const Access& access, Instruction& ins)
 		{
 			const uint32_t field = unscaled ? (uint32_t(access.offset) & 511) << 12
 											: uint32_t(access.offset / access.bytes) << 10;
-			ins = Instruction{ form.op, access.rt, access.rn, 0, field, Fixup::None, 0 };
+			ins = Instruction{ form.op, access.rt, access.rn, 0, field, Fixup::None, false, 0 };
 			return true;
 		}
 	return false;
@@ -474,7 +474,8 @@ bool join(const Access& x, const Access& y, const Effects& between, Instruction&
 	else
 		return false;
 	const unsigned lo = ascending ? x.rt : y.rt, hi = ascending ? y.rt : x.rt;
-	pair = Instruction{ pair_op(x), lo, x.rn, 0, ((uint32_t(low / x.bytes) & 127) << 15) | (hi << 10), Fixup::None, 0 };
+	pair = Instruction{ pair_op(x), lo, x.rn, 0, ((uint32_t(low / x.bytes) & 127) << 15) | (hi << 10), Fixup::None,
+		false, 0 };
 	return true;
 }
 

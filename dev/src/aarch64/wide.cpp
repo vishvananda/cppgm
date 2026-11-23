@@ -198,6 +198,7 @@ bool Selector::wide(const lowir::Instruction& inst)
 		break;
 	}
 	case Opcode::Convert:
+	case Opcode::FenvConvert:
 	{
 		const auto op = static_cast<ConvertOp>(inst.sub);
 		const Type from = convert_source_type(inst);

@@ -23,6 +23,7 @@ void Selector::plan_wide_locals()
 				scalar = inst.type.kind() == TypeKind::I128;
 				break;
 			case Opcode::Convert:
+			case Opcode::FenvConvert:
 			case Opcode::Phi:
 			case Opcode::Return:
 			case Opcode::Branch:

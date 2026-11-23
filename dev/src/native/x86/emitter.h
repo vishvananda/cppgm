@@ -161,7 +161,7 @@ private:
 	void vector_special(const Inst& inst);
 	void vector_move(Reg d, const Operand& src);
 	Reg vector_operands(const Inst& inst);
-	void float_compare(const Operand& a, const Operand& b, lowir::TypeKind type);
+	void float_compare(const Operand& a, const Operand& b, lowir::TypeKind type, bool signaling = false);
 	void float_setcc(const Inst& inst);
 	void convert(const Inst& inst);
 	void x87_load(const Operand& op, lowir::TypeKind type);

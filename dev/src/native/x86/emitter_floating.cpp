@@ -212,15 +212,15 @@ void FunctionEmitter::float_arith(const Inst& inst)
 	asm_.sse(prefix, opcode, d.reg, source(b));
 }
 
-// Flags of `ucomis a, b` (a in a register).
-void FunctionEmitter::float_compare(const Operand& a, const Operand& b, TypeKind kind)
+// Flags of `ucomis a, b` or its signaling counterpart (a in a register).
+void FunctionEmitter::float_compare(const Operand& a, const Operand& b, TypeKind kind, bool signaling)
 {
 	if (kind == TypeKind::F80)
 	{
 		x87_load(b, kind);
 		x87_load(a, kind);
 		asm_.byte(0xdf);
-		asm_.byte(0xe9); // fucomip st0, st1
+		asm_.byte(signaling ? 0xf1 : 0xe9); // fcomip or fucomip st0, st1
 		asm_.byte(0xdd);
 		asm_.byte(0xd8); // fstp st0
 		return;
@@ -234,7 +234,7 @@ void FunctionEmitter::float_compare(const Operand& a, const Operand& b, TypeKind
 	else
 		asm_.sse(prefix, 0x10, kX15, a.kind == OperandKind::FImm ? constant_rm(a) : rm(a));
 	const RM right = b.kind == OperandKind::FImm ? constant_rm(b) : rm(b);
-	asm_.sse(kind == TypeKind::F32 ? 0 : 0x66, 0x2e, left, right);
+	asm_.sse(kind == TypeKind::F32 ? 0 : 0x66, signaling ? 0x2f : 0x2e, left, right);
 }
 
 void FunctionEmitter::float_setcc(const Inst& inst)
@@ -243,7 +243,8 @@ void FunctionEmitter::float_setcc(const Inst& inst)
 	const Reg d = inst.ops[0].reg;
 	const bool swap = pred == ComparePredicate::Lt || pred == ComparePredicate::Le || pred == ComparePredicate::Ugt ||
 		pred == ComparePredicate::Uge;
-	float_compare(swap ? inst.ops[2] : inst.ops[1], swap ? inst.ops[1] : inst.ops[2], inst.type);
+	float_compare(swap ? inst.ops[2] : inst.ops[1], swap ? inst.ops[1] : inst.ops[2], inst.type,
+		(inst.flags & MF_SIGNALING_COMPARE) != 0);
 	const Reg s = d == R11 ? R10 : R11;
 	switch (pred)
 	{

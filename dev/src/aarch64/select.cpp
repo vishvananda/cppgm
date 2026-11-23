@@ -51,10 +51,10 @@ void Selector::select(const lowir::Instruction& inst, BlockId block)
 		(rematerialized(inst.result) || (!aliases_.empty() && aliases_[inst.result] != inst.result)))
 		return;
 	if ((inst.type.kind() == TypeKind::I128 ||
-			(inst.op == Opcode::Convert && convert_source_type(inst).kind() == TypeKind::I128)) &&
+			(is_conversion(inst.op) && convert_source_type(inst).kind() == TypeKind::I128)) &&
 		wide(inst))
 		return;
-	if (inst.op == Opcode::FenvBinary || floating(inst))
+	if (floating(inst))
 	{
 		float_instruction(inst);
 		return;

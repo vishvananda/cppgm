@@ -252,7 +252,7 @@ void ReloadForwarding::step(Instruction& ins, uint32_t pc, State& state)
 			gone_[pc] = 1;
 		else if (from != 31)
 		{
-			ins = Instruction{ Op::Orr, reg, 31, from, 0, Fixup::None, 0 };
+			ins = Instruction{ Op::Orr, reg, 31, from, 0, Fixup::None, false, 0 };
 			moves_.push_back(pc);
 		}
 		state.set(reg, unit);

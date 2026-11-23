@@ -17,10 +17,10 @@ const Op kFloatBinary[] = { Op::Fadd, Op::Fsub, Op::Fmul, Op::Fdiv };
 
 bool Selector::floating(const lowir::Instruction& inst) const
 {
-	if (inst.op == Opcode::Convert)
+	if (is_conversion(inst.op))
 		return inst.type.is_float() || convert_source_type(inst).is_float();
 	return inst.type.is_float() &&
-		(inst.op == Opcode::Compare || inst.op == Opcode::Binary || inst.op == Opcode::Unary);
+		(is_compare(inst.op) || inst.op == Opcode::Binary || inst.op == Opcode::FenvBinary || inst.op == Opcode::Unary);
 }
 
 unsigned Selector::fp_operand(Value operand, Type type, unsigned scratch)
@@ -102,12 +102,14 @@ void Selector::float_compare(const lowir::Instruction& inst)
 	const unsigned a = fp_operand(inst.ops[0], inst.type, 16);
 	const bool wide = inst.type.kind() == TypeKind::F64;
 	const unsigned precision = wide ? 1u << 22 : 0;
+	const unsigned signaling = inst.op == Opcode::FenvCompareSignal ? 1u << 4 : 0;
 	const Value right = inst.ops[1];
 	const uint64_t sign = uint64_t(1) << (wide ? 63 : 31);
 	if (right.is(ValueKind::Float) && (body_.literals[right.index].low & ~sign) == 0)
-		out_.emit(Op::FcmpZero, 0, a, 0, precision);
+		out_.emit(Op::FcmpZero, 0, a, 0, precision | signaling);
 	else
-		out_.emit(Op::Fcmp, 0, a, right == inst.ops[0] ? a : fp_operand(right, inst.type, 17), precision);
+		out_.emit(Op::Fcmp, 0, a, right == inst.ops[0] ? a : fp_operand(right, inst.type, 17), precision | signaling);
+	out_.code.back().preserve_fenv = is_fenv_compare(inst.op);
 }
 
 unsigned Selector::float_flags(const lowir::Instruction& inst)
@@ -277,13 +279,13 @@ InstId Selector::scalar_lane_binary(const lowir::Instruction& inst)
 
 void Selector::float_instruction(const lowir::Instruction& inst)
 {
-	if (inst.op == Opcode::Compare)
+	if (is_compare(inst.op))
 	{
 		float_compare(inst);
 		set_condition(inst.result, kFloatConditions[inst.sub]);
 		return;
 	}
-	const Type from = inst.op == Opcode::Convert ? convert_source_type(inst) : inst.type;
+	const Type from = is_conversion(inst.op) ? convert_source_type(inst) : inst.type;
 	const Type to = inst.type;
 	const unsigned precision = from.kind() == TypeKind::F64 ? 1u << 22 : 0;
 	const unsigned dest = vectors_[inst.result] == kNoId ? 16 : vectors_[inst.result];

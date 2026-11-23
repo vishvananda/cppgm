@@ -752,7 +752,8 @@ private:
 	// emitted by separate statements, the last first: the output must not
 	// depend on the compiler that built this one (PA35's inception).
 	RValue binary(lowir::BinaryOp op, lowir::Type type, const RValue& left, const RValue& right, uint8_t flags = 0);
-	RValue compare(lowir::ComparePredicate predicate, lowir::Type type, const RValue& left, const RValue& right);
+	RValue compare(lowir::ComparePredicate predicate, lowir::Type type, const RValue& left, const RValue& right,
+		bool signaling = false);
 	RValue unary(lowir::UnaryOp op, const RValue& operand);
 	RValue convert_op(lowir::ConvertOp op, lowir::Type to, const RValue& value);
 	RValue copy(lowir::Type to, const RValue& value);

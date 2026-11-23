@@ -108,7 +108,7 @@ bool FunctionBuilder::commit(const BodyCounts& counts, uint32_t temp_count)
 		lowir::Instruction& inst = body_.instructions[id];
 		if (static_cast<unsigned>(inst.op) >= lowir::kOpcodeCount || !valid_type(inst.type) ||
 			inst.location >= counts.blocks ||
-			(inst.op == lowir::Opcode::Convert && !valid_type(lowir::convert_source_type(inst))))
+			(lowir::is_conversion(inst.op) && !valid_type(lowir::convert_source_type(inst))))
 			return construction_fail("invalid direct instruction");
 		lowir::Block& block = body_.blocks[inst.location];
 		inst.location = 0;

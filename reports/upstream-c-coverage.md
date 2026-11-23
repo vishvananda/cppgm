@@ -106,12 +106,19 @@ passes at `-O0`, `-O2`, and `-O3`. Bare Wasm passes the scope and
 default-rounding control. An upward-rounded binary128 addition also
 passes on AArch64 with libgcc. Further library profiles remain open.
 
-The next probes found two distinct gaps. Converting the runtime
-expression `(float)16777217` under upward rounding passes at `-O0`
-and folds to nearest at `-O2`. An ordered comparison with a quiet
-NaN uses a quiet x86 compare and misses the invalid flag at both
-levels. Clang 21 returns the upward conversion and sets the invalid
-flag in the same probes.
+The conversion probe now covers int to float and double to float
+under upward and downward modes, and invalid after discarding an
+out-of-range conversion to int. The comparison probe checks invalid
+for ordered operators on quiet NaNs, including a discarded result,
+and quiet behavior for equality and `isless`. It also exercises the
+x87 long double comparison where available. Direct and LowIR
+round-trip builds pass on x86-64 Linux at `-O0` through `-O3`.
+AArch64 Linux under QEMU and bare Wasm pass at `-O0`, `-O2`, and
+`-O3`, with the Wasm probe checking the comparison results and
+default rounding. Native macOS execution and the broader library
+and software-floating environment profiles remain open.
+[Conversion probe](../pa38/tests/general/500-c-fenv-convert.t) ·
+[Comparison probe](../pa38/tests/general/500-c-fenv-compare.t) ·
 [PA38 scope and runtime probe](../pa38/tests/general/500-c-fenv-binary.t) ·
 [WG14 N1570 §7.6.1 and F.8.4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [Integer probe](../scripts/tests/c_integer_limits.c) ·

@@ -2494,3 +2494,24 @@ At 512, 1,024, 2,048, and 4,096 functions, the median instructions for
 `--emit-lowir -O0` were 27.75, 51.72, 99.71, and 195.70 million. Every
 run marked exactly the enabled functions. The incremental cost was
 about 94,000 instructions for two additional functions at every size.
+
+## Conversions and comparisons with environment access
+
+Environment-sensitive operations use distinct LowIR opcodes and share
+the usual target instruction selection. The AArch64 compare effect
+occupies padding in the existing 32-byte instruction record. The
+ordinary optimizer paths keep their existing operation classes.
+
+Frozen C++ instruction counts changed by +0.00085% in ABBA and −0.00164%
+in BAAB. SQLite changed by +0.00232% and −0.00044%. All trials used
+immutable binaries and the same CPU and inputs, with byte-identical
+object output.
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,046,875,624 / 9,047,063,478 / 9,047,059,357 / 9,047,003,079 |
+| C++ | ABBA | 9,046,962,978 / 9,047,009,530 / 9,046,988,809 / 9,046,881,804 |
+| C++ | BAAB | 9,046,851,028 / 9,047,144,957 / 9,046,804,925 / 9,046,802,808 |
+| SQLite | A/A | 16,510,426,525 / 16,510,601,461 / 16,510,634,608 / 16,510,495,612 |
+| SQLite | ABBA | 16,510,604,985 / 16,510,866,950 / 16,511,037,722 / 16,510,534,061 |
+| SQLite | BAAB | 16,510,705,300 / 16,510,423,617 / 16,511,270,368 / 16,510,842,229 |

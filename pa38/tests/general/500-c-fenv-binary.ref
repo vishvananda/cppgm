@@ -47,19 +47,19 @@ function @main() -> i32 [role=entry, binding=strong, keep_alias=yes] {
 
   block ^entry:
     %t1 = load typed f64 @static_tie
-    %t2 = cmp ne f64 %t1, 1
+    %t2 = fenv_cmp ne f64 %t1, 1
     %t3 = convert trunc i32 i64 %t2
     branch %t3, ^if_then_1, ^lor_rhs_4
 
   block ^lor_rhs_4:
     %t4 = call f64 @ordinary(0.0)
-    %t5 = cmp ne f64 %t4, 16
+    %t5 = fenv_cmp ne f64 %t4, 16
     %t6 = convert trunc i32 i64 %t5
     branch %t6, ^if_then_1, ^lor_rhs_3
 
   block ^lor_rhs_3:
     %t7 = call f64 @nested_scope(0.0)
-    %t8 = cmp ne f64 %t7, 15
+    %t8 = fenv_cmp ne f64 %t7, 15
     %t9 = convert trunc i32 i64 %t8
     branch %t9, ^if_then_1, ^if_else_2
 
@@ -111,13 +111,13 @@ function @main() -> i32 [role=entry, binding=strong, keep_alias=yes] {
 
   block ^if_end_14:
     %t21 = load volatile f64 $above
-    %t22 = cmp ne f64 %t21, 1.000000000000000222
+    %t22 = fenv_cmp ne f64 %t21, 1.000000000000000222
     %t23 = convert trunc i32 i64 %t22
     branch %t23, ^if_then_15, ^lor_rhs_17
 
   block ^lor_rhs_17:
     %t24 = load volatile f64 $below
-    %t25 = cmp ne f64 %t24, 1
+    %t25 = fenv_cmp ne f64 %t24, 1
     %t26 = convert trunc i32 i64 %t25
     branch %t26, ^if_then_15, ^if_else_16
 

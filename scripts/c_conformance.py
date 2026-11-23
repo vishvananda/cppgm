@@ -31,6 +31,8 @@ CASES = {
     'limits.rounding-default': (RUN_STAGES, ('O0', 'O2')),
     'limits.rounding-query': (RUN_STAGES, ('O0', 'O2')),
     'floating.fenv-binary': (RUN_STAGES, ('O0', 'O2')),
+    'floating.fenv-convert': (RUN_STAGES, ('O0', 'O2')),
+    'floating.fenv-compare': (RUN_STAGES, ('O0', 'O2')),
     'include.physical': (RUN_STAGES, ('O0',)),
     'include.query': (RUN_STAGES, ('O0',)),
     'literal.code-units': (RUN_STAGES, ('O0', 'O2')),
@@ -42,6 +44,8 @@ FLOAT_LIMITS = ROOT / 'scripts/tests/c_float_limits.c'
 DEFAULT_ROUNDING = ROOT / 'scripts/tests/c_default_rounding.c'
 ROUNDING_QUERY = ROOT / 'pa30/tests/run/800-builtin-fp-rounds.t.1'
 FENV_BINARY = ROOT / 'pa38/tests/general/500-c-fenv-binary.t'
+FENV_CONVERT = ROOT / 'pa38/tests/general/500-c-fenv-convert.t'
+FENV_COMPARE = ROOT / 'pa38/tests/general/500-c-fenv-compare.t'
 # Precision of the target ABI's long double, independent of the candidate's predefines.
 LONG_DOUBLE_PRECISION = {
     'x86_64-linux-gnu': 64,
@@ -228,6 +232,8 @@ def numeric_sources(profile, bare_sdk):
         sources.extend([
             ('limits.rounding-query', ROUNDING_QUERY, (), rounding_link),
             ('floating.fenv-binary', FENV_BINARY, (), rounding_link),
+            ('floating.fenv-convert', FENV_CONVERT, (), rounding_link),
+            ('floating.fenv-compare', FENV_COMPARE, (), rounding_link),
         ])
     return sources
 
@@ -309,7 +315,8 @@ def probes(args, profiles, rules):
         results.extend(probe_target(output, bare, compiler, ['-ffreestanding', '-nostdinc'], link, runner, bare_sdk))
     revision = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
     inputs = sorted([*work.glob('*.h'), limits, ERROR_SOURCE, INCLUDE_SOURCE, STRING_SOURCE, INCLUDE_QUERY,
-                     INTEGER_LIMITS, FLOAT_LIMITS, DEFAULT_ROUNDING, ROUNDING_QUERY, FENV_BINARY, *numeric_sdk_inputs,
+                     INTEGER_LIMITS, FLOAT_LIMITS, DEFAULT_ROUNDING, ROUNDING_QUERY, FENV_BINARY, FENV_CONVERT, FENV_COMPARE,
+                     *numeric_sdk_inputs,
                      INCLUDE_QUERY.parent / 'c-header  spaces.h',
                      INCLUDE_SOURCE.parent / 'c-include-physical.h', INCLUDE_SOURCE.parent / 'c-include-local.h'])
     receipt_path = output / 'receipts.json'

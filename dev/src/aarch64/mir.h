@@ -48,6 +48,8 @@ struct Instruction
 	unsigned rd, rn, rm;
 	uint32_t field;
 	Fixup fixup;
+	// These comparisons may update the observable floating status flags.
+	bool preserve_fenv;
 	uint32_t target;
 	int32_t addend; // a symbol fixup's addend; a block ADR's jump table entries (pack_tables)
 };

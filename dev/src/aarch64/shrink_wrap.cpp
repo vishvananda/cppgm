@@ -387,7 +387,7 @@ void fold_return(std::vector<Instruction>& code, uint32_t first, uint32_t return
 			if (ins.op == Op::AddIW || ins.op == Op::SubIW)
 				result &= 0xffffffffu;
 			if (result < 65536)
-				ins = Instruction{ Op::MovZ, ins.rd, 0, 0, static_cast<uint32_t>(result << 5), Fixup::None, 0 };
+				ins = Instruction{ Op::MovZ, ins.rd, 0, 0, static_cast<uint32_t>(result << 5), Fixup::None, false, 0 };
 			value[ins.rd] = result;
 			known |= 1u << ins.rd;
 			continue;
@@ -880,7 +880,7 @@ uint32_t Wrapper::label_for(Kind kind, uint32_t index)
 
 void Wrapper::jump_to(uint32_t label)
 {
-	code_.push_back(Instruction{ Op::B, 0, 0, 0, 0, Fixup::Block, label });
+	code_.push_back(Instruction{ Op::B, 0, 0, 0, 0, Fixup::Block, false, label });
 	straight_ = static_cast<uint32_t>(code_.size());
 }
 
@@ -959,7 +959,7 @@ void Wrapper::emit_prologue(uint32_t exit, size_t at)
 		events_.push_back(event);
 	}
 	for (const auto& copy : copies_)
-		code_.push_back(Instruction{ Op::Orr, copy.first, 31, copy.second, 0, Fixup::None, 0 });
+		code_.push_back(Instruction{ Op::Orr, copy.first, 31, copy.second, 0, Fixup::None, false, 0 });
 	for (const auto& store : sunk_)
 		code_.push_back(f_.code[store.pc]);
 	framed_state_ = true;

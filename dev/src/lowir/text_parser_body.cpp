@@ -382,10 +382,13 @@ bool Parser::parse_value_instruction(FunctionBuilder& builder, Opcode keyword, I
 	case Opcode::Binary:
 	case Opcode::FenvBinary:
 	case Opcode::Compare:
+	case Opcode::FenvCompare:
+	case Opcode::FenvCompareSignal:
 	{
 		const WordInfo info = word(token());
+		const bool compare = is_compare(keyword);
 		const WordClass expected = keyword == Opcode::Unary ? WordClass::Unary
-			: keyword == Opcode::Compare                    ? WordClass::Compare
+			: compare                                       ? WordClass::Compare
 															: WordClass::Binary;
 		if (info.word_class != expected)
 			fail("unknown LowIR operation: " + spelling(token()));
@@ -407,7 +410,7 @@ bool Parser::parse_value_instruction(FunctionBuilder& builder, Opcode keyword, I
 			expect(TokenKind::Comma, ",");
 			inst.ops[1] = parse_value(builder, inst.type.kind());
 		}
-		result = keyword == Opcode::Compare ? kI64 : inst.type;
+		result = compare ? kI64 : inst.type;
 		return true;
 	}
 	case Opcode::Select:
@@ -427,14 +430,15 @@ bool Parser::parse_value_instruction(FunctionBuilder& builder, Opcode keyword, I
 		parse_vector(builder, inst, result);
 		return true;
 	case Opcode::Convert:
+	case Opcode::FenvConvert:
 	{
 		const WordInfo info = word(token());
 		if (info.word_class != WordClass::Convert)
 			fail("unknown LowIR operation: " + spelling(token()));
 		advance();
-		inst.op = Opcode::Convert;
+		inst.op = keyword;
 		inst.sub = info.value;
-		if (accept_word(WordClass::Fact, IF_EXACT))
+		if (keyword == Opcode::Convert && accept_word(WordClass::Fact, IF_EXACT))
 			inst.flags |= IF_EXACT;
 		inst.type = result = parse_type();
 		const Type source = parse_type();

@@ -263,11 +263,14 @@ enum class Opcode : std::uint8_t
 	// PA37's single wasm32 memory: size in pages, or grow by u32 pages.
 	MemorySize,
 	MemoryGrow,
-	// Scalar floating arithmetic that observes and can change the floating environment.
-	FenvBinary
+	// Scalar floating operations with observable environment effects.
+	FenvBinary,
+	FenvCompare,
+	FenvCompareSignal,
+	FenvConvert
 };
 
-const unsigned kOpcodeCount = static_cast<unsigned>(Opcode::FenvBinary) + 1;
+const unsigned kOpcodeCount = static_cast<unsigned>(Opcode::FenvConvert) + 1;
 
 inline bool is_stack_instruction(Opcode op)
 {
@@ -283,7 +286,22 @@ inline bool is_terminator(Opcode op)
 // non-void result type).
 inline bool defines_value(Opcode op)
 {
-	return op <= Opcode::ExceptionSelector || op >= Opcode::MemorySize;
+	return op <= Opcode::ExceptionSelector || (op >= Opcode::MemorySize && op <= Opcode::FenvConvert);
+}
+
+inline bool is_fenv_compare(Opcode op)
+{
+	return op == Opcode::FenvCompare || op == Opcode::FenvCompareSignal;
+}
+
+inline bool is_compare(Opcode op)
+{
+	return op == Opcode::Compare || is_fenv_compare(op);
+}
+
+inline bool is_conversion(Opcode op)
+{
+	return op == Opcode::Convert || op == Opcode::FenvConvert;
 }
 
 // The handler-stack markers eh_try ... eh_end.
@@ -301,7 +319,7 @@ inline const char* spelling(Opcode op)
 		"exception", "exception_selector", "asm", "store", "atomic_store", "atomic_thread_fence", "atomic_signal_fence",
 		"va_start", "stack_restore", "write_mxcsr", "copyobj", "zeroinit", "eh_try", "eh_cleanup", "eh_catch",
 		"eh_filter", "eh_catch_all", "eh_end", "throw", "resume", "jump", "branch", "switch", "indirect_jump", "return",
-		"unreachable", "memory_size", "memory_grow", "fenv_binary" };
+		"unreachable", "memory_size", "memory_grow", "fenv_binary", "fenv_cmp", "fenv_cmp_signal", "fenv_convert" };
 	return kOpcodes[static_cast<unsigned>(op)];
 }
 
@@ -380,6 +398,11 @@ enum class ConvertOp : std::uint8_t
 };
 
 const unsigned kConvertOpCount = static_cast<unsigned>(ConvertOp::FPTrunc) + 1;
+
+inline bool is_floating_conversion(ConvertOp op)
+{
+	return op >= ConvertOp::SIToFP;
+}
 
 // The memory order operand of the atomic instructions, written as its
 // number: the GNU/Clang __ATOMIC_* encoding (pa8/lowir.md "Memory and

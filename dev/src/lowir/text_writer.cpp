@@ -904,10 +904,12 @@ bool Writer::write_value_instruction(const Instruction& inst)
 	case Opcode::Binary:
 	case Opcode::FenvBinary:
 	case Opcode::Compare:
+	case Opcode::FenvCompare:
+	case Opcode::FenvCompareSignal:
 		head(inst.op);
-		spelled(inst.op == Opcode::Unary     ? kUnaryWords[inst.sub]
-				: inst.op == Opcode::Compare ? kCompareWords[inst.sub]
-											 : kBinaryWords[inst.sub]);
+		spelled(inst.op == Opcode::Unary ? kUnaryWords[inst.sub]
+				: is_compare(inst.op)    ? kCompareWords[inst.sub]
+										 : kBinaryWords[inst.sub]);
 		for (const InstructionFlag fact : { IF_NO_WRAP, IF_EXACT })
 		{
 			if (inst.op == Opcode::Binary && (inst.flags & fact) != 0)
@@ -927,6 +929,7 @@ bool Writer::write_value_instruction(const Instruction& inst)
 		}
 		return true;
 	case Opcode::Convert:
+	case Opcode::FenvConvert:
 		head(inst.op);
 		spelled(kConvertWords[inst.sub]);
 		if ((inst.flags & IF_EXACT) != 0)

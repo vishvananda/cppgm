@@ -389,7 +389,12 @@ block restores the enclosing setting on exit. cppgm's default is OFF.
 A direct pragma and `_Pragma` affect the same scope. Scalar real
 arithmetic in an enabled scope observes the active rounding mode and
 retains its floating status effects even when the value is discarded.
-Initializers with static storage use translation-time arithmetic.
+Runtime conversions preserve the active rounding mode where the
+conversion uses it, and retain their status effects. A floating-to-integer
+conversion still truncates toward zero. Ordered C relational operators
+signal invalid on a quiet NaN in an enabled scope. Equality, inequality
+and the quiet comparison macros keep their quiet semantics. Initializers
+with static storage use translation-time arithmetic.
 
 [WG14 N1570, §7.6.1 and Annex F.8](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf#page=226) ·
 [PA38 scope and runtime probe](../pa38/tests/general/500-c-fenv-binary.t)

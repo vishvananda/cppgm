@@ -1942,8 +1942,10 @@ RValue FunctionLowering::scalar_comparison(
 		return member_pointer_equal(left, right, predicate == lowir::ComparePredicate::Eq);
 	if (left.type.is_object() && SoftFloatOf(type) != SoftFloat::None)
 		return soft_compare(predicate, SoftFloatOf(type), left, right);
+	const bool relational = op != TokenKind::OP_EQ && op != TokenKind::OP_NE;
 	return logical_result(
-		compare(predicate, pointer ? left.type : ComparisonType(left.type, lowering_.storage_type(type)), left, right),
+		compare(predicate, pointer ? left.type : ComparisonType(left.type, lowering_.storage_type(type)), left, right,
+			relational),
 		result);
 }
 

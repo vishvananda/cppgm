@@ -137,7 +137,10 @@ enclosing mode and restores it when the block ends. The default is OFF.
 With access ON, real floating adds, subtracts, multiplies, and divides
 use `fenv_binary` in LowIR. Retain the operation even when its value is
 discarded, since it can set an observable floating-point status flag.
-Static-storage initializers still use translation-time arithmetic.
+Use `fenv_convert` for real floating conversions and `fenv_cmp_signal`
+for the relational operators. Equality, inequality, and quiet comparison
+builtins use `fenv_cmp`. A quiet NaN raises invalid for the signaling
+comparison. Static-storage initializers use translation-time arithmetic.
 
 The output is ordinary [PA8 LowIR](../pa8/lowir.md). Preserve target sizes,
 alignment, function signatures, object names, qualifiers and conversions. C

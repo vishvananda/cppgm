@@ -17,12 +17,12 @@ constexpr uint32_t kShortTest = 4;
 
 void Function::emit(Op op, unsigned rd, unsigned rn, unsigned rm, uint32_t field)
 {
-	code.push_back(Instruction{ op, rd, rn, rm, field, Fixup::None, 0 });
+	code.push_back(Instruction{ op, rd, rn, rm, field, Fixup::None, false, 0 });
 }
 
 void Function::reference(Op op, Fixup fixup, uint32_t target, unsigned rd, unsigned rn)
 {
-	code.push_back(Instruction{ op, rd, rn, 0, 0, fixup, target });
+	code.push_back(Instruction{ op, rd, rn, 0, 0, fixup, false, target });
 }
 
 void Function::bind(uint32_t label)
@@ -249,7 +249,7 @@ void relax_branches(Function& f)
 			case Op::BCond:
 				if (branch.rd >= 14)
 				{
-					branch = Instruction{ Op::B, 0, 0, 0, 0, Fixup::Block, target };
+					branch = Instruction{ Op::B, 0, 0, 0, 0, Fixup::Block, false, target };
 					continue;
 				}
 				branch.rd ^= 1;
@@ -275,7 +275,7 @@ void relax_branches(Function& f)
 			branch.target = static_cast<uint32_t>(f.labels.size());
 			f.labels.push_back(pc + 1);
 			far.push_back(pc);
-			jumps.push_back(Instruction{ Op::B, 0, 0, 0, 0, Fixup::Block, target });
+			jumps.push_back(Instruction{ Op::B, 0, 0, 0, 0, Fixup::Block, false, target });
 		}
 		if (far.empty())
 			return;
@@ -468,7 +468,7 @@ void return_directly(Function& f)
 // A compare that sets only the flags, and the registers it reads.
 static bool flag_compare(const Instruction& ins, unsigned& count, unsigned regs[2])
 {
-	if (ins.fixup != Fixup::None)
+	if (ins.fixup != Fixup::None || ins.preserve_fenv)
 		return false;
 	switch (ins.op)
 	{
@@ -614,9 +614,9 @@ void drop_repeated_compares(Function& f)
 // below 32, and FCMP of two registers.
 static bool conditional_form(const Instruction& compare, unsigned condition, unsigned flags, Instruction& out)
 {
-	if (compare.fixup != Fixup::None || compare.rd != (compare.op == Op::Fcmp ? 0u : 31u))
+	if (compare.fixup != Fixup::None || compare.preserve_fenv || compare.rd != (compare.op == Op::Fcmp ? 0u : 31u))
 		return false;
-	out = Instruction{ compare.op, flags, compare.rn, compare.rm, condition << 12, Fixup::None, 0 };
+	out = Instruction{ compare.op, flags, compare.rn, compare.rm, condition << 12, Fixup::None, false, 0 };
 	switch (compare.op)
 	{
 	case Op::Subs:
@@ -822,7 +822,7 @@ void copy_short_tests(Function& f)
 			fall = static_cast<uint32_t>(f.labels.size());
 			f.labels.push_back(copy.test + copy.length + 1);
 		}
-		code.push_back(Instruction{ Op::B, 0, 0, 0, 0, Fixup::Block, fall });
+		code.push_back(Instruction{ Op::B, 0, 0, 0, 0, Fixup::Block, false, fall });
 	}
 	moved[n] = static_cast<uint32_t>(code.size());
 	f.code.swap(code);

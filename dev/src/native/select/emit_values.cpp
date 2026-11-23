@@ -328,12 +328,15 @@ void FunctionSelector::emit_inst(uint32_t id)
 		emit_binary(inst);
 		break;
 	case Opcode::Compare:
+	case Opcode::FenvCompare:
+	case Opcode::FenvCompareSignal:
 		emit_compare(inst);
 		break;
 	case Opcode::Select:
 		emit_select(inst);
 		break;
 	case Opcode::Convert:
+	case Opcode::FenvConvert:
 		emit_convert(inst);
 		break;
 	case Opcode::Vector:
@@ -1219,6 +1222,8 @@ void FunctionSelector::emit_compare(const Instruction& inst)
 		const Reg d = result_reg(inst);
 		Inst& mir = emit3(Op::FSetcc, kind, Operand::make_reg(d), a, b);
 		mir.sub = static_cast<uint8_t>(pred);
+		if (inst.op == Opcode::FenvCompareSignal)
+			mir.flags |= MF_SIGNALING_COMPARE;
 		finish_result(inst, d);
 		return;
 	}

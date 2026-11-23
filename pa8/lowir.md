@@ -2620,7 +2620,7 @@ PA29 later binds constraints, encodes instructions and observes native behavior.
 No C++ parser, register allocator or assembly encoder is required in PA8.
 
 
-## Floating arithmetic with environment access
+## Floating operations with environment access
 
 PA38 adds `%result = fenv_binary <operation> <float-type> <left>, <right>`.
 Use the same operands and result type as a scalar floating `binary`.
@@ -2629,3 +2629,13 @@ observes the rounding mode and may update floating-point status flags.
 Retain its execution and ordering when the result is unused or both
 operands are constant. Use the target's scalar floating instruction
 with the active rounding state when selecting machine code.
+
+Use `fenv_convert` with the operand and result types of a numerical
+floating conversion. Rounding conversions read the active rounding
+mode. Like arithmetic, conversions retain their status effects.
+
+`fenv_cmp` and `fenv_cmp_signal` use the operands, predicate, and
+`i64` result of a floating `cmp`. They have the same truth values.
+The signaling form is used for C relational operators and raises
+invalid when either operand is a quiet NaN. The quiet form is used
+for equality, inequality, and quiet comparison builtins.

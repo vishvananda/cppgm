@@ -85,7 +85,7 @@ void Selector::wide_convert(const lowir::Instruction& inst)
 bool Selector::wide_instruction(const lowir::Instruction& inst)
 {
 	const bool wide = inst.type.kind() == TypeKind::I128;
-	if (inst.op == Opcode::Convert && (wide || convert_source_type(inst).kind() == TypeKind::I128))
+	if (is_conversion(inst.op) && (wide || convert_source_type(inst).kind() == TypeKind::I128))
 	{
 		wide_convert(inst);
 		return true;
