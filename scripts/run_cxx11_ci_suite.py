@@ -101,6 +101,12 @@ def validate_manifest(manifest, root):
             raise ValueError('Unknown language expectation')
         if case['action'] in {'link', 'run'} and case['expect'] != 'accept':
             raise ValueError('A required diagnostic has no defined runtime oracle')
+        if 'diagnostic_contains' in case:
+            required = case['diagnostic_contains']
+            if (case['expect'] == 'accept' or not isinstance(required, dict) or not required or
+                    set(required) - {'cppgm', 'upstream'} or
+                    not all(isinstance(value, str) and value.strip() for value in required.values())):
+                raise ValueError('Invalid diagnostic oracle')
         if 'expected_output' in case:
             if case['action'] != 'run':
                 raise ValueError('Output oracle requires an execution action')
@@ -186,12 +192,17 @@ def run_case(arguments):
             return finish('compiler-timeout')
         if classification not in {'success', 'rejection'}:
             return finish('compiler-abnormal')
-        if case['expect'] == 'diagnostic':
-            return finish('passed' if diagnostic.strip() else 'diagnostic-missing')
-        if case['expect'] == 'reject':
-            if classification != 'rejection':
+        if case['expect'] != 'accept':
+            if case['expect'] == 'reject' and classification != 'rejection':
                 return finish('unexpected-acceptance')
-            return finish('passed' if diagnostic.strip() else 'diagnostic-missing')
+            if not diagnostic.strip():
+                return finish('diagnostic-missing')
+            required = case.get('diagnostic_contains', {}).get(role)
+            if required is not None:
+                result['diagnostic_contains'] = required
+                if required not in diagnostic:
+                    return finish('unexpected-diagnostic')
+            return finish('passed')
         if classification != 'success':
             return finish('compile-failed')
         if action in {'preprocess', 'syntax'}:

@@ -90,17 +90,32 @@ warning from becoming an error.
 [GCC C99 manifest](upstream-gcc-c99.json) · [GCC C11 manifest](upstream-gcc-c11.json)
 
 C99 through C17 require a diagnostic for universal character names
-below U+00A0 except U+0024, U+0040, and U+0060. The compiler diagnoses
-an escaped basic letter in an identifier and surrogate values in a
-literal. It currently accepts `"\\u0041"` and `#if '\\u0041' != 'A'`
-in pedantic C99, C11, and C17. GCC 15 and Clang 21 diagnose both
-forms in those modes and accept the C23 controls. Check the constraint
-in the literal escape path, before the spelling loses the escape's
-identity, and exercise direct literals and preprocessing. The pinned
-GCC low-value and surrogate cases need individual diagnostics to count
-as evidence for both requirements.
+below U+00A0 except U+0024, U+0040, and U+0060. cppgm applies the
+pedantic policy when it converts a literal, including in a controlling
+expression and in its `-E` post-token output. The lexer retains the fact
+through macro expansion. The PA38 probes check an expanded wide string,
+a concatenated piece, a short-circuit condition, stringization, skipped
+text, and suppression in system headers. GCC 15 and Clang 21 both reject
+the consumed escapes in pedantic C99 through C17. GCC 15 also agrees
+with the system-header policy. Its two pinned tests now verify distinct
+low-value and surrogate diagnostics, giving 24 of 24 reviewed GCC C17
+configurations. The positive PA38 fixtures run on Linux x86-64, AArch64
+under QEMU, and WASI, and cross-link on both Darwin architectures.
 [C99 6.4.3](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
-[C11 6.4.3](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
+[C11 6.4.3](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[PA38 literal](../pa38/tests/general/100-c99-universal-escape-literal-bad.t) ·
+[PA38 condition](../pa38/tests/general/100-c17-universal-escape-condition-bad.t) ·
+[Scaling](../docs/performance/c-frontend-scaling.md#c-literal-universal-character-names)
+
+The identifier rules have a separate edition gap. GCC 15 and Clang 21
+reject escaped U+01F6, U+0384, and U+200D in both identifier positions in
+pedantic C99 and GNU99. They accept those values in C11 and C17. They
+accept the Thai digit U+0E50 only after the first character in C99, and
+accept it in either position in C11 and C17. cppgm currently uses the
+C11 results in both editions. Keep the shared ranges for C11 and C17,
+and apply the C99 Annex D ranges on the non-ASCII identifier path.
+[C99 Annex D](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
+[C11 Annex D](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
 
 ## Pinned suite receipts
 

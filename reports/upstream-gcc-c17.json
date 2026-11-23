@@ -7,10 +7,44 @@
   "coverage": "Reviewed gcc C17 language configurations on Linux x86-64.",
   "limitations": [
     "Checks the listed compile, diagnostic or execution outcomes.",
-    "Upstream diagnostic wording and compiler-specific intermediate forms are ungraded."
+    "Compiler-specific intermediate forms are ungraded. A diagnostic substring is required only when a case supplies role-specific text to identify the constraint."
   ],
   "exclusions": [],
   "cases": [
+    {
+      "id": "c17-ucn-low-values",
+      "path": "gcc/testsuite/gcc.dg/cpp/c17-ucn-1.c",
+      "sha256": "7a8878343ad52c230da80edec9ada3add80bbf9a6e426955bba269f93d0aa63c",
+      "dialect": "c17",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "diagnostic_contains": {
+        "cppgm": "a universal character name for a basic or control character",
+        "upstream": "is not a valid universal character name before C23"
+      },
+      "obligation": "C17 6.4.3 diagnostic for a low universal character name before reaching a surrogate case"
+    },
+    {
+      "id": "c17-ucn-surrogates",
+      "path": "gcc/testsuite/gcc.dg/cpp/c17-ucn-3.c",
+      "sha256": "293c1531135786a7d2e311f053bd680453f034f9a0579110bdcba9b2926fd86b",
+      "dialect": "c17",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [],
+      "upstream_flags": [],
+      "diagnostic_contains": {
+        "cppgm": "invalid universal character value",
+        "upstream": "\\ud800 is not a valid universal character"
+      },
+      "obligation": "C17 6.4.3 diagnostic for a surrogate universal character name with pedantic diagnostics disabled"
+    },
     {
       "id": "c11-generic-1",
       "path": "gcc/testsuite/gcc.dg/c11-generic-1.c",

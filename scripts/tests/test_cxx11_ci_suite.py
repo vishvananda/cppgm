@@ -274,6 +274,23 @@ class Suite(unittest.TestCase):
     def test_missing_required_diagnostic_fails(self):
         self.assertEqual(self.run_one(self.case(expect='diagnostic'))['status'], 'diagnostic-missing')
 
+    def test_required_diagnostic_can_identify_the_constraint(self):
+        case = self.case('REJECT', expect='reject')
+        case['diagnostic_contains'] = {'cppgm': 'different diagnostic', 'upstream': 'unrelated diagnostic'}
+        manifest = dict(schema=1, suite='gcc', cases=[case])
+        validate_manifest(manifest, self.root)
+        result = self.run_one(case)
+        self.assertEqual(result['status'], 'passed')
+        self.assertEqual(result['diagnostic_contains'], 'different diagnostic')
+        other = self.root / 'other'
+        other.mkdir()
+        result = run_case((case, str(self.root), str(self.compiler), str(self.compiler),
+                           'upstream', str(other)))
+        self.assertEqual(result['status'], 'unexpected-diagnostic')
+        case['diagnostic_contains']['upstream'] = ' '
+        with self.assertRaisesRegex(ValueError, 'Invalid diagnostic oracle'):
+            validate_manifest(manifest, self.root)
+
     def test_runtime_obligation_is_executed(self):
         result = self.run_one(self.case('RUNTIME_FAIL', action='run'))
         self.assertEqual(result['status'], 'runtime-failed')
