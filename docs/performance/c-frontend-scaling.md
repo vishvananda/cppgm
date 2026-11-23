@@ -892,3 +892,52 @@ instructions.
 | SQLite | BAAB | 16,507,872,304 / 16,507,442,486 / 16,507,775,372 / 16,507,603,416 |
 
 [Input generation](../../benchmarks/frontend_scaling/README.md#c)
+
+## C unevaluated array type queries
+
+The compatibility and alignment queries check each written bound as an
+expression. Nonconstant bounds in the queried declarator use the interned
+variable array shape without capturing an extent or allocating an
+evaluation record. The shared compatibility check still distinguishes
+different fixed extents and nested qualification.
+
+Counts are median millions of retired user-space instructions from three
+C11 `-pedantic-errors -fsyntax-only` runs on Linux x86-64, using GCC 15
+host builds and pinned to CPU 71. The parent is `9c42c1c8c`, which accepts
+the fixed-bound control. All three builds of each input size emitted
+identical `-O0` objects.
+
+| Functions | Parent fixed bound | New fixed bound | New variable bound |
+| ---: | ---: | ---: | ---: |
+| 128 | 8.225 | 8.225 | 8.386 |
+| 256 | 12.605 | 12.608 | 12.926 |
+| 512 | 21.412 | 21.419 | 22.062 |
+| 1024 | 38.916 | 38.951 | 40.210 |
+| 2048 | 75.322 | 75.310 | 77.926 |
+| 4096 | 150.929 | 150.991 | 156.186 |
+
+The final doubling added 2.08 times the previous interval's work for
+the variable bounds. At 4096 functions they use 3.44% more instructions
+than the equivalent fixed-bound query. The median peak RSS is 18,524 KiB
+for the variable bounds and 18,520 KiB for the fixed control.
+
+The frozen C++ input at `-O3` and SQLite at `-std=gnu17 -O2` emitted
+identical objects in every trial. A/A task-clock ranges were 26.9% and
+4.0%. The C++ task-clock change reversed sign across paired blocks.
+The comparison uses retired instructions.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0013% | +0.0087% | +0.0078% |
+| SQLite `sqlite3.c` | 0.0044% | +0.0029% | +0.0034% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,045,039,228 / 9,045,012,294 / 9,045,028,635 / 9,045,130,400 |
+| C++ | ABBA | 9,045,101,333 / 9,046,001,213 / 9,045,972,532 / 9,045,294,406 |
+| C++ | BAAB | 9,045,933,279 / 9,045,262,486 / 9,045,140,323 / 9,045,885,726 |
+| SQLite | A/A | 16,508,408,833 / 16,507,680,434 / 16,507,832,649 / 16,507,963,089 |
+| SQLite | ABBA | 16,507,843,591 / 16,508,538,728 / 16,507,882,601 / 16,507,636,515 |
+| SQLite | BAAB | 16,508,076,522 / 16,507,689,662 / 16,507,431,439 / 16,508,158,967 |
+
+[Input generation](../../benchmarks/frontend_scaling/README.md#c)

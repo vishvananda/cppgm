@@ -41,9 +41,11 @@ types, qualifier adjustment in identifier-list definitions, and atomic
 bracket qualifiers. `restrict` is now part of C type qualification and
 array parameter adjustment. The VLA cases now cover prototype-scope type
 names, atomic pointer type specifiers, and function types derived from
-variably modified results. Continue with the VLA qualification matrix,
-then qualify the other C11 optional features. Alongside target qualification, add
-explicit C environment selection for native targets. Expand the pinned
+variably modified results. File- and block-scope type queries now cover
+unevaluated runtime bounds. The Intel macOS and Apple Silicon workflows
+have a PA38 native driver slice. Complete native Darwin qualification and
+qualify the other C11 optional features. Alongside target qualification,
+add explicit C environment selection for native targets. Expand the pinned
 C99, C11, and C17 manifests from the uncovered clauses. Keep
 the existing VLA, generic selection, and sparse initializer tests in the
 fast iteration loop for changes to their shared analysis paths.
@@ -221,7 +223,8 @@ cleanup on each exit edge. Audit standard diagnostics independently from
 GNU VLA extensions. Include the PA38 prototype-scope `[*]` cases and their
 definition-site diagnostics, and the cases for atomic and function-pointer
 types with runtime bounds. Test compatible fixed and runtime bounds with
-defined inputs.
+defined inputs. Include the file-scope anonymous type-name cases for
+alignment, fixed-size `sizeof`, and GNU type compatibility.
 Keep the current declaration's written bounds for evaluation and
 its adjusted type for compatibility. Later, apply the distinct C23 rule
 for variably modified types and automatic-storage VLA objects. Emit each

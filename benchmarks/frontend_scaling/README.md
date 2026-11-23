@@ -103,6 +103,11 @@ pointer parameter through the C11 type specifier or pointer qualifier.
 Measure both pairs with C11 syntax-only mode and compare the `-O0` objects
 for the corresponding forms.
 
+`c-vla-type-queries` and `c-fixed-array-type-queries` apply
+`__builtin_types_compatible_p` to array type names with runtime or
+fixed bounds. Measure C11 syntax-only cost by successive doublings and
+compare the emitted `-O0` objects.
+
 `c-member-alignment-queries` grows one record and queries each member once.
 Measure in C11 syntax-only mode. The first query can require the record's
 layout. Later queries read the computed alignment of their members.

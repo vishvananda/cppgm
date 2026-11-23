@@ -128,6 +128,11 @@ def c_vla_atomic_parameters(size, type_specifier):
         print(f'unsigned long f_{index}(int n, {param}) {{ return sizeof *p; }}')
 
 
+def c_array_type_queries(size, bound):
+    for index in range(size):
+        print(f'int f_{index}(int n) {{ return __builtin_types_compatible_p(int[{bound}], int[4]); }}')
+
+
 def c_identifier_list_parameters(size):
     print('int sample(' + ', '.join(f'arg{index}' for index in range(size)) + ')')
     for index in reversed(range(size)):
@@ -242,6 +247,7 @@ def main():
                                         'c-identifier-list-parameters', 'c-restrict-parameters',
                                         'c-vla-prototype-type-names', 'c-fixed-prototype-type-names',
                                         'c-vla-atomic-type', 'c-vla-atomic-qualifier',
+                                        'c-vla-type-queries', 'c-fixed-array-type-queries',
                                         'c-vla-dimensions', 'c-vla-extent-uses',
                                         'c-typeof-shared-bounds', 'c-designated-overwrites', 'c-designated-sparse',
                                         *EDITIONS])
@@ -320,6 +326,9 @@ def main():
         return
     if args.case in ('c-vla-atomic-type', 'c-vla-atomic-qualifier'):
         c_vla_atomic_parameters(args.size, type_specifier=args.case == 'c-vla-atomic-type')
+        return
+    if args.case in ('c-vla-type-queries', 'c-fixed-array-type-queries'):
+        c_array_type_queries(args.size, 'n' if args.case == 'c-vla-type-queries' else '4')
         return
     if args.case == 'c-vla-dimensions':
         c_vla_dimensions(args.size)

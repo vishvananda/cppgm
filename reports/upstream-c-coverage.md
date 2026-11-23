@@ -191,8 +191,7 @@ advisory warning. Clang 21 rejects them.
 The GCC C99 manifest includes `vla-5` for prototype compatibility,
 `vla-8` for jumping past a variably modified function pointer, and
 `vla-13` at `-O0` and `-O2` for bound evaluation in casts and pointer
-compound literals. GNU `__builtin_types_compatible_p` still needs coverage
-for variably modified type operands. [GCC C99 manifest](upstream-gcc-c99.json) ·
+compound literals. [GCC C99 manifest](upstream-gcc-c99.json) ·
 [WG14 DR 341](https://www.open-std.org/jtc1/sc22/wg14/issues/c99/issue0341.html)
 
 The VLA target replay covers eleven positive PA38 inputs in C99 and
@@ -208,6 +207,20 @@ the definition and a fixed array pointer parameter in the caller. The
 caller and callee compile with cppgm and Clang 21 in both directions at
 `-O0` and `-O2`. It runs on both Linux targets and both Wasm profiles and
 cross-links for both Darwin architectures.
+
+The new PA38 type-query case covers block- and file-scope type names with
+runtime bounds, including bounds inside a nested query. GCC 15 and Clang
+21 agree on the positive C11 fixture and the diagnostic for `[*]` outside
+prototype scope. The positive and negative cases pass at `-O0` and
+`-O2` in C11 and C17 across all six targets, with native or emulated
+execution on Linux and both Wasm profiles. On both Darwin targets the
+positive case cross-links with the cppgm and LLVM linkers.
+
+The existing Intel macOS and Apple Silicon workflows run an eight-program
+PA38 driver slice at `-O0` and `-O2`. It checks direct compilation and
+linking, object linkage with cppgm and the host driver, and the LowIR
+backend path. Native workflow results and the full Darwin qualification
+remain pending. [PA38 type queries](../pa38/tests/general/500-types-compatible-vla.t)
 
 ## Restricted pointer types
 
