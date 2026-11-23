@@ -114,6 +114,11 @@ accept the Thai digit U+0E50 only after the first character in C99, and
 accept it in either position in C11 and C17. cppgm currently uses the
 C11 results in both editions. Keep the shared ranges for C11 and C17,
 and apply the C99 Annex D ranges on the non-ASCII identifier path.
+The C99 ranges reduce to 245 disjoint allowed intervals and 14 digit
+intervals. Clang 21 accepts all tested allowed interval endpoints.
+GCC 15 rejects initial U+0E4F even though it is in the allowed Thai
+range outside the digit intervals. Use the published ranges for this
+boundary.
 [C99 Annex D](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
 [C11 Annex D](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
 
@@ -160,7 +165,7 @@ The header-independent `__builtin_tgmath` fixtures pass at both optimization
 levels on Linux x86-64, Linux AArch64 under QEMU and bare Wasm, pass the
 PA38 WASI lane, and cross-link as Mach-O for both macOS targets. The pinned
 GCC C17 lane adds six runtime configurations and two rejection cases for
-the builtin. The full reviewed GCC C17 set passes 22 of 22 configurations.
+the builtin.
 [PA38 selection fixture](../pa38/tests/general/500-c-type-generic-math.t) ·
 [PA38 extended-type fixture](../pa38/tests/general/500-c-type-generic-math-extended.t) ·
 [GCC C17 manifest](upstream-gcc-c17.json)
