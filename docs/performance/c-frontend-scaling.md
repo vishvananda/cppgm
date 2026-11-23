@@ -691,3 +691,51 @@ immutable binaries ran on the same core. A/A task-clock variation was
 | SQLite | BAAB | 16,508,114,557 / 16,514,999,004 / 16,514,876,467 / 16,508,189,873 |
 
 [Input generation](../../benchmarks/frontend_scaling/README.md#c)
+
+## C alignment agreement on linked objects
+
+Alignment agreement uses one sparse record per affected linked object.
+A redeclaration updates two distinct maxima until the initialized definition
+is seen. Both the forward and retrospective checks use the same recorded
+requests and query natural layout only on a potential disagreement. This
+bounds agreement work per redeclaration without retaining the chain.
+
+The table compares immutable builds of `e266cb4e5` and `8a9bbece2` on
+Linux x86-64. Counts are median millions of retired user-space
+instructions from three C11 `-pedantic-errors -fsyntax-only` runs on the
+same core. Every size in both series emitted byte-identical `-O0` objects.
+
+| Declarations | One object before | One object after | Distinct definitions before | Distinct definitions after |
+| ---: | ---: | ---: | ---: | ---: |
+| 128 | 5.443 | 5.460 | 5.804 | 5.839 |
+| 256 | 7.024 | 7.057 | 7.792 | 7.861 |
+| 512 | 10.185 | 10.247 | 12.022 | 12.156 |
+| 1024 | 16.501 | 16.624 | 19.973 | 20.237 |
+| 2048 | 29.130 | 29.374 | 35.678 | 36.198 |
+| 4096 | 54.388 | 54.873 | 66.673 | 67.702 |
+
+The final doubling added 2.00 times the previous interval's work for
+one object and 1.97 times for distinct definitions. At 4096 declarations
+the change added 0.89% and 1.54% instructions respectively. Median peak
+RSS went from 8,624 to 8,664 KiB and 11,448 to 11,500 KiB.
+
+The frozen C++ input at `-O3` and SQLite 3.50.4 in GNU17 mode at `-O2`
+emitted identical objects for all observations. A/A task-clock ranges
+were 7.3% and 3.1%. The C++ block timings also drifted during the run.
+The comparison below uses retired instructions.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0025% | +0.0056% | +0.0053% |
+| SQLite `sqlite3.c` | 0.0020% | +0.0023% | +0.0008% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,042,345,319 / 9,042,567,496 / 9,042,496,868 / 9,042,363,124 |
+| C++ | ABBA | 9,042,498,116 / 9,043,135,904 / 9,042,989,653 / 9,042,612,328 |
+| C++ | BAAB | 9,042,834,578 / 9,042,558,854 / 9,042,429,483 / 9,043,121,825 |
+| SQLite | A/A | 16,508,304,761 / 16,508,048,248 / 16,508,324,429 / 16,507,998,897 |
+| SQLite | ABBA | 16,508,705,603 / 16,508,550,820 / 16,509,097,466 / 16,508,195,618 |
+| SQLite | BAAB | 16,508,302,145 / 16,508,128,939 / 16,508,437,091 / 16,508,521,167 |
+
+[Input generation](../../benchmarks/frontend_scaling/README.md#c)

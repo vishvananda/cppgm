@@ -36,9 +36,10 @@ element alignment, and GNU queries read the declared alignment of objects
 and members. In pedantic modes, cppgm now checks alignment agreement with
 explicit definitions in the same translation unit. Extended alignment
 limits still need separate qualification by storage duration and ABI.
-Continue with C11 optional-feature qualification, starting with variably
-modified types and VLA objects. Expand the pinned C99, C11, and C17
-manifests from the uncovered clauses. Keep
+Continue with VLA objects and variably modified types, then qualify the
+other C11 optional features. In parallel with target qualification, add
+explicit C environment selection for native targets. Expand the pinned
+C99, C11, and C17 manifests from the uncovered clauses. Keep
 the existing VLA, generic selection, and sparse initializer tests in the
 fast iteration loop for changes to their shared analysis paths.
 
@@ -212,9 +213,12 @@ declarations, type-names and parameters with the driver, at `-O0` and
 `-O2`, on every advertised target. Include native mixed-compiler calls
 where parameter adjustment crosses an ABI boundary and check storage
 cleanup on each exit edge. Audit standard diagnostics independently from
-GNU VLA extensions. Later, apply the distinct C23 rule for variably
-modified types and automatic-storage VLA objects. Emit each optional
-feature macro from the resolved edition and target configuration before
+GNU VLA extensions. Pair prototype-scope `[*]` with the definition-site
+constraint, and test compatible fixed and runtime bounds with defined
+inputs. Keep the current declaration's written bounds for evaluation and
+its adjusted type for compatibility. Later, apply the distinct C23 rule
+for variably modified types and automatic-storage VLA objects. Emit each
+optional feature macro from the resolved edition and target configuration before
 preprocessing starts, and exercise that configuration through object
 emission and runtime before changing what it advertises.
 
@@ -256,6 +260,16 @@ chains independently.
 
 ## 3. Qualify the hosted and freestanding targets
 
+- Complete C environment selection in the driver. cppgm currently rejects
+  `-ffreestanding` and chooses `__STDC_HOSTED__` from the target profile.
+  Preserve the default of zero for bare Wasm and one for the native and
+  WASI profiles. Support explicit `-ffreestanding` and `-fhosted` where the
+  target supports the selected profile. Resolve that choice once and use
+  it for preprocessing, language rules for `main`, compiler-generated
+  helper calls and the entry point contract. Keep header search and link
+  driver flags independent. Pair macro tests with a translation unit that
+  compiles both ways and a link check that verifies the helper and startup
+  contract for each supported profile.
 - On Linux x86-64 and AArch64, validate ELF objects against the pinned native
   toolchains and glibc. Add a musl header and runtime replay to expose
   assumptions coupled to one libc. On Intel macOS and Apple Silicon, validate

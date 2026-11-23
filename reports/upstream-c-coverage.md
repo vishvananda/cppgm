@@ -133,6 +133,21 @@ pedantic C17. The type-name checks now also cover casts, compound literals,
 and GNU `typeof`. Further compatibility rules and hosted target ABI
 qualification remain open.
 
+A replay of twelve PA38 C17 runtime cases passed at `-O0` and `-O2` on
+Linux x86-64, AArch64 under QEMU, and WASI under Wasmtime. It covers scope
+exits, variably modified type-names, bound capture, parameters, and a C-only
+link across translation units. Both Darwin architectures also compiled and
+linked all twelve cases at both levels. Native Darwin execution remains
+pending. A separate adjusted-parameter probe links cppgm and Clang 21
+objects in both caller and callee directions for C99, C11 and C17 at both
+optimization levels. It runs on Linux x86-64, AArch64 under QEMU, and bare
+Wasm under Wasmtime, and cross-links for both Darwin architectures.
+
+Preprocessing reports `__STDC_HOSTED__` as zero on bare Wasm and
+one on WASI and the native targets. On this branch an explicit
+`-ffreestanding` request is rejected, so native freestanding mode still
+needs driver work. These checks leave `__STDC_NO_VLA__` as currently defined.
+
 | C11 clause | Requirement | Current evidence |
 | --- | --- | --- |
 | 6.2.4p7, 6.7.6.2p5 | A VLA retains its size for its lifetime and releases automatic storage when its scope ends. | [Single-dimension VLA across a call](../pa38/tests/general/500-vla-call-c-unwind.t), [mixed and fully runtime dimensions](../pa38/tests/general/300-variable-array-multidimensional.t), and a C-only link of c-testsuite `00207.c`. |
