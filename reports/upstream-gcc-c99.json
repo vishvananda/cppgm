@@ -12,6 +12,21 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "c99-digraphs",
+      "path": "gcc/testsuite/gcc.dg/cpp/digraphs.c",
+      "sha256": "3401641dfe94eac3090fbefea70670dfcddd49bd1a690fbee33f1e3afff8f17e",
+      "dialect": "c99",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "C99 digraph punctuators, macro operators and directives"
+    },
+    {
       "id": "c99-bool-1",
       "path": "gcc/testsuite/gcc.dg/c99-bool-1.c",
       "sha256": "ff0a641f3ab9ac4840ae81f62129986c47ed17265de79bc8902fed3cc0a03cfb",

@@ -78,6 +78,30 @@ open for these editions.
 [WG14 N3220](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
 [GCC edition options](https://gcc.gnu.org/onlinedocs/gcc/Standards.html)
 
+## Lexical translation and preprocessing
+
+The pinned GCC digraph and trigraph runtime cases pass in pedantic C99
+and C11 respectively. Reduced C99, C11, and C17 controls also pass for
+trigraph replacement before line splicing, digraph token pasting, UTF-8
+and escaped spellings of the same identifier, and preprocessing-number
+maximal munch. GCC 15 and Clang 21 agree on the outcomes. The Clang
+line-comment control uses `-Wno-comment` to keep its spliced-comment
+warning from becoming an error.
+[GCC C99 manifest](upstream-gcc-c99.json) · [GCC C11 manifest](upstream-gcc-c11.json)
+
+C99 through C17 require a diagnostic for universal character names
+below U+00A0 except U+0024, U+0040, and U+0060. The compiler diagnoses
+an escaped basic letter in an identifier and surrogate values in a
+literal. It currently accepts `"\\u0041"` and `#if '\\u0041' != 'A'`
+in pedantic C99, C11, and C17. GCC 15 and Clang 21 diagnose both
+forms in those modes and accept the C23 controls. Check the constraint
+in the literal escape path, before the spelling loses the escape's
+identity, and exercise direct literals and preprocessing. The pinned
+GCC low-value and surrogate cases need individual diagnostics to count
+as evidence for both requirements.
+[C99 6.4.3](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
+[C11 6.4.3](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
+
 ## Pinned suite receipts
 
 - **c-testsuite** inventories 220 programs in two dialects and at two

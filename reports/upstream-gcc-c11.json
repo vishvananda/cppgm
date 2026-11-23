@@ -12,6 +12,21 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "c11-trigraphs",
+      "path": "gcc/testsuite/gcc.dg/cpp/trigraphs.c",
+      "sha256": "2122e526d79ccd1cf156d20eaf5dd8464328ecf816c08a18a1b648649a28cf5b",
+      "dialect": "c11",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "C11 trigraph replacement before tokenization, as exercised by GCC's c11-trigraphs-1.c wrapper"
+    },
+    {
       "id": "c11-generic-1",
       "path": "gcc/testsuite/gcc.dg/c11-generic-1.c",
       "sha256": "12c7397c91027e2d885830bee32694ba75f96a2914840433b9b720f79216a27a",
