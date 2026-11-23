@@ -493,6 +493,9 @@ bool ConstantInterpreter::root_type(const ConstPlace& place, const Type*& type, 
 		type = value->type;
 		return true;
 	}
+	case RootKind::CompoundLiteral:
+		type = static_cast<const syntax::FunctionalCastExpr*>(place.entity)->facts->type;
+		return true;
 	case RootKind::Function:
 		return fail(location, "a function is not an object");
 	case RootKind::TypeInfo:
@@ -1523,6 +1526,21 @@ bool ConstantInterpreter::advance(ConstValue& pointer, int64_t count, uint32_t l
 		return true;
 	if (size == 0)
 		return fail(location, "arithmetic on a pointer to an incomplete type");
+	if (c_static_initializer_)
+	{
+		// A C address constant keeps a symbol and a byte offset. The
+		// definition may complete an array in another translation unit.
+		uint64_t bits = static_cast<uint64_t>(pointer.address.offset) + static_cast<uint64_t>(count) * size;
+		if (pointer.root == RootKind::AbsoluteAddress)
+		{
+			if (target_model::data_layout(analyzer_.types_.target()).pointer_bytes == 4)
+				bits = static_cast<uint32_t>(bits);
+			if (bits == 0)
+				pointer.root = RootKind::Null;
+		}
+		pointer.address.offset = static_cast<int64_t>(bits);
+		return true;
+	}
 	// The array of the element the pointer designates; a pointer past an
 	// array's end that of the element before it.
 	ConstPlace place = PlaceOf(pointer, element);

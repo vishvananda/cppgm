@@ -49,6 +49,7 @@ public:
 	// conversion to bool).
 	bool evaluate(const syntax::Expr& expr, bool converted, ConstValue& out);
 	bool evaluate_c_constant(const syntax::Expr& expr, bool converted, ConstValue& out);
+	const ConstValue* evaluate_c_initializer(const syntax::Expr& expr);
 	bool evaluate_designation(const syntax::Expr& expr, ConstValue& out);
 	// A C++20 immediate invocation, including object, reference and void results.
 	const ConstValue* evaluate_immediate(const syntax::Expr& expr);
@@ -473,6 +474,8 @@ private:
 	bool checking_destruction_ = false;
 	// C 6.6p3 permits comma operators only on an unevaluated path.
 	bool c_constant_expression_ = false;
+	bool c_static_initializer_ = false;
+	bool c_static_type_bounds(const syntax::Expr& expr);
 	// GNU constant_p conditionals permit foldable reference casts in the
 	// selected expression. A called function starts its own strict context.
 	bool folding_ = false;

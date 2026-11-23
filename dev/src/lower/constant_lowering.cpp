@@ -246,6 +246,12 @@ bool ProgramLowering::constant_item(
 		case sema::RootKind::Literal:
 			item.address = string_literal(*static_cast<const syntax::LiteralExpr*>(value.address.entity));
 			break;
+		case sema::RootKind::CompoundLiteral:
+			item.address = compound_literal(*static_cast<const syntax::FunctionalCastExpr*>(value.address.entity));
+			break;
+		case sema::RootKind::LabelAddress:
+			item.address = code_label(*static_cast<const syntax::LabelAddressExpr*>(value.address.entity));
+			break;
 		case sema::RootKind::Temporary:
 			item.address = constant_temporary(static_cast<const sema::ConstValue*>(value.address.entity), location);
 			if (item.address == lowir::kNoId)

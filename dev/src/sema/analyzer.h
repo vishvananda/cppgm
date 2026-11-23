@@ -146,6 +146,7 @@ public:
 	// no surrounding object or call frame. Cache successful values and
 	// failures so static aggregate emission need not evaluate a whole array.
 	const ConstValue* constant_scalar_initializer(const syntax::Expr& expr);
+	const ConstValue* checked_c_static_value(const syntax::Expr& expr) const;
 	// Whether a function's exception-specification is non-throwing
 	// (15.4p12), a noexcept-specification's expression evaluated on first
 	// need.
@@ -511,6 +512,9 @@ private:
 	void check_parameter_redeclaration(const Identifier* name, Scope* scope, uint32_t location);
 	void check_type_name_conflict(Scope* target, const Identifier* name, const Entity* entity, uint32_t location);
 	void record_constant_initializer(VariableEntity* variable, const syntax::Initializer* initializer, Scope* scope);
+	void check_c_static_initializer(const syntax::Expr& expr);
+	void c_initialize_compound_literal(const syntax::FunctionalCastExpr& expr, const Type* type, Scope* scope);
+	static bool c_integer_constant_operands(const syntax::Expr& expr);
 	void record_fixed_class_initializer(VariableEntity* variable, const syntax::Initializer* initializer, Scope* scope);
 	const Type* complete_array_from_initializer(const Type* type, const syntax::Initializer* initializer, bool typed);
 
@@ -2846,6 +2850,8 @@ private:
 	PointerMap evaluated_index_;
 	std::vector<const ConstValue*> evaluated_;
 	PointerMap scalar_initializer_index_;
+	PointerMap c_static_value_index_;
+	std::vector<const ConstValue*> c_static_values_;
 	std::vector<const ConstValue*> scalar_initializers_;
 	// The references read_through_storage holds.
 	PointerMap stored_references_;

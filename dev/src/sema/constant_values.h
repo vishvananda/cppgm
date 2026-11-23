@@ -79,7 +79,14 @@ enum class RootKind : uint8_t
 	// but its stored values and address are not constant results.
 	Unknown,
 	// Dynamic storage created and released within a C++20 evaluation.
-	Allocation
+	Allocation,
+	// A C file-scope compound literal, identified by its expression.
+	CompoundLiteral,
+	// A C pointer formed by casting a nonzero integer constant. Its bits
+	// are held in the address offset without a storage entity.
+	AbsoluteAddress,
+	// GNU &&label, identified by its already bound expression.
+	LabelAddress
 };
 
 // ConstValue::flags.

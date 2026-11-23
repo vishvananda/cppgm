@@ -2,9 +2,53 @@
 
 #include "lowir/literals.h"
 #include "sema/aggregates.h"
+#include "sema/constant_values.h"
 #include "sema/c_initializer.h"
 
 namespace lower {
+
+bool ProgramLowering::static_c_value(const sema::ConstValue& value, StaticValue& out, uint32_t location)
+{
+	out = StaticValue();
+	switch (value.kind)
+	{
+	case sema::ValueKind::Integer:
+		out.kind = StaticValue::Kind::Integer;
+		out.bits = value.bits;
+		out.high = value.high;
+		return true;
+	case sema::ValueKind::Floating:
+		out.kind = StaticValue::Kind::Floating;
+		out.floating = value.floating;
+		return true;
+	case sema::ValueKind::Binary128:
+		out.kind = StaticValue::Kind::Soft;
+		out.bits = value.bits;
+		out.high = value.high;
+		return true;
+	case sema::ValueKind::Pointer:
+		if (value.root == sema::RootKind::Null)
+		{
+			out.kind = StaticValue::Kind::Null;
+			return true;
+		}
+		if (value.root == sema::RootKind::AbsoluteAddress)
+		{
+			out.kind = StaticValue::Kind::Integer;
+			out.bits = static_cast<uint64_t>(value.address.offset);
+			return true;
+		}
+		lowir::DataItem item;
+		if (!constant_item(value.type, value, item, location))
+			return false;
+		out.kind = StaticValue::Kind::Address;
+		out.symbol = item.address;
+		out.offset = item.amount;
+		return true;
+	default:
+		return false;
+	}
+}
 
 bool ProgramLowering::static_c_initializer(const sema::CInitializer& plan, StaticData& out)
 {

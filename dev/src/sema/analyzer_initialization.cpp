@@ -353,6 +353,8 @@ void Analyzer::initialize_variable(
 		flexible_class_ = ClassOf(type);
 	}
 	variable->constructor = initialize_object(type, *initializer, scope, location);
+	if (c_static_initializer_ && !failed() && initializer->expression != nullptr)
+		check_c_static_initializer(*initializer->expression);
 	c_static_initializer_ = saved_static;
 	flexible_list_ = saved_flexible;
 	flexible_class_ = saved_class;

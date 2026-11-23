@@ -249,6 +249,24 @@
         "-pedantic-errors"
       ],
       "obligation": "An unused arithmetic branch can contain an operation that overflows if evaluated"
+    },
+    {
+      "id": "c99-const-expr-11",
+      "path": "gcc/testsuite/gcc.dg/c99-const-expr-11.c",
+      "sha256": "72f55fe4699cdf4f996742ab547fa168d932c783137034853e1225334ef920fa",
+      "dialect": "c99",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Evaluated side effects in a variably modified cast prevent a static address constant",
+      "adaptations": [
+        "Checks rejection of the mixed source. PA38 also checks independent acceptance of a bound without an evaluated side effect."
+      ]
     }
   ]
 }

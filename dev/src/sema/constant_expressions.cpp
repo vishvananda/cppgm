@@ -365,6 +365,16 @@ bool ConstantInterpreter::rvalue(const syntax::Expr& expr, ConstValue& out)
 		return vector_lane(static_cast<const syntax::SubscriptExpr&>(*e), nullptr, &out);
 	case syntax::ExprKind::Literal:
 		return literal(static_cast<const syntax::LiteralExpr&>(*e), out);
+	case syntax::ExprKind::LabelAddress:
+	{
+		if (!c_static_initializer_)
+			return fail(e->location, "a label's address outside static initialization");
+		ConstPlace place = ConstPlace();
+		place.root = RootKind::LabelAddress;
+		place.entity = e;
+		out = PointerTo(place, facts->type);
+		return true;
+	}
 	case syntax::ExprKind::KeywordLiteral:
 	{
 		const TokenKind keyword = static_cast<const syntax::KeywordLiteralExpr&>(*e).keyword;
@@ -756,6 +766,17 @@ bool ConstantInterpreter::convert_scalar(ConstValue& value, const Type* to, uint
 			value.type = to;
 			return true;
 		}
+		if (c_static_initializer_ && to->kind == TypeKind::Pointer && value.kind == ValueKind::Integer)
+		{
+			uint64_t bits = value.bits;
+			if (target_model::data_layout(analyzer_.types_.target()).pointer_bytes == 4)
+				bits = static_cast<uint32_t>(bits);
+			ConstPlace place = ConstPlace();
+			place.root = bits == 0 ? RootKind::Null : RootKind::AbsoluteAddress;
+			place.offset = static_cast<int64_t>(bits);
+			value = PointerTo(place, to);
+			return true;
+		}
 		return fail(location, "an integer converted to a pointer in a constant expression");
 	}
 	return fail(location, "a conversion outside constant evaluation");
@@ -911,6 +932,8 @@ bool ConstantInterpreter::glvalue(const syntax::Expr& expr, ConstPlace& out)
 		}
 		if (binary_expr.op != TokenKind::OP_COMMA)
 			break;
+		if (c_constant_expression_)
+			return fail(e->location, "an evaluated comma operator in a C constant expression");
 		return discard(*binary_expr.left) && glvalue(*binary_expr.right, out);
 	}
 	case syntax::ExprKind::Subscript:
@@ -950,6 +973,14 @@ bool ConstantInterpreter::glvalue(const syntax::Expr& expr, ConstPlace& out)
 	case syntax::ExprKind::FunctionalCast:
 	{
 		const syntax::FunctionalCastExpr& functional = static_cast<const syntax::FunctionalCastExpr&>(*e);
+		if (c_static_initializer_ && functional.compound_static)
+		{
+			out = ConstPlace();
+			out.root = RootKind::CompoundLiteral;
+			out.entity = e;
+			out.type = facts->type;
+			return true;
+		}
 		if (functional.braced != nullptr && (facts->flags & kReferenceCast) != 0)
 			return reference_cast(*e, *functional.braced, out);
 		if (functional.arguments.size == 1)
@@ -1205,8 +1236,12 @@ bool ConstantInterpreter::discard(const syntax::Expr& expr)
 	}
 	if (e->kind == syntax::ExprKind::Binary && static_cast<const syntax::BinaryExpr*>(e)->op == TokenKind::OP_COMMA &&
 		(facts->flags & kOperatorCall) == 0)
+	{
+		if (c_constant_expression_)
+			return fail(e->location, "an evaluated comma operator in a C constant expression");
 		return discard(*static_cast<const syntax::BinaryExpr*>(e)->left) &&
 			discard(*static_cast<const syntax::BinaryExpr*>(e)->right);
+	}
 	if (IsVoid(facts->type))
 		return fail(e->location, "a void expression outside constant evaluation");
 	if (facts->category != ValueCategory::PRValue && facts->type->kind != TypeKind::Function)
@@ -1383,6 +1418,11 @@ bool ConstantInterpreter::pointer_arithmetic(
 	TypeTable& types = analyzer_.types_;
 	const Type* left_type = Decayed(types, WithoutParentheses(expr.left)->facts->type);
 	const Type* right_type = Decayed(types, WithoutParentheses(expr.right)->facts->type);
+	const bool left_pointer = IsPointer(left_type);
+	const bool right_pointer = IsPointer(right_type);
+	if (c_static_initializer_ && left_pointer != right_pointer &&
+		!analyzer_.c_integer_constant_operands(left_pointer ? *expr.right : *expr.left))
+		return fail(expr.location, "an offset in a C address constant must be an integer constant expression");
 	ConstValue left, right;
 	if (left_value != nullptr)
 		left = *left_value;
@@ -1390,7 +1430,7 @@ bool ConstantInterpreter::pointer_arithmetic(
 		return false;
 	if (!rvalue(*expr.right, right))
 		return false;
-	if (IsPointer(left_type) && IsPointer(right_type))
+	if (left_pointer && right_pointer)
 	{
 		// 5.7p6: elements of one array (or one past its end).
 		if (left.root != right.root || left.count != right.count || left.extra != right.extra ||
@@ -1411,8 +1451,8 @@ bool ConstantInterpreter::pointer_arithmetic(
 			expr.facts->type->unqualified, static_cast<uint64_t>((left.address.offset - right.address.offset) / size));
 		return true;
 	}
-	ConstValue pointer = IsPointer(left_type) ? left : right;
-	const ConstValue& count = IsPointer(left_type) ? right : left;
+	ConstValue pointer = left_pointer ? left : right;
+	const ConstValue& count = left_pointer ? right : left;
 	if (pointer.kind != ValueKind::Pointer || count.kind != ValueKind::Integer)
 		return fail(expr.location, "pointer arithmetic outside constant evaluation");
 	int64_t steps = KindOf(count.type).is_signed ? static_cast<int64_t>(count.bits) : static_cast<int64_t>(count.bits);
@@ -1569,6 +1609,8 @@ bool ConstantInterpreter::logical(const syntax::BinaryExpr& expr, ConstValue& ou
 
 bool ConstantInterpreter::assignment(const syntax::BinaryExpr& expr, ConstPlace& out)
 {
+	if (c_constant_expression_)
+		return fail(expr.location, "an evaluated assignment in a C constant expression");
 	// 5.17p2: the right operand's value converted to the left's type
 	// replaces the object's (C++14's assignment in constant evaluation).
 	if ((expr.facts->flags & kOperatorCall) != 0)
@@ -1598,6 +1640,8 @@ bool ConstantInterpreter::assignment(const syntax::BinaryExpr& expr, ConstPlace&
 
 bool ConstantInterpreter::compound_assignment(const syntax::BinaryExpr& expr, ConstPlace& out)
 {
+	if (c_constant_expression_)
+		return fail(expr.location, "an evaluated assignment in a C constant expression");
 	// 5.17p7: E1 op= E2 as E1 = E1 op E2, E1 evaluated once; the operation
 	// in the type the analysis recorded.
 	if ((expr.facts->flags & kOperatorCall) != 0)
@@ -1790,6 +1834,8 @@ bool ConstantInterpreter::unary(const syntax::UnaryExpr& expr, ConstValue& out)
 
 bool ConstantInterpreter::increment(const syntax::UnaryExpr& expr, bool postfix, ConstPlace& place, ConstValue& old)
 {
+	if (c_constant_expression_)
+		return fail(expr.location, "an evaluated increment or decrement in a C constant expression");
 	// 5.2.6, 5.3.2: one more or less (a pointer by one element), the result
 	// converted back to the operand's type from its promoted type.
 	if ((expr.facts->flags & kOperatorCall) != 0)
@@ -2356,7 +2402,8 @@ bool ConstantInterpreter::cast(const syntax::Expr& expr, const syntax::Expr& ope
 	const Type* type = expr.facts->type;
 	if (expr.kind == syntax::ExprKind::Cast)
 	{
-		if ((expr.facts->flags & kRuntimeTypeEvaluation) != 0)
+		if ((expr.facts->flags & kRuntimeTypeEvaluation) != 0 &&
+			(!c_static_initializer_ || !c_static_type_bounds(expr)))
 			return fail(expr.location, "cast with an evaluated variably modified type name");
 		const TokenKind form = static_cast<const syntax::CastExpr&>(expr).cast;
 		if (form == TokenKind::KW_REINTERPET_CAST || form == TokenKind::KW_DYNAMIC_CAST)
@@ -2369,12 +2416,21 @@ bool ConstantInterpreter::cast(const syntax::Expr& expr, const syntax::Expr& ope
 		return discard(operand_expr);
 	}
 	const ExprFacts* facts = WithoutParentheses(&operand_expr)->facts;
+	if (c_static_initializer_ && IsPointer(type) && IsIntegralOrUnscopedEnum(facts->type) &&
+		!analyzer_.c_integer_constant_operands(operand_expr))
+		return fail(expr.location, "an integer cast to a C address constant must be an integer constant expression");
 	const Conversion* conversion = facts->conversion;
 	if (ConversionFunction(conversion))
 		return converted(operand_expr, conversion, out) && convert_scalar(out, type, expr.location);
 	ConstValue value;
 	if (!rvalue(operand_expr, value))
 		return false;
+	if (c_static_initializer_ && value.kind == ValueKind::Pointer && IsPointer(type))
+	{
+		out = value;
+		out.type = type->unqualified;
+		return true;
+	}
 	if (value.kind == ValueKind::Pointer && IsPointer(value.type) && IsPointer(type) &&
 		(value.type->element->kind == TypeKind::Function) != (type->unqualified->element->kind == TypeKind::Function))
 		return fail(expr.location, "a function/object pointer reinterpretation in a constant expression");
@@ -2443,6 +2499,8 @@ bool ConstantInterpreter::subscript(const syntax::SubscriptExpr& expr, ConstPlac
 	const bool commuted = (expr.facts->flags & kCommuted) != 0;
 	const syntax::Expr& base = commuted ? *expr.index : *expr.base;
 	const syntax::Expr& index = commuted ? *expr.base : *expr.index;
+	if (c_static_initializer_ && !analyzer_.c_integer_constant_operands(index))
+		return fail(index.location, "a subscript in a C address constant must be an integer constant expression");
 	ConstValue pointer, position;
 	const syntax::Expr* array = WithoutParentheses(&base);
 	if (array->facts->category == ValueCategory::PRValue && array->facts->type->kind == TypeKind::Array)

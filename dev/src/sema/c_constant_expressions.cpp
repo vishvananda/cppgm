@@ -22,9 +22,11 @@ bool BuiltinIntegerConstantCandidate(const ExprFacts& facts)
 		static_cast<const FunctionEntity*>(facts.entity)->builtin != BuiltinFunction::None;
 }
 
+} // namespace
+
 // C11 6.6p6 and DR 489: check the forms of operands even in a branch the
 // evaluator skips. The value evaluator handles 6.6p3 on the evaluated path.
-bool CIntegerOperands(const syntax::Expr& root)
+bool Analyzer::c_integer_constant_operands(const syntax::Expr& root)
 {
 	using syntax::Expr;
 	using syntax::ExprKind;
@@ -100,8 +102,6 @@ bool CIntegerOperands(const syntax::Expr& root)
 	return true;
 }
 
-} // namespace
-
 bool Analyzer::integer_constant_expression(const syntax::Expr& expr, Scope* scope, Constant& value, bool required)
 {
 	if (!c_source_ || !semantic())
@@ -117,7 +117,7 @@ bool Analyzer::integer_constant_expression(const syntax::Expr& expr, Scope* scop
 		value = facts->constant();
 		return true;
 	}
-	if (CIntegerOperands(expr))
+	if (c_integer_constant_operands(expr))
 	{
 		ConstantInterpreter interpreter(*this);
 		ConstValue result;

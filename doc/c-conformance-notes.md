@@ -290,6 +290,36 @@ explicitly cast.
 [WG14 issue 0489](https://open-std.org/JTC1/SC22/WG14/issues/c11c17/issue0489.html) ·
 [PA38 constant expressions](../pa38/tests/general/500-c-integer-constant-expressions.t)
 
+## Static initialization
+
+C11 6.7.9p4 requires constant expressions or string literals in an
+initializer for an object with static or thread storage duration. The same
+constraint applies to the initialized object of a file-scope compound
+literal under 6.5.2.5. It also applies to earlier written values later
+overridden by another initializer. An initializer in a block still uses
+these rules if its object has static or thread storage duration.
+
+6.6p3 allows prohibited operators only in an unevaluated subexpression.
+For example `2 || 1 / 0` supplies the constant `1` without evaluating the
+division. Under 6.6p7 and p9, an address constant can designate an object
+with static storage duration or a function. Converting an integer constant
+to pointer type can also form an address constant. Array and member access
+can designate subobjects without reading stored values. Pointer addition
+and subtraction by an integer constant retain the symbol and adjust its
+byte offset. The linked definition may complete an external array whose
+bound is still unknown at the initializer.
+
+The supported additional forms include addresses cast to integers wide
+enough for the relocation and GNU label addresses. For a cast to a pointer
+to variably modified type, cppgm follows GCC's treatment when the written
+bound contributes only type information to the address. The analyzed type
+evaluation identifies any call, assignment, increment, decrement, or comma
+operator that would prevent that treatment.
+
+[C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[PA38 static initialization](../pa38/tests/general/500-c-static-initializers.t) ·
+[GCC C99 manifest](../reports/upstream-gcc-c99.json)
+
 ## Conditional pointer types and C inline definitions
 
 C11 6.5.15p5 applies the usual arithmetic conversions even when

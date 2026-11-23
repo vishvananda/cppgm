@@ -61,6 +61,12 @@ both in C17 syntax-only mode by successive doublings. The atomic input
 isolates fixed overhead per query. The arithmetic chain checks work growth
 when each operand needs classification and evaluation.
 
+`c-static-atoms` and `c-static-expressions` write the same static array from
+integer literals or additions. Measure C17 `-fsyntax-only` and `-O0 -c` at
+512 through 4096 values by successive doublings. The syntax-only run measures
+validation and the object run includes reuse during emission. Compare objects
+with the parent build and run the generated program to check the data.
+
 `c-vla-declarators` generates independent declarations that share an element
 type and each have their own runtime bound. Compare it against
 `c-fixed-array-declarators` at 1024, 2048, 4096, and 8192 functions in C17

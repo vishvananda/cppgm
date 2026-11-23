@@ -140,6 +140,13 @@ The first fixture set covers these parts of the C17 input profile:
   types, and the constant-expression requirements for static storage.
   Infer the size of an incomplete array from its highest initialized index
   and keep implicit zero ranges compact.
+- Check the initializer of an object with static or thread storage duration
+  during analysis. Apply the same rules to scalar values, braced leaves,
+  and file-scope compound literals. An address constant may name a static
+  object or a function. An offset from that address uses an integer constant
+  expression and the element size. Diagnose an evaluated call or comma
+  operator, a read of an ordinary variable, and an address of an automatic
+  object. Emit the checked initializer as data.
 - A read or write of a volatile-qualified structure or union remains
   observable, including a discarded value, a return, an argument, or a copy.
   Use scalar volatile accesses for the qualified storage and ordinary accesses

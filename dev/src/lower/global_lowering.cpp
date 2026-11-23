@@ -393,6 +393,8 @@ ProgramLowering::StaticOutcome ProgramLowering::static_global(lowir::SymbolId sy
 			dynamic = value == nullptr || !constant_global(type, *value, global, location);
 		}
 	}
+	if (dynamic && analyzer_->c_source())
+		throw LoweringError(location, "a checked C static initializer could not be emitted as data");
 	// A statically initialized object no code writes (readonly_object).
 	if (!dynamic && !variable->is_thread_local && readonly_object(type))
 		metadata.storage = ir_model::GSM_READONLY;
@@ -1563,6 +1565,11 @@ bool ProgramLowering::static_element(const sema::Type* type, const syntax::Expr&
 	if (element.kind == syntax::ExprKind::BracedInit &&
 		static_cast<const syntax::BracedInitList&>(element).result_source != nullptr)
 		return static_element(type, *static_cast<const syntax::BracedInitList&>(element).result_source, out);
+	if (analyzer_->c_source() &&
+		(type->unqualified->kind == sema::TypeKind::Complex || type->unqualified->kind == sema::TypeKind::Vector))
+		if (const sema::ConstValue* checked = analyzer_->checked_c_static_value(element))
+			if (checked->type->unqualified == type->unqualified)
+				return constant_data(type, *checked, out, element.location);
 	// One array element or class member from its initializer: a nested
 	// braced list, a string literal for a character array, or a scalar.
 	if (type->kind == sema::TypeKind::Array)
@@ -1937,6 +1944,11 @@ bool ProgramLowering::evaluated_data(const sema::VariableEntity* variable, const
 	// constant, constant arithmetic, a constexpr call's result, a constexpr
 	// variable's value), unless the analysis found it not constant.
 	out.items.clear();
+	if (analyzer_->c_source() && recorded == nullptr)
+		if (const syntax::Expr* single = SingleInitializer(initializer))
+			if (const sema::ConstValue* checked = analyzer_->checked_c_static_value(*single))
+				if (checked->type->unqualified == variable->type->unqualified)
+					return constant_data(variable->type, *checked, out, location);
 	const sema::ConstValue* value = recorded != nullptr ? recorded
 		: nonconstant || variable->is_thread_local      ? nullptr
 														: initialization_value(variable, initializer);
@@ -2269,6 +2281,13 @@ bool ProgramLowering::static_value(const syntax::Expr& expr, StaticValue& out, b
 	if (facts == nullptr || facts->type == nullptr)
 		return false;
 	const sema::Type* type = facts->type;
+	if (analyzer_->c_source())
+	{
+		if (IsIntegralLike(type) && (e->kind == syntax::ExprKind::Literal || (facts->flags & sema::kFolded) != 0))
+			return static_c_value(sema::IntegerValue(type, facts->value), out, e->location);
+		if (const sema::ConstValue* checked = analyzer_->checked_c_static_value(*e))
+			return static_c_value(*checked, out, e->location);
+	}
 #if __LDBL_MANT_DIG__ == 53
 	// An x87 value must not be initialized from a rounded binary64 value.
 	// The regular target lowering can evaluate it at its own precision.

@@ -253,7 +253,7 @@ operands.
 | 6.7.6.2p4 and p5 | A file-scope array with a [foldable comma bound](../pa38/tests/general/300-c-ice-array-bound-bad.t) is diagnosed as variably modified. The positive fixture also uses a block array whose dimension is the value of a `const` object. |
 | Required integer contexts | PA38 also rejects a nonconstant [case label](../pa38/tests/general/500-c-ice-case-bad.t), [enumerator](../pa38/tests/general/400-c-ice-enumerator-bad.t), [bit-field width](../pa38/tests/general/200-c-ice-bit-field-bad.t), [alignment](../pa38/tests/general/300-c-ice-alignment-bad.t), and [array designator](../pa38/tests/general/300-c-ice-designator-bad.t). |
 | 6.3.2.3p3 | PA38 checks computed null constants in implicit initialization, comparisons, calls, returns, and a conditional expression. The [GCC C99 manifest](upstream-gcc-c99.json) adds positive cases for unevaluated operands, casts to `void *`, and preservation of an ordinary pointer type when the converted value lacks the required operand forms. |
-| 6.6p7–p10 and 6.7.9p4 | For the next batch, `int value = (0, 7)` and `int *p = array + (0, 1)` are still accepted by cppgm and Clang. GCC diagnoses both. GCC `c99-const-expr-11.c` also exposes evaluated side effects in variably modified type names written in static address initializers. |
+| 6.6p7–p10 and 6.7.9p4 | PA38 diagnoses a [comma in an arithmetic initializer](../pa38/tests/general/500-c-static-comma-bad.t), a [comma in a pointer offset](../pa38/tests/general/500-c-static-offset-bad.t), and an [increment in a variably modified cast](../pa38/tests/general/500-c-static-vla-bound-bad.t). GCC's C99 `c99-const-expr-11.c` tests several such bounds. Clang accepts the three reduced examples as additional forms. |
 
 [WG14 DR 261](https://www.open-std.org/JTC1/SC22/WG14/www/docs/dr_261.htm) ·
 [WG14 issue 0489](https://open-std.org/JTC1/SC22/WG14/issues/c11c17/issue0489.html)
@@ -267,24 +267,28 @@ replays passed the zlib example and compression round trip, the Lua basic
 suite, and the frozen SQLite shell workload.
 [Constant-expression scaling](../docs/performance/c-frontend-scaling.md#integer-constant-expressions)
 
-### Static initialization baseline
+### Static initialization
 
-GCC 15 and Clang 21 diagnose the following cases in C17. cppgm accepts them
-under `-fsyntax-only`, so the required check belongs in semantic analysis.
+GCC 15, Clang 21, and cppgm diagnose these cases under C17 `-fsyntax-only`.
+The checks also apply when compiling directly to native or Wasm objects.
 
-| Static initializer | Current object emission |
+| Static initializer | Regression |
 | --- | --- |
-| File-scope `int value = f()` where `f` is an ordinary function | Emits a startup entry and a call to `f`. |
-| Block-scope `static int value = f()` | Emits a dynamic initialization guard. |
-| File-scope `int value = source` where `source` is an ordinary external `int` | Emits runtime initialization. |
-| Block-scope `static int *pointer = &value` where `value` is automatic | Emits dynamic initialization of the pointer. |
-| File-scope `int *pointer = &(int){f()}` | Rejects object emission. The compound literal's static initializer needs a semantic diagnostic. |
+| A call in a file-scope aggregate | [Ordinary braced initialization](../pa38/tests/general/300-c-static-braced-call-bad.t) |
+| A call in an object with thread storage duration | [Thread storage](../pa38/tests/general/400-c-static-thread-call-bad.t) |
+| A call in a block-scope static initializer | [Block-scope static](../pa38/tests/general/500-c-static-local-call-bad.t) |
+| A read of an ordinary external `int` | [External object's value](../pa38/tests/general/400-c-static-extern-value-bad.t) |
+| The address of an automatic object | [Automatic storage address](../pa38/tests/general/500-c-static-local-address-bad.t) |
+| A call in a file-scope compound literal | [Static compound literal](../pa38/tests/general/500-compound-static-nonconstant-bad.t) |
 
-Controls that pass both actions include `&values[1] + (int)2.0` for a
-static array and `2 || 1 / 0` for an arithmetic initializer. Reuse the
-existing constant evaluator and initially exercise scalar and braced leaves,
-static compound literals, and the retained initializer checks for overridden
-subobjects. Have emission consume the checked value or symbolic address.
+The [two-file runtime case](../pa38/tests/general/500-c-static-initializers.t)
+initializes scalars, pointers, and records using arithmetic, a function
+address, an incomplete array declared in the first unit, an address within
+a file-scope compound literal, and a variably modified cast. It ran on Linux
+x86-64 and AArch64 QEMU at `-O0` and `-O2`, and in PA38's Wasm lane. Both
+Darwin architectures emitted Mach-O objects. The x86-64 object has neither
+a startup initializer nor a C++ guard. The [compound literal fixture](../pa38/tests/general/500-compound-literals.t)
+now emits its scalar copy as static data as well.
 
 ## Cross-target smoke results
 

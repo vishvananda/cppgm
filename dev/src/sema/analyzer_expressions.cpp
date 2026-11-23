@@ -2976,10 +2976,9 @@ ExprFacts* Analyzer::functional_cast(const syntax::FunctionalCastExpr& expr, Sco
 			error(expr.location, "a C compound literal cannot have variable length array type");
 		if (IsVoid(type) || type->kind == TypeKind::Function)
 			error(expr.location, "C compound literal requires an object type");
-		list_initialize(*expr.braced, type, scope);
+		c_initialize_compound_literal(expr, type, scope);
 		if (failed())
 			return nullptr;
-		expr.compound_static = scope == graph_.global;
 		ExprFacts* facts = new_facts(expr, expr.braced->facts->type, ValueCategory::LValue);
 		if (runtime_type != nullptr)
 		{

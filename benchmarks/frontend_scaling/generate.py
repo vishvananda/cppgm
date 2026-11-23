@@ -96,6 +96,14 @@ def c_integer_constant_expressions(size, chain):
             print('_Static_assert(1, "integer literal");')
 
 
+def c_static_initializers(size, expressions):
+    print('static int values[] = {')
+    for value in range(1, size + 1):
+        print(f'    {value - 1} + 1,' if expressions else f'    {value},')
+    print('};')
+    print(f'int main(void) {{ return values[0] != 1 || values[{size - 1}] != {size}; }}')
+
+
 def c_array_declarators(size, bound):
     for index in range(size):
         print(f'int f_{index}(int n) {{ int a[{bound}]; return sizeof(a); }}')
@@ -160,6 +168,7 @@ def main():
                                         'c-conditional-composites', 'c-inline-late-linkage',
                                         'c-generic-arrays', 'c-generic-prototypes', 'c-generic-short-lists',
                                         'c-ice-atoms', 'c-ice-chain',
+                                        'c-static-atoms', 'c-static-expressions',
                                         'c-vla-declarators', 'c-fixed-array-declarators',
                                         'c-vla-dimensions', 'c-vla-extent-uses',
                                         'c-typeof-shared-bounds', 'c-designated-overwrites', 'c-designated-sparse',
@@ -206,6 +215,9 @@ def main():
         return
     if args.case in ('c-ice-atoms', 'c-ice-chain'):
         c_integer_constant_expressions(args.size, chain=args.case == 'c-ice-chain')
+        return
+    if args.case in ('c-static-atoms', 'c-static-expressions'):
+        c_static_initializers(args.size, expressions=args.case == 'c-static-expressions')
         return
     if args.case in ('c-vla-declarators', 'c-fixed-array-declarators'):
         c_array_declarators(args.size, 'n' if args.case == 'c-vla-declarators' else '2')
