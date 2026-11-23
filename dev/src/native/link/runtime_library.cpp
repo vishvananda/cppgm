@@ -568,18 +568,21 @@ bool runtime_provides(const char* name)
 	return member_of(name) != kMembers;
 }
 
-bool build_runtime(
-	const std::vector<std::string>& names, std::vector<ObjectFile>& out, std::string& error, Target target)
+bool build_runtime(const std::vector<std::string>& names, std::vector<ObjectFile>& out, std::string& error,
+	Target target, bool startup)
 {
 	std::vector<uint8_t> members(kMembers, 0);
-	std::vector<uint32_t> work(1, kEntry);
+	std::vector<uint32_t> work;
+	work.reserve(names.size() + 1);
+	if (startup)
+		work.push_back(kEntry);
 	for (const std::string& name : names)
 		work.push_back(member_of(name.c_str()));
 	while (!work.empty())
 	{
 		const uint32_t member = work.back();
 		work.pop_back();
-		if (member >= kMembers || members[member])
+		if (member >= kMembers || members[member] || (member == kEntry && !startup))
 			continue;
 		members[member] = 1;
 		for (const uint32_t dependency : kDependencies[member])

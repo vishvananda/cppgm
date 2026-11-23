@@ -56,12 +56,14 @@ public:
 
 	void analyze(const syntax::TranslationUnit& unit);
 	bool c_source() const { return c_source_; }
+	bool c_freestanding() const { return c_freestanding_; }
 	// The two distinguished placeholder types retained in declared signatures.
 	const Type* auto_placeholder() const { return auto_placeholder_; }
 	const Type* decltype_auto_placeholder() const { return decltype_auto_placeholder_; }
-	void set_source_language(SourceLanguage language, bool extensions = false)
+	void set_source_language(SourceLanguage language, bool extensions = false, bool freestanding = false)
 	{
 		c_source_ = language == SourceLanguage::C;
+		c_freestanding_ = freestanding;
 		c_language_ = c_source_;
 		conversions_.set_c_source(c_source_, extensions);
 	}
@@ -428,6 +430,7 @@ private:
 	void bind_c_block_function(FunctionEntity* function, const Specifiers& specifiers, const DeclaratorInfo& info,
 		const DeclaredName& name, Scope* scope, Scope* where, uint32_t location);
 	void note_c_function_linkage(FunctionEntity* function, const Type* type, bool definition, uint32_t location);
+	void check_main(const Specifiers& specifiers, const Type* type, bool definition, uint32_t location);
 	void redeclare_function(FunctionEntity* function, const Specifiers& specifiers, const DeclaratorInfo& info,
 		Scope* scope, const Scope* where, bool definition, bool deleted, bool exceptions, uint32_t location);
 	FunctionEntity* new_function(const Specifiers& specifiers, const DeclaratorInfo& info, const DeclaredName& name,
@@ -2255,6 +2258,7 @@ private:
 	// not braced (its declaration is treated as extern, 7.5p7), and inside
 	// any linkage-specification (an explicit language linkage, 7.5p5).
 	bool c_source_;
+	bool c_freestanding_ = false;
 	bool c_language_;
 	bool linkage_extern_;
 	bool linkage_specified_;

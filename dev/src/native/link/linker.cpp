@@ -122,8 +122,10 @@ struct Location
 class Linker
 {
 public:
-	Linker(std::vector<ObjectFile>& objects, LinkStats& stats, std::string& error, Target target, bool startup)
-		: objects_(objects), stats_(stats), error_(error), target_(target), startup_(startup)
+	Linker(std::vector<ObjectFile>& objects, LinkStats& stats, std::string& error, Target target, bool startup,
+		bool default_libraries)
+		: objects_(objects), stats_(stats), error_(error), target_(target), startup_(startup),
+		  default_libraries_(default_libraries)
 	{}
 
 	bool link(const std::string& output);
@@ -162,6 +164,7 @@ private:
 	std::string& error_;
 	Target target_;
 	bool startup_;
+	bool default_libraries_;
 	FlatMap<NameKey, uint32_t, NameHash> names_;
 	FlatMap<NameKey, uint32_t, NameHash> groups_;
 	std::vector<GlobalSymbol> globals_;
@@ -306,14 +309,15 @@ bool Linker::add_runtime()
 	// entry first among them.
 	const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 	std::vector<std::string> wanted;
-	for (const GlobalSymbol& global : globals_)
-	{
-		if (global.state != State::Undefined)
-			continue;
-		const std::string name(global.name.text, global.name.length);
-		if (runtime_provides(name.c_str()))
-			wanted.push_back(name);
-	}
+	if (default_libraries_)
+		for (const GlobalSymbol& global : globals_)
+		{
+			if (global.state != State::Undefined)
+				continue;
+			const std::string name(global.name.text, global.name.length);
+			if (runtime_provides(name.c_str()))
+				wanted.push_back(name);
+		}
 	const uint32_t first = static_cast<uint32_t>(objects_.size());
 	if (target_model::is_aarch64(target_))
 	{
@@ -321,9 +325,9 @@ bool Linker::add_runtime()
 		if (startup_ && (entry == nullptr || globals_[*entry].state == State::Undefined))
 			aarch64::add_startup(objects_, target_ == Target::AArch64MacOS);
 	}
-	else if (!build_runtime(wanted, objects_, error_, target_))
+	else if ((startup_ || !wanted.empty()) && !build_runtime(wanted, objects_, error_, target_, startup_))
 		return false;
-	stats_.runtime_members = wanted.size() + 1;
+	stats_.runtime_members = wanted.size() + (startup_ ? 1 : 0);
 	global_of_.resize(objects_.size());
 	kept_.resize(objects_.size());
 	location_.resize(objects_.size());
@@ -849,7 +853,7 @@ bool Linker::link(const std::string& output)
 } // namespace
 
 bool link_executable(std::vector<object::ObjectFile>& objects, const std::string& output, std::string& error,
-	LinkStats* stats, Target target, bool startup)
+	LinkStats* stats, Target target, bool startup, bool default_libraries)
 {
 	if (target_model::is_wasm(target))
 	{
@@ -857,7 +861,7 @@ bool link_executable(std::vector<object::ObjectFile>& objects, const std::string
 		return false;
 	}
 	LinkStats local;
-	Linker linker(objects, stats != nullptr ? *stats : local, error, target, startup);
+	Linker linker(objects, stats != nullptr ? *stats : local, error, target, startup, default_libraries);
 	return linker.link(output);
 }
 

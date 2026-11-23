@@ -498,6 +498,27 @@ functions and their interaction with code alignment remain open.
 [PA38 runtime fixture](../pa38/tests/general/500-c-alignment-queries.t) ·
 [GCC C11 manifest](upstream-gcc-c11.json)
 
+## Execution environment selection
+
+PA38 checks the C execution mode with a shared source header. It exercises
+flag precedence, invalid hosted entry signatures, implicit zero from
+hosted `main`, ordinary calls to a separately compiled `strlen` in
+freestanding mode, and an explicit builtin. The `no_builtin=yes` LowIR
+fact also prevents the reader from assigning a legacy startup role.
+PA25 covers a supplied native entry with `-nostdlib` using the ordinary
+compile-and-link test lane.
+
+The freestanding source and serialized LowIR run with a custom startup
+or explicit export at `-O0` and `-O2` on x86-64 Linux, AArch64 Linux
+under QEMU, bare Wasm, and WASI. The same inputs cross-link on Intel and
+Arm Darwin. Hosted tests at both levels run on the Linux targets and
+with the pinned WASI startup. Bare Wasm diagnoses an explicit hosted
+request. On Linux x86-64 an explicit builtin can use a compiler helper
+with `-nostartfiles`; `-nostdlib` reports the helper unresolved when
+the user supplies none. Native Darwin execution and library coverage
+are tracked separately. [PA38 environment cases](../pa38/tests/general/c-environment.h) ·
+[PA25 custom entry](../pa25/tests/general/200-runtime-custom-entry.t)
+
 ## Cross-target smoke results
 
 The prototype array, tagged generic association, and structure return

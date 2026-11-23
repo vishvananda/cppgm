@@ -79,8 +79,10 @@ std::string PredefinedText(const PreprocessorOptions& options, const FeatureMode
 		text += std::string("#define __cplusplus ") + CxxVersionMacro(options.cxx_edition) + "\n";
 	if (options.strict)
 		text += "#define __STRICT_ANSI__ 1\n";
-	text += std::string("#define __STDC_HOSTED__ ") + (options.target == target_model::Target::Wasm32 ? "0\n" : "1\n") +
-		"#define __x86_64__ 1\n#define __linux__ 1\n";
+	const bool freestanding = options.language == SourceLanguage::C ? options.c_freestanding
+																	: options.target == target_model::Target::Wasm32;
+	text += freestanding ? "#define __STDC_HOSTED__ 0\n" : "#define __STDC_HOSTED__ 1\n";
+	text += "#define __x86_64__ 1\n#define __linux__ 1\n";
 	text += "#define __CPPGM_AUTHOR__ ";
 	AppendQuoted(text, options.author);
 	text += "\n#define __DATE__ ";

@@ -22,8 +22,9 @@
 // -U <name>, -L <dir>, -l <name> (each also joined), -include <file>,
 // -nostdinc, -nostdinc++, --gcc-install-dir=<dir> (the GCC installation whose headers
 // are the standard ones), -x c++, --target <target> (or =),
-// --sysroot <dir>, -resource-dir <dir>, -nostartfiles, -nodefaultlibs and
-// -nostdlib (Wasm target headers and supplied runtime selection),
+// --sysroot <dir>, -resource-dir <dir> (Wasm and AArch64), -nostartfiles,
+// -nodefaultlibs and -nostdlib (supplied runtime selection),
+// -ffreestanding/-fhosted (C execution environment),
 // -std=<c++11, c++14, c++17 or c++20, and their gnu and draft names> (__cplusplus;
 // c++NN the strict ISO dialect's host macros, __STRICT_ANSI__),
 // -stdlib=<the build's selection>, -f(no-)exceptions and -f(no-)rtti (the
@@ -57,6 +58,14 @@ enum class SourceExceptions : uint8_t
 	Enabled,
 	Disabled
 };
+enum class CEnvironment : uint8_t
+{
+	TargetDefault,
+	Hosted,
+	Freestanding
+};
+bool c_environment_option(const std::string& option, CEnvironment& environment);
+void configure_c_environment(PreprocessorOptions& options, target_model::Target target, CEnvironment environment);
 void configure_source_language(const std::string& language, const std::string& standard, SourceExceptions exceptions,
 	PreprocessorOptions& options);
 

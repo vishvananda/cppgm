@@ -37,6 +37,7 @@ struct PreprocessorOptions
 {
 	SourceLanguage language = SourceLanguage::Cxx;
 	target_model::Target target = target_model::Target::Linux;
+	bool c_freestanding = false;
 	// __CPPGM_AUTHOR__'s string contents.
 	std::string author;
 	// __DATE__ ("Mmm dd yyyy") and __TIME__ ("hh:mm:ss") contents, taken

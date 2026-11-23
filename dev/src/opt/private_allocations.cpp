@@ -25,7 +25,8 @@ bool library_call(const Program& program, const Instruction& inst, const char* n
 		inst.extra_count != arguments)
 		return false;
 	const Symbol& symbol = program.symbols[inst.ops[0].index];
-	if (symbol.kind != SymbolKind::FunctionDeclaration || std::strcmp(program.spelling(symbol.name), name) != 0)
+	if (symbol.kind != SymbolKind::FunctionDeclaration || symbol.metadata.no_builtin ||
+		std::strcmp(program.spelling(symbol.name), name) != 0)
 		return false;
 	const Signature* signature = program.call_boundary(inst);
 	if (signature == nullptr || signature->boundary.arity != ir_model::CAM_FIXED ||

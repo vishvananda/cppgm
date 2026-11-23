@@ -2705,7 +2705,7 @@ ir_model::SymbolVisibility ProgramLowering::class_visibility(const sema::ClassEn
 lowir::SymbolMetadata ProgramLowering::function_metadata(const sema::FunctionEntity* function, lowir::SymbolId symbol)
 {
 	lowir::SymbolMetadata metadata;
-	if (IsMain(function))
+	if (IsMain(function) && !analyzer_->c_freestanding())
 	{
 		metadata.role = ir_model::SR_ENTRY;
 		metadata.binding = ir_model::SBM_STRONG;
@@ -2715,6 +2715,8 @@ lowir::SymbolMetadata ProgramLowering::function_metadata(const sema::FunctionEnt
 	if (function->c_linkage &&
 		(function->builtin == sema::BuiltinFunction::None || function->builtin == sema::BuiltinFunction::Library))
 		metadata.linkage = ir_model::LLM_C;
+	metadata.no_builtin = function->c_linkage && function->builtin == sema::BuiltinFunction::None &&
+		analyzer_->c_freestanding();
 	// The scalar forms own allocate_memory and free_memory (pa8/lowir.md:
 	// one owner per role, and no array role). In object mode the array
 	// forms are references to their own names (see

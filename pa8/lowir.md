@@ -279,7 +279,14 @@ function @boot() -> void [role=init, binding=strong] {
 The currently defined top-level metadata keys are `role`, `linkage`, `binding`, `object`,
 `tls_for` (functions only), `keep_alias`, `prefer_local`, `object_root`, `force_inline`
 (functions only), `inline_hint` (functions only), `no_inline` (functions only), `cold`
-(functions only), and `storage` and `section` (globals only).
+(functions only), `no_builtin` (functions only), and `storage` and `section` (globals only).
+
+`no_builtin=yes` keeps a function's linkage and type while disabling any
+special library behavior inferred from its name. Calls still use explicit
+boundary facts such as `effects=readonly`. The reader also skips legacy
+entry, init, and fini inference for the symbol. Freestanding C uses this
+flag for ordinary C functions. Explicit builtins and generated helper
+calls carry their own contracts. Omit the key for the default behavior.
 
 The currently defined global `storage` values are:
 
@@ -617,7 +624,7 @@ Call signatures only accept call-boundary metadata such as `arity=...`, `effects
 `this_return=yes`. Top-level symbol metadata such as `role=...`, `linkage=...`,
 `binding=...`, `replaceable=...`, `object=...`, `keep_alias=...`, `prefer_local=...`, `object_root=...`, and
 `force_inline=...`, `inline_hint=...`, `no_inline=...`, and
-`cold=...` are not valid on `as (...) -> ...`
+`cold=...` or `no_builtin=...` are not valid on `as (...) -> ...`
 call signatures.
 
 Later backend lowering may also introduce internal compiler builtin helper symbols for

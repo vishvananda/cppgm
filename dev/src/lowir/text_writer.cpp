@@ -304,6 +304,8 @@ void Writer::metadata(const SymbolMetadata* symbol, const BoundaryMetadata* boun
 			item(open, MetadataKey::Binding, spelling(symbol->binding));
 		if (symbol->visibility != 0)
 			item(open, MetadataKey::Visibility, spelling(symbol->visibility));
+		if (symbol->no_builtin)
+			item(open, MetadataKey::NoBuiltin, metadata_yes_spelling());
 		if ((symbol->flags & SF_REPLACEABLE) != 0)
 			item(open, MetadataKey::Replaceable, metadata_yes_spelling());
 		if (symbol->object != 0)

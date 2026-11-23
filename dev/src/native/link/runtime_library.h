@@ -37,10 +37,9 @@ extern const char kEntrySymbol[];
 // Whether the library defines `name`.
 bool runtime_provides(const char* name);
 
-// Builds the members defining `names` (each one runtime_provides accepts)
-// and the process entry, with the members they depend on, as objects
-// appended to `out`.
+// Builds the members defining `names` and, when requested, the process
+// entry. Append the resulting objects to `out`.
 bool build_runtime(const std::vector<std::string>& names, std::vector<object::ObjectFile>& out, std::string& error,
-	Target target = Target::Linux);
+	Target target, bool startup);
 
 } // namespace native

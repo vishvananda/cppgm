@@ -597,6 +597,8 @@ bool Validator::check_links()
 			return fail("invalid tls_for target", symbol.name);
 		if ((metadata.flags & SF_REPLACEABLE) != 0 && metadata.binding != ir_model::SBM_WEAK)
 			return fail("replaceable metadata requires binding=weak", symbol.name);
+		if (metadata.no_builtin && !is_function_kind(symbol.kind))
+			return fail("no_builtin metadata requires a function", symbol.name);
 		if (is_function_kind(symbol.kind))
 		{
 			const SignatureId signature = program_.functions[symbol.detail].signature;
@@ -1310,7 +1312,7 @@ void apply_legacy_roles(Program& program)
 			continue;
 		Symbol& symbol = program.symbols[id];
 		if ((symbol.kind == SymbolKind::FunctionDefinition || find_assembly_function(program, id)) &&
-			symbol.metadata.role == ir_model::SR_NONE)
+			symbol.metadata.role == ir_model::SR_NONE && !symbol.metadata.no_builtin)
 			symbol.metadata.role = role;
 	}
 }

@@ -2,6 +2,29 @@
 
 namespace sema {
 
+void Analyzer::check_main(const Specifiers& specifiers, const Type* type, bool definition, uint32_t location)
+{
+	// C++11 3.6.1p3 and the supported hosted C entry point.
+	if (specifiers.is_inline || specifiers.is_static || specifiers.is_constexpr)
+		error(location, "main declared inline, static or constexpr");
+	if (!c_source_ || !definition)
+		return;
+	// C17 5.1.2.2.1. The native startup also passes the environment vector.
+	const Type* integer = types_.fundamental(FundamentalType::Int);
+	if (type->element->unqualified != integer)
+		error(location, "hosted C main must return int");
+	const uint32_t count = type->param_count;
+	if (count == 0 && !type->variadic)
+		return;
+	const bool environment = count == 3 && !target_model::is_wasm(types_.target());
+	if (type->variadic || (count != 2 && !environment))
+		error(location, "unsupported parameter list of hosted C main");
+	const Type* argv = types_.pointer(types_.pointer(types_.fundamental(FundamentalType::Char)));
+	if (type->params[0]->unqualified != integer || type->params[1]->unqualified != argv ||
+		(environment && type->params[2]->unqualified != argv))
+		error(location, "unsupported parameter types of hosted C main");
+}
+
 void Analyzer::bind_c_block_function(FunctionEntity* function, const Specifiers& specifiers, const DeclaratorInfo& info,
 	const DeclaredName& name, Scope* scope, Scope* where, uint32_t location)
 {

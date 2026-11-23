@@ -36,6 +36,23 @@ are separate choices. `-x c++` continues to select C++; a language and standard
 that disagree must be diagnosed. The existing `.c` handling is unchanged unless
 C is selected explicitly.
 
+`-ffreestanding` and `-fhosted` select the C execution environment. Bare
+Wasm defaults to freestanding and requires WASI for hosted C. Native
+targets and WASI default to hosted. The last environment flag wins.
+Define `__STDC_HOSTED__` as zero in freestanding mode and one in hosted
+mode. Keep header search and startup options independent of this choice.
+When linking with `cppgm`, `-nostartfiles` omits the supplied startup,
+`-nodefaultlibs` omits the supplied runtime libraries, and `-nostdlib`
+omits both. On Linux, supply `_start` if you omit startup. On bare
+Wasm, select the functions the host calls with `--export`.
+
+The hosted entry point is `int main(void)` or `int main(int, char **)`.
+Native startup also accepts the third `char **` parameter for the
+environment. Reaching the end of hosted `main` returns zero. In
+freestanding C, `main` is an ordinary function. Do not infer library
+semantics from the names of ordinary freestanding functions. Preserve
+the behavior of explicit builtins and generated helpers.
+
 With `-pedantic`, diagnose C11 syntax such as `_Generic` and `_Atomic` in
 C99 modes. With `-pedantic-errors`, reject those uses. System headers suppress
 these diagnostics unless `-Wsystem-headers` is set. A message-free

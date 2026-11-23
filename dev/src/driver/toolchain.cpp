@@ -84,6 +84,31 @@ static NumberDialect hosted_number_dialect(const PreprocessorOptions& options)
 	return NumberDialect::Gnu;
 }
 
+bool c_environment_option(const std::string& option, CEnvironment& environment)
+{
+	if (option == "-ffreestanding" || option == "-fno-hosted")
+		environment = CEnvironment::Freestanding;
+	else if (option == "-fhosted" || option == "-fno-freestanding")
+		environment = CEnvironment::Hosted;
+	else
+		return false;
+	return true;
+}
+
+void configure_c_environment(PreprocessorOptions& options, target_model::Target target, CEnvironment environment)
+{
+	if (options.language != SourceLanguage::C)
+	{
+		if (environment == CEnvironment::Freestanding)
+			throw InvocationError("a freestanding environment is supported only for C input");
+		return;
+	}
+	const bool bare_wasm = target == target_model::Target::Wasm32;
+	if (bare_wasm && environment == CEnvironment::Hosted)
+		throw InvocationError("a hosted C environment requires WASI instead of the bare Wasm target");
+	options.c_freestanding = bare_wasm || environment == CEnvironment::Freestanding;
+}
+
 void configure_source_language(
 	const std::string& language, const std::string& standard, SourceExceptions exceptions, PreprocessorOptions& options)
 {
@@ -197,6 +222,7 @@ struct Invocation
 	std::string source_language;
 	std::string standard;
 	SourceExceptions exceptions = SourceExceptions::Default;
+	CEnvironment c_environment = CEnvironment::TargetDefault;
 	native::Target target = native::host_target();
 	bool compile_only = false;
 	// -S -emit-lowir: each input's program as -c compiles it, after the
@@ -358,9 +384,9 @@ bool parse_include_option(const std::vector<std::string>& args, size_t& i, Prepr
 bool refused_flag(const std::string& arg)
 {
 	static const char* const kRefused[] = { "-fshort-wchar", "-fshort-enums", "-fpack-struct", "-funsigned-bitfields",
-		"-fno-signed-bitfields", "-fno-elide-constructors", "-ffreestanding", "-fno-hosted", "-m32", "-mx32", "-m16",
-		"-mlong-double-64", "-mlong-double-128", "-msoft-float", "-mno-sse", "-mno-sse2", "-mno-80387",
-		"-mno-fp-ret-in-387", "-mfpmath=387" };
+		"-fno-signed-bitfields", "-fno-elide-constructors", "-m32", "-mx32", "-m16", "-mlong-double-64",
+		"-mlong-double-128", "-msoft-float", "-mno-sse", "-mno-sse2", "-mno-80387", "-mno-fp-ret-in-387",
+		"-mfpmath=387" };
 	for (const char* refused : kRefused)
 	{
 		if (arg == refused)
@@ -438,8 +464,7 @@ void configure_target_runtime(Invocation& invocation, StandardIncludes includes)
 	{
 		add_aarch64_headers(invocation.preprocessor, invocation.sysroot, invocation.resource_directory, includes);
 	}
-	else if (!invocation.sysroot.empty() || !invocation.resource_directory.empty() ||
-		invocation.no_standard_libraries || invocation.no_startfiles || invocation.wasm_stack_size != 0 ||
+	else if (!invocation.sysroot.empty() || !invocation.resource_directory.empty() || invocation.wasm_stack_size != 0 ||
 		(invocation.wasm_atomics_explicit && invocation.wasm_atomics) || invocation.wasm_link.requested())
 		throw InvocationError("target runtime directory/options currently require a Wasm target");
 }
@@ -520,6 +545,7 @@ void configure_preprocessor(Invocation& invocation, StandardIncludes includes, c
 			throw InvocationError("standard input requires -E");
 	configure_source_language(
 		invocation.source_language, invocation.standard, invocation.exceptions, invocation.preprocessor);
+	configure_c_environment(invocation.preprocessor, invocation.target, invocation.c_environment);
 	std::string host_error;
 	if (!add_host_environment(invocation.preprocessor,
 			invocation.target == native::host_target() ? includes : StandardIncludes::None, gcc_install_dir,
@@ -658,8 +684,9 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 			char_signedness_explicit = true;
 			invocation.preprocessor.plain_char_unsigned = arg == "-funsigned-char" || arg == "-fno-signed-char";
 		}
-		else if (diagnostic_option(arg, invocation.preprocessor.extension_warnings,
-					 invocation.preprocessor.warn_system_headers, &invocation.ignore_narrowing))
+		else if (c_environment_option(arg, invocation.c_environment) ||
+			diagnostic_option(arg, invocation.preprocessor.extension_warnings,
+				invocation.preprocessor.warn_system_headers, &invocation.ignore_narrowing))
 			continue;
 		else if (arg == "--stats")
 			invocation.stats = true;
@@ -885,7 +912,8 @@ bool lower_source(const std::string& path, const Invocation& invocation, lower::
 		sema::SemanticGraph graph(invocation.preprocessor.plain_char_unsigned, invocation.target);
 		graph.names.reserve(unit.counters().bindings);
 		sema::Analyzer analyzer(graph, unit.identifiers(), sema::AnalysisMode::Semantics);
-		analyzer.set_source_language(invocation.preprocessor.language, invocation.preprocessor.gnu_c());
+		analyzer.set_source_language(
+			invocation.preprocessor.language, invocation.preprocessor.gnu_c(), invocation.preprocessor.c_freestanding);
 		if (invocation.preprocessor.language == SourceLanguage::Cxx)
 			analyzer.set_number_dialect(invocation.preprocessor.literals);
 		analyzer.set_hosted(invocation.preprocessor.hosted);
@@ -1315,7 +1343,8 @@ int link_mode(const Invocation& invocation)
 	}
 	native::LinkStats stats;
 	std::string error;
-	if (!native::link_executable(objects, output, error, &stats, invocation.target, !invocation.no_startfiles))
+	if (!native::link_executable(objects, output, error, &stats, invocation.target, !invocation.no_startfiles,
+			!invocation.no_standard_libraries))
 	{
 		// No stale executable is left behind (as the host linker removes it).
 		std::remove(output.c_str());

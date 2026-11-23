@@ -476,3 +476,22 @@ inline. The pedantic policy diagnoses a missing definition.
 [C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [PA38 conditional pointer types](../pa38/tests/general/500-conditional-composite-pointer.t) ·
 [PA38 late inline linkage](../pa38/tests/general/400-c-inline-linkage.t)
+
+## C execution environments
+
+C17 5.1.2 distinguishes freestanding startup from the hosted `main`
+interface. The native cppgm startup also supplies the environment
+vector as a third parameter. The WASI startup uses the zero- and
+two-parameter forms. C17 6.10.8.1 gives `__STDC_HOSTED__` the
+value corresponding to the selected environment.
+
+Like GCC and Clang, freestanding C checks `main` as an ordinary function
+and avoids inferring library contracts from ordinary function names.
+Explicit builtins retain their semantics. The compiler can still
+generate calls to helpers, which the linker or user-supplied runtime must
+provide. The compiler supplies startup and library members independently
+according to the link options. Header paths are selected separately.
+
+[C draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[GCC C dialect options](https://gcc.gnu.org/onlinedocs/gcc-15.1.0/gcc/C-Dialect-Options.html) ·
+[Clang freestanding builds](https://clang.llvm.org/docs/UsersManual.html#freestanding-builds)

@@ -51,6 +51,6 @@ struct LinkStats
 // `error` set for duplicate or unresolved symbols, a missing `main`,
 // unsupported relocations or an I/O failure.
 bool link_executable(std::vector<object::ObjectFile>& objects, const std::string& output, std::string& error,
-	LinkStats* stats, Target target = Target::Linux, bool startup = true);
+	LinkStats* stats, Target target = Target::Linux, bool startup = true, bool default_libraries = true);
 
 } // namespace native

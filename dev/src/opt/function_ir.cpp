@@ -162,7 +162,7 @@ void find_allocation_functions(Program& program)
 	for (SymbolId s = 0; s < program.symbols.size(); ++s)
 	{
 		const Symbol& symbol = program.symbols[s];
-		if (symbol.kind != SymbolKind::FunctionDeclaration)
+		if (symbol.kind != SymbolKind::FunctionDeclaration || symbol.metadata.no_builtin)
 			continue;
 		const char* spelling = program.spelling(symbol.metadata.object != 0 ? symbol.metadata.object : symbol.name);
 		program.allocation_functions[s] = std::strcmp(spelling, "malloc") == 0 ||
@@ -192,7 +192,7 @@ bool releasing_call(const Program& program, const Instruction& inst)
 		return false;
 	const Symbol& symbol = program.symbols[inst.ops[0].index];
 	const Signature* signature = program.call_boundary(inst);
-	return symbol.kind == SymbolKind::FunctionDeclaration && signature != nullptr &&
+	return symbol.kind == SymbolKind::FunctionDeclaration && !symbol.metadata.no_builtin && signature != nullptr &&
 		signature->boundary.arity == ir_model::CAM_FIXED && signature->parameter_count == 1 &&
 		program.parameters_of(*signature)[0].type.is_pointer() &&
 		std::strcmp(program.spelling(symbol.metadata.object != 0 ? symbol.metadata.object : symbol.name), "free") == 0;

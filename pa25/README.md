@@ -90,6 +90,9 @@ New in PA25:
 
 - compile mode: `-c`
 - default link mode with source and object inputs
+- runtime selection: `-nostartfiles` omits compiler-supplied startup,
+  `-nodefaultlibs` omits automatically selected library members, and
+  `-nostdlib` combines both
 - include search: `-I <dir>` and `-I<dir>`
 - library search: `-L <dir>`, `-L<dir>`, `-l <name>`, and `-l<name>`
 - target selection: `--target <target>` or `--target=<target>`
@@ -132,6 +135,9 @@ cppgm -L<dir> -l <name> -o <outfile> <input1> <input2> ... <inputN>
 
 Options may be combined when their meanings are compatible, for example
 `--target <target>` with `-I` or `-L`/`-l`.
+An invocation which omits startup may supply its own process entry. On
+Linux that entry is `_start`. Explicit object and library arguments
+continue to be linked when default libraries are omitted.
 
 In link mode, each `<inputK>` may be:
 

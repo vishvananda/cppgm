@@ -869,6 +869,7 @@ void Parser::parse_symbol_value(MetadataKey key, MetadataContext context, Symbol
 	case MetadataKey::InlineHint:
 	case MetadataKey::NoInline:
 	case MetadataKey::Cold:
+	case MetadataKey::NoBuiltin:
 		if (on_global)
 			fail(std::string(ir_model::spelling(key)) + " metadata requires a function");
 		break;
@@ -940,7 +941,10 @@ void Parser::parse_symbol_value(MetadataKey key, MetadataContext context, Symbol
 		// inline_hint, no_inline, cold.
 		if (value.length != 3 || std::memcmp(value.text, metadata_yes_spelling(), 3) != 0)
 			fail("metadata flag must be yes");
-		symbol.flags |= symbol_flag_of(key);
+		if (key == MetadataKey::NoBuiltin)
+			symbol.no_builtin = true;
+		else
+			symbol.flags |= symbol_flag_of(key);
 		break;
 	}
 	}

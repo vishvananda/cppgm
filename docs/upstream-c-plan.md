@@ -43,9 +43,9 @@ array parameter adjustment. The VLA cases now cover prototype-scope type
 names, atomic pointer type specifiers, and function types derived from
 variably modified results. File- and block-scope type queries now cover
 unevaluated runtime bounds. The Intel macOS and Apple Silicon workflows
-have a PA38 native driver slice. Complete native Darwin qualification and
-qualify the other C11 optional features. Alongside target qualification,
-add explicit C environment selection for native targets. Expand the pinned
+have a PA38 native driver slice. The driver now resolves explicit C
+environment selection before preprocessing. Complete native Darwin
+qualification and qualify the other C11 optional features. Expand the pinned
 C99, C11, and C17 manifests from the uncovered clauses. Keep
 the existing VLA, generic selection, and sparse initializer tests in the
 fast iteration loop for changes to their shared analysis paths.
@@ -277,16 +277,13 @@ chains independently.
 
 ## 3. Qualify the hosted and freestanding targets
 
-- Complete C environment selection in the driver. cppgm currently rejects
-  `-ffreestanding` and chooses `__STDC_HOSTED__` from the target profile.
-  Preserve the default of zero for bare Wasm and one for the native and
-  WASI profiles. Support explicit `-ffreestanding` and `-fhosted` where the
-  target supports the selected profile. Resolve that choice once and use
-  it for preprocessing, language rules for `main`, compiler-generated
-  helper calls and the entry point contract. Keep header search and link
-  driver flags independent. Pair macro tests with a translation unit that
-  compiles both ways and a link check that verifies the helper and startup
-  contract for each supported profile.
+- The driver resolves explicit `-ffreestanding` and `-fhosted` before
+  preprocessing. Bare Wasm is freestanding, while native and WASI profiles
+  default to hosted. Tests exercise the macros, hosted `main`, ordinary
+  freestanding calls, explicit builtins, and custom startup. Track the
+  compiler-generated helper contract separately for each supported ABI.
+  Keep header search and link options independent of the language mode.
+  [Environment qualification](../reports/upstream-c-coverage.md#execution-environment-selection)
 - On Linux x86-64 and AArch64, validate ELF objects against the pinned native
   toolchains and glibc. Add a musl header and runtime replay to expose
   assumptions coupled to one libc. On Intel macOS and Apple Silicon, validate

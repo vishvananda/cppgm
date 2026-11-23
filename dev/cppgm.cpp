@@ -219,6 +219,7 @@ struct SourceOutputInvocation
 	ExtensionWarnings extension_warnings = ExtensionWarnings::Disabled;
 	bool warn_system_headers = false;
 	driver::SourceExceptions exceptions = driver::SourceExceptions::Default;
+	driver::CEnvironment c_environment = driver::CEnvironment::TargetDefault;
 	bool rtti = true;
 	vector<string> include_paths;
 	vector<string> quote_include_paths;
@@ -318,6 +319,8 @@ SourceOutputInvocation parse_source_output_invocation(const vector<string>& args
 			continue;
 		}
 		if (driver::diagnostic_option(args[i], invocation.extension_warnings, invocation.warn_system_headers))
+			continue;
+		if (driver::c_environment_option(args[i], invocation.c_environment))
 			continue;
 		if (args[i] == "-matomics" || args[i] == "-mno-atomics")
 		{
@@ -784,6 +787,7 @@ PreprocessorOptions source_preprocessor_options(const SourceOutputInvocation& in
 	options.extension_warnings = invocation.extension_warnings;
 	options.warn_system_headers = invocation.warn_system_headers;
 	driver::configure_source_language(invocation.language, invocation.standard, invocation.exceptions, options);
+	driver::configure_c_environment(options, invocation.target, invocation.c_environment);
 	options.plain_char_unsigned = invocation.plain_char_unsigned < 0 ? invocation.target == native::Target::AArch64Linux
 																	 : invocation.plain_char_unsigned != 0;
 	options.popcnt = invocation.popcnt;
@@ -959,7 +963,7 @@ int run_emit_types_mode(vector<string> args)
 			try
 			{
 				sema::Analyzer analyzer(graph, unit.identifiers());
-				analyzer.set_source_language(options.language, options.gnu_c());
+				analyzer.set_source_language(options.language, options.gnu_c(), options.c_freestanding);
 				analyzer.set_hosted(options.hosted);
 				analyzer.set_cxx_edition(options.cxx_edition, options.diagnose_cxx_extensions());
 				analyzer.set_exceptions(options.modes.exceptions);
@@ -1042,7 +1046,7 @@ int run_emit_semantics_mode(vector<string> args)
 			try
 			{
 				sema::Analyzer analyzer(graph, unit.identifiers(), sema::AnalysisMode::Semantics);
-				analyzer.set_source_language(options.language, options.gnu_c());
+				analyzer.set_source_language(options.language, options.gnu_c(), options.c_freestanding);
 				analyzer.set_hosted(options.hosted);
 				analyzer.set_cxx_edition(options.cxx_edition, options.diagnose_cxx_extensions());
 				analyzer.set_exceptions(options.modes.exceptions);
@@ -1199,7 +1203,7 @@ int run_emit_lowir_mode(vector<string> args)
 			sema::SemanticGraph graph(options.plain_char_unsigned, options.target);
 			graph.names.reserve(unit.counters().bindings);
 			sema::Analyzer analyzer(graph, unit.identifiers(), sema::AnalysisMode::Semantics);
-			analyzer.set_source_language(options.language, options.gnu_c());
+			analyzer.set_source_language(options.language, options.gnu_c(), options.c_freestanding);
 			analyzer.set_hosted(options.hosted);
 			analyzer.set_cxx_edition(options.cxx_edition, options.diagnose_cxx_extensions());
 			analyzer.set_exceptions(options.modes.exceptions);

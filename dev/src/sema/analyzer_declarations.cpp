@@ -2384,12 +2384,9 @@ Binding* Analyzer::declare_function(const Specifiers& specifiers, const Declarat
 	check_function_qualifiers(where, name.key, info.type->canonical, specifiers.is_static, location);
 	if (function == nullptr && where->kind == ScopeKind::Class && !templated)
 		check_member_overload(where, name.key, info.type, specifiers.is_static, location);
-	// 3.6.1p3: a program that declares main inline, static or constexpr is
-	// ill-formed (any declaration of the global namespace's main).
-	if ((specifiers.is_inline || specifiers.is_static || specifiers.is_constexpr) &&
-		where->kind == ScopeKind::Namespace && where->parent == nullptr && !templated && name.key != nullptr &&
-		std::strcmp(name.key->spelling, "main") == 0)
-		error(location, "main declared inline, static or constexpr");
+	if (where == graph_.global && !templated && !c_freestanding_ && name.key != nullptr && name.key->length == 4 &&
+		std::memcmp(name.key->spelling, "main", 4) == 0)
+		check_main(specifiers, info.type, definition, location);
 	if (function != nullptr)
 	{
 		if (c_source_ && where->kind == ScopeKind::Namespace && !c_function_linkages_.empty())
