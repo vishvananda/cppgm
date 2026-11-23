@@ -6,7 +6,7 @@ An asterisk marks a result at least 10 commits behind main, or outside its histo
 
 | Workload | Host | CPU | Measured commit | Commit date (UTC) | Age | Results |
 |---|---|---|---|---|---|---|
-| Public programs | EPYC | AMD EPYC 9V74 80-Core Processor | [`0eb0fe355`](https://github.com/vishvananda/cppgm/commit/0eb0fe355ff3f83f0f2ffe697f97c7e8f251dea6) | 2026-11-20T18:46:26Z | 174 commits (stale badge) | [Results](epyc/report.md) |
+| Public programs | EPYC | AMD EPYC 7763 64-Core Processor | [`cc79604cd`](https://github.com/vishvananda/cppgm/commit/cc79604cdc196d46abdebb888158e8b90d3cac52) | 2026-11-23T17:25:05Z | 0 commits | [Results](epyc/report.md) |
 | cppgm | EPYC | AMD EPYC 9V74 80-Core Processor | [`0e83e16cf`](https://github.com/vishvananda/cppgm/commit/0e83e16cfc2b07812fd972ecb73cd95be4783dad) | 2026-11-20T21:17:50Z | 161 commits (stale badge) | [Results](epyc/self-build.md) |
 | index-cpp | EPYC | AMD EPYC 9V45 96-Core Processor | [`dbbd227db`](https://github.com/vishvananda/cppgm/commit/dbbd227db37c255596e3fc11a4d3df8700ea7be7) | 2026-11-21T15:22:14Z | 2 commits | [Results](index-cpp/epyc/report.md) |
 | simdjson | EPYC | AMD EPYC 9V74 80-Core Processor | [`dbbd227db`](https://github.com/vishvananda/cppgm/commit/dbbd227db37c255596e3fc11a4d3df8700ea7be7) | 2026-11-21T15:22:14Z | 2 commits | [Results](simdjson/epyc/report.md) |
@@ -33,6 +33,6 @@ An asterisk marks a result at least 10 commits behind main, or outside its histo
 | internal | CI Intel | Intel(R) Xeon(R) 6975P-C | [`dbbd227db`](https://github.com/vishvananda/cppgm/commit/dbbd227db37c255596e3fc11a4d3df8700ea7be7) | 2026-11-21T15:22:14Z | 2 commits | [Results](internal/github-intel/report.md) |
 | wasm | CI Intel | Intel(R) Xeon(R) 6975P-C | [`cc79604cd`](https://github.com/vishvananda/cppgm/commit/cc79604cdc196d46abdebb888158e8b90d3cac52) | 2026-11-23T17:25:05Z | 0 commits | [Results](wasm/github-intel/report.md) |
 | wasm-selfbuild | CI Intel | Intel(R) Xeon(R) 6975P-C | [`cc79604cd`](https://github.com/vishvananda/cppgm/commit/cc79604cdc196d46abdebb888158e8b90d3cac52) | 2026-11-23T17:25:05Z | 0 commits | [Results](wasm-selfbuild/github-intel/report.md) |
-| Backend performance | x86-64 | Intel(R) Xeon(R) 6975P-C | [`7bc2ee420`](https://github.com/vishvananda/cppgm/commit/7bc2ee42070147be1668ff16a16841c6e02b47e3) | 2026-11-21T16:21:41Z | 1 commits | [Results](backend/x86_64-linux-gnu/report.md) |
+| Backend performance | x86-64 | AMD EPYC 7763 64-Core Processor | [`cc79604cd`](https://github.com/vishvananda/cppgm/commit/cc79604cdc196d46abdebb888158e8b90d3cac52) | 2026-11-23T17:25:05Z | 0 commits | [Results](backend/x86_64-linux-gnu/report.md) |
 | Backend performance | WASI | Intel(R) Xeon(R) 6975P-C | [`cc79604cd`](https://github.com/vishvananda/cppgm/commit/cc79604cdc196d46abdebb888158e8b90d3cac52) | 2026-11-23T17:25:05Z | 0 commits | [Results](backend/wasm32-wasip1/report.md) |
 | Backend performance | Arm64 | Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0) | [`7bc2ee420`](https://github.com/vishvananda/cppgm/commit/7bc2ee42070147be1668ff16a16841c6e02b47e3) | 2026-11-21T16:21:41Z | 1 commits | [Results](backend/aarch64-linux-gnu/report.md) |
