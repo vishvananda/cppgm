@@ -57,8 +57,11 @@ Start the next batches from the existing receipts.
    expressions retain their decoded code units through semantic analysis
    and lowering. This closes the measured escape-heavy compile regression
    and adds C11 and C17 runtime evidence for adjacent storage and wide
-   code units. Cover pragmas and their location and edition rules, then
-   declarators, initializers, conversions, constant expressions, and
+   code units. The `FENV_ACCESS` probes cover nested scopes, dynamic
+   rounding, and discarded arithmetic with an observable status effect.
+   Extend pragma coverage to conversions, comparisons, contraction,
+   and complex arithmetic. Continue with declarators, initializers,
+   conversions, constant expressions, and
    linkage. Pair edition boundaries with native reference runs and
    earliest-assignment regressions.
    [Literal measurements](performance/c-frontend-scaling.md#escape-heavy-c-literals)

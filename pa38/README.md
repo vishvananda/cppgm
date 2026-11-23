@@ -130,6 +130,15 @@ In ISO C99, lex `u`, `U`, and `u8` before a quote as identifiers.
 Use the same edition for macro pasting. C11 and GNU99 accept Unicode
 literal prefixes.
 
+Apply `#pragma STDC FENV_ACCESS ON`, `OFF`, and `DEFAULT` at file scope
+or before the first declaration or statement in a compound block.
+Accept the corresponding `_Pragma` spelling. A block inherits the
+enclosing mode and restores it when the block ends. The default is OFF.
+With access ON, real floating adds, subtracts, multiplies, and divides
+use `fenv_binary` in LowIR. Retain the operation even when its value is
+discarded, since it can set an observable floating-point status flag.
+Static-storage initializers still use translation-time arithmetic.
+
 The output is ordinary [PA8 LowIR](../pa8/lowir.md). Preserve target sizes,
 alignment, function signatures, object names, qualifiers and conversions. C
 functions and objects use their C ABI names. A C++ `extern "C"` declaration

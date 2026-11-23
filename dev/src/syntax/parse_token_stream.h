@@ -178,6 +178,9 @@ public:
 	void observe_pack(const uint32_t* state) { pack_state_ = state; }
 	uint32_t pack_at(uint64_t ordinal) const;
 
+	static void note_fenv(void* stream, bool enabled);
+	bool fenv_at_current_token(bool inherited);
+
 private:
 	struct Replay
 	{
@@ -216,6 +219,12 @@ private:
 	const uint32_t* pack_state_;
 	uint32_t last_pack_;
 	std::vector<PackChange> pack_changes_;
+	struct FenvChange
+	{
+		uint64_t ordinal;
+		bool enabled;
+	};
+	std::vector<FenvChange> fenv_changes_;
 	const Identifier* ignored_[4];
 	uint32_t ignored_count_;
 	uint32_t prelude_begin_ = 0;

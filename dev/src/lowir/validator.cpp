@@ -260,6 +260,8 @@ const OperandRule kOperandRules[] = {
 	{ { kNoOperand, kNoOperand, kNoOperand }, ExtraOperands::None, 1 },                               // Unreachable
 	{ { kNoOperand, kNoOperand, kNoOperand }, ExtraOperands::None, 1 },                               // MemorySize
 	{ { kValueOperand, kNoOperand, kNoOperand }, ExtraOperands::None, 1 },                            // MemoryGrow
+	{ { kValueOperand, kValueOperand, kNoOperand }, ExtraOperands::None,
+		static_cast<unsigned>(BinaryOp::Div) + 1 }, // FenvBinary
 };
 
 static_assert(sizeof kOperandRules / sizeof kOperandRules[0] == kOpcodeCount, "one operand rule per opcode");
@@ -1025,6 +1027,18 @@ bool Validator::check_instruction(InstId id, const Instruction& inst, BlockId bl
 		{
 			if (value_type(inst.ops[i], type) && type.kind() == TypeKind::I128 && type != inst.type)
 				return fail("comparison operand type mismatch");
+		}
+		return true;
+	case Opcode::FenvBinary:
+		if (!inst.type.is_float() || inst.flags != 0)
+			return fail("fenv_binary requires scalar floating arithmetic");
+		for (unsigned i = 0; i < 2; ++i)
+		{
+			const Value operand = inst.ops[i];
+			const bool matching = operand.is(ValueKind::Float) ? operand.float_kind == inst.type.kind()
+															   : value_type(operand, type) && type == inst.type;
+			if (!matching)
+				return fail("fenv_binary operand type mismatch");
 		}
 		return true;
 	case Opcode::Select:

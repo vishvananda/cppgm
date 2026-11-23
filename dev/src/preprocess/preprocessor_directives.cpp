@@ -726,6 +726,25 @@ void Preprocessor::apply_language_pragma(
 		extension_group_changes_[location] = ignored_extension_groups_;
 }
 
+bool Preprocessor::c_fenv_family(const PPToken& token) const
+{
+	return identifiers_.language() == SourceLanguage::C && PragmaWord(token, "STDC");
+}
+
+bool Preprocessor::c_fenv_name(const PPToken& token)
+{
+	return PragmaWord(token, "FENV_ACCESS");
+}
+
+void Preprocessor::apply_c_fenv(const PPToken& mode, bool complete, uint32_t location)
+{
+	const bool enabled = PragmaWord(mode, "ON");
+	if (!complete || (!enabled && !PragmaWord(mode, "OFF") && !PragmaWord(mode, "DEFAULT")))
+		throw PreprocessError(location, "expected ON, OFF, or DEFAULT after STDC FENV_ACCESS");
+	if (fenv_observer_ != nullptr)
+		fenv_observer_(fenv_context_, enabled);
+}
+
 void Preprocessor::run_pragma_directive()
 {
 	const PPToken& first = source_.next_in_line();
@@ -737,6 +756,21 @@ void Preprocessor::run_pragma_directive()
 	{
 		run_pack_pragma(first);
 		return;
+	}
+	else if (c_fenv_family(first))
+	{
+		const uint32_t location = first.begin;
+		const PPToken name = source_.next_in_line();
+		if (name.kind == PPTokenKind::NewLine)
+			return;
+		if (c_fenv_name(name))
+		{
+			const PPToken mode = source_.next_in_line();
+			const bool complete = mode.kind == PPTokenKind::NewLine ||
+				source_.next_in_line().kind == PPTokenKind::NewLine;
+			apply_c_fenv(mode, complete, location);
+			return;
+		}
 	}
 	else if (language_pragma_family(first))
 	{

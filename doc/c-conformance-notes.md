@@ -381,6 +381,19 @@ restoring the previous mode.
 [PA30 native query](../pa30/tests/run/800-builtin-fp-rounds.t.1) ·
 [PA37 Wasm query](../pa37/tests/module/100-source-wasm-flt-rounds.t)
 
+## Scoped floating-environment access
+
+The C `STDC FENV_ACCESS` pragma applies at file scope and before the
+explicit declarations and statements of a compound block. A nested
+block restores the enclosing setting on exit. cppgm's default is OFF.
+A direct pragma and `_Pragma` affect the same scope. Scalar real
+arithmetic in an enabled scope observes the active rounding mode and
+retains its floating status effects even when the value is discarded.
+Initializers with static storage use translation-time arithmetic.
+
+[WG14 N1570, §7.6.1 and Annex F.8](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf#page=226) ·
+[PA38 scope and runtime probe](../pa38/tests/general/500-c-fenv-binary.t)
+
 ## Volatile-qualified record accesses
 
 C11 5.1.2.3 and 6.7.3 make volatile accesses observable. A by-value

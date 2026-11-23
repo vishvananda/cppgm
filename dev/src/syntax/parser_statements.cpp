@@ -15,6 +15,10 @@ CompoundStmt* Parser::parse_compound_statement(bool new_scope)
 	// A body in a statement read again (a lambda's, a local class member's)
 	// is read as written: its statements have readings of their own.
 	const ConflictScope conflicts(conflicts_);
+	const bool saved_fenv = fenv_access_;
+	if (c_source_)
+		fenv_access_ = tokens_.fenv_at_current_token(fenv_access_);
+	stmt->fenv_access = fenv_access_;
 	Scope* saved = scopes_.current();
 	if (new_scope)
 		scopes_.push(ScopeKind::Block, nullptr);
@@ -40,6 +44,7 @@ CompoundStmt* Parser::parse_compound_statement(bool new_scope)
 		}
 		items.push(item);
 	}
+	fenv_access_ = saved_fenv;
 	scopes_.set_current(saved);
 	if (!parsed)
 		return nullptr;

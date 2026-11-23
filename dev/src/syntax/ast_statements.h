@@ -45,6 +45,8 @@ struct Stmt
 	bool selection_init = false;
 	// A function's outer compound records syntax from that function alone.
 	uint8_t function_body_syntax = 0;
+	// The effective C floating environment setting of a compound statement.
+	bool fenv_access = false;
 	uint32_t location;
 };
 

@@ -420,6 +420,15 @@ void Preprocessor::run_pragma(const char* text, uint32_t length, uint32_t locati
 				}
 				apply_pack_pragma(operands);
 			}
+			else if (c_fenv_family(token))
+			{
+				if (c_fenv_name(operand()))
+				{
+					const PPToken mode = operand();
+					const PPTokenKind end = operand().kind;
+					apply_c_fenv(mode, end == PPTokenKind::EndOfFile || end == PPTokenKind::NewLine, location);
+				}
+			}
 			else if (language_pragma_family(token))
 			{
 				const PPToken name = operand();

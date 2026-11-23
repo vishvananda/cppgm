@@ -2466,3 +2466,31 @@ inputs. Every object matched byte for byte.
 | SQLite | A/A | 16,509,566,288 / 16,509,798,559 / 16,509,421,167 / 16,509,543,883 |
 | SQLite | ABBA | 16,509,468,027 / 16,509,367,359 / 16,509,446,574 / 16,509,475,478 |
 | SQLite | BAAB | 16,509,718,112 / 16,509,384,921 / 16,509,433,798 / 16,509,776,966 |
+
+## Scoped floating-environment access
+
+The preprocessor records floating-environment changes only when it
+encounters the pragma. The parser associates each change with a block
+or file scope using its token position. The instruction record retains
+its size and uses a distinct arithmetic opcode for effects that depend
+on the floating environment.
+
+The frozen compile controls produced byte-identical objects. Retired
+instructions changed by +0.00479% and +0.00322% in C++ ABBA and BAAB
+blocks. SQLite changed by +0.00576% and +0.00750%. Both used immutable
+binaries, the same frozen inputs, and one pinned CPU.
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,046,551,221 / 9,046,690,834 / 9,046,684,659 / 9,046,415,594 |
+| C++ | ABBA | 9,046,683,079 / 9,046,878,147 / 9,047,142,891 / 9,046,470,849 |
+| C++ | BAAB | 9,046,924,950 / 9,046,579,520 / 9,046,713,716 / 9,046,951,578 |
+| SQLite | A/A | 16,509,497,277 / 16,509,233,173 / 16,509,448,165 / 16,510,105,868 |
+| SQLite | ABBA | 16,509,466,707 / 16,510,352,344 / 16,510,583,805 / 16,509,567,923 |
+| SQLite | BAAB | 16,510,648,962 / 16,509,375,482 / 16,509,386,995 / 16,510,589,758 |
+
+A generated source alternated the pragma state before every function.
+At 512, 1,024, 2,048, and 4,096 functions, the median instructions for
+`--emit-lowir -O0` were 27.75, 51.72, 99.71, and 195.70 million. Every
+run marked exactly the enabled functions. The incremental cost was
+about 94,000 instructions for two additional functions at every size.

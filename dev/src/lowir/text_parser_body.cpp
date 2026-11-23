@@ -380,18 +380,17 @@ bool Parser::parse_value_instruction(FunctionBuilder& builder, Opcode keyword, I
 		return true;
 	case Opcode::Unary:
 	case Opcode::Binary:
+	case Opcode::FenvBinary:
 	case Opcode::Compare:
 	{
 		const WordInfo info = word(token());
 		const WordClass expected = keyword == Opcode::Unary ? WordClass::Unary
-			: keyword == Opcode::Binary                     ? WordClass::Binary
-															: WordClass::Compare;
+			: keyword == Opcode::Compare                    ? WordClass::Compare
+															: WordClass::Binary;
 		if (info.word_class != expected)
 			fail("unknown LowIR operation: " + spelling(token()));
 		advance();
-		inst.op = keyword == Opcode::Unary ? Opcode::Unary
-			: keyword == Opcode::Binary    ? Opcode::Binary
-										   : Opcode::Compare;
+		inst.op = keyword;
 		inst.sub = info.value;
 		if (keyword == Opcode::Binary)
 		{

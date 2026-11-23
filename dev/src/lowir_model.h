@@ -262,10 +262,12 @@ enum class Opcode : std::uint8_t
 	Unreachable,
 	// PA37's single wasm32 memory: size in pages, or grow by u32 pages.
 	MemorySize,
-	MemoryGrow
+	MemoryGrow,
+	// Scalar floating arithmetic that observes and can change the floating environment.
+	FenvBinary
 };
 
-const unsigned kOpcodeCount = static_cast<unsigned>(Opcode::MemoryGrow) + 1;
+const unsigned kOpcodeCount = static_cast<unsigned>(Opcode::FenvBinary) + 1;
 
 inline bool is_stack_instruction(Opcode op)
 {
@@ -281,7 +283,7 @@ inline bool is_terminator(Opcode op)
 // non-void result type).
 inline bool defines_value(Opcode op)
 {
-	return op <= Opcode::ExceptionSelector || op == Opcode::MemorySize || op == Opcode::MemoryGrow;
+	return op <= Opcode::ExceptionSelector || op >= Opcode::MemorySize;
 }
 
 // The handler-stack markers eh_try ... eh_end.
@@ -299,7 +301,7 @@ inline const char* spelling(Opcode op)
 		"exception", "exception_selector", "asm", "store", "atomic_store", "atomic_thread_fence", "atomic_signal_fence",
 		"va_start", "stack_restore", "write_mxcsr", "copyobj", "zeroinit", "eh_try", "eh_cleanup", "eh_catch",
 		"eh_filter", "eh_catch_all", "eh_end", "throw", "resume", "jump", "branch", "switch", "indirect_jump", "return",
-		"unreachable", "memory_size", "memory_grow" };
+		"unreachable", "memory_size", "memory_grow", "fenv_binary" };
 	return kOpcodes[static_cast<unsigned>(op)];
 }
 

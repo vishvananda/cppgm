@@ -777,6 +777,7 @@ private:
 	// enclosing expression's state meanwhile: state a full-expression,
 	// construction or initialization records belongs there too.
 	struct ExpressionScope;
+	bool fenv_access_ = false;
 	RValue statement_expression(const syntax::StatementExpr& expr, lowir::Value object);
 	void enter_label(lowir::BlockId block);
 	lowir::BlockId goto_label(const Identifier* label);

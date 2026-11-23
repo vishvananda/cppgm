@@ -2618,3 +2618,14 @@ implicitly run source cleanups. Their full validation and lifetime rules are in
 [the assembly boundary](../pa29/assembly.md). PA8 validates and round-trips these typed records and their invariants.
 PA29 later binds constraints, encodes instructions and observes native behavior.
 No C++ parser, register allocator or assembly encoder is required in PA8.
+
+
+## Floating arithmetic with environment access
+
+PA38 adds `%result = fenv_binary <operation> <float-type> <left>, <right>`.
+Use the same operands and result type as a scalar floating `binary`.
+The operations are `add`, `sub`, `mul`, and `div`. The operation
+observes the rounding mode and may update floating-point status flags.
+Retain its execution and ordering when the result is unused or both
+operands are constant. Use the target's scalar floating instruction
+with the active rounding state when selecting machine code.

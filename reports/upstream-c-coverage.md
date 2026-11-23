@@ -96,10 +96,23 @@ reports all four dynamic codes on x86-64 and AArch64. The installed GCC
 headers use a fixed code for nearest.
 
 Native macOS evidence and C99 integer macro type checks remain open.
-A separate `FENV_ACCESS ON` probe calls `fesetround(FE_UPWARD)` before
-evaluating `1.0 + 0x1p-53` in a function. cppgm returns the upward
-result at `-O0` and folds to nearest at `-O2`. Clang 21 and GCC 15
-with `-frounding-math` return the upward result at both levels.
+The `FENV_ACCESS ON` probe now preserves `1.0 + 0x1p-53` as runtime
+arithmetic. It checks upward and downward rounding in the same function
+and checks `FE_INEXACT` after a discarded addition. It also checks the
+default mode in a nested block, restoration of the enclosing mode, and
+a static initializer. Direct and LowIR round-trip execution pass on
+Linux x86-64 from `-O0` to `-O3` in C99 through C17. AArch64 under QEMU
+passes at `-O0`, `-O2`, and `-O3`. Bare Wasm passes the scope and
+default-rounding control. An upward-rounded binary128 addition also
+passes on AArch64 with libgcc. Further library profiles remain open.
+
+The next probes found two distinct gaps. Converting the runtime
+expression `(float)16777217` under upward rounding passes at `-O0`
+and folds to nearest at `-O2`. An ordered comparison with a quiet
+NaN uses a quiet x86 compare and misses the invalid flag at both
+levels. Clang 21 returns the upward conversion and sets the invalid
+flag in the same probes.
+[PA38 scope and runtime probe](../pa38/tests/general/500-c-fenv-binary.t) ·
 [WG14 N1570 §7.6.1 and F.8.4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [Integer probe](../scripts/tests/c_integer_limits.c) ·
 [Floating probe](../scripts/tests/c_float_limits.c) ·

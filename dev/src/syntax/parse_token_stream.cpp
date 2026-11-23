@@ -1,5 +1,6 @@
 #include "syntax/parse_token_stream.h"
 
+#include <algorithm>
 #include <cstring>
 
 #include "lex/string_literal_value.h"
@@ -93,6 +94,27 @@ uint32_t ParseTokenStream::pack_at(uint64_t ordinal) const
 	if (low != 0)
 		pack = pack_changes_[low - 1].pack;
 	return pack;
+}
+
+void ParseTokenStream::note_fenv(void* stream, bool enabled)
+{
+	auto& tokens = *static_cast<ParseTokenStream*>(stream);
+	const uint64_t ordinal = tokens.base_ + tokens.window_.size();
+	if (!tokens.fenv_changes_.empty() && tokens.fenv_changes_.back().ordinal == ordinal)
+		tokens.fenv_changes_.back().enabled = enabled;
+	else
+		tokens.fenv_changes_.push_back(FenvChange{ ordinal, enabled });
+}
+
+bool ParseTokenStream::fenv_at_current_token(bool inherited)
+{
+	peek();
+	if (fenv_changes_.empty())
+		return inherited;
+	const uint64_t ordinal = absolute_position();
+	const auto event = std::lower_bound(fenv_changes_.begin(), fenv_changes_.end(), ordinal,
+		[](const FenvChange& change, uint64_t position) { return change.ordinal < position; });
+	return event != fenv_changes_.end() && event->ordinal == ordinal ? event->enabled : inherited;
 }
 
 void ParseTokenStream::pull()

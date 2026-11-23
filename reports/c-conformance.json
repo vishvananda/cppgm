@@ -592,7 +592,71 @@
         "darwin-arm64-hosted"
       ],
       "outside_profile": "This rule checks arithmetic under a non-default native rounding mode.",
-      "requirement": "Honor the active rounding mode for a runtime floating expression when FENV_ACCESS is ON.",
+      "requirement": "Honor the active rounding mode in scalar double arithmetic with FENV_ACCESS ON, including block scope and _Pragma.",
+      "cases": [
+        "floating.fenv-binary"
+      ]
+    },
+    {
+      "id": "floating.fenv-status",
+      "clause": "7.6.1, F.8.1",
+      "kind": "conditional",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "hosted",
+      "profiles": [
+        "linux-x86_64-hosted",
+        "linux-aarch64-hosted",
+        "darwin-x86_64-hosted",
+        "darwin-arm64-hosted"
+      ],
+      "outside_profile": "This rule checks arithmetic under a non-default native rounding mode.",
+      "requirement": "Preserve the inexact status effect of a discarded arithmetic result in a region with FENV_ACCESS ON.",
+      "cases": [
+        "floating.fenv-binary"
+      ]
+    },
+    {
+      "id": "floating.fenv-conversions",
+      "clause": "7.6.1, F.4",
+      "kind": "conditional",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "hosted",
+      "profiles": [
+        "linux-x86_64-hosted",
+        "linux-aarch64-hosted",
+        "darwin-x86_64-hosted",
+        "darwin-arm64-hosted"
+      ],
+      "outside_profile": "This rule checks arithmetic under a non-default native rounding mode.",
+      "requirement": "Honor dynamic modes and status flags for numeric conversions in an enabled FENV_ACCESS scope.",
+      "cases": []
+    },
+    {
+      "id": "floating.fenv-ordered-comparison",
+      "clause": "7.6.1, F.3",
+      "kind": "conditional",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "hosted",
+      "profiles": [
+        "linux-x86_64-hosted",
+        "linux-aarch64-hosted",
+        "darwin-x86_64-hosted",
+        "darwin-arm64-hosted"
+      ],
+      "outside_profile": "This rule checks arithmetic under a non-default native rounding mode.",
+      "requirement": "Raise invalid for an ordered relational comparison with a quiet NaN under FENV_ACCESS ON.",
       "cases": []
     },
     {

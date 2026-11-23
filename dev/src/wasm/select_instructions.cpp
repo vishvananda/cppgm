@@ -363,6 +363,7 @@ void Selector::instruction(const lowir::Instruction& inst)
 		unary(inst);
 		break;
 	case Opcode::Binary:
+	case Opcode::FenvBinary:
 		binary(inst);
 		break;
 	case Opcode::Compare:

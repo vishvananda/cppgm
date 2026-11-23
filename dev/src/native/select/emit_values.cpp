@@ -324,6 +324,7 @@ void FunctionSelector::emit_inst(uint32_t id)
 		emit_unary(inst);
 		break;
 	case Opcode::Binary:
+	case Opcode::FenvBinary:
 		emit_binary(inst);
 		break;
 	case Opcode::Compare:

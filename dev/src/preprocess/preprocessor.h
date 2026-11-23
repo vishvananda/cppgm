@@ -208,6 +208,13 @@ public:
 	// reads as it takes each one.
 	const uint32_t* pack_state() const { return &pack_; }
 
+	// Notify the token consumer only when a C floating-environment pragma occurs.
+	void observe_fenv(void* context, void (*observer)(void*, bool))
+	{
+		fenv_context_ = context;
+		fenv_observer_ = observer;
+	}
+
 	// The location range of the built-in declarations (hosted mode), read
 	// before the primary source file's tokens (empty without them).
 	uint32_t builtin_begin() const { return builtin_begin_; }
@@ -302,6 +309,11 @@ private:
 	[[noreturn]] void run_error(const PPToken& directive);
 	void run_line(const PPToken& directive);
 	void run_pragma_directive();
+	bool c_fenv_family(const PPToken& token) const;
+	static bool c_fenv_name(const PPToken& token);
+	void apply_c_fenv(const PPToken& mode, bool complete, uint32_t location);
+	void* fenv_context_ = nullptr;
+	void (*fenv_observer_)(void*, bool) = nullptr;
 	void run_language_pragma(uint32_t location);
 	void apply_language_pragma(uint32_t location, const PPToken& name, const PPToken& action, const PPToken& warning);
 	static bool language_pragma_family(const PPToken& token);

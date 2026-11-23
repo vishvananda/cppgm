@@ -1156,7 +1156,8 @@ void FunctionLowering::store(lowir::Type type, const RValue& value, const Place&
 RValue FunctionLowering::binary(
 	lowir::BinaryOp op, lowir::Type type, const RValue& left, const RValue& right, uint8_t flags)
 {
-	lowir::Instruction inst = lowir::make_instruction(lowir::Opcode::Binary, type);
+	const lowir::Opcode opcode = fenv_access_ && type.is_float() ? lowir::Opcode::FenvBinary : lowir::Opcode::Binary;
+	lowir::Instruction inst = lowir::make_instruction(opcode, type);
 	inst.sub = static_cast<uint8_t>(op);
 	inst.flags = flags;
 	inst.ops[0] = left.value;

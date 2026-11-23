@@ -15,6 +15,8 @@ SyntaxUnit::SyntaxUnit(const PreprocessorOptions& options, const std::string& pa
 	post_tokens_.set_source_positions(preprocessor_);
 	parser_.set_source_positions(preprocessor_);
 	tokens_.observe_pack(preprocessor_.pack_state());
+	if (options.language == SourceLanguage::C)
+		preprocessor_.observe_fenv(&tokens_, ParseTokenStream::note_fenv);
 	tokens_.set_prelude(preprocessor_.builtin_begin(), preprocessor_.builtin_end());
 }
 

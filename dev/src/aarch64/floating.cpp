@@ -288,7 +288,7 @@ void Selector::float_instruction(const lowir::Instruction& inst)
 	const unsigned precision = from.kind() == TypeKind::F64 ? 1u << 22 : 0;
 	const unsigned dest = vectors_[inst.result] == kNoId ? 16 : vectors_[inst.result];
 	const unsigned a = from.is_float() ? fp_operand(inst.ops[0], from, 16) : 0;
-	if (inst.op == Opcode::Binary)
+	if (inst.op == Opcode::Binary || inst.op == Opcode::FenvBinary)
 	{
 		if (inst.sub >= 4)
 			throw AArch64Error("unsupported floating binary operation");
