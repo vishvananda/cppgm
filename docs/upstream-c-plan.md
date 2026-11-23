@@ -46,9 +46,10 @@ behavior independent of the edition work that exposed them.
 Start the next batches from the existing receipts.
 
 1. Extend GNU initializer coverage to overlapping writes with different
-   suffixes. Cover partial overwrites of aggregate values, positional
-   continuation within the final ranged element, and automatic ranges of
-   aggregates with qualified subobjects. Include whole-subobject
+   suffixes. Cover partial overwrites of aggregate values, brace elision
+   at a ranged element, positional continuation within the final ranged
+   element, and automatic ranges of aggregates with qualified subobjects.
+   Include whole-subobject
    replacement followed by overlapping field writes in the scaling tests.
    PA38 covers whole-element ranges, member and subscript suffixes,
    same-path overlaps, and the empty-record layout.

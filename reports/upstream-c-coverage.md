@@ -207,19 +207,21 @@ the WASI lane. Both Darwin architectures cross-link.
 
 PA38 also checks member and subscript suffixes after ranges, including
 two ranged dimensions, static bit-fields, and an inferred array bound.
-The behavioral controls check that same-path overlaps leave the previous
-values outside the overlap and evaluate each surviving source once.
-Continuation can move past the final element or replace an initializer
-entirely at that index. The fixture matches GCC 15 on x86-64 Linux at
-`-O0` and `-O2`. It also runs under Linux AArch64 QEMU and WASI and
-cross-links for both Darwin architectures.
+The behavioral controls check that same-path overlaps preserve values
+outside the overlap and evaluate each surviving source once. Positional
+cases cover advancing to the next element and a later braced initializer
+replacing the final ranged element. The fixture matches GCC 15 on
+x86-64 Linux at `-O0` and `-O2`. It also runs under Linux AArch64 QEMU
+and WASI and cross-links for both Darwin architectures. A pointwise
+oracle checks the results of 96 generated nested overlap cases against
+cppgm and GCC 15 at both optimization levels.
 [PA38 range suffix fixture](../pa38/tests/general/300-designated-gnu-range-suffixes.t)
 
 Overlapping writes to different suffixes, including ones introduced by
-positional continuation, still require subobject composition. Automatic
-ranges of atomic aggregates or aggregates with individually volatile
-subobjects remain open. With an aggregate-valued expression followed by
-a field designation, GCC
+positional continuation, still require subobject composition. Brace
+elision at a ranged aggregate and automatic ranges of atomic aggregates
+or aggregates with individually volatile subobjects remain open. With an
+aggregate-valued expression followed by a field designation, GCC
 15 clears a previously initialized sibling field. The same behavior
 occurs with point designators. cppgm and Clang 21 preserve that sibling
 in the point control, following the WG14 discussion of implicit
