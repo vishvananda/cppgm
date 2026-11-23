@@ -1814,3 +1814,45 @@ nodes across ranges and orders writes by their initializer generation
 uses 66.91 million instructions on that input. That isolates part of
 the cost without changing the size of the typed records. Include the
 point-only control when changing range resolution for aggregate paths.
+
+## C macro redefinition spelling
+
+The lexer retains a written spelling only when it decodes an escape in a
+C macro definition. It appends the spelling while reading the token and
+compares the retained bytes only on redefinition. Identifier interning
+and macro expansion use the same normalized tokens as before.
+The token remains 40 bytes on x86-64 and 32 bytes on wasm32. The two
+spelling offsets fit in the 56-byte macro record on x86-64. On a wasm32
+compiler host they increase that record from 32 to 40 bytes, including
+for definitions without escapes.
+
+The synthetic C99 inputs define each function-like macro once and then
+repeat the same definitions. The written-spelling input uses a UCN in
+the parameter, its replacement-list occurrence, and a string literal.
+Each `-E` run has byte-identical output. The table gives the ABBA mean
+of retired user-space instructions for the macro change on Linux x86-64.
+
+| Definition pairs | ASCII before | ASCII after | UCN before | UCN after |
+| ---: | ---: | ---: | ---: | ---: |
+| 512 | 9,316,638 | 9,403,148 | 10,921,848 | 11,976,342 |
+| 2048 | 28,331,458 | 28,637,632 | 34,754,398 | 38,889,496 |
+| 8192 | 112,109,641 | 113,294,444 | 137,792,464 | 154,350,103 |
+
+The largest ASCII input uses 1.06% more instructions in both paired
+blocks. The largest UCN input uses 12.02% more. The incremental cost
+tracks the number and size of the written tokens.
+
+The final compiler also includes the UTF-8 LowIR reader change. It emits
+the same frozen C++ and SQLite object bytes as `ee98ad795` in every
+trial. The C++ changes are −0.0108% in ABBA and −0.0110% in BAAB.
+SQLite changes by +0.0025% and +0.0013%. The A/A ranges are 0.0047%
+and 0.0009%.
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,058,227,887 / 9,057,800,924 / 9,057,842,268 / 9,058,026,858 |
+| C++ | ABBA | 9,057,851,100 / 9,057,223,259 / 9,056,830,400 / 9,058,154,196 |
+| C++ | BAAB | 9,057,118,827 / 9,057,940,120 / 9,058,036,150 / 9,056,857,133 |
+| SQLite | A/A | 16,529,636,614 / 16,529,634,648 / 16,529,674,779 / 16,529,786,895 |
+| SQLite | ABBA | 16,529,632,177 / 16,530,027,357 / 16,529,979,626 / 16,529,563,744 |
+| SQLite | BAAB | 16,530,089,548 / 16,529,636,435 / 16,529,835,319 / 16,529,810,241 |

@@ -195,6 +195,19 @@ suffix paths following a range, and ranges of aggregate values remain open.
 [GCC ranges](https://gcc.gnu.org/onlinedocs/gcc/Designated-Inits.html) ·
 [GCC empty structures](https://gcc.gnu.org/onlinedocs/gcc/Empty-Structures.html)
 
+The next GNU range probes cover field continuation at the final index,
+an aggregate-producing call evaluated once, and two ranged dimensions.
+GCC 15 accepts all three and agrees across `-O0` and `-O2`. With
+an aggregate-valued expression followed by a field designation, GCC
+15 clears a previously initialized sibling field. The same behavior
+occurs with point designators. cppgm and Clang 21 preserve that sibling
+in the point control, following the WG14 discussion of implicit
+initialization. A whole braced replacement still initializes omitted
+fields to zero. Carry these distinct cases into the general range
+implementation.
+[WG14 DR 413](https://www.open-std.org/Jtc1/sc22/WG14/www/docs/dr_413.htm) ·
+[WG14 DR 253](https://www.open-std.org/JTC1/SC22/WG14/www/docs/dr_253.htm)
+
 ## Initial hosted replays
 
 The Linux x86-64 replays compiled the project C files with cppgm in GNU17
@@ -1106,8 +1119,9 @@ transfers involving individually qualified subobjects remain an audit item.
   include multidimensional and variably modified arrays, GNU inline
   assembly, GNU flexible member initialization,
   an always-inline call, and an optimized-only unresolved symbol. The
-  scheduled and manually dispatched upstream workflow runs this sample
-  and records unexpected differences independently of the known gaps.
+  current compiler matches 111 of 128 configurations with 17 reviewed
+  failures. The scheduled and manually dispatched upstream workflow runs
+  this sample and records unexpected differences independently of the known gaps.
   [Pinned execute corpus](https://github.com/gcc-mirror/gcc/tree/5115c7e447fc07457443df874bf57840e8316d5f/gcc/testsuite/gcc.c-torture/execute) ·
   [GCC suite instructions](https://gcc.gnu.org/onlinedocs/gccint/C-Tests.html)
 - **Csmith 2.3.0.** Ran seeds 1 through 16 with at most three functions
