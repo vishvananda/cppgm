@@ -10,7 +10,7 @@ LOWIR2NATIVE_APP ?= ../dev/lowir2native
 TEST_DEPS ?= dev-shared-target
 GENERAL_TEST_ROOT ?= tests/general
 CONTROL_TEST_ROOT ?= tests/controls
-NATIVE_DRIVER_TESTS = 300-array-prototype-type-names 300-variable-arrays 300-variable-array-exits \
+NATIVE_DRIVER_TESTS = 300-array-prototype-type-names 300-c-attributed-nested-declarators 300-variable-arrays 300-variable-array-exits \
 	300-variable-array-multidimensional 300-variable-array-atomic-type 300-variable-array-function-pointer \
 	300-variable-array-typeof 500-types-compatible-vla
 

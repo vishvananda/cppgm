@@ -148,6 +148,8 @@ struct Attribute
 	bool continued;
 	// An alignment-specifier pack expansion (7.6.2, 14.5.3).
 	bool pack;
+	// A GNU type modifier at the start of a parenthesized C declarator.
+	bool c_declarator_prefix;
 	Expr* expression;
 	union
 	{
@@ -280,6 +282,7 @@ struct Declarator
 	bool abstract;
 	PackPosition pack;
 	bool c_prototype_star;
+	bool c_nested_type_attributes;
 	uint32_t location;
 	Slice<PtrOperator> pointers;
 	Name* name;

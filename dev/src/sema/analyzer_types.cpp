@@ -1072,6 +1072,23 @@ DeclaratorInfo Analyzer::declarator(const syntax::Declarator* declarator, const 
 			type = vector_type(type, *attribute->expression, attribute->kind == syntax::AttributeKind::VectorSize,
 				scope, attribute->location);
 	}
+	if (c_source_ && declarator != nullptr && declarator->c_nested_type_attributes)
+	{
+		// GCC applies these scalar and vector modifiers to the lane or
+		// return type before building the pointer and function types.
+		for (const syntax::Declarator* nested = declarator->nested; nested != nullptr; nested = nested->nested)
+			for (const syntax::Attribute* attribute = nested->attributes; attribute != nullptr;
+				attribute = attribute->next)
+			{
+				if (!attribute->c_declarator_prefix || type == nullptr)
+					continue;
+				if (attribute->kind == syntax::AttributeKind::Mode)
+					type = mode_type(type, *attribute->mode, attribute->location);
+				else
+					type = vector_type(type, *attribute->expression,
+						attribute->kind == syntax::AttributeKind::VectorSize, scope, attribute->location);
+			}
+	}
 	// Names after a qualified declarator-id are looked up in the scope it
 	// names (3.4.3p3); the ptr-operators precede it.
 	Scope* after = scope;

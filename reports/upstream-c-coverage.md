@@ -81,8 +81,8 @@ open for these editions.
 ## Pinned suite receipts
 
 - **c-testsuite** inventories 220 programs in two dialects and at two
-  optimization levels. cppgm passes 868 of 876 selected configurations.
-  Two known source gaps account for eight configurations. One source that
+  optimization levels. cppgm passes 872 of 876 selected configurations.
+  GNU range designators account for the four known failures. One source that
   reads an uninitialized automatic object is excluded from the runtime
   comparison. [Suite builder](../scripts/build_c_testsuite_ci_manifest.py) ·
   [Known gaps](upstream-c-testsuite-known-gaps.json)
@@ -227,6 +227,16 @@ updates at both optimization levels in both compilers.
 [C11 standard headers, §7.1.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
 
 ## Edition and declarator checks
+
+GNU attributes at the start of a parenthesized declarator are parsed before
+the parser decides whether a nested declarator or parameter clause follows.
+The pinned `00210.c` now runs in C17 and GNU17 at both `-O0` and `-O2`.
+The PA38 case also checks named parameters, leading parameter attributes,
+and GCC's scalar and vector type rules for modifiers in a nested
+declarator. The tests observe calls and type sizes.
+[PA38 fixture](../pa38/tests/general/300-c-attributed-nested-declarators.t) ·
+[GCC attribute rules](https://gcc.gnu.org/onlinedocs/gcc/Attribute-Syntax.html) ·
+[Scaling](../docs/performance/c-frontend-scaling.md#gnu-attributes-in-c-declarators)
 
 The 15 edition fixtures agree with GCC 15 and Clang 21. They cover C11
 static assertions, generic selection, atomic specifiers and qualifiers,

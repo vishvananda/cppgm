@@ -253,16 +253,23 @@ private:
 	bool parse_declarator_into(
 		DeclaratorMode mode, Declarator* declarator, bool type_only, const ParameterDeclaration* parameter = nullptr);
 	bool parse_ptr_operator(ListFrame<PtrOperator>& pointers, Attribute** inline_attributes);
-	bool parse_declarator_suffixes(
-		DeclaratorMode mode, Declarator* declarator, bool named, Scope* member_of, bool type_only = false);
-	ParameterClause* parse_parameter_clause(Scope* member_of, bool definite, bool type_only = false);
+	struct CParameterPrefix
+	{
+		uint32_t opening;
+		uint32_t first_parameter;
+		Attribute* attributes;
+	};
+	bool parse_declarator_suffixes(DeclaratorMode mode, Declarator* declarator, bool named, Scope* member_of,
+		bool type_only = false, const CParameterPrefix* c_prefix = nullptr);
+	ParameterClause* parse_parameter_clause(
+		Scope* member_of, bool definite, bool type_only = false, const CParameterPrefix* c_prefix = nullptr);
 	ParameterDeclaration* parse_c_identifier_parameter();
 	bool parse_c_parameter_declarations(Declarator* declarator);
 	// A scope below the current one whose lookups search `member_of`'s
 	// scope before the enclosing ones (for the names after a qualified
 	// declarator-id); the current scope stays.
 	Scope* member_lookup_scope(Scope* member_of);
-	ParameterDeclaration* parse_parameter_declaration(bool definite, bool type_only = false);
+	ParameterDeclaration* parse_parameter_declaration(bool definite, bool type_only, const CParameterPrefix* c_prefix);
 	bool parse_function_qualifiers(ListFrame<FunctionQualifier>& qualifiers, Attribute** attributes);
 	bool parse_throw_types(Slice<TypeId*>& out);
 	// In a definite type context (an alias, a cast's target, a trailing
@@ -278,7 +285,7 @@ private:
 	TypeId* finish_type_id(TypeId* type, const SpecifierInfo& info, DeclaratorMode mode, bool type_only);
 	bool continue_type_specifier_seq(
 		ListFrame<DeclSpecifier>& list, SpecifierInfo& info, TypeIdContext context = TypeIdContext::General);
-	bool nested_declarator_ahead(DeclaratorMode mode);
+	bool nested_declarator_ahead(DeclaratorMode mode, uint32_t ahead);
 	bool ptr_operator_ahead(uint32_t ahead);
 	bool member_pointer_ahead(uint32_t ahead);
 	static bool declarator_is_empty(const Declarator* declarator);

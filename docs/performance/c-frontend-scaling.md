@@ -1644,3 +1644,42 @@ instruction changes are +0.00495% and +0.00658%. The SQLite changes are
 | SQLite | A/A | 16,526,331,461 / 16,526,012,575 / 16,526,182,594 / 16,526,018,237 |
 | SQLite | ABBA | 16,526,043,266 / 16,525,783,818 / 16,525,668,162 / 16,526,787,873 |
 | SQLite | BAAB | 16,526,395,805 / 16,526,237,799 / 16,526,376,595 / 16,526,136,389 |
+
+## GNU attributes in C declarators
+
+The parser consumes a leading GNU attribute sequence once before deciding
+whether a nested declarator or a parameter clause follows. The decision
+uses the next declarator tokens. Semantic analysis visits retained nested
+attributes only when the parser recorded a nested type modifier. The
+markers fit in the existing `Attribute` and `Declarator` layout.
+
+The GNU17 syntax-only scaling input contains one function pointer typedef
+per declaration. The attributed input adds two GNU attribute groups
+inside the parentheses, one containing `unused` and one empty. Counts
+are medians of three trials pinned to one Linux x86-64 CPU. The baseline
+is `b575690d1`.
+
+| Typedefs | Plain baseline | Plain updated | Attributed updated |
+| ---: | ---: | ---: | ---: |
+| 128 | 5,785,747 | 5,801,164 | 7,057,283 |
+| 256 | 7,788,941 | 7,819,645 | 10,244,737 |
+| 512 | 11,846,364 | 11,912,584 | 16,741,501 |
+| 1024 | 19,916,493 | 20,048,829 | 29,812,252 |
+| 2048 | 36,108,814 | 36,393,672 | 56,035,835 |
+| 4096 | 68,512,065 | 69,040,695 | 108,358,475 |
+
+At the largest doubling the updated compiler uses about 25,550 retired
+instructions per additional attributed declaration. The plain typedef
+stress case uses 0.77% more instructions at 4096 declarations. Frozen C++
+`-O3` and SQLite `-O2` objects match byte-for-byte. The paired instruction
+changes are +0.029% and +0.031% for C++, and +0.010% and +0.009% for
+SQLite. The variation in A/A task clock was about 4% and 5% respectively.
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,053,173,138 / 9,053,098,131 / 9,053,097,640 / 9,053,125,988 |
+| C++ | ABBA | 9,053,233,062 / 9,055,834,433 / 9,055,836,825 / 9,053,242,843 |
+| C++ | BAAB | 9,055,914,869 / 9,053,016,061 / 9,053,149,586 / 9,055,932,324 |
+| SQLite | A/A | 16,525,575,170 / 16,525,757,170 / 16,525,736,309 / 16,525,587,276 |
+| SQLite | ABBA | 16,525,640,687 / 16,527,177,384 / 16,527,350,627 / 16,525,682,231 |
+| SQLite | BAAB | 16,527,380,228 / 16,526,144,427 / 16,526,095,194 / 16,527,892,020 |

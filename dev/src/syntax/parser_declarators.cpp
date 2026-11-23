@@ -219,16 +219,16 @@ bool Parser::parse_ptr_operator(ListFrame<PtrOperator>& pointers, Attribute** in
 	return true;
 }
 
-bool Parser::nested_declarator_ahead(DeclaratorMode mode)
+bool Parser::nested_declarator_ahead(DeclaratorMode mode, uint32_t ahead)
 {
 	// At `(` where a declarator-id could be: a nested declarator, or (when
 	// the declarator may be abstract) a parameter clause.
 	if (mode == DeclaratorMode::Named)
 		return true;
 	// A parameter clause cannot start with `(`, `[` or a ptr-operator.
-	if (at(TokenKind::OP_STAR, 1) || at(TokenKind::OP_AMP, 1) || at(TokenKind::OP_LAND, 1) || member_pointer_ahead(1) ||
-		(hosted_ && at(TokenKind::OP_XOR, 1)) || (at(TokenKind::OP_LSQUARE, 1) && !at(TokenKind::OP_LSQUARE, 2)) ||
-		at(TokenKind::OP_LPAREN, 1))
+	if (at(TokenKind::OP_STAR, ahead) || at(TokenKind::OP_AMP, ahead) || at(TokenKind::OP_LAND, ahead) ||
+		member_pointer_ahead(ahead) || (hosted_ && at(TokenKind::OP_XOR, ahead)) ||
+		(at(TokenKind::OP_LSQUARE, ahead) && !at(TokenKind::OP_LSQUARE, ahead + 1)) || at(TokenKind::OP_LPAREN, ahead))
 		return true;
 	if (mode == DeclaratorMode::Abstract)
 		return false;
@@ -236,13 +236,13 @@ bool Parser::nested_declarator_ahead(DeclaratorMode mode)
 	// qualified name (not a member pointer's class, above) is a type name
 	// starting a parameter clause (8.2p7: `void f(int (n::B));` takes a
 	// pointer to function).
-	if (mode == DeclaratorMode::Parameter && at_identifier(1) && at(TokenKind::OP_COLON2, 2))
+	if (mode == DeclaratorMode::Parameter && at_identifier(ahead) && at(TokenKind::OP_COLON2, ahead + 1))
 		return false;
-	if (at_identifier(1))
+	if (at_identifier(ahead))
 	{
 		// A parenthesized name that is not a type is a declarator-id (8.2p7
 		// makes a type name start a parameter clause instead).
-		const NameBinding binding = scopes_.lookup(tok(1).identifier, false);
+		const NameBinding binding = scopes_.lookup(tok(ahead).identifier, false);
 		if (binding.category == NameCategory::None)
 		{
 			// Hosted source has declared its type names. An unclassified
@@ -250,7 +250,7 @@ bool Parser::nested_declarator_ahead(DeclaratorMode mode)
 			// its spelling resembles the lexical type-name fallback.
 			if (hosted_ && mode == DeclaratorMode::Parameter)
 				return true;
-			return !names_type_hint(tok(1).identifier);
+			return !names_type_hint(tok(ahead).identifier);
 		}
 		return binding.category != NameCategory::Type && binding.category != NameCategory::TypeTemplate;
 	}
@@ -297,19 +297,67 @@ bool Parser::parse_declarator_into(
 		next();
 	}
 	Scope* member_of = nullptr;
-	if (at(TokenKind::OP_LPAREN) && nested_declarator_ahead(mode))
+	if (at(TokenKind::OP_LPAREN))
 	{
-		next();
-		Declarator* nested = make<Declarator>();
-		*nested = Declarator();
-		nested->abstract = declarator->abstract;
-		nested->location = location();
-		if (!parse_declarator_into(mode, nested, type_only, parameter) || !expect(TokenKind::OP_RPAREN))
-			return false;
-		declarator->nested = nested;
-		declarator->c_prototype_star = nested->c_prototype_star;
-		// The suffixes after `)` follow the nested declarator-id too.
-		member_of = declarator_member_of_;
+		const CParameterPrefix* consumed = nullptr;
+		CParameterPrefix prefix;
+		if (c_source_)
+		{
+			const ParseToken first = tok(1);
+			if (first.is_identifier() && gnu_names_.kind(first.identifier) == GnuNames::kAttribute)
+			{
+				// The first parameter and a nested declarator can start with
+				// the same GNU attributes. Parse the prefix before choosing.
+				prefix = { location(), first.location, nullptr };
+				next();
+				if (!collect_attributes(prefix.attributes))
+					return false;
+				consumed = &prefix;
+			}
+		}
+		if (nested_declarator_ahead(mode, consumed != nullptr ? 0 : 1))
+		{
+			if (consumed == nullptr)
+				next();
+			Declarator* nested = make<Declarator>();
+			*nested = Declarator();
+			nested->abstract = declarator->abstract;
+			nested->location = location();
+			bool has_type_prefix = false;
+			if (consumed != nullptr)
+			{
+				nested->attributes = consumed->attributes;
+				for (Attribute* attribute = nested->attributes; attribute != nullptr; attribute = attribute->next)
+				{
+					const AttributeKind kind = attribute->kind;
+					if (kind == AttributeKind::VectorSize || kind == AttributeKind::ExtVectorType ||
+						kind == AttributeKind::Mode)
+					{
+						attribute->c_declarator_prefix = true;
+						has_type_prefix = true;
+					}
+				}
+			}
+			if (!parse_declarator_into(mode, nested, type_only, parameter) || !expect(TokenKind::OP_RPAREN))
+				return false;
+			declarator->nested = nested;
+			declarator->c_prototype_star = nested->c_prototype_star;
+			declarator->c_nested_type_attributes = has_type_prefix || nested->c_nested_type_attributes;
+			// The suffixes after `)` follow the nested declarator-id too.
+			member_of = declarator_member_of_;
+		}
+		else if (consumed != nullptr)
+		{
+			declarator->abstract = true;
+			const bool parsed = parse_declarator_suffixes(mode, declarator, false, nullptr, type_only, consumed);
+			declarator_member_of_ = nullptr;
+			return parsed;
+		}
+		else if (mode == DeclaratorMode::Parameter && (at(TokenKind::OP_RPAREN, 1) || at(TokenKind::OP_DOTS, 1)))
+		{
+			// `()` and `(...)` make the parameter's declarator abstract.
+			declarator->abstract = true;
+		}
 	}
 	else if (mode != DeclaratorMode::Abstract &&
 		(at_identifier() || at(TokenKind::OP_COLON2) || at(TokenKind::KW_OPERATOR) || at(TokenKind::OP_COMPL)))
@@ -330,12 +378,6 @@ bool Parser::parse_declarator_into(
 	{
 		return fail();
 	}
-	else if (mode == DeclaratorMode::Parameter && at(TokenKind::OP_LPAREN) &&
-		(at(TokenKind::OP_RPAREN, 1) || at(TokenKind::OP_DOTS, 1)))
-	{
-		// `()` and `(...)` make the parameter's declarator abstract.
-		declarator->abstract = true;
-	}
 	const bool parsed = parse_declarator_suffixes(mode, declarator, NamesDirectly(declarator), member_of, type_only);
 	declarator_member_of_ = member_of;
 	return parsed;
@@ -351,8 +393,8 @@ Scope* Parser::member_lookup_scope(Scope* member_of)
 	return scope;
 }
 
-bool Parser::parse_declarator_suffixes(
-	DeclaratorMode mode, Declarator* declarator, bool named, Scope* member_of, bool type_only)
+bool Parser::parse_declarator_suffixes(DeclaratorMode mode, Declarator* declarator, bool named, Scope* member_of,
+	bool type_only, const CParameterPrefix* c_prefix)
 {
 	ListFrame<DeclaratorSuffix> suffixes(suffixes_);
 	// Array bounds after a qualified declarator-id see its class's or
@@ -360,7 +402,7 @@ bool Parser::parse_declarator_suffixes(
 	Scope* bound_scope = nullptr;
 	for (;;)
 	{
-		if (at(TokenKind::OP_LSQUARE) && !at(TokenKind::OP_LSQUARE, 1))
+		if (c_prefix == nullptr && at(TokenKind::OP_LSQUARE) && !at(TokenKind::OP_LSQUARE, 1))
 		{
 			DeclaratorSuffix suffix = DeclaratorSuffix();
 			suffix.kind = DeclaratorSuffixKind::Array;
@@ -430,7 +472,8 @@ bool Parser::parse_declarator_suffixes(
 			suffixes.push(suffix);
 			continue;
 		}
-		if (!at(TokenKind::OP_LPAREN) || mode == DeclaratorMode::New || mode == DeclaratorMode::Conversion)
+		if (c_prefix == nullptr &&
+			(!at(TokenKind::OP_LPAREN) || mode == DeclaratorMode::New || mode == DeclaratorMode::Conversion))
 			break;
 		DeclaratorSuffix suffix = DeclaratorSuffix();
 		suffix.kind = DeclaratorSuffixKind::Function;
@@ -453,11 +496,12 @@ bool Parser::parse_declarator_suffixes(
 				(declarator->name != nullptr && declarator->name->qualified());
 			Tentative tentative(*this);
 			suffix.parameters = parse_parameter_clause(
-				suffixes.size() == 0 ? member_of : nullptr, definite, parameter_type_only);
-			if (suffix.parameters == nullptr && abandoning_lists_)
+				suffixes.size() == 0 ? member_of : nullptr, definite, parameter_type_only, c_prefix);
+			if (suffix.parameters == nullptr && (abandoning_lists_ || c_prefix != nullptr))
 				return false;
 			if (suffix.parameters == nullptr)
 				break;
+			c_prefix = nullptr;
 			tentative.commit();
 		}
 		if (named && suffixes.size() == 0)
@@ -503,13 +547,14 @@ bool Parser::parse_declarator_suffixes(
 	return true;
 }
 
-ParameterClause* Parser::parse_parameter_clause(Scope* member_of, bool definite, bool type_only)
+ParameterClause* Parser::parse_parameter_clause(
+	Scope* member_of, bool definite, bool type_only, const CParameterPrefix* c_prefix)
 {
 	NestingGuard nesting(*this);
 	ParameterClause* clause = make<ParameterClause>();
 	*clause = ParameterClause();
-	clause->location = location();
-	if (!expect(TokenKind::OP_LPAREN))
+	clause->location = c_prefix != nullptr ? c_prefix->opening : location();
+	if (c_prefix == nullptr && !expect(TokenKind::OP_LPAREN))
 		return nullptr;
 	Scope* outer = scopes_.current();
 	Scope* scope = scopes_.push(ScopeKind::Function, nullptr);
@@ -520,7 +565,8 @@ ParameterClause* Parser::parse_parameter_clause(Scope* member_of, bool definite,
 	angle_ = false;
 	pending_template_ = false;
 	ListFrame<ParameterDeclaration*> parameters(params_);
-	if (c_source_ && at_identifier() && (at(TokenKind::OP_COMMA, 1) || at(TokenKind::OP_RPAREN, 1)))
+	if (c_source_ && c_prefix == nullptr && at_identifier() &&
+		(at(TokenKind::OP_COMMA, 1) || at(TokenKind::OP_RPAREN, 1)))
 	{
 		const NameBinding first_name = scopes_.lookup(tok().identifier, false);
 		clause->c_identifier_list = first_name.category != NameCategory::Type &&
@@ -536,8 +582,10 @@ ParameterClause* Parser::parse_parameter_clause(Scope* member_of, bool definite,
 		}
 		// After one parameter-declaration the list is a parameter clause, so
 		// an undeclared name in a later one is a type.
-		ParameterDeclaration* parameter = clause->c_identifier_list ? parse_c_identifier_parameter()
-																	: parse_parameter_declaration(definite, type_only);
+		ParameterDeclaration* parameter = clause->c_identifier_list
+			? parse_c_identifier_parameter()
+			: parse_parameter_declaration(definite, type_only, c_prefix);
+		c_prefix = nullptr;
 		if (parameter == nullptr)
 		{
 			parsed = false;
@@ -568,14 +616,15 @@ ParameterClause* Parser::parse_parameter_clause(Scope* member_of, bool definite,
 	return clause;
 }
 
-ParameterDeclaration* Parser::parse_parameter_declaration(bool definite, bool type_only)
+ParameterDeclaration* Parser::parse_parameter_declaration(
+	bool definite, bool type_only, const CParameterPrefix* c_prefix)
 {
 	ParameterDeclaration* parameter = make<ParameterDeclaration>();
 	*parameter = ParameterDeclaration();
-	parameter->location = location();
+	parameter->location = c_prefix != nullptr ? c_prefix->first_parameter : location();
 	// Its leading attributes are dropped but for a vector's.
-	Attribute* leading = nullptr;
-	if (!collect_attributes(leading))
+	Attribute* leading = c_prefix != nullptr ? c_prefix->attributes : nullptr;
+	if (c_prefix == nullptr && !collect_attributes(leading))
 		return nullptr;
 	const uint32_t enclosing_mentions = parameter_mentions_;
 	parameter_mentions_ = pack_mentions_;

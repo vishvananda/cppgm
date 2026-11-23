@@ -2,10 +2,6 @@
   "00144.c": {
     "exclude": "The first conditional reads an uninitialized automatic int. The assignment of a const void pointer to void* also has a C constraint violation. PA38 covers the null pointer combinations with defined inputs."
   },
-  "00210.c": {
-    "diagnostic": "syntax error",
-    "reason": "A GNU attribute occurs inside a nested abstract pointer declarator."
-  },
   "00216.c": {
     "diagnostic": "syntax error",
     "reason": "The initializer uses overlapping GNU range designators."

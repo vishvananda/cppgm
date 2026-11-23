@@ -115,6 +115,11 @@ The first fixture set covers these parts of the C17 input profile:
   A tag introduced in a prototype's parameter list has scope through the
   end of the declarator. A tag introduced in a function definition's own
   parameter list remains visible in its body.
+- Accept GNU attributes before the contents of a parenthesized declarator,
+  including an abstract pointer declarator. An attribute before a parameter's
+  type still belongs to that parameter. Follow GCC's type rules for
+  `vector_size` and `mode` in a nested declarator by applying the modifier to
+  the base type before forming derived types.
 - Implicit conversions between object pointers and qualified `void*`, without
   discarding pointee qualifiers; integral initialization of enumeration objects.
 - GNU C pointer extensions used by hosted libraries: implicit conversions
