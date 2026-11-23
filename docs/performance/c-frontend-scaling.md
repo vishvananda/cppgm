@@ -1450,3 +1450,43 @@ ranges were 2.18% and 35.22%. The instruction results show no increase.
 | SQLite | A/A | 16,515,874,604 / 16,516,421,707 / 16,515,705,778 / 16,515,680,734 |
 | SQLite | ABBA | 16,515,993,268 / 16,515,559,766 / 16,515,261,475 / 16,515,836,536 |
 | SQLite | BAAB | 16,515,371,440 / 16,515,739,868 / 16,516,061,066 / 16,515,374,842 |
+
+## Clang C overloadable declarations and calls
+
+The declaration input gives one function a different record parameter
+in each prototype and calls it once. The call input uses three
+arithmetic overloads and puts 16 nested selections in each function.
+Both inputs use pedantic C99 and syntax-only mode. Each cell is the
+median of three runs on Linux x86-64.
+
+| Input | User instructions at 256 / 512 / 1024 / 2048 | Peak RSS in KiB at the same sizes |
+| --- | ---: | ---: |
+| Record-parameter overloads | 13,371,796 / 22,900,858 / 41,763,849 / 79,515,803 | 8,616 / 9,360 / 11,416 / 15,640 |
+| Calls in groups of 16 | 6,282,069 / 8,549,142 / 13,092,300 / 22,161,737 | 7,952 / 7,960 / 7,960 / 8,656 |
+
+Incremental instructions per declaration or call stay within 1.1% across
+the measured doublings. Separate object-mode telemetry reported 256
+and 2,048 candidates for one call in the declaration input and 768 and
+6,144 candidates for 256 and 2,048 calls in the call input. The existing
+signature index and candidate machinery handle both. On the GCC 15
+Linux build, the declaration, function entity, and candidate records
+retain their original sizes. The preprocessor measurements above cover
+the separate cost of macro argument expansion.
+
+The baseline is `4fc97dcbe`. Both GCC 15-built compilers produced
+byte-identical objects for frozen C++ at `-O3` and SQLite at `-O2`.
+A/A task-clock ranges were 4.84% and 12.74%.
+
+| Input | Instruction A/A range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0048% | +0.0216% | +0.0210% |
+| SQLite `sqlite3.c` | 0.0008% | +0.0089% | +0.0115% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,046,341,718 / 9,046,480,123 / 9,046,048,710 / 9,046,252,151 |
+| C++ | ABBA | 9,046,370,852 / 9,048,356,496 / 9,048,194,317 / 9,046,270,287 |
+| C++ | BAAB | 9,048,192,422 / 9,046,232,325 / 9,046,238,080 / 9,048,078,568 |
+| SQLite | A/A | 16,515,280,191 / 16,515,212,297 / 16,515,339,640 / 16,515,291,758 |
+| SQLite | ABBA | 16,515,504,037 / 16,517,034,642 / 16,517,061,987 / 16,515,649,122 |
+| SQLite | BAAB | 16,517,440,309 / 16,515,545,113 / 16,515,216,815 / 16,517,135,777 |

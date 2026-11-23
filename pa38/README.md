@@ -140,6 +140,17 @@ The first fixture set covers these parts of the C17 input profile:
   integer category. A type-name keeps its own category and does not evaluate
   a variable array bound. A single expression is unevaluated and can report
   its category in an integer constant expression.
+- Clang's `__attribute__((overloadable))` lets C function prototypes with
+  one name and distinct parameter signatures form an overload set.
+  Redeclarations agree on the attribute. At most one signature can omit it
+  and keep its ordinary C symbol. Marked functions use the Itanium
+  function-name encoding with the same C argument and result conventions.
+  Use the typed arguments to select a candidate. In particular, rank
+  `float` or `double` to `long double` as a promotion and prefer compatible
+  pointer conversions over incompatible ones. Diagnose an unavailable
+  function if its overload is selected, including an ellipsis-only fallback
+  selected in an unevaluated operand.
+  [Clang overloadable declarations](https://clang.llvm.org/docs/AttributeReference.html#overloadable)
 - The GNU conditional expression with one void arm has type `void`.
   Evaluate the selected arm for effects and diagnose the extension under
   the pedantic policy.

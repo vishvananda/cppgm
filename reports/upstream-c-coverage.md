@@ -92,7 +92,7 @@ linked with `libm`, and ran both probes on Linux.
 | Required interface | Probe and cppgm result |
 | --- | --- |
 | `complex.h` imaginary unit | Construct `3.0 + 4.0 * I` and check the real and imaginary parts and magnitude. Passes with the real C library at `-std=c99 -pedantic-errors -O0` and `-O2` on x86-64 Linux, Linux AArch64 under QEMU, and WASI under Wasmtime. The typed `-E` stream accepts glibc's expansion. The header-independent PA38 probe also runs on bare Wasm and cross-links for both Darwin targets. Native Darwin and the SDK headers still require qualification. [PA38 value fixture](../pa38/tests/general/500-c-imaginary-literals.t) · [Extension policy fixture](../pa38/tests/general/500-c-imaginary-extension.t) |
-| `tgmath.h` function selection | The Linux glibc probes pass in pedantic C99, C11 and C17 at `-O0` and `-O2` on x86-64 and on AArch64 under QEMU. They cover real and complex selection, result types, integer promotion, fixed pointer parameters and exactly-once evaluation. The AArch64 GCC 14 sysroot uses glibc's legacy macro path under the default GNU predefines. That path exercises `__builtin_classify_type` and complex-to-real conversions. The default Clang resource header on WASI still needs overloaded C declarations. The wasi-libc fallback fails the `sqrt(float)` return-type check with cppgm's default predefines. |
+| `tgmath.h` function selection | The probes pass in pedantic C99, C11 and C17 at `-O0` and `-O2` on Linux x86-64, Linux AArch64 under QEMU, and WASI under Wasmtime. They cover real and complex selection, result types, integer promotion, fixed pointer parameters and exactly-once evaluation. The AArch64 GCC 14 sysroot uses glibc's legacy macro path under the default GNU predefines. The WASI SDK uses the default Clang resource header and its `overloadable` declarations. |
 
 The header-independent `__builtin_tgmath` fixtures pass at both optimization
 levels on Linux x86-64, Linux AArch64 under QEMU and bare Wasm, pass the
@@ -116,11 +116,27 @@ the shared C++ forms, including dependent queries and constant evaluation.
 [PA38 conversions](../pa38/tests/general/500-c-complex-to-real.t) ·
 [PA30 classifier](../pa30/tests/run/800-builtin-classify-type.t)
 
-With the pinned WASI SDK resource directory, Clang compiles and runs the
-C99 math selection probe. cppgm stops with conflicting C function
-declarations on the second `__tg_promote` declaration. The header uses an
-unavailable ellipsis overload for unsupported argument types before the
-arithmetic overload declarations.
+The pinned WASI SDK resource header compiles and runs the same two
+runtime probes. A PA38 header fixture now exercises the default
+`<tgmath.h>` search and the type and evaluation behavior of its macros.
+The Clang C17 manifest adds the upstream header test, which checks
+`creal`, `fabs`, and `logb` result sizes using each compiler's hosted
+headers. The same source passes through the WASI SDK resource header
+with cppgm and Clang. The standalone wasi-libc header has a distinct
+fallback that depends on GNU predefines.
+[PA38 header fixture](../pa38/tests/general/500-c-tgmath-header.t) ·
+[Clang C17 manifest](upstream-clang-c17.json)
+
+The PA38 declaration and call fixtures cover an unmarked C entry,
+marked external and static functions, a block-only prototype, target
+typing of a function address, and a selected unavailable ellipsis
+fallback in an unevaluated operand. Mixed cppgm and Clang caller/callee
+objects pass in both directions at `-O0` and `-O2` on Linux x86-64,
+Linux AArch64 under QEMU, bare Wasm, and WASI. The same pairs cross-link
+as Mach-O on both macOS architectures. PA30 tests the shared mangling
+rule for C++ declarations with C linkage.
+[PA38 overloads](../pa38/tests/general/500-c-overloadable.t) ·
+[PA30 C linkage](../pa30/tests/run/800-overloadable-c-linkage.t) ·
 [Clang overloadable declarations](https://clang.llvm.org/docs/AttributeReference.html#overloadable)
 
 [C99 library clauses, §§7.3 and 7.22](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·

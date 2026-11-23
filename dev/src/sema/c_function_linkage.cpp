@@ -30,22 +30,47 @@ void Analyzer::bind_c_block_function(FunctionEntity* function, const Specifiers&
 {
 	// 6.2.2p4-p5 and 6.2.7p4: only the visible prior declaration supplies
 	// linkage and a composite type in this scope.
-	const Binding* visible = names_.unqualified(where->parent, name.key, LookupFilter::Ordinary).binding;
+	const LookupResult lookup = names_.unqualified(where->parent, name.key, LookupFilter::Ordinary);
+	const Binding* visible = lookup.binding;
 	FunctionEntity* target = nullptr;
 	if (visible != nullptr && visible->kind == BindingKind::Function)
 	{
-		if (!conversions_.c_function_compatible(visible->type, info.type))
+		const auto* earlier = static_cast<const FunctionEntity*>(visible->entity);
+		const bool overloads = function->overloadable || earlier->overloadable ||
+			(lookup.functions != nullptr && lookup.functions->next != nullptr);
+		if (overloads)
+		{
+			const FunctionList* matching = names_.overload(visible->declared_in, name.key, function->signature);
+			if (matching == nullptr && !function->overloadable)
+				for (const FunctionList* node = lookup.functions; node != nullptr; node = node->next)
+					if (!static_cast<const FunctionEntity*>(node->binding->entity)->overloadable)
+						error(location, "at most one overload may omit the overloadable attribute");
+			visible = matching != nullptr ? matching->binding : nullptr;
+		}
+		if (visible != nullptr && !conversions_.c_function_compatible(visible->type, info.type))
 			error(location, "conflicting C function declarations");
-		function->type = conversions_.c_composite_type(visible->type, info.type);
-		target = static_cast<FunctionEntity*>(visible->entity);
-		if (target->denotes != nullptr)
-			target = target->denotes;
+		if (visible != nullptr)
+		{
+			function->type = conversions_.c_composite_type(visible->type, info.type);
+			target = static_cast<FunctionEntity*>(visible->entity);
+			if (target->overloadable != function->overloadable)
+				error(location, "redeclarations must agree on the overloadable attribute");
+			function->unavailable = target->unavailable;
+			if (target->denotes != nullptr)
+				target = target->denotes;
+		}
 	}
-	else
+	else if (!function->overloadable)
 	{
 		const uint32_t index = c_function_index_.find(name.key);
 		if (index != PointerMap::kMissing)
 			target = c_functions_[index];
+	}
+	if (target == nullptr && function->overloadable)
+	{
+		// A block-only overload names its external symbol by signature.
+		function->c_linkage = true;
+		return;
 	}
 	if (target == nullptr)
 	{

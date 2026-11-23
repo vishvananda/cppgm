@@ -452,6 +452,9 @@ struct FunctionEntity : Entity
 	bool unanalyzed_body : 1;
 	bool excluded_instantiation : 1;
 	bool gnu_inline : 1;
+	// Clang overloadable declarations use a signature-specific symbol.
+	bool overloadable : 1;
+	bool unavailable : 1;
 	// A C file-scope declaration with extern or without inline (6.7.4).
 	bool c_external_definition : 1;
 	// GNU used: an object-emission root.

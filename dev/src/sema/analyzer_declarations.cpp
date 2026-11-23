@@ -99,6 +99,18 @@ bool StandardNoReturn(const syntax::Declarator* declarator)
 	return false;
 }
 
+bool Overloadable(const syntax::Attribute* leading, const syntax::Declarator* declarator)
+{
+	for (const syntax::Attribute* attribute = leading; attribute != nullptr; attribute = attribute->next)
+		if (attribute->kind == syntax::AttributeKind::Overloadable)
+			return true;
+	for (const syntax::Declarator* part = declarator; part != nullptr; part = part->nested)
+		for (const syntax::Attribute* attribute = part->attributes; attribute != nullptr; attribute = attribute->next)
+			if (attribute->kind == syntax::AttributeKind::Overloadable)
+				return true;
+	return false;
+}
+
 bool HasDefaultArgument(const syntax::ParameterClause* clause)
 {
 	for (uint32_t i = 0; clause != nullptr && i < clause->parameters.size; ++i)
@@ -400,8 +412,8 @@ void Analyzer::simple_declaration(const syntax::SimpleDecl& decl, Scope* scope)
 				specifier = AlignmentSpecifier(part->attributes);
 		}
 		const AlignmentRequest request{ entity_alignment, specifier, c_standard_alignment };
-		declare_declarator(
-			specifiers, init, scope, decl.location, c_source_ && entity_alignment != 0 ? &request : nullptr);
+		declare_declarator(specifiers, init, scope, decl.location,
+			c_source_ && entity_alignment != 0 ? &request : nullptr, decl.attributes);
 		// A deferred reserved builtin call (see deferrable_statement): the
 		// declaration is analyzed again, names only.
 		if (deferred_reserved_call())
@@ -811,6 +823,8 @@ void Analyzer::effect_attributes(
 				function->excluded_instantiation = true;
 			if (attribute->kind == syntax::AttributeKind::AlwaysInline)
 				function->always_inline = true;
+			if (attribute->kind == syntax::AttributeKind::Unavailable)
+				function->unavailable = true;
 			if (attribute->kind == syntax::AttributeKind::GnuInline)
 				function->gnu_inline = true;
 			if (attribute->kind == syntax::AttributeKind::Used)
@@ -935,7 +949,7 @@ void Analyzer::check_c_alignment(VariableEntity* variable, const Type* type, con
 }
 
 void Analyzer::declare_declarator(const Specifiers& specifiers, const syntax::InitDeclarator& init, Scope* scope,
-	uint32_t location, const AlignmentRequest* c_alignment)
+	uint32_t location, const AlignmentRequest* c_alignment, const syntax::Attribute* leading)
 {
 	// A function declared with a placeholder return type (C++14's
 	// 7.1.6.4p2: its own function declarator; a definition later deduces
@@ -981,6 +995,13 @@ void Analyzer::declare_declarator(const Specifiers& specifiers, const syntax::In
 	// inline not on a block-scope function declaration (nor a block-scope
 	// variable's, which the course's inline variables exclude too).
 	const bool function = !specifiers.is_typedef && info.type->kind == TypeKind::Function;
+	if (c_language_ &&
+		(leading != nullptr || init.declarator->attributes != nullptr || init.declarator->nested != nullptr))
+	{
+		info.overloadable = Overloadable(leading, init.declarator);
+		if (info.overloadable && !function && c_source_)
+			error(info.location, "the overloadable attribute requires a function");
+	}
 	if (specifiers.is_virtual && !function)
 		error(info.location, "virtual in a declaration that declares no function");
 	if (specifiers.is_explicit && !function)
@@ -2161,16 +2182,32 @@ void Analyzer::note_user_provided(const FunctionEntity* function, const syntax::
 }
 
 FunctionEntity* Analyzer::c_redeclared_function(FunctionEntity* previous, const Identifier* name, Scope* where,
-	const Type* type, bool definition, uint32_t location)
+	const DeclaratorInfo& info, bool definition, uint32_t location)
 {
 	if (!c_source_ || where->kind == ScopeKind::Class)
 		return previous;
+	const Type* type = info.type;
 	if (type->c_variably_modified)
 		error(location, "a C function with linkage cannot have variably modified type");
+	if (info.overloadable && type->c_unprototyped())
+		error(location, "an overloadable function requires a prototype");
 	const NameEntry* entry = names_.find(where, name);
 	if (entry == nullptr || entry->functions == nullptr)
 		return previous;
 	FunctionEntity* earlier = static_cast<FunctionEntity*>(entry->functions->binding->entity);
+	if (info.overloadable || earlier->overloadable || entry->functions->next != nullptr)
+	{
+		if (previous != nullptr && previous->overloadable != info.overloadable)
+			error(location, "redeclarations must agree on the overloadable attribute");
+		if (previous == nullptr && !info.overloadable)
+		{
+			// Only the first distinct unmarked declaration can succeed.
+			for (const FunctionList* node = entry->functions; node != nullptr; node = node->next)
+				if (!static_cast<const FunctionEntity*>(node->binding->entity)->overloadable)
+					error(location, "at most one overload may omit the overloadable attribute");
+		}
+		return previous;
+	}
 	if (definition && earlier->builtin != BuiltinFunction::None &&
 		!conversions_.c_function_compatible(earlier->type, type))
 	{
@@ -2363,8 +2400,9 @@ Binding* Analyzer::declare_function(const Specifiers& specifiers, const Declarat
 											  : earlier_function(name, where, signature, templated, invisible, info);
 	if (qualified && function != nullptr)
 		print = where = function->owner;
-	function = c_redeclared_function(function, name.key, where, info.type, definition, location);
-	if (c_language_ && !templated && (!specifiers.is_static || c_source_) && where->kind == ScopeKind::Namespace)
+	function = c_redeclared_function(function, name.key, where, info, definition, location);
+	if (c_language_ && !info.overloadable && !templated && (!specifiers.is_static || c_source_) &&
+		where->kind == ScopeKind::Namespace)
 	{
 		const uint32_t index = c_function_index_.find(name.key);
 		if (index != PointerMap::kMissing)
@@ -2401,7 +2439,8 @@ Binding* Analyzer::declare_function(const Specifiers& specifiers, const Declarat
 	}
 	if (c_source_ && where->kind == ScopeKind::Block)
 		note_c_function_linkage(function, info.type, false, location);
-	if (function->c_linkage && !function->internal_linkage && c_function_index_.find(name.key) == PointerMap::kMissing)
+	if (function->c_linkage && !function->overloadable && !function->internal_linkage &&
+		c_function_index_.find(name.key) == PointerMap::kMissing)
 	{
 		c_function_index_.set(name.key, static_cast<uint32_t>(c_functions_.size()));
 		c_functions_.push_back(c_source_ && function->denotes != nullptr ? function->denotes : function);
@@ -2681,6 +2720,7 @@ void Analyzer::redeclare_function(FunctionEntity* function, const Specifiers& sp
 	if (where->kind == ScopeKind::Namespace && info.qualifier == nullptr && !function->implicit && !builtin &&
 		function->c_linkage != c_language_)
 		agree_language_linkage(function->c_linkage, location);
+	function->overloadable = function->overloadable || info.overloadable;
 	// 7.1.5p1: if any declaration of a function or function template is
 	// constexpr, all of them are.
 	if ((function->is_constexpr != specifiers.is_constexpr || function->is_consteval != specifiers.is_consteval) &&
@@ -2738,6 +2778,7 @@ FunctionEntity* Analyzer::new_function(const Specifiers& specifiers, const Decla
 	if (info.qualifier != nullptr)
 		error(location, "qualified definition does not match a declaration");
 	FunctionEntity* function = new_entity<FunctionEntity>(EntityKind::Function, name.key, where, info.type);
+	function->overloadable = info.overloadable;
 	function->label = name.label != nullptr ? name.label : name.key->spelling;
 	if (info.asm_label != nullptr)
 		graph_.set_asm_label(function, info.asm_label);
@@ -2985,7 +3026,7 @@ void Analyzer::function_definition(const syntax::FunctionDecl& decl, Scope* scop
 	const syntax::DeclaratorSuffix* saved_c_definition = c_definition_suffix_;
 	if (c_source_)
 		c_definition_suffix_ = placeholder_suffix_;
-	const DeclaratorInfo info = declarator(decl.declarator, declared, scope, decl.location, &specifiers);
+	DeclaratorInfo info = declarator(decl.declarator, declared, scope, decl.location, &specifiers);
 	c_definition_suffix_ = saved_c_definition;
 	auto_declarator_ = saved_auto;
 	placeholder_suffix_ = saved_suffix;
@@ -2993,6 +3034,8 @@ void Analyzer::function_definition(const syntax::FunctionDecl& decl, Scope* scop
 		error(decl.location, "function definition of a non-function");
 	if (c_source_ && info.parameters != nullptr && info.parameters->c_prototype_star)
 		error(decl.location, "[*] is allowed only in C function prototype scope");
+	if (c_language_)
+		info.overloadable = Overloadable(decl.attributes, decl.declarator);
 	Binding* binding = declare_function(specifiers, info, scope, true, decl.location);
 	settle_declaration_access(pending, pending, binding);
 	access_deferral_ = saved_deferral;

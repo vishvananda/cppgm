@@ -143,6 +143,17 @@ void Parser::constrained_placeholder(DeclSpecifier& specifier, Name* constraint)
 
 bool Parser::gnu_attribute(const char* spelling, Attribute& attribute, bool& kept)
 {
+	if (std::strcmp(spelling, "unavailable") == 0 || std::strcmp(spelling, "__unavailable__") == 0)
+	{
+		attribute.kind = AttributeKind::Unavailable;
+		kept = true;
+		if (!accept(TokenKind::OP_LPAREN))
+			return true;
+		if (!tok().is_literal() || (tok().flags & kStringLiteral) == 0)
+			return fail();
+		attribute.expression = parse_primary_expression();
+		return attribute.expression != nullptr && expect(TokenKind::OP_RPAREN);
+	}
 	if (std::strcmp(spelling, "constructor") == 0 || std::strcmp(spelling, "__constructor__") == 0)
 	{
 		attribute.kind = AttributeKind::Startup;
@@ -172,6 +183,7 @@ bool Parser::gnu_attribute(const char* spelling, Attribute& attribute, bool& kep
 		{ "exclude_from_explicit_instantiation", "__exclude_from_explicit_instantiation__",
 			AttributeKind::ExcludeFromExplicitInstantiation },
 		{ "always_inline", "__always_inline__", AttributeKind::AlwaysInline },
+		{ "overloadable", "__overloadable__", AttributeKind::Overloadable },
 		{ "gnu_inline", "__gnu_inline__", AttributeKind::GnuInline }, { "used", "__used__", AttributeKind::Used },
 		{ "noreturn", "__noreturn__", AttributeKind::NoReturn },
 		{ "returns_nonnull", "__returns_nonnull__", AttributeKind::ReturnsNonNull },

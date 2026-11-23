@@ -1012,7 +1012,7 @@ bool Analyzer::NonstaticMemberName(const ExprFacts* facts)
 	return (facts->flags & kBoundMember) != 0 && (facts->flags & kOverloadSet) == 0 && !IsStaticMemberFunction(facts);
 }
 
-bool Analyzer::implicit_sequence(const syntax::Expr& argument, const Type* parameter, Conversion& out)
+bool Analyzer::implicit_sequence(const syntax::Expr& argument, const Type* parameter, Conversion& out, bool c_overload)
 {
 	if (argument.kind == syntax::ExprKind::BracedInit)
 		return list_sequence(static_cast<const syntax::BracedInitList&>(argument), parameter, out);
@@ -1038,6 +1038,12 @@ bool Analyzer::implicit_sequence(const syntax::Expr& argument, const Type* param
 	}
 	if (IsVoid(facts->type))
 		return false;
+	if (c_overload)
+	{
+		if (parameter->kind == TypeKind::Pointer)
+			note_c_null_constant(argument);
+		return conversions_.c_overload(operand_of(facts), parameter, out);
+	}
 	if (conversions_.implicit(operand_of(facts), parameter, false, out))
 		return true;
 	if (c_source_ && parameter->kind == TypeKind::Pointer && note_c_null_constant(argument))
@@ -1128,6 +1134,21 @@ int Analyzer::compare_candidates(const Candidate& a, const Candidate& b, uint32_
 	// 13.3.3p1: no conversion sequence worse and at least one better. The
 	// implicit object parameter of a static member neither helps nor
 	// hurts (13.3.1p4).
+	if (a.incompatible_pointer || b.incompatible_pointer)
+	{
+		if (a.incompatible_pointer != b.incompatible_pointer)
+			return a.incompatible_pointer ? -1 : 1;
+		bool compatible_better = false, compatible_worse = false;
+		for (uint32_t i = 0; i < count; ++i)
+		{
+			const bool left = sequences_[a.first + i].rank == ConversionRank::CIncompatiblePointer;
+			const bool right = sequences_[b.first + i].rank == ConversionRank::CIncompatiblePointer;
+			compatible_better |= !left && right;
+			compatible_worse |= left && !right;
+		}
+		if (compatible_better || compatible_worse)
+			return static_cast<int>(compatible_better) - static_cast<int>(compatible_worse);
+	}
 	bool better = false, worse = false;
 	const Conversion* ac = count == 1 && !object ? elided_direct_sequence(a) : nullptr;
 	const Conversion* bc = count == 1 && !object ? elided_direct_sequence(b) : nullptr;
@@ -1279,6 +1300,7 @@ Resolution Analyzer::resolve(const syntax::Slice<syntax::Expr*>& call_arguments,
 	// 13.3.2-13.3.3: the viable candidates, then the one better than every
 	// other; a failure is a result, not an error.
 	const uint32_t arguments = call_arguments.size;
+	const bool c_overload = c_source_ && (set.size() > 1 || (!set.empty() && set.front()->overloadable));
 	const bool with_object = object != nullptr;
 	const uint32_t slots = arguments + (with_object ? 1 : 0);
 	const syntax::BracedInitList* nested = list_second_phase && arguments == 1 &&
@@ -1371,6 +1393,7 @@ Resolution Analyzer::resolve(const syntax::Slice<syntax::Expr*>& call_arguments,
 				if (function->member && !function->is_static)
 					viable = object_sequence(object, function, true, slot);
 			}
+			bool incompatible_pointer = false;
 			for (uint32_t i = 0; viable && i < arguments; ++i)
 			{
 				Conversion& slot = sequences_[first + (with_object ? 1 : 0) + i];
@@ -1386,6 +1409,11 @@ Resolution Analyzer::resolve(const syntax::Slice<syntax::Expr*>& call_arguments,
 							nested->elements[0]->kind != syntax::ExprKind::BracedInit &&
 							same_class_source(constructed, *nested->elements[0]) &&
 							conversions_.implicit(operand_of(nested->elements[0]->facts), parameter, false, slot);
+					}
+					else if (c_overload)
+					{
+						viable = implicit_sequence(*call_arguments[i], parameter, slot, true);
+						incompatible_pointer |= slot.rank == ConversionRank::CIncompatiblePointer;
 					}
 					else
 						viable = implicit_sequence(*call_arguments[i], parameter, slot);
@@ -1405,7 +1433,7 @@ Resolution Analyzer::resolve(const syntax::Slice<syntax::Expr*>& call_arguments,
 				sequences_.resize(first);
 				continue;
 			}
-			candidates_.push_back(Candidate{ function, first, candidate->templated, 0 });
+			candidates_.push_back(Candidate{ function, first, candidate->templated, 0, incompatible_pointer });
 			if (templates && !candidate->templated)
 			{
 				bool all = !with_object || PerfectSequence(sequences_[first], object);
@@ -1501,6 +1529,15 @@ void Analyzer::convert_arguments(
 			if (chosen != nullptr && (argument.facts->flags & kOverloadSet) == 0)
 			{
 				Conversion conversion = argument_scratch_[first + i];
+				if (conversion.rank == ConversionRank::CIncompatiblePointer)
+				{
+					const Type* from = decayed(facts_of(argument))->element;
+					const Type* to = parameter->element;
+					if (!ConversionRules::c_pointer_extension(from, to) &&
+						!conversions_.c_type_compatible(from->unqualified, to->unqualified) && !IsVoid(from) &&
+						!IsVoid(to))
+						error(argument.location, "incompatible pointer types in an overloaded C call");
+				}
 				conversion.initialization = true;
 				check_conversion_access(argument.facts, conversion, argument.location);
 				check_binding_temporary(argument.facts, conversion, argument.location);

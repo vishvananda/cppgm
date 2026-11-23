@@ -157,6 +157,7 @@ struct Candidate
 	bool from_template;
 	// Comparison candidates: bit 0 rewritten, bit 1 reversed. Fits existing padding.
 	uint8_t comparison;
+	bool incompatible_pointer;
 };
 
 // A failed access check of a namespace-scope declaration waiting for the

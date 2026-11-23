@@ -117,6 +117,7 @@ struct DeclaratorInfo
 	const syntax::Expr* bound;
 	RuntimeTypeEvaluation* runtime_bounds;
 	uint32_t location;
+	bool overloadable;
 	// A GNU asm label's symbol name (null for none).
 	const char* asm_label;
 };

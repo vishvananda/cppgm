@@ -147,7 +147,7 @@ FunctionEntity* Analyzer::implicit_constructor(ClassEntity* entity)
 				TypeList arguments(matches ? HeadOf(function)->count : 0, nullptr);
 				FunctionEntity* specialization = matches ? deduced_specialization(function, arguments) : nullptr;
 				if (specialization != nullptr)
-					candidates.push_back(Candidate{ specialization, 0, true, 0 });
+					candidates.push_back(Candidate{ specialization, 0, true, 0, false });
 			}
 			Candidate chosen = {};
 			if (select_candidate(candidates.data(), candidates.size(), 0, false, chosen) == Resolution::Ambiguous)

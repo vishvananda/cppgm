@@ -660,3 +660,18 @@ toward zero in the representable range for an integer result. The separate
 rule in §6.3.1.2 gives a boolean result using the comparison of the entire
 value with zero. The same value rules apply during static initialization.
 [WG14 N1256, §§6.3.1.2, 6.3.1.4, and 6.3.1.7](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf)
+
+## Clang C overloadable declarations
+
+The Clang resource header uses a set of prototyped functions with one
+name to implement C type-generic math. Its promotion queries also use
+an unavailable ellipsis declaration. The expression needs a valid
+selected function even when `typeof` suppresses evaluation.
+
+The attribute changes the function name's encoding. The target still
+uses the declared C parameter and result types for calls. An unmarked
+overload keeps its C symbol. Declaration and call resolution use typed
+signatures, including C-compatible conversions and the C floating
+promotion ranks. These rules are independent of the header that uses
+the attribute.
+[Clang overloadable declarations](https://clang.llvm.org/docs/AttributeReference.html#overloadable)

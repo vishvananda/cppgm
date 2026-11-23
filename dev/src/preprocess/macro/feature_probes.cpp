@@ -82,6 +82,8 @@ bool IsProvidedFeature(const char* spelling, uint32_t length, const FeatureModes
 		return modes.rtti;
 	if (Equals("gnu_asm", spelling, length))
 		return true;
+	if (Equals("overloadable_unmarked", spelling, length))
+		return extension && !modes.pedantic_errors;
 	if (Equals("cxx_char8_t", spelling, length) || Equals("cxx_consteval", spelling, length) ||
 		Equals("cxx_constinit", spelling, length))
 		return modes.language >= 20;

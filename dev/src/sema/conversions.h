@@ -59,6 +59,9 @@ public:
 	// none. `direct` selects direct-initialization, which also converts
 	// std::nullptr_t to bool (4.12).
 	bool implicit(const Operand& from, const Type* target, bool direct, Conversion& out);
+	// Clang's C overloadable conversion ranking. Called only for a
+	// candidate in an overloadable C family.
+	bool c_overload(const Operand& from, const Type* target, Conversion& out);
 
 	// 13.3.3.2: positive when `a` is the better conversion sequence,
 	// negative when `b` is, zero when they are indistinguishable.

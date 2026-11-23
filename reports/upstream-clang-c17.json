@@ -12,6 +12,20 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "tgmath-header-types",
+      "path": "clang/test/Headers/tgmath.c",
+      "sha256": "ce8189397447121966bb80ca7a801bcab1b4d63483c7c448c0aa17bb1ea44021",
+      "dialect": "c17",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Hosted type-generic creal, fabs, and logb result sizes for real and complex inputs",
+      "adaptations": [
+        "Uses each compiler's installed hosted header search in place of the upstream mock headers."
+      ]
+    },
+    {
       "id": "n629",
       "path": "clang/test/C/C99/n629.c",
       "sha256": "9f1dff443205f100b0075a7dd0462e1964d24536cdc8f4a5dcd0960efa2b53ac",

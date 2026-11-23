@@ -45,13 +45,13 @@ is in progress. Expand the release matrix after the relevant mode and its
 preceding mode's controls pass. Keep fixes to shared translation and ABI
 behavior independent of the edition work that exposed them.
 
-Use the remaining hosted C99 header probes as the next integration batch.
-Run the glibc `<tgmath.h>` selection path with each Linux target's normal GNU
-predefines and the WASI SDK path with its Clang resource headers. Then expand
-from header probes to the translation and runtime checks for C11 library
-features and the outstanding target ABI cases. Keep clause inventory work
-moving alongside these replays so the next batch is selected by uncovered
-requirements as well as library build failures.
+Linux glibc and WASI pass the initial hosted C99 math probes through
+their default header paths. Extend those results to the outstanding
+macOS SDK and library cases. Keep the nested macro scaling work in the
+preprocessing batch. Expand the header probes to the translation and
+runtime checks for C11 library features and the outstanding target ABI
+cases. Keep clause inventory work moving alongside these replays so
+uncovered requirements and library build failures guide the next batch.
 
 ## 1. Freeze the baseline and put a small suite in CI
 

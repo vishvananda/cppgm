@@ -29,7 +29,7 @@ ExprFacts* Analyzer::overloaded_comparison(const syntax::Expr& expr, TokenKind o
 				sequences_.resize(first + 2);
 				if (implicit_sequence(*arguments[0], parameters[0], sequences_[first]) &&
 					implicit_sequence(*arguments[1], parameters[1], sequences_[first + 1]))
-					candidates_.push_back(Candidate{ nullptr, first, false, kind });
+					candidates_.push_back(Candidate{ nullptr, first, false, kind, false });
 				else
 					sequences_.resize(first);
 			}

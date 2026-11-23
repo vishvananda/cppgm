@@ -487,6 +487,45 @@ bool ConversionRules::implicit(const Operand& from, const Type* target, bool dir
 	return standard(from, target, direct, out);
 }
 
+bool ConversionRules::c_overload(const Operand& from, const Type* target, Conversion& out)
+{
+	const bool valid = implicit(from, target, false, out);
+	const Type* source = from.type->unqualified;
+	target = target->unqualified;
+	if (target->kind == TypeKind::Pointer)
+	{
+		const Type* pointee = source->kind == TypeKind::Function                   ? source
+			: source->kind == TypeKind::Pointer || source->kind == TypeKind::Array ? source->element
+																				   : nullptr;
+		if (pointee == nullptr || (valid && out.rank == ConversionRank::Exact))
+			return valid;
+		const Type* to = target->element;
+		if (valid && IsVoid(to) && !IsVoid(pointee) && (pointee->cv & ~to->cv) == 0)
+			return true;
+		const bool qualified = (pointee->cv & ~to->cv) == 0 && ((pointee->cv ^ to->cv) & kAtomic) == 0;
+		const bool compatible = qualified &&
+			(c_type_compatible(pointee->unqualified, to->unqualified) ||
+				(IsVoid(pointee) && to->kind != TypeKind::Function));
+		out.second = ValueConversion::CPointer;
+		out.result = target;
+		out.rank = compatible ? ConversionRank::CCompatible : ConversionRank::CIncompatiblePointer;
+		return true;
+	}
+	if (!valid)
+		return false;
+	if (target->kind == TypeKind::Complex && source->kind == TypeKind::Complex)
+	{
+		source = source->element->unqualified;
+		target = target->element->unqualified;
+	}
+	else if (source->kind == TypeKind::Complex && out.second == ValueConversion::Complex)
+		out.rank = ConversionRank::ComplexReal;
+	if ((IsFundamental(source, FundamentalType::Float) || IsFundamental(source, FundamentalType::Double)) &&
+		(IsFundamental(target, FundamentalType::LongDouble) || IsFundamental(target, FundamentalType::Float128)))
+		out.rank = ConversionRank::Promotion;
+	return true;
+}
+
 bool ConversionRules::standard(const Operand& from, const Type* target, bool direct, Conversion& out)
 {
 	out.form = ConversionForm::Standard;

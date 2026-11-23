@@ -1118,7 +1118,8 @@ std::string ProgramLowering::function_spelling(const sema::FunctionEntity* funct
 {
 	if (function->builtin == sema::BuiltinFunction::Library)
 		return LibraryName(function);
-	if (function->builtin != sema::BuiltinFunction::None || (function->c_linkage && !function->internal_linkage))
+	if (function->builtin != sema::BuiltinFunction::None ||
+		(function->c_linkage && !function->overloadable && !function->internal_linkage))
 		return function->name->spelling;
 	std::string spelling;
 	qualified_spelling(LinkageScope(function->owner), spelling);
@@ -1201,7 +1202,7 @@ lowir::SymbolId ProgramLowering::function_symbol(const sema::FunctionEntity* fun
 	if (unit_local(function))
 	{
 		symbol = new_symbol(function_spelling(function));
-		symbol_objects_[symbol] = local_object(object, function->c_linkage);
+		symbol_objects_[symbol] = local_object(object, function->c_linkage && !function->overloadable);
 	}
 	else
 		symbol = external_symbol(object, function_spelling(function));
@@ -2047,7 +2048,8 @@ std::string ProgramLowering::function_object(const sema::FunctionEntity* functio
 	case sema::AllocationRole::None:
 		break;
 	}
-	if (function->builtin != sema::BuiltinFunction::None || function->c_linkage || IsMain(function))
+	if (function->builtin != sema::BuiltinFunction::None || (function->c_linkage && !function->overloadable) ||
+		IsMain(function))
 		return function->name->spelling;
 	abi_mangle::AbiTarget target;
 	target.kind = abi_mangle::ABI_TARGET_ENTITY;
@@ -2068,7 +2070,7 @@ AbiNode ProgramLowering::function_encoding(const sema::FunctionEntity* function,
 	// An entity of C linkage is not mangled (5.1.2): its encoding, as a
 	// template argument or an expression names it, is its source name
 	// (5.1.6.2: `CB<IsEmpty>` is 2CBIL_Z7IsEmptyEE).
-	if (function->c_linkage || IsMain(function))
+	if ((function->c_linkage && !function->overloadable) || IsMain(function))
 		return abi_graph_.name(
 			abi_mangle::ABI_NONE, abi_graph_.string(function->name->spelling, std::strlen(function->name->spelling)));
 	// An inheriting constructor's object name is Itanium's CI1/CI2 of the

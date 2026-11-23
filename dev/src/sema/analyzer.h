@@ -374,7 +374,7 @@ private:
 	};
 	void simple_declaration(const syntax::SimpleDecl& decl, Scope* scope);
 	void declare_declarator(const Specifiers& specifiers, const syntax::InitDeclarator& init, Scope* scope,
-		uint32_t location, const AlignmentRequest* c_alignment = nullptr);
+		uint32_t location, const AlignmentRequest* c_alignment = nullptr, const syntax::Attribute* leading = nullptr);
 	void request_alignment(VariableEntity* variable, uint64_t alignment, const syntax::Attribute* specifier);
 	void check_c_alignment(VariableEntity* variable, const Type* type, const AlignmentRequest* alignment,
 		bool explicit_definition, uint32_t alias_alignment, uint32_t location);
@@ -428,7 +428,7 @@ private:
 	FunctionEntity* earlier_function(const DeclaredName& name, Scope* where, const Type* signature, bool templated,
 		bool& invisible, const DeclaratorInfo& info);
 	FunctionEntity* c_redeclared_function(FunctionEntity* previous, const Identifier* name, Scope* where,
-		const Type* type, bool definition, uint32_t location);
+		const DeclaratorInfo& info, bool definition, uint32_t location);
 	void bind_c_block_function(FunctionEntity* function, const Specifiers& specifiers, const DeclaratorInfo& info,
 		const DeclaredName& name, Scope* scope, Scope* where, uint32_t location);
 	void note_c_function_linkage(FunctionEntity* function, const Type* type, bool definition, uint32_t location);
@@ -1424,7 +1424,8 @@ private:
 	Resolution resolve(const syntax::Slice<syntax::Expr*>& arguments, std::vector<FunctionEntity*>& set,
 		ExprFacts* object, Candidate& chosen, const ClassEntity* constructed = nullptr, bool list_second_phase = false);
 	static bool PerfectSequence(const Conversion& conversion, const ExprFacts* argument);
-	bool implicit_sequence(const syntax::Expr& argument, const Type* parameter, Conversion& out);
+	bool implicit_sequence(
+		const syntax::Expr& argument, const Type* parameter, Conversion& out, bool c_overload = false);
 	bool object_sequence(const ExprFacts* object, const FunctionEntity* function, bool ranking, Conversion& out);
 	int compare_candidates(const Candidate& a, const Candidate& b, uint32_t count, bool object);
 	Resolution select_candidate(

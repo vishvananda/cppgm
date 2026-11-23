@@ -379,6 +379,11 @@ required by the GNU builtin. The legacy form with several expression
 arguments evaluates each for effects and reports the category of the first.
 [GCC builtin reference](https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html)
 
+Honor Clang's `overloadable` attribute on a function with C language
+linkage. Give that function an Itanium signature-specific symbol, while
+an unmarked function in the same overload set keeps its C name.
+[Clang overloadable declarations](https://clang.llvm.org/docs/AttributeReference.html#overloadable)
+
 Support `-fconstexpr-ops-limit=<n>` when compiling hosted C++. It sets the
 work limit for one constant evaluation. Use a finite default and reset the
 work counter between evaluations. A required evaluation that exceeds the

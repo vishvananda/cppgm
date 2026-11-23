@@ -78,8 +78,10 @@ enum class ConversionRank : uint8_t
 	Promotion,
 	Conversion,
 	ComplexReal,
+	CCompatible,
 	UserDefined,
-	Ellipsis
+	Ellipsis,
+	CIncompatiblePointer
 };
 
 enum class ConversionForm : uint8_t

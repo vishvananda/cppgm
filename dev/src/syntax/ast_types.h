@@ -99,6 +99,9 @@ enum class AttributeKind : uint8_t
 	ExcludeFromExplicitInstantiation,
 	// GNU always_inline.
 	AlwaysInline,
+	// Clang function attributes used by type-generic C headers.
+	Overloadable,
+	Unavailable,
 	// GNU gnu_inline: an inline function's definition serves inlining
 	// only; it is never emitted on its own (ProgramLowering::demand_entry).
 	GnuInline,

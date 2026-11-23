@@ -319,6 +319,8 @@ uint64_t Analyzer::attribute_alignment(
 		case syntax::AttributeKind::Mode:
 		case syntax::AttributeKind::ExcludeFromExplicitInstantiation:
 		case syntax::AttributeKind::AlwaysInline:
+		case syntax::AttributeKind::Overloadable:
+		case syntax::AttributeKind::Unavailable:
 		case syntax::AttributeKind::GnuInline:
 		case syntax::AttributeKind::Used:
 		case syntax::AttributeKind::NoReturn:

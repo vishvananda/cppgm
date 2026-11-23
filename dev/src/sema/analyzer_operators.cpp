@@ -239,7 +239,7 @@ void Analyzer::class_builtin_candidates(TokenKind op, const syntax::Slice<syntax
 				sequences_[first + i].target = parameters[i];
 			}
 			if (viable)
-				candidates_.push_back(Candidate{ nullptr, first, false, 0 });
+				candidates_.push_back(Candidate{ nullptr, first, false, 0, false });
 			else
 				sequences_.resize(first);
 		}
@@ -655,7 +655,7 @@ ExprFacts* Analyzer::overloaded_operator(
 			for (uint32_t i = 0; viable && i < count; ++i)
 				viable = implicit_sequence(*operands[i], parameters[i], sequences_[first + i]);
 			if (viable)
-				candidates_.push_back(Candidate{ nullptr, first, false, 0 });
+				candidates_.push_back(Candidate{ nullptr, first, false, 0, false });
 			else
 				sequences_.resize(first);
 		}
@@ -818,7 +818,7 @@ bool Analyzer::operator_function_candidates(TokenKind op, const syntax::Slice<sy
 			sequences_.resize(first);
 			continue;
 		}
-		candidates_.push_back(Candidate{ function, first, candidate->templated, rewriting });
+		candidates_.push_back(Candidate{ function, first, candidate->templated, rewriting, false });
 	}
 	return same_enumeration_list;
 }

@@ -180,6 +180,8 @@ bool Analyzer::check_not_deleted(const FunctionEntity* function, uint32_t locati
 	// analysis goes on to the boundary.
 	if (function->deleted)
 		return substitution_error(location, "use of a deleted function");
+	if (function->unavailable)
+		return substitution_error(location, "use of an unavailable function");
 	return true;
 }
 
