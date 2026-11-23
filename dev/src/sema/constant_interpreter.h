@@ -269,6 +269,7 @@ private:
 	bool entity_place(const Entity* entity, const Type* type, ConstPlace& out, uint32_t location);
 	bool this_place(ConstPlace& out, uint32_t location);
 	bool literal(const syntax::LiteralExpr& expr, ConstValue& out);
+	bool scalar_literal(const syntax::LiteralExpr& expr, const Type* type, ConstValue& out);
 	bool binary(const syntax::BinaryExpr& expr, ConstValue& out);
 	bool arithmetic(const syntax::BinaryExpr& expr, const ConstValue& left, ConstValue& out);
 	bool pointer_arithmetic(const syntax::BinaryExpr& expr, const ConstValue* left, ConstValue& out);

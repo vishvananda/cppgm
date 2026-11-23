@@ -359,6 +359,12 @@ Stmt* Parser::parse_value_statement(Attribute*)
 
 bool Parser::statement_starts_declaration(bool& tentative)
 {
+	if (at_c_extension())
+	{
+		Tentative probe(*this);
+		consume_c_extensions();
+		return statement_starts_declaration(tentative);
+	}
 	// Declarations win when both parses are possible (6.8): keywords that
 	// only begin declarations commit to one; a type followed by `(` might be
 	// a functional cast, so that declaration is tentative.

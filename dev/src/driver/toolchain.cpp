@@ -66,6 +66,7 @@ void language_standard(const std::string& standard, PreprocessorOptions& options
 			options.cxx_edition = 0;
 			options.c_edition = mode.edition;
 			options.strict = mode.strict;
+			options.literals = NumberDialect::GnuC;
 			return;
 		}
 	options.language = SourceLanguage::Cxx;

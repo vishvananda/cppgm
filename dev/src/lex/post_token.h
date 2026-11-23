@@ -25,7 +25,8 @@ enum class LiteralForm : uint8_t
 	Integer,
 	Floating,
 	Character,
-	String
+	String,
+	Imaginary
 };
 
 // One token from PostTokenizer. Pointers are borrowed and valid until the
@@ -47,12 +48,18 @@ struct PostToken
 	// The source: the pp-token's spelling, or for a concatenated string
 	// literal the spellings of its pieces separated by single spaces.
 	TokenSpelling source;
-	// Identifier: the interned identifier when the input interns them (the
-	// preprocessor does; a bare lexer leaves it null).
-	const Identifier* identifier;
+	union
+	{
+		// Interned when the input interns identifiers.
+		const Identifier* identifier;
+		// Imaginary literal: integer component or end of the floating value text.
+		uint64_t imaginary_value;
+	};
 	// A multicharacter literal (lex/text_literal.h), which the PA2 writer
 	// reports as invalid.
 	bool multicharacter;
+	// Imaginary literal: whether it came from a system macro with warnings suppressed.
+	bool quiet_system_macro;
 	// UserDefinedLiteral: the ud-suffix. For integer and floating forms the
 	// rest of the source is the literal's text without it.
 	TokenSpelling ud_suffix;

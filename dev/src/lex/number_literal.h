@@ -13,13 +13,15 @@ enum class NumberLiteralKind : uint8_t
 	Integer,
 	Floating,
 	UserDefinedInteger,
-	UserDefinedFloating
+	UserDefinedFloating,
+	ImaginaryInteger,
+	ImaginaryFloating
 };
 
 struct NumberLiteral
 {
 	NumberLiteralKind kind;
-	// Integer and Floating: the literal's type.
+	// Integer and Floating: the literal's type. Imaginary: the component type.
 	FundamentalType type;
 	// UserDefined*: where the ud-suffix begins. Floating: where the
 	// floating-suffix begins, that is, the end of the text of the value.
@@ -46,6 +48,7 @@ enum Feature : uint8_t
 	ReservedSuffix = 1 << 4,
 	GnuCharacter = 1 << 5,
 	QuadSuffix = 1 << 6,
+	Imaginary = 1 << 7,
 	Hosted = ExtendedFloat | ReservedSuffix | GnuCharacter | QuadSuffix
 };
 
@@ -57,6 +60,7 @@ enum class NumberDialect : uint8_t
 	Cxx14 = number_syntax::Binary | number_syntax::Separators,
 	Cxx17 = static_cast<uint8_t>(Cxx14) | number_syntax::HexFloat,
 	Gnu = static_cast<uint8_t>(Cxx17) | number_syntax::Hosted,
+	GnuC = static_cast<uint8_t>(Gnu) | number_syntax::Imaginary,
 	GnuStream = static_cast<uint8_t>(Gnu) & ~number_syntax::ReservedSuffix,
 	HostedCxx11 = static_cast<uint8_t>(Gnu) & ~number_syntax::Separators,
 	StrictHostedCxx11 = number_syntax::Hosted,

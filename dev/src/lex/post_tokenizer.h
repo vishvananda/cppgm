@@ -35,6 +35,9 @@ public:
 	// exceptions (SourceError from the lexer).
 	const PostToken& next();
 
+	// Syntax uses the classified component and converts its value on demand.
+	void defer_imaginary_values() { defer_imaginary_values_ = true; }
+
 private:
 	const PPToken& pull();
 	const PPToken& pull_input();
@@ -42,6 +45,7 @@ private:
 	void convert_identifier(const Identifier* identifier);
 	void convert_operator(uint8_t punctuator);
 	void convert_number(const PPToken& pp);
+	void convert_imaginary(const PPToken& pp, const NumberLiteral& number);
 	void convert_character(const PPToken& pp);
 	void convert_string_sequence(const PPToken& first);
 	bool split_literal_operator_suffix(const PPToken& first);
@@ -65,6 +69,7 @@ private:
 	uint32_t split_suffix_begin_;
 	uint32_t split_suffix_end_;
 	bool after_operator_;
+	bool defer_imaginary_values_ = false;
 	// Scalar literal values; 16 bytes hold a long double.
 	unsigned char scalar_[16];
 	std::string floating_text_;

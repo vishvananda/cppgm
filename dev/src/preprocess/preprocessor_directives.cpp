@@ -379,6 +379,9 @@ void Preprocessor::run_define(const PPToken& directive)
 	name.spelling = identifier->spelling;
 	name.length = identifier->length;
 	name.begin = directive.begin;
+	if (modes_.language == 0 && extension_warnings_ != ExtensionWarnings::Disabled && !warn_system_headers_ &&
+		in_system_header(directive.begin))
+		name.flags |= kQuietSystemMacro;
 	LineTokens tokens(*this);
 	MacroDefinition* macro = definition_parser_.parse(tokens, name);
 	// A macro may be redefined only identically (16.3p2); a command-line

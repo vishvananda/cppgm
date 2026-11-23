@@ -9,16 +9,6 @@
     "diagnostic": "a variably modified type requires block or function prototype scope",
     "reason": "GNU C accepts a variable-length member in a block-scope structure."
   },
-  "complex-7-O0": {
-    "status": "compile-failed",
-    "diagnostic": "no literal operator for the user-defined literal",
-    "reason": "GNU imaginary constants use i, if, and iL suffixes."
-  },
-  "complex-7-O2": {
-    "status": "compile-failed",
-    "diagnostic": "no literal operator for the user-defined literal",
-    "reason": "GNU imaginary constants use i, if, and iL suffixes."
-  },
   "pr104604-O0": {
     "status": "compile-failed",
     "diagnostic": "invalid implicit conversion",

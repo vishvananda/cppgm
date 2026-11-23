@@ -167,9 +167,33 @@ void PostTokenizer::convert_number(const PPToken& pp)
 		token_.form = LiteralForm::Floating;
 		set_ud_suffix(number.suffix_begin);
 		return;
+	case NumberLiteralKind::ImaginaryInteger:
+	case NumberLiteralKind::ImaginaryFloating:
+		convert_imaginary(pp, number);
+		return;
 	case NumberLiteralKind::Invalid:
 		return;
 	}
+}
+
+void PostTokenizer::convert_imaginary(const PPToken& pp, const NumberLiteral& number)
+{
+	const bool floating = number.kind == NumberLiteralKind::ImaginaryFloating;
+	if (!defer_imaginary_values_)
+	{
+		if (floating &&
+			!ScanFloatingValue(pp.spelling, number.suffix_begin, number.type, floating_text_, scalar_, target_))
+			return;
+		if (!floating)
+			set_scalar(LiteralForm::Imaginary, number.type, number.integer);
+		token_.size = FundamentalTypeSize(number.type, target_);
+		token_.data = scalar_;
+	}
+	token_.kind = PostTokenKind::Literal;
+	token_.form = LiteralForm::Imaginary;
+	token_.type = number.type;
+	token_.quiet_system_macro = (pp.flags & kQuietSystemMacro) != 0;
+	token_.imaginary_value = floating ? number.suffix_begin : number.integer;
 }
 
 void PostTokenizer::convert_character(const PPToken& pp)

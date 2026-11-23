@@ -303,6 +303,8 @@ bool ConstantEvaluator::string_element(const syntax::SubscriptExpr& expr, Consta
 
 bool ConstantEvaluator::literal(const syntax::LiteralExpr& expr, Constant& value)
 {
+	if (expr.imaginary)
+		return fail(expr.location, "not an integral constant expression");
 	const TokenSpelling& spelling = expr.spelling;
 	TextLiteralParts parts;
 	if (SplitTextLiteral(spelling.text, spelling.length, parts))

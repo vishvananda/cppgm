@@ -51,7 +51,9 @@ enum PPTokenFlag : uint8_t
 	// A collected argument token read from an argument being replaced: the
 	// names disabled there stay disabled for it when the argument it was
 	// collected into is replaced.
-	kFromArgument = 64
+	kFromArgument = 64,
+	// From the replacement list of a system header macro with diagnostics suppressed.
+	kQuietSystemMacro = 128
 };
 
 // PPToken::punctuator of a preprocessing-op-or-punc: the phase-7 TokenKind

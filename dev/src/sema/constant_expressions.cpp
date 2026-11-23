@@ -516,6 +516,20 @@ bool ConstantInterpreter::literal(const syntax::LiteralExpr& expr, ConstValue& o
 	if ((facts->flags & kUserLiteral) != 0)
 		return call_value(expr, out);
 	const Type* type = facts->type->unqualified;
+	if (!expr.imaginary)
+		return scalar_literal(expr, type, out);
+	ConstValue imaginary;
+	if (!scalar_literal(expr, type->element, imaginary))
+		return false;
+	const ConstValue real = imaginary.kind == ValueKind::Binary128 ? Binary128Value(type->element, 0, 0)
+		: imaginary.kind == ValueKind::Floating                    ? FloatingValue(type->element, 0)
+																   : IntegerValue(type->element, 0);
+	return complex_value(type, real, imaginary, out);
+}
+
+bool ConstantInterpreter::scalar_literal(const syntax::LiteralExpr& expr, const Type* type, ConstValue& out)
+{
+	const ExprFacts* facts = expr.facts;
 	if (!IsFloating(type))
 	{
 		out = IntegerValue(type, facts->value);

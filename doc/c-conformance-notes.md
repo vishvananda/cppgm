@@ -36,6 +36,22 @@ adjacent string literals are concatenated. PA38 covers both forms.
 [C11 draft, N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [PA38 literal regression](../pa38/tests/general/100-adjacent-literal-macros.t)
 
+## C99 complex header constants
+
+C99 7.3.1 requires `<complex.h>` to provide `_Complex_I` and `I`.
+glibc and wasi-libc implement these using imaginary numeric suffixes, a GNU
+C extension in C99 through C17. PA38 checks their component types, static
+initialization and the two parts of the value. It also checks the extent of
+`__extension__` on declarations and cast-expressions. GCC 15 suppresses
+the diagnostic for a replacement-list token from a system macro by default.
+Clang 21 still diagnoses a bare suffix expanded into user code at
+`-pedantic-errors`. cppgm follows GCC for these macros and enables the
+diagnostic with `-Wsystem-headers`.
+
+[C99 with corrigenda, N1256](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
+[GCC complex types and constants](https://gcc.gnu.org/onlinedocs/gcc/Complex.html) ·
+[PA38 runtime and diagnostic fixtures](../pa38/tests/general/500-c-imaginary-extension.t)
+
 ## C11 syntax in earlier modes
 
 C11 adds generic selection (6.5.1.1), alignment queries (6.5.3.4), atomic

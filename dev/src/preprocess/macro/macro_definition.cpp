@@ -134,7 +134,7 @@ MacroDefinition* MacroDefinitionParser::parse(DefinitionTokens& tokens, const PP
 		throw PreprocessError(token.begin, "missing white space after the macro name");
 	}
 
-	read_replacement_list(tokens, token);
+	read_replacement_list(tokens, token, name.flags & kQuietSystemMacro);
 	tokens.allow_va_args(false);
 	const bool has_va_opt = variadic_ && mark_va_opt(tokens);
 	if (function_like)
@@ -197,13 +197,13 @@ void MacroDefinitionParser::parse_parameters(DefinitionTokens& tokens, const PPT
 	}
 }
 
-void MacroDefinitionParser::read_replacement_list(DefinitionTokens& tokens, PPToken token)
+void MacroDefinitionParser::read_replacement_list(DefinitionTokens& tokens, PPToken token, uint8_t flags)
 {
 	while (token.kind != PPTokenKind::NewLine)
 	{
 		ReplacementToken replacement;
 		replacement.token = token;
-		replacement.token.flags &= kLeadingSpace;
+		replacement.token.flags = (token.flags & kLeadingSpace) | flags;
 		replacement.role = ReplacementRole::Token;
 		replacement.parameter = 0;
 		body_.push_back(replacement);

@@ -64,6 +64,30 @@ bool ParseIntegerSuffix(const char* text, uint32_t length, IntegerSuffix& suffix
 	return pos == length;
 }
 
+bool IsImaginarySuffix(char ch)
+{
+	return ch == 'i' || ch == 'I' || ch == 'j' || ch == 'J';
+}
+
+bool ParseImaginaryIntegerSuffix(const char* text, uint32_t length, IntegerSuffix& suffix)
+{
+	char scalar[3];
+	if (length == 0 || length > sizeof scalar + 1)
+		return false;
+	uint32_t marker = 0;
+	while (marker < length && !IsImaginarySuffix(text[marker]))
+		++marker;
+	if (marker == length)
+		return false;
+	// The imaginary marker can separate U and L, but cannot split LL.
+	if (marker != 0 && marker + 1 < length && (text[marker - 1] == 'l' || text[marker - 1] == 'L') &&
+		(text[marker + 1] == 'l' || text[marker + 1] == 'L'))
+		return false;
+	std::memcpy(scalar, text, marker);
+	std::memcpy(scalar + marker, text + marker + 1, length - marker - 1);
+	return ParseIntegerSuffix(scalar, length - 1, suffix);
+}
+
 struct TypeList
 {
 	const FundamentalType* types;
@@ -170,7 +194,13 @@ NumberLiteral ClassifyInteger(const char* text, uint32_t length, uint32_t digits
 {
 	NumberLiteral result = { NumberLiteralKind::Invalid, FundamentalType::Int, length, 0 };
 	IntegerSuffix suffix;
+	NumberLiteralKind kind = NumberLiteralKind::Integer;
 	if (!ParseIntegerSuffix(text + digits_end, length - digits_end, suffix))
+		kind = HasNumberSyntax(dialect, number_syntax::Imaginary) &&
+				ParseImaginaryIntegerSuffix(text + digits_end, length - digits_end, suffix)
+			? NumberLiteralKind::ImaginaryInteger
+			: NumberLiteralKind::Invalid;
+	if (kind == NumberLiteralKind::Invalid)
 	{
 		// Phase 7 does not range-check a user-defined-integer-literal: the
 		// literal operator selected later receives its characters or its
@@ -192,7 +222,7 @@ NumberLiteral ClassifyInteger(const char* text, uint32_t length, uint32_t digits
 	{
 		if (value <= MaxIntegerValue(candidates.types[i], target))
 		{
-			result.kind = NumberLiteralKind::Integer;
+			result.kind = kind;
 			result.type = candidates.types[i];
 			result.integer = value;
 			return result;
@@ -262,19 +292,18 @@ uint32_t ExponentEnd(const char* text, uint32_t length, uint32_t pos, NumberDial
 // The extended floating type a suffix names (`f16`/`F16` ... `f64x`).
 bool ExtendedFloatingSuffix(const char* suffix, uint32_t length, FundamentalType& type)
 {
-	if (length < 3 || (suffix[0] != 'f' && suffix[0] != 'F'))
+	if (length < 3 || length > 4 || (suffix[0] != 'f' && suffix[0] != 'F'))
 		return false;
-	const std::string rest(suffix + 1, length - 1);
 	static const struct
 	{
-		const char* spelling;
+		char spelling[4];
 		FundamentalType type;
 	} kSuffixes[] = { { "16", FundamentalType::Float16 }, { "32", FundamentalType::Float32 },
 		{ "64", FundamentalType::Float64 }, { "128", FundamentalType::Float128 }, { "32x", FundamentalType::Float32x },
 		{ "64x", FundamentalType::Float64x } };
 	for (const auto& entry : kSuffixes)
 	{
-		if (rest == entry.spelling)
+		if (entry.spelling[length - 1] == '\0' && std::memcmp(suffix + 1, entry.spelling, length - 1) == 0)
 		{
 			type = entry.type;
 			return true;
@@ -283,44 +312,41 @@ bool ExtendedFloatingSuffix(const char* suffix, uint32_t length, FundamentalType
 	return false;
 }
 
-// A floating literal whose value text ends at `value_end`.
-NumberLiteral ClassifyFloating(const char* text, uint32_t length, uint32_t value_end, NumberDialect dialect)
+bool ParseFloatingSuffix(const char* suffix, uint32_t length, NumberDialect dialect, FundamentalType& type)
 {
-	NumberLiteral result = { NumberLiteralKind::Invalid, FundamentalType::Double, value_end, 0 };
-	const uint32_t suffix_length = length - value_end;
-	if (suffix_length == 0)
-	{
-		result.kind = NumberLiteralKind::Floating;
-	}
-	else if (suffix_length == 1 && (text[value_end] == 'f' || text[value_end] == 'F'))
-	{
-		result.kind = NumberLiteralKind::Floating;
-		result.type = FundamentalType::Float;
-	}
-	else if (suffix_length == 1 && (text[value_end] == 'l' || text[value_end] == 'L'))
-	{
-		result.kind = NumberLiteralKind::Floating;
-		result.type = FundamentalType::LongDouble;
-	}
-	else if (suffix_length == 1 && (text[value_end] == 'q' || text[value_end] == 'Q') &&
+	if (length == 0)
+		type = FundamentalType::Double;
+	else if (length == 1 && (suffix[0] == 'f' || suffix[0] == 'F'))
+		type = FundamentalType::Float;
+	else if (length == 1 && (suffix[0] == 'l' || suffix[0] == 'L'))
+		type = FundamentalType::LongDouble;
+	else if (length == 1 && (suffix[0] == 'q' || suffix[0] == 'Q') &&
 		HasNumberSyntax(dialect, number_syntax::QuadSuffix))
 	{
 		// GNU's `q` and `Q` name __float128 in both compilation and the
 		// typed preprocessor stream; `l` and `L` name long double.
-		result.kind = NumberLiteralKind::Floating;
-		result.type = FundamentalType::GnuFloat128;
+		type = FundamentalType::GnuFloat128;
 	}
-	else if (HasNumberSyntax(dialect, number_syntax::ExtendedFloat) &&
-		ExtendedFloatingSuffix(text + value_end, suffix_length, result.type))
-	{
-		// C++23's (and GCC's) f16, f32, f64, f128, f32x, f64x.
+	else
+		return HasNumberSyntax(dialect, number_syntax::ExtendedFloat) && ExtendedFloatingSuffix(suffix, length, type);
+	return true;
+}
+
+// A floating literal whose value text ends at `value_end`.
+NumberLiteral ClassifyFloating(const char* text, uint32_t length, uint32_t value_end, NumberDialect dialect)
+{
+	NumberLiteral result = { NumberLiteralKind::Invalid, FundamentalType::Double, value_end, 0 };
+	const char* suffix = text + value_end;
+	const uint32_t suffix_length = length - value_end;
+	if (ParseFloatingSuffix(suffix, suffix_length, dialect, result.type))
 		result.kind = NumberLiteralKind::Floating;
-	}
-	else if (IsUserDefinedSuffix(
-				 text + value_end, suffix_length, HasNumberSyntax(dialect, number_syntax::ReservedSuffix)))
-	{
+	else if (HasNumberSyntax(dialect, number_syntax::Imaginary) &&
+		((IsImaginarySuffix(suffix[0]) && ParseFloatingSuffix(suffix + 1, suffix_length - 1, dialect, result.type)) ||
+			(IsImaginarySuffix(suffix[suffix_length - 1]) &&
+				ParseFloatingSuffix(suffix, suffix_length - 1, dialect, result.type))))
+		result.kind = NumberLiteralKind::ImaginaryFloating;
+	else if (IsUserDefinedSuffix(suffix, suffix_length, HasNumberSyntax(dialect, number_syntax::ReservedSuffix)))
 		result.kind = NumberLiteralKind::UserDefinedFloating;
-	}
 	return result;
 }
 

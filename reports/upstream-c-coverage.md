@@ -91,7 +91,7 @@ linked with `libm`, and ran both probes on Linux.
 
 | Required interface | Probe and cppgm result |
 | --- | --- |
-| `complex.h` imaginary unit | Construct `3.0 + 4.0 * I` and check the real and imaginary parts and magnitude. The GNU imaginary literal used by the header is diagnosed as a user-defined literal on Linux and WASI. |
+| `complex.h` imaginary unit | Construct `3.0 + 4.0 * I` and check the real and imaginary parts and magnitude. Passes with the real C library at `-std=c99 -pedantic-errors -O0` and `-O2` on x86-64 Linux, Linux AArch64 under QEMU, and WASI under Wasmtime. The typed `-E` stream accepts glibc's expansion. Both Darwin targets also cross-link the header-independent PA38 probe. Native Darwin and the SDK headers still require qualification. [PA38 value fixture](../pa38/tests/general/500-c-imaginary-literals.t) · [Extension policy fixture](../pa38/tests/general/500-c-imaginary-extension.t) |
 | `tgmath.h` function selection | Check the result types of `sqrt(float)` and `pow(int, long double)`, as well as exactly-once argument evaluation. The Linux macro reaches the missing `__builtin_tgmath`. The Clang resource header on WASI fails earlier on its overloaded C declarations. |
 
 [C99 library clauses, §§7.3 and 7.22](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
@@ -839,9 +839,9 @@ transfers involving individually qualified subobjects remain an audit item.
   in the top-level execute directory passed the initial standalone screen.
   A deterministic sample selected the 64 lowest SHA-256 digests of the
   basenames. GCC 15 agreed at `-O0` and `-O2` on all 64. cppgm matched
-  107 of the 128 configurations in GNU17 on Linux x86-64. The failures
+  109 of the 128 configurations in GNU17 on Linux x86-64. The failures
   include multidimensional and variably modified arrays, GNU inline
-  assembly, imaginary literal suffixes, GNU flexible member initialization,
+  assembly, GNU flexible member initialization,
   an always-inline call, and an optimized-only unresolved symbol. The
   scheduled and manually dispatched upstream workflow runs this sample
   and records unexpected differences independently of the known gaps.

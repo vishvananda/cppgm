@@ -5,6 +5,8 @@
 #include "lex/gnu_builtins.h"
 #include "syntax/ast_types.h"
 
+enum class FundamentalType : uint8_t;
+
 // Syntax tree expressions (see syntax/ast.h).
 namespace syntax {
 
@@ -74,6 +76,14 @@ struct LiteralExpr : Expr
 	// reference prints the lone-literal default of an unnamed `int`
 	// template parameter.
 	bool token_form;
+	bool imaginary = false;
+};
+
+struct ImaginaryLiteralExpr : LiteralExpr
+{
+	FundamentalType component_type;
+	// An integer component or the end of the floating value text.
+	uint64_t value;
 };
 
 // true, false, nullptr, this.

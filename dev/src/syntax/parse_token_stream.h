@@ -16,6 +16,7 @@ enum class ParseTokenKind : uint8_t
 	Identifier,
 	Literal,
 	UserDefinedLiteral,
+	ImaginaryLiteral,
 	EndOfFile
 };
 
@@ -29,7 +30,8 @@ enum ParseTokenFlag : uint8_t
 	kFirstShiftHalf = 1,
 	kSecondShiftHalf = 2,
 	// A string literal or a concatenation of string literals.
-	kStringLiteral = 4
+	kStringLiteral = 4,
+	kQuietSystemLiteral = 8
 };
 
 // A phase-7 token as the parser sees it: compact, with a stable spelling
@@ -39,15 +41,27 @@ enum ParseTokenFlag : uint8_t
 struct ParseToken
 {
 	ParseTokenKind kind;
-	TokenKind simple;
+	union
+	{
+		TokenKind simple;
+		FundamentalType component_type;
+	};
 	uint8_t flags;
 	uint32_t location;
 	TokenSpelling spelling;
-	const Identifier* identifier;
+	union
+	{
+		const Identifier* identifier;
+		uint64_t imaginary_value;
+	};
 
 	bool is(TokenKind kind_) const { return kind == ParseTokenKind::Simple && simple == kind_; }
 	bool is_identifier() const { return kind == ParseTokenKind::Identifier; }
-	bool is_literal() const { return kind == ParseTokenKind::Literal || kind == ParseTokenKind::UserDefinedLiteral; }
+	bool is_literal() const
+	{
+		return kind == ParseTokenKind::Literal || kind == ParseTokenKind::UserDefinedLiteral ||
+			kind == ParseTokenKind::ImaginaryLiteral;
+	}
 	bool is_end() const { return kind == ParseTokenKind::EndOfFile; }
 };
 

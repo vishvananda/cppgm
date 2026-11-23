@@ -442,6 +442,7 @@ protected:
 	const Identifier *final_, *override_;
 	const Identifier* coroutine_keywords_[3];
 	const Identifier* unnamed_namespace_;
+	const Identifier* c_extension_ = nullptr;
 	// GCC's 128-bit and extended floating type names, which may follow a
 	// complex specifier; the first, `__int128`, combines with `signed` and
 	// `unsigned`.
@@ -454,7 +455,10 @@ protected:
 	bool at_trait(GnuTrait& trait), at_typeof();
 	bool at_name_identifier(uint32_t ahead = 0)
 	{
-		const uint8_t name = tok(ahead).is_identifier() ? gnu_names_.kind(tok(ahead).identifier) : GnuNames::kTypeof;
+		const ParseToken& token = tok(ahead);
+		if (token.is_identifier() && token.identifier == c_extension_)
+			return false;
+		const uint8_t name = token.is_identifier() ? gnu_names_.kind(token.identifier) : GnuNames::kTypeof;
 		if (c_source_ && name == static_cast<uint8_t>(GnuTrait::AddAtomic) + 1)
 			return false;
 		return name == 0 || name == GnuNames::kComplex ||

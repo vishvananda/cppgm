@@ -133,8 +133,16 @@ The first fixture set covers these parts of the C17 input profile:
 - C character and string literal types, including the compatible integer
   types of wide, UTF-16 and UTF-32 literals. An identifier immediately after a
   quoted literal is a separate preprocessing token and can expand as a macro.
-  Comparisons and logical operators
-  produce `int`. Assignment, comma, conditional and prefix increment results
+- Accept GNU C imaginary suffixes `i`, `I`, `j`, and `J` on integer and
+  floating literals. Use the numeric suffixes to determine the component type
+  and give the value a positive zero real part. Support the suffix spellings
+  used by `<complex.h>` for `I` and `_Complex_I`, including `1.0iF` and `1.0fi`.
+  Apply the pedantic policy to these GNU suffixes, honoring `__extension__`
+  and system-header macros. `-Wsystem-headers` enables diagnostics for those
+  macros. In the typed `-E` stream, `_Complex` precedes the component type
+  and the bytes of the real part precede those of the imaginary part.
+- Comparisons and logical operators produce `int`. Assignment, comma,
+  conditional and prefix increment results
   do not become C++ lvalues.
 - Check the operand forms of integer constant expressions for assertions,
   case labels, enumeration values, bit-field widths, alignment, and array

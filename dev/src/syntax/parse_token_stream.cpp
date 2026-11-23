@@ -153,6 +153,14 @@ void ParseTokenStream::pull()
 			token.flags = kStringLiteral;
 			token.spelling.text = spellings_.copy_string(post.source.text, post.source.length);
 		}
+		else if (post.form == LiteralForm::Imaginary)
+		{
+			token.kind = ParseTokenKind::ImaginaryLiteral;
+			token.component_type = post.type;
+			token.imaginary_value = post.imaginary_value;
+			if (post.quiet_system_macro)
+				token.flags = kQuietSystemLiteral;
+		}
 		break;
 	case PostTokenKind::EndOfFile:
 		token = end_;

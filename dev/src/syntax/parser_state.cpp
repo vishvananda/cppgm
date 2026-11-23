@@ -39,7 +39,9 @@ ParserState::ParserState(ParseTokenStream& tokens, IdentifierTable& identifiers,
 	{
 		const GnuKeyword& gnu = kGnuKeywords[i];
 		Identifier* identifier = identifiers.intern(gnu.spelling, static_cast<uint32_t>(std::strlen(gnu.spelling)));
-		if (gnu.dropped && !(c_source_ && gnu.kind == TokenKind::KW_RESTRICT))
+		if (c_source_ && gnu.dropped && gnu.kind == TokenKind::KW_INLINE)
+			c_extension_ = identifier;
+		else if (gnu.dropped && !(c_source_ && gnu.kind == TokenKind::KW_RESTRICT))
 			tokens.ignore(identifier);
 		else
 			identifier->keyword = static_cast<uint8_t>(static_cast<uint8_t>(gnu.kind) + 1);

@@ -315,6 +315,12 @@ bool Parser::at_cast_operand_start()
 Expr* Parser::parse_cast_expression()
 {
 	NestingGuard nesting(*this);
+	if (at_c_extension())
+	{
+		consume_c_extensions();
+		const CExtensionScope extension(in_c_extension_);
+		return parse_cast_expression();
+	}
 	if (at(TokenKind::OP_LPAREN))
 		return parse_parenthesized_or_cast();
 	return parse_unary_expression();
@@ -1091,6 +1097,18 @@ Expr* Parser::parse_primary_expression()
 {
 	const ParseToken token = tok();
 	const uint32_t start = token.location;
+	if (token.kind == ParseTokenKind::ImaginaryLiteral)
+	{
+		if (!in_c_extension_ && (token.flags & kQuietSystemLiteral) == 0)
+			require_gnu_c_extension(start, "imaginary numeric literals are a GNU C extension");
+		ImaginaryLiteralExpr* literal = make<ImaginaryLiteralExpr>(ExprKind::Literal, start);
+		literal->spelling = token.spelling;
+		literal->imaginary = true;
+		literal->component_type = token.component_type;
+		literal->value = token.imaginary_value;
+		next();
+		return literal;
+	}
 	if (token.is_literal())
 	{
 		LiteralExpr* literal = make<LiteralExpr>(ExprKind::Literal, start);

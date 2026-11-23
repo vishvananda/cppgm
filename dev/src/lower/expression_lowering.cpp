@@ -1481,6 +1481,14 @@ RValue FunctionLowering::literal(const syntax::LiteralExpr& expr, lowir::Value d
 		return value;
 	}
 	const sema::Type* type = expr.facts->type;
+	if (expr.imaginary)
+	{
+		const sema::Type* component = type->element;
+		const RValue imaginary = sema::IsFloating(component)
+			? source_floating_literal(component, expr.spelling.text, expr.facts->value, expr.location)
+			: integer(lowering_.storage_type(component), expr.facts->value);
+		return complex_value(type, zero_value(component), imaginary);
+	}
 	const lowir::Type storage = lowering_.storage_type(type);
 	if (sema::IsFloating(type))
 		return source_floating_literal(type, expr.spelling.text, expr.facts->value, expr.location);

@@ -76,6 +76,14 @@ void Analyzer::literal_operator_declaration(const FunctionEntity& function, uint
 
 ExprFacts* Analyzer::literal(const syntax::LiteralExpr& expr)
 {
+	if (expr.imaginary)
+	{
+		const auto& imaginary = static_cast<const syntax::ImaginaryLiteralExpr&>(expr);
+		const Type* component = types_.fundamental(imaginary.component_type);
+		ExprFacts* facts = new_facts(expr, types_.complex(component), ValueCategory::PRValue);
+		facts->value = imaginary.value;
+		return facts;
+	}
 	const TokenSpelling& spelling = expr.spelling;
 	TextLiteralParts parts;
 	if (SplitTextLiteral(spelling.text, spelling.length, parts))

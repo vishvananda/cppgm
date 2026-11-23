@@ -9,6 +9,17 @@
 // speculation boundaries (see ParserState).
 namespace syntax {
 
+class CExtensionScope
+{
+public:
+	explicit CExtensionScope(bool& state) : state_(state), saved_(state) { state_ = true; }
+	~CExtensionScope() { state_ = saved_; }
+
+private:
+	bool& state_;
+	bool saved_;
+};
+
 // Marks one level of syntactic nesting (an expression operand, a
 // statement, a declaration, a declarator, a template argument list, a
 // braced list). When the parser's recursion has used its stack budget

@@ -27,6 +27,12 @@ bool IsAccessSpecifier(TokenKind kind)
 Decl* Parser::parse_declaration(DeclContext context, Attribute* leading)
 {
 	NestingGuard nesting(*this);
+	if (at_c_extension())
+	{
+		consume_c_extensions();
+		const CExtensionScope extension(in_c_extension_);
+		return parse_declaration(context, leading);
+	}
 	const uint32_t start = location();
 	// The declaration's leading attributes, which every reading of it
 	// starts from (a nested declaration has its own).

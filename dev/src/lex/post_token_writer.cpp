@@ -22,6 +22,8 @@ const char* UserDefinedFormName(LiteralForm form)
 		return "character ";
 	case LiteralForm::String:
 		return "string ";
+	case LiteralForm::Imaginary:
+		break;
 	}
 	return "";
 }
@@ -122,8 +124,12 @@ void PostTokenWriter::append_type_and_value(const PostToken& token)
 		buffer_.append(std::to_string(token.elements));
 		append(" ");
 	}
+	else if (token.form == LiteralForm::Imaginary)
+		append("_Complex ");
 	append(FundamentalTypeName(token.type));
 	append(" ");
+	if (token.form == LiteralForm::Imaginary)
+		buffer_.append(2 * static_cast<std::size_t>(token.size), '0');
 	static const char kHexDigits[] = "0123456789ABCDEF";
 	const std::size_t start = buffer_.size();
 	buffer_.resize(start + 2 * static_cast<std::size_t>(token.size));

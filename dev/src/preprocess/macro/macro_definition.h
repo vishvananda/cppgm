@@ -140,7 +140,7 @@ public:
 
 private:
 	void parse_parameters(DefinitionTokens& tokens, const PPToken& open);
-	void read_replacement_list(DefinitionTokens& tokens, PPToken token);
+	void read_replacement_list(DefinitionTokens& tokens, PPToken token, uint8_t flags);
 	bool mark_va_opt(const DefinitionTokens& tokens);
 	void assign_function_like_roles();
 	void assign_paste_roles(bool function_like);

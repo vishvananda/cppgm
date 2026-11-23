@@ -30,6 +30,13 @@ void Parser::require_gnu_c_extension(uint32_t location, const char* message)
 		throw ParseError(location, message);
 }
 
+void Parser::consume_c_extensions()
+{
+	do
+		next();
+	while (at_c_extension());
+}
+
 TranslationUnit* Parser::parse_translation_unit()
 {
 	char marker;
