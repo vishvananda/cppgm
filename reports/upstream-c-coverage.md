@@ -154,8 +154,11 @@ needs driver work. These checks leave `__STDC_NO_VLA__` as currently defined.
 | 6.2.4p7, 6.7.6.2p5 | A VLA retains its size for its lifetime and releases automatic storage when its scope ends. | [Single-dimension VLA across a call](../pa38/tests/general/500-vla-call-c-unwind.t), [mixed and fully runtime dimensions](../pa38/tests/general/300-variable-array-multidimensional.t), and a C-only link of c-testsuite `00207.c`. |
 | 6.7.6.2p2 | Variably modified identifiers obey block and prototype scope and linkage constraints, independently of whether they allocate storage. | [Automatic and static pointers](../pa38/tests/general/300-variable-array-pointer.t) and [extern rejection](../pa38/tests/general/300-variable-array-extern-pointer-bad.t). |
 | 6.7.6.2p4–p6, 6.7.6.3p7 | Prototype-scope bounds are treated as `[*]`. Outermost parameter arrays adjust to pointers. | [Outermost star](../pa38/tests/general/300-array-parameter-star.t), [nested prototype bounds](../pa38/tests/general/300-variable-array-parameter.t), and [conflicting fixed inner bounds](../pa38/tests/general/300-variable-array-parameter-conflict-bad.t). |
+| 6.2.1p8, 6.7.6.2p4 | Type names in a prototype can use `[*]`. | [PA38 prototype type names](../pa38/tests/general/300-array-prototype-type-names.t) covers alignment, size and nested callback prototypes. Negative cases cover a definition's parameter list, its body, file scope, and a variably modified generic association inside a prototype. |
 | 6.7.6.3p7, p15 | The adjusted parameter object keeps bracket qualifiers. Function type compatibility uses the adjusted type without top-level qualifiers. | [C99 qualifiers in identifier-list definitions](../pa38/tests/general/300-array-declarator-constant-and-vla.t), [C99 restrict](../pa38/tests/general/300-restrict-kr-array.t), and [C11 atomic bracket qualifier](../pa38/tests/general/300-array-parameter-atomic.t). The [atomic conversion rejection](../pa38/tests/general/300-array-parameter-atomic-discard-bad.t) agrees with GCC 15. Clang 21 drops the atomic qualifier in this form. |
 | 6.7.8p3 | A typedef with a varying bound captures its extent each time execution reaches the declaration. | [Loop, alias composition, and extent reuse](../pa38/tests/general/300-variable-array-typedef.t). |
+| 6.7.2.4p3, 6.7.6.2p5 | An atomic pointer type can derive from a VLA. A single type specifier supplies the captured bound for its declarators. | [Atomic pointer type specifier](../pa38/tests/general/300-variable-array-atomic-type.t) covers shared and typedef bounds and definition parameters. [Direct atomic VLA](../pa38/tests/general/300-variable-array-atomic-direct-bad.t) checks the array constraint. |
+| 6.7.6p3, 6.7.6.2p2 | A function type derives from its result, including a variably modified result. | [Local function pointer](../pa38/tests/general/300-variable-array-function-pointer.t) retains the runtime result bound. [The linkage case](../pa38/tests/general/300-variable-array-function-linkage-bad.t) rejects a function with that type, and [the goto case](../pa38/tests/general/300-variable-array-function-pointer-goto-bad.t) checks entry into the pointer's scope. |
 | 6.5.3.4p2, 6.7.6.2p5 | `sizeof` uses a VLA's runtime size. A bound inside `sizeof` can be elided if its value cannot change the result. | [Runtime array type names and the elidable pointer-type bound](../pa38/tests/general/300-variable-array-typeid.t). |
 | 6.5.3.4p2 | A `sizeof` operand of VLA type is evaluated. Other expression operands are unevaluated, including their function calls. | [Side effects and C-only link](../pa38/tests/general/300-variable-array-sizeof-operand.t). |
 | 6.5.2.5p1, 6.5.4 | Allow casts and pointer compound literals with variably modified type names. Diagnose a compound literal of VLA type. | [Side-effecting cast and pointer compound literal](../pa38/tests/general/300-variable-array-cast.t) and [VLA compound literal rejection](../pa38/tests/general/300-variable-array-compound-bad.t). |
@@ -179,11 +182,18 @@ suite on Linux x86-64. The SQLite amalgamation emits byte-identical
 The current VLA compatibility probes pass after fixed and `[*]`
 prototypes, for a conditional pointer with one fixed and one runtime
 bound, and for a conditional pointer with two compatible captured bounds.
-GCC 15 and Clang 21 agree. One remaining case uses `_Alignof(int[*])`
-inside a function prototype parameter declarator. C11 6.7.6.2p4 permits
-`[*]` in prototype-scope type names. GCC 15 accepts this form. cppgm and
-Clang 21 currently diagnose it. Test its declaration scope separately
-from the function definition and function body.
+GCC 15 and Clang 21 agree on those cases. For type names inside prototype
+expressions, DR 341 records an earlier discussion favoring a restriction
+and ends with wording that permits prototype-scope type names. cppgm
+follows the published wording. GCC 15 accepts these type names with an
+advisory warning. Clang 21 rejects them.
+
+The GCC C99 manifest includes `vla-5` for prototype compatibility,
+`vla-8` for jumping past a variably modified function pointer, and
+`vla-13` at `-O0` and `-O2` for bound evaluation in casts and pointer
+compound literals. GNU `__builtin_types_compatible_p` still needs coverage
+for variably modified type operands. [GCC C99 manifest](upstream-gcc-c99.json) ·
+[WG14 DR 341](https://www.open-std.org/jtc1/sc22/wg14/issues/c99/issue0341.html)
 
 ## Restricted pointer types
 

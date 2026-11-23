@@ -163,7 +163,11 @@ struct Scope
 	// Lookup sees these bindings; declarations (including closures) belong
 	// to the surrounding declaration scope.
 	bool default_parameters : 1;
+	// A C definition retains the parameter scope for entry-time bounds.
 	bool c_definition_parameters : 1;
+	// The parameter declarations of a C prototype have their own scope.
+	// Parameters of a definition introduce names in its body instead.
+	bool c_prototype_parameters : 1;
 	// A template parameter scope: the template parameter lists it stands
 	// for in the depth of template parameters declared below it (1 for a
 	// template-head's; none for an instantiation frame's, whose parameters

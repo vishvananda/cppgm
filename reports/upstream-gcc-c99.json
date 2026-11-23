@@ -333,6 +333,52 @@
       "adaptations": [
         "Checks translation failure for the source. PA38 independently covers prototype and identifier-list definitions and compatible conversions."
       ]
+    },
+    {
+      "id": "vla-5",
+      "path": "gcc/testsuite/gcc.dg/vla-5.c",
+      "sha256": "08512658788d522cc4337e8021d6346035d15ef11568289339e6c3b1f144bf11",
+      "dialect": "c99",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Prototype-scope array bounds and adjusted parameter types remain compatible with the tested definitions and callback declarations",
+      "adaptations": ["Checks accepted declarations and object emission. GCC warning text for sizeof on an array parameter is ungraded."]
+    },
+    {
+      "id": "vla-8",
+      "path": "gcc/testsuite/gcc.dg/vla-8.c",
+      "sha256": "e25d02f6016955ff6a50922fbf935d1706b4954c2210bc8a022c7af6783e9b0a",
+      "dialect": "c99",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "A jump cannot enter the scope of a pointer to a function returning a pointer to a variable-length array",
+      "adaptations": ["Checks translation failure for the source. The PA38 function pointer and jump cases independently exercise acceptance and rejection."]
+    },
+    {
+      "id": "vla-13-o0",
+      "path": "gcc/testsuite/gcc.dg/vla-13.c",
+      "sha256": "ee3451c98c2a49aac77a3062039b4f65fc7c4b91947be478b6672d2e0555443d",
+      "dialect": "c99",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": ["-O0", "-pedantic-errors"],
+      "upstream_flags": ["-O0", "-pedantic-errors"],
+      "obligation": "Evaluated VLA bounds in casts and pointer compound literals run with the tested side effects"
+    },
+    {
+      "id": "vla-13-o2",
+      "path": "gcc/testsuite/gcc.dg/vla-13.c",
+      "sha256": "ee3451c98c2a49aac77a3062039b4f65fc7c4b91947be478b6672d2e0555443d",
+      "dialect": "c99",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": ["-O2", "-pedantic-errors"],
+      "upstream_flags": ["-O2", "-pedantic-errors"],
+      "obligation": "Optimization preserves required VLA bound evaluation in casts and pointer compound literals"
     }
   ]
 }

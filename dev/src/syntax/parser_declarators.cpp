@@ -393,8 +393,9 @@ bool Parser::parse_declarator_suffixes(
 				return fail();
 			if (c_source_ && at(TokenKind::OP_STAR) && at(TokenKind::OP_RSQUARE, 1))
 			{
-				if (mode != DeclaratorMode::Parameter || suffix.array_static)
-					throw ParseError(location(), "[*] requires a C prototype parameter without a static minimum bound");
+				if ((mode != DeclaratorMode::Parameter && mode != DeclaratorMode::Abstract) || suffix.array_static)
+					throw ParseError(
+						location(), "[*] requires a C prototype declarator without a static minimum bound");
 				suffix.array_star = true;
 				declarator->c_prototype_star = true;
 				next();

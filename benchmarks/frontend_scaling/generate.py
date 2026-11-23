@@ -115,6 +115,19 @@ def c_restrict_parameters(size):
         print('{ return source[n - 1] + *extra; }')
 
 
+def c_vla_prototype_type_names(size, star):
+    bound = '*' if star else '1'
+    for index in range(size):
+        print(f'int f_{index}(int (*p)[_Alignof(int[{bound}])]);')
+        print(f'int f_{index}(int (*p)[_Alignof(int)]) {{ return (*p)[0]; }}')
+
+
+def c_vla_atomic_parameters(size, type_specifier):
+    param = '_Atomic(int (*)[++n]) p' if type_specifier else 'int (*_Atomic p)[++n]'
+    for index in range(size):
+        print(f'unsigned long f_{index}(int n, {param}) {{ return sizeof *p; }}')
+
+
 def c_identifier_list_parameters(size):
     print('int sample(' + ', '.join(f'arg{index}' for index in range(size)) + ')')
     for index in reversed(range(size)):
@@ -227,6 +240,8 @@ def main():
                                         'c-prototype-tag-references', 'c-member-alignment-queries',
                                         'c-vla-declarators', 'c-fixed-array-declarators',
                                         'c-identifier-list-parameters', 'c-restrict-parameters',
+                                        'c-vla-prototype-type-names', 'c-fixed-prototype-type-names',
+                                        'c-vla-atomic-type', 'c-vla-atomic-qualifier',
                                         'c-vla-dimensions', 'c-vla-extent-uses',
                                         'c-typeof-shared-bounds', 'c-designated-overwrites', 'c-designated-sparse',
                                         *EDITIONS])
@@ -299,6 +314,12 @@ def main():
         return
     if args.case == 'c-restrict-parameters':
         c_restrict_parameters(args.size)
+        return
+    if args.case in ('c-vla-prototype-type-names', 'c-fixed-prototype-type-names'):
+        c_vla_prototype_type_names(args.size, star=args.case == 'c-vla-prototype-type-names')
+        return
+    if args.case in ('c-vla-atomic-type', 'c-vla-atomic-qualifier'):
+        c_vla_atomic_parameters(args.size, type_specifier=args.case == 'c-vla-atomic-type')
         return
     if args.case == 'c-vla-dimensions':
         c_vla_dimensions(args.size)

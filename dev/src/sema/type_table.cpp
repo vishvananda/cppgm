@@ -370,6 +370,9 @@ const Type* TypeTable::function(const Type* result, const Type* const* params, u
 {
 	Type key = Key(TypeKind::Function);
 	key.element = result;
+	// A function type derives from its result. Variably modified parameter
+	// declarations are local to the parameter list.
+	key.c_variably_modified = result != nullptr && result->c_variably_modified;
 	key.params = params;
 	key.param_count = count;
 	key.variadic = variadic;

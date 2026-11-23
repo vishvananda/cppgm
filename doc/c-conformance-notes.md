@@ -252,11 +252,27 @@ pedantic modes for those editions.
 
 The definition still evaluates the written size expressions on function
 entry under 6.9.1p10. In prototype scope a variable bound has the meaning
-of `[*]`. For `sizeof`, cppgm elides evaluation when all variable bounds
+of `[*]`. DR 341 adds scope for type names under 6.2.1p8 and permits
+prototype-scope type names with `[*]` under 6.7.6.2p4. Apply that published
+wording to type names inside expressions in a prototype, including
+`_Alignof`. A nested callback prototype has its own parameter scope, even
+inside another function's definition. Type names in the definition's own
+parameter list or body have block scope.
+
+For `sizeof`, cppgm elides evaluation when all variable bounds
 are behind a pointer and the resulting type has a fixed size. `_Alignof`
 can use the element alignment without evaluating bounds.
 
+C11 6.7.2.4 permits `_Atomic(type-name)` with a pointer to a VLA. It
+forbids an array type itself. Evaluating the specifier captures its written
+bound for all declarators in the declaration, or uses the extent an earlier
+typedef captured. Under 6.7.6p3 a function type and any pointer derived from
+it inherit the variably modified property of the return type. Parameter
+types are checked in their own scope. Under 6.7.6.2p2, a direct function
+declaration with linkage cannot have variably modified type.
+
 [C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[WG14 DR 341](https://www.open-std.org/jtc1/sc22/wg14/issues/c99/issue0341.html) ·
 [PA38 multidimensional arrays](../pa38/tests/general/300-variable-array-multidimensional.t) ·
 [PA38 captured typedef extents](../pa38/tests/general/300-variable-array-typedef.t) ·
 [PA38 declarators and identifier-list parameters](../pa38/tests/general/300-array-declarator-constant-and-vla.t) ·

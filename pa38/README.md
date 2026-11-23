@@ -197,10 +197,18 @@ The first fixture set covers these parts of the C17 input profile:
 - An array parameter adjusts to a pointer. Qualifiers in the outer brackets
   apply to the adjusted pointer object, including `restrict` and C11 `_Atomic`.
   Apply the same adjustment to identifier-list parameters. In a prototype,
-  runtime bounds and `[*]` describe unspecified variable lengths. In a
-  definition, evaluate the written runtime bounds on entry, including any
-  bound in the adjusted outer bracket. Retain the inner strides. Require a
-  bound with `static`.
+  runtime bounds and `[*]` describe unspecified variable lengths. Allow
+  `[*]` in type names in that scope, including a nested callback prototype.
+  Diagnose it in type names at file scope, in a definition's own parameter
+  list, or in its body. Evaluate a definition's written runtime bounds on
+  entry, including any bound in the adjusted outer bracket. Retain the
+  inner strides. Require a bound with `static`.
+- When `_Atomic(type-name)` forms an atomic pointer to a VLA, retain the
+  type name's bounds. Evaluate a shared specifier's written bounds once per
+  declaration and reuse an extent already captured by a typedef. A function
+  type derived from a pointer-to-VLA return type is variably modified.
+  A function with linkage cannot have that type. A local pointer to such a
+  function can use the runtime bounds of its own declaration.
 - Apply `restrict` to pointers to object types, including `void` and
   incomplete record types. The GNU spellings `__restrict` and `__restrict__`
   use the same qualifier in C. Apply lvalue conversion and function signature

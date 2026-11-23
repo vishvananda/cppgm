@@ -39,8 +39,10 @@ limits still need separate qualification by storage duration and ABI.
 Array declarator coverage now checks the bound grammar, complete element
 types, qualifier adjustment in identifier-list definitions, and atomic
 bracket qualifiers. `restrict` is now part of C type qualification and
-array parameter adjustment. Continue with VLA compatibility, then
-qualify the other C11 optional features. Alongside target qualification, add
+array parameter adjustment. The VLA cases now cover prototype-scope type
+names, atomic pointer type specifiers, and function types derived from
+variably modified results. Continue with the VLA qualification matrix,
+then qualify the other C11 optional features. Alongside target qualification, add
 explicit C environment selection for native targets. Expand the pinned
 C99, C11, and C17 manifests from the uncovered clauses. Keep
 the existing VLA, generic selection, and sparse initializer tests in the
@@ -216,9 +218,10 @@ declarations, type-names and parameters with the driver, at `-O0` and
 `-O2`, on every advertised target. Include native mixed-compiler calls
 where parameter adjustment crosses an ABI boundary and check storage
 cleanup on each exit edge. Audit standard diagnostics independently from
-GNU VLA extensions. Pair prototype-scope `[*]` with the definition-site
-constraint, including `[*]` inside type names used by `_Alignof` in a
-prototype. Test compatible fixed and runtime bounds with defined inputs.
+GNU VLA extensions. Include the PA38 prototype-scope `[*]` cases and their
+definition-site diagnostics, and the cases for atomic and function-pointer
+types with runtime bounds. Test compatible fixed and runtime bounds with
+defined inputs.
 Keep the current declaration's written bounds for evaluation and
 its adjusted type for compatibility. Later, apply the distinct C23 rule
 for variably modified types and automatic-storage VLA objects. Emit each

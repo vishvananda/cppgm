@@ -2165,6 +2165,8 @@ FunctionEntity* Analyzer::c_redeclared_function(FunctionEntity* previous, const 
 {
 	if (!c_source_ || where->kind == ScopeKind::Class)
 		return previous;
+	if (type->c_variably_modified)
+		error(location, "a C function with linkage cannot have variably modified type");
 	const NameEntry* entry = names_.find(where, name);
 	if (entry == nullptr || entry->functions == nullptr)
 		return previous;

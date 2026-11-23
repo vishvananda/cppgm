@@ -96,6 +96,13 @@ qualifier on a variably modified array parameter and on an ordinary pointer
 parameter. Measure syntax-only cost by successive doublings and compare the
 emitted `-O0` objects.
 
+`c-vla-prototype-type-names` and `c-fixed-prototype-type-names` use
+`_Alignof` with an unspecified or fixed array bound in each prototype.
+`c-vla-atomic-type` and `c-vla-atomic-qualifier` express the same atomic
+pointer parameter through the C11 type specifier or pointer qualifier.
+Measure both pairs with C11 syntax-only mode and compare the `-O0` objects
+for the corresponding forms.
+
 `c-member-alignment-queries` grows one record and queries each member once.
 Measure in C11 syntax-only mode. The first query can require the record's
 layout. Later queries read the computed alignment of their members.

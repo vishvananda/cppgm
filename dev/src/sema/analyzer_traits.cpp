@@ -113,13 +113,16 @@ ExprFacts* Analyzer::builtin_trait(const syntax::BuiltinTraitExpr& expr, Scope* 
 			type = type->element;
 		return new_facts(expr, type, category);
 	}
-	if (expr.trait == GnuTrait::TypeofOperand && expr.operand == nullptr)
+	const bool c_atomic = c_source_ && expr.trait == GnuTrait::AddAtomic;
+	if ((expr.trait == GnuTrait::TypeofOperand && expr.operand == nullptr) || c_atomic)
 	{
-		// GNU typeof of a type-id: that type, as the decltype of an
-		// expression of the category a reference type gives (facts never
-		// hold a reference).
+		// GNU typeof and C11 _Atomic can introduce variably modified
+		// type names. Carry the written bounds to the declaration or use
+		// that evaluates them.
 		const RuntimeTypeEvaluation* bounds = nullptr;
 		const Type* type = type_id(*expr.types[0], scope, false, c_source_ ? &bounds : nullptr);
+		if (c_atomic && type != nullptr)
+			type = trait_type(expr.trait, type, expr.location);
 		if (type == nullptr)
 			return nullptr;
 		if (bounds != nullptr)

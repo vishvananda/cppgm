@@ -325,8 +325,12 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 			out.type_specifier = &specifier;
 			break;
 		case syntax::DeclSpecKind::Decltype:
-			if (c_source_ && specifier.operand->kind == syntax::ExprKind::BuiltinTrait &&
-				static_cast<const syntax::BuiltinTraitExpr*>(specifier.operand)->trait == GnuTrait::TypeofOperand)
+		{
+			const auto* builtin = specifier.operand->kind == syntax::ExprKind::BuiltinTrait
+				? static_cast<const syntax::BuiltinTraitExpr*>(specifier.operand)
+				: nullptr;
+			if (c_source_ && builtin != nullptr &&
+				(builtin->trait == GnuTrait::TypeofOperand || builtin->trait == GnuTrait::AddAtomic))
 			{
 				const ExprFacts* facts = typed_value(*specifier.operand, scope);
 				named = facts != nullptr ? facts->type : nullptr;
@@ -336,10 +340,10 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 			else
 				named = decltype_type(*specifier.operand, scope);
 			// `unsigned _BitInt ( N )`: the sign specifier is the _BitInt's.
-			if (specifier.operand->kind == syntax::ExprKind::BuiltinTrait &&
-				static_cast<const syntax::BuiltinTraitExpr*>(specifier.operand)->trait == GnuTrait::BitInt)
+			if (builtin != nullptr && builtin->trait == GnuTrait::BitInt)
 				keywords = false;
 			break;
+		}
 		case syntax::DeclSpecKind::DecltypeAuto:
 			if (!cxx14_)
 				error(specifier.location, "decltype(auto) requires C++14");
@@ -1439,7 +1443,7 @@ const Type* Analyzer::apply_suffix(const syntax::DeclaratorSuffix& suffix, const
 			if (scope->kind != ScopeKind::Block && scope->kind != ScopeKind::Function)
 				error(location, "a variably modified type requires block or function prototype scope");
 			checked_array(type, 1, location);
-			if (scope->kind == ScopeKind::Function && !scope->c_definition_parameters)
+			if (scope->c_prototype_parameters)
 				return types_.c_array_star(type);
 			return types_.array(type, 0, nullptr, suffix.bound);
 		}
@@ -1479,6 +1483,7 @@ const Type* Analyzer::apply_suffix(const syntax::DeclaratorSuffix& suffix, const
 			earlier->dumped = false;
 			earlier->guarded = true;
 			earlier->c_definition_parameters = c_definition;
+			earlier->c_prototype_parameters = c_source_ && !c_definition;
 			for (uint32_t i = 0; i < index; ++i)
 				declare_parameter(earlier, clause, i, parameter_object_type(parameter_scratch_[base + i]));
 		}
@@ -1782,6 +1787,8 @@ const Type* Analyzer::parameter_type(
 const Type* Analyzer::type_id(
 	const syntax::TypeId& type, Scope* scope, bool allow_placeholder, const RuntimeTypeEvaluation** runtime_bounds)
 {
+	if (c_source_ && type.declarator != nullptr && type.declarator->c_prototype_star && !scope->c_prototype_parameters)
+		error(type.location, "[*] is allowed only in C function prototype scope");
 	Specifiers specifiers;
 	this->specifiers(type.specifiers, scope, specifiers, false);
 	if (specifiers.is_constinit)
