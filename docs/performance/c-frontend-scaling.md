@@ -1856,3 +1856,15 @@ and 0.0009%.
 | SQLite | A/A | 16,529,636,614 / 16,529,634,648 / 16,529,674,779 / 16,529,786,895 |
 | SQLite | ABBA | 16,529,632,177 / 16,530,027,357 / 16,529,979,626 / 16,529,563,744 |
 | SQLite | BAAB | 16,530,089,548 / 16,529,636,435 / 16,529,835,319 / 16,529,810,241 |
+
+A 36,883-line ASCII LowIR input checks the text-reader path independently.
+The `-O0 -c` objects match by bytes. The new reader uses 1.7583% more
+instructions in both paired blocks. A scratch compiler with a separate
+cold UTF-8 path still round-trips the Unicode symbol and narrows the
+ASCII increase to 0.63% in a spot check.
+
+| Block | Retired user-space instructions in trial order |
+| --- | --- |
+| A/A | 147,901,888 / 147,901,921 / 147,901,921 / 147,901,963 |
+| ABBA | 147,901,919 / 150,502,513 / 150,502,510 / 147,901,917 |
+| BAAB | 150,502,510 / 147,901,922 / 147,901,938 / 150,502,511 |
