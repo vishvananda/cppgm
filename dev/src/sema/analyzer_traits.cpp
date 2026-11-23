@@ -431,9 +431,10 @@ const Type* Analyzer::transformed_type(GnuTrait trait, const Type* type, uint32_
 
 bool Analyzer::trait_types(const syntax::BuiltinTraitExpr& expr, Scope* scope, SmallList<const Type*, 4>& out)
 {
+	const bool type_query = c_source_ && expr.trait == GnuTrait::TypesCompatible;
 	for (const syntax::TypeId* id : expr.types)
 	{
-		const Type* type = type_id(*id, scope);
+		const Type* type = type_query ? c_type_query(*id, scope) : type_id(*id, scope);
 		if (type == nullptr)
 			return false;
 		out.push_back(type);

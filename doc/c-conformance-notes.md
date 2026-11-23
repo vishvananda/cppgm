@@ -261,7 +261,17 @@ parameter list or body have block scope.
 
 For `sizeof`, cppgm elides evaluation when all variable bounds
 are behind a pointer and the resulting type has a fixed size. `_Alignof`
-can use the element alignment without evaluating bounds.
+and a type-name `_Alignas` can use the element alignment without
+evaluating bounds. C11 6.7.6.2p2 restricts the scope of an identifier
+declared with variably modified type. Under 6.2.1p8, an anonymous type
+name is not a declaration of an identifier. Such a type name can appear
+in a file-scope query. `[*]` still requires function prototype scope.
+
+GNU `__builtin_types_compatible_p` is an integer constant expression.
+Apply array compatibility to the types after checking each bound. Compare
+two known constant bounds, and disregard top-level qualification as for the
+fixed-type form. Neither operand evaluates its bounds, including a bound
+inside another type name or an expression used with `__typeof__`.
 
 C11 6.7.2.4 permits `_Atomic(type-name)` with a pointer to a VLA. It
 forbids an array type itself. Evaluating the specifier captures its written
@@ -273,6 +283,8 @@ declaration with linkage cannot have variably modified type.
 
 [C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [WG14 DR 341](https://www.open-std.org/jtc1/sc22/wg14/issues/c99/issue0341.html) ·
+[GCC type compatibility builtin](https://gcc.gnu.org/onlinedocs/gcc-15.1.0/gcc/Other-Builtins.html) ·
+[PA38 variably modified type queries](../pa38/tests/general/500-types-compatible-vla.t) ·
 [PA38 multidimensional arrays](../pa38/tests/general/300-variable-array-multidimensional.t) ·
 [PA38 captured typedef extents](../pa38/tests/general/300-variable-array-typedef.t) ·
 [PA38 declarators and identifier-list parameters](../pa38/tests/general/300-array-declarator-constant-and-vla.t) ·

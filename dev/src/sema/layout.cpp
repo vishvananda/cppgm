@@ -203,8 +203,7 @@ ExprFacts* Analyzer::alignof_expression(const syntax::TypeTraitExpr& expr, Scope
 	uint32_t declared = 0;
 	if (expr.type != nullptr)
 	{
-		const RuntimeTypeEvaluation* unused_bounds = nullptr;
-		type = type_id(*expr.type, scope, false, c_source_ ? &unused_bounds : nullptr);
+		type = c_source_ ? c_type_query(*expr.type, scope) : type_id(*expr.type, scope);
 		declared = type_id_alignment_;
 	}
 	else

@@ -347,8 +347,7 @@ uint64_t Analyzer::attribute_alignment(
 			else if (attribute->type != nullptr)
 			{
 				const bool c_alignas = c_source_ && !attribute->gnu;
-				const RuntimeTypeEvaluation* unevaluated = nullptr;
-				const Type* type = type_id(*attribute->type, scope, false, c_alignas ? &unevaluated : nullptr);
+				const Type* type = c_alignas ? c_type_query(*attribute->type, scope) : type_id(*attribute->type, scope);
 				const uint32_t alias_alignment = c_alignas ? type_id_alignment_ : 0;
 				if (c_alignas)
 				{

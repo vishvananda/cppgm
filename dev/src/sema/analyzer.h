@@ -544,13 +544,14 @@ private:
 	{
 		Declaration,
 		Parameter,
-		TypeId
+		TypeId,
+		TypeQuery
 	};
 	DeclaratorInfo declarator(const syntax::Declarator* declarator, const Type* type, Scope* scope, uint32_t location,
 		const Specifiers* specifiers = nullptr, DeclaratorUse use = DeclaratorUse::Declaration);
 	const Type* ptr_operator(const syntax::PtrOperator& pointer, const Type* type, Scope* scope, uint32_t location);
 	const Type* apply_suffix(const syntax::DeclaratorSuffix& suffix, const Type* type, Scope* scope, uint32_t location,
-		const ClassEntity* member = nullptr);
+		const ClassEntity* member = nullptr, DeclaratorUse use = DeclaratorUse::Declaration);
 	Scope* prototype_scope(
 		const syntax::ParameterClause& clause, const Type* const* types, uint32_t count, Scope* scope);
 	// A parameter's object type: an array's or function's adjusted to a
@@ -565,7 +566,8 @@ private:
 	const Type* parameter_type(
 		const syntax::ParameterDeclaration& parameter, Scope* scope, RuntimeTypeEvaluation** runtime_bounds = nullptr);
 	const Type* type_id(const syntax::TypeId& type, Scope* scope, bool allow_placeholder = false,
-		const RuntimeTypeEvaluation** runtime_bounds = nullptr);
+		const RuntimeTypeEvaluation** runtime_bounds = nullptr, DeclaratorUse use = DeclaratorUse::TypeId);
+	const Type* c_type_query(const syntax::TypeId& type, Scope* scope);
 	RuntimeTypeEvaluation* runtime_type_with_specifier(const Specifiers& specifiers, RuntimeTypeEvaluation* suffix);
 	ExprFacts* runtime_type_operand(const syntax::Expr& operand, Scope* scope, bool for_typeof);
 	void c_declaration_specifiers(const syntax::SimpleDecl& decl, Scope* scope, Specifiers& out);

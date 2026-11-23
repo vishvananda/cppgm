@@ -218,7 +218,13 @@ The first fixture set covers these parts of the C17 input profile:
   pointers as a C23 extension in earlier editions.
 - Evaluate the runtime bounds needed by a `sizeof` type name. A bound in a
   pointer type whose value cannot change the result may be elided.
-  `_Alignof` uses the element alignment of a variable-length array.
+  `_Alignof` and a type-name `_Alignas` use the element alignment of a
+  variable-length array without evaluating its bounds.
+  `__builtin_types_compatible_p` accepts variably modified type names.
+  Check the bounds' types without evaluating them. Compare array bounds
+  when both are fixed, and preserve qualification inside pointers.
+  The scope restriction for identifiers declared with variably modified
+  types does not apply to an anonymous type name.
 - Evaluate a `sizeof` expression operand when it has variable-length array
   type. Preserve the effects of evaluated bounds in casts and compound
   literals even if the pointer result is discarded. A compound literal may
@@ -266,5 +272,7 @@ compiler or compiler-to-compiler comparison in this assignment's test lane.
 
 `make test-wasm` runs the same source inputs through PA37's Wasm checker and
 their `.wasm-expect` result sidecars. It requires the pinned Wasm tools and SDK.
+`make test-native-driver` runs selected variable-length array programs
+at `-O0` and `-O2` using the executable, object and LowIR paths on the host.
 From the repository root, `make test-pa38` selects this assignment explicitly;
 `make test-c` and `make test-c-wasm` are convenience aliases.

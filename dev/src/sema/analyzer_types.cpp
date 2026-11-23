@@ -1158,7 +1158,8 @@ DeclaratorInfo Analyzer::declarator(const syntax::Declarator* declarator, const 
 			Scope* const saved_home = placeholder_home_;
 			if (friend_namespace != nullptr)
 				placeholder_home_ = friend_namespace;
-			type = apply_suffix(suffix, type, after, current->location, &suffix == member_suffix ? member : nullptr);
+			type = apply_suffix(
+				suffix, type, after, current->location, &suffix == member_suffix ? member : nullptr, use);
 			if (friend_namespace != nullptr)
 				placeholder_home_ = saved_home;
 			if (failed())
@@ -1426,7 +1427,7 @@ const Type* Analyzer::checked_array(const Type* element, uint64_t bound, uint32_
 }
 
 const Type* Analyzer::apply_suffix(const syntax::DeclaratorSuffix& suffix, const Type* type, Scope* scope,
-	uint32_t location, const ClassEntity* member)
+	uint32_t location, const ClassEntity* member, DeclaratorUse use)
 {
 	if (suffix.kind == syntax::DeclaratorSuffixKind::Array)
 	{
@@ -1440,10 +1441,15 @@ const Type* Analyzer::apply_suffix(const syntax::DeclaratorSuffix& suffix, const
 		const uint64_t bound = suffix.bound != nullptr ? array_bound(*suffix.bound, scope, &runtime, &zero_length) : 0;
 		if (runtime)
 		{
-			if (scope->kind != ScopeKind::Block && scope->kind != ScopeKind::Function)
+			// C11 6.7.6.2p2 restricts identifiers declared with variably
+			// modified type. A type name introduces no such identifier.
+			if ((use == DeclaratorUse::Declaration || use == DeclaratorUse::Parameter) &&
+				scope->kind != ScopeKind::Block && scope->kind != ScopeKind::Function)
 				error(location, "a variably modified type requires block or function prototype scope");
 			checked_array(type, 1, location);
-			if (scope->c_prototype_parameters)
+			// A type-only query needs the variable array shape without a
+			// captured bound or a distinct type for each spelling.
+			if (scope->c_prototype_parameters || use == DeclaratorUse::TypeQuery)
 				return types_.c_array_star(type);
 			return types_.array(type, 0, nullptr, suffix.bound);
 		}
@@ -1784,8 +1790,8 @@ const Type* Analyzer::parameter_type(
 	return info.type;
 }
 
-const Type* Analyzer::type_id(
-	const syntax::TypeId& type, Scope* scope, bool allow_placeholder, const RuntimeTypeEvaluation** runtime_bounds)
+const Type* Analyzer::type_id(const syntax::TypeId& type, Scope* scope, bool allow_placeholder,
+	const RuntimeTypeEvaluation** runtime_bounds, DeclaratorUse use)
 {
 	if (c_source_ && type.declarator != nullptr && type.declarator->c_prototype_star && !scope->c_prototype_parameters)
 		error(type.location, "[*] is allowed only in C function prototype scope");
@@ -1804,14 +1810,14 @@ const Type* Analyzer::type_id(
 	if (!specifiers.mode_specifiers.empty())
 		filter_mode_alias(specifiers);
 	const DeclaratorInfo info = declarator(type.declarator, specifiers.type, scope, type.location,
-		specifiers.mode_specifiers.empty() ? nullptr : &specifiers, DeclaratorUse::TypeId);
+		specifiers.mode_specifiers.empty() ? nullptr : &specifiers, use);
 	if (failed())
 		return nullptr;
 	if ((info.type == auto_placeholder_ || info.type == decltype_auto_placeholder_) && !allow_placeholder)
 		error(type.location, "auto in a type-id");
 	if (info.virt_suffix != nullptr)
 		error(type.location, "a virt-specifier in a type-id");
-	if (info.type->c_variably_modified)
+	if (info.type->c_variably_modified && use != DeclaratorUse::TypeQuery)
 	{
 		if (runtime_bounds == nullptr)
 			error(type.location, "a variably modified type name is unsupported in this context");
@@ -1822,6 +1828,17 @@ const Type* Analyzer::type_id(
 	}
 	type_id_alignment_ = info.type == specifiers.type ? specifiers.alias_alignment : 0;
 	return info.type;
+}
+
+const Type* Analyzer::c_type_query(const syntax::TypeId& type, Scope* scope)
+{
+	auto* saved_bounds = repeated_type_bounds_;
+	repeated_type_bounds_ = nullptr;
+	++unevaluated_;
+	const Type* result = type_id(type, scope, false, nullptr, DeclaratorUse::TypeQuery);
+	--unevaluated_;
+	repeated_type_bounds_ = saved_bounds;
+	return result;
 }
 
 RuntimeTypeEvaluation* Analyzer::runtime_type_with_specifier(
