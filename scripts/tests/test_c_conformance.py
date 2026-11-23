@@ -16,9 +16,15 @@ class CoverageTests(unittest.TestCase):
     def test_all_limits_and_target_specific_receipts(self):
         self.assertEqual(sum(name.startswith('limits.') and 'limits.combined' in rule['cases']
                              for name, rule in self.rules.items()), 22)
-        receipts = {('limits.combined', self.native, 99, opt): 'passed' for opt in ('O0', 'O2')}
+        for rule in self.rules.values():
+            if 'limits.combined' in rule['cases']:
+                self.assertEqual(set(rule['editions']), {90, 95, 99, 11, 17})
+        receipts = {('limits.combined', self.native, edition, opt): 'passed'
+                    for edition in (90, 99) for opt in ('O0', 'O2')}
         rows = {(r['rule'], r['edition'], r['profile']): r['status']
                 for r in coverage(self.profiles, self.rules, receipts)}
+        self.assertEqual(rows[('limits.block-depth', 90, self.native)], 'passing')
+        self.assertEqual(rows[('limits.block-depth', 95, self.native)], 'uncovered')
         self.assertEqual(rows[('limits.block-depth', 99, self.native)], 'passing')
         self.assertEqual(rows[('limits.block-depth', 11, self.native)], 'uncovered')
         self.assertEqual(rows[('limits.block-depth', 99, 'wasi-hosted')], 'uncovered')
@@ -36,7 +42,8 @@ class CoverageTests(unittest.TestCase):
         key = ('limits.combined', self.native, 99, 'O0')
         for result, expected in (('passed', 'uncovered'), ('failed', 'failing')):
             rule = {'limits.block-depth': self.rules['limits.block-depth']}
-            row = next(iter(coverage(self.profiles, rule, {key: result})))
+            row = next(row for row in coverage(self.profiles, rule, {key: result})
+                       if row['edition'] == 99 and row['profile'] == self.native)
             self.assertEqual(row['status'], expected)
 
     def test_inventory_rejects_duplicate_missing_and_stale_ids(self):

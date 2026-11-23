@@ -108,6 +108,7 @@ struct PreprocessorOptions
 	SourceLexOptions source_lex;
 	bool diagnose_cxx_extensions() const { return strict || extension_warnings != ExtensionWarnings::Disabled; }
 	bool gnu_c() const { return language == SourceLanguage::C && !strict; }
+	bool iso_c_before_c99() const { return language == SourceLanguage::C && strict && c_edition < CEdition::C99; }
 	// -D and -U as #define and #undef lines, then each -include file as an
 	// #include "file" line, read after the predefined macros; a source
 	// #define may replace their definitions.
@@ -131,6 +132,7 @@ public:
 	virtual bool allow_c_extension(uint32_t location, CEdition edition, const char* message) const = 0;
 	virtual bool allow_gnu_c_extension(uint32_t location, const char* message) const = 0;
 	virtual void diagnose_c23_literal_ucn(uint32_t location) const = 0;
+	virtual void diagnose_c90_hex_float(uint32_t location) const = 0;
 
 protected:
 	~SourcePositions() {}
@@ -201,6 +203,7 @@ public:
 	bool allow_c_extension(uint32_t location, CEdition edition, const char* message) const override;
 	bool allow_gnu_c_extension(uint32_t location, const char* message) const override;
 	void diagnose_c23_literal_ucn(uint32_t location) const override;
+	void diagnose_c90_hex_float(uint32_t location) const override;
 
 	// The translation unit's interned identifiers, shared with the parser.
 	IdentifierTable& identifiers() { return identifiers_; }

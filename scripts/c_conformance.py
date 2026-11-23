@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 INVENTORY = ROOT / 'reports/c-conformance.json'
 C_EDITIONS = (90, 95, 99, 11, 17, 23)
 PILOT_EDITIONS = (99, 11, 17)
+LEGACY_STANDARDS = {90: 'c90', 95: 'iso9899:199409'}
 NATIVE_PROFILES = {
     ('Linux', 'x86_64'): 'linux-x86_64-hosted',
     ('Linux', 'aarch64'): 'linux-aarch64-hosted',
@@ -26,7 +27,12 @@ NATIVE_PROFILES = {
 }
 RUN_STAGES = ('compile', 'link', 'run')
 THREAD_PREDEFINE = ROOT / 'scripts/tests/c_thread_predefine.c'
+C95_WIDE_HEADERS = ROOT / 'scripts/tests/c_c95_wide_headers.c'
 PA38_GENERAL = ROOT / 'pa38/tests/general'
+LEGACY_VERSION_PROBES = {
+    90: PA38_GENERAL / '100-c90-version.t',
+    95: PA38_GENERAL / '100-c95-digraphs.t',
+}
 FLEXIBLE_ARRAY = PA38_GENERAL / '300-c-flexible-array.t'
 RECORD_CONSTRAINTS = {
     'record.flexible-only-member': ('200-c-flexible-only-member-bad.t', 'a flexible array must be the last member'),
@@ -53,6 +59,7 @@ C11_LIBRARY_SOURCES = {
 }
 CASES = {
     'limits.combined': (RUN_STAGES, ('O0', 'O2')),
+    'library.c95-wide-headers': (RUN_STAGES, ('O0', 'O2')),
     'limits.integer': (RUN_STAGES, ('O0', 'O2')),
     'limits.float': (RUN_STAGES, ('O0', 'O2')),
     'limits.rounding-default': (RUN_STAGES, ('O0', 'O2')),
@@ -74,6 +81,7 @@ CASES = {
     'line.diagnostic-location': (('preprocess',), ('default',)),
     'error.message': (('preprocess',), ('default',)),
     'environment.thread-predefine': (('preprocess',), ('default',)),
+    'environment.c-version': (('preprocess',), ('default',)),
     **{case: (RUN_STAGES, ('O0', 'O2')) for case in C11_LIBRARY_SOURCES},
     **{case: (('compile',), ('default',)) for case in RECORD_CONSTRAINTS},
 }
@@ -321,21 +329,33 @@ def probe_target(output, profile, compiler, setup, link, runner, bare_sdk=()):
         runner = [str(Path(executable).absolute()), *runner[1:]]
     numeric = numeric_sources(profile, bare_sdk)
     expect_no_threads = int(profile['target'].endswith('-apple-darwin'))
-    for edition in PILOT_EDITIONS:
-        flags = [compiler, '--target=' + profile['target'], *setup, '-x', 'c', f'-std=c{edition}', '-pedantic-errors']
+    for edition in (*LEGACY_STANDARDS, *PILOT_EDITIONS):
+        legacy = edition in LEGACY_STANDARDS
+        standard = LEGACY_STANDARDS.get(edition, f'c{edition}')
+        flags = [compiler, '--target=' + profile['target'], *setup, '-x', 'c', f'-std={standard}', '-pedantic-errors']
         work = output / profile['id'] / f'c{edition}'
         stages, _ = run_stages(work / 'thread-predefine', [
             ('preprocess', [*flags, f'-DEXPECT_NO_THREADS={expect_no_threads}', '-E', str(THREAD_PREDEFINE), '-o', '/dev/null']),
         ])
         yield receipt('environment.thread-predefine', profile, edition, 'default',
                       stages[0]['classification'] == 'success', stages)
-        sources = [
-            ('limits.combined', output / 'inputs/combined.c', (), ()),
-            ('include.physical', INCLUDE_SOURCE, (), ()),
-            ('include.query', INCLUDE_QUERY, ('-I' + str(INCLUDE_QUERY.parent),), ()),
-            ('record.flexible-array', FLEXIBLE_ARRAY, (), ()),
-            *numeric,
-        ]
+        limits_directory = 'legacy' if legacy else 'modern'
+        sources = [('limits.combined', output / 'inputs' / limits_directory / 'combined.c', (), ())]
+        if edition == 95 and profile['environment'] == 'hosted':
+            sources.append(('library.c95-wide-headers', C95_WIDE_HEADERS, (), ()))
+        if legacy:
+            stages, _ = run_stages(work / 'version', [
+                ('preprocess', [*flags, '-E', str(LEGACY_VERSION_PROBES[edition]), '-o', '/dev/null']),
+            ])
+            yield receipt('environment.c-version', profile, edition, 'default',
+                          stages[0]['classification'] == 'success', stages)
+        else:
+            sources.extend([
+                ('include.physical', INCLUDE_SOURCE, (), ()),
+                ('include.query', INCLUDE_QUERY, ('-I' + str(INCLUDE_QUERY.parent),), ()),
+                ('record.flexible-array', FLEXIBLE_ARRAY, (), ()),
+                *numeric,
+            ])
         if edition in (11, 17):
             sources.append(('literal.code-units', STRING_SOURCE, (), ()))
             sources.extend(c11_library_sources(profile))
@@ -354,6 +374,8 @@ def probe_target(output, profile, compiler, setup, link, runner, bare_sdk=()):
                     # Wasmtime's process succeeds even when the exported function returns nonzero.
                     passed = last['stdout'] == '0\n'
                 yield receipt(case, profile, edition, variant, passed, stages)
+        if legacy:
+            continue
         for case, (source, diagnostic) in RECORD_CONSTRAINTS.items():
             stages, text = run_stages(work / case, [
                 ('compile', [*flags, '-fsyntax-only', str(PA38_GENERAL / source)]),
@@ -379,10 +401,12 @@ def probes(args, profiles, rules):
     output = args.output.resolve()
     work = output / 'inputs'
     work.mkdir(parents=True)
-    limits = work / 'combined.c'
-    with limits.open('wb') as file:
-        subprocess.run([sys.executable, str(ROOT / 'scripts/generate_c_translation_limits.py'), str(work)],
-                       stdout=file, check=True)
+    for variant, edition in (('legacy', 90), ('modern', 99)):
+        directory = work / variant
+        directory.mkdir()
+        with (directory / 'combined.c').open('wb') as file:
+            subprocess.run([sys.executable, str(ROOT / 'scripts/generate_c_translation_limits.py'),
+                            '--edition', str(edition), str(directory)], stdout=file, check=True)
     compiler = str(args.candidate.resolve())
     results = list(probe_target(output, profiles[native], compiler, [], [args.cc], []))
     if args.wasi_sysroot:
@@ -407,7 +431,8 @@ def probes(args, profiles, rules):
         runner = [args.wasmtime, 'run', '--invoke', 'main']
         results.extend(probe_target(output, bare, compiler, ['-ffreestanding', '-nostdinc'], link, runner, bare_sdk))
     revision = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
-    inputs = sorted([*work.glob('*.h'), limits, ERROR_SOURCE, INCLUDE_SOURCE, STRING_SOURCE, INCLUDE_QUERY, THREAD_PREDEFINE,
+    inputs = sorted([*work.glob('*/*'), ERROR_SOURCE, INCLUDE_SOURCE, STRING_SOURCE, INCLUDE_QUERY, THREAD_PREDEFINE,
+                     C95_WIDE_HEADERS, *LEGACY_VERSION_PROBES.values(),
                      INTEGER_LIMITS, FLOAT_LIMITS, DEFAULT_ROUNDING, ROUNDING_QUERY,
                      FENV_BINARY, FENV_CONVERT, FENV_COMPARE, FENV_QUAD, FENV_LIBM, FP_CONTRACT,
                      COMPLEX_RANGE, COMPLEX_FENV, FENV_ZERO_DIVISION, HOSTED_MATH, FLEXIBLE_ARRAY,

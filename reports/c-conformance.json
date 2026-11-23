@@ -38,12 +38,14 @@
       "clause": "5.2.4.1p1",
       "kind": "required",
       "editions": [
+        90,
+        95,
         99,
         11,
         17
       ],
       "environment": "all",
-      "requirement": "Execute with at least 127 nested blocks.",
+      "requirement": "Execute with at least 15 nested blocks in C90 and C95, or 127 in later editions.",
       "cases": [
         "limits.combined"
       ]
@@ -53,12 +55,14 @@
       "clause": "5.2.4.1p1",
       "kind": "required",
       "editions": [
+        90,
+        95,
         99,
         11,
         17
       ],
       "environment": "all",
-      "requirement": "Translate at least 63 nested preprocessing conditionals.",
+      "requirement": "Translate at least 8 nested preprocessing conditionals in C90 and C95, or 63 in later editions.",
       "cases": [
         "limits.combined"
       ]
@@ -68,6 +72,8 @@
       "clause": "5.2.4.1p1",
       "kind": "required",
       "editions": [
+        90,
+        95,
         99,
         11,
         17
@@ -83,12 +89,14 @@
       "clause": "5.2.4.1p1",
       "kind": "required",
       "editions": [
+        90,
+        95,
         99,
         11,
         17
       ],
       "environment": "all",
-      "requirement": "Accept a declarator nested in 63 pairs of parentheses.",
+      "requirement": "Accept a declarator nested in 31 pairs of parentheses in C90 and C95, or 63 in later editions.",
       "cases": [
         "limits.combined"
       ]
@@ -98,12 +106,14 @@
       "clause": "5.2.4.1p1",
       "kind": "required",
       "editions": [
+        90,
+        95,
         99,
         11,
         17
       ],
       "environment": "all",
-      "requirement": "Accept an expression nested in 63 pairs of parentheses.",
+      "requirement": "Accept an expression nested in 32 pairs of parentheses in C90 and C95, or 63 in later editions.",
       "cases": [
         "limits.combined"
       ]
@@ -113,12 +123,14 @@
       "clause": "5.2.4.1p1",
       "kind": "required",
       "editions": [
+        90,
+        95,
         99,
         11,
         17
       ],
       "environment": "all",
-      "requirement": "Distinguish internal identifiers and macro names that differ at character 63.",
+      "requirement": "Distinguish internal identifiers and macro names at character 31 in C90 and C95, or character 63 in later editions.",
       "cases": [
         "limits.combined"
       ]
@@ -128,12 +140,14 @@
       "clause": "5.2.4.1p1",
       "kind": "required",
       "editions": [
+        90,
+        95,
         99,
         11,
         17
       ],
       "environment": "all",
-      "requirement": "Distinguish external identifiers that differ at character 31.",
+      "requirement": "Distinguish external identifiers at character 6 in C90 and C95, or character 31 in later editions.",
       "cases": [
         "limits.combined"
       ]
@@ -143,12 +157,14 @@
       "clause": "5.2.4.1p1",
       "kind": "required",
       "editions": [
+        90,
+        95,
         99,
         11,
         17
       ],
       "environment": "all",
-      "requirement": "Translate a unit with at least 4,095 external identifiers.",
+      "requirement": "Translate at least 511 external identifiers in C90 and C95, or 4,095 in later editions.",
       "cases": [
         "limits.combined"
       ]
@@ -158,12 +174,14 @@
       "clause": "5.2.4.1p1",
       "kind": "required",
       "editions": [
+        90,
+        95,
         99,
         11,
         17
       ],
       "environment": "all",
-      "requirement": "Declare and use identifiers in a block containing at least 511 block-scope names.",
+      "requirement": "Accept a block with at least 127 block-scope names in C90 and C95, or 511 in later editions.",
       "cases": [
         "limits.combined"
       ]
@@ -173,12 +191,14 @@
       "clause": "5.2.4.1p1",
       "kind": "required",
       "editions": [
+        90,
+        95,
         99,
         11,
         17
       ],
       "environment": "all",
-      "requirement": "Define at least 4,095 macros at the same time in one preprocessing unit.",
+      "requirement": "Define at least 1,024 macros simultaneously in C90 and C95, or 4,095 in later editions.",
       "cases": [
         "limits.combined"
       ]
@@ -188,12 +208,14 @@
       "clause": "5.2.4.1p1",
       "kind": "required",
       "editions": [
+        90,
+        95,
         99,
         11,
         17
       ],
       "environment": "all",
-      "requirement": "Accept a definition with at least 127 function parameters.",
+      "requirement": "Accept a definition with at least 31 function parameters in C90 and C95, or 127 in later editions.",
       "cases": [
         "limits.combined"
       ]
@@ -203,12 +225,14 @@
       "clause": "5.2.4.1p1",
       "kind": "required",
       "editions": [
+        90,
+        95,
         99,
         11,
         17
       ],
       "environment": "all",
-      "requirement": "Pass at least 127 arguments in one call.",
+      "requirement": "Pass at least 31 arguments in one call in C90 and C95, or 127 in later editions.",
       "cases": [
         "limits.combined"
       ]
@@ -218,12 +242,14 @@
       "clause": "5.2.4.1p1",
       "kind": "required",
       "editions": [
+        90,
+        95,
         99,
         11,
         17
       ],
       "environment": "all",
-      "requirement": "Declare at least 127 parameters to one macro.",
+      "requirement": "Declare at least 31 parameters to one macro in C90 and C95, or 127 in later editions.",
       "cases": [
         "limits.combined"
       ]
@@ -233,12 +259,14 @@
       "clause": "5.2.4.1p1",
       "kind": "required",
       "editions": [
+        90,
+        95,
         99,
         11,
         17
       ],
       "environment": "all",
-      "requirement": "Substitute at least 127 arguments in one macro invocation.",
+      "requirement": "Substitute at least 31 arguments in one macro invocation in C90 and C95, or 127 in later editions.",
       "cases": [
         "limits.combined"
       ]
@@ -248,12 +276,14 @@
       "clause": "5.2.4.1p1",
       "kind": "required",
       "editions": [
+        90,
+        95,
         99,
         11,
         17
       ],
       "environment": "all",
-      "requirement": "Translate a logical source line containing 4,095 characters.",
+      "requirement": "Translate a logical source line of 509 characters in C90 and C95, or 4,095 in later editions.",
       "cases": [
         "limits.combined"
       ]
@@ -263,12 +293,14 @@
       "clause": "5.2.4.1p1",
       "kind": "required",
       "editions": [
+        90,
+        95,
         99,
         11,
         17
       ],
       "environment": "all",
-      "requirement": "Construct a concatenated string literal of at least 4,095 characters.",
+      "requirement": "Construct a concatenated narrow or wide string literal of at least 509 characters in C90 and C95, or 4,095 in later editions.",
       "cases": [
         "limits.combined"
       ]
@@ -278,12 +310,14 @@
       "clause": "5.2.4.1p1",
       "kind": "required",
       "editions": [
+        90,
+        95,
         99,
         11,
         17
       ],
       "environment": "hosted",
-      "requirement": "Store and read an object occupying at least 65,535 bytes.",
+      "requirement": "Store and read an object occupying at least 32,767 bytes in C90 and C95, or 65,535 in later editions.",
       "cases": [
         "limits.combined"
       ]
@@ -293,12 +327,14 @@
       "clause": "5.2.4.1p1",
       "kind": "required",
       "editions": [
+        90,
+        95,
         99,
         11,
         17
       ],
       "environment": "all",
-      "requirement": "Reach a header through 15 nested inclusions.",
+      "requirement": "Reach a header through 8 nested inclusions in C90 and C95, or 15 in later editions.",
       "cases": [
         "limits.combined"
       ]
@@ -308,12 +344,14 @@
       "clause": "5.2.4.1p1",
       "kind": "required",
       "editions": [
+        90,
+        95,
         99,
         11,
         17
       ],
       "environment": "all",
-      "requirement": "Execute a switch with at least 1,023 case labels.",
+      "requirement": "Execute a switch with at least 257 case labels in C90 and C95, or 1,023 in later editions.",
       "cases": [
         "limits.combined"
       ]
@@ -323,12 +361,14 @@
       "clause": "5.2.4.1p1",
       "kind": "required",
       "editions": [
+        90,
+        95,
         99,
         11,
         17
       ],
       "environment": "all",
-      "requirement": "Access members of one record containing at least 1,023 members.",
+      "requirement": "Access members of one record containing at least 127 members in C90 and C95, or 1,023 in later editions.",
       "cases": [
         "limits.combined"
       ]
@@ -338,12 +378,14 @@
       "clause": "5.2.4.1p1",
       "kind": "required",
       "editions": [
+        90,
+        95,
         99,
         11,
         17
       ],
       "environment": "all",
-      "requirement": "Evaluate a constant from an enumeration with at least 1,023 entries.",
+      "requirement": "Accept at least 127 enumeration constants in C90 and C95, or 1,023 in later editions.",
       "cases": [
         "limits.combined"
       ]
@@ -353,12 +395,14 @@
       "clause": "5.2.4.1p1",
       "kind": "required",
       "editions": [
+        90,
+        95,
         99,
         11,
         17
       ],
       "environment": "all",
-      "requirement": "Access a member through 63 levels of nested record definitions.",
+      "requirement": "Access a member through at least 15 nested record definitions in C90 and C95, or 63 in later editions.",
       "cases": [
         "limits.combined"
       ]
@@ -971,6 +1015,19 @@
       ]
     },
     {
+      "id": "library.c95-wide-headers",
+      "clause": "AMD1 (Multibyte Support Extension and alternative tokens)",
+      "kind": "required",
+      "editions": [
+        95
+      ],
+      "environment": "hosted",
+      "requirement": "Compose iso646.h, wchar.h, and wctype.h for restartable conversions, string operations, and classification in the C locale.",
+      "cases": [
+        "library.c95-wide-headers"
+      ]
+    },
+    {
       "id": "library.c11-header-facilities",
       "clause": "7.2, 7.15, 7.23",
       "kind": "required",
@@ -1092,6 +1149,8 @@
       "clause": "6.10.8.3",
       "kind": "implementation-defined",
       "editions": [
+        90,
+        95,
         99,
         11,
         17
@@ -1111,7 +1170,9 @@
       ],
       "environment": "all",
       "requirement": "Leave __STDC_VERSION__ undefined in the unamended C90 profile.",
-      "cases": []
+      "cases": [
+        "environment.c-version"
+      ]
     },
     {
       "id": "c95.version",
@@ -1122,7 +1183,9 @@
       ],
       "environment": "all",
       "requirement": "Define __STDC_VERSION__ as 199409L in the C95 profile.",
-      "cases": []
+      "cases": [
+        "environment.c-version"
+      ]
     },
     {
       "id": "c23.version",

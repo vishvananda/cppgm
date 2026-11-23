@@ -38,7 +38,11 @@ public:
 
 	// Syntax uses the classified component and converts its value on demand.
 	void defer_imaginary_values() { defer_imaginary_values_ = true; }
-	void set_source_positions(const SourcePositions& positions) { positions_ = &positions; }
+	void set_source_positions(const SourcePositions& positions, bool iso_c_before_c99)
+	{
+		positions_ = &positions;
+		iso_c_before_c99_ = iso_c_before_c99;
+	}
 
 private:
 	const PPToken& pull();
@@ -47,6 +51,7 @@ private:
 	void convert_identifier(const Identifier* identifier);
 	void convert_operator(uint8_t punctuator);
 	void convert_number(const PPToken& pp);
+	void check_hex_float(const PPToken& pp) const;
 	void convert_imaginary(const PPToken& pp, const NumberLiteral& number);
 	void convert_character(const PPToken& pp);
 	void convert_string_sequence(const PPToken& first);
@@ -73,6 +78,7 @@ private:
 	uint32_t split_suffix_end_;
 	bool after_operator_;
 	bool defer_imaginary_values_ = false;
+	bool iso_c_before_c99_ = false;
 	// Scalar literal values; 16 bytes hold a long double.
 	unsigned char scalar_[16];
 	std::string floating_text_;

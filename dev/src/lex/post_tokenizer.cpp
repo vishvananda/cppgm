@@ -153,6 +153,7 @@ void PostTokenizer::convert_number(const PPToken& pp)
 		set_scalar(LiteralForm::Integer, number.type, number.integer);
 		return;
 	case NumberLiteralKind::Floating:
+		check_hex_float(pp);
 		if (!ScanFloatingValue(pp.spelling, number.suffix_begin, number.type, floating_text_, scalar_, target_) &&
 			cxx_edition_ != 0)
 			return;
@@ -181,9 +182,19 @@ void PostTokenizer::convert_number(const PPToken& pp)
 	}
 }
 
+void PostTokenizer::check_hex_float(const PPToken& pp) const
+{
+	if (!iso_c_before_c99_ || pp.spelling[0] != '0' || (pp.spelling[1] != 'x' && pp.spelling[1] != 'X') ||
+		(pp.flags & kQuietSystemMacro) != 0)
+		return;
+	positions_->diagnose_c90_hex_float(pp.begin);
+}
+
 void PostTokenizer::convert_imaginary(const PPToken& pp, const NumberLiteral& number)
 {
 	const bool floating = number.kind == NumberLiteralKind::ImaginaryFloating;
+	if (floating)
+		check_hex_float(pp);
 	if (!defer_imaginary_values_)
 	{
 		if (floating)

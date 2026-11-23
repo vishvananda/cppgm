@@ -82,7 +82,8 @@ public:
 	// #include directive that includes it in the current file (kNoLocation
 	// for a file no directive includes).
 	void enter(SourceFile* file, std::string presumed_name, std::size_t conditional_depth, int32_t search_index = -1,
-		uint32_t included_at = kNoLocation);
+		uint32_t included_at = kNoLocation, bool system = false);
+	void mark_system_header(uint32_t location);
 	std::size_t depth() const { return frames_.size(); }
 	SourceFrame& current() { return *frames_.back(); }
 	const SourceFrame& current() const { return *frames_.back(); }

@@ -30,14 +30,22 @@ open column lists work to qualify the remainder of each group.
 ## Combined translation limits
 
 Section 5.2.4.1 requires a single executable program that exercises every
-applicable translation limit. The generated C99–C17 program covers all 22,
-including nested preprocessing and declarations, identifier significance,
-function and macro arity, the length of a logical line and concatenated
-literals, aggregate sizes, and the 65,535-byte hosted object. It returns zero
-when the value checks pass and a distinct status for each failed check.
+applicable translation limit. The generator selects the 22 thresholds for
+the edition, including the 32,767-byte hosted object in C90 and C95 and
+the 65,535-byte hosted object in C99 through C17. Individual value checks
+have distinct exit codes. For C90 and C95, the generated program uses
+positional initialization and gives its external names distinct
+six-character prefixes.
 [Generator](../scripts/generate_c_translation_limits.py) ·
+[C89 draft](https://www.columbia.edu/~ng2573/c89/c89-draft.html) ·
 [C99 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
 [C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
+
+The C90 and C95 programs passed at `-O0` and `-O2` on x86-64 Linux, AArch64
+Linux under QEMU, both Mach-O targets with local loaders, and WASI and bare
+Wasm under Wasmtime. GCC 15 and Clang 21 passed both programs on Linux
+x86-64. The C clause runner collects the legacy results alongside the
+C99 through C17 matrix.
 
 Pedantic C99, C11, and C17 passed at `-O0` and `-O2` on Linux x86-64,
 Linux AArch64 under QEMU, and WASI and bare Wasm under Wasmtime. The bare
@@ -237,23 +245,23 @@ deprecation diagnostics so they could check the language boundary.
 | `c90.implicit-int` | A definition with omitted return type is accepted in C90 and C95. C99 diagnoses the missing type. | PA38 covers the definition, a declaration with a storage class, and an identifier-list parameter. It also checks the C99 rejection. |
 | `c90.implicit-call` | Calling a function before its declaration is accepted in C90 and C95. C99 diagnoses the missing declaration. | PA38 checks the C99 rejection and runs a C90 call that passes a promoted integer and double to a later definition. |
 | `c90.block-declarations` | A declaration following a statement is diagnosed in pedantic C90 and C95. The input is valid in C99. | PA38 and pinned GCC cases passed the legacy rejection probes. The C99 control compiles. |
-| `c90.line-comment` | A `//` comment after a function definition is diagnosed in pedantic C90 and C95 and accepted in C99. | PA38 checks ISO C90 rejection, skipped ISO C90 input and GNU89 acceptance. |
+| `c90.line-comment` | GCC and Clang accept line comments in system headers in the ISO legacy modes. | PA38 checks user input, GNU89, and a system-header pragma with an inherited quoted include. The WASI SDK probe exercises system include paths. |
+| `c90.control-scope` | Declarations in a control statement reach the enclosing block before C99. | PA38 checks selection and iteration statements and brackets the change with a C99 control. |
+| `c90.pp-number` | The ISO C90 and C95 grammars allow signs after `e` and `E`. C99 adds signs after `p` and `P`. | PA38 checks macro substitution, stringization and pasting. cppgm and GCC follow the legacy grammar. Clang keeps the signed binary exponent together in its legacy modes. |
 | `c95.digraphs` | A body delimited by `<%` and `%>` is accepted in C95 and diagnosed in pedantic C90. | PA38 checks directive delimiters and token pasting. Pinned GCC cases check stringization in both editions. |
-| `c95.wide-headers` | `<iso646.h>`, `<wchar.h>`, and `<wctype.h>` compose in C95. A linked program in the C locale classifies `L'a'` and `L'0'` correctly. | The Linux x86-64 glibc probe passed with cppgm, GCC 15 and Clang 22 objects linked with the host C driver. |
+| `c95.wide-headers` | `<iso646.h>`, `<wchar.h>`, and `<wctype.h>` compose in C95. | The hosted probe runs restartable conversions, wide-string operations and classification in the C locale. It passed on x86-64 Linux, AArch64 Linux under QEMU, and WASI. |
 | `c23.version` | `-std=c23` compiles a plain C function and defines `202311L`. | C23 driver support is open. |
 | `c23.trigraphs` | Trigraph braces form a valid body through C17. The same source is diagnosed in C23. | The C17 control compiles. |
 | `c23.empty-parameters` | A call with an argument through a declaration with empty parentheses is accepted through C17 and diagnosed in C23. | The C17 control compiles. |
 | `c23.identifier-list` | An identifier-list definition with explicit parameter types compiles through C17 and is diagnosed in C23. | The C17 control compiles. |
 
-The pinned legacy smoke cohorts cover seven GCC C90 configurations, two GCC
-C95 configurations, and two Clang C90 configurations. A broader screening
-of GCC's `c90-*.c` files with directly applicable options found 31 agreement
-cases out of 59 configurations that passed the reference check. The
-remaining differences include later syntax accepted in pedantic C90, C90
-array and constant-expression constraints, and two runtime outcomes. The
-runtime gaps are control-statement scope and the preprocessing token
-boundary before the sign in `0x1p+f`. The combined legacy translation-limits
-inputs and full hosted library qualification are still open.
+The pinned legacy smoke cohorts cover ten GCC C90 configurations, five GCC
+C95 configurations, and two Clang C90 configurations. In the broader
+GCC `c90-*.c` screen, 33 of 59 usable reference configurations agree,
+including both previously failing executables. The 26 remaining
+differences involve diagnostics and acceptance. They include newer syntax
+accepted in pedantic C90, array conversions and constant expressions.
+Full hosted library qualification remains open.
 
 The strict course report passed 11,673 tests. PA38 passed on native x86-64
 and WASI in both the solution checkout and the student export. The positive
@@ -276,6 +284,7 @@ and for distinct names.
 [GCC C95 manifest](upstream-gcc-c95.json) ·
 [Clang C90 manifest](upstream-clang-c90.json) ·
 [WG14 C amendment summary](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2310.pdf) ·
+[WG14 scope resolution](https://www.open-std.org/JTC1/SC22/WG14/www/docs/n868.htm) ·
 [WG14 N3220](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
 [GCC edition options](https://gcc.gnu.org/onlinedocs/gcc/Standards.html)
 

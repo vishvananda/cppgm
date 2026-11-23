@@ -600,14 +600,11 @@ void Preprocessor::include_file(const PPToken& directive, const std::string& nam
 	++includes_;
 	const bool system = source_.current_inclusion().is_system(directive.begin) ||
 		(index >= 0 && static_cast<size_t>(index) >= system_paths_);
-	source_.enter(file, path, conditionals_.size(), index, directive.begin);
-	SourceInclusion& inclusion = source_.current_inclusion();
-	if (system)
-		inclusion.system_from = inclusion.base;
+	source_.enter(file, path, conditionals_.size(), index, directive.begin, system);
 	if (ignored_extension_groups_ != 0)
 	{
 		source_.current().extension_warnings_on_entry = ignored_extension_groups_;
-		extension_group_changes_[inclusion.base] = ignored_extension_groups_;
+		extension_group_changes_[source_.current().base] = ignored_extension_groups_;
 	}
 }
 
@@ -691,9 +688,7 @@ void Preprocessor::apply_language_pragma(
 {
 	if (PragmaWord(name, "system_header"))
 	{
-		SourceInclusion& inclusion = files_.inclusion_at(location);
-		if (inclusion.parent != kNoInclusion)
-			inclusion.system_from = std::min(inclusion.system_from, location);
+		source_.mark_system_header(location);
 		return;
 	}
 	if (extension_warnings_ == ExtensionWarnings::Disabled || !PragmaWord(name, "diagnostic"))

@@ -115,6 +115,51 @@
         "-pedantic-errors"
       ],
       "obligation": "The spelling restrict is an ordinary identifier in ISO C90"
+    },
+    {
+      "id": "c90-scope-1",
+      "path": "gcc/testsuite/gcc.dg/c90-scope-1.c",
+      "sha256": "36a9fe6a3bfd4b9f7c7c31014c977fa24e0fdd1be85441f90a1b16fff4697495",
+      "dialect": "iso9899:1990",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "A tag declared in a controlling expression is visible in its enclosing compound statement"
+    },
+    {
+      "id": "c90-hexfloat-1",
+      "path": "gcc/testsuite/gcc.dg/c90-hexfloat-1.c",
+      "sha256": "e0166131a8b955344a2dfbb519480477b876f1f65eac2986baf281eb0bd4143e",
+      "dialect": "iso9899:1990",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Hexadecimal floating constants require C99 in pedantic ISO mode"
+    },
+    {
+      "id": "c90-hexfloat-2",
+      "path": "gcc/testsuite/gcc.dg/c90-hexfloat-2.c",
+      "sha256": "93329fe412e2d70c5fbbc6d94b8600a8a720c391a8fc9ecb0e3b33027958797d",
+      "dialect": "iso9899:1990",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "A sign after p or P terminates a preprocessing number in ISO C before C99"
     }
   ]
 }

@@ -372,6 +372,8 @@ void Analyzer::compound(const syntax::CompoundStmt& body, Scope* scope, bool gua
 
 void Analyzer::substatement(const syntax::Stmt& stmt, Scope* scope)
 {
+	if (c_before_c99_)
+		return statement(stmt, scope);
 	// 6.4p1, 6.5p2: a substatement is a block scope of its own. A
 	// selection statement with an init-statement is one statement: its
 	// init-statement's block is no outermost block of this substatement
@@ -632,10 +634,14 @@ void Analyzer::scoped_statement(const syntax::Stmt& stmt, Scope* scope, BodyCont
 	case syntax::StmtKind::If:
 	{
 		const syntax::IfStmt& if_stmt = static_cast<const syntax::IfStmt&>(stmt);
-		Scope* block = new_scope(ScopeKind::Block, scope, scope, nullptr, nullptr);
-		// After an init-statement the condition may not redeclare its names
-		// (see check_parameter_redeclaration).
-		block->guarded = scope->selection_init;
+		Scope* block = scope;
+		if (!c_before_c99_)
+		{
+			block = new_scope(ScopeKind::Block, scope, scope, nullptr, nullptr);
+			// After an init-statement the condition may not redeclare its
+			// names (see check_parameter_redeclaration).
+			block->guarded = scope->selection_init;
+		}
 		const bool typed = condition(if_stmt.condition, block);
 		if (body != nullptr && !body->pattern && typed)
 		{
@@ -661,8 +667,12 @@ void Analyzer::scoped_statement(const syntax::Stmt& stmt, Scope* scope, BodyCont
 	case syntax::StmtKind::While:
 	{
 		const syntax::ConditionalLoopStmt& loop = static_cast<const syntax::ConditionalLoopStmt&>(stmt);
-		Scope* block = new_scope(ScopeKind::Block, scope, scope, nullptr, nullptr);
-		block->guarded = scope->selection_init;
+		Scope* block = scope;
+		if (!c_before_c99_)
+		{
+			block = new_scope(ScopeKind::Block, scope, scope, nullptr, nullptr);
+			block->guarded = scope->selection_init;
+		}
 		const bool typed = condition(loop.condition, block);
 		if (body == nullptr)
 		{
@@ -700,7 +710,7 @@ void Analyzer::scoped_statement(const syntax::Stmt& stmt, Scope* scope, BodyCont
 	case syntax::StmtKind::Do:
 	{
 		const syntax::DoStmt& loop = static_cast<const syntax::DoStmt&>(stmt);
-		Scope* block = new_scope(ScopeKind::Block, scope, scope, nullptr, nullptr);
+		Scope* block = c_before_c99_ ? scope : new_scope(ScopeKind::Block, scope, scope, nullptr, nullptr);
 		if (body != nullptr)
 			++body->loops;
 		substatement(*loop.body, block);
@@ -713,7 +723,9 @@ void Analyzer::scoped_statement(const syntax::Stmt& stmt, Scope* scope, BodyCont
 	case syntax::StmtKind::For:
 	{
 		const syntax::ForStmt& loop = static_cast<const syntax::ForStmt&>(stmt);
-		Scope* block = new_scope(ScopeKind::Block, scope, scope, nullptr, nullptr);
+		Scope* block = c_before_c99_ && loop.init_declaration == nullptr
+			? scope
+			: new_scope(ScopeKind::Block, scope, scope, nullptr, nullptr);
 		if (loop.init_declaration != nullptr)
 		{
 			if (c_source_)

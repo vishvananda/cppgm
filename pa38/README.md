@@ -40,7 +40,9 @@ Use `-std=c90`, `-std=c89`, or `-std=iso9899:1990` for ISO C90. These
 modes leave `__STDC_VERSION__` undefined. The C95 amendment mode,
 `-std=iso9899:199409`, defines it as `199409L` and recognizes digraphs in
 source and after token pasting. In both ISO modes, `inline` and `restrict`
-are ordinary identifiers and `//` does not start a comment.
+are ordinary identifiers. Recognize `//` comments in system headers,
+including quoted headers they include. In other source, lex the two
+slashes as separate tokens.
 `-std=gnu89` and `-std=gnu90` select C90 with GNU extensions, including
 `inline`, line comments, and digraphs.
 
@@ -51,6 +53,9 @@ function declaration without a prototype. Apply default argument promotions
 at that call and check later declarations for compatibility. With
 `-pedantic-errors`, reject declarations after statements and declarations
 in a `for` initializer in C90 and C95.
+A selection or iteration statement in those editions uses its enclosing
+block's scope. A compound substatement still has its own scope. Starting
+in C99, both the control statement and each substatement have block scope.
 
 `-ffreestanding` and `-fhosted` select the C execution environment. Bare
 Wasm defaults to freestanding and requires WASI for hosted C. Native
@@ -135,11 +140,13 @@ warning, promoted to an error by `-Werror`. The warning follows the
 system-header policy and can be disabled with
 `-Wno-backslash-newline-escape`.
 
-A C preprocessing number can include the sign after an `e`, `E`, `p`,
-or `P`. Use the longest preprocessing token in source and when
-re-lexing a paste. A number-like spelling may be stringized without
-converting it to a constant. Diagnose an invalid spelling when a
-number is needed in an expression.
+A C preprocessing number can include the sign after `e` or `E`. A sign
+after `p` or `P` is also part of the number in C99 and later, and in GNU
+C modes. Apply that rule in source and when re-lexing a paste. A
+number-like spelling may be stringized without converting it to a
+constant. Diagnose an invalid spelling when a number is needed in an
+expression. In pedantic ISO C90 and C95, diagnose hexadecimal floating
+constants.
 
 For a macro redefinition, compare parameter spellings and replacement
 token spellings after line splicing. Diagnose a change to a universal

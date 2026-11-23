@@ -14,6 +14,7 @@ on:
       - scripts/check_arm_simd.pl
       - scripts/c_conformance.py
       - scripts/tests/c_c11_*.c
+      - scripts/tests/c_c95_wide_headers.c
       - scripts/tests/c_thread_predefine.c
       - scripts/generate_c_translation_limits.py
       - reports/c-conformance.json

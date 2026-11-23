@@ -590,17 +590,26 @@ Stmt* Parser::parse_control_reading(Attribute*)
 
 Stmt* Parser::parse_statement_reading(Attribute* attributes)
 {
+	return parse_statement_reading(attributes, false);
+}
+
+Stmt* Parser::parse_statement_reading(Attribute* attributes, bool scoped_declaration)
+{
 	const uint32_t start = location();
 	bool tentative = false;
 	if (statement_starts_declaration(tentative))
 	{
 		if (!tentative)
 		{
+			if (scoped_declaration)
+				scopes_.push(ScopeKind::Block, nullptr);
 			DeclarationStmt* stmt = make<DeclarationStmt>(StmtKind::Declaration, start);
 			stmt->declaration = parse_declaration(DeclContext::Block, attributes);
 			return stmt->declaration == nullptr ? nullptr : stmt;
 		}
 		Tentative attempt(*this);
+		if (scoped_declaration)
+			scopes_.push(ScopeKind::Block, nullptr);
 		DeclarationStmt* stmt = make<DeclarationStmt>(StmtKind::Declaration, start);
 		stmt->declaration = parse_declaration(DeclContext::Block, attributes);
 		if (stmt->declaration != nullptr)
@@ -854,7 +863,8 @@ Stmt* Parser::parse_if()
 		next();
 	}
 	Scope* saved = scopes_.current();
-	scopes_.push(ScopeKind::Block, nullptr);
+	if (!c_before_c99_)
+		scopes_.push(ScopeKind::Block, nullptr);
 	Stmt* init = nullptr;
 	bool parsed = expect(TokenKind::OP_LPAREN) && parse_selection_head(init, stmt->condition) &&
 		expect(TokenKind::OP_RPAREN);
@@ -878,7 +888,8 @@ Stmt* Parser::parse_loop_or_switch(StmtKind kind)
 	ConditionalLoopStmt* stmt = make<ConditionalLoopStmt>(kind, start);
 	next();
 	Scope* saved = scopes_.current();
-	scopes_.push(ScopeKind::Block, nullptr);
+	if (!c_before_c99_)
+		scopes_.push(ScopeKind::Block, nullptr);
 	Stmt* init = nullptr;
 	bool parsed = expect(TokenKind::OP_LPAREN) &&
 		(kind == StmtKind::Switch ? parse_selection_head(init, stmt->condition) : parse_condition(stmt->condition)) &&
@@ -912,7 +923,8 @@ Stmt* Parser::parse_for()
 	if (!expect(TokenKind::OP_LPAREN))
 		return nullptr;
 	Scope* saved = scopes_.current();
-	scopes_.push(ScopeKind::Block, nullptr);
+	if (!c_before_c99_)
+		scopes_.push(ScopeKind::Block, nullptr);
 	Stmt* result = nullptr;
 	// A for-range-declaration or the for-init-statement's declaration may
 	// begin with an attribute-specifier-seq (6.5.4p1, 6.5p1).
@@ -1006,7 +1018,10 @@ Stmt* Parser::parse_for()
 	Stmt* readings = nullptr;
 	if (!accept(TokenKind::OP_SEMICOLON))
 	{
-		Stmt* init = parse_declaration_or_expression_statement(attributes);
+		// Pre-C99 for has no block scope. Keep the C99 scope when its
+		// declaration form is used as an extension.
+		Stmt* init = c_before_c99_ ? parse_statement_reading(attributes, true)
+								   : parse_declaration_or_expression_statement(attributes);
 		if (init == nullptr)
 			parsed = false;
 		else if (init->kind == StmtKind::Declaration)

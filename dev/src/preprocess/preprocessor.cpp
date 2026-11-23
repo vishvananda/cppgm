@@ -215,14 +215,14 @@ Preprocessor::Preprocessor(const PreprocessorOptions& options, const std::string
 	source_.set_c99_identifiers(c99_identifiers);
 	expander_.set_c99_identifiers(c99_identifiers);
 	const bool iso_c = options.language == SourceLanguage::C && options.strict;
-	source_.set_line_comments(!iso_c || options.c_edition >= CEdition::C99);
+	source_.set_line_comments(!options.iso_c_before_c99());
 	const bool digraphs = !iso_c || options.c_edition >= CEdition::C95;
 	source_.set_digraphs(digraphs);
 	expander_.set_digraphs(digraphs);
 	evaluator_.set_conditional_escapes(options.gnu_c());
 	evaluator_.set_cxx_edition(options.cxx_edition);
 	const bool separators = HasNumberSyntax(options.literals, number_syntax::Separators);
-	const bool exponents = HasNumberSyntax(options.literals, number_syntax::HexFloat);
+	const bool exponents = HasNumberSyntax(options.literals, number_syntax::HexFloat) && !options.iso_c_before_c99();
 	source_.set_number_syntax(separators, exponents);
 	expander_.set_binary_exponents(exponents);
 	expander_.set_digit_separators(separators);
@@ -532,6 +532,13 @@ void Preprocessor::diagnose_c23_literal_ucn(uint32_t location) const
 {
 	const char* message = "a universal character name for a basic or control character in a literal requires C23";
 	if (!allow_c_extension(location, CEdition::C23, message))
+		throw PreprocessError(location, message);
+}
+
+void Preprocessor::diagnose_c90_hex_float(uint32_t location) const
+{
+	const char* message = "hexadecimal floating constants require C99";
+	if (!allow_c_extension(location, CEdition::C99, message))
 		throw PreprocessError(location, message);
 }
 

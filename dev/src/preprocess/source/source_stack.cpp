@@ -1,5 +1,7 @@
 #include "preprocess/source/source_stack.h"
 
+#include <algorithm>
+
 #include "preprocess/preprocess_error.h"
 
 namespace {
@@ -26,18 +28,21 @@ SourceStack::SourceStack(SourceFiles& files, IdentifierTable& identifiers, Arena
 SourceStack::~SourceStack() = default;
 
 void SourceStack::enter(SourceFile* file, std::string presumed_name, std::size_t conditional_depth,
-	int32_t search_index, uint32_t included_at)
+	int32_t search_index, uint32_t included_at, bool system)
 {
 	const uint32_t parent = included_at != kNoLocation ? frames_.back()->inclusion : kNoInclusion;
 	std::unique_ptr<SourceFrame> frame(new SourceFrame());
 	frame->file = file;
 	frame->inclusion = files_.enter(file, std::move(presumed_name), parent, included_at);
-	frame->base = files_.inclusion(frame->inclusion).base;
+	SourceInclusion& inclusion = files_.inclusion(frame->inclusion);
+	frame->base = inclusion.base;
+	if (system)
+		inclusion.system_from = inclusion.base;
 	PPLexerOptions options;
 	options.c_source = identifiers_.language() == SourceLanguage::C;
 	options.unicode_literal_prefixes = unicode_literal_prefixes_;
 	options.c99_identifiers = c99_identifiers_;
-	options.line_comments = line_comments_;
+	options.line_comments = line_comments_ || system;
 	options.digraphs = digraphs_;
 	options.conditional_escapes = conditional_escapes_;
 	options.cxx_edition = cxx_edition_;
@@ -61,6 +66,23 @@ void SourceStack::enter(SourceFile* file, std::string presumed_name, std::size_t
 	frame->guard = nullptr;
 	frame->guard_depth = 0;
 	frames_.push_back(std::move(frame));
+}
+
+void SourceStack::mark_system_header(uint32_t location)
+{
+	SourceInclusion& inclusion = files_.inclusion_at(location);
+	if (inclusion.parent == kNoInclusion)
+		return;
+	inclusion.system_from = std::min(inclusion.system_from, location);
+	if (line_comments_)
+		return;
+	// Old ISO modes enable line comments for the rest of a system header.
+	for (auto frame = frames_.rbegin(); frame != frames_.rend(); ++frame)
+		if ((*frame)->base == inclusion.base)
+		{
+			(*frame)->lexer->allow_line_comments();
+			return;
+		}
 }
 
 // ---- ExpansionInput ------------------------------------------------------------------

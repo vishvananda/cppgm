@@ -12,7 +12,7 @@ SyntaxUnit::SyntaxUnit(const PreprocessorOptions& options, const std::string& pa
 	  tree_(nullptr)
 {
 	post_tokens_.defer_imaginary_values();
-	post_tokens_.set_source_positions(preprocessor_);
+	post_tokens_.set_source_positions(preprocessor_, options.iso_c_before_c99());
 	parser_.set_source_positions(preprocessor_);
 	tokens_.observe_pack(preprocessor_.pack_state());
 	if (options.language == SourceLanguage::C)

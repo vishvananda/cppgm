@@ -399,6 +399,7 @@ private:
 	Stmt* parse_expression_statement();
 	bool statement_starts_declaration(bool& tentative);
 	Stmt* parse_statement_reading(Attribute* attributes);
+	Stmt* parse_statement_reading(Attribute* attributes, bool scoped_declaration);
 	Stmt* parse_control_reading(Attribute* attributes);
 	bool parse_condition(Condition& condition);
 	bool parse_selection_head(Stmt*& init, Condition& condition);

@@ -69,6 +69,7 @@ public:
 	// The next token that is not white space may be a header-name
 	// (header_names_on_request mode).
 	void request_header_name() { context_ = DirectiveContext::AfterInclude; }
+	void allow_line_comments() { line_comments_ = true; }
 
 	struct MacroSpellingScratch
 	{

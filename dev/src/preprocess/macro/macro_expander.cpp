@@ -1156,7 +1156,7 @@ PPToken MacroExpander::paste_tokens(const PPToken& left, const PPToken& right)
 	options.header_names_on_request = true;
 	options.token_text = true;
 	options.binary_exponents = binary_exponents_;
-	options.gnu_escapes = binary_exponents_;
+	options.gnu_escapes = options.c_source || binary_exponents_;
 	options.keyword_macros = hosted_recursion_;
 	options.dollar_identifiers = hosted_recursion_;
 	options.digit_separators = digit_separators_;
