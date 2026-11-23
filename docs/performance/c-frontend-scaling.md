@@ -1868,3 +1868,48 @@ ASCII increase to 0.63% in a spot check.
 | A/A | 147,901,888 / 147,901,921 / 147,901,921 / 147,901,963 |
 | ABBA | 147,901,919 / 150,502,513 / 150,502,510 / 147,901,917 |
 | BAAB | 150,502,510 / 147,901,922 / 147,901,938 / 150,502,511 |
+
+## GNU whole-aggregate range designators
+
+The runtime initializer constructs the value of one surviving whole record
+or row once. Each winning span uses that value in a bounded copy loop.
+A record with a four-element array and a tag emits 66 LowIR lines at all
+four tested widths from 128 to 4,194,304 records. Retired instructions
+range from 4,000,697 to 4,001,775 and peak RSS from 17,360 to 18,232 KiB.
+At the same widths, static all-zero records emit three LowIR lines and
+use 3,870,959 to 3,871,906 instructions.
+
+The write-count series uses a 65,536-element array of pairs, one
+full-array initialization and the stated number of distinct two-element
+overwrites. Counts are Linux x86-64 retired user-space instructions in
+GNU17 at `-O0`.
+
+| Written overwrites | Syntax only | LowIR emission | LowIR lines |
+| ---: | ---: | ---: | ---: |
+| 256 | 9,505,875 | 21,598,474 | 11,295 |
+| 512 | 15,108,577 | 39,531,944 | 22,559 |
+| 1024 | 26,299,296 | 75,905,386 | 45,087 |
+| 2048 | 48,678,073 | 149,106,710 | 90,143 |
+| 4096 | 93,672,187 | 297,084,108 | 180,255 |
+
+The frozen C++ and SQLite objects match `233747d00` in every trial.
+Instruction-count changes in ABBA and BAAB are −0.0005% and +0.0010%
+for C++, and +0.0006% and −0.0013% for SQLite.
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,057,154,206 / 9,057,214,621 / 9,057,051,456 / 9,057,115,560 |
+| C++ | ABBA | 9,057,177,838 / 9,057,081,807 / 9,057,133,440 / 9,057,135,590 |
+| C++ | BAAB | 9,057,100,027 / 9,057,138,564 / 9,056,985,314 / 9,057,199,472 |
+| SQLite | A/A | 16,529,831,806 / 16,529,764,586 / 16,529,703,009 / 16,529,836,379 |
+| SQLite | ABBA | 16,529,789,211 / 16,529,865,132 / 16,529,951,928 / 16,529,816,529 |
+| SQLite | BAAB | 16,529,946,520 / 16,529,878,312 / 16,530,106,433 / 16,529,610,615 |
+
+For partial field ranges, a separate prototype indexed whole-object
+resets by interval and summarized the earliest and latest reset at each
+tree node. It matched a pointwise oracle on 10,000 generated queries.
+A case with 65,536 different reset intervals and 65,536 field writes
+covered 65.536 trillion indices. Each field retained two runs separated
+by one newer reset. The index visited 2,162,688 nodes across all queries,
+with 33 visits per field. The prototype covers this clipping step for
+one ranged axis.
