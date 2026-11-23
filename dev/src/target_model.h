@@ -151,6 +151,13 @@ constexpr bool is_darwin(Target target)
 	return target == Target::MacOS || target == Target::AArch64MacOS;
 }
 
+constexpr unsigned inline_atomic_max_bytes = 8;
+
+constexpr bool is_inline_atomic_size(uint64_t bytes)
+{
+	return bytes != 0 && bytes <= inline_atomic_max_bytes && (bytes & (bytes - 1)) == 0;
+}
+
 constexpr bool pointer_va_list(Target target)
 {
 	return is_wasm(target) || target == Target::AArch64MacOS;

@@ -71,6 +71,7 @@ public:
 	// members (see array_bound and member_size).
 	void set_hosted(bool on) { hosted_ = on; }
 	void set_host_objects(bool on) { host_objects_ = on; }
+	void set_atomics_enabled(bool on) { atomics_enabled_ = on; }
 	bool hosted() const { return hosted_; }
 	static constexpr uint64_t default_constexpr_step_limit = uint64_t(1) << 24;
 	void set_constexpr_step_limit(uint64_t limit) { constexpr_step_limit_ = limit; }
@@ -1385,6 +1386,8 @@ private:
 		bool any_object;
 	};
 	ExprFacts* atomic_builtin(const syntax::CallExpr& expr, const AtomicForm& form, Scope* scope);
+	ExprFacts* atomic_lock_free(const syntax::CallExpr& expr, bool compile_time, bool pointer_operand, Scope* scope);
+	uint64_t atomic_pointer_alignment(const syntax::Expr& expr, Scope* scope);
 	ExprFacts* builtin_invoke(const syntax::CallExpr& expr, Scope* scope);
 	ExprFacts* invoke_call(
 		const syntax::CallExpr& rewritten, const syntax::Expr* callable, const syntax::Expr* object, Scope* scope);
@@ -1992,6 +1995,7 @@ private:
 	AnalysisMode mode_;
 	bool hosted_ = false;
 	bool host_objects_ = false;
+	bool atomics_enabled_ = true;
 	uint8_t cxx_edition_ = 11;
 	uint64_t constexpr_step_limit_ = default_constexpr_step_limit;
 	NumberDialect number_dialect_ = NumberDialect::Gnu;

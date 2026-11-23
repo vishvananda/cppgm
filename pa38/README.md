@@ -45,6 +45,10 @@ Use the target's C system include paths for C input.
 Supply the target's scalar integer types, widths, limits and constant
 spellings to its headers. For example, on 64-bit Darwin `int64_t` is
 `long long` and `intmax_t` is `long`. Both have width 64.
+Supply preprocessing constants for `<stdatomic.h>` that describe the
+scalar atomic operations supported by the target. In C11 and later modes,
+Wasm with `-mno-atomics` defines `__STDC_NO_ATOMICS__`. The lock-free
+queries then report no inline atomic support.
 When linking with `cppgm`, `-nostartfiles` omits the supplied startup,
 `-nodefaultlibs` omits the supplied runtime libraries, and `-nostdlib`
 omits both. On Linux, supply `_start` if you omit startup. On bare

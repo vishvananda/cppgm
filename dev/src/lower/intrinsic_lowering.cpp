@@ -345,6 +345,8 @@ RValue FunctionLowering::gnu_intrinsic(const syntax::CallExpr& expr, sema::Intri
 	const auto list_tag = [this](const syntax::Expr& list) { return va_list_tag(list); };
 	switch (kind)
 	{
+	case sema::Intrinsic::AtomicIsLockFree:
+		return atomic_lock_free(expr);
 	case sema::Intrinsic::AddressOf:
 	{
 		RValue result;

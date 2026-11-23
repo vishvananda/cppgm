@@ -305,7 +305,9 @@ enum class Intrinsic : uint8_t
 	CoroDone,
 	CoroNoop,
 	CoroPromise,
-	CoroResume
+	CoroResume,
+	// Runtime lock-free query. Bit 8 records a disabled atomic profile.
+	AtomicIsLockFree
 };
 
 // Generic GNU atomics whose object needs the size-prefixed runtime ABI.

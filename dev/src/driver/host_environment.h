@@ -38,7 +38,7 @@ bool add_host_environment(PreprocessorOptions& options, native::Target target, S
 
 // The selected target's platform macros, including the native host target.
 // Foreign SDK paths must be explicit; baked host paths are not a foreign SDK.
-void configure_target_environment(PreprocessorOptions& options, native::Target target);
+void configure_target_environment(PreprocessorOptions& options, native::Target target, bool wasm_atomics);
 
 // Canonicalize the GNU include search chains by filesystem identity.
 void prune_include_paths(PreprocessorOptions& options);

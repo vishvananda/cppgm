@@ -280,12 +280,10 @@ ExprFacts* Analyzer::builtin_operation(const syntax::CallExpr& expr, const Funct
 		return coroutine_handle_builtin(expr, builtin, scope);
 	case GnuBuiltin::Atomic:
 	{
-		// The lock-free queries follow the operations (and share the
-		// first's kind, unused for a constant).
 		const GnuAtomicOperation& operation = kGnuAtomicOperations[variant];
-		const Intrinsic kind = operation.result == 'C'
-			? Intrinsic::AtomicLoadN
-			: static_cast<Intrinsic>(static_cast<uint8_t>(Intrinsic::AtomicLoadN) + variant);
+		if (operation.result == 'C' || operation.result == 'L')
+			return atomic_lock_free(expr, operation.result == 'C', true, scope);
+		const Intrinsic kind = static_cast<Intrinsic>(static_cast<uint8_t>(Intrinsic::AtomicLoadN) + variant);
 		return atomic_builtin(
 			expr, AtomicForm{ kind, operation.roles, operation.result, 0, 0xff, false, false }, scope);
 	}
@@ -303,9 +301,9 @@ ExprFacts* Analyzer::builtin_operation(const syntax::CallExpr& expr, const Funct
 	case GnuBuiltin::C11Atomic:
 	{
 		const GnuC11Operation& operation = kGnuC11Operations[variant];
-		const Intrinsic kind = operation.result == 'C'
-			? Intrinsic::AtomicLoadN
-			: static_cast<Intrinsic>(static_cast<uint8_t>(Intrinsic::AtomicLoadN) + operation.atomic);
+		if (operation.result == 'L')
+			return atomic_lock_free(expr, false, false, scope);
+		const Intrinsic kind = static_cast<Intrinsic>(static_cast<uint8_t>(Intrinsic::AtomicLoadN) + operation.atomic);
 		return atomic_builtin(expr,
 			AtomicForm{ kind, operation.roles, operation.result, operation.implied, operation.weak, false, true },
 			scope);
@@ -1843,6 +1841,114 @@ const syntax::LiteralExpr* Analyzer::text_literal(const std::string& text)
 	return literal;
 }
 
+uint64_t Analyzer::atomic_pointer_alignment(const syntax::Expr& argument, Scope* scope)
+{
+	const syntax::Expr* expression = &argument;
+	for (;;)
+	{
+		if (expression->kind == syntax::ExprKind::Paren)
+			expression = static_cast<const syntax::ParenExpr*>(expression)->inner;
+		else if (expression->kind == syntax::ExprKind::Cast && expression->facts->type->kind == TypeKind::Pointer)
+		{
+			const auto* cast = static_cast<const syntax::CastExpr*>(expression);
+			const Type* source = cast->operand->facts->type->unqualified;
+			// A C++ class-pointer conversion can adjust the address.
+			if (!c_source_ && source->kind == TypeKind::Pointer && cast->cast != TokenKind::KW_REINTERPET_CAST &&
+				!IsVoid(expression->facts->type->element))
+				break;
+			expression = cast->operand;
+		}
+		else
+			break;
+	}
+	const Type* type = expression->facts->type->unqualified;
+	if (type->kind == TypeKind::Fundamental && type->fundamental == FundamentalType::NullptrT)
+		return target_model::inline_atomic_max_bytes;
+	if (IsIntegralOrUnscopedEnum(type))
+	{
+		// A constant integer address also carries alignment; libstdc++
+		// passes one to describe its atomic object's minimum alignment.
+		Constant address;
+		if (!integral_constant(*expression, scope, address))
+			return 1;
+		return address.bits == 0 ? target_model::inline_atomic_max_bytes : address.bits & (0 - address.bits);
+	}
+	if (expression->kind == syntax::ExprKind::Unary)
+	{
+		const auto* unary = static_cast<const syntax::UnaryExpr*>(expression);
+		if (unary->op == TokenKind::OP_AMP)
+		{
+			const uint32_t declared = c_source_ ? c_expression_alignment(*unary->operand)
+												: alias_alignment_of(*unary->operand, false);
+			if (declared != 0)
+				return declared;
+		}
+	}
+	if (type->kind != TypeKind::Pointer && type->kind != TypeKind::Array)
+		return 1;
+	const Type* object = alignment_element(type->element, false);
+	if (IsVoid(object) || object->kind == TypeKind::Function ||
+		(object->kind == TypeKind::Class && !static_cast<const ClassEntity*>(object->entity)->complete) ||
+		(object->kind == TypeKind::Enum && static_cast<const EnumEntity*>(object->entity)->underlying == nullptr))
+		return 1;
+	uint64_t size = 0, alignment = 0;
+	return type_size(object, size, alignment, argument.location) ? alignment : 1;
+}
+
+ExprFacts* Analyzer::atomic_lock_free(
+	const syntax::CallExpr& expr, bool compile_time, bool pointer_operand, Scope* scope)
+{
+	if (expr.arguments.size != (pointer_operand ? 2u : 1u))
+	{
+		substitution_error(expr.location, "wrong number of arguments to an atomic lock-free query");
+		return nullptr;
+	}
+	const Type* size_type = types_.fundamental(FundamentalType::UnsignedLongInt);
+	const syntax::Expr& size_expr = *expr.arguments[0];
+	if (typed_value(size_expr, scope) == nullptr || convert(size_expr, size_type, false) == nullptr)
+		return nullptr;
+	Constant size = {};
+	const bool constant_size = integral_constant(size_expr, scope, size);
+	if (compile_time && !constant_size)
+	{
+		substitution_error(size_expr.location, "__atomic_always_lock_free of a size that is no constant");
+		return nullptr;
+	}
+	const uint64_t bytes = target_model::is_wasm(types_.target()) ? static_cast<uint32_t>(size.bits) : size.bits;
+	bool proven = atomics_enabled_ && constant_size && target_model::is_inline_atomic_size(bytes);
+	if (pointer_operand)
+	{
+		const syntax::Expr& pointer = *expr.arguments[1];
+		ExprFacts* address = typed_value(pointer, scope);
+		if (address == nullptr)
+			return nullptr;
+		const Type* argument_type = decayed(address);
+		// This builtin examines address bits. Keep the pointed-to
+		// qualification, including _Atomic in GCC's C header.
+		if (argument_type->kind != TypeKind::Pointer || argument_type->element->kind == TypeKind::Function)
+		{
+			const Type* opaque = types_.qualified(types_.fundamental(FundamentalType::Void), kConst | kVolatile);
+			argument_type = types_.pointer(opaque);
+		}
+		if (convert(pointer, argument_type, false) == nullptr)
+			return nullptr;
+		if (proven)
+			proven = bytes <= atomic_pointer_alignment(pointer, scope);
+	}
+	ExprFacts* facts = new_facts(expr, types_.fundamental(FundamentalType::Bool), ValueCategory::PRValue);
+	if (compile_time || proven)
+	{
+		facts->flags |= kFolded;
+		facts->value = proven;
+	}
+	else
+	{
+		facts->flags |= kIntrinsic;
+		facts->value = static_cast<uint64_t>(Intrinsic::AtomicIsLockFree) | (uint64_t(!atomics_enabled_) << 8);
+	}
+	return facts;
+}
+
 ExprFacts* Analyzer::atomic_builtin(const syntax::CallExpr& expr, const AtomicForm& form, Scope* scope)
 {
 	const Intrinsic kind = form.kind;
@@ -1858,9 +1964,8 @@ ExprFacts* Analyzer::atomic_builtin(const syntax::CallExpr& expr, const AtomicFo
 	// other sizes use the generic runtime ABI), v a value of its
 	// type, r a pointer to one (the generic forms: of the object's size;
 	// compare_exchange_n's expected), b bool (weak), o a memory order
-	// (int), s a size; the result is the object's type (T), void (-), bool
-	// (B) or a constant (C: __atomic_always_lock_free /
-	// __atomic_is_lock_free). Only the loads leave the object unwritten,
+	// (int); the result is the object's type (T), void (-), or bool (B).
+	// Only the loads leave the object unwritten,
 	// and only the sources (a store's, an exchange's value, a
 	// compare_exchange's desired) may point to const (GCC, Clang). A
 	// __sync builtin's trailing operands, GCC's list of protected
@@ -1895,7 +2000,7 @@ ExprFacts* Analyzer::atomic_builtin(const syntax::CallExpr& expr, const AtomicFo
 			const Type* pointer = operand->type->unqualified;
 			if (pointer->kind == TypeKind::Array)
 				pointer = types_.pointer(pointer->element);
-			if (pointer->kind != TypeKind::Pointer && result_kind != 'C')
+			if (pointer->kind != TypeKind::Pointer)
 			{
 				substitution_error(argument.location, "an atomic builtin's operand is no pointer");
 				return nullptr;
@@ -1904,7 +2009,7 @@ ExprFacts* Analyzer::atomic_builtin(const syntax::CallExpr& expr, const AtomicFo
 				? !loads
 				: (kind == Intrinsic::AtomicLoad && i == 1) || (kind == Intrinsic::AtomicExchange && i == 2) ||
 					((kind == Intrinsic::AtomicCompareExchange || kind == Intrinsic::AtomicCompareExchangeN) && i == 1);
-			if (result_kind != 'C' && destination && (pointer->element->cv & kConst) != 0)
+			if (destination && (pointer->element->cv & kConst) != 0)
 			{
 				substitution_error(argument.location, "an atomic builtin writing through a pointer to const");
 				return nullptr;
@@ -1914,7 +2019,7 @@ ExprFacts* Analyzer::atomic_builtin(const syntax::CallExpr& expr, const AtomicFo
 				// A __c11_atomic builtin's object is _Atomic; its arithmetic
 				// is an integer's, or a pointer to an object type's addition
 				// and subtraction (Clang).
-				if (form.any_object && result_kind != 'C' && (pointer->element->cv & kAtomic) == 0)
+				if (form.any_object && (pointer->element->cv & kAtomic) == 0)
 				{
 					substitution_error(argument.location, "a __c11_atomic builtin on an object of no atomic type");
 					return nullptr;
@@ -1932,7 +2037,7 @@ ExprFacts* Analyzer::atomic_builtin(const syntax::CallExpr& expr, const AtomicFo
 				}
 				object = pointer->element->unqualified;
 				const bool sized = type_size(object, size, alignment, expr.location);
-				const bool scalar_size = size == 1 || size == 2 || size == 4 || size == 8;
+				const bool scalar_size = target_model::is_inline_atomic_size(size);
 				if (!sized || (!scalar_size && !indirect_generic) ||
 					(!generic && !(IsIntegralOrUnscopedEnum(object) || object->kind == TypeKind::Pointer)))
 				{
@@ -1957,7 +2062,6 @@ ExprFacts* Analyzer::atomic_builtin(const syntax::CallExpr& expr, const AtomicFo
 			continue;
 		}
 		FundamentalType type = role == 'b' ? FundamentalType::Bool
-			: role == 's'                  ? FundamentalType::UnsignedLongInt
 			: role == 'o'                  ? FundamentalType::Int
 										   : FundamentalType::Void;
 		// An update of a pointer adds or combines an integer (as uintptr_t).
@@ -1968,24 +2072,6 @@ ExprFacts* Analyzer::atomic_builtin(const syntax::CallExpr& expr, const AtomicFo
 			convert(argument, types_.fundamental(type), false);
 		else if (object != nullptr)
 			convert(argument, object, false);
-	}
-	if (result_kind == 'C')
-	{
-		// Lock-free for the sizes the x86-64 instructions cover.
-		Constant constant;
-		if (!integral_constant(*expr.arguments[0], scope, constant))
-		{
-			substitution_error(expr.location, "__atomic_always_lock_free of a size that is no constant");
-			return nullptr;
-		}
-		// An _Atomic object's size is rounded up to a power of two (see
-		// type_size), so __c11_atomic_is_lock_free answers for that.
-		ExprFacts* facts = new_facts(expr, types_.fundamental(FundamentalType::Bool), ValueCategory::PRValue);
-		facts->flags |= kFolded;
-		facts->value = form.any_object
-			? constant.bits != 0 && constant.bits <= 8
-			: constant.bits == 1 || constant.bits == 2 || constant.bits == 4 || constant.bits == 8;
-		return facts;
 	}
 	const Type* result = result_kind == 'T' ? object
 		: result_kind == 'B'                ? types_.fundamental(FundamentalType::Bool)

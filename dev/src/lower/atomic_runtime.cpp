@@ -13,6 +13,7 @@ lowir::SymbolId ProgramLowering::atomic_runtime_function(sema::Intrinsic kind)
 	// has no weak argument: a strong operation also satisfies a weak request.
 	const char* name = nullptr;
 	const char* parameters = nullptr;
+	lowir::TypeKind result = lowir::TypeKind::Void;
 	switch (kind)
 	{
 	case sema::Intrinsic::AtomicLoad:
@@ -30,6 +31,12 @@ lowir::SymbolId ProgramLowering::atomic_runtime_function(sema::Intrinsic kind)
 	case sema::Intrinsic::AtomicCompareExchange:
 		name = "__atomic_compare_exchange";
 		parameters = "spppii";
+		result = lowir::TypeKind::I1;
+		break;
+	case sema::Intrinsic::AtomicIsLockFree:
+		name = "__atomic_is_lock_free";
+		parameters = "sp";
+		result = lowir::TypeKind::U8;
 		break;
 	default:
 		throw LoweringError(0, "an atomic builtin without a generic runtime form");
@@ -51,8 +58,7 @@ lowir::SymbolId ProgramLowering::atomic_runtime_function(sema::Intrinsic kind)
 					  : lowir::TypeKind::I32);
 		program_.parameters.push_back(parameter);
 	}
-	signature.result = lowir::Type::scalar(
-		kind == sema::Intrinsic::AtomicCompareExchange ? lowir::TypeKind::I1 : lowir::TypeKind::Void);
+	signature.result = lowir::Type::scalar(result);
 	signature.boundary.unwind = ir_model::CUM_NO;
 	program_.declare_function(symbol, lowir::SymbolKind::FunctionDeclaration, program_.add_signature(signature));
 	lowir::SymbolMetadata& metadata = program_.symbols[symbol].metadata;
@@ -93,6 +99,37 @@ RValue FunctionLowering::atomic_runtime_call(const syntax::CallExpr& expr, sema:
 	result.value = emit_call(
 		result.type, lowir::Value::symbol(lowering_.atomic_runtime_function(kind)), base, lowir::kNoId, false);
 	return result;
+}
+
+RValue FunctionLowering::atomic_lock_free(const syntax::CallExpr& expr)
+{
+	const lowir::Type boolean = lowir::Type::scalar(lowir::TypeKind::U8);
+	const lowir::Type pointer_type = program_.pointer_type();
+	const RValue size = operand(*expr.arguments[0], ConversionContext::Argument);
+	const RValue pointer = expr.arguments.size == 2 ? operand(*expr.arguments[1], ConversionContext::Argument)
+													: integer(pointer_type, 0);
+	if ((expr.facts->value >> 8) != 0)
+		return integer(boolean, 0);
+	if (!target_model::is_wasm(program_.target) && !target_model::is_darwin(program_.target))
+	{
+		const size_t base = arguments_.size();
+		arguments_.push_back(size.value);
+		arguments_.push_back(pointer.value);
+		const lowir::SymbolId symbol = lowering_.atomic_runtime_function(sema::Intrinsic::AtomicIsLockFree);
+		return RValue{ emit_call(boolean, lowir::Value::symbol(symbol), base, lowir::kNoId, false), boolean };
+	}
+	// The Wasm and Darwin inline instruction profiles cover naturally
+	// aligned powers of two through eight bytes. Zero wraps out of range.
+	using lowir::BinaryOp;
+	using lowir::ComparePredicate;
+	const lowir::Type type = size.type;
+	const RValue mask = binary(BinaryOp::Sub, type, size, integer(type, 1));
+	const RValue in_range = compare(
+		ComparePredicate::Ult, type, mask, integer(type, target_model::inline_atomic_max_bytes));
+	const RValue alignment_bits = binary(BinaryOp::Or, type, size, copy(type, pointer));
+	const RValue low_bits = binary(BinaryOp::And, type, alignment_bits, mask);
+	const RValue aligned_power = compare(ComparePredicate::Eq, type, low_bits, integer(type, 0));
+	return convert_op(lowir::ConvertOp::Trunc, boolean, binary(BinaryOp::And, in_range.type, in_range, aligned_power));
 }
 
 } // namespace lower

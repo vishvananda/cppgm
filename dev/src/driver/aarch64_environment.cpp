@@ -39,7 +39,6 @@ void configure_aarch64_environment(PreprocessorOptions& options)
 	std::string macros = "#undef __x86_64__\n#undef __SSE__\n#undef __SSE2__\n"
 						 "#define __aarch64__ 1\n#define __AARCH64EL__ 1\n#define __ARM_ARCH 8\n#define __ARM_NEON 1\n"
 						 "#define __ARM_PCS_AAPCS64 1\n"
-						 "#define __GCC_ATOMIC_TEST_AND_SET_TRUEVAL 1\n#define __GCC_ATOMIC_INT_LOCK_FREE 2\n"
 						 "#define __ATOMIC_RELAXED 0\n#define __ATOMIC_CONSUME 1\n#define __ATOMIC_ACQUIRE 2\n"
 						 "#define __ATOMIC_RELEASE 3\n#define __ATOMIC_ACQ_REL 4\n#define __ATOMIC_SEQ_CST 5\n"
 						 "#define __GCC_CONSTRUCTIVE_SIZE 64\n"

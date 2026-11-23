@@ -794,12 +794,8 @@ PreprocessorOptions source_preprocessor_options(const SourceOutputInvocation& in
 	options.sse_level = invocation.sse_level;
 	if (invocation.hosted)
 		add_host_environment(options, invocation);
-	driver::configure_target_environment(options, invocation.target);
-	if (invocation.wasm_atomics && target_model::is_wasm(invocation.target))
-	{
-		options.command_line.insert(0, "#define __wasm_atomics__ 1\n");
-	}
-	else if (invocation.wasm_atomics_explicit && invocation.wasm_atomics)
+	driver::configure_target_environment(options, invocation.target, invocation.wasm_atomics);
+	if (!target_model::is_wasm(invocation.target) && invocation.wasm_atomics_explicit && invocation.wasm_atomics)
 		throw InvocationError("-matomics requires a Wasm target");
 	if (target_model::is_wasm(invocation.target))
 	{
@@ -963,6 +959,7 @@ int run_emit_types_mode(vector<string> args)
 			{
 				sema::Analyzer analyzer(graph, unit.identifiers());
 				analyzer.set_source_language(options.language, options.gnu_c(), options.c_freestanding);
+				analyzer.set_atomics_enabled(options.atomics_enabled);
 				analyzer.set_hosted(options.hosted);
 				analyzer.set_cxx_edition(options.cxx_edition, options.diagnose_cxx_extensions());
 				analyzer.set_exceptions(options.modes.exceptions);
@@ -1046,6 +1043,7 @@ int run_emit_semantics_mode(vector<string> args)
 			{
 				sema::Analyzer analyzer(graph, unit.identifiers(), sema::AnalysisMode::Semantics);
 				analyzer.set_source_language(options.language, options.gnu_c(), options.c_freestanding);
+				analyzer.set_atomics_enabled(options.atomics_enabled);
 				analyzer.set_hosted(options.hosted);
 				analyzer.set_cxx_edition(options.cxx_edition, options.diagnose_cxx_extensions());
 				analyzer.set_exceptions(options.modes.exceptions);
@@ -1203,6 +1201,7 @@ int run_emit_lowir_mode(vector<string> args)
 			graph.names.reserve(unit.counters().bindings);
 			sema::Analyzer analyzer(graph, unit.identifiers(), sema::AnalysisMode::Semantics);
 			analyzer.set_source_language(options.language, options.gnu_c(), options.c_freestanding);
+			analyzer.set_atomics_enabled(options.atomics_enabled);
 			analyzer.set_hosted(options.hosted);
 			analyzer.set_cxx_edition(options.cxx_edition, options.diagnose_cxx_extensions());
 			analyzer.set_exceptions(options.modes.exceptions);

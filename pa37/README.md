@@ -136,6 +136,10 @@ may use stronger ordering when the target requires it. Emit matching `atomics`
 feature metadata. `-mno-atomics` disables this instruction extension and must
 diagnose operations that require it; unsupported atomic widths must also be
 diagnosed.
+Lock-free queries use the same capability. Enabled queries cover naturally
+aligned objects of 1, 2, 4 or 8 bytes and accept a null pointer to ask about
+natural alignment. Disabled queries return false. A runtime query observes
+each operand once and can execute without an imported atomic runtime.
 
 Threads/shared memory, TLS, Emscripten glue, components, dynamic
 linking and wasm64 are outside this profile. Diagnose these and unsupported

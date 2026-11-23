@@ -1555,6 +1555,7 @@ private:
 	// vector conversion, a bit cast.
 	RValue builtin_trait_value(const syntax::BuiltinTraitExpr& trait);
 	RValue atomic_intrinsic(const syntax::CallExpr& expr, sema::Intrinsic kind);
+	RValue atomic_lock_free(const syntax::CallExpr& expr);
 	RValue atomic_runtime_call(const syntax::CallExpr& expr, sema::Intrinsic kind);
 	RValue atomic_update(
 		sema::Intrinsic kind, lowir::Type type, lowir::Value target, const RValue& value, lowir::MemoryOrder order);

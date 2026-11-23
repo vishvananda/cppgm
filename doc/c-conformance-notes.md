@@ -525,3 +525,21 @@ rank along with the width, including in the literal forms returned by
 [Clang predefined integer macros](https://github.com/llvm/llvm-project/blob/llvmorg-21.1.8/clang/lib/Frontend/InitPreprocessor.cpp) ·
 [Clang resource stdint.h](https://github.com/llvm/llvm-project/blob/llvmorg-21.1.8/clang/lib/Headers/stdint.h) ·
 [PA38 integer header case](../pa38/tests/general/500-c-integer-headers.t)
+
+## C11 lock-free atomic queries
+
+The lock-free macros are preprocessing constants. Their values describe
+the scalar atomic types and the selected instruction profile. The
+type-based `atomic_is_lock_free` interface accepts a null pointer of
+the corresponding atomic pointer type. The GNU size and pointer builtins
+can also ask about an explicit address alignment.
+
+On Linux, widths and addresses that cannot be proved lock-free by the
+compiler can query the linked `libatomic` provider. The size-only
+Clang builtin uses natural alignment. The Wasm and Darwin profiles use
+their inline width and alignment rules for a dynamic query.
+
+[WG14 DR 458](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2243.htm#dr_458) ·
+[WG14 DR 465](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2243.htm#dr_465) ·
+[GCC atomic builtins](https://gcc.gnu.org/onlinedocs/gcc-15.2.0/gcc/_005f_005fatomic-Builtins.html) ·
+[Clang atomic extensions](https://clang.llvm.org/docs/LanguageExtensions.html#c11-atomic-builtins)

@@ -446,15 +446,13 @@ bool parse_dependency_option(const std::vector<std::string>& args, size_t& i, Ma
 
 void configure_target_runtime(Invocation& invocation, StandardIncludes includes)
 {
-	configure_target_environment(invocation.preprocessor, invocation.target);
+	configure_target_environment(invocation.preprocessor, invocation.target, invocation.wasm_atomics);
 	invocation.optimizer.has_gnu_sincos = target_model::has_gnu_sincos(invocation.target);
 	// Darwin objects are position independent even without an explicit -fPIC.
 	if (target_model::is_darwin(invocation.target))
 		invocation.position_independent = true;
 	if (target_model::is_wasm(invocation.target))
 	{
-		if (invocation.wasm_atomics)
-			invocation.preprocessor.command_line.insert(0, "#define __wasm_atomics__ 1\n");
 		add_wasm_headers(invocation.preprocessor, invocation.sysroot, invocation.resource_directory, includes);
 		if (!invocation.sysroot.empty())
 			invocation.library_paths.push_back(invocation.sysroot + "/lib/wasm32-wasip1");
@@ -912,6 +910,7 @@ bool lower_source(const std::string& path, const Invocation& invocation, lower::
 		sema::Analyzer analyzer(graph, unit.identifiers(), sema::AnalysisMode::Semantics);
 		analyzer.set_source_language(
 			invocation.preprocessor.language, invocation.preprocessor.gnu_c(), invocation.preprocessor.c_freestanding);
+		analyzer.set_atomics_enabled(invocation.preprocessor.atomics_enabled);
 		if (invocation.preprocessor.language == SourceLanguage::Cxx)
 			analyzer.set_number_dialect(invocation.preprocessor.literals);
 		analyzer.set_hosted(invocation.preprocessor.hosted);
@@ -1526,7 +1525,7 @@ int wasm_mode(const Invocation& invocation)
 	options.exceptions = invocation.preprocessor.modes.exceptions;
 	options.no_standard_libraries = invocation.no_standard_libraries;
 	options.no_startfiles = invocation.no_startfiles;
-	options.wasm_atomics = invocation.wasm_atomics;
+	options.wasm_atomics = invocation.preprocessor.atomics_enabled;
 	options.wasm_link = invocation.wasm_link;
 	options.wasm_link.fold_functions |= invocation.whole_source_lto;
 	options.wasm_link.compact_relocations = invocation.optimizer.minimize_size;

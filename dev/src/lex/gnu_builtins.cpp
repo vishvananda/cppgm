@@ -944,7 +944,7 @@ const GnuAtomicOperation kGnuAtomicOperations[] = { { "load_n", "po", 'T' }, { "
 	{ "nand_fetch", "pvo", 'T' }, { "fetch_add", "pvo", 'T' }, { "fetch_sub", "pvo", 'T' }, { "fetch_and", "pvo", 'T' },
 	{ "fetch_or", "pvo", 'T' }, { "fetch_xor", "pvo", 'T' }, { "fetch_nand", "pvo", 'T' },
 	{ "test_and_set", "po", 'B' }, { "clear", "po", '-' }, { "thread_fence", "o", '-' }, { "signal_fence", "o", '-' },
-	{ "always_lock_free", "sr", 'C' }, { "is_lock_free", "sr", 'C' } };
+	{ "always_lock_free", "sr", 'C' }, { "is_lock_free", "sr", 'L' } };
 const unsigned kGnuAtomicOperationCount = sizeof kGnuAtomicOperations / sizeof kGnuAtomicOperations[0];
 
 const GnuSyncOperation kGnuSyncOperations[] = { { "fetch_and_add", 14, "pv", 'T', 5 },
@@ -964,7 +964,7 @@ const GnuC11Operation kGnuC11Operations[] = { { "init", 2, "pv", '-', 1, 0xff },
 	{ "fetch_and", 16, "pvo", 'T', 0, 0xff }, { "fetch_or", 17, "pvo", 'T', 0, 0xff },
 	{ "fetch_xor", 18, "pvo", 'T', 0, 0xff }, { "fetch_nand", 19, "pvo", 'T', 0, 0xff },
 	{ "thread_fence", 22, "o", '-', 0, 0xff }, { "signal_fence", 23, "o", '-', 0, 0xff },
-	{ "is_lock_free", 25, "s", 'C', 0, 0xff } };
+	{ "is_lock_free", 25, "s", 'L', 0, 0xff } };
 const unsigned kGnuC11OperationCount = sizeof kGnuC11Operations / sizeof kGnuC11Operations[0];
 
 uint32_t ProvidedBuiltinVersion(const char* spelling, uint32_t length, bool wasm, bool cxx20)

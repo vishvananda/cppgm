@@ -770,6 +770,15 @@ its expression's side effects once, as Clang does; GCC 15 discards that
 expression in the generic form. The required evaluation control records
 this host-oracle difference separately from the common ABI protocol.
 
+`__atomic_always_lock_free` takes a constant size and reports the
+target's inline instruction support. Use natural alignment for a
+null pointer argument. An ordinary `__atomic_is_lock_free` query can
+take a runtime size and address. Keep a constant result for a proven
+inline case. For dynamic cases on Linux, retain the size and address
+and call the runtime's `bool __atomic_is_lock_free(size_t, const void *)`.
+The size-only `__c11_atomic_is_lock_free` query uses a null address in
+that ABI. Evaluate runtime operands once.
+
 ### GNU vector permutations
 
 `__builtin_shuffle(vector, mask)` and `__builtin_shuffle(first, second, mask)`

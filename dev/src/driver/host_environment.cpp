@@ -87,9 +87,55 @@ void prune_include_paths(PreprocessorOptions& options)
 	options.include_paths.swap(user);
 }
 
-void configure_target_environment(PreprocessorOptions& options, native::Target target)
+namespace {
+
+#define CPPGM_ATOMIC_LOCK_FREE(NAME, VALUE) \
+	"#define __GCC_ATOMIC_" #NAME "_LOCK_FREE " VALUE "\n" \
+	"#define __CLANG_ATOMIC_" #NAME "_LOCK_FREE " VALUE "\n"
+// clang-format off
+#define CPPGM_SCALAR_ATOMICS(VALUE) \
+	CPPGM_ATOMIC_LOCK_FREE(BOOL, VALUE) \
+	CPPGM_ATOMIC_LOCK_FREE(CHAR, VALUE) \
+	CPPGM_ATOMIC_LOCK_FREE(CHAR16_T, VALUE) \
+	CPPGM_ATOMIC_LOCK_FREE(CHAR32_T, VALUE) \
+	CPPGM_ATOMIC_LOCK_FREE(WCHAR_T, VALUE) \
+	CPPGM_ATOMIC_LOCK_FREE(SHORT, VALUE) \
+	CPPGM_ATOMIC_LOCK_FREE(INT, VALUE) \
+	CPPGM_ATOMIC_LOCK_FREE(LONG, VALUE) \
+	CPPGM_ATOMIC_LOCK_FREE(LLONG, VALUE) \
+	CPPGM_ATOMIC_LOCK_FREE(POINTER, VALUE)
+// clang-format on
+
+void configure_target_atomics(PreprocessorOptions& options, bool wasm_atomics)
+{
+	const bool wasm = target_model::is_wasm(options.target);
+	const bool c_source = options.language == SourceLanguage::C;
+	options.atomics_enabled = !wasm || wasm_atomics;
+	if (!c_source && options.target == native::host_target() && options.target != native::Target::AArch64Linux)
+		return;
+	// Every scalar type covered by these header macros fits in an inline
+	// atomic on the enabled targets.
+	static_assert(target_model::inline_atomic_max_bytes >= 8, "scalar atomics include long long");
+	std::string text = options.atomics_enabled ? CPPGM_SCALAR_ATOMICS("2") : CPPGM_SCALAR_ATOMICS("0");
+	text += "#define __GCC_ATOMIC_TEST_AND_SET_TRUEVAL 1\n";
+	if (c_source ? options.c_edition >= CEdition::C23 : options.cxx_edition >= 20)
+		text += options.atomics_enabled ? CPPGM_ATOMIC_LOCK_FREE(CHAR8_T, "2") : CPPGM_ATOMIC_LOCK_FREE(CHAR8_T, "0");
+	if (wasm && wasm_atomics)
+		text += "#define __wasm_atomics__ 1\n";
+	if (!options.atomics_enabled && c_source && options.c_edition >= CEdition::C11)
+		text += "#define __STDC_NO_ATOMICS__ 1\n";
+	options.command_line.insert(0, text);
+}
+
+#undef CPPGM_SCALAR_ATOMICS
+#undef CPPGM_ATOMIC_LOCK_FREE
+
+} // namespace
+
+void configure_target_environment(PreprocessorOptions& options, native::Target target, bool wasm_atomics)
 {
 	options.target = target;
+	configure_target_atomics(options, wasm_atomics);
 	if (target_model::is_aarch64(target))
 	{
 		configure_aarch64_environment(options);
@@ -162,6 +208,20 @@ bool CxxMacro(const char* name, size_t length)
 		(length >= 6 && std::memcmp(name, "__cpp_", 6) == 0);
 }
 
+bool ReplacedCAtomicMacro(const char* name, size_t length)
+{
+	// C header support uses cppgm's target policy for both compiler
+	// spellings. Keep only that definition in the initial macro input.
+	static const char suffix[] = "_LOCK_FREE";
+	static const char gcc[] = "__GCC_ATOMIC_";
+	static const char clang[] = "__CLANG_ATOMIC_";
+	const size_t suffix_size = sizeof suffix - 1;
+	return (length > suffix_size && std::memcmp(name + length - suffix_size, suffix, suffix_size) == 0 &&
+			   ((length >= sizeof gcc - 1 && std::memcmp(name, gcc, sizeof gcc - 1) == 0) ||
+				   (length >= sizeof clang - 1 && std::memcmp(name, clang, sizeof clang - 1) == 0))) ||
+		Named(name, length, "__GCC_ATOMIC_TEST_AND_SET_TRUEVAL") || Named(name, length, "__STDC_NO_ATOMICS__");
+}
+
 // 16.8p4: an implementation's other predefined macro names begin with an
 // underscore followed by an uppercase letter or a second underscore; the
 // host dialect's others (gnu++11's `unix`, `linux`, `i386`) are the
@@ -202,7 +262,7 @@ std::string HostMacroText(const FeatureModes& modes, bool strict)
 				++name_end;
 			const size_t length = static_cast<size_t>(name_end - name);
 			if (ReservedMacro(name, length) && !OwnMacro(name, length) && !UnsupportedTypeMacro(name, length) &&
-				(!c_source || !CxxMacro(name, length)))
+				(!c_source || (!CxxMacro(name, length) && !ReplacedCAtomicMacro(name, length))))
 			{
 				text.append(line, end);
 				text.push_back('\n');
