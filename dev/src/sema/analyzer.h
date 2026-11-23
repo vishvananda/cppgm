@@ -368,12 +368,7 @@ private:
 	bool variable_partial_ordered(const VariableEntity* first, const VariableEntity* second);
 
 	// ------------------------------------------ simple declarations
-	struct AlignmentRequest
-	{
-		uint64_t bytes;
-		const syntax::Attribute* specifier;
-		uint32_t standard;
-	};
+	struct AlignmentRequest;
 	void simple_declaration(const syntax::SimpleDecl& decl, Scope* scope);
 	void declare_declarator(const Specifiers& specifiers, const syntax::InitDeclarator& init, Scope* scope,
 		uint32_t location, const AlignmentRequest* c_alignment = nullptr, const syntax::Attribute* leading = nullptr);
@@ -386,7 +381,8 @@ private:
 	const Type* deduced_type(const Specifiers& specifiers, const Type* declared, const syntax::Initializer* initializer,
 		Scope* scope, uint32_t location, bool array_decomposition = false);
 	const Type* replaced_auto(const Type* declared, const Type* type, uint8_t cv);
-	Binding* declare_typedef(const DeclaredName& name, const Type* type, Scope* scope, uint32_t location);
+	Binding* declare_typedef(
+		const DeclaredName& name, const Type* type, Scope* scope, uint32_t location, bool quiet_c_extensions = false);
 	// `existing` is the predeclared name of one of GCC's extended floating
 	// types that the host compiler may not predeclare (Clang has neither
 	// _Float32 ... _Float64x nor _Float128 in C++), whose host library then
@@ -420,8 +416,9 @@ private:
 	VariableEntity* new_variable(const Specifiers& specifiers, const char* asm_label, const DeclaredName& name,
 		Scope* where, const Type* type, bool is_extern, bool member, bool initialized, uint32_t location,
 		bool structured_binding = false);
-	void add_data_member(ClassEntity* entity, Entity* variable, uint64_t width, bool bit_field, uint32_t location = 0);
-	void check_c_record_member(ClassEntity* entity, const Entity* variable, uint32_t location);
+	void add_data_member(ClassEntity* entity, Entity* variable, uint64_t width, bool bit_field, uint32_t location = 0,
+		bool quiet_c_extensions = false);
+	void check_c_record_member(ClassEntity* entity, const Entity* variable, uint32_t location, bool quiet_c_extensions);
 	void note_user_provided(const FunctionEntity* function, const syntax::Initializer* initializer);
 	Binding* declare_function(const Specifiers& specifiers, const DeclaratorInfo& info, Scope* scope, bool definition,
 		uint32_t location, bool deleted = false);
@@ -1975,6 +1972,7 @@ private:
 	const char* copy_label(const char* text, size_t length);
 	const char* asm_label(const TokenSpelling& spelling);
 	[[noreturn]] void error(uint32_t location, const char* message) const;
+	void require_c_extension(uint32_t location, CEdition edition, const char* message) const;
 	// An invalid type or expression: in a soft substitution its recorded
 	// failure (false; the caller returns its own), else an error.
 	bool substitution_error(uint32_t location, const char* message, bool transient = false);

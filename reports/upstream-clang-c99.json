@@ -30,6 +30,17 @@
         "-pedantic-errors"
       ],
       "obligation": "C99 accepts repeated type qualifiers with an optional warning"
+    },
+    {
+      "id": "c99-block-scopes",
+      "path": "clang/test/C/C99/block-scopes.c",
+      "sha256": "0c2f01b995ab16ebaa2c26a93f21486ba900ac6fd989adb6a002f6c80660267e",
+      "dialect": "c99",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": [],
+      "upstream_flags": [],
+      "obligation": "An enum declared in a controlling expression has the selection statement’s scope"
     }
   ]
 }

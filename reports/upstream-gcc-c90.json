@@ -160,6 +160,201 @@
         "-pedantic-errors"
       ],
       "obligation": "A sign after p or P terminates a preprocessing number in ISO C before C99"
+    },
+    {
+      "id": "c90-anon-struct-1",
+      "path": "gcc/testsuite/gcc.dg/c90-anon-struct-1.c",
+      "sha256": "5dd72aaca3a3be6d39d28fea380a9e7b1e4dfd000290f49ae3ff4211546964b1",
+      "dialect": "iso9899:1990",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Anonymous record members require C11 in pedantic ISO mode"
+    },
+    {
+      "id": "c90-arraydecl-1",
+      "path": "gcc/testsuite/gcc.dg/c90-arraydecl-1.c",
+      "sha256": "7feda10d4a8cda184b46e08efe2e8fae870b764f155a955cd5e9b99d7d000970",
+      "dialect": "iso9899:1990",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Array parameter modifiers and star bounds require C99"
+    },
+    {
+      "id": "c90-complex-1",
+      "path": "gcc/testsuite/gcc.dg/c90-complex-1.c",
+      "sha256": "cdaad651a3af813c0e823f6b2de0ca831bed0e0ab9330627356b8540272a8f1a",
+      "dialect": "iso9899:1990",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "The _Complex type specifier requires C99"
+    },
+    {
+      "id": "c90-complit-1",
+      "path": "gcc/testsuite/gcc.dg/c90-complit-1.c",
+      "sha256": "94ccb15d898a15e95769ef807019ab6612c350322781eef373726246c1c2f914",
+      "dialect": "iso9899:1990",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Compound literals require C99"
+    },
+    {
+      "id": "c90-dupqual-1",
+      "path": "gcc/testsuite/gcc.dg/c90-dupqual-1.c",
+      "sha256": "d675c1331fc9042f1f9c047aeafd6e62ee0b24be2a490148523f587800e78e28",
+      "dialect": "iso9899:1990",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Repeated qualifiers are allowed only starting in C99"
+    },
+    {
+      "id": "c90-enum-comma-1",
+      "path": "gcc/testsuite/gcc.dg/c90-enum-comma-1.c",
+      "sha256": "02b2b81249a2c8a1558fe832cdf3f11adc1c720de0f3b360f6d20e048904c3a7",
+      "dialect": "iso9899:1990",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "A trailing comma in an enumerator list requires C99"
+    },
+    {
+      "id": "c90-flex-array-1",
+      "path": "gcc/testsuite/gcc.dg/c90-flex-array-1.c",
+      "sha256": "4186902f6d0beb07570f69efa0803e2318de9010a07ba80f9c94d4d91c5609c8",
+      "dialect": "iso9899:1990",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Flexible array members require C99"
+    },
+    {
+      "id": "c90-idem-qual-1",
+      "path": "gcc/testsuite/gcc.dg/c90-idem-qual-1.c",
+      "sha256": "74bbb0c474112545100914f883f6c59021d0057e0a53e169f6030040792dad68",
+      "dialect": "iso9899:1990",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Repeated qualifiers introduced through typedefs require C99"
+    },
+    {
+      "id": "c90-idem-qual-2",
+      "path": "gcc/testsuite/gcc.dg/c90-idem-qual-2.c",
+      "sha256": "ec44ed99a38445e5ea1f2fa44eba36bb213b6f2ddb5cdce5fd0e1efc0fdefd14",
+      "dialect": "iso9899:1990",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Directly repeating the const qualifier requires C99"
+    },
+    {
+      "id": "c90-idem-qual-3",
+      "path": "gcc/testsuite/gcc.dg/c90-idem-qual-3.c",
+      "sha256": "47cefbbc943761c40e5c3004e99c3c7f8913834049396468747312e8f80832a6",
+      "dialect": "iso9899:1990",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Repeating an array typedef qualifier requires C99"
+    },
+    {
+      "id": "c90-longlong-1",
+      "path": "gcc/testsuite/gcc.dg/c90-longlong-1.c",
+      "sha256": "04eda647bfb0971130398ca67b93144a9ac3b2c62995c678d84351ff23cfd703",
+      "dialect": "iso9899:1990",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "The long long type specifier requires C99"
+    },
+    {
+      "id": "c90-typedef-1",
+      "path": "gcc/testsuite/gcc.dg/c90-typedef-1.c",
+      "sha256": "2324e6837f74151f498f488d0f136b1f2f91703b81ddae3cc6776dceb394990a",
+      "dialect": "iso9899:1990",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Redefining a typedef name with the same type requires C11"
+    },
+    {
+      "id": "c90-vla-1",
+      "path": "gcc/testsuite/gcc.dg/c90-vla-1.c",
+      "sha256": "6ce218f02b21281b717434eaf9a5057df5db5b3d9a8076c206eec5b79780f006",
+      "dialect": "iso9899:1990",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Variable-length array typedefs require C99"
     }
   ]
 }

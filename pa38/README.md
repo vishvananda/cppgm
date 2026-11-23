@@ -56,6 +56,17 @@ in a `for` initializer in C90 and C95.
 A selection or iteration statement in those editions uses its enclosing
 block's scope. A compound substatement still has its own scope. Starting
 in C99, both the control statement and each substatement have block scope.
+Resolve tags and typedef names using those scopes while parsing a statement
+and when checking the types it refers to.
+
+For C90 and C95, apply pedantic diagnostics to C99 type specifiers such as
+`long long`, `_Bool`, and `_Complex`. Also diagnose compound literals,
+variable-length and flexible arrays, array parameter modifiers,
+trailing enum commas, and repeated type qualifiers. Check qualifiers
+introduced through an array typedef on its element type. A repeated
+typedef with the same non-variably-modified type and an anonymous record
+member require C11 in pedantic mode. Keep honoring system-header
+diagnostic suppression and explicit GNU `__extension__` markers.
 
 `-ffreestanding` and `-fhosted` select the C execution environment. Bare
 Wasm defaults to freestanding and requires WASI for hosted C. Native

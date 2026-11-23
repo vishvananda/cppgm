@@ -119,6 +119,14 @@ void Parser::add_default_c_int(ListFrame<DeclSpecifier>& list, SpecifierInfo& in
 	info.has_type = true;
 }
 
+DeclSpecifier Parser::keyword_specifier(const ParseToken& token) const
+{
+	DeclSpecifier specifier = KeywordSpecifier(token.simple, token.location);
+	if (c_source_)
+		specifier.quiet_c_extensions = quiet_c_extensions(token);
+	return specifier;
+}
+
 bool Parser::parse_decl_specifier_seq(
 	ListFrame<DeclSpecifier>& list, SpecifierInfo& info, bool definite, bool type_only, CAlignment alignment)
 {
@@ -611,7 +619,7 @@ bool Parser::parse_decl_specifiers(ListFrame<DeclSpecifier>& list, SpecifierInfo
 					info.complex_only = false;
 				}
 				info.has_type = info.has_type || IsSimpleTypeKeyword(kind);
-				DeclSpecifier specifier = KeywordSpecifier(kind, token.location);
+				DeclSpecifier specifier = keyword_specifier(token);
 				if (kind == TokenKind::KW_CONSTINIT)
 					specifier.kind = DeclSpecKind::Constinit;
 				if (kind == TokenKind::KW_THREAD_LOCAL && c_source_ && token.spelling.text[1] != '_')
@@ -772,7 +780,7 @@ bool Parser::continue_type_specifier_seq(ListFrame<DeclSpecifier>& list, Specifi
 					info.complex_only = false;
 				}
 				info.has_type = info.has_type || IsSimpleTypeKeyword(kind);
-				list.push(KeywordSpecifier(kind, token.location));
+				list.push(keyword_specifier(token));
 				next();
 				continue;
 			}
@@ -884,8 +892,10 @@ bool Parser::parse_named_type_specifier(ListFrame<DeclSpecifier>& list, Specifie
 	Tentative tentative(*this);
 	DeclSpecifier specifier = DeclSpecifier();
 	specifier.location = location();
-	const bool complex = !info.has_type && tok().is_identifier() &&
-		gnu_names_.kind(tok().identifier) == GnuNames::kComplex;
+	const bool complex_name = tok().is_identifier() && gnu_names_.kind(tok().identifier) == GnuNames::kComplex;
+	const bool complex = !info.has_type && complex_name;
+	if (complex_name && c_before_c99_ && tok().identifier->spelling[1] == 'C')
+		require_c_extension(tok(), CEdition::C99, "_Complex requires C99");
 	const bool typename_keyword = accept(TokenKind::KW_TYPENAME);
 	NameInfo name_info;
 	const uint32_t parameters = template_parameter_mentions_;
@@ -976,6 +986,8 @@ bool Parser::parse_named_type_specifier(ListFrame<DeclSpecifier>& list, Specifie
 bool Parser::parse_class_or_enum_specifier(ListFrame<DeclSpecifier>& list, SpecifierInfo& info, TypeIdContext context)
 {
 	DeclSpecifier specifier = DeclSpecifier();
+	if (c_source_)
+		specifier.quiet_c_extensions = quiet_c_extensions(tok());
 	specifier.location = location();
 	info.has_type = true;
 	const bool definition_allowed = context != TypeIdContext::TrailingReturn;
@@ -1542,6 +1554,8 @@ EnumSpecifier* Parser::parse_enum_specifier(TypeIdContext context)
 			break;
 		specifier->trailing_comma = at(TokenKind::OP_RBRACE);
 	}
+	if (c_before_c99_ && specifier->trailing_comma)
+		require_c_extension(tok(), CEdition::C99, "a trailing comma in an enumeration requires C99");
 	if (!expect(TokenKind::OP_RBRACE))
 		return nullptr;
 	specifier->enumerators = enumerators.take(arena_);

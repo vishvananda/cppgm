@@ -45,6 +45,7 @@ struct DeclSpecifier
 	DeclSpecKind kind;
 	// Keyword: the keyword; Elaborated: the class-key.
 	TokenKind keyword;
+	bool quiet_c_extensions;
 	uint32_t location;
 	union
 	{
@@ -256,6 +257,7 @@ struct DeclaratorSuffix
 	uint8_t array_cv;
 	bool array_static;
 	bool array_star;
+	bool quiet_c_extensions;
 };
 
 inline const Expr* RequiresClause(const DeclaratorSuffix* suffix)

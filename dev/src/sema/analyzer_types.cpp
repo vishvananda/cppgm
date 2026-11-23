@@ -188,6 +188,7 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 	uint8_t cv = 0;
 	bool keywords = false;
 	out.location = list.empty() ? 0 : list[0].location;
+	out.quiet_c_extensions = c_source_ && !list.empty() && list[0].quiet_c_extensions;
 	out.uses = names_.dependent_uses();
 	for (const syntax::DeclSpecifier& specifier : list)
 	{
@@ -262,8 +263,13 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 			// C99 6.7.3 makes repeated qualifiers idempotent. C++11
 			// 7.1.6p2 disallows repeating a qualifier in this sequence.
 			const uint8_t bit = CvBit(specifier.keyword);
-			if ((cv & bit) != 0 && !c_source_)
-				error(specifier.location, "a cv-qualifier repeated in a decl-specifier-seq (7.1.6p2)");
+			if ((cv & bit) != 0)
+			{
+				if (!c_source_)
+					error(specifier.location, "a cv-qualifier repeated in a decl-specifier-seq (7.1.6p2)");
+				if (c_before_c99_ && !specifier.quiet_c_extensions)
+					require_c_extension(specifier.location, CEdition::C99, "a repeated type qualifier requires C99");
+			}
 			cv |= bit;
 			break;
 		}
@@ -428,6 +434,14 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 	}
 	if (type == decltype_auto_placeholder_ && cv != 0)
 		error(out.location, "decltype(auto) cannot be cv-qualified");
+	if (c_before_c99_ && cv != 0 && !out.quiet_c_extensions)
+	{
+		const Type* element = type;
+		while (element->kind == TypeKind::Array)
+			element = element->element;
+		if ((element->cv & cv) != 0)
+			require_c_extension(out.location, CEdition::C99, "repeating a typedef's type qualifier requires C99");
+	}
 	if ((cv & kAtomic) != 0 && (type->kind == TypeKind::Array || type->kind == TypeKind::Function || IsVoid(type)))
 		error(out.location, "_Atomic qualifier requires an object type other than an array");
 	if ((cv & kRestrict) != 0)
@@ -510,6 +524,12 @@ bool Analyzer::vector_reinterpretation(const Type* from, const Type* to)
 	return object_layout(from, from_size, alignment) && object_layout(to, to_size, alignment) && from_size == to_size;
 }
 
+void Analyzer::require_c_extension(uint32_t location, CEdition edition, const char* message) const
+{
+	if (positions_ != nullptr && !positions_->allow_c_extension(location, edition, message))
+		error(location, message);
+}
+
 const Type* Analyzer::keyword_type(const syntax::Slice<syntax::DeclSpecifier>& list, uint32_t location)
 {
 	// 7.1.6.2 Table 10.
@@ -533,6 +553,8 @@ const Type* Analyzer::keyword_type(const syntax::Slice<syntax::DeclSpecifier>& l
 			break;
 		case TokenKind::KW_LONG:
 			++long_count;
+			if (long_count == 2 && c_before_c99_ && !specifier.quiet_c_extensions)
+				require_c_extension(specifier.location, CEdition::C99, "long long requires C99");
 			break;
 		case TokenKind::KW_INT:
 			++int_count;
@@ -548,6 +570,8 @@ const Type* Analyzer::keyword_type(const syntax::Slice<syntax::DeclSpecifier>& l
 			other = FundamentalType::Void;
 			break;
 		case TokenKind::KW_BOOL:
+			if (c_before_c99_ && !specifier.quiet_c_extensions)
+				require_c_extension(specifier.location, CEdition::C99, "_Bool requires C99");
 			++other_count;
 			other = FundamentalType::Bool;
 			break;
@@ -1475,6 +1499,8 @@ const Type* Analyzer::apply_suffix(const syntax::DeclaratorSuffix& suffix, const
 		const uint64_t bound = suffix.bound != nullptr ? array_bound(*suffix.bound, scope, &runtime, &zero_length) : 0;
 		if (runtime)
 		{
+			if (c_before_c99_ && !suffix.quiet_c_extensions)
+				require_c_extension(location, CEdition::C99, "variable-length arrays require C99");
 			// C11 6.7.6.2p2 restricts identifiers declared with variably
 			// modified type. A type name introduces no such identifier.
 			if ((use == DeclaratorUse::Declaration || use == DeclaratorUse::Parameter) &&

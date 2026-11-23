@@ -181,6 +181,7 @@ bool Parser::parse_ptr_operator(ListFrame<PtrOperator>& pointers, Attribute** in
 	if (pointer.kind == TokenKind::OP_STAR || pointer.kind == TokenKind::OP_COLON2 || pointer.kind == TokenKind::OP_XOR)
 	{
 		ListFrame<TokenKind> cv(cvs_);
+		uint8_t legacy_cv = 0;
 		for (;;)
 		{
 			if (!parse_attributes())
@@ -206,6 +207,15 @@ bool Parser::parse_ptr_operator(ListFrame<PtrOperator>& pointers, Attribute** in
 				(token.simple != TokenKind::KW_CONST && token.simple != TokenKind::KW_VOLATILE &&
 					token.simple != TokenKind::KW_RESTRICT))
 				break;
+			if (c_before_c99_)
+			{
+				const uint8_t bit = token.simple == TokenKind::KW_CONST ? 1
+					: token.simple == TokenKind::KW_VOLATILE            ? 2
+																		: 4;
+				if ((legacy_cv & bit) != 0)
+					require_c_extension(token, CEdition::C99, "a repeated pointer qualifier requires C99");
+				legacy_cv |= bit;
+			}
 			cv.push(token.simple);
 			next();
 		}
@@ -406,9 +416,12 @@ bool Parser::parse_declarator_suffixes(DeclaratorMode mode, Declarator* declarat
 		{
 			DeclaratorSuffix suffix = DeclaratorSuffix();
 			suffix.kind = DeclaratorSuffixKind::Array;
+			if (c_before_c99_)
+				suffix.quiet_c_extensions = quiet_c_extensions(tok());
 			next();
 			if (c_source_ && mode == DeclaratorMode::Parameter && suffixes.size() == 0)
 			{
+				const ParseToken modifier = tok();
 				suffix.array_static = accept(TokenKind::KW_STATIC);
 				for (;;)
 				{
@@ -430,11 +443,15 @@ bool Parser::parse_declarator_suffixes(DeclaratorMode mode, Declarator* declarat
 				}
 				if (!suffix.array_static)
 					suffix.array_static = accept(TokenKind::KW_STATIC);
+				if (c_before_c99_ && (suffix.array_static || suffix.array_cv != 0))
+					require_c_extension(modifier, CEdition::C99, "array parameter declarator modifiers require C99");
 			}
 			if (suffix.array_static && at(TokenKind::OP_RSQUARE))
 				return fail();
 			if (c_source_ && at(TokenKind::OP_STAR) && at(TokenKind::OP_RSQUARE, 1))
 			{
+				if (c_before_c99_)
+					require_c_extension(tok(), CEdition::C99, "[*] in an array declarator requires C99");
 				if ((mode != DeclaratorMode::Parameter && mode != DeclaratorMode::Abstract) || suffix.array_static)
 					throw ParseError(
 						location(), "[*] requires a C prototype declarator without a static minimum bound");

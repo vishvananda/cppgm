@@ -849,6 +849,18 @@ Stmt* Parser::with_selection_init(Stmt* init, Stmt* stmt, uint32_t start)
 	return block;
 }
 
+Stmt* Parser::parse_control_body()
+{
+	if (!c_source_ || c_before_c99_ || at(TokenKind::OP_LBRACE))
+		return parse_statement();
+	// C99 6.8.4 and 6.8.5 give each substatement its own block scope.
+	Scope* saved = scopes_.current();
+	scopes_.push(ScopeKind::Block, nullptr);
+	Stmt* body = parse_statement();
+	scopes_.set_current(saved);
+	return body;
+}
+
 Stmt* Parser::parse_if()
 {
 	const uint32_t start = location();
@@ -870,12 +882,12 @@ Stmt* Parser::parse_if()
 		expect(TokenKind::OP_RPAREN);
 	if (parsed)
 	{
-		stmt->then_branch = parse_statement();
+		stmt->then_branch = parse_control_body();
 		parsed = stmt->then_branch != nullptr;
 	}
 	if (parsed && accept(TokenKind::KW_ELSE))
 	{
-		stmt->else_branch = parse_statement();
+		stmt->else_branch = parse_control_body();
 		parsed = stmt->else_branch != nullptr;
 	}
 	scopes_.set_current(saved);
@@ -896,7 +908,7 @@ Stmt* Parser::parse_loop_or_switch(StmtKind kind)
 		expect(TokenKind::OP_RPAREN);
 	if (parsed)
 	{
-		stmt->body = parse_statement();
+		stmt->body = parse_control_body();
 		parsed = stmt->body != nullptr;
 	}
 	scopes_.set_current(saved);
@@ -907,13 +919,15 @@ Stmt* Parser::parse_do()
 {
 	DoStmt* stmt = make<DoStmt>(StmtKind::Do, location());
 	next();
-	stmt->body = parse_statement();
-	if (stmt->body == nullptr || !expect(TokenKind::KW_WHILE) || !expect(TokenKind::OP_LPAREN))
-		return nullptr;
-	stmt->condition = parse_expression();
-	if (stmt->condition == nullptr || !expect(TokenKind::OP_RPAREN) || !expect(TokenKind::OP_SEMICOLON))
-		return nullptr;
-	return stmt;
+	Scope* saved = scopes_.current();
+	if (c_source_ && !c_before_c99_)
+		scopes_.push(ScopeKind::Block, nullptr);
+	stmt->body = parse_control_body();
+	const bool parsed = stmt->body != nullptr && expect(TokenKind::KW_WHILE) && expect(TokenKind::OP_LPAREN) &&
+		(stmt->condition = parse_expression()) != nullptr && expect(TokenKind::OP_RPAREN) &&
+		expect(TokenKind::OP_SEMICOLON);
+	scopes_.set_current(saved);
+	return parsed ? stmt : nullptr;
 }
 
 Stmt* Parser::parse_for()
@@ -1058,7 +1072,7 @@ Stmt* Parser::parse_for()
 	parsed = parsed && expect(TokenKind::OP_RPAREN);
 	if (parsed)
 	{
-		stmt->body = parse_statement();
+		stmt->body = parse_control_body();
 		parsed = stmt->body != nullptr;
 	}
 	scopes_.set_current(saved);

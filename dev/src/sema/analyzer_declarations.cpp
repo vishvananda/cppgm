@@ -255,6 +255,13 @@ void Analyzer::check_type_name_conflict(Scope* target, const Identifier* name, c
 
 // ------------------------------------------------------ simple declarations
 
+struct Analyzer::AlignmentRequest
+{
+	uint64_t bytes;
+	const syntax::Attribute* specifier;
+	uint32_t standard;
+};
+
 void Analyzer::simple_declaration(const syntax::SimpleDecl& decl, Scope* scope)
 {
 	Specifiers specifiers;
@@ -1043,8 +1050,8 @@ void Analyzer::declare_declarator(const Specifiers& specifiers, const syntax::In
 		if (info.type == auto_placeholder_ || info.type == decltype_auto_placeholder_)
 			error(info.location, "typedef of auto");
 		check_type_packs(info.type, info.location);
-		Binding* binding = declare_typedef(
-			declared_name(*info.name, declaration_scope(scope)), info.type, scope, info.location);
+		Binding* binding = declare_typedef(declared_name(*info.name, declaration_scope(scope)), info.type, scope,
+			info.location, specifiers.quiet_c_extensions);
 		if (declaration_scope(scope)->kind == ScopeKind::Block)
 			binding->dependent = names_.dependent_uses() != specifiers.uses;
 		init.declared = binding;
@@ -1299,7 +1306,8 @@ const Type* Analyzer::replaced_auto(const Type* declared, const Type* type, uint
 	return types_.reference(element, declared->kind == TypeKind::RValueReference);
 }
 
-Binding* Analyzer::declare_typedef(const DeclaredName& name, const Type* type, Scope* scope, uint32_t location)
+Binding* Analyzer::declare_typedef(
+	const DeclaredName& name, const Type* type, Scope* scope, uint32_t location, bool quiet_c_extensions)
 {
 	if (name.label != nullptr)
 		error(location, "invalid typedef name");
@@ -1332,7 +1340,16 @@ Binding* Analyzer::declare_typedef(const DeclaredName& name, const Type* type, S
 			if (where->kind == ScopeKind::Class && existing->kind == BindingKind::TypeAlias)
 				error(location, "member typedef redeclared");
 			if (existing->kind == BindingKind::TypeAlias && !replaced)
+			{
+				if (c_source_)
+				{
+					if (type->c_variably_modified)
+						error(location, "a typedef for a variably modified type cannot be redefined");
+					if (!quiet_c_extensions)
+						require_c_extension(location, CEdition::C11, "a repeated typedef declaration requires C11");
+				}
 				entity = existing->entity;
+			}
 		}
 	}
 	if (entity == nullptr)
@@ -2138,7 +2155,7 @@ VariableEntity* Analyzer::new_variable(const Specifiers& specifiers, const char*
 	if (member && where->entity != nullptr && where->entity->kind == EntityKind::Class)
 	{
 		ClassEntity* owner = static_cast<ClassEntity*>(where->entity);
-		add_data_member(owner, variable, 0, false, location);
+		add_data_member(owner, variable, 0, false, location, specifiers.quiet_c_extensions);
 		owner->non_pod = owner->non_pod || current_access_ != TokenKind::KW_PUBLIC || initialized ||
 			type->is_reference();
 		// C++14 permits default member initializers in an aggregate (N3653).
@@ -2149,10 +2166,11 @@ VariableEntity* Analyzer::new_variable(const Specifiers& specifiers, const char*
 	return variable;
 }
 
-void Analyzer::add_data_member(ClassEntity* entity, Entity* variable, uint64_t width, bool bit_field, uint32_t location)
+void Analyzer::add_data_member(
+	ClassEntity* entity, Entity* variable, uint64_t width, bool bit_field, uint32_t location, bool quiet_c_extensions)
 {
 	if (c_source_)
-		check_c_record_member(entity, variable, location);
+		check_c_record_member(entity, variable, location, quiet_c_extensions);
 	DataMember* member = static_cast<DataMember*>(arena_.allocate(sizeof(DataMember), alignof(DataMember)));
 	const Access access = current_access_ == TokenKind::KW_PRIVATE ? Access::Private
 		: current_access_ == TokenKind::KW_PROTECTED               ? Access::Protected

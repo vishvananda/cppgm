@@ -247,6 +247,9 @@ deprecation diagnostics so they could check the language boundary.
 | `c90.block-declarations` | A declaration following a statement is diagnosed in pedantic C90 and C95. The input is valid in C99. | PA38 and pinned GCC cases passed the legacy rejection probes. The C99 control compiles. |
 | `c90.line-comment` | GCC and Clang accept line comments in system headers in the ISO legacy modes. | PA38 checks user input, GNU89, and a system-header pragma with an inherited quoted include. The WASI SDK probe exercises system include paths. |
 | `c90.control-scope` | Declarations in a control statement reach the enclosing block before C99. | PA38 checks selection and iteration statements and brackets the change with a C99 control. |
+| `c99.control-scope` | Selection and iteration substatements have their own scope. A name introduced by a `do` condition ends with that iteration statement. | PA38 runs typedef and enumerator shadowing probes. The pinned Clang block-scope case checks the parser boundary. |
+| `c90.later-constructs` | Pedantic C90 diagnoses C99 type specifiers, array declarator modifiers, compound literals, trailing enum commas, flexible members, and repeated qualifiers. | PA38 and GCC exercise the individual rejections. PA38 also checks equivalent C99 uses, including VLAs, and allowed explicit GNU extensions. |
+| `c11.record-and-typedef` | C11 permits anonymous structure and union members and redefinition of a typedef for the same non-variably-modified type. | PA38 runs both C11 features, checks the pedantic C99 diagnostics, and rejects a C11 typedef redefinition for a VLA. |
 | `c90.pp-number` | The ISO C90 and C95 grammars allow signs after `e` and `E`. C99 adds signs after `p` and `P`. | PA38 checks macro substitution, stringization and pasting. cppgm and GCC follow the legacy grammar. Clang keeps the signed binary exponent together in its legacy modes. |
 | `c95.digraphs` | A body delimited by `<%` and `%>` is accepted in C95 and diagnosed in pedantic C90. | PA38 checks directive delimiters and token pasting. Pinned GCC cases check stringization in both editions. |
 | `c95.wide-headers` | `<iso646.h>`, `<wchar.h>`, and `<wctype.h>` compose in C95. | The hosted probe runs restartable conversions, wide-string operations and classification in the C locale. It passed on x86-64 Linux, AArch64 Linux under QEMU, and WASI. |
@@ -256,13 +259,13 @@ deprecation diagnostics so they could check the language boundary.
 | `c23.empty-parameters` | A call with an argument through a declaration with empty parentheses is accepted through C17 and diagnosed in C23. | The C17 control compiles. |
 | `c23.identifier-list` | An identifier-list definition with explicit parameter types compiles through C17 and is diagnosed in C23. | The C17 control compiles. |
 
-The pinned legacy smoke cohorts cover ten GCC C90 configurations, five GCC
-C95 configurations, and two Clang C90 configurations. In the broader
-GCC `c90-*.c` screen, 33 of 59 usable reference configurations agree,
-including both previously failing executables. The 26 remaining
-differences involve diagnostics and acceptance. They include newer syntax
-accepted in pedantic C90, array conversions and constant expressions.
-Full hosted library qualification remains open.
+The pinned legacy cohorts pass 23 GCC C90 configurations, five GCC C95
+configurations, and two Clang C90 configurations. In the broader GCC
+`c90-*.c` screen, 46 of 59 usable reference configurations agree. The
+remaining 13 differences cover non-lvalue array conversions, constant
+expressions, signed left shifts, `__func__`, and diagnostics for missing
+definitions of used static functions. Full hosted library qualification
+remains open.
 
 The strict course report passed 11,673 tests. PA38 passed on native x86-64
 and WASI in both the solution checkout and the student export. The positive
@@ -287,6 +290,19 @@ by less than 0.016%. On synthetic files with 128 to 1,024 consecutive
 control statements, C90 instruction counts fell by 0.93% to 1.30%.
 The same inputs in C99 used at most 0.044% more instructions. Both editions
 produced byte-identical objects in the A/A, ABBA and BAAB blocks.
+
+With the additional edition checks and C99 statement scopes, the frozen
+C++ overload and GNU17 SQLite objects were byte-identical again. Retired
+instructions rose by 0.049% and 0.025%, and peak RSS by 0.028% and 0.392%,
+respectively. Task-clock A/A spreads exceeded 25%. On the control-heavy
+synthetic inputs, instructions rose by 0.029% to 0.054% in C90 and 0.423%
+to 0.542% in C99.
+
+The four new positive PA38 fixtures passed at `-O0` and `-O2` on all six
+target profiles. The Mach-O runs used local loaders and independent
+linking. GCC and cppgm suppress the `long long` diagnostic for a replacement
+token supplied by a system macro but diagnose the same spelling in a
+user-supplied macro argument. Clang 21 diagnoses both uses.
 
 [GCC C90 manifest](upstream-gcc-c90.json) ·
 [GCC C95 manifest](upstream-gcc-c95.json) ·

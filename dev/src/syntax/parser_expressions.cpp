@@ -481,6 +481,8 @@ Expr* Parser::compound_literal(const TypeId* type, uint32_t start)
 {
 	// `( T ) { list }`: GCC's C++ compound literal, a temporary as `T{list}`
 	// (5.2.3p3) is.
+	if (c_before_c99_)
+		require_c_extension(tok(1), CEdition::C99, "compound literals require C99");
 	next();
 	FunctionalCastExpr* literal = make<FunctionalCastExpr>(ExprKind::FunctionalCast, start);
 	literal->type = type->specifiers;

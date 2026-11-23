@@ -1,0 +1,39 @@
+function @main() -> i32 [role=entry, binding=strong, keep_alias=yes] {
+  slot $packet : obj<8x4>
+  slot $lor__1 : i64
+
+  block ^entry:
+    %t1 = addr $packet
+    %t2 = addr $packet
+    %t3 = index inbounds i8 [projection=field] %t2, 0
+    store typed i32 2, %t3
+    %t4 = addr $packet
+    %t5 = index inbounds i8 [projection=field] %t4, 4
+    %t6 = index inbounds i8 [projection=field] %t5, 0
+    store typed i32 42, %t6
+    %t7 = addr $packet
+    %t8 = index inbounds i8 [projection=field] %t7, 0
+    %t9 = load typed i32 %t8
+    %t10 = cmp ne i32 %t9, 2
+    %t11 = convert trunc i32 i64 %t10
+    branch %t11, ^lor_short_2, ^lor_rhs_1
+
+  block ^lor_rhs_1:
+    %t12 = addr $packet
+    %t13 = index inbounds i8 [projection=field] %t12, 4
+    %t14 = load typed i32 %t13
+    %t15 = cmp ne i32 %t14, 42
+    %t16 = convert trunc i32 i64 %t15
+    %t17 = cmp ne i32 %t16, 0
+    store typed i64 %t17, $lor__1
+    jump ^lor_end_3
+
+  block ^lor_short_2:
+    store typed i64 1, $lor__1
+    jump ^lor_end_3
+
+  block ^lor_end_3:
+    %t18 = load typed i64 $lor__1
+    %t19 = convert trunc i32 i64 %t18
+    return i32 %t19
+}

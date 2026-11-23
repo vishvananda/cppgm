@@ -448,7 +448,8 @@ static bool FlexibleMemberType(const Type* type)
 	return type->kind == TypeKind::Array && !type->has_array_bound() && !type->runtime_array();
 }
 
-void Analyzer::check_c_record_member(ClassEntity* entity, const Entity* variable, uint32_t location)
+void Analyzer::check_c_record_member(
+	ClassEntity* entity, const Entity* variable, uint32_t location, bool quiet_c_extensions)
 {
 	const char* invalid_tail = "a flexible array must be the last member of a struct with another named member";
 	if (entity->c_contains_flexible_array && FlexibleMemberType(entity->last_member->variable->type))
@@ -460,6 +461,8 @@ void Analyzer::check_c_record_member(ClassEntity* entity, const Entity* variable
 		// C17 6.7.2.1p3. The earlier named member can come from an anonymous record.
 		if (is_union || !entity->c_has_named_member)
 			error(location, invalid_tail);
+		if (c_before_c99_ && !quiet_c_extensions)
+			require_c_extension(location, CEdition::C99, "flexible array members require C99");
 		entity->c_contains_flexible_array = true;
 	}
 	const ClassEntity* nested = ClassOf(type);
@@ -793,6 +796,8 @@ void Analyzer::anonymous_union(ClassEntity* entity, const Specifiers& specifiers
 	Scope* where = declaration_scope(scope);
 	if (!IsUnion(entity->key) && where->kind != ScopeKind::Class)
 		error(location, "declaration does not declare anything");
+	if (c_source_ && where->kind == ScopeKind::Class && !specifiers.quiet_c_extensions)
+		require_c_extension(location, CEdition::C11, "anonymous structure and union members require C11");
 	const bool unnamed_namespace = where->kind == ScopeKind::Namespace && where->entity != nullptr &&
 		where->entity->name == nullptr && static_cast<const NamespaceEntity*>(where->entity)->depth != 0;
 	if (where->kind == ScopeKind::Namespace && !specifiers.is_static && !unnamed_namespace)

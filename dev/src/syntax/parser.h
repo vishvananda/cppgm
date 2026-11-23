@@ -39,6 +39,10 @@ private:
 		uint32_t location, uint8_t edition, const char* message, bool suppressible_in_headers = true);
 	void require_c_extension(const ParseToken& token, CEdition edition, const char* message);
 	void require_c_extension(uint32_t location, CEdition edition, const char* message);
+	bool quiet_c_extensions(const ParseToken& token) const
+	{
+		return in_c_extension_ || (token.flags & kQuietSystemToken) != 0;
+	}
 	void require_gnu_c_extension(uint32_t location, const char* message);
 	bool at_c_extension() { return c_source_ && at_identifier(c_extension_); }
 	CFloatPragmas c_float_pragmas_;
@@ -196,6 +200,7 @@ private:
 	Decl* finish_simple_declaration(DeclContext context, Slice<DeclSpecifier> specifiers, const SpecifierInfo& info,
 		uint32_t start, bool omitted_specifiers = false);
 	void add_default_c_int(ListFrame<DeclSpecifier>& list, SpecifierInfo& info, uint32_t location);
+	DeclSpecifier keyword_specifier(const ParseToken& token) const;
 	struct DeclarationList
 	{
 		Slice<DeclSpecifier> specifiers;
@@ -414,6 +419,7 @@ private:
 	Expr* coroutine_operation(TokenKind kind, Expr* operand, uint32_t location);
 	Stmt* parse_loop_or_switch(StmtKind kind);
 	Stmt* parse_do();
+	Stmt* parse_control_body();
 	Stmt* parse_for();
 	Stmt* parse_try();
 	bool parse_handler(Handler& handler);

@@ -26,7 +26,8 @@ void Parser::require_c_extension(const ParseToken& token, CEdition edition, cons
 
 void Parser::require_c_extension(uint32_t location, CEdition edition, const char* message)
 {
-	if (source_positions_ != nullptr && !source_positions_->allow_c_extension(location, edition, message))
+	if (!in_c_extension_ && source_positions_ != nullptr &&
+		!source_positions_->allow_c_extension(location, edition, message))
 		throw ParseError(location, message);
 }
 
