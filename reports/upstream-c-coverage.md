@@ -552,6 +552,12 @@ default predefines, and emits linkable objects for both Darwin targets.
 Native Darwin execution and direct cross-target header qualification
 remain open. The hosted probes cover a subset of public atomic and
 thread interfaces.
+
+This batch passed the strict course report (11,650), PA35 through PA5
+(341), the debug-info checks, and the PA38 native and Wasm lanes. The
+student export regenerated 26,138 verified reference files and repeated
+PA38 using the bundled self-built tools. The expanded pinned manifests
+and differential corpora kept their existing reviewed gaps.
 [PA38 hosted atomic case](../pa38/tests/controls/500-c11-stdatomic.t) ·
 [GCC C17 manifest](upstream-gcc-c17.json)
 
