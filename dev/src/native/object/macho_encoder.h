@@ -66,7 +66,7 @@ private:
 	bool difference_fixup(Placement p, uint64_t at, const Relocation& r, unsigned width, unsigned subtractor);
 	bool arm_relocation(Placement p, uint64_t at, const Relocation& r);
 	bool relocation(uint32_t section, const Relocation& relocation);
-	void write(std::vector<uint8_t>& bytes);
+	void write(std::vector<uint8_t>& bytes, uint64_t contents_alignment);
 	uint32_t section(const char* segment, const std::string& name, uint32_t flags);
 	uint32_t symbol(const std::string& name, uint8_t type, uint8_t section, uint16_t desc, uint64_t value);
 	void tlv(uint32_t original, const object::Symbol& source, Symbol& target);

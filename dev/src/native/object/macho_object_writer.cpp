@@ -60,7 +60,7 @@ void header(std::vector<uint8_t>& out, uint32_t commands, uint32_t flags, bool a
 
 } // namespace
 
-void Encoder::write(std::vector<uint8_t>& out)
+void Encoder::write(std::vector<uint8_t>& out, uint64_t contents_alignment)
 {
 	std::vector<uint32_t> order, indexes(symbols_.size());
 	uint32_t counts[3] = {};
@@ -79,7 +79,9 @@ void Encoder::write(std::vector<uint8_t>& out)
 			}
 	const uint32_t segment_bytes = 72 + static_cast<uint32_t>(sections_.size()) * 80;
 	const uint32_t commands = segment_bytes + 24 + 80 + 24;
-	const uint64_t contents = align_up(32 + commands, 16);
+	// Use a base aligned for every file-backed section. Then its padding
+	// relative to the base can never exceed the virtual section padding.
+	const uint64_t contents = align_up(32 + commands, contents_alignment);
 	uint64_t file = contents, address = 0;
 	for (Section& section : sections_)
 	{
@@ -208,13 +210,16 @@ bool Encoder::encode(std::vector<uint8_t>& bytes)
 	if (!sections() || !symbols() || !relocations())
 		return false;
 	uint64_t size = 4096 + symbols_.size() * 64;
+	uint64_t contents_alignment = 16;
 	for (const Section& section : sections_)
 	{
 		size += section.bytes.size() + section.align + section.fixups.size() * 16;
 		if (size > std::numeric_limits<uint32_t>::max())
 			return fail("object exceeds 4 GiB");
+		if (!zerofill(section))
+			contents_alignment = std::max(contents_alignment, section.align);
 	}
-	write(bytes);
+	write(bytes, contents_alignment);
 	return true;
 }
 
