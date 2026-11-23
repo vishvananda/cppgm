@@ -166,9 +166,15 @@ needs driver work. These checks leave `__STDC_NO_VLA__` as currently defined.
 
 The two new array runtime cases pass at `-O0` and `-O2` on Linux x86-64,
 AArch64 under QEMU, and WASI under Wasmtime. Both Darwin architectures
-cross-link the cases at both levels. The identifier-list fixture also
-passes with Clang 21 and GCC 15 at `-O0`. GCC 15 reports an internal compiler
-error during the `-O2` build of that fixture.
+cross-link the cases as Mach-O dylibs at both levels. The identifier-list
+fixture also passes with Clang 21 at both levels and GCC 15 at `-O0`.
+GCC 15 reports an internal compiler error during its `-O2` build.
+
+The same compiler passes zlib 1.3.1 `teststatic` and the Lua 5.4.8 basic
+suite on Linux x86-64. The SQLite amalgamation emits byte-identical
+`-O2` objects before and after the changes.
+
+[Declarator scaling and frozen compile controls](../docs/performance/c-frontend-scaling.md#c-identifier-list-parameter-declarations)
 
 [C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
 

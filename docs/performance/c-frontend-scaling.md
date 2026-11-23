@@ -739,3 +739,55 @@ The comparison below uses retired instructions.
 | SQLite | BAAB | 16,508,302,145 / 16,508,128,939 / 16,508,437,091 / 16,508,521,167 |
 
 [Input generation](../../benchmarks/frontend_scaling/README.md#c)
+
+## C identifier-list parameter declarations
+
+The parser indexes the interned names in an identifier list before reading
+its following parameter declarations. Each declaration uses one lookup.
+The previous implementation scanned the identifier list for every declaration.
+
+The table shows median millions of retired user-space instructions in three
+C99 `-pedantic-errors -fsyntax-only` runs on Linux x86-64, comparing
+`401aa6fd3` and `1d83235fb`. Each input declares the parameters in reverse
+order. The two compilers emitted byte-identical `-O0` objects at every size.
+
+| Parameters | Before | After |
+| ---: | ---: | ---: |
+| 128 | 5.304 | 5.072 |
+| 256 | 7.402 | 6.429 |
+| 512 | 13.376 | 9.397 |
+| 1024 | 30.924 | 14.836 |
+| 2048 | 91.216 | 26.538 |
+| 4096 | 309.611 | 50.226 |
+
+The final doubling added 2.02 times the work of the previous interval with
+the index, compared with 3.62 times before. At 4096 parameters the instruction
+count fell by 83.8% and median peak RSS went from 11,524 to 10,744 KiB.
+At 4096 functions, the fixed-array and VLA declarator controls used 0.075%
+and 0.030% fewer instructions respectively, with identical `-O0` objects.
+Median peak RSS went from 19,240 to 19,880 KiB and 20,008 to 20,564 KiB in
+those first runs. In paired replays of the same inputs, mean peak RSS
+changes were −38 and −342 KiB for the fixed-array control and −388 and
+−86 KiB for the VLA control. Peak RSS for the baseline alone varied by
+approximately 0.8 MiB across the replays.
+
+The frozen C++ input at `-O3` and SQLite 3.50.4 at `-std=gnu17 -O2`
+emitted identical objects across the A/A, ABBA and BAAB blocks. A/A
+task-clock ranges were 12.6% and 21.7%. The comparison below uses
+retired instructions.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0025% | +0.0001% | +0.0008% |
+| SQLite `sqlite3.c` | 0.0013% | +0.0002% | +0.0015% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,042,956,207 / 9,042,874,633 / 9,043,023,082 / 9,042,797,670 |
+| C++ | ABBA | 9,043,226,405 / 9,043,192,120 / 9,042,989,404 / 9,042,942,935 |
+| C++ | BAAB | 9,043,063,839 / 9,043,001,918 / 9,042,993,420 / 9,043,077,767 |
+| SQLite | A/A | 16,508,479,762 / 16,508,314,367 / 16,508,472,761 / 16,508,259,938 |
+| SQLite | ABBA | 16,508,422,857 / 16,508,400,214 / 16,508,694,578 / 16,508,599,171 |
+| SQLite | BAAB | 16,509,000,084 / 16,508,523,822 / 16,508,210,924 / 16,508,244,656 |
+
+[Input generation](../../benchmarks/frontend_scaling/README.md#c)
