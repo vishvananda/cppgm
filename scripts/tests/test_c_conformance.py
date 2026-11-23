@@ -83,6 +83,20 @@ class CoverageTests(unittest.TestCase):
         last['stdout'] = '0\n'
         self.assertEqual(evidence_key(row, self.profiles), ('limits.combined', profile['id'], 99, 'O0'))
 
+    def test_preprocessing_receipts_distinguish_success_and_diagnostics(self):
+        success = dict(name='preprocess', classification='success', returncode=0)
+        rejection = dict(name='preprocess', classification='rejection', returncode=1)
+        for case, expected, unexpected in (
+            ('environment.thread-predefine', success, rejection),
+            ('error.message', rejection, success),
+        ):
+            with self.subTest(case=case):
+                row = dict(self.valid_runtime(), case=case, variant='default', stages=[expected])
+                self.assertEqual(evidence_key(row, self.profiles), (case, self.native, 99, 'default'))
+                row['stages'] = [unexpected]
+                with self.assertRaisesRegex(ValueError, 'lacks stage evidence'):
+                    evidence_key(row, self.profiles)
+
     def test_runtime_case_uses_a_fresh_working_directory(self):
         command = [sys.executable, '-c', 'from pathlib import Path; Path("output").touch(exist_ok=False)']
         with tempfile.TemporaryDirectory() as directory:

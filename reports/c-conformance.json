@@ -946,28 +946,24 @@
         "linux-aarch64-hosted"
       ],
       "outside_profile": "This probe qualifies the C11 thread entry points of the selected Linux runtimes.",
-      "requirement": "Verify the start callback and join result, thread-local isolation, call_once, thread-specific storage and its destructor, and condition-variable handoff under a mutex. Test the library API independently of feature advertisement.",
+      "requirement": "Exercise the advertised C11 thread library. Verify the start callback and join result, thread-local isolation, call_once, thread-specific storage and its destructor, and condition-variable handoff under a mutex.",
       "cases": [
         "library.c11-threads"
       ]
     },
     {
-      "id": "library.c11-thread-opt-out",
+      "id": "environment.thread-predefine",
       "clause": "6.10.8.3",
       "kind": "implementation-defined",
       "editions": [
+        99,
         11,
         17
       ],
       "environment": "all",
-      "profiles": [
-        "wasi-hosted",
-        "wasm-freestanding"
-      ],
-      "outside_profile": "This probe checks the advertised single-threaded Wasm profiles.",
-      "requirement": "Define __STDC_NO_THREADS__ as 1 for the single-threaded WASI and bare Wasm profiles.",
+      "requirement": "Match the target compiler predefines. Define __STDC_NO_THREADS__ as 1 on Darwin. Leave it undefined on Linux, WASI and bare Wasm before including any runtime headers.",
       "cases": [
-        "library.c11-thread-opt-out"
+        "environment.thread-predefine"
       ]
     },
     {

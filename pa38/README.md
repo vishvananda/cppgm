@@ -41,6 +41,9 @@ Wasm defaults to freestanding and requires WASI for hosted C. Native
 targets and WASI default to hosted. The last environment flag wins.
 Define `__STDC_HOSTED__` as zero in freestanding mode and one in hosted
 mode. Keep header search and startup options independent of this choice.
+Predefine `__STDC_NO_THREADS__` as one when targeting Darwin, matching
+Clang's platform definitions. Omit the compiler predefine on Linux and
+Wasm. The selected runtime determines which thread operations work.
 Use the target's C system include paths for C input.
 Supply the target's scalar integer types, widths, limits and constant
 spellings to its headers. For example, on 64-bit Darwin `int64_t` is

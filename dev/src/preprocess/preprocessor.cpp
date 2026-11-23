@@ -73,10 +73,13 @@ std::string PredefinedText(const PreprocessorOptions& options, const FeatureMode
 	{
 		text += std::string("#define __STDC__ 1\n#define __STDC_VERSION__ ") + CVersionMacro(options.c_edition) + "\n";
 		if (options.c_edition >= CEdition::C11)
-			text += "#define __STDC_NO_VLA__ 1\n#define __STDC_NO_THREADS__ 1\n";
+			text += "#define __STDC_NO_VLA__ 1\n";
 	}
 	else
 		text += std::string("#define __cplusplus ") + CxxVersionMacro(options.cxx_edition) + "\n";
+	// Like Clang, advertise the lack of <threads.h> for Darwin targets.
+	if (target_model::is_darwin(options.target))
+		text += "#define __STDC_NO_THREADS__ 1\n";
 	if (options.strict)
 		text += "#define __STRICT_ANSI__ 1\n";
 	const bool freestanding = options.language == SourceLanguage::C ? options.c_freestanding

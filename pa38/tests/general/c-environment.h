@@ -2,6 +2,14 @@
 #error unexpected C execution environment
 #endif
 
+#if defined(__APPLE__)
+#if !defined(__STDC_NO_THREADS__) || __STDC_NO_THREADS__ != 1
+#error the Darwin target must advertise the C11 threads exclusion
+#endif
+#elif defined(__STDC_NO_THREADS__)
+#error an unexpected compiler predefine excludes the C11 threads API
+#endif
+
 #if __STDC_HOSTED__
 int main(int argc, char *argv[])
 {

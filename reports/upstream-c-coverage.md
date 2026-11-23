@@ -713,22 +713,28 @@ the four `<uchar.h>` conversion functions, `quick_exit` handler order,
 exclusive `fopen` mode, and the optional atomic interface. Each run owns
 its working directory, so the file-mode test can create a fresh file.
 
-All 32 new configurations passed on Linux x86-64 with glibc, Linux AArch64
-with glibc under QEMU, and WASI under Wasmtime. Four single-threaded
-bare Wasm configurations also passed. The eight Linux cases passed
-locally in all four configurations with both GCC and cppgm linked
+All eight hosted cases passed at both optimization levels in both editions
+on Linux x86-64 with glibc and Linux AArch64 with glibc under QEMU. The
+seven applicable cases passed on WASI under Wasmtime. The eight Linux
+cases passed locally in all four configurations with both GCC and cppgm linked
 statically against musl 1.2.5. The native macOS jobs run the applicable
 fixtures. Native macOS results remain to be collected, and the required
 Unicode conversion rule remains uncovered for the Darwin SDK.
 
 The Linux thread fixture verifies start and join, thread-local isolation,
 one-time initialization, thread-specific storage and destruction, and a
-condition-variable handoff. cppgm currently defines `__STDC_NO_THREADS__`
-as `1` in C11 and C17 even with a Linux SDK that passes this API probe.
-C11 permits an implementation that defines the macro to supply the
-header and its facilities. A portable program can use the macro to skip
-the API. The single-threaded Wasm probes check the opt-out as advertised.
-[C11 feature macros and threads, §§6.10.8.3 and 7.26.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
+condition-variable handoff. cppgm now follows the target predefines
+observed in GCC and Clang. Both Linux targets omit the macro. Both Darwin
+targets predefine `__STDC_NO_THREADS__` as `1`, including in earlier C
+modes and C++, as Clang does. The selected target controls this value
+even when the build compiler runs on a different platform.
+[C11 feature macros and threads, §§6.10.8.3 and 7.26.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[Clang Darwin predefines](https://github.com/llvm/llvm-project/blob/llvmorg-22.1.2/clang/lib/Basic/Targets/OSTargets.cpp)
+
+WASI and bare Wasm also omit the predefine to match Clang. By default
+`wasm32-wasip1` libc reports failure when asked to spawn a thread. The
+clause runner checks the Wasm macro convention separately from runtime
+thread support. [wasi-libc target behavior](https://github.com/WebAssembly/wasi-libc#building-from-source)
 
 ## Edition and declarator checks
 

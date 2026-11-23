@@ -25,6 +25,7 @@ NATIVE_PROFILES = {
     ('Darwin', 'arm64'): 'darwin-arm64-hosted',
 }
 RUN_STAGES = ('compile', 'link', 'run')
+THREAD_PREDEFINE = ROOT / 'scripts/tests/c_thread_predefine.c'
 C11_LIBRARY_SOURCES = {
     'library.c11-header-facilities': ROOT / 'scripts/tests/c_c11_header_facilities.c',
     'library.aligned-allocation': ROOT / 'scripts/tests/c_c11_allocation.c',
@@ -34,7 +35,6 @@ C11_LIBRARY_SOURCES = {
     'library.exclusive-fopen': ROOT / 'scripts/tests/c_c11_exclusive_fopen.c',
     'library.c11-atomics': ROOT / 'scripts/tests/c_c11_atomics.c',
     'library.c11-threads': ROOT / 'scripts/tests/c_c11_threads.c',
-    'library.c11-thread-opt-out': ROOT / 'scripts/tests/c_c11_no_threads.c',
 }
 CASES = {
     'limits.combined': (RUN_STAGES, ('O0', 'O2')),
@@ -56,6 +56,7 @@ CASES = {
     'literal.code-units': (RUN_STAGES, ('O0', 'O2')),
     'line.diagnostic-location': (('preprocess',), ('default',)),
     'error.message': (('preprocess',), ('default',)),
+    'environment.thread-predefine': (('preprocess',), ('default',)),
     **{case: (RUN_STAGES, ('O0', 'O2')) for case in C11_LIBRARY_SOURCES},
 }
 INTEGER_LIMITS = ROOT / 'scripts/tests/c_integer_limits.c'
@@ -141,7 +142,7 @@ def evidence_key(row, profiles):
     if not names or names != stages[:len(names)] or row['status'] not in {'passed', 'failed'}:
         raise ValueError(f'invalid stage history or outcome: {key}')
     if row['status'] == 'passed':
-        want = ('success', 0) if stages == RUN_STAGES else ('rejection', 1)
+        want = ('rejection', 1) if case in {'line.diagnostic-location', 'error.message'} else ('success', 0)
         outcomes = [(stage['classification'], stage['returncode']) for stage in row['stages']]
         if names != stages or outcomes != [want] * len(stages):
             raise ValueError(f'passing result lacks stage evidence: {key}')
@@ -279,10 +280,6 @@ def c11_library_sources(profile):
     wasm = target.startswith('wasm32-')
     linux = target.endswith('-linux-gnu')
     for case, source in C11_LIBRARY_SOURCES.items():
-        if case == 'library.c11-thread-opt-out':
-            if wasm:
-                yield case, source, (), ()
-            continue
         if profile['environment'] != 'hosted':
             continue
         if case == 'library.c11-threads':
@@ -301,9 +298,15 @@ def probe_target(output, profile, compiler, setup, link, runner, bare_sdk=()):
     if runner and (executable := which(runner[0])):
         runner = [str(Path(executable).absolute()), *runner[1:]]
     numeric = numeric_sources(profile, bare_sdk)
+    expect_no_threads = int(profile['target'].endswith('-apple-darwin'))
     for edition in PILOT_EDITIONS:
         flags = [compiler, '--target=' + profile['target'], *setup, '-x', 'c', f'-std=c{edition}', '-pedantic-errors']
         work = output / profile['id'] / f'c{edition}'
+        stages, _ = run_stages(work / 'thread-predefine', [
+            ('preprocess', [*flags, f'-DEXPECT_NO_THREADS={expect_no_threads}', '-E', str(THREAD_PREDEFINE), '-o', '/dev/null']),
+        ])
+        yield receipt('environment.thread-predefine', profile, edition, 'default',
+                      stages[0]['classification'] == 'success', stages)
         sources = [
             ('limits.combined', output / 'inputs/combined.c', (), ()),
             ('include.physical', INCLUDE_SOURCE, (), ()),
@@ -375,7 +378,7 @@ def probes(args, profiles, rules):
         runner = [args.wasmtime, 'run', '--invoke', 'main']
         results.extend(probe_target(output, bare, compiler, ['-ffreestanding', '-nostdinc'], link, runner, bare_sdk))
     revision = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
-    inputs = sorted([*work.glob('*.h'), limits, ERROR_SOURCE, INCLUDE_SOURCE, STRING_SOURCE, INCLUDE_QUERY,
+    inputs = sorted([*work.glob('*.h'), limits, ERROR_SOURCE, INCLUDE_SOURCE, STRING_SOURCE, INCLUDE_QUERY, THREAD_PREDEFINE,
                      INTEGER_LIMITS, FLOAT_LIMITS, DEFAULT_ROUNDING, ROUNDING_QUERY,
                      FENV_BINARY, FENV_CONVERT, FENV_COMPARE, FENV_QUAD, FP_CONTRACT,
                      COMPLEX_RANGE, COMPLEX_FENV, FENV_ZERO_DIVISION, HOSTED_MATH,

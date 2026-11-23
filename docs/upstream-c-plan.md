@@ -85,11 +85,10 @@ Start the next batches from the existing receipts.
    conversions, quick exit, exclusive file creation, and atomics where
    the SDK provides them. The same fixtures passed locally with musl.
    Expand the mandatory library checks for each SDK. Qualify capability
-   macros against their operations and runtime helpers. The Linux C11
-   threading probes exercise the selected runtime while cppgm still
-   advertises the C11 thread opt-out. Tie thread feature advertisement to
-   the configured implementation and retain the opt-out on single-threaded
-   Wasm profiles.
+   macros against their operations and runtime helpers. The C11 threading
+   probes exercise the selected Linux runtimes. The predefine follows the
+   GCC and Clang convention for each target, while single-threaded WASI
+   retains its runtime limitations.
    The integer and floating limit probes exercise the selected headers,
    ABI formats, and rounding query. Extend the remaining numeric and
    floating-environment checks.
