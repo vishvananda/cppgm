@@ -1100,14 +1100,46 @@ structure. The Wasm reference uses its single-field convention for the
 union with either width.
 [GCC record and union classification](https://github.com/gcc-mirror/gcc/blob/releases/gcc-14.3.0/gcc/config/aarch64/aarch64.cc#L20309-L20369)
 
-GNU `aligned` on a bit-field remains a separate declaration and layout
-case. GCC 15 and Clang 22 accept `unsigned field : 2 __attribute__((aligned(8)))`.
-In the x86-64 probe, the record has one byte before the field and one
-after it. The following byte has offset 9, with record size 16 and
-alignment 8. cppgm diagnoses the trailing attribute as a syntax error.
-On an unnamed zero-width field, both references accept `aligned` before
-or after the width. On x86-64 the following byte moves to offset 8, with
-record alignment 1. cppgm currently rejects both forms.
+### GNU alignment and packed bit-field storage
+
+The parser retains GNU `aligned` on the existing declarator, including
+after the width. An attributed unnamed field uses an abstract declarator.
+Analysis resolves the attribute once and records the member's alignment
+and packing for layout. The PA38 tests include the standard `_Alignas`
+diagnostic and reject GNU `aligned` between a field name and its colon.
+The PA30 template fixture supplies the alignment at instantiation.
+
+For a named field with `aligned(8)` between two single-byte members,
+the record has size 16 and alignment 8, and the following byte starts
+at offset 9. An unnamed zero-width field with the same request moves the
+following byte to offset 8. Its record has alignment 8 on Linux AArch64
+and alignment 1 on the other profiles. For a three-bit field whose
+explicit alignment is greater than `#pragma pack`, GCC caps the
+position alignment and Clang discards the explicit request for the
+position. cppgm follows GCC on Linux and Clang on Darwin and Wasm.
+
+Packed union alternatives use a separate bounded bit-field run when
+their payload is narrower than the underlying type. The one-byte and
+three-byte static objects carry symbol sizes 1 and 3. The PA30 fixture
+places the three-byte union immediately before a protected page and
+checks a read and write through the field. The earlier four-byte
+access faults in that probe. This checks the byte bound independently
+of the compiler's choice of narrower operations.
+
+The PA38 runtime fixture passed all 36 combinations of profile,
+GNU99/GNU11/GNU17 and `-O0`/`-O2`. GCC 15 on Linux x86-64, GCC 14 on
+Linux AArch64 and Clang 22 on the remaining profiles passed the same
+matrix. Linux AArch64 ran under QEMU, both Wasm profiles under Wasmtime,
+and both Darwin profiles through SDK-free Mach-O replay.
+[PA38 runtime fixture](../pa38/tests/general/500-c-gnu-aligned-bit-fields.t) ·
+[PA30 guard-page fixture](../pa30/tests/run/800-gnu-aligned-bit-field-run.t.1) ·
+[Compile-work measurements](../docs/performance/c-frontend-scaling.md#gnu-aligned-and-packed-bit-fields)
+
+Comma-separated declarations that combine ordinary fields and bit-fields
+remain open. GCC 15 and Clang 22 accept either order in C17, including a
+list whose declaration introduces an enum type. Both orders currently
+fail in cppgm. A C++11 list with a bit-field and a member function also
+fails in cppgm and passes with G++ and Clang.
 
 ## Composite types, tentative definitions, and linkage
 

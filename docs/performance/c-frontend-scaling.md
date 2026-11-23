@@ -2783,3 +2783,29 @@ objects. The corrected layout and calling convention change those objects.
 The added work grows in proportion to the number of record pairs. A/A
 task-clock spreads of 4% to 71% across these inputs leave wall time
 unresolved.
+
+## GNU aligned and packed bit-fields
+
+Compared `76e6a8db6` with `0be24eb65` using immutable GCC 15 builds on
+CPU 71. Both frozen inputs produced byte-identical objects in all A/A,
+ABBA, and BAAB observations. Ordinary bit-field declarations keep the
+same AST representation. An unnamed field with retained attributes
+uses the existing abstract declarator node.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.00240% | −0.00273% | +0.00068% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.00507% | +0.00007% | −0.00283% |
+
+The synthetic GNU17 probe compiles for Linux AArch64 at `-O0`. Each group
+declares an aligned bit-field structure, a packed union with a three-byte
+payload, and a function that reads the structure and updates the union.
+The four observations per size produced reproducible objects and indicate
+linear work in the number of declarations.
+
+| Groups | Retired instructions | Peak RSS (KiB) |
+| ---: | ---: | ---: |
+| 128 | 31,691,406 | 11,446 |
+| 256 | 60,071,176 | 12,357 |
+| 512 | 117,166,207 | 16,377 |
+| 1,024 | 230,437,224 | 24,850 |

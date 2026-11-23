@@ -201,9 +201,12 @@ The first fixture set covers these parts of the C17 input profile:
   operand uses the type's alignment without evaluating VLA bounds.
   GNU `aligned` can accompany a bit-field in its declaration specifiers
   or after its width. A named field's request affects its position and
-  record alignment. On an unnamed zero-width field, it increases the
+  record alignment. On an unnamed zero-width field, it can increase the
   alignment of the following field and contributes to the record
   alignment on Linux AArch64.
+  For a nonzero-width field whose explicit alignment exceeds
+  `#pragma pack`, Linux caps the position alignment at the pack limit.
+  Darwin and Wasm use ordinary packed placement for that field.
 - In pedantic modes, check an explicit definition against every declaration
   of the same linked object in the translation unit. If a declaration's
   strongest standard alignment request exceeds the type's alignment, the
