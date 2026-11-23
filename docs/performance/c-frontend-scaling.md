@@ -602,3 +602,48 @@ immutable binaries ran on the same core. A/A task-clock variation was
 | SQLite | BAAB | 16,514,740,647 / 16,515,687,212 / 16,515,754,004 / 16,514,609,851 |
 
 [Input generation](../../benchmarks/frontend_scaling/README.md#c)
+
+## C for declarations and prototype scopes
+
+Loop initializers check each typed binding when it is declared in the
+loop's scope. A prototype with a possibly introducing tag can create its
+parameter scope on demand. The counts are median millions of retired
+user-space instructions in three C99 syntax-only runs with
+`-pedantic-errors` on Linux x86-64, against `71e913bdd`.
+
+| Declarations | For initializer before | For initializer after | Existing prototype tag before | Existing prototype tag after |
+| ---: | ---: | ---: | ---: | ---: |
+| 128 | 4.958 | 4.961 | 6.285 | 6.303 |
+| 256 | 6.072 | 6.077 | 8.859 | 8.894 |
+| 512 | 8.559 | 8.570 | 14.188 | 14.261 |
+| 1024 | 13.035 | 13.057 | 24.419 | 24.568 |
+| 2048 | 21.862 | 21.906 | 45.407 | 45.644 |
+| 4096 | 39.106 | 39.192 | 88.690 | 89.227 |
+
+At 4096 declarations the costs increased by 0.22% for the loop and 0.61%
+for the prototypes, about 21 and 131 instructions per declaration,
+respectively. The loop's median peak RSS went from 10,012 to 10,072 KiB.
+The prototypes' median peak RSS went from 14,292 to 15,000 KiB in the case
+that mentions a tag in every declaration. Each input emitted
+byte-identical objects with both compilers.
+
+The frozen C++ input at `-O3` and SQLite 3.50.4 in GNU17 mode at `-O2`
+also emitted identical objects in every run with `6a2cfb0de`. The
+immutable binaries ran on the same core. A/A task-clock variation was
+13.7% for C++ and 20.1% for SQLite, so the comparison uses retired instructions.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0029% | +0.0175% | +0.0153% |
+| SQLite `sqlite3.c` | 0.0022% | +0.0017% | +0.0017% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,040,462,273 / 9,040,365,002 / 9,040,358,058 / 9,040,620,287 |
+| C++ | ABBA | 9,040,437,138 / 9,041,906,929 / 9,042,063,730 / 9,040,367,012 |
+| C++ | BAAB | 9,041,800,677 / 9,040,448,356 / 9,040,410,506 / 9,041,825,915 |
+| SQLite | A/A | 16,513,913,783 / 16,514,129,599 / 16,514,270,111 / 16,514,080,366 |
+| SQLite | ABBA | 16,514,272,405 / 16,514,344,417 / 16,514,670,131 / 16,514,198,393 |
+| SQLite | BAAB | 16,514,318,975 / 16,513,983,879 / 16,514,017,921 / 16,514,236,337 |
+
+[Input generation](../../benchmarks/frontend_scaling/README.md#c)

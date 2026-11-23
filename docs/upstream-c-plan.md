@@ -31,12 +31,13 @@ constant-expression batch covers integer constant contexts and static
 arithmetic and address initializers. The C11 alignment and assertion
 cases in the pinned GCC C17 manifest now pass. The declaration batch also
 covers `for` initializer constraints and prototypes that introduce tags.
-Continue with alignment agreement. Expand the C99, C11, and C17 manifests
-from those clauses, and qualify the C11
-optional-feature macros against the target matrix before changing the
-advertised support. Keep the existing VLA, generic selection, and sparse
-initializer tests in the fast iteration loop for changes to their shared
-analysis paths.
+Continue with alignment queries and agreement. Check the operand constraints
+before reducing a type to its element alignment and use existing declaration
+and layout facts for the GNU expression form. Expand the C99, C11, and C17
+manifests from those clauses, and qualify the C11 optional-feature macros
+against the target matrix before changing the advertised support. Keep
+the existing VLA, generic selection, and sparse initializer tests in the
+fast iteration loop for changes to their shared analysis paths.
 
 ## Implementation order
 

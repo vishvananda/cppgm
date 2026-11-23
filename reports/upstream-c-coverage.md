@@ -343,11 +343,32 @@ tag is distinct from a subsequent file-scope tag, that a tag introduced
 in a function definition can be used in its body, and that two prototypes
 which independently introduce a tag have conflicting types.
 
+Both positive programs run on Linux x86-64, AArch64 under QEMU, and Wasm.
+On Linux, LLVM also inspected and linked both programs' objects for Intel
+and Apple Silicon at `-O0` and `-O2`.
+
 [C11 draft, N1570 §6.2.1 and §6.8.5](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [WG14 DR 277](https://www.open-std.org/Jtc1/sc22/wg14/issues/c99/issue0277.html) ·
 [GCC C99 manifest](upstream-gcc-c99.json) ·
 [PA38 loop scope](../pa38/tests/general/500-c-for-declarations.t) ·
 [PA38 prototype tag scope](../pa38/tests/general/500-c-prototype-tag-scope.t)
+
+## Next alignment query cases
+
+GCC 15 and Clang 21 diagnose `_Alignof(int[])` and an expression-form
+alignment query on a bit-field. cppgm currently accepts both. Both
+controls accept the GNU expression form on an incomplete array object.
+For GNU `__alignof__` applied to an object or member, they report the
+requested alignment, including the reduced alignment of a packed member.
+cppgm instead uses the natural alignment in the reduced examples. Preserve
+the valid C11 VLA type query, whose bound is unevaluated.
+
+The controls disagree on a GNU type-form query of an incomplete array and
+on whether dereferencing the address of an over-aligned object propagates
+its declaration alignment. Keep those cases distinct from the C11 operand
+constraint and the common GNU behavior for named objects and members.
+
+[C11 draft, N1570 §6.5.3.4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
 
 ## Cross-target smoke results
 
