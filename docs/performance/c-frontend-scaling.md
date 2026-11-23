@@ -1990,3 +1990,58 @@ ranges are 0.00296% and 0.00302%, respectively.
 | SQLite | A/A | 16,530,729,889 / 16,530,230,534 / 16,530,236,738 / 16,530,311,823 |
 | SQLite | ABBA | 16,530,267,579 / 16,530,252,664 / 16,530,308,454 / 16,530,160,204 |
 | SQLite | BAAB | 16,530,562,236 / 16,530,650,835 / 16,530,456,309 / 16,530,283,120 |
+
+## Static record-expression overlaps
+
+Five records with two nonzero fields and member patches emit 15 LowIR
+lines at every tested omitted-tail width from 128 to 4,194,304 bytes.
+Retired instructions range from 4,068,379 to 4,069,506 and peak RSS from
+7,192 to 7,308 KiB. The compiler retains the fields and padding as
+sparse data until emission.
+
+The independent-field series adds as many zero-valued field ranges as
+it has distinct nonzero record expressions. Each expression initializes
+one field in six records, with a different value for each expression.
+This exercises the cost of finding the surviving data when many
+unrelated fields are active.
+
+| Source records and zero-field ranges | Retired instructions | LowIR lines | Peak RSS (KiB) |
+| ---: | ---: | ---: | ---: |
+| 128 | 11,793,635 | 1,538 | 7,924 |
+| 256 | 19,886,581 | 3,074 | 8,612 |
+| 512 | 35,970,333 | 6,146 | 10,028 |
+| 1024 | 68,499,358 | 12,290 | 12,120 |
+| 2048 | 133,339,466 | 24,578 | 16,220 |
+| 4096 | 268,520,897 | 49,154 | 25,484 |
+
+For the dense series, one original record value supplies a two-integer
+array element and a patch changes one field at index 2. The compiler
+emits the actual array data. The previously failing three-million-record
+case links successfully and a native program checks every value.
+
+| Dense records | Retired instructions for `-c` | ELF object bytes | Peak RSS (KiB) |
+| ---: | ---: | ---: | ---: |
+| 16,384 | 13,260,733 | 131,640 | 10,036 |
+| 65,536 | 40,789,782 | 524,856 | 15,896 |
+| 262,144 | 153,325,290 | 2,097,720 | 39,256 |
+| 1,048,576 | 604,645,443 | 8,389,176 | 130,804 |
+| 3,000,000 | 1,730,747,277 | 24,000,568 | 466,292 |
+
+The initial sparse emitter used 664,008 KiB for the same
+three-million-record case. Transferring the first aggregate's data
+buffer to the program avoids a second copy. The two implementations
+produce byte-identical ELF objects in this probe.
+
+The frozen C++ and SQLite objects match `c13c4356b` in every trial.
+C++ retired instructions change by −0.00011% in ABBA and +0.00213%
+in BAAB. SQLite changes by −0.00238% and −0.00233%. The respective A/A
+ranges are 0.00409% and 0.00191%.
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,057,124,997 / 9,056,850,427 / 9,057,002,860 / 9,057,220,409 |
+| C++ | ABBA | 9,056,973,427 / 9,056,771,436 / 9,057,133,186 / 9,056,951,528 |
+| C++ | BAAB | 9,057,248,404 / 9,056,996,457 / 9,056,965,919 / 9,057,100,488 |
+| SQLite | A/A | 16,529,748,106 / 16,529,960,052 / 16,529,645,053 / 16,529,922,317 |
+| SQLite | ABBA | 16,530,249,097 / 16,530,417,317 / 16,529,630,752 / 16,530,585,086 |
+| SQLite | BAAB | 16,529,467,623 / 16,529,850,259 / 16,530,049,126 / 16,529,661,624 |

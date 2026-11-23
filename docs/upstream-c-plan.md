@@ -326,7 +326,8 @@ finds its own winning spans and clips them against a shared index of the
 earliest and latest whole-record reset within each interval. The index
 skips boundaries whose ordering is uniform. Automatic storage lowers
 each surviving value once and uses a strided loop for the ranges that
-consume it. Static fields with zero data need no endpoint events.
+consume it. When the base has no nonzero data, omit endpoint events
+for zero writes.
 Static record expressions provide sparse, offset-ordered data once
 per source value. Apply member replacements and bit masks to those data
 before repeating the published row. Keep pointer relocations typed and
