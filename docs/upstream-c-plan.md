@@ -55,10 +55,10 @@ shared changes in the earliest owning assignment. This establishes edition
 boundaries before enabling the legacy or C23 versions of the same rules.
 
 Finish the known GNU C compatibility cases and native macOS qualification
-alongside that inventory. Keep the GNU replay separate from the ISO
-release gate. The next hosted batch starts with the C99 header probes and
-musl receipt, then adds the mandatory C11 and C17 library interfaces for
-each SDK.
+alongside that inventory. Use published requirements for the ISO release
+gate and the GNU replay to qualify extension behavior. The next hosted
+batch starts with the C99 header probes and musl receipt, then adds the
+mandatory C11 and C17 library interfaces for each SDK.
 [Pinned suite receipts](../reports/upstream-c-coverage.md#pinned-suite-receipts) ·
 [Initial hosted replays](../reports/upstream-c-coverage.md#initial-hosted-replays)
 
@@ -297,6 +297,13 @@ positional continuation, complete and inferred bounds, and static and
 automatic storage. Vary the number of written entries, range width, and
 overlap independently. Account for required data emission separately from
 semantic work.
+For scalar writes in one array, use an interval index or an endpoint
+sweep with work proportional to written endpoints and surviving spans.
+Add a case with independent fields and repeated covering writes to expose
+quadratic scans of fragmented ranges. At automatic-storage lowering, reuse
+each surviving value across the ranges that consume it. Use a loop or an
+existing bulk operation when repeated stores would make LowIR grow with
+the represented extent.
 [GCC range designators](https://gcc.gnu.org/onlinedocs/gcc/Designated-Inits.html)
 
 For constant expressions, distinguish eligibility for the required C
