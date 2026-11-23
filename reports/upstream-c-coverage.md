@@ -281,6 +281,13 @@ block-scope declarations. At each doubling, retired instructions grew
 by less than 1.9 times, both for repeated declarations of one function
 and for distinct names.
 
+After the scope, preprocessing and inline-linkage changes, the frozen C++
+and SQLite objects remained byte-identical. Retired instructions changed
+by less than 0.016%. On synthetic files with 128 to 1,024 consecutive
+control statements, C90 instruction counts fell by 0.93% to 1.30%.
+The same inputs in C99 used at most 0.044% more instructions. Both editions
+produced byte-identical objects in the A/A, ABBA and BAAB blocks.
+
 [GCC C90 manifest](upstream-gcc-c90.json) ·
 [GCC C95 manifest](upstream-gcc-c95.json) ·
 [Clang C90 manifest](upstream-clang-c90.json) ·
