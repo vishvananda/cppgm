@@ -569,6 +569,9 @@ GCC's C atomic header exercises the unsigned character type predefines.
 An additional 16-byte aggregate control exercises load, exchange, and
 both compare-exchange outcomes with the GNU `libatomic` ABI. It passes
 at `-O0` and `-O2` on native x86-64 Linux and on AArch64 Linux under QEMU.
+A multi-threaded C11 control with relaxed compare-exchange increments
+and release/acquire publication also passes on both Linux targets and
+at both levels.
 Native Darwin execution, atomic lock-free macros and queries, wider
 atomics on other runtimes, and full optional-feature qualification
 remain open.
