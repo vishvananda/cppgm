@@ -1055,9 +1055,13 @@ stack and returns through a hidden pointer. Direct mixed GCC and Clang
 executables failed in both directions at `-O0` and `-O2`, as did mixed
 cppgm and Clang executables. On Linux AArch64, mixed cppgm and Clang
 executables passed in both directions. On Darwin Arm64, the emitted
-Mach-O objects agree on the register convention for this probe. Darwin
-x86-64 still needs the Clang memory convention and mixed-object runtime
-qualification.
+Mach-O objects agree on the register convention for this probe.
+Intel Darwin now uses the retained flexible-record fact to select Clang's
+memory convention. The PA38 mixed-object test passes a flexible record to
+the host and calls back with a union containing the record. Cross-linked
+x86-64 Mach-O code ran at `-O0` and `-O2` in a freestanding image mapped
+on Linux. The Intel macOS job also selects this fixture for native execution.
+[PA38 mixed-object test](../pa38/tests/abi/300-flexible-array-boundary.t) ·
 [GCC x86 classification](https://github.com/gcc-mirror/gcc/blob/releases/gcc-15.1.0/gcc/config/i386/i386.cc#L2119-L2137) ·
 [Clang x86 classification](https://github.com/llvm/llvm-project/blob/llvmorg-21.1.8/clang/lib/CodeGen/Targets/X86.cpp#L1885-L1889)
 

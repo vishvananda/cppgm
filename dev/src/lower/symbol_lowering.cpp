@@ -3009,6 +3009,12 @@ void ProgramLowering::classify_eightbytes(const sema::Type* type, uint64_t offse
 	case sema::TypeKind::Class:
 	{
 		const sema::ClassEntity* entity = static_cast<const sema::ClassEntity*>(type->entity);
+		// Intel Darwin follows Clang's memory ABI for C flexible array records.
+		if (entity->c_contains_flexible_array && program_.target == target_model::Target::MacOS)
+		{
+			classes[0] = AC_MEMORY;
+			return;
+		}
 		for (const sema::BaseClass* base = entity->bases; base != nullptr; base = base->next)
 		{
 			if (base->is_virtual)

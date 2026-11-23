@@ -251,6 +251,8 @@ jobs:
         run: tar -xzf "$RUNNER_TEMP/cppgm-build-artifact/cppgm-build.tar.gz"
       - name: Check C LowIR and behavior
         run: make -C pa38 test CPPGM_SKIP_DEV_REBUILD=1
+      - name: Check C interoperability with GCC objects
+        run: make -C pa38 test-native-abi CPPGM_HOST_CC=gcc CPPGM_SKIP_DEV_REBUILD=1
       - name: Check the same C fixtures on Wasm
         run: make -C pa38 test-wasm CPPGM_SKIP_DEV_REBUILD=1
       - name: Record C clause evidence on Linux, WASI, and bare Wasm

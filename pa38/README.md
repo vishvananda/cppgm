@@ -508,12 +508,17 @@ reference outputs. A `.c-standard` sidecar selects `c99`, `gnu99`, `c11`, `gnu11
 individual fixture; controls use the same convention. Rejected inputs have the usual failure-status reference.
 An adjacent `.t.1` adds another translation unit, as in the earlier source
 assignments. `tests/controls/*.t` state an expected program result and run the
-generated LowIR through the supplied native backend. There is no second C
-compiler or compiler-to-compiler comparison in this assignment's test lane.
+generated LowIR through the supplied native backend.
 
 `make test-wasm` runs the same source inputs through PA37's Wasm checker and
 their `.wasm-expect` result sidecars. It requires the pinned Wasm tools and SDK.
 `make test-native-driver` runs selected variable-length array programs
 at `-O0` and `-O2` using the executable, object and LowIR paths on the host.
+`make test-native-abi` runs `tests/abi/` using the mixed-object runner from
+PA27. Use GCC as `CPPGM_HOST_CC` on x86-64 Linux and Clang on Darwin.
+Pass and return a flexible array record's fixed part by the target ABI,
+including when a union contains the record. Intel Darwin follows Clang's
+memory convention for these records. Linux x86-64 follows GCC's
+classification of the fixed members.
 From the repository root, `make test-pa38` selects this assignment explicitly;
 `make test-c` and `make test-c-wasm` are convenience aliases.
