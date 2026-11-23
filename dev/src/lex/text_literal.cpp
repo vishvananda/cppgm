@@ -122,9 +122,8 @@ bool DecodeEscapeSequence(const char* text, uint32_t end, uint32_t& pos, Literal
 	}
 	if (introducer == 'u' || introducer == 'U')
 	{
-		// Phase 3 decodes other universal-character-names into the
-		// spelling; the ones left spelled designate basic or control
-		// characters.
+		// C strings can retain any universal-character name. Decode
+		// its value when the token becomes a literal.
 		return DecodeHexQuads(text, end, pos, introducer == 'u' ? 4 : 8, c.value) &&
 			IsUniversalCharacterValue(static_cast<uint32_t>(c.value));
 	}

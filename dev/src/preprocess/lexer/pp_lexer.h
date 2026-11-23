@@ -177,7 +177,7 @@ private:
 	const PPToken& lex_quoted_literal(PPTokenKind plain, PPTokenKind user_defined);
 	const PPToken& lex_raw_string_literal();
 	const PPToken& finish_literal(PPTokenKind plain, PPTokenKind user_defined);
-	void lex_escape_sequence();
+	void lex_escape_sequence(bool c_string);
 	void lex_literal_universal_character_name(const SourceChar& backslash);
 	bool try_lex_header_name();
 

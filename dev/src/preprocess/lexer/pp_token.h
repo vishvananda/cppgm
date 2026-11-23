@@ -93,8 +93,9 @@ struct Identifier;
 // locations (a file inclusion's base plus the offset) in the preprocessor,
 // where a token produced by macro replacement carries the location of the
 // invocation that produced it. The spelling is the token's UTF-8 text after
-// translation phases 1-3 (trigraphs replaced, splices removed,
-// universal-character-names decoded); it is empty for whitespace-sequence,
+// translation phases 1-3. Universal-character names in identifiers are
+// decoded. C strings and header names retain their backslashes. The
+// spelling is empty for whitespace-sequence,
 // new-line and end-of-file. The lexer's spelling is borrowed: it points into
 // the source buffer when the token needed no translation and into lexer
 // scratch storage otherwise, and is valid until the next token. The

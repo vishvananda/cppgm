@@ -1368,6 +1368,7 @@ void MacroExpander::replace_has_include(bool next)
 		throw PreprocessError(operator_token.begin, "expected `(` after __has_include");
 	read(token);
 	const bool expand = token.kind != PPTokenKind::StringLiteral && !IsPunctuatorToken(token, TokenKind::OP_LT);
+	const bool c_source = identifiers_.language() == SourceLanguage::C;
 	if (expand)
 		token = expand_include_token(token);
 	std::string name;
@@ -1390,10 +1391,13 @@ void MacroExpander::replace_has_include(bool next)
 				break;
 			if (token.kind == PPTokenKind::EndOfFile || token.kind == PPTokenKind::NewLine)
 				throw PreprocessError(operator_token.begin, "missing `>` in __has_include");
-			if (!first && (token.flags & kLeadingSpace) != 0)
+			if ((c_source || !first) && (token.flags & kLeadingSpace) != 0)
 				name.push_back(' ');
 			name.append(token.spelling, token.length);
 		}
+		// Only computed angle names in C drop whitespace before `>`.
+		if (c_source && !expand && (token.flags & kLeadingSpace) != 0)
+			name.push_back(' ');
 	}
 	else
 	{

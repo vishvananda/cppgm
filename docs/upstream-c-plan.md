@@ -50,12 +50,15 @@ Start the next batches from the existing receipts.
    and preprocessing-number evidence. Include header names and phase
    ordering at include boundaries. Use the existing receipts for physical
    C include lookup after `#line`, trailing macro expansion, and unexpanded
-   `#error` messages. Finish computed header names, starting with literal
-   backslashes in the quoted spelling, and document the angle name
-   whitespace policy. Cover pragma effects and their location and
-   edition rules, then declarators, initializers, conversions, constant
-   expressions, and linkage. Pair edition boundaries with native reference
-   runs and earliest-assignment regressions.
+   `#error` messages. The computed-header cases cover literal backslashes
+   and document the C angle whitespace policy. Qualify the direct
+   `__has_include` header token rules. Reuse the decoded code units in
+   semantic analysis and lowering to close the measured escape-heavy
+   string regression. Cover pragmas and their location and edition rules,
+   then declarators, initializers, conversions, constant expressions, and
+   linkage. Pair edition boundaries with native reference runs and
+   earliest-assignment regressions.
+   [Literal measurements](performance/c-frontend-scaling.md#escape-heavy-c-literals)
 2. Run the existing translation-limit, mixed-object, and header probes on
    native Intel macOS and Apple Silicon. Expand the C99 header and musl
    replays to the mandatory C11 and C17 interfaces for each applicable SDK.
@@ -163,9 +166,15 @@ edition and target receipt. Keep uncovered mandatory rules visible even
 when all checked cases pass. Use the same structure for C90, C95, and C23
 and add the C fixtures and maintainer corpus without duplicating the rules.
 
-Use the combined translation-limits program and a few directive rules to
-pilot the join. A single execution can supply evidence for multiple limit
-rows when the program exercises each minimum observably. The `#line` record
+The Linux x86-64 and WASI CI job now pilots the join with the combined
+translation-limits program and directive rules. Extend the inventory and
+reuse the evidence format in the remaining target lanes. A single execution
+can supply evidence for multiple limit rows when the program exercises each
+minimum observably.
+[Versioned inventory](../reports/c-conformance.json) ·
+[Evidence runner](../scripts/c_conformance.py)
+
+The `#line` record
 should distinguish the required presumed location from the documented C
 include search, with separate outcomes for each. Record the stage that
 can establish a result. A successful preprocess can qualify token and

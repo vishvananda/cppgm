@@ -95,7 +95,12 @@ following line. For a quoted C include, start with the directory of
 the file as opened, including when `#line` changes `__FILE__`. Then
 search the configured include directories. An angle include uses the
 configured angle search path. Apply this rule after macro substitution
-when the directive uses a macro to provide the name.
+when the directive uses a macro to provide the name. Keep backslashes
+in the written header name, including in a quoted name supplied by a
+macro. Check escape sequences when a string token is used as a literal.
+For an angle name assembled from macro tokens, collapse each stretch
+of separating whitespace to one space. Keep a space after `<` and
+drop one before `>`. Use the same computed names in `__has_include`.
 
 ISO C99, C11, and C17 enable trigraphs. GNU modes leave the three
 characters as written unless `-trigraphs` is supplied. A backslash

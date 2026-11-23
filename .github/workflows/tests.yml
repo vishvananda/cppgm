@@ -251,35 +251,33 @@ jobs:
         run: tar -xzf "$RUNNER_TEMP/cppgm-build-artifact/cppgm-build.tar.gz"
       - name: Check C LowIR and behavior
         run: make -C pa38 test CPPGM_SKIP_DEV_REBUILD=1
-      - name: Check C preprocessing diagnostic tokens
-        run: |
-          status=0
-          dev/cppgm -x c -std=c99 -E pa4/tests/directives/150-error-message.t \
-            -o /dev/null 2>"$RUNNER_TEMP/c-error.log" || status=$?
-          cat "$RUNNER_TEMP/c-error.log"
-          test "$status" -eq 1
-          grep -F 'generated-error.cpp:40:2: #error DETAIL: physical message "payload"' "$RUNNER_TEMP/c-error.log"
       - name: Check the same C fixtures on Wasm
         run: make -C pa38 test-wasm CPPGM_SKIP_DEV_REBUILD=1
-      - name: Check combined C translation limits on Linux and WASI
+      - name: Record C clause evidence on Linux and WASI
         run: |
           set -euo pipefail
-          work="$RUNNER_TEMP/c-translation-limits"
-          mkdir -p "$work"
-          python3 scripts/generate_c_translation_limits.py "$work" > "$work/combined.c"
-          sysroot="$RUNNER_TEMP/wasm-tools/wasi-sdk/share/wasi-sysroot"
+          work="$RUNNER_TEMP/c-conformance"
           resource="$(wasm-ref-clang++ -print-resource-dir)"
-          for std in c99 c11 c17; do
-            for opt in -O0 -O2; do
-              printf 'Checking %s %s\n' "$std" "$opt"
-              dev/cppgm -std="$std" -pedantic-errors "$opt" -c "$work/combined.c" -o "$work/combined.o"
-              cc "$work/combined.o" -o "$work/combined"
-              "$work/combined"
-              dev/cppgm --target=wasm32-wasip1 --sysroot="$sysroot" -resource-dir="$resource" \
-                -std="$std" -pedantic-errors "$opt" "$work/combined.c" -o "$work/combined.wasm"
-              wasmtime run "$work/combined.wasm"
-            done
-          done
+          status=0
+          python3 scripts/c_conformance.py probe --output "$work" \
+            --wasi-sysroot "$RUNNER_TEMP/wasm-tools/wasi-sdk/share/wasi-sysroot" \
+            --wasi-resource-dir "$resource" || status=$?
+          if [ -f "$work/receipts.json" ]; then
+            python3 scripts/c_conformance.py report "$work/receipts.json" --output "$work/matrix.json" \
+              | tee -a "$GITHUB_STEP_SUMMARY" || status=$?
+          fi
+          exit "$status"
+      - name: Store C clause evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: c-conformance-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/c-conformance/*.json
+            ${{ runner.temp }}/c-conformance/inputs/
+            ${{ runner.temp }}/c-conformance/**/*.stdout
+            ${{ runner.temp }}/c-conformance/**/*.stderr
+          retention-days: 14
       - name: Link and run typed LowIR library objects across Wasm profiles
         run: |
           python3 scripts/tests/test_lowir_library_targets.py \

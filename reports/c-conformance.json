@@ -1,0 +1,458 @@
+{
+  "schema": 1,
+  "profiles": [
+    {
+      "id": "linux-x86_64-hosted",
+      "target": "x86_64-linux-gnu",
+      "environment": "hosted"
+    },
+    {
+      "id": "linux-aarch64-hosted",
+      "target": "aarch64-linux-gnu",
+      "environment": "hosted"
+    },
+    {
+      "id": "darwin-x86_64-hosted",
+      "target": "x86_64-apple-darwin",
+      "environment": "hosted"
+    },
+    {
+      "id": "darwin-arm64-hosted",
+      "target": "arm64-apple-darwin",
+      "environment": "hosted"
+    },
+    {
+      "id": "wasi-hosted",
+      "target": "wasm32-wasip1",
+      "environment": "hosted"
+    },
+    {
+      "id": "wasm-freestanding",
+      "target": "wasm32-unknown-unknown",
+      "environment": "freestanding"
+    }
+  ],
+  "rules": [
+    {
+      "id": "limits.block-depth",
+      "clause": "5.2.4.1p1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Execute with at least 127 nested blocks.",
+      "cases": [
+        "limits.combined"
+      ]
+    },
+    {
+      "id": "limits.conditional-depth",
+      "clause": "5.2.4.1p1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Translate at least 63 nested preprocessing conditionals.",
+      "cases": [
+        "limits.combined"
+      ]
+    },
+    {
+      "id": "limits.derived-declarators",
+      "clause": "5.2.4.1p1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Accept a declaration with 12 type modifiers made up of pointers, arrays, and functions.",
+      "cases": [
+        "limits.combined"
+      ]
+    },
+    {
+      "id": "limits.declarator-parentheses",
+      "clause": "5.2.4.1p1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Accept a declarator nested in 63 pairs of parentheses.",
+      "cases": [
+        "limits.combined"
+      ]
+    },
+    {
+      "id": "limits.expression-parentheses",
+      "clause": "5.2.4.1p1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Accept an expression nested in 63 pairs of parentheses.",
+      "cases": [
+        "limits.combined"
+      ]
+    },
+    {
+      "id": "limits.internal-name-significance",
+      "clause": "5.2.4.1p1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Distinguish internal identifiers and macro names that differ at character 63.",
+      "cases": [
+        "limits.combined"
+      ]
+    },
+    {
+      "id": "limits.external-name-significance",
+      "clause": "5.2.4.1p1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Distinguish external identifiers that differ at character 31.",
+      "cases": [
+        "limits.combined"
+      ]
+    },
+    {
+      "id": "limits.external-identifiers",
+      "clause": "5.2.4.1p1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Translate a unit with at least 4,095 external identifiers.",
+      "cases": [
+        "limits.combined"
+      ]
+    },
+    {
+      "id": "limits.block-identifiers",
+      "clause": "5.2.4.1p1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Declare and use identifiers in a block containing at least 511 block-scope names.",
+      "cases": [
+        "limits.combined"
+      ]
+    },
+    {
+      "id": "limits.macro-identifiers",
+      "clause": "5.2.4.1p1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Define at least 4,095 macros at the same time in one preprocessing unit.",
+      "cases": [
+        "limits.combined"
+      ]
+    },
+    {
+      "id": "limits.function-parameters",
+      "clause": "5.2.4.1p1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Accept a definition with at least 127 function parameters.",
+      "cases": [
+        "limits.combined"
+      ]
+    },
+    {
+      "id": "limits.function-arguments",
+      "clause": "5.2.4.1p1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Pass at least 127 arguments in one call.",
+      "cases": [
+        "limits.combined"
+      ]
+    },
+    {
+      "id": "limits.macro-parameters",
+      "clause": "5.2.4.1p1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Declare at least 127 parameters to one macro.",
+      "cases": [
+        "limits.combined"
+      ]
+    },
+    {
+      "id": "limits.macro-arguments",
+      "clause": "5.2.4.1p1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Substitute at least 127 arguments in one macro invocation.",
+      "cases": [
+        "limits.combined"
+      ]
+    },
+    {
+      "id": "limits.logical-line",
+      "clause": "5.2.4.1p1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Translate a logical source line containing 4,095 characters.",
+      "cases": [
+        "limits.combined"
+      ]
+    },
+    {
+      "id": "limits.string-literal",
+      "clause": "5.2.4.1p1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Construct a concatenated string literal of at least 4,095 characters.",
+      "cases": [
+        "limits.combined"
+      ]
+    },
+    {
+      "id": "limits.object-size",
+      "clause": "5.2.4.1p1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "hosted",
+      "requirement": "Store and read an object occupying at least 65,535 bytes.",
+      "cases": [
+        "limits.combined"
+      ]
+    },
+    {
+      "id": "limits.include-depth",
+      "clause": "5.2.4.1p1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Reach a header through 15 nested inclusions.",
+      "cases": [
+        "limits.combined"
+      ]
+    },
+    {
+      "id": "limits.switch-cases",
+      "clause": "5.2.4.1p1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Execute a switch with at least 1,023 case labels.",
+      "cases": [
+        "limits.combined"
+      ]
+    },
+    {
+      "id": "limits.record-members",
+      "clause": "5.2.4.1p1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Access members of one record containing at least 1,023 members.",
+      "cases": [
+        "limits.combined"
+      ]
+    },
+    {
+      "id": "limits.enum-constants",
+      "clause": "5.2.4.1p1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Evaluate a constant from an enumeration with at least 1,023 entries.",
+      "cases": [
+        "limits.combined"
+      ]
+    },
+    {
+      "id": "limits.nested-records",
+      "clause": "5.2.4.1p1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Access a member through 63 levels of nested record definitions.",
+      "cases": [
+        "limits.combined"
+      ]
+    },
+    {
+      "id": "line.diagnostic-location",
+      "clause": "6.10.4",
+      "kind": "implementation-defined",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Use the presumed filename and line in a following diagnostic.",
+      "cases": [
+        "line.diagnostic-location"
+      ]
+    },
+    {
+      "id": "include.physical",
+      "clause": "6.10.2",
+      "kind": "implementation-defined",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Resolve quoted headers from the directory of the current physical includer.",
+      "cases": [
+        "include.physical"
+      ]
+    },
+    {
+      "id": "error.message",
+      "clause": "6.10.5",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Include the directive message tokens when diagnosing an active #error.",
+      "cases": [
+        "error.message"
+      ]
+    },
+    {
+      "id": "limits.numeric-macros",
+      "clause": "5.2.4.2",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Qualify the minimum ranges and numeric limits macros on the selected target.",
+      "cases": []
+    },
+    {
+      "id": "c90.version",
+      "clause": "C90 6.8.8",
+      "kind": "implementation-defined",
+      "editions": [
+        90
+      ],
+      "environment": "all",
+      "requirement": "Leave __STDC_VERSION__ undefined in the unamended C90 profile.",
+      "cases": []
+    },
+    {
+      "id": "c95.version",
+      "clause": "6.8.8 (Amd.1)",
+      "kind": "required",
+      "editions": [
+        95
+      ],
+      "environment": "all",
+      "requirement": "Define __STDC_VERSION__ as 199409L in the C95 profile.",
+      "cases": []
+    },
+    {
+      "id": "c23.version",
+      "clause": "6.10.10.2",
+      "kind": "required",
+      "editions": [
+        23
+      ],
+      "environment": "all",
+      "requirement": "Define __STDC_VERSION__ as 202311L in the C23 profile.",
+      "cases": []
+    }
+  ]
+}

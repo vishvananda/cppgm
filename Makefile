@@ -375,6 +375,7 @@ HARNESS_TESTS = \
 	scripts/tests/test_upstream_dg.py \
 	scripts/tests/test_upstream_dg_campaign.py \
 	scripts/tests/test_upstream_language_outcomes.py \
+	scripts/tests/test_c_conformance.py \
 	scripts/tests/test_upstream_clang_lit_metadata.py \
 	scripts/tests/test_upstream_clang_language.py \
 	scripts/tests/test_cxx11_ci_suite.py \

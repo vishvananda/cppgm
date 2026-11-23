@@ -2329,3 +2329,61 @@ byte for byte in every trial.
 | SQLite | A/A | 16,530,929,504 / 16,531,041,790 / 16,531,113,654 / 16,530,796,807 |
 | SQLite | ABBA | 16,530,941,825 / 16,531,186,782 / 16,531,136,242 / 16,531,230,525 |
 | SQLite | BAAB | 16,531,275,055 / 16,531,051,142 / 16,531,280,864 / 16,531,428,066 |
+
+## Computed header names
+
+C computed quoted includes use the body of the existing preprocessing token.
+The preprocessor skips literal conversion and keeps the name bytes in the
+token. The lexer allocates no second spelling for a clean C string and takes a
+contiguous universal character name as one byte span. When a string is used
+as a literal, the existing conversion checks and decodes its escapes.
+
+Each input expands one object-like macro at N includes of a header guarded by
+`#pragma once`. Both compilers preprocess identical inputs for the ordinary
+name. The literal-backslash input uses an equivalent header and the current
+compiler. All resulting token streams match after removing the input path.
+These are medians of pinned-CPU runs in retired user-space instructions.
+
+| N | Ordinary, previous | Ordinary, current | Literal backslash, current |
+| ---: | ---: | ---: | ---: |
+| 1,024 | 7,592,237 | 6,840,655 | 6,921,129 |
+| 2,048 | 11,423,470 | 9,920,270 | 10,080,616 |
+| 4,096 | 19,086,275 | 16,079,872 | 16,399,930 |
+| 8,192 | 34,416,493 | 28,403,598 | 29,043,174 |
+
+At 8,192 includes, the ordinary name uses 17.5% fewer instructions. The
+incremental counts roughly double with the directive count. Compared with
+`e84048537`, the frozen C++ compile changes by +0.00212% and +0.00017% in
+paired blocks. SQLite changes by +0.00115% and −0.00006%. Every paired object
+matches byte for byte.
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,057,700,945 / 9,058,119,398 / 9,057,727,417 / 9,057,751,075 |
+| C++ | ABBA | 9,058,007,815 / 9,058,197,405 / 9,057,957,254 / 9,057,762,107 |
+| C++ | BAAB | 9,057,931,084 / 9,057,875,151 / 9,057,858,689 / 9,057,833,848 |
+| SQLite | A/A | 16,530,160,762 / 16,530,588,989 / 16,530,374,504 / 16,530,454,599 |
+| SQLite | ABBA | 16,530,489,705 / 16,530,735,118 / 16,530,637,364 / 16,530,501,742 |
+| SQLite | BAAB | 16,530,422,742 / 16,530,431,600 / 16,530,541,303 / 16,530,529,454 |
+
+### Escape-heavy C literals
+
+A 384 KiB string body contains 32,768 repetitions of two universal
+character escapes. The preprocessor view preserves the written escapes.
+The decoded code units and emitted object match the parent compiler.
+The plain ASCII control changes by 0.001%, and the octal escape control
+changes by 2.0%. The table separates the work at each stopping point.
+
+| Action on the universal-escape input | Before | After |
+| --- | ---: | ---: |
+| Preprocess and print tokens | 37,239,417 | 46,553,580 |
+| Syntax and semantic analysis | 52,517,962 | 78,936,514 |
+| Compile at `-O0` | 103,787,930 | 138,762,810 |
+
+The work grows linearly, with 34% more instructions for full compilation
+on this input. The retained backslashes expose repeated scans in
+`TextLiteralPieceEnd` and `DecodeLiteralCharacter`, including in semantic
+analysis and static initialization. Retain the code units from token
+conversion on the string literal and pass them to those consumers.
+Measure each stopping point and the plain-string control to verify the
+change without growing unrelated syntax nodes.

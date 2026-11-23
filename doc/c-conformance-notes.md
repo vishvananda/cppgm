@@ -44,7 +44,15 @@ that opened the current inclusion, even after `#line`. Angle names
 search the configured angle paths. Absolute names are used directly.
 A direct header-name token can be followed by macros that expand to an
 empty sequence. When an angle header name cannot be lexed on the first
-pass, macro replacement can supply the closing delimiter.
+pass, macro replacement can supply the closing delimiter. C header
+paths retain literal backslashes after line splicing. A computed
+quoted name uses the body of its preprocessing token without string
+escape conversion. A C string can therefore supply a header path with
+what would be an invalid string escape. When the same token is used as
+a string literal, conversion checks its escapes. In computed angle names,
+a run of separating whitespace counts as one space, including after
+the opening angle, and any whitespace before the closing angle is
+discarded. This follows GCC's computed-angle convention.
 
 An active `#error` diagnostic includes the following preprocessing
 tokens. It preserves their spellings after splicing and comment
@@ -53,6 +61,7 @@ presumed filename and line.
 
 [WG14 N1570, §§6.10.2, 6.10.4, 6.10.5](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [GCC line control](https://gcc.gnu.org/onlinedocs/cpp/Line-Control.html) ·
+[GCC computed includes](https://gcc.gnu.org/onlinedocs/cpp/Computed-Includes.html) ·
 [GCC C99 include cases](../reports/upstream-gcc-c99.json)
 
 ## C99 bit-field width

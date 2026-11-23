@@ -490,17 +490,29 @@ std::string Preprocessor::read_replaced_include_name(const PPToken& directive, c
 	source_.end_line_input();
 
 	std::string name;
-	if (line_tokens_.size() == 1 && DecodeOrdinaryString(line_tokens_[0], name))
-		return name;
+	const bool c_source = modes_.language == 0;
+	if (line_tokens_.size() == 1)
+	{
+		const PPToken& token = line_tokens_.front();
+		if (c_source)
+		{
+			if (token.kind == PPTokenKind::StringLiteral && token.length > 2 && token.spelling[0] == '"')
+				return std::string(token.spelling + 1, token.length - 2);
+		}
+		else if (DecodeOrdinaryString(token, name))
+		{
+			return name;
+		}
+	}
 	// The spellings between `<` and `>` form the name, with a space for each
 	// white-space separation (the implementation-defined combination of
-	// 16.2p4).
+	// 16.2p4). C retains a space after `<` and drops one before `>`.
 	if (line_tokens_.size() >= 3 && IsPunctuatorToken(line_tokens_.front(), TokenKind::OP_LT) &&
 		IsPunctuatorToken(line_tokens_.back(), TokenKind::OP_GT))
 	{
 		for (std::size_t i = 1; i + 1 < line_tokens_.size(); ++i)
 		{
-			if (i != 1 && (line_tokens_[i].flags & kLeadingSpace) != 0)
+			if ((c_source || i != 1) && (line_tokens_[i].flags & kLeadingSpace) != 0)
 				name.push_back(' ');
 			name.append(line_tokens_[i].spelling, line_tokens_[i].length);
 		}

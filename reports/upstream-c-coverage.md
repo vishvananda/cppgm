@@ -45,7 +45,15 @@ Wasm run invokes an exported entry point and also checks the large object.
 GCC 15 and Clang 21 passed the same edition and optimization matrix on
 Linux x86-64. Both Darwin targets emitted objects and cross-linked dylibs
 in all six configurations. Native macOS execution remains open. The C CI
-job runs the Linux x86-64 and WASI configurations.
+job runs the Linux x86-64 and WASI configurations. It records the object,
+link, and execution stages at both optimization levels. The rule inventory
+maps the combined executable to each applicable minimum. It also tracks
+the physical include check, the presumed diagnostic location, and the
+unexpanded `#error` message as separate results. The job publishes the
+target and edition matrix with the raw receipts. An absent result stays
+uncovered even when the same case passes on another target.
+[Versioned inventory](c-conformance.json) ·
+[Evidence runner](../scripts/c_conformance.py) ·
 [CI job](../.github/workflows/tests.yml)
 
 ## Additional editions
@@ -168,14 +176,28 @@ error. The skipped directive in the same fixture produces no diagnostic.
 [WG14 N1570, §§6.10.2, 6.10.4, 6.10.5](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [Scaling](../docs/performance/c-frontend-scaling.md#include-lookup-and-directive-diagnostics)
 
-Computed header spelling still needs qualification. A macro-produced
-quoted name containing a literal backslash selects that filename in
-GCC 15 and Clang 21. cppgm applies string escape decoding and fails the
-lookup. The compilers also differ on whitespace inside a macro-produced
-angle name. For `< lead.h >`, GCC searches for a leading space and
-discards the trailing space. Clang 21 attempts both spaces and cppgm
-strips both. The angle whitespace rule is implementation-defined.
+Computed C quoted names retain literal backslashes, including ones that
+introduce escape sequences in a string. cppgm, GCC 15, and Clang 21 find
+the written filename with a simple escape, an incomplete escape, a
+universal character name, and a quoted quote. The direct C header token
+also keeps its backslashes. The lexer's C string token retains spelling
+and the literal converter still checks escapes on use. For computed
+`< lead.h >`, cppgm and GCC search for a leading space and discard the
+trailing space, while Clang 21 attempts both spaces. The PA38 tests
+exercise these paths with `#include` and `__has_include`. Both positive
+fixtures run on Linux x86-64, AArch64 under QEMU, and WASI. They
+cross-link on both Darwin architectures.
+[PA38 quoted names](../pa38/tests/general/100-c-computed-quoted-header.t) ·
+[PA38 angle names](../pa38/tests/general/100-c-computed-angle-header.t) ·
+[PA38 invalid string escape](../pa38/tests/general/100-c-string-invalid-escape-bad.t) ·
+[Scaling](../docs/performance/c-frontend-scaling.md#computed-header-names) ·
 [GCC computed includes](https://gcc.gnu.org/onlinedocs/cpp/Computed-Includes.html)
+
+A direct `__has_include(<header  name.h>)` still collapses the two spaces
+when cppgm reconstructs the name from tokens. The corresponding direct
+`#include` succeeds. GCC 15 and Clang 21 accept both forms. C23 extends
+the header-name token context to the operand of `__has_include`.
+[WG14 N3220, §§6.4.7, 6.10.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
 
 C99 through C17 require a diagnostic for universal character names
 below U+00A0 except U+0024, U+0040, and U+0060. cppgm applies the

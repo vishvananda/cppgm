@@ -120,21 +120,41 @@ const PPToken& PPLexer::lex_quoted_literal(PPTokenKind plain, PPTokenKind user_d
 			return finish(PPTokenKind::NonWhitespaceCharacter);
 		}
 		if (c == '\\')
-			lex_escape_sequence();
+			lex_escape_sequence(c_source_ && plain == PPTokenKind::StringLiteral);
 		else
 			take(cur_);
 	}
 }
 
-void PPLexer::lex_escape_sequence()
+void PPLexer::lex_escape_sequence(bool c_string)
 {
-	// Escapes are validated here but not decoded (that is phase 5); only
-	// universal-character-names are translated into the spelling.
+	// Preserve C string literal spellings so a macro can name a header
+	// containing literal backslashes. Conversion later validates the escapes
+	// when the token is used as a string.
 	const SourceChar backslash = cur_;
 	const SourceChar introducer = peek_after(backslash);
 	const int32_t c = introducer.code_point;
 	if (IsSimpleEscapeChar(c) || (gnu_escapes_ && (c == 'e' || c == 'E')))
 	{
+		take(backslash);
+		take(introducer);
+		return;
+	}
+	if (c_string && c != kEndOfSource && c != '\n')
+	{
+		UniversalCharacterName ucn;
+		if ((c == 'u' || c == 'U') && read_universal_character_name(backslash, ucn))
+		{
+			const int32_t value = static_cast<int32_t>(ucn.value);
+			if (IsControlCharacter(value) || IsBasicSourceCharacter(value))
+				token_.spelling_flags |= kC23LiteralUcn;
+			if (ucn.end - backslash.begin == ucn.length)
+			{
+				append_source_bytes(backslash.begin, ucn.end);
+				cur_ = reader_.logical(ucn.end);
+				return;
+			}
+		}
 		take(backslash);
 		take(introducer);
 		return;
@@ -245,15 +265,13 @@ bool PPLexer::try_lex_header_name()
 		c = peek_after(c);
 	}
 
-	// A backslash in a header-name is implementation-defined (2.9p2): one
-	// that begins a universal-character-name designates that character, as
-	// phase 1 would have spelled an extended character; any other backslash
-	// is itself. The close character cannot be part of a hex-quad.
+	// C header names use the written backslash. The course profile also
+	// recognizes universal-character names in header tokens.
 	const uint32_t end = c.end;
 	while (cur_.begin < end)
 	{
 		UniversalCharacterName ucn;
-		if (cur_.code_point == '\\' && read_universal_character_name(cur_, ucn))
+		if (cur_.code_point == '\\' && !c_source_ && read_universal_character_name(cur_, ucn))
 			take(ucn_outside_literal(ucn));
 		else
 			take(cur_);
