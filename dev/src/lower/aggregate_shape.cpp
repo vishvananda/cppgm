@@ -61,17 +61,18 @@ ir_model::AggregateShape ProgramLowering::aggregate_shape(const sema::Type* type
 	const uint32_t known = aggregate_shapes_.find(cls);
 	if (known != PointerMap::kMissing)
 		return shape(static_cast<AggregateElement>(known >> 16), static_cast<uint16_t>(known));
+	const bool aarch64 = target_model::is_aarch64(program_.target);
 	AggregateShape result = shape(cls->dynamic ? AggregateElement::Mixed : AggregateElement::Empty);
 	for (const sema::BaseClass* base = cls->bases; base != nullptr; base = base->next)
 		merge_shape(result, aggregate_shape(base->base->type));
 	for (const sema::DataMember* member = cls->members; member != nullptr; member = member->next)
 	{
-		if (member->bit_field && (member->width == 0 || member->variable->name == nullptr))
+		// A nonzero unnamed field participates in Arm aggregate classification.
+		if (member->bit_field && (member->width == 0 || (!aarch64 && member->variable->name == nullptr)))
 			continue;
 		const AggregateShape part = aggregate_shape(member->variable->type);
 		// Overlapping union alternatives occupy the same register lanes in AAPCS64.
-		if (target_model::is_aarch64(program_.target) && cls->key == TokenKind::KW_UNION &&
-			result.element == part.element)
+		if (aarch64 && cls->key == TokenKind::KW_UNION && result.element == part.element)
 			result.count = std::max(result.count, part.count);
 		else
 			merge_shape(result, part);

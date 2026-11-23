@@ -111,6 +111,8 @@ jobs:
           persist-credentials: false
       - name: Build the native seed compiler
         run: make -C dev cppgm
+      - name: Check C interoperability with GCC objects
+        run: make -C pa38 test-native-abi CPPGM_SKIP_DEV_REBUILD=1 CPPGM_HOST_CC=gcc-14
       - name: Record native C clause evidence
         run: |
           set -euo pipefail
@@ -152,6 +154,7 @@ jobs:
         run: make -C pa38 test-native-driver CPPGM_SKIP_DEV_REBUILD=1 CXX=clang++ CPPGM_HOST_CXX=clang++
       - name: Check C environment and custom startup on Apple Silicon
         run: |
+          make -C pa38 test-native-abi CPPGM_SKIP_DEV_REBUILD=1 CXX=clang++ CPPGM_HOST_CXX=clang++ CPPGM_HOST_CC=clang
           make -C pa38 test-native-driver CPPGM_SKIP_DEV_REBUILD=1 CXX=clang++ CPPGM_HOST_CXX=clang++ \
             NATIVE_DRIVER_TESTS='300-c-environment-hosted 500-c-integer-headers'
           make -C pa38 check CPPGM_SKIP_DEV_REBUILD=1 CXX=clang++ CPPGM_HOST_CXX=clang++ \

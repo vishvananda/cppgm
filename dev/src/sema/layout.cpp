@@ -447,6 +447,7 @@ bool Analyzer::class_layout(ClassEntity* entity, uint32_t location)
 	// lay_out() has laid out the base and member classes, so the sizes read
 	// below are finished facts.
 	const bool is_union = entity->key == TokenKind::KW_UNION;
+	const bool aarch64_linux = types_.target() == target_model::Target::AArch64Linux;
 	const uint64_t pack = entity->pack;
 	const bool packed = entity->packed;
 	bool packs_all = true;
@@ -579,8 +580,7 @@ bool Analyzer::class_layout(ClassEntity* entity, uint32_t location)
 		// A bit-field wider than its type is placed and aligned as the
 		// largest integral type that fits in its width, and aligns its class
 		// even unnamed (Itanium 2.4 II.1b, as GCC and Clang lay it out,
-		// keeping such a class a POD); another unnamed bit-field does not
-		// align its class.
+		// keeping such a class a POD).
 		const bool wide = member->bit_field && member->width > member_size * 8;
 		uint64_t member_alignment = member->bit_field ? natural : declared_alignment(member, natural);
 		if (wide)
@@ -600,9 +600,8 @@ bool Analyzer::class_layout(ClassEntity* entity, uint32_t location)
 			member_alignment = std::min(member_alignment, pack);
 		if (c_source_)
 			member->c_alignment = static_cast<uint32_t>(member_alignment);
-		// The alignment it gives its class: a named or wide bit-field its
-		// type's, #pragma pack capping it (else GNU packed), a wide one also
-		// its own.
+		// Linux AAPCS64 counts unnamed fields. A zero-width field gives
+		// its natural alignment even under packed and #pragma pack.
 		uint64_t class_alignment = member_alignment;
 		if (member->bit_field)
 		{
@@ -610,7 +609,12 @@ bool Analyzer::class_layout(ClassEntity* entity, uint32_t location)
 			if (wide)
 				class_alignment = std::max(class_alignment, member_alignment);
 			else if (member->variable->name == nullptr)
-				class_alignment = 1;
+			{
+				if (!aarch64_linux)
+					class_alignment = 1;
+				else if (member->width == 0)
+					class_alignment = natural;
+			}
 		}
 		if (is_union)
 		{

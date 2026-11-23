@@ -520,5 +520,9 @@ Pass and return a flexible array record's fixed part by the target ABI,
 including when a union contains the record. Intel Darwin follows Clang's
 memory convention for these records. Linux x86-64 follows GCC's
 classification of the fixed members.
+Use the target's bit-field alignment and calling convention for both
+named and unnamed fields. The mixed-object test compares record size
+and alignment with the host compiler and passes and returns aggregates
+with zero-width and nonzero unnamed fields.
 From the repository root, `make test-pa38` selects this assignment explicitly;
 `make test-c` and `make test-c-wasm` are convenience aliases.

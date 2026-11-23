@@ -13,6 +13,10 @@ Implement the little-endian Armv8-A targets in the existing compiler after PA34 
    and stack arguments, homogeneous floating records, variadic calls and
    indirect results. Add floating-point and NEON operations and check the
    signed and unsigned cases.
+   Use the Linux container alignment for unnamed bit-fields, including
+   the natural alignment of zero-width fields in packed records. On both
+   Arm targets, a nonzero unnamed integer bit-field makes an otherwise
+   floating-point union nonhomogeneous.
 3. Extend PA25 and PA26's link and object support to both Arm targets. Run
    the link fixtures, then the hosted runtime fixtures for exceptions,
    cleanups, and thread-local storage.
