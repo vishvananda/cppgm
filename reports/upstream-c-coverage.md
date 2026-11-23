@@ -198,6 +198,10 @@ and `wcsstr` from `src/functional`.
 Both reduced positive cases passed at `-O0` and `-O2` on Linux x86-64,
 Linux AArch64 under QEMU, WASI, and bare Wasm. Both macOS targets
 cross-linked. Native macOS execution and its SDK headers remain open.
+On Linux x86-64, 1,536 generated decimal and hexadecimal literals of
+type `float`, `double`, and `long double` matched GCC 15 and Clang 21
+byte-for-byte at both optimization levels. The cases include overflow,
+subnormal, and underflow values.
 
 The scheduled and manually dispatched upstream GCC job runs this pilot
 with the shared manifest runner. It pins the musl source archive and the

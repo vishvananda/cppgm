@@ -1614,8 +1614,8 @@ streaming token keeps a pointer to the two-word encoding in the spelling
 arena. Only the floating literal nodes retain that pointer. Both native
 scanner formats and software-rounded formats use the same path.
 
-Each input contains one initialized global per literal, with 19 fractional
-digits for double and 50 for binary128. The compiler builds each C input
+Each input contains one initialized global per literal, with 20 fractional
+digits for double and 51 for binary128. The compiler builds each C input
 with `-O0 -c -std=gnu17` and the same GCC 15 host environment. The
 baseline is `fde6c550c`. Each pair emits byte-identical objects.
 Values below are median retired user-space instructions in paired AABB
