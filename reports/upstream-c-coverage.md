@@ -501,8 +501,8 @@ functions and their interaction with code alignment remain open.
 ## Execution environment selection
 
 PA38 checks the C execution mode with a shared source header. It exercises
-flag precedence, invalid hosted entry signatures, implicit zero from
-hosted `main`, ordinary calls to a separately compiled `strlen` in
+flag precedence, invalid hosted entry signatures, the adjusted array
+parameter and implicit zero of hosted `main`, ordinary calls to a separately compiled `strlen` in
 freestanding mode, and an explicit builtin. The `no_builtin=yes` LowIR
 fact also prevents the reader from assigning a legacy startup role.
 PA25 covers a supplied native entry with `-nostdlib` using the ordinary

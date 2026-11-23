@@ -10,6 +10,7 @@ void Analyzer::check_main(const Specifiers& specifiers, const Type* type, bool d
 	if (!c_source_ || !definition)
 		return;
 	// C17 5.1.2.2.1. The native startup also passes the environment vector.
+	type = type->canonical;
 	const Type* integer = types_.fundamental(FundamentalType::Int);
 	if (type->element->unqualified != integer)
 		error(location, "hosted C main must return int");
@@ -20,8 +21,7 @@ void Analyzer::check_main(const Specifiers& specifiers, const Type* type, bool d
 	if (type->variadic || (count != 2 && !environment))
 		error(location, "unsupported parameter list of hosted C main");
 	const Type* argv = types_.pointer(types_.pointer(types_.fundamental(FundamentalType::Char)));
-	if (type->params[0]->unqualified != integer || type->params[1]->unqualified != argv ||
-		(environment && type->params[2]->unqualified != argv))
+	if (type->params[0] != integer || type->params[1] != argv || (environment && type->params[2] != argv))
 		error(location, "unsupported parameter types of hosted C main");
 }
 

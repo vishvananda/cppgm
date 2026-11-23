@@ -3,9 +3,9 @@
 #endif
 
 #if __STDC_HOSTED__
-int main(void)
+int main(int argc, char *argv[])
 {
-    if (__STDC_HOSTED__ != 1)
+    if (__STDC_HOSTED__ != 1 || argc < 1 || !argv[0])
         return 1;
 }
 #else
