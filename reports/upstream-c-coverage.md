@@ -195,6 +195,20 @@ compound literals. GNU `__builtin_types_compatible_p` still needs coverage
 for variably modified type operands. [GCC C99 manifest](upstream-gcc-c99.json) ·
 [WG14 DR 341](https://www.open-std.org/jtc1/sc22/wg14/issues/c99/issue0341.html)
 
+The VLA target replay covers eleven positive PA38 inputs in C99 and
+seventeen in each of C11 and C17, all with `-pedantic-errors` at `-O0`
+and `-O2`. Linux x86-64, AArch64 under QEMU, bare Wasm, and WASI each
+pass all 90 runtime configurations. Intel and Arm Darwin each compile
+and cross-link all 90 as Mach-O dylibs. Native Darwin execution remains
+pending. Recompiling the 576 translation units after moving the function
+variability flag to type insertion yielded identical objects.
+
+An additional C11 mixed-compiler call uses `_Atomic(int (*)[++n])` in
+the definition and a fixed array pointer parameter in the caller. The
+caller and callee compile with cppgm and Clang 21 in both directions at
+`-O0` and `-O2`. It runs on both Linux targets and both Wasm profiles and
+cross-links for both Darwin architectures.
+
 ## Restricted pointer types
 
 PA38 checks restricted pointers to objects, type and object declaration

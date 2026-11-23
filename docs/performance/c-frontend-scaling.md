@@ -838,3 +838,57 @@ were 1.6% and 5.5%, so the comparison uses retired instructions.
 | SQLite | BAAB | 16,507,721,406 / 16,508,389,434 / 16,508,818,780 / 16,507,843,178 |
 
 [Input generation](../../benchmarks/frontend_scaling/README.md#c)
+
+## C VLA type names and atomic pointers
+
+Prototype type names use the parameter scope already needed by the bound
+expression. The scope stayed at 104 bytes in the Linux x86-64 build. Atomic
+type specifiers retain a runtime bound through the existing evaluation plan.
+Function types derive their variably modified bit on insertion into the
+type table, after lookup.
+
+Counts are median millions of retired user-space instructions in three
+C11 `-pedantic-errors -fsyntax-only` runs on Linux x86-64. The parent build
+is `797c45b0f` and the final compiler build is `b457df7ae`. Both spellings
+in each pair emitted identical `-O0` objects at every size. The equivalent
+parent inputs also emitted those object bytes.
+
+| Functions | Prototype fixed bound | Prototype `[*]` | Atomic pointer qualifier | Atomic type specifier |
+| ---: | ---: | ---: | ---: | ---: |
+| 128 | 12.565 | 12.429 | 9.297 | 9.690 |
+| 256 | 21.297 | 21.026 | 14.767 | 15.542 |
+| 512 | 38.795 | 38.254 | 25.739 | 27.305 |
+| 1024 | 73.711 | 72.592 | 47.587 | 50.716 |
+| 2048 | 145.402 | 143.235 | 92.603 | 98.858 |
+| 4096 | 293.031 | 288.724 | 185.512 | 198.066 |
+
+The last doubling added about 2.06 times the previous interval's work for
+both new forms. At 4096 functions the `[*]` input used 1.47% fewer
+instructions than its fixed-bound form. The atomic type specifier used
+6.77% more instructions than the pointer qualifier and median peak RSS
+was 24,796 versus 23,460 KiB. At that size the parent controls for fixed
+prototype bounds and the atomic pointer qualifier retired 292.805 and
+185.271 million instructions respectively.
+
+Computing the derived function bit on insertion reduced the frozen C++
+instruction deltas from +0.0226% and +0.0253% to +0.0168% and +0.0177%
+in ABBA and BAAB order. The final C++ `-O3` and SQLite `-std=gnu17 -O2`
+trials all emitted byte-identical objects. A/A task-clock ranges were
+3.2% and 2.2%, with drift between blocks. The comparison uses retired
+instructions.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0047% | +0.0168% | +0.0177% |
+| SQLite `sqlite3.c` | 0.0039% | −0.0001% | +0.0008% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,043,643,906 / 9,043,640,295 / 9,043,319,490 / 9,043,745,203 |
+| C++ | ABBA | 9,043,510,791 / 9,045,187,674 / 9,045,038,104 / 9,043,682,021 |
+| C++ | BAAB | 9,045,107,578 / 9,043,640,082 / 9,043,578,224 / 9,045,313,705 |
+| SQLite | A/A | 16,507,536,262 / 16,507,619,601 / 16,508,040,344 / 16,508,171,486 |
+| SQLite | ABBA | 16,507,778,840 / 16,507,792,455 / 16,507,492,479 / 16,507,552,138 |
+| SQLite | BAAB | 16,507,872,304 / 16,507,442,486 / 16,507,775,372 / 16,507,603,416 |
+
+[Input generation](../../benchmarks/frontend_scaling/README.md#c)
