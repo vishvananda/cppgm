@@ -1,15 +1,15 @@
-template<unsigned Width>
+template<typename T>
 struct Packet {
-    unsigned ordinary, code : Width, read() const;
+    unsigned ordinary, code : sizeof(T), read() const;
 };
 
-template<unsigned Width>
-unsigned Packet<Width>::read() const {
+template<typename T>
+unsigned Packet<T>::read() const {
     return ordinary + code;
 }
 
 int main() {
-    Packet<3> small = { 17, 3 };
-    Packet<6> large = { 19, 37 };
-    return small.read() != 20 || large.read() != 56;
+    Packet<char> small = { 17, 1 };
+    Packet<unsigned long long> large = { 19, 37 };
+    return small.read() != 18 || large.read() != 56;
 }
