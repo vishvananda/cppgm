@@ -731,9 +731,15 @@ even when the build compiler runs on a different platform.
 [C11 feature macros and threads, §§6.10.8.3 and 7.26.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [Clang Darwin predefines](https://github.com/llvm/llvm-project/blob/llvmorg-22.1.2/clang/lib/Basic/Targets/OSTargets.cpp)
 
-WASI and bare Wasm also omit the predefine to match Clang. By default
-`wasm32-wasip1` libc reports failure when asked to spawn a thread. The
-clause runner checks the Wasm macro convention separately from runtime
+The Linux runtime results use a system-libc link of cppgm's object file.
+The default cppgm executable link uses the course runtime and reports
+undefined C11 thread symbols for this fixture.
+
+WASI and bare Wasm also omit the predefine to match Clang. With the
+selected `wasm32-wasip1` SDK, both compilers can include `<threads.h>`,
+but linking a call to `thrd_create` fails because the library lacks the
+symbol. Both compilers link `pthread_create`, which reports failure at
+runtime. The clause runner checks the predefine separately from runtime
 thread support. [wasi-libc target behavior](https://github.com/WebAssembly/wasi-libc#building-from-source)
 
 ## Edition and declarator checks

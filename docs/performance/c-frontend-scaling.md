@@ -2676,3 +2676,15 @@ the limited-range path used 34.5% fewer retired instructions across
 the entire program in each paired block. Its function object's
 `.text` grew from 100 to 148 bytes as it computed the quotient
 inline.
+
+## C thread predefines
+
+Compared `ebaa04ecd` with `d7b36772a` using immutable GCC 15 builds on
+x86-64 Linux. Each frozen input produced byte-identical objects in one
+A/A, ABBA, and BAAB block on CPU 71. Task-clock results varied across
+blocks.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.00239% | +0.00038% | +0.00158% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.00055% | +0.01452% | +0.01431% |
