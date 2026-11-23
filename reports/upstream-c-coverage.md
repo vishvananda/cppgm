@@ -126,6 +126,25 @@ and software-floating environment profiles remain open.
 [Default rounding probe](../scripts/tests/c_default_rounding.c) ·
 [Clause inventory](c-conformance.json)
 
+The long double probe exercises classification and all six quiet predicates
+over 196 ordered and unordered pairs. It checks invalid after a discarded
+relational comparison. On AArch64 Linux under QEMU, the prior compiler
+set invalid during quiet operations. The new lowering compares the binary128
+representation using scalar integers, and a native status instruction
+signals invalid only for a relational comparison on the unordered path.
+Direct and LowIR round-trip objects pass at `-O0` through `-O3` in C99,
+C11, and C17. The x86-64 Linux, WASI, and bare Wasm clause probes also
+pass. The Wasm probes exercise the values and do not query exception flags.
+[PA38 probe](../pa38/tests/general/500-c-fenv-quad.t) ·
+[WG14 N1570 §§7.12.3, 7.12.14, and Annex F.3](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[compiler-rt's binary128 comparison helpers](https://github.com/llvm/llvm-project/blob/main/compiler-rt/lib/builtins/comparetf2.c)
+
+Hosted header coverage still has a separate gap. The AArch64 glibc
+`signbit` macro names `__builtin_signbitf` in its float branch, including
+when the operand is long double. The compiler rejects that undeclared
+builtin. With a temporary typed alias for the float branch, the same
+test passed through the installed `<math.h>` macros under QEMU.
+
 ## Additional editions
 
 The driver baseline at `39e13e127` rejects `c90`, `c89`,

@@ -2515,3 +2515,52 @@ object output.
 | SQLite | A/A | 16,510,426,525 / 16,510,601,461 / 16,510,634,608 / 16,510,495,612 |
 | SQLite | ABBA | 16,510,604,985 / 16,510,866,950 / 16,511,037,722 / 16,510,534,061 |
 | SQLite | BAAB | 16,510,705,300 / 16,510,423,617 / 16,511,270,368 / 16,510,842,229 |
+
+## Binary128 comparisons and classification
+
+Binary128 quiet operations read the two representation words once per operand.
+The classifiers use an integer magnitude or exponent test. The ordered
+predicates compare sign-adjusted words. The resulting AArch64 object for
+the PA38 probe references only the two fenv functions. The object from
+`6ef5c89dd` also references six binary128 comparison routines.
+
+Each function in the scaling input accepts two long double parameters and
+returns `__builtin_isless(a, b) + 2 * __builtin_isnormal(a)`. The compiler
+compiles the functions as C17 at `-O2` for AArch64 Linux. The source and
+compiler binaries are fixed across trials. Table values are medians of
+the four retired user-space instruction counts per compiler from ABBA
+and BAAB. Growth through both doublings is about 2×. Each side emits
+the same object bytes in all four trials.
+
+| Functions | Parent instructions | Candidate instructions | Parent object bytes | Candidate object bytes |
+| ---: | ---: | ---: | ---: | ---: |
+| 1,024 | 639,901,190 | 693,966,732 | 628,568 | 353,936 |
+| 2,048 | 1,274,659,168 | 1,380,431,426 | 1,257,304 | 708,240 |
+| 4,096 | 2,549,268,016 | 2,759,680,045 | 2,514,776 | 1,416,848 |
+
+A separate AArch64 executable sums `isless`, `isnormal`, `isinf`, and
+`islessgreater` with weights 1, 2, 4, and 8. It takes four million adjacent
+pairs from volatile `{-1, min subnormal, 0, inf}` at `-O2`. Both binaries
+returned the same checksum, 40,000,000. Under QEMU user-mode emulation,
+the following counts include QEMU's x86-64 execution. They measure the
+cost of the microbenchmark in the emulator.
+
+| Block | Retired user-space instructions in trial order |
+| --- | --- |
+| A/A | 21,575,110,699 / 21,575,110,417 / 21,575,109,533 / 21,575,109,111 |
+| ABBA | 21,575,108,887 / 1,031,385,462 / 1,031,385,641 / 21,575,110,123 |
+| BAAB | 1,031,385,416 / 21,575,109,137 / 21,575,108,986 / 1,031,385,407 |
+
+The frozen x86-64 objects match byte-for-byte across all trials.
+The C++ instruction changes are −0.00102% in ABBA and +0.00075% in
+BAAB. SQLite changes by +0.00292% and −0.00094%. These controls measure
+the unchanged code paths and use one pinned CPU with identical inputs.
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ `-O3` | A/A | 9,047,001,355 / 9,047,076,841 / 9,046,791,353 / 9,046,987,329 |
+| C++ `-O3` | ABBA | 9,046,946,574 / 9,046,705,729 / 9,046,798,142 / 9,046,741,061 |
+| C++ `-O3` | BAAB | 9,046,794,774 / 9,046,721,236 / 9,046,901,254 / 9,046,962,693 |
+| SQLite `-O2` | A/A | 16,510,860,080 / 16,510,934,362 / 16,510,647,386 / 16,510,862,735 |
+| SQLite `-O2` | ABBA | 16,510,554,005 / 16,510,577,702 / 16,511,622,593 / 16,510,680,442 |
+| SQLite `-O2` | BAAB | 16,510,599,020 / 16,511,050,336 / 16,510,850,575 / 16,510,990,969 |

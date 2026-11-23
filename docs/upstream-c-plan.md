@@ -61,6 +61,9 @@ Start the next batches from the existing receipts.
    rounding, and discarded arithmetic with an observable status effect.
    The scalar conversion and comparison probes cover directed rounding,
    discarded invalid conversions, and the signaling and quiet NaN cases.
+   The long double probe covers the quiet comparisons, classification,
+   and signaling relational operators with binary128 on Linux AArch64.
+   It checks classification and comparison results on WASI and bare Wasm.
    Extend pragma coverage to contraction, complex arithmetic, and the
    remaining software floating operations. Continue with declarators, initializers,
    conversions, constant expressions, and

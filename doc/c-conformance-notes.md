@@ -395,8 +395,15 @@ conversion still truncates toward zero. Ordered C relational operators
 signal invalid on a quiet NaN in an enabled scope. Equality, inequality
 and the quiet comparison macros keep their quiet semantics. Initializers
 with static storage use translation-time arithmetic.
+Binary128 classification and quiet comparisons can use the two words of
+the value directly. The low word can distinguish a subnormal from zero
+and a NaN from infinity. The quiet comparisons treat the two signed zeros
+as equal and keep NaNs unordered. In an enabled native scope, a binary128
+relational operator signals invalid independently of the comparison
+helpers in the runtime library.
 
-[WG14 N1570, §7.6.1 and Annex F.8](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf#page=226) ·
+[WG14 N1570, §§7.6.1, 7.12.3, 7.12.14 and Annex F](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[PA38 long double classification and comparison probe](../pa38/tests/general/500-c-fenv-quad.t) ·
 [PA38 scope and runtime probe](../pa38/tests/general/500-c-fenv-binary.t)
 
 ## Volatile-qualified record accesses

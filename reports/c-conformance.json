@@ -686,6 +686,53 @@
       ]
     },
     {
+      "id": "floating.long-double-classification",
+      "clause": "7.12.3, 7.12.14",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "hosted",
+      "requirement": "Classify long double values from signed zeros and subnormals to infinities and quiet NaNs, and give all six quiet comparisons their ordered and unordered results in the underlying compiler operations.",
+      "cases": [
+        "floating.fenv-quad"
+      ]
+    },
+    {
+      "id": "floating.hosted-math-classification",
+      "clause": "7.12.3, 7.12.14",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "hosted",
+      "requirement": "Exercise classification and quiet comparison through the selected hosted math.h macros for all three standard real floating types.",
+      "cases": []
+    },
+    {
+      "id": "floating.fenv-binary128-comparison",
+      "clause": "7.12.3, 7.12.14, F.3",
+      "kind": "conditional",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "hosted",
+      "profiles": [
+        "linux-aarch64-hosted"
+      ],
+      "outside_profile": "This rule checks the native invalid exception flag where long double has binary128 format.",
+      "requirement": "Classify and quietly compare binary128 quiet NaNs without invalid, and raise invalid for a scoped relational comparison even when its result is discarded.",
+      "cases": [
+        "floating.fenv-quad"
+      ]
+    },
+    {
       "id": "limits.numeric-macros",
       "clause": "5.2.4.2",
       "kind": "required",

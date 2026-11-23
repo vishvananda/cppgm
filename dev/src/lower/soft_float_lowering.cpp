@@ -1012,23 +1012,17 @@ RValue FunctionLowering::soft_negate(SoftFloat kind, const RValue& value)
 		SoftFloatHelper::TruncSFHF, unary(lowir::UnaryOp::Neg, soft_call(SoftFloatHelper::ExtendHFSF, value)));
 }
 
-RValue FunctionLowering::soft_magnitude_at_least(
-	SoftFloat kind, const RValue& x, uint64_t half_bits, uint64_t quad_high)
+RValue FunctionLowering::half_magnitude_at_least(const RValue& x, uint64_t bits)
 {
-	// |x| >= v for the positive value v of those bits: x >= v or x <= -v
-	// (an i32 truth; false for a NaN).
-	const bool half = kind == SoftFloat::Half;
-	const RValue positive = soft_constant(kind, half ? half_bits : 0, half ? 0 : quad_high);
-	const RValue negative = soft_constant(
-		kind, half ? half_bits | 0x8000 : 0, half ? 0 : quad_high | (uint64_t(1) << 63));
-	// (Operands emitted last first: see FunctionLowering::binary.)
-	const RValue below = truth_i32(soft_compare(lowir::ComparePredicate::Le, kind, x, negative));
+	const RValue positive = soft_constant(SoftFloat::Half, bits, 0);
+	const RValue negative = soft_constant(SoftFloat::Half, bits | 0x8000, 0);
+	const RValue below = truth_i32(soft_compare(lowir::ComparePredicate::Le, SoftFloat::Half, x, negative));
 	return binary(lowir::BinaryOp::Or, lowir::Type::scalar(lowir::TypeKind::I32),
-		truth_i32(soft_compare(lowir::ComparePredicate::Ge, kind, x, positive)), below);
+		truth_i32(soft_compare(lowir::ComparePredicate::Ge, SoftFloat::Half, x, positive)), below);
 }
 
 RValue FunctionLowering::soft_compare(
-	lowir::ComparePredicate predicate, SoftFloat kind, const RValue& left, const RValue& right)
+	lowir::ComparePredicate predicate, SoftFloat kind, const RValue& left, const RValue& right, bool signaling)
 {
 	// A binary16 comparison is exact in float. A binary128 one is its
 	// routine's result against zero: each routine answers its own
@@ -1037,13 +1031,16 @@ RValue FunctionLowering::soft_compare(
 	{
 		const lowir::Type f32 = lowir::Type::scalar(lowir::TypeKind::F32);
 		const RValue wide_right = soft_call(SoftFloatHelper::ExtendHFSF, right);
-		return compare(predicate, f32, soft_call(SoftFloatHelper::ExtendHFSF, left), wide_right);
+		return compare(predicate, f32, soft_call(SoftFloatHelper::ExtendHFSF, left), wide_right, signaling);
 	}
 	if (kind == SoftFloat::BFloat)
 	{
 		const RValue wide_right = bfloat_widened(right);
-		return compare(predicate, lowir::Type::scalar(lowir::TypeKind::F32), bfloat_widened(left), wide_right);
+		return compare(
+			predicate, lowir::Type::scalar(lowir::TypeKind::F32), bfloat_widened(left), wide_right, signaling);
 	}
+	if (fenv_access_ && signaling)
+		return quad_compare(predicate, left, right, true);
 	static const SoftFloatHelper kHelpers[] = { SoftFloatHelper::EqTF, SoftFloatHelper::NeTF, SoftFloatHelper::LtTF,
 		SoftFloatHelper::LeTF, SoftFloatHelper::GtTF, SoftFloatHelper::GeTF };
 	const uint8_t index = static_cast<uint8_t>(predicate);

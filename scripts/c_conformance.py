@@ -33,6 +33,7 @@ CASES = {
     'floating.fenv-binary': (RUN_STAGES, ('O0', 'O2')),
     'floating.fenv-convert': (RUN_STAGES, ('O0', 'O2')),
     'floating.fenv-compare': (RUN_STAGES, ('O0', 'O2')),
+    'floating.fenv-quad': (RUN_STAGES, ('O0', 'O2')),
     'include.physical': (RUN_STAGES, ('O0',)),
     'include.query': (RUN_STAGES, ('O0',)),
     'literal.code-units': (RUN_STAGES, ('O0', 'O2')),
@@ -46,6 +47,7 @@ ROUNDING_QUERY = ROOT / 'pa30/tests/run/800-builtin-fp-rounds.t.1'
 FENV_BINARY = ROOT / 'pa38/tests/general/500-c-fenv-binary.t'
 FENV_CONVERT = ROOT / 'pa38/tests/general/500-c-fenv-convert.t'
 FENV_COMPARE = ROOT / 'pa38/tests/general/500-c-fenv-compare.t'
+FENV_QUAD = ROOT / 'pa38/tests/general/500-c-fenv-quad.t'
 # Precision of the target ABI's long double, independent of the candidate's predefines.
 LONG_DOUBLE_PRECISION = {
     'x86_64-linux-gnu': 64,
@@ -227,6 +229,7 @@ def numeric_sources(profile, bare_sdk):
         ('limits.integer', INTEGER_LIMITS, (*include, f'-DEXPECT_LONG_BITS={long_bits}'), ()),
         ('limits.float', FLOAT_LIMITS, (*include, f'-DEXPECT_LDBL_MANT_DIG={LONG_DOUBLE_PRECISION[target]}'), float_link),
         ('limits.rounding-default', DEFAULT_ROUNDING, include, rounding_link),
+        ('floating.fenv-quad', FENV_QUAD, include, rounding_link),
     ]
     if not wasm:
         sources.extend([

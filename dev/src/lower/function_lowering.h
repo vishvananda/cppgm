@@ -1432,8 +1432,14 @@ private:
 		const RValue& right);
 	RValue soft_arithmetic(lowir::BinaryOp op, SoftFloat kind, const RValue& left, const RValue& right);
 	RValue soft_negate(SoftFloat kind, const RValue& value);
-	RValue soft_compare(lowir::ComparePredicate predicate, SoftFloat kind, const RValue& left, const RValue& right);
-	RValue soft_magnitude_at_least(SoftFloat kind, const RValue& x, uint64_t half_bits, uint64_t quad_high);
+	RValue soft_compare(lowir::ComparePredicate predicate, SoftFloat kind, const RValue& left, const RValue& right,
+		bool signaling = false);
+	RValue half_magnitude_at_least(const RValue& x, uint64_t bits);
+	RValue quad_compare(lowir::ComparePredicate predicate, const RValue& left, const RValue& right, bool signaling);
+	RValue quad_classify(sema::Intrinsic kind, const RValue& x, const RValue* codes = nullptr);
+	lowir::Value quad_storage(const RValue& x);
+	RValue quad_magnitude(const RValue& high, const RValue* low = nullptr);
+	void quad_invalid_if(const RValue& unordered);
 	// Complex values (lower/complex_lowering.cpp): __builtin_complex's, a
 	// part of one (`imaginary`: __imag__) as a value or a glvalue, and a
 	// zero object value (value-initialization).

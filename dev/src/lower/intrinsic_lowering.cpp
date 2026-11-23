@@ -159,6 +159,13 @@ RValue FunctionLowering::intrinsic(const syntax::CallExpr& expr)
 			lowir::ComparePredicate::Lt, lowir::ComparePredicate::Le };
 		const lowir::Type i32 = lowir::Type::scalar(lowir::TypeKind::I32);
 		const SoftFloat soft = SoftFloatOfValue(x.type);
+		if (soft == SoftFloat::Quad && kind != sema::Intrinsic::IsUnordered)
+		{
+			const auto predicate = kind == sema::Intrinsic::IsLessGreater
+				? lowir::ComparePredicate::Ne
+				: kPredicates[static_cast<uint8_t>(kind) - static_cast<uint8_t>(sema::Intrinsic::IsGreater)];
+			return truth_i32(quad_compare(predicate, x, y, false));
+		}
 		const auto ordered = [&](lowir::ComparePredicate predicate) {
 			return truth_i32(
 				soft != SoftFloat::None ? soft_compare(predicate, soft, x, y) : compare(predicate, x.type, x, y));
@@ -179,6 +186,9 @@ RValue FunctionLowering::intrinsic(const syntax::CallExpr& expr)
 	const syntax::Expr& operand_expr = *expr.arguments[expr.arguments.size - 1];
 	const RValue x = bfloat_float(operand_expr, operand(operand_expr, ConversionContext::Operand));
 	const lowir::Type i32 = lowir::Type::scalar(lowir::TypeKind::I32);
+	const SoftFloat soft = SoftFloatOfValue(x.type);
+	if (soft == SoftFloat::Quad && kind != sema::Intrinsic::FpClassify)
+		return quad_classify(kind, x);
 	switch (kind)
 	{
 	case sema::Intrinsic::SignBit:
@@ -210,12 +220,13 @@ RValue FunctionLowering::intrinsic(const syntax::CallExpr& expr)
 	RValue codes[5];
 	for (uint32_t i = 0; i < 5; ++i)
 		codes[i] = operand(*expr.arguments[i], ConversionContext::Argument);
+	if (soft == SoftFloat::Quad)
+		return quad_classify(kind, x, codes);
 	const RValue nan = classify_nan(x);
 	const RValue infinite = classify_infinite(x);
 	const RValue not_nan = binary(lowir::BinaryOp::Sub, i32, integer(i32, 1), nan);
 	const RValue not_infinite = binary(lowir::BinaryOp::Sub, i32, integer(i32, 1), infinite);
 	const RValue finite = binary(lowir::BinaryOp::And, i32, not_nan, not_infinite);
-	const SoftFloat soft = SoftFloatOfValue(x.type);
 	const RValue zero = truth_i32(soft != SoftFloat::None
 			? soft_compare(lowir::ComparePredicate::Eq, soft, x, soft_zero(soft))
 			: compare(
@@ -1390,17 +1401,17 @@ RValue FunctionLowering::truth_i32(const RValue& truth)
 RValue FunctionLowering::classify_nan(const RValue& x)
 {
 	const SoftFloat soft = SoftFloatOfValue(x.type);
-	if (soft != SoftFloat::None)
+	if (soft == SoftFloat::Quad)
+		return quad_classify(sema::Intrinsic::IsNan, x);
+	if (soft == SoftFloat::Half)
 		return truth_i32(soft_compare(lowir::ComparePredicate::Ne, soft, x, x));
 	return truth_i32(compare(lowir::ComparePredicate::Ne, x.type, x, x));
 }
 
 RValue FunctionLowering::classify_infinite(const RValue& x)
 {
-	// A binary16 or binary128 value: |x| at least its infinity.
-	const SoftFloat soft = SoftFloatOfValue(x.type);
-	if (soft != SoftFloat::None)
-		return soft_magnitude_at_least(soft, x, 0x7c00, 0x7fff000000000000ull);
+	if (SoftFloatOfValue(x.type) == SoftFloat::Half)
+		return half_magnitude_at_least(x, 0x7c00);
 	const RValue positive = floating(
 		x.type, lowir::float_literal(x.type.kind(), std::numeric_limits<long double>::infinity()));
 	const RValue negative = unary(lowir::UnaryOp::Neg, positive);
@@ -1420,10 +1431,9 @@ RValue FunctionLowering::classify_finite(const RValue& x)
 RValue FunctionLowering::classify_normal(const RValue& x)
 {
 	// |x| >= the least normal value of the operand's type, and finite.
-	const SoftFloat soft = SoftFloatOfValue(x.type);
-	if (soft != SoftFloat::None)
+	if (SoftFloatOfValue(x.type) == SoftFloat::Half)
 	{
-		const RValue large = soft_magnitude_at_least(soft, x, 0x0400, 0x0001000000000000ull);
+		const RValue large = half_magnitude_at_least(x, 0x0400);
 		return binary(lowir::BinaryOp::And, lowir::Type::scalar(lowir::TypeKind::I32), classify_finite(x), large);
 	}
 	long double least = std::numeric_limits<long double>::min();

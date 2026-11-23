@@ -141,6 +141,11 @@ Use `fenv_convert` for real floating conversions and `fenv_cmp_signal`
 for the relational operators. Equality, inequality, and quiet comparison
 builtins use `fenv_cmp`. A quiet NaN raises invalid for the signaling
 comparison. Static-storage initializers use translation-time arithmetic.
+For software binary128, implement the classification and quiet comparison
+results from the representation or through routines that preserve the
+floating-point status flags for quiet NaNs. Compare the two signed zeros as
+equal. A relational operator in an enabled scope still signals invalid
+for a quiet NaN on native targets, even if its result is discarded.
 
 The output is ordinary [PA8 LowIR](../pa8/lowir.md). Preserve target sizes,
 alignment, function signatures, object names, qualifiers and conversions. C
