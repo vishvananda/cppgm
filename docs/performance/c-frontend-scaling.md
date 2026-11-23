@@ -1229,3 +1229,46 @@ paired blocks. Retired instruction changes were below 0.003%.
 | SQLite | A/A | 16,506,007,636 / 16,505,964,108 / 16,506,011,104 / 16,506,257,930 |
 | SQLite | ABBA | 16,506,453,078 / 16,507,130,012 / 16,506,102,685 / 16,505,937,357 |
 | SQLite | BAAB | 16,506,339,744 / 16,505,977,955 / 16,506,317,526 / 16,506,119,828 |
+
+## Wide C atomic arithmetic
+
+The generated C functions update one atomic object. The real and wide
+integer functions perform a postfix increment and compound addition.
+The complex functions perform a compound addition. The table records
+the median retired user-space instructions in millions for three
+`-O2 -c -nostdinc` runs per input. The GCC 15-built cppgm
+`39e13e127` ran pinned to CPU 71.
+
+| Functions | `long double` | `long double _Complex` | `__int128` |
+| ---: | ---: | ---: | ---: |
+| 256 | 191.666 | 248.099 | 266.130 |
+| 1024 | 753.598 | 982.225 | 1053.212 |
+| 4096 | 3002.286 | 3917.932 | 4201.718 |
+
+Quadrupling the final input count increased compile instructions by
+3.98 to 3.99 times. At 4096 functions, median peak RSS was 41,700,
+36,864, and 40,968 KiB in table order. The three runs at each size
+produced identical objects.
+
+Paired ABBA and BAAB blocks compared parent `0edcb95ed` and candidate
+`39e13e127`. Frozen `semantic_overload.cpp` at `-O3`, SQLite at
+`-std=gnu17 -O2`, and the narrow `_Atomic int` control produced
+byte-identical objects across builds. A/A wall-time calibration varied
+by 3.8% for C++ and 2.5% for SQLite by task-clock. Paired task-clock
+directions reversed for both. The narrow control changed by at most
+0.023% in retired instructions across the six paired blocks.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0012% | +0.0004% | +0.0003% |
+| SQLite `sqlite3.c` | 0.0049% | +0.0014% | −0.0011% |
+| Narrow control at 4096 functions | 0.0148% | +0.0110% | +0.0157% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,045,168,297 / 9,045,202,285 / 9,045,190,453 / 9,045,094,637 |
+| C++ | ABBA | 9,045,499,947 / 9,045,317,798 / 9,045,616,463 / 9,045,365,544 |
+| C++ | BAAB | 9,045,313,291 / 9,045,093,357 / 9,045,292,370 / 9,045,128,096 |
+| SQLite | A/A | 16,506,430,547 / 16,507,015,463 / 16,506,575,784 / 16,506,199,923 |
+| SQLite | ABBA | 16,506,514,224 / 16,506,753,243 / 16,506,433,550 / 16,506,219,368 |
+| SQLite | BAAB | 16,506,250,004 / 16,506,586,558 / 16,506,432,324 / 16,506,394,030 |

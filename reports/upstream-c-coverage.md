@@ -27,12 +27,33 @@ open column lists work to qualify the remainder of each group.
 
 ## Additional editions
 
-- **C90 and C95.** Inventory the earlier lexical and declaration rules,
-  translation limits, and the amendment's language and hosted library changes.
-- **C23.** Inventory preprocessing, literals, types, changed and removed
-  constructs, runtime helpers and library requirements against the published
-  edition and applicable WG14 decisions. Check both the introducing and the
-  preceding editions.
+The driver baseline at `39e13e127` rejects `c90`, `c89`,
+`iso9899:1990`, `iso9899:199409`, and `c23` before parsing.
+The first boundary probes below used GCC 15 and Clang 21 on Linux
+x86-64. The Clang old-style and no-prototype controls disabled its
+deprecation diagnostics so they could check the language boundary.
+
+| Rule | Reference outcomes | Current cppgm evidence |
+| --- | --- | --- |
+| `c90.version` | The C90 aliases compile a plain C function and leave `__STDC_VERSION__` undefined. | C90 driver support is open. |
+| `c95.version` | `iso9899:199409` defines `__STDC_VERSION__` as `199409L`. | C95 driver support is open. |
+| `c90.implicit-int` | A definition with omitted return type is accepted in C90 and C95. C99 diagnoses the missing type. | The C99 probe is rejected. |
+| `c90.implicit-call` | Calling a function before its declaration is accepted in C90 and C95. C99 diagnoses the missing declaration. | The C99 probe is rejected. |
+| `c90.block-declarations` | A declaration following a statement is diagnosed in pedantic C90 and C95. The input is valid in C99. | The C99 probe compiles. |
+| `c90.line-comment` | A `//` comment after a function definition is diagnosed in pedantic C90 and C95 and accepted in C99. | The C99 probe compiles. |
+| `c95.digraphs` | A body delimited by `<%` and `%>` is accepted in C95 and diagnosed in pedantic C90. | The C99 digraph control compiles. |
+| `c95.wide-headers` | `<iso646.h>`, `<wchar.h>`, and `<wctype.h>` compose in C95. A linked program in the C locale classifies `L'a'` and `L'0'` correctly. | C99 and C17 objects passed with the host C linker and glibc. The C95 SDK pairing remains open. |
+| `c23.version` | `-std=c23` compiles a plain C function and defines `202311L`. | C23 driver support is open. |
+| `c23.trigraphs` | Trigraph braces form a valid body through C17. The same source is diagnosed in C23. | The C17 control compiles. |
+| `c23.empty-parameters` | A call with an argument through a declaration with empty parentheses is accepted through C17 and diagnosed in C23. | The C17 control compiles. |
+| `c23.identifier-list` | An identifier-list definition with explicit parameter types compiles through C17 and is diagnosed in C23. | The C17 control compiles. |
+
+Coverage of translation limits, preprocessing and integer changes,
+type and initializer changes, and hosted library obligations is still
+open for these editions.
+[WG14 C amendment summary](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2310.pdf) ·
+[WG14 N3220](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
+[GCC edition options](https://gcc.gnu.org/onlinedocs/gcc/Standards.html)
 
 ## Pinned suite receipts
 
@@ -693,13 +714,44 @@ verified 26,153 reference outputs and passed the new native and Wasm
 cases with the bundled tools. The upstream tests, GCC torture, and
 Csmith retained their reviewed outcomes.
 
-Wide atomic read-modify-write remains open. A plain `long double`
-post-increment and compound assignment reach unsupported wide
-instructions on AArch64 Linux and Wasm. Those operations need the same
-runtime width selection and a retry loop with an atomic snapshot. The
-x86-64 update currently emits `cmpxchg16b`, while ordinary wide C
-loads and stores use the generic provider.
 [Compile-time measurements](../docs/performance/c-frontend-scaling.md#ordinary-c-atomic-aggregate-expressions)
+
+### Wide C atomic arithmetic
+
+Wide C compound assignments and increment and decrement expressions now
+share the runtime protocol for ordinary atomic loads and stores. AArch64
+and Wasm previously rejected wide instructions reached from a
+`long double` update. On x86-64, the instruction path could select
+`cmpxchg16b` while other accesses used the provider. The wide
+update prepares its expected buffer once, loads the representation,
+and retries the computation from the expected value supplied by a failed
+compare-exchange. Wide integer initialization stores directly before
+publication.
+[PA38 arithmetic case](../pa38/tests/general/500-c-wide-atomic-arithmetic.t) ·
+[Forced retry provider](../pa38/tests/general/500-c-wide-atomic-arithmetic.wasm.c) ·
+[Read-modify-write rules](../doc/c-conformance-notes.md#c-atomic-read-modify-write)
+
+The PA38 case passed at `-O0` and `-O2` with native Linux `libatomic` on
+x86-64 and under AArch64 QEMU. A three-thread test ran 12,000 updates per
+thread for scalar and complex `long double` and found the expected
+totals in three runs at each level on both targets. The parent produced
+an incorrect complex total in all three x86-64 `-O2` trials. Bare Wasm and WASI
+passed the separate provider test, which forces a failed compare-exchange
+and checks the postfix value and evaluation counts. Intel and Arm
+Mach-O linked with a supplied provider. Native Darwin execution remains
+unverified. The disabled Wasm atomic profile diagnosed the wide update.
+
+The strict report passed 11,652 tests. Debug information, PA36 smoke,
+PA37, both PA38 lanes, PA39, PA35 through PA5, and inception passed.
+The placement audit scanned 11,249 cases with zero findings. The student
+export verified 26,156 reference outputs and passed the new native
+compilation and Wasm runtime cases with its bundled tools. The pinned
+upstream tests, GCC torture, and Csmith retained their reviewed outcomes.
+
+Explicit `atomic_fetch_add` on the GNU `__int128` extension still
+fails in cppgm with the C header. GCC 15 and Clang 21 accept the
+probe. Floating-point environment qualification remains open.
+[Compile-time measurements](../docs/performance/c-frontend-scaling.md#wide-c-atomic-arithmetic)
 
 ## Cross-target smoke results
 

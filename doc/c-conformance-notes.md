@@ -577,3 +577,24 @@ additional atomic padding.
 
 [WG14 N1570, §§6.2.6.1, 6.3.2.1, and 6.5.16](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [Clang atomic lowering](https://github.com/llvm/llvm-project/blob/llvmorg-21.1.8/clang/lib/CodeGen/CGAtomic.cpp)
+
+## C atomic read-modify-write
+
+Compound assignment, increment, and decrement on an atomic object
+perform one sequentially consistent read-modify-write. The object
+address and right operand are computed once. A compare-exchange loop
+computes a new value from the current expected value on each attempt.
+Failure supplies the replacement expected value. Postfix increment
+and decrement return the value consumed by the successful operation.
+
+With the generic atomic ABI, use the same width and runtime provider
+for the initial load, compare-exchange, and ordinary atomic reads and
+writes. This allows one provider to synchronize all operations on
+the object. The initial load can be relaxed because the successful
+compare-exchange performs the ordered operation. The floating-point
+environment rules for discarded attempts belong to the outstanding
+`FENV_ACCESS` qualification.
+
+[WG14 N1570, §§6.5.2.4, 6.5.3.1, and 6.5.16.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[WG14 N1567 on floating-point retries](https://www.open-std.org/JTC1/sc22/wg14/www/docs/n1567.htm) ·
+[LLVM atomic libcalls](https://llvm.org/docs/Atomics.html#libcalls-atomic)
