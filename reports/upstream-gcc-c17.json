@@ -39,12 +39,7 @@
       "upstream_flags": [
         "-pedantic-errors"
       ],
-      "obligation": "Alignment specifiers inherited from C11",
-      "known_failure": {
-        "status": "compile-failed",
-        "diagnostic": "an alignment-specifier applied to a type",
-        "reason": "Alignment specifiers inherited from C11"
-      }
+      "obligation": "Alignment specifiers inherited from C11"
     },
     {
       "id": "c11-static-assert-1",
@@ -59,12 +54,7 @@
       "upstream_flags": [
         "-pedantic-errors"
       ],
-      "obligation": "Static assertions inherited from C11",
-      "known_failure": {
-        "status": "compile-failed",
-        "diagnostic": "syntax error",
-        "reason": "Static assertions inherited from C11"
-      }
+      "obligation": "Static assertions inherited from C11"
     },
     {
       "id": "redecl-9",

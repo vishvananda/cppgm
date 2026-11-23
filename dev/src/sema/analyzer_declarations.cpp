@@ -327,9 +327,17 @@ void Analyzer::simple_declaration(const syntax::SimpleDecl& decl, Scope* scope)
 		// declares a type).
 		if (specifiers.is_constexpr)
 			error(decl.location, "constexpr in a declaration that declares no variable or function");
+		const syntax::Attribute* alignment_specifier = c_source_ ? AlignmentSpecifier(decl.attributes) : nullptr;
+		uint64_t alignment = 0;
+		if (alignment_specifier != nullptr)
+		{
+			bool packed = false, no_inline = false;
+			alignment = attribute_alignment(decl.attributes, scope, packed, no_inline);
+		}
 		if (specifiers.declared->kind == EntityKind::Class && specifiers.defines &&
 			static_cast<ClassEntity*>(specifiers.declared)->anonymous)
-			anonymous_union(static_cast<ClassEntity*>(specifiers.declared), specifiers, scope, decl.location);
+			anonymous_union(static_cast<ClassEntity*>(specifiers.declared), specifiers, scope, decl.location, alignment,
+				alignment_specifier);
 		else if (specifiers.declared->kind == EntityKind::Enum && specifiers.defines &&
 			static_cast<EnumEntity*>(specifiers.declared)->name == nullptr)
 			name_unnamed_type(specifiers, nullptr, scope);
@@ -363,6 +371,11 @@ void Analyzer::simple_declaration(const syntax::SimpleDecl& decl, Scope* scope)
 	const uint64_t alignment = decl.attributes != nullptr && template_depth_ == 0
 		? attribute_alignment(decl.attributes, scope, packed, no_inline)
 		: 0;
+	const syntax::Attribute* declaration_alignment = AlignmentSpecifier(decl.attributes);
+	if (c_source_ && declaration_alignment != nullptr)
+		for (const syntax::DeclSpecifier& item : decl.specifiers)
+			if (item.kind == syntax::DeclSpecKind::Keyword && item.keyword == TokenKind::KW_REGISTER)
+				error(declaration_alignment->location, "an alignment specifier on a register object");
 	// The declaration's own declarators deduce one auto (7.1.6.4p7); an
 	// initializer's nested declarations (a lambda's body) their own.
 	const Type* saved_auto = auto_deduced_;
@@ -375,7 +388,7 @@ void Analyzer::simple_declaration(const syntax::SimpleDecl& decl, Scope* scope)
 		uint64_t entity_alignment = alignment;
 		bool entity_no_inline = no_inline;
 		bool entity_packed = packed;
-		const syntax::Attribute* specifier = AlignmentSpecifier(decl.attributes);
+		const syntax::Attribute* specifier = declaration_alignment;
 		for (const syntax::Declarator* part = init.declarator; part != nullptr; part = part->nested)
 		{
 			if (part->attributes != nullptr && template_depth_ == 0)
@@ -2864,6 +2877,9 @@ const Type* Analyzer::signature_of(const Type* function)
 
 void Analyzer::function_definition(const syntax::FunctionDecl& decl, Scope* scope)
 {
+	if (c_source_)
+		if (const syntax::Attribute* alignment = AlignmentSpecifier(decl.attributes))
+			error(alignment->location, "an alignment specifier on a function definition");
 	Specifiers specifiers;
 	Scope* saved_class = declaration_class_;
 	Scope* saved_deferral = access_deferral_;

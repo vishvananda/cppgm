@@ -70,7 +70,7 @@ Stmt* Parser::parse_statement()
 	// A declaration statement's leading attributes are its declaration's
 	// (7p1); other statements drop theirs.
 	Attribute* attributes = nullptr;
-	if (!collect_attributes(attributes))
+	if (!collect_attributes(attributes, nullptr, CAlignment::EndAttributes))
 		return nullptr;
 	const uint32_t start = location();
 	const ParseToken token = tok();
@@ -368,6 +368,8 @@ bool Parser::statement_starts_declaration(bool& tentative)
 	{
 		switch (token.simple)
 		{
+		case TokenKind::KW_ALIGNAS:
+			return c_source_;
 		case TokenKind::KW_TYPEDEF:
 		case TokenKind::KW_STATIC:
 		case TokenKind::KW_EXTERN:
@@ -888,13 +890,13 @@ Stmt* Parser::parse_for()
 	// A for-range-declaration or the for-init-statement's declaration may
 	// begin with an attribute-specifier-seq (6.5.4p1, 6.5p1).
 	Attribute* attributes = nullptr;
-	if (at_attribute() && !collect_attributes(attributes))
+	if (at_attribute() && !collect_attributes(attributes, nullptr, CAlignment::EndAttributes))
 	{
 		scopes_.set_current(saved);
 		return nullptr;
 	}
 	bool tentative = false;
-	if (statement_starts_declaration(tentative))
+	if (!c_source_ && statement_starts_declaration(tentative))
 	{
 		// for ( for-range-declaration : for-range-initializer ) (6.5.4).
 		Tentative attempt(*this);
@@ -983,10 +985,10 @@ Stmt* Parser::parse_for()
 		else if (init->kind == StmtKind::Declaration)
 		{
 			Decl* declaration = static_cast<DeclarationStmt*>(init)->declaration;
-			// 6.5: only a simple-declaration, not every block-declaration.
-			// Standalone class and enum specifiers have their own AST kinds.
+			// In C a static assertion is a declaration and declares no
+			// identifier (6.8.5p3). C++ requires a simple-declaration.
 			if (declaration->kind != DeclKind::Simple && declaration->kind != DeclKind::Class &&
-				declaration->kind != DeclKind::Enum)
+				declaration->kind != DeclKind::Enum && !(c_source_ && declaration->kind == DeclKind::StaticAssert))
 			{
 				fail();
 				parsed = false;

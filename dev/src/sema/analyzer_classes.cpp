@@ -346,9 +346,24 @@ uint64_t Analyzer::attribute_alignment(
 			}
 			else if (attribute->type != nullptr)
 			{
+				const bool c_alignas = c_source_ && !attribute->gnu;
+				const RuntimeTypeEvaluation* unevaluated = nullptr;
+				const Type* type = type_id(*attribute->type, scope, false, c_alignas ? &unevaluated : nullptr);
+				const uint32_t alias_alignment = c_alignas ? type_id_alignment_ : 0;
+				if (c_alignas)
+				{
+					while (type->kind == TypeKind::Array)
+					{
+						if (!type->has_array_bound() && !type->runtime_array())
+							error(attribute->location, "alignas of an incomplete array type");
+						type = type->element;
+					}
+				}
 				uint64_t size = 0;
-				if (!type_size(type_id(*attribute->type, scope), size, value, attribute->location))
+				if (!type_size(type, size, value, attribute->location))
 					error(attribute->location, "alignas of an incomplete type");
+				if (alias_alignment != 0)
+					value = alias_alignment;
 			}
 			else
 			{
@@ -365,6 +380,8 @@ uint64_t Analyzer::attribute_alignment(
 				value = constant.bits;
 				if ((value & (value - 1)) != 0)
 					error(attribute->location, "an alignment that is not a power of two");
+				if (c_source_ && !attribute->gnu && value > UINT32_MAX)
+					error(attribute->location, "an alignment outside the supported range");
 			}
 			if (value > alignment)
 				alignment = value;
@@ -731,7 +748,8 @@ const Type* Analyzer::decltype_base_type(const syntax::Expr& operand, Scope* sco
 	return type;
 }
 
-void Analyzer::anonymous_union(ClassEntity* entity, const Specifiers& specifiers, Scope* scope, uint32_t location)
+void Analyzer::anonymous_union(ClassEntity* entity, const Specifiers& specifiers, Scope* scope, uint32_t location,
+	uint64_t alignment, const syntax::Attribute* alignment_specifier)
 {
 	// 9.5p5: an anonymous union's members are injected into the enclosing
 	// scope; in a named namespace or the global namespace it must be
@@ -767,7 +785,9 @@ void Analyzer::anonymous_union(ClassEntity* entity, const Specifiers& specifiers
 	{
 		// The unnamed member object, which the class's storage names.
 		ClassEntity* owner = static_cast<ClassEntity*>(where->entity);
-		Entity* storage = new_entity<VariableEntity>(EntityKind::Variable, nullptr, where, entity->type);
+		auto* storage = new_entity<VariableEntity>(EntityKind::Variable, nullptr, where, entity->type);
+		if (alignment_specifier != nullptr)
+			request_alignment(storage, alignment, alignment_specifier);
 		add_data_member(owner, storage, 0, false);
 		Binding* binding = new_binding(BindingKind::Variable, nullptr, storage, entity->type);
 		binding->hidden = true;

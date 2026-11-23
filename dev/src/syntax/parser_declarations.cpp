@@ -40,7 +40,7 @@ Decl* Parser::parse_declaration(DeclContext context, Attribute* leading)
 	if (at_attribute())
 	{
 		bool standard = false;
-		if (!collect_attributes(leading_attributes_, &standard))
+		if (!collect_attributes(leading_attributes_, &standard, CAlignment::Declaration))
 			return nullptr;
 		if (accept(TokenKind::OP_SEMICOLON))
 		{
@@ -1054,7 +1054,8 @@ Decl* Parser::finish_simple_declaration(
 			// Anonymous record members participate in the enclosing scope's
 			// type/value disambiguation, including deferred inline bodies.
 			scopes_.add_new_edge(declaration_scope(), info.type_scope);
-		if (pending_attributes_ != nullptr && specifiers.size == 1 && specifiers[0].kind == DeclSpecKind::Enum)
+		if (!c_source_ && pending_attributes_ != nullptr && specifiers.size == 1 &&
+			specifiers[0].kind == DeclSpecKind::Enum)
 		{
 			// No declarator: keep leading alignas on the enum for applicability
 			// checking. With a declarator it instead appertains to its variable.
@@ -1073,15 +1074,15 @@ Decl* Parser::finish_simple_declaration(
 			}
 		}
 		const bool member_enum = context == DeclContext::Class && specifiers[0].kind == DeclSpecKind::Enum;
-		// An elaborated-type-specifier with ABI tags (Attribute::on_class)
-		// stays a simple-declaration, which keeps its attributes.
-		bool class_tags = false;
-		for (const Attribute* attribute = pending_attributes_; attribute != nullptr && !class_tags;
+		// Keep attributes that require checking or apply to an anonymous member.
+		bool keep_attributes = false;
+		for (const Attribute* attribute = pending_attributes_; attribute != nullptr && !keep_attributes;
 			attribute = attribute->next)
-			class_tags = attribute->on_class;
+			keep_attributes = attribute->on_class ||
+				(c_source_ && attribute->kind == AttributeKind::Alignas && !attribute->gnu);
 		if (specifiers.size == 1 && specifiers[0].kind != DeclSpecKind::Keyword &&
 			specifiers[0].kind != DeclSpecKind::Name && specifiers[0].kind != DeclSpecKind::Decltype && !member_enum &&
-			!class_tags)
+			!keep_attributes)
 		{
 			if (specifiers[0].kind == DeclSpecKind::Enum)
 			{

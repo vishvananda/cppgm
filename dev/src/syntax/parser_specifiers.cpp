@@ -113,12 +113,12 @@ DeclSpecifier KeywordSpecifier(TokenKind kind, uint32_t location)
 } // namespace
 
 bool Parser::parse_decl_specifier_seq(
-	ListFrame<DeclSpecifier>& list, SpecifierInfo& info, bool definite, bool type_only)
+	ListFrame<DeclSpecifier>& list, SpecifierInfo& info, bool definite, bool type_only, CAlignment alignment)
 {
 	info = SpecifierInfo();
 	const uint8_t saved_definite = definite_type_;
 	definite_type_ = (definite ? kDefiniteType : 0) | (type_only && cxx20_ ? kTypeOnly : 0);
-	const bool parsed = parse_decl_specifiers(list, info);
+	const bool parsed = parse_decl_specifiers(list, info, alignment);
 	definite_type_ = saved_definite;
 	return parsed;
 }
@@ -245,7 +245,7 @@ bool Parser::gnu_attribute(const char* spelling, Attribute& attribute, bool& kep
 	return false;
 }
 
-bool Parser::collect_attribute_specifiers(Attribute*& list, bool* standard)
+bool Parser::collect_attribute_specifiers(Attribute*& list, bool* standard, CAlignment alignment)
 {
 	// (collect_attributes calls this at the first attribute.)
 	// attribute-specifier-seq (7.6.1), alignment-specifiers (7.6.2) and GNU
@@ -396,7 +396,13 @@ bool Parser::collect_attribute_specifiers(Attribute*& list, bool* standard)
 		if (at(TokenKind::KW_ALIGNAS))
 		{
 			if (c_source_)
+			{
+				if (alignment == CAlignment::EndAttributes)
+					break;
+				if (alignment == CAlignment::Forbidden)
+					throw ParseError(start, "an alignment specifier is not permitted here");
 				require_c_extension(start, CEdition::C11, "_Alignas is a C11 extension");
+			}
 			next();
 			if (!expect(TokenKind::OP_LPAREN))
 				return false;
@@ -525,20 +531,21 @@ bool Parser::at_constinit_specifier()
 		(following.kind == ParseTokenKind::Simple && IsKeywordSpecifier(following.simple));
 }
 
-bool Parser::parse_decl_specifiers(ListFrame<DeclSpecifier>& list, SpecifierInfo& info)
+bool Parser::parse_decl_specifiers(ListFrame<DeclSpecifier>& list, SpecifierInfo& info, CAlignment alignment)
 {
 	uint32_t standard_after = 0;
+	Attribute** added = &pending_attributes_;
 	for (;;)
 	{
 		// Those after a decl-specifier appertain to the type (7.1p1).
-		Attribute** added = &pending_attributes_;
 		while (*added != nullptr)
 			added = &(*added)->next;
 		bool standard = false;
-		if (!collect_attributes(pending_attributes_, &standard))
+		if (!collect_attributes(*added, &standard, alignment))
 			return false;
 		for (Attribute* attribute = *added; attribute != nullptr && list.size() != 0; attribute = attribute->next)
-			attribute->on_type = true;
+			// A C alignment specifier belongs to the declaration at every position.
+			attribute->on_type = !(c_source_ && attribute->kind == AttributeKind::Alignas && !attribute->gnu);
 		if (*added != nullptr)
 			type_attributes(*added, list);
 		if (standard && standard_after == 0)
@@ -995,7 +1002,7 @@ bool Parser::parse_class_or_enum_specifier(ListFrame<DeclSpecifier>& list, Speci
 		// GNU attributes just past the closing brace are the class's too
 		// (GCC's type attributes).
 		if (tok().is_identifier() && gnu_names_.kind(tok().identifier) == GnuNames::kAttribute &&
-			!collect_attributes(class_attributes))
+			!collect_attributes(class_attributes, nullptr, CAlignment::EndAttributes))
 			return false;
 		specifier.class_specifier->first_token = first_token;
 		specifier.class_specifier->attributes = class_attributes;

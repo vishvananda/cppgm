@@ -413,6 +413,8 @@ bool ParserState::skip_attributes()
 	// accepted and dropped: the PA5 tree does not represent attributes.
 	while (at_attribute())
 	{
+		if (c_source_ && at(TokenKind::KW_ALIGNAS))
+			return fail();
 		if (at(TokenKind::OP_LSQUARE))
 		{
 			next();

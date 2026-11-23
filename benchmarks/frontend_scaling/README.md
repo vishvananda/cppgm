@@ -67,6 +67,11 @@ integer literals or additions. Measure C17 `-fsyntax-only` and `-O0 -c` at
 validation and the object run includes reuse during emission. Compare objects
 with the parent build and run the generated program to check the data.
 
+`c-alignment-prefix` and `c-alignment-interleaved` declare the same
+over-aligned object. They place a growing number of alignment specifiers
+before or between repeated qualifiers, respectively. Double the count in
+C17 syntax-only mode, then check that both orders emit identical objects.
+
 `c-vla-declarators` generates independent declarations that share an element
 type and each have their own runtime bound. Compare it against
 `c-fixed-array-declarators` at 1024, 2048, 4096, and 8192 functions in C17

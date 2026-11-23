@@ -61,6 +61,12 @@ The first fixture set covers these parts of the C17 input profile:
 - C keywords, preprocessing tokens, feature macros and C++ keywords used as
   ordinary C identifiers; `_Bool`, `_Static_assert`, `_Alignas`, `_Alignof`
   and `_Noreturn` use their C meanings.
+- Accept an alignment specifier anywhere in the declaration specifier list.
+  Use the strictest nonzero request for the object or member, including an
+  anonymous member. Preserve the declared type's own alignment. Diagnose
+  alignment specifiers on typedefs, bit-fields, functions, parameters, and
+  register objects, and requests weaker than an object's type. A type
+  operand uses the type's alignment without evaluating VLA bounds.
 - Procedural scalar and pointer expressions, control flow, prototype-based
   function declarations, calls, callbacks and variadic argument promotions;
   declarations without prototypes use default argument promotions and compatible
@@ -96,6 +102,7 @@ The first fixture set covers these parts of the C17 input profile:
   Check operand forms in conditional branches that evaluation skips. A
   foldable array bound can still declare a variable-length array. Use C's
   integer constant expressions of value zero for null pointer conversions.
+  A static assertion can also be the declaration in a `for` initializer.
 - When the two pointer operands of `?:` point to compatible types, form
   the composite pointed-to type and combine their qualifiers. A bound or
   a prototype from either operand can determine the result type. Evaluate

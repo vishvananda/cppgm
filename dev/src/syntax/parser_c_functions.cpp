@@ -45,6 +45,9 @@ bool Parser::parse_c_parameter_declarations(Declarator* declarator)
 			break;
 		}
 		const auto& simple = static_cast<const SimpleDecl&>(*declaration);
+		for (const Attribute* attr = simple.attributes; attr != nullptr; attr = attr->next)
+			if (attr->kind == AttributeKind::Alignas && !attr->gnu)
+				throw ParseError(attr->location, "an alignment specifier on a parameter");
 		if (simple.declarators.empty())
 			parsed = false;
 		for (const auto& init : simple.declarators)

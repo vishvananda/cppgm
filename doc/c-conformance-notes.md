@@ -50,6 +50,26 @@ extension spellings in C99.
 [C23 draft, N3096](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
 [PA38 edition control](../pa38/tests/general/500-c11-edition-syntax.t)
 
+## C11 alignment and assertions
+
+C11 lists alignment in the declaration specifiers (6.7) and DR 444
+clarifies its use on record members. A nonzero request applies to the
+declared object or member, including an anonymous member. Use the strongest
+request and require it to meet the natural alignment of the type. Reject
+requests on parameters, bit-fields, typedefs, functions, and register
+objects (6.7.5). The type-name form uses the type's alignment, so a
+variably modified array can supply its element alignment without running
+the bound expression (6.5.3.4 and 6.7.5).
+
+The `for` grammar also takes a declaration (6.8.5). A static assertion
+fits that grammar without introducing an identifier. Check it as a
+declaration, even when the loop body would never run.
+
+[C11 draft, N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[WG14 defect report 444](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2059.htm#dr_444) ·
+[Alignment fixture](../pa38/tests/general/500-c11-alignment.t) ·
+[For initializer fixture](../pa38/tests/general/500-c11-for-static-assert.t)
+
 ## Literal prefixes and feature probes by edition
 
 C11 6.4.4.4 and 6.4.5 add Unicode character and string prefixes. In

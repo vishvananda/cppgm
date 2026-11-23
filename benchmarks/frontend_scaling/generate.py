@@ -156,6 +156,13 @@ def c_designated_sparse(size):
     print(f'_Static_assert(sizeof table == {size}, "completed bound");')
 
 
+def c_alignment_specifiers(size, interleaved):
+    if interleaved:
+        print('const _Alignas(16) ' * size + 'char value = 1;')
+    else:
+        print('_Alignas(16) ' * size + 'const ' * size + 'char value = 1;')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('case', choices=['parameter-bases', 'plain-templates',
@@ -168,7 +175,8 @@ def main():
                                         'c-conditional-composites', 'c-inline-late-linkage',
                                         'c-generic-arrays', 'c-generic-prototypes', 'c-generic-short-lists',
                                         'c-ice-atoms', 'c-ice-chain',
-                                        'c-static-atoms', 'c-static-expressions',
+                                        'c-static-atoms', 'c-static-expressions', 'c-alignment-interleaved',
+                                        'c-alignment-prefix',
                                         'c-vla-declarators', 'c-fixed-array-declarators',
                                         'c-vla-dimensions', 'c-vla-extent-uses',
                                         'c-typeof-shared-bounds', 'c-designated-overwrites', 'c-designated-sparse',
@@ -218,6 +226,9 @@ def main():
         return
     if args.case in ('c-static-atoms', 'c-static-expressions'):
         c_static_initializers(args.size, expressions=args.case == 'c-static-expressions')
+        return
+    if args.case in ('c-alignment-prefix', 'c-alignment-interleaved'):
+        c_alignment_specifiers(args.size, interleaved=args.case == 'c-alignment-interleaved')
         return
     if args.case in ('c-vla-declarators', 'c-fixed-array-declarators'):
         c_array_declarators(args.size, 'n' if args.case == 'c-vla-declarators' else '2')

@@ -185,10 +185,17 @@ private:
 	Decl* finish_simple_declaration(
 		DeclContext context, Slice<DeclSpecifier> specifiers, const SpecifierInfo& info, uint32_t start);
 	Decl* parse_bit_field_rest(Slice<DeclSpecifier> specifiers, Declarator* first, uint32_t start);
+	enum class CAlignment
+	{
+		Forbidden,
+		Declaration,
+		EndAttributes
+	};
 	// `type_only`: the specifiers of a C++20 type-only context (kTypeOnly).
-	bool parse_decl_specifier_seq(
-		ListFrame<DeclSpecifier>& list, SpecifierInfo& info, bool definite = false, bool type_only = false);
-	bool parse_decl_specifiers(ListFrame<DeclSpecifier>& list, SpecifierInfo& info);
+	bool parse_decl_specifier_seq(ListFrame<DeclSpecifier>& list, SpecifierInfo& info, bool definite = false,
+		bool type_only = false, CAlignment alignment = CAlignment::Declaration);
+	bool parse_decl_specifiers(
+		ListFrame<DeclSpecifier>& list, SpecifierInfo& info, CAlignment alignment = CAlignment::Declaration);
 	bool at_constinit_specifier();
 	bool at_constrained_placeholder();
 	void constrained_placeholder(DeclSpecifier& specifier, Name* constraint);
@@ -197,11 +204,11 @@ private:
 	// An attribute-specifier-seq, alignas and GNU __attribute__, keeping
 	// the attributes later stages use on `list` (the rest are dropped).
 	bool gnu_attribute(const char* spelling, Attribute& attribute, bool& kept);
-	bool collect_attributes(Attribute*& list, bool* standard = nullptr)
+	bool collect_attributes(Attribute*& list, bool* standard = nullptr, CAlignment alignment = CAlignment::Forbidden)
 	{
-		return !at_attribute() || collect_attribute_specifiers(list, standard);
+		return !at_attribute() || collect_attribute_specifiers(list, standard, alignment);
 	}
-	bool collect_attribute_specifiers(Attribute*& list, bool* standard);
+	bool collect_attribute_specifiers(Attribute*& list, bool* standard, CAlignment alignment);
 	bool parse_alignment_operand(Attribute& attribute);
 	// GNU `__typeof__ ( type-id )` or `__typeof__ unary-expression` as a
 	// decltype-specifier of a TypeofOperand (parse_typeof_operand).

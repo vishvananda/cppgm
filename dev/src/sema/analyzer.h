@@ -593,7 +593,8 @@ private:
 	void base_classes(ClassEntity* entity, const syntax::ClassSpecifier& specifier, Scope* scope);
 	void virtual_base_list(ClassEntity* entity);
 	void distinct_direct_bases(const ClassEntity* entity, uint32_t location);
-	void anonymous_union(ClassEntity* entity, const Specifiers& specifiers, Scope* scope, uint32_t location);
+	void anonymous_union(ClassEntity* entity, const Specifiers& specifiers, Scope* scope, uint32_t location,
+		uint64_t alignment, const syntax::Attribute* alignment_specifier);
 	void name_unnamed_type(Specifiers& specifiers, const Identifier* name, Scope* scope);
 	LookupResult earlier_class(Scope* scope, const Identifier* name);
 	Entity* elaborated_class(

@@ -566,7 +566,7 @@ ParameterDeclaration* Parser::parse_parameter_declaration(bool definite, bool ty
 		ListFrame<DeclSpecifier> specifiers(specs_);
 		SpecifierInfo info;
 		leading_type_attributes(leading, specifiers);
-		if (!parse_decl_specifier_seq(specifiers, info, definite, type_only))
+		if (!parse_decl_specifier_seq(specifiers, info, definite, type_only, CAlignment::Forbidden))
 			return nullptr;
 		if (specifiers.size() == 0)
 		{
