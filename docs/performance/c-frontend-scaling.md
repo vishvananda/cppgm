@@ -2711,3 +2711,29 @@ block grow roughly in proportion to the number of calls.
 | 256 | 21,099,585 | 21,178,623 | 79,038 |
 | 512 | 38,363,328 | 38,505,721 | 142,394 |
 | 1,024 | 72,340,969 | 72,628,396 | 287,426 |
+
+## C flexible array member constraints
+
+Compared `d8d1cfe0f` with `4f5547699` using immutable GCC 15 builds on
+x86-64 Linux. All observations produced byte-identical objects for the
+same frozen input. The two record facts occupy existing `ClassEntity`
+padding, keeping its size at 288 bytes and alignment at 8 bytes.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.00108% | −0.00063% | +0.00077% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.00522% | −0.00010% | +0.00236% |
+
+The paired peak RSS changes ranged from −0.12% to +0.02%. A/A
+task-clock spreads were 20% and 12%, so the run does not resolve a
+wall-time difference. A synthetic C99 probe measures the incremental
+work of declaring flexible records and unions containing them at `-O0`.
+The change adds roughly 200 retired instructions per pair, measured in
+one ABBA block per size on CPU 71.
+
+| Record pairs | Baseline instructions | Candidate instructions | Added instructions |
+| ---: | ---: | ---: | ---: |
+| 128 | 21,291,754 | 21,320,352 | 28,599 |
+| 256 | 38,614,054 | 38,665,916 | 51,862 |
+| 512 | 73,608,456 | 73,706,366 | 97,910 |
+| 1,024 | 143,665,205 | 143,870,257 | 205,052 |

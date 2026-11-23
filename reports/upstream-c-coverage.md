@@ -749,7 +749,10 @@ condition-variable handoff. cppgm now follows the target predefines
 observed in GCC and Clang. Both Linux targets omit the macro. Both Darwin
 targets predefine `__STDC_NO_THREADS__` as `1`, including in earlier C
 modes and C++, as Clang does. The selected target controls this value
-even when the build compiler runs on a different platform.
+even when the build compiler runs on a different platform. Header-free
+macro dumps agreed with Clang 21 on all six targets in C99, C11, C17,
+and C++20, and with GCC 15 on Linux x86-64. Adding `-ffreestanding` in
+each C edition left the result unchanged.
 [C11 feature macros and threads, §§6.10.8.3 and 7.26.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [Clang Darwin predefines](https://github.com/llvm/llvm-project/blob/llvmorg-22.1.2/clang/lib/Basic/Targets/OSTargets.cpp)
 
@@ -1021,6 +1024,42 @@ and Wasm suites include the portable and GNU cases. GNU range designators
 and their overlap and single-evaluation rules remain open.
 
 [Initializer scaling measurements](../docs/performance/c-frontend-scaling.md#designated-initializers)
+
+### Flexible array and record member constraints
+
+PA38 checks that a flexible array is the final member of a structure
+with another named member. Names injected by an anonymous aggregate count
+toward the requirement. The tests also reject a function-typed member,
+and check strict-mode diagnostics for embedding a flexible structure or
+a union containing one as a structure member or array element. Both
+positional and designated nonempty initialization of a flexible member
+require a diagnostic in strict mode. The implementation updates the record facts
+as it declares each member, including transitively through union members.
+[PA38 positive fixture](../pa38/tests/general/300-c-flexible-array.t) ·
+[C11 draft, §§6.7.2.1 and 6.7.9](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
+
+The ten clause configurations per edition passed in C99, C11, and C17
+on Linux x86-64, AArch64 Linux under QEMU, WASI, and freestanding Wasm.
+The positive fixture also ran with GCC 15 and Clang 21 on x86-64 Linux,
+and its freestanding form cross-linked as Mach-O for both Darwin targets
+at `-O0` and `-O2`. The pinned GCC standalone torture comparison still
+matches 111 of 128 configurations with 17 previously reviewed gaps.
+GCC's nested flexible-array initializer in `pr28865.c` remains open.
+[Compile-work measurements](../docs/performance/c-frontend-scaling.md#c-flexible-array-member-constraints)
+
+The separate by-value ABI probe passed with cppgm and GCC 15 objects
+in both caller/callee directions on Linux x86-64. For a structure with
+an `unsigned` prefix and a flexible `int` tail, GCC and cppgm pass and
+return the prefix in registers. Clang 21 passes the structure on the
+stack and returns through a hidden pointer. Direct mixed GCC and Clang
+executables failed in both directions at `-O0` and `-O2`, as did mixed
+cppgm and Clang executables. On Linux AArch64, mixed cppgm and Clang
+executables passed in both directions. On Darwin Arm64, the emitted
+Mach-O objects agree on the register convention for this probe. Darwin
+x86-64 still needs the Clang memory convention and mixed-object runtime
+qualification.
+[GCC x86 classification](https://github.com/gcc-mirror/gcc/blob/releases/gcc-15.1.0/gcc/config/i386/i386.cc#L2119-L2137) ·
+[Clang x86 classification](https://github.com/llvm/llvm-project/blob/llvmorg-21.1.8/clang/lib/CodeGen/Targets/X86.cpp#L1885-L1889)
 
 ## Composite types, tentative definitions, and linkage
 
