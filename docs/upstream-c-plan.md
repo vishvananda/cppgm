@@ -49,6 +49,9 @@ Start the next batches from the existing receipts.
    record's immediate members or span distinct multidimensional regions.
    Cover nested brace elision and positional continuation, union member
    changes, and automatic ranges of aggregates with qualified subobjects.
+   Emit patched nonzero static record expressions from sparse data
+   fragments so the constant interpreter's object budget does not bound
+   these initializers.
    PA38 covers whole-element ranges, member and subscript suffixes,
    same-path overlap, and overlap between direct member and whole-record
    writes. The direct-member tests include brace elision and positional

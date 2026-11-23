@@ -1953,3 +1953,40 @@ BAAB. SQLite changes by +0.00090% and −0.00232%. The A/A ranges are
 | SQLite | A/A | 16,530,070,155 / 16,530,368,905 / 16,529,783,646 / 16,529,734,778 |
 | SQLite | ABBA | 16,529,891,960 / 16,530,456,182 / 16,529,515,524 / 16,529,782,125 |
 | SQLite | BAAB | 16,529,882,719 / 16,530,395,167 / 16,529,984,103 / 16,529,730,677 |
+
+## Overlapping GNU record fields
+
+Two partially overlapping member ranges and one whole-record reset
+emit 97 LowIR lines at widths from 128 to 4,194,304 records. Retired
+instructions range from 4,204,505 to 4,206,149 and peak RSS ranges
+from 7,876 to 7,944 KiB.
+
+The independent-field series adds one broad range per field and the
+same number of two-record resets to a 65,536-element array. A final
+whole-record reset splits each field range. Syntax analysis and
+automatic LowIR emission scale with the written ranges and surviving
+fragments. An all-zero static version emits three LowIR lines across
+the series.
+
+| Fields and earlier resets | Syntax only instructions | Automatic LowIR instructions | Automatic LowIR lines | Static zero LowIR instructions |
+| ---: | ---: | ---: | ---: | ---: |
+| 128 | 8,922,589 | 14,087,819 | 5,025 | 8,767,328 |
+| 256 | 13,805,802 | 24,263,730 | 10,017 | 13,589,131 |
+| 512 | 23,715,025 | 44,782,671 | 20,001 | 23,331,256 |
+| 1024 | 43,552,755 | 86,271,561 | 39,969 | 42,866,597 |
+| 2048 | 83,835,370 | 170,618,919 | 79,905 | 82,575,470 |
+| 4096 | 165,701,262 | 341,868,770 | 159,777 | 163,459,531 |
+
+Against `5573856ba`, C++ and SQLite produce byte-identical objects in
+every trial. C++ retired instructions change by +0.00056% in ABBA and
+−0.00146% in BAAB. SQLite changes by +0.00040% and −0.00079%. The A/A
+ranges are 0.00296% and 0.00302%, respectively.
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,057,420,118 / 9,057,327,478 / 9,057,151,771 / 9,057,218,565 |
+| C++ | ABBA | 9,057,232,959 / 9,057,320,805 / 9,057,318,706 / 9,057,305,578 |
+| C++ | BAAB | 9,057,005,757 / 9,057,217,774 / 9,057,295,569 / 9,057,243,425 |
+| SQLite | A/A | 16,530,729,889 / 16,530,230,534 / 16,530,236,738 / 16,530,311,823 |
+| SQLite | ABBA | 16,530,267,579 / 16,530,252,664 / 16,530,308,454 / 16,530,160,204 |
+| SQLite | BAAB | 16,530,562,236 / 16,530,650,835 / 16,530,456,309 / 16,530,283,120 |

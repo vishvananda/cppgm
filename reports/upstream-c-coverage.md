@@ -227,11 +227,15 @@ this case, including with point designators. A braced replacement
 supplies zeros for its omitted fields, as in DR 253. A pointwise oracle
 checks 128 generated sets of member and braced record writes in both
 storage durations. GCC 15 and cppgm match those results at `-O0` and
-`-O2`.
+`-O2`. The PA38 fixture passes on Linux x86-64, AArch64 QEMU, and WASI.
+The Intel and Apple Silicon Mach-O objects both cross-link.
 
 The remaining range cases include composition below a direct member,
 overlap between distinct multidimensional suffixes, union member
-changes, and qualified aggregates in automatic storage.
+changes, and qualified aggregates in automatic storage. A static
+nonzero record expression with a member patch currently uses constant
+evaluation to emit the overlaid data. A three-million-record probe
+exceeds its object budget and fails data emission.
 [PA38 field overlap fixture](../pa38/tests/general/300-designated-gnu-field-overlaps.t) ·
 [WG14 DR 413](https://www.open-std.org/Jtc1/sc22/WG14/www/docs/dr_413.htm) ·
 [WG14 DR 253](https://www.open-std.org/JTC1/SC22/WG14/www/docs/dr_253.htm)
