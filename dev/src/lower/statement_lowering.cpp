@@ -734,7 +734,7 @@ void FunctionLowering::local_object_variable(const sema::VariableEntity* variabl
 	RValue constant;
 	if (evaluated != nullptr && constant_rvalue(*evaluated, type, constant, location))
 	{
-		store(slot_type, constant, place);
+		store_initializer(slot_type, constant, place);
 		return;
 	}
 	const bool region = begin_full_expression(single);
@@ -795,7 +795,7 @@ void FunctionLowering::initialize_storage(
 			aggregate_array(type, AddressPath{ AddressPath::Root::Value, address_of(place), path_steps_.size() },
 				nullptr, location);
 		else
-			store(lowering_.storage_type(type), zero_value(type), place);
+			store_initializer(lowering_.storage_type(type), zero_value(type), place);
 		return;
 	}
 	if (type->kind == sema::TypeKind::Array && type->element->kind == sema::TypeKind::Array)
@@ -821,7 +821,7 @@ void FunctionLowering::initialize_storage(
 		const syntax::BracedInitList& list = static_cast<const syntax::BracedInitList&>(*expr);
 		if (list.elements.empty())
 		{
-			store(storage, zero_value(type), place);
+			store_initializer(storage, zero_value(type), place);
 			return;
 		}
 		// A GNU vector's elements are its lanes (a complex value's two its
@@ -834,7 +834,7 @@ void FunctionLowering::initialize_storage(
 		expr = list.elements[0];
 	}
 	RValue value = fit(operand(*expr, ConversionContext::Initialization), type);
-	store(storage, value, place);
+	store_initializer(storage, value, place);
 }
 
 void FunctionLowering::initialize_object(
@@ -904,7 +904,7 @@ void FunctionLowering::initialize_object(
 			value = integer(storage, element.unit);
 		else
 			value = zero_value(element.type);
-		store(storage, value, place);
+		store_initializer(storage, value, place);
 	}
 }
 

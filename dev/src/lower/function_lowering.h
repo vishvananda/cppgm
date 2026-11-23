@@ -726,18 +726,26 @@ private:
 	// An atomic object's read-modify-write with no single LowIR operation
 	// (C11 6.5.16.2p3, 6.5.2.4p2): its value read (begin), the new value
 	// computed from it, then stored by a compare-exchange retried from the
-	// read while another write intervened (end). `bits` is the integer of
-	// the object's size (atomic_bits: none for other sizes).
+	// read while another write intervened (end). The expected slot holds
+	// the object's representation. Inline operations use an integer
+	// carrier and wide C objects use their typed storage.
 	struct AtomicLoop
 	{
 		lowir::Type bits;
 		lowir::SlotId expected;
 		lowir::BlockId retry;
+		bool runtime;
+		lowir::Value object_address;
+		lowir::Value expected_address;
+		lowir::Value desired_address;
 	};
 	static bool atomic_bits(lowir::Type storage, lowir::Type& bits);
-	RValue begin_atomic_loop(const Place& object, lowir::Type storage, AtomicLoop& loop);
-	void end_atomic_loop(const Place& object, lowir::Type storage, const AtomicLoop& loop, const RValue& updated);
+	bool prepare_atomic_loop(lowir::Type storage, AtomicLoop& loop);
+	RValue begin_atomic_loop(const Place& object, lowir::Type storage, AtomicLoop& loop, uint32_t location);
+	void end_atomic_loop(
+		const Place& object, lowir::Type storage, const AtomicLoop& loop, const RValue& updated, uint32_t location);
 	void store(lowir::Type type, const RValue& value, const Place& place);
+	void store_initializer(lowir::Type type, const RValue& value, const Place& place);
 	// Each emitting helper appends at the insertion point. C++ leaves the
 	// order of a call's arguments unspecified (g++ evaluates them right to
 	// left, cppgm left to right), so two emitting operands of one call are

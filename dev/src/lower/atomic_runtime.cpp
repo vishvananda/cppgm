@@ -345,6 +345,20 @@ void FunctionLowering::write_c_atomic_value(
 	emit_atomic_access(storage, access, RValue(), location);
 }
 
+void FunctionLowering::store_initializer(lowir::Type type, const RValue& value, const Place& place)
+{
+	if (place.is_atomic && type.kind() == lowir::TypeKind::I128 && lowering_.analyzer_->c_source())
+	{
+		// Initialization can store into the unshared object directly.
+		// A later assignment uses the target's atomic runtime protocol.
+		Place initial = place;
+		initial.is_atomic = false;
+		store(type, value, initial);
+		return;
+	}
+	store(type, value, place);
+}
+
 RValue FunctionLowering::atomic_lock_free(const syntax::CallExpr& expr)
 {
 	const lowir::Type boolean = lowir::Type::scalar(lowir::TypeKind::U8);
@@ -374,6 +388,161 @@ RValue FunctionLowering::atomic_lock_free(const syntax::CallExpr& expr)
 	const RValue low_bits = binary(BinaryOp::And, type, alignment_bits, mask);
 	const RValue aligned_power = compare(ComparePredicate::Eq, type, low_bits, integer(type, 0));
 	return convert_op(lowir::ConvertOp::Trunc, boolean, binary(BinaryOp::And, in_range.type, in_range, aligned_power));
+}
+
+// The atomic read-modify-writes of `_Atomic` objects' compound assignments
+// and increments (expression_lowering.cpp; C11 6.5.16.2p3, 6.5.2.4p2).
+
+bool FunctionLowering::atomic_step(const Place& place, const sema::Type* type, lowir::Type storage)
+{
+	// ++ and -- of an atomic integer (not bool): one atomic
+	// read-modify-write (C11 6.5.2.4p2).
+	const sema::Type* value = type->unqualified;
+	return place.is_atomic && storage.is_integer() &&
+		!(value->kind == sema::TypeKind::Fundamental && value->fundamental == FundamentalType::Bool) &&
+		(storage.kind() != lowir::TypeKind::I128 || !lowering_.analyzer_->c_source());
+}
+
+bool FunctionLowering::atomic_bits(lowir::Type storage, lowir::Type& bits)
+{
+	// An integer is its own bits; a pointer or floating value (a long
+	// double's 16 bytes with their padding), a binary16 or binary128
+	// object, those of the integer of its size.
+	uint64_t size = 0;
+	switch (storage.kind())
+	{
+	case lowir::TypeKind::F32:
+		size = 4;
+		break;
+	case lowir::TypeKind::F64:
+		size = 8;
+		break;
+	case lowir::TypeKind::Ptr:
+		size = storage.pointer_bytes();
+		break;
+	case lowir::TypeKind::F80:
+		size = 16;
+		break;
+	case lowir::TypeKind::Obj:
+		size = storage.bytes;
+		break;
+	default:
+		bits = storage;
+		return storage.is_integer();
+	}
+	if (size != 1 && size != 2 && size != 4 && size != 8 && size != 16)
+		return false;
+	bits = lowir::Type::scalar(size == 1 ? lowir::TypeKind::I8
+			: size == 2                  ? lowir::TypeKind::I16
+			: size == 4                  ? lowir::TypeKind::I32
+			: size == 8                  ? lowir::TypeKind::I64
+										 : lowir::TypeKind::I128);
+	return true;
+}
+
+bool FunctionLowering::prepare_atomic_loop(lowir::Type storage, AtomicLoop& loop)
+{
+	loop.runtime = !target_model::is_inline_atomic_size(lowir::storage_bytes(storage)) &&
+		lowering_.analyzer_->c_source();
+	if (!loop.runtime)
+		return atomic_bits(storage, loop.bits);
+	loop.bits = storage;
+	return true;
+}
+
+RValue FunctionLowering::begin_atomic_loop(
+	const Place& object, lowir::Type storage, AtomicLoop& loop, uint32_t location)
+{
+	// The object's bits read into the expected slot (a failed exchange
+	// writes what the object held there), then each try reads them as the
+	// object's type.
+	loop.expected = generated_slot(lowir::SlotKind::AtomicExpected, loop.bits);
+	Place expected = Place();
+	expected.storage = lowir::Value::slot(loop.expected);
+	if (loop.runtime)
+	{
+		// The load and the eventual exchange must use the same runtime
+		// protocol as plain reads and writes to the object.
+		loop.object_address = address_of(object);
+		loop.expected_address = address_of(expected);
+		loop.desired_address = address_of(atomic_buffer(lowir::SlotKind::AtomicArg, storage));
+		AtomicAccess access = {};
+		access.object = loop.object_address;
+		access.result = loop.expected_address;
+		access.order = lowir::MemoryOrder::Relaxed;
+		emit_atomic_access(storage, access, RValue(), location);
+	}
+	else
+	{
+		lowir::Instruction first = lowir::make_instruction(lowir::Opcode::AtomicLoad, loop.bits);
+		first.ops[0] = object.storage;
+		first.order = lowir::MemoryOrder::Relaxed;
+		const RValue seen = { emit_value(first, loop.bits), loop.bits };
+		store(loop.bits, seen, expected);
+	}
+	loop.retry = new_block(lowir::BlockKind::AtomicRetry);
+	jump(loop.retry);
+	place(loop.retry);
+	if (storage == loop.bits)
+		return load(storage, expected);
+	if (storage.kind() == lowir::TypeKind::Ptr)
+		return copy(storage, load(loop.bits, expected));
+	Place view = Place();
+	view.storage = address_of(expected);
+	return load(storage, view);
+}
+
+void FunctionLowering::end_atomic_loop(
+	const Place& object, lowir::Type storage, const AtomicLoop& loop, const RValue& updated, uint32_t location)
+{
+	// The new value's bits (over a copy of the old ones: a long double's
+	// padding unchanged), exchanged for the expected ones, else retried.
+	RValue exchanged;
+	if (loop.runtime)
+	{
+		Place desired = {};
+		desired.storage = loop.desired_address;
+		desired.untyped = true;
+		if (storage.kind() == lowir::TypeKind::F80)
+			copy_bytes(
+				loop.expected_address, desired.storage, lowir::storage_bytes(storage), lowir::data_alignment(storage));
+		store(storage, updated, desired);
+		AtomicAccess access = {};
+		access.object = loop.object_address;
+		access.expected = loop.expected_address;
+		access.desired = desired.storage;
+		access.failure = lowir::MemoryOrder::SeqCst;
+		exchanged = emit_atomic_access(storage, access, RValue(), location);
+	}
+	else
+	{
+		Place expected = Place();
+		expected.storage = lowir::Value::slot(loop.expected);
+		RValue desired = updated;
+		if (storage.kind() == lowir::TypeKind::Ptr)
+			desired = copy(loop.bits, updated);
+		else if (storage != loop.bits)
+		{
+			Place fresh = Place();
+			fresh.storage = lowir::Value::slot(generated_slot(lowir::SlotKind::AtomicExpected, loop.bits));
+			store(loop.bits, load(loop.bits, expected), fresh);
+			Place view = Place();
+			view.storage = address_of(fresh);
+			store(storage, updated, view);
+			desired = load(loop.bits, fresh);
+		}
+		lowir::Instruction exchange = lowir::make_instruction(lowir::Opcode::AtomicCompareExchange, loop.bits);
+		exchange.ops[0] = object.storage;
+		exchange.ops[1] = address_of(expected);
+		exchange.ops[2] = desired.value;
+		exchange.order = lowir::MemoryOrder::SeqCst;
+		exchange.sub = static_cast<uint8_t>(lowir::MemoryOrder::SeqCst);
+		exchanged.type = lowir::Type::scalar(lowir::TypeKind::I64);
+		exchanged.value = emit_value(exchange, exchanged.type);
+	}
+	const lowir::BlockId done = new_block(lowir::BlockKind::AtomicDone);
+	branch(exchanged, done, loop.retry);
+	place(done);
 }
 
 } // namespace lower

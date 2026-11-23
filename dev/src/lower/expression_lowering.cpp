@@ -2059,7 +2059,7 @@ Place FunctionLowering::compound_assignment(const syntax::BinaryExpr& expr)
 	Place place = glvalue(*expr.left);
 	// An atomic integer's += -= &= |= ^= in its own type: one atomic
 	// read-modify-write (C11 6.5.16.2p3).
-	if (place.is_atomic && storage.is_integer() && !IsBoolType(left_type) && expr.facts->target == left_type &&
+	if (place.is_atomic && expr.facts->target == left_type && atomic_step(place, left_type, storage) &&
 		(op == TokenKind::OP_PLUS || op == TokenKind::OP_MINUS || op == TokenKind::OP_AMP || op == TokenKind::OP_BOR ||
 			op == TokenKind::OP_XOR))
 	{
@@ -2097,10 +2097,10 @@ Place FunctionLowering::compound_assignment(const syntax::BinaryExpr& expr)
 	// An atomic object's other updates: E2 first, then one read-modify-
 	// write (C11 6.5.16.2p3).
 	AtomicLoop loop;
-	if (place.is_atomic && atomic_bits(storage, loop.bits))
+	if (place.is_atomic && prepare_atomic_loop(storage, loop))
 	{
-		place.known = combined(begin_atomic_loop(place, storage, loop));
-		end_atomic_loop(place, storage, loop, place.known);
+		place.known = combined(begin_atomic_loop(place, storage, loop, expr.location));
+		end_atomic_loop(place, storage, loop, place.known, expr.location);
 		place.has_known = true;
 		return place;
 	}
@@ -2220,11 +2220,11 @@ Place FunctionLowering::prefix_increment(const syntax::UnaryExpr& expr)
 		return place;
 	}
 	AtomicLoop loop;
-	if (place.is_atomic && atomic_bits(storage, loop.bits))
+	if (place.is_atomic && prepare_atomic_loop(storage, loop))
 	{
-		const RValue old = begin_atomic_loop(place, storage, loop);
+		const RValue old = begin_atomic_loop(place, storage, loop, expr.location);
 		place.known = stepped(old, type, expr.op == TokenKind::OP_DEC, expr.location);
-		end_atomic_loop(place, storage, loop, place.known);
+		end_atomic_loop(place, storage, loop, place.known, expr.location);
 		place.has_known = true;
 		return place;
 	}
@@ -2249,10 +2249,11 @@ RValue FunctionLowering::postfix_increment(const syntax::UnaryExpr& expr)
 			expr.op == TokenKind::OP_DEC ? sema::Intrinsic::AtomicFetchSub : sema::Intrinsic::AtomicFetchAdd, storage,
 			place.storage, integer(storage, 1), lowir::MemoryOrder::SeqCst);
 	AtomicLoop loop;
-	if (place.is_atomic && atomic_bits(storage, loop.bits))
+	if (place.is_atomic && prepare_atomic_loop(storage, loop))
 	{
-		const RValue old = begin_atomic_loop(place, storage, loop);
-		end_atomic_loop(place, storage, loop, stepped(old, type, expr.op == TokenKind::OP_DEC, expr.location));
+		const RValue old = begin_atomic_loop(place, storage, loop, expr.location);
+		end_atomic_loop(
+			place, storage, loop, stepped(old, type, expr.op == TokenKind::OP_DEC, expr.location), expr.location);
 		return old;
 	}
 	const RValue old = load(storage, place);

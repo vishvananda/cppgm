@@ -241,6 +241,12 @@ The first fixture set covers these parts of the C17 input profile:
   Initialize any added atomic padding before the object is shared.
   The value of an assignment is the value it stored. Use the runtime
   operations from PA30 for records wider than the inline widths.
+- Use one sequentially consistent read-modify-write for an atomic
+  compound assignment, increment, or decrement. When the width needs
+  the generic runtime, load the expected representation and retry
+  compare-exchange with the snapshot returned on failure. Evaluate the
+  object address and any right operand once. A postfix expression yields
+  the value replaced by the successful operation.
 - Apply `restrict` to pointers to object types, including `void` and
   incomplete record types. The GNU spellings `__restrict` and `__restrict__`
   use the same qualifier in C. Apply lvalue conversion and function signature

@@ -40,7 +40,7 @@ Place FunctionLowering::compound_literal(const syntax::FunctionalCastExpr& expr)
 		const RValue value = expr.braced->elements.empty()
 			? zero_value(type)
 			: fit(operand(*expr.braced->elements[0], ConversionContext::Initialization), type);
-		store(lowering_.storage_type(type), value, object);
+		store_initializer(lowering_.storage_type(type), value, object);
 	}
 	return object;
 }

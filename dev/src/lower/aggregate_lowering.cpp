@@ -461,7 +461,7 @@ void FunctionLowering::aggregate_item(const sema::Type* type, const AddressPath&
 		value = fit(member_operand(*element), type);
 	if (value_first)
 		place.storage = path_address(path);
-	store(storage, value, place);
+	store_initializer(storage, value, place);
 }
 
 void FunctionLowering::aggregate_class_item(const sema::ClassEntity* cls, const sema::Type* type,
