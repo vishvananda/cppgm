@@ -251,8 +251,17 @@ of GCC's `c90-*.c` files with directly applicable options found 31 agreement
 cases out of 59 configurations that passed the reference check. The
 remaining differences include later syntax accepted in pedantic C90, C90
 array and constant-expression constraints, and two runtime outcomes. The
-combined legacy translation-limits inputs and full hosted library
-qualification are still open.
+runtime gaps are control-statement scope and the preprocessing token
+boundary before the sign in `0x1p+f`. The combined legacy translation-limits
+inputs and full hosted library qualification are still open.
+
+The strict course report passed 11,673 tests. PA38 passed on native x86-64
+and WASI in both the solution checkout and the student export. The positive
+legacy declaration and digraph probes passed at `-O0` and `-O2` on Linux
+x86-64, Linux AArch64 under QEMU, both Mach-O targets using local image
+loaders, bare Wasm, and WASI. The C runtime sample passed 876 cases and
+the GCC torture sample retained its 113 matches in 128 configurations.
+Debug-info, inception, and self-host through PA5 passed.
 
 On Linux x86-64, the ABBA and BAAB blocks produced byte-identical objects
 for the frozen C++ overload input and GNU17 SQLite. Retired instructions
