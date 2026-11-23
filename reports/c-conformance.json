@@ -635,6 +635,26 @@
       ]
     },
     {
+      "id": "floating.complex-fenv-wasm",
+      "clause": "7.3.4, G.5.1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "profiles": [
+        "wasi-hosted",
+        "wasm-freestanding"
+      ],
+      "outside_profile": "The native profile exercises status flags in a separate rule.",
+      "requirement": "Compute the round-to-nearest limited-range complex quotient in a scope with FENV_ACCESS ON.",
+      "cases": [
+        "floating.complex-fenv"
+      ]
+    },
+    {
       "id": "floating.fp-contract-scope",
       "clause": "6.5p8, 7.12.2",
       "kind": "required",

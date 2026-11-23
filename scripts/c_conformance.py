@@ -245,6 +245,7 @@ def numeric_sources(profile, bare_sdk):
         ('floating.fenv-quad', FENV_QUAD, include, rounding_link),
         ('floating.fp-contract', FP_CONTRACT, contract_flags, ()),
         ('floating.complex-range', COMPLEX_RANGE, (), float_link),
+        ('floating.complex-fenv', COMPLEX_FENV, (), rounding_link),
         ('floating.static-zero-division', FENV_ZERO_DIVISION, include, rounding_link),
     ]
     if profile['environment'] == 'hosted':
@@ -255,7 +256,6 @@ def numeric_sources(profile, bare_sdk):
             ('floating.fenv-binary', FENV_BINARY, (), rounding_link),
             ('floating.fenv-convert', FENV_CONVERT, (), rounding_link),
             ('floating.fenv-compare', FENV_COMPARE, (), rounding_link),
-            ('floating.complex-fenv', COMPLEX_FENV, (), rounding_link),
         ])
     return sources
 
