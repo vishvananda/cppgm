@@ -49,7 +49,8 @@ struct Stmt
 	enum CFloatSetting : uint8_t
 	{
 		FenvAccess = 1,
-		FloatContract = 2
+		FloatContract = 2,
+		ComplexLimitedRange = 4
 	};
 	uint8_t c_float_settings = 0;
 	uint32_t location;

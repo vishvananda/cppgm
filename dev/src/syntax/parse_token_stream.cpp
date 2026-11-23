@@ -104,10 +104,20 @@ void ParseTokenStream::note_c_float_pragma(void* stream, CFloatPragma pragma, CP
 	if (changes.empty() || changes.back().ordinal != ordinal)
 		changes.push_back(FloatPragmaChange{ ordinal, {} });
 	CFloatPragmas& settings = changes.back().settings;
-	if (pragma == CFloatPragma::FenvAccess)
+	switch (pragma)
+	{
+	case CFloatPragma::FenvAccess:
 		settings.fenv = setting;
-	else
+		break;
+	case CFloatPragma::FpContract:
 		settings.contract = setting;
+		break;
+	case CFloatPragma::CxLimitedRange:
+		settings.complex_range = setting;
+		break;
+	case CFloatPragma::None:
+		break;
+	}
 }
 
 void ParseTokenStream::apply_c_float_pragmas(CFloatPragmas& state)
@@ -124,6 +134,8 @@ void ParseTokenStream::apply_c_float_pragmas(CFloatPragmas& state)
 		state.fenv = event->settings.fenv;
 	if (event->settings.contract != CPragmaSetting::Unspecified)
 		state.contract = event->settings.contract;
+	if (event->settings.complex_range != CPragmaSetting::Unspecified)
+		state.complex_range = event->settings.complex_range;
 }
 
 void ParseTokenStream::pull()

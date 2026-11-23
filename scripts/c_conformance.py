@@ -35,6 +35,8 @@ CASES = {
     'floating.fenv-compare': (RUN_STAGES, ('O0', 'O2')),
     'floating.fenv-quad': (RUN_STAGES, ('O0', 'O2')),
     'floating.fp-contract': (RUN_STAGES, ('O0', 'O2')),
+    'floating.complex-range': (RUN_STAGES, ('O0', 'O2')),
+    'floating.complex-fenv': (RUN_STAGES, ('O0', 'O2')),
     'floating.static-zero-division': (RUN_STAGES, ('O0', 'O2')),
     'floating.hosted-math': (RUN_STAGES, ('O0', 'O2', 'Oz')),
     'include.physical': (RUN_STAGES, ('O0',)),
@@ -52,6 +54,8 @@ FENV_CONVERT = ROOT / 'pa38/tests/general/500-c-fenv-convert.t'
 FENV_COMPARE = ROOT / 'pa38/tests/general/500-c-fenv-compare.t'
 FENV_QUAD = ROOT / 'pa38/tests/general/500-c-fenv-quad.t'
 FP_CONTRACT = ROOT / 'pa38/tests/general/500-c-fp-contract.t'
+COMPLEX_RANGE = ROOT / 'pa38/tests/general/500-c-complex-limited-range.t'
+COMPLEX_FENV = ROOT / 'pa38/tests/general/500-c-complex-fenv.t'
 FENV_ZERO_DIVISION = ROOT / 'pa38/tests/general/500-c-fenv-static-zero-division.t'
 HOSTED_MATH = ROOT / 'pa38/tests/general/500-c-hosted-math-classification.t'
 # Precision of the target ABI's long double, independent of the candidate's predefines.
@@ -240,6 +244,7 @@ def numeric_sources(profile, bare_sdk):
         ('limits.rounding-default', DEFAULT_ROUNDING, include, rounding_link),
         ('floating.fenv-quad', FENV_QUAD, include, rounding_link),
         ('floating.fp-contract', FP_CONTRACT, contract_flags, ()),
+        ('floating.complex-range', COMPLEX_RANGE, (), float_link),
         ('floating.static-zero-division', FENV_ZERO_DIVISION, include, rounding_link),
     ]
     if profile['environment'] == 'hosted':
@@ -250,6 +255,7 @@ def numeric_sources(profile, bare_sdk):
             ('floating.fenv-binary', FENV_BINARY, (), rounding_link),
             ('floating.fenv-convert', FENV_CONVERT, (), rounding_link),
             ('floating.fenv-compare', FENV_COMPARE, (), rounding_link),
+            ('floating.complex-fenv', COMPLEX_FENV, (), rounding_link),
         ])
     return sources
 
@@ -332,7 +338,8 @@ def probes(args, profiles, rules):
     revision = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
     inputs = sorted([*work.glob('*.h'), limits, ERROR_SOURCE, INCLUDE_SOURCE, STRING_SOURCE, INCLUDE_QUERY,
                      INTEGER_LIMITS, FLOAT_LIMITS, DEFAULT_ROUNDING, ROUNDING_QUERY,
-                     FENV_BINARY, FENV_CONVERT, FENV_COMPARE, FENV_QUAD, FP_CONTRACT, FENV_ZERO_DIVISION, HOSTED_MATH,
+                     FENV_BINARY, FENV_CONVERT, FENV_COMPARE, FENV_QUAD, FP_CONTRACT,
+                     COMPLEX_RANGE, COMPLEX_FENV, FENV_ZERO_DIVISION, HOSTED_MATH,
                      *numeric_sdk_inputs,
                      INCLUDE_QUERY.parent / 'c-header  spaces.h',
                      INCLUDE_SOURCE.parent / 'c-include-physical.h', INCLUDE_SOURCE.parent / 'c-include-local.h'])

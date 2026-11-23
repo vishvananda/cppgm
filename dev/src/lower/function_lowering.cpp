@@ -1156,7 +1156,7 @@ void FunctionLowering::store(lowir::Type type, const RValue& value, const Place&
 RValue FunctionLowering::binary(
 	lowir::BinaryOp op, lowir::Type type, const RValue& left, const RValue& right, uint8_t flags)
 {
-	const lowir::Opcode opcode = fenv_access_ && type.is_float() ? lowir::Opcode::FenvBinary : lowir::Opcode::Binary;
+	const lowir::Opcode opcode = fenv_access() && type.is_float() ? lowir::Opcode::FenvBinary : lowir::Opcode::Binary;
 	lowir::Instruction inst = lowir::make_instruction(opcode, type);
 	inst.sub = static_cast<uint8_t>(op);
 	inst.flags = flags;
@@ -1172,7 +1172,7 @@ RValue FunctionLowering::compare(
 	lowir::ComparePredicate predicate, lowir::Type type, const RValue& left, const RValue& right, bool signaling)
 {
 	// lowir.md: a comparison's result is the canonical i64 truth value.
-	const lowir::Opcode opcode = fenv_access_ && type.is_float()
+	const lowir::Opcode opcode = fenv_access() && type.is_float()
 		? (signaling ? lowir::Opcode::FenvCompareSignal : lowir::Opcode::FenvCompare)
 		: lowir::Opcode::Compare;
 	lowir::Instruction inst = lowir::make_instruction(opcode, type);
@@ -1198,8 +1198,8 @@ RValue FunctionLowering::unary(lowir::UnaryOp op, const RValue& operand)
 
 RValue FunctionLowering::convert_op(lowir::ConvertOp op, lowir::Type to, const RValue& value)
 {
-	const lowir::Opcode opcode = fenv_access_ && lowir::is_floating_conversion(op) ? lowir::Opcode::FenvConvert
-																				   : lowir::Opcode::Convert;
+	const lowir::Opcode opcode = fenv_access() && lowir::is_floating_conversion(op) ? lowir::Opcode::FenvConvert
+																					: lowir::Opcode::Convert;
 	lowir::Instruction inst = lowir::make_instruction(opcode, to);
 	inst.sub = static_cast<uint8_t>(op);
 	inst.ops[0] = value.value;

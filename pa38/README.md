@@ -141,6 +141,14 @@ to separate rounding and can contract a same-type scalar multiply-add on
 AArch64. A cast or assignment between the multiply and add keeps separate
 roundings. The runtime test allows either permitted outcome under ON.
 
+Apply `#pragma STDC CX_LIMITED_RANGE ON`, `OFF`, and `DEFAULT` with
+the same file and block scope as `FP_CONTRACT`. Accept `_Pragma` and
+restore the enclosing setting after each compound block. The default is
+OFF. Preserve the scaled quotient and infinity recovery in full-range
+scopes. ON permits elementary complex multiply and divide when the
+programmer knows the intermediate values are in range. The runtime tests
+check that both approaches give the required values for safe operands.
+
 Apply `#pragma STDC FENV_ACCESS ON`, `OFF`, and `DEFAULT` at file scope
 or before the first declaration or statement in a compound block.
 Accept the corresponding `_Pragma` spelling. A block inherits the
@@ -151,7 +159,11 @@ discarded, since it can set an observable floating-point status flag.
 Use `fenv_convert` for real floating conversions and `fenv_cmp_signal`
 for the relational operators. Equality, inequality, and quiet comparison
 builtins use `fenv_cmp`. A quiet NaN raises invalid for the signaling
-comparison. Static-storage initializers use translation-time arithmetic.
+comparison. Preserve status effects of complex arithmetic as well. A
+call to a complex runtime routine can read rounding state and raise
+exceptions. Its call boundary must keep those effects observable even
+when the result is unused. Static-storage initializers use translation-time
+arithmetic.
 Real floating division by zero in a static initializer produces a quiet NaN
 for a zero numerator or a signed infinity for a nonzero numeric numerator.
 This computation leaves the execution-time status flags clear.

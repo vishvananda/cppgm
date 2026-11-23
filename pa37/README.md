@@ -102,7 +102,9 @@ Implement the following at `-O0`, `-O1`, `-O2` and `-O3`:
 - Scalar arithmetic and conversions, narrow integer behavior, pointers,
   aggregates, globals, volatile memory, alignment and address-taken locals.
   Preserve wide integer and floating types through valid legalization/helper
-  calls where Wasm has no corresponding value type.
+  calls where Wasm has no corresponding value type. Apply the Wasm call
+  convention to complex arithmetic helpers, including their indirect
+  aggregate results and the parts of binary128 operands.
 - Complete control flow, including phi transfers, switches, nested loops and
   irreducible graphs accepted by LowIR. Preserve every defined exit path.
 - C `setjmp` continuations and `longjmp` through direct or indirect calls, with

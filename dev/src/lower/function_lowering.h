@@ -778,8 +778,9 @@ private:
 	// enclosing expression's state meanwhile: state a full-expression,
 	// construction or initialization records belongs there too.
 	struct ExpressionScope;
-	bool fenv_access_ = false;
-	bool float_contract_ = false;
+	uint8_t c_float_settings_ = 0;
+	bool fenv_access() const { return (c_float_settings_ & syntax::Stmt::FenvAccess) != 0; }
+	bool float_contract() const { return (c_float_settings_ & syntax::Stmt::FloatContract) != 0; }
 	RValue statement_expression(const syntax::StatementExpr& expr, lowir::Value object);
 	void enter_label(lowir::BlockId block);
 	lowir::BlockId goto_label(const Identifier* label);

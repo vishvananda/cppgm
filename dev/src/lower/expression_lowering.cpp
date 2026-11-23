@@ -1700,7 +1700,7 @@ RValue FunctionLowering::binary_expression(const syntax::BinaryExpr& expr)
 		const RValue* left = known ? &value : nullptr;
 		// Consume the next operator with its product while walking the same
 		// spine. Each of the three operands is evaluated once.
-		const syntax::BinaryExpr* parent = float_contract_ && current.op == TokenKind::OP_STAR && i > base
+		const syntax::BinaryExpr* parent = float_contract() && current.op == TokenKind::OP_STAR && i > base
 			? spine_[i - 1]
 			: nullptr;
 		if (parent != nullptr && contraction_product(*parent, parent->left) == &current)
@@ -1738,7 +1738,7 @@ RValue FunctionLowering::contracted_sum(
 
 RValue FunctionLowering::arithmetic(const syntax::BinaryExpr& expr, const RValue* left_value)
 {
-	if (float_contract_)
+	if (float_contract())
 		if (const syntax::BinaryExpr* product = contraction_product(expr, expr.right))
 			return contracted_sum(expr, *product, left_value, true);
 	const sema::Type* type = expr.facts->type;

@@ -70,8 +70,11 @@ Start the next batches from the existing receipts.
    Scoped `FP_CONTRACT` probes check separate rounding under OFF, restoration
    after nested blocks, and the chosen AArch64 contraction within an
    expression. Direct and LowIR round-trip execution agree under QEMU.
-   Extend pragma coverage to complex arithmetic and the remaining software
-   floating operations. Continue with declarators, initializers,
+   The `CX_LIMITED_RANGE` probes cover scoped elementary arithmetic,
+   scaled division and infinity recovery. The complex environment probe
+   checks status effects even when a quotient is discarded. PA37 exercises
+   the Wasm runtime ABI for double and binary128 complex helpers.
+   Extend the remaining software floating operations. Continue with declarators, initializers,
    conversions, constant expressions, and
    linkage. Pair edition boundaries with native reference runs and
    earliest-assignment regressions.

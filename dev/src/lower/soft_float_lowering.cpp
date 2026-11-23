@@ -1039,7 +1039,7 @@ RValue FunctionLowering::soft_compare(
 		return compare(
 			predicate, lowir::Type::scalar(lowir::TypeKind::F32), bfloat_widened(left), wide_right, signaling);
 	}
-	if (fenv_access_ && signaling)
+	if (fenv_access() && signaling)
 		return quad_compare(predicate, left, right, true);
 	static const SoftFloatHelper kHelpers[] = { SoftFloatHelper::EqTF, SoftFloatHelper::NeTF, SoftFloatHelper::LtTF,
 		SoftFloatHelper::LeTF, SoftFloatHelper::GtTF, SoftFloatHelper::GeTF };

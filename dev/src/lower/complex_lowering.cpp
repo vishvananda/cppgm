@@ -11,7 +11,9 @@
 // parts are NaN (Annex G's recovery, as GCC and Clang call it at -O0;
 // always for binary16 and binary128 parts, which are calls anyway); a
 // floating quotient by __div?c3, an integral one by Smith's formula (GCC's
-// "wide" division). Conversions go part by part (a real value's imaginary
+// "wide" division). C's scoped CX_LIMITED_RANGE permits the elementary
+// product and quotient formulas for scalar floating parts.
+// Conversions go part by part (a real value's imaginary
 // part zero); a value is true unless both parts are zero.
 
 #include "lower/function_lowering.h"
@@ -82,7 +84,7 @@ RValue FunctionLowering::zero_object_value(lowir::Type type)
 	return load(type, storage);
 }
 
-lowir::SymbolId ProgramLowering::complex_helper(bool divide, const sema::Type* part)
+lowir::SymbolId ProgramLowering::complex_helper(bool divide, const sema::Type* part, lowir::SignatureId* fenv_signature)
 {
 	// libgcc's __mul?c3 and __div?c3 (sc float, dc double, xc long double,
 	// hc binary16, tc binary128): the four parts in, the complex result out,
@@ -98,41 +100,56 @@ lowir::SymbolId ProgramLowering::complex_helper(bool divide, const sema::Type* p
 	const char* const kModes = "sdxht";
 	const size_t index = static_cast<size_t>(std::strchr(kModes, mode) - kModes) + (divide ? 5 : 0);
 	if (complex_helpers_.empty())
-		complex_helpers_.assign(10, lowir::kNoId);
-	if (complex_helpers_[index] != lowir::kNoId)
-		return complex_helpers_[index];
-	const std::string name = std::string(divide ? "__div" : "__mul") + mode + "c3";
-	const lowir::SymbolId symbol = new_symbol("__cppgm_libgcc_" + name.substr(2));
-	lowir::Signature signature = lowir::Signature();
-	signature.first_parameter = static_cast<uint32_t>(program_.parameters.size());
-	for (uint32_t i = 0; i < 4; ++i)
+		complex_helpers_.resize(10);
+	ComplexHelper& helper = complex_helpers_[index];
+	if (helper.symbol == lowir::kNoId)
 	{
-		lowir::Parameter parameter = lowir::Parameter();
-		parameter.name = argument_name(i);
-		parameter.type = storage;
-		parameter.classes = soft_float_classes(soft);
-		if (target_model::is_aarch64(program_.target) && soft == SoftFloat::Quad)
-			parameter.shape = aggregate_shape(bare);
-		program_.parameters.push_back(parameter);
+		const std::string name = std::string(divide ? "__div" : "__mul") + mode + "c3";
+		const lowir::SymbolId symbol = new_symbol("__cppgm_libgcc_" + name.substr(2));
+		lowir::Signature signature = lowir::Signature();
+		signature.first_parameter = static_cast<uint32_t>(program_.parameters.size());
+		for (uint32_t i = 0; i < 4; ++i)
+		{
+			lowir::Parameter parameter = lowir::Parameter();
+			parameter.name = argument_name(i);
+			parameter.type = storage;
+			parameter.classes = soft_float_classes(soft);
+			if (target_model::needs_aggregate_shape(program_.target) && soft == SoftFloat::Quad)
+				parameter.shape = aggregate_shape(bare);
+			program_.parameters.push_back(parameter);
+		}
+		signature.parameter_count = 4;
+		const sema::Type* complex = graph().types.complex(bare);
+		signature.result = storage_type(complex);
+		signature.boundary.result_classes = complex_classes(complex);
+		if (target_model::needs_aggregate_shape(program_.target))
+			signature.boundary.result_shape = aggregate_shape(complex);
+		signature.boundary.unwind = ir_model::CUM_NO;
+		// Effects of the scalar forms are confined to the result and the floating environment.
+		if (mode == 's' || mode == 'd')
+			signature.boundary.effects = ir_model::CFXM_READNONE;
+		program_.declare_function(symbol, lowir::SymbolKind::FunctionDeclaration, program_.add_signature(signature));
+		lowir::SymbolMetadata& metadata = program_.symbols[symbol].metadata;
+		metadata.linkage = ir_model::LLM_C;
+		metadata.binding = ir_model::SBM_STRONG;
+		metadata.object = intern(name.data(), static_cast<uint32_t>(name.size()));
+		helper.symbol = symbol;
+		++counters_.declarations;
 	}
-	signature.parameter_count = 4;
-	const sema::Type* complex = graph().types.complex(bare);
-	signature.result = storage_type(complex);
-	signature.boundary.result_classes = complex_classes(complex);
-	if (target_model::is_aarch64(program_.target))
-		signature.boundary.result_shape = aggregate_shape(complex);
-	signature.boundary.unwind = ir_model::CUM_NO;
-	// (The float and double forms return in registers: they touch no memory.)
-	if (mode == 's' || mode == 'd')
-		signature.boundary.effects = ir_model::CFXM_READNONE;
-	program_.declare_function(symbol, lowir::SymbolKind::FunctionDeclaration, program_.add_signature(signature));
-	lowir::SymbolMetadata& metadata = program_.symbols[symbol].metadata;
-	metadata.linkage = ir_model::LLM_C;
-	metadata.binding = ir_model::SBM_STRONG;
-	metadata.object = intern(name.data(), static_cast<uint32_t>(name.size()));
-	complex_helpers_[index] = symbol;
-	++counters_.declarations;
-	return symbol;
+	// Use the same native routine and ABI in an environment-access scope.
+	// Override its boundary so the call reads rounding state and can set flags.
+	if (fenv_signature != nullptr && (mode == 's' || mode == 'd'))
+	{
+		if (helper.fenv_signature == lowir::kNoId)
+		{
+			lowir::Signature signature =
+				program_.signatures[program_.functions[program_.symbols[helper.symbol].detail].signature];
+			signature.boundary.effects = ir_model::CFXM_DEFAULT;
+			helper.fenv_signature = program_.add_signature(signature);
+		}
+		*fenv_signature = helper.fenv_signature;
+	}
+	return helper.symbol;
 }
 
 RValue FunctionLowering::make_complex(const syntax::CallExpr& expr)
@@ -309,8 +326,10 @@ RValue FunctionLowering::complex_helper_call(
 	arguments_.push_back(d.value);
 	RValue result;
 	result.type = lowering_.storage_type(type);
-	result.value = emit_call(result.type,
-		lowir::Value::symbol(lowering_.complex_helper(divide, type->unqualified->element)), base, lowir::kNoId, false);
+	lowir::SignatureId signature = lowir::kNoId;
+	const lowir::SymbolId helper = lowering_.complex_helper(
+		divide, type->unqualified->element, fenv_access() ? &signature : nullptr);
+	result.value = emit_call(result.type, lowir::Value::symbol(helper), base, signature, false);
 	return result;
 }
 
@@ -331,7 +350,7 @@ RValue FunctionLowering::complex_product(
 	const RValue imaginary = arithmetic_op(
 		static_cast<uint32_t>(TokenKind::OP_PLUS), part, arithmetic_op(times, part, a, d), bc);
 	const RValue product = complex_value(type, real, imaginary);
-	if (!part_type.is_float())
+	if (!part_type.is_float() || (c_float_settings_ & syntax::Stmt::ComplexLimitedRange) != 0)
 		return product;
 	const lowir::Type whole = lowering_.storage_type(type);
 	Place result = Place();
@@ -360,6 +379,23 @@ RValue FunctionLowering::complex_quotient(
 	// ar)i) / (dr + c).
 	const sema::Type* part = type->unqualified->element;
 	const lowir::Type part_type = lowering_.storage_type(part);
+	if (part_type.is_float() && (c_float_settings_ & syntax::Stmt::ComplexLimitedRange) != 0)
+	{
+		// 7.3.4: (ac + bd, bc - ad) / (c*c + d*d).
+		using lowir::BinaryOp;
+		const RValue cc = binary(BinaryOp::Mul, part_type, c, c);
+		const RValue dd = binary(BinaryOp::Mul, part_type, d, d);
+		const RValue denominator = binary(BinaryOp::Add, part_type, cc, dd);
+		const RValue ac = binary(BinaryOp::Mul, part_type, a, c);
+		const RValue bd = binary(BinaryOp::Mul, part_type, b, d);
+		const RValue bc = binary(BinaryOp::Mul, part_type, b, c);
+		const RValue ad = binary(BinaryOp::Mul, part_type, a, d);
+		const RValue real = binary(BinaryOp::Add, part_type, ac, bd);
+		const RValue imaginary = binary(BinaryOp::Sub, part_type, bc, ad);
+		const RValue quotient_real = binary(BinaryOp::Div, part_type, real, denominator);
+		const RValue quotient_imaginary = binary(BinaryOp::Div, part_type, imaginary, denominator);
+		return complex_value(type, quotient_real, quotient_imaginary);
+	}
 	if (sema::IsFloating(part))
 		return complex_helper_call(true, type, a, b, c, d);
 	const uint32_t plus = static_cast<uint32_t>(TokenKind::OP_PLUS);

@@ -889,3 +889,23 @@ instruction records the decision before optimization.
 [WG14 N1256 §§6.5, 7.12.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
 [WG14 N1570 §§6.5, 7.12.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [PA38 scope and runtime case](../pa38/tests/general/500-c-fp-contract.t)
+
+## Complex arithmetic range and status effects
+
+`CX_LIMITED_RANGE` has an OFF default and the same lexical scope as the
+other C floating-point pragmas. cppgm uses the elementary product and
+quotient formulas for scalar floating components in an ON scope. It uses
+the full-range helpers for scaling and recovery in OFF scopes and for
+software floating components. Hosted magnitude functions still use the
+target math library.
+
+A complex runtime call can update status flags. Under `FENV_ACCESS ON`
+the call retains its ABI and carries a call-site boundary that accounts
+for the active floating environment. An unused quotient can raise
+invalid. The ON range formulas use the same effectful real operations
+as other floating expressions in the scope.
+
+[WG14 N1256 §§7.3.4, G.5.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
+[WG14 N1570 §§7.3.4, 7.6.1, G.5.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[PA38 range probe](../pa38/tests/general/500-c-complex-limited-range.t) ·
+[PA38 status probe](../pa38/tests/general/500-c-complex-fenv.t)

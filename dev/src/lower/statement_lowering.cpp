@@ -263,23 +263,18 @@ namespace {
 
 struct FloatScope
 {
-	FloatScope(bool& access, bool& contract, const syntax::CompoundStmt& stmt, target_model::Target target)
-		: access(access), contract(contract), saved_access(access), saved_contract(contract)
+	FloatScope(uint8_t& state, const syntax::CompoundStmt& stmt, target_model::Target target)
+		: state(state), saved(state)
 	{
-		access = (stmt.c_float_settings & syntax::Stmt::FenvAccess) != 0;
-		contract = (stmt.c_float_settings & syntax::Stmt::FloatContract) != 0 && !access &&
-			target_model::is_aarch64(target);
+		state = stmt.c_float_settings;
+		if ((state & syntax::Stmt::FloatContract) != 0 &&
+			((state & syntax::Stmt::FenvAccess) != 0 || !target_model::is_aarch64(target)))
+			state &= ~syntax::Stmt::FloatContract;
 	}
-	~FloatScope()
-	{
-		access = saved_access;
-		contract = saved_contract;
-	}
+	~FloatScope() { state = saved; }
 
-	bool& access;
-	bool& contract;
-	bool saved_access;
-	bool saved_contract;
+	uint8_t& state;
+	uint8_t saved;
 };
 
 } // namespace
@@ -287,7 +282,7 @@ struct FloatScope
 void FunctionLowering::compound(const syntax::CompoundStmt& stmt)
 {
 	LexicalScope lexical(*this);
-	const FloatScope floating(fenv_access_, float_contract_, stmt, program_.target);
+	const FloatScope floating(c_float_settings_, stmt, program_.target);
 	// 6.3: the block's automatic objects are destroyed when control leaves
 	// its end.
 	const size_t depth = cleanups_.size();
@@ -453,7 +448,7 @@ RValue FunctionLowering::statement_expression(const syntax::StatementExpr& expr,
 	// enclosing expression unreachable.
 	ExpressionScope scope(*this);
 	const syntax::CompoundStmt& block = *expr.body;
-	const FloatScope floating(fenv_access_, float_contract_, block, program_.target);
+	const FloatScope floating(c_float_settings_, block, program_.target);
 	const size_t depth = cleanups_.size();
 	if (block.items.size != 0)
 	{

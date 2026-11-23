@@ -847,7 +847,7 @@ public:
 	uint8_t complex_classes(const sema::Type* type);
 	// libgcc's complex product (`divide`: quotient) routine for parts of
 	// the floating type `part`, declared on first reference.
-	lowir::SymbolId complex_helper(bool divide, const sema::Type* part);
+	lowir::SymbolId complex_helper(bool divide, const sema::Type* part, lowir::SignatureId* fenv_signature);
 	// A vector's (lower/vector_lowering.cpp), as GCC and Clang pass them.
 	uint8_t vector_classes(const sema::Type* type);
 	// Whether a vector is a v128 value: sixteen bytes in one SSE class.
@@ -2015,7 +2015,12 @@ private:
 	std::vector<lowir::SymbolId> soft_float_helpers_;
 	// complex_helper's symbols: products, then quotients, of float, double,
 	// long double, binary16 and binary128 parts.
-	std::vector<lowir::SymbolId> complex_helpers_;
+	struct ComplexHelper
+	{
+		lowir::SymbolId symbol = lowir::kNoId;
+		lowir::SignatureId fenv_signature = lowir::kNoId;
+	};
+	std::vector<ComplexHelper> complex_helpers_;
 	lowir::SymbolId dso_handle_ = lowir::kNoId;
 	lowir::SymbolId guard_functions_[3] = { lowir::kNoId, lowir::kNoId, lowir::kNoId };
 	lowir::SymbolId noop_coroutine_ = lowir::kNoId;

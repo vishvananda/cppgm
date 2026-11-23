@@ -24,6 +24,8 @@ CompoundStmt* Parser::parse_compound_statement(bool new_scope)
 			stmt->c_float_settings |= Stmt::FenvAccess;
 		if (contract == CPragmaSetting::On || (contract != CPragmaSetting::Off && c_contract_by_default_))
 			stmt->c_float_settings |= Stmt::FloatContract;
+		if (c_float_pragmas_.complex_range == CPragmaSetting::On)
+			stmt->c_float_settings |= Stmt::ComplexLimitedRange;
 	}
 	Scope* saved = scopes_.current();
 	if (new_scope)

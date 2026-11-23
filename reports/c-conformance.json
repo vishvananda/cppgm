@@ -598,6 +598,43 @@
       ]
     },
     {
+      "id": "floating.cx-limited-range",
+      "clause": "7.3.4, G.5.1",
+      "kind": "required",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "all",
+      "requirement": "Accept the scoped complex-range pragma and preserve scaled division and infinity recovery in the OFF and DEFAULT scopes. Exercise elementary complex multiplication and division with safe operands under ON.",
+      "cases": [
+        "floating.complex-range"
+      ]
+    },
+    {
+      "id": "floating.complex-fenv",
+      "clause": "7.6.1, G.5.1p5",
+      "kind": "conditional",
+      "editions": [
+        99,
+        11,
+        17
+      ],
+      "environment": "hosted",
+      "profiles": [
+        "linux-x86_64-hosted",
+        "linux-aarch64-hosted",
+        "darwin-x86_64-hosted",
+        "darwin-arm64-hosted"
+      ],
+      "outside_profile": "The probe requires observable floating-point status flags.",
+      "requirement": "Preserve invalid from a discarded full-range complex quotient and inexact from a discarded limited-range complex quotient under FENV_ACCESS ON.",
+      "cases": [
+        "floating.complex-fenv"
+      ]
+    },
+    {
       "id": "floating.fp-contract-scope",
       "clause": "6.5p8, 7.12.2",
       "kind": "required",

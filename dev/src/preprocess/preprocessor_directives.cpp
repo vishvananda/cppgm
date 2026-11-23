@@ -737,6 +737,8 @@ CFloatPragma Preprocessor::c_float_pragma(const PPToken& token)
 		return CFloatPragma::FenvAccess;
 	if (PragmaWord(token, "FP_CONTRACT"))
 		return CFloatPragma::FpContract;
+	if (PragmaWord(token, "CX_LIMITED_RANGE"))
+		return CFloatPragma::CxLimitedRange;
 	return CFloatPragma::None;
 }
 
@@ -751,8 +753,9 @@ void Preprocessor::apply_c_float_pragma(CFloatPragma pragma, const PPToken& mode
 		setting = CPragmaSetting::Default;
 	if (!complete || setting == CPragmaSetting::Unspecified)
 		throw PreprocessError(location,
-			pragma == CFloatPragma::FenvAccess ? "expected ON, OFF, or DEFAULT after STDC FENV_ACCESS"
-											   : "expected ON, OFF, or DEFAULT after STDC FP_CONTRACT");
+			pragma == CFloatPragma::FenvAccess       ? "expected ON, OFF, or DEFAULT after STDC FENV_ACCESS"
+				: pragma == CFloatPragma::FpContract ? "expected ON, OFF, or DEFAULT after STDC FP_CONTRACT"
+													 : "expected ON, OFF, or DEFAULT after STDC CX_LIMITED_RANGE");
 	if (float_pragma_observer_ != nullptr)
 		float_pragma_observer_(float_pragma_context_, pragma, setting);
 }
