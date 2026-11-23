@@ -325,10 +325,12 @@ chains independently.
   the standard's required versus conditional interfaces for each environment
   before using an SDK result to qualify the compiler and runtime together.
 - Qualify C11 atomics, threads, complex arithmetic, and VLAs separately.
-  For atomics, cover valid and invalid memory orders, both outcomes of
-  compare-exchange, supported lock-free sizes and alignments, and the
-  runtime helper path for wider objects. Compare the lock-free queries
-  with emitted objects and test concurrency with defined C programs on
+  For atomics, cover ordinary lvalue conversions and assignment, valid
+  and invalid explicit memory orders, both outcomes of compare-exchange,
+  supported lock-free sizes and alignments, and the runtime helper path
+  for wider objects. Exercise each supported header's builtin interface
+  with ordinary value buffers and padded atomic storage. Compare lock-free
+  queries with emitted objects and test concurrency with defined C programs on
   native targets. Pair the threads API with TLS initialization and
   lifetime checks. Use the platform ABI for complex arguments and returns,
   including supported floating formats. Record optional floating-point

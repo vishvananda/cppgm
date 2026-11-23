@@ -606,10 +606,9 @@ the scalar header cases with Clang 21 and 23 headers, and both Darwin
 targets cross-link those cases and the dynamic queries. Native Darwin
 runtime validation remains open.
 
-The GCC-based C atomic header uses the generic runtime ABI successfully
-for a 16-byte aggregate on Linux. The same operation through Clang's
-header still needs the by-value builtin to support the generic path.
-The layout also needs ABI-specific review for both header families.
+At this stage, the GCC-based C atomic header used the generic runtime ABI
+successfully for a 16-byte aggregate on Linux. The corresponding Clang
+header probe reached a by-value builtin with an inline width restriction.
 For an aggregate containing only 3, 12, 16, or 17 bytes, Clang 21 and
 cppgm use atomic size/alignment pairs of 4/4, 16/16, 16/16, and 17/1 on
 x86-64 Linux. GCC 15 uses 3/1, 12/1, 16/16, and 17/1. Test the amount
@@ -628,6 +627,47 @@ files and passed the new PA30, PA37 and PA38 cases using its bundled
 tools. The pinned upstream and differential runs retained their
 reviewed outcomes.
 [Compile-time measurements](../docs/performance/c-frontend-scaling.md#atomic-capability-queries)
+
+### C11 atomic aggregate builtins
+
+Clang's by-value builtins and GNU's generic pointer builtins use the
+ordinary value size for sources, results and expected-value updates.
+An atomic object containing a three-byte value uses an inline four-byte
+operation. Wider representations use the existing size-prefixed runtime
+ABI. The typed call selects either path. Lowering gets both widths from
+the types it already needs for storage and stages operands only where
+the representation or the runtime ABI requires it.
+
+The PA30 runtime test checks the provider's width, both compare-exchange
+outcomes, and canaries next to the ordinary value buffers. The PA38 hosted
+control also checks exactly-once evaluation of the value passed to the
+real header.
+[PA30 runtime protocol](../pa30/tests/run/800-gnu-atomic-runtime-protocol.t.1) ·
+[PA38 hosted atomic control](../pa38/tests/controls/500-c11-stdatomic.t)
+
+At `-O0` and `-O2`, 3-, 12-, 16-, and 17-byte values passed with Clang's
+and GCC's C headers and Linux's `libatomic` on x86-64 and under AArch64
+QEMU. A release/acquire publication probe with 200,000 reads and
+writes per width also passed for 3-, 12-, and 17-byte values with
+Clang's header on both Linux targets. The original probe passed as bare
+Wasm and WASI under Wasmtime with a single-thread ABI test provider.
+It linked as Mach-O for Intel and Arm Darwin with a supplied provider.
+Native Darwin execution and a concurrent wide Wasm runtime are still
+open qualification items.
+Direct C assignment and lvalue conversion on an atomic aggregate need
+further work. The three-byte return reads the value in multiple loads.
+The twelve-byte path uses ordinary copies and read torn values in three
+native runs of the publication probe using C assignment and reads.
+[Atomic aggregate rules](../doc/c-conformance-notes.md#atomic-aggregate-values) ·
+[Compile-time measurements](../docs/performance/c-frontend-scaling.md#atomic-aggregate-builtins)
+
+The strict report passed 11,652 tests. PA36 smoke, PA37, PA38 native and
+Wasm, PA39, debug information, PA35 through PA5, and native inception
+passed. The placement audit scanned 11,245 cases with zero findings. The
+student export verified 26,147 reference files and passed the two
+affected cases with its bundled tools. The pinned GCC, Clang,
+`c-testsuite`, GCC torture, and Csmith results retained their reviewed
+outcomes.
 
 ## Cross-target smoke results
 

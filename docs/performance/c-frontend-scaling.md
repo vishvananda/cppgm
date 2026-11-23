@@ -1146,3 +1146,47 @@ comparison uses instructions.
 | SQLite | A/A | 16,506,193,308 / 16,506,019,715 / 16,505,969,213 / 16,506,144,197 |
 | SQLite | ABBA | 16,506,084,254 / 16,505,983,331 / 16,506,471,680 / 16,506,171,360 |
 | SQLite | BAAB | 16,506,155,485 / 16,506,240,408 / 16,506,135,022 / 16,505,966,016 |
+
+## Atomic aggregate builtins
+
+The C11 series has one store, compare-exchange, and exchange per
+function. It measures the compiler at `-O2 -c -nostdinc`. The
+three-byte case has an inline four-byte atomic representation. The
+twelve-byte case stages a sixteen-byte runtime representation. The
+seventeen-byte case uses its ordinary representation with the runtime.
+The parent `e73289f5d` and candidate `97dc21b46` were built with GCC
+15 on Linux x86-64. Both binaries ran on CPU 71. The scalar comparison
+uses paired ABBA and BAAB blocks following four baseline trials. Each
+aggregate figure is the median of three candidate trials. Counts are in
+millions of retired user-space instructions.
+
+| Functions | Scalar parent | Scalar candidate | 3-byte value | 12-byte value | 17-byte value |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 256 | 64.065 | 64.067 | 344.863 | 310.123 | 161.127 |
+| 1024 | 244.007 | 244.035 | 1370.910 | 1230.278 | 632.322 |
+| 4096 | 967.407 | 967.374 | 5472.570 | 4910.876 | 2517.023 |
+
+Each aggregate case grew by a factor of 3.98 to 3.99 when the function
+count grew from 1024 to 4096. Peak RSS at 4096 functions was 66,804,
+49,468, and 45,304 KiB for the three aggregate cases in that order.
+The scalar objects matched byte for byte across both builds. Each
+aggregate case produced the same object in all three trials.
+
+Frozen `semantic_overload.cpp` at `-O3` and SQLite at
+`-std=gnu17 -O2` also produced identical objects across builds. Their
+A/A task-clock ranges were 31.4% and 7.7%, so this comparison uses
+retired instructions.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0009% | +0.0019% | +0.0016% |
+| SQLite `sqlite3.c` | 0.0038% | +0.0007% | +0.0011% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,045,017,971 / 9,045,100,933 / 9,045,092,577 / 9,045,046,485 |
+| C++ | ABBA | 9,045,092,661 / 9,045,252,947 / 9,045,132,860 / 9,044,948,474 |
+| C++ | BAAB | 9,045,277,898 / 9,044,971,551 / 9,045,186,671 / 9,045,167,338 |
+| SQLite | A/A | 16,506,116,647 / 16,506,188,201 / 16,506,737,699 / 16,506,130,805 |
+| SQLite | ABBA | 16,506,115,215 / 16,506,260,891 / 16,506,251,507 / 16,506,167,898 |
+| SQLite | BAAB | 16,506,528,745 / 16,506,078,015 / 16,506,200,838 / 16,506,098,576 |

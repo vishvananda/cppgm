@@ -543,3 +543,24 @@ their inline width and alignment rules for a dynamic query.
 [WG14 DR 465](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2243.htm#dr_465) ·
 [GCC atomic builtins](https://gcc.gnu.org/onlinedocs/gcc-15.2.0/gcc/_005f_005fatomic-Builtins.html) ·
 [Clang atomic extensions](https://clang.llvm.org/docs/LanguageExtensions.html#c11-atomic-builtins)
+
+## Atomic aggregate values
+
+The size and alignment of an atomic object can differ from those of its
+ordinary value type. Clang's C header passes desired values by value. GCC's
+C header passes pointers to ordinary desired, expected, and result values.
+Both interfaces use the target's atomic representation for the operation.
+A failed compare-exchange replaces the expected value, and a successful
+compare-exchange leaves it intact.
+
+cppgm initializes the padding added by the atomic type when it prepares an
+ordinary value for an atomic write or comparison. An inline operation uses
+the atomic storage width. A call to a generic runtime provider passes the
+atomic storage width to the provider and copies only the ordinary value
+bytes to the caller's result. The default layout follows the course's
+Clang-style rounding rule. A separate compiler using a different
+`_Atomic(T)` layout needs matching object layout for interoperation.
+
+[WG14 DR 431](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2243.htm#dr_431) ·
+[Clang atomic lowering](https://github.com/llvm/llvm-project/blob/llvmorg-21.1.8/clang/lib/CodeGen/CGAtomic.cpp) ·
+[GCC atomic builtins](https://gcc.gnu.org/onlinedocs/gcc-15.2.0/gcc/_005f_005fatomic-Builtins.html)
