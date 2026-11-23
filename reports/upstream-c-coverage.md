@@ -502,8 +502,9 @@ functions and their interaction with code alignment remain open.
 
 PA38 checks the C execution mode with a shared source header. It exercises
 flag precedence, invalid hosted entry signatures, the adjusted array
-parameter and implicit zero of hosted `main`, ordinary calls to a separately compiled `strlen` in
-freestanding mode, and an explicit builtin. The `no_builtin=yes` LowIR
+parameter and implicit zero of hosted `main`, ordinary calls to a
+separately compiled `strlen` in freestanding mode, and an explicit
+builtin. The `no_builtin=yes` LowIR
 fact also prevents the reader from assigning a legacy startup role.
 PA25 covers a supplied native entry with `-nostdlib` using the ordinary
 compile-and-link test lane.
@@ -525,6 +526,17 @@ PA25 case explicitly. Native execution results and library coverage
 remain pending.
 [PA38 environment cases](../pa38/tests/general/c-environment.h) ·
 [PA25 custom entry](../pa25/tests/general/200-runtime-custom-entry.t)
+
+An x86-64 glibc C11 probe compiled with cppgm and linked with GCC 15
+passes thread creation and joining, thread-local storage, one-time
+initialization, mutexes, condition variables, and thread-specific data
+at `-O0` and `-O2`. A separate `<stdatomic.h>` probe exposes two
+header compatibility gaps. The default C include search selects
+libstdc++'s C++ compatibility header ahead of GCC's C header.
+`-nostdinc++` selects the C header, whose `atomic_load_explicit` macro
+uses GNU `__auto_type`. A direct local `__auto_type` declaration also
+fails. Resolve the include policy and deduction rule before
+qualifying the public C atomic interfaces.
 
 ## Cross-target smoke results
 
