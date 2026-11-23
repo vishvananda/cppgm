@@ -127,6 +127,8 @@ RValue FunctionLowering::convert(
 			return value;
 		return to_bool_truth(value, from);
 	}
+	if (from->kind == sema::TypeKind::Complex)
+		return complex_convert(value, from, to, context);
 	if ((from_float || to_float) && (SoftFloatOf(from) != SoftFloat::None || SoftFloatOf(to) != SoftFloat::None))
 		return soft_convert(value, from, to);
 	if (to_float)

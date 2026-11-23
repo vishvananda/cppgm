@@ -813,6 +813,32 @@ Expr* Parser::parse_type_trait(TokenKind keyword)
 	return expr;
 }
 
+Expr* Parser::try_parse_classification_type()
+{
+	// An expression operand uses the ordinary call grammar, including the
+	// old variadic spelling. Only a complete parenthesized type-id uses the
+	// type-query node.
+	if (!at_type_specifier_start(2))
+		return nullptr;
+	const uint32_t start = location();
+	Tentative tentative(*this);
+	next();
+	next();
+	const bool saved_angle = angle_;
+	angle_ = false;
+	TypeId* type = parse_type_id(DeclaratorMode::Abstract, false);
+	angle_ = saved_angle;
+	if (type == nullptr || !accept(TokenKind::OP_RPAREN))
+		return nullptr;
+	tentative.commit();
+	BuiltinTraitExpr* expr = make<BuiltinTraitExpr>(ExprKind::BuiltinTrait, start);
+	expr->trait = GnuTrait::ClassifyType;
+	expr->types = Slice<TypeId*>{ arena_.copy_array(&type, 1), 1 };
+	expr->type = nullptr;
+	expr->operand = nullptr;
+	return expr;
+}
+
 Expr* Parser::parse_builtin_trait(GnuTrait trait)
 {
 	if (trait == GnuTrait::AddAtomic && c_source_)
@@ -1123,7 +1149,12 @@ Expr* Parser::parse_primary_expression()
 			return parse_generic_selection();
 		GnuTrait trait;
 		if (at_trait(trait) && !IsGnuTypeTransform(trait))
-			return parse_builtin_trait(trait);
+		{
+			if (trait != GnuTrait::ClassifyType)
+				return parse_builtin_trait(trait);
+			if (Expr* classified = try_parse_classification_type())
+				return classified;
+		}
 		return parse_id_expression_or_cast();
 	}
 	if (token.kind != ParseTokenKind::Simple)

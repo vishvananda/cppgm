@@ -1430,6 +1430,7 @@ private:
 	// + - * / (`left_complex`, `right_complex`: an operand of the complex
 	// type, else of its part type), a product and a quotient of parts.
 	RValue complex_value(const sema::Type* type, const RValue& real, const RValue& imaginary);
+	Place complex_storage(const RValue& value);
 	void complex_parts(const RValue& value, const sema::Type* type, RValue& real, RValue& imaginary);
 	RValue complex_convert(
 		const RValue& value, const sema::Type* from, const sema::Type* to, ConversionContext context);

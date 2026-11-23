@@ -1413,3 +1413,40 @@ byte-identical objects. The A/A task-clock ranges were 31.71% and 12.14%.
 | SQLite | A/A | 16,515,252,642 / 16,515,194,721 / 16,515,277,166 / 16,515,738,012 |
 | SQLite | ABBA | 16,515,179,033 / 16,515,792,879 / 16,515,893,565 / 16,515,799,543 |
 | SQLite | BAAB | 16,515,831,965 / 16,515,795,755 / 16,514,868,281 / 16,516,074,552 |
+
+## GNU C type classification and complex-to-real conversion
+
+The type-query input has one enumerator per row with an array type-name and
+a compound-literal expression query. It runs in syntax-only mode. The
+conversion input returns the real component of a complex float parameter
+from each function. It emits an object at `-O0`. Both use pedantic C99.
+Each table entry is the median of three runs on the same Linux x86-64 CPU.
+
+| Input | User instructions at 256 / 512 / 1024 / 2048 | Peak RSS in KiB at the same sizes |
+| --- | ---: | ---: |
+| Type queries | 12,994,583 / 22,083,653 / 40,212,589 / 76,684,023 | 7,944 / 8,600 / 10,060 / 12,148 |
+| Complex-to-real functions | 18,296,648 / 32,605,619 / 61,138,355 / 118,403,170 | 10,108 / 11,448 / 12,196 / 14,964 |
+
+The incremental instruction cost per row stays within 1% across the
+three measured doublings in each series. The compiler records the category
+from the typed operand and lowers a runtime conversion by loading and
+converting the real component after evaluating the source. The hosted
+macro-expansion scaling work described above remains open.
+
+The baseline is `df9af5e56`. Both GCC 15-built compilers emit byte-identical
+objects in the frozen C++ `-O3` and SQLite `-O2` controls. The A/A task-clock
+ranges were 2.18% and 35.22%. The instruction results show no increase.
+
+| Input | Instruction A/A range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0035% | −0.0063% | −0.0097% |
+| SQLite `sqlite3.c` | 0.0045% | −0.0031% | −0.0032% |
+
+| Input | Block | Retired user-space instructions in trial order |
+| --- | --- | --- |
+| C++ | A/A | 9,046,638,175 / 9,046,716,387 / 9,046,746,189 / 9,046,950,648 |
+| C++ | ABBA | 9,046,880,728 / 9,046,287,336 / 9,046,220,866 / 9,046,765,484 |
+| C++ | BAAB | 9,046,310,361 / 9,047,142,518 / 9,047,073,291 / 9,046,146,915 |
+| SQLite | A/A | 16,515,874,604 / 16,516,421,707 / 16,515,705,778 / 16,515,680,734 |
+| SQLite | ABBA | 16,515,993,268 / 16,515,559,766 / 16,515,261,475 / 16,515,836,536 |
+| SQLite | BAAB | 16,515,371,440 / 16,515,739,868 / 16,516,061,066 / 16,515,374,842 |

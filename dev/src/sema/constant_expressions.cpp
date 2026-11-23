@@ -683,6 +683,8 @@ bool ConstantInterpreter::convert_scalar(ConstValue& value, const Type* to, uint
 		value = IntegerValue(to, result ? 1 : 0);
 		return true;
 	}
+	if (value.kind == ValueKind::Array && value.type != nullptr && IsComplex(value.type))
+		return complex_convert(value, to, location);
 	if (value.kind == ValueKind::Binary128 || Binary128Type(to))
 		return ConvertBinary128(value, to) || fail(location, "a binary128 conversion outside the target range");
 	if (IsFloating(to))
@@ -1968,6 +1970,16 @@ bool ConstantInterpreter::intrinsic_value(const syntax::CallExpr& call_expr, Con
 		return elementwise_minmax(call_expr, out);
 	if (which == Intrinsic::MakeComplex)
 		return part_list(call_expr.arguments, facts->type, out, call_expr.location);
+	if (which == Intrinsic::ClassifyType && call_expr.arguments.size == 1)
+	{
+		// GNU C++ constant evaluation requires a constant-evaluable
+		// operand even though ordinary execution discards it.
+		ConstValue value;
+		if (!operand(*call_expr.arguments[0], value))
+			return false;
+		out = IntegerValue(facts->type, static_cast<int32_t>(facts->value >> 8));
+		return true;
+	}
 	if (which == Intrinsic::Nan || which == Intrinsic::Inf)
 	{
 		out = FloatingValue(facts->type,

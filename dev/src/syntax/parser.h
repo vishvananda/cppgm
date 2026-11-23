@@ -436,6 +436,7 @@ private:
 	Expr* parse_type_trait(TokenKind keyword);
 	// A GNU type trait `__is_class ( type-id )` ...
 	Expr* parse_builtin_trait(GnuTrait trait);
+	Expr* try_parse_classification_type();
 	// `__underlying_type ( type-id )` as a decltype-specifier.
 	bool parse_transform_specifier(ListFrame<DeclSpecifier>& list, SpecifierInfo& info, GnuTrait trait);
 	Expr* parse_keyword_cast();

@@ -651,3 +651,12 @@ fallback while its operand is still evaluated once.
 [GCC atomic builtins](https://gcc.gnu.org/onlinedocs/gcc-15.2.0/gcc/_005f_005fatomic-Builtins.html) ·
 [Clang atomic builtins](https://clang.llvm.org/docs/LanguageExtensions.html#c11-atomic-builtins) ·
 [WG14 N1570, §7.17.7](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
+
+## Complex to real conversions
+
+C99 §6.3.1.7 converts a complex expression to a real type using the real
+component and the ordinary scalar conversion. This includes truncation
+toward zero in the representable range for an integer result. The separate
+rule in §6.3.1.2 gives a boolean result using the comparison of the entire
+value with zero. The same value rules apply during static initialization.
+[WG14 N1256, §§6.3.1.2, 6.3.1.4, and 6.3.1.7](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf)

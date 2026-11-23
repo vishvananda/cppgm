@@ -326,6 +326,20 @@
       "adaptations": [
         "Checks failure of the complete input. Individual dg-error expectations are ungraded."
       ]
+    },
+    {
+      "id": "builtin-classify-type-1",
+      "path": "gcc/testsuite/gcc.dg/builtin-classify-type-1.c",
+      "sha256": "ed8b2afd8fb7e60ed602a364fbb297cde55a1eb63b1cddaa042cc44e315e3c3d",
+      "dialect": "c17",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "GNU type classification of tag definitions and variable array type-names",
+      "adaptations": [
+        "Selects C17 with pedantic diagnostics for the unchanged source."
+      ]
     }
   ]
 }

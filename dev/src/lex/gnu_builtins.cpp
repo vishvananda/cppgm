@@ -33,6 +33,7 @@ const struct
 	{ "__builtin_bswap32", { GnuBuiltin::BitCount, 1, nullptr, 0 } },
 	{ "__builtin_bswap64", { GnuBuiltin::BitCount, 2, nullptr, 0 } },
 	{ "__builtin_bzero", { GnuBuiltin::Library, 0, "vv*z", 0 } },
+	{ "__builtin_classify_type", { GnuBuiltin::ClassifyType, 0, nullptr, 0 } },
 	{ "__builtin_clz", { GnuBuiltin::BitCount, 3, nullptr, 0 } },
 	{ "__builtin_clzg", { GnuBuiltin::GenericBitCount, 0, nullptr, 0 } },
 	{ "__builtin_clzl", { GnuBuiltin::BitCount, 4, nullptr, 0 } },
@@ -881,7 +882,7 @@ const char* const kTraitNames[] = { "__is_class", "__is_enum", "__is_union", "__
 	"__make_signed", "__make_unsigned", "__remove_all_extents", "__remove_const", "__remove_cv", "__remove_cvref",
 	"__remove_extent", "__remove_pointer", "__remove_reference_t", "__remove_reference", "__remove_restrict",
 	"__remove_volatile", "_Atomic", "_BitInt", "__integer_pack", "__builtin_va_arg", "__builtin_convertvector",
-	"__builtin_bit_cast" };
+	"__builtin_bit_cast", "__builtin_classify_type" };
 
 const unsigned kSpelledTraits = sizeof kTraitNames / sizeof kTraitNames[0];
 static_assert(kSpelledTraits == static_cast<unsigned>(GnuTrait::Declval), "one name per spelled trait");

@@ -1785,6 +1785,8 @@ private:
 	SubobjectValues copied_subobject_values(const Type* type, uint32_t depth = 0);
 	// ------------------------------ GNU type traits (analyzer_traits.cpp)
 	ExprFacts* builtin_trait(const syntax::BuiltinTraitExpr& expr, Scope* scope);
+	bool type_classification(const syntax::BuiltinTraitExpr& expr, Scope* scope, Constant& value);
+	ExprFacts* classify_type_call(const syntax::CallExpr& expr, Scope* scope);
 	bool trait_types(const syntax::BuiltinTraitExpr& expr, Scope* scope, SmallList<const Type*, 4>& out);
 	bool trait_constant(const syntax::BuiltinTraitExpr& expr, Scope* scope, Constant& value);
 	const Type* trait_type(GnuTrait trait, const Type* type, uint32_t location);

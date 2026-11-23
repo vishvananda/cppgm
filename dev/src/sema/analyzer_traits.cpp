@@ -71,6 +71,45 @@ bool IsUnion(const ClassEntity* entity)
 	return entity->key == TokenKind::KW_UNION;
 }
 
+// Category numbers are the GNU builtin's source-level interface.
+int TypeClass(const Type* type)
+{
+	type = type->unqualified;
+	switch (type->kind)
+	{
+	case TypeKind::Fundamental:
+		if (IsVoid(type))
+			return 0;
+		if (type->fundamental == FundamentalType::Bool)
+			return 4;
+		if (IsIntegralType(type))
+			return 1;
+		return IsFloating(type) ? 8 : -1;
+	case TypeKind::Enum:
+		return 3;
+	case TypeKind::Pointer:
+	case TypeKind::BlockPointer:
+		return 5;
+	case TypeKind::LValueReference:
+	case TypeKind::RValueReference:
+		return 6;
+	case TypeKind::MemberPointer:
+		return type->element->kind == TypeKind::Function ? 12 : 7;
+	case TypeKind::Complex:
+		return 9;
+	case TypeKind::Function:
+		return 10;
+	case TypeKind::Class:
+		return IsUnion(ClassType(type)) ? 13 : 12;
+	case TypeKind::Array:
+		return 14;
+	case TypeKind::Vector:
+		return 19;
+	default:
+		return -1;
+	}
+}
+
 // 8.4.2p4: declared, neither defaulted nor deleted on its first
 // declaration.
 bool UserProvidedConstructor(const FunctionEntity* constructor)
@@ -80,8 +119,69 @@ bool UserProvidedConstructor(const FunctionEntity* constructor)
 
 } // namespace
 
+bool Analyzer::type_classification(const syntax::BuiltinTraitExpr& expr, Scope* scope, Constant& value)
+{
+	const Type* type = c_source_ ? c_type_query(*expr.types[0], scope) : type_id(*expr.types[0], scope);
+	if (type == nullptr || dependent_type(type))
+		return false;
+	value = Constant{ static_cast<uint64_t>(TypeClass(type)), types_.fundamental(FundamentalType::Int) };
+	return true;
+}
+
+ExprFacts* Analyzer::classify_type_call(const syntax::CallExpr& expr, Scope* scope)
+{
+	const bool query = expr.arguments.size <= 1;
+	const Type* first = nullptr;
+	for (const syntax::Expr* argument : expr.arguments)
+	{
+		unevaluated_ += query;
+		ExprFacts* facts = typed_value(*argument, scope);
+		unevaluated_ -= query;
+		if (facts == nullptr)
+			return nullptr;
+		const Type* type = decayed(facts);
+		if (IsVoid(type))
+			error(argument->location, "a void expression in __builtin_classify_type");
+		ClassEntity* entity = ClassType(type);
+		if (entity != nullptr && !dependent_type(type) && !require_complete(entity))
+			error(argument->location, "__builtin_classify_type of an expression with incomplete type");
+		if (first == nullptr)
+			first = type;
+	}
+	int classification = first != nullptr ? TypeClass(first) : -1;
+	if (c_source_ && (classification == 3 || classification == 4))
+		classification = 1;
+	ExprFacts* facts = new_facts(expr, types_.fundamental(FundamentalType::Int), ValueCategory::PRValue);
+	if (query && (c_source_ || first == nullptr))
+	{
+		facts->flags |= kFolded;
+		facts->value = static_cast<uint64_t>(classification);
+	}
+	else if (!dependent_type(first))
+	{
+		facts->flags |= kIntrinsic;
+		facts->value = static_cast<uint64_t>(Intrinsic::ClassifyType) |
+			(static_cast<uint64_t>(static_cast<uint32_t>(classification)) << 8);
+	}
+	return facts;
+}
+
 ExprFacts* Analyzer::builtin_trait(const syntax::BuiltinTraitExpr& expr, Scope* scope)
 {
+	if (expr.trait == GnuTrait::ClassifyType)
+	{
+		Constant value;
+		const bool folded = type_classification(expr, scope, value);
+		if (failed())
+			return nullptr;
+		ExprFacts* facts = new_facts(expr, types_.fundamental(FundamentalType::Int), ValueCategory::PRValue);
+		if (folded)
+		{
+			facts->flags |= kFolded;
+			facts->value = value.bits;
+		}
+		return facts;
+	}
 	if (expr.trait == GnuTrait::DeclvalPrvalue)
 		return new_facts(expr, expr.type, ValueCategory::PRValue);
 	if (expr.trait == GnuTrait::OffsetofBase)
@@ -446,6 +546,8 @@ bool Analyzer::trait_constant(const syntax::BuiltinTraitExpr& expr, Scope* scope
 {
 	// A trait read before semantics mode types it (a template definition's
 	// arguments, types mode): a constant unless an operand is dependent.
+	if (expr.trait == GnuTrait::ClassifyType)
+		return type_classification(expr, scope, value);
 	if (expr.trait >= GnuTrait::UnderlyingType)
 		return false;
 	SmallList<const Type*, 4> types;

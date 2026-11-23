@@ -163,20 +163,24 @@ RValue FunctionLowering::complex_value(const sema::Type* type, const RValue& rea
 	return load(whole, storage);
 }
 
-void FunctionLowering::complex_parts(const RValue& value, const sema::Type* type, RValue& real, RValue& imaginary)
+Place FunctionLowering::complex_storage(const RValue& value)
 {
-	// The value stored in a slot, each half read.
-	const sema::Type* part = type->unqualified->element;
-	const lowir::Type part_type = lowering_.storage_type(part);
 	Place storage = Place();
 	storage.storage = lowir::Value::slot(generated_slot(lowir::SlotKind::Complex, value.type));
 	store(value.type, value, storage);
-	const lowir::Value address = address_of(storage);
-	Place half = Place();
-	half.storage = address;
+	Place parts = Place();
+	parts.storage = address_of(storage);
+	return parts;
+}
+
+void FunctionLowering::complex_parts(const RValue& value, const sema::Type* type, RValue& real, RValue& imaginary)
+{
+	const sema::Type* part = type->unqualified->element;
+	const lowir::Type part_type = lowering_.storage_type(part);
+	Place half = complex_storage(value);
 	real = load(part_type, half);
 	const lowir::Type i64 = lowir::Type::scalar(lowir::TypeKind::I64);
-	half.storage = index(lowir::Type::scalar(lowir::TypeKind::I8), ir_model::IPK_FIELD, address,
+	half.storage = index(lowir::Type::scalar(lowir::TypeKind::I8), ir_model::IPK_FIELD, half.storage,
 		integer(i64, lowering_.size_of(part, 0)))
 					   .value;
 	imaginary = load(part_type, half);
@@ -185,6 +189,12 @@ void FunctionLowering::complex_parts(const RValue& value, const sema::Type* type
 RValue FunctionLowering::complex_convert(
 	const RValue& value, const sema::Type* from, const sema::Type* to, ConversionContext context)
 {
+	if (to->unqualified->kind != sema::TypeKind::Complex)
+	{
+		const sema::Type* source = from->unqualified->element;
+		const RValue real = load(lowering_.storage_type(source), complex_storage(value));
+		return convert(real, source, to, context);
+	}
 	// Part by part; a real value is the real part, the imaginary one zero.
 	const sema::Type* part = to->unqualified->element;
 	// (Operands emitted last first: see FunctionLowering::binary.)
@@ -425,17 +435,11 @@ RValue FunctionLowering::complex_part(const syntax::Expr& operand, bool imaginar
 	const lowir::Type part_type = lowering_.storage_type(type->unqualified->element);
 	if (operand.facts->category != sema::ValueCategory::PRValue)
 		return load(part_type, complex_part_place(operand, imaginary));
-	const lowir::Type whole = lowering_.storage_type(type);
-	Place storage = Place();
-	storage.storage = lowir::Value::slot(generated_slot(lowir::SlotKind::Complex, whole));
-	store(whole, rvalue(operand), storage);
-	const lowir::Value address = address_of(storage);
-	Place part = Place();
-	part.storage = address;
+	Place part = complex_storage(rvalue(operand));
 	if (imaginary)
 	{
 		const lowir::Type i64 = lowir::Type::scalar(lowir::TypeKind::I64);
-		part.storage = index(lowir::Type::scalar(lowir::TypeKind::I8), ir_model::IPK_FIELD, address,
+		part.storage = index(lowir::Type::scalar(lowir::TypeKind::I8), ir_model::IPK_FIELD, part.storage,
 			integer(i64, lowering_.size_of(type->unqualified->element, operand.location)))
 						   .value;
 	}

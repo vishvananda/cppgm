@@ -246,6 +246,8 @@ ExprFacts* Analyzer::builtin_operation(const syntax::CallExpr& expr, const Funct
 		return builtin_invoke(expr, scope);
 	case GnuBuiltin::TypeGenericMath:
 		return type_generic_math(expr, scope);
+	case GnuBuiltin::ClassifyType:
+		return classify_type_call(expr, scope);
 	case GnuBuiltin::FloatClassify:
 	case GnuBuiltin::FloatCompare:
 	case GnuBuiltin::FloatConstant:

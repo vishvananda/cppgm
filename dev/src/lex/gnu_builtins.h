@@ -133,7 +133,8 @@ enum class GnuBuiltin : uint8_t
 	// Clang's __builtin_nondeterministic_value(x): a value of x's type that
 	// is not specified (x is not evaluated).
 	NondeterministicValue,
-	TypeGenericMath
+	TypeGenericMath,
+	ClassifyType
 };
 
 inline bool IsCoroutineBuiltin(GnuBuiltin builtin)
@@ -495,6 +496,8 @@ enum class GnuTrait : uint8_t
 	// `__builtin_bit_cast ( type-id , expression )` (GCC's and Clang's, for
 	// std::bit_cast): the operand's bytes as a value of the type.
 	BitCast,
+	// GNU type-category query taking a type-id or expression.
+	ClassifyType,
 	// Not spelled: an operand the analysis makes, a value of the type as
 	// std::declval<T>() gives it (its category by the reference).
 	Declval,

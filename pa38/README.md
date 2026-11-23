@@ -135,6 +135,11 @@ The first fixture set covers these parts of the C17 input profile:
   and fixed floating return types. Evaluate only the selected function
   expression and the call arguments. In an unevaluated context, evaluate
   neither. Give the call the selected function's return type.
+- For GNU `__builtin_classify_type` in C, apply default argument promotions
+  to the expression form. A boolean or enumeration expression reports the
+  integer category. A type-name keeps its own category and does not evaluate
+  a variable array bound. A single expression is unevaluated and can report
+  its category in an integer constant expression.
 - The GNU conditional expression with one void arm has type `void`.
   Evaluate the selected arm for effects and diagnose the extension under
   the pedantic policy.
@@ -149,6 +154,10 @@ The first fixture set covers these parts of the C17 input profile:
   and system-header macros. `-Wsystem-headers` enables diagnostics for those
   macros. In the typed `-E` stream, `_Complex` precedes the component type
   and the bytes of the real part precede those of the imaginary part.
+- An implicit or explicit conversion from complex to real uses the real
+  component and converts it to the destination type. Conversion to `_Bool`
+  compares both components to zero. Preserve the source's evaluation and
+  apply the same value rules to static initializers.
 - Comparisons and logical operators produce `int`. Assignment, comma,
   conditional and prefix increment results
   do not become C++ lvalues.

@@ -439,7 +439,14 @@ bool ConstantInterpreter::vector_reinterpretation(ConstValue& value, const Type*
 
 bool ConstantInterpreter::complex_convert(ConstValue& value, const Type* to, uint32_t location)
 {
-	// To a complex type: part by part, a real value's imaginary part zero.
+	if (!IsComplex(to))
+	{
+		if (!IsComplexValue(value))
+			return fail(location, "a malformed complex constant");
+		value = value.elements[0];
+		return convert_scalar(value, to, location);
+	}
+	// Convert each component. The imaginary part of a real value is zero.
 	const Type* part = to->unqualified->element;
 	ConstValue real = value, imaginary = ConstValue();
 	if (IsComplexValue(value))

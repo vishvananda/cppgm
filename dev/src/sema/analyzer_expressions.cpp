@@ -290,12 +290,15 @@ ExprFacts* Analyzer::typed(const syntax::Expr& expr, Scope* scope)
 		names_.set_value_parameter_uses(values);
 		break;
 	case syntax::ExprKind::BuiltinTrait:
-		if (static_cast<const syntax::BuiltinTraitExpr&>(expr).trait < GnuTrait::UnderlyingType)
+	{
+		const GnuTrait trait = static_cast<const syntax::BuiltinTraitExpr&>(expr).trait;
+		if (trait < GnuTrait::UnderlyingType || trait == GnuTrait::ClassifyType)
 		{
 			names_.set_value_parameter_uses(values + (names_.dependent_uses() != uses));
 			names_.set_dependent_uses(uses);
 		}
 		break;
+	}
 	default:
 		break;
 	}

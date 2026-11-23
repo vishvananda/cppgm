@@ -620,6 +620,12 @@ bool ConversionRules::value_conversion(
 			out.rank = ConversionRank::Promotion;
 		return true;
 	}
+	// C99 6.3.1.7: convert the real component to the destination type.
+	if (c_source_ && IsComplex(source) && (IsArithmetic(goal) || goal->kind == TypeKind::Enum))
+	{
+		out.second = ValueConversion::Complex;
+		return true;
+	}
 	// 4.7, 4.8, 4.9.
 	if ((IsIntegralType(goal) || (c_source_ && goal->kind == TypeKind::Enum)) && IsIntegralOrUnscopedEnum(source))
 	{

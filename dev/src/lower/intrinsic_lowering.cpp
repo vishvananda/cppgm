@@ -627,6 +627,11 @@ RValue FunctionLowering::gnu_intrinsic(const syntax::CallExpr& expr, sema::Intri
 	case sema::Intrinsic::NondeterministicValue:
 		// Zero is a value of the type; the operand is not evaluated.
 		return zero_value(expr.facts->type);
+	case sema::Intrinsic::ClassifyType:
+		if (expr.arguments.size > 1)
+			for (const syntax::Expr* argument : expr.arguments)
+				discard(*argument);
+		return integer(lowering_.storage_type(expr.facts->type), expr.facts->value >> 8);
 	default:
 		break;
 	}

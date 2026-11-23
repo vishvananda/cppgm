@@ -371,6 +371,14 @@ it in the hosted environment. Libraries use it to discover the GNU
 `__float128` type even in ISO C++ mode, where the GNU literal suffixes are
 disabled.
 
+Support GNU `__builtin_classify_type` with both a type-name and an
+expression. Report the type-name's category directly and adjust array and
+function expressions to pointers. A single expression has no effects during
+ordinary execution. In C++ constant evaluation, check the expression as
+required by the GNU builtin. The legacy form with several expression
+arguments evaluates each for effects and reports the category of the first.
+[GCC builtin reference](https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html)
+
 Support `-fconstexpr-ops-limit=<n>` when compiling hosted C++. It sets the
 work limit for one constant evaluation. Use a finite default and reset the
 work counter between evaluations. A required evaluation that exceeds the

@@ -45,6 +45,14 @@ is in progress. Expand the release matrix after the relevant mode and its
 preceding mode's controls pass. Keep fixes to shared translation and ABI
 behavior independent of the edition work that exposed them.
 
+Use the remaining hosted C99 header probes as the next integration batch.
+Run the glibc `<tgmath.h>` selection path with each Linux target's normal GNU
+predefines and the WASI SDK path with its Clang resource headers. Then expand
+from header probes to the translation and runtime checks for C11 library
+features and the outstanding target ABI cases. Keep clause inventory work
+moving alongside these replays so the next batch is selected by uncovered
+requirements as well as library build failures.
+
 ## 1. Freeze the baseline and put a small suite in CI
 
 Create a clause inventory covering lexical translation, preprocessing, types
@@ -311,6 +319,11 @@ chains independently.
   At runtime, evaluate only the selected candidate expression and each call
   argument once. Exercise the `__builtin_classify_type` fallback selected by
   glibc with the cross AArch64 Linux configuration's GNU compatibility macros.
+  Check that type-name queries preserve the original type, expression queries
+  apply the target's argument adjustments, and a single C operand has no
+  runtime effects. Include C99 complex-to-real conversions in the fallback
+  replay. Measure the direct conversion and type-query paths independently
+  of macro expansion.
   For the Clang resource header used by WASI, qualify C `overloadable` declarations, ranking,
   and mangling through the existing overload and ABI machinery. Check nested
   calls with one argument-level increase at a time to catch repeated work.
@@ -320,6 +333,10 @@ chains independently.
   rescanning at token boundaries, macro disablement, and argument provenance.
   Verify the ordinary and variadic preprocessor suites, including `#`, `##`,
   `__VA_OPT__`, and expansions that span a replacement boundary.
+  Use emitted token count as well as source size in the scaling analysis.
+  Compare replacement-frame visits, rescans, and token copies per produced
+  token on nested single-use arguments and on macros that legitimately
+  duplicate output.
   [GCC built-ins](https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html) ·
   [Clang `overloadable`](https://clang.llvm.org/docs/AttributeReference.html#overloadable)
 - Compile both sides of each native ABI test in both directions (cppgm caller

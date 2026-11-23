@@ -92,16 +92,29 @@ linked with `libm`, and ran both probes on Linux.
 | Required interface | Probe and cppgm result |
 | --- | --- |
 | `complex.h` imaginary unit | Construct `3.0 + 4.0 * I` and check the real and imaginary parts and magnitude. Passes with the real C library at `-std=c99 -pedantic-errors -O0` and `-O2` on x86-64 Linux, Linux AArch64 under QEMU, and WASI under Wasmtime. The typed `-E` stream accepts glibc's expansion. The header-independent PA38 probe also runs on bare Wasm and cross-links for both Darwin targets. Native Darwin and the SDK headers still require qualification. [PA38 value fixture](../pa38/tests/general/500-c-imaginary-literals.t) · [Extension policy fixture](../pa38/tests/general/500-c-imaginary-extension.t) |
-| `tgmath.h` function selection | The x86-64 Linux glibc probes pass in pedantic C99, C11 and C17 at `-O0` and `-O2`. They cover real and complex selection, result types, integer promotion, fixed pointer parameters and exactly-once evaluation. The default AArch64 Linux header path uses the older glibc macros and reaches the missing `__builtin_classify_type`. The default Clang resource header on WASI still needs overloaded C declarations. The wasi-libc header's fallback fails the `sqrt(float)` return-type check with cppgm's default predefines. |
+| `tgmath.h` function selection | The Linux glibc probes pass in pedantic C99, C11 and C17 at `-O0` and `-O2` on x86-64 and on AArch64 under QEMU. They cover real and complex selection, result types, integer promotion, fixed pointer parameters and exactly-once evaluation. The AArch64 GCC 14 sysroot uses glibc's legacy macro path under the default GNU predefines. That path exercises `__builtin_classify_type` and complex-to-real conversions. The default Clang resource header on WASI still needs overloaded C declarations. The wasi-libc fallback fails the `sqrt(float)` return-type check with cppgm's default predefines. |
 
 The header-independent `__builtin_tgmath` fixtures pass at both optimization
 levels on Linux x86-64, Linux AArch64 under QEMU and bare Wasm, pass the
 PA38 WASI lane, and cross-link as Mach-O for both macOS targets. The pinned
 GCC C17 lane adds six runtime configurations and two rejection cases for
-the builtin. The full reviewed GCC C17 set passes 21 of 21 configurations.
+the builtin. The full reviewed GCC C17 set passes 22 of 22 configurations.
 [PA38 selection fixture](../pa38/tests/general/500-c-type-generic-math.t) ·
 [PA38 extended-type fixture](../pa38/tests/general/500-c-type-generic-math-extended.t) ·
 [GCC C17 manifest](upstream-gcc-c17.json)
+
+The PA38 classification fixture checks type names, promoted C expressions,
+unevaluated VLA bounds, and the evaluation behavior of the single-argument
+and legacy variadic forms. The PA38 conversion fixture covers implicit and
+explicit conversions to real types, static initializers, and the separate
+boolean conversion rule. Both passed on x86-64 Linux, AArch64 under QEMU,
+and bare Wasm under Wasmtime at `-O0` and `-O2`, and passed the PA38 WASI
+lane. They cross-linked for both Mach-O targets. Native macOS execution
+and SDK integration still need qualification. The PA30 test exercises
+the shared C++ forms, including dependent queries and constant evaluation.
+[PA38 classifier](../pa38/tests/general/500-c-builtin-classify-type.t) ·
+[PA38 conversions](../pa38/tests/general/500-c-complex-to-real.t) ·
+[PA30 classifier](../pa30/tests/run/800-builtin-classify-type.t)
 
 [C99 library clauses, §§7.3 and 7.22](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
 [GCC complex literal extension](https://gcc.gnu.org/onlinedocs/gcc/Complex.html) ·

@@ -85,6 +85,7 @@ my %trait_alias = (
 	'__builtin_va_arg' => 'VaArg',
 	'__builtin_convertvector' => 'ConvertVector',
 	'__builtin_bit_cast' => 'BitCast',
+	'__builtin_classify_type' => 'ClassifyType',
 );
 my $text = join('', @lines);
 my @trait_names;
