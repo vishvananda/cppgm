@@ -88,11 +88,20 @@ void ModuleUnwind::flush(
 void ModuleUnwind::apply(const AssemblyCfiEvent& event, uint32_t section, uint32_t position)
 {
 	if (event.op == AssemblyCfiOp::Sections)
+	{
+		if ((event.sections & CfiDebugFrame) != 0 && target_ == Target::MacOS)
+			throw BackendError("assembly CFI line " + std::to_string(event.line) + ": .debug_frame requires ELF");
+		if (started_ && (event.sections & CfiEhFrame & ~sections_) != 0)
+			throw BackendError(
+				"assembly CFI line " + std::to_string(event.line) + ": inconsistent CFI section selection");
+		sections_ = started_ ? sections_ | event.sections : event.sections;
 		return;
+	}
 	if (event.op == AssemblyCfiOp::Start)
 	{
 		if (current_)
 			throw BackendError("assembly CFI line " + std::to_string(event.line) + ": " + "nested CFI procedures");
+		started_ = true;
 		current_.reset(new Procedure(section, position, event.simple));
 		return;
 	}
@@ -133,13 +142,27 @@ void ModuleUnwind::apply(const AssemblyCfiEvent& event, uint32_t section, uint32
 }
 uint32_t ModuleUnwind::section_symbol(uint32_t section)
 {
-	for (uint32_t i = 1; i < out_.symbols.size(); ++i)
-		if (out_.symbols[i].type == object::SymbolType::Section && out_.symbols[i].section == section)
-			return i;
+	if (section_symbols_.empty())
+	{
+		section_symbols_.resize(out_.sections.size());
+		for (uint32_t i = 1; i < out_.symbols.size(); ++i)
+		{
+			const auto& symbol = out_.symbols[i];
+			if (symbol.type == object::SymbolType::Section && symbol.section < section_symbols_.size() &&
+				section_symbols_[symbol.section] == 0)
+				section_symbols_[symbol.section] = i;
+		}
+	}
+	if (section >= section_symbols_.size())
+		section_symbols_.resize(section + 1);
+	uint32_t& id = section_symbols_[section];
+	if (id != 0)
+		return id;
 	object::Symbol symbol;
 	symbol.type = object::SymbolType::Section;
 	symbol.section = section;
-	return out_.add_symbol(symbol);
+	id = out_.add_symbol(symbol);
+	return id;
 }
 void ModuleUnwind::pointer_relocation(
 	uint32_t section, uint32_t offset, uint8_t encoding, const asm_model::SymbolReference& reference, bool personality)
@@ -157,25 +180,35 @@ void ModuleUnwind::pointer_relocation(
 }
 void ModuleUnwind::emit(uint32_t end)
 {
-	if (frame_ == 0)
-	{
-		for (uint32_t i = 1; i < out_.sections.size(); ++i)
-			if (std::strcmp(out_.string(out_.sections[i].name), ".eh_frame") == 0 &&
-				out_.sections[i].group == object::kNoGroup && out_.sections[i].kind == object::SectionKind::Rodata)
-			{
-				frame_ = i;
-				break;
-			}
-		if (frame_ == 0)
-			frame_ = out_.add_section(".eh_frame", object::SectionKind::Rodata, 8);
-	}
 	Procedure& procedure = *current_;
 	const auto& instructions = procedure.rules.bytes();
 	procedure.description.initial_rules.assign(instructions.begin(), instructions.begin() + procedure.initial_bytes);
-	auto& section = out_.sections[frame_];
+	if ((sections_ & CfiEhFrame) != 0)
+		emit_frame(runtime_, end, false);
+	if ((sections_ & CfiDebugFrame) != 0)
+		emit_frame(debug_, end, true);
+}
+void ModuleUnwind::emit_frame(Frame& frame, uint32_t end, bool debug)
+{
+	if (frame.section == 0)
+	{
+		const char* name = debug ? ".debug_frame" : ".eh_frame";
+		const auto kind = debug ? object::SectionKind::Metadata : object::SectionKind::Rodata;
+		for (uint32_t i = 1; i < out_.sections.size(); ++i)
+			if (std::strcmp(out_.string(out_.sections[i].name), name) == 0 &&
+				out_.sections[i].group == object::kNoGroup && out_.sections[i].kind == kind)
+			{
+				frame.section = i;
+				break;
+			}
+		if (frame.section == 0)
+			frame.section = out_.add_section(name, kind, 8);
+	}
+	const Procedure& procedure = *current_;
+	auto& section = out_.sections[frame.section];
 	uint32_t cie = 0;
 	bool found = false;
-	for (const Cie& item : cies_)
+	for (const Cie& item : frame.cies)
 		if (same(item.description, procedure.description) && item.personality == procedure.personality.symbol &&
 			item.addend == procedure.personality.addend)
 		{
@@ -186,30 +219,47 @@ void ModuleUnwind::emit(uint32_t end)
 	if (!found)
 	{
 		cie = static_cast<uint32_t>(section.bytes.size());
-		const uint32_t field = encode_cie(procedure.description, section.bytes);
-		if (procedure.description.personality)
-			pointer_relocation(frame_, field, procedure.description.personality_encoding, procedure.personality, true);
+		if (debug)
+			encode_debug_cie(procedure.description, section.bytes);
+		else
+		{
+			const uint32_t field = encode_cie(procedure.description, section.bytes);
+			if (procedure.description.personality)
+				pointer_relocation(
+					frame.section, field, procedure.description.personality_encoding, procedure.personality, true);
+		}
 		Cie entry;
 		entry.description = procedure.description;
 		entry.personality = procedure.personality.symbol;
 		entry.addend = procedure.personality.addend;
 		entry.offset = cie;
-		cies_.push_back(entry);
+		frame.cies.push_back(entry);
 	}
-	uint32_t pc_field = 0, lsda_field = 0;
 	const auto& rules = procedure.rules.bytes();
 	const uint8_t empty = 0;
+	const size_t count = rules.size() - procedure.initial_bytes;
+	const uint8_t* instructions = count == 0 ? &empty : rules.data() + procedure.initial_bytes;
+	const uint32_t code_bytes = end - procedure.first;
+	if (debug)
+	{
+		const uint32_t cie_field = encode_debug_fde(code_bytes, instructions, count, section.bytes);
+		section.size = section.bytes.size();
+		section.relocations.push_back({ cie_field, object::R_X86_64_32, section_symbol(frame.section), cie });
+		section.relocations.push_back(
+			{ cie_field + 4, object::R_X86_64_64, section_symbol(procedure.section), procedure.first });
+		return;
+	}
+	uint32_t pc_field = 0, lsda_field = 0;
 	FdeDescription description;
 	description.cie = cie;
-	description.code_bytes = end - procedure.first;
+	description.code_bytes = code_bytes;
 	description.lsda_encoding = procedure.description.lsda_encoding;
-	encode_fde(description, rules.size() == procedure.initial_bytes ? &empty : rules.data() + procedure.initial_bytes,
-		rules.size() - procedure.initial_bytes, section.bytes, pc_field, lsda_field);
+	encode_fde(description, instructions, count, section.bytes, pc_field, lsda_field);
 	section.size = section.bytes.size();
 	section.relocations.push_back(
 		object::Relocation{ pc_field, object::R_X86_64_PC32, section_symbol(procedure.section), procedure.first });
 	if (description.lsda_encoding != 0xff)
-		pointer_relocation(frame_, lsda_field, description.lsda_encoding, procedure.lsda, false);
+		pointer_relocation(frame.section, lsda_field, description.lsda_encoding, procedure.lsda, false);
 }
 void ModuleUnwind::boundary()
 {

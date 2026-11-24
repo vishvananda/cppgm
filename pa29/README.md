@@ -319,8 +319,11 @@ and personality indirection. Respect the target's relocation rules; on Darwin
 an indirect PC-relative personality uses its GOT slot. Native Darwin unwind tests
 use personality encoding `0x9b`; direct absolute and 64-bit PC-relative
 personality tests require Linux because Darwin linkers do not support them.
-`.cfi_sections .eh_frame`
-selects the supported runtime-unwind section. Reject malformed procedure/state
+`.cfi_sections .eh_frame` selects the runtime-unwind section. On ELF,
+`.cfi_sections .debug_frame` selects the DWARF call-frame section for debugging,
+and `.cfi_sections .eh_frame, .debug_frame` emits both. Use absolute code-address
+relocations and section-relative CIE references in `.debug_frame`.
+Reject malformed procedure/state
 nesting, impossible offsets and unsupported encodings or sections clearly.
 Native tests unwind host exceptions through both module and raw frames and
 observe personality and exception-data addresses.

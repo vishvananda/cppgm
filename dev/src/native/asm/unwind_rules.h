@@ -28,6 +28,11 @@ enum class AssemblyCfiOp : uint8_t
 	Sections,
 	Escape
 };
+enum AssemblyCfiSection : uint8_t
+{
+	CfiEhFrame = 1,
+	CfiDebugFrame = 2
+};
 struct AssemblyCfiEvent
 {
 	AssemblyCfiOp op;
@@ -38,6 +43,7 @@ struct AssemblyCfiEvent
 	int64_t value = 0;
 	bool simple = false;
 	uint8_t encoding = 0xff;
+	uint8_t sections = CfiEhFrame;
 	asm_model::SymbolReference reference;
 	std::vector<uint8_t> bytes;
 };

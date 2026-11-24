@@ -25,8 +25,10 @@ public:
 
 private:
 	struct Procedure;
+	struct Frame;
 	void apply(const AssemblyCfiEvent& event, uint32_t section, uint32_t position);
 	void emit(uint32_t end);
+	void emit_frame(Frame& frame, uint32_t end, bool debug);
 	uint32_t section_symbol(uint32_t section);
 	object::ObjectFile& out_;
 	Target target_;
@@ -42,7 +44,9 @@ private:
 	};
 	std::vector<PositionedEvent> positioned_;
 	std::unique_ptr<Procedure> current_;
-	uint32_t frame_ = 0;
+	uint8_t sections_ = CfiEhFrame;
+	bool started_ = false;
+	std::vector<uint32_t> section_symbols_;
 	struct Cie
 	{
 		CieDescription description;
@@ -50,6 +54,12 @@ private:
 		int64_t addend;
 		uint32_t offset;
 	};
-	std::vector<Cie> cies_;
+	struct Frame
+	{
+		uint32_t section = 0;
+		std::vector<Cie> cies;
+	};
+	Frame runtime_;
+	Frame debug_;
 };
 } // namespace native

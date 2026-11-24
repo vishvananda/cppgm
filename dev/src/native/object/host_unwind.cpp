@@ -109,6 +109,19 @@ void finish_entry(std::vector<uint8_t>& out, size_t start)
 	patch32(out, start, static_cast<uint32_t>(out.size() - start - 4));
 }
 
+void initial_cfi(const CieDescription& description, std::vector<uint8_t>& out)
+{
+	if (description.initial)
+	{
+		out.push_back(DW_CFA_def_cfa);
+		put_uleb(out, kDwarfRsp);
+		put_uleb(out, 8);
+		out.push_back(DW_CFA_offset | kDwarfReturn);
+		put_uleb(out, 1);
+	}
+	out.insert(out.end(), description.initial_rules.begin(), description.initial_rules.end());
+}
+
 struct Cursor
 {
 	std::vector<uint8_t>& out;
@@ -173,7 +186,7 @@ uint32_t encode_cie(const CieDescription& description, std::vector<uint8_t>& out
 	out.push_back(0);
 	put_uleb(out, 1);
 	put_sleb(out, -8);
-	put_uleb(out, description.return_column);
+	out.push_back(static_cast<uint8_t>(description.return_column));
 	uint32_t field = 0;
 	put_uleb(out,
 		1 + (description.lsda_encoding != 0xff ? 1 : 0) +
@@ -188,18 +201,25 @@ uint32_t encode_cie(const CieDescription& description, std::vector<uint8_t>& out
 	if (description.lsda_encoding != 0xff)
 		out.push_back(description.lsda_encoding);
 	out.push_back(kPcrelSdata4);
-	if (description.initial)
-	{
-		out.push_back(DW_CFA_def_cfa);
-		put_uleb(out, kDwarfRsp);
-		put_uleb(out, 8);
-		out.push_back(DW_CFA_offset | kDwarfReturn);
-		put_uleb(out, 1);
-	}
-
-	out.insert(out.end(), description.initial_rules.begin(), description.initial_rules.end());
+	initial_cfi(description, out);
 	finish_entry(out, start);
 	return field;
+}
+
+void encode_debug_cie(const CieDescription& description, std::vector<uint8_t>& out)
+{
+	const size_t start = out.size();
+	put32(out, 0);
+	put32(out, UINT32_MAX);
+	out.push_back(1);
+	if (description.signal)
+		out.push_back('S');
+	out.push_back(0);
+	put_uleb(out, 1);
+	put_sleb(out, -8);
+	out.push_back(static_cast<uint8_t>(description.return_column));
+	initial_cfi(description, out);
+	finish_entry(out, start);
 }
 
 // Without a frame pointer (UnwindFacts::frameless) the CFA stays RSP +
@@ -463,6 +483,21 @@ void encode_fde(const FdeDescription& description, const uint8_t* instructions, 
 	}
 	out.insert(out.end(), instructions, instructions + count);
 	finish_entry(out, start);
+}
+
+uint32_t encode_debug_fde(uint32_t code_bytes, const uint8_t* instructions, size_t count, std::vector<uint8_t>& out)
+{
+	const size_t start = out.size();
+	put32(out, 0);
+	const uint32_t cie_field = static_cast<uint32_t>(out.size());
+	put32(out, 0);
+	put32(out, 0);
+	put32(out, 0);
+	put32(out, code_bytes);
+	put32(out, 0);
+	out.insert(out.end(), instructions, instructions + count);
+	finish_entry(out, start);
+	return cie_field;
 }
 
 bool encode_lsda(const std::vector<machine::ExceptionCallSite>& calls, const std::vector<uint32_t>& pads,

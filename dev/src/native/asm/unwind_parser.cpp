@@ -109,8 +109,17 @@ AssemblyCfiEvent parse_assembly_cfi(const assembly::ModuleLine& line, uint32_t a
 	else if (name == ".cfi_sections")
 	{
 		event.op = AssemblyCfiOp::Sections;
-		if (cursor.word() != ".eh_frame")
-			cursor.fail("CFI section is not implemented");
+		event.sections = 0;
+		do
+		{
+			const std::string section = cursor.word();
+			if (section == ".eh_frame")
+				event.sections |= CfiEhFrame;
+			else if (section == ".debug_frame")
+				event.sections |= CfiDebugFrame;
+			else
+				cursor.fail("CFI section is not implemented: " + section);
+		} while (cursor.take(','));
 	}
 	else if (name == ".cfi_escape")
 	{
