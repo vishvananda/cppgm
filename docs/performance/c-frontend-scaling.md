@@ -125,6 +125,31 @@ instruction increases are +0.13%, +0.30%, and +0.41%, respectively.
 The largest input takes 46.61 million instructions, compared with
 46.42 million before the change.
 
+## C23 type inquiry and boolean keywords
+
+Compared immutable compilers before and after the C23 type specifier
+changes. The frozen C++ and GNU17 objects match byte-for-byte in A/A,
+ABBA, and BAAB trials. The A/A task-clock ranges are 9.9% and 3.8%,
+respectively, on this shared host.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0054% | −0.0027% | −0.0051% |
+| SQLite `sqlite3.c` | 0.0033% | −0.0094% | −0.0101% |
+
+The nested array workload builds a chain of qualified array typedefs.
+It asks `typeof_unqual` for the deepest type first, then for every level
+in the chain. The control spells the equivalent unqualified types with
+ordinary typedefs. All trials produce the same object. Retired
+instruction counts grow linearly with the number of array types.
+Peak RSS in the inquiry trials stays between 16.9 and 17.6 MiB.
+
+| Array nesting depth | Explicit typedefs | `typeof_unqual` |
+| ---: | ---: | ---: |
+| 128 | 7.75 million | 7.72 million |
+| 512 | 18.11 million | 18.03 million |
+| 2,048 | 59.55 million | 59.18 million |
+
 ## Volatile assignment code generation
 
 The same source functions returning and discarding a volatile record

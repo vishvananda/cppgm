@@ -461,6 +461,38 @@ ABI lanes, including 509 C source cases in each of the two source lanes.
 
 [Frozen-input and attribute query measurements](../docs/performance/c-frontend-scaling.md#c23-attribute-inquiries)
 
+## C23 typeof specifiers and boolean keywords
+
+PA38 exercises the two C23 type inquiries with qualified pointers,
+atomic scalars and arrays, function designators,
+and variably modified type and expression operands. Both inquiries
+diagnose bit-fields. The C17 fixture covers the reserved extension
+spellings and shows that the C23 keyword spellings still work as C17
+identifiers. It also checks that a `typeof`-derived sole `void`
+parameter has an empty call signature and lowers without a parameter
+binding. C23 recognizes `bool`, `true`, `false`, and `static_assert`.
+[WG14 N3220 §§6.4.4.6, 6.7.3.6, 6.7.12](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+
+The pinned manifests pass 27 GCC and 12 Clang C23 configurations,
+including Clang's cases for adjusted parameter types.
+The Clang compile replay suppresses its encoding warning for a non-UTF-8
+byte in the pinned test's comment. The GCC runtime case also runs at
+`-O2`, and the Clang VLA object returns the expected size of 13.
+The clause matrix passes 580 probes, including 129 C23 probes, across
+Linux x86-64, WASI, and bare Wasm. All four positive PA38 fixtures run
+at `-O0` and `-O2` on both Linux native targets, both Mach-O targets,
+WASI, and bare Wasm. Linux AArch64 uses QEMU. Mach-O uses the local
+loaders.
+
+The strict course report passes all 11,674 cases. Debug-info, inception,
+self-host through PA5, the harness, and the architecture, source and
+placement audits pass. PA38 passes 517 source cases in each of the
+native and WASI lanes. The student export verifies 26,672 portable
+reference files and passes PA1 and the PA38 native, WASI, control and
+ABI lanes. The earlier C upstream manifests retain their reviewed outcomes.
+
+[Frozen-input and array qualification measurements](../docs/performance/c-frontend-scaling.md#c23-type-inquiry-and-boolean-keywords)
+
 ## Additional editions
 
 The driver baseline at `39e13e127` rejects `c90`, `c89`,
