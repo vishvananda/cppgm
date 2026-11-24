@@ -262,6 +262,28 @@ fixtures. The clause runner separately checks predefined version,
 trigraphs including splice behavior, conditional selection, and the
 warning's unexpanded message. Identifier normalization, resource
 inclusion and later declaration semantics still need implementation.
+Earlier pedantic C modes still accept the binary integer and
+digit-separator probe that both GCC 15 and Clang 21 diagnose.
+
+The clause run recorded 466 passes, including 15 C23 checks across
+Linux x86-64, WASI and bare Wasm. All six new executable PA38 fixtures
+passed at `-O0` and `-O2` on Linux x86-64, Linux AArch64 under QEMU,
+both Mach-O targets with local loaders, bare Wasm and WASI. The
+GCC and Clang resource baseline agrees on separate embed search
+paths, zero-limit status, unknown vendor parameter status, and
+replacement by prefix, suffix or empty-resource tokens.
+[GCC resource search and parameters](https://gcc.gnu.org/onlinedocs/cpp/Binary-Resource-Inclusion.html)
+
+The frozen C++ overload and GNU17 SQLite objects stayed byte-identical
+in A/A, ABBA and BAAB blocks for this batch. Retired instructions
+changed by +0.004% and -0.003%, and peak RSS by +0.116% and +0.122%,
+respectively. The PA1 fixture checks the apostrophe token boundary
+for C++14 as well.
+The strict course report passed 11,674 tests. PA38 passed 477 native
+tests, 540 WASI tests and three native ABI tests. PA39, debug-info,
+inception, self-host through PA5, the harness checks and the source
+and placement audits passed. The previous C cohorts still pass their
+reviewed expectations, including the 60-case GCC C90 screen.
 
 [Clause inventory](c-conformance.json) ·
 [WG14 N3221 editor's report](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3221.htm) ·
