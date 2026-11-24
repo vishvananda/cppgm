@@ -792,6 +792,36 @@ passes its Linux runtime check through the existing static data path.
 [WG14 DR 413](https://open-std.org/JTC1/SC22/WG14/issues/c11c17/issue0413.html) ·
 [Frozen-input and copy scaling measurements](../docs/performance/c-frontend-scaling.md#c23-updates-after-sparse-record-copies)
 
+## Named register objects
+
+PA38 covers an explicit address of a register local, a contained record
+member, and a parameter. The parameter probes cover a normal prototype,
+an identifier-list definition and a retained VLA parameter scope. The
+declaration probes check file scope, function declarations and a storage
+class conflict. The runtime control reads automatic register objects,
+takes the address of a pointee through a register pointer, and applies
+`sizeof` to a register array. GCC 15 and Clang 22 agree with the expected
+outcomes for all nine fixtures. The pinned GCC C90 cohort adds
+`register-var-1.c` and `register-var-2.c` and passes all 38 configurations.
+The pinned GCC C23 cohort passes all 58 configurations.
+
+The C matrix passes 1,117 local probes, including 171 named register
+probes across the six C editions. Each of the eight rejection fixtures
+also gives the intended diagnostic on both Linux targets, both Mach-O
+targets, WASI and bare Wasm. The runtime control passes at `-O0` and `-O2`
+on all six, using QEMU for Linux AArch64 and local execution harnesses
+for Mach-O. The implicit conversion of a register array retains its
+separate undefined behavior rule.
+
+All 11,674 strict course tests and the debug-info checks pass. PA38
+passes 630 native, 630 Wasm, 63 control and three ABI cases. The
+self-host ladder through PA5 passes and the two self-hosted compiler
+generations match byte for byte. The placement audit reports no findings
+across 11,631 fixtures. The student export verifies 26,841 portable
+reference output files.
+[Register storage rules](../doc/c-conformance-notes.md#named-register-objects-and-parameters) ·
+[Compile measurements](../docs/performance/c-frontend-scaling.md#named-c-register-objects)
+
 ## Additional editions
 
 The driver baseline at `39e13e127` rejects `c90`, `c89`,

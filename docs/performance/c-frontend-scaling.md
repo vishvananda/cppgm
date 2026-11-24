@@ -3233,3 +3233,29 @@ declaration.
 | 1,024 | 146,050,421 | 17,356 |
 | 2,048 | 201,163,453 | 17,924 |
 | 4,096 | 311,947,944 | 23,868 |
+
+## Named C register objects
+
+Compared immutable GCC 15 builds of `c49f334b5` and `3623a4904` on CPU 71.
+Every observation emitted byte-identical frozen objects. A/A task-clock
+spreads were 17.3% and 8.3%. Task-clock changes varied between blocks,
+so the table compares retired instructions.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.00116% | +0.00326% | +0.00133% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.00346% | +0.00128% | +0.00236% |
+
+The C90 syntax-only workload generates a register parameter and a register
+local in every function. The checker retains the storage fact during
+specifier analysis and reads it when resolving an explicit address.
+The table reports medians of four observations per binary on CPU 73
+in ABBA and BAAB order. The largest measured program adds about 450,000
+instructions on 338 million, and work scales with the number of functions.
+
+| Functions | Baseline instructions | Candidate instructions | Change |
+| ---: | ---: | ---: | ---: |
+| 128 | 9,008,085 | 9,013,232 | +0.057% |
+| 512 | 24,532,823 | 24,556,164 | +0.095% |
+| 2,048 | 86,721,988 | 86,827,362 | +0.122% |
+| 8,192 | 337,602,607 | 338,052,351 | +0.133% |
