@@ -56,6 +56,7 @@ private:
 	uint64_t expression(const ModuleLine& line, uint32_t first) const;
 	PersistentMap<std::shared_ptr<Macro>> macros_;
 	PersistentMap<uint64_t> constants_;
+	PersistentMap<asm_model::Register> registers_;
 	std::shared_ptr<ExpansionBudget> budget_;
 };
 

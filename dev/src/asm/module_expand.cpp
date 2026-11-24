@@ -3,6 +3,8 @@
 #include "asm/module_expression.h"
 #include "asm/registers.h"
 
+#include <cctype>
+
 namespace assembly {
 namespace {
 class ExpansionConstants final : public ExpressionSymbols
@@ -101,10 +103,24 @@ void ModuleExpander::assignment(const std::string& name, ModuleCursor& cursor, M
 		const std::string spelling = cursor.word();
 		if (!parse_register(spelling.data(), spelling.size(), line.register_assignment))
 			cursor.fail("unknown register in assembly alias: " + spelling);
+	}
+	else if (std::isalpha(static_cast<unsigned char>(cursor.current())) || cursor.current() == '_')
+	{
+		ModuleCursor reference = cursor;
+		if (const asm_model::Register* alias = registers_.lookup(reference.word()))
+		{
+			line.register_assignment = *alias;
+			cursor.advance(reference.position() - cursor.position());
+		}
+	}
+	if (line.register_assignment.bits != 0)
+	{
 		cursor.finish();
 		constants_.erase(name);
+		registers_.set(name, line.register_assignment);
 		return;
 	}
+	registers_.erase(name);
 	ExpansionConstants constants(constants_);
 	const ModuleExpression plan = parse_module_expression(cursor, constants);
 	cursor.finish();

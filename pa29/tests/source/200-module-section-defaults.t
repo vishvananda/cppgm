@@ -9,5 +9,7 @@ asm(".section .text.module_default\nret\n"
     ".section .text.module_math\n.set stride, 3\n"
     "0:\n.byte 0x90, stride + 1\n"
     "movl $(0x10U + ((stride - 1) * 2)), %ecx\n"
-    "movl (2 * stride)(%rdx), %eax\n"
+    ".set source_register, %rdx\ncopy_register = source_register\n"
+    ".set source_register, %rsi\n"
+    "movl (2 * stride)(copy_register), %eax\n"
     ".fill 12 - (. - 0b), 1, 0x90\nret\n");
