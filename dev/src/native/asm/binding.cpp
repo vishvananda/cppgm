@@ -245,8 +245,16 @@ std::shared_ptr<const AssemblyPlan> bind_assembly(const lowir::AssemblyModule& m
 		syntax.dialect = definition.dialect;
 		syntax.register_prefix = definition.dialect == asm_model::Dialect::Att;
 		syntax.power_alignment = target == Target::MacOS;
+		syntax.named_externals = target == Target::Linux;
 		plan->instructions = assembly::parse(
 			expanded.text, definition.dialect, expanded.symbols, expanded.labels, nullptr, &syntax);
+		if (syntax.named_externals && inline_has_symbol_names(plan->instructions))
+		{
+			if (!labels.empty())
+				unsupported("literal symbols with outgoing C labels in inline assembly");
+			plan->module = build_inline_module(plan->instructions);
+			return plan;
+		}
 	}
 	catch (const assembly::AssemblyError& error)
 	{

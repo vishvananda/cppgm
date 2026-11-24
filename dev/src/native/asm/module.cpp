@@ -13,6 +13,45 @@
 
 namespace native {
 
+namespace {
+
+class InlineInputs
+{
+public:
+	explicit InlineInputs(InlineAssemblyModule& module) : module_(module)
+	{
+		module_.object.assembly_text = true;
+		module_.inputs.push_back(lowir::kNoId);
+	}
+
+	void remap(asm_model::SymbolReference& use)
+	{
+		if (use.symbol == asm_model::kNoId)
+			return;
+		const uint32_t input = use.symbol;
+		const auto entry = inputs_.emplace(input, module_.object.symbols.size());
+		use.symbol = entry.first->second;
+		if (entry.second)
+		{
+			object::Symbol record;
+			record.binding = object::Binding::Global;
+			module_.object.add_symbol(record);
+			module_.inputs.push_back(input);
+		}
+	}
+
+private:
+	InlineAssemblyModule& module_;
+	std::map<uint32_t, uint32_t> inputs_;
+};
+
+bool has_symbol_name(const assembly::Operand& operand)
+{
+	return operand.address.label == asm_model::kNoId && !operand.address.local.empty();
+}
+
+} // namespace
+
 bool inline_has_sections(const std::vector<assembly::ModuleLine>& lines)
 {
 	for (const assembly::ModuleLine& line : lines)
@@ -34,23 +73,10 @@ std::shared_ptr<const InlineAssemblyModule> build_inline_module(
 	std::vector<assembly::ModuleLine>& lines, asm_model::Dialect dialect)
 {
 	auto result = std::make_shared<InlineAssemblyModule>();
-	result->object.assembly_text = true;
-	result->inputs.push_back(lowir::kNoId);
-	std::map<uint32_t, uint32_t> inputs;
+	InlineInputs inputs(*result);
 	for (auto& line : lines)
 		for (assembly::SymbolUse& use : line.symbols)
-		{
-			const uint32_t input = use.reference.symbol;
-			const auto entry = inputs.emplace(input, result->object.symbols.size());
-			use.reference.symbol = entry.first->second;
-			if (entry.second)
-			{
-				object::Symbol record;
-				record.binding = object::Binding::Global;
-				result->object.add_symbol(record);
-				result->inputs.push_back(input);
-			}
-		}
+			inputs.remap(use.reference);
 	ModuleAssembler assembler(result->object, Target::Linux);
 	assembler.begin(dialect);
 	for (const assembly::ModuleLine& line : lines)
@@ -58,6 +84,29 @@ std::shared_ptr<const InlineAssemblyModule> build_inline_module(
 	for (const assembly::ModuleLine& line : lines)
 		assembler.append(line);
 	assembler.finish();
+	return result;
+}
+
+bool inline_has_symbol_names(const std::vector<assembly::Instruction>& instructions)
+{
+	for (const auto& instruction : instructions)
+		for (const auto& operand : instruction.operands)
+			if (has_symbol_name(operand))
+				return true;
+	return false;
+}
+
+std::shared_ptr<const InlineAssemblyModule> build_inline_module(std::vector<assembly::Instruction>& instructions)
+{
+	auto result = std::make_shared<InlineAssemblyModule>();
+	InlineInputs inputs(*result);
+	for (auto& instruction : instructions)
+		for (auto& operand : instruction.operands)
+			inputs.remap(operand.address.symbol);
+	ModuleAssembler assembler(result->object, Target::Linux);
+	assembler.append(instructions);
+	assembler.finish();
+	instructions.clear();
 	return result;
 }
 
@@ -195,9 +244,6 @@ void ModuleAssembler::flush()
 			unwind_.flush(section_, {}, {}, static_cast<uint32_t>(offset()));
 		return;
 	}
-	object::Section& section = out_.sections[section_];
-	if (section.kind != object::SectionKind::Text)
-		throw BackendError("module instructions require a text section");
 	std::vector<assembly::Instruction> instructions;
 	try
 	{
@@ -209,6 +255,27 @@ void ModuleAssembler::flush()
 																				  : error.line;
 		throw BackendError("module assembly line " + std::to_string(line) + ": " + error.message);
 	}
+	emit_instructions(instructions);
+	code_.clear();
+	uses_.clear();
+	code_lines_.clear();
+}
+
+void ModuleAssembler::append(std::vector<assembly::Instruction>& instructions)
+{
+	flush();
+	for (auto& instruction : instructions)
+		for (auto& operand : instruction.operands)
+			if (has_symbol_name(operand))
+				operand.address.symbol.symbol = symbols_.named(operand.address.local);
+	emit_instructions(instructions);
+}
+
+void ModuleAssembler::emit_instructions(std::vector<assembly::Instruction>& instructions)
+{
+	object::Section& section = out_.sections[section_];
+	if (section.kind != object::SectionKind::Text)
+		throw BackendError("module instructions require a text section");
 	std::vector<uint32_t> buffer_lines;
 	for (const assembly::Instruction& instruction : instructions)
 	{
@@ -219,13 +286,18 @@ void ModuleAssembler::flush()
 		if (instruction.line != 0 && instruction.line <= code_lines_.size())
 			instruction.line = code_lines_[instruction.line - 1];
 	Assembler assembler(section.bytes);
+	assembler.record_strings(out_.assembly_text);
 	std::vector<uint32_t> positions;
 	encode_assembly(assembler, instructions, RM(), &positions);
 	if (!assembler.resolve_labels())
 		throw BackendError("unresolved module assembly label");
 	section.size = section.bytes.size();
+	for (const CodeString& span : assembler.strings())
+		out_.assembly_strings.push_back(object::AssemblyString{ section_, span.offset, span.size });
 	for (uint32_t i = 0; i < instructions.size(); ++i)
-		if (instructions[i].label)
+		if (instructions[i].label &&
+			(instructions[i].symbol_definition != asm_model::kNoId ||
+				instructions[i].mnemonic.find_first_not_of("0123456789") != std::string::npos))
 			symbols_.define(instructions[i].symbol_definition != asm_model::kNoId
 					? instructions[i].symbol_definition
 					: symbols_.named(instructions[i].mnemonic),
@@ -246,9 +318,6 @@ void ModuleAssembler::flush()
 		section.relocations.push_back(relocation);
 	}
 	unwind_.flush(section_, buffer_lines, positions, static_cast<uint32_t>(section.size));
-	code_.clear();
-	uses_.clear();
-	code_lines_.clear();
 }
 void ModuleAssembler::declare(const assembly::ModuleLine& line)
 {

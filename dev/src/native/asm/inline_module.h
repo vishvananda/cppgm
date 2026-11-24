@@ -28,6 +28,8 @@ struct InlineModuleLocation
 bool inline_has_sections(const std::vector<assembly::ModuleLine>& lines);
 std::shared_ptr<const InlineAssemblyModule> build_inline_module(
 	std::vector<assembly::ModuleLine>& lines, asm_model::Dialect dialect);
+std::shared_ptr<const InlineAssemblyModule> build_inline_module(std::vector<assembly::Instruction>& instructions);
+bool inline_has_symbol_names(const std::vector<assembly::Instruction>& instructions);
 
 class InlineModulePlacement
 {

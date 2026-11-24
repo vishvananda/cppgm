@@ -236,6 +236,10 @@ within the template follow the final placement of the function. Preserve
 the section's data, alignment, and relocations, including symbol operands
 supplied by the C or C++ source. This form uses host object output and
 currently supports templates without outgoing `asm goto` labels.
+For x86-64 ELF object output, a literal external name in an inline
+instruction can also name a linker symbol, including a direct
+`call symbol@PLT` or a RIP-relative memory operand. Resolve local labels
+within the template before creating any external reference.
 
 Preserve global/weak/local binding, hidden visibility, `.type`, `.size` and
 symbol aliases with `.set`/`.equ`. Support symbol addresses and constant addends,

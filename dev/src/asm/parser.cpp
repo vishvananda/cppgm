@@ -612,12 +612,14 @@ Operand Parser::target()
 		return result;
 	}
 	result.target = word(false);
-	if (lookup_ != nullptr && take('@'))
+	if ((lookup_ != nullptr || (state_ != nullptr && state_->named_externals)) && take('@'))
 	{
-		if (word() != "plt" || !lookup_->lookup(result.target, result.address.symbol))
+		if (word() != "plt" || (lookup_ != nullptr && !lookup_->lookup(result.target, result.address.symbol)))
 			fail("unsupported direct module branch relocation");
 		result.kind = OperandKind::Symbol;
 		result.address.relocation = Relocation::Plt;
+		if (lookup_ == nullptr)
+			result.address.local = result.target;
 		return result;
 	}
 	if (dialect_ == asm_model::Dialect::Intel)
@@ -641,6 +643,7 @@ Operand Parser::target()
 
 void Parser::resolve_labels(std::vector<Instruction>& instructions)
 {
+	const bool named_externals = state_ != nullptr && state_->named_externals;
 	std::map<std::string, uint32_t> named;
 	std::map<std::string, std::vector<uint32_t>> numbered;
 	std::map<uint32_t, uint32_t> local_symbols;
@@ -673,7 +676,7 @@ void Parser::resolve_labels(std::vector<Instruction>& instructions)
 				}
 				continue;
 			}
-			if (operand.kind == OperandKind::Symbol && !operand.address.local.empty())
+			if (!named_externals && operand.kind == OperandKind::Symbol && !operand.address.local.empty())
 				throw AssemblyError{ "local code address requires RIP-relative memory", instructions[i].line,
 					instructions[i].column };
 			const bool memory = operand.kind == OperandKind::Memory && !operand.address.local.empty();
@@ -712,8 +715,18 @@ void Parser::resolve_labels(std::vector<Instruction>& instructions)
 				continue;
 			}
 			if (selected == UINT32_MAX)
-				throw AssemblyError{ "undefined assembly-local label: " + name, instructions[i].line,
-					instructions[i].column };
+			{
+				if (!named_externals || name.empty() || (name[0] >= '0' && name[0] <= '9') ||
+					name.compare(0, 2, ".L") == 0)
+					throw AssemblyError{ "undefined assembly-local label: " + name, instructions[i].line,
+						instructions[i].column };
+				if (!memory)
+				{
+					operand.address.local = name;
+					operand.kind = OperandKind::Symbol;
+				}
+				continue;
+			}
 			if (memory)
 				operand.address.label = selected;
 			else
