@@ -505,6 +505,9 @@ pass:
   `errno`, including reads and writes of floating-point state. Preserve
   reads of `errno` after a call, including direct symbol references and
   reads of its object representation through a pointer.
+  When merging trigonometric calls, preserve the error each call can
+  set if a store or another call may change the error number between
+  them. Check every path through a control-flow join.
 - A write fully replaced through the same address before any possible read
   need not reach memory. Address identity can prove this even when an array
   index is dynamic. Preserve alias reads, volatile and atomic accesses,

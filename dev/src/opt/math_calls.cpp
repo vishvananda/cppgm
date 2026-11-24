@@ -14,6 +14,10 @@ namespace {
 // about the price of one. The first call becomes `sincos`, and the calls it
 // dominates read what that wrote; when the first stands after its block's
 // first handler exit, only those off a handler's path (function_ir.h).
+// The calls must also agree on the last operation that could change errno.
+const InstId kEntryMathEffects = kNoId - 2;
+const InstId kJoinedMathEffects = kNoId - 1;
+
 class SinCos
 {
 public:
@@ -28,9 +32,13 @@ private:
 		BlockId block;
 		Value x;
 		MathFunction function;
+		InstId last_write;
 		bool done;
 	};
 
+	bool collect_calls();
+	void find_last_writes(const Cfg& cfg);
+	std::vector<InstId> incoming_writes(const Cfg& cfg, const std::vector<InstId>& last) const;
 	SymbolId sincos_symbol(TypeKind kind);
 	void combine(size_t first, const std::vector<size_t>& later, Value sine, Value cosine);
 	Value emit(BlockId block, InstId& at, Instruction inst, Type type, uint32_t location);
@@ -86,8 +94,10 @@ Value SinCos::emit(BlockId block, InstId& at, Instruction inst, Type type, uint3
 	return type.is_void() ? Value::none() : Value::temp(body_.instructions[id].result);
 }
 
-bool SinCos::run()
+bool SinCos::collect_calls()
 {
+	bool sine = false;
+	bool cosine = false;
 	for (BlockId b : body_.layout)
 		for (InstId i = body_.blocks[b].first; i != kNoId; i = body_.instructions[i].next)
 		{
@@ -101,11 +111,83 @@ bool SinCos::run()
 				continue;
 			const Value x = body_.operands[inst.extra_first];
 			if (x.is(ValueKind::Temp) && body_.temps[x.index].type == inst.type)
-				calls_.push_back(Call{ i, b, x, function, false });
+			{
+				sine |= function == MathFunction::Sin;
+				cosine |= function == MathFunction::Cos;
+				calls_.push_back(Call{ i, b, x, function, kNoId, false });
+			}
 		}
-	if (calls_.size() < 2)
+	return sine && cosine;
+}
+
+// Keep a definite last write only when all reachable predecessors agree.
+// Each block learns at most one definite write before becoming ambiguous.
+std::vector<InstId> SinCos::incoming_writes(const Cfg& cfg, const std::vector<InstId>& last) const
+{
+	std::vector<InstId> incoming(cfg.block_count, kNoId);
+	std::vector<BlockId> work;
+	auto meet = [&](BlockId block, InstId write) {
+		InstId& state = incoming[block];
+		if (state == write || state == kJoinedMathEffects)
+			return;
+		state = state == kNoId ? write : kJoinedMathEffects;
+		work.push_back(block);
+	};
+	meet(cfg.rpo.front(), kEntryMathEffects);
+	for (BlockId block : cfg.rpo)
+		for (uint32_t i = cfg.handler_first[block]; i < cfg.handler_first[block + 1]; ++i)
+			meet(cfg.handlers[i], kJoinedMathEffects);
+	for (size_t i = 0; i < work.size(); ++i)
+	{
+		const BlockId block = work[i];
+		const InstId write = last[block] == kNoId ? incoming[block] : last[block];
+		for (uint32_t p = cfg.succ_first[block]; p < cfg.succ_first[block + 1]; ++p)
+			meet(cfg.succs[p], write);
+	}
+	return incoming;
+}
+
+void SinCos::find_last_writes(const Cfg& cfg)
+{
+	std::vector<InstId> last(cfg.block_count, kNoId);
+	bool written = false;
+	size_t call = 0;
+	for (BlockId block : body_.layout)
+		for (InstId i = body_.blocks[block].first; i != kNoId; i = body_.instructions[i].next)
+		{
+			if (call < calls_.size() && i == calls_[call].id)
+			{
+				// Other ordinary sin/cos calls can only repeat the same
+				// domain error. This includes the fused calls we emit.
+				calls_[call++].last_write = last[block];
+				continue;
+			}
+			const Instruction& inst = body_.instructions[i];
+			// An ordinary typed write to another kind of object cannot
+			// change errno. Untyped writes include character accesses.
+			if (inst.op == Opcode::Store && (inst.flags & (IF_TYPED | IF_VOLATILE)) == IF_TYPED &&
+				typed_types_apart(inst.type, Type::scalar(TypeKind::I32)))
+				continue;
+			if ((inst.op == Opcode::Call && (inst.flags & IF_SIGNATURE)) || may_write_memory(c_.program, inst))
+			{
+				last[block] = i;
+				written = true;
+			}
+		}
+	if (!written)
+		return;
+	const std::vector<InstId> incoming = incoming_writes(cfg, last);
+	for (Call& call_site : calls_)
+		if (call_site.last_write == kNoId)
+			call_site.last_write = incoming[call_site.block];
+}
+
+bool SinCos::run()
+{
+	if (!collect_calls())
 		return false;
 	const Cfg& cfg = c_.ensure_cfg();
+	find_last_writes(cfg);
 	bool changed = false;
 	std::vector<size_t> later;
 	std::vector<uint8_t> reached;
@@ -115,23 +197,28 @@ bool SinCos::run()
 			continue;
 		later.clear();
 		bool other = false;
-		const Type type = body_.instructions[calls_[first].id].type;
+		const Call& head = calls_[first];
+		if (!cfg.reachable(head.block))
+			continue;
+		const Type type = body_.instructions[head.id].type;
 		// (Whether the first call stands after its block's first handler exit.)
 		bool exited = false;
-		const InstId exit = first_handler_exit(c_.program, body_, cfg, calls_[first].block);
+		const InstId exit = first_handler_exit(c_.program, body_, cfg, head.block);
 		for (InstId i = exit; i != kNoId && !exited; i = body_.instructions[i].next)
-			exited = i == calls_[first].id;
+			exited = i == head.id;
 		if (exited && reached.empty())
 			find_handler_reached(cfg, reached);
 		for (size_t k = first + 1; k < calls_.size(); ++k)
 		{
 			const Call& call = calls_[k];
-			if (call.done || !(call.x == calls_[first].x) || !(body_.instructions[call.id].type == type) ||
-				!cfg.dominates(calls_[first].block, call.block) ||
-				(exited && call.block != calls_[first].block && reached[call.block] != 0))
+			if (call.done || !(call.x == head.x) || !(body_.instructions[call.id].type == type) ||
+				call.last_write != head.last_write || !cfg.reachable(call.block) ||
+				!cfg.dominates(head.block, call.block) ||
+				(call.block != head.block &&
+					(head.last_write == kJoinedMathEffects || (exited && reached[call.block] != 0))))
 				continue;
 			later.push_back(k);
-			other = other || call.function != calls_[first].function;
+			other = other || call.function != head.function;
 		}
 		if (!other)
 			continue;
@@ -142,7 +229,6 @@ bool SinCos::run()
 		const uint32_t slot = static_cast<uint32_t>(body_.slots.size());
 		body_.slots.push_back(Slot{ 0, SlotKind::Aggregate, 0, 0, type });
 		body_.slots.push_back(Slot{ 0, SlotKind::Aggregate, 0, 0, type });
-		const Call& head = calls_[first];
 		const uint32_t location = body_.instructions[head.id].location;
 		InstId at = previous_in_block(body_, head.block, head.id);
 		Instruction addr = make_instruction(Opcode::Addr, pointer);
