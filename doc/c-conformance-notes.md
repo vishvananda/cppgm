@@ -1781,6 +1781,15 @@ preserve the error number. This behavior applies to binary32, binary64,
 and binary128.
 [C23 N3096 §§7.12.1, 7.12.4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
 
+The hypotenuse functions, `fmaf`, `sinhl`, and `coshl` report
+`ERANGE` for finite overflow. The binary128 hyperbolic functions use a
+shared exponential reduction and halve its result during reconstruction.
+`fmaf` checks the residual of a binary64 sum at binary32 midpoints,
+including subnormal midpoints, before rounding to binary32. The
+binary32 hypotenuse uses binary64 squares and square root, with a
+residual check when the rounded root falls at a binary32 midpoint.
+[C23 N3096 §7.12](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+
 The WASI binary32, binary64, and binary128 formats have canonical
 representations for all of their bit patterns. The `iscanonical` macro
 evaluates its operand and returns true. The other C23 classification

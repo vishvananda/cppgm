@@ -4096,10 +4096,10 @@ All three precisions preserve the caller's error number for valid
 arguments and quiet NaNs. The implementation uses the SDK's reduced-angle
 kernels and shares the inverse polynomial within each precision.
 
-Both archive builds pass **70 of 76** inherited math audit cases, up
-from 55. The remaining cases are finite overflow in `hypot`, `hypotf`,
-`hypotl`, `fmaf`, `sinhl`, and `coshl`. Hosted math reporting remains
-uncovered in the target matrix.
+At this point both archive builds passed **70 of 76** inherited math
+audit cases, up from 55. Six finite overflow cases passed in the next
+batch. Hosted math reporting remains uncovered in the target matrix.
+[Overflow results](#wasi-hypotenuse-fused-multiply-add-and-hyperbolic-overflow)
 
 Both builds match MPFR within one ULP on 65,536 samples per function
 across all 15 functions. They agree on every numeric result. Compared
@@ -4131,3 +4131,44 @@ second read yields zero. GCC 15 also combines these calls at `-O2` with
 [PA33 error number fixture](../pa33/tests/o2/600-observable-error-number.t) ·
 [WASI SDK 34 trigonometric sources](https://github.com/WebAssembly/wasi-libc/tree/2e6fb9d8ee0cdf9e431fbcabe8af3115de000a13/libc-top-half/musl/src/math) ·
 [Wasm instruction measurements](../docs/performance/c-frontend-scaling.md#wasi-trigonometric-domain-errors)
+
+### WASI hypotenuse, fused multiply-add, and hyperbolic overflow
+
+Both supplemental archive builds pass all **76 inherited math audit
+cases**. The last six cases cover finite overflow in `hypot`, `hypotf`,
+`hypotl`, `fmaf`, `sinhl`, and `coshl`. The integration probe checks
+both signs where applicable, exact infinities, signed zeros, and
+adjacent finite and overflowing binary128 arguments. All 16 mixed
+compile and link configurations pass. Direct calls pass in C99, C11,
+C17, and C23 at `-O0` and `-O2`. The replay at `52f6bb77c`
+passes all 5,931 configurations across Linux x86-64, Linux AArch64
+under QEMU, stock WASI, supplemented WASI, and bare Wasm. An
+archive built from the extracted source-only package passes all nine
+math probes at `-Oz -flto`.
+
+Both builds agree on all sampled numeric results. On 196,608
+binary32 triples, `fmaf` matches MPFR exactly. The SDK rounds one
+normal–subnormal boundary case to the smallest normal. The supplement
+recovers the direction of the unrounded double-precision sum and
+returns the largest subnormal. On 65,536 inputs per function,
+`hypotf` matches MPFR exactly, correcting 1,904 SDK results. The
+binary64 and binary128 norms match the SDK on this corpus and stay
+within one ULP of MPFR.
+
+The SDK implements `sinhl` and `coshl` by conversion to binary64. The
+supplement computes in binary128 and matches the classification of
+every MPFR sample. The stock SDK returns infinity for 4,239 finite
+`sinhl` results and for 4,239 finite `coshl` results. It also returns
+zero for 4,800 finite nonzero `sinhl` results. The maximum sampled
+errors with the supplement are two ULPs for `sinhl` and one ULP for
+`coshl`.
+
+Hosted math reporting remains open. An expanded probe observed
+missing error-number updates in the SDK's remainder, positive
+difference, adjacent-value, and gamma functions. These cases include
+errors that the standard leaves optional or implementation-defined.
+[C23 N3096 §7.12](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+
+[WASI SDK 34 `fmaf`](https://github.com/WebAssembly/wasi-libc/blob/2e6fb9d8ee0cdf9e431fbcabe8af3115de000a13/libc-top-half/musl/src/math/fmaf.c) ·
+[WASI SDK 34 `coshl`](https://github.com/WebAssembly/wasi-libc/blob/2e6fb9d8ee0cdf9e431fbcabe8af3115de000a13/libc-top-half/musl/src/math/coshl.c) ·
+[Wasm instruction measurements](../docs/performance/c-frontend-scaling.md#wasi-hypotenuse-fused-multiply-add-and-hyperbolic-overflow)

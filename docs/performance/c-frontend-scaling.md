@@ -4388,3 +4388,33 @@ signs in the two blocks, so wall time is inconclusive.
 | --- | ---: | ---: | ---: |
 | SQLite 3.50.4 C amalgamation | 196,760 | −0.1169% | −0.1176% |
 | Frozen C++ semantic input | 148,007 | −0.0142% | −0.0133% |
+
+## WASI hypotenuse, fused multiply-add, and hyperbolic overflow
+
+The control links SDK 34 with the previous supplement. The candidate
+uses the cppgm-built WASI archive. Each workload uses the same
+SDK Clang client, linker, precompiled Wasmtime runner, and CPU 71
+affinity. The fused multiply-add workload makes 2,097,152 calls and
+the other workloads make 262,144 calls each. All 12 output checksums
+per workload agree over the full result bits.
+
+| Workload | Control, millions | Candidate, millions | ABBA | BAAB |
+| --- | ---: | ---: | ---: | ---: |
+| `fmaf` on normal inputs | 171.241 | 173.351 | +1.23% | +1.23% |
+| `hypot` | 30.469 | 27.848 | −8.60% | −8.60% |
+| `hypotf` | 23.129 | 20.507 | −11.34% | −11.34% |
+| `hypotl` | 1,931.616 | 1,408.024 | −27.11% | −27.11% |
+| Tiny `coshl` arguments | 222.457 | 188.442 | −15.29% | −15.29% |
+
+The ordinary `fmaf` path checks the binary64 representation and
+calls a helper only for extremes or halfway cases. Passing the
+rounded sum as a scalar removed the temporary needed for a
+by-value union in the Wasm ABI. The normal-input overhead fell
+from 17.17% to 1.23%.
+
+The binary32 norm uses the wider range of binary64 and corrects
+rounding at binary32 midpoints. The binary128 norm used 8.64% more
+instructions than the SDK with the original arithmetic split.
+Retaining the upper 56 bits directly avoids three software
+binary128 operations per split. The full corpus produces identical
+binary128 result bits with both splitting methods.
