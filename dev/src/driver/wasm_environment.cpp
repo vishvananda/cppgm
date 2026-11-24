@@ -54,7 +54,12 @@ void configure_wasm_environment(PreprocessorOptions& options)
 	text += kFloatingNumericPredefines;
 	text += kBinary128NumericPredefines;
 	if (options.target == target_model::Target::Wasi)
+	{
 		text += "#define __wasi__ 1\n";
+		// WASI's C setjmp header selects the exception-tag jump ABI.
+		if (options.language == SourceLanguage::C)
+			text += "#define __wasm_exception_handling__ 1\n";
+	}
 	if (options.target == target_model::Target::Emscripten)
 		text += "#define __EMSCRIPTEN__ 1\n#define __unix__ 1\n#define __unix 1\n";
 	options.command_line.insert(0, text);

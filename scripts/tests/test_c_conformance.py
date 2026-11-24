@@ -5,6 +5,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from c_library_headers import current_version_token, edition_headers, version_tokens
 from c_conformance import coverage, evidence_key, inventory, read_evidence, run_stages, INVENTORY
 
 
@@ -40,6 +41,48 @@ class CoverageTests(unittest.TestCase):
         self.assertEqual(rows[self.native]['status'], 'uncovered')
         self.assertEqual(rows['wasi-hosted']['status'], 'inapplicable')
         self.assertIn('Wasm selects round-to-nearest', rows['wasi-hosted']['reason'])
+
+    def test_header_scope_and_disabled_macro(self):
+        self.assertEqual(len(dict(edition_headers(90, 'hosted'))), 15)
+        hosted = dict(edition_headers(23, 'hosted'))
+        freestanding = dict(edition_headers(23, 'freestanding'))
+        self.assertEqual(len(hosted), 31)
+        self.assertEqual(freestanding['stdbit'], hosted['stdbit'])
+        self.assertNotIn('stdckdint', freestanding)
+        self.assertEqual(freestanding['stdlib'], 'library.freestanding-header.stdlib')
+        rules = {name: self.rules[name] for name in ('library.header.threads', 'library.header.stdbit',
+                                                    'library.header-version.stddef')}
+        checked = {(self.native, 23): {
+            'threads': {'include': 'disabled', 'macro': '__STDC_NO_THREADS__'},
+            'stdbit': {'include': 'missing'},
+            'stddef': {'include': 'usable', 'version': 'missing'},
+        }}
+        rows = {row['rule']: row for row in coverage(self.profiles, rules, {}, checked)
+                if row['edition'] == 23 and row['profile'] == self.native}
+        self.assertEqual(rows['library.header.threads']['status'], 'inapplicable')
+        self.assertEqual(rows['library.header.stdbit']['status'], 'uncovered')
+        self.assertIn('omits its C23 version macro', rows['library.header-version.stddef']['reason'])
+
+    def test_header_version_token_requires_exact_spelling(self):
+        def expansion(text):
+            return version_tokens(f'identifier CPPGM_VERSION_BEGIN\n{text}\nidentifier CPPGM_VERSION_END\n')
+
+        self.assertTrue(current_version_token(expansion('literal 202311L long int 4716030000000000')))
+        self.assertFalse(current_version_token(expansion('literal 202311l long int 4716030000000000')))
+        self.assertFalse(current_version_token(expansion(
+            'punctuator (\nliteral 202311L long int 4716030000000000\npunctuator )')))
+        self.assertIsNone(version_tokens('identifier some_unrelated_name\n'))
+
+    def test_signal_opt_in_leaves_default_hosted_requirement_uncovered(self):
+        rules = {name: self.rules[name] for name in ('library.signal', 'library.wasi-signal-emulation')}
+        wasi = 'wasi-hosted'
+        succeeded = {('library.wasi-signal-emulation', wasi, 17, opt): 'passed' for opt in ('O0', 'O2')}
+        checked = {(wasi, 17): {'signal': {'include': 'sdk-opt-in'}}}
+        rows = {row['rule']: row for row in coverage(self.profiles, rules, succeeded, checked)
+                if row['profile'] == wasi and row['edition'] == 17}
+        self.assertEqual(rows['library.signal']['status'], 'uncovered')
+        self.assertIn('requires the SDK emulation opt-in', rows['library.signal']['reason'])
+        self.assertEqual(rows['library.wasi-signal-emulation']['status'], 'passing')
 
     def test_incomplete_or_failing_variant_never_passes(self):
         key = ('limits.combined', self.native, 99, 'O0')

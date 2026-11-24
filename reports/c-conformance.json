@@ -1591,13 +1591,35 @@
       "cases": ["library.c23-variadics"]
     },
     {
-      "id": "library.c23-stdarg-version",
-      "clause": "7.16",
+      "id": "library.setjmp",
+      "clause": "C90 4.6, C99–C23 7.13",
       "kind": "required",
-      "editions": [23],
-      "environment": "all",
-      "requirement": "Define the C23 stdarg.h version macro from the selected header.",
-      "cases": ["library.c23-stdarg-version"]
+      "editions": [90, 95, 99, 11, 17, 23],
+      "environment": "hosted",
+      "header": "setjmp",
+      "requirement": "Establish a jump target via setjmp and return to it from another function with the requested longjmp value.",
+      "cases": ["library.setjmp"]
+    },
+    {
+      "id": "library.signal",
+      "clause": "C90 4.7, C99–C23 7.14",
+      "kind": "required",
+      "editions": [90, 95, 99, 11, 17, 23],
+      "environment": "hosted",
+      "header": "signal",
+      "requirement": "Install a handler through signal, invoke it through raise, and change the disposition to ignore the signal.",
+      "cases": ["library.signal"]
+    },
+    {
+      "id": "library.wasi-signal-emulation",
+      "clause": "WASI SDK signal.h",
+      "kind": "conditional",
+      "editions": [90, 95, 99, 11, 17, 23],
+      "environment": "hosted",
+      "profiles": ["wasi-hosted"],
+      "outside_profile": "This opt-in configuration uses the WASI SDK signal emulation library.",
+      "requirement": "Use the WASI signal emulation library with the SDK's opt-in macro and link option.",
+      "cases": ["library.wasi-signal-emulation"]
     },
     {
       "id": "library.c23-checked-arithmetic",
@@ -1613,7 +1635,7 @@
       "clause": "7.18",
       "kind": "required",
       "editions": [23],
-      "environment": "hosted",
+      "environment": "all",
       "requirement": "Supply the C23 bit utilities header version, work on all five standard unsigned widths and link a typed function from the runtime.",
       "cases": ["library.c23-bit-utilities"]
     },
@@ -1622,7 +1644,7 @@
       "clause": "7.18.3–7.18.16",
       "kind": "required",
       "editions": [23],
-      "environment": "hosted",
+      "environment": "all",
       "requirement": "Accept extended unsigned integers and bit-precise unsigned integers with a standard width in bit utility macros.",
       "cases": ["library.c23-bit-utilities-extended"]
     },

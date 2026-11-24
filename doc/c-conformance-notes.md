@@ -1421,3 +1421,28 @@ including when prefixed by unary plus or minus.
 
 [C23 draft N3220 §§5.2.5.2–5.2.5.3](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
 [WG14 issue 1106](https://www.open-std.org/JTC1/SC22/WG14/issues/c23/issue1106.html)
+
+
+## Standard library headers and C23 versions
+
+C23 adds `<stdbit.h>` and `<stdckdint.h>`. The published freestanding
+requirements include `<stdbit.h>`, the locale-independent subset of
+`<string.h>`, and `memalignment` from `<stdlib.h>`. WG14 issue 1040
+tracks the omission of `<stdckdint.h>` from that list. WG14 issue 1074
+tracks the interaction of freestanding and conditional features,
+including the separate Annex F requirements.
+[WG14 issue 1040](https://www.open-std.org/jtc1/sc22/wg14/issues/c23/issue1040.html) ·
+[WG14 issue 1074](https://www.open-std.org/jtc1/sc22/wg14/issues/c23/issue1074.html)
+
+The C23 header version macros have two specified forms. Six headers,
+including `<stdint.h>`, require exactly the token `202311L`. Fifteen,
+including `<stdarg.h>`, permit an integer constant expression with that
+value. Check the token spelling or the expression according to each
+header's requirement.
+[WG14 issue 1111](https://www.open-std.org/jtc1/sc22/wg14/issues/c23/issue1111.html)
+
+The WASI SDK selects its exception-handling `<setjmp.h>` declarations
+when `__wasm_exception_handling__` is defined. cppgm implements the
+nonlocal jump in generated Wasm. The WASI SDK provides a signal emulation
+archive with a separate compile and link opt-in.
+[WASI SDK setjmp and longjmp notes](https://github.com/WebAssembly/wasi-sdk/blob/main/SetjmpLongjmp.md)

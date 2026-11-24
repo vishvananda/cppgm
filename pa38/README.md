@@ -146,6 +146,8 @@ Predefine `__STDC_NO_THREADS__` as one when targeting Darwin, matching
 Clang's platform definitions. Omit the compiler predefine on Linux and
 Wasm. The selected runtime determines which thread operations work.
 Use the target's C system include paths for C input.
+For WASI C, define `__wasm_exception_handling__` so the SDK's
+`<setjmp.h>` selects the exception-tag implementation of nonlocal jumps.
 Supply the target's scalar integer types, widths, limits and constant
 spellings to its headers. For example, on 64-bit Darwin `int64_t` is
 `long long` and `intmax_t` is `long`. Both have width 64.

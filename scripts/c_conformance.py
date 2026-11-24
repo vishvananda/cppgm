@@ -10,13 +10,14 @@ from shutil import which
 import subprocess
 import sys
 
+import c_library_headers as headers
 from run_cxx11_ci_suite import LIMITS
 from upstream_dg_proxy import execute, sha256, write_json
 
 
 ROOT = Path(__file__).resolve().parents[1]
 INVENTORY = ROOT / 'reports/c-conformance.json'
-C_EDITIONS = (90, 95, 99, 11, 17, 23)
+C_EDITIONS = headers.EDITIONS
 PILOT_EDITIONS = (99, 11, 17)
 LEGACY_STANDARDS = {90: 'c90', 95: 'iso9899:199409'}
 NATIVE_PROFILES = {
@@ -254,6 +255,8 @@ C11_LIBRARY_SOURCES = {
     'library.c11-threads': ROOT / 'scripts/tests/c_c11_threads.c',
 }
 C23_SDK_HEADERS = ROOT / 'scripts/tests/c_c23_sdk_headers.c'
+SETJMP_SOURCE = ROOT / 'scripts/tests/c_setjmp.c'
+SIGNAL_SOURCE = ROOT / 'scripts/tests/c_signal.c'
 C23_LIBRARY_SOURCES = {
     'library.c23-integer-widths': ('limits_width_macros', ROOT / 'scripts/tests/c_c23_integer_widths.c'),
     'library.c23-stdint-widths': ('stdint_width_macros', ROOT / 'scripts/tests/c_c23_stdint_widths.c'),
@@ -265,6 +268,7 @@ C23_LIBRARY_SOURCES = {
     'library.c23-bit-utilities-extended': ('stdbit.h', ROOT / 'scripts/tests/c_c23_bit_utilities_extended.c'),
 }
 CASES = {
+    **headers.header_cases(),
     **{case: ((stage,), ('default',)) for case, _, stage in C23_SOURCE_CASES},
     **{case: (RUN_STAGES, ('O0', 'O2')) for case in C23_PROGRAMS},
     'limits.combined': (RUN_STAGES, ('O0', 'O2')),
@@ -293,6 +297,9 @@ CASES = {
     'environment.c-version': (('preprocess',), ('default',)),
     **{case: (RUN_STAGES, ('O0', 'O2')) for case in C11_LIBRARY_SOURCES},
     **{case: (RUN_STAGES, ('O0', 'O2')) for case in C23_LIBRARY_SOURCES},
+    'library.setjmp': (RUN_STAGES, ('O0', 'O2')),
+    'library.signal': (RUN_STAGES, ('O0', 'O2')),
+    'library.wasi-signal-emulation': (RUN_STAGES, ('O0', 'O2')),
     'library.c23-stdarg-version': (('preprocess',), ('default',)),
     **{case: (('compile',), ('default',)) for case in RECORD_CONSTRAINTS},
     **{case: (('compile',), ('default',)) for case in REGISTER_CONSTRAINTS},
@@ -348,7 +355,7 @@ def inventory(path):
     if document['schema'] != 1:
         raise ValueError('unsupported C inventory schema')
     profiles = by_id(document['profiles'], 'profile')
-    rules = by_id(document['rules'], 'rule')
+    rules = by_id([*document['rules'], *headers.header_rules()], 'rule')
     for name, profile in profiles.items():
         if profile['environment'] not in {'hosted', 'freestanding'} or not profile['target']:
             raise ValueError(f'invalid environment or target for {name}')
@@ -390,7 +397,7 @@ def evidence_key(row, profiles):
     return key
 
 
-def read_evidence(paths, profiles):
+def read_evidence(paths, profiles, header_checks=None):
     receipts = {}
     revision = None
     for path in paths:
@@ -406,10 +413,15 @@ def read_evidence(paths, profiles):
             if key in receipts:
                 raise ValueError(f'duplicate receipt: {key}')
             receipts[key] = row['status']
+        if header_checks is not None:
+            for profile, editions in document.get('header_checks', {}).items():
+                for edition, checked in editions.items():
+                    header_checks[(profile, int(edition))] = checked
     return receipts
 
 
-def coverage(profiles, rules, receipts):
+def coverage(profiles, rules, receipts, header_checks=None):
+    header_checks = header_checks or {}
     for rule in rules.values():
         for edition in rule['editions']:
             for profile, info in profiles.items():
@@ -420,6 +432,12 @@ def coverage(profiles, rules, receipts):
                     outside_profile = f"rule applies to {rule['environment']} environments"
                 if 'profiles' in rule and profile not in rule['profiles']:
                     outside_profile = rule['outside_profile']
+                name = rule.get('header')
+                header = header_checks.get((profile, edition), {}).get(name, {})
+                if (rule['kind'] == 'conditional' and header.get('include') == 'disabled'
+                        and (macro := headers.OPTIONAL_HEADERS.get(name)) and header.get('macro') == macro
+                        and not any(key in receipts for key in keys)):
+                    outside_profile = f'{macro} is 1'
                 if outside_profile:
                     status = 'inapplicable'
                 elif any(receipts.get(key) == 'failed' for key in keys):
@@ -434,11 +452,20 @@ def coverage(profiles, rules, receipts):
                            missing=[list(key) for key in keys if key not in receipts] if status == 'uncovered' else [])
                 if outside_profile:
                     row['reason'] = outside_profile
+                elif status == 'uncovered' and header:
+                    if header.get('include') == 'missing':
+                        row['reason'] = f'<{name}.h> absent from the selected SDK include search'
+                    elif header.get('include') == 'sdk-opt-in':
+                        row['reason'] = f'<{name}.h> requires the SDK emulation opt-in'
+                    elif rule['id'].startswith('library.header-version.') and header.get('version') == 'missing':
+                        row['reason'] = f'<{name}.h> omits its C23 version macro'
                 yield row
 
 
 def report(receipts, output, profiles, rules):
-    rows = list(coverage(profiles, rules, read_evidence(receipts, profiles)))
+    header_checks = {}
+    evidence = read_evidence(receipts, profiles, header_checks)
+    rows = list(coverage(profiles, rules, evidence, header_checks))
     print('### C clause evidence\n')
     print('| Edition | Profile | Passing | Failing | Uncovered | Inapplicable |')
     print('| --- | --- | ---: | ---: | ---: | ---: |')
@@ -617,16 +644,110 @@ def probe_c23_library(work, profile, flags, link, runner, bare_sdk, sdk_headers)
     available = {name: marker in markers for name, marker in facilities.items()}
     has_stdarg_version = 'CPP_GM_STDARG_VERSION' in markers
     sdk_headers[profile['id']] = dict(available, stdarg_version_macro=has_stdarg_version)
-    if has_stdarg_version:
-        yield receipt('library.c23-stdarg-version', profile, 23, 'default',
-                      'CPP_GM_STDARG_VERSION_CURRENT' in markers, stages)
     for case, (header, source) in C23_LIBRARY_SOURCES.items():
         if available[header]:
             for variant, passed, stages in probe_program(work, profile, case, source, flags, link, runner, link_flags):
                 yield receipt(case, profile, 23, variant, passed, stages)
 
 
-def probe_target(output, profile, compiler, setup, link, runner, sdk_headers, bare_sdk=()):
+def probe_header_version(work, inputs, profile, flags, name, status):
+    source = inputs / f'{name}-version.c'
+    source.write_text(headers.version_source(name))
+    case = f'library.header-version.{name}'
+    directory = work / case
+    tokens_path = directory / 'version.tokens'
+    stages, _ = run_stages(directory, [
+        ('preprocess', [*flags, '-DCPPGM_PROBE_VERSION_TOKENS', '-E', str(source), '-o', str(tokens_path)]),
+        ('compile', [*flags, '-fsyntax-only', str(source)]),
+    ])
+    passed = stages[-1]['classification'] == 'success'
+    if passed:
+        tokens = headers.version_tokens(tokens_path.read_text())
+        if tokens is None:
+            status['version'] = 'missing'
+            return
+        if name in headers.VERSION_TOKEN:
+            passed = headers.current_version_token(tokens)
+    status['version'] = 'current' if passed else 'failed'
+    yield receipt(case, profile, 23, 'default', passed, stages)
+
+
+def probe_headers(output, work, profile, edition, flags, bare_sdk, header_checks):
+    expected = dict(headers.edition_headers(edition, profile['environment']))
+    if bare_sdk:
+        flags = [*flags, '-isystem', str(bare_sdk[0])]
+    inputs = output / 'inputs' / profile['id'] / f'c{edition}' / 'headers'
+    inputs.mkdir(parents=True)
+    query = inputs / 'availability.c'
+    query.write_text(headers.availability_source(expected, edition))
+    tokens = work / 'header-availability' / 'available.tokens'
+    stages, diagnostic = run_stages(tokens.parent, [
+        ('preprocess', [*flags, '-E', str(query), '-o', str(tokens)]),
+    ])
+    if stages[0]['classification'] != 'success':
+        raise RuntimeError(f"cannot identify SDK headers for {profile['id']} C{edition}: {diagnostic.strip()}")
+    markers = set(tokens.read_text().splitlines())
+    if 'identifier CPPGM_HEADERS_PROBE' not in markers:
+        raise ValueError('unexpected SDK header probe output')
+    checked = {}
+    header_checks.setdefault(profile['id'], {})[str(edition)] = checked
+    combined = []
+    unavailable = []
+    for name, case in expected.items():
+        status = checked[name] = {}
+        if f'identifier CPPGM_HEADER_DISABLED_{name}' in markers:
+            status.update(include='disabled', macro=headers.OPTIONAL_HEADERS[name])
+            continue
+        if f'identifier CPPGM_HEADER_FOUND_{name}' not in markers:
+            status['include'] = 'missing'
+            unavailable.append(name)
+            continue
+        source = inputs / f'{name}.c'
+        source.write_text(headers.include_source((name, name)))
+        stages, diagnostic = run_stages(work / case, [('compile', [*flags, '-fsyntax-only', str(source)])])
+        stage = stages[0]
+        if (profile['id'] == 'wasi-hosted' and name == 'signal' and stage['classification'] == 'rejection'
+                and 'wasm lacks signal support' in diagnostic and '-lwasi-emulated-signal' in diagnostic):
+            status['include'] = 'sdk-opt-in'
+            unavailable.append(name)
+            continue
+        combined.append(name)
+        passed = stage['classification'] == 'success'
+        status['include'] = 'usable' if passed else 'failed'
+        yield receipt(case, profile, edition, 'default', passed, stages)
+        if passed and edition == 23 and name in headers.HEADER_VERSIONS:
+            if name != 'stdlib' or profile['environment'] == 'hosted':
+                yield from probe_header_version(work, inputs, profile, flags, name, status)
+    if combined:
+        case = 'library.headers.combined'
+        source = inputs / 'combined.c'
+        source.write_text(headers.include_source(combined))
+        stages, _ = run_stages(work / case, [('compile', [*flags, '-fsyntax-only', str(source)])])
+        passed = stages[0]['classification'] == 'success'
+        if not passed or not unavailable:
+            yield receipt(case, profile, edition, 'default', passed, stages)
+
+
+def probe_hosted_header_programs(work, profile, edition, flags, link, runner, checked, signal_archive):
+    sources = []
+    if checked.get('setjmp', {}).get('include') == 'usable':
+        sources.append(('library.setjmp', SETJMP_SOURCE, (), ()))
+    signal = checked.get('signal', {}).get('include')
+    if signal == 'usable':
+        sources.append(('library.signal', SIGNAL_SOURCE, (), ()))
+    if signal == 'sdk-opt-in':
+        if signal_archive is not None and signal_archive.is_file():
+            sources.append(('library.wasi-signal-emulation', SIGNAL_SOURCE, ('-D_WASI_EMULATED_SIGNAL',),
+                            ('-lwasi-emulated-signal',)))
+            checked['signal']['emulation_archive'] = str(signal_archive)
+    for case, source, source_flags, link_flags in sources:
+        for variant, passed, stages in probe_program(work, profile, case, source, [*flags, *source_flags],
+                                                      link, runner, link_flags):
+            yield receipt(case, profile, edition, variant, passed, stages)
+
+
+def probe_target(output, profile, compiler, setup, link, runner, sdk_headers, header_checks,
+                 bare_sdk=(), signal_archive=None):
     bare_wasm = profile['id'] == 'wasm-freestanding'
     if runner and (executable := which(runner[0])):
         runner = [str(Path(executable).absolute()), *runner[1:]]
@@ -635,6 +756,9 @@ def probe_target(output, profile, compiler, setup, link, runner, sdk_headers, ba
     yield from probe_c23_source_cases(output, profile, compiler, setup)
     c23_flags = [compiler, '--target=' + profile['target'], *setup, '-x', 'c', '-std=c23', '-pedantic-errors']
     c23_work = output / profile['id'] / 'c23'
+    yield from probe_headers(output, c23_work, profile, 23, c23_flags, bare_sdk, header_checks)
+    checked = header_checks[profile['id']]['23']
+    yield from probe_hosted_header_programs(c23_work, profile, 23, c23_flags, link, runner, checked, signal_archive)
     yield from probe_registers(c23_work, profile, 23, c23_flags, link, runner)
     c23_limits = output / 'inputs/c23/combined.c'
     for variant, passed, stages in probe_program(c23_work, profile, 'limits.combined', c23_limits,
@@ -652,6 +776,9 @@ def probe_target(output, profile, compiler, setup, link, runner, sdk_headers, ba
         standard = LEGACY_STANDARDS.get(edition, f'c{edition}')
         flags = [compiler, '--target=' + profile['target'], *setup, '-x', 'c', f'-std={standard}', '-pedantic-errors']
         work = output / profile['id'] / f'c{edition}'
+        yield from probe_headers(output, work, profile, edition, flags, bare_sdk, header_checks)
+        checked = header_checks[profile['id']][str(edition)]
+        yield from probe_hosted_header_programs(work, profile, edition, flags, link, runner, checked, signal_archive)
         yield from probe_registers(work, profile, edition, flags, link, runner)
         stages, _ = run_stages(work / 'thread-predefine', [
             ('preprocess', [*flags, f'-DEXPECT_NO_THREADS={expect_no_threads}', '-E', str(THREAD_PREDEFINE), '-o', '/dev/null']),
@@ -718,7 +845,9 @@ def probes(args, profiles, rules):
                             '--edition', str(edition), str(directory)], stdout=file, check=True)
     compiler = str(args.candidate.resolve())
     sdk_headers = {}
-    results = list(probe_target(output, profiles[native], compiler, [], [args.cc], [], sdk_headers))
+    header_checks = {}
+    sdk_inputs = []
+    results = list(probe_target(output, profiles[native], compiler, [], [args.cc], [], sdk_headers, header_checks))
     if args.wasi_sysroot:
         wasi = profiles['wasi-hosted']
         if args.wasi_resource_dir is None:
@@ -726,8 +855,11 @@ def probes(args, profiles, rules):
         sysroot = '--sysroot=' + str(args.wasi_sysroot)
         setup = [sysroot, '-resource-dir=' + str(args.wasi_resource_dir)]
         link = [compiler, '--target=' + wasi['target'], *setup]
-        results.extend(probe_target(output, wasi, compiler, setup, link, [args.wasmtime, 'run', '--dir=.'], sdk_headers))
-    numeric_sdk_inputs = []
+        signal_archive = args.wasi_sysroot.resolve() / 'lib/wasm32-wasip1/libwasi-emulated-signal.a'
+        if signal_archive.is_file():
+            sdk_inputs.append(signal_archive)
+        results.extend(probe_target(output, wasi, compiler, setup, link, [args.wasmtime, 'run', '--dir=.'],
+                                    sdk_headers, header_checks, signal_archive=signal_archive))
     if args.bare_wasm:
         bare = profiles['wasm-freestanding']
         bare_sdk = ()
@@ -736,12 +868,14 @@ def probes(args, profiles, rules):
             include_dir = resource_dir / 'include'
             builtins = resource_dir / 'lib/wasm32-unknown-wasip1/libclang_rt.builtins.a'
             bare_sdk = (include_dir, builtins)
-            numeric_sdk_inputs = [include_dir / 'float.h', include_dir / '__float_float.h', include_dir / 'limits.h', builtins]
+            sdk_inputs.extend([include_dir / 'float.h', include_dir / '__float_float.h', include_dir / 'limits.h', builtins])
         link = [compiler, '--target=' + bare['target'], '-nostdlib', '--export', 'main']
         runner = [args.wasmtime, 'run', '--invoke', 'main']
-        results.extend(probe_target(output, bare, compiler, ['-ffreestanding', '-nostdinc'], link, runner, sdk_headers, bare_sdk))
+        results.extend(probe_target(output, bare, compiler, ['-ffreestanding', '-nostdinc'], link, runner,
+                                    sdk_headers, header_checks, bare_sdk))
     revision = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
-    inputs = sorted([*work.glob('*/*'), ERROR_SOURCE, INCLUDE_SOURCE, STRING_SOURCE, INCLUDE_QUERY, THREAD_PREDEFINE,
+    inputs = sorted([*(path for path in work.rglob('*') if path.is_file()),
+                     ERROR_SOURCE, INCLUDE_SOURCE, STRING_SOURCE, INCLUDE_QUERY, THREAD_PREDEFINE,
                      C95_WIDE_HEADERS, *LEGACY_VERSION_PROBES.values(),
                      *(PA38_GENERAL / source for _, source, _ in C23_SOURCE_CASES),
                      *(source for source, _ in C23_PROGRAMS.values()), *C23_EMBED_FIXTURES.rglob('*.bin'),
@@ -751,13 +885,15 @@ def probes(args, profiles, rules):
                      *(PA38_GENERAL / source for source, _ in RECORD_CONSTRAINTS.values()),
                      REGISTER_PROGRAM, *(register_constraint_source(suffix)
                                          for suffix, _, _ in REGISTER_CONSTRAINTS.values()),
-                     *numeric_sdk_inputs, *C11_LIBRARY_SOURCES.values(),
+                     *sdk_inputs, *C11_LIBRARY_SOURCES.values(), SETJMP_SOURCE, SIGNAL_SOURCE,
+                     Path(headers.__file__).resolve(),
                      INCLUDE_QUERY.parent / 'c-header  spaces.h',
                      INCLUDE_SOURCE.parent / 'c-include-physical.h', INCLUDE_SOURCE.parent / 'c-include-local.h'])
     inputs.extend([C23_SDK_HEADERS, *(source for _, source in C23_LIBRARY_SOURCES.values())])
     receipt_path = output / 'receipts.json'
     write_json(receipt_path, dict(schema=1, revision=revision, compiler_sha256=sha256(Path(compiler)),
-                                  inputs={str(source): sha256(source) for source in inputs}, sdk_headers=sdk_headers, results=results))
+                                  inputs={str(source): sha256(source) for source in inputs}, sdk_headers=sdk_headers,
+                                  header_checks=header_checks, results=results))
     report_status = report([receipt_path], output / 'matrix.json', profiles, rules) if args.report else 0
     return report_status or int(any(row['status'] == 'failed' for row in results))
 
