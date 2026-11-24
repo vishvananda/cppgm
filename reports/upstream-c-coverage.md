@@ -526,6 +526,48 @@ and self-host through PA5 pass again.
 
 [Frozen-input and feature scaling measurements](../docs/performance/c-frontend-scaling.md#c23-nullptr-and-variadic-calls)
 
+## C23 bit-precise integers
+
+PA38 exercises integer constant widths and their limits, literal suffixes,
+preprocessing arithmetic, promotions, bit-fields, casts, unsigned
+wraparound, signed overflow constraints, and arithmetic through atomic
+updates. A wide switch tests labels that share their low word. The
+duplicate-label fixture tests conversion of a negative ordinary case
+value to a wide unsigned value.
+
+The pinned C23 manifests pass 45 GCC and 14 Clang configurations. The
+GCC C11 and C17 manifests pass six and 26 configurations respectively
+including the new extension and header checks. The clause matrix passes
+661 probes, including 210 for C23, on Linux x86-64, WASI and bare Wasm.
+PA38 passes 542 native, 542 Wasm, 63 controls and three ABI cases.
+PA30's deferred C++ template case passes with its original sign
+specifier handling.
+
+The strict course report passes all 11,674 tests. The student export
+verifies 26,711 portable reference files. Exported PA1 and PA38 pass with
+the self-built reference tools. The corrected build also passes inception,
+self-host through PA5, the debug-info checks and the architecture audits.
+
+The three non-atomic execution fixtures pass on Linux x86-64 and
+AArch64, both Mach-O targets, WASI and bare Wasm at `-O0` and `-O2`.
+The two-compiler replay passes in both directions at both optimization
+levels on all six targets. It checks narrow and wide arguments and returns,
+a wide argument on the stack, aggregate layout, a signed wide global,
+and unnamed arguments whose offsets agree. Clang 23.1.0 in the WASI SDK can
+emit a sixteen-byte stack alignment for a wide unnamed argument while
+its `va_arg` advances using eight bytes. A sequence with a single
+narrow argument immediately before the wide one reproduces that
+mismatch with two Clang objects. cppgm uses eight-byte alignment at
+both ends.
+
+The wide multiplication, division, remainder and floating-conversion
+replay passes on Linux x86-64, Linux AArch64, WASI and bare Wasm using
+the existing runtime helpers. The Linux host additionally passes the
+wide atomic arithmetic replay linked with libatomic through the host
+linker at both optimization levels.
+
+[Frozen-input and width scaling measurements](../docs/performance/c-frontend-scaling.md#c23-bit-precise-integers)
+
 ## Additional editions
 
 The driver baseline at `39e13e127` rejects `c90`, `c89`,

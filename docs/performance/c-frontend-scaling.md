@@ -180,6 +180,32 @@ operand builds. Each increment scales with the added tokens. The
 parser consumes those tokens without building expression nodes, and
 the candidate's peak RSS stays below 17.6 MiB at all three sizes.
 
+## C23 bit-precise integers
+
+The A/A, ABBA, and BAAB frozen builds produce byte-identical objects.
+The A/A task-clock ranges are 14.1% for C++ and 34.4% for SQLite on the
+shared host.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0026% | +0.0066% | +0.0041% |
+| SQLite `sqlite3.c` | 0.0031% | +0.0227% | +0.0234% |
+
+The width scaling workload compiles functions that multiply by a
+constant, add, shift, and XOR in an unsigned bit-precise type at
+`-O2`. Each cell is the mean of four trials with matching objects.
+Peak RSS stays below 21 MiB. Each width scales with the number of
+functions. The 9-bit and 65-bit cases exercise masking of the
+carrier's padding bits. The 64-bit and 128-bit cases use the full
+carrier width.
+
+| Precision | 128 functions | 512 functions | 2,048 functions |
+| ---: | ---: | ---: | ---: |
+| 9 | 36.15M | 132.75M | 518.96M |
+| 64 | 30.10M | 108.60M | 422.34M |
+| 65 | 69.96M | 268.20M | 1,059.67M |
+| 128 | 50.99M | 191.94M | 756.64M |
+
 ## Volatile assignment code generation
 
 The same source functions returning and discarding a volatile record
