@@ -296,6 +296,7 @@ LIBRARY_PROGRAMS = {
     'library.inttypes-conversion': (99, ROOT / 'scripts/tests/c_c99_inttypes.c', 'inttypes stdio string'),
 }
 C23_VERSIONED_PROGRAMS = {
+    'library.c23-atomic-interfaces': (ROOT / 'scripts/tests/c_c23_atomic_interfaces.c', 'stdatomic uchar'),
     'library.c23-assert': (ROOT / 'scripts/tests/c_c23_assert.c', 'assert'),
     'library.c23-binary-conversion': (ROOT / 'scripts/tests/c_c23_binary_conversion.c', 'stdlib inttypes'),
     'library.c23-binary-stdio': (ROOT / 'scripts/tests/c_c23_binary_stdio.c', 'stdio inttypes'),
@@ -307,6 +308,8 @@ C23_VERSIONED_PROGRAMS = {
     'library.c23-uchar-utf8': (ROOT / 'scripts/tests/c_c23_uchar_utf8.c', 'uchar'),
     'library.c23-sized-deallocation': (ROOT / 'scripts/tests/c_c23_sized_deallocation.c', 'stdlib'),
     'library.c23-qualified-bsearch': (ROOT / 'scripts/tests/c_c23_qualified_bsearch.c', 'stdlib'),
+    'library.c23-stdlib-interfaces': (ROOT / 'scripts/tests/c_c23_stdlib_interfaces.c', 'stdlib'),
+    'library.c23-wide-searches': (ROOT / 'scripts/tests/c_c23_wide_searches.c', 'wchar'),
 }
 WASI_SIGNAL = 'wasi-emulated-signal'
 WASI_LONG_DOUBLE_STDIO = 'c-printscan-long-double'
@@ -315,6 +318,7 @@ WASI_C23_PARTIAL_CASES = {'library.c23-memalignment', 'library.c23-binary-conver
                          'library.c23-sized-deallocation', 'library.c23-qualified-bsearch', 'library.c23-binary-stdio'}
 C23_LIBRARY_SOURCES = {
     'library.c23-integer-widths': ('limits_width_macros', ROOT / 'scripts/tests/c_c23_integer_widths.c'),
+    'library.c23-wchar-width': ('wchar_width_macro', ROOT / 'scripts/tests/c_c23_wchar_width.c'),
     'library.c23-stdint-widths': ('stdint_width_macros', ROOT / 'scripts/tests/c_c23_stdint_widths.c'),
     'library.c23-float-constants': ('float_constants', ROOT / 'scripts/tests/c_c23_float_constants.c'),
     'library.c23-float-formats': ('float_format_macros', ROOT / 'scripts/tests/c_c23_float_formats.c'),
@@ -795,6 +799,7 @@ def probe_c23_library(work, profile, flags, link, runner, bare_sdk, sdk_headers)
         'stdckdint.h': 'CPP_GM_STDCKDINT',
         'stdbit.h': 'CPP_GM_STDBIT',
         'limits_width_macros': 'CPP_GM_LIMITS_WIDTHS',
+        'wchar_width_macro': 'CPP_GM_WCHAR_WIDTH',
         'stdint_width_macros': 'CPP_GM_STDINT_WIDTHS',
         'float_constants': 'CPP_GM_FLOAT_CONSTANTS',
         'float_format_macros': 'CPP_GM_FLOAT_FORMATS',
@@ -931,7 +936,10 @@ def library_sources(profile, edition, checked, checked_c23, wasi_libraries):
         if not partial_header and any(checked_c23.get(name, {}).get('version') != 'current'
                                for name in required.split()):
             continue
-        yield case, source, (), ()
+        link_flags = ()
+        if case == 'library.c23-atomic-interfaces' and profile['target'].endswith('-linux-gnu'):
+            link_flags = ('-latomic',)
+        yield case, source, (), link_flags
 
 
 def probe_header_programs(work, profile, edition, flags, link, runner, header_checks, wasi_libraries, bare_sdk):

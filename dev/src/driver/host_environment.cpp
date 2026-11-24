@@ -223,7 +223,7 @@ bool ReplacedCMacro(const char* name, size_t length)
 		Named(name, length, "__GCC_ATOMIC_TEST_AND_SET_TRUEVAL") || Named(name, length, "__STDC_NO_ATOMICS__") ||
 		Named(name, length, "__GNUC_GNU_INLINE__") || Named(name, length, "__GNUC_STDC_INLINE__") ||
 		Named(name, length, "__STDC_EMBED_NOT_FOUND__") || Named(name, length, "__STDC_EMBED_FOUND__") ||
-		Named(name, length, "__STDC_EMBED_EMPTY__");
+		Named(name, length, "__STDC_EMBED_EMPTY__") || Named(name, length, "__CHAR8_TYPE__");
 }
 
 // 16.8p4: an implementation's other predefined macro names begin with an

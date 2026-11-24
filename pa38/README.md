@@ -702,6 +702,9 @@ The first fixture set covers these parts of the C17 input profile:
   expressions. In C23 preprocessing conditions, their values are 1 and
   0. In earlier C modes the spellings are ordinary identifiers and can
   be defined as macros by headers or by source.
+- Define `__CHAR8_TYPE__` as `unsigned char` in C23 so compiler
+  headers can declare the UTF-8 character and atomic types. Earlier C
+  modes leave this macro undefined.
 - In C23, recognize `nullptr`, `alignas`, and `alignof`. Give `nullptr`
   its own scalar type with the size, alignment, and null representation
   of a character pointer. `<stddef.h>` supplies the typedef `nullptr_t`.

@@ -8,6 +8,7 @@
 #endif
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
+#include <__cppgm_search_result.h>
 #define __STDC_VERSION_STRING_H__ 202311L
 #endif
 
@@ -48,8 +49,6 @@ char* strndup(const char*, size_t);
 #endif
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
-// The cast makes the conditional merge pointer qualifiers in an unevaluated expression.
-#define __CPPGM_SEARCH_RESULT(s, type) typeof(1 ? (s) : (type*)nullptr)
 #define memchr(s, c, n) ((__CPPGM_SEARCH_RESULT(s, void))(memchr)((s), (c), (n)))
 #define strchr(s, c) ((__CPPGM_SEARCH_RESULT(s, char))(strchr)((s), (c)))
 #define strpbrk(s, accept) ((__CPPGM_SEARCH_RESULT(s, char))(strpbrk)((s), (accept)))

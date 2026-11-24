@@ -5,4 +5,6 @@
 #error C mode must leave the C++ version macro undefined
 #endif
 
+static_assert(_Generic((__CHAR8_TYPE__)0, unsigned char: 1, default: 0));
+
 int main(void) { return 0; }

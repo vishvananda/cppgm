@@ -5,7 +5,7 @@ BUILD_DIR ?= ../../../obj/dev/runtime/wasm-freestanding
 RESOURCE_DIR ?= $(shell wasm-ref-clang++ -print-resource-dir)
 WASI_LIBC ?= $(abspath $(RESOURCE_DIR)/../../../share/wasi-sysroot/lib/wasm32-wasip1/libc.a)
 
-HEADERS := $(addprefix $(BUILD_DIR)/include/,float.h limits.h stdarg.h stdbit.h stddef.h stdint.h stdlib.h string.h)
+HEADERS := $(addprefix $(BUILD_DIR)/include/,__cppgm_search_result.h float.h limits.h stdarg.h stdbit.h stddef.h stdint.h stdlib.h string.h)
 NOTICES := $(patsubst licenses/%,$(BUILD_DIR)/licenses/%,$(wildcard licenses/*.txt))
 OBJECTS := $(addprefix $(BUILD_DIR)/,stdbit.o memalignment.o memset_explicit.o)
 # The SDK provides all of these routines without WASI calls. The four

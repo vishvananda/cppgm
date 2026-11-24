@@ -1861,6 +1861,46 @@
       "cases": ["library.c23-binary-stdio"]
     },
     {
+      "id": "library.c23-atomic-interfaces",
+      "clause": "C23 7.17.1–8",
+      "kind": "conditional",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "stdatomic",
+      "requirement": "Expose the char8_t atomic type and lock-free macro, omit ATOMIC_VAR_INIT, and provide callable fences and flag operations with explicit memory orders.",
+      "cases": ["library.c23-atomic-interfaces"]
+    },
+    {
+      "id": "library.c23-stdlib-interfaces",
+      "clause": "C23 7.24, 7.24.1.3, 7.28.2",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "stdlib",
+      "requirement": "Provide the once flag and call_once in stdlib.h. Format each standard floating type with strfromd, strfromf, and strfroml, preserving long double precision and reporting the required buffer length.",
+      "cases": ["library.c23-stdlib-interfaces"]
+    },
+    {
+      "id": "library.c23-wchar-width",
+      "clause": "C23 7.22.3.4, 7.31.1",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "wchar",
+      "requirement": "Expose WCHAR_WIDTH by including wchar.h on its own and report the width of the target type.",
+      "cases": ["library.c23-wchar-width"]
+    },
+    {
+      "id": "library.c23-wide-searches",
+      "clause": "C23 7.31.4.5",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "wchar",
+      "requirement": "Preserve the searched elements' const qualification in all five generic wide searches, evaluate arguments once, and retain the concrete function types.",
+      "cases": ["library.c23-wide-searches"]
+    },
+    {
       "id": "library.c23-memalignment",
       "clause": "C23 4p7, 7.24.9.1",
       "kind": "required",

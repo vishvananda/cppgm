@@ -1,3 +1,7 @@
+#ifdef __CHAR8_TYPE__
+#error The UTF-8 character type macro starts in C23
+#endif
+
 #define EXPECT_C11_FEATURES 1
 #define EXPECT_C11_EXTENSIONS 1
 #include "c11-feature-probes.h"

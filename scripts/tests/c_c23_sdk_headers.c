@@ -1,4 +1,10 @@
 CPP_GM_SDK_HEADERS
+#if __STDC_HOSTED__ && __has_include(<wchar.h>)
+#include <wchar.h>
+#ifdef WCHAR_WIDTH
+CPP_GM_WCHAR_WIDTH
+#endif
+#endif
 #if __has_include(<stdarg.h>)
 #include <stdarg.h>
 CPP_GM_STDARG

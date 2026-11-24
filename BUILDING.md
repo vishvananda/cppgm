@@ -42,8 +42,9 @@ dev/cppgm --target=wasm32-unknown-unknown -std=c23 -ffreestanding \
 The hosted supplement builds against the same WASI SDK 34. It supplies
 C23 assertions, bit utilities, string functions, alignment, clock
 resolution, UTF-8 conversion, binary integer conversion, and sized
-deallocation. It also supplies const-preserving `bsearch` and exposes
-C23 binary formatting and scanning in the narrow and wide stdio families.
+deallocation. It also supplies const-preserving searches, callable atomic
+fences and flag operations, `call_once`, and `strfromd`, `strfromf`, and
+`strfroml`. Narrow and wide formatted I/O support C23 binary conversions.
 The tested configuration includes the SDK's signal emulation and
 long-double stdio libraries.
 
