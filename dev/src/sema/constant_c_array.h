@@ -2,10 +2,11 @@
 
 #include <cstdint>
 
+#include "sema/c_initializer.h"
+
 namespace sema {
 
 struct ConstValue;
-struct CInitializer;
 
 // A leaf assigns one value to its interval. Internal nodes subdivide
 // their interval at its midpoint and null children preserve the source.
@@ -21,8 +22,14 @@ struct CArrayConstant
 	const CInitializer* initializer;
 	const ConstValue* prefix;
 	const CArrayPatch* patches;
-	// A projected update retains the unchanged values of the source array.
+	// A subobject update retains the unchanged values of the source array.
 	const CArrayConstant* previous;
+
+	bool has_layers() const
+	{
+		return previous != nullptr ||
+			(initializer != nullptr && initializer->projection != CInitializerProjection::None);
+	}
 };
 
 template<class Visitor>

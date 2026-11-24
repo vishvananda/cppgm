@@ -32,6 +32,35 @@ bool PreservesVariant(const CInitializer& plan)
 	return false;
 }
 
+bool CanKeepPointUpdate(const CInitializer& plan, bool inherited)
+{
+	if (plan.projection != CInitializerProjection::None || plan.has_storage_extent ||
+		(plan.value != nullptr && !plan.children.empty()))
+		return false;
+	inherited = inherited && !plan.replaces_value();
+	if (plan.children.empty())
+		return true;
+	const auto* record = ClassOf(plan.type);
+	if (inherited && record != nullptr && record->key == TokenKind::KW_UNION)
+		return false;
+	for (const auto& child : plan.children)
+		if ((inherited && plan.type->kind == TypeKind::Array && child.limit - child.index != 1) ||
+			!CanKeepPointUpdate(*child.initializer, inherited))
+			return false;
+	return true;
+}
+
+bool KeepPointUpdates(const CInitializer& plan)
+{
+	const auto needs_source = [](const CInitializerChild& child) { return !child.initializer->replaces_value(); };
+	if (plan.children.empty() || std::none_of(plan.children.begin(), plan.children.end(), needs_source))
+		return false;
+	for (const auto& entry : plan.children)
+		if ((needs_source(entry) && entry.limit - entry.index != 1) || !CanKeepPointUpdate(*entry.initializer, true))
+			return false;
+	return true;
+}
+
 const CArrayPatch* AssignPatch(Arena& arena, const CArrayPatch* source, const CArrayPatch* value, uint64_t first,
 	uint64_t limit, uint64_t lo, uint64_t hi)
 {
@@ -131,7 +160,7 @@ ConstantInterpreter::StorageView ConstantInterpreter::c_array_element(
 	if (array.initializer == nullptr)
 		return StorageView(nullptr, element);
 	const CInitializer& plan = *array.initializer;
-	if (plan.projection != CInitializerProjection::None)
+	if (array.has_layers())
 		return c_projected_element(array, type, index, location);
 	if (const auto* child = ArraySpan(plan.children, index))
 	{
@@ -176,19 +205,25 @@ ConstantInterpreter::StorageView ConstantInterpreter::c_projected_element(
 			break;
 		}
 		const CInitializer* plan = current->initializer;
-		if (plan == nullptr || plan->projection == CInitializerProjection::None)
+		if (!current->has_layers())
 		{
 			source = c_array_element(*current, type, index, location);
 			break;
 		}
-		layers.push_back(plan);
-		if (const auto* child = ArraySpan(plan->children, index))
+		const auto* child = ArraySpan(plan->children, index);
+		const bool projected = plan->projection != CInitializerProjection::None;
+		if (projected)
+			layers.push_back(plan);
+		if (child == nullptr)
+			continue;
+		if (projected || child->initializer->replaces_value())
 		{
 			whole = child->initializer;
 			break;
 		}
+		layers.push_back(child->initializer);
 	}
-	if (!source || layers.empty())
+	if (!source || (layers.empty() && whole == nullptr))
 		return source;
 	ConstPlace row;
 	ConstValue* value = nullptr;
@@ -210,7 +245,10 @@ ConstantInterpreter::StorageView ConstantInterpreter::c_projected_element(
 		{
 			const CInitializer& plan = *layers.back();
 			layers.pop_back();
-			if (!c_projected_row(plan, row, index, location))
+			const bool applied = plan.projection == CInitializerProjection::None
+				? c_initialize(plan, row, location, true)
+				: c_projected_row(plan, row, index, location);
+			if (!applied)
 				return false;
 		}
 		return complete(*value);
@@ -315,6 +353,13 @@ ConstantInterpreter::CArrayInitialization ConstantInterpreter::prepare_c_array(
 		if (retained && plan.value != nullptr)
 			*storage = array_prefix(plan.type);
 		return CArrayInitialization::InPlace;
+	}
+	// Keep the typed subobject write when the source already contains sparse
+	// layers. Each update can be retained without reading the older row.
+	if (ordinary && retained && c_constexpr_initializer_ && storage->c_array->has_layers() && KeepPointUpdates(plan))
+	{
+		*storage = StoreArray(analyzer_.arena_, plan.type, { &plan, nullptr, nullptr, storage->c_array });
+		return CArrayInitialization::Stored;
 	}
 	if (ordinary &&
 		(retained || (storage->kind == ValueKind::Array && (storage->flags & kArrayTailZero) != 0 && sparse())))

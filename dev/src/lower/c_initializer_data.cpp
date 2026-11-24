@@ -67,7 +67,7 @@ struct FieldData
 	uint64_t stride = 0;
 	uint64_t bit_first = 0, bit_limit = 0;
 
-	bool has_items() const { return repeated == nullptr ? !items.empty() : !repeated->empty(); }
+	bool has_items() const { return !items.empty() || (repeated != nullptr && !repeated->empty()); }
 
 	bool has_data() const
 	{
@@ -77,9 +77,8 @@ struct FieldData
 
 	void append(Placements& output) const
 	{
-		if (repeated == nullptr)
-			output.insert(output.end(), items.begin(), items.end());
-		else
+		output.insert(output.end(), items.begin(), items.end());
+		if (repeated != nullptr)
 			for (uint64_t offset = first; offset < limit; offset += stride)
 				for (StaticPlacement placement : *repeated)
 				{
@@ -328,32 +327,59 @@ bool AppendItemSlice(const StaticPlacement& entry, uint64_t first, uint64_t limi
 	return true;
 }
 
+bool AppendPlacementsSlice(const Placements& items, uint64_t offset, uint64_t first, uint64_t limit, FieldData& out)
+{
+	auto item = std::upper_bound(items.begin(), items.end(), first - 8 * offset,
+		[](uint64_t bit, const StaticPlacement& entry) { return bit < 8 * (entry.offset + entry.size); });
+	for (; item != items.end() && (offset + item->offset) * 8 < limit; ++item)
+	{
+		StaticPlacement placement = *item;
+		placement.offset += offset;
+		if (!AppendItemSlice(placement, first, limit, out))
+			return false;
+	}
+	return true;
+}
+
+bool SliceRepeatedCells(const FieldData& source, uint64_t first, uint64_t limit, FieldData& out)
+{
+	const uint64_t origin = 8 * source.first;
+	const uint64_t stride = 8 * source.stride;
+	const uint64_t left = first - (first - origin) % stride;
+	const uint64_t right = limit - (limit - origin) % stride;
+	const uint64_t begin = first == left ? first : std::min(limit, left + stride);
+	// Keep the interior cells repeated. Only the two boundary cells can
+	// be cut by a write to an individual field or bit-field.
+	if (first < begin && !AppendPlacementsSlice(*source.repeated, left / 8, first, begin, out))
+		return false;
+	if (begin < right)
+	{
+		out.first = begin / 8;
+		out.limit = right / 8;
+		out.repeated = source.repeated;
+		out.stride = source.stride;
+	}
+	if (begin <= right && right < limit)
+		return AppendPlacementsSlice(*source.repeated, right / 8, right, limit, out);
+	return true;
+}
+
 bool SliceStaticLayer(const StaticLayer& source, uint64_t first, uint64_t limit, FieldData& out)
 {
 	if (source.field != nullptr && source.field->repeated != nullptr)
 	{
-		// Rectangle layers end on whole cells. Keep the repeated pattern
-		// until the visible rows are emitted, even when most cells are zero.
-		const auto& field = *source.field;
-		const uint64_t stride_bits = field.stride * 8;
-		if ((first - field.first * 8) % stride_bits != 0 || (limit - first) % stride_bits != 0)
+		if (!SliceRepeatedCells(*source.field, first, limit, out))
 			return false;
-		out.first = first / 8;
-		out.limit = limit / 8;
-		out.repeated = field.repeated;
-		out.stride = field.stride;
-		return true;
 	}
-	const auto& items = *source.items;
-	auto item = std::upper_bound(items.begin(), items.end(), first,
-		[](uint64_t bit, const StaticPlacement& entry) { return bit < 8 * (entry.offset + entry.size); });
-	for (; item != items.end() && item->offset * 8 < limit; ++item)
-		if (!AppendItemSlice(*item, first, limit, out))
+	else
+	{
+		if (!AppendPlacementsSlice(*source.items, 0, first, limit, out))
 			return false;
-	if (source.field != nullptr)
-		for (ByteWrite byte : source.field->bits)
-			AppendMaskedByte(byte, first, limit, out);
-	if (!out.items.empty())
+		if (source.field != nullptr)
+			for (ByteWrite byte : source.field->bits)
+				AppendMaskedByte(byte, first, limit, out);
+	}
+	if (out.repeated == nullptr && !out.items.empty())
 	{
 		out.first = out.items.front().offset;
 		out.limit = out.items.back().offset + out.items.back().size;
@@ -433,12 +459,8 @@ public:
 			if (layer.initializer != nullptr)
 			{
 				const auto& plan = *layer.initializer;
-				if (plan.value != nullptr || !base_events(plan, width, bases, events, layer.previous != nullptr))
-					return false;
-				const bool ready = plan.projection == sema::CInitializerProjection::Rectangles
-					? rectangle_events(plan, true, cells, fields, events)
-					: field_events(plan, true, fields, events);
-				if (!ready)
+				if (plan.value != nullptr || !base_events(plan, width, bases, events, layer.previous != nullptr) ||
+					!layer_events(plan, layer.previous != nullptr, cells, fields, events))
 					return false;
 			}
 			if (!sema::VisitCArrayPatches(layer.patches, 0, type->bound, add_value))
@@ -522,11 +544,14 @@ private:
 	}
 
 	bool base_events(const sema::CInitializer& plan, uint64_t width, std::deque<Placements>& bases,
-		std::vector<RecordDataEvent>& events, bool keep_zero = false)
+		std::vector<RecordDataEvent>& events, bool inherited = false)
 	{
 		PointerMap saved;
+		const bool point_updates = inherited && plan.projection == sema::CInitializerProjection::None;
 		for (const auto& span : plan.children)
 		{
+			if (point_updates && !span.initializer->replaces_value())
+				continue;
 			uint32_t entry = saved.find(span.initializer);
 			if (entry == PointerMap::kMissing)
 			{
@@ -538,11 +563,52 @@ private:
 					return false;
 				saved.set(span.initializer, entry);
 			}
-			if (keep_zero || !bases[entry].empty())
+			if (inherited || !bases[entry].empty())
 			{
 				events.push_back({ span.index, &bases[entry], nullptr, true });
 				events.push_back({ span.limit, &bases[entry], nullptr, false });
 			}
+		}
+		return true;
+	}
+
+	bool layer_events(const sema::CInitializer& plan, bool inherited, std::deque<Placements>& cells,
+		std::deque<FieldData>& fields, std::vector<RecordDataEvent>& events)
+	{
+		if (plan.projection == sema::CInitializerProjection::Rectangles)
+			return rectangle_events(plan, true, cells, fields, events);
+		if (plan.projection != sema::CInitializerProjection::None)
+			return field_events(plan, true, fields, events);
+		if (inherited)
+			for (const auto& row : plan.children)
+				if (!row.initializer->replaces_value() && !point_events(*row.initializer, row, 0, fields, events))
+					return false;
+		return true;
+	}
+
+	bool point_events(const sema::CInitializer& plan, const sema::CInitializerChild& row, uint64_t offset,
+		std::deque<FieldData>& fields, std::vector<RecordDataEvent>& events)
+	{
+		const bool array = plan.type->kind == sema::TypeKind::Array;
+		const uint64_t stride = array ? lowering_.size_of(plan.type->element, 0) : 0;
+		for (const auto& subobject : plan.children)
+		{
+			const auto* member = array ? nullptr : subobject.member;
+			const uint64_t position = array ? offset + stride * subobject.index : offset;
+			if (subobject.initializer->replaces_value())
+			{
+				fields.emplace_back();
+				if (!prepare_field(member, *subobject.initializer, position, fields.back()))
+					return false;
+				events.push_back({ row.index, nullptr, &fields.back(), true });
+				events.push_back({ row.limit, nullptr, &fields.back(), false });
+				continue;
+			}
+			const uint64_t base = member == nullptr
+				? position
+				: position + lowering_.member_offset(static_cast<const sema::VariableEntity*>(member->variable), 0);
+			if (!point_events(*subobject.initializer, row, base, fields, events))
+				return false;
 		}
 		return true;
 	}
@@ -872,7 +938,7 @@ bool ProgramLowering::static_c_initializer(const sema::CInitializer& plan, Stati
 bool ProgramLowering::static_c_array(const sema::Type* type, const sema::CArrayConstant& array, StaticData& out)
 {
 	const sema::CInitializer* plan = array.initializer;
-	if (plan != nullptr && plan->projection != sema::CInitializerProjection::None)
+	if (array.has_layers())
 		return CStaticData(*this).constant_array(type, array, out);
 	std::vector<uint64_t> scratch;
 	sema::StringCodeUnits units;

@@ -689,8 +689,9 @@ The first fixture set covers these parts of the C17 input profile:
 - In GNU C23 mode, apply range designators to `constexpr` aggregates.
   An overlapping write replaces the designated subobject. Untouched
   subobjects retain their value from earlier initializers, including from a
-  copied aggregate. Keep large field ranges and rectangular array ranges
-  sparse during constant evaluation.
+  copied aggregate. A point update can replace a member within a repeated
+  cell. Keep large ranges and intervening point updates sparse during
+  constant evaluation.
 - In C23, infer the type in `auto name = expression` when the declaration
   has no written type. Accept one object declarator consisting of an
   identifier with optional attributes and enclosing parentheses.

@@ -32,6 +32,7 @@ struct CInitializer
 	CInitializerProjection projection;
 	bool has_storage_extent;
 
+	bool replaces_value() const { return starts_value || value != nullptr; }
 	uint64_t storage_extent() const;
 	syntax::Slice<const CInitializerFieldSpans> field_spans() const;
 	syntax::Slice<const CInitializerRectangle> rectangles() const;
