@@ -20,7 +20,7 @@ open column lists work to qualify the remainder of each group.
 | 6.5 Expressions | PA38 checks C value categories, generic selection, compound literals, casts and short-circuit effects. | Test aliasing, volatile and atomic effects, evaluation order and arithmetic boundaries across optimization levels. |
 | 6.6 Constant expressions | PA38 exercises array bounds, static initialization and static assertions. | Distinguish the integer, arithmetic and address constant expression requirements from ordinary folding. |
 | 6.7 Declarations and type names | PA38 covers tags, old and new function declarations, initializers, designators and one-dimensional VLAs. | Complete variably modified types, nested and overlapping designators, flexible arrays, repeated qualifiers and edition diagnostics. |
-| 6.7.2.2–6.7.2.3 Enumeration specifiers and tags | PA38 checks the `int` constant rule, compatible object types, out-of-range diagnostics and GNU incomplete tags. | Qualify [C23 enum bases and wider constants](#c23-enumeration-triage). |
+| 6.7.2.2–6.7.2.3 Enumeration specifiers and tags | PA38 checks the `int` constant rule, compatible object types, out-of-range diagnostics and GNU incomplete tags. | Qualify C23 compatible tag redefinitions. [C23 enumeration evidence](#c23-enumeration-members-and-fixed-bases) |
 | 6.8 Statements and blocks | PA38 checks control flow, switch conversion and VLA scope exits. GCC's C99 runtime test checks for-declaration scoping. | Qualify for-declaration constraints, nested scopes and jumps involving variably modified types. |
 | 6.9 External definitions | PA38 mixes units with common objects, inline definitions and identifier-list functions. | Check more cross-unit combinations, symbol visibility and inline linkage on each ABI. |
 | 6.10 Preprocessing | PA4 covers shared macro replacement, conditional inclusion, pragmas and line control. PA38 probes C predefined macros. | Pin the GCC preprocessing corpus and qualify required diagnostics, mode macros and hosted header extensions. |
@@ -526,22 +526,58 @@ and self-host through PA5 pass again.
 
 [Frozen-input and feature scaling measurements](../docs/performance/c-frontend-scaling.md#c23-nullptr-and-variadic-calls)
 
-## C23 enumeration triage
+## C23 enumeration members and fixed bases
 
-In strict C23 on Linux x86-64, cppgm, GCC 15, and Clang 22 accept an
-`unsigned char` enum base with an enumerator of 255 and diagnose 256.
-cppgm also accepts a fixed `unsigned _BitInt(9)` base. GCC and Clang
-diagnose that base, which the draft excludes.
-cppgm still diagnoses a non-fixed enumeration containing `1ULL << 42`
-and its implicit successor as a GNU extension. Both reference compilers
-accept the program. Qualification needs cases for the enumerator types
-during the definition, their types after completion, and the constraint
-when no compatible integer type can represent every value. A second
-probe crosses `INT_MAX` by implicit increment and checks signedness
-during the definition. GCC and Clang accept it in strict C23 and
-diagnose it in pedantic C17.
-[WG14 N3096 enumeration rules](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
-[WG14 issue 1130](https://open-std.org/JTC1/SC22/WG14/issues/c23/issue1130.html)
+The analyzer keeps the type seen during an enum definition on each
+typed use. It tracks the numeric extrema as it processes the list and
+chooses the compatible representation at completion. A wide enum's
+members then use the enumeration type. A fixed base rejects bit-precise
+types and requires a standalone declaration when the enumerator list
+is omitted. Pedantic C17 diagnoses the fixed base. C23 implicitly
+widened values keep their signedness. A fixed `bool` base follows
+boolean assignment, increment, and decrement.
+
+The fixed `__int128` fixture checks an implicit successor, a static
+initializer, a function result, and a switch whose case values differ
+only in the high word. The analyzer allocates the extra word only for
+an enumerator that needs it. The three positive PA38 fixtures execute
+at `-O0` and `-O2` on both Linux architectures, both Mach-O targets,
+WASI, and bare Wasm. AArch64 Linux uses QEMU and Darwin uses local
+Mach-O loaders. Optimized LowIR rebuilt with optimization disabled
+produces byte-identical objects to the direct compile on all six
+targets. A Linux x86-64 mixed-object probe passes `__int128`-based
+enums through GCC and cppgm callers and callees in both directions.
+
+The pinned GCC and Clang C23 jobs now include five source files for
+member types, range diagnostics, fixed qualifiers, and fixed-enum
+runtime behavior. GCC's runtime case also covers pointer and
+`nullptr` conversions to a `bool`-based enum. Clang 22 rejects those
+implicit conversions in the local PA38 probe.
+
+All 11,674 strict course tests, 1,153 local C clause probes, 61 pinned
+GCC C23 configurations, and 21 pinned Clang C23 configurations pass.
+The earlier-edition upstream cohorts retain 135 passing configurations
+and one recorded Clang C17 gap.
+PA38 passes 647 native cases, 647 Wasm cases with the optimized LowIR
+check enabled, 63 controls, and four ABI cases. The debug-info and PA36
+smoke suites and the harness checks pass. PA35 passes through PA5, and inception reproduces the
+compiler byte for byte. The placement audit scanned 11,649 fixtures with
+zero placement or local hygiene findings. Its cached directory listings
+produce the same PA38 report as the direct audit. The student export
+verifies 26,880 portable reference outputs. The exported PA1 and PA38
+suites pass with the packaged reference binaries.
+
+Compatible same-scope tag definitions remain uncovered. The minimal
+reordered enum definition passes strict C23 in GCC and Clang and is
+diagnosed as a redefinition by cppgm. The pinned Clang N3037 corpus
+also reaches a compatible `struct` definition that cppgm rejects. A
+local repeat of a self-referential record definition confirms the gap.
+WG14 issue 1130 remains open for the transient type in a redeclared
+enumerator.
+[WG14 rules and issues](../doc/c-conformance-notes.md#c23-enumeration-members-and-fixed-bases) ·
+[PA38 member types](../pa38/tests/general/300-c23-enum-values.t) ·
+[PA38 fixed 128-bit enum](../pa38/tests/general/300-c23-enum-fixed-wide.t) ·
+[Compile measurements](../docs/performance/c-frontend-scaling.md#c23-enumeration-members)
 
 ## C23 bit-precise integers
 

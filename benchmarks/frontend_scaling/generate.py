@@ -226,6 +226,14 @@ def c_designated_sparse(size):
     print(f'_Static_assert(sizeof table == {size}, "completed bound");')
 
 
+def c23_enum_members(size, wide):
+    base = 1 << 42 if wide else 0
+    suffix = 'ULL' if wide else ''
+    values = [f'e{index} = {base + index}{suffix}' for index in range(size)]
+    print('enum Values {\n    ' + ',\n    '.join(values) + '\n};')
+    print(f'int main(void) {{ enum Values value = e{size - 1}; return value != {base + size - 1}ULL; }}')
+
+
 def c23_constexpr_snapshots(size, addresses):
     print(SNAPSHOT_TYPES)
     print('constexpr struct Box old0 = { .record.cells[1 ... 8].first = 1, '
@@ -332,6 +340,7 @@ def main():
                                         'c-inferred-object-declarations', 'c-explicit-object-declarations',
                                         'c-vla-dimensions', 'c-vla-extent-uses',
                                         'c-typeof-shared-bounds', 'c-designated-overwrites', 'c-designated-sparse',
+                                        'c23-enum-members', 'c23-enum-wide-members',
                                         'c23-constexpr-masked-snapshots', *SNAPSHOT_ORDERS, *EDITIONS])
     parser.add_argument('size', type=int)
     args = parser.parse_args()
@@ -442,6 +451,9 @@ def main():
         return
     if args.case == 'c-designated-sparse':
         c_designated_sparse(args.size)
+        return
+    if args.case in ('c23-enum-members', 'c23-enum-wide-members'):
+        c23_enum_members(args.size, wide=args.case == 'c23-enum-wide-members')
         return
     if args.case in SNAPSHOT_ORDERS:
         c23_constexpr_snapshots(args.size, SNAPSHOT_ORDERS[args.case])

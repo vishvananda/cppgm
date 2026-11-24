@@ -164,6 +164,12 @@ the final value. Measure 128 through 2048 entries by successive doublings.
 length from 16,384 through 131,072. Measure C17 syntax-only for both inputs
 to isolate the cost of analyzing the written initializers.
 
+`c23-enum-members` grows an enum whose values fit `int`.
+`c23-enum-wide-members` starts the values above the `int` range.
+Measure from 128 to 8,192 members in C23 mode with `-O0 -c`.
+For a baseline that supports wide enums only as a GNU extension, compile
+the same wide input in GNU23 and compare the objects byte for byte.
+
 `c23-constexpr-snapshots` and `c23-constexpr-snapshots-reverse` demand the
 addresses of every version in a chain of copied records, in declaration
 order and in reverse. Each update alternates overlapping range writes and

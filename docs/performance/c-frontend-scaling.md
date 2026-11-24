@@ -3504,3 +3504,35 @@ in every observation. Task-clock A/A spreads were 14.47% and 22.48%.
 | --- | ---: | ---: | ---: |
 | C++ `semantic_overload.cpp` at `-O3` | 0.00473% | +0.00059% | +0.00122% |
 | SQLite 3.50.4 in GNU17 at `-O2` | 0.00385% | −0.00079% | −0.00113% |
+
+## C23 enumeration members
+
+Compared immutable GCC 15 builds of `e94ea5241` and `ffed130e0` on
+x86-64 Linux. The small-member series uses strict C23 on both sides.
+For members starting at `1ULL << 42`, the baseline uses GNU23 and the
+candidate uses strict C23. Each observation used `-O0 -c` on CPU 73.
+Every corresponding object is byte-identical. Values below are
+retired instructions in ABBA order, averaged per arm.
+[Scaling inputs](../../benchmarks/frontend_scaling/README.md)
+
+| Members | Small baseline | Small candidate | Wide baseline | Wide candidate |
+| ---: | ---: | ---: | ---: | ---: |
+| 128 | 4,701,302 | 4,705,734 | 4,845,590 | 4,866,846 |
+| 512 | 6,828,082 | 6,845,239 | 7,465,816 | 7,457,402 |
+| 2,048 | 15,377,462 | 15,445,276 | 17,913,090 | 17,789,368 |
+| 8,192 | 51,878,636 | 52,149,136 | 61,856,654 | 61,272,250 |
+
+At 8,192 members, the small input uses 0.52% more instructions and the
+wide input uses 0.94% fewer. The increments across the size series
+grow with the number of members. Range selection reads only the extrema
+of the evaluated values. Narrow enums keep the member types assigned
+during their definition.
+
+The frozen inputs on CPU 71 produced byte-identical objects in each
+observation. The task-clock A/A spreads were 12.20% for C++ and 2.35%
+for SQLite. The table reports hardware instruction counts.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.00213% | +0.00087% | −0.00108% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.00121% | +0.00469% | −0.00050% |
