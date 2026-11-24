@@ -86,7 +86,7 @@ class CoverageTests(unittest.TestCase):
 
     def test_library_runtime_applicability(self):
         names = ('stdarg', 'stddef', 'stdio', 'string', 'stdlib', 'inttypes', 'wchar', 'stdatomic', 'uchar',
-                 'complex', 'fenv')
+                 'complex', 'fenv', 'math')
         checked = {name: {'include': 'usable'} for name in names}
         versions = {name: dict(status, version='current') for name, status in checked.items()}
 
@@ -101,6 +101,7 @@ class CoverageTests(unittest.TestCase):
         self.assertIn('library.c23-binary-stdio', selected(self.native, 23))
         self.assertEqual(selected(self.native, 23)['library.c23-complex-interfaces'], ('-lm',))
         self.assertEqual(selected(self.native, 23)['library.c23-fenv-interfaces'], ('-lm',))
+        self.assertEqual(selected(self.native, 23)['library.c23-math-representation'], ('-lm',))
         self.assertEqual(selected(self.native, 23)['library.c23-atomic-interfaces'], ('-latomic',))
         self.assertIn('library.c23-stdlib-interfaces', selected(self.native, 23))
         self.assertIn('library.c23-wide-searches', selected(self.native, 23))
@@ -120,6 +121,7 @@ class CoverageTests(unittest.TestCase):
         self.assertIn('library.stdio-temporary', supplemented)
         self.assertIn('library.c23-memalignment', supplemented)
         self.assertIn('library.c23-binary-conversion', supplemented)
+        self.assertEqual(supplemented['library.c23-math-representation'], ())
         self.assertNotIn('library.c23-binary-stdio', supplemented)
         stdio_versions = {**checked, 'stdio': versions['stdio'], 'inttypes': versions['inttypes']}
         stdio_current = selected('wasi-c23-hosted', 23, c23=stdio_versions)
@@ -131,6 +133,7 @@ class CoverageTests(unittest.TestCase):
         self.assertNotIn('library.c23-binary-stdio', selected('wasi-hosted', 23, c23=checked))
         self.assertNotIn('library.c23-binary-conversion', selected('wasi-hosted', 23, c23=checked))
         self.assertNotIn('library.c23-memalignment', selected('wasi-hosted', 23, c23=checked))
+        self.assertNotIn('library.c23-math-representation', selected('wasi-hosted', 23, c23=checked))
 
     def test_wasi_supplement_has_only_c23_receipts(self):
         profile = 'wasi-c23-hosted'

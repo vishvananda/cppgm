@@ -7,14 +7,15 @@ WASI_SYSROOT ?= $(abspath $(RESOURCE_DIR)/../../../share/wasi-sysroot)
 
 SHARED := ../wasm-freestanding
 SHARED_HEADERS := __cppgm_search_result.h float.h limits.h stdarg.h stdbit.h stddef.h stdlib.h string.h
-LOCAL_HEADERS := assert.h complex.h fenv.h inttypes.h setjmp.h stdatomic.h stdint.h stdio.h time.h uchar.h wchar.h
+LOCAL_HEADERS := assert.h complex.h fenv.h inttypes.h math.h setjmp.h stdatomic.h stdint.h stdio.h time.h uchar.h wchar.h
 NOTICES := $(patsubst $(SHARED)/licenses/%,$(BUILD_DIR)/licenses/%,$(wildcard $(SHARED)/licenses/*.txt))
 HEADERS := $(addprefix $(BUILD_DIR)/include/,$(SHARED_HEADERS) $(LOCAL_HEADERS))
 STDIO_SOURCES := printf scanf wprintf wscanf scan_integer vfprintf vfwprintf vfscanf vfwscanf \
 	vsnprintf vswprintf vsscanf vswscanf
 STDIO_OBJECTS := $(addprefix $(BUILD_DIR)/stdio/,$(addsuffix .o,$(STDIO_SOURCES)))
 OBJECTS := $(addprefix $(BUILD_DIR)/,stdbit.o memalignment.o memset_explicit.o timespec_getres.o utf8.o \
-	binary_conversion.o sized_free.o atomic_functions.o call_once.o strfrom.o fenv.o temporary_files.o) $(STDIO_OBJECTS)
+	binary_conversion.o sized_free.o atomic_functions.o call_once.o strfrom.o fenv.o temporary_files.o \
+	math_representation.o) $(STDIO_OBJECTS)
 RUNTIME_CFLAGS := --target=wasm32-wasip1 --sysroot="$(WASI_SYSROOT)" -resource-dir="$(RESOURCE_DIR)" \
 	-x c -std=c23 -pedantic-errors -isystem "$(BUILD_DIR)/include" -O2
 

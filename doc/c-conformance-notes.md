@@ -1651,6 +1651,14 @@ round to nearest. Compiler qualification still needs the scoped
 conversions, operations, and selected library macros.
 [C23 N3096 §§7.6, 7.6.2, 7.6.4, 7.6.5](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
 
+The `nextup` and `nextdown` families step to the adjacent representable
+value in the requested direction. The WASI implementations use the SDK's
+`nextafter` functions and preserve signed zero when stepping from the
+smallest subnormals. The `llogb` families return a `long` exponent or
+the specified sentinel for zero, infinity, or NaN. WASI's equal `int`
+and `long` ranges allow them to use the existing `ilogb` operations.
+[C23 N3096 §§7.12.6.10, 7.12.11.5–6](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+
 The C23 wide-character searches preserve const qualification on their
 result elements. Their concrete functions retain mutable result pointer
 types when the macros are suppressed. `<wchar.h>` supplies `WCHAR_WIDTH`
