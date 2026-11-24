@@ -814,7 +814,7 @@ void FunctionEmitter::eh(const Inst& inst)
 		if (function_->eh_records_pushed)
 		{
 			asm_.alu_ri(5, RM::r(RSP), kEhRecordBytes, 8); // sub rsp, record
-			asm_.mov_rr(R11, RSP);
+			asm_.mov_store(RM::r(R11), RSP, 8);
 		}
 		else
 			asm_.lea(R11, RM::m(RBP, static_cast<int32_t>(inst.aux2)));

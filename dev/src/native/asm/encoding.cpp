@@ -108,7 +108,7 @@ void integer(Assembler& out, const assembly::Instruction& inst, const Form& form
 				out.imm(value, immediate);
 			}
 		}
-		else if (dst.kind == OperandKind::Register)
+		else if (dst.kind == OperandKind::Register && src.kind != OperandKind::Register)
 			out.op(prefix, wide, bits == 8 ? 0x8a : 0x8b, 1, physical(dst.reg, inst), rm(src, inst), byte_regs);
 		else
 			out.op(prefix, wide, bits == 8 ? 0x88 : 0x89, 1, physical(src.reg, inst), rm(dst, inst), byte_regs);

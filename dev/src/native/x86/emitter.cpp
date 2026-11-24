@@ -1071,7 +1071,8 @@ void FunctionEmitter::prologue(const Function& function)
 	{
 		asm_.push(RBP);
 		unwind_.push_end = asm_.size() - base;
-		asm_.mov_rr(RBP, RSP);
+		// Use the register-store encoding that static stack analysers track.
+		asm_.mov_store(RM::r(RBP), RSP, 8);
 		unwind_.frame_end = asm_.size() - base;
 		// The callee-saved registers fill the frame's bottom
 		// (preserve_offset = -stack_size, rbx lowest): the rest is reserved,
@@ -1738,10 +1739,10 @@ void FunctionEmitter::instruction(const Function& function, const Inst& inst, ui
 		asm_.sse(0, 0xae, inst.op == Op::ReadMxcsr ? Reg(3) : Reg(2), rm(a));
 		break;
 	case Op::StackSave:
-		asm_.mov_rr(a.reg, RSP);
+		asm_.mov_store(RM::r(a.reg), RSP, 8);
 		break;
 	case Op::StackRestore:
-		asm_.mov_rr(RSP, a.reg);
+		asm_.mov_store(RM::r(RSP), a.reg, 8);
 		break;
 	case Op::StackAlloc:
 		if (b.kind == OperandKind::Imm)
@@ -1754,7 +1755,7 @@ void FunctionEmitter::instruction(const Function& function, const Inst& inst, ui
 			asm_.alu_ri(4, RM::r(s), -16, 8);
 			asm_.alu_rr(5, RSP, RM::r(s), 8);
 		}
-		asm_.mov_rr(a.reg, RSP);
+		asm_.mov_store(RM::r(a.reg), RSP, 8);
 		break;
 	case Op::EhPush:
 	case Op::EhPop:
