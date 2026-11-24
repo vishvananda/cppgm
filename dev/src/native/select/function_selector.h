@@ -40,6 +40,7 @@ public:
 	void set_eh_model(EhModel model) { eh_model_ = model; }
 	void set_position_independent(bool enabled) { position_independent_ = enabled; }
 	void set_target(Target target) { assembly_target_ = target; }
+	void set_sse2(bool enabled) { sse2_ = enabled; }
 	void set_optimization_level(int level) { level_ = level; }
 
 	// ---- analysis.cpp

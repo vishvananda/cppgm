@@ -662,7 +662,7 @@ bool finish_loops(FunctionContext& context, const OptimizerOptions& options)
 	// O3: loops in lanes, then what their guards and exits leave.
 	if (level >= 3)
 		changed = RUN_PASS(mark_unsigned_ranges) || changed;
-	if (level >= 3 && copies && RUN_PASS(vectorize_loops))
+	if (level >= 3 && copies && options.vectorize && RUN_PASS(vectorize_loops))
 	{
 		RUN_PASS(simplify_values);
 		RUN_PASS(cleanup_cfg);
@@ -817,7 +817,7 @@ void finish_function(Program& program, SymbolId symbol, OptimizerStats& stats, c
 		RUN_PASS(hoist_loop_invariants);
 		changed = true;
 	}
-	if (options.level >= 3 && RUN_PASS(pack_block_lanes))
+	if (options.level >= 3 && options.vectorize && RUN_PASS(pack_block_lanes))
 	{
 		RUN_PASS(simplify_values);
 		RUN_PASS(remove_dead_code);

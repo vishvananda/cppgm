@@ -87,6 +87,8 @@ struct PreprocessorOptions
 	// from the explicitly signed and unsigned character types.
 	bool plain_char_unsigned = false;
 	bool short_wchar = false;
+	bool sse = true;
+	bool sse2 = true;
 	bool popcnt = false;   // explicit -mpopcnt target capability
 	uint8_t sse_level = 0; // beyond SSE2: SSE3, SSSE3, SSE4.1, SSE4.2
 	std::vector<std::string> system_include_paths;

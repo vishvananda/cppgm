@@ -1,6 +1,7 @@
 #include "native/x86/emitter.h"
 
 #include "native/target.h"
+#include "native/backend_error.h"
 #include "native/asm/binding.h"
 #include "native/asm/encoding.h"
 #include "native/asm/mask_forms.h"
@@ -365,8 +366,68 @@ void FunctionEmitter::relax_branches(const Function& function)
 	}
 }
 
+namespace {
+
+bool sse_value(TypeKind type)
+{
+	return type == TypeKind::F32 || type == TypeKind::F64 || type == TypeKind::V128;
+}
+
+bool sse_operation(const Function& function, const Inst& inst)
+{
+	if (sse_value(inst.type) || sse_value(inst.type2))
+		return true;
+	switch (inst.op)
+	{
+	case Op::ReadMxcsr:
+	case Op::WriteMxcsr:
+	case Op::Vector:
+		return true;
+	case Op::Call:
+	case Op::TailJump:
+		return (inst.aux >> XMM0) != 0;
+	case Op::Asm:
+		// Only compiler-generated transfers of C operands go here.
+		return function.assembly->plans[static_cast<uint32_t>(inst.ops[0].imm)]->transfer_bytes != 0;
+	case Op::VaArg:
+		if (inst.type == TypeKind::I128)
+			return true;
+		if (inst.type == TypeKind::Obj && !(inst.sub & lowir::OC_MEMORY))
+			return lowir::eightbyte_class(inst.sub, 0) == lowir::EB_SSE ||
+				lowir::eightbyte_class(inst.sub, 1) == lowir::EB_SSE;
+		break;
+	default:
+		break;
+	}
+	for (unsigned k = 0; k < inst.nops; ++k)
+		if (inst.ops[k].kind == OperandKind::Reg && is_xmm(inst.ops[k].reg))
+			return true;
+	return false;
+}
+
+void check_float_options(const Function& function, X86FloatOptions options)
+{
+	if (!options.sse2)
+		for (const AbiPart& part : function.parts)
+			if (is_xmm(part.reg))
+				throw BackendError("an x86 parameter requires SSE2 in the native backend");
+	for (const Inst& inst : function.insts)
+	{
+		if (!options.x87_return && (inst.op == Op::FRet || inst.op == Op::FStp))
+			throw BackendError("an x86 return requires the x87 return convention");
+		if (!options.x87 && (inst.type == TypeKind::F80 || inst.type2 == TypeKind::F80))
+			throw BackendError("an x86 operation requires x87");
+		if (!options.sse2 && sse_operation(function, inst))
+			throw BackendError("an x86 operation requires SSE2 in the native backend");
+	}
+}
+
+} // namespace
+
 void FunctionEmitter::emit(const Function& function)
 {
+	if (!float_options_.sse2 || !float_options_.x87 || !float_options_.x87_return)
+		check_float_options(function, float_options_);
 	function_ = &function;
 	bulk_ = kNoReg;
 	calls_out_ = function.omit_frame_pointer && calls_out(function, image_.target);

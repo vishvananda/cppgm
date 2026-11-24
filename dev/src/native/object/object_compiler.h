@@ -91,7 +91,7 @@ class ObjectBuilder : public lowir::DefinitionSink
 public:
 	ObjectBuilder(lowir::Program& program, ObjectStats& stats, EhModel eh_model = EhModel::Course,
 		int optimization_level = 0, bool position_independent = false, Target target = Target::Linux,
-		bool red_zone = true, bool function_sections = false);
+		bool red_zone = true, bool function_sections = false, X86FloatOptions float_options = X86FloatOptions());
 	~ObjectBuilder();
 
 	ObjectBuilder(const ObjectBuilder&) = delete;
@@ -120,6 +120,7 @@ void recover_jump_thunks(lowir::Program& program, EhModel eh_model);
 // propagates.
 bool compile_object(lowir::Program& program, object::ObjectFile& out, std::string& error, ObjectStats* stats,
 	EhModel eh_model = EhModel::Course, int optimization_level = 0, bool position_independent = false,
-	Target target = Target::Linux, bool red_zone = true, bool function_sections = false);
+	Target target = Target::Linux, bool red_zone = true, bool function_sections = false,
+	X86FloatOptions float_options = X86FloatOptions());
 
 } // namespace native

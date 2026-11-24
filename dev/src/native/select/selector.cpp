@@ -37,6 +37,11 @@ void Selector::set_target(Target target)
 	state_->set_target(target);
 }
 
+void Selector::set_sse2(bool enabled)
+{
+	state_->set_sse2(enabled);
+}
+
 void Selector::set_optimization_level(int level)
 {
 	state_->set_optimization_level(level);

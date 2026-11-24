@@ -108,6 +108,15 @@ struct EmitStats
 	telemetry::Counter scratch_carried_reloads = 0;
 };
 
+// Restrictions on compiler-generated XMM and x87 use; user assembly
+// encodes its explicitly written instructions under either policy.
+struct X86FloatOptions
+{
+	bool sse2 = true; // the compiler's XMM path uses the SSE2 instruction set
+	bool x87 = true;
+	bool x87_return = true;
+};
+
 class FunctionEmitter
 {
 public:
@@ -120,6 +129,7 @@ public:
 	// model records each function's unwind facts.
 	void set_eh_model(EhModel model) { eh_model_ = model; }
 	void set_red_zone(bool enabled) { red_zone_ = enabled; }
+	void set_float_options(X86FloatOptions options) { float_options_ = options; }
 	const UnwindFacts& unwind() const { return unwind_; }
 	const std::vector<CodeLocation>& locations() const { return locations_; }
 	// The last function's frame displacements relative to its CFA: a
@@ -201,6 +211,7 @@ private:
 	uint64_t base_ = 0;
 	EhModel eh_model_ = EhModel::Course;
 	bool red_zone_ = true;
+	X86FloatOptions float_options_;
 	UnwindFacts unwind_;
 	uint32_t terminal_ = 0;      // the host resume terminal's label
 	bool dynamic_stack_ = false; // RSP moves (stack_alloc, pushed EH records)

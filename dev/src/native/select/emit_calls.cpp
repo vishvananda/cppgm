@@ -368,13 +368,15 @@ void FunctionSelector::emit_entry()
 	}
 	if (out_->variadic)
 	{
-		va_save_area_ = frame_alloc(176, 16);
+		const uint32_t save_bytes = sse2_ ? 176 : 48;
+		const uint32_t save_align = sse2_ ? 4 : 3;
+		va_save_area_ = frame_alloc(save_bytes, 1u << save_align);
 		FrameBinding binding;
 		binding.kind = BindingKind::Temp;
 		binding.name = 0;
 		binding.label = "va-register-save";
 		binding.offset = va_save_area_;
-		binding.type = Type::object(176, 4);
+		binding.type = Type::object(save_bytes, save_align);
 		out_->bindings.push_back(binding);
 		for (unsigned k = 0; k < 6; ++k)
 			emit2(Op::Store, TypeKind::I64, Operand::make_frame(va_save_area_ + 8 * static_cast<int32_t>(k)),
@@ -382,11 +384,12 @@ void FunctionSelector::emit_entry()
 		// Whole XMM registers (psABI 3.5.7, Figure 3.33): a binary128 or
 		// 16-byte vector argument's SSEUP half is read from the save area
 		// by any function the va_list reaches, not only by this one.
-		for (unsigned k = 0; k < 8; ++k)
-			emit2(Op::FMov, TypeKind::I128, Operand::make_frame(va_save_area_ + 48 + 16 * static_cast<int32_t>(k)),
-				Operand::make_reg(static_cast<Reg>(XMM0 + k)));
+		if (sse2_)
+			for (unsigned k = 0; k < 8; ++k)
+				emit2(Op::FMov, TypeKind::I128, Operand::make_frame(va_save_area_ + 48 + 16 * static_cast<int32_t>(k)),
+					Operand::make_reg(static_cast<Reg>(XMM0 + k)));
 		named_gprs_ = layout.gprs;
-		named_xmms_ = layout.xmms;
+		named_xmms_ = sse2_ ? layout.xmms : 8;
 		named_stack_ = layout.stack_bytes;
 	}
 	if (eh_model_ == EhModel::Host)
@@ -976,8 +979,8 @@ void FunctionSelector::emit_call(uint32_t id)
 	// byte loop; host objects call the C library's vectorized strlen,
 	// where the probe ran 22% slower on 16-47 byte strings (and 28% faster
 	// on short ones), so they keep the plain call.
-	if (level_ >= 1 && eh_model_ == EhModel::Course && cell == kNoId && callee.kind == ValueKind::Symbol && !variadic &&
-		inst.extra_count == 1 && sig->parameter_count == 1 && params[0].type.is_pointer() &&
+	if (level_ >= 1 && eh_model_ == EhModel::Course && sse2_ && cell == kNoId && callee.kind == ValueKind::Symbol &&
+		!variadic && inst.extra_count == 1 && sig->parameter_count == 1 && params[0].type.is_pointer() &&
 		params[0].pass == ir_model::PPM_DIRECT && sig->result.kind() == TypeKind::I64 && !(call.flags & MF_NORETURN) &&
 		layout.stack_bytes == 0 && program_.strlen_function(callee.index) &&
 		machine::valid_builtin_boundary(*sig, params, inst.extra_count,

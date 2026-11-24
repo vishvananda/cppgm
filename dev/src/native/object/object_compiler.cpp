@@ -108,7 +108,7 @@ class ObjectCompiler
 {
 public:
 	ObjectCompiler(lowir::Program& program, ObjectStats& stats, EhModel eh_model, int optimization_level,
-		bool position_independent, Target target, bool red_zone, bool function_sections);
+		bool position_independent, Target target, bool red_zone, bool function_sections, X86FloatOptions float_options);
 
 	// Selects and encodes one function definition.
 	void function(lowir::SymbolId symbol);
@@ -230,7 +230,7 @@ private:
 };
 
 ObjectCompiler::ObjectCompiler(lowir::Program& program, ObjectStats& stats, EhModel eh_model, int optimization_level,
-	bool position_independent, Target target, bool red_zone, bool function_sections)
+	bool position_independent, Target target, bool red_zone, bool function_sections, X86FloatOptions float_options)
 	: program_(program), stats_(stats), selector_(program), emitter_(image_, runtime_, stats.emit),
 	  share_entries_(optimization_level >= 1), eh_model_(eh_model), position_independent_(position_independent),
 	  function_sections_(function_sections && target == Target::Linux),
@@ -243,6 +243,8 @@ ObjectCompiler::ObjectCompiler(lowir::Program& program, ObjectStats& stats, EhMo
 	selector_.set_optimization_level(optimization_level);
 	emitter_.set_eh_model(eh_model);
 	emitter_.set_red_zone(red_zone);
+	emitter_.set_float_options(float_options);
+	selector_.set_sse2(float_options.sse2);
 	for (unsigned k = 0; k < kHostBuiltinCount; ++k)
 		host_builtins_[k] = std::make_pair(0u, 0u);
 	declare_symbols();
@@ -1407,9 +1409,9 @@ void ObjectCompiler::finish(ObjectFile& out)
 }
 
 ObjectBuilder::ObjectBuilder(lowir::Program& program, ObjectStats& stats, EhModel eh_model, int optimization_level,
-	bool position_independent, Target target, bool red_zone, bool function_sections)
-	: compiler_(new ObjectCompiler(
-		  program, stats, eh_model, optimization_level, position_independent, target, red_zone, function_sections))
+	bool position_independent, Target target, bool red_zone, bool function_sections, X86FloatOptions float_options)
+	: compiler_(new ObjectCompiler(program, stats, eh_model, optimization_level, position_independent, target, red_zone,
+		  function_sections, float_options))
 {}
 
 ObjectBuilder::~ObjectBuilder()
@@ -1542,7 +1544,7 @@ void recover_jump_thunks(lowir::Program& program, EhModel eh_model)
 
 bool compile_object(lowir::Program& program, object::ObjectFile& out, std::string& error, ObjectStats* stats,
 	EhModel eh_model, int optimization_level, bool position_independent, Target target, bool red_zone,
-	bool function_sections)
+	bool function_sections, X86FloatOptions float_options)
 {
 	if (target_model::describe(target).architecture != target_model::Architecture::X86_64 ||
 		target_model::describe(program.target).architecture != target_model::Architecture::X86_64)
@@ -1554,7 +1556,7 @@ bool compile_object(lowir::Program& program, object::ObjectFile& out, std::strin
 	try
 	{
 		ObjectBuilder builder(program, stats != nullptr ? *stats : local, eh_model, optimization_level,
-			position_independent, target, red_zone, function_sections);
+			position_independent, target, red_zone, function_sections, float_options);
 		builder.finish(out);
 	}
 	catch (const BackendError& e)

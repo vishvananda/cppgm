@@ -109,6 +109,14 @@ Not yet required here:
   `-dumpversion`, and `-print-search-dirs`
 - static archives and shared libraries as link inputs
 
+For x86-64 freestanding code, accept `-mno-sse`, `-mno-sse2`,
+`-mno-80387` and `-mno-fp-ret-in-387`. Remove disabled SSE feature macros.
+Use integer registers for integer code, including compiler-generated memory
+copies, clearing and variadic argument handling. If a function needs an
+operation or return convention disabled by these options, diagnose it.
+Explicit assembly instructions may still access the processor's floating-point
+state under the program's own management.
+
 ### Command-Line Contract
 
 Required compile forms:

@@ -86,6 +86,7 @@ public:
 	void set_eh_model(EhModel model);
 	void set_position_independent(bool enabled);
 	void set_target(Target target);
+	void set_sse2(bool enabled);
 	// The optimization level of the functions selected from now on (0
 	// unless set): O1 and above lay out branches in the MIR itself
 	// (branch_layout.cpp), select the builtin strlen call prefix

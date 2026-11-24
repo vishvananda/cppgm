@@ -109,6 +109,7 @@ struct SelectorState
 	// Target-independent handler/action facts and reused analysis storage.
 	EhModel eh_model_ = EhModel::Course;
 	bool position_independent_ = false;
+	bool sse2_ = true;
 	int level_ = 0;
 	machine::ExceptionAnalysis eh_;
 	std::vector<uint32_t> pad_mir_, select_mir_;

@@ -281,6 +281,10 @@ struct Invocation
 	bool lowir_passes = true;
 	bool position_independent = false;
 	bool red_zone = true;
+	native::X86FloatOptions x86_float;
+	bool x86_float_explicit = false;
+	bool disable_sse2 = false;
+	bool disable_mmx = false;
 	FloatContract float_contract = FloatContract::Off;
 	bool fixed_x18 = false;
 	// -ffunction-sections: each function in a section of its own.
@@ -427,6 +431,71 @@ bool parse_include_option(const std::vector<std::string>& args, size_t& i, Prepr
 	return true;
 }
 
+bool x86_float_option(const std::string& arg, Invocation& invocation)
+{
+	PreprocessorOptions& preprocessor = invocation.preprocessor;
+	if (arg == "-mno-sse")
+	{
+		preprocessor.sse = preprocessor.sse2 = false;
+		preprocessor.sse_level = 0;
+	}
+	else if (arg == "-mno-sse2")
+	{
+		invocation.disable_sse2 = true;
+		preprocessor.sse2 = false;
+		preprocessor.sse_level = 0;
+	}
+	else if (arg == "-msse")
+	{
+		preprocessor.sse = true;
+		preprocessor.sse2 = !invocation.disable_sse2;
+	}
+	else if (arg == "-msse2")
+	{
+		invocation.disable_sse2 = false;
+		preprocessor.sse = preprocessor.sse2 = true;
+	}
+	else if (arg == "-mno-80387" || arg == "-mno-x87" || arg == "-m80387" || arg == "-mx87" || arg == "-mhard-float")
+		invocation.x86_float.x87 = arg == "-m80387" || arg == "-mx87" || arg == "-mhard-float";
+	else if (arg == "-mno-fp-ret-in-387" || arg == "-mfp-ret-in-387")
+		invocation.x86_float.x87_return = arg == "-mfp-ret-in-387";
+	else if (arg == "-mno-mmx" || arg == "-mmmx")
+		invocation.disable_mmx = arg == "-mno-mmx";
+	else if (sse_option(arg, preprocessor.sse_level))
+	{
+		if (preprocessor.sse_level != 0)
+		{
+			invocation.disable_sse2 = false;
+			preprocessor.sse = preprocessor.sse2 = true;
+		}
+	}
+	else
+		return false;
+	invocation.x86_float_explicit = true;
+	return true;
+}
+
+void configure_x86_float_options(Invocation& invocation)
+{
+	if (!invocation.x86_float_explicit)
+		return;
+	if (target_model::describe(invocation.target).architecture != target_model::Architecture::X86_64)
+		throw InvocationError("x86 floating-point options require an x86-64 target");
+	PreprocessorOptions& preprocessor = invocation.preprocessor;
+	invocation.x86_float.sse2 = preprocessor.sse2;
+	invocation.optimizer.vectorize = preprocessor.sse2;
+	std::string macros;
+	if (!invocation.x86_float.x87)
+		macros += "#define _SOFT_FLOAT 1\n";
+	if (!preprocessor.sse2)
+		macros += "#undef __SSE2_MATH__\n";
+	if (!preprocessor.sse)
+		macros += "#undef __SSE_MATH__\n";
+	if (invocation.disable_mmx)
+		macros += "#undef __MMX__\n";
+	preprocessor.command_line.insert(0, macros);
+}
+
 // GCC flags that change the program's types, layout, ABI or observable
 // behavior, which this compiler does not honor: refused rather than
 // accepted with another meaning (README: build-system flags are honored or
@@ -435,11 +504,10 @@ bool refused_flag(const std::string& arg)
 {
 	static const char* const kRefused[] = { "-fshort-enums", "-fpack-struct", "-funsigned-bitfields",
 		"-fno-signed-bitfields", "-fno-elide-constructors", "-m32", "-mx32", "-m16", "-mlong-double-64",
-		"-mlong-double-128", "-msoft-float", "-mno-sse", "-mno-sse2", "-mno-80387", "-mno-fp-ret-in-387",
-		"-mfpmath=387", "-fstack-protector", "-fstack-protector-strong", "-fstack-protector-all",
-		"-fstack-protector-explicit", "-fcf-protection", "-fcf-protection=branch", "-fcf-protection=return",
-		"-fcf-protection=full", "-ftrivial-auto-var-init=zero", "-ftrivial-auto-var-init=pattern",
-		"-fno-integrated-as" };
+		"-mlong-double-128", "-msoft-float", "-mfpmath=387", "-fstack-protector", "-fstack-protector-strong",
+		"-fstack-protector-all", "-fstack-protector-explicit", "-fcf-protection", "-fcf-protection=branch",
+		"-fcf-protection=return", "-fcf-protection=full", "-ftrivial-auto-var-init=zero",
+		"-ftrivial-auto-var-init=pattern", "-fno-integrated-as" };
 	for (const char* refused : kRefused)
 	{
 		if (arg == refused)
@@ -754,7 +822,7 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 			invocation.preprocessor.popcnt = arg == "-mpopcnt";
 			popcnt_explicit = true;
 		}
-		else if (sse_option(arg, invocation.preprocessor.sse_level))
+		else if (x86_float_option(arg, invocation))
 			continue;
 		else if (arg == "-fno-rtti" || arg == "-frtti")
 			invocation.preprocessor.modes.rtti = arg == "-frtti";
@@ -881,6 +949,7 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 	if (!popcnt_explicit)
 		invocation.preprocessor.popcnt = invocation.preprocessor.sse_level >= 4;
 	configure_mode_macros(invocation, optimize_size, pic_level, pie_level);
+	configure_x86_float_options(invocation);
 	// Preserve named objects and statement boundaries in the debugging level.
 	// Preprocessing still observes GCC's __OPTIMIZE__ for -Og.
 	if (invocation.debug_optimization && invocation.debug_types)
@@ -1070,7 +1139,8 @@ bool compile_native_sources(SourceInputs sources, const Invocation& invocation, 
 	std::unique_ptr<native::ObjectBuilder> builder;
 	if (!arm)
 		builder.reset(new native::ObjectBuilder(program, stats, eh_model, invocation.optimizer.level,
-			invocation.position_independent, invocation.target, invocation.red_zone, invocation.function_sections));
+			invocation.position_independent, invocation.target, invocation.red_zone, invocation.function_sections,
+			invocation.x86_float));
 	// At -O0 each definition is encoded (or written) as the lowering
 	// completes it; an optimizing level keeps the program until the
 	// optimizer has run.
@@ -1196,7 +1266,8 @@ bool compile_lowir_unit(const std::string& path, const Invocation& invocation, n
 		return true;
 	}
 	if (!native::compile_object(program, object, error, &stats, eh_model, invocation.optimizer.level,
-			invocation.position_independent, invocation.target, invocation.red_zone, invocation.function_sections))
+			invocation.position_independent, invocation.target, invocation.red_zone, invocation.function_sections,
+			invocation.x86_float))
 	{
 		std::cerr << "ERROR: " << path << ": " << error << std::endl;
 		return false;
