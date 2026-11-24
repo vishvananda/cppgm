@@ -1290,7 +1290,7 @@ bool FunctionLowering::creates_temporaries(
 				facts->category == sema::ValueCategory::PRValue && sema::ClassOf(facts->type) == nullptr;
 			if (!pruned || !unreachable_operand(*choice, *choice->else_expr))
 				work.push_back(choice->else_expr);
-			if (!pruned || !unreachable_operand(*choice, *choice->then_expr))
+			if (choice->then_expr != nullptr && (!pruned || !unreachable_operand(*choice, *choice->then_expr)))
 				work.push_back(choice->then_expr);
 			work.push_back(choice->condition);
 			break;

@@ -1215,7 +1215,8 @@ void AstDumper::operand(const Expr& expr)
 		const ConditionalExpr& conditional = static_cast<const ConditionalExpr&>(expr);
 		open("conditional-expression");
 		expression(*conditional.condition);
-		expression(*conditional.then_expr);
+		if (conditional.then_expr != nullptr)
+			expression(*conditional.then_expr);
 		expression(*conditional.else_expr);
 		close();
 		break;

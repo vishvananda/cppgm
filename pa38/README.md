@@ -423,6 +423,9 @@ The first fixture set covers these parts of the C17 input profile:
   selected in an unevaluated operand.
   [Clang overloadable declarations](https://clang.llvm.org/docs/AttributeReference.html#overloadable)
 - The GNU conditional expression with one void arm has type `void`.
+  In `value ?: fallback`, evaluate `value` once and use it as both the
+  condition and the value selected when it is nonzero. Apply the same
+  result conversions as for a conditional with both operands written.
   Evaluate the selected arm for effects and diagnose the extension under
   the pedantic policy.
 - C character and string literal types, including the compatible integer

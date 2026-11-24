@@ -638,7 +638,8 @@ void SyntaxRenderer::operand(const Expr& expr)
 		const ConditionalExpr& conditional = static_cast<const ConditionalExpr&>(expr);
 		expression(*conditional.condition);
 		text("?");
-		expression(*conditional.then_expr);
+		if (conditional.then_expr != nullptr)
+			expression(*conditional.then_expr);
 		text(":");
 		expression(*conditional.else_expr);
 		break;

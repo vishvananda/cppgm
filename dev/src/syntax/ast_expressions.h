@@ -219,7 +219,7 @@ struct BinaryExpr : Expr
 struct ConditionalExpr : Expr
 {
 	Expr* condition;
-	Expr* then_expr;
+	Expr* then_expr; // null in GNU C when the true value is the evaluated condition
 	Expr* else_expr;
 };
 

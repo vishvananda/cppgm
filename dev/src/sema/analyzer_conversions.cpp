@@ -944,10 +944,12 @@ bool Analyzer::folding_condition(const syntax::Expr& expr) const
 ExprFacts* Analyzer::conditional(const syntax::ConditionalExpr& expr, Scope* scope)
 {
 	// 5.16 for the scalar slice.
-	if (typed_value(*expr.condition, scope) == nullptr)
+	ExprFacts* condition = typed_value(*expr.condition, scope);
+	if (condition == nullptr)
 		return nullptr;
 	convert_to_bool(*expr.condition);
-	ExprFacts* second = typed_value(*expr.then_expr, scope);
+	const syntax::Expr& when_true = expr.then_expr != nullptr ? *expr.then_expr : *expr.condition;
+	ExprFacts* second = expr.then_expr != nullptr ? typed_value(when_true, scope) : condition;
 	ExprFacts* third = second != nullptr ? typed_value(*expr.else_expr, scope) : nullptr;
 	if (third == nullptr)
 		return nullptr;
@@ -962,11 +964,11 @@ ExprFacts* Analyzer::conditional(const syntax::ConditionalExpr& expr, Scope* sco
 		// bit-field included, designates the other operand); else a prvalue
 		// of the other's type after the lvalue-to-rvalue, array- and
 		// function-to-pointer conversions.
-		const bool throws2 = WithoutParentheses(expr.then_expr)->kind == syntax::ExprKind::Throw;
+		const bool throws2 = WithoutParentheses(&when_true)->kind == syntax::ExprKind::Throw;
 		const bool throws3 = WithoutParentheses(expr.else_expr)->kind == syntax::ExprKind::Throw;
 		if (throws2 != throws3 && !IsVoid(throws2 ? t3 : t2))
 		{
-			const syntax::Expr& other = throws2 ? *expr.else_expr : *expr.then_expr;
+			const syntax::Expr& other = throws2 ? *expr.else_expr : when_true;
 			ExprFacts* facts = throws2 ? third : second;
 			if (facts->category != ValueCategory::PRValue && facts->type->kind != TypeKind::Array &&
 				facts->type->kind != TypeKind::Function)
@@ -1018,7 +1020,7 @@ ExprFacts* Analyzer::conditional(const syntax::ConditionalExpr& expr, Scope* sco
 		const Type* type = (t2->cv & ~t3->cv) == 0 ? t3 : t2;
 		ClassEntity* cls = static_cast<ClassEntity*>(type->unqualified->entity);
 		expression_scope_ = scope;
-		record_copy(cls, type, *expr.then_expr, expr.then_expr->location, true);
+		record_copy(cls, type, when_true, when_true.location, true);
 		record_copy(cls, type, *expr.else_expr, expr.else_expr->location, true);
 		return new_facts(expr, type, ValueCategory::PRValue);
 	}
@@ -1040,7 +1042,7 @@ ExprFacts* Analyzer::conditional(const syntax::ConditionalExpr& expr, Scope* sco
 		type = composite_pointer(second, third);
 		if (type == nullptr && c_source_ &&
 			((a->kind == TypeKind::Pointer && note_c_null_constant(*expr.else_expr)) ||
-				(b->kind == TypeKind::Pointer && note_c_null_constant(*expr.then_expr))))
+				(b->kind == TypeKind::Pointer && note_c_null_constant(when_true))))
 			type = composite_pointer(second, third);
 	}
 	if (type == nullptr)
@@ -1048,7 +1050,7 @@ ExprFacts* Analyzer::conditional(const syntax::ConditionalExpr& expr, Scope* sco
 		substitution_error(expr.location, "incompatible operands of ?:");
 		return nullptr;
 	}
-	convert_operand(*expr.then_expr, type);
+	convert_operand(when_true, type);
 	convert_operand(*expr.else_expr, type);
 	return new_facts(expr, type, ValueCategory::PRValue);
 }

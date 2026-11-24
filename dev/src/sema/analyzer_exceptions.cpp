@@ -1263,7 +1263,8 @@ bool Analyzer::may_throw(const syntax::Expr& expr, uint32_t depth)
 	case syntax::ExprKind::Conditional:
 	{
 		const syntax::ConditionalExpr& choice = static_cast<const syntax::ConditionalExpr&>(*e);
-		return may_throw(*choice.condition, depth + 1) || may_throw(*choice.then_expr, depth + 1) ||
+		return may_throw(*choice.condition, depth + 1) ||
+			(choice.then_expr != nullptr && may_throw(*choice.then_expr, depth + 1)) ||
 			may_throw(*choice.else_expr, depth + 1);
 	}
 	case syntax::ExprKind::Subscript:

@@ -134,10 +134,15 @@ bool ConstantInterpreter::c_static_initializer_operands(const syntax::Expr& expr
 			pending.push_back(choice->condition);
 			bool truth = false;
 			if (!legacy_initializer && KnownBoundCondition(*choice->condition, truth))
-				pending.push_back(truth ? choice->then_expr : choice->else_expr);
+			{
+				const syntax::Expr* selected = truth ? choice->then_expr : choice->else_expr;
+				if (selected != nullptr)
+					pending.push_back(selected);
+			}
 			else
 			{
-				pending.push_back(choice->then_expr);
+				if (choice->then_expr != nullptr)
+					pending.push_back(choice->then_expr);
 				pending.push_back(choice->else_expr);
 			}
 			break;

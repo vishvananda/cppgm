@@ -611,10 +611,16 @@ bool ConstantEvaluator::conditional(const syntax::ConditionalExpr& expr, Constan
 	const syntax::Expr* selected = truth ? expr.then_expr : expr.else_expr;
 	const syntax::Expr* other = truth ? expr.else_expr : expr.then_expr;
 	Constant chosen, unchosen;
-	if (!eval(*selected, chosen))
+	if (selected == nullptr)
+		chosen = condition;
+	else if (!eval(*selected, chosen))
 		return false;
 	++skipping_;
-	const bool typed = eval(*other, unchosen);
+	bool typed = true;
+	if (other == nullptr)
+		unchosen = condition;
+	else
+		typed = eval(*other, unchosen);
 	--skipping_;
 	if (!typed)
 		return false;
@@ -624,8 +630,8 @@ bool ConstantEvaluator::conditional(const syntax::ConditionalExpr& expr, Constan
 		value = chosen;
 		return true;
 	}
-	check_integral(chosen, selected->location);
-	check_integral(unchosen, other->location);
+	check_integral(chosen, selected != nullptr ? selected->location : expr.condition->location);
+	check_integral(unchosen, other != nullptr ? other->location : expr.condition->location);
 	TypeTable& types = analyzer_.types_;
 	const Type* type = CommonType(types, PromotedType(types, chosen.type), PromotedType(types, unchosen.type));
 	value = Constant{ ConvertIntegral(chosen.bits, KindOf(type)), type };

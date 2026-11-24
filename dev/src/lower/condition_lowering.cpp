@@ -343,6 +343,19 @@ bool FunctionLowering::unreachable_operand(const syntax::ConditionalExpr& expr, 
 		(&operand == expr.else_expr && (flags & sema::kElseUnreachable) != 0);
 }
 
+RValue FunctionLowering::c_omitted_condition(const RValue& value, const sema::Type* type)
+{
+	if (sema::IsComplex(type))
+		return complex_truth(value, type);
+	const SoftFloat soft = value.type.is_object() ? SoftFloatOf(type) : SoftFloat::None;
+	if (soft != SoftFloat::None)
+		return soft_compare(lowir::ComparePredicate::Ne, soft, value, soft_zero(soft));
+	if (value.type.is_float())
+		return compare(lowir::ComparePredicate::Ne, value.type, value,
+			floating(value.type, lowir::float_literal(value.type.kind(), 0.0L)));
+	return value;
+}
+
 RValue FunctionLowering::conditional_value(const syntax::ConditionalExpr& expr)
 {
 	// 5.16 for a prvalue: each branch stores its converted operand in the
@@ -357,7 +370,8 @@ RValue FunctionLowering::conditional_value(const syntax::ConditionalExpr& expr)
 	const bool local = branch_local(expr);
 	// A nested level's condition is evaluated in its enclosing level's
 	// branch: its temporaries are guarded (12.2p3).
-	const bool guards = !local || continues_choice(*expr.then_expr) || continues_choice(*expr.else_expr);
+	const bool guards = !local || (expr.then_expr != nullptr && continues_choice(*expr.then_expr)) ||
+		continues_choice(*expr.else_expr);
 	if (guards)
 		begin_guard_scope();
 	for (;;)
@@ -375,12 +389,22 @@ RValue FunctionLowering::conditional_value(const syntax::ConditionalExpr& expr)
 		const bool nested = current != &expr;
 		if (nested)
 			++guarded_branches_;
-		const RValue condition = truth(*current->condition);
+		// GNU C's omitted operand uses the converted condition itself. Keep
+		// that value across the branch so volatile loads and calls occur once.
+		RValue first = {};
+		RValue condition = {};
+		if (current->then_expr != nullptr)
+			condition = truth(*current->condition);
+		else
+		{
+			first = fit(operand(*current->condition, ConversionContext::Operand), type);
+			condition = c_omitted_condition(first, type);
+		}
 		if (nested)
 			--guarded_branches_;
 		branch(condition, then_block, level.else_block, expected_branch(*current->condition));
 		place(then_block);
-		if (continues_choice(*current->then_expr))
+		if (current->then_expr != nullptr && continues_choice(*current->then_expr))
 		{
 			level.nested_then = true;
 			level.unreachable_nested = local && unreachable_operand(*current, *current->then_expr);
@@ -390,7 +414,10 @@ RValue FunctionLowering::conditional_value(const syntax::ConditionalExpr& expr)
 			continue;
 		}
 		const uint32_t opened = regions_opened_;
-		choice_operand(*current->then_expr, level);
+		if (current->then_expr == nullptr)
+			store(level.storage, first, level.slot);
+		else
+			choice_operand(*current->then_expr, level);
 		if (!terminated_)
 			jump(level.end);
 		place(level.else_block);
@@ -537,6 +564,11 @@ void FunctionLowering::conditional_discard(const syntax::ConditionalExpr& expr)
 	{
 		place(blocks[i]);
 		const size_t first = cleanups_.size();
+		if (operands[i] == nullptr)
+		{
+			jump(end);
+			continue;
+		}
 		const uint32_t unreachable = local && unreachable_operand(expr, *operands[i]) ? 1 : 0;
 		unreachable_operands_ += unreachable;
 		if (!local)

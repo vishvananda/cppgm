@@ -54,7 +54,8 @@ bool BFloatArithmeticIn(const syntax::Expr& expr, uint32_t depth)
 	case syntax::ExprKind::Conditional:
 	{
 		const syntax::ConditionalExpr* choice = static_cast<const syntax::ConditionalExpr*>(e);
-		return BFloatArithmeticIn(*choice->condition, depth + 1) || BFloatArithmeticIn(*choice->then_expr, depth + 1) ||
+		return BFloatArithmeticIn(*choice->condition, depth + 1) ||
+			(choice->then_expr != nullptr && BFloatArithmeticIn(*choice->then_expr, depth + 1)) ||
 			BFloatArithmeticIn(*choice->else_expr, depth + 1);
 	}
 	case syntax::ExprKind::Cast:

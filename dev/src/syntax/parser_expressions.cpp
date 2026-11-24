@@ -173,8 +173,19 @@ Expr* Parser::conditional_after(Expr* condition)
 	ConditionalExpr* expr = make<ConditionalExpr>(ExprKind::Conditional, condition->location);
 	next();
 	expr->condition = condition;
-	expr->then_expr = parse_expression();
-	if (expr->then_expr == nullptr || !expect(TokenKind::OP_COLON))
+	if (c_source_ && at(TokenKind::OP_COLON))
+	{
+		if (!in_c_extension_)
+			require_gnu_c_extension(tok().location, "omitting the middle operand of ?: is a GNU C extension");
+		expr->then_expr = nullptr;
+	}
+	else
+	{
+		expr->then_expr = parse_expression();
+		if (expr->then_expr == nullptr)
+			return nullptr;
+	}
+	if (!expect(TokenKind::OP_COLON))
 		return nullptr;
 	expr->else_expr = parse_assignment_expression();
 	return expr->else_expr == nullptr ? nullptr : expr;

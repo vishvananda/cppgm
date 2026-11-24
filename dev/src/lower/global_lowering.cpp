@@ -2509,8 +2509,8 @@ bool ProgramLowering::static_value(const syntax::Expr& expr, StaticValue& out, b
 		sema::Constant condition;
 		if (!analyzer_->integral_constant(*conditional->condition, static_scope_, condition))
 			return false;
-		return static_converted(
-			condition.bits != 0 ? *conditional->then_expr : *conditional->else_expr, type, out, integral);
+		const syntax::Expr* selected = condition.bits != 0 ? conditional->then_expr : conditional->else_expr;
+		return static_converted(selected != nullptr ? *selected : *conditional->condition, type, out, integral);
 	}
 	case syntax::ExprKind::Cast:
 	{

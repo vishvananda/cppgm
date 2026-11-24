@@ -2068,6 +2068,7 @@ private:
 	// Rejects nesting beyond the shared stack budget (support/stack_budget.h).
 	void check_stack(uint32_t location) const;
 	RValue conditional_value(const syntax::ConditionalExpr& expr);
+	RValue c_omitted_condition(const RValue& value, const sema::Type* type);
 	void choice_operand(const syntax::Expr& operand_expr, const Choice& level);
 	bool continues_choice(const syntax::Expr& expr) const;
 	static bool unreachable_operand(const syntax::ConditionalExpr& expr, const syntax::Expr& operand);

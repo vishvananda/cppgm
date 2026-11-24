@@ -163,7 +163,8 @@ bool Analyzer::c_integer_constant_operands(const syntax::Expr& root, bool arithm
 		{
 			const auto* conditional = static_cast<const syntax::ConditionalExpr*>(expr);
 			pending.push_back(conditional->condition);
-			pending.push_back(conditional->then_expr);
+			if (conditional->then_expr != nullptr)
+				pending.push_back(conditional->then_expr);
 			pending.push_back(conditional->else_expr);
 			break;
 		}

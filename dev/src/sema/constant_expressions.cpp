@@ -1265,6 +1265,8 @@ bool ConstantInterpreter::discard(const syntax::Expr& expr)
 		bool selected = false;
 		if (!truth(*choice.condition, selected))
 			return false;
+		if (selected && choice.then_expr == nullptr)
+			return true;
 		if (choice.facts->value != 0)
 		{
 			Folding folding(folding_, true);
@@ -2502,7 +2504,21 @@ bool ConstantInterpreter::conditional_value(const syntax::ConditionalExpr& expr,
 	// 5.16: the selected operand only, converted to the common type as
 	// recorded on it.
 	bool selected = false;
-	if (!truth(*expr.condition, selected))
+	if (expr.then_expr == nullptr)
+	{
+		if (!operand(*expr.condition, out) || !truth_of(out, selected, expr.condition->location))
+			return false;
+		if (selected)
+		{
+			if (IsVoid(expr.facts->type))
+			{
+				out = ConstValue();
+				out.type = expr.facts->type;
+			}
+			return true;
+		}
+	}
+	else if (!truth(*expr.condition, selected))
 		return false;
 	const syntax::Expr& chosen = selected ? *expr.then_expr : *expr.else_expr;
 	const auto evaluate = [&]() {
