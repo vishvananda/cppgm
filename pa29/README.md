@@ -109,7 +109,8 @@ every output byte before assigning output places. Preserve XMM/YMM aliases,
 ties, early writes, volatile places and over-aligned local storage. This adds
 assembly transfers, not a general wide-vector call ABI.
 
-Within a packet, support numeric `.byte`/`.short`/`.word`/`.long`/`.quad` data,
+Within a packet, support absolute integer expressions in immediate operands,
+AT&T displacements, and numeric `.byte`/`.short`/`.word`/`.long`/`.quad` data,
 `.zero`/`.space`/`.skip` fills and `.p2align`/`.balign`/`.align`, including fill and
 maximum-padding arguments. Preserve alignment in objects and standalone output.
 Local RIP-relative addresses can refer to embedded data.
@@ -221,7 +222,9 @@ the current macro or repetition. Include `.if`/`.ifne`, `.ifeq`, signed
 `.ifge`/`.ifgt`/`.ifle`/`.iflt`, blank `.ifb`/`.ifnb` and string
 `.ifc`/`.ifnc`/`.ifeqs`/`.ifnes` conditions, with `.elseif`, `.else` and `.endif`.
 Numeric conditions and repetition counts accept absolute integer expressions,
-using GNU assembler precedence and truth values. Expansion must have bounded
+using GNU assembler precedence and truth values. Numeric conditions also accept
+register equality and inequality, comparing the full register views.
+Expansion must have bounded
 nesting, work and output size; malformed blocks and runaway recursion fail.
 
 Namespace macro definitions are available to later inline and naked assembly.

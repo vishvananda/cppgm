@@ -1,6 +1,8 @@
 #include "native/asm/module.h"
 
 #include <climits>
+
+#include "asm/module_expression.h"
 #include "native/backend_error.h"
 
 namespace native {
@@ -26,14 +28,12 @@ void ModuleAssembler::data(assembly::ModuleCursor& cursor, unsigned bytes)
 		uint64_t bits = 0;
 		uint32_t target = lowir::kNoId;
 		if (cursor.numeric())
-			bits = cursor.number();
+			bits = assembly::assembly_integer_expression(cursor);
 		else
 		{
 			target = symbol(cursor);
-			if (cursor.take('+'))
-				bits = cursor.number();
-			else if (cursor.take('-'))
-				bits = uint64_t(0) - cursor.number();
+			if (cursor.current() == '+' || cursor.current() == '-')
+				bits = assembly::assembly_integer_addend(cursor);
 		}
 		const uint64_t first = offset();
 		reserve(bytes, 0);
@@ -70,7 +70,7 @@ void ModuleAssembler::strings(assembly::ModuleCursor& cursor, bool terminate)
 }
 void ModuleAssembler::alignment(assembly::ModuleCursor& cursor, bool power)
 {
-	uint64_t alignment = cursor.number();
+	uint64_t alignment = assembly::assembly_integer_expression(cursor);
 	if (power)
 	{
 		if (alignment > 20)
@@ -84,9 +84,9 @@ void ModuleAssembler::alignment(assembly::ModuleCursor& cursor, bool power)
 	if (cursor.take(','))
 	{
 		if (cursor.numeric())
-			fill = static_cast<uint8_t>(cursor.number());
+			fill = static_cast<uint8_t>(assembly::assembly_integer_expression(cursor));
 		if (cursor.take(','))
-			maximum = cursor.number();
+			maximum = assembly::assembly_integer_expression(cursor);
 	}
 	out_.sections[section_].align = std::max(out_.sections[section_].align, alignment);
 	const uint64_t bytes = (uint64_t(0) - offset()) & (alignment - 1);
@@ -100,7 +100,7 @@ void ModuleAssembler::size(assembly::ModuleCursor& cursor)
 		cursor.fail("module size requires an expression");
 	uint64_t bytes = 0;
 	if (cursor.numeric())
-		bytes = cursor.number();
+		bytes = assembly::assembly_integer_expression(cursor);
 	else
 	{
 		if (cursor.word() != "." || !cursor.take('-') || symbol(cursor) != id || out_.symbols[id].section != section_ ||
@@ -160,8 +160,8 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 		strings(cursor, name != ".ascii");
 	else if (name == ".zero" || name == ".space" || name == ".skip")
 	{
-		const uint64_t bytes = cursor.number();
-		const uint8_t fill = cursor.take(',') ? static_cast<uint8_t>(cursor.number()) : 0;
+		const uint64_t bytes = assembly::assembly_integer_expression(cursor);
+		const uint8_t fill = cursor.take(',') ? static_cast<uint8_t>(assembly::assembly_integer_expression(cursor)) : 0;
 		reserve(bytes, fill);
 	}
 	else if (name == ".p2align" || name == ".balign" || name == ".align")
@@ -176,10 +176,8 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 			cursor.fail("module alias requires its target");
 		const uint32_t target = symbol(cursor);
 		int64_t addend = 0;
-		if (cursor.take('+'))
-			addend = static_cast<int64_t>(cursor.number());
-		else if (cursor.take('-'))
-			addend = static_cast<int64_t>(uint64_t(0) - cursor.number());
+		if (cursor.current() == '+' || cursor.current() == '-')
+			addend = static_cast<int64_t>(assembly::assembly_integer_addend(cursor));
 		symbols_.alias(id, target, addend);
 	}
 	else if (name == ".previous")
@@ -249,7 +247,8 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 						kind = SectionKind::Bss;
 					else if (type != "progbits")
 						cursor.fail("unsupported module section type");
-					if (strings && (type != "progbits" || !cursor.take(',') || cursor.number() != 1))
+					if (strings &&
+						(type != "progbits" || !cursor.take(',') || assembly::assembly_integer_expression(cursor) != 1))
 						cursor.fail("merged string metadata requires byte-sized progbits entries");
 				}
 			}

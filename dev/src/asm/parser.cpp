@@ -4,6 +4,7 @@
 #include <climits>
 #include <map>
 
+#include "asm/module_expression.h"
 #include "asm/registers.h"
 
 namespace assembly {
@@ -58,6 +59,8 @@ private:
 	void rip_register(Address& address);
 	void resolve_labels(std::vector<Instruction>& instructions);
 	uint64_t integer();
+	uint64_t expression(bool addend = false);
+	bool att_address_tuple() const;
 	bool syntax(const std::string& name);
 	bool directive(Instruction& inst);
 	asm_model::Register reg();
@@ -101,39 +104,33 @@ std::string Parser::word(bool fold)
 
 uint64_t Parser::integer()
 {
-	space();
-	const bool negative = take('-');
-	if (!negative)
-		take('+');
-	unsigned base = 10;
-	if (current() == '0' && pos_ + 1 < source_.size() && (source_[pos_ + 1] == 'x' || source_[pos_ + 1] == 'X'))
-	{
-		base = 16;
-		step();
-		step();
-	}
-	uint64_t value = 0;
-	bool any = false;
-	for (;;)
-	{
-		const char c = current();
-		const unsigned digit = c >= '0' && c <= '9' ? static_cast<unsigned>(c - '0')
-			: c >= 'a' && c <= 'f'                  ? static_cast<unsigned>(c - 'a' + 10)
-			: c >= 'A' && c <= 'F'                  ? static_cast<unsigned>(c - 'A' + 10)
-													: 16;
-		if (digit >= base)
-			break;
-		if (value > (UINT64_MAX - digit) / base)
-			fail("assembly integer exceeds 64 bits");
-		value = value * base + digit;
-		any = true;
-		step();
-	}
-	if (!any)
-		fail("expected assembly integer");
-	if (negative && value > (uint64_t(1) << 63))
-		fail("negative assembly integer exceeds 64 bits");
-	return negative ? uint64_t(0) - value : value;
+	ModuleCursor cursor(source_, static_cast<uint32_t>(pos_), line_, column_);
+	const uint64_t result = cursor.number();
+	column_ += cursor.position() - pos_;
+	pos_ = cursor.position();
+	return result;
+}
+
+uint64_t Parser::expression(bool addend)
+{
+	ModuleCursor cursor(source_, static_cast<uint32_t>(pos_), line_, column_);
+	const uint64_t result = addend ? assembly_integer_addend(cursor) : assembly_integer_expression(cursor);
+	column_ += cursor.position() - pos_;
+	pos_ = cursor.position();
+	return result;
+}
+
+bool Parser::att_address_tuple() const
+{
+	if (current() != '(')
+		return false;
+	size_t next = pos_ + 1;
+	while (next < source_.size() && (source_[next] == ' ' || source_[next] == '\t'))
+		++next;
+	if (next == source_.size())
+		return false;
+	const char first = source_[next];
+	return first == ',' || (register_prefix_ ? first == '%' : alpha(first));
 }
 
 asm_model::Register Parser::reg()
@@ -271,7 +268,7 @@ Operand Parser::att_memory(int64_t displacement)
 		result.address.has_index = true;
 		if (take(','))
 		{
-			const uint64_t scale = integer();
+			const uint64_t scale = expression();
 			if (scale != 1 && scale != 2 && scale != 4 && scale != 8)
 				fail("assembly address scale must be 1, 2, 4 or 8");
 			result.address.scale = static_cast<uint8_t>(scale);
@@ -292,7 +289,7 @@ Operand Parser::operand()
 		if (take('$'))
 		{
 			if (!symbol(result))
-				result.immediate = integer();
+				result.immediate = expression();
 		}
 		else if (symbol(result))
 		{
@@ -309,7 +306,7 @@ Operand Parser::operand()
 			result.bits = result.reg.bits;
 		}
 		else
-			return att_memory(current() == '(' ? 0 : static_cast<int64_t>(integer()));
+			return att_memory(att_address_tuple() ? 0 : static_cast<int64_t>(expression()));
 		return result;
 	}
 	if (register_prefix_ && current() == '%')
@@ -345,7 +342,7 @@ Operand Parser::operand()
 			}
 		fail("unsupported assembly symbol expression: " + name);
 	}
-	result.immediate = integer();
+	result.immediate = expression();
 	return result;
 }
 
@@ -465,9 +462,10 @@ bool Parser::symbol(Operand& operand)
 		size_t next = pos_ + 1;
 		while (next < source_.size() && (source_[next] == ' ' || source_[next] == '\t'))
 			++next;
-		if (next < source_.size() && source_[next] >= '0' && source_[next] <= '9')
+		if (next < source_.size() && ((source_[next] >= '0' && source_[next] <= '9') || source_[next] == '('))
 		{
-			const int64_t term = static_cast<int64_t>(integer());
+			const int64_t term = static_cast<int64_t>(
+				dialect_ == asm_model::Dialect::Att ? expression(true) : integer());
 			if (term < INT32_MIN || term > INT32_MAX)
 				fail("assembly symbol displacement exceeds 32 bits");
 			displacement += term;
@@ -601,7 +599,7 @@ bool Parser::directive(Instruction& inst)
 	const std::string& name = inst.mnemonic;
 	if (name == ".p2align" || name == ".balign" || name == ".align")
 	{
-		uint64_t alignment = integer();
+		uint64_t alignment = expression();
 		if (name == ".p2align" || (name == ".align" && state_ != nullptr && state_->power_alignment))
 		{
 			if (alignment > 20)
@@ -615,14 +613,14 @@ bool Parser::directive(Instruction& inst)
 		{
 			if (current() != ',')
 			{
-				const uint64_t fill = integer();
+				const uint64_t fill = expression();
 				if (fill > 255)
 					fail("assembly alignment fill exceeds one byte");
 				inst.fill = fill;
 			}
 			if (take(','))
 			{
-				const uint64_t limit = integer();
+				const uint64_t limit = expression();
 				if (limit > UINT32_MAX)
 					fail("assembly padding limit exceeds range");
 				inst.max_padding = limit;
@@ -640,7 +638,7 @@ bool Parser::directive(Instruction& inst)
 		inst.data = true;
 		do
 		{
-			const uint64_t value = integer();
+			const uint64_t value = expression();
 			if (inst.bytes.size() + width > (1u << 20))
 				fail("assembly data exceeds byte limit");
 			for (unsigned i = 0; i < width; ++i)
@@ -650,10 +648,10 @@ bool Parser::directive(Instruction& inst)
 	}
 	if (name != ".zero" && name != ".space" && name != ".skip")
 		return false;
-	const uint64_t count = integer();
+	const uint64_t count = expression();
 	if (count > (1u << 20))
 		fail("assembly data exceeds byte limit");
-	const uint64_t fill = take(',') ? integer() : 0;
+	const uint64_t fill = take(',') ? expression() : 0;
 	if (fill > 255)
 		fail("assembly data fill exceeds one byte");
 	inst.data = true;

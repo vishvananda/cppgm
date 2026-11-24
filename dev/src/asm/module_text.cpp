@@ -143,13 +143,13 @@ std::vector<ModuleLine> module_lines(
 
 void ModuleCursor::space()
 {
-	while (position_ < line_.text.size() && std::isspace(static_cast<unsigned char>(line_.text[position_])))
+	while (current() == ' ' || current() == '\t' || current() == '\r')
 		++position_;
 }
 bool ModuleCursor::take(char c)
 {
 	space();
-	if (position_ == line_.text.size() || line_.text[position_] != c)
+	if (position_ == source_.size() || source_[position_] != c)
 		return false;
 	++position_;
 	return true;
@@ -157,34 +157,34 @@ bool ModuleCursor::take(char c)
 bool ModuleCursor::end()
 {
 	space();
-	return position_ == line_.text.size();
+	return position_ == source_.size();
 }
 bool ModuleCursor::numeric()
 {
 	space();
-	return position_ < line_.text.size() &&
-		(std::isdigit(static_cast<unsigned char>(line_.text[position_])) || line_.text[position_] == '-' ||
-			line_.text[position_] == '+');
+	return position_ < source_.size() &&
+		(std::isdigit(static_cast<unsigned char>(source_[position_])) || source_[position_] == '-' ||
+			source_[position_] == '+' || source_[position_] == '(' || source_[position_] == '~');
 }
 bool ModuleCursor::quoted_start()
 {
 	space();
-	return position_ < line_.text.size() && line_.text[position_] == '"';
+	return position_ < source_.size() && source_[position_] == '"';
 }
 std::string ModuleCursor::word()
 {
 	space();
 	const uint32_t first = position_;
-	while (position_ < line_.text.size())
+	while (position_ < source_.size())
 	{
-		const char c = line_.text[position_];
+		const char c = source_[position_];
 		if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_' && c != '.' && c != '$')
 			break;
 		++position_;
 	}
 	if (first == position_)
 		fail("expected module assembly identifier");
-	return line_.text.substr(first, position_ - first);
+	return source_.substr(first, position_ - first);
 }
 uint64_t ModuleCursor::number()
 {
@@ -193,18 +193,18 @@ uint64_t ModuleCursor::number()
 	if (!negative)
 		take('+');
 	unsigned base = 10;
-	if (position_ + 1 < line_.text.size() && line_.text[position_] == '0')
+	if (position_ + 1 < source_.size() && source_[position_] == '0')
 	{
-		const char c = line_.text[position_ + 1];
-		base = c == 'x' || c == 'X' ? 16 : 8;
-		if (base == 16)
+		const char c = source_[position_ + 1];
+		base = c == 'x' || c == 'X' ? 16 : c == 'b' || c == 'B' ? 2 : 8;
+		if (base != 8)
 			position_ += 2;
 	}
 	uint64_t value = 0;
 	bool seen = false;
-	while (position_ < line_.text.size() && digit(line_.text[position_]) < base)
+	while (position_ < source_.size() && digit(source_[position_]) < base)
 	{
-		const unsigned part = digit(line_.text[position_++]);
+		const unsigned part = digit(source_[position_++]);
 		if (value > (UINT64_MAX - part) / base)
 			fail("module integer exceeds 64 bits");
 		value = value * base + part;
@@ -219,31 +219,30 @@ std::string ModuleCursor::quoted()
 	if (!take('"'))
 		fail("expected module string");
 	std::string result;
-	while (position_ < line_.text.size())
+	while (position_ < source_.size())
 	{
-		char c = line_.text[position_++];
+		char c = source_[position_++];
 		if (c == '"')
 			return result;
 		if (c == '\\')
 		{
-			if (position_ == line_.text.size())
+			if (position_ == source_.size())
 				fail("unterminated module escape");
-			c = line_.text[position_++];
+			c = source_[position_++];
 			if (c >= '0' && c <= '7')
 			{
 				unsigned value = c - '0';
-				for (unsigned i = 1; i < 3 && position_ < line_.text.size() && line_.text[position_] >= '0' &&
-					line_.text[position_] <= '7';
-					++i)
-					value = value * 8 + line_.text[position_++] - '0';
+				for (unsigned i = 1;
+					i < 3 && position_ < source_.size() && source_[position_] >= '0' && source_[position_] <= '7'; ++i)
+					value = value * 8 + source_[position_++] - '0';
 				c = static_cast<char>(value);
 			}
 			else if (c == 'x')
 			{
 				const uint32_t first = position_;
 				unsigned value = 0;
-				while (position_ < line_.text.size() && digit(line_.text[position_]) < 16)
-					value = (value * 16 + digit(line_.text[position_++])) & 255u;
+				while (position_ < source_.size() && digit(source_[position_]) < 16)
+					value = (value * 16 + digit(source_[position_++])) & 255u;
 				if (position_ == first)
 					fail("hexadecimal module escape requires a digit");
 				c = static_cast<char>(value);
@@ -267,7 +266,9 @@ std::string ModuleCursor::quoted()
 }
 const SymbolUse* ModuleCursor::symbol_use() const
 {
-	for (const SymbolUse& use : line_.symbols)
+	if (symbols_ == nullptr)
+		return nullptr;
+	for (const SymbolUse& use : *symbols_)
 		if (use.first == position_)
 			return &use;
 	return nullptr;
@@ -275,8 +276,8 @@ const SymbolUse* ModuleCursor::symbol_use() const
 std::string ModuleCursor::rest()
 {
 	space();
-	const std::string value = line_.text.substr(position_);
-	position_ = static_cast<uint32_t>(line_.text.size());
+	const std::string value = source_.substr(position_);
+	position_ = static_cast<uint32_t>(source_.size());
 	return value;
 }
 void ModuleCursor::finish()
@@ -286,6 +287,6 @@ void ModuleCursor::finish()
 }
 void ModuleCursor::fail(const std::string& message) const
 {
-	throw AssemblyError{ message, line_.line, position_ + 1 };
+	throw AssemblyError{ message, line_, column_ + (position_ - first_) };
 }
 } // namespace assembly

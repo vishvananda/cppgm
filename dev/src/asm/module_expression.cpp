@@ -3,31 +3,36 @@
 #include <climits>
 #include <cstring>
 
+#include "asm/registers.h"
+
 namespace assembly {
 namespace {
 class Expression
 {
 public:
-	explicit Expression(const ModuleLine& line, uint32_t first) : line_(line), cursor_(line) { cursor_.advance(first); }
-	uint64_t run()
-	{
-		const uint64_t result = binary(1, 0);
-		cursor_.finish();
-		return result;
-	}
+	explicit Expression(ModuleCursor& cursor, bool registers = false) : cursor_(cursor), registers_(registers) {}
+	uint64_t run() { return integer(binary(1, 0)); }
+	uint64_t addend() { return integer(tail({}, 1, 0)); }
 
 private:
+	struct Value
+	{
+		uint64_t bits = 0;
+		asm_model::Register reg{};
+	};
 	struct Operator
 	{
 		const char* text;
 		unsigned precedence;
 	};
 	Operator operation();
-	uint64_t primary(unsigned depth);
-	uint64_t binary(unsigned minimum, unsigned depth);
-	uint64_t apply(const std::string& op, uint64_t a, uint64_t b);
-	const ModuleLine& line_;
-	ModuleCursor cursor_;
+	Value primary(unsigned depth);
+	Value binary(unsigned minimum, unsigned depth);
+	Value tail(Value result, unsigned minimum, unsigned depth);
+	uint64_t apply(const std::string& op, Value a, Value b);
+	uint64_t integer(Value value) const;
+	ModuleCursor& cursor_;
+	bool registers_;
 };
 Expression::Operator Expression::operation()
 {
@@ -35,47 +40,81 @@ Expression::Operator Expression::operation()
 	static const Operator operators[] = { { "||", 1 }, { "&&", 2 }, { "==", 3 }, { "!=", 3 }, { "<>", 3 }, { "<=", 3 },
 		{ ">=", 3 }, { "<<", 6 }, { ">>", 6 }, { "+", 4 }, { "-", 4 }, { "<", 3 }, { ">", 3 }, { "|", 5 }, { "&", 5 },
 		{ "^", 5 }, { "!", 5 }, { "*", 6 }, { "/", 6 }, { "%", 6 } };
+	const char first = cursor_.current();
+	if (first == '\0' || std::strchr("|&=!<>+-^*/%", first) == nullptr)
+		return { "", 0 };
 	for (const Operator& op : operators)
-		if (line_.text.compare(cursor_.position(), std::strlen(op.text), op.text) == 0)
+		if (op.text[0] == first && cursor_.starts_with(op.text, std::strlen(op.text)))
 			return op;
 	return { "", 0 };
 }
-uint64_t Expression::primary(unsigned depth)
+uint64_t Expression::integer(Value value) const
+{
+	if (value.reg.bits != 0)
+		cursor_.fail("absolute expression cannot use a register as an integer");
+	return value.bits;
+}
+Expression::Value Expression::primary(unsigned depth)
 {
 	if (depth > 64)
 		cursor_.fail("module expression nesting exceeds limit");
+	Value result;
 	if (cursor_.take('-'))
-		return uint64_t(0) - primary(depth + 1);
-	if (cursor_.take('~'))
-		return ~primary(depth + 1);
-	if (cursor_.take('+'))
-		return primary(depth + 1);
-	if (cursor_.take('('))
+		result.bits = uint64_t(0) - integer(primary(depth + 1));
+	else if (cursor_.take('~'))
+		result.bits = ~integer(primary(depth + 1));
+	else if (cursor_.take('+'))
+		result.bits = integer(primary(depth + 1));
+	else if (cursor_.take('('))
 	{
-		const uint64_t value = binary(1, depth + 1);
+		result = binary(1, depth + 1);
 		if (!cursor_.take(')'))
 			cursor_.fail("unclosed module expression");
-		return value;
 	}
-	cursor_.space();
-	if (cursor_.symbol_use())
-		cursor_.fail("absolute expression cannot use a relocatable symbol");
-	return cursor_.number();
+	else if (registers_ && cursor_.take('%'))
+	{
+		const std::string name = cursor_.word();
+		if (!parse_register(name.data(), name.size(), result.reg))
+			cursor_.fail("unknown register in assembly expression: " + name);
+	}
+	else
+	{
+		cursor_.space();
+		if (cursor_.symbol_use())
+			cursor_.fail("absolute expression cannot use a relocatable symbol");
+		result.bits = cursor_.number();
+	}
+	return result;
 }
-uint64_t Expression::binary(unsigned minimum, unsigned depth)
+Expression::Value Expression::binary(unsigned minimum, unsigned depth)
 {
-	uint64_t result = primary(depth);
+	return tail(primary(depth), minimum, depth);
+}
+Expression::Value Expression::tail(Value result, unsigned minimum, unsigned depth)
+{
 	for (;;)
 	{
 		const Operator op = operation();
 		if (op.precedence < minimum)
 			return result;
 		cursor_.advance(static_cast<uint32_t>(std::strlen(op.text)));
-		result = apply(op.text, result, binary(op.precedence + 1, depth + 1));
+		result.bits = apply(op.text, result, binary(op.precedence + 1, depth + 1));
+		result.reg = {};
 	}
 }
-uint64_t Expression::apply(const std::string& op, uint64_t a, uint64_t b)
+uint64_t Expression::apply(const std::string& op, Value left, Value right)
 {
+	const bool left_register = left.reg.bits != 0;
+	const bool right_register = right.reg.bits != 0;
+	if (left_register || right_register)
+	{
+		if (!left_register || !right_register || (op != "==" && op != "!=" && op != "<>"))
+			cursor_.fail("registers require an equality comparison with another register");
+		const bool equal = left.reg.bank == right.reg.bank && left.reg.number == right.reg.number &&
+			left.reg.bits == right.reg.bits && left.reg.offset == right.reg.offset;
+		return equal == (op == "==") ? UINT64_MAX : 0;
+	}
+	const uint64_t a = left.bits, b = right.bits;
 	if (op == "+")
 		return a + b;
 	if (op == "-")
@@ -119,8 +158,20 @@ uint64_t Expression::apply(const std::string& op, uint64_t a, uint64_t b)
 	return truth ? UINT64_MAX : 0;
 }
 }
+uint64_t assembly_integer_expression(ModuleCursor& cursor)
+{
+	return Expression(cursor).run();
+}
+uint64_t assembly_integer_addend(ModuleCursor& cursor)
+{
+	return Expression(cursor).addend();
+}
 uint64_t module_expression(const ModuleLine& line, uint32_t first)
 {
-	return Expression(line, first).run();
+	ModuleCursor cursor(line);
+	cursor.advance(first);
+	const uint64_t result = Expression(cursor, true).run();
+	cursor.finish();
+	return result;
 }
 } // namespace assembly
