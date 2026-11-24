@@ -91,6 +91,40 @@ quote, and edition comparisons for feature probes run when queried.
 | C++ `semantic_overload.cpp` | 0.0022% | -0.0082% | -0.0090% |
 | SQLite `sqlite3.c` | 0.0012% | -0.0003% | -0.0006% |
 
+## C23 attribute inquiries
+
+The same frozen C++ and GNU17 inputs produce byte-identical objects in
+all A/A, ABBA, and BAAB trials. The C++ and SQLite A/A task-clock ranges
+are 10.2% and 14.3%. Retired user-space instructions give a tighter
+comparison on this shared host.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0038% | +0.0031% | +0.0052% |
+| SQLite `sqlite3.c` | 0.0029% | +0.0025% | −0.0009% |
+
+The attribute workload repeats a preprocessing condition with two
+macro-expanded operands per group, one standard name and one GNU-qualified
+name. The prior compiler uses a simple fallback macro in the same source,
+so it can produce the same object in every trial. Real attribute lookup
+and operand expansion add about 1,090 retired instructions per inquiry
+at 4,096 groups. Peak RSS stays between 16.7 and 17.1 MiB across the
+candidate trials. Each inquiry reuses the macro rescanner and holds only
+its current operand tokens.
+
+| Condition groups | Fallback instructions | Attribute inquiry instructions |
+| ---: | ---: | ---: |
+| 128 | 5.64 million | 5.91 million |
+| 1,024 | 16.45 million | 18.68 million |
+| 4,096 | 53.52 million | 62.47 million |
+
+The GNU17 numeric workload uses a macro-defined binary integer once in
+a condition and once in an initializer per group. The two compilers
+emit identical objects at 256, 1,024, and 4,096 groups. The paired
+instruction increases are +0.13%, +0.30%, and +0.41%, respectively.
+The largest input takes 46.61 million instructions, compared with
+46.42 million before the change.
+
 ## Volatile assignment code generation
 
 The same source functions returning and discarding a volatile record

@@ -427,6 +427,40 @@ directly checkable combining sequences bypass allocation. When
 decomposition is needed, scratch covers the current normalization
 segment and canonical ordering is linear.
 
+## C23 attribute inquiries and number edition boundaries
+
+`__has_c_attribute` rescans its operand and returns the C23 revision
+for `noreturn` and `_Noreturn`, including their reserved spellings.
+Qualified extension names use the existing target attribute capabilities.
+Unsupported attributes return zero. The query is also available in earlier
+C modes, following GCC 15 and Clang 21. cppgm diagnoses ordinary source
+use outside preprocessing conditions. Both reference compilers accepted
+that use in the local probe. [WG14 N3220 §§6.7.13.7, 6.10.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+
+Before C23, both reference compilers accept binary integers as an
+extension and diagnose them under `-pedantic-errors`. Both reject digit
+separators in ISO and GNU C17. PA38 covers direct and pasted spellings in
+source and preprocessing conditions. cppgm applies its existing system
+header diagnostic policy. In the macro-use probe, GCC follows the same
+policy and Clang 21 diagnoses the expansion at the user call site.
+
+The GCC C23 manifest passes 23 cases and the Clang C23 manifest passes
+ten. Two added Clang C17 cases exercise the ordinary and pedantic
+numeric boundaries, and the earlier known C17 gap remains recorded.
+The clause matrix passes 550 probes, including 99 C23 probes, on
+Linux x86-64, WASI, and bare Wasm. The three positive portable probes
+also run at `-O0` and `-O2` on both Linux native targets, both Mach-O
+targets, WASI, and bare Wasm. Linux AArch64 uses QEMU. Mach-O uses the
+local loaders.
+
+The strict course report passes all 11,674 cases. Debug-info, inception,
+self-host through PA5, the harness, and the architecture, source and
+placement audits pass. The student export verifies 26,656 portable
+reference files and passes PA1 and the PA38 native, WASI, control and
+ABI lanes, including 509 C source cases in each of the two source lanes.
+
+[Frozen-input and attribute query measurements](../docs/performance/c-frontend-scaling.md#c23-attribute-inquiries)
+
 ## Additional editions
 
 The driver baseline at `39e13e127` rejects `c90`, `c89`,
