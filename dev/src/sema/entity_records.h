@@ -441,6 +441,7 @@ struct VariableEntity : Entity
 	bool constant_deferred : 1;
 	// A C file-scope definition without an initializer, awaiting a full definition.
 	bool c_tentative : 1;
+	bool c_stack_pointer : 1;
 	// A function's predefined __func__ (8.4.1p8), __FUNCTION__ or
 	// __PRETTY_FUNCTION__: a PredefinedNameEntity.
 	bool predefined_name : 1;

@@ -9,6 +9,25 @@
 
 namespace lower {
 
+namespace {
+
+bool stack_pointer_operand(const syntax::Expr& expr)
+{
+	const sema::Entity* entity = expr.facts->entity;
+	return entity != nullptr && entity->kind == sema::EntityKind::Variable &&
+		static_cast<const sema::VariableEntity*>(entity)->c_stack_pointer;
+}
+
+bool references_operand(const assembly::Packet& packet, uint32_t operand)
+{
+	for (uint32_t p = 0; p < packet.pieces.size; ++p)
+		if (packet.pieces.data[p].operand == operand)
+			return true;
+	return false;
+}
+
+} // namespace
+
 void FunctionLowering::asm_statement(const syntax::AsmStmt& stmt)
 {
 	const assembly::Packet& packet = *stmt.program->packet;
@@ -45,6 +64,20 @@ void FunctionLowering::asm_statement(const syntax::AsmStmt& stmt)
 		const lowir::Type type = source_type->kind == sema::TypeKind::Function ? program_.pointer_type()
 																			   : lowering_.storage_type(source_type);
 		types.push_back(type);
+		if (stack_pointer_operand(expr))
+		{
+			if (references_operand(packet, i) || argument.input_storage || argument.output == asm_model::kNoId ||
+				argument.input == asm_model::kNoId)
+				throw LoweringError(
+					expr.location, "the stack-pointer register requires an unreferenced read/write operand");
+			// GNU producers use this dummy dependency to require a stack
+			// frame for an asm packet. Its output has no observable value.
+			Place discard = Place();
+			discard.storage = lowir::Value::slot(generated_slot(lowir::SlotKind::Asm, type));
+			values[argument.output] = address_of(discard);
+			values[argument.input] = stack_pointer_value(type).value;
+			continue;
+		}
 		lowir::Value destination = lowir::Value::none();
 		if (argument.output != asm_model::kNoId && (argument.flags & asm_model::AO_NO_MEMORY) != 0)
 		{

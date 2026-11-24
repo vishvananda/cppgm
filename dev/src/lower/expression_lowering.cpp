@@ -350,6 +350,8 @@ RValue FunctionLowering::rvalue(const syntax::Expr& expr)
 			facts->entity->kind == sema::EntityKind::Variable
 		? static_cast<const sema::VariableEntity*>(facts->entity)
 		: nullptr;
+	if (constant != nullptr && constant->c_stack_pointer)
+		return stack_pointer_value(lowering_.storage_type(facts->type));
 	if (constant != nullptr && !constant->member && !constant->type->is_reference() &&
 		constant->constant == sema::ConstantState::Value && (facts->type->cv & (sema::kVolatile | sema::kAtomic)) == 0)
 	{
@@ -981,6 +983,8 @@ Place FunctionLowering::variable_place(const sema::Entity* entity, const sema::T
 		if (entity->kind != sema::EntityKind::Variable)
 			throw LoweringError(location, "a name outside the procedural lowering slice");
 		const sema::VariableEntity* variable = static_cast<const sema::VariableEntity*>(entity);
+		if (variable->c_stack_pointer)
+			throw LoweringError(location, "a stack-pointer register variable has no writable storage");
 		const bool block_extern = variable->is_extern && variable->owner != nullptr &&
 			variable->owner->kind == sema::ScopeKind::Block;
 		// 9.4.2: a static data member is an object of the program.

@@ -1,0 +1,8 @@
+register unsigned long stack_pointer __asm__("rsp");
+
+int main(void)
+{
+    unsigned long observed;
+    __asm__ volatile("movq %%rsp,%0" : "=r"(observed), "+r"(stack_pointer));
+    return stack_pointer != observed;
+}

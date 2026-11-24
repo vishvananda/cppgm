@@ -1103,6 +1103,14 @@ bool FunctionLowering::typed_access(lowir::Type type, const Place& place) const
 		lowering_.states_type(k);
 }
 
+RValue FunctionLowering::stack_pointer_value(lowir::Type type)
+{
+	const lowir::Type pointer = program_.pointer_type();
+	lowir::Instruction save = lowir::make_instruction(lowir::Opcode::StackSave, pointer);
+	const RValue address{ emit_value(save, pointer), pointer };
+	return type.is_pointer() ? address : copy(type, address);
+}
+
 RValue FunctionLowering::load(lowir::Type type, const Place& place)
 {
 	const bool atomic = place.is_atomic && (type.is_integer() || type.kind() == lowir::TypeKind::Ptr);

@@ -2161,6 +2161,24 @@ VariableEntity* Analyzer::new_variable(const Specifiers& specifiers, const char*
 	variable->is_extern = is_extern;
 	variable->is_static = specifiers.is_static;
 	variable->c_register_storage = c_source_ && specifiers.is_register;
+	if (variable->c_register_storage && where->kind == ScopeKind::Namespace)
+	{
+		const auto architecture = target_model::describe(types_.target()).architecture;
+		const char* reg = asm_label != nullptr && asm_label[0] == '%' ? asm_label + 1 : asm_label;
+		const bool stack = reg != nullptr &&
+			((architecture == target_model::Architecture::X86_64 && std::strcmp(reg, "rsp") == 0) ||
+				(architecture == target_model::Architecture::AArch64 && std::strcmp(reg, "sp") == 0));
+		IntegralKind kind;
+		if (!stack || initialized || (type->cv & kAtomic) != 0 ||
+			(!type->is_reference() && type->kind != TypeKind::Pointer &&
+				(!IntegralKindOf(type, kind) ||
+					kind.bits != target_model::data_layout(types_.target()).pointer_bytes * 8)))
+			error(location, "file-scope register variables require an uninitialized native stack pointer type");
+		const char* message = "a file-scope register declaration is a GNU C extension";
+		if (!c_explicit_extension_ && positions_ != nullptr && !positions_->allow_gnu_c_extension(location, message))
+			error(location, message);
+		variable->c_stack_pointer = true;
+	}
 	variable->member = member;
 	variable->is_thread_local = specifiers.is_thread_local;
 	variable->is_inline = hosted_ &&

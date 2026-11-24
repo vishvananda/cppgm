@@ -766,6 +766,7 @@ private:
 	lowir::Type variadic_wide_type(const sema::Type* type);
 	lowir::Value variadic_wide_object(const RValue& value, const sema::Type* type);
 	lowir::Value address_of(const Place& place);
+	RValue stack_pointer_value(lowir::Type type);
 	lowir::Value field_address(lowir::Value object, uint64_t offset);
 	RValue index(lowir::Type element, uint8_t projection, lowir::Value base, const RValue& offset,
 		lowir::IndexBounds bounds = lowir::IndexBounds::None);

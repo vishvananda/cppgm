@@ -515,6 +515,10 @@ The first fixture set covers these parts of the C17 input profile:
   modes. A static definition retains internal linkage and can supply a
   callable body. `gnu_inline` and `always_inline` attributes can also occur
   after the return type's pointer operator.
+- An uninitialized native stack-pointer register variable at file scope
+  exposes the current stack value and uses no data storage. Support reading it,
+  and the implicit read/write dependency used by inline assembly that
+  requires a stack frame. Its name is not a writable object in memory.
 - For a GNU `packed` enumeration without a fixed base, choose the
   smallest compatible integer type that covers all member values.
 - Give C99 through C17 enumeration constants type `int`, including inside

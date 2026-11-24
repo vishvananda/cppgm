@@ -756,6 +756,8 @@ void ProgramLowering::simple_declaration(const syntax::SimpleDecl& decl, bool ex
 			if (earlier != PointerMap::kMissing && program_.symbols[earlier].kind != lowir::SymbolKind::Unresolved)
 				continue;
 		}
+		if (variable->c_stack_pointer)
+			continue;
 		const auto* initializer = sema::VariableInitializer(variable, init.initializer);
 		if (!defer_c_constants_ || !variable->is_constexpr || !defer_c_constant(variable, initializer, location))
 			define_variable(variable, initializer, location);
