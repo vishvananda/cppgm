@@ -16,8 +16,8 @@
 #define L_tmpnam 42
 #define TMP_MAX 10000
 
-FILE *tmpfile(void);
-char *tmpnam(char *);
+FILE* tmpfile(void);
+char* tmpnam(char*);
 #endif
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L

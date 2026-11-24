@@ -18,9 +18,9 @@
 #define issubnormal(value) (fpclassify(value) == FP_SUBNORMAL)
 #define iszero(value) (fpclassify(value) == FP_ZERO)
 
-int canonicalize(double *, const double *);
-int canonicalizef(float *, const float *);
-int canonicalizel(long double *, const long double *);
+int canonicalize(double*, const double*);
+int canonicalizef(float*, const float*);
+int canonicalizel(long double*, const long double*);
 
 double nextup(double);
 float nextupf(float);

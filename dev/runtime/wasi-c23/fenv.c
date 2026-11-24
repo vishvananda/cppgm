@@ -5,24 +5,24 @@ static_assert(FE_ALL_EXCEPT == 0);
 
 int fesetexcept(int excepts)
 {
-    return excepts != 0;
+	return excepts != 0;
 }
 
-int fetestexceptflag(const fexcept_t *flag, int excepts)
+int fetestexceptflag(const fexcept_t* flag, int excepts)
 {
-    (void)flag;
-    (void)excepts;
-    return 0;
+	(void)flag;
+	(void)excepts;
+	return 0;
 }
 
-int fegetmode(femode_t *mode)
+int fegetmode(femode_t* mode)
 {
-    mode->__round = FE_TONEAREST;
-    return 0;
+	mode->__round = FE_TONEAREST;
+	return 0;
 }
 
-int fesetmode(const femode_t *mode)
+int fesetmode(const femode_t* mode)
 {
-    (void)mode;
-    return 0;
+	(void)mode;
+	return 0;
 }
