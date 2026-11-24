@@ -282,6 +282,9 @@ bool Parser::parse_declarator_into(
 	DeclaratorMode mode, Declarator* declarator, bool type_only, const ParameterDeclaration* parameter)
 {
 	NestingGuard nesting(*this);
+	if (c_source_ && mode == DeclaratorMode::Named && tok().is_identifier() &&
+		gnu_names_.kind(tok().identifier) == GnuNames::kAttribute && !collect_attributes(declarator->attributes))
+		return false;
 	{
 		ListFrame<PtrOperator> pointers(pointers_);
 		while (ptr_operator_ahead(0))

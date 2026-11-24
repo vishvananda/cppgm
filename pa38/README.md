@@ -397,7 +397,8 @@ The first fixture set covers these parts of the C17 input profile:
   end of the declarator. A tag introduced in a function definition's own
   parameter list remains visible in its body.
 - Accept GNU attributes before the contents of a parenthesized declarator,
-  including an abstract pointer declarator. An attribute before a parameter's
+  including an abstract pointer declarator, and before an individual named
+  declarator following a comma. An attribute before a parameter's
   type still belongs to that parameter. Follow GCC's type rules for
   `vector_size` and `mode` in a nested declarator by applying the modifier to
   the base type before forming derived types.
