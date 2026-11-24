@@ -1,9 +1,10 @@
-#include <errno.h>
 #include <fenv.h>
 #include <float.h>
 #include <math.h>
 #include <stdint.h>
 #include <string.h>
+
+#include "math_error.h"
 
 /* In this SDK, nearbyint uses nearest-even and there are no exception flags. */
 static_assert(FE_ALL_EXCEPT == 0);
@@ -34,12 +35,6 @@ static long double power_of_twol(unsigned exponent)
 	long double value;
 	memcpy(&value, words, sizeof value);
 	return value;
-}
-
-static void conversion_domain_error(void)
-{
-	if (math_errhandling & MATH_ERRNO)
-		errno = EDOM;
 }
 
 /* Compare against the first excluded positive integer. Its power-of-two
@@ -80,8 +75,7 @@ static void conversion_domain_error(void)
 					return result; \
 			} \
 		} \
-		conversion_domain_error(); \
-		return (type)NAN; \
+		return (type)math_domain_error(); \
 	} \
 	type fromfp##suffix(type value, int direction, unsigned width) \
 	{ \

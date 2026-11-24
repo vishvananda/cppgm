@@ -2,6 +2,8 @@
 #include <math.h>
 #include <stdint.h>
 
+#include "math_error.h"
+
 static_assert(sizeof(long double) == 16 && LDBL_MANT_DIG == 113 && LDBL_MAX_EXP == 16384);
 static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__);
 
@@ -47,7 +49,10 @@ static struct reduced_turn reduce_turn(long double x)
 	if (encoded < exponent_bias - 2)
 		return (struct reduced_turn){ x, 0 };
 	if (encoded == 0x7fff)
-		return (struct reduced_turn){ x - x, 0 };
+	{
+		const uint64_t fraction = (input.words[1] & fraction_mask) | input.words[0];
+		return (struct reduced_turn){ fraction != 0 ? x + x : math_domain_error(), 0 };
+	}
 
 	const bool negative = (input.words[1] >> 63) != 0;
 	const int exponent = (int)encoded - exponent_bias;
@@ -141,7 +146,10 @@ long double tanpil(long double x)
 	if (fraction == 0.0L)
 	{
 		if (quadrant & 1)
-			return quadrant & 2 ? -INFINITY : INFINITY;
+		{
+			const long double infinity = math_range_error();
+			return quadrant & 2 ? -infinity : infinity;
+		}
 		return quadrant & 2 ? -fraction : fraction;
 	}
 	const long double magnitude = __builtin_fabsl(fraction);
@@ -155,6 +163,8 @@ long double tanpil(long double x)
 
 long double acospil(long double x)
 {
+	if (x < -1.0L || x > 1.0L)
+		return math_domain_error();
 	if (x == -1.0L)
 		return 1.0L;
 	if (x == 0.0L)
@@ -164,7 +174,10 @@ long double acospil(long double x)
 
 long double asinpil(long double x)
 {
-	if (__builtin_fabsl(x) == 1.0L)
+	const long double magnitude = __builtin_fabsl(x);
+	if (magnitude > 1.0L)
+		return math_domain_error();
+	if (magnitude == 1.0L)
 		return __builtin_copysignl(0.5L, x);
 	return asinl(x) * inverse_pi;
 }

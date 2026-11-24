@@ -2,6 +2,8 @@
 #include <math.h>
 #include <stdint.h>
 
+#include "math_error.h"
+
 static_assert(sizeof(long double) == 16 && LDBL_MANT_DIG == 113 && LDBL_MAX_EXP == 16384);
 static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__);
 
@@ -71,7 +73,7 @@ long double remquol(long double x, long double y, int* quotient)
 	if (abs_x > infinity_bits || abs_y > infinity_bits)
 		return x + y;
 	if (abs_x == infinity_bits || abs_y == 0)
-		return __builtin_nanl("");
+		return math_domain_error();
 	if (abs_x == 0 || abs_y == infinity_bits)
 		return x;
 

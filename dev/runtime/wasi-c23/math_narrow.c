@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "math_error.h"
 #include "platform.h"
 #include "softfloat.h"
 
@@ -63,6 +64,27 @@ static bool is_float_midpoint(double x)
 	return false;
 }
 
+// Examine the operands only when the narrowed result is nonfinite.
+#define DEFINE_RESULT_CHECK(result_type, suffix, input_type) \
+	static inline result_type check_##suffix(result_type result, input_type x, input_type y, input_type z) \
+	{ \
+		if (__builtin_expect(!isfinite(result), 0)) \
+		{ \
+			if (isinf(result)) \
+			{ \
+				if (isfinite(x) && isfinite(y) && isfinite(z)) \
+					errno = ERANGE; \
+			} \
+			else if (!isnan(x) && !isnan(y) && !isnan(z)) \
+				errno = EDOM; \
+		} \
+		return result; \
+	}
+
+DEFINE_RESULT_CHECK(float, f, double)
+DEFINE_RESULT_CHECK(float, fl, long double)
+DEFINE_RESULT_CHECK(double, dl, long double)
+
 /* The software operations round toward zero and set the low bit when
    inexact. Narrower midpoints are exact even values in the wide format.
    The odd result therefore keeps the exact value on its side of a
@@ -71,17 +93,19 @@ static bool is_float_midpoint(double x)
 	float f##name(double x, double y) \
 	{ \
 		const double wide = x native_op y; \
-		if (!is_float_midpoint(wide)) \
-			return (float)wide; \
-		return (float)as_double(f64_##op(binary64(x), binary64(y))); \
+		const float result = is_float_midpoint(wide) ? (float)as_double(f64_##op(binary64(x), binary64(y))) \
+													 : (float)wide; \
+		return check_f(result, x, y, 0.0); \
 	} \
 	float f##name##l(long double x, long double y) \
 	{ \
-		return (float)as_long_double(f128_##op(binary128(x), binary128(y))); \
+		const float result = (float)as_long_double(f128_##op(binary128(x), binary128(y))); \
+		return check_fl(result, x, y, 0.0L); \
 	} \
 	double d##name##l(long double x, long double y) \
 	{ \
-		return (double)as_long_double(f128_##op(binary128(x), binary128(y))); \
+		const double result = (double)as_long_double(f128_##op(binary128(x), binary128(y))); \
+		return check_dl(result, x, y, 0.0L); \
 	}
 
 NARROW_BINARY(add, add, +)
@@ -91,33 +115,37 @@ NARROW_BINARY(div, div, /)
 
 float ffma(double x, double y, double z)
 {
-	return (float)as_double(f64_mulAdd(binary64(x), binary64(y), binary64(z)));
+	const float result = (float)as_double(f64_mulAdd(binary64(x), binary64(y), binary64(z)));
+	return check_f(result, x, y, z);
 }
 
 float ffmal(long double x, long double y, long double z)
 {
-	return (float)as_long_double(f128_mulAdd(binary128(x), binary128(y), binary128(z)));
+	const float result = (float)as_long_double(f128_mulAdd(binary128(x), binary128(y), binary128(z)));
+	return check_fl(result, x, y, z);
 }
 
 double dfmal(long double x, long double y, long double z)
 {
-	return (double)as_long_double(f128_mulAdd(binary128(x), binary128(y), binary128(z)));
+	const double result = (double)as_long_double(f128_mulAdd(binary128(x), binary128(y), binary128(z)));
+	return check_dl(result, x, y, z);
 }
 
 float fsqrt(double x)
 {
 	const double wide = __builtin_sqrt(x);
-	if (!is_float_midpoint(wide))
-		return (float)wide;
-	return (float)as_double(f64_sqrt(binary64(x)));
+	const float result = is_float_midpoint(wide) ? (float)as_double(f64_sqrt(binary64(x))) : (float)wide;
+	return check_f(result, x, 0.0, 0.0);
 }
 
 float fsqrtl(long double x)
 {
-	return (float)as_long_double(f128_sqrt(binary128(x)));
+	const float result = (float)as_long_double(f128_sqrt(binary128(x)));
+	return check_fl(result, x, 0.0L, 0.0L);
 }
 
 double dsqrtl(long double x)
 {
-	return (double)as_long_double(f128_sqrt(binary128(x)));
+	const double result = (double)as_long_double(f128_sqrt(binary128(x)));
+	return check_dl(result, x, 0.0L, 0.0L);
 }

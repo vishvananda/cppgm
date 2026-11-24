@@ -35,6 +35,7 @@
 #include <stdint.h>
 
 #include "math_binary128.h"
+#include "math_error.h"
 
 static_assert(sizeof(long double) == 16 && LDBL_MANT_DIG == 113 && LDBL_MAX_EXP == 16384);
 static_assert(FE_ALL_EXCEPT == 0 && FE_TONEAREST == 0);
@@ -391,7 +392,7 @@ static long double exponential_minus_one(long double x, const struct exponential
 	if (negative && exponent >= BIAS + 7)
 		return -1.0L;
 	if (exponent >= BIAS + 15)
-		return INFINITY;
+		return math_range_error();
 
 	if (scale == nullptr && exponent < BIAS - 113)
 		return x;
@@ -421,7 +422,7 @@ static long double exponential_minus_one(long double x, const struct exponential
 	const unsigned index = (unsigned)n % INTERVALS;
 	const int k = (n - (int)index) / INTERVALS;
 	if (k > LDBL_MAX_EXP)
-		return INFINITY;
+		return math_range_error();
 
 	long double r1;
 	long double r2;
@@ -454,7 +455,7 @@ static long double exponential_minus_one(long double x, const struct exponential
 	}
 
 	if (k == LDBL_MAX_EXP)
-		return (hi + (lo + t * (q + r1))) * 2.0L * 0x1p16383L;
+		return math_quad_overflow((hi + (lo + t * (q + r1))) * 2.0L * 0x1p16383L);
 	const long double power = power_of_two(k);
 	if (k < -7 || k > 2 * LDBL_MANT_DIG - 1)
 		return (hi + (lo + t * (q + r1))) * power - 1;
@@ -495,14 +496,14 @@ static long double reconstruct_exponential(unsigned index, int k, long double r1
 	}
 	const long double result = hi + tail;
 	if (k == LDBL_MAX_EXP)
-		return result * 2.0L * 0x1p16383L;
+		return math_quad_overflow(result * 2.0L * 0x1p16383L);
 	return result * power_of_two(k);
 }
 
 long double __cppgm_wasi_exp_split(long double x, long double low)
 {
 	if (x >= 0x1p14L)
-		return INFINITY;
+		return math_range_error();
 	if (x <= -0x1p14L)
 		return 0.0L;
 
@@ -511,7 +512,7 @@ long double __cppgm_wasi_exp_split(long double x, long double low)
 	const unsigned index = (unsigned)n % INTERVALS;
 	const int k = (n - (int)index) / INTERVALS;
 	if (k > LDBL_MAX_EXP)
-		return INFINITY;
+		return math_range_error();
 	if (k < LDBL_MIN_EXP - LDBL_MANT_DIG - 1)
 		return 0.0L;
 
@@ -520,17 +521,17 @@ long double __cppgm_wasi_exp_split(long double x, long double low)
 
 long double expl(long double x)
 {
-	if (isnan(x))
-		return x + x;
+	if (!isfinite(x))
+		return x < 0 ? 0.0L : x + x;
 	return __cppgm_wasi_exp_split(x, 0.0L);
 }
 
 long double exp10l(long double x)
 {
-	if (isnan(x))
-		return x + x;
+	if (!isfinite(x))
+		return x < 0 ? 0.0L : x + x;
 	if (x >= 0x1p13L)
-		return INFINITY;
+		return math_range_error();
 	if (x <= -0x1p13L)
 		return 0.0L;
 
@@ -539,7 +540,7 @@ long double exp10l(long double x)
 	const unsigned index = (unsigned)n % INTERVALS;
 	const int k = (n - (int)index) / INTERVALS;
 	if (k > LDBL_MAX_EXP)
-		return INFINITY;
+		return math_range_error();
 	if (k < LDBL_MIN_EXP - LDBL_MANT_DIG - 1)
 		return 0.0L;
 	const struct math_split remainder = reduce_base_ten(x, step);

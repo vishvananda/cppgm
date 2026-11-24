@@ -310,6 +310,7 @@ C23_VERSIONED_PROGRAMS = {
     'library.c23-binary-stdio': (ROOT / 'scripts/tests/c_c23_binary_stdio.c', 'stdio inttypes'),
     'library.c23-complex-interfaces': (ROOT / 'scripts/tests/c_c23_complex_interfaces.c', 'complex'),
     'library.c23-fenv-interfaces': (ROOT / 'scripts/tests/c_c23_fenv_interfaces.c', 'fenv'),
+    'library.wasi-math-errno-paths': (ROOT / 'scripts/tests/c_wasi_math_errno_paths.c', 'math'),
     'library.c23-math-classification': (ROOT / 'scripts/tests/c_c23_math_classification.c', 'math'),
     'library.c23-math-exp-log': (ROOT / 'scripts/tests/c_c23_math_exp_log.c', 'math'),
     'library.c23-math-extrema': (ROOT / 'scripts/tests/c_c23_math_extrema.c', 'math'),
@@ -967,6 +968,8 @@ def library_sources(profile, edition, checked, checked_c23, wasi_libraries):
     if edition != 23:
         return
     for case, (source, required) in C23_VERSIONED_PROGRAMS.items():
+        if case == 'library.wasi-math-errno-paths' and profile['id'] != WASI_C23_PROFILE:
+            continue
         if not hosted and case not in ('library.c23-memset-explicit', 'library.c23-memalignment',
                                        'library.c23-string-operations'):
             continue

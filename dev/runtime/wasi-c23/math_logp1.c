@@ -32,6 +32,7 @@
 #include <stdint.h>
 
 #include "math_binary128.h"
+#include "math_error.h"
 
 static_assert(sizeof(long double) == 16 && LDBL_MANT_DIG == 113 && LDBL_MAX_EXP == 16384);
 
@@ -857,9 +858,12 @@ static long double log1p_scaled(long double x, const struct log_scale* scale)
 		const unsigned exponent = sign_exponent & 0x7fff;
 		if (exponent >= 0x3fff)
 		{
-			if (exponent == 0x3fff && ((input.words[1] & fraction_mask) | input.words[0]) == 0)
-				return -INFINITY;
-			return exponent == 0x7fff ? x + x : __builtin_nanl("");
+			const uint64_t fraction = (input.words[1] & fraction_mask) | input.words[0];
+			if (exponent == 0x7fff && fraction != 0)
+				return x + x;
+			if (exponent == 0x3fff && fraction == 0)
+				return -math_range_error();
+			return math_domain_error();
 		}
 		if (exponent <= SMALL_ARGUMENT_EXPONENT)
 			return scale == nullptr ? x : scale->full * x;
@@ -893,11 +897,15 @@ long double log1pl(long double x)
 
 double logp1(double x)
 {
+	if (x <= -1.0)
+		return x == -1.0 ? -math_range_error() : math_domain_error();
 	return log1p(x);
 }
 
 float logp1f(float x)
 {
+	if (x <= -1.0f)
+		return x == -1.0f ? -math_range_error() : math_domain_error();
 	return log1pf(x);
 }
 
@@ -933,9 +941,9 @@ static long double logarithm(long double x, const struct log_scale* scale)
 	if (isnan(x))
 		return x + x;
 	if (x == 0)
-		return -INFINITY;
+		return -math_range_error();
 	if (x < 0)
-		return __builtin_nanl("");
+		return math_domain_error();
 	if (isinf(x))
 		return x;
 

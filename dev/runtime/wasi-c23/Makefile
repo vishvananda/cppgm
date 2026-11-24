@@ -26,7 +26,7 @@ SOFTFLOAT_OBJECTS := $(patsubst $(SOFTFLOAT)/%.c,$(BUILD_DIR)/softfloat/%.o,$(wi
 OBJECTS := $(addprefix $(BUILD_DIR)/,stdbit.o memalignment.o memset_explicit.o timespec_getres.o utf8.o \
 	binary_conversion.o sized_free.o atomic_functions.o call_once.o strfrom.o fenv.o temporary_files.o \
 	math_representation.o math_classification.o math_extrema.o math_rounding.o math_logp1.o math_narrow.o \
-	math_expm1.o math_pi.o math_power.o math_remainder.o) \
+	math_expm1.o math_pi.o math_power.o math_remainder.o math_sdk_errors.o math_sdk_builtins.o) \
 	$(STDIO_OBJECTS) $(CORE_MATH_OBJECTS) $(SOFTFLOAT_OBJECTS)
 RUNTIME_CFLAGS := --target=wasm32-wasip1 --sysroot="$(WASI_SYSROOT)" -resource-dir="$(RESOURCE_DIR)" \
 	-x c -std=c23 -pedantic-errors -isystem "$(BUILD_DIR)/include" -O2
@@ -85,7 +85,7 @@ $(CORE_MATH_F128_OBJECTS): CORE_MATH_FORMAT := binary128
 $(CORE_MATH_OBJECTS): $(BUILD_DIR)/core-math/%.o: $(CORE_MATH)/$$(CORE_MATH_FORMAT)/%.c core_math_wasi.h Makefile | $(HEADERS)
 	mkdir -p "$(@D)"
 	$(CC) $(filter-out -std=c23 -pedantic-errors,$(RUNTIME_CFLAGS)) -std=gnu23 -ffp-contract=off \
-		-include "$(abspath core_math_wasi.h)" -Dcr_$*=$* $(CPPFLAGS) $(CFLAGS) \
+		-include "$(abspath core_math_wasi.h)" -DCORE_MATH_SUPPORT_ERRNO -Dcr_$*=$* $(CPPFLAGS) $(CFLAGS) \
 		-MD -MP -MF "$(@:.o=.d)" -c "$<" -o "$@"
 
 $(BUILD_DIR)/libcppgm-wasi-c23.a: $(OBJECTS) Makefile
