@@ -534,6 +534,7 @@ chains independently.
   the standard's required versus conditional interfaces for each environment
   before using an SDK result to qualify the compiler and runtime together.
   [Edition and SDK header checklist](../scripts/c_library_headers.py)
+  [Runtime interface probes](../reports/upstream-c-coverage.md#c-library-runtime-interfaces)
 - Qualify C11 atomics, threads, complex arithmetic, and VLAs separately.
   For atomics, cover ordinary lvalue conversions and assignment, valid
   and invalid explicit memory orders, both outcomes of compare-exchange,

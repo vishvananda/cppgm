@@ -3705,3 +3705,27 @@ The one-function WASI input measures roughly 2,600 extra retired
 instructions in fixed compilation setup. The A/A task-clock spreads
 ranged from 1.68% to 153% during concurrent validation. The task-clock
 observations leave timing changes unresolved.
+
+## Wasm integer format predefines
+
+The target integer descriptor supplies the length modifier. The existing
+predefined macro setup loads 90 additional definitions per Wasm
+translation unit. Native target macro sets retain their previous size.
+The added initialization is fixed per translation unit.
+
+The comparison used `9ce273b80` and `739b9e41d` on CPU 71 with A/A,
+ABBA and BAAB blocks. Every observation produced the same object bytes
+as its calibration input.
+
+| Input | A/A instruction spread | ABBA retired instructions | BAAB retired instructions |
+| --- | ---: | ---: | ---: |
+| WASI C23, one function | 0.00443% | +8.48006% | +8.48199% |
+| WASI C23, combined translation limits | 0.01205% | +0.16219% | +0.16285% |
+| x86-64 SQLite 3.50.4 | 0.00740% | −0.00276% | +0.00097% |
+| x86-64 C++ semantic overloads | 0.00460% | +0.00016% | −0.00037% |
+
+The small Wasm input measures roughly 285,000 extra retired instructions
+in fixed setup. The combined input adds roughly 265,000 instructions.
+The native instruction changes fall within calibration spread.
+Task-clock A/A spreads ranged from 1.58% to 183% during concurrent
+validation. Those observations leave wall-time changes unresolved.

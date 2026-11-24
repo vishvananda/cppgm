@@ -2938,3 +2938,61 @@ fixtures with zero placement or local hygiene findings.
 [Standard references](../doc/c-conformance-notes.md#standard-library-headers-and-c23-versions) ·
 [PA38 WASI regression](../pa38/tests/general/500-c-hosted-nonlocal-jump.t) ·
 [Compile measurements](../docs/performance/c-frontend-scaling.md#wasi-c-exception-handling-predefine)
+
+## C library runtime interfaces
+
+The clause runner now exercises header declarations through real calls in
+each applicable edition. The C90 cases check assertion reinclusion,
+character classification and the C locale, structure offsets, formatted
+I/O, file positioning, allocation, numeric conversions and errors,
+search and sort callbacks, and overlapping string operations. The C95
+wide-character probes carry forward through C23. The C99 probes copy
+an advanced argument list and round-trip maximum, least, fast, and
+pointer-width integers through `<inttypes.h>`. The C11 cases carry
+retained functions and atomics into C23. The C23 atomic initializer
+uses direct initialization in that edition.
+
+The C23 runtime checks cover binary numeric conversions, binary stdio
+and width modifiers, variadic `assert`, `memalignment`,
+`memset_explicit`, string duplication, `timespec_getres`, and the
+restartable UTF-8 conversion functions. The hosted checks run when the
+required C23 header versions have passing evidence. The C17 conversion
+control runs independently. On x86-64 glibc 2.43, ELF symbol inspection
+finds `strtol` in the C17 object and the glibc `__isoc23_` redirects
+in the C23 object. Both linked programs produce the correct end-pointer
+and value for the selected mode.
+
+The WASI probes exposed unresolved integer format macros in the
+default `<inttypes.h>`. The driver now emits the format strings from
+the existing target integer role table. All 90 format predefines match
+the pinned Clang on bare wasm32, WASI, and Emscripten. The PA38
+regression checks the public header macros, and the runtime probes
+exercise them with values and pointer outputs at both optimization
+levels. The SDK enables long-double stdio with
+`-lc-printscan-long-double`. That archive passes its own link and runtime
+checks. The default WASI long-double stdio rule remains uncovered.
+
+The exact compiler passes 3,020 clause probe configurations. This
+includes 880 each on x86-64 glibc and AArch64 glibc under QEMU, 785 on
+WASI and 475 on bare Wasm. Focused native and cross runs using GCC and
+Clang as controls pass 1,042 configurations. The separate musl 1.2.5
+replay passes all 276 configurations with GCC 15 and cppgm. Native
+macOS SDK execution still needs evidence.
+
+The pinned GCC C17 and C23 cohorts pass 27 and 77 configurations,
+respectively. The pinned Clang C23 cohort passes 24. The Clang C17
+cohort passes eight, with the existing `__STDC_NO_VLA__` qualification
+gap in `n1460`.
+
+The strict report passes all 11,674 tests. Debug-info, inception,
+PA35 through PA5, PA36 smoke, and all 76 harness test files pass.
+PA38 passes 684 native and 684 Wasm tests, 63 controls and four mixed
+ABI tests. The student export verifies 26,943 portable reference
+outputs. Its bundled tools pass PA1 and the PA38 native, Wasm and ABI
+lanes. The architecture and format audits pass with 13 existing file
+audit warnings. Placement scans 11,686 fixtures with no placement or
+local test hygiene findings.
+
+[Library clause references](../doc/c-conformance-notes.md#c-library-calls-and-format-macros) ·
+[PA38 format regression](../pa38/tests/general/500-c-integer-format-headers.t) ·
+[Compile measurements](../docs/performance/c-frontend-scaling.md#wasm-integer-format-predefines)
