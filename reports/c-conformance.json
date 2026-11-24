@@ -1832,6 +1832,213 @@
       "cases": ["library.c23-uchar-utf8"]
     },
     {
+      "id": "environment.vla-capability",
+      "clause": "C11 6.10.8.3, C23 6.10.10.4",
+      "kind": "implementation-defined",
+      "editions": [11, 17, 23],
+      "environment": "all",
+      "requirement": "Omit the negative feature macro on the qualified targets and compile, link and run an automatic variable-length array.",
+      "cases": ["vla.capability"]
+    },
+    {
+      "id": "vla.automatic-c99",
+      "clause": "C99 6.2.4, 6.7.5.2",
+      "kind": "required",
+      "editions": [99],
+      "environment": "all",
+      "requirement": "Allocate automatic VLAs, keep captured sizes and strides, and reclaim storage on scope exits and across calls.",
+      "cases": ["vla.capability", "vla.exit-edges", "vla.strides", "vla.typedef-bounds", "vla.external-call"]
+    },
+    {
+      "id": "vla.automatic",
+      "clause": "C11–C23 6.2.4 and array declarators",
+      "kind": "conditional",
+      "editions": [11, 17, 23],
+      "environment": "all",
+      "requirement": "Exercise the selected automatic VLA feature through stack allocation, stable extents, multidimensional indexing and all tested exit edges.",
+      "cases": ["vla.capability", "vla.exit-edges", "vla.strides", "vla.typedef-bounds", "vla.external-call"]
+    },
+    {
+      "id": "vla.declaration-contexts",
+      "clause": "Array declarators and constraint diagnostics",
+      "kind": "required",
+      "editions": [99, 11, 17, 23],
+      "environment": "all",
+      "requirement": "Reject incomplete array element types, noninteger bounds, file-scope variably modified types and VLA objects with static storage or linkage.",
+      "cases": ["vla.incomplete-element", "vla.file-scope", "vla.external-object", "vla.static-object", "vla.noninteger-bound"]
+    },
+    {
+      "id": "vla.legacy-editions",
+      "clause": "C90 and C95 array bounds",
+      "kind": "required",
+      "editions": [90, 95],
+      "environment": "all",
+      "requirement": "Diagnose an automatic array with a nonconstant bound in pedantic C90 and C95.",
+      "cases": ["vla.before-c99"]
+    },
+    {
+      "id": "vla.variably-modified-pointers",
+      "clause": "Array declarators, scopes and linkage",
+      "kind": "required",
+      "editions": [99, 11, 17, 23],
+      "environment": "all",
+      "requirement": "Retain runtime array bounds on local and static pointers and a local function pointer. Diagnose variably modified identifiers with linkage.",
+      "cases": ["vla.pointers", "vla.function-pointer", "vla.linked-pointer", "vla.linked-function"]
+    },
+    {
+      "id": "vla.parameter-adjustment",
+      "clause": "Array declarators and function parameter adjustment",
+      "kind": "required",
+      "editions": [99, 11, 17, 23],
+      "environment": "all",
+      "requirement": "Adjust prototype and definition parameters to pointers, preserve a written inner stride and reject conflicting fixed strides or definition-site stars.",
+      "cases": ["vla.parameters", "vla.prototype-star", "vla.star-definition", "vla.star-static", "vla.incompatible-strides", "vla.parameter-abi"]
+    },
+    {
+      "id": "vla.mixed-compiler-abi",
+      "clause": "Function parameter adjustment and calling conventions",
+      "kind": "required",
+      "editions": [99, 11, 17, 23],
+      "environment": "all",
+      "requirement": "Call an adjusted multidimensional array parameter using cppgm and a reference compiler in both caller and callee roles.",
+      "cases": ["vla.cppgm-caller", "vla.cppgm-callee"]
+    },
+    {
+      "id": "vla.scope-transfers",
+      "clause": "The goto and switch constraints",
+      "kind": "required",
+      "editions": [99, 11, 17, 23],
+      "environment": "all",
+      "requirement": "Diagnose entry into the scope of a variably modified object, pointer, typedef or function pointer through goto or a case label.",
+      "cases": ["vla.goto-object", "vla.goto-typedef", "vla.goto-function-pointer", "vla.case-object", "vla.case-pointer"]
+    },
+    {
+      "id": "vla.initializer-constraints",
+      "clause": "Initialization and compound literals",
+      "kind": "required",
+      "editions": [99, 11, 17, 23],
+      "environment": "all",
+      "requirement": "Diagnose a nonempty VLA initializer and a compound literal of VLA type.",
+      "cases": ["vla.nonempty-initializer", "vla.array-compound-literal"]
+    },
+    {
+      "id": "vla.empty-initializer-before-c23",
+      "clause": "Initializer edition boundary",
+      "kind": "required",
+      "editions": [99, 11, 17],
+      "environment": "all",
+      "requirement": "Diagnose an empty VLA initializer before C23.",
+      "cases": ["vla.empty-before-c23"]
+    },
+    {
+      "id": "vla.sizeof-expression",
+      "clause": "The sizeof operator on array expressions",
+      "kind": "required",
+      "editions": [99, 11, 17, 23],
+      "environment": "all",
+      "requirement": "Distinguish evaluated VLA operands from unevaluated operands with fixed size.",
+      "cases": ["vla.sizeof-operand"]
+    },
+    {
+      "id": "vla.cast-expressions",
+      "clause": "Variably modified type names in cast expressions",
+      "kind": "required",
+      "editions": [99, 11, 17],
+      "environment": "all",
+      "requirement": "Evaluate the runtime bounds in casts and pointer compound literals, including a cast whose value is discarded.",
+      "cases": ["vla.cast"]
+    },
+    {
+      "id": "vla.identifier-list",
+      "clause": "Adjusted array parameters in identifier-list definitions",
+      "kind": "required",
+      "editions": [99, 11, 17],
+      "environment": "all",
+      "requirement": "Retain adjusted array parameter bounds and qualifiers in definitions using an identifier list.",
+      "cases": ["vla.legacy-definition", "vla.restrict-array-parameter"]
+    },
+    {
+      "id": "vla.prototype-contexts",
+      "clause": "Prototype scope, alignment operators and generic associations",
+      "kind": "required",
+      "editions": [11, 17, 23],
+      "environment": "all",
+      "requirement": "Accept prototype-scope stars in permitted type names and diagnose stars outside prototype scope or variably modified associations.",
+      "cases": ["vla.prototype-type-names", "vla.star-type-name-file", "vla.star-type-name-definition", "vla.star-type-name-body", "vla.generic-association"]
+    },
+    {
+      "id": "vla.type-queries",
+      "clause": "Typedefs, type compatibility and sizeof with runtime extents",
+      "kind": "required",
+      "editions": [11, 17, 23],
+      "environment": "all",
+      "requirement": "Preserve captured extents, check compatible fixed and runtime bounds, and distinguish demanded bounds from bounds that cannot affect a type query.",
+      "cases": ["vla.type-compatibility", "vla.sizeof-type", "vla.repeated-typedef"]
+    },
+    {
+      "id": "vla.qualified-atomic-types",
+      "clause": "C11–C23 atomic qualifiers and array parameter adjustment",
+      "kind": "conditional",
+      "editions": [11, 17, 23],
+      "environment": "all",
+      "requirement": "Preserve atomic qualification and effects on adjusted pointers. Diagnose direct atomic qualification of an array.",
+      "cases": ["vla.atomic-parameter", "vla.atomic-types", "vla.atomic-array"]
+    },
+    {
+      "id": "vla.alignment-and-qualified-parameters",
+      "clause": "C11–C23 alignment and array declarators",
+      "kind": "required",
+      "editions": [11, 17, 23],
+      "environment": "all",
+      "requirement": "Place an aligned VLA and retain qualifiers on its adjusted parameters. Diagnose an explicitly weaker alignment.",
+      "cases": ["vla.declarations", "vla.parameter-qualifiers", "vla.weaker-alignment"]
+    },
+    {
+      "id": "vla.c23-qualified-arrays",
+      "clause": "C23 6.2.5 and qualification conversion",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Convert to a qualified pointer to an array with runtime extent and apply restrict to an array typedef with pointer elements.",
+      "cases": ["vla.c23-qualified-pointer", "vla.c23-restrict-array"]
+    },
+    {
+      "id": "vla.qualified-pointer-edition",
+      "clause": "C99\u2013C17 6.3.2.3 and 6.5.16.1, WG14 N2607",
+      "kind": "required",
+      "editions": [99, 11, 17],
+      "environment": "all",
+      "requirement": "Apply earlier-edition qualification rules to implicit conversions between pointers to arrays and between such pointers and void pointers.",
+      "cases": []
+    },
+    {
+      "id": "vla.restrict-array-edition",
+      "clause": "C23 qualification edition boundary",
+      "kind": "required",
+      "editions": [99, 11, 17],
+      "environment": "all",
+      "requirement": "Diagnose restrict applied to the earlier-edition array typedef in pedantic mode.",
+      "cases": ["vla.restrict-array-before-c23"]
+    },
+    {
+      "id": "vla.gnu-restrict-array",
+      "clause": "GNU array qualification extension",
+      "kind": "gnu",
+      "editions": [17],
+      "environment": "all",
+      "requirement": "Apply restrict to the elements of an array typedef in GNU17.",
+      "cases": ["vla.gnu-restrict-array"]
+    },
+    {
+      "id": "vla.gnu-typeof",
+      "clause": "GNU typeof with variably modified types",
+      "kind": "gnu",
+      "editions": [17, 23],
+      "environment": "all",
+      "requirement": "Evaluate runtime bounds and dependent expression effects in the GNU type inquiry.",
+      "cases": ["vla.gnu-typeof"]
+    },
+    {
       "id": "library.setjmp",
       "clause": "C90 4.6, C99–C23 7.13",
       "kind": "required",

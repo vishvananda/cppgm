@@ -147,6 +147,21 @@ class CoverageTests(unittest.TestCase):
         row['status'] = 'failed'
         self.assertEqual(evidence_key(row, self.profiles), expected)
 
+    def test_vla_abi_evidence_requires_both_units_and_the_exported_result(self):
+        profile = self.profiles['wasm-freestanding']
+        row = dict(self.valid_runtime(), case='vla.cppgm-caller', profile=profile['id'],
+                   target=profile['target'], environment=profile['environment'])
+        companion = dict(name='compile-companion', returncode=0, classification='success')
+        row['stages'].insert(1, companion)
+        row['stages'][-1]['stdout'] = '0\n'
+        self.assertEqual(evidence_key(row, self.profiles), ('vla.cppgm-caller', profile['id'], 99, 'O0'))
+        row['stages'][-1]['stdout'] = '1\n'
+        with self.assertRaisesRegex(ValueError, 'lacks bare Wasm return value'):
+            evidence_key(row, self.profiles)
+        row['stages'].pop(1)
+        with self.assertRaisesRegex(ValueError, 'invalid stage history'):
+            evidence_key(row, self.profiles)
+
     def test_bare_wasm_result_checks_the_exported_value(self):
         profile = self.profiles['wasm-freestanding']
         row = dict(self.valid_runtime(), profile=profile['id'], target=profile['target'],

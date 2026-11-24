@@ -603,6 +603,9 @@ The first fixture set covers these parts of the C17 input profile:
   the storage on every scope exit and preserve alignment requests. Diagnose
   jumps and switch labels that enter the scope of a variably modified
   identifier past its declaration.
+  Leave `__STDC_NO_VLA__` undefined on the supported targets. In C23,
+  variably modified types are required even when an implementation omits
+  automatic VLA objects.
 - In C23, accept `= {}` on a variable-length array with automatic
   storage. Default-initialize each element and clear aggregate padding
   using the complete captured extent. An empty initializer supplies no

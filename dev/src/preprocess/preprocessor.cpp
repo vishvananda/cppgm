@@ -83,8 +83,6 @@ std::string PredefinedText(const PreprocessorOptions& options, const FeatureMode
 			text += version;
 			text += '\n';
 		}
-		if (options.c_edition >= CEdition::C11)
-			text += "#define __STDC_NO_VLA__ 1\n";
 		if (options.c_edition >= CEdition::C23)
 			text +=
 				"#define __STDC_EMBED_NOT_FOUND__ 0\n#define __STDC_EMBED_FOUND__ 1\n#define __STDC_EMBED_EMPTY__ 2\n";

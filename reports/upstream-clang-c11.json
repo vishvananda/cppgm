@@ -21,6 +21,17 @@
       "upstream_flags": [],
       "obligation": "WG14 N1310 signed char representation assertions in the explicit C11 mode",
       "dialect": "c11"
+    },
+    {
+      "id": "n1460",
+      "path": "clang/test/C/C11/n1460.c",
+      "sha256": "cbcd5e11be22f34ff7c7733dc3a46ca0f4d0a51928fdc032664f83ca52e176c1",
+      "dialect": "c11",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "WG14 N1460 conditional complex and variable-length array feature macros"
     }
   ]
 }

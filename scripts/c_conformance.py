@@ -11,6 +11,7 @@ import subprocess
 import sys
 
 import c_library_headers as headers
+import c_vla_cases as vla
 from run_cxx11_ci_suite import LIMITS
 from upstream_dg_proxy import execute, sha256, write_json
 
@@ -27,6 +28,7 @@ NATIVE_PROFILES = {
     ('Darwin', 'arm64'): 'darwin-arm64-hosted',
 }
 RUN_STAGES = ('compile', 'link', 'run')
+PAIR_STAGES = ('compile', 'compile-companion', 'link', 'run')
 THREAD_PREDEFINE = ROOT / 'scripts/tests/c_thread_predefine.c'
 C95_WIDE_HEADERS = ROOT / 'scripts/tests/c_c95_wide_headers.c'
 PA38_GENERAL = ROOT / 'pa38/tests/general'
@@ -242,6 +244,7 @@ REGISTER_CONSTRAINTS = {
 REJECTED_CASES = {
     'line.diagnostic-location', 'error.message', *RECORD_CONSTRAINTS,
     *REGISTER_CONSTRAINTS,
+    *vla.REJECTIONS,
     *(case for case, _, _ in C23_SOURCE_REJECTIONS),
 }
 C11_LIBRARY_SOURCES = {
@@ -296,6 +299,9 @@ C23_LIBRARY_SOURCES = {
 }
 CASES = {
     **headers.header_cases(),
+    **{case: (RUN_STAGES, ('O0', 'O2')) for case in (*vla.PROGRAMS, *vla.GNU_PROGRAMS)},
+    **{case: (PAIR_STAGES, ('O0', 'O2')) for case in (*vla.PAIR_SOURCES, *vla.MIXED_CASES)},
+    **{case: (('compile',), ('O0', 'O2')) for case in vla.REJECTIONS},
     **{case: ((stage,), ('default',)) for case, _, stage in C23_SOURCE_CASES},
     **{case: (RUN_STAGES, ('O0', 'O2')) for case in C23_PROGRAMS},
     'limits.combined': (RUN_STAGES, ('O0', 'O2')),
@@ -422,7 +428,7 @@ def evidence_key(row, profiles):
         outcomes = [(stage['classification'], stage['returncode']) for stage in row['stages']]
         if names != stages or outcomes != [want] * len(stages):
             raise ValueError(f'passing result lacks stage evidence: {key}')
-        if profile == 'wasm-freestanding' and names == RUN_STAGES and row['stages'][-1].get('stdout') != '0\n':
+        if profile == 'wasm-freestanding' and names[-1] == 'run' and row['stages'][-1].get('stdout') != '0\n':
             raise ValueError(f'passing result lacks bare Wasm return value: {key}')
     return key
 
@@ -624,14 +630,16 @@ def probe_c23_source_cases(output, profile, compiler, setup):
         yield receipt(case, profile, 23, 'default', passed, stages)
 
 
-def probe_program(work, profile, case, source, flags, link, runner, link_flags=()):
+def probe_units(work, profile, case, units, link, runner, link_flags=()):
     bare_wasm = profile['id'] == 'wasm-freestanding'
     for variant in CASES[case][1]:
         directory = work / case / variant
-        obj, binary = str(directory / 'case.o'), str(directory / 'case.exe')
-        stages, _ = run_stages(directory, [
-            ('compile', [*flags, '-' + variant, '-c', str(source), '-o', obj]),
-            ('link', [*link, obj, *link_flags, '-o', binary]),
+        binary = str(directory / 'case.exe')
+        objects = [str(directory / name) for name in ('case.o', 'companion.o')[:len(units)]]
+        commands = [(name, [*flags, '-' + variant, '-c', str(source), '-o', obj])
+                    for name, (source, flags), obj in zip(PAIR_STAGES, units, objects)]
+        stages, _ = run_stages(directory, [*commands,
+            ('link', [*link, *objects, *link_flags, '-o', binary]),
             ('run', [*runner, binary]),
         ], capture_run_stdout=bare_wasm)
         last = stages[-1]
@@ -640,6 +648,56 @@ def probe_program(work, profile, case, source, flags, link, runner, link_flags=(
             # Wasmtime's process succeeds even when the exported function returns nonzero.
             passed = last['stdout'] == '0\n'
         yield variant, passed, stages
+
+
+def probe_program(work, profile, case, source, flags, link, runner, link_flags=()):
+    yield from probe_units(work, profile, case, ((source, flags),), link, runner, link_flags)
+
+
+def probe_vlas(work, profile, edition, flags, link, runner, reference):
+    sources = [(case, stem, flags) for case, (stem, editions) in vla.PROGRAMS.items() if edition in editions]
+    if edition in (17, 23):
+        gnu_flags = [*flags[:-2], f'-std=gnu{edition}']
+        sources.extend((case, stem, gnu_flags) for case, (stem, editions) in vla.GNU_PROGRAMS.items()
+                       if edition in editions)
+    for case, stem, source_flags in sources:
+        for variant, passed, stages in probe_program(work, profile, case, PA38_GENERAL / (stem + '.t'),
+                                                      source_flags, link, runner):
+            yield receipt(case, profile, edition, variant, passed, stages)
+    for case, (stem, editions, diagnostic) in vla.REJECTIONS.items():
+        if edition not in editions:
+            continue
+        source = PA38_GENERAL / (stem + '.t')
+        for level in CASES[case][1]:
+            stages, text = run_stages(work / case / level, [
+                ('compile', [*flags, '-' + level, '-fsyntax-only', str(source)]),
+            ])
+            rejected = stages[0]['classification'] == 'rejection' and stages[0]['returncode'] == 1
+            yield receipt(case, profile, edition, level, rejected and diagnostic in text, stages)
+    if edition not in vla.MODERN:
+        return
+    pairs = {case: ((PA38_GENERAL / (stem + '.t'), flags), (PA38_GENERAL / (stem + '.t.1'), flags))
+             for case, stem in vla.PAIR_SOURCES.items()}
+    if reference:
+        # GCC 13 and earlier use the transitional C2x flag. The paired
+        # function uses the same adjusted parameter in all four editions.
+        standard = 'c2x' if edition == 23 else f'c{edition}'
+        reference_flags = [*reference, '-x', 'c', '-std=' + standard, '-pedantic-errors']
+        caller, callee = pairs['vla.parameter-abi']
+        pairs.update({
+            'vla.cppgm-caller': (caller, (callee[0], reference_flags)),
+            'vla.cppgm-callee': ((caller[0], reference_flags), callee),
+        })
+    for case, units in pairs.items():
+        pair_runner, link_flags = runner, ()
+        if profile['id'] == 'wasm-freestanding' and case != 'vla.external-call':
+            # Clang can give the exported 'main' a startup signature.
+            # Exercise the same ordinary function in both mixed directions.
+            entry = 'check_vla_parameter'
+            pair_runner = [*runner[:-1], entry]
+            link_flags = ('--export', entry)
+        for variant, passed, stages in probe_units(work, profile, case, units, link, pair_runner, link_flags):
+            yield receipt(case, profile, edition, variant, passed, stages)
 
 
 def register_constraint_source(suffix):
@@ -831,7 +889,7 @@ def probe_header_programs(work, profile, edition, flags, link, runner, header_ch
 
 
 def probe_target(output, profile, compiler, setup, link, runner, sdk_headers, header_checks,
-                 bare_sdk=(), wasi_libraries=None):
+                 bare_sdk=(), wasi_libraries=None, reference=()):
     bare_wasm = profile['id'] == 'wasm-freestanding'
     if runner and (executable := which(runner[0])):
         runner = [str(Path(executable).absolute()), *runner[1:]]
@@ -841,6 +899,7 @@ def probe_target(output, profile, compiler, setup, link, runner, sdk_headers, he
     yield from probe_c23_source_cases(output, profile, compiler, setup)
     c23_flags = [compiler, '--target=' + profile['target'], *setup, '-x', 'c', '-std=c23', '-pedantic-errors']
     c23_work = output / profile['id'] / 'c23'
+    yield from probe_vlas(c23_work, profile, 23, c23_flags, link, runner, reference)
     yield from probe_headers(output, c23_work, profile, 23, c23_flags, bare_sdk, header_checks)
     yield from probe_header_programs(c23_work, profile, 23, c23_flags, link, runner,
                                      header_checks, wasi_libraries, bare_sdk)
@@ -862,6 +921,7 @@ def probe_target(output, profile, compiler, setup, link, runner, sdk_headers, he
         standard = LEGACY_STANDARDS.get(edition, f'c{edition}')
         flags = [compiler, '--target=' + profile['target'], *setup, '-x', 'c', f'-std={standard}', '-pedantic-errors']
         work = output / profile['id'] / f'c{edition}'
+        yield from probe_vlas(work, profile, edition, flags, link, runner, reference)
         yield from probe_headers(output, work, profile, edition, flags, bare_sdk, header_checks)
         yield from probe_header_programs(work, profile, edition, flags, link, runner,
                                          header_checks, wasi_libraries, bare_sdk)
@@ -931,7 +991,9 @@ def probes(args, profiles, rules):
     sdk_headers = {}
     header_checks = {}
     sdk_inputs = []
-    results = list(probe_target(output, profiles[native], compiler, [], [args.cc], [], sdk_headers, header_checks))
+    results = list(probe_target(output, profiles[native], compiler, [], [args.cc], [], sdk_headers, header_checks,
+                                reference=[args.cc]))
+    wasm_reference = which('wasm-ref-clang++')
     if args.wasi_sysroot:
         wasi = profiles['wasi-hosted']
         if args.wasi_resource_dir is None:
@@ -943,8 +1005,9 @@ def probes(args, profiles, rules):
         wasi_libraries = {name: archive for name in (WASI_SIGNAL, WASI_LONG_DOUBLE_STDIO)
                           if (archive := library_dir / f'lib{name}.a').is_file()}
         sdk_inputs.extend(wasi_libraries.values())
+        reference = [wasm_reference, '--target=' + wasi['target'], *setup] if wasm_reference else ()
         results.extend(probe_target(output, wasi, compiler, setup, link, [args.wasmtime, 'run', '--dir=.'],
-                                    sdk_headers, header_checks, wasi_libraries=wasi_libraries))
+                                    sdk_headers, header_checks, wasi_libraries=wasi_libraries, reference=reference))
     if args.bare_wasm:
         bare = profiles['wasm-freestanding']
         bare_sdk = ()
@@ -956,8 +1019,9 @@ def probes(args, profiles, rules):
             sdk_inputs.extend([include_dir / 'float.h', include_dir / '__float_float.h', include_dir / 'limits.h', builtins])
         link = [compiler, '--target=' + bare['target'], '-nostdlib', '--export', 'main']
         runner = [args.wasmtime, 'run', '--invoke', 'main']
+        reference = [wasm_reference, '--target=' + bare['target'], '-ffreestanding', '-nostdinc'] if wasm_reference else ()
         results.extend(probe_target(output, bare, compiler, ['-ffreestanding', '-nostdinc'], link, runner,
-                                    sdk_headers, header_checks, bare_sdk))
+                                    sdk_headers, header_checks, bare_sdk, reference=reference))
     revision = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
     inputs = sorted([*(path for path in work.rglob('*') if path.is_file()),
                      ERROR_SOURCE, INCLUDE_SOURCE, STRING_SOURCE, INCLUDE_QUERY, THREAD_PREDEFINE,
@@ -977,6 +1041,10 @@ def probes(args, profiles, rules):
     inputs.extend([C23_SDK_HEADERS, *(source for _, source in C23_LIBRARY_SOURCES.values())])
     inputs.extend(source for _, source, _ in LIBRARY_PROGRAMS.values())
     inputs.extend(source for source, _ in C23_VERSIONED_PROGRAMS.values())
+    inputs.extend(PA38_GENERAL / (stem + '.t') for stem, *_ in (
+        *vla.PROGRAMS.values(), *vla.GNU_PROGRAMS.values(), *vla.REJECTIONS.values()))
+    inputs.extend(PA38_GENERAL / (stem + suffix) for stem in vla.PAIR_SOURCES.values() for suffix in ('.t', '.t.1'))
+    inputs.append(Path(vla.__file__).resolve())
     receipt_path = output / 'receipts.json'
     write_json(receipt_path, dict(schema=1, revision=revision, compiler_sha256=sha256(Path(compiler)),
                                   inputs={str(source): sha256(source) for source in inputs}, sdk_headers=sdk_headers,

@@ -760,6 +760,19 @@ with GCC's C driver. PA38 checks a VLA that stays live across a call.
 [WG14 tracked editions](https://www.open-std.org/jtc1/sc22/wg14/www/projects.html) ·
 [PA38 VLA call regression](../pa38/tests/general/500-vla-call-c-unwind.t)
 
+## VLA capability by edition
+
+C99 requires variably modified types and automatic variable-length
+arrays. C11 and C17 allow the implementation to omit the feature and
+define `__STDC_NO_VLA__`. C23 requires variably modified types, including
+adjusted array parameters, and retains the macro for an implementation
+that omits automatic VLA objects. cppgm implements both and leaves the
+macro undefined on the supported targets.
+
+[C11 draft §6.10.8.3](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[WG14 N2778](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf) ·
+[C23 draft §6.10.10.4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+
 ## Variable dimensions and parameter adjustment
 
 C11 6.7.6.2p1 and p3 require a complete element type and an assignment

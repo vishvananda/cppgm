@@ -169,10 +169,10 @@ bool OwnMacro(const char* name, size_t length)
 		return true;
 	static const char* const kOwn[] = { "__cplusplus", "__STDC_HOSTED__", "__DATE__", "__TIME__", "__FILE__",
 		"__LINE__", "__CPPGM__", "__CPPGM_AUTHOR__", "__STDC__", "__STDC_VERSION__", "__STDC_NO_THREADS__",
-		"__BITINT_MAXWIDTH__", "__CHAR_UNSIGNED__", "__POPCNT__", "__OPTIMIZE__", "__OPTIMIZE_SIZE__", "__NO_INLINE__",
-		"__PIC__", "__pic__", "__PIE__", "__pie__", "__CET__", "__STDCPP_DEFAULT_NEW_ALIGNMENT__", "__cpp_aligned_new",
-		"__cpp_deduction_guides", "__SSE__", "__SSE2__", "__SSE3__", "__SSSE3__", "__SSE4_1__", "__SSE4_2__",
-		"__EXCEPTIONS", "__GXX_RTTI", "__FLT_EVAL_METHOD__" };
+		"__STDC_NO_VLA__", "__BITINT_MAXWIDTH__", "__CHAR_UNSIGNED__", "__POPCNT__", "__OPTIMIZE__",
+		"__OPTIMIZE_SIZE__", "__NO_INLINE__", "__PIC__", "__pic__", "__PIE__", "__pie__", "__CET__",
+		"__STDCPP_DEFAULT_NEW_ALIGNMENT__", "__cpp_aligned_new", "__cpp_deduction_guides", "__SSE__", "__SSE2__",
+		"__SSE3__", "__SSSE3__", "__SSE4_1__", "__SSE4_2__", "__EXCEPTIONS", "__GXX_RTTI", "__FLT_EVAL_METHOD__" };
 	for (const char* own : kOwn)
 	{
 		if (std::strlen(own) == length && std::memcmp(own, name, length) == 0)

@@ -112,12 +112,7 @@
       "upstream_flags": [
         "-pedantic-errors"
       ],
-      "obligation": "C11 conditional features as exercised by the native configuration",
-      "known_failure": {
-        "status": "compile-failed",
-        "diagnostic": ":32:4: #error",
-        "reason": "C11 conditional features as exercised by the native configuration"
-      }
+      "obligation": "C11 conditional features as exercised by the native configuration"
     },
     {
       "id": "tentative-array-decl",
