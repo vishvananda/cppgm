@@ -53,20 +53,27 @@ void emit(Assembler& out, const VexForm& form, unsigned bits, unsigned reg, unsi
 
 void scalar_move(Assembler& out, const Instruction& inst)
 {
+	const unsigned bits = inst.mnemonic == "vmovd" ? 32 : 64;
 	if (inst.prefix != 0 || inst.operands.size() != 2)
-		fail(inst, "vmovd requires a scalar and an XMM register");
+		fail(inst, "scalar move requires two operands including an XMM register");
 	const auto& dst = inst.operands[0];
 	const auto& src = inst.operands[1];
 	const bool load = dst.kind == OperandKind::Register && dst.reg.bank == RegisterBank::Vector;
 	const auto& reg = load ? dst : src;
 	const auto& scalar = load ? src : dst;
+	const bool integer = scalar.kind == OperandKind::Register && scalar.reg.bank == RegisterBank::Gpr;
+	const bool memory = scalar.kind == OperandKind::Memory;
+	const bool vector = scalar.kind == OperandKind::Register && scalar.reg.bank == RegisterBank::Vector &&
+		scalar.bits == 128;
 	if (reg.kind != OperandKind::Register || reg.reg.bank != RegisterBank::Vector || reg.bits != 128 ||
-		(scalar.kind == OperandKind::Register
-				? scalar.reg.bank != RegisterBank::Gpr || scalar.bits != 32
-				: scalar.kind != OperandKind::Memory || (scalar.bits != 0 && scalar.bits != 32)))
-		fail(inst, "vmovd requires an XMM register and a 32-bit integer operand");
-	const uint8_t opcode = load ? 0x6e : 0x7e;
-	const VexForm form = { nullptr, L::Move, opcode, 1, 1, 0, 0, 0, 0, 0 };
+		!(integer        ? scalar.bits == bits
+				: memory ? (scalar.bits == 0 || scalar.bits == bits)
+						 : bits == 64 && vector))
+		fail(inst, "invalid VEX scalar move operand width");
+	const bool qword_vector = bits == 64 && !integer;
+	const uint8_t opcode = qword_vector ? (load ? 0x7e : 0xd6) : (load ? 0x6e : 0x7e);
+	const VexForm form = { nullptr, L::Move, opcode, 1, static_cast<uint8_t>(qword_vector && load ? 2 : 1),
+		static_cast<uint8_t>(bits == 64 && integer), 0, 0, 0, 0 };
 	emit(out, form, 128, asm_detail::physical(reg.reg, inst), 0, asm_detail::rm(scalar, inst), opcode, false, 0);
 }
 
@@ -86,7 +93,7 @@ void rotate_immediate(Assembler& out, const Instruction& inst, unsigned suffix)
 
 } // namespace
 
-bool encode_bmi2_shift(Assembler& out, const Instruction& inst)
+bool encode_bmi_form(Assembler& out, const Instruction& inst)
 {
 	const std::string& name = inst.mnemonic;
 	if (name == "rorx" || name == "rorxl" || name == "rorxq")
@@ -98,19 +105,24 @@ bool encode_bmi2_shift(Assembler& out, const Instruction& inst)
 		: name.compare(0, 4, "sarx") == 0                  ? 2
 		: name.compare(0, 4, "shrx") == 0                  ? 3
 														   : 0;
-	if (prefix == 0 || (name.size() != 4 && (name.size() != 5 || (name.back() != 'l' && name.back() != 'q'))))
+	const bool andn = name.compare(0, 4, "andn") == 0;
+	if ((!andn && prefix == 0) ||
+		(name.size() != 4 && (name.size() != 5 || (name.back() != 'l' && name.back() != 'q'))))
 		return false;
+	const unsigned reg = andn ? 1 : 2;
+	const unsigned other = andn ? 2 : 1;
 	if (inst.prefix != 0 || inst.operands.size() != 3 || inst.operands[0].kind != OperandKind::Register ||
-		inst.operands[2].kind != OperandKind::Register)
-		fail(inst, "BMI2 shift requires a register destination, register or memory source, and register count");
+		inst.operands[reg].kind != OperandKind::Register)
+		fail(inst, "BMI instruction requires a register destination, register source and register or memory source");
 	const unsigned suffix = name.size() == 4 ? 0 : name.back() == 'q' ? 64 : 32;
 	const unsigned bits = asm_detail::integer_width(inst, static_cast<uint16_t>(suffix));
 	if (bits != 32 && bits != 64)
-		fail(inst, "BMI2 shift requires 32-bit or 64-bit operands");
-	const VexForm form = { nullptr, L::Move, 0xf7, 2, prefix, static_cast<uint8_t>(bits == 64), 0, 0, 0, 0 };
+		fail(inst, "BMI instruction requires 32-bit or 64-bit operands");
+	const uint8_t opcode = andn ? 0xf2 : 0xf7;
+	const VexForm form = { nullptr, L::Move, opcode, 2, prefix, static_cast<uint8_t>(bits == 64), 0, 0, 0, 0 };
 	emit(out, form, bits, asm_detail::physical(inst.operands[0].reg, inst),
-		asm_detail::physical(inst.operands[2].reg, inst), asm_detail::rm(inst.operands[1], inst), form.opcode, false,
-		0);
+		asm_detail::physical(inst.operands[reg].reg, inst), asm_detail::rm(inst.operands[other], inst), form.opcode,
+		false, 0);
 	return true;
 }
 
@@ -138,7 +150,7 @@ void encode_assembly_vector_transfer(
 
 bool encode_vex_form(Assembler& out, const assembly::Instruction& inst)
 {
-	if (inst.mnemonic == "vmovd")
+	if (inst.mnemonic == "vmovd" || inst.mnemonic == "vmovq")
 	{
 		scalar_move(out, inst);
 		return true;

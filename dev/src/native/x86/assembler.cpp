@@ -539,19 +539,17 @@ void Assembler::jmp(uint32_t label)
 
 void Assembler::jmp_short(uint32_t label)
 {
-	byte(0xeb);
-	LabelRef ref;
-	ref.offset = size();
-	ref.label = label;
-	ref.size = 1;
-	ref.end = 1;
-	label_refs_.push_back(ref);
-	byte(0);
+	branch_short(0xeb, label);
 }
 
 void Assembler::jcc_short(Cond cond, uint32_t label)
 {
-	byte(static_cast<uint8_t>(0x70 + cond));
+	branch_short(0x70 + cond, label);
+}
+
+void Assembler::branch_short(uint8_t opcode, uint32_t label)
+{
+	byte(opcode);
 	LabelRef ref;
 	ref.offset = size();
 	ref.label = label;

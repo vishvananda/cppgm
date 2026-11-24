@@ -75,6 +75,14 @@ std::vector<ModuleLine> module_arguments(const ModuleLine& line, uint32_t first,
 		}
 		else if (c == '"')
 			quote = true;
+		else if (c == '\'')
+		{
+			size_t end = i;
+			uint8_t value;
+			if (!module_character(line.text, end, value))
+				throw AssemblyError{ "incomplete assembly character constant", line.line, i + 1 };
+			i = static_cast<uint32_t>(end - 1);
+		}
 		else if (c == '(' || c == '[')
 		{
 			if (closing.size() == 64)

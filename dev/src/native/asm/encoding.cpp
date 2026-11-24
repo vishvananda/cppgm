@@ -153,18 +153,20 @@ void integer(Assembler& out, const assembly::Instruction& inst, const Form& form
 void vector_immediate(Assembler& out, const assembly::Instruction& inst, const Form& form)
 {
 	if (inst.prefix != 0 || inst.operands.size() != 3)
-		fail(inst, "expected a vector destination, scalar source and lane index");
-	const auto& dst = inst.operands[0];
-	const auto& src = inst.operands[1];
+		fail(inst, "expected a vector register, register or memory operand, and lane index");
+	const bool extract = form.encoding == Encoding::VectorExtractImmediate;
+	const auto& reg = inst.operands[extract ? 1 : 0];
+	const auto& other = inst.operands[extract ? 0 : 1];
 	const auto& lane = inst.operands[2];
-	if (dst.kind != OperandKind::Register || dst.reg.bank != RegisterBank::Vector || dst.bits != 128 ||
-		(src.kind == OperandKind::Register
-				? src.reg.bank != (form.bits == 128 ? RegisterBank::Vector : RegisterBank::Gpr) || src.bits != form.bits
-				: src.kind != OperandKind::Memory || (src.bits != 0 && src.bits != form.bits)) ||
+	if (reg.kind != OperandKind::Register || reg.reg.bank != RegisterBank::Vector || reg.bits != 128 ||
+		(other.kind == OperandKind::Register
+				? other.reg.bank != (form.bits == 128 ? RegisterBank::Vector : RegisterBank::Gpr) ||
+					other.bits != form.bits
+				: other.kind != OperandKind::Memory || (other.bits != 0 && other.bits != form.bits)) ||
 		lane.kind != OperandKind::Immediate || !fits_operation(static_cast<int64_t>(lane.immediate), 1))
 		fail(inst, "invalid immediate-control vector instruction");
-	out.op(form.prefix, form.bits == 64, form.opcode, form.opcode > UINT16_MAX ? 3 : 2, physical(dst.reg, inst),
-		rm(src, inst), false, 1);
+	out.op(form.prefix, form.bits == 64, form.opcode, form.opcode > UINT16_MAX ? 3 : 2, physical(reg.reg, inst),
+		rm(other, inst), false, 1);
 	out.byte(lane.immediate);
 }
 
@@ -232,9 +234,9 @@ void scalar_vector_move(Assembler& out, const assembly::Instruction& inst, unsig
 
 void vector(Assembler& out, const assembly::Instruction& inst, const Form& form)
 {
-	const bool explicit_round_operand = form.opcode == 0x0f38cb && inst.operands.size() == 3 && xmm(inst.operands[2]) &&
-		inst.operands[2].reg.number == 0;
-	if (inst.operands.size() != 2 && !explicit_round_operand)
+	const bool explicit_xmm0 = (form.opcode == 0x0f38cb || form.opcode == 0x0f3810) && inst.operands.size() == 3 &&
+		xmm(inst.operands[2]) && inst.operands[2].reg.number == 0;
+	if (inst.operands.size() != 2 && !explicit_xmm0)
 		fail(inst, "expected two vector operands");
 	const Operand& dst = inst.operands[0];
 	const Operand& src = inst.operands[1];
@@ -297,7 +299,7 @@ void encode_instruction(Assembler& out, const assembly::Instruction& inst)
 	const Form* form = asm_detail::assembly_form(inst.mnemonic, suffix, static_cast<uint32_t>(inst.operands.size()));
 	if (form == nullptr)
 	{
-		if (encode_bmi2_shift(out, inst))
+		if (encode_bmi_form(out, inst))
 			return;
 		fail(inst, "instruction form is not implemented");
 	}
@@ -328,7 +330,7 @@ void encode_instruction(Assembler& out, const assembly::Instruction& inst)
 		encode_extend_form(out, inst, *form);
 		return;
 	}
-	if (form->encoding == Encoding::VectorImmediate)
+	if (form->encoding == Encoding::VectorImmediate || form->encoding == Encoding::VectorExtractImmediate)
 		return vector_immediate(out, inst, *form);
 	if (form->encoding == Encoding::PackedShift)
 		return packed_shift(out, inst, *form);

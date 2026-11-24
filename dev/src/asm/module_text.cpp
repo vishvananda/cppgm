@@ -33,6 +33,44 @@ unsigned digit(char c)
 		: c >= 'A' && c <= 'F'  ? static_cast<unsigned>(c - 'A' + 10)
 								: 16;
 }
+
+char named_escape(char c)
+{
+	switch (c)
+	{
+	case 'b':
+		return '\b';
+	case 'f':
+		return '\f';
+	case 'n':
+		return '\n';
+	case 'r':
+		return '\r';
+	case 't':
+		return '\t';
+	default:
+		return c;
+	}
+}
+}
+
+bool module_character(const std::string& source, size_t& position, uint8_t& value)
+{
+	if (position + 1 >= source.size() || source[position] != '\'')
+		return false;
+	size_t end = position + 1;
+	char c = source[end++];
+	if (c == '\\')
+	{
+		if (end == source.size())
+			return false;
+		c = named_escape(source[end++]);
+	}
+	if (end < source.size() && source[end] == '\'')
+		++end;
+	position = end;
+	value = static_cast<uint8_t>(c);
+	return true;
 }
 
 namespace {
@@ -85,12 +123,14 @@ std::vector<ModuleLine> module_lines(
 	const std::string& text, const std::vector<SymbolUse>& symbols, const std::vector<LabelUse>& labels)
 {
 	std::vector<ModuleLine> result;
+	std::string uncommented;
 	size_t first = 0;
 	uint32_t line = 1, first_line = 1;
-	bool quote = false, escape = false;
+	char quote = 0;
+	bool escape = false;
 	auto append = [&](size_t end) {
 		ModuleLine entry;
-		entry.text = text.substr(first, end - first);
+		entry.text = (uncommented.empty() ? text : uncommented).substr(first, end - first);
 		entry.line = first_line;
 		entry.symbols = slice_spans(
 			symbols, static_cast<uint32_t>(first), static_cast<uint32_t>(end - first), first_line);
@@ -106,12 +146,41 @@ std::vector<ModuleLine> module_lines(
 			throw AssemblyError{ "NUL in module assembly", line, 1 };
 		if (quote)
 		{
-			if (!escape && c == '"')
-				quote = false;
+			if (!escape && c == quote)
+				quote = 0;
 			escape = !escape && c == '\\';
 		}
 		else if (c == '"')
-			quote = true;
+			quote = c;
+		else if (c == '\'')
+		{
+			const std::string& current = uncommented.empty() ? text : uncommented;
+			const size_t directive = current.find_first_not_of(" \t\r", first);
+			if (directive < i &&
+				(current.compare(directive, 5, ".ifc ") == 0 || current.compare(directive, 6, ".ifnc ") == 0 ||
+					current.compare(directive, 5, ".ifc\t") == 0 || current.compare(directive, 6, ".ifnc\t") == 0))
+				quote = c;
+			else
+			{
+				size_t end = i;
+				uint8_t value;
+				if (!module_character(text, end, value))
+					throw AssemblyError{ "incomplete assembly character constant", line, 1 };
+				line += static_cast<uint32_t>(std::count(text.begin() + i, text.begin() + end, '\n'));
+				i = end - 1;
+			}
+		}
+		else if (c == '/' && i + 1 < text.size() && text[i + 1] == '*')
+		{
+			const size_t end = text.find("*/", i + 2);
+			if (end == std::string::npos)
+				throw AssemblyError{ "unterminated assembly block comment", line, 1 };
+			if (uncommented.empty())
+				uncommented = text;
+			line += static_cast<uint32_t>(std::count(text.begin() + i, text.begin() + end, '\n'));
+			std::fill(uncommented.begin() + i, uncommented.begin() + end + 2, ' ');
+			i = end + 1;
+		}
 		else if (c == '#')
 		{
 			append(i);
@@ -126,7 +195,8 @@ std::vector<ModuleLine> module_lines(
 			++line;
 			first_line = line;
 		}
-		else if (c == '\n' || c == ';' || (c == ':' && identifier(text.substr(first, i - first))))
+		else if (c == '\n' || c == ';' ||
+			(c == ':' && identifier((uncommented.empty() ? text : uncommented).substr(first, i - first))))
 		{
 			append(i + (c == ':'));
 			first = i + 1;
@@ -164,7 +234,8 @@ bool ModuleCursor::numeric()
 	space();
 	return position_ < source_.size() &&
 		(std::isdigit(static_cast<unsigned char>(source_[position_])) || source_[position_] == '-' ||
-			source_[position_] == '+' || source_[position_] == '(' || source_[position_] == '~');
+			source_[position_] == '+' || source_[position_] == '(' || source_[position_] == '~' ||
+			source_[position_] == '\'');
 }
 bool ModuleCursor::numbered_label()
 {
@@ -204,6 +275,15 @@ UInt ModuleCursor::number_as()
 	const bool negative = take('-');
 	if (!negative)
 		take('+');
+	if (current() == '\'')
+	{
+		size_t end = position_;
+		uint8_t value;
+		if (!module_character(source_, end, value))
+			fail("incomplete assembly character constant");
+		position_ = static_cast<uint32_t>(end);
+		return negative ? UInt(0) - value : value;
+	}
 	unsigned base = 10;
 	if (position_ + 1 < source_.size() && source_[position_] == '0')
 	{

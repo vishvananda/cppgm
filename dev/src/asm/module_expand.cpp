@@ -98,6 +98,8 @@ uint64_t ModuleExpander::expression(const ModuleLine& line, uint32_t first) cons
 }
 void ModuleExpander::assignment(const std::string& name, ModuleCursor& cursor, ModuleLine& line)
 {
+	if (name == ".")
+		return; // The location counter belongs to object layout.
 	if (cursor.take('%'))
 	{
 		const std::string spelling = cursor.word();

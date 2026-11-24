@@ -300,6 +300,12 @@ the current macro or repetition. Include `.if`/`.ifne`, `.ifeq`, signed
 Numeric conditions and repetition counts accept absolute integer expressions,
 using GNU assembler precedence and truth values. Numeric conditions also accept
 register equality and inequality, comparing the full register views.
+Character constants can supply integer operands or macro arguments, including
+whitespace and punctuation. Honor GNU assembly block comments outside strings.
+For port instructions accept GNU AT&T's parenthesized DX spelling alongside
+the plain register operand. Encode `loop`, `loope` and `loopne` with a signed
+byte displacement to their local target. A location-counter assignment such
+as `. = label + 16` advances the current section and zero-fills the gap.
 Expansion must have bounded
 nesting, work and output size; malformed blocks and runaway recursion fail.
 

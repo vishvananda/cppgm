@@ -443,6 +443,12 @@ void ModuleAssembler::append(const assembly::ModuleLine& line)
 	if (!label && cursor.take('='))
 	{
 		flush();
+		if (name == ".")
+		{
+			origin(cursor, false);
+			cursor.finish();
+			return;
+		}
 		const uint32_t id = symbols_.named(name);
 		if (line.absolute_assignment)
 			symbols_.define_absolute(id, line.assignment);

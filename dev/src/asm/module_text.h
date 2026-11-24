@@ -20,6 +20,7 @@ std::vector<ModuleLine> module_lines(
 	const std::string& text, const std::vector<SymbolUse>& symbols, const std::vector<LabelUse>& labels = {});
 ModuleLine module_slice(const ModuleLine& line, uint32_t first, uint32_t count);
 void append_module_line(ModuleLine& target, const ModuleLine& source);
+bool module_character(const std::string& source, size_t& position, uint8_t& value);
 
 class ModuleCursor
 {

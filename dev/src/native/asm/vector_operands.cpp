@@ -38,8 +38,8 @@ unsigned width(const Instruction& inst, const VexForm& form)
 {
 	if (inst.operands.size() < 2)
 		fail(inst, "VEX instruction requires operands");
-	const assembly::Operand& operand = form.layout == L::Extract || form.layout == L::Mask ||
-			inst.operands[0].kind == assembly::OperandKind::Memory
+	const assembly::Operand& operand = form.layout == L::Extract || form.layout == L::ExtractInteger ||
+			form.layout == L::Mask || inst.operands[0].kind == assembly::OperandKind::Memory
 		? inst.operands[1]
 		: inst.operands[0];
 	const unsigned bits = operand.bits;
@@ -51,7 +51,9 @@ unsigned width(const Instruction& inst, const VexForm& form)
 VectorEncodingPlan prepare_vector_encoding(const Instruction& inst, const VexForm& form, unsigned register_count)
 {
 	const unsigned bits = width(inst, form);
-	const unsigned memory_bits = form.memory_bits != 0 ? form.memory_bits : bits;
+	const unsigned memory_bits = form.layout == L::Widen ? form.memory_bits * (bits / 128)
+		: form.memory_bits != 0                          ? form.memory_bits
+														 : bits;
 	const auto& operands = inst.operands;
 	const assembly::Operand& dst = operands[0];
 	const assembly::Operand& src = operands[1];
@@ -60,9 +62,10 @@ VectorEncodingPlan prepare_vector_encoding(const Instruction& inst, const VexFor
 	uint8_t opcode = form.opcode, control = 0;
 	bool has_immediate = false;
 	const bool scalar_merge = form.layout == L::ScalarMove && operands.size() == 3;
-	if (form.layout == L::Nds || form.layout == L::NdsImm || form.layout == L::Insert || scalar_merge)
+	if (form.layout == L::Nds || form.layout == L::NdsImm || form.layout == L::NdsMask || form.layout == L::Insert ||
+		scalar_merge)
 	{
-		has_immediate = form.layout == L::NdsImm || form.layout == L::Insert;
+		has_immediate = form.layout == L::NdsImm || form.layout == L::NdsMask || form.layout == L::Insert;
 		if (operands.size() != (has_immediate ? 4u : 3u))
 			fail(inst, "incorrect VEX operand count");
 		reg = vector(dst, bits, inst, register_count);
@@ -71,7 +74,9 @@ VectorEncodingPlan prepare_vector_encoding(const Instruction& inst, const VexFor
 		other = location(operands[2], other_bits, memory_bits, inst, register_count);
 		if (scalar_merge && operands[2].kind != assembly::OperandKind::Register)
 			fail(inst, "three-operand scalar move requires registers");
-		if (has_immediate)
+		if (form.layout == L::NdsMask)
+			control = static_cast<uint8_t>(vector(operands[3], bits, inst, register_count) << 4);
+		else if (has_immediate)
 			control = immediate(operands[3], inst);
 	}
 	else if (form.layout == L::Shift)
@@ -100,12 +105,21 @@ VectorEncodingPlan prepare_vector_encoding(const Instruction& inst, const VexFor
 			other = location(operands[2], 128, 128, inst, register_count);
 		}
 	}
-	else if (form.layout == L::Extract)
+	else if (form.layout == L::Extract || form.layout == L::ExtractInteger)
 	{
 		if (operands.size() != 3)
 			fail(inst, "vector extraction requires three operands");
 		reg = vector(src, bits, inst, register_count);
-		other = location(dst, 128, 128, inst, register_count);
+		if (form.layout == L::ExtractInteger)
+		{
+			if (dst.kind == OperandKind::Register
+					? dst.reg.bank != RegisterBank::Gpr || dst.bits != memory_bits
+					: dst.kind != OperandKind::Memory || (dst.bits != 0 && dst.bits != memory_bits))
+				fail(inst, "vector extraction requires an integer register or memory destination");
+			other = asm_detail::rm(dst, inst);
+		}
+		else
+			other = location(dst, 128, 128, inst, register_count);
 		has_immediate = true;
 		control = immediate(operands[2], inst);
 	}
@@ -138,7 +152,8 @@ VectorEncodingPlan prepare_vector_encoding(const Instruction& inst, const VexFor
 		}
 		else
 			reg = vector(dst, bits, inst, register_count);
-		other = location(src, form.layout == L::Broadcast ? 128 : bits, memory_bits, inst, register_count);
+		const unsigned source_bits = form.layout == L::Broadcast || form.layout == L::Widen ? 128 : bits;
+		other = location(src, source_bits, memory_bits, inst, register_count);
 		if (form.layout == L::Broadcast && memory_bits == 128 && src.kind != assembly::OperandKind::Memory)
 			fail(inst, "128-bit lane broadcast requires memory");
 		if (has_immediate)

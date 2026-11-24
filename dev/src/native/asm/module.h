@@ -44,6 +44,7 @@ private:
 	void size(assembly::ModuleCursor& cursor);
 	void type(assembly::ModuleCursor& cursor);
 	void reserve(uint64_t count, uint8_t fill);
+	void origin(assembly::ModuleCursor& cursor, bool explicit_fill);
 	void stage(ModuleLayout::Fragment fragment);
 	uint64_t offset() const;
 	uint32_t symbol(assembly::ModuleCursor& cursor) { return symbols_.token(cursor); }

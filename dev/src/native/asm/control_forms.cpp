@@ -275,7 +275,11 @@ bool encode_assembly_branch(Assembler& out, const assembly::Instruction& inst, c
 	const int condition = asm_detail::branch_condition(inst.mnemonic);
 	const bool call = inst.mnemonic == "call" || inst.mnemonic == "callq" || inst.mnemonic == "calll";
 	const bool jump = inst.mnemonic == "jmp" || inst.mnemonic == "jmpq" || inst.mnemonic == "jmpl";
-	if (!call && !jump && condition < 0)
+	const unsigned loop = inst.mnemonic == "loop"                ? 0xe2
+		: inst.mnemonic == "loope" || inst.mnemonic == "loopz"   ? 0xe1
+		: inst.mnemonic == "loopne" || inst.mnemonic == "loopnz" ? 0xe0
+																 : 0;
+	if (!call && !jump && condition < 0 && loop == 0)
 		return false;
 	if (inst.prefix != 0 || inst.operands.size() != 1 ||
 		((inst.mnemonic == "callq" || inst.mnemonic == "jmpq") && inst.code_bits != 64) ||
@@ -285,13 +289,17 @@ bool encode_assembly_branch(Assembler& out, const assembly::Instruction& inst, c
 	if (target.kind == OperandKind::Label)
 	{
 		const uint32_t label = labels[target.label];
-		if (call)
+		if (loop != 0)
+			out.branch_short(loop, label);
+		else if (call)
 			out.call_label(label);
 		else if (condition >= 0)
 			out.jcc(static_cast<Cond>(condition), label);
 		else
 			out.jmp(label);
 	}
+	else if (loop != 0)
+		fail(inst, "loop requires a local label within its signed byte displacement");
 	else if (target.kind == OperandKind::Symbol &&
 		(target.address.relocation == assembly::Relocation::Address ||
 			target.address.relocation == assembly::Relocation::Plt))

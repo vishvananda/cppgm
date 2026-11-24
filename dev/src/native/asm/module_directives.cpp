@@ -372,6 +372,28 @@ void ModuleAssembler::finish_symbols()
 		out_.symbols[entry.symbol].size = entry.value.bits;
 	}
 }
+void ModuleAssembler::origin(assembly::ModuleCursor& cursor, bool explicit_fill)
+{
+	if (layout_.pending(section_))
+	{
+		auto expression = assembly::parse_module_expression(cursor, *this);
+		const uint8_t fill = explicit_fill && cursor.take(',') ? assembly::assembly_integer_expression(cursor) : 0;
+		stage({ offset(), ModuleLayout::Kind::Origin, fill, std::move(expression) });
+		return;
+	}
+	assembly::ModuleValue end = assembly::assembly_module_expression(cursor, *this);
+	if (end.positive != lowir::kNoId && end.negative == lowir::kNoId)
+	{
+		end.negative = 0;
+		fold_difference(end);
+		end.bits += offset();
+	}
+	if (end.relocatable() || end.bits < offset())
+		cursor.fail("module origin must advance within its section");
+	const uint8_t fill = explicit_fill && cursor.take(',') ? assembly::assembly_integer_expression(cursor) : 0;
+	reserve(end.bits - offset(), fill);
+}
+
 void ModuleAssembler::assign(uint32_t id, assembly::ModuleCursor& cursor)
 {
 	const assembly::ModuleValue value = assembly::assembly_module_expression(cursor, *this);
@@ -454,27 +476,7 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 			reserve(assembly::evaluate_module_expression(expression, *this).bits, fill);
 	}
 	else if (name == ".org")
-	{
-		if (layout_.pending(section_))
-		{
-			auto expression = assembly::parse_module_expression(cursor, *this);
-			const int16_t fill = cursor.take(',') ? static_cast<uint8_t>(assembly::assembly_integer_expression(cursor))
-												  : 0;
-			stage({ offset(), ModuleLayout::Kind::Origin, fill, std::move(expression) });
-			return true;
-		}
-		assembly::ModuleValue end = assembly::assembly_module_expression(cursor, *this);
-		if (end.positive != lowir::kNoId && end.negative == lowir::kNoId)
-		{
-			end.negative = 0;
-			fold_difference(end);
-			end.bits += offset();
-		}
-		if (end.relocatable() || end.bits < offset())
-			cursor.fail("module origin must advance within its section");
-		const uint8_t fill = cursor.take(',') ? static_cast<uint8_t>(assembly::assembly_integer_expression(cursor)) : 0;
-		reserve(end.bits - offset(), fill);
-	}
+		origin(cursor, true);
 	else if (name == ".p2align" || name == ".balign" || name == ".align")
 		alignment(cursor, name == ".p2align" || (name == ".align" && target_ == Target::MacOS));
 	else if (name == ".code32" || name == ".code64")
@@ -484,6 +486,14 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 	}
 	else if (name == ".set" || name == ".equ")
 	{
+		assembly::ModuleCursor position = cursor;
+		const bool location = position.word() == "." && position.take(',');
+		if (location)
+		{
+			cursor.advance(position.position() - cursor.position());
+			origin(cursor, false);
+			return true;
+		}
 		const uint32_t id = symbol(cursor);
 		if (!cursor.take(','))
 			cursor.fail("module alias requires its target");

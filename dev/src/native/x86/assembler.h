@@ -168,6 +168,7 @@ public:
 	void jcc(Cond cond, uint32_t label);
 	void jmp(uint32_t label);
 	void jmp_short(uint32_t label);
+	void branch_short(uint8_t opcode, uint32_t label);
 	void jcc_short(Cond cond, uint32_t label);
 	void call_symbol(uint32_t symbol);
 	void call_label(uint32_t label);

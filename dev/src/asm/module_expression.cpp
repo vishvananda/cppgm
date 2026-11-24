@@ -83,7 +83,11 @@ Expression::Value Expression::primary(unsigned depth)
 	if (depth > 64)
 		cursor_.fail("module expression nesting exceeds limit");
 	Value result;
-	const char* prefix = cursor_.take('-') ? "-" : cursor_.take('~') ? "~" : cursor_.take('+') ? "+" : nullptr;
+	const char* prefix = cursor_.take('-') ? "-"
+		: cursor_.take('~')                ? "~"
+		: cursor_.take('+')                ? "+"
+		: cursor_.take('!')                ? "!"
+										   : nullptr;
 	if (prefix != nullptr)
 	{
 		result = primary(depth + 1);
@@ -144,6 +148,8 @@ Expression::Value Expression::unary(char op, Value operand)
 {
 	if (op == '~')
 		return Value{ ModuleValue{ ~integer(operand) } };
+	if (op == '!')
+		return Value{ ModuleValue{ !integer(operand) } };
 	if (operand.reg.bits != 0)
 		cursor_.fail("absolute expression cannot use a register as an integer");
 	if (op == '-')

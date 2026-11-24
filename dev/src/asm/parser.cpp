@@ -72,7 +72,7 @@ private:
 	asm_model::Register reg();
 	void x87_index(const std::string& name, asm_model::Register& reg);
 	bool register_start(size_t at) const;
-	Operand operand();
+	Operand operand(const std::string& mnemonic);
 	Operand unsegmented_operand();
 	uint8_t segment_override();
 	void decorators(Operand& operand);
@@ -378,9 +378,23 @@ uint8_t Parser::segment_override()
 	return prefix;
 }
 
-Operand Parser::operand()
+Operand Parser::operand(const std::string& mnemonic)
 {
 	space();
+	// GNU AT&T also spells the DX port as (%dx). It is a register operand
+	// of the port instruction and has no memory addressing mode.
+	if (dialect_ == asm_model::Dialect::Att && current() == '(' && att_address_tuple() &&
+		(mnemonic == "in" || mnemonic == "inb" || mnemonic == "inw" || mnemonic == "inl" || mnemonic == "out" ||
+			mnemonic == "outb" || mnemonic == "outw" || mnemonic == "outl"))
+	{
+		step();
+		Operand result;
+		result.kind = OperandKind::Register;
+		result.reg = reg();
+		result.bits = result.reg.bits;
+		expect(')');
+		return result;
+	}
 	const uint8_t segment = segment_override();
 	Operand result = unsegmented_operand();
 	if (segment != 0)
@@ -641,10 +655,19 @@ bool Parser::symbol(Operand& operand)
 				++end;
 		}
 		const std::string name = source_.substr(begin, end - begin);
+		std::string keyword;
+		if (dialect_ == asm_model::Dialect::Intel && name.size() <= 7)
+		{
+			keyword = name;
+			for (char& c : keyword)
+				if (c >= 'A' && c <= 'Z')
+					c += 'a' - 'A';
+		}
+		const std::string& spelling = keyword.empty() ? name : keyword;
 		asm_model::Register reg;
-		if (name == "rip" || name == "byte" || name == "word" || name == "dword" || name == "qword" ||
-			name == "xmmword" || name == "ymmword" || name == "zmmword" || name == "tbyte" ||
-			parse_register(name.data(), name.size(), reg) ||
+		if (spelling == "rip" || spelling == "byte" || spelling == "word" || spelling == "dword" ||
+			spelling == "qword" || spelling == "xmmword" || spelling == "ymmword" || spelling == "zmmword" ||
+			spelling == "tbyte" || parse_register(name.data(), name.size(), reg) ||
 			(state_ != nullptr && state_->register_aliases && lookup_ != nullptr && lookup_->register_alias(name, reg)))
 			return false;
 		if (lookup_ != nullptr && !numeric)
@@ -1068,14 +1091,14 @@ std::vector<Instruction> Parser::run()
 			continue;
 		}
 		const bool branch = inst.mnemonic[0] == 'j' || inst.mnemonic == "call" || inst.mnemonic == "callq" ||
-			inst.mnemonic == "calll";
+			inst.mnemonic == "calll" || inst.mnemonic.compare(0, 4, "loop") == 0;
 		const bool far_branch = inst.mnemonic.compare(0, 5, "lcall") == 0 || inst.mnemonic.compare(0, 4, "ljmp") == 0;
 		if (current() != '\n' && current() != ';' && current() != '#' && pos_ != source_.size())
 		{
 			do
 			{
 				const bool indirect = (branch || far_branch) && dialect_ == asm_model::Dialect::Att && take('*');
-				Operand value = branch && !indirect ? target() : operand();
+				Operand value = branch && !indirect ? target() : operand(inst.mnemonic);
 				decorators(value);
 				inst.operands.push_back(std::move(value));
 				if (inst.operands.size() > 5)
