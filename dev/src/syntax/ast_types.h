@@ -347,6 +347,7 @@ struct ParameterDeclaration
 	// A requires-expression parameter's type can remain dependent for
 	// lookup after substitution supplies its concrete type.
 	mutable bool requirement_type_dependent = false;
+	mutable bool c_register_storage = false;
 };
 
 enum class TemplateParameterKind : uint8_t

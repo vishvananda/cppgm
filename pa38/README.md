@@ -421,6 +421,11 @@ The first fixture set covers these parts of the C17 input profile:
   Check operand forms in conditional branches that evaluation skips. A
   foldable array bound can still declare a variable-length array. Use C's
   integer constant expressions of value zero for null pointer conversions.
+- Give a named `register` object automatic storage duration. Diagnose an
+  explicit address of the object or a record member it contains, including
+  a register parameter. A register pointer can designate other objects.
+  Accept `sizeof` on a register array. Diagnose `register` at file scope,
+  on functions, and in incompatible storage-class combinations.
 - Under the pedantic policy through C17, a declaration in a `for`
   initializer may introduce identifiers only for automatic or register
   objects. Reuse of a visible tag is allowed. A static assertion also fits

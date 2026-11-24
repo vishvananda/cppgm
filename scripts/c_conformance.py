@@ -185,8 +185,22 @@ RECORD_CONSTRAINTS = {
     'record.flexible-designated-initializer': ('300-c-flexible-designated-initializer-bad.t',
                                              'initializing a flexible array member'),
 }
+REGISTER_PROGRAM = PA38_GENERAL / '300-c-register-storage.t'
+REGISTER_ADDRESS = 'taking the address of a register object'
+REGISTER_CONSTRAINTS = {
+    'storage.register-address': ('address', REGISTER_ADDRESS, C_EDITIONS),
+    'storage.register-member-address': ('member-address', REGISTER_ADDRESS, C_EDITIONS),
+    'storage.register-parameter-address': ('parameter-address', REGISTER_ADDRESS, C_EDITIONS),
+    'storage.register-retained-parameter-address': ('retained-parameter-address', REGISTER_ADDRESS, (*PILOT_EDITIONS, 23)),
+    'storage.register-identifier-list-address': ('identifier-list-address', REGISTER_ADDRESS,
+                                                 (*LEGACY_STANDARDS, *PILOT_EDITIONS)),
+    'storage.register-file-scope': ('file-scope', 'register storage requires a block-scope object', C_EDITIONS),
+    'storage.register-function': ('function', 'register storage on a function declaration', C_EDITIONS),
+    'storage.register-combination': ('storage-combination', 'register with an incompatible storage-class', C_EDITIONS),
+}
 REJECTED_CASES = {
     'line.diagnostic-location', 'error.message', *RECORD_CONSTRAINTS,
+    *REGISTER_CONSTRAINTS,
     *(case for case, _, _ in C23_SOURCE_REJECTIONS),
 }
 C11_LIBRARY_SOURCES = {
@@ -228,6 +242,8 @@ CASES = {
     'environment.c-version': (('preprocess',), ('default',)),
     **{case: (RUN_STAGES, ('O0', 'O2')) for case in C11_LIBRARY_SOURCES},
     **{case: (('compile',), ('default',)) for case in RECORD_CONSTRAINTS},
+    **{case: (('compile',), ('default',)) for case in REGISTER_CONSTRAINTS},
+    'storage.register-use': (RUN_STAGES, ('O0', 'O2')),
 }
 INTEGER_LIMITS = ROOT / 'scripts/tests/c_integer_limits.c'
 FLOAT_LIMITS = ROOT / 'scripts/tests/c_float_limits.c'
@@ -499,6 +515,23 @@ def probe_program(work, profile, case, source, flags, link, runner, link_flags=(
         yield variant, passed, stages
 
 
+def register_constraint_source(suffix):
+    return PA38_GENERAL / f'300-c-register-{suffix}-bad.t'
+
+
+def probe_registers(work, profile, edition, flags, link, runner):
+    case = 'storage.register-use'
+    for variant, passed, stages in probe_program(work, profile, case, REGISTER_PROGRAM, flags, link, runner):
+        yield receipt(case, profile, edition, variant, passed, stages)
+    for case, (suffix, diagnostic, editions) in REGISTER_CONSTRAINTS.items():
+        if edition not in editions:
+            continue
+        source = register_constraint_source(suffix)
+        stages, text = run_stages(work / case, [('compile', [*flags, '-fsyntax-only', str(source)])])
+        rejected = stages[0]['classification'] == 'rejection' and stages[0]['returncode'] == 1
+        yield receipt(case, profile, edition, 'default', rejected and diagnostic in text, stages)
+
+
 def probe_target(output, profile, compiler, setup, link, runner, bare_sdk=()):
     bare_wasm = profile['id'] == 'wasm-freestanding'
     if runner and (executable := which(runner[0])):
@@ -507,6 +540,7 @@ def probe_target(output, profile, compiler, setup, link, runner, bare_sdk=()):
     expect_no_threads = int(profile['target'].endswith('-apple-darwin'))
     yield from probe_c23_source_cases(output, profile, compiler, setup)
     c23_flags = [compiler, '--target=' + profile['target'], *setup, '-x', 'c', '-std=c23', '-pedantic-errors']
+    yield from probe_registers(output / profile['id'] / 'c23', profile, 23, c23_flags, link, runner)
     for case, (source, flags) in C23_PROGRAMS.items():
         for variant, passed, stages in probe_program(output / profile['id'] / 'c23', profile, case, source,
                                                       [*c23_flags, *flags], link, runner):
@@ -516,6 +550,7 @@ def probe_target(output, profile, compiler, setup, link, runner, bare_sdk=()):
         standard = LEGACY_STANDARDS.get(edition, f'c{edition}')
         flags = [compiler, '--target=' + profile['target'], *setup, '-x', 'c', f'-std={standard}', '-pedantic-errors']
         work = output / profile['id'] / f'c{edition}'
+        yield from probe_registers(work, profile, edition, flags, link, runner)
         stages, _ = run_stages(work / 'thread-predefine', [
             ('preprocess', [*flags, f'-DEXPECT_NO_THREADS={expect_no_threads}', '-E', str(THREAD_PREDEFINE), '-o', '/dev/null']),
         ])
@@ -611,6 +646,8 @@ def probes(args, profiles, rules):
                      FENV_BINARY, FENV_CONVERT, FENV_COMPARE, FENV_QUAD, FENV_LIBM, FP_CONTRACT,
                      COMPLEX_RANGE, COMPLEX_FENV, FENV_ZERO_DIVISION, HOSTED_MATH, FLEXIBLE_ARRAY,
                      *(PA38_GENERAL / source for source, _ in RECORD_CONSTRAINTS.values()),
+                     REGISTER_PROGRAM, *(register_constraint_source(suffix)
+                                         for suffix, _, _ in REGISTER_CONSTRAINTS.values()),
                      *numeric_sdk_inputs, *C11_LIBRARY_SOURCES.values(),
                      INCLUDE_QUERY.parent / 'c-header  spaces.h',
                      INCLUDE_SOURCE.parent / 'c-include-physical.h', INCLUDE_SOURCE.parent / 'c-include-local.h'])

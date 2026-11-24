@@ -220,6 +220,11 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 		case TokenKind::KW_STATIC:
 			out.is_static = true;
 			break;
+		case TokenKind::KW_REGISTER:
+			if (c_source_ && out.is_register)
+				error(specifier.location, "repeated register storage-class specifier");
+			out.is_register = true;
+			break;
 		case TokenKind::KW_CONSTEXPR:
 			if (out.is_consteval)
 				error(specifier.location, "constexpr and consteval in one declaration");
@@ -1816,6 +1821,7 @@ Binding* Analyzer::declare_parameter(
 	if (c_source_ && name != nullptr && names_.find(prototype, name) != nullptr)
 		error(id->location, "duplicate parameter name");
 	Entity* parameter = new_entity<Entity>(EntityKind::Parameter, name, prototype, type);
+	parameter->c_register_storage = clause.parameters[index]->c_register_storage;
 	Binding* binding = new_binding(BindingKind::Parameter, name, parameter, type);
 	prototype->has_parameter_packs = prototype->has_parameter_packs || type->kind == TypeKind::Expansion;
 	print_in(prototype, binding);
@@ -1831,6 +1837,8 @@ const Type* Analyzer::parameter_type(
 {
 	Specifiers specifiers;
 	this->specifiers(parameter.specifiers, scope, specifiers, false);
+	if (c_source_)
+		parameter.c_register_storage = specifiers.is_register;
 	if (c_source_ && parameter.specifiers.empty())
 		specifiers.type = types_.fundamental(FundamentalType::Int);
 	if (c_source_ &&
@@ -1960,6 +1968,8 @@ void Analyzer::c_declaration_specifiers(const syntax::SimpleDecl& decl, Scope* s
 	repeated_type_bounds_ = multiple ? &bounds : nullptr;
 	specifiers(decl.specifiers, scope, out, decl.declarators.empty());
 	repeated_type_bounds_ = saved;
+	if (out.is_register && (out.is_static || out.is_extern || out.is_typedef || out.is_thread_local))
+		error(decl.location, "register with an incompatible storage-class specifier");
 	if (out.c_auto_storage)
 	{
 		if (declaration_scope(scope)->kind != ScopeKind::Block || decl.declarators.empty() || out.is_static ||
@@ -1967,9 +1977,8 @@ void Analyzer::c_declaration_specifiers(const syntax::SimpleDecl& decl, Scope* s
 			(out.type_specifier != nullptr && out.type_specifier->kind == syntax::DeclSpecKind::CAutoType))
 			error(
 				decl.location, "auto with a written type requires a block-scope object without another storage class");
-		for (const auto& specifier : decl.specifiers)
-			if (specifier.kind == syntax::DeclSpecKind::Keyword && specifier.keyword == TokenKind::KW_REGISTER)
-				error(specifier.location, "register and auto with a written type");
+		if (out.is_register)
+			error(decl.location, "register and auto with a written type");
 	}
 	if (out.type == auto_placeholder_ && out.type_specifier != nullptr &&
 		out.type_specifier->kind == syntax::DeclSpecKind::CAutoType)

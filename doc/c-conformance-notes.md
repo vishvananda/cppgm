@@ -3,6 +3,19 @@
 These notes record WG14 rules exercised by the course regressions and the
 initial upstream campaign. Clause numbers use the named edition or draft.
 
+## Named register objects and parameters
+
+An explicit unary `&` on a register object or a record member reached
+through that object requires a diagnostic. This includes a parameter
+object and applies in unevaluated contexts. A register pointer can
+designate separate storage. `sizeof` can inspect a register array.
+The language gives undefined behavior to array-to-pointer conversion
+of a register array. WG14 DR 116 confirms that implicit conversion
+requires no diagnostic. Both cases retain that distinction in C23.
+[C11 N1570 §§6.3.2.1, 6.5.3.2, 6.7.1, 6.9](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[C23 N3220 §§6.3.2.1, 6.5.4.2, 6.7.2, 6.9.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
+[WG14 DR 116](https://open-std.org/JTC1/SC22/WG14/issues/c90/issue0116.html)
+
 ## C23 storage-class specifiers on compound literals
 
 A compound literal can begin with `static`, `thread_local`,

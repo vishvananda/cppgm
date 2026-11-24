@@ -60,6 +60,8 @@ enum class EntityKind : uint8_t
 struct Entity
 {
 	EntityKind kind;
+	// A C object or parameter explicitly declared with register storage.
+	bool c_register_storage;
 	const Identifier* name;
 	// The scope the entity is a member of.
 	Scope* owner;

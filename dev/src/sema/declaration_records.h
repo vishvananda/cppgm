@@ -29,6 +29,7 @@ struct Specifiers
 	bool is_consteval : 1;
 	bool quiet_c_extensions : 1;
 	bool c_auto_storage : 1;
+	bool is_register : 1;
 	bool is_constinit;
 	bool is_inline;
 	bool is_virtual;

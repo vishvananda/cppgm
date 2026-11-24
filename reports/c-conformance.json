@@ -34,6 +34,51 @@
   ],
   "rules": [
     {
+      "id": "storage.register-address",
+      "clause": "C11 6.5.3.2p1, 6.7.1p8; C23 6.5.4.2p1, 6.7.2p14",
+      "kind": "required",
+      "editions": [90, 95, 99, 11, 17, 23],
+      "environment": "all",
+      "requirement": "Diagnose explicit address-of on a named register object, its record subobject, or a register parameter. Permit object reads, sizeof on a register array, and address-of through an independent pointer target.",
+      "cases": [
+        "storage.register-address",
+        "storage.register-member-address",
+        "storage.register-parameter-address",
+        "storage.register-use"
+      ]
+    },
+    {
+      "id": "storage.register-identifier-list",
+      "clause": "C11 6.5.3.2p1, 6.9.1",
+      "kind": "required",
+      "editions": [90, 95, 99, 11, 17],
+      "environment": "all",
+      "requirement": "Apply the address constraint to a register parameter declared after the identifier list of a function definition.",
+      "cases": ["storage.register-identifier-list-address"]
+    },
+    {
+      "id": "storage.register-vla-parameter-scope",
+      "clause": "C11 6.5.3.2p1, 6.7.6.3; C23 6.5.4.2p1, 6.7.7.4",
+      "kind": "required",
+      "editions": [99, 11, 17, 23],
+      "environment": "all",
+      "requirement": "Apply the address constraint to an earlier register parameter when a later parameter uses it in an array bound in a function definition.",
+      "cases": ["storage.register-retained-parameter-address"]
+    },
+    {
+      "id": "storage.register-placement",
+      "clause": "C11 6.7.1p2, p7, 6.9p2; C23 6.7.2p2, p13, 6.9.1p2",
+      "kind": "required",
+      "editions": [90, 95, 99, 11, 17, 23],
+      "environment": "all",
+      "requirement": "Diagnose a file-scope register declaration, a block-scope register function declaration, and incompatible register storage-class combinations.",
+      "cases": [
+        "storage.register-file-scope",
+        "storage.register-function",
+        "storage.register-combination"
+      ]
+    },
+    {
       "id": "limits.block-depth",
       "clause": "5.2.4.1p1",
       "kind": "required",

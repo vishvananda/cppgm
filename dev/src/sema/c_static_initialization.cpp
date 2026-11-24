@@ -182,7 +182,14 @@ const ConstValue* Analyzer::c_compound_constant(const syntax::FunctionalCastExpr
 	return stored;
 }
 
-static bool CRegisterCompoundLiteral(const syntax::Expr* expr)
+enum class RegisterObject : uint8_t
+{
+	None,
+	Declared,
+	CompoundLiteral
+};
+
+static RegisterObject CRegisterObject(const syntax::Expr* expr)
 {
 	using syntax::ExprKind;
 	for (;;)
@@ -199,7 +206,7 @@ static bool CRegisterCompoundLiteral(const syntax::Expr* expr)
 		{
 			const auto* member = static_cast<const syntax::MemberExpr*>(expr);
 			if (member->op != TokenKind::OP_DOT)
-				return false;
+				return RegisterObject::None;
 			expr = member->base;
 			break;
 		}
@@ -208,22 +215,38 @@ static bool CRegisterCompoundLiteral(const syntax::Expr* expr)
 			const auto* subscript = static_cast<const syntax::SubscriptExpr*>(expr);
 			expr = (expr->facts->flags & kCommuted) != 0 ? subscript->index : subscript->base;
 			if (expr->facts->type->kind != TypeKind::Array)
-				return false;
+				return RegisterObject::None;
 			break;
+		}
+		case ExprKind::Id:
+		{
+			const Entity* entity = expr->facts->entity;
+			return entity != nullptr && entity->c_register_storage ? RegisterObject::Declared : RegisterObject::None;
 		}
 		case ExprKind::FunctionalCast:
 			return static_cast<const syntax::FunctionalCastExpr*>(expr)->compound_has(
-				syntax::FunctionalCastExpr::Register);
+					   syntax::FunctionalCastExpr::Register)
+				? RegisterObject::CompoundLiteral
+				: RegisterObject::None;
 		default:
-			return false;
+			return RegisterObject::None;
 		}
 	}
 }
 
 void Analyzer::check_c_register_address(const syntax::Expr& expr, uint32_t location)
 {
-	if (CRegisterCompoundLiteral(&expr))
+	switch (CRegisterObject(&expr))
+	{
+	case RegisterObject::Declared:
+		error(location, "taking the address of a register object or its subobject");
+		break;
+	case RegisterObject::CompoundLiteral:
 		error(location, "taking the address of a register compound literal");
+		break;
+	case RegisterObject::None:
+		break;
+	}
 }
 
 ExprFacts* Analyzer::c_compound_literal(const syntax::FunctionalCastExpr& expr, Scope* scope)

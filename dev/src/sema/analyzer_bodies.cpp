@@ -115,6 +115,7 @@ bool Analyzer::function_body(FunctionEntity* function, const Type* type, const s
 			const syntax::Name* id = DeclaratorId(parameters->parameters[i]->declarator);
 			const Identifier* name = id != nullptr ? id->last().identifier : nullptr;
 			Entity* parameter = new_entity<Entity>(EntityKind::Parameter, name, scope, object_type);
+			parameter->c_register_storage = parameters->parameters[i]->c_register_storage;
 			Binding* binding = new_binding(BindingKind::Parameter, name, parameter, object_type);
 			scope->has_parameter_packs = scope->has_parameter_packs || type->params[i]->kind == TypeKind::Expansion;
 			binding->dependent = all_dependent ||

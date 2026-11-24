@@ -12,6 +12,28 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "register-var-1",
+      "path": "gcc/testsuite/gcc.dg/register-var-1.c",
+      "sha256": "e5b8defde54575380cb0f9dcf901fafb9e74eca07a499a0204acc136834f6555",
+      "dialect": "c90",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [],
+      "upstream_flags": [],
+      "obligation": "Diagnose an explicit address of an object declared register with a GNU asm label"
+    },
+    {
+      "id": "register-var-2",
+      "path": "gcc/testsuite/gcc.dg/register-var-2.c",
+      "sha256": "d4b8e92e3e36f9e74d763969da06c9b749d93b3fa93ecaea7d197669c8903ce5",
+      "dialect": "c90",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [],
+      "upstream_flags": [],
+      "obligation": "Diagnose an explicit address of a register object in C90 with default diagnostics"
+    },
+    {
       "id": "c90-digraph-1",
       "path": "gcc/testsuite/gcc.dg/c90-digraph-1.c",
       "sha256": "b8ebbaadfb705446ef916f1ada4e8baaf7c91d682dc5d32e92c8ed358c4995ee",

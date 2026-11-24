@@ -297,14 +297,9 @@ void Analyzer::simple_declaration(const syntax::SimpleDecl& decl, Scope* scope)
 	const size_t shared = pending_access_.size();
 	if (lone)
 	{
-		// 7.1.1p1: storage requires a declarator. Register is an ignored
-		// hint elsewhere, so inspect its retained parser token only here.
-		bool storage = specifiers.is_static || specifiers.is_extern || specifiers.is_thread_local ||
-			specifiers.is_mutable;
-		if (!storage)
-			for (const syntax::DeclSpecifier& item : decl.specifiers)
-				if (item.kind == syntax::DeclSpecKind::Keyword && item.keyword == TokenKind::KW_REGISTER)
-					storage = true;
+		// 7.1.1p1: storage requires a declarator.
+		const bool storage = specifiers.is_static || specifiers.is_extern || specifiers.is_thread_local ||
+			specifiers.is_mutable || specifiers.is_register;
 		if (storage)
 		{
 			// 9.5p6: anonymous unions retain the namespace/block exception,
@@ -395,10 +390,8 @@ void Analyzer::simple_declaration(const syntax::SimpleDecl& decl, Scope* scope)
 			  decl.attributes, scope, packed, no_inline, false, c_source_ ? &c_standard_alignment : nullptr)
 		: 0;
 	const syntax::Attribute* declaration_alignment = AlignmentSpecifier(decl.attributes);
-	if (c_source_ && declaration_alignment != nullptr)
-		for (const syntax::DeclSpecifier& item : decl.specifiers)
-			if (item.kind == syntax::DeclSpecKind::Keyword && item.keyword == TokenKind::KW_REGISTER)
-				error(declaration_alignment->location, "an alignment specifier on a register object");
+	if (c_source_ && specifiers.is_register && declaration_alignment != nullptr)
+		error(declaration_alignment->location, "an alignment specifier on a register object");
 	// The declaration's own declarators deduce one auto (7.1.6.4p7); an
 	// initializer's nested declarations (a lambda's body) their own.
 	const Type* saved_auto = auto_deduced_;
@@ -1488,6 +1481,9 @@ Binding* Analyzer::declare_variable(const Specifiers& specifiers, const Declarat
 		specifiers.is_static && where->kind == ScopeKind::Class && !qualified;
 	bool definition = ((where->kind != ScopeKind::Class || qualified) && (!is_extern || initializer != nullptr)) ||
 		inline_member;
+	if (c_source_ && specifiers.is_register && where->kind != ScopeKind::Block &&
+		(where->kind != ScopeKind::Namespace || c_pedantic_ || info.asm_label == nullptr))
+		error(location, "register storage requires a block-scope object or parameter");
 	check_variable_specifiers(specifiers, type, where, qualified, member, definition, initializer != nullptr, location);
 	check_parameter_redeclaration(name.key, where, location);
 	const Binding* c_visible = c_source_ && specifiers.is_extern && where->kind == ScopeKind::Block
@@ -2133,6 +2129,7 @@ VariableEntity* Analyzer::new_variable(const Specifiers& specifiers, const char*
 		graph_.set_asm_label(variable, asm_label);
 	variable->is_extern = is_extern;
 	variable->is_static = specifiers.is_static;
+	variable->c_register_storage = c_source_ && specifiers.is_register;
 	variable->member = member;
 	variable->is_thread_local = specifiers.is_thread_local;
 	variable->is_inline = hosted_ &&
@@ -2298,6 +2295,8 @@ void Analyzer::check_function_qualifiers(
 Binding* Analyzer::declare_function(const Specifiers& specifiers, const DeclaratorInfo& info, Scope* scope,
 	bool definition, uint32_t location, bool deleted)
 {
+	if (c_source_ && specifiers.is_register)
+		error(location, "register storage on a function declaration");
 	if (specifiers.is_constinit)
 		error(location, "__constinit on a function declaration");
 	if (specifiers.is_consteval && info.name != nullptr &&
