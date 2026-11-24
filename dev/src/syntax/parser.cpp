@@ -54,6 +54,7 @@ TranslationUnit* Parser::parse_translation_unit()
 	TranslationUnit* unit = make<TranslationUnit>();
 	unit->declarations = list.take(arena_);
 	unit->assembly_declarations = assembly_environment_;
+	unit->has_inline_assembly = has_inline_assembly_;
 	return unit;
 }
 

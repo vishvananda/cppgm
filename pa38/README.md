@@ -673,6 +673,10 @@ The first fixture set covers these parts of the C17 input profile:
   linkage. Preserve automatic storage and distinct addresses for
   block-scope definitions without `static`. Treat `constexpr` as an
   identifier in earlier C modes.
+- In ordinary object builds, emit file-scope named constants when code
+  or static data needs their addresses. Keep explicitly retained objects
+  and assembler names, and preserve distinct addresses for distinct
+  objects.
 - Use a C23 named constant or a member reached through `.` as an operand
   of the matching kind of constant expression. Check the active member
   of a constant union. An array element read does not supply a named

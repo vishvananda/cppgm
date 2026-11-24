@@ -462,6 +462,7 @@ public:
 	// function instead. Thread-local destruction always uses the thread's
 	// exit registration, including serialized LowIR.
 	void set_object_mode(bool on) { object_mode_ = on; }
+	void set_c_constant_demand(bool on) { c_constant_demand_ = on; }
 	bool object_mode() const { return object_mode_; }
 	// Objects for the host toolchain, rather than the course's `.obj`
 	// runtime: exception-aware list initialization retains the host's
@@ -1477,6 +1478,19 @@ private:
 	std::unique_ptr<DebugInfo> source_debug_;
 	// Unit-scoped identities: entity -> symbol.
 	PointerMap symbols_;
+	struct CConstantDefinition
+	{
+		const sema::VariableEntity* variable;
+		const syntax::Initializer* initializer;
+		uint32_t location;
+	};
+	PointerMap c_constant_index_;
+	std::vector<CConstantDefinition> c_constant_definitions_;
+	std::vector<std::pair<uint32_t, lowir::SymbolId>> demanded_c_constants_;
+	bool defer_c_constants_ = false;
+	bool defer_c_constant(
+		const sema::VariableEntity* variable, const syntax::Initializer* initializer, uint32_t location);
+	void emit_demanded_c_constants();
 	// Functions emitted where odr-used, waiting (unit-scoped), and the
 	// mark of those queued or defined (by entity, and by entity for a
 	// constructor's base entry).
@@ -2095,6 +2109,7 @@ private:
 	lowir::NameId debug_file_name_ = 0;
 	bool merge_inline_variables_ = false;
 	bool object_mode_ = false;
+	bool c_constant_demand_ = false;
 	bool host_objects_ = false;
 	bool macho_objects_ = false;
 	bool optimizing_ = false;

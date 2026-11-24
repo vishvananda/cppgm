@@ -204,6 +204,7 @@ struct SemanticGraph
 	{
 		const char* section; // an object's ELF section, or null
 		bool weak;
+		bool used;
 		bool has_visibility;
 		ir_model::SymbolVisibility visibility;
 	};

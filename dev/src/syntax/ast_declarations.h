@@ -339,6 +339,7 @@ struct TranslationUnit
 {
 	Slice<Decl*> declarations;
 	uint32_t assembly_declarations = 0;
+	bool has_inline_assembly = false;
 };
 
 } // namespace syntax

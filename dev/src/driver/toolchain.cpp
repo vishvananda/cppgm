@@ -1041,6 +1041,7 @@ bool compile_native_sources(SourceInputs sources, const Invocation& invocation, 
 		lowering.set_definition_stream(
 			lowir_output != nullptr ? static_cast<lowir::DefinitionSink*>(&definitions) : builder.get());
 	lowering.set_object_mode(true);
+	lowering.set_c_constant_demand(lowir_output == nullptr && !invocation.debug_info);
 	lowering.set_debug_locations(invocation.debug_info);
 	lowering.set_debug_types(invocation.debug_types);
 	lowering.set_host_objects(eh_model == native::EhModel::Host);
@@ -1529,6 +1530,7 @@ bool wasm_input(const Input& input, const Invocation& invocation, const backend:
 		program.explicit_target = true;
 		lower::ProgramLowering lowering(program);
 		configure_wasm_lowering(lowering, invocation);
+		lowering.set_c_constant_demand(lowir_output == nullptr && !invocation.debug_info);
 		if (!lower_wasm_source(input, invocation, lowering, true))
 			return false;
 	}
@@ -1551,6 +1553,7 @@ bool compile_wasm_sources(SourceInputs sources, const Invocation& invocation, co
 	program.explicit_target = true;
 	lower::ProgramLowering lowering(program);
 	configure_wasm_lowering(lowering, invocation);
+	lowering.set_c_constant_demand(!invocation.debug_info);
 	lowering.merge_inline_variables();
 	for (const Input* input = sources.begin; input != sources.end; ++input)
 		if (!lower_wasm_source(*input, invocation, lowering, input + 1 == sources.end))

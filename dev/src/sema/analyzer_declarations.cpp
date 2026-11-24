@@ -526,6 +526,14 @@ void Analyzer::symbol_attributes(Entity* entity, const syntax::Attribute* leadin
 	const auto apply = [&](const syntax::Attribute* list) {
 		for (const syntax::Attribute* attribute = list; attribute != nullptr; attribute = attribute->next)
 		{
+			if (attribute->kind == syntax::AttributeKind::Used && c_source_ && entity->kind == EntityKind::Variable &&
+				entity->owner->kind == ScopeKind::Namespace &&
+				static_cast<const VariableEntity*>(entity)->is_constexpr &&
+				!(attribute->standard && attribute->on_type))
+			{
+				graph_.own_symbol_attributes(entity).used = true;
+				continue;
+			}
 			if (attribute->kind == syntax::AttributeKind::ObjectAlias)
 			{
 				object_alias_attribute(entity, *attribute);

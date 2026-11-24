@@ -1357,6 +1357,12 @@ lowir::SymbolId ProgramLowering::variable_symbol(const sema::VariableEntity* var
 		define_global(symbol, variable, nullptr, 0);
 		++counters_.globals;
 	}
+	if (!c_constant_definitions_.empty())
+	{
+		const uint32_t definition = c_constant_index_.find(variable);
+		if (definition != PointerMap::kMissing)
+			demanded_c_constants_.emplace_back(definition, symbol);
+	}
 	return symbol;
 }
 
@@ -2817,6 +2823,8 @@ lowir::SymbolMetadata ProgramLowering::variable_metadata(const sema::VariableEnt
 	// GNU weak and section (pa27 README 9: section=<name> metadata).
 	if (const sema::SemanticGraph::SymbolAttributes* attributes = graph_->symbol_attributes(variable))
 	{
+		if (attributes->used)
+			metadata.flags |= lowir::SF_OBJECT_ROOT;
 		if (attributes->weak && metadata.binding != ir_model::SBM_INTERNAL)
 		{
 			metadata.binding = ir_model::SBM_WEAK;

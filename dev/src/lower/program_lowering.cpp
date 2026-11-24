@@ -101,6 +101,12 @@ void ProgramLowering::lower_unit(
 	debug_file_.clear();
 	debug_file_name_ = 0;
 	symbols_.clear();
+	c_constant_index_.clear();
+	c_constant_definitions_.clear();
+	demanded_c_constants_.clear();
+	// Assembly may name objects that have no typed source reference.
+	defer_c_constants_ = c_constant_demand_ && analyzer.c_source() && unit.assembly_declarations == 0 &&
+		!unit.has_inline_assembly;
 	inline_copies_.clear();
 	predefined_symbols_.clear();
 	source_object_aliases_.clear();
@@ -285,6 +291,8 @@ void ProgramLowering::lower_unit(
 		variable_symbol(variable);
 		emit_demanded();
 	}
+	if (!demanded_c_constants_.empty())
+		emit_demanded_c_constants();
 	for (const lowir::SymbolId symbol : held_definitions_)
 		release_definition(symbol);
 	held_definitions_.clear();
@@ -746,7 +754,41 @@ void ProgramLowering::simple_declaration(const syntax::SimpleDecl& decl, bool ex
 			if (earlier != PointerMap::kMissing && program_.symbols[earlier].kind != lowir::SymbolKind::Unresolved)
 				continue;
 		}
-		define_variable(variable, sema::VariableInitializer(variable, init.initializer), location);
+		const auto* initializer = sema::VariableInitializer(variable, init.initializer);
+		if (!defer_c_constants_ || !variable->is_constexpr || !defer_c_constant(variable, initializer, location))
+			define_variable(variable, initializer, location);
+	}
+}
+
+bool ProgramLowering::defer_c_constant(
+	const sema::VariableEntity* variable, const syntax::Initializer* initializer, uint32_t location)
+{
+	if (!variable->internal_linkage || variable->owner->kind != sema::ScopeKind::Namespace ||
+		variable->is_thread_local || initializer == nullptr || graph_->asm_label(variable) != nullptr ||
+		symbols_.find(variable) != PointerMap::kMissing)
+		return false;
+	const auto* attributes = graph_->symbol_attributes(variable);
+	if (attributes != nullptr && (attributes->used || attributes->section != nullptr))
+		return false;
+	const auto state = variable->constant;
+	if (state != sema::ConstantState::Value && state != sema::ConstantState::Floating &&
+		state != sema::ConstantState::Object)
+		return false;
+	c_constant_index_.set(variable, static_cast<uint32_t>(c_constant_definitions_.size()));
+	c_constant_definitions_.push_back({ variable, initializer, location });
+	return true;
+}
+
+void ProgramLowering::emit_demanded_c_constants()
+{
+	// A stored image may itself reference another object. Follow such
+	// references through the same per-unit symbol index until the list drains.
+	for (size_t i = 0; i < demanded_c_constants_.size(); ++i)
+	{
+		const auto entry = demanded_c_constants_[i];
+		const auto& definition = c_constant_definitions_[entry.first];
+		define_global(entry.second, definition.variable, definition.initializer, definition.location);
+		++counters_.globals;
 	}
 }
 

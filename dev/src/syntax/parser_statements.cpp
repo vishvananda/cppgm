@@ -266,6 +266,7 @@ Stmt* Parser::parse_asm()
 	// asm volatile? inline? ( string-literal [: outputs [: inputs
 	// [: clobbers]]] ) ; -- `::` stands for two colons.
 	AsmStmt* stmt = make<AsmStmt>(StmtKind::Asm, location());
+	has_inline_assembly_ = true;
 	stmt->assembly_environment = assembly_environment_;
 	stmt->is_volatile = false;
 	next();
