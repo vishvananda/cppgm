@@ -188,7 +188,8 @@ private:
 		return exclusive_result_apart(result_bytes_, Value::make(result.base, result.index), result.offset, bytes,
 			Value::make(other.base, other.index), body_.parameter_count);
 	}
-	void forget_int_cells();
+	bool names_errno(const AddressFacts& address) const;
+	void forget_errno();
 	void invalidate(Value address, uint64_t bytes, const Instruction* writer = nullptr);
 	void invalidate_all()
 	{
@@ -272,7 +273,9 @@ private:
 	FunctionContext& c_;
 	FunctionBody& body_;
 	Cfg& cfg_;
-	uint64_t result_bytes_ = 0;                           // explicitly exclusive first-parameter result storage
+	uint64_t result_bytes_ = 0; // explicitly exclusive first-parameter result storage
+	NameId errno_name_ = kNoId; // resolved on the first relevant library call
+	NameId darwin_errno_name_ = 0;
 	std::vector<AddressFacts> address_;                   // per temp
 	mutable std::vector<Strided> strided_;                // per temp once asked (known: base set)
 	mutable std::vector<Value> object_;                   // per temp once asked: the slot or global it stays in
@@ -526,21 +529,40 @@ bool MemoryForwarding::pointer_may_alias(
 	return other.base == ValueKind::Temp && other.index >= body_.parameter_count && allocation_left_[fresh] != 0;
 }
 
-// At an allocation call or a library mathematics call nothing the program
-// reaches changes but errno, an `int` behind a pointer. It is an object of
-// its own: a cell inside a parameter's larger object is not it.
-void MemoryForwarding::forget_int_cells()
+bool MemoryForwarding::names_errno(const AddressFacts& address) const
 {
+	if (address.base != ValueKind::Symbol || (errno_name_ == 0 && darwin_errno_name_ == 0))
+		return false;
+	const Symbol& symbol = c_.program.symbols[address.index];
+	const NameId name = symbol.metadata.object != 0 ? symbol.metadata.object : symbol.name;
+	return symbol.metadata.binding != ir_model::SBM_INTERNAL && (name == errno_name_ || name == darwin_errno_name_);
+}
+
+// Allocation and library math calls may change the error number. It can
+// be named directly or reached through an opaque pointer. The latter can
+// also read the unsigned view or the representation bytes of that int.
+void MemoryForwarding::forget_errno()
+{
+	if (live_.empty() && zeros_.empty())
+		return;
+	if (errno_name_ == kNoId)
+	{
+		errno_name_ = c_.program.names.find("errno", 5);
+		if (target_model::is_darwin(c_.program.target))
+			darwin_errno_name_ = c_.program.names.find("_errno", 6);
+	}
 	size_t kept = 0;
 	for (size_t k = 0; k < live_.size(); ++k)
 	{
 		Known& found = facts_[live_[k]].known;
 		if (found.generation != generation_)
 			continue;
-		if (found.at.base == ValueKind::Temp && allocation_of(found.at) == kNoId && found.bytes == 4 &&
-			found.type.kind() == TypeKind::I32 &&
+		const bool may_point_to_errno = found.at.base == ValueKind::Temp && found.bytes <= 4 &&
+			(!found.typed || found.type.kind() == TypeKind::I32 || found.type.kind() == TypeKind::U32) &&
+			allocation_of(found.at) == kNoId &&
 			!(found.at.index < body_.parameter_count &&
-				inside_larger_object(c_.program, c_.symbol, found.at.index, found.at.offset, 4)))
+				inside_larger_object(c_.program, c_.symbol, found.at.index, found.at.offset, found.bytes));
+		if (may_point_to_errno || names_errno(found.at))
 		{
 			undo_.push_back(std::make_pair(live_[k], found));
 			found.generation = 0;
@@ -549,9 +571,11 @@ void MemoryForwarding::forget_int_cells()
 		live_[kept++] = live_[k];
 	}
 	live_.resize(kept);
-	zeros_.erase(
-		std::remove_if(zeros_.begin(), zeros_.end(),
-			[&](const ZeroRange& r) { return r.base.base == ValueKind::Temp && allocation_of(r.base) == kNoId; }),
+	zeros_.erase(std::remove_if(zeros_.begin(), zeros_.end(),
+					 [&](const ZeroRange& r) {
+						 return (r.base.base == ValueKind::Temp && allocation_of(r.base) == kNoId) ||
+							 names_errno(r.base);
+					 }),
 		zeros_.end());
 }
 
@@ -1237,7 +1261,7 @@ void MemoryForwarding::process(BlockId block)
 			note_zero(inst.ops[0], static_cast<uint64_t>(inst.immediate));
 		}
 		else if (inst.op == Opcode::Call && (allocation_call(c_.program, inst) || errno_only_call(c_.program, inst)))
-			forget_int_cells();
+			forget_errno();
 		else if (may_write_memory(c_.program, inst) && !region_marker(inst.op))
 		{
 			const FunctionWrites* writes = bounded_call_writes(c_.program, inst);
