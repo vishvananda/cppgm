@@ -298,6 +298,82 @@ native, WASI and ABI lanes.
 [GCC change inventory](https://gcc.gnu.org/projects/c-status.html) ·
 [Clang change inventory](https://clang.llvm.org/c_status.html)
 
+## C23 resource inclusion
+
+PA38 exercises computed and direct resource names, resource lookup after
+`#line`, byte order, all four standard parameters and all three query
+results. It checks diagnostics for missing resources, unsupported
+parameters, duplicates, negative limits, `defined` in a limit, and
+unbalanced parameter tokens. GCC 15.2 and Clang 21.1 accept the positive
+fixture and diagnose all six negative fixtures. The pinned C23 CI
+manifests now pass 14 GCC cases and nine Clang cases. The executable
+fixture also passed at `-O0` and `-O2` for Linux x86-64, Linux AArch64
+under QEMU, both Mach-O targets with local loaders, WASI, and bare Wasm.
+
+The implementation records successful resource queries in dependency
+output, as Clang does. Both GCC and Clang record files consumed by
+`#embed`. The PA38 lane checks the standard parameters; the GCC and
+Clang vendor parameters are outside the supported profile.
+[WG14 N3220 §§6.10.2, 6.10.4, and 6.10.10.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
+[GCC resource search and parameters](https://gcc.gnu.org/onlinedocs/cpp/Binary-Resource-Inclusion.html)
+
+A read trace at `limit(64)` shows exactly 64 bytes read and 127 tokens
+produced for files of 4 KiB, 1 MiB, and 64 MiB. The three preprocessed
+outputs are identical, retired instructions stay at 3.79 million, and
+median RSS stays between 17,348 and 17,492 KiB. At 64 MiB, limits of
+4,096, 16,384 and 65,536 read
+exactly those byte counts and produce 8,191, 32,767 and 131,071 tokens.
+Retired instructions rise with token count, while median RSS stays
+at or below 17,500 KiB. `__has_embed` reads zero payload bytes for
+every size and limit, with retired instructions at 3.68 million.
+
+The frozen C++ overload and GNU17 SQLite objects are byte-identical in
+the A/A, ABBA and BAAB runs. Paired retired instructions changed by
+−0.013% and +0.016%, and peak RSS changed by −0.077% and +0.049%.
+The A/A task-clock spread was 43% and 17%, respectively, on the
+shared host.
+
+## C23 variadic macros and literal probes
+
+The PA38 variadic macro fixture checks omitted, explicitly empty, and
+macro-expanded empty arguments, including stringizing and pasting.
+In strict C17, GCC and Clang reject omission in user macros. GCC accepts
+omission with system-header definitions, and cppgm follows that policy.
+`-Wsystem-headers` enables the diagnostic there. Both compilers accept
+the C23 fixture. [WG14 N3033](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3033.htm)
+
+The literal fixtures check basic and control characters, NUL, malformed
+escapes and surrogates. The GCC C23 corpus also rejects
+`c23-ucn-1.c` at its first invalid surrogate after the valid escape
+cases. The number fixture checks binary literal types and suffixes,
+stringizing and pasting digit separators, separated exponents, and
+`#line`. The pinned C23 suites pass 15 GCC cases and nine Clang cases.
+The clause matrices pass 514 probes, including 63 C23 probes across
+Linux x86-64, WASI, and bare Wasm.
+
+The positive PA38 fixtures ran at `-O0` and `-O2` for Linux x86-64,
+Linux AArch64 under QEMU, both Mach-O targets with local loaders,
+WASI, and bare Wasm. The ordinary PA38 lanes pass 491 source
+fixtures on native and WASI, 63 native control fixtures, and
+three native ABI fixtures. The strict course report passed 11,674
+tests. Debug-info, inception, and self-host coverage through PA5
+passed, as did the harness, source, and placement audits.
+The C90 through C17 upstream manifests retain their
+reviewed outcomes. The student export verified 26,626 portable
+reference files and passed PA1 and the same PA38 native, WASI,
+control, and ABI lanes.
+
+The variadic diagnostic adds work only when a variable argument
+is omitted. The frozen C++ overload and GNU17 SQLite objects are
+byte-identical across all A/A, ABBA, and BAAB trials. Paired
+retired instructions changed by +0.0005% and less than 0.0001%,
+and peak RSS changed by −0.049% and +0.051%.
+With 256, 1,024 and 4,096 C23 conditional groups exercising
+omitted, empty and nonempty macro arguments, both binaries produced
+identical output. The candidate used 10.67 million, 31.56 million
+and 115.10 million retired instructions, respectively. The
+paired increase stayed at or below 0.05%.
+
 ## Additional editions
 
 The driver baseline at `39e13e127` rejects `c90`, `c89`,

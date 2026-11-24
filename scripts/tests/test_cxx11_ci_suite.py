@@ -136,9 +136,12 @@ class Suite(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'outside corpus'):
             validate_manifest(manifest, self.root)
         case['input_files'] = []
-        case['include_directories'] = ['../escape']
-        with self.assertRaisesRegex(ValueError, 'outside corpus'):
-            validate_manifest(manifest, self.root)
+        for directory_key in ('include_directories', 'embed_directories'):
+            with self.subTest(directory_key=directory_key):
+                case[directory_key] = ['../escape']
+                with self.assertRaisesRegex(ValueError, 'outside corpus'):
+                    validate_manifest(manifest, self.root)
+                del case[directory_key]
 
     def test_object_projection_does_not_execute_unmet_native_ir_or_runtime_commands(self):
         case = self.case()
