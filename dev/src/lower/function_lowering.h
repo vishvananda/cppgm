@@ -315,6 +315,7 @@ private:
 		lowir::Value made_at;
 		// A C runtime array's scope exit restores its saved stack mark.
 		bool restores_stack;
+		bool scope_cleanup;
 	};
 
 	// The array aggregate_array_object (or aggregate_elements) is making

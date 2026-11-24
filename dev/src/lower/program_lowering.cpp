@@ -1125,7 +1125,7 @@ bool ProgramLowering::instantiate_definition(const sema::FunctionEntity* functio
 
 const sema::ClassEntity* ProgramLowering::call_naming_class(const syntax::CallExpr& call) const
 {
-	return analyzer_ != nullptr ? analyzer_->call_naming_class(call) : nullptr;
+	return analyzer_ != nullptr ? analyzer_->member_naming_class(call) : nullptr;
 }
 
 const sema::ClassEntity* ProgramLowering::member_naming_class(const syntax::Expr& access) const

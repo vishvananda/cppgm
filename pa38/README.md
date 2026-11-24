@@ -414,6 +414,11 @@ The first fixture set covers these parts of the C17 input profile:
   initialize a pointer member. The first member determines the ABI for both
   direct calls and calls through a function pointer. A function definition
   can access the parameter's members as a union object.
+- A GNU `cleanup(function)` attribute on an addressable automatic variable
+  calls the named function with the variable's address when leaving its
+  scope. Run cleanup functions in reverse declaration order on fallthrough
+  and transfers out of the scope. Evaluate a return's value before running
+  the cleanups, and discard the cleanup function's own return value.
 - For relational comparison, require pointers to qualified or unqualified
   versions of compatible object types. Equality also permits a null pointer
   constant, compatible function pointers, and an object pointer with a void

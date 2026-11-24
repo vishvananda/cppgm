@@ -453,6 +453,7 @@ struct VariableEntity : Entity
 	bool template_parameter_object : 1;
 	// An injected name of a GNU C named anonymous member.
 	bool c_anonymous_field : 1;
+	bool c_scope_cleanup : 1;
 	// The alignment a member's alignment-specifiers request (7.6.2).
 	uint32_t alignment_request;
 	Constant value;

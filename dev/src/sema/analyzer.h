@@ -197,15 +197,7 @@ public:
 	// Instances' static data members named where evaluated (in the order
 	// named), which the lowering defines.
 	const std::vector<const VariableEntity*>& demanded_variables() const { return demanded_variables_; }
-	// A qualified call through `(*this)` whose naming class (11.2p5) is
-	// neither the object's class nor the called member's: that class (the
-	// lowering converts the object through it); null otherwise.
-	const ClassEntity* call_naming_class(const syntax::CallExpr& call) const
-	{
-		const uint32_t index = naming_index_.find(&call);
-		return index != PointerMap::kMissing ? namings_[index] : nullptr;
-	}
-	// A non-static member access (explicit, or through `(*this)`) whose
+	// A non-static member access or call (explicit, or through `(*this)`) whose
 	// naming class is neither the object's class nor the member's: that
 	// class, through which the object converts (11.2p6, a repeated base's
 	// subobject chosen by it); null otherwise.
@@ -515,6 +507,7 @@ private:
 	ExprFacts* c_compound_literal(const syntax::FunctionalCastExpr& expr, Scope* scope);
 	ExprFacts* c_union_cast(const syntax::CastExpr& expr, const Type* type, const ClassEntity* record, Scope* scope);
 	const Type* c_transparent_union_type(const Type* type, uint32_t location);
+	void c_scope_cleanup(VariableEntity* variable, const syntax::Attribute& attribute, Scope* scope);
 	bool c_transparent_union_sequence(const syntax::Expr& argument, const Type* type, Conversion& conversion);
 	void check_c_register_address(const syntax::Expr& expr, uint32_t location);
 	void check_c_constexpr_type(const Type* type, uint32_t location);

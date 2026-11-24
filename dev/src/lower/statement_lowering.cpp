@@ -615,7 +615,23 @@ void FunctionLowering::local_variable(const syntax::InitDeclarator& init)
 	if (binding == nullptr)
 		return;
 	if (binding->kind == sema::BindingKind::Variable)
-		local_object_variable(static_cast<const sema::VariableEntity*>(binding->entity), init);
+	{
+		const auto* variable = static_cast<const sema::VariableEntity*>(binding->entity);
+		local_object_variable(variable, init);
+		if (variable->c_scope_cleanup && !unreachable_storage_ && !terminated_)
+		{
+			Local& local = locals_[local_index_.find(variable)];
+			Cleanup cleanup{};
+			cleanup.storage = local.address.kind == lowir::ValueKind::None ? lowir::Value::slot(local.slot)
+																		   : local.address;
+			cleanup.type = variable->type;
+			cleanup.variable = variable;
+			cleanup.unwind = cleanup.shared_return = cleanup.conditional = lowir::kNoId;
+			cleanup.scope_cleanup = true;
+			cleanups_.push_back(cleanup);
+			local.depth = cleanups_.size();
+		}
+	}
 	else if (binding->kind == sema::BindingKind::TypeAlias && binding->type->c_variably_modified &&
 		!unreachable_storage_)
 		evaluate_runtime_bounds(lowering_.graph().runtime_bounds(init.declarator), nullptr, init.declarator->location);
@@ -2082,7 +2098,7 @@ uint32_t FunctionLowering::declared_live(
 		variable->owner->kind == sema::ScopeKind::Namespace)
 		return live;
 	const sema::Type* type = variable->type;
-	bool alive = type->runtime_array() ||
+	bool alive = variable->c_scope_cleanup || type->runtime_array() ||
 		(needs_destruction(type) &&
 			(type->kind == sema::TypeKind::Array || !lowering_.destructor_does_nothing(object_class(type))));
 	if (!alive && initializer != nullptr)

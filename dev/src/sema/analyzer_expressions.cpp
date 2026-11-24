@@ -56,11 +56,6 @@ bool IsPointer(const Type* type)
 	return type->unqualified->kind == TypeKind::Pointer;
 }
 
-bool ArithmeticPointer(const Type* type, bool c_source)
-{
-	return c_source ? IsPointer(type) : IsObjectPointer(type);
-}
-
 bool IsMemberPointer(const Type* type)
 {
 	return type->unqualified->kind == TypeKind::MemberPointer;
@@ -1434,7 +1429,7 @@ ExprFacts* Analyzer::arithmetic(const syntax::BinaryExpr& expr, ExprFacts* left,
 	if (op == TokenKind::OP_PLUS || op == TokenKind::OP_MINUS)
 	{
 		// 5.7: pointer arithmetic on pointers to complete object types.
-		const bool lp = ArithmeticPointer(lt, c_source_), rp = ArithmeticPointer(rt, c_source_);
+		const bool lp = IsArithmeticPointer(lt, c_source_), rp = IsArithmeticPointer(rt, c_source_);
 		if (lp || rp)
 		{
 			if (op == TokenKind::OP_MINUS && lp && rp)
@@ -1898,7 +1893,7 @@ ExprFacts* Analyzer::assignment(const syntax::BinaryExpr& expr, Scope* scope)
 	const Type* rt = decayed(right);
 	const Type* lt = type->unqualified;
 	const Type* operation = lt;
-	if ((op == TokenKind::OP_PLUS || op == TokenKind::OP_MINUS) && ArithmeticPointer(lt, c_source_))
+	if ((op == TokenKind::OP_PLUS || op == TokenKind::OP_MINUS) && IsArithmeticPointer(lt, c_source_))
 	{
 		// 5.17p7: E1 += E2 with E1 a pointer to a complete object type.
 		if (!IsIntegralOrUnscopedEnum(rt))
@@ -2286,7 +2281,7 @@ ExprFacts* Analyzer::increment(const syntax::UnaryExpr& expr, Scope* scope)
 	}
 	const Type* type = operand->type;
 	const bool decrement = expr.op == TokenKind::OP_DEC;
-	const bool pointer = ArithmeticPointer(type, c_source_);
+	const bool pointer = IsArithmeticPointer(type, c_source_);
 	// GNU: a complex operand's real part is stepped.
 	if (IsBoolType(type) ? (!c_source_ && decrement)
 						 : !(IsArithmetic(type) || pointer || IsComplex(type) ||

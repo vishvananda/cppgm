@@ -162,7 +162,7 @@ bool ConstantInterpreter::call(const syntax::CallExpr& expr, Result& result)
 				located = object_place(*callee, object);
 			else if ((callee->facts->flags & kImplicitThis) != 0)
 				located = this_place(object, expr.location) &&
-					through_naming(object, analyzer_.call_naming_class(expr), expr.location);
+					through_naming(object, analyzer_.member_naming_class(expr), expr.location);
 			else if (callee->kind == syntax::ExprKind::Member)
 			{
 				const syntax::MemberExpr& access = static_cast<const syntax::MemberExpr&>(*callee);

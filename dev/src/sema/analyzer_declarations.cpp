@@ -101,17 +101,17 @@ bool StandardNoReturn(const syntax::Declarator* declarator)
 	return false;
 }
 
-bool HasDeclarationAttribute(
+const syntax::Attribute* DeclarationAttribute(
 	const syntax::Attribute* leading, const syntax::Declarator* declarator, syntax::AttributeKind kind)
 {
 	for (const syntax::Attribute* attribute = leading; attribute != nullptr; attribute = attribute->next)
 		if (attribute->kind == kind)
-			return true;
+			return attribute;
 	for (const syntax::Declarator* part = declarator; part != nullptr; part = part->nested)
 		for (const syntax::Attribute* attribute = part->attributes; attribute != nullptr; attribute = attribute->next)
 			if (attribute->kind == kind)
-				return true;
-	return false;
+				return attribute;
+	return nullptr;
 }
 
 bool HasDefaultArgument(const syntax::ParameterClause* clause)
@@ -455,6 +455,10 @@ void Analyzer::simple_declaration(const syntax::SimpleDecl& decl, Scope* scope)
 			record_alias_alignment(specifiers, init.declared, specifiers.is_typedef ? entity_alignment : 0);
 		if (entity != nullptr && entity->kind == EntityKind::Variable)
 		{
+			if (c_source_ && semantic())
+				if (const syntax::Attribute* cleanup = DeclarationAttribute(
+						decl.attributes, init.declarator, syntax::AttributeKind::Cleanup))
+					c_scope_cleanup(static_cast<VariableEntity*>(entity), *cleanup, scope);
 			if (!c_source_)
 				request_alignment(static_cast<VariableEntity*>(entity), entity_alignment, specifier);
 			overlapping_attribute(static_cast<VariableEntity*>(entity), decl.attributes, init.declarator);
@@ -491,6 +495,32 @@ void Analyzer::simple_declaration(const syntax::SimpleDecl& decl, Scope* scope)
 	}
 	auto_deduced_ = saved_auto;
 	access_deferral_ = saved_deferral;
+}
+
+void Analyzer::c_scope_cleanup(VariableEntity* variable, const syntax::Attribute& attribute, Scope* scope)
+{
+	if (variable->is_static || variable->is_extern || variable->is_thread_local ||
+		variable->owner->kind != ScopeKind::Block)
+		return;
+	if (variable->c_register_storage)
+		error(attribute.location, "a GNU cleanup attribute cannot take the address of a register variable");
+	const syntax::Expr& name = *attribute.expression;
+	if (name.kind != syntax::ExprKind::Id || typed(name, scope) == nullptr)
+		error(attribute.location, "a GNU cleanup attribute requires a function name");
+	resolve_lone_function(name);
+	const Entity* entity = facts_of(name)->entity;
+	if (entity == nullptr || entity->kind != EntityKind::Function)
+		error(attribute.location, "a GNU cleanup attribute requires a function name");
+	auto* function = static_cast<FunctionEntity*>(const_cast<Entity*>(entity));
+	const Type* signature = function->type->canonical;
+	const Operand address{ types_.pointer(variable->type), ValueCategory::PRValue, 0 };
+	Conversion conversion{};
+	if (signature->param_count != 1 || signature->params[0]->kind != TypeKind::Pointer ||
+		!conversions_.implicit(address, signature->params[0], false, conversion))
+		error(attribute.location, "a GNU cleanup function must accept a pointer to the variable");
+	variable->c_scope_cleanup = true;
+	graph_.set_scope_cleanup(variable, function);
+	odr_use(function, true);
 }
 
 namespace {
@@ -1031,7 +1061,7 @@ void Analyzer::declare_declarator(const Specifiers& specifiers, const syntax::In
 	if (c_language_ &&
 		(leading != nullptr || init.declarator->attributes != nullptr || init.declarator->nested != nullptr))
 	{
-		info.overloadable = HasDeclarationAttribute(leading, init.declarator, syntax::AttributeKind::Overloadable);
+		info.overloadable = DeclarationAttribute(leading, init.declarator, syntax::AttributeKind::Overloadable);
 		if (info.overloadable && !function && c_source_)
 			error(info.location, "the overloadable attribute requires a function");
 	}
@@ -1058,7 +1088,7 @@ void Analyzer::declare_declarator(const Specifiers& specifiers, const syntax::In
 			error(info.location, "an exception-specification in a typedef declaration");
 		if (info.type == auto_placeholder_ || info.type == decltype_auto_placeholder_)
 			error(info.location, "typedef of auto");
-		if (c_source_ && HasDeclarationAttribute(leading, init.declarator, syntax::AttributeKind::TransparentUnion))
+		if (c_source_ && DeclarationAttribute(leading, init.declarator, syntax::AttributeKind::TransparentUnion))
 			info.type = c_transparent_union_type(info.type, info.location);
 		check_type_packs(info.type, info.location);
 		Binding* binding = declare_typedef(declared_name(*info.name, declaration_scope(scope)), info.type, scope,
@@ -3156,8 +3186,7 @@ void Analyzer::function_definition(const syntax::FunctionDecl& decl, Scope* scop
 	if (c_source_ && info.parameters != nullptr && info.parameters->c_prototype_star)
 		error(decl.location, "[*] is allowed only in C function prototype scope");
 	if (c_language_)
-		info.overloadable = HasDeclarationAttribute(
-			decl.attributes, decl.declarator, syntax::AttributeKind::Overloadable);
+		info.overloadable = DeclarationAttribute(decl.attributes, decl.declarator, syntax::AttributeKind::Overloadable);
 	Binding* binding = declare_function(specifiers, info, scope, true, decl.location);
 	settle_declaration_access(pending, pending, binding);
 	access_deferral_ = saved_deferral;

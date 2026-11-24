@@ -45,6 +45,18 @@ struct SemanticGraph
 	}
 	PointerMap runtime_bound_sites;
 	std::vector<const RuntimeTypeEvaluation*> runtime_bound_plans;
+	const FunctionEntity* scope_cleanup(const VariableEntity* variable) const
+	{
+		const uint32_t index = scope_cleanup_indices.find(variable);
+		return index == PointerMap::kMissing ? nullptr : scope_cleanup_functions[index];
+	}
+	void set_scope_cleanup(const VariableEntity* variable, const FunctionEntity* function)
+	{
+		scope_cleanup_indices.set(variable, static_cast<uint32_t>(scope_cleanup_functions.size()));
+		scope_cleanup_functions.push_back(function);
+	}
+	PointerMap scope_cleanup_indices;
+	std::vector<const FunctionEntity*> scope_cleanup_functions;
 	uint32_t local_types;
 	uint32_t scopes;
 	uint32_t bindings;

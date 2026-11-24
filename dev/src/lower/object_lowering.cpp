@@ -1514,6 +1514,9 @@ void FunctionLowering::destroy_local(const Cleanup& cleanup, lowir::BlockId belo
 		lowering_.demand_destruction(entity->destructor);
 	Place place = Place();
 	place.storage = cleanup.storage;
+	const auto* callback = cleanup.scope_cleanup
+		? lowering_.graph().scope_cleanup(static_cast<const sema::VariableEntity*>(cleanup.variable))
+		: nullptr;
 	lowir::BlockId done = lowir::kNoId;
 	// 15.2p3: a destructor exiting by an exception during unwinding calls
 	// std::terminate (15.5.1p1): such a destruction runs in a region of its
@@ -1521,7 +1524,7 @@ void FunctionLowering::destroy_local(const Cleanup& cleanup, lowir::BlockId belo
 	// deallocation function, which does not throw). The region encloses a
 	// guarded temporary's test too.
 	const bool terminates = unwinding && below == lowir::kNoId && cleanup.deallocator == nullptr &&
-		destructor_may_throw(cleanup.type);
+		(callback != nullptr ? call_may_throw(callback) : destructor_may_throw(cleanup.type));
 	const lowir::BlockId guard = terminates ? cleanup_terminate(lexical_placing_) : lowir::kNoId;
 	const bool region = below != lowir::kNoId || terminates;
 	if (region)
@@ -1541,7 +1544,22 @@ void FunctionLowering::destroy_local(const Cleanup& cleanup, lowir::BlockId belo
 		this->place(destroy_block);
 		store(u8, integer(u8, 0), flag);
 	}
-	if (cleanup.deallocator != nullptr)
+	if (callback != nullptr)
+	{
+		const size_t base = arguments_.size();
+		lowir::SignatureId signature = lowir::kNoId;
+		const lowir::Value callee = member_callee(callback, lowir::Value(), false, signature);
+		if (lowering_.indirect_result(callback))
+		{
+			Place result{};
+			result.storage = lowir::Value::slot(
+				generated_slot(lowir::SlotKind::Tmpobj, lowering_.storage_type(callback->type->canonical->element)));
+			arguments_.push_back(address_of(result));
+		}
+		arguments_.push_back(address_of(place));
+		emit_call(result_type(callback), callee, base, signature, call_may_throw(callback));
+	}
+	else if (cleanup.deallocator != nullptr)
 	{
 		// A new-expression's storage (allocation): its deallocation
 		// function, given a sized one's object size or a placement one's

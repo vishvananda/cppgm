@@ -157,6 +157,15 @@ void Parser::constrained_placeholder(DeclSpecifier& specifier, Name* constraint)
 
 bool Parser::gnu_attribute(const char* spelling, Attribute& attribute, bool& kept)
 {
+	if (std::strcmp(spelling, "cleanup") == 0 || std::strcmp(spelling, "__cleanup__") == 0)
+	{
+		attribute.kind = AttributeKind::Cleanup;
+		kept = true;
+		if (!expect(TokenKind::OP_LPAREN))
+			return false;
+		attribute.expression = parse_assignment_expression();
+		return attribute.expression != nullptr && expect(TokenKind::OP_RPAREN);
+	}
 	if (std::strcmp(spelling, "unavailable") == 0 || std::strcmp(spelling, "__unavailable__") == 0)
 	{
 		attribute.kind = AttributeKind::Unavailable;

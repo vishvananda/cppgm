@@ -181,6 +181,10 @@ bool IsIntegralOrUnscopedEnum(const Type* type);
 bool IsScalar(const Type* type);
 // A pointer to an object type (or to void).
 bool IsObjectPointer(const Type* type);
+inline bool IsArithmeticPointer(const Type* type, bool c_source)
+{
+	return c_source ? type->unqualified->kind == TypeKind::Pointer : IsObjectPointer(type);
+}
 inline bool IsVoid(const Type* type)
 {
 	type = type->unqualified;

@@ -1368,6 +1368,9 @@ void MacroExpander::replace_has_attribute(BuiltinMacro probe)
 	const auto name_is = [&](const char* spelling) {
 		return token.length == std::strlen(spelling) && std::memcmp(token.spelling, spelling, token.length) == 0;
 	};
+	const auto cleanup_supported = [&] {
+		return identifiers_.language() == SourceLanguage::C && (name_is("cleanup") || name_is("__cleanup__"));
+	};
 	const bool gnu_namespace = name_is("gnu") || name_is("__gnu__");
 	const bool clang_namespace = name_is("clang");
 	const char* answer = "0";
@@ -1378,7 +1381,7 @@ void MacroExpander::replace_has_attribute(BuiltinMacro probe)
 			answer = "202311L";
 	}
 	else if (IsReportedAttribute(token.spelling, token.length, gnu) ||
-		(gnu && environment_.has_target_attribute(token.spelling, token.length)))
+		(gnu && (cleanup_supported() || environment_.has_target_attribute(token.spelling, token.length))))
 	{
 		const bool no_unique = name_is("no_unique_address") || name_is("__no_unique_address__");
 		answer = gnu ? "1" : no_unique ? "201803" : "200809";
@@ -1390,7 +1393,7 @@ void MacroExpander::replace_has_attribute(BuiltinMacro probe)
 		if (token.kind != PPTokenKind::Identifier && !IsIdentifierLikeOperator(token))
 			throw PreprocessError(operator_token.begin, "expected an attribute name");
 		const bool reported = !gnu &&
-			((gnu_namespace && IsReportedAttribute(token.spelling, token.length, true)) ||
+			((gnu_namespace && (IsReportedAttribute(token.spelling, token.length, true) || cleanup_supported())) ||
 				((gnu_namespace || clang_namespace) &&
 					environment_.has_target_attribute(token.spelling, token.length)));
 		answer = reported ? "1" : "0";
