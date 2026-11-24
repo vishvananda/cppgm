@@ -895,20 +895,6 @@ long double log1pl(long double x)
 	return log1p_scaled(x, nullptr);
 }
 
-double logp1(double x)
-{
-	if (x <= -1.0)
-		return x == -1.0 ? -math_range_error() : math_domain_error();
-	return log1p(x);
-}
-
-float logp1f(float x)
-{
-	if (x <= -1.0f)
-		return x == -1.0f ? -math_range_error() : math_domain_error();
-	return log1pf(x);
-}
-
 long double logp1l(long double x)
 {
 	return log1pl(x);

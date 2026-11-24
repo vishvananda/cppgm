@@ -26,6 +26,61 @@ int main(void)
 	CHECK(log, (-2.0), EDOM, isnan(result));
 	CHECK(logf, (0.0f), ERANGE, result == -INFINITY);
 	CHECK(log, (NAN), EILSEQ, isnan(result));
+	CHECK(log10, (-0.5), EDOM, isnan(result));
+	CHECK(log10, (-INFINITY), EDOM, isnan(result));
+	CHECK(log10, (-0.0), ERANGE, result == -INFINITY);
+	CHECK(log10, (-NAN), EILSEQ, isnan(result));
+	CHECK(log10, (DBL_TRUE_MIN), EILSEQ, result < -300 && isfinite(result));
+	CHECK(log10f, (-0.5f), EDOM, isnan(result));
+	CHECK(log10f, (0.0f), ERANGE, result == -INFINITY);
+	CHECK(log10f, (-NAN), EILSEQ, isnan(result));
+	CHECK(log10f, (1.0f), EILSEQ, result == 0.0f && !signbit(result));
+	CHECK(log1p, (-INFINITY), EDOM, isnan(result));
+	CHECK(log1p, (-0x1.0000000000001p0), EDOM, isnan(result));
+	CHECK(log1p, (-1.0), ERANGE, result == -INFINITY);
+	CHECK(log1p, (-0x1.fffffffffffffp-1), EILSEQ, isfinite(result));
+	CHECK(log1p, (-NAN), EILSEQ, isnan(result));
+	CHECK(log1p, (-0.0), EILSEQ, result == 0 && signbit(result));
+	CHECK(log1pf, (-0x1.000002p0f), EDOM, isnan(result));
+	CHECK(log1pf, (-1.0f), ERANGE, result == -INFINITY);
+	CHECK(log1pf, (-0x1.fffffep-1f), EILSEQ, isfinite(result));
+	CHECK(log1pf, (-NAN), EILSEQ, isnan(result));
+	CHECK(log1pf, (INFINITY), EILSEQ, result == INFINITY);
+
+	CHECK(acosh, (0x1.fffffffffffffp-1), EDOM, isnan(result));
+	CHECK(acosh, (-0x1.a17e45b8ac257p+22), EDOM, isnan(result));
+	CHECK(acosh, (1.0), EILSEQ, result == 0 && !signbit(result));
+	CHECK(acosh, (-NAN), EILSEQ, isnan(result));
+	CHECK(acoshf, (-0.0f), EDOM, isnan(result));
+	CHECK(acoshf, (INFINITY), EILSEQ, result == INFINITY);
+	CHECK(acoshl, (1.0L - 0x1p-113L), EDOM, isnan(result));
+	CHECK(acoshl, (1.0L + 0x1p-112L), EILSEQ, result > 0x1p-56L && result < 0x1p-55L);
+	CHECK(acoshl, (LDBL_MAX), EILSEQ, result > 11000 && isfinite(result));
+	CHECK(acoshl, (NAN), EILSEQ, isnan(result));
+	CHECK(atanh, (-2.0), EDOM, isnan(result));
+	CHECK(atanh, (-1.0), ERANGE, result == -INFINITY);
+	CHECK(atanh, (0x1.fffffffffffffp-1), EILSEQ, isfinite(result));
+	CHECK(atanh, (NAN), EILSEQ, isnan(result));
+	CHECK(atanhf, (-INFINITY), EDOM, isnan(result));
+	CHECK(atanhf, (1.0f), ERANGE, result == INFINITY);
+	CHECK(atanhf, (-0.0f), EILSEQ, result == 0 && signbit(result));
+	CHECK(atanhl, (1.0L + 0x1p-112L), EDOM, isnan(result));
+	CHECK(atanhl, (1.0L), ERANGE, result == INFINITY);
+	CHECK(atanhl, (-1.0L), ERANGE, result == -INFINITY);
+	CHECK(atanhl, (1.0L - 0x1p-113L), EILSEQ, result > 39 && isfinite(result));
+	CHECK(atanhl, (0x1p-1000L), EILSEQ, result == 0x1p-1000L);
+	CHECK(atanhl, (-NAN), EILSEQ, isnan(result));
+
+	// Use -fmath-errno when compiling these direct calls with SDK Clang.
+	volatile double invalid_log = -2.0;
+	errno = EILSEQ;
+	if (!isnan(log1p(invalid_log)) || errno != EDOM)
+		return __LINE__;
+	volatile long double pole = -1.0L;
+	errno = EILSEQ;
+	if (atanhl(pole) != -INFINITY || errno != ERANGE)
+		return __LINE__;
+
 	CHECK(exp, (DBL_MAX), ERANGE, result == INFINITY);
 	CHECK(expf, (FLT_MAX), ERANGE, result == INFINITY);
 
