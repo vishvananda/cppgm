@@ -46,6 +46,7 @@ public:
 	// find a file (the hosted __has_include operators).
 	virtual bool can_include(const std::string& name, bool angle, bool next) = 0;
 	virtual unsigned has_embed(const std::vector<PPToken>& operand, uint32_t location) = 0;
+	virtual void check_variadic_omission(const PPToken& invocation, uint32_t definition) const = 0;
 	// Whether the language feature is provided (`__has_feature` and
 	// `__has_extension`, preprocess/macro/feature_probes.h).
 	virtual bool has_feature(const char* spelling, uint32_t length, bool extension) = 0;

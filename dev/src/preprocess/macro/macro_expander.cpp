@@ -558,8 +558,8 @@ void MacroExpander::check_argument_count(const MacroDefinition& macro, const PPT
 	}
 	else if (arguments.count + 1 == parameters && macro.variadic)
 	{
-		// No variable arguments at all: they are empty (as the course
-		// reference and C++20 16.3p12 allow).
+		// The omitted variable argument has an empty token range.
+		environment_.check_variadic_omission(head, macro.location);
 		const uint32_t end = argument_bounds_.back();
 		argument_bounds_.push_back(end);
 		argument_bounds_.push_back(end);

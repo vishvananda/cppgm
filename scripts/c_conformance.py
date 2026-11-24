@@ -33,21 +33,33 @@ LEGACY_VERSION_PROBES = {
     90: PA38_GENERAL / '100-c90-version.t',
     95: PA38_GENERAL / '100-c95-digraphs.t',
 }
-C23_PREPROCESSOR_CASES = (
-    ('c23.version', '100-c23-version.t', 'preprocess'),
+C23_PREPROCESSOR_REJECTIONS = (
     ('c23.trigraph-default', '100-c23-trigraphs-bad.t', 'compile'),
-    ('c23.trigraph-spelling-and-splice', '100-c23-trigraph-spelling-and-splice.t', 'compile'),
-    ('c23.preprocessing-conditionals', '100-c23-elifdef.t', 'compile'),
-    ('c23.preprocessing-warning', '100-c23-warning.t', 'preprocess'),
     ('c23.embed-missing', '100-c23-embed-missing-bad.t', 'compile'),
     ('c23.embed-unsupported', '100-c23-embed-unsupported-bad.t', 'compile'),
     ('c23.embed-duplicate', '100-c23-embed-duplicate-bad.t', 'compile'),
     ('c23.embed-negative-limit', '100-c23-embed-negative-limit-bad.t', 'compile'),
     ('c23.embed-defined-limit', '100-c23-embed-defined-limit-bad.t', 'compile'),
     ('c23.embed-unbalanced', '100-c23-embed-unbalanced-bad.t', 'compile'),
+    ('c23.literal-surrogate', '100-c23-literal-surrogate-bad.t', 'compile'),
+    ('c23.literal-malformed-ucn', '100-c23-literal-malformed-ucn-bad.t', 'compile'),
+)
+C23_PREPROCESSOR_CASES = (
+    ('c23.version', '100-c23-version.t', 'preprocess'),
+    ('c23.trigraph-spelling-and-splice', '100-c23-trigraph-spelling-and-splice.t', 'compile'),
+    ('c23.preprocessing-conditionals', '100-c23-elifdef.t', 'compile'),
+    ('c23.preprocessing-warning', '100-c23-warning.t', 'preprocess'),
+    *C23_PREPROCESSOR_REJECTIONS,
 )
 C23_EMBED_SOURCE = PA38_GENERAL / '100-c23-embed.t'
 C23_EMBED_FIXTURES = C23_EMBED_SOURCE.with_suffix('.inc')
+C23_PROGRAMS = {
+    'c23.embed': (C23_EMBED_SOURCE, ('--embed-dir=' + str(C23_EMBED_FIXTURES / 'resources'),
+                                    '-I' + str(C23_EMBED_FIXTURES / 'headers'))),
+    'c23.number-spellings': (PA38_GENERAL / '100-c23-number-spellings.t', ()),
+    'c23.variadic-expansion': (PA38_GENERAL / '100-c23-variadic-macro.t', ()),
+    'c23.literal-ucn': (PA38_GENERAL / '100-c23-literal-ucn.t', ()),
+}
 FLEXIBLE_ARRAY = PA38_GENERAL / '300-c-flexible-array.t'
 RECORD_CONSTRAINTS = {
     'record.flexible-only-member': ('200-c-flexible-only-member-bad.t', 'a flexible array must be the last member'),
@@ -62,8 +74,8 @@ RECORD_CONSTRAINTS = {
                                              'initializing a flexible array member'),
 }
 REJECTED_CASES = {
-    'line.diagnostic-location', 'error.message', 'c23.trigraph-default', *RECORD_CONSTRAINTS,
-    *(case for case, name, _ in C23_PREPROCESSOR_CASES if name.startswith('100-c23-embed-')),
+    'line.diagnostic-location', 'error.message', *RECORD_CONSTRAINTS,
+    *(case for case, _, _ in C23_PREPROCESSOR_REJECTIONS),
 }
 C11_LIBRARY_SOURCES = {
     'library.c11-header-facilities': ROOT / 'scripts/tests/c_c11_header_facilities.c',
@@ -77,7 +89,7 @@ C11_LIBRARY_SOURCES = {
 }
 CASES = {
     **{case: ((stage,), ('default',)) for case, _, stage in C23_PREPROCESSOR_CASES},
-    'c23.embed': (RUN_STAGES, ('O0', 'O2')),
+    **{case: (RUN_STAGES, ('O0', 'O2')) for case in C23_PROGRAMS},
     'limits.combined': (RUN_STAGES, ('O0', 'O2')),
     'library.c95-wide-headers': (RUN_STAGES, ('O0', 'O2')),
     'limits.integer': (RUN_STAGES, ('O0', 'O2')),
@@ -383,12 +395,11 @@ def probe_target(output, profile, compiler, setup, link, runner, bare_sdk=()):
     numeric = numeric_sources(profile, bare_sdk)
     expect_no_threads = int(profile['target'].endswith('-apple-darwin'))
     yield from probe_c23_preprocessing(output, profile, compiler, setup)
-    embed_flags = [compiler, '--target=' + profile['target'], *setup, '-x', 'c', '-std=c23', '-pedantic-errors',
-                   '--embed-dir=' + str(C23_EMBED_FIXTURES / 'resources'),
-                   '-I' + str(C23_EMBED_FIXTURES / 'headers')]
-    for variant, passed, stages in probe_program(output / profile['id'] / 'c23', profile, 'c23.embed',
-                                                  C23_EMBED_SOURCE, embed_flags, link, runner):
-        yield receipt('c23.embed', profile, 23, variant, passed, stages)
+    c23_flags = [compiler, '--target=' + profile['target'], *setup, '-x', 'c', '-std=c23', '-pedantic-errors']
+    for case, (source, flags) in C23_PROGRAMS.items():
+        for variant, passed, stages in probe_program(output / profile['id'] / 'c23', profile, case, source,
+                                                      [*c23_flags, *flags], link, runner):
+            yield receipt(case, profile, 23, variant, passed, stages)
     for edition in (*LEGACY_STANDARDS, *PILOT_EDITIONS):
         legacy = edition in LEGACY_STANDARDS
         standard = LEGACY_STANDARDS.get(edition, f'c{edition}')
@@ -483,7 +494,7 @@ def probes(args, profiles, rules):
     inputs = sorted([*work.glob('*/*'), ERROR_SOURCE, INCLUDE_SOURCE, STRING_SOURCE, INCLUDE_QUERY, THREAD_PREDEFINE,
                      C95_WIDE_HEADERS, *LEGACY_VERSION_PROBES.values(),
                      *(PA38_GENERAL / source for _, source, _ in C23_PREPROCESSOR_CASES),
-                     C23_EMBED_SOURCE, *C23_EMBED_FIXTURES.rglob('*.bin'),
+                     *(source for source, _ in C23_PROGRAMS.values()), *C23_EMBED_FIXTURES.rglob('*.bin'),
                      INTEGER_LIMITS, FLOAT_LIMITS, DEFAULT_ROUNDING, ROUNDING_QUERY,
                      FENV_BINARY, FENV_CONVERT, FENV_COMPARE, FENV_QUAD, FENV_LIBM, FP_CONTRACT,
                      COMPLEX_RANGE, COMPLEX_FENV, FENV_ZERO_DIVISION, HOSTED_MATH, FLEXIBLE_ARRAY,

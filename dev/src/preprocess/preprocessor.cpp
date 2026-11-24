@@ -545,6 +545,17 @@ bool Preprocessor::allow_gnu_c_extension(uint32_t location, const char* message)
 	return extension_warnings_ == ExtensionWarnings::Disabled || allow_extension(location, 0, message);
 }
 
+void Preprocessor::check_variadic_omission(const PPToken& invocation, uint32_t definition) const
+{
+	if (modes_.language != 0 || modes_.c_edition >= CEdition::C23 || extension_warnings_ == ExtensionWarnings::Disabled)
+		return;
+	if (!warn_system_headers_ && ((invocation.flags & kQuietSystemMacro) != 0 || in_system_header(definition)))
+		return;
+	const char* message = "omitting a variadic macro argument requires C23";
+	if (!allow_c_extension(invocation.begin, CEdition::C23, message))
+		throw PreprocessError(invocation.begin, message);
+}
+
 void Preprocessor::diagnose_c23_literal_ucn(uint32_t location) const
 {
 	const char* message = "a universal character name for a basic or control character in a literal requires C23";

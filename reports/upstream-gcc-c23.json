@@ -234,6 +234,21 @@
         "-pedantic-errors"
       ],
       "obligation": "Full resource in an initializer with overwrites and evaluation of surviving elements"
+    },
+    {
+      "id": "c23-ucn-1",
+      "path": "gcc/testsuite/gcc.dg/cpp/c23-ucn-1.c",
+      "sha256": "4edfb7e495a4bb3bd52047bfeee1e246902f7183b335f01dc217b9ecc687f82f",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Surrogate and out-of-range universal character names remain invalid in C23 literals"
     }
   ]
 }

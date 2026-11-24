@@ -1247,7 +1247,11 @@
       ],
       "environment": "all",
       "requirement": "Permit universal character names for basic, control and NUL characters within quoted literals, while enforcing the restrictions on malformed names and surrogate values.",
-      "cases": []
+      "cases": [
+        "c23.literal-ucn",
+        "c23.literal-surrogate",
+        "c23.literal-malformed-ucn"
+      ]
     },
     {
       "id": "c23.binary-integer-constant",
@@ -1258,7 +1262,9 @@
       ],
       "environment": "all",
       "requirement": "Read binary integer constants with the nondecimal base and suffix rules for value and type.",
-      "cases": []
+      "cases": [
+        "c23.number-spellings"
+      ]
     },
     {
       "id": "c23.digit-separators",
@@ -1269,7 +1275,9 @@
       ],
       "environment": "all",
       "requirement": "Recognize digit separators in integer and floating constants, including exponent digits, and preserve preprocessing token boundaries through stringization and pasting.",
-      "cases": []
+      "cases": [
+        "c23.number-spellings"
+      ]
     },
     {
       "id": "c23.elifdef",
@@ -1304,7 +1312,9 @@
       ],
       "environment": "all",
       "requirement": "Accept omitted variable arguments, and expand __VA_OPT__ with the correct empty or nonempty result, including stringization and pasting.",
-      "cases": []
+      "cases": [
+        "c23.variadic-expansion"
+      ]
     },
     {
       "id": "c23.warning-directive",

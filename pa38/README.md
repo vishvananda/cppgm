@@ -159,8 +159,12 @@ the tokens supplied by their macro replacement lists suppress these diagnostics
 unless `-Wsystem-headers` is set. Keep the diagnostic policy of a token passed
 as a macro argument. A message-free
 `_Static_assert` is a C23 extension in the C modes above.
-`__VA_OPT__` also receives a C23 extension diagnostic in the earlier
-editions when pedantic diagnostics are enabled. Treat
+`__VA_OPT__` and omission of a variadic macro's argument after its
+named arguments receive C23 extension diagnostics in earlier
+editions. An explicit empty argument with a trailing comma is
+valid in C99 through C17. In C23, expand `__VA_OPT__` only when the
+macro-replaced variadic arguments contain tokens. Support stringizing
+and pasting its expansion. Treat
 `_Alignof(expression)` as a GNU extension. The GNU spelling
 `__alignof__` accepts the expression. A standard type-name operand must
 be complete. For an expression that names an object or member, report its

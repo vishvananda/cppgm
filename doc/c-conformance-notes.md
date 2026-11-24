@@ -1013,6 +1013,7 @@ as other floating expressions in the scope.
 [WG14 N1570 §§7.3.4, 7.6.1, G.5.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [PA38 range probe](../pa38/tests/general/500-c-complex-limited-range.t) ·
 [PA38 status probe](../pa38/tests/general/500-c-complex-fenv.t)
+
 ## C23 resource inclusion
 
 `#embed` and `__has_embed` share the same search and effective length.
@@ -1030,3 +1031,18 @@ query a zero result and are diagnosed in directives. The GCC and Clang
 vendor parameters are outside this implementation.
 [WG14 N3220 §§6.10.2, 6.10.4, and 6.10.10.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
 [GCC binary resource inclusion](https://gcc.gnu.org/onlinedocs/cpp/Binary-Resource-Inclusion.html)
+
+## C23 variadic macro omission
+
+An omitted variadic argument in C23 contributes an empty token range.
+An explicitly empty argument stays valid in earlier editions with
+variadic macros. `__VA_OPT__` uses the macro-replaced argument, so a
+token that expands away has the same effect as an empty argument.
+Stringizing and pasting follow the ordinary replacement rules, including
+placemarkers.
+[WG14 N3033](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3033.htm)
+
+In C17 with `-pedantic-errors`, GCC 15 and Clang 21 reject the
+omission in a macro defined and called in user source. GCC accepts
+the same omission for a system-header macro. cppgm follows that
+behavior and enables the diagnostic there with `-Wsystem-headers`.

@@ -280,6 +280,7 @@ private:
 	TokenSpelling presumed_file_literal(uint32_t location) override;
 	bool can_include(const std::string& name, bool angle, bool next) override;
 	unsigned has_embed(const std::vector<PPToken>& operand, uint32_t location) override;
+	void check_variadic_omission(const PPToken& invocation, uint32_t definition) const override;
 	bool has_feature(const char* spelling, uint32_t length, bool extension) override;
 	uint32_t builtin_version(const char* spelling, uint32_t length, uint32_t location) override;
 	bool has_target_attribute(const char* spelling, uint32_t length) override;
