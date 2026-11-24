@@ -1,5 +1,6 @@
 #include "sema/analyzer.h"
 
+#include "preprocess/preprocessor.h"
 #include "sema/constant_floating.h"
 #include "sema/constant_interpreter.h"
 #include "sema/string_literals.h"
@@ -97,7 +98,7 @@ bool SameCArithmeticValue(const ConstValue& left, const ConstValue& right)
 
 // Check operand forms even in a branch the evaluator skips (WG14 defect report 489).
 // C23 adds named constants to both the integer and arithmetic forms.
-bool Analyzer::c_integer_constant_operands(const syntax::Expr& root, bool arithmetic) const
+bool Analyzer::c_integer_constant_operands(const syntax::Expr& root, bool arithmetic, bool* conditional) const
 {
 	using syntax::Expr;
 	using syntax::ExprKind;
@@ -161,23 +162,25 @@ bool Analyzer::c_integer_constant_operands(const syntax::Expr& root, bool arithm
 		}
 		case ExprKind::Conditional:
 		{
-			const auto* conditional = static_cast<const syntax::ConditionalExpr*>(expr);
-			pending.push_back(conditional->condition);
+			if (conditional != nullptr)
+				*conditional = true;
+			const auto* choice = static_cast<const syntax::ConditionalExpr*>(expr);
+			pending.push_back(choice->condition);
 			// GNU constant queries deliberately guard implementations that
 			// are available only at runtime. A folded query contributes
 			// only its selected operand to the constant expression.
-			const ExprFacts* condition = WithoutParentheses(conditional->condition)->facts;
+			const ExprFacts* condition = WithoutParentheses(choice->condition)->facts;
 			if (facts->value != 0 && condition != nullptr && (condition->flags & kFolded) != 0)
 			{
-				const Expr* selected = condition->value != 0 ? conditional->then_expr : conditional->else_expr;
+				const Expr* selected = condition->value != 0 ? choice->then_expr : choice->else_expr;
 				if (selected != nullptr)
 					pending.push_back(selected);
 			}
 			else
 			{
-				if (conditional->then_expr != nullptr)
-					pending.push_back(conditional->then_expr);
-				pending.push_back(conditional->else_expr);
+				if (choice->then_expr != nullptr)
+					pending.push_back(choice->then_expr);
+				pending.push_back(choice->else_expr);
 			}
 			break;
 		}
@@ -300,13 +303,19 @@ bool Analyzer::integer_constant_expression(
 			return true;
 		}
 	}
-	if (c_integer_constant_operands(expr))
+	bool conditional = false;
+	const bool standard_operands = c_integer_constant_operands(expr, false, required ? &conditional : nullptr);
+	if (standard_operands || conditional)
 	{
 		ConstantInterpreter interpreter(*this);
 		ConstValue result;
 		if (interpreter.evaluate_c_constant(expr, false, result) && result.kind == ValueKind::Integer &&
 			(high != nullptr || HeldAsConstant(result)))
 		{
+			if (!standard_operands && positions_ != nullptr &&
+				!positions_->allow_gnu_c_extension(
+					expr.location, "folding a conditional to a C integer constant is a GNU extension"))
+				error(expr.location, "a C integer constant expression is required");
 			value = Constant{ result.bits, result.type };
 			if (high != nullptr)
 				*high = IsWideIntegral(value.type)                                    ? result.high

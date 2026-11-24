@@ -517,7 +517,8 @@ private:
 	void check_c_constexpr_type(const Type* type, uint32_t location);
 	const ConstValue* c_compound_constant(const syntax::FunctionalCastExpr& expr);
 	void record_c_static_value(const syntax::Expr& expr, const ConstValue* value);
-	bool c_integer_constant_operands(const syntax::Expr& expr, bool arithmetic = false) const;
+	bool c_integer_constant_operands(
+		const syntax::Expr& expr, bool arithmetic = false, bool* conditional = nullptr) const;
 	void record_fixed_class_initializer(VariableEntity* variable, const syntax::Initializer* initializer, Scope* scope);
 	const Type* complete_array_from_initializer(const Type* type, const syntax::Initializer* initializer, bool typed);
 
