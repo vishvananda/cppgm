@@ -3346,3 +3346,38 @@ audit reports its 13 existing warnings.
 [Build and link commands](../BUILDING.md#hosted-wasi-c23-library-supplement) ·
 [C23 library requirements](../doc/c-conformance-notes.md#c-library-calls-and-format-macros) ·
 [Compile measurements](../docs/performance/c-frontend-scaling.md#hosted-wasi-c23-headers)
+
+### Restartable UTF-8 conversion
+
+The hosted supplement supplies `char8_t`, `mbrtoc8`, and `c8rtomb`
+in `<uchar.h>`. The locale conversion uses the WASI SDK's existing
+C32 routines. The UTF-8 state stores a scalar and remaining unit
+count in the SDK word read by `mbsinit`. ASCII takes a direct path.
+
+The C23 runtime probe covers split input, zero-length calls with
+pending bytes, null arguments, and invalid sequences. In the selected
+glibc locale, the decoder reports four bytes consumed for an input
+above the Unicode scalar range and leaves the destination unchanged.
+The WASI probe explicitly rejects that input.
+The shared tests check valid boundaries and errors for invalid
+leaders, overlong encodings, and surrogates on both runtimes. The
+encoder rejects values beyond the scalar range on both.
+
+An exhaustive run used the SDK's C32 encoder as the byte oracle.
+It checked all 1,112,064 Unicode scalars and 4,382,592 byte split
+positions, including the unsplit position for each character.
+cppgm and SDK Clang clients on WASI and GCC 15 on glibc produced
+the identical checksum `b7995c7ea7f25e25`. The source-only
+archive builds the supplement and executes the UTF-8 probe.
+
+Eight mixed cppgm and Clang runs pass with both linkers at `-O0`
+and `-O2`. A separate WASI program passes copied conversion states,
+empty input at the initial state, and null input with a pending byte
+and a nonnull destination. The combined replay at `9565f0fbd` passes
+all 5,640 configurations, including 483 with the hosted supplement.
+The supplemented profile passes 175 C23 inventory entries and leaves
+11 uncovered. The format, file, harness unit and source release
+checks pass, with 13 existing file audit warnings.
+
+[C23 UTF-8 requirements and SDK state](../doc/c-conformance-notes.md#c-library-calls-and-format-macros) ·
+[Runtime measurements](../docs/performance/c-frontend-scaling.md#hosted-wasi-c23-utf-8)

@@ -1566,6 +1566,21 @@ through its pointer. C23 also exposes the SDK's `gmtime_r`,
 [C23 N3220 §7.29](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
 [Pinned WASI clock implementation](https://github.com/WebAssembly/wasi-libc/blob/2e6fb9d8ee0c/libc-bottom-half/cloudlibc/src/libc/time/clock_getres.c)
 
+C23 `char8_t` is `unsigned char`. `mbrtoc8` stores the first UTF-8
+code unit of the decoded character, then returns `(size_t)-3` for
+each pending unit without consuming input. A null input selects an
+empty string and discards the output. `c8rtomb` accepts one UTF-8
+unit at a time and writes the locale's multibyte sequence when the
+character is complete. Invalid input reports `EILSEQ`.
+[C23 N3220 §§7.30.1.1–2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+
+The WASI supplement uses the SDK's `mbrtoc32` and `c32rtomb` for
+locale-dependent conversion. Its packed state distinguishes pending
+UTF-8 output from partial SDK input. Both use the first word of
+`mbstate_t`, so the SDK's `mbsinit` observes each pending state.
+[Pinned WASI input decoder](https://github.com/WebAssembly/wasi-libc/blob/2e6fb9d8ee0c/libc-top-half/musl/src/multibyte/mbrtowc.c) ·
+[Pinned WASI mbsinit](https://github.com/WebAssembly/wasi-libc/blob/2e6fb9d8ee0c/libc-top-half/musl/src/multibyte/mbsinit.c)
+
 `assert` is a macro with its own reinclusion rules. Reincluding its
 header uses the current definition of `NDEBUG`.
 C23 uses a variadic macro, so a scalar compound-literal expression can

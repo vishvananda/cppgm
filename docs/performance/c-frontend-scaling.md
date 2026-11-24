@@ -3901,3 +3901,17 @@ instructions in ABBA and BAAB, or about 0.57% for this probe. A/A
 spread is 2,855 instructions. The 9,294-byte runtime archive
 contains four cppgm objects. The existing SDK string routines remain
 the callees of both variants.
+
+## Hosted WASI C23 UTF-8
+
+The runtime keeps a single state word and dispatches each completed
+non-ASCII character through the SDK's existing locale conversion.
+The ASCII path handles the byte directly. The control uses the same
+source with its ASCII paths routed through the SDK routines.
+
+CPU 71 ran A/A, ABBA and BAAB on precompiled Wasmtime modules built
+with cppgm at `-O2`. Each module decodes and encodes four million
+ASCII characters. Every observation returns the same checksum,
+254,000,000. A/A spread is 1,308 retired user instructions. ABBA and
+BAAB show reductions of 47.766% and 47.766%, respectively, from
+about 971.4 million instructions to 507.4 million.
