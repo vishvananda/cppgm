@@ -358,6 +358,7 @@ struct EnumEntity : Entity
 	// Some enumerator is negative: without a fixed underlying type the
 	// values of the enumeration then include negative ones (7.2p7).
 	bool negative;
+	bool definition_active;
 	const char* label;
 	const Type* underlying;
 	// The enumerators' lookup scope (scoped enumerations); unscoped

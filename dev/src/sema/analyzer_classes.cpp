@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <functional>
 #include <string>
 
 #include "lex/identifier_table.h"
@@ -19,6 +20,21 @@ bool IsUnion(TokenKind key)
 {
 	return key == TokenKind::KW_UNION;
 }
+
+struct CEnumDefinition
+{
+	EnumEntity* entity;
+	explicit CEnumDefinition(EnumEntity* active) : entity(active)
+	{
+		if (entity != nullptr)
+			entity->definition_active = true;
+	}
+	~CEnumDefinition()
+	{
+		if (entity != nullptr)
+			entity->definition_active = false;
+	}
+};
 
 } // namespace
 
@@ -1220,11 +1236,28 @@ Entity* Analyzer::enum_specifier(
 	for (const syntax::Attribute* attribute = specifier.attributes; attribute != nullptr; attribute = attribute->next)
 		if (attribute->kind == syntax::AttributeKind::Alignas && !attribute->gnu)
 			error(attribute->location, "alignment-specifier on an enumeration");
+	Scope* where = declaration_scope(scope);
+	while (c_source_ && where->kind == ScopeKind::Class)
+		where = where->parent;
+	const syntax::Name* name = specifier.name;
 	const Type* underlying = nullptr;
+	bool new_fixed_definition = false;
 	if (specifier.underlying != nullptr)
 	{
+		// A typeof operand in the base can itself define this tag.
+		EnumEntity* prior = nullptr;
+		if (c23_ && specifier.has_body && name != nullptr && !name->qualified())
+		{
+			const NameEntry* entry = names_.find(where, name->last().identifier);
+			if (entry != nullptr && entry->tag != nullptr && entry->tag->entity->kind == EntityKind::Enum)
+				prior = static_cast<EnumEntity*>(entry->tag->entity);
+			if (prior != nullptr && prior->definition_active)
+				error(specifier.location, "nested enumeration redefinition");
+			new_fixed_definition = prior == nullptr;
+		}
 		// 7.2p2: an integral type; one that depends on a template parameter
 		// is checked in the instantiations.
+		const CEnumDefinition active(prior);
 		underlying = type_id(*specifier.underlying, scope)->unqualified;
 		if (!IsIntegralType(underlying) && !(template_depth_ != 0 && dependent_type(underlying)))
 			error(specifier.location, "enumeration underlying type is not integral");
@@ -1240,10 +1273,6 @@ Entity* Analyzer::enum_specifier(
 			}
 		}
 	}
-	Scope* where = declaration_scope(scope);
-	while (c_source_ && where->kind == ScopeKind::Class)
-		where = where->parent;
-	const syntax::Name* name = specifier.name;
 	if (c_source_ && name != nullptr && name->qualified())
 		error(name->location, "a C enumeration tag must be an unqualified identifier");
 	if (lone_declaration && scope == template_scope_ && (name == nullptr || !name->qualified()))
@@ -1324,7 +1353,9 @@ Entity* Analyzer::enum_specifier(
 		// redeclaration or the definition that completes it.
 		if (specifier.has_body)
 		{
-			if (entity->defined)
+			if (new_fixed_definition && entity->defined)
+				error(specifier.location, "nested enumeration redefinition");
+			if (entity->defined && !c23_)
 				error(specifier.location, "enumeration redefinition");
 			const NameEntry* entry = names_.find(where, identifier);
 			enumerators(entity, specifier, entry->tag, entity->scoped ? entity->scope : scope,
@@ -1636,12 +1667,30 @@ struct CEnumRange
 	}
 };
 
+bool SameCEnumValue(const EnumeratorEntity& original, WideBits bits, bool negative)
+{
+	const Constant& value = original.value;
+	const bool is_signed = IsSignedConstant(value);
+	const uint64_t high = original.extended_value ? static_cast<const WideEnumeratorEntity&>(original).high
+		: is_signed && (value.bits >> 63) != 0    ? UINT64_MAX
+												  : 0;
+	return value.bits == static_cast<uint64_t>(bits) && high == static_cast<uint64_t>(bits >> 64) &&
+		negative == (is_signed && (high >> 63) != 0);
+}
+
 } // namespace
 
 void Analyzer::c23_enumerators(
 	EnumEntity* entity, const syntax::EnumSpecifier& specifier, const Binding* declaration, Scope* print, Scope* lookup)
 {
+	const bool redeclaration = entity->defined;
+	if (entity->definition_active || (redeclaration && entity->definition == nullptr))
+		error(specifier.location, "nested enumeration redefinition");
+	if (redeclaration && entity->definition->enumerators.size != specifier.enumerators.size)
+		error(specifier.location, "enumeration redeclared with a different list of members");
+	const CEnumDefinition active(entity);
 	entity->defined = true;
+	FlatMap<const Identifier*, bool, std::hash<const Identifier*>> seen;
 	const size_t base = enumerator_scratch_.size();
 	const Type* int_type = types_.fundamental(FundamentalType::Int);
 	IntegralKind int_kind, fixed_kind;
@@ -1697,10 +1746,27 @@ void Analyzer::c23_enumerators(
 		}
 		if (entity->fixed && !CEnumFits(bits, negative, fixed_kind))
 			error(enumerator.location, "enumerator value is not representable in the underlying type");
-		range.add(bits, negative);
-		previous_type = type;
 		previous = bits;
 		previous_negative = negative;
+		if (redeclaration)
+		{
+			const NameEntry* entry = names_.find(lookup, enumerator.name);
+			if (entry == nullptr || entry->value == nullptr || entry->value->kind != BindingKind::Enumerator)
+				error(enumerator.location, "enumeration redeclared with a different member");
+			const auto* original = static_cast<const EnumeratorEntity*>(entry->value->entity);
+			if (original->enumeration != entity)
+				error(enumerator.location, "enumeration redeclared with a different member");
+			if (seen.find(enumerator.name) != nullptr)
+				error(enumerator.location, "duplicate member in enumeration redefinition");
+			if (!SameCEnumValue(*original, bits, negative))
+				error(enumerator.location, "enumerator redeclared with a different value");
+			// Keep the completed definition's bindings available to this list.
+			previous_type = original->value.type;
+			seen.insert(enumerator.name, true);
+			continue;
+		}
+		range.add(bits, negative);
+		previous_type = type;
 		const uint64_t low = static_cast<uint64_t>(bits);
 		const uint64_t high = static_cast<uint64_t>(bits >> 64);
 		EnumeratorEntity* constant;
@@ -1718,6 +1784,8 @@ void Analyzer::c23_enumerators(
 		constant->value = Constant{ low, type };
 		bind_enumerator(constant, enumerator, declaration, print, lookup);
 	}
+	if (redeclaration)
+		return;
 	entity->negative = range.least != 0;
 	if (!entity->fixed)
 	{

@@ -28,6 +28,22 @@ and the prior type visible while redeclaring an enumerator.
 [WG14 issue 1021](https://www.open-std.org/jtc1/sc22/WG14/issues/c23/issue1021.html) ·
 [WG14 issue 1130](https://www.open-std.org/jtc1/sc22/WG14/issues/c23/issue1130.html)
 
+## C23 enumeration tag redefinitions
+
+Repeated definitions of the same tag in the same scope share the
+enumeration type. Both lists pair members by name and agree on each
+member's integer value. The lists can use different orders or defining
+expressions. A fixed base must agree across declarations. The two
+definitions cannot be nested within each other.
+
+cppgm keeps the completed definition's enumerator types visible in
+the next list, as exercised by the pinned GCC `c23-tag-enum-7.c`.
+WG14 issue 1130 considers which previously declared type should apply
+when the first definition changes the member's type on completion.
+[C23 N3220 §§6.2.7, 6.7.3.3, and 6.7.3.4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
+[WG14 N3037](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3037.pdf) ·
+[WG14 issue 1130](https://www.open-std.org/jtc1/sc22/WG14/issues/c23/issue1130.html)
+
 ## Named register objects and parameters
 
 An explicit unary `&` on a register object or a record member reached

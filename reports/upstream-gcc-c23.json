@@ -12,6 +12,43 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "n3037-enumeration-redefinition",
+      "path": "gcc/testsuite/gcc.dg/c23-tag-enum-2.c",
+      "sha256": "70329803b6ebfb75b47d0dd64d02987f8c50baed963a2cb1c14d470ca87844ed",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Allow reordered enumerators with equivalent values and retain the first definition's tag identity"
+    },
+    {
+      "id": "n3037-enumeration-redefinition-nested",
+      "path": "gcc/testsuite/gcc.dg/c23-tag-enum-3.c",
+      "sha256": "08186ca57aa15a1cfbdc7f0d650621e44eac4dd4c419aaecfe90ef37ddc14a9d",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "diagnostic_contains": {
+        "cppgm": "nested enumeration redefinition",
+        "upstream": "nested redefinition"
+      },
+      "obligation": "Diagnose a definition of the tag inside its own enumerator list"
+    },
+    {
+      "id": "n3037-enumeration-redefinition-member-type",
+      "path": "gcc/testsuite/gcc.dg/c23-tag-enum-7.c",
+      "sha256": "26f7558c69e0951ac6e01c2fe1c0bc5da78e8e79c70df68f50174377b0128155",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors", "-fno-short-enums"],
+      "obligation": "Keep the completed definition's types visible to repeated enumerator initializers"
+    },
+    {
       "id": "n3029-enumeration-members",
       "path": "gcc/testsuite/gcc.dg/c23-enum-1.c",
       "sha256": "cc7f805d008e2892b9e650d5a7a83aa55e798f024e48a10470b937d4a9a1321c",

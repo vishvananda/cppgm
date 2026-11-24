@@ -470,6 +470,13 @@ The first fixture set covers these parts of the C17 input profile:
   values fit. Otherwise give them the enumeration type and choose a
   compatible integer representation that holds every value. Diagnose an
   enumeration with no such representation.
+- In C23, a named enumeration can have another definition in the same
+  scope when the base agrees and both lists have the same member names
+  and values. Member order can change. Keep the original tag and member
+  declarations visible while evaluating the second list. Diagnose a
+  different value, a missing or repeated member, and a definition nested
+  inside the definition of the same tag. Earlier editions allow one
+  definition per scope.
 - GNU C supports forward references to an enumeration tag. Keep the type
   incomplete until its definition. A pointer or a non-defining declaration
   can refer to it in the meantime. A storage definition or a function
