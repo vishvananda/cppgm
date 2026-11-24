@@ -3961,3 +3961,33 @@ module is 30,316 bytes with the SDK, 30,898 with the Clang-built
 supplement, and 40,397 with the cppgm-built supplement. All three have
 the same WASI imports. The string adapter links independently of
 scanf, wide I/O, and the standard streams.
+
+## C23 `char8_t` header predefine and WASI `strfroml`
+
+Both compiler binaries use the same Clang 22 host configuration and the
+same objects outside the two changed translation units. The A/A, ABBA,
+and BAAB runs use CPU 71. All 48 objects match their A/A controls byte
+for byte. The first run used GCC host predefines for the control and
+Clang host predefines for the candidate. The resulting SQLite objects
+selected different SDK paths, so the comparison below uses a rebuilt
+parent with matching host settings.
+
+| Input | A/A instruction spread | ABBA | BAAB |
+| --- | ---: | ---: | ---: |
+| Tiny hosted C23 Wasm translation unit | 104 | +0.0860% | +0.0871% |
+| Combined C23 translation limits, Wasm | 17,576 | -0.0035% | -0.0001% |
+| Frozen GNU17 SQLite | 681,103 | -0.0007% | -0.0004% |
+| Frozen C++ overloads | 47,841 | +0.0006% | +0.0009% |
+
+The new macro adds roughly 3,000 retired instructions to the tiny C23
+case. The other changes are small relative to the work in the measured
+compiles. The predefine is inserted at translation-unit setup.
+
+A separate runtime comparison runs 20,000 binary128 decimal conversions
+in precompiled Wasmtime modules on CPU 72. The control calls
+`snprintf` with `%.*Lf`. The candidate calls `strfroml` with `%.8f`.
+Both use the same formatter and produce identical checksums across 12
+observations. The `strfroml` path adds 1.526% and 1.525% retired user
+instructions in ABBA and BAAB, with an A/A spread of 1,947 instructions.
+It scans the caller's format once and constructs a fixed-size format on
+the stack.

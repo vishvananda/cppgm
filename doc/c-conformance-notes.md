@@ -1610,6 +1610,30 @@ The WASI supplement selects separate formatted I/O symbols in C23 so
 that earlier-mode `%i` callers retain their original prefix behavior.
 [C23 N3220 §§7.8.1, 7.23.6.1–2, 7.31.2.1–2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
 
+C23 adds `atomic_char8_t` and `ATOMIC_CHAR8_T_LOCK_FREE`. GCC and Clang
+make `__CHAR8_TYPE__` available as `unsigned char` in C23. cppgm uses
+the same edition boundary. The GCC resource header uses that predefine
+when declaring the atomic type. The standard's fence and flag functions
+have concrete signatures. The WASI supplement provides callable symbols
+using the SDK's inline operations and emits a hardware fence for a
+nonrelaxed thread fence. Signal fences retain their compiler ordering.
+[C23 N3220 §7.17](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+
+The C23 wide-character searches preserve const qualification on their
+result elements. Their concrete functions retain mutable result pointer
+types when the macros are suppressed. `<wchar.h>` supplies `WCHAR_WIDTH`
+independently of the `<stdint.h>` definition.
+[C23 N3220 §§7.31.1, 7.31.4.5](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+
+C23 makes `once_flag`, `ONCE_FLAG_INIT`, and `call_once` available through
+`<stdlib.h>`. The WASI SDK uses the same flag representation and initial
+value as its `pthread_once`. The three `strfrom` functions accept one
+floating conversion with optional decimal precision. The WASI long
+double function parses the caller's precision once and passes its value
+to the existing full-precision formatter. The caller gets the full
+required byte count when the destination is truncated or absent.
+[C23 N3220 §§7.24, 7.24.1.3, 7.28.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+
 `assert` is a macro with its own reinclusion rules. Reincluding its
 header uses the current definition of `NDEBUG`.
 C23 uses a variadic macro, so a scalar compound-literal expression can

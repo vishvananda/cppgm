@@ -3468,3 +3468,61 @@ and `<wchar.h>`.
 [C23 formatted I/O requirements](../doc/c-conformance-notes.md#c-library-calls-and-format-macros) ·
 [WASI source provenance](../dev/runtime/wasi-c23/stdio/README.md) ·
 [Runtime and size measurements](../docs/performance/c-frontend-scaling.md#hosted-wasi-c23-formatted-io)
+
+### Atomic, wide-character, and general utility headers
+
+The hosted supplement provides the C23 versions of `<stdatomic.h>`,
+`<wchar.h>`, and `<stdlib.h>`. It supplies callable atomic fences and
+flag operations. Both compilers emit Wasm fence and atomic byte
+instructions in the archive. The probe checks UTF-8 character atomics,
+flag set and clear through function pointers, and the removal of
+`ATOMIC_VAR_INIT` in C23.
+
+The Arm GCC headers need `__CHAR8_TYPE__` to declare `atomic_char8_t`.
+The compiler now defines it as `unsigned char` in C23 across the target
+profiles. GCC 15 and Clang 22 give the same result. The existing PA38
+C23 and C11 fixtures check the type and its edition boundary.
+[PA38 C23 version probe](../pa38/tests/general/100-c23-version.t)
+
+All five wide-character searches preserve const qualification. Their
+concrete function symbols remain callable. Separate C23 probes check
+single evaluation, pointer types, null results, and `WCHAR_WIDTH` from
+`<wchar.h>` alone. The pinned Linux glibc headers expose that macro
+through `<stdint.h>`. The independent `<wchar.h>` check is newly
+uncovered on both Linux architectures.
+
+The `<stdlib.h>` once flag shares the SDK `pthread_once` representation
+and initial value. Repeated calls and independent flags pass. The
+`strfrom` probes cover all three real types, truncation, a null buffer
+with zero size, long precisions, and binary128 precision beyond double.
+A 10,000-value corpus runs 30,000 decimal conversions and 10,000
+long double hexadecimal round trips. The decimal text and result counts
+agree with GCC 15 and glibc at checksum `8a1e6eca6a772f3b`.
+
+All 64 focused mixed-toolchain runs pass at `-O0` and `-O2` with both
+linkers. The extracted source package builds both runtimes and passes
+all four new hosted probes.
+
+The matrix at `b4e542603` with GCC host predefines passes all 5,686
+executed configurations. Linux x86-64 and Linux AArch64 under QEMU each
+run 1,424, stock WASI runs 1,317, the hosted supplement runs 503, and bare
+Wasm runs 1,018. The supplement passes 187 tracked C23 checks. Five
+version and interface entries remain for `<complex.h>`, `<fenv.h>`,
+`<math.h>`, `<stdio.h>`, and `<tgmath.h>`.
+
+The GCC host strict report passes 11,677 tests. PA38 passes 708
+native cases, 708 Wasm cases, 63 controls, and four native ABI cases.
+The debug-info suite, PA35 self-host through PA5, and all 76 harness
+test files pass. The architecture audits pass with 15 existing file
+audit warnings. Placement checks 11,713 tests with zero placement
+or local hygiene findings. The regenerated student export verifies
+27,015 portable reference outputs and passes PA1 and the PA38 native,
+Wasm, and ABI lanes with the packaged tools.
+
+The Clang host configuration independently reproduces an existing
+C99 `-Oz` gap in the glibc `fpclassify` expansion. That expansion
+uses `__builtin_choose_expr`. The same probe passes with GCC host
+predefines. Both the parent and candidate exhibit this distinction.
+
+[C23 library requirements](../doc/c-conformance-notes.md#c-library-calls-and-format-macros) ·
+[Compile and runtime measurements](../docs/performance/c-frontend-scaling.md#c23-char8_t-header-predefine-and-wasi-strfroml)
