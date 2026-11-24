@@ -693,6 +693,13 @@ The first fixture set covers these parts of the C17 input profile:
   With a written type, `auto` is permitted on a block-scope object
   without another storage class. Recognize C23 `thread_local` alongside
   `_Thread_local` and apply the ordinary thread storage rules.
+- In C23, allow identifier, `case`, and `default` labels before a
+  declaration or the closing brace of a compound statement. Treat the
+  free label as if followed by a null statement. A following declaration
+  remains in the enclosing scope. A label on an unbraced substatement
+  still requires a statement. Apply the C23 extension diagnostic policy
+  to free labels in earlier C modes, and continue to reject jumps that
+  enter the scope of a variably modified identifier.
 - Hosted C header declarations and their builtin operations through the
   existing hosted environment, including PA30's GNU startup-function attributes.
 - Support the reserved GNU spelling `__auto_type` in the C modes above.
@@ -726,9 +733,9 @@ make ref-test
 ```
 
 `tests/general/*.t` inputs produce LowIR and are compared with the checked-in
-reference outputs. A `.c-standard` sidecar selects `c99`, `gnu99`, `c11`, `gnu11`,
-`c17`, or `gnu17` for an
-individual fixture; controls use the same convention. Rejected inputs have the usual failure-status reference.
+reference outputs. A `.c-standard` sidecar selects the C edition and dialect
+for an individual fixture, such as `c99`, `gnu17`, or `c23`. Controls use the same
+convention. Rejected inputs have the usual failure-status reference.
 An adjacent `.t.1` adds another translation unit, as in the earlier source
 assignments. `tests/controls/*.t` state an expected program result and run the
 generated LowIR through the supplied native backend.

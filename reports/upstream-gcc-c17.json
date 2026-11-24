@@ -12,6 +12,17 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "free-labels-pedantic",
+      "path": "gcc/testsuite/gcc.dg/c23-labels-1.c",
+      "sha256": "811d1ee95c60a79f53eb0295bdb41b67e070f76d54d95a1589649b40cd155e4e",
+      "dialect": "c17",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Diagnose free labels under C17 pedantic mode"
+    },
+    {
       "id": "bitint-33",
       "path": "gcc/testsuite/gcc.dg/bitint-33.c",
       "sha256": "450b2dcda86f94a3ffaa16a97c64b0d1fbae99cb2af721d2014f62ab8de0d6d5",

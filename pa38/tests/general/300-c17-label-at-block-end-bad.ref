@@ -1,0 +1,7 @@
+function @leave() -> void [linkage=c, binding=strong] {
+  block ^entry:
+    jump ^goto_1
+
+  block ^goto_1:
+    return void
+}

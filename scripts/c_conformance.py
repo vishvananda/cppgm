@@ -109,6 +109,10 @@ C23_SOURCE_REJECTIONS = (
     ('c23.vla-static-empty', '300-c23-vla-static-empty-bad.t', 'compile'),
     ('c23.vla-compound-empty', '300-c23-vla-compound-empty-bad.t', 'compile'),
     ('c23.array-unknown-bound-empty', '300-c23-array-unknown-bound-empty-bad.t', 'compile'),
+    ('c23.label-on-substatement-declaration', '300-c23-label-before-substatement-declaration-bad.t', 'compile'),
+    ('c23.label-at-substatement-end', '300-c23-label-at-substatement-end-bad.t', 'compile'),
+    ('c23.block-label-goto-vla', '300-c23-block-labels-goto-vla-bad.t', 'compile'),
+    ('c23.block-label-case-vla', '300-c23-block-labels-case-vla-bad.t', 'compile'),
 )
 C23_SOURCE_CASES = (
     ('c23.version', '100-c23-version.t', 'preprocess'),
@@ -145,6 +149,8 @@ C23_PROGRAMS = {
     'c23.auto-thread-local': (PA38_GENERAL / '300-c23-auto-thread-local.t', ()),
     'c23.vla-empty': (PA38_GENERAL / '300-c23-vla-empty.t', ()),
     'c23.vla-empty-typedef': (PA38_GENERAL / '300-c23-vla-empty-typedef.t', ()),
+    'c23.block-labels': (PA38_GENERAL / '300-c23-block-labels.t', ()),
+    'c23.block-labels-vla': (PA38_GENERAL / '300-c23-block-labels-vla.t', ()),
 }
 FLEXIBLE_ARRAY = PA38_GENERAL / '300-c-flexible-array.t'
 RECORD_CONSTRAINTS = {

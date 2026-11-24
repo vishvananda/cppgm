@@ -12,6 +12,17 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "free-labels-execution",
+      "path": "gcc/testsuite/gcc.dg/c23-labels-1.c",
+      "sha256": "811d1ee95c60a79f53eb0295bdb41b67e070f76d54d95a1589649b40cd155e4e",
+      "dialect": "c23",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Preserve goto targets directly before declarations and at the ends of compound statements"
+    },
+    {
       "id": "empty-initialization-execution",
       "path": "gcc/testsuite/gcc.dg/c23-empty-init-1.c",
       "sha256": "828f824ba8541ca828ca9c2a68b4ebfa49706e3d8e8de6e179c5590632d8d799",

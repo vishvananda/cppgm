@@ -387,7 +387,8 @@ private:
 	TemplateParameter* parse_template_parameter();
 
 	// -------------------------------------------------------- statements
-	Stmt* parse_statement();
+	Stmt* parse_statement(Stmt** declaration_after_label = nullptr);
+	Stmt* parse_label_body(Stmt** declaration_after_label);
 	CompoundStmt* parse_compound_statement(bool new_scope);
 	CompoundStmt* parse_lambda_body();
 	Stmt* parse_declaration_or_expression_statement(Attribute* attributes);

@@ -45,7 +45,8 @@ CompoundStmt* Parser::parse_compound_statement(bool new_scope)
 			parsed = fail();
 			break;
 		}
-		Stmt* item = parse_statement();
+		Stmt* declaration_after_label = nullptr;
+		Stmt* item = parse_statement(&declaration_after_label);
 		if (item == nullptr)
 		{
 			parsed = false;
@@ -59,6 +60,8 @@ CompoundStmt* Parser::parse_compound_statement(bool new_scope)
 				require_c_extension(item->location, CEdition::C99, "a declaration after a statement requires C99");
 		}
 		items.push(item);
+		if (declaration_after_label != nullptr)
+			items.push(declaration_after_label);
 	}
 	c_float_pragmas_ = saved_pragmas;
 	scopes_.set_current(saved);
@@ -85,7 +88,34 @@ bool HeadNamesSpecialized(const ParseToken& name, const ParseToken& next, const 
 
 } // namespace
 
-Stmt* Parser::parse_statement()
+Stmt* Parser::parse_label_body(Stmt** declaration_after_label)
+{
+	if (!c_source_)
+		return parse_statement();
+	const ParseToken following = tok();
+	if (declaration_after_label != nullptr && following.is(TokenKind::OP_RBRACE))
+	{
+		require_c_extension(following, CEdition::C23, "a label at the end of a compound statement requires C23");
+	}
+	else
+	{
+		Stmt* body = parse_statement(declaration_after_label);
+		if (body == nullptr || body->kind != StmtKind::Declaration)
+			return body;
+		if (declaration_after_label == nullptr)
+			throw ParseError(
+				following.location, "a label before a declaration requires an enclosing compound statement");
+		require_c_extension(following, CEdition::C23, "a label before a declaration requires C23");
+		*declaration_after_label = body;
+	}
+	// A free label ends in an implicit null statement. The following
+	// declaration, if any, is a separate item in the same block.
+	ExpressionStmt* empty = make<ExpressionStmt>(StmtKind::Expression, following.location);
+	empty->expression = nullptr;
+	return empty;
+}
+
+Stmt* Parser::parse_statement(Stmt** declaration_after_label)
 {
 	NestingGuard nesting(*this);
 	// A declaration statement's leading attributes are its declaration's
@@ -101,7 +131,7 @@ Stmt* Parser::parse_statement()
 		label->label = token.identifier;
 		next();
 		next();
-		label->body = parse_statement();
+		label->body = parse_label_body(declaration_after_label);
 		return label->body == nullptr ? nullptr : label;
 	}
 	if (is_coroutine_keyword(token, TokenKind::KW_CO_RETURN, coroutine_keywords_[2]))
@@ -191,7 +221,7 @@ Stmt* Parser::parse_statement()
 		label->value = parse_expression();
 		if (label->value == nullptr || !expect(TokenKind::OP_COLON))
 			return nullptr;
-		label->body = parse_statement();
+		label->body = parse_label_body(declaration_after_label);
 		return label->body == nullptr ? nullptr : label;
 	}
 	case TokenKind::KW_DEFAULT:
@@ -201,7 +231,7 @@ Stmt* Parser::parse_statement()
 		next();
 		if (!expect(TokenKind::OP_COLON))
 			return nullptr;
-		label->body = parse_statement();
+		label->body = parse_label_body(declaration_after_label);
 		return label->body == nullptr ? nullptr : label;
 	}
 	default:

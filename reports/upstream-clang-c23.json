@@ -12,6 +12,28 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "n2508-free-labels",
+      "path": "clang/test/C/C23/n2508.c",
+      "sha256": "d19c01a925da6692fe64e76b5da5cf633efa4fe5f80a7371ad260daade34e4f8",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Accept named, case, and default labels directly before declarations and at block ends"
+    },
+    {
+      "id": "block-end-label-chains",
+      "path": "clang/test/Parser/c2x-label.c",
+      "sha256": "33327ea8dc9ae62916d5f19babff261cd22bfbdee577d0d5921c0fe158bab941",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors", "-Wno-comment"],
+      "obligation": "Accept consecutive named labels and consecutive case labels at a block end"
+    },
+    {
       "id": "empty-unknown-array-bound",
       "path": "clang/test/C/C23/n2900_n3011.c",
       "sha256": "305abdc941f9c5b5b564ee8db263a2257651469e75085951d189d638e8972e77",

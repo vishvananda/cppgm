@@ -3,6 +3,22 @@
 These notes record WG14 rules exercised by the course regressions and the
 initial upstream campaign. Clause numbers use the named edition or draft.
 
+## C23 labels in compound statements
+
+An identifier, case, or default label can precede a declaration or
+end a compound statement. The free label has the effect of a null
+statement. A following declaration still belongs to the enclosing
+block. The restrictions on entering the scope of variably modified
+identifiers through a goto or switch label still apply.
+
+A labeled substatement of an unbraced selection or iteration body
+requires a statement after the label. GCC 15 and Clang 21 agree on
+rejecting a declaration there. GCC also rejects a missing statement
+at the closing brace of the surrounding block. Clang 21 accepts that
+spelling. Use the compound-statement grammar for the boundary.
+[WG14 N3220 §§6.8.2–6.8.5 and §6.8.7.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
+[WG14 N2508](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2508.pdf)
+
 ## C23 empty initialization of variable-length arrays
 
 An automatic VLA accepts an empty initializer. Its elements are

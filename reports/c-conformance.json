@@ -1490,6 +1490,15 @@
       "cases": ["c23.vla-empty", "c23.vla-empty-typedef", "c23.vla-nonempty", "c23.vla-static-empty", "c23.vla-compound-empty", "c23.array-unknown-bound-empty"]
     },
     {
+      "id": "c23.free-labels",
+      "clause": "6.8.2, 6.8.3, 6.8.5.3, 6.8.7.2",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Allow labels before declarations and at compound-statement ends. Require a statement after a label on an unbraced substatement. Preserve declaration scope and variably modified scope restrictions on jumps.",
+      "cases": ["c23.block-labels", "c23.block-labels-vla", "c23.label-on-substatement-declaration", "c23.label-at-substatement-end", "c23.block-label-goto-vla", "c23.block-label-case-vla"]
+    },
+    {
       "id": "c23.attribute-query",
       "clause": "6.10.2p9-p11, 6.7.13",
       "kind": "required",
