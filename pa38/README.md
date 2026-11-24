@@ -363,6 +363,10 @@ The first fixture set covers these parts of the C17 input profile:
   runtime. Compute the fixed part from layout, then evaluate each runtime
   index once and scale it by the size of the array element. A designator
   with constant indices remains an integer constant expression.
+- An external declaration of type `void` can give a name to storage
+  supplied by the linker. Allow taking its address and import the symbol
+  without an object layout. Reject a definition of an object of type
+  `void`.
 - In pedantic modes, check an explicit definition against every declaration
   of the same linked object in the translation unit. If a declaration's
   strongest standard alignment request exceeds the type's alignment, the

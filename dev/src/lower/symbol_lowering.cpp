@@ -1319,13 +1319,14 @@ lowir::SymbolId ProgramLowering::variable_symbol(const sema::VariableEntity* var
 	symbols_.set(variable, symbol);
 	if (program_.symbols[symbol].kind == lowir::SymbolKind::Unresolved)
 	{
-		// An object of unknown bound, class or array type is imported
+		// An object of unknown bound, class, array or void type is imported
 		// untyped (its layout is not this unit's to state).
 		PendingDeclaration pending = PendingDeclaration();
 		pending.symbol = symbol;
 		pending.function = false;
 		const sema::Type* type = variable->type;
-		pending.typed = type->kind != sema::TypeKind::Array && type->unqualified->kind != sema::TypeKind::Class;
+		pending.typed = type->kind != sema::TypeKind::Array && type->unqualified->kind != sema::TypeKind::Class &&
+			!sema::IsVoid(type);
 		if (pending.typed)
 			pending.type = storage_type(type);
 		pending.metadata = variable_metadata(variable, symbol);

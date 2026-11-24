@@ -1480,7 +1480,10 @@ Binding* Analyzer::declare_variable(const Specifiers& specifiers, const Declarat
 		error(location, "invalid variable name");
 	if (!qualified)
 		check_template_parameter_name(scope, name.key, location);
-	if (type->unqualified == types_.fundamental(FundamentalType::Void))
+	// C can import the address of external storage without declaring an
+	// object layout. A void declaration cannot supply the storage itself.
+	if (IsVoid(type) &&
+		!(c_source_ && specifiers.is_extern && initializer == nullptr && where->kind != ScopeKind::Class))
 		error(location, "variable of type void");
 	const bool member = where->kind == ScopeKind::Class && !specifiers.is_static;
 	if (member)
