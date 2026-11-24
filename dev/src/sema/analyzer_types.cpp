@@ -364,7 +364,6 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 						error(builtin->operand->location, "a _BitInt width is outside the supported range");
 					named = types_.bit_int(static_cast<unsigned>(width.bits), is_unsigned);
 				}
-				keywords = false;
 			}
 			else if (c_source_ && builtin != nullptr &&
 				(IsTypeofOperand(builtin->trait) || builtin->trait == GnuTrait::AddAtomic))
@@ -376,6 +375,10 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 			}
 			else
 				named = decltype_type(*specifier.operand, scope);
+			// The sign belongs to the _BitInt specifier, including when a
+			// C++ template defers analysis of the extension.
+			if (builtin != nullptr && builtin->trait == GnuTrait::BitInt)
+				keywords = false;
 			break;
 		}
 		case syntax::DeclSpecKind::DecltypeAuto:
