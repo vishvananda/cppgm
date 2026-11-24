@@ -206,6 +206,8 @@ bytes from a named file, with optional byte offset and count.
 ELF data fields can hold a symbol address or a symbol difference. Fold a
 difference within one section and use a place-relative relocation when
 the subtracted address is in the data field's section.
+Numbered labels can be reused. Suffix `b` selects the preceding definition
+of that number and `f` the next one, even across section changes.
 
 In inline assembly, `.ascii` emits the bytes of its string operands.
 `.asciz` and `.string` append a zero byte to each operand. Adjacent

@@ -56,6 +56,7 @@ private:
 	std::string word(bool fold = true);
 	Operand target();
 	bool symbol(Operand& operand);
+	const SymbolUse* symbol_at(size_t position) const;
 	bool rip_register(Address& address);
 	bool att_symbol(Operand& operand);
 	void resolve_labels(std::vector<Instruction>& instructions);
@@ -460,13 +461,19 @@ bool Parser::att_symbol(Operand& operand)
 	return false;
 }
 
+const SymbolUse* Parser::symbol_at(size_t position) const
+{
+	const auto found = std::lower_bound(symbols_.begin(), symbols_.end(), position,
+		[](const SymbolUse& use, size_t position) { return use.first < position; });
+	return found != symbols_.end() && found->first == position ? &*found : nullptr;
+}
+
 bool Parser::symbol(Operand& operand)
 {
 	space();
-	const auto found = std::lower_bound(symbols_.begin(), symbols_.end(), pos_,
-		[](const SymbolUse& use, size_t position) { return use.first < position; });
+	const SymbolUse* found = symbol_at(pos_);
 	asm_model::SymbolReference reference;
-	if (found != symbols_.end() && found->first == pos_)
+	if (found != nullptr)
 	{
 		reference = found->reference;
 		for (uint32_t i = 0; i < found->count; ++i)
@@ -561,9 +568,14 @@ Operand Parser::target()
 			step();
 		return result;
 	}
-	if (std::any_of(symbols_.begin(), symbols_.end(), [&](const SymbolUse& use) { return use.first == pos_; }))
-		if (symbol(result))
-			return result;
+	if (symbol_at(pos_) != nullptr)
+	{
+		const bool numeric = current() >= '0' && current() <= '9';
+		symbol(result);
+		result.numeric_branch = numeric && result.address.displacement == 0 &&
+			result.address.relocation == Relocation::Address;
+		return result;
+	}
 	result.kind = OperandKind::Label;
 	if (dialect_ == asm_model::Dialect::Intel && current() == '[')
 		return intel_memory(0);
@@ -606,11 +618,18 @@ void Parser::resolve_labels(std::vector<Instruction>& instructions)
 {
 	std::map<std::string, uint32_t> named;
 	std::map<std::string, std::vector<uint32_t>> numbered;
+	std::map<uint32_t, uint32_t> local_symbols;
 	for (uint32_t i = 0; i < instructions.size(); ++i)
 	{
 		const Instruction& inst = instructions[i];
-		if (!inst.label || inst.symbol_definition != asm_model::kNoId)
+		if (!inst.label)
 			continue;
+		if (inst.symbol_definition != asm_model::kNoId)
+		{
+			if (inst.mnemonic.find_first_not_of("0123456789") == std::string::npos)
+				local_symbols.emplace(inst.symbol_definition, i);
+			continue;
+		}
 		if (inst.mnemonic.find_first_not_of("0123456789") == std::string::npos)
 			numbered[inst.mnemonic].push_back(i);
 		else if (!named.emplace(inst.mnemonic, i).second)
@@ -619,6 +638,16 @@ void Parser::resolve_labels(std::vector<Instruction>& instructions)
 	for (uint32_t i = 0; i < instructions.size(); ++i)
 		for (Operand& operand : instructions[i].operands)
 		{
+			if (operand.numeric_branch)
+			{
+				const auto found = local_symbols.find(operand.address.symbol.symbol);
+				if (found != local_symbols.end())
+				{
+					operand.kind = OperandKind::Label;
+					operand.label = found->second;
+				}
+				continue;
+			}
 			if (operand.kind == OperandKind::Symbol && !operand.address.local.empty())
 				throw AssemblyError{ "local code address requires RIP-relative memory", instructions[i].line,
 					instructions[i].column };
@@ -637,10 +666,14 @@ void Parser::resolve_labels(std::vector<Instruction>& instructions)
 			{
 				const auto found = numbered.find(name.substr(0, name.size() - 1));
 				if (found != numbered.end())
-					for (uint32_t candidate : found->second)
-						if ((name.back() == 'f' && candidate > i && selected == UINT32_MAX) ||
-							(name.back() == 'b' && candidate < i))
-							selected = candidate;
+				{
+					const auto& candidates = found->second;
+					const auto next = std::lower_bound(candidates.begin(), candidates.end(), i);
+					if (name.back() == 'f' && next != candidates.end())
+						selected = *next;
+					else if (name.back() == 'b' && next != candidates.begin())
+						selected = *(next - 1);
+				}
 			}
 			else
 			{
@@ -804,13 +837,12 @@ std::vector<Instruction> Parser::run()
 				fail("assembly prefix cannot precede a label");
 			inst.label = true;
 			if (lookup_ != nullptr)
-				for (const SymbolUse& use : symbols_)
-					if (use.first == definition_first)
-					{
-						if (use.reference.addend != 0)
-							fail("module label cannot define an address addend");
-						inst.symbol_definition = use.reference.symbol;
-					}
+				if (const SymbolUse* use = symbol_at(definition_first))
+				{
+					if (use->reference.addend != 0)
+						fail("module label cannot define an address addend");
+					inst.symbol_definition = use->reference.symbol;
+				}
 			result.push_back(inst);
 			continue;
 		}

@@ -69,6 +69,7 @@ struct Operand
 	std::string target;
 	uint32_t label = 0;
 	bool external_label = false;
+	bool numeric_branch = false;
 };
 
 struct Instruction

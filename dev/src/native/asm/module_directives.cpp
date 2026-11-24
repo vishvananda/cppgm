@@ -42,13 +42,13 @@ void ModuleAssembler::data(assembly::ModuleCursor& cursor, unsigned bytes)
 	{
 		uint64_t bits = 0;
 		uint32_t positive = lowir::kNoId, negative = lowir::kNoId;
-		if (cursor.numeric())
+		if (cursor.numeric() && cursor.symbol_use() == nullptr)
 			bits = assembly::assembly_integer_expression(cursor);
 		else
 		{
 			positive = data_symbol(cursor, bits, false);
 			assembly::ModuleCursor next = cursor;
-			if (next.take('-') && !next.numeric() && !next.end())
+			if (next.take('-') && (!next.numeric() || next.symbol_use() != nullptr) && !next.end())
 			{
 				cursor.take('-');
 				negative = data_symbol(cursor, bits, true);

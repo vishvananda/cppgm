@@ -77,7 +77,7 @@ void ModuleAssembler::flush()
 		throw BackendError("unresolved module assembly label");
 	section.size = section.bytes.size();
 	for (uint32_t i = 0; i < instructions.size(); ++i)
-		if (instructions[i].label && instructions[i].mnemonic.find_first_not_of("0123456789") != std::string::npos)
+		if (instructions[i].label)
 			symbols_.define(instructions[i].symbol_definition != asm_model::kNoId
 					? instructions[i].symbol_definition
 					: symbols_.named(instructions[i].mnemonic),
@@ -115,7 +115,9 @@ void ModuleAssembler::declare(const assembly::ModuleLine& line)
 }
 void ModuleAssembler::append(const assembly::ModuleLine& line)
 {
-	assembly::ModuleCursor cursor(line);
+	const std::vector<assembly::SymbolUse> numeric = symbols_.numeric_uses(line);
+	const std::vector<assembly::SymbolUse>& uses = numeric.empty() ? line.symbols : numeric;
+	assembly::ModuleCursor cursor(line, uses);
 	const std::string name = cursor.word();
 	const bool label = cursor.take(':');
 	if (!label && name.compare(0, 5, ".cfi_") == 0)
@@ -135,7 +137,7 @@ void ModuleAssembler::append(const assembly::ModuleLine& line)
 		(name == ".p2align" || name == ".balign" || name == ".align" || name == ".zero" || name == ".space" ||
 			name == ".skip" ||
 			((name == ".byte" || name == ".short" || name == ".word" || name == ".long" || name == ".quad") &&
-				cursor.numeric()));
+				cursor.numeric() && cursor.symbol_use() == nullptr));
 	if (name[0] == '.' && !label && !syntax && !code_data)
 	{
 		flush();
@@ -149,7 +151,7 @@ void ModuleAssembler::append(const assembly::ModuleLine& line)
 		if (!label)
 			cursor.fail("instructions require a text section");
 		cursor.finish();
-		assembly::ModuleCursor definition(line);
+		assembly::ModuleCursor definition(line, uses);
 		symbols_.define(symbol(definition), section_, offset());
 		return;
 	}
@@ -159,7 +161,7 @@ void ModuleAssembler::append(const assembly::ModuleLine& line)
 	const uint32_t first = static_cast<uint32_t>(code_.size());
 	code_ += line.text;
 	code_ += '\n';
-	for (assembly::SymbolUse use : line.symbols)
+	for (assembly::SymbolUse use : uses)
 	{
 		use.first += first;
 		uses_.push_back(use);

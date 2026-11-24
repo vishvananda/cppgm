@@ -22,6 +22,9 @@ class ModuleCursor
 {
 public:
 	explicit ModuleCursor(const ModuleLine& line) : source_(line.text), symbols_(&line.symbols), line_(line.line) {}
+	ModuleCursor(const ModuleLine& line, const std::vector<SymbolUse>& symbols)
+		: source_(line.text), symbols_(&symbols), line_(line.line)
+	{}
 	ModuleCursor(const std::string& source, uint32_t first, uint32_t line, uint32_t column)
 		: source_(source), line_(line), first_(first), column_(column), position_(first)
 	{}

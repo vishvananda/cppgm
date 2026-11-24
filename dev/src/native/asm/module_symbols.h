@@ -22,6 +22,7 @@ public:
 	void bind(uint32_t symbol, object::Binding binding);
 	void type(uint32_t symbol, object::SymbolType type);
 	void alias(uint32_t symbol, uint32_t target, int64_t addend);
+	std::vector<assembly::SymbolUse> numeric_uses(const assembly::ModuleLine& line);
 	void finish();
 
 private:
@@ -32,12 +33,20 @@ private:
 		uint32_t target;
 		int64_t addend;
 	};
+	struct NumericLabel
+	{
+		uint32_t previous = 0;
+		uint32_t pending = 0;
+	};
+	uint32_t numeric_symbol();
+	uint32_t numeric_reference(const std::string& name, char use, const assembly::ModuleLine& line, size_t first);
 	object::ObjectFile& out_;
 	Target target_;
 	std::map<std::string, uint32_t> names_;
 	std::map<uint32_t, object::Binding> bindings_;
 	std::set<uint32_t> explicit_types_;
 	std::vector<Alias> aliases_;
+	std::map<std::string, NumericLabel> numeric_labels_;
 };
 
 } // namespace native

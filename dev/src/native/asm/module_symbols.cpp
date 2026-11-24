@@ -1,9 +1,28 @@
 #include "native/asm/module_symbols.h"
 
+#include <algorithm>
+
 #include "native/backend_error.h"
 #include "support/internal_error.h"
 
 namespace native {
+
+namespace {
+
+bool digit(char c)
+{
+	return c >= '0' && c <= '9';
+}
+bool name_character(char c)
+{
+	return digit(c) || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == '.' || c == '$';
+}
+bool space(char c)
+{
+	return c == ' ' || c == '\t' || c == '\r';
+}
+
+} // namespace
 
 ModuleSymbols::ModuleSymbols(object::ObjectFile& out, Target target) : out_(out), target_(target)
 {
@@ -100,8 +119,98 @@ void ModuleSymbols::alias(uint32_t symbol, uint32_t target, int64_t addend)
 {
 	aliases_.push_back(Alias{ symbol, target, addend });
 }
+uint32_t ModuleSymbols::numeric_symbol()
+{
+	const uint32_t symbol = out_.add_symbol(object::Symbol{});
+	type(symbol, object::SymbolType::None);
+	return symbol;
+}
+uint32_t ModuleSymbols::numeric_reference(
+	const std::string& name, char use, const assembly::ModuleLine& line, size_t first)
+{
+	NumericLabel& label = numeric_labels_[name];
+	if (use == 'b')
+	{
+		if (label.previous == 0)
+			throw assembly::AssemblyError{ "undefined backward label " + name, line.line, uint32_t(first + 1) };
+		return label.previous;
+	}
+	if (label.pending == 0)
+		label.pending = numeric_symbol();
+	if (use == ':')
+	{
+		label.previous = label.pending;
+		label.pending = 0;
+		return label.previous;
+	}
+	return label.pending;
+}
+std::vector<assembly::SymbolUse> ModuleSymbols::numeric_uses(const assembly::ModuleLine& line)
+{
+	std::vector<assembly::SymbolUse> numbered;
+	auto typed = line.symbols.begin();
+	size_t i = 0;
+	bool quote = false;
+	while (i < line.text.size())
+	{
+		if (typed != line.symbols.end() && i == typed->first)
+		{
+			i += typed->count;
+			++typed;
+			continue;
+		}
+		const char c = line.text[i];
+		if (c == '"')
+			quote = !quote;
+		if (quote && c == '\\' && i + 1 < line.text.size())
+			++i;
+		if (quote || !name_character(c) || c == '$')
+		{
+			++i;
+			continue;
+		}
+		const size_t first = i++;
+		while (
+			i < line.text.size() && (typed == line.symbols.end() || i < typed->first) && name_character(line.text[i]))
+			++i;
+		if (!digit(c))
+			continue;
+		size_t end = first + 1;
+		while (end < i && digit(line.text[end]))
+			++end;
+		char use = '\0';
+		if (end + 1 == i && (line.text[end] == 'f' || line.text[end] == 'b'))
+			use = line.text[end];
+		else if (end == i && line.text.find_first_not_of(" \t\r") == first)
+		{
+			size_t separator = i;
+			while (separator < line.text.size() && space(line.text[separator]))
+				++separator;
+			if (separator < line.text.size() && line.text[separator] == ':')
+				use = ':';
+		}
+		if (use == '\0')
+			continue;
+		size_t normalized = first;
+		while (normalized + 1 < end && line.text[normalized] == '0')
+			++normalized;
+		asm_model::SymbolReference reference;
+		reference.symbol = numeric_reference(line.text.substr(normalized, end - normalized), use, line, first);
+		numbered.push_back(assembly::SymbolUse{ uint32_t(first), uint32_t(i - first), reference });
+	}
+	if (numbered.empty() || line.symbols.empty())
+		return numbered;
+	std::vector<assembly::SymbolUse> combined;
+	combined.reserve(numbered.size() + line.symbols.size());
+	std::merge(numbered.begin(), numbered.end(), line.symbols.begin(), line.symbols.end(), std::back_inserter(combined),
+		[](const assembly::SymbolUse& a, const assembly::SymbolUse& b) { return a.first < b.first; });
+	return combined;
+}
 void ModuleSymbols::finish()
 {
+	for (const auto& label : numeric_labels_)
+		if (label.second.pending != 0)
+			throw BackendError("undefined forward label " + label.first);
 	std::vector<bool> done(aliases_.size(), false);
 	for (size_t pass = 0; pass < aliases_.size(); ++pass)
 	{
