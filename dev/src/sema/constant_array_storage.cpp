@@ -8,10 +8,29 @@
 #include "sema/constant_c_array.h"
 #include "sema/constant_storage.h"
 #include "sema/string_literals.h"
+#include "support/small_list.h"
 
 namespace sema {
 
 namespace {
+
+const CInitializerChild* ArraySpan(syntax::Slice<const CInitializerChild> spans, uint64_t index)
+{
+	if (spans.empty())
+		return nullptr;
+	const auto* end = spans.end();
+	const auto* span = std::upper_bound(
+		spans.begin(), end, index, [](uint64_t index, const CInitializerChild& entry) { return index < entry.limit; });
+	return span != end && span->index <= index ? span : nullptr;
+}
+
+bool PreservesVariant(const CInitializer& plan)
+{
+	for (const auto& lane : plan.field_spans())
+		if (lane.kind == CInitializerFieldKind::PreserveVariant)
+			return true;
+	return false;
+}
 
 const CArrayPatch* AssignPatch(Arena& arena, const CArrayPatch* source, const CArrayPatch* value, uint64_t first,
 	uint64_t limit, uint64_t lo, uint64_t hi)
@@ -112,10 +131,9 @@ ConstantInterpreter::StorageView ConstantInterpreter::c_array_element(
 	if (array.initializer == nullptr)
 		return StorageView(nullptr, element);
 	const CInitializer& plan = *array.initializer;
-	const auto* end = plan.children.end();
-	const auto* child = std::upper_bound(plan.children.begin(), end, index,
-		[](uint64_t index, const CInitializerChild& entry) { return index < entry.limit; });
-	if (child != end && child->index <= index)
+	if (plan.projection != CInitializerProjection::None)
+		return c_projected_element(array, type, index, location);
+	if (const auto* child = ArraySpan(plan.children, index))
 	{
 		ConstPlace object;
 		ConstValue* value = nullptr;
@@ -143,11 +161,114 @@ ConstantInterpreter::StorageView ConstantInterpreter::c_array_element(
 	return StorageView(nullptr, element);
 }
 
+ConstantInterpreter::StorageView ConstantInterpreter::c_projected_element(
+	const CArrayConstant& array, const Type* type, uint64_t index, uint32_t location)
+{
+	const Type* element = type->element;
+	SmallList<const CInitializer*, 8> layers;
+	const CInitializer* whole = nullptr;
+	StorageView source(nullptr, element);
+	for (const CArrayConstant* current = &array; current != nullptr; current = current->previous)
+	{
+		if (const ConstValue* patch = PatchedElement(current->patches, type->bound, index))
+		{
+			source = StorageView(const_cast<ConstValue*>(patch));
+			break;
+		}
+		const CInitializer* plan = current->initializer;
+		if (plan == nullptr || plan->projection == CInitializerProjection::None)
+		{
+			source = c_array_element(*current, type, index, location);
+			break;
+		}
+		layers.push_back(plan);
+		if (const auto* child = ArraySpan(plan->children, index))
+		{
+			whole = child->initializer;
+			break;
+		}
+	}
+	if (!source || layers.empty())
+		return source;
+	ConstPlace row;
+	ConstValue* value = nullptr;
+	if (!new_object(element, row, location, ObjectStorage::Prefix) || !locate(row, true, value, location))
+		return StorageView();
+	const bool saved = c_constexpr_initializer_;
+	c_constexpr_initializer_ = true;
+	const bool initialized = [&] {
+		if (whole != nullptr)
+		{
+			if (!c_initialize(*whole, row, location))
+				return false;
+		}
+		else if (source.value != nullptr)
+			copy_into(*value, *source.value);
+		else
+			zero_into(*value);
+		while (!layers.empty())
+		{
+			const CInitializer& plan = *layers.back();
+			layers.pop_back();
+			if (!c_projected_row(plan, row, index, location))
+				return false;
+		}
+		return complete(*value);
+	}();
+	c_constexpr_initializer_ = saved;
+	return StorageView(initialized ? value : nullptr);
+}
+
+bool ConstantInterpreter::c_projected_row(
+	const CInitializer& plan, const ConstPlace& row, uint64_t index, uint32_t location)
+{
+	if (plan.projection == CInitializerProjection::Rectangles)
+	{
+		SmallList<CInitializerChild, 8> cells;
+		for (const auto& region : plan.rectangles())
+			if (region.row <= index && index < region.row_limit)
+			{
+				CInitializerChild cell{ region.initializer, { nullptr }, region.column };
+				cell.limit = region.column_limit;
+				cells.push_back(cell);
+			}
+		if (cells.empty())
+			return true;
+		ConstValue* value = nullptr;
+		const syntax::Slice<const CInitializerChild> columns{ cells.data(), static_cast<uint32_t>(cells.size()) };
+		return locate(row, true, value, location) && patch_c_array(*value, row.type, columns, location);
+	}
+	for (const auto& lane : plan.field_spans())
+	{
+		const auto* span = ArraySpan(lane.spans(), index);
+		if (span == nullptr)
+			continue;
+		ConstPlace field = row;
+		field.offset += static_cast<int64_t>(lane.offset);
+		if (lane.kind != CInitializerFieldKind::Value)
+		{
+			if (!c_select_variant_at(lane, field, location))
+				return false;
+			continue;
+		}
+		field.type = lane.member == nullptr ? span->initializer->type : lane.owner;
+		if (lane.member != nullptr &&
+			!member_slot(field, static_cast<const VariableEntity*>(lane.member->variable), field, location))
+			return false;
+		if (!c_initialize(*span->initializer, field, location))
+			return false;
+	}
+	return true;
+}
+
 ConstantInterpreter::CArrayInitialization ConstantInterpreter::prepare_c_array(
 	const CInitializer& plan, const ConstPlace& target, uint32_t location, bool inherited)
 {
 	inherited = inherited && plan.value == nullptr;
 	const bool ordinary = plan.projection == CInitializerProjection::None;
+	// Preservation of an active union member still requires an eager check.
+	const bool projected = !ordinary && c_constexpr_initializer_ && plan.value == nullptr &&
+		leaves(plan.type, 0) > kArrayExpansionBytes / sizeof(ConstValue) && !PreservesVariant(plan);
 	// Retain the typed plan when the value would mostly consist of implicit
 	// elements. Preserve the inexpensive path for small and dense arrays.
 	const auto sparse = [&] {
@@ -158,17 +279,37 @@ ConstantInterpreter::CArrayInitialization ConstantInterpreter::prepare_c_array(
 	};
 	const bool save_plan = !inherited && sparse() &&
 		(plan.value == nullptr || CInitializerString(plan.value) != nullptr);
-	if (!inherited && !save_plan && plan.value == nullptr)
+	if (!inherited && !save_plan && !projected && plan.value == nullptr)
 		return CArrayInitialization::InPlace;
 	ConstValue* storage = nullptr;
 	if (!locate(target, true, storage, location))
 		return CArrayInitialization::Failed;
 	const bool retained = storage->kind == ValueKind::CArrayInitializer;
+	if (projected)
+	{
+		const CArrayConstant* previous = nullptr;
+		if (inherited)
+		{
+			if (retained)
+				previous = storage->c_array;
+			else if (storage->kind == ValueKind::Array && complete(*storage))
+			{
+				const ConstValue* prefix = storage->count == 0 ? nullptr : publish(*storage, location);
+				if (storage->count != 0 && prefix == nullptr)
+					return CArrayInitialization::Failed;
+				previous = StoreArray(analyzer_.arena_, plan.type, { nullptr, prefix, nullptr, nullptr }).c_array;
+			}
+			else
+				return CArrayInitialization::InPlace;
+		}
+		*storage = StoreArray(analyzer_.arena_, plan.type, { &plan, nullptr, nullptr, previous });
+		return CArrayInitialization::Stored;
+	}
 	if (!inherited)
 	{
 		if (save_plan)
 		{
-			*storage = StoreArray(analyzer_.arena_, plan.type, CArrayConstant{ &plan, nullptr, nullptr });
+			*storage = StoreArray(analyzer_.arena_, plan.type, { &plan, nullptr, nullptr, nullptr });
 			return CArrayInitialization::Stored;
 		}
 		if (retained && plan.value != nullptr)
@@ -177,7 +318,8 @@ ConstantInterpreter::CArrayInitialization ConstantInterpreter::prepare_c_array(
 	}
 	if (ordinary &&
 		(retained || (storage->kind == ValueKind::Array && (storage->flags & kArrayTailZero) != 0 && sparse())))
-		return patch_c_array(*storage, plan, location) ? CArrayInitialization::Stored : CArrayInitialization::Failed;
+		return patch_c_array(*storage, plan.type, plan.children, location) ? CArrayInitialization::Stored
+																		   : CArrayInitialization::Failed;
 	return CArrayInitialization::InPlace;
 }
 
@@ -208,7 +350,8 @@ bool ConstantInterpreter::expand_c_array(ConstValue& array, uint32_t location)
 	return true;
 }
 
-bool ConstantInterpreter::patch_c_array(ConstValue& array, const CInitializer& plan, uint32_t location)
+bool ConstantInterpreter::patch_c_array(
+	ConstValue& array, const Type* type, syntax::Slice<const CInitializerChild> children, uint32_t location)
 {
 	CArrayConstant updated{};
 	if (array.kind == ValueKind::CArrayInitializer)
@@ -222,14 +365,14 @@ bool ConstantInterpreter::patch_c_array(ConstValue& array, const CInitializer& p
 	Arena& arena = analyzer_.arena_;
 	PointerMap repeated;
 	std::vector<const CArrayPatch*> values;
-	for (const CInitializerChild& child : plan.children)
+	for (const CInitializerChild& child : children)
 	{
 		const uint32_t prior = child.initializer->repeat_value ? repeated.find(child.initializer)
 															   : PointerMap::kMissing;
 		const CArrayPatch* patch;
 		if (prior == PointerMap::kMissing)
 		{
-			const ConstValue* value = evaluate_c_array_patch(updated, child, plan.type, location);
+			const ConstValue* value = evaluate_c_array_patch(updated, child, type, location);
 			if (value == nullptr)
 				return false;
 			auto* leaf = arena.allocate_array<CArrayPatch>(1);
@@ -243,9 +386,9 @@ bool ConstantInterpreter::patch_c_array(ConstValue& array, const CInitializer& p
 		}
 		else
 			patch = values[prior];
-		updated.patches = AssignPatch(arena, updated.patches, patch, 0, plan.type->bound, child.index, child.limit);
+		updated.patches = AssignPatch(arena, updated.patches, patch, 0, type->bound, child.index, child.limit);
 	}
-	array = StoreArray(arena, plan.type, updated);
+	array = StoreArray(arena, type, updated);
 	return true;
 }
 

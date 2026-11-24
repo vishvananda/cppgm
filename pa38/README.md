@@ -686,6 +686,11 @@ The first fixture set covers these parts of the C17 input profile:
   NaN in its compatible real format. Check earlier writes even
   when a later designator overrides them. C23 UTF-8 character and string
   literals use `unsigned char` for their code units.
+- In GNU C23 mode, apply range designators to `constexpr` aggregates.
+  An overlapping write replaces the designated subobject. Untouched
+  subobjects retain their value from earlier initializers, including from a
+  copied aggregate. Keep large field ranges and rectangular array ranges
+  sparse during constant evaluation.
 - In C23, infer the type in `auto name = expression` when the declaration
   has no written type. Accept one object declarator consisting of an
   identifier with optional attributes and enclosing parentheses.

@@ -772,27 +772,34 @@ bool ConstantInterpreter::c_initialize_field_spans(
 bool ConstantInterpreter::c_select_variant(
 	const CInitializerFieldSpans& lane, const ConstPlace& target, uint64_t stride, uint32_t location)
 {
-	const ClassEntity* owner = ClassOf(lane.owner);
-	const uint32_t ordinal = lane.member->ordinal;
 	for (const CInitializerChild& span : lane.spans())
 		for (uint64_t index = span.index; index < span.limit; ++index)
 		{
 			ConstPlace place = target;
-			place.type = lane.owner;
 			place.offset += static_cast<int64_t>(index * stride + lane.offset);
-			ConstValue* storage = nullptr;
-			if (!step(location) || !locate(place, true, storage, location))
+			if (!c_select_variant_at(lane, place, location))
 				return false;
-			if (storage->kind != ValueKind::Class)
-				return fail(location, "a union initializer outside the designated object");
-			if (storage->extra != ordinal + 1 && lane.kind == CInitializerFieldKind::PreserveVariant)
-				return fail(location, "a union initializer that preserves bytes of a different member");
-			if (storage->extra != ordinal + 1 || lane.kind == CInitializerFieldKind::ResetVariant)
-			{
-				storage->extra = ordinal + 1;
-				storage->elements[owner->base_count + ordinal] = prefix_value(lane.member->variable->type, 0, true);
-			}
 		}
+	return true;
+}
+
+bool ConstantInterpreter::c_select_variant_at(const CInitializerFieldSpans& lane, ConstPlace place, uint32_t location)
+{
+	place.type = lane.owner;
+	ConstValue* storage = nullptr;
+	if (!step(location) || !locate(place, true, storage, location))
+		return false;
+	if (storage->kind != ValueKind::Class)
+		return fail(location, "a union initializer outside the designated object");
+	const uint32_t ordinal = lane.member->ordinal;
+	if (storage->extra != ordinal + 1 && lane.kind == CInitializerFieldKind::PreserveVariant)
+		return fail(location, "a union initializer that preserves bytes of a different member");
+	if (storage->extra != ordinal + 1 || lane.kind == CInitializerFieldKind::ResetVariant)
+	{
+		storage->extra = ordinal + 1;
+		const ClassEntity* owner = ClassOf(lane.owner);
+		storage->elements[owner->base_count + ordinal] = prefix_value(lane.member->variable->type, 0, true);
+	}
 	return true;
 }
 

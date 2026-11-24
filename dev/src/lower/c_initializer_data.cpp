@@ -330,6 +330,20 @@ bool AppendItemSlice(const StaticPlacement& entry, uint64_t first, uint64_t limi
 
 bool SliceStaticLayer(const StaticLayer& source, uint64_t first, uint64_t limit, FieldData& out)
 {
+	if (source.field != nullptr && source.field->repeated != nullptr)
+	{
+		// Rectangle layers end on whole cells. Keep the repeated pattern
+		// until the visible rows are emitted, even when most cells are zero.
+		const auto& field = *source.field;
+		const uint64_t stride_bits = field.stride * 8;
+		if ((first - field.first * 8) % stride_bits != 0 || (limit - first) % stride_bits != 0)
+			return false;
+		out.first = first / 8;
+		out.limit = limit / 8;
+		out.repeated = field.repeated;
+		out.stride = field.stride;
+		return true;
+	}
 	const auto& items = *source.items;
 	auto item = std::upper_bound(items.begin(), items.end(), first,
 		[](uint64_t bit, const StaticPlacement& entry) { return bit < 8 * (entry.offset + entry.size); });
@@ -377,6 +391,60 @@ public:
 		if (layered)
 			return emit_layered(events, width, plan.type->bound, out);
 		return emit_rows(events, width, plan.type->bound, out);
+	}
+
+	bool constant_array(const sema::Type* type, const sema::CArrayConstant& array_value, StaticData& out)
+	{
+		if (array_value.previous == nullptr && array_value.patches == nullptr)
+			return this->array(*array_value.initializer, out);
+		std::vector<const sema::CArrayConstant*> layers;
+		for (const auto* current = &array_value; current != nullptr; current = current->previous)
+			layers.push_back(current);
+		const sema::Type* element = type->element;
+		const uint64_t width = lowering_.size_of(element, 0);
+		std::deque<Placements> bases;
+		std::deque<Placements> cells;
+		std::deque<FieldData> fields;
+		std::vector<RecordDataEvent> events;
+		PointerMap saved;
+		const auto add_value = [&](uint64_t first, uint64_t limit, const sema::ConstValue& value) {
+			uint32_t entry = saved.find(&value);
+			if (entry == PointerMap::kMissing)
+			{
+				entry = static_cast<uint32_t>(bases.size());
+				bases.emplace_back();
+				sample_.items.clear();
+				if (!lowering_.constant_data(element, value, sample_, 0) ||
+					!CollectPlacements(sample_, 0, width, pointer_bytes_, bases.back()))
+					return false;
+				saved.set(&value, entry);
+			}
+			events.push_back({ first, &bases[entry], nullptr, true });
+			events.push_back({ limit, &bases[entry], nullptr, false });
+			return true;
+		};
+		for (auto i = layers.rbegin(); i != layers.rend(); ++i)
+		{
+			const auto& layer = **i;
+			if (layer.prefix != nullptr)
+				for (uint32_t index = 0; index < layer.prefix->count; ++index)
+					if (!add_value(index, uint64_t(index) + 1, layer.prefix->elements[index]))
+						return false;
+			if (layer.initializer != nullptr)
+			{
+				const auto& plan = *layer.initializer;
+				if (plan.value != nullptr || !base_events(plan, width, bases, events, layer.previous != nullptr))
+					return false;
+				const bool ready = plan.projection == sema::CInitializerProjection::Rectangles
+					? rectangle_events(plan, true, cells, fields, events)
+					: field_events(plan, true, fields, events);
+				if (!ready)
+					return false;
+			}
+			if (!sema::VisitCArrayPatches(layer.patches, 0, type->bound, add_value))
+				return false;
+		}
+		return emit_layered(events, width, type->bound, out);
 	}
 
 	bool record(const sema::CInitializer& plan, StaticData& out)
@@ -454,7 +522,7 @@ private:
 	}
 
 	bool base_events(const sema::CInitializer& plan, uint64_t width, std::deque<Placements>& bases,
-		std::vector<RecordDataEvent>& events)
+		std::vector<RecordDataEvent>& events, bool keep_zero = false)
 	{
 		PointerMap saved;
 		for (const auto& span : plan.children)
@@ -470,7 +538,7 @@ private:
 					return false;
 				saved.set(span.initializer, entry);
 			}
-			if (!bases[entry].empty())
+			if (keep_zero || !bases[entry].empty())
 			{
 				events.push_back({ span.index, &bases[entry], nullptr, true });
 				events.push_back({ span.limit, &bases[entry], nullptr, false });
@@ -660,6 +728,8 @@ private:
 		if (field == nullptr)
 			return { items, nullptr, 0, width * 8, !items->empty() };
 		const bool has_data = field->has_data();
+		if (field->repeated != nullptr && has_data)
+			occupied.push_back({ field->first * 8, field->limit * 8, 0 });
 		if (!field->bits.empty())
 		{
 			if (has_data)
@@ -796,12 +866,14 @@ bool ProgramLowering::static_c_initializer(const sema::CInitializer& plan, Stati
 		uint32_t next = 0;
 		return static_aggregate(type, nullptr, next, out, &plan);
 	}
-	return static_c_array(type, sema::CArrayConstant{ &plan, nullptr, nullptr }, out);
+	return static_c_array(type, sema::CArrayConstant{ &plan, nullptr, nullptr, nullptr }, out);
 }
 
 bool ProgramLowering::static_c_array(const sema::Type* type, const sema::CArrayConstant& array, StaticData& out)
 {
 	const sema::CInitializer* plan = array.initializer;
+	if (plan != nullptr && plan->projection != sema::CInitializerProjection::None)
+		return CStaticData(*this).constant_array(type, array, out);
 	std::vector<uint64_t> scratch;
 	sema::StringCodeUnits units;
 	if (plan != nullptr && plan->value != nullptr)

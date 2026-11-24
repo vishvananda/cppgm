@@ -21,6 +21,8 @@ struct CArrayConstant
 	const CInitializer* initializer;
 	const ConstValue* prefix;
 	const CArrayPatch* patches;
+	// A projected update retains the unchanged values of the source array.
+	const CArrayConstant* previous;
 };
 
 template<class Visitor>
