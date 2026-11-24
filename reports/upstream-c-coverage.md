@@ -279,11 +279,18 @@ in A/A, ABBA and BAAB blocks for this batch. Retired instructions
 changed by +0.004% and -0.003%, and peak RSS by +0.116% and +0.122%,
 respectively. The PA1 fixture checks the apostrophe token boundary
 for C++14 as well.
+On generated files with 128 to 1,024 conditional sections, the
+`#elifdef` form used 2.81% to 5.84% fewer retired instructions than
+`#elif defined(...)`. The two spellings produced byte-identical
+objects in the A/A, ABBA and BAAB blocks. The directive reuses the
+macro binding lookup and the existing conditional state.
 The strict course report passed 11,674 tests. PA38 passed 477 native
 tests, 540 WASI tests and three native ABI tests. PA39, debug-info,
 inception, self-host through PA5, the harness checks and the source
 and placement audits passed. The previous C cohorts still pass their
 reviewed expectations, including the 60-case GCC C90 screen.
+The final student export passed all 67 PA1 checks and the same PA38
+native, WASI and ABI lanes.
 
 [Clause inventory](c-conformance.json) ·
 [WG14 N3221 editor's report](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3221.htm) ·
