@@ -4051,3 +4051,16 @@ its mask is empty. The cppgm-built relocatable object is 368 bytes and
 its four functions make no calls. An existing C23 UTF-8 program that
 uses the supplement produces identical objects and linked Wasm modules
 with both versions of the archive.
+
+## Wasm temporary-file and stdio header cost
+
+A hosted C23 `printf` program compiles at `-O2` on CPU 71, using the
+same cppgm binary and SDK with the parent and current `<stdio.h>`
+overlays. The A/A spread is 563 retired instructions. ABBA and BAAB
+add 64,814 and 65,405 instructions to the 7.25 million instruction
+control. All 12 objects and the linked modules match byte for byte.
+
+The temporary-file object is 3,361 bytes. The Wasm linker keeps
+`tmpnam`'s path check and entropy imports when a program uses only
+the name function. A program using `tmpfile` includes the open,
+unlink, and directory-rights operations.

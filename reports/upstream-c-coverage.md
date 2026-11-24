@@ -3600,3 +3600,34 @@ link time. The scoped C23 `FENV_ROUND` compiler probe remains open.
 [Complex probe](../scripts/tests/c_c23_complex_interfaces.c) ·
 [Floating-point environment probe](../scripts/tests/c_c23_fenv_interfaces.c) ·
 [Compile and runtime measurements](../docs/performance/c-frontend-scaling.md#wasi-c23-complex-and-floating-point-environment-headers)
+
+### Hosted WASI temporary files and the C23 stdio version
+
+The supplement provides `tmpfile` and `tmpnam` in every C edition.
+`tmpfile` checks the guest working directory's creation and deletion
+rights and uses exclusive creation. It unlinks the file before opening
+the binary update stream. `tmpnam` checks the candidate name without
+following symlinks. Entropy and an atomic, nonwrapping ticket produce
+the names. The C23 header advertises the stdio version and reports a
+maximum NaN output length of four.
+
+All 32 cppgm and SDK Clang build and link combinations pass in strict
+C90 and C23 at `-O0` and `-O2`. Each runs once with a writable preopen
+and once without a preopen. The host directory stays empty after each
+run. The C23 NaN check passes with both compilers. A separate test
+generates all 10,000 advertised names and finds 10,000 distinct names.
+Both new probes pass on Linux AArch64 under QEMU at `-O0`, `-O2`, and
+`-Oz`. The extracted source-only package builds the runtime and passes
+both probes at `-Oz -flto`.
+
+The GCC host replay passes all 4,345 executed configurations. Linux
+x86-64 runs 1,458, stock WASI runs 1,333, the supplement runs 520, and
+bare Wasm runs 1,034. The supplement passes 196 tracked C23 checks.
+The two open header entries are `<math.h>` and `<tgmath.h>`. The 76
+harness test files pass and the file audit retains its 15 existing
+warnings.
+
+[C23 N3096 §§7.23.1, 7.23.4.3–4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
+[Temporary-file probe](../scripts/tests/c_stdio_temporary.c) ·
+[NaN output probe](../scripts/tests/c_c23_stdio_nan.c) ·
+[Compile measurements](../docs/performance/c-frontend-scaling.md#wasm-temporary-file-and-stdio-header-cost)
