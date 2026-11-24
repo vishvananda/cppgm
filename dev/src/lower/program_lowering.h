@@ -1424,6 +1424,12 @@ private:
 	uint64_t c_initializer_size(const sema::CInitializer& plan);
 	bool static_c_initializer(const sema::CInitializer& plan, StaticData& out);
 	class CStaticData;
+	class CArrayImages;
+	struct DeleteCArrayImages
+	{
+		void operator()(CArrayImages* images) const;
+	};
+	std::unique_ptr<CArrayImages, DeleteCArrayImages> c_array_images_;
 	void append_c_initializer_repeat(const StaticData& value, uint64_t count, uint64_t width, StaticData& out);
 	bool c_array_placements(const sema::ConstValue& value, uint64_t offset, std::vector<StaticPlacement>& out);
 	bool static_c_array(const sema::Type* type, const sema::CArrayConstant& array, StaticData& out);

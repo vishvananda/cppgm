@@ -101,6 +101,7 @@ void ProgramLowering::lower_unit(
 	debug_file_.clear();
 	debug_file_name_ = 0;
 	symbols_.clear();
+	c_array_images_.reset();
 	c_constant_index_.clear();
 	c_constant_definitions_.clear();
 	demanded_c_constants_.clear();
@@ -297,6 +298,7 @@ void ProgramLowering::lower_unit(
 		release_definition(symbol);
 	held_definitions_.clear();
 	state_pending_signatures(first_pending);
+	c_array_images_.reset();
 	if (source_debug_)
 		source_debug_->finish(graph.global);
 	source_debug_.reset();
