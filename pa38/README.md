@@ -714,7 +714,9 @@ The first fixture set covers these parts of the C17 input profile:
   Keep pointee qualifiers when removing qualifiers from a pointer.
   Evaluate the operand only when its type is variably modified. An indirection of
   GNU C arithmetic on `void *` advances and subtracts in byte units.
-  Apply the ordinary extension diagnostic rules.
+  GNU `sizeof` gives `void` and function types size one, with an
+  unevaluated expression operand. Apply the ordinary extension diagnostic
+  rules.
   `void *` has type `void`. Applying `&*` preserves the pointer, including a
   null pointer. A discarded void indirection evaluates the pointer's
   effects without a data access. Require an object type for a store or

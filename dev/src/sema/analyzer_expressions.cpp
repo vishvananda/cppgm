@@ -1550,29 +1550,6 @@ ExprFacts* Analyzer::complex_arithmetic(const syntax::BinaryExpr& expr, const Ty
 	return new_facts(expr, type, ValueCategory::PRValue);
 }
 
-bool Analyzer::complete_pointee(const Type* pointer, uint32_t location)
-{
-	// 5.7p1, 5.2.6p1: pointer arithmetic needs a pointer to a completely-
-	// defined object type (not void, an array of unknown bound or an
-	// incomplete class, whose completion may come later: not memoized).
-	const Type* element = pointer->unqualified->element;
-	if (c_source_ && IsVoid(element))
-	{
-		const char* message = "arithmetic on a void pointer is a GNU C extension";
-		if (c_explicit_extension_ || positions_ == nullptr || positions_->allow_gnu_c_extension(location, message))
-			return true;
-		return substitution_error(location, message);
-	}
-	if (IsVoid(element) ||
-		(element->kind == TypeKind::Array && !element->has_array_bound() && element->owner == nullptr &&
-			!element->runtime_array()))
-		return substitution_error(location, "arithmetic on a pointer to an incomplete type");
-	const ClassEntity* cls = ClassOf(element);
-	if (cls != nullptr && !require_complete(cls))
-		return substitution_error(location, "arithmetic on a pointer to an incomplete class", true);
-	return true;
-}
-
 namespace {
 
 // Clang's integer conversion rank (bool, the char types, short, int,
@@ -3431,7 +3408,8 @@ ExprFacts* Analyzer::size_of(const syntax::SizeofExpr& expr, Scope* scope)
 			return nullptr;
 		if (resolve_lone_function(*expr.operand))
 			operand = facts_of(*expr.operand);
-		if ((operand->flags & (kOverloadSet | kBoundMember)) != 0 || operand->type->kind == TypeKind::Function)
+		if ((operand->flags & (kOverloadSet | kBoundMember)) != 0 ||
+			(!c_source_ && operand->type->kind == TypeKind::Function))
 		{
 			substitution_error(expr.location, "sizeof of a function");
 			return nullptr;
@@ -3464,7 +3442,15 @@ ExprFacts* Analyzer::size_of(const syntax::SizeofExpr& expr, Scope* scope)
 		facts->target = type;
 		return facts;
 	}
-	if (type->kind == TypeKind::Function || IsVoid(type) ||
+	if (c_source_ && (IsVoid(type) || type->kind == TypeKind::Function))
+	{
+		const char* message = "sizeof of void or a function type is a GNU C extension";
+		if (!c_explicit_extension_ && positions_ != nullptr &&
+			!positions_->allow_gnu_c_extension(expr.location, message))
+			return substitution_error(expr.location, message), nullptr;
+		size = 1;
+	}
+	else if (type->kind == TypeKind::Function || IsVoid(type) ||
 		(type->kind == TypeKind::Array && !type->has_array_bound() && type->owner == nullptr && template_depth_ == 0) ||
 		!type_size(type, size, alignment, expr.location))
 	{
