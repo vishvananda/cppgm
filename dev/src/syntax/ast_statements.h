@@ -204,6 +204,8 @@ struct GotoStmt : Stmt
 {
 	const Identifier* label;
 	Expr* target = nullptr; // GNU computed goto, otherwise null
+	// The written name of a GNU asm goto operand with a block-local destination.
+	const Identifier* asm_spelling = nullptr;
 };
 
 // A GNU asm statement's operand: `[ name ]`? constraint ( expression ).

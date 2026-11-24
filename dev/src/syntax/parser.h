@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "lex/source_language.h"
+#include "support/pointer_map.h"
 #include "syntax/parser_regions.h"
 
 class SourcePositions;
@@ -390,6 +391,21 @@ private:
 	Stmt* parse_statement(Stmt** declaration_after_label = nullptr);
 	Stmt* parse_label_body(Stmt** declaration_after_label);
 	CompoundStmt* parse_compound_statement(bool new_scope);
+	bool at_local_label();
+	bool parse_local_labels(size_t first);
+	void restore_local_labels(size_t first);
+	const Identifier* local_label(const Identifier* name) const;
+	struct LocalLabelScope
+	{
+		Parser& parser;
+		size_t first;
+		explicit LocalLabelScope(Parser& owner) : parser(owner), first(owner.local_label_bindings_.size()) {}
+		~LocalLabelScope()
+		{
+			if (parser.local_label_bindings_.size() != first)
+				parser.restore_local_labels(first);
+		}
+	};
 	CompoundStmt* parse_lambda_body();
 	Stmt* parse_declaration_or_expression_statement(Attribute* attributes);
 	typedef Stmt* (Parser::*StatementReader)(Attribute* attributes);
@@ -500,6 +516,15 @@ private:
 	// enclosing attempt's rewind parses it again without the attempt, so
 	// nested heads do not double the work per level.
 	std::vector<uint64_t> failed_selection_inits_;
+	struct LocalLabelBinding
+	{
+		const Identifier* name;
+		const Identifier* identity;
+		uint32_t previous;
+	};
+	PointerMap local_label_indices_;
+	std::vector<LocalLabelBinding> local_label_bindings_;
+	uint32_t local_label_count_ = 0;
 };
 
 } // namespace syntax

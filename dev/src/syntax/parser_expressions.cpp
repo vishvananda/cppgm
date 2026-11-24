@@ -1316,7 +1316,7 @@ Expr* Parser::parse_primary_expression()
 			return nullptr;
 		}
 		LabelAddressExpr* expr = make<LabelAddressExpr>(ExprKind::LabelAddress, start);
-		expr->label = tok().identifier;
+		expr->label = local_label(tok().identifier);
 		next();
 		return expr;
 	}

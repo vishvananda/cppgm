@@ -50,6 +50,11 @@ constant expressions converted to the promoted switch type. Ranges are
 inclusive and must be ordered, with no overlap with another label in the
 same switch. The width of a range must not determine the size of the IR.
 
+GNU C's `__label__ name[, name]...;` declarations at the start of a
+compound statement give those labels block scope. Resolve label definitions,
+`goto`, label addresses, and `asm goto` operands to the innermost declaration.
+Different macro expansions can use the same local label name independently.
+
 Use `-std=c90`, `-std=c89`, or `-std=iso9899:1990` for ISO C90. These
 modes leave `__STDC_VERSION__` undefined. The C95 amendment mode,
 `-std=iso9899:199409`, defines it as `199409L` and recognizes digraphs in

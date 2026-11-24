@@ -190,7 +190,7 @@ void Analyzer::asm_statement(const syntax::AsmStmt& stmt, Scope* scope)
 	{
 		assembly::GnuOperand label;
 		label.label = true;
-		label.name = target->label->spelling;
+		label.name = (target->asm_spelling != nullptr ? target->asm_spelling : target->label)->spelling;
 		for (const assembly::GnuOperand& prior : operands)
 			if (prior.name == label.name)
 				error(target->location, "duplicate assembly operand or label name");

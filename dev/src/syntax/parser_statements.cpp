@@ -3,9 +3,62 @@
 #include "lex/identifier_table.h"
 
 #include <algorithm>
+#include <cstring>
 #include <vector>
 
 namespace syntax {
+
+void Parser::restore_local_labels(size_t first)
+{
+	while (local_label_bindings_.size() > first)
+	{
+		const LocalLabelBinding& binding = local_label_bindings_.back();
+		local_label_indices_.set(binding.name, binding.previous);
+		local_label_bindings_.pop_back();
+	}
+}
+
+const Identifier* Parser::local_label(const Identifier* name) const
+{
+	if (local_label_bindings_.empty())
+		return name;
+	const uint32_t index = local_label_indices_.find(name);
+	return index == PointerMap::kMissing ? name : local_label_bindings_[index].identity;
+}
+
+bool Parser::at_local_label()
+{
+	const char keyword[] = "__label__";
+	return at_identifier() && tok().identifier->length == sizeof(keyword) - 1 &&
+		std::memcmp(tok().identifier->spelling, keyword, sizeof(keyword) - 1) == 0;
+}
+
+bool Parser::parse_local_labels(size_t first)
+{
+	do
+	{
+		require_gnu_c_extension(location(), "local label declarations are a GNU C extension");
+		next();
+		do
+		{
+			if (!at_identifier())
+				return fail();
+			const Identifier* name = tok().identifier;
+			const uint32_t previous = local_label_indices_.find(name);
+			if (previous != PointerMap::kMissing && previous >= first)
+				throw ParseError(location(), "duplicate local label declaration");
+			std::string spelling(name->spelling, name->length);
+			spelling += ".local." + std::to_string(local_label_count_++);
+			const Identifier* identity = identifiers_.intern(spelling.data(), static_cast<uint32_t>(spelling.size()));
+			local_label_indices_.set(name, static_cast<uint32_t>(local_label_bindings_.size()));
+			local_label_bindings_.push_back(LocalLabelBinding{ name, identity, previous });
+			next();
+		} while (accept(TokenKind::OP_COMMA));
+		if (!expect(TokenKind::OP_SEMICOLON))
+			return false;
+	} while (at_local_label());
+	return true;
+}
 
 CompoundStmt* Parser::parse_compound_statement(bool new_scope)
 {
@@ -31,9 +84,10 @@ CompoundStmt* Parser::parse_compound_statement(bool new_scope)
 	if (new_scope)
 		scopes_.push(ScopeKind::Block, nullptr);
 	ListFrame<Stmt*> items(stmts_);
-	bool parsed = true;
+	const LocalLabelScope local_labels(*this);
+	bool parsed = !c_source_ || !at_local_label() || parse_local_labels(local_labels.first);
 	bool statements = false;
-	while (!at(TokenKind::OP_RBRACE))
+	while (parsed && !at(TokenKind::OP_RBRACE))
 	{
 		if (tentative_depth_ == 0)
 		{
@@ -128,7 +182,7 @@ Stmt* Parser::parse_statement(Stmt** declaration_after_label)
 	if (token.is_identifier() && at(TokenKind::OP_COLON, 1))
 	{
 		LabeledStmt* label = make<LabeledStmt>(StmtKind::Labeled, start);
-		label->label = token.identifier;
+		label->label = local_label(token.identifier);
 		next();
 		next();
 		label->body = parse_label_body(declaration_after_label);
@@ -205,7 +259,7 @@ Stmt* Parser::parse_statement(Stmt** declaration_after_label)
 			fail();
 			return nullptr;
 		}
-		jump->label = tok().identifier;
+		jump->label = local_label(tok().identifier);
 		next();
 		return expect(TokenKind::OP_SEMICOLON) ? jump : nullptr;
 	}
@@ -332,7 +386,10 @@ Stmt* Parser::parse_asm()
 					return nullptr;
 				}
 				GotoStmt* label = make<GotoStmt>(StmtKind::Goto, location());
-				label->label = tok().identifier;
+				const Identifier* name = tok().identifier;
+				label->label = local_label(name);
+				if (label->label != name)
+					label->asm_spelling = name;
 				labels.push_back(label);
 				next();
 				continue;
