@@ -30,6 +30,7 @@ public:
 
 	void push(const T& item) { stack_.items.push_back(item); }
 	uint32_t size() const { return static_cast<uint32_t>(stack_.items.size() - start_); }
+	T& operator[](uint32_t index) { return stack_.items[start_ + index]; }
 	T& back() { return stack_.items.back(); }
 
 	Slice<T> take(Arena& arena)

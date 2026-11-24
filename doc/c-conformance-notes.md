@@ -3,6 +3,27 @@
 These notes record WG14 rules exercised by the course regressions and the
 initial upstream campaign. Clause numbers use the named edition or draft.
 
+## C23 auto inference
+
+An object definition with `auto` and no written type obtains its type
+from the converted initializer. Apply the written qualifications after
+lvalue conversion and array or function decay. The inferred name is
+unavailable in its initializer. It shadows the ordinary name in outer
+scopes for this purpose. GNU `__auto_type` leaves the outer ordinary name
+visible during its initializer. The implementation accepts the plain
+identifier form with optional parentheses and attributes and requires
+a single declarator for inference. Written types retain the block-scope
+storage-class use of `auto`.
+[WG14 N3220 §§6.2.1, 6.7.1, 6.7.2 and 6.7.10](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
+[Open C23 issue 1102](https://www.open-std.org/jtc1/sc22/wg14/issues/c23/issue1102.html)
+
+GCC 15 accepts inferred declarations qualified by `_Atomic` and
+`restrict`. Clang 21 predates LLVM's correction for these qualifiers.
+The fixtures also exercise bit-field inference using the type the
+compiler gives the generic controlling expression. GCC 15 accepts this
+form, while Clang 21 diagnoses it.
+[LLVM qualifier correction](https://github.com/llvm/llvm-project/commit/849d90b)
+
 ## C23 constexpr objects
 
 A definition with `constexpr` adds const qualification. File-scope

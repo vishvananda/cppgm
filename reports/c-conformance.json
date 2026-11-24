@@ -1454,6 +1454,33 @@
       "cases": ["c23.constexpr-scalars", "c23.constexpr-complex", "c23.constexpr-integer-narrowing", "c23.constexpr-floating-narrowing", "c23.constexpr-bitfield-narrowing", "c23.constexpr-string-narrowing", "c23.constexpr-pointer-nonnull", "c23.constexpr-overridden", "c23.constexpr-fractional-integer", "c23.constexpr-complex-to-real", "c23.constexpr-signaling-narrowing"]
     },
     {
+      "id": "c23.auto-object-types",
+      "clause": "6.7.2, 6.7.10",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Infer an object's type after lvalue, array-to-pointer and function-to-pointer conversions, apply the declared qualifiers and capture any runtime bounds once.",
+      "cases": ["c23.auto-inference", "c23.auto-qualified", "c23.auto-vla", "c23.auto-no-value"]
+    },
+    {
+      "id": "c23.auto-scope-and-form",
+      "clause": "6.2.1, 6.7.1, 6.7.2, 6.7.10",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Reserve the pending inferred name during its initializer and require an initialized object declaration. Accept a single identifier declarator with optional parentheses and attributes. Restrict auto with a written type to block-scope objects without another storage class.",
+      "cases": ["c23.auto-inference", "c23.auto-pending-name", "c23.auto-sizeof-self", "c23.auto-multiple", "c23.auto-same-scope", "c23.auto-pointer-declarator", "c23.auto-array-declarator", "c23.auto-braced-initializer", "c23.auto-no-initializer", "c23.auto-file-explicit-type", "c23.auto-explicit-storage", "c23.auto-parameter", "c23.auto-typed-parameter", "c23.auto-return-type", "c23.auto-type-name", "c23.auto-typedef"]
+    },
+    {
+      "id": "c23.thread-local-spellings",
+      "clause": "6.4.1, 6.7.2",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Recognize both spellings of the thread storage class and preserve thread duration when the object type is inferred.",
+      "cases": ["c23.auto-thread-local"]
+    },
+    {
       "id": "c23.attribute-query",
       "clause": "6.10.2p9-p11, 6.7.13",
       "kind": "required",

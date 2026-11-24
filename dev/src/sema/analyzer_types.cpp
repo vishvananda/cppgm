@@ -256,7 +256,10 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 			out.explicit_condition = specifier.operand;
 			break;
 		case TokenKind::KW_AUTO:
-			out.auto_type = true;
+			if (c_source_)
+				out.c_auto_storage = true;
+			else
+				out.auto_type = true;
 			break;
 		case TokenKind::KW_CONST:
 		case TokenKind::KW_VOLATILE:
@@ -1832,7 +1835,7 @@ const Type* Analyzer::parameter_type(
 		specifiers.type = types_.fundamental(FundamentalType::Int);
 	if (c_source_ &&
 		(specifiers.is_static || specifiers.is_extern || specifiers.is_typedef || specifiers.is_thread_local ||
-			specifiers.is_inline))
+			specifiers.is_inline || specifiers.c_auto_storage))
 		error(parameter.location, "invalid storage or function specifier in a C parameter");
 	if (specifiers.is_constinit)
 		error(parameter.location, "__constinit in a parameter declaration");
@@ -1957,6 +1960,17 @@ void Analyzer::c_declaration_specifiers(const syntax::SimpleDecl& decl, Scope* s
 	repeated_type_bounds_ = multiple ? &bounds : nullptr;
 	specifiers(decl.specifiers, scope, out, decl.declarators.empty());
 	repeated_type_bounds_ = saved;
+	if (out.c_auto_storage)
+	{
+		if (declaration_scope(scope)->kind != ScopeKind::Block || decl.declarators.empty() || out.is_static ||
+			out.is_extern || out.is_typedef || out.is_thread_local || out.is_constexpr ||
+			(out.type_specifier != nullptr && out.type_specifier->kind == syntax::DeclSpecKind::CAutoType))
+			error(
+				decl.location, "auto with a written type requires a block-scope object without another storage class");
+		for (const auto& specifier : decl.specifiers)
+			if (specifier.kind == syntax::DeclSpecKind::Keyword && specifier.keyword == TokenKind::KW_REGISTER)
+				error(specifier.location, "register and auto with a written type");
+	}
 	if (out.type == auto_placeholder_ && out.type_specifier != nullptr &&
 		out.type_specifier->kind == syntax::DeclSpecKind::CAutoType)
 	{
@@ -1982,24 +1996,69 @@ void Analyzer::c_declaration_specifiers(const syntax::SimpleDecl& decl, Scope* s
 	graph_.set_runtime_bounds(&decl, plan);
 }
 
+namespace {
+
+class CInferredName
+{
+public:
+	CInferredName(NameLookup& names, const Scope* scope, const Identifier* name, const Type* placeholder)
+		: names_(names), scope_(scope), name_(name)
+	{
+		if (name_ == nullptr)
+			return;
+		binding_.kind = BindingKind::PendingType;
+		binding_.type = placeholder;
+		binding_.name = name_;
+		binding_.declared_in = scope_;
+		names_.entry(scope_, name_)->value = &binding_;
+	}
+
+	~CInferredName()
+	{
+		if (name_ != nullptr)
+			names_.entry(scope_, name_)->value = nullptr;
+	}
+
+private:
+	NameLookup& names_;
+	const Scope* scope_;
+	const Identifier* name_;
+	Binding binding_{};
+};
+
+} // namespace
+
 const Type* Analyzer::deduce_c_auto_type(const syntax::SimpleDecl& decl, const Specifiers& specifiers, Scope* scope)
 {
-	const syntax::Expr& initializer = *decl.declarators[0].initializer->expression;
-	// GCC's initializer sees the enclosing bindings. Keep those typed
-	// facts when the ordinary initialization applies the conversion.
-	if (body_ != nullptr)
-		typed_value(initializer, scope);
-	else
-		constant_operand(initializer, scope, true);
+	const syntax::InitDeclarator& written = decl.declarators[0];
+	const syntax::Expr& initializer = *written.initializer->expression;
+	const bool standard = specifiers.type_specifier->keyword == TokenKind::KW_AUTO;
+	Scope* home = declaration_scope(scope);
+	const Identifier* name = nullptr;
+	if (standard)
+	{
+		name = DeclaratorId(written.declarator)->last().identifier;
+		if (names_.declared(home, name, LookupFilter::Ordinary).found())
+			error(written.declarator->location, "an inferred C declaration repeats a name in the same scope");
+	}
+	// C23 bars a reference to the pending name. GNU __auto_type
+	// keeps the outer name visible until initialization is complete.
+	{
+		CInferredName pending(names_, home, name, auto_placeholder_);
+		if (body_ != nullptr)
+			typed_value(initializer, scope);
+		else
+			constant_operand(initializer, scope, true);
+	}
 	ExprFacts* facts = facts_of(initializer);
 	if (facts == nullptr || facts->type == nullptr)
-		error(initializer.location, "__auto_type initializer has no value type");
-	if ((facts->flags & kBitField) != 0)
+		error(initializer.location, "initializer for an inferred C type has no value type");
+	if (!standard && (facts->flags & kBitField) != 0)
 		error(initializer.location, "__auto_type cannot deduce from a bit-field");
 	facts->flags |= kImplicit;
 	const Type* type = decayed(facts);
 	if (IsVoid(type))
-		error(initializer.location, "__auto_type cannot deduce a void object");
+		error(initializer.location, "cannot infer a void object");
 	if ((specifiers.cv & kRestrict) != 0 && !SupportsCRestrict(type))
 		error(decl.location, "restrict requires a pointer to an object type");
 	type = types_.qualified(type, specifiers.cv);

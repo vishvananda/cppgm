@@ -564,6 +564,7 @@ bool Parser::at_constinit_specifier()
 bool Parser::parse_decl_specifiers(ListFrame<DeclSpecifier>& list, SpecifierInfo& info, CAlignment alignment)
 {
 	uint32_t standard_after = 0;
+	uint32_t c_auto_index = UINT32_MAX;
 	Attribute** added = &pending_attributes_;
 	for (;;)
 	{
@@ -612,6 +613,16 @@ bool Parser::parse_decl_specifiers(ListFrame<DeclSpecifier>& list, SpecifierInfo
 		if (token.kind == ParseTokenKind::Simple)
 		{
 			const TokenKind kind = token.simple;
+			if (c_source_ && kind == TokenKind::KW_AUTO)
+			{
+				if (info.c_auto_storage)
+					throw ParseError(token.location, "repeated auto storage-class specifier");
+				info.c_auto_storage = true;
+				c_auto_index = list.size();
+				list.push(keyword_specifier(token));
+				next();
+				continue;
+			}
 			if (IsKeywordSpecifier(kind) || IsSimpleTypeKeyword(kind))
 			{
 				info.has_typedef = info.has_typedef || kind == TokenKind::KW_TYPEDEF;
@@ -704,6 +715,12 @@ bool Parser::parse_decl_specifiers(ListFrame<DeclSpecifier>& list, SpecifierInfo
 	// unknown attributes whose spelling is deliberately not retained.
 	if (standard_after != 0 && list.size() > standard_after)
 		return fail();
+	if (info.c_auto_storage && !info.has_type)
+	{
+		list[c_auto_index].kind = DeclSpecKind::CAutoType;
+		info.c_auto_type = true;
+		info.has_type = true;
+	}
 	info.only_int = list.size() == 1 && list.back().kind == DeclSpecKind::Keyword &&
 		list.back().keyword == TokenKind::KW_INT;
 	return true;
@@ -782,6 +799,8 @@ bool Parser::continue_type_specifier_seq(ListFrame<DeclSpecifier>& list, Specifi
 		if (token.kind == ParseTokenKind::Simple)
 		{
 			const TokenKind kind = token.simple;
+			if (c_source_ && kind == TokenKind::KW_AUTO)
+				return fail();
 			if (kind == TokenKind::KW_CONST || kind == TokenKind::KW_VOLATILE || kind == TokenKind::KW_RESTRICT ||
 				IsSimpleTypeKeyword(kind))
 			{

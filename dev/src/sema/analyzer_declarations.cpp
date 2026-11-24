@@ -2265,6 +2265,8 @@ FunctionEntity* Analyzer::c_redeclared_function(FunctionEntity* previous, const 
 void Analyzer::check_function_qualifiers(
 	const Scope* where, const Identifier* key, const Type* type, const Specifiers& specifiers, uint32_t location)
 {
+	if (specifiers.c_auto_storage)
+		error(location, "auto on a C function declaration");
 	if (c_source_ && specifiers.is_constexpr)
 		error(location, "constexpr requires an object definition in C");
 	// 8.3.5p6, 12.1p4, 12.4p2: a ref-qualifier only on a non-static member
@@ -3282,7 +3284,7 @@ void Analyzer::bit_field_member(const Specifiers& specifiers, const syntax::Init
 	if (type == auto_placeholder_ || type == decltype_auto_placeholder_ || specifiers.deduction != nullptr)
 		error(location, "bit-field without a type");
 	if (specifiers.is_static || specifiers.is_extern || specifiers.is_thread_local || specifiers.is_typedef ||
-		specifiers.is_friend || specifiers.is_constexpr)
+		specifiers.c_auto_storage || specifiers.is_friend || specifiers.is_constexpr)
 		error(location, "a bit-field must be a non-static data member");
 	DeclaratorInfo info = DeclaratorInfo();
 	if (field.declarator != nullptr || !specifiers.mode_specifiers.empty())

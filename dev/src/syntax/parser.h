@@ -156,6 +156,7 @@ private:
 	{
 		bool has_type;
 		bool c_auto_type;
+		bool c_auto_storage;
 		bool has_typedef;
 		bool has_friend;
 		// A lone class or enum specifier (a class/enum declaration when no

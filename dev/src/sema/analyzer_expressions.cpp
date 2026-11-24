@@ -655,6 +655,8 @@ ExprFacts* Analyzer::binding_expression(
 		note_c_inline_reference(*binding, expr.location);
 	switch (binding->kind)
 	{
+	case BindingKind::PendingType:
+		error(expr.location, "an inferred C object is used in its own initializer");
 	case BindingKind::Variable:
 	{
 		VariableEntity* variable = static_cast<VariableEntity*>(binding->entity);

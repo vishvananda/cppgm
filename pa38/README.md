@@ -675,6 +675,19 @@ The first fixture set covers these parts of the C17 input profile:
   NaN in its compatible real format. Check earlier writes even
   when a later designator overrides them. C23 UTF-8 character and string
   literals use `unsigned char` for their code units.
+- In C23, infer the type in `auto name = expression` when the declaration
+  has no written type. Accept one object declarator consisting of an
+  identifier with optional attributes and enclosing parentheses.
+  Apply lvalue, array-to-pointer, and function-to-pointer conversions to
+  the initializer, then apply the written qualifiers. Preserve the type
+  of a bit-field as it would be used in a generic controlling expression.
+  Evaluate the initializer once, including any variably modified bounds.
+- Diagnose a reference to the pending C23 inferred name in its own
+  initializer, even when an outer declaration uses the same name.
+  Diagnose inference after an earlier declaration in the same scope.
+  With a written type, `auto` is permitted on a block-scope object
+  without another storage class. Recognize C23 `thread_local` alongside
+  `_Thread_local` and apply the ordinary thread storage rules.
 - Hosted C header declarations and their builtin operations through the
   existing hosted environment, including PA30's GNU startup-function attributes.
 - Support the reserved GNU spelling `__auto_type` in the C modes above.

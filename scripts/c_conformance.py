@@ -89,6 +89,22 @@ C23_SOURCE_REJECTIONS = (
     ('c23.constexpr-fractional-integer', '300-c23-constexpr-fractional-integer-bad.t', 'compile'),
     ('c23.constexpr-complex-to-real', '300-c23-constexpr-complex-to-real-bad.t', 'compile'),
     ('c23.constexpr-signaling-narrowing', '300-c23-constexpr-signaling-narrowing-bad.t', 'compile'),
+    ('c23.auto-pending-name', '300-c23-auto-pending-name-bad.t', 'compile'),
+    ('c23.auto-sizeof-self', '300-c23-auto-sizeof-self-bad.t', 'compile'),
+    ('c23.auto-multiple', '300-c23-auto-multiple-bad.t', 'compile'),
+    ('c23.auto-same-scope', '300-c23-auto-same-scope-bad.t', 'compile'),
+    ('c23.auto-pointer-declarator', '300-c23-auto-pointer-declarator-bad.t', 'compile'),
+    ('c23.auto-array-declarator', '300-c23-auto-array-declarator-bad.t', 'compile'),
+    ('c23.auto-braced-initializer', '300-c23-auto-braced-initializer-bad.t', 'compile'),
+    ('c23.auto-no-initializer', '300-c23-auto-no-initializer-bad.t', 'compile'),
+    ('c23.auto-no-value', '300-c23-auto-no-value-bad.t', 'compile'),
+    ('c23.auto-file-explicit-type', '300-c23-auto-file-explicit-type-bad.t', 'compile'),
+    ('c23.auto-explicit-storage', '300-c23-auto-explicit-storage-bad.t', 'compile'),
+    ('c23.auto-parameter', '300-c23-auto-parameter-bad.t', 'compile'),
+    ('c23.auto-typed-parameter', '300-c23-auto-typed-parameter-bad.t', 'compile'),
+    ('c23.auto-return-type', '300-c23-auto-return-type-bad.t', 'compile'),
+    ('c23.auto-type-name', '300-c23-auto-type-name-bad.t', 'compile'),
+    ('c23.auto-typedef', '300-c23-auto-typedef-bad.t', 'compile'),
 )
 C23_SOURCE_CASES = (
     ('c23.version', '100-c23-version.t', 'preprocess'),
@@ -119,6 +135,10 @@ C23_PROGRAMS = {
     'c23.constexpr-scalars': (PA38_GENERAL / '300-c23-constexpr-scalars.t', ()),
     'c23.constexpr-aggregates': (PA38_GENERAL / '300-c23-constexpr-aggregates.t', ()),
     'c23.constexpr-complex': (PA38_GENERAL / '300-c23-constexpr-complex.t', ()),
+    'c23.auto-inference': (PA38_GENERAL / '300-c23-auto-inference.t', ()),
+    'c23.auto-qualified': (PA38_GENERAL / '300-c23-auto-qualified.t', ()),
+    'c23.auto-vla': (PA38_GENERAL / '300-c23-auto-vla.t', ()),
+    'c23.auto-thread-local': (PA38_GENERAL / '300-c23-auto-thread-local.t', ()),
 }
 FLEXIBLE_ARRAY = PA38_GENERAL / '300-c-flexible-array.t'
 RECORD_CONSTRAINTS = {

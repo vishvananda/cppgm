@@ -12,6 +12,21 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "auto-record-member-diagnostic",
+      "path": "clang/test/Parser/c2x-auto.c",
+      "sha256": "06d5b6ce8434c0d09137e1f2849f21f47f60e58ba98e6d8d25b2108e22e0b3ca",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors", "-Wno-comment"],
+      "diagnostic_contains": {
+        "cppgm": "an inferred C type requires an initialized object declaration",
+        "upstream": "'auto' not allowed in struct member"
+      },
+      "obligation": "Diagnose an attempt to infer the type of a C23 record member"
+    },
+    {
       "id": "constexpr-file-scope-objects",
       "path": "clang/test/CodeGen/constexpr-c23-internal-linkage.c",
       "sha256": "34101cabd9bf8bce3d4b9ee0d286157cfc820e77f38f837c007b73739589a85a",

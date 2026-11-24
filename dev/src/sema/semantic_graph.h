@@ -53,7 +53,9 @@ enum class BindingKind : uint8_t
 	// Lookup only.
 	Namespace,
 	NamespaceAlias,
-	Concept
+	Concept,
+	// The reserved ordinary name during C23 initializer type inference.
+	PendingType
 };
 
 // One declaration of a name: it binds the name in a scope to an entity and

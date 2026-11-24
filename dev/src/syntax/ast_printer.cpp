@@ -496,7 +496,7 @@ void AstDumper::owned_specifier(const DeclSpecifier& specifier)
 		line("cv-qualifier", "_Atomic");
 		break;
 	case DeclSpecKind::CAutoType:
-		line("decl-specifier", "__auto_type");
+		line("decl-specifier", specifier.keyword == TokenKind::KW_AUTO ? "auto" : "__auto_type");
 		break;
 	case DeclSpecKind::Class:
 		class_specifier(*specifier.class_specifier);

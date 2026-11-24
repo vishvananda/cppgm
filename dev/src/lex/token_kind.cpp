@@ -337,7 +337,8 @@ bool FindCKeyword(const char* spelling, uint32_t length, CEdition edition, bool 
 		switch (kind)
 		{
 		case TokenKind::KW_AUTO:
-			kind = TokenKind::KW_REGISTER;
+			if (edition < CEdition::C23)
+				kind = TokenKind::KW_REGISTER;
 			return true;
 		case TokenKind::KW_INLINE:
 			return gnu || edition >= CEdition::C99;
@@ -348,6 +349,7 @@ bool FindCKeyword(const char* spelling, uint32_t length, CEdition edition, bool 
 		case TokenKind::KW_FALSE:
 		case TokenKind::KW_NULLPTR:
 		case TokenKind::KW_STATIC_ASSERT:
+		case TokenKind::KW_THREAD_LOCAL:
 		case TokenKind::KW_TRUE:
 			return edition >= CEdition::C23;
 		case TokenKind::KW_BREAK:

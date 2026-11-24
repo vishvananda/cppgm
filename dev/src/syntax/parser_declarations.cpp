@@ -1066,7 +1066,7 @@ Decl* Parser::finish_simple_declaration(DeclContext context, Slice<DeclSpecifier
 	if (info.c_auto_type &&
 		(info.has_typedef || (context != DeclContext::Namespace && context != DeclContext::Block) ||
 			at(TokenKind::OP_SEMICOLON)))
-		throw ParseError(start, "__auto_type requires an initialized object declaration");
+		throw ParseError(start, "an inferred C type requires an initialized object declaration");
 	if (accept(TokenKind::OP_SEMICOLON))
 	{
 		// A lone class or enumeration specifier declares just the type (the
@@ -1145,7 +1145,7 @@ Decl* Parser::finish_simple_declaration(DeclContext context, Slice<DeclSpecifier
 	if (info.c_auto_type)
 		for (const Declarator* part = declarator; part != nullptr; part = part->nested)
 			if (!part->pointers.empty() || !part->suffixes.empty())
-				throw ParseError(declarator->location, "__auto_type requires a plain identifier as declarator");
+				throw ParseError(declarator->location, "an inferred C type requires an identifier declarator");
 	// In a block's tentative parenthesized declaration, `int(f()->member)`
 	// is an expression: a trailing-return declarator requires leading auto.
 	// Reject that reading so the existing statement checkpoint can select it.
@@ -1200,7 +1200,7 @@ Decl* Parser::finish_simple_declaration(DeclContext context, Slice<DeclSpecifier
 	{
 		if (context == DeclContext::Class && at(TokenKind::OP_COLON))
 			return parse_bit_field_rest(DeclarationList{ specifiers, info, attributes, start }, declarators, current);
-		if (!info.c_auto_type)
+		if (!info.c_auto_type || info.c_auto_storage)
 			declare_declarator(current.declarator, info);
 		if ((at(TokenKind::OP_ASS) || at(TokenKind::OP_LBRACE) || at(TokenKind::OP_LPAREN)) &&
 			!parse_declarator_initializer(current, context))
@@ -1210,10 +1210,11 @@ Decl* Parser::finish_simple_declaration(DeclContext context, Slice<DeclSpecifier
 		{
 			if (current.initializer == nullptr || current.initializer->kind != InitializerKind::Assign ||
 				current.initializer->expression->kind == ExprKind::BracedInit)
-				throw ParseError(current.declarator->location, "__auto_type requires an expression initializer");
+				throw ParseError(current.declarator->location, "an inferred C type requires an expression initializer");
 			if (at(TokenKind::OP_COMMA))
-				throw ParseError(location(), "__auto_type requires a single declarator");
-			declare_declarator(current.declarator, info);
+				throw ParseError(location(), "an inferred C type requires a single declarator");
+			if (!info.c_auto_storage)
+				declare_declarator(current.declarator, info);
 		}
 		declarators.push(current);
 		if (!accept(TokenKind::OP_COMMA))

@@ -12,6 +12,39 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "auto-object-types",
+      "path": "gcc/testsuite/gcc.dg/c23-auto-1.c",
+      "sha256": "fe845d8cd410b695645b603bc1b4d073525157ad6e33605cebeaa4cbfcc77617",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Infer object types after decay and qualification in block, file, and loop declarations"
+    },
+    {
+      "id": "auto-vla-side-effects",
+      "path": "gcc/testsuite/gcc.dg/c23-auto-2.c",
+      "sha256": "310c5a4186732cabf9db01422c273afca75c34e2a5776f6c2516313b4747b960",
+      "dialect": "c23",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors", "-O2"],
+      "upstream_flags": ["-pedantic-errors", "-O2"],
+      "obligation": "Evaluate an inferred variably modified pointer initializer once and preserve its captured array extent"
+    },
+    {
+      "id": "auto-declaration-constraints",
+      "path": "gcc/testsuite/gcc.dg/c23-auto-3.c",
+      "sha256": "41161aec8281fc6c11f8a51fcd3b31a167501bf2059b789c94cf0789884150bf",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Diagnose an empty declaration using C23 auto"
+    },
+    {
       "id": "constexpr-integer-initializers",
       "path": "gcc/testsuite/gcc.dg/c23-constexpr-10.c",
       "sha256": "bc8817d2665fa10e96bf027ca027375074e53f0014502b49780cb168bb6b6eb7",
