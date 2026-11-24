@@ -79,7 +79,7 @@ void ModuleSymbols::define(uint32_t symbol, uint32_t section, uint64_t offset)
 	entry.value = offset;
 	const auto binding = bindings_.find(symbol);
 	entry.binding = binding == bindings_.end() ? object::Binding::Local : binding->second;
-	if (entry.type == object::SymbolType::None)
+	if (entry.type == object::SymbolType::None && explicit_types_.find(symbol) == explicit_types_.end())
 		entry.type = out_.sections[section].kind == object::SectionKind::Text ? object::SymbolType::Function
 																			  : object::SymbolType::Object;
 }
@@ -90,6 +90,11 @@ void ModuleSymbols::bind(uint32_t symbol, object::Binding binding)
 		return;
 	bindings_[symbol] = binding;
 	out_.symbols[symbol].binding = binding;
+}
+void ModuleSymbols::type(uint32_t symbol, object::SymbolType type)
+{
+	explicit_types_.insert(symbol);
+	out_.symbols[symbol].type = type;
 }
 void ModuleSymbols::alias(uint32_t symbol, uint32_t target, int64_t addend)
 {
@@ -110,7 +115,8 @@ void ModuleSymbols::finish()
 			if (target.section == object::kUndefinedSection)
 				continue;
 			define(alias.symbol, target.section, target.value + alias.addend);
-			out_.symbols[alias.symbol].type = target.type;
+			if (explicit_types_.find(alias.symbol) == explicit_types_.end())
+				out_.symbols[alias.symbol].type = target.type;
 			out_.symbols[alias.symbol].size = target.size;
 			done[i] = true;
 			progress = true;

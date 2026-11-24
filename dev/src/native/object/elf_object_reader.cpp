@@ -206,6 +206,13 @@ bool Decoder::read_sections()
 			section.kind = (header.flags & kShfExecinstr) != 0
 				? SectionKind::Text
 				: ((header.flags & kShfWrite) != 0 ? SectionKind::Data : SectionKind::Rodata);
+			if ((header.flags & kShfMerge) != 0)
+			{
+				if (header.entry_size == 0 || header.entry_size > UINT32_MAX)
+					return fail("invalid mergeable section entry size");
+				section.merge_size = static_cast<uint32_t>(header.entry_size);
+				section.merge_strings = (header.flags & kShfStrings) != 0;
+			}
 			break;
 		case kShtNobits:
 			section.kind = SectionKind::Bss;

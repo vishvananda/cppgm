@@ -198,13 +198,20 @@ Support `.text`, `.data`, `.bss`, `.rodata`, `.section`, the section stack and
 `.ascii`/`.asciz`/`.string`, and `.p2align`/`.balign`/`.align`/`.align`. Respect target
 alignment and section spelling differences.
 Adjacent quoted pieces in one string operand concatenate before an optional
-string terminator is emitted. For ELF symbol types, also accept `STT_FUNC`
-and `STT_OBJECT`, including the space-separated `.type symbol STT_FUNC` form.
+string terminator is emitted. For ELF symbol types, also accept `STT_FUNC`,
+`STT_OBJECT`, and `STT_NOTYPE`, including the space-separated
+`.type symbol STT_FUNC` form. Preserve ELF merge flags `M` and `MS`
+and their entry sizes, with or without allocation. `.incbin` reads
+bytes from a named file, with optional byte offset and count.
 
 In inline assembly, `.ascii` emits the bytes of its string operands.
 `.asciz` and `.string` append a zero byte to each operand. Adjacent
 quoted fragments form one operand. They can contain GNU operand
 substitutions, escapes, and embedded zero bytes.
+
+A static array or string literal can supply a symbol address to an
+immediate constraint. Check constraints against the operands that will be
+encoded, after any substitution or propagation.
 
 Preserve global/weak/local binding, hidden visibility, `.type`, `.size` and
 symbol aliases with `.set`/`.equ`. Support symbol addresses and constant addends,

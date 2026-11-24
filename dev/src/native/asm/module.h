@@ -24,9 +24,11 @@ public:
 private:
 	void flush();
 	bool directive(const std::string& name, assembly::ModuleCursor& cursor);
-	void section(const std::string& name, object::SectionKind kind);
+	void section(
+		const std::string& name, object::SectionKind kind, uint32_t merge_size = 0, bool merge_strings = false);
 	void data(assembly::ModuleCursor& cursor, unsigned bytes);
 	void strings(assembly::ModuleCursor& cursor, bool terminate);
+	void include_binary(assembly::ModuleCursor& cursor);
 	void alignment(assembly::ModuleCursor& cursor, bool power);
 	void size(assembly::ModuleCursor& cursor);
 	void type(assembly::ModuleCursor& cursor);

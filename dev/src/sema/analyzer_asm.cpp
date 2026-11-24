@@ -87,8 +87,11 @@ const char* prepare_operands(Analyzer& analyzer, const syntax::AsmStmt& stmt, Sc
 		{
 			ConstantInterpreter interpreter(analyzer);
 			ConstValue value = ConstValue();
-			if (interpreter.evaluate(expr, true, value) && value.kind == ValueKind::Pointer &&
-				value.root != RootKind::Null && value.root != RootKind::Object)
+			const bool array = expr.facts->type->unqualified->kind == TypeKind::Array;
+			const bool known = array ? interpreter.evaluate_designation(expr, value)
+									 : interpreter.evaluate(expr, true, value);
+			if (known && value.kind == ValueKind::Pointer && value.root != RootKind::Null &&
+				value.root != RootKind::Object)
 				addresses[i] = value;
 		}
 		const bool symbol = addresses[i].kind == ValueKind::Pointer;
@@ -99,14 +102,14 @@ const char* prepare_operands(Analyzer& analyzer, const syntax::AsmStmt& stmt, Sc
 		const bool scalar = IsScalar(type) || type->kind == TypeKind::Vector;
 		if (!scalar && !symbol && ((locations & AL_MEMORY) == 0 || !addressable))
 			return "assembly operand requires scalar/vector data or addressable memory";
-		// A required inline substitution can turn a parameter into a
-		// constant or a symbol. The native constraint solver checks the
-		// substituted operand when it encodes the caller.
+		// Substitution and propagation can expose a constant or symbol.
+		// The native constraint solver checks the operand it will encode.
 		if (!output && !constant.present && !symbol && !operand.input_storage && (locations & AL_REGISTER) == 0)
 		{
-			if (function == nullptr || !function->always_inline || (locations & (AL_IMMEDIATE | AL_SYMBOL)) == 0)
-				return "assembly operand requires an addressable memory object or compile-time constant";
-			function->deferred_asm_input = true;
+			if ((locations & (AL_IMMEDIATE | AL_SYMBOL)) == 0)
+				return "assembly operand requires addressable memory";
+			if (function != nullptr && function->always_inline)
+				function->deferred_asm_input = true;
 		}
 		if ((locations & AL_MEMORY) != 0)
 		{

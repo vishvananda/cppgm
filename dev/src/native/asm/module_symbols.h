@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <set>
 #include "asm/module_text.h"
 #include "native/object/object_file.h"
 #include "native/target.h"
@@ -19,6 +20,7 @@ public:
 	uint32_t token(assembly::ModuleCursor& cursor);
 	void define(uint32_t symbol, uint32_t section, uint64_t offset);
 	void bind(uint32_t symbol, object::Binding binding);
+	void type(uint32_t symbol, object::SymbolType type);
 	void alias(uint32_t symbol, uint32_t target, int64_t addend);
 	void finish();
 
@@ -34,6 +36,7 @@ private:
 	Target target_;
 	std::map<std::string, uint32_t> names_;
 	std::map<uint32_t, object::Binding> bindings_;
+	std::set<uint32_t> explicit_types_;
 	std::vector<Alias> aliases_;
 };
 

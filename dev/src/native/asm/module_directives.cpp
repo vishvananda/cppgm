@@ -1,6 +1,7 @@
 #include "native/asm/module.h"
 
 #include <climits>
+#include <fstream>
 
 #include "asm/module_expression.h"
 #include "native/backend_error.h"
@@ -71,6 +72,32 @@ void ModuleAssembler::strings(assembly::ModuleCursor& cursor, bool terminate)
 				object::AssemblyString{ section_, first, static_cast<uint32_t>(value.size()) + terminate });
 	} while (cursor.take(','));
 }
+void ModuleAssembler::include_binary(assembly::ModuleCursor& cursor)
+{
+	const std::string path = cursor.quoted();
+	if (path.find('\0') != std::string::npos || path.empty())
+		cursor.fail("invalid module binary file name");
+	const uint64_t skip = cursor.take(',') ? assembly::assembly_integer_expression(cursor) : 0;
+	const bool explicit_count = cursor.take(',');
+	const uint64_t count = explicit_count ? assembly::assembly_integer_expression(cursor) : 0;
+	if (out_.sections[section_].kind == SectionKind::Bss)
+		cursor.fail("binary data in module bss");
+	std::ifstream stream(path, std::ios::binary | std::ios::ate);
+	if (!stream)
+		cursor.fail("cannot open module binary file " + path);
+	const std::streamoff file_size = stream.tellg();
+	if (file_size < 0 || skip > static_cast<uint64_t>(file_size))
+		cursor.fail("module binary offset exceeds file size");
+	const uint64_t available = static_cast<uint64_t>(file_size) - skip;
+	const uint64_t bytes = explicit_count ? count : available;
+	if (bytes > available)
+		cursor.fail("module binary count exceeds file size");
+	const uint64_t first = offset();
+	reserve(bytes, 0);
+	stream.seekg(static_cast<std::streamoff>(skip));
+	if (bytes != 0 && !stream.read(reinterpret_cast<char*>(out_.sections[section_].bytes.data() + first), bytes))
+		cursor.fail("cannot read module binary file " + path);
+}
 void ModuleAssembler::alignment(assembly::ModuleCursor& cursor, bool power)
 {
 	uint64_t alignment = assembly::assembly_integer_expression(cursor);
@@ -121,9 +148,11 @@ void ModuleAssembler::type(assembly::ModuleCursor& cursor)
 	cursor.take('%');
 	const std::string kind = cursor.word();
 	if (kind == "function" || kind == "STT_FUNC")
-		out_.symbols[id].type = object::SymbolType::Function;
+		symbols_.type(id, object::SymbolType::Function);
 	else if (kind == "object" || kind == "STT_OBJECT")
-		out_.symbols[id].type = object::SymbolType::Object;
+		symbols_.type(id, object::SymbolType::Object);
+	else if (kind == "notype" || kind == "STT_NOTYPE")
+		symbols_.type(id, object::SymbolType::None);
 	else if (kind == "gnu_indirect_function")
 		cursor.fail("indirect function module definition is not implemented");
 	else
@@ -161,6 +190,8 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 		data(cursor, name == ".byte" ? 1 : name == ".word" || name == ".short" ? 2 : name == ".quad" ? 8 : 4);
 	else if (name == ".ascii" || name == ".asciz" || name == ".string")
 		strings(cursor, name != ".ascii");
+	else if (name == ".incbin")
+		include_binary(cursor);
 	else if (name == ".zero" || name == ".space" || name == ".skip")
 	{
 		const uint64_t bytes = assembly::assembly_integer_expression(cursor);
@@ -208,6 +239,8 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 		if (section_name.empty())
 			cursor.fail("module section name cannot be empty");
 		SectionKind kind = SectionKind::Data;
+		uint32_t merge_size = 0;
+		bool merge_strings = false;
 		if (cursor.take(','))
 		{
 			if (target_ == Target::MacOS && section_name.compare(0, 2, "__") == 0)
@@ -233,14 +266,10 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 					: flags.find('w') != std::string::npos  ? SectionKind::Data
 					: flags.find('a') != std::string::npos  ? SectionKind::Rodata
 															: SectionKind::Metadata;
-				const bool strings = flags.find('M') != std::string::npos || flags.find('S') != std::string::npos;
-				if (strings)
-				{
-					if (target_ != Target::Linux || flags.find_first_not_of("MS") != std::string::npos ||
-						flags.find('M') == std::string::npos || flags.find('S') == std::string::npos)
-						cursor.fail("merged string metadata requires nonallocated ELF MS flags");
-					kind = SectionKind::MetadataStrings;
-				}
+				const bool merge = flags.find('M') != std::string::npos;
+				merge_strings = flags.find('S') != std::string::npos;
+				if ((merge_strings && !merge) || (merge && target_ != Target::Linux))
+					cursor.fail("mergeable section flags require ELF M or MS");
 				if (cursor.take(','))
 				{
 					cursor.take('@');
@@ -250,10 +279,18 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 						kind = SectionKind::Bss;
 					else if (type != "progbits")
 						cursor.fail("unsupported module section type");
-					if (strings &&
-						(type != "progbits" || !cursor.take(',') || assembly::assembly_integer_expression(cursor) != 1))
-						cursor.fail("merged string metadata requires byte-sized progbits entries");
+					if (merge)
+					{
+						if (type != "progbits" || !cursor.take(','))
+							cursor.fail("mergeable section requires a progbits entry size");
+						const uint64_t size = assembly::assembly_integer_expression(cursor);
+						if (size == 0 || size > kModuleByteLimit)
+							cursor.fail("mergeable section entry size is out of range");
+						merge_size = static_cast<uint32_t>(size);
+					}
 				}
+				else if (merge)
+					cursor.fail("mergeable section requires a section type and entry size");
 			}
 		}
 		if (section_name == ".text")
@@ -262,7 +299,7 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 			kind = SectionKind::Rodata;
 		else if (section_name == ".bss")
 			kind = SectionKind::Bss;
-		section(section_name, kind);
+		section(section_name, kind, merge_size, merge_strings);
 	}
 	else
 		return false;

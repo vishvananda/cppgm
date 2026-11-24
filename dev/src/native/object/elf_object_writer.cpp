@@ -47,7 +47,7 @@ uint32_t section_type(SectionKind kind)
 	}
 }
 
-uint64_t section_flags(SectionKind kind)
+uint64_t section_kind_flags(SectionKind kind)
 {
 	switch (kind)
 	{
@@ -66,6 +66,17 @@ uint64_t section_flags(SectionKind kind)
 	default:
 		return kShfAlloc | kShfWrite;
 	}
+}
+
+uint64_t section_flags(const Section& section)
+{
+	return section_kind_flags(section.kind) | (section.merge_size != 0 ? kShfMerge : 0) |
+		(section.merge_strings ? kShfStrings : 0) | (section.group != kNoGroup ? kShfGroup : 0);
+}
+
+uint32_t merge_entry_size(const Section& section)
+{
+	return section.kind == SectionKind::MetadataStrings ? 1 : section.merge_size;
 }
 
 uint8_t binding_code(Binding binding)
@@ -225,13 +236,13 @@ void Encoder::add_contents()
 		if (from.kind == SectionKind::Metadata && std::strcmp(object_.string(from.name), ".note.GNU-stack") == 0)
 			has_stack_note_ = true;
 		section.type = section_type(from.kind);
-		section.flags = section_flags(from.kind) | (from.group != kNoGroup ? kShfGroup : 0);
+		section.flags = section_flags(from);
 		const bool nobits = from.kind == SectionKind::Bss || from.kind == SectionKind::TlsBss;
 		section.size = nobits ? from.size : from.bytes.size();
 		section.align = from.align;
 		section.entry_size = from.kind == SectionKind::InitArray || from.kind == SectionKind::FiniArray ? 8 : 0;
-		if (from.kind == SectionKind::MetadataStrings)
-			section.entry_size = 1;
+		if ((section.flags & kShfMerge) != 0)
+			section.entry_size = merge_entry_size(from);
 		section.bytes = nobits ? nullptr : &from.bytes;
 		sections_.push_back(std::move(section));
 	}
@@ -605,7 +616,7 @@ void AssemblyWriter::symbol(uint32_t index)
 void AssemblyWriter::select_section(uint32_t index)
 {
 	const Section& section = object_.sections[index];
-	const uint64_t flags = section_flags(section.kind);
+	const uint64_t flags = section_flags(section);
 	out_ << "\t.section ";
 	assembly_quote(out_, object_.string(section.name));
 	out_ << ",\"";
@@ -623,7 +634,7 @@ void AssemblyWriter::select_section(uint32_t index)
 					: type == kShtFiniArray ? "fini_array"
 											: "progbits");
 	if (flags & kShfMerge)
-		out_ << ",1";
+		out_ << ',' << merge_entry_size(section);
 	if (section.group != kNoGroup)
 	{
 		out_ << ',';

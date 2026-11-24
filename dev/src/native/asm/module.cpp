@@ -22,18 +22,22 @@ uint64_t ModuleAssembler::offset() const
 {
 	return out_.sections[section_].size;
 }
-void ModuleAssembler::section(const std::string& name, object::SectionKind kind)
+void ModuleAssembler::section(
+	const std::string& name, object::SectionKind kind, uint32_t merge_size, bool merge_strings)
 {
 	flush();
 	previous_ = section_;
 	for (uint32_t i = 1; i < out_.sections.size(); ++i)
 		if (name == out_.string(out_.sections[i].name) && out_.sections[i].kind == kind &&
-			out_.sections[i].group == object::kNoGroup)
+			out_.sections[i].group == object::kNoGroup && out_.sections[i].merge_size == merge_size &&
+			out_.sections[i].merge_strings == merge_strings)
 		{
 			section_ = i;
 			return;
 		}
 	section_ = out_.add_section(name.c_str(), kind, 1);
+	out_.sections[section_].merge_size = merge_size;
+	out_.sections[section_].merge_strings = merge_strings;
 }
 void ModuleAssembler::flush()
 {
