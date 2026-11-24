@@ -72,8 +72,9 @@ def copy_lane(source, target, suffix):
     # temporary-file quotas without adding coverage.
     endings = tuple(suffix + extension for extension in ('', '.exit_status', '.stdout', '.stderr'))
     def ignore(_directory, names):
-        return [name for name in names
-                if re.search(r'\.(?:my|check)(?:\.|$)', name) and not name.endswith(endings)]
+        # copytree tests membership once for each directory entry.
+        return {name for name in names
+                if re.search(r'\.(?:my|check)(?:\.|$)', name) and not name.endswith(endings)}
     shutil.copytree(source, target, symlinks=False, ignore=ignore)
 
 
