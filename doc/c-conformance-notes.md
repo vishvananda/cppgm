@@ -1689,6 +1689,32 @@ small inputs and distinguishes values that round to the same `double`.
 [C23 N3096 §§7.12.6.14, F.10.3.14](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
 [FreeBSD msun implementation](https://github.com/freebsd/freebsd-src/blob/c9991e01149b5cd5a6710d70921b203ef7f16fc2/lib/msun/ld128/s_logl.c)
 
+The three `log2p1` and `log10p1` forms also work in the supplement. The
+binary128 forms use the same range reduction as `logp1l` and scale the
+leading value and residual with split constants. The natural logarithm
+keeps its direct return for inputs whose logarithm rounds back to the
+argument.
+[C23 N3096 §§7.12.6.13, 7.12.6.16](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+
+The narrowing functions round addition, subtraction, multiplication,
+division, fused multiply-add and square root once to the result type.
+For most binary64 inputs the native arithmetic result is away from a
+binary32 midpoint and converts directly. At a possible midpoint, and for
+the binary128 operations and fused multiply-add, Berkeley SoftFloat
+sets the low bit of an inexact intermediate. A narrower midpoint has
+an even low bit in the intermediate format, so the final nearest-even
+conversion selects the same side of the midpoint as the exact result.
+The software path has no mutable rounding or exception state.
+[C23 N3096 §§7.12.14, F.10.11](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
+[Berkeley SoftFloat rounding modes](https://www.jhauser.us/arithmetic/SoftFloat-3/doc/SoftFloat.html#RoundingMode)
+
+The WASI `<tgmath.h>` overlay selects the completed C23 families by
+their generic parameters. It uses `__builtin_tgmath` for direct selection
+with cppgm and `_Generic` on compilers that lack the builtin. Both paths
+evaluate each argument once. The math and type-generic math version
+macros remain open while other C23 math families are outstanding.
+[C23 N3096 §7.27](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+
 The WASI binary32, binary64, and binary128 formats have canonical
 representations for all of their bit patterns. The `iscanonical` macro
 evaluates its operand and returns true. The other C23 classification

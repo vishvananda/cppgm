@@ -3793,3 +3793,53 @@ pinned WASI SDK. The remaining 41 and the type-generic families keep
 [C23 N3096 §§7.12.6.14, F.10.3.14](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
 [FreeBSD msun source](https://github.com/freebsd/freebsd-src/blob/c9991e01149b5cd5a6710d70921b203ef7f16fc2/lib/msun/ld128/s_logl.c) ·
 [Natural logarithm probe](../scripts/tests/c_c23_math_logp1.c)
+
+### Hosted WASI narrowing arithmetic and type-generic math
+
+The supplement adds all 18 C23 narrowing functions. The binary64 fast
+path checks whether hardware arithmetic produced a binary32 midpoint.
+The other path uses a pinned, stateless Berkeley SoftFloat subset and
+an odd-rounded intermediate to preserve the side of the midpoint.
+
+The cppgm and SDK Clang archive builds match MPFR on 239,184 outcomes
+each, including 12,288 deterministic input tuples and 1,000 special
+value combinations. The checked-in probe exercises exact midpoints,
+both sides of midpoints, directed rounding on supported native hosts,
+and fused cancellation. It passes all 16 mixed WASI compile and link
+configurations, both native x86-64 reference compilers, and AArch64 under
+QEMU at `-O0`, `-O2`, and `-Oz`.
+
+`<tgmath.h>` now supplies the generic forms for completed C23 families.
+The probe checks result types, mixed integer and floating arguments,
+single evaluation, and function access with macro expansion suppressed.
+It passes all 16 mixed WASI configurations, GCC 15 on native x86-64,
+and AArch64 under QEMU at all three levels. The default native Clang
+resource header omits these macros. The supplemented WASI Clang
+configuration supplies them through the portable `_Generic` path.
+The existing C11 and C17 SDK math macros pass their controls.
+
+The two binary128 compensated logarithms use the existing `log1pl`
+range reduction. The MPFR comparison covers 32,768 cases per function
+for each archive compiler. Both bases stay within one binary128 ULP,
+and the natural-logarithm results still match MPFR bit for bit. The
+expanded logarithm and generic probes pass all 32 mixed WASI
+configurations, and the AArch64 QEMU checks pass.
+
+The C matrix passes 4,389 configurations. Linux x86-64 runs 1,480,
+stock WASI runs 1,333, supplemented WASI runs 542 and bare Wasm runs
+1,034. The supplement passes 207 tracked C23 checks. Both source
+packages include the SoftFloat files and notices. The extracted
+source-only archive builds at `-Oz -flto` and passes the narrowing,
+type-generic math, and both logarithm probes.
+
+The runtime archive supplies 99 of the 120 math symbols missing from the
+pinned SDK. The 21 remaining functions and their generic forms still
+keep `<math.h>` and `<tgmath.h>` open. The SDK's `expm1l` loses the
+nonzero binary128 input `0x1p-2000L`. Its `powl` returns one for
+`powl(1 + 0x1p-64L, 0x1p64L)`. Both cases need a binary128
+implementation when extending the compensated exponentials and
+power functions.
+
+[C23 N3096 §§7.12.6, 7.12.14, 7.27](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
+[Pinned SoftFloat sources](../third_party/softfloat/README.md) ·
+[Compile and Wasm instruction measurements](../docs/performance/c-frontend-scaling.md#wasi-c23-narrowing-and-type-generic-math)

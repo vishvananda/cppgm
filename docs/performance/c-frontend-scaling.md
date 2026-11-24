@@ -4150,3 +4150,37 @@ The `logp1` batch adds three public declarations. The same compiler and
 header workload produce identical objects against the two overlays.
 The A/A instruction spread is 2,597. ABBA and BAAB add 44,364 and
 42,329 instructions on a 10.17 million instruction control.
+
+## WASI C23 narrowing and type-generic math
+
+A precompiled Wasmtime workload makes one million calls each to
+`fadd`, `fsub`, `fmul`, `fdiv`, and `fsqrt`. Both modules use the cppgm
+`-O2` build and produce checksum `996335dcb6a912e2` on CPU 71. A/A
+varies by 1,097 retired user instructions. The native binary64 path
+with a software midpoint fallback reduces retired instructions by
+75.05% in both paired blocks, from 1,194.8 million to 298.1 million.
+The stripped module grows from 38,683 to 39,441 bytes.
+
+cppgm uses object-like selectors for `__builtin_tgmath` so expansion
+adds one builtin call per level. Function-like forwarding rescanned
+the nested argument. Each depth below uses identical input in both
+builds, and all compared `-O0` object bytes match. The counts are
+medians of three observations on CPU 71.
+
+| Nested `rsqrt` calls | Function-like selector | Object-like selector |
+| ---: | ---: | ---: |
+| 32 | 26,307,342 | 24,094,679 |
+| 64 | 33,941,426 | 25,053,993 |
+| 128 | 62,555,483 | 26,959,338 |
+| 256 | 173,216,292 | 30,763,448 |
+
+For a small consumer of the existing `sqrt` macro, adding the C23
+overlay increases retired instructions by about 0.34 million on a
+23.04 million instruction control. All object bytes match.
+
+The `log1pl` compatibility benchmark runs 262,144 calls across small
+values and values near one in precompiled Wasmtime. Its checksum is
+`7848e2b87fcc5a98` in every observation. The unoptimized shared kernel
+adds 0.97% retired instructions to the natural logarithm. Keeping its
+tiny-input return in the public entry point reduces that to 0.48% in
+both paired blocks. The A/A spread is 2,029 retired instructions.
