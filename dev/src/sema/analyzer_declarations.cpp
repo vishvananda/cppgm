@@ -1854,7 +1854,8 @@ const Type* Analyzer::redeclare_variable(VariableEntity* variable, const Type* t
 		error(location, "conflicting declaration of a variable");
 	if (variable->is_thread_local != specifiers.is_thread_local)
 		error(location, "declarations of a variable with different thread storage duration");
-	if (specifiers.is_static && where->kind == ScopeKind::Namespace && !variable->internal_linkage)
+	if ((specifiers.is_static || (c_source_ && specifiers.is_constexpr)) && where->kind == ScopeKind::Namespace &&
+		!variable->internal_linkage)
 		error(location, "a static declaration of a variable declared with external linkage");
 	if (where->kind == ScopeKind::Namespace && !qualified && variable->c_linkage != c_language_)
 		agree_language_linkage(variable->c_linkage, location);
@@ -2010,6 +2011,8 @@ void Analyzer::check_variable_specifiers(const Specifiers& specifiers, const Typ
 	// declared constexpr in its class has a brace-or-equal-initializer.
 	if (specifiers.is_constexpr)
 	{
+		if (c_source_ && !initialized)
+			error(location, "a C constexpr object requires an initializer");
 		const bool in_class = where->kind == ScopeKind::Class && !qualified;
 		if (in_class && member)
 			error(location, "a constexpr non-static data member");
@@ -2140,7 +2143,7 @@ VariableEntity* Analyzer::new_variable(const Specifiers& specifiers, const char*
 			object = object->element;
 		// A C-linkage one of an unnamed namespace is external (7.5p6, as
 		// for functions; Clang's reading).
-		variable->internal_linkage = specifiers.is_static ||
+		variable->internal_linkage = specifiers.is_static || (c_source_ && specifiers.is_constexpr) ||
 			(static_cast<const NamespaceEntity*>(where->entity)->internal && !c_language_) ||
 			(!c_source_ && (object->cv & kConst) != 0 && !is_extern && !type->is_reference() && !variable->is_inline);
 		variable->c_linkage = c_language_;
@@ -2260,16 +2263,18 @@ FunctionEntity* Analyzer::c_redeclared_function(FunctionEntity* previous, const 
 }
 
 void Analyzer::check_function_qualifiers(
-	const Scope* where, const Identifier* key, const Type* type, bool is_static, uint32_t location)
+	const Scope* where, const Identifier* key, const Type* type, const Specifiers& specifiers, uint32_t location)
 {
+	if (c_source_ && specifiers.is_constexpr)
+		error(location, "constexpr requires an object definition in C");
 	// 8.3.5p6, 12.1p4, 12.4p2: a ref-qualifier only on a non-static member
 	// function other than a constructor or destructor.
 	if (type->ref != RefQualifier::None &&
-		(where->kind != ScopeKind::Class || is_static || key == constructor_key_ || key == destructor_key_))
+		(where->kind != ScopeKind::Class || specifiers.is_static || key == constructor_key_ || key == destructor_key_))
 		error(location, "a ref-qualifier on a function that is not a non-static member function");
 	// 8.3.5p6, 9.4.1p2, 12.1p4, 12.4p2: likewise a cv-qualifier-seq.
 	if (type->function_cv != 0 &&
-		(where->kind != ScopeKind::Class || is_static || key == constructor_key_ || key == destructor_key_))
+		(where->kind != ScopeKind::Class || specifiers.is_static || key == constructor_key_ || key == destructor_key_))
 		error(location, "a cv-qualifier on a function that is not a non-static member function");
 }
 
@@ -2456,7 +2461,7 @@ Binding* Analyzer::declare_function(const Specifiers& specifiers, const Declarat
 	if (friend_block != nullptr && specifiers.is_friend && function == nullptr)
 		error(location, "a local class's friend names no function declared in its innermost block");
 	bool first = false;
-	check_function_qualifiers(where, name.key, info.type->canonical, specifiers.is_static, location);
+	check_function_qualifiers(where, name.key, info.type->canonical, specifiers, location);
 	if (function == nullptr && where->kind == ScopeKind::Class && !templated)
 		check_member_overload(where, name.key, info.type, specifiers.is_static, location);
 	if (where == graph_.global && !templated && !c_freestanding_ && name.key != nullptr && name.key->length == 4 &&

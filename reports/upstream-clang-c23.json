@@ -12,6 +12,17 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "constexpr-file-scope-objects",
+      "path": "clang/test/CodeGen/constexpr-c23-internal-linkage.c",
+      "sha256": "34101cabd9bf8bce3d4b9ee0d286157cfc820e77f38f837c007b73739589a85a",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Emit file-scope constexpr integer, character, and floating objects whose addresses are used"
+    },
+    {
       "id": "bitint-suffix",
       "path": "clang/test/AST/bitint-suffix.c",
       "sha256": "9ef171a0fdfe4952ed98bbbc89abe6e30c284c2b67162884da811c3f1f9a23cf",

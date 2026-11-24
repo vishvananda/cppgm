@@ -1,7 +1,11 @@
 #include "sema/analyzer.h"
 
+#include "sema/constant_floating.h"
 #include "sema/constant_interpreter.h"
+#include "sema/string_literals.h"
 #include "support/small_list.h"
+
+#include <cmath>
 
 namespace sema {
 
@@ -22,11 +26,70 @@ bool BuiltinIntegerConstantCandidate(const ExprFacts& facts)
 		static_cast<const FunctionEntity*>(facts.entity)->builtin != BuiltinFunction::None;
 }
 
+bool CNamedConstant(const syntax::Expr* expr)
+{
+	using syntax::ExprKind;
+	while (expr->kind == ExprKind::Member)
+	{
+		const auto* member = static_cast<const syntax::MemberExpr*>(expr);
+		if (member->op != TokenKind::OP_DOT)
+			return false;
+		expr = WithoutParentheses(member->base);
+	}
+	if (expr->kind != ExprKind::Id || expr->facts->entity == nullptr)
+		return false;
+	const Entity* entity = expr->facts->entity;
+	return entity->kind == EntityKind::Variable && static_cast<const VariableEntity*>(entity)->is_constexpr;
+}
+
+bool CIntegerFits(const ConstValue& value, IntegralKind destination)
+{
+	const bool signed_source = IsSignedConstant(Constant{ value.bits, value.type });
+	const uint64_t high = IsWideIntegral(value.type)            ? value.high
+		: signed_source && static_cast<int64_t>(value.bits) < 0 ? UINT64_MAX
+																: 0;
+	const bool negative = signed_source && static_cast<int64_t>(high) < 0;
+	if (negative && !destination.is_signed)
+		return false;
+	const WideBits original = (static_cast<WideBits>(high) << 64) | value.bits;
+	const WideBits converted = ConvertWideIntegral(original, destination);
+	return original == converted && (negative || !destination.is_signed || static_cast<__int128>(converted) >= 0);
+}
+
+bool CStringFits(const syntax::LiteralExpr& literal, const Type* destination)
+{
+	const Type* source = literal.facts->type->element;
+	const Type* element = destination->element;
+	if (source->unqualified == element->unqualified)
+		return true;
+	IntegralKind from, to;
+	if (!IntegralKindOf(source, from) || !IntegralKindOf(element, to))
+		return false;
+	std::vector<uint64_t> scratch;
+	const StringCodeUnits units = ReadStringCodeUnits(literal, scratch);
+	for (size_t i = 0; i < units.size(); ++i)
+		if (!Representable(Constant{ ConvertIntegral(units[i], from), source }, to))
+			return false;
+	return true;
+}
+
+bool SameCArithmeticValue(const ConstValue& left, const ConstValue& right)
+{
+	if (left.kind != right.kind)
+		return false;
+	if (left.kind == ValueKind::Floating)
+		return left.floating == right.floating || (std::isnan(left.floating) && std::isnan(right.floating));
+	if (left.kind == ValueKind::Array && IsComplex(left.type))
+		return SameCArithmeticValue(left.elements[0], right.elements[0]) &&
+			SameCArithmeticValue(left.elements[1], right.elements[1]);
+	return left.bits == right.bits && left.high == right.high;
+}
+
 } // namespace
 
-// C11 6.6p6 and DR 489: check the forms of operands even in a branch the
-// evaluator skips. The value evaluator handles 6.6p3 on the evaluated path.
-bool Analyzer::c_integer_constant_operands(const syntax::Expr& root) const
+// Check operand forms even in a branch the evaluator skips (C11 DR 489).
+// C23 adds named constants to both the integer and arithmetic forms.
+bool Analyzer::c_integer_constant_operands(const syntax::Expr& root, bool arithmetic) const
 {
 	using syntax::Expr;
 	using syntax::ExprKind;
@@ -37,7 +100,8 @@ bool Analyzer::c_integer_constant_operands(const syntax::Expr& root) const
 		const Expr* expr = WithoutParentheses(pending.back());
 		pending.pop_back();
 		const ExprFacts* facts = expr->facts;
-		if (facts == nullptr || facts->type == nullptr || !IsIntegralOrUnscopedEnum(facts->type))
+		if (facts == nullptr || facts->type == nullptr ||
+			(!IsIntegralOrUnscopedEnum(facts->type) && !(arithmetic && IsArithmetic(facts->type))))
 			return false;
 		switch (expr->kind)
 		{
@@ -50,7 +114,11 @@ bool Analyzer::c_integer_constant_operands(const syntax::Expr& root) const
 				return false;
 			break;
 		case ExprKind::Id:
-			if (facts->entity == nullptr || facts->entity->kind != EntityKind::Enumerator)
+			if (facts->entity != nullptr && facts->entity->kind == EntityKind::Enumerator)
+				break;
+			// Fall through.
+		case ExprKind::Member:
+			if (!CNamedConstant(expr))
 				return false;
 			break;
 		case ExprKind::Generic:
@@ -59,7 +127,8 @@ bool Analyzer::c_integer_constant_operands(const syntax::Expr& root) const
 		case ExprKind::Cast:
 		{
 			const Expr* operand = WithoutParentheses(static_cast<const syntax::CastExpr*>(expr)->operand);
-			if (operand->kind != ExprKind::Literal || !IsFloating(operand->facts->type))
+			if (arithmetic || !IsArithmetic(operand->facts->type) ||
+				(operand->kind != ExprKind::Literal && !CNamedConstant(operand)))
 				pending.push_back(operand);
 			break;
 		}
@@ -105,6 +174,71 @@ bool Analyzer::c_integer_constant_operands(const syntax::Expr& root) const
 	return true;
 }
 
+bool ConstantInterpreter::check_c_constexpr_initializer(
+	const syntax::Expr& expr, const Type* to, const DataMember* member, const ConstValue*& checked)
+{
+	const Type* from = expr.facts->type;
+	if (to->kind == TypeKind::Array)
+		return expr.kind == syntax::ExprKind::Literal && from->kind == TypeKind::Array &&
+			CStringFits(static_cast<const syntax::LiteralExpr&>(expr), to);
+	IntegralKind integer;
+	const bool integer_target = IntegralKindOf(to, integer);
+	if (integer_target && member != nullptr && member->bit_field)
+		integer.bits = static_cast<unsigned>(member->width);
+	if (integer_target && expr.kind == syntax::ExprKind::Literal && IsIntegralOrUnscopedEnum(from))
+	{
+		ConstValue value = IntegerValue(from, expr.facts->value);
+		if (IsWideIntegral(from) && static_cast<const syntax::LiteralExpr&>(expr).bit_int)
+			value.high = static_cast<const syntax::LiteralExpr&>(expr).integer_high_bits();
+		return CIntegerFits(value, integer);
+	}
+	const bool pointer_target = to->kind == TypeKind::Pointer ||
+		(to->kind == TypeKind::Fundamental && to->fundamental == FundamentalType::NullptrT);
+	const bool arithmetic_target = !integer_target && IsArithmetic(to);
+	if (integer_target && !analyzer_.c_integer_constant_operands(expr))
+		return false;
+	if (arithmetic_target &&
+		((IsFloating(to) && IsComplex(from)) || !analyzer_.c_integer_constant_operands(expr, true)))
+		return false;
+	if (pointer_target && IsIntegralOrUnscopedEnum(from) && !analyzer_.c_integer_constant_operands(expr))
+		return false;
+	if (!integer_target && !arithmetic_target && !pointer_target && !CNamedConstant(&expr))
+		return false;
+	++analyzer_.graph_.constant_evaluations;
+	c_constant_expression_ = true;
+	c_constexpr_initializer_ = true;
+	ConstValue value;
+	if (!rvalue(expr, value) || !complete(value) || incomplete_class_)
+		return false;
+	if (integer_target)
+	{
+		if (value.kind != ValueKind::Integer || !CIntegerFits(value, integer))
+			return false;
+	}
+	else if (pointer_target)
+	{
+		if ((value.kind != ValueKind::Pointer || value.root != RootKind::Null) &&
+			(value.kind != ValueKind::Integer || (value.bits | value.high) != 0))
+			return false;
+	}
+	else if (arithmetic_target && from->unqualified != to->unqualified)
+	{
+		const Type* component = IsComplex(to) ? to->element : to;
+		if (IsFloating(from) && from->unqualified != component->unqualified && ConstantFloatingSignaling(value))
+			return false;
+		ConstValue round_trip = value;
+		if (!convert_scalar(round_trip, to, expr.location) || !convert_scalar(round_trip, from, expr.location) ||
+			!SameCArithmeticValue(value, round_trip))
+			return false;
+	}
+	if (expr.kind != syntax::ExprKind::Literal && expr.kind != syntax::ExprKind::KeywordLiteral)
+	{
+		checked = publish(value, expr.location);
+		return checked != nullptr;
+	}
+	return true;
+}
+
 bool Analyzer::integer_constant_expression(
 	const syntax::Expr& expr, Scope* scope, Constant& value, bool required, uint64_t* high)
 {
@@ -122,6 +256,18 @@ bool Analyzer::integer_constant_expression(
 	{
 		value = facts->constant();
 		return true;
+	}
+	if (c23_ && direct->kind == syntax::ExprKind::Id && facts != nullptr && facts->entity != nullptr &&
+		facts->entity->kind == EntityKind::Variable)
+	{
+		const auto* variable = static_cast<const VariableEntity*>(facts->entity);
+		if (variable->is_constexpr && variable->constant == ConstantState::Value)
+		{
+			value = variable->value;
+			if (high != nullptr)
+				*high = IsSignedConstant(value) && static_cast<int64_t>(value.bits) < 0 ? UINT64_MAX : 0;
+			return true;
+		}
 	}
 	if (c_integer_constant_operands(expr))
 	{

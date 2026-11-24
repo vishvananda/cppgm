@@ -1068,12 +1068,14 @@ bool ConstantInterpreter::read(const ConstPlace& place, ConstValue& out, uint32_
 	// or a variable usable in constant expressions, not volatile.
 	if ((place.type->cv & kVolatile) != 0)
 		return fail(location, "a read of a volatile glvalue");
-	// C17 6.6: a const-qualified object is not an integer constant.
-	// In particular, `const int n = 3; int a[n];` is still a VLA.
-	if (analyzer_.c_source_ && place.root == RootKind::Variable)
+	// C23 6.6 permits reads of named constants. An ordinary const object
+	// still supplies no integer constant (including in an array bound).
+	const bool c_named_constant = analyzer_.c23_ && place.root == RootKind::Variable &&
+		static_cast<const VariableEntity*>(place.entity)->is_constexpr;
+	if (analyzer_.c_source_ && place.root == RootKind::Variable && !c_named_constant)
 		return fail(location, "a C object's stored value is not a constant expression");
 	const bool aggregate = place.type->kind == TypeKind::Array || place.type->unqualified->kind == TypeKind::Class;
-	if (((place.flags & kMutableSubobject) != 0 || aggregate) &&
+	if (!c_named_constant && ((place.flags & kMutableSubobject) != 0 || aggregate) &&
 		(!analyzer_.cxx14_ ||
 			!((place.root == RootKind::Object && place.object >= first_object_) ||
 				(place.root == RootKind::Variable && place.entity == constructing_ && !checking_destruction_) ||
@@ -2052,6 +2054,8 @@ bool ConstantInterpreter::initialize(const VariableEntity* variable, const synta
 	const ConstValue*& out, bool transient, bool static_zero)
 {
 	++analyzer_.graph_.constant_evaluations;
+	c_constexpr_initializer_ = analyzer_.c_source_ && variable->is_constexpr;
+	c_constant_expression_ = c_constexpr_initializer_;
 	const Type* type = variable->type;
 	const uint32_t location = initializer != nullptr ? initializer->location : 0;
 	if (type->is_reference())

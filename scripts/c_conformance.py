@@ -70,6 +70,23 @@ C23_SOURCE_REJECTIONS = (
     ('c23.bitint-bitfield-width', '300-c23-bit-precise-bit-field-width-bad.t', 'compile'),
     ('c23.bitint-overflow', '300-c23-bit-precise-overflow-bad.t', 'compile'),
     ('c23.bitint-duplicate-case', '500-c23-bit-precise-duplicate-case-bad.t', 'compile'),
+    ('c23.constexpr-reserved', '100-c23-constexpr-reserved-bad.t', 'compile'),
+    ('c23.constexpr-no-initializer', '300-c23-constexpr-no-initializer-bad.t', 'compile'),
+    ('c23.constexpr-function', '300-c23-constexpr-function-bad.t', 'compile'),
+    ('c23.constexpr-extern', '300-c23-constexpr-extern-bad.t', 'compile'),
+    ('c23.constexpr-ordinary-const', '300-c23-constexpr-ordinary-const-bad.t', 'compile'),
+    ('c23.constexpr-array-read', '300-c23-constexpr-array-read-bad.t', 'compile'),
+    ('c23.constexpr-inactive-member', '300-c23-constexpr-inactive-member-bad.t', 'compile'),
+    ('c23.constexpr-subobject-qualifier', '300-c23-constexpr-subobject-qualifier-bad.t', 'compile'),
+    ('c23.constexpr-atomic', '300-c23-constexpr-atomic-bad.t', 'compile'),
+    ('c23.constexpr-vla', '300-c23-constexpr-vla-bad.t', 'compile'),
+    ('c23.constexpr-integer-narrowing', '300-c23-constexpr-integer-narrowing-bad.t', 'compile'),
+    ('c23.constexpr-floating-narrowing', '300-c23-constexpr-floating-narrowing-bad.t', 'compile'),
+    ('c23.constexpr-bitfield-narrowing', '300-c23-constexpr-bitfield-narrowing-bad.t', 'compile'),
+    ('c23.constexpr-string-narrowing', '300-c23-constexpr-string-narrowing-bad.t', 'compile'),
+    ('c23.constexpr-pointer-nonnull', '300-c23-constexpr-pointer-nonnull-bad.t', 'compile'),
+    ('c23.constexpr-overridden', '300-c23-constexpr-overridden-bad.t', 'compile'),
+    ('c23.constexpr-fractional-integer', '300-c23-constexpr-fractional-integer-bad.t', 'compile'),
 )
 C23_SOURCE_CASES = (
     ('c23.version', '100-c23-version.t', 'preprocess'),
@@ -97,6 +114,8 @@ C23_PROGRAMS = {
     'c23.bitint-integers': (PA38_GENERAL / '300-c23-bit-precise-integers.t', ()),
     'c23.bitint-calls': (PA38_GENERAL / '500-c23-bit-precise-calls.t', ()),
     'c23.bitint-atomics': (PA38_GENERAL / '500-c23-bit-precise-atomics.t', ()),
+    'c23.constexpr-scalars': (PA38_GENERAL / '300-c23-constexpr-scalars.t', ()),
+    'c23.constexpr-aggregates': (PA38_GENERAL / '300-c23-constexpr-aggregates.t', ()),
 }
 FLEXIBLE_ARRAY = PA38_GENERAL / '300-c-flexible-array.t'
 RECORD_CONSTRAINTS = {

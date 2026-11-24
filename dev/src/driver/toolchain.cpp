@@ -1638,6 +1638,8 @@ bool preprocess_tokens(
 	// The stream types literals as the course's preprocessor does.
 	PostTokenizer tokens(preprocessor, nullptr, NumberStreamDialect(invocation.preprocessor.literals),
 		invocation.target, invocation.preprocessor.gnu_c(), invocation.preprocessor.cxx_edition);
+	tokens.set_c23(
+		invocation.preprocessor.language == SourceLanguage::C && invocation.preprocessor.c_edition >= CEdition::C23);
 	tokens.set_source_positions(preprocessor, invocation.preprocessor.iso_c_before_c99());
 	for (;;)
 	{

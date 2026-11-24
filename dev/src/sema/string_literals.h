@@ -28,6 +28,7 @@ inline FundamentalType CCharacterType(FundamentalType type, target_model::Target
 {
 	return type == FundamentalType::WcharT
 		? (target == target_model::Target::AArch64Linux ? FundamentalType::UnsignedInt : FundamentalType::Int)
+		: type == FundamentalType::Char8T  ? FundamentalType::UnsignedChar
 		: type == FundamentalType::Char16T ? FundamentalType::UnsignedShortInt
 		: type == FundamentalType::Char32T ? FundamentalType::UnsignedInt
 										   : type;

@@ -12,6 +12,17 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "constexpr-integer-initializers",
+      "path": "gcc/testsuite/gcc.dg/c23-constexpr-10.c",
+      "sha256": "bc8817d2665fa10e96bf027ca027375074e53f0014502b49780cb168bb6b6eb7",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Reject floating expressions as implicit initializers of constexpr integer objects"
+    },
+    {
       "id": "bitint-3",
       "path": "gcc/testsuite/gcc.dg/bitint-3.c",
       "sha256": "affc1b37ec00eb889fe022cc74841894fa17ff4e502ec1d56c0d28178134f1b3",

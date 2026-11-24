@@ -35,6 +35,7 @@ public:
 	// The next token; EndOfFile repeats at the end. Propagates the input's
 	// exceptions (SourceError from the lexer).
 	const PostToken& next();
+	void set_c23(bool enabled) { c23_ = enabled; }
 
 	// Syntax uses the classified component and converts its value on demand.
 	void defer_imaginary_values() { defer_imaginary_values_ = true; }
@@ -68,6 +69,7 @@ private:
 	const SourcePositions* positions_ = nullptr;
 	NumberDialect literals_;
 	bool conditional_escapes_;
+	bool c23_ = false;
 	uint8_t cxx_edition_;
 	target_model::Target target_;
 	// A pp-token pulled past the end of a string literal sequence.

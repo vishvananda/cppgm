@@ -75,16 +75,7 @@ public:
 	// -std=c++14 or later (hosted -c): the C++11 rules its headers' mode
 	// gates contradict are dropped -- a constexpr non-static member function
 	// is not implicitly const (7.1.5p8 in C++11) and may return void (N3652).
-	void set_cxx_edition(uint8_t edition, bool diagnose_extensions)
-	{
-		cxx_edition_ = edition;
-		cxx14_ = edition >= 14;
-		cxx17_ = edition >= 17;
-		cxx20_ = edition >= 20;
-		strict_cxx11_ = edition == 11 && diagnose_extensions;
-		if (cxx20_)
-			types_.enable_char8();
-	}
+	void set_cxx_edition(uint8_t edition, bool diagnose_extensions);
 	// -fno-exceptions (hosted -c): allocation and deallocation functions'
 	// redeclarations are not compared (check_redeclared_exceptions).
 	void set_exceptions(bool on) { exceptions_ = on; }
@@ -432,7 +423,7 @@ private:
 		Scope* scope, Scope* where, const Type* signature, bool templated, uint32_t location);
 	const Type* signature_of(const Type* function);
 	Binding* friend_specialization(const DeclaratorInfo& info, Scope* scope, uint32_t location);
-	void check_function_qualifiers(const Scope*, const Identifier*, const Type*, bool is_static, uint32_t location);
+	void check_function_qualifiers(const Scope*, const Identifier*, const Type*, const Specifiers&, uint32_t location);
 	void check_member_overload(
 		Scope* scope, const Identifier* key, const Type* type, bool is_static, uint32_t location);
 	void braced_argument(const syntax::BracedInitList& list, Scope* scope);
@@ -521,9 +512,10 @@ private:
 	void check_parameter_redeclaration(const Identifier* name, Scope* scope, uint32_t location);
 	void check_type_name_conflict(Scope* target, const Identifier* name, const Entity* entity, uint32_t location);
 	void record_constant_initializer(VariableEntity* variable, const syntax::Initializer* initializer, Scope* scope);
-	void check_c_static_initializer(const syntax::Expr& expr);
+	void check_c_static_initializer(
+		const syntax::Expr& expr, const Type* constexpr_type = nullptr, const DataMember* member = nullptr);
 	void c_initialize_compound_literal(const syntax::FunctionalCastExpr& expr, const Type* type, Scope* scope);
-	bool c_integer_constant_operands(const syntax::Expr& expr) const;
+	bool c_integer_constant_operands(const syntax::Expr& expr, bool arithmetic = false) const;
 	void record_fixed_class_initializer(VariableEntity* variable, const syntax::Initializer* initializer, Scope* scope);
 	const Type* complete_array_from_initializer(const Type* type, const syntax::Initializer* initializer, bool typed);
 
@@ -2416,6 +2408,7 @@ private:
 	const ClassEntity* flexible_class_ = nullptr;
 	bool flexible_given_ = false;
 	bool c_static_initializer_ = false;
+	bool c_constexpr_initializer_ = false;
 	enum class CLegacyInitializer : uint8_t
 	{
 		None,

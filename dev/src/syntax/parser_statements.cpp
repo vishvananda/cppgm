@@ -869,7 +869,7 @@ Stmt* Parser::parse_if()
 	IfStmt* stmt = make<IfStmt>(StmtKind::If, start);
 	stmt->else_branch = nullptr;
 	next();
-	stmt->is_constexpr = at(TokenKind::KW_CONSTEXPR);
+	stmt->is_constexpr = !c_source_ && at(TokenKind::KW_CONSTEXPR);
 	if (stmt->is_constexpr)
 	{
 		if (!cxx17_)

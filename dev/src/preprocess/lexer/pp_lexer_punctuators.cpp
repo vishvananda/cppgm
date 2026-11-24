@@ -360,7 +360,8 @@ bool PPLexer::is_character_prefix() const
 	current_spelling(spelling, length);
 	if (!unicode_literal_prefixes_)
 		return length == 1 && spelling[0] == 'L';
-	return (length == 2 && spelling[0] == 'u' && spelling[1] == '8' && utf8_character_literals_) ||
+	return (length == 2 && spelling[0] == 'u' && spelling[1] == '8' &&
+			   (utf8_character_literals_ || (c_source_ && c_edition_ >= CEdition::C23))) ||
 		SpellingIn(spelling, length, kCharacterPrefixes);
 }
 

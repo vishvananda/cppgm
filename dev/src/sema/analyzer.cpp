@@ -304,6 +304,17 @@ const char* Analyzer::copy_label(const char* text, size_t length)
 	return arena_.copy_string(text, length);
 }
 
+void Analyzer::set_cxx_edition(uint8_t edition, bool diagnose_extensions)
+{
+	cxx_edition_ = edition;
+	cxx14_ = edition >= 14;
+	cxx17_ = edition >= 17;
+	cxx20_ = edition >= 20;
+	strict_cxx11_ = edition == 11 && diagnose_extensions;
+	if (cxx20_)
+		types_.enable_char8();
+}
+
 const Identifier* Analyzer::special_key(const char* spelling)
 {
 	return identifiers_.intern(spelling, static_cast<uint32_t>(std::strlen(spelling)));

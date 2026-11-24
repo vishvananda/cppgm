@@ -169,8 +169,10 @@ void Analyzer::c_initialize_compound_literal(const syntax::FunctionalCastExpr& e
 {
 	expr.compound_static = scope == graph_.global;
 	const bool saved_static = c_static_initializer_;
+	const bool saved_constexpr = c_constexpr_initializer_;
 	const CLegacyInitializer saved_legacy = c_legacy_initializer_;
 	c_static_initializer_ = expr.compound_static;
+	c_constexpr_initializer_ = false;
 	c_legacy_initializer_ = expr.compound_static && c_before_c99_ && c_pedantic_ && !expr.quiet_c_extensions
 		? CLegacyInitializer::Static
 		: CLegacyInitializer::None;
@@ -183,10 +185,12 @@ void Analyzer::c_initialize_compound_literal(const syntax::FunctionalCastExpr& e
 	if (expr.compound_static && !failed())
 		check_c_static_initializer(*expr.braced);
 	c_static_initializer_ = saved_static;
+	c_constexpr_initializer_ = saved_constexpr;
 	c_legacy_initializer_ = saved_legacy;
 }
 
-void Analyzer::check_c_static_initializer(const syntax::Expr& expr)
+void Analyzer::check_c_static_initializer(
+	const syntax::Expr& expr, const Type* constexpr_type, const DataMember* member)
 {
 	if (!semantic())
 		return;
@@ -198,10 +202,23 @@ void Analyzer::check_c_static_initializer(const syntax::Expr& expr)
 		// including those a later initializer overrides.
 		if (CInitializerOf(list) == nullptr)
 			for (const syntax::Expr* element : list->elements)
-				check_c_static_initializer(*element);
+				check_c_static_initializer(*element, constexpr_type, member);
 		return;
 	}
 	const ExprFacts* facts = value->facts;
+	if (constexpr_type != nullptr)
+	{
+		ConstantInterpreter interpreter(*this);
+		const ConstValue* checked = nullptr;
+		if (!interpreter.check_c_constexpr_initializer(*value, constexpr_type, member, checked))
+			error(value->location, "a C constexpr initializer requires an exactly representable constant");
+		if (checked != nullptr)
+		{
+			c_static_value_index_.set(value, static_cast<uint32_t>(c_static_values_.size()));
+			c_static_values_.push_back(checked);
+		}
+		return;
+	}
 	if (facts == nullptr || facts->type == nullptr || value->kind == syntax::ExprKind::Literal ||
 		(facts->flags & kFolded) != 0)
 		return;

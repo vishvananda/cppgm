@@ -419,9 +419,10 @@ private:
 	void retain(uint32_t destination, const syntax::Expr& value, size_t before)
 	{
 		if (!analyzer_.failed() &&
-			(analyzer_.c_static_initializer_ ||
+			(analyzer_.c_constexpr_initializer_ || analyzer_.c_static_initializer_ ||
 				analyzer_.c_legacy_initializer_ == Analyzer::CLegacyInitializer::AutomaticAggregate))
-			analyzer_.check_c_static_initializer(value);
+			analyzer_.check_c_static_initializer(value,
+				analyzer_.c_constexpr_initializer_ ? nodes_[destination].type : nullptr, nodes_[destination].member);
 		reset(destination);
 		Node& node = nodes_[destination];
 		node.value = &value;

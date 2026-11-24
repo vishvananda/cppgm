@@ -3,6 +3,25 @@
 These notes record WG14 rules exercised by the course regressions and the
 initial upstream campaign. Clause numbers use the named edition or draft.
 
+## C23 constexpr objects
+
+A definition with `constexpr` adds const qualification. File-scope
+definitions have internal linkage. A block definition without `static`
+has automatic duration and a distinct address per live instance. Named
+constants include members reached through `.`, recursively, with the
+active member required for unions. Array subscripting does not produce a
+named constant. The initializer must preserve each written value in its
+destination, including the encoding of a string's elements and the
+range of a bit-field. The constraint applies before a later designator
+overrides a written value.
+[WG14 N3220 §§6.2.2, 6.4.4.4, 6.4.5, 6.6, 6.7.2, 6.7.11](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+
+GCC 15 accepts a member of a constant aggregate as a `_BitInt` width in
+strict mode. Clang 21 treats that form as a folding extension. The course
+checks the named-member rule from §6.6. Clang's internal-linkage case is
+replayed for object generation, with symbol binding checked separately
+from the upstream LLVM IR assertions.
+
 ## C23 bit-precise integers
 
 The width includes the sign bit for a signed type. The minimum is two

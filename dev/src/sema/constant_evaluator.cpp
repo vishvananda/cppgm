@@ -1058,6 +1058,10 @@ void Analyzer::record_constant_initializer(
 		set_evaluated(variable, initialized);
 	}
 	const Type* type = variable->type;
+	// C23 does not read array elements as named constants. The checked
+	// initializer already supplies their storage, including sparse writes.
+	if (c_source_ && variable->is_constexpr && type->kind == TypeKind::Array)
+		return;
 	const bool reference = type->is_reference();
 	const Type* object = reference ? type->element : type;
 	const syntax::Expr* expr = SingleInitializer(initializer);

@@ -67,7 +67,7 @@ bool ExactlyFloating(const Constant& value, const Type* floating)
 // 8.5.2p1: a string literal of element type `literal` initializes an array
 // of `element`: a narrow one any narrow character array, the others their
 // own kind.
-bool InitializesCharacterArray(const Type* literal, const Type* element)
+bool InitializesCharacterArray(const Type* literal, const Type* element, bool c_source)
 {
 	literal = literal->unqualified;
 	return IsCharacterArrayElement(element) &&
@@ -75,8 +75,11 @@ bool InitializesCharacterArray(const Type* literal, const Type* element)
 			(literal->fundamental == FundamentalType::Char8T && element->unqualified->kind == TypeKind::Fundamental &&
 				(element->unqualified->fundamental == FundamentalType::Char ||
 					element->unqualified->fundamental == FundamentalType::UnsignedChar)) ||
-			(literal->fundamental == FundamentalType::Char && element->unqualified->kind == TypeKind::Fundamental &&
-				(element->unqualified->fundamental == FundamentalType::SignedChar ||
+			((literal->fundamental == FundamentalType::Char ||
+				 (c_source && literal->fundamental == FundamentalType::UnsignedChar)) &&
+				element->unqualified->kind == TypeKind::Fundamental &&
+				(element->unqualified->fundamental == FundamentalType::Char ||
+					element->unqualified->fundamental == FundamentalType::SignedChar ||
 					element->unqualified->fundamental == FundamentalType::UnsignedChar)));
 }
 
@@ -338,13 +341,17 @@ void Analyzer::initialize_variable(
 	const ClassEntity* saved_class = flexible_class_;
 	const bool saved_given = flexible_given_;
 	const bool saved_static = c_static_initializer_;
+	const bool saved_constexpr = c_constexpr_initializer_;
 	const CLegacyInitializer saved_legacy = c_legacy_initializer_;
 	flexible_list_ = nullptr;
 	flexible_class_ = nullptr;
 	flexible_given_ = false;
 	if (c_source_)
+	{
 		c_static_initializer_ = variable->owner->kind == ScopeKind::Namespace || variable->is_static ||
 			variable->is_thread_local;
+		c_constexpr_initializer_ = variable->is_constexpr;
+	}
 	c_legacy_initializer_ = CLegacyInitializer::None;
 	if (c_before_c99_ && c_pedantic_ && !initializer->explicit_c_extension)
 	{
@@ -364,10 +371,12 @@ void Analyzer::initialize_variable(
 		flexible_class_ = ClassOf(type);
 	}
 	variable->constructor = initialize_object(type, *initializer, scope, location);
-	if ((c_static_initializer_ || c_legacy_initializer_ == CLegacyInitializer::AutomaticAggregate) && !failed() &&
-		initializer->expression != nullptr)
-		check_c_static_initializer(*initializer->expression);
+	if ((c_constexpr_initializer_ || c_static_initializer_ ||
+			c_legacy_initializer_ == CLegacyInitializer::AutomaticAggregate) &&
+		!failed() && initializer->expression != nullptr)
+		check_c_static_initializer(*initializer->expression, c_constexpr_initializer_ ? type : nullptr);
 	c_static_initializer_ = saved_static;
+	c_constexpr_initializer_ = saved_constexpr;
 	c_legacy_initializer_ = saved_legacy;
 	flexible_list_ = saved_flexible;
 	flexible_class_ = saved_class;
@@ -384,7 +393,8 @@ void Analyzer::check_character_array(
 	while (inner->kind == syntax::ExprKind::Paren)
 		inner = static_cast<const syntax::ParenExpr*>(inner)->inner;
 	if (inner->kind != syntax::ExprKind::Literal || (facts->flags & kUserLiteral) != 0 ||
-		facts->type->kind != TypeKind::Array || !InitializesCharacterArray(facts->type->element, type->element))
+		facts->type->kind != TypeKind::Array ||
+		!InitializesCharacterArray(facts->type->element, type->element, c_source_))
 		error(location, "array initialized from an expression");
 	if (type->has_array_bound() && facts->type->bound > type->bound + (c_source_ ? 1 : 0))
 		error(location, "string literal too long for the array");
@@ -436,7 +446,11 @@ void Analyzer::list_initialize(const syntax::BracedInitList& list, const Type* t
 		const bool static_flexible = &list == flexible_list_;
 		const ClassEntity* element = c_static_initializer_ && type->kind == TypeKind::Array ? ObjectClassOf(type)
 																							: nullptr;
-		if (list.has_c_designators || (static_flexible && flexible_class_->c_contains_nested_flexible_array) ||
+		const bool constexpr_aggregate = c_constexpr_initializer_ &&
+			(ClassOf(type) != nullptr ||
+				(type->kind == TypeKind::Array && CharacterArrayLiteral(list, type->element) == nullptr));
+		if (list.has_c_designators || constexpr_aggregate ||
+			(static_flexible && flexible_class_->c_contains_nested_flexible_array) ||
 			(element != nullptr && (element->c_contains_flexible_array || element->c_contains_nested_flexible_array)))
 		{
 			c_designated_list(list, type, scope, static_flexible);
@@ -520,7 +534,7 @@ void Analyzer::list_initialize(const syntax::BracedInitList& list, const Type* t
 				return;
 			if (facts->type->kind == TypeKind::Array && (facts->flags & kUserLiteral) == 0)
 			{
-				if (!InitializesCharacterArray(facts->type->element, type->element))
+				if (!InitializesCharacterArray(facts->type->element, type->element, c_source_))
 				{
 					substitution_error(list.location, "array initialized from a string literal of another kind");
 					return;
@@ -819,7 +833,7 @@ bool Analyzer::array_new_list(
 			return false;
 		if (string->type->kind == TypeKind::Array && (string->flags & kUserLiteral) == 0)
 		{
-			if (!InitializesCharacterArray(string->type->element, element))
+			if (!InitializesCharacterArray(string->type->element, element, c_source_))
 				error(list.location, "array initialized from a string literal of another kind");
 			facts = new_facts(list, types_.array(element, string->type->bound), ValueCategory::LValue);
 		}
@@ -1171,7 +1185,7 @@ bool Analyzer::list_sequence(const syntax::BracedInitList& list, const Type* par
 		// CWG1467: an appropriately typed string literal has an identity
 		// conversion. Its length is checked when initializing the selected
 		// target, not when ranking candidates (even a short bound can tie).
-		if (string_array && !InitializesCharacterArray(string->type->element, target->element))
+		if (string_array && !InitializesCharacterArray(string->type->element, target->element, c_source_))
 			return false;
 		if (!string_array)
 			for (const syntax::Expr* element : list.elements)

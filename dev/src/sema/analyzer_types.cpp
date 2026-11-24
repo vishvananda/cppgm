@@ -223,6 +223,8 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 		case TokenKind::KW_CONSTEXPR:
 			if (out.is_consteval)
 				error(specifier.location, "constexpr and consteval in one declaration");
+			if (c_source_ && out.is_constexpr)
+				error(specifier.location, "repeated constexpr storage-class specifier");
 			out.is_constexpr = true;
 			break;
 		case TokenKind::KW_CONSTEVAL:
@@ -280,6 +282,9 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 	}
 	if (out.is_consteval && out.is_typedef)
 		error(out.location, "consteval in a typedef declaration");
+	if (c_source_ && out.is_constexpr &&
+		(lone_declaration || out.is_typedef || out.is_extern || out.is_thread_local || out.is_inline))
+		error(out.location, "constexpr requires an object definition in C");
 	if (out.is_constinit && (lone_declaration || out.is_constexpr || out.is_typedef || out.is_friend))
 		error(out.location, "__constinit requires a variable declaration without constexpr, typedef or friend");
 	// __int128 and _BitInt allow one sign specifier in either order.

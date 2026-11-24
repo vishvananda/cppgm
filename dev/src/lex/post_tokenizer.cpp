@@ -238,10 +238,12 @@ void PostTokenizer::convert_character(const PPToken& pp)
 		positions_->diagnose_c23_literal_ucn(pp.begin);
 	const CharacterLiteralValue value = EvaluateCharacterLiteral(pp.spelling, pp.length,
 		HasNumberSyntax(literals_, number_syntax::GnuCharacter) ? CharacterDialect::Gnu : CharacterDialect::Course,
-		conditional_escapes_, cxx_edition_);
+		conditional_escapes_, c23_ ? 20 : cxx_edition_);
 	if (!value.valid)
 		return;
-	set_scalar(LiteralForm::Character, value.type, value.code_point);
+	const FundamentalType type = c23_ && value.type == FundamentalType::Char8T ? FundamentalType::UnsignedChar
+																			   : value.type;
+	set_scalar(LiteralForm::Character, type, value.code_point);
 	token_.multicharacter = value.multicharacter;
 	if (value.suffix_begin != pp.length)
 	{
@@ -312,8 +314,14 @@ void PostTokenizer::finish_string_sequence(uint32_t begin, uint32_t end)
 	const TokenSpelling suffix = strings_.ud_suffix();
 	token_.kind = suffix.length == 0 ? PostTokenKind::Literal : PostTokenKind::UserDefinedLiteral;
 	token_.form = LiteralForm::String;
-	token_.type = cxx_edition_ >= 20 && strings_.encoding_prefix() == EncodingPrefix::Utf8 ? FundamentalType::Char8T
-																						   : strings_.element_type();
+	token_.type = strings_.element_type();
+	if (strings_.encoding_prefix() == EncodingPrefix::Utf8)
+	{
+		if (c23_)
+			token_.type = FundamentalType::UnsignedChar;
+		else if (cxx_edition_ >= 20)
+			token_.type = FundamentalType::Char8T;
+	}
 	token_.ud_suffix = suffix;
 	token_.data = strings_.data();
 	token_.size = strings_.size();

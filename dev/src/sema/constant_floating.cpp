@@ -1,6 +1,7 @@
 #include "sema/constant_floating.h"
 
 #include <cmath>
+#include <cstring>
 #include <limits>
 
 #include "lex/extended_float.h"
@@ -29,6 +30,24 @@ ConstValue Binary128FromHost(const Type* type, long double value)
 bool Binary128Zero(const ConstValue& value)
 {
 	return binary128::zero(bits(value));
+}
+
+bool ConstantFloatingSignaling(const ConstValue& value)
+{
+	if (value.kind == ValueKind::Binary128)
+		return binary128::nan(bits(value)) && ((value.high >> 47) & 1) == 0;
+	if (value.kind != ValueKind::Floating || !std::isnan(value.floating))
+		return false;
+	// The x87 encoding's quiet bit is significand bit 62.
+	unsigned char bytes[16] = {};
+#if __LDBL_MANT_DIG__ != 64
+	StoreExtended80(value.floating, bytes);
+#else
+	std::memcpy(bytes, &value.floating, sizeof value.floating);
+#endif
+	uint64_t significand = 0;
+	std::memcpy(&significand, bytes, sizeof significand);
+	return ((significand >> 62) & 1) == 0;
 }
 
 bool CStaticFloatingZeroDivision(const ConstValue& left, const ConstValue& right, ConstValue& result)

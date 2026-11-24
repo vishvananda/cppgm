@@ -657,6 +657,22 @@ The first fixture set covers these parts of the C17 input profile:
   bits across storage and call boundaries. A switch can compare both
   words of a wide case value, including during duplicate-label checks.
   The compiler supplies the width limit through `__BITINT_MAXWIDTH__`.
+- In C23, accept `constexpr` object definitions with initializers and add
+  `const` to their declared type. Give file-scope definitions internal
+  linkage. Preserve automatic storage and distinct addresses for
+  block-scope definitions without `static`. Treat `constexpr` as an
+  identifier in earlier C modes.
+- Use a C23 named constant or a member reached through `.` as an operand
+  of the matching kind of constant expression. Check the active member
+  of a constant union. An array element read does not supply a named
+  constant. Diagnose atomic, volatile, restrict-qualified, and variably
+  modified object or subobject types.
+- Check the written initializer values of a C23 `constexpr` object against
+  their destination types and bit-field widths before conversion. Require
+  integer and arithmetic constant expressions for the matching
+  destinations, and require null for pointers. Check earlier writes even
+  when a later designator overrides them. C23 UTF-8 character and string
+  literals use `unsigned char` for their code units.
 - Hosted C header declarations and their builtin operations through the
   existing hosted environment, including PA30's GNU startup-function attributes.
 - Support the reserved GNU spelling `__auto_type` in the C modes above.

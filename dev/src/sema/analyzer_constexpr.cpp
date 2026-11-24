@@ -957,8 +957,43 @@ void Analyzer::integral_constant_operand(const syntax::Expr& expr, Scope* scope,
 	expression_scope_ = saved_scope;
 }
 
+namespace {
+
+bool CConstexprObjectType(Analyzer& analyzer, const Type* type)
+{
+	if (type->c_variably_modified)
+		return false;
+	while (type->kind == TypeKind::Array)
+		type = type->element;
+	if ((type->cv & (kAtomic | kRestrict | kVolatile)) != 0)
+		return false;
+	const ClassEntity* record = ClassOf(type);
+	if (record == nullptr)
+		return true;
+	if (!analyzer.require_complete(record))
+		return false;
+	using Subobjects = ClassEntity::CConstexprSubobjects;
+	Subobjects& state = record->c_constexpr_subobjects;
+	if (state != Subobjects::Unchecked)
+		return state == Subobjects::Allowed;
+	state = Subobjects::Forbidden;
+	for (const DataMember* member = record->members; member != nullptr; member = member->next)
+		if (!CConstexprObjectType(analyzer, member->variable->type))
+			return false;
+	state = Subobjects::Allowed;
+	return true;
+}
+
+} // namespace
+
 void Analyzer::check_constexpr_variable(const VariableEntity* variable, uint32_t location)
 {
+	if (c_source_)
+	{
+		if (!CConstexprObjectType(*this, variable->type))
+			error(location, "invalid object or subobject type for a C constexpr definition");
+		return;
+	}
 	// 7.1.5p9: a constexpr object's type is a literal type.
 	if (variable->is_constexpr && !literal_type(variable->type))
 		error(location, "a constexpr variable of a type that is not a literal type");

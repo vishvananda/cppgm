@@ -249,6 +249,10 @@ bool ConstantInterpreter::rvalue(const syntax::Expr& expr, ConstValue& out)
 	const ExprFacts* facts = e->facts;
 	if (facts == nullptr || facts->type == nullptr)
 		return fail(e->location, "an expression outside constant evaluation");
+	if (c_constexpr_initializer_ && e->kind == syntax::ExprKind::Id && facts->entity != nullptr &&
+		facts->entity->kind == EntityKind::Variable &&
+		!static_cast<const VariableEntity*>(facts->entity)->is_constexpr && facts->type->kind != TypeKind::Array)
+		return fail(e->location, "a C constexpr initializer reads an ordinary object");
 	if (!step(e->location))
 		return false;
 	TypeTable& types = analyzer_.types_;
@@ -597,6 +601,12 @@ bool ConstantInterpreter::converted(const syntax::Expr& expr, const Conversion* 
 	const syntax::Expr* e = WithoutParentheses(&expr);
 	if (e->facts == nullptr)
 		return fail(e->location, "an expression outside constant evaluation");
+	if (c_constexpr_initializer_)
+		if (const ConstValue* checked = analyzer_.checked_c_static_value(*e))
+		{
+			out = *checked;
+			return apply_standard(*e, conversion, out);
+		}
 	if (ConversionFunction(conversion))
 	{
 		Result result = Result();
@@ -2125,20 +2135,8 @@ bool ConstantInterpreter::intrinsic_value(const syntax::CallExpr& call_expr, Con
 		result = infinite;
 		break;
 	case Intrinsic::IsSignaling:
-	{
-		// The x87 value's quiet bit (significand bit 62), which a
-		// signaling NaN constant keeps (BuiltinSignalingNan).
-		unsigned char bytes[16] = {};
-#if __LDBL_MANT_DIG__ != 64
-		StoreExtended80(v, bytes);
-#else
-		std::memcpy(bytes, &v, sizeof v);
-#endif
-		uint64_t significand = 0;
-		std::memcpy(&significand, bytes, 8);
-		result = nan && (encoded ? ((quad.high >> 47) & 1) == 0 : ((significand >> 62) & 1) == 0);
+		result = ConstantFloatingSignaling(x);
 		break;
-	}
 	case Intrinsic::IsInfSign:
 		result = !infinite ? 0
 			: sign         ? ConvertIntegral(~uint64_t(0), KindOf(types.fundamental(FundamentalType::Int)))

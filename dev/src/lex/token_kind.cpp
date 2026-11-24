@@ -344,6 +344,7 @@ bool FindCKeyword(const char* spelling, uint32_t length, CEdition edition, bool 
 		case TokenKind::KW_ALIGNAS:
 		case TokenKind::KW_ALIGNOF:
 		case TokenKind::KW_BOOL:
+		case TokenKind::KW_CONSTEXPR:
 		case TokenKind::KW_FALSE:
 		case TokenKind::KW_NULLPTR:
 		case TokenKind::KW_STATIC_ASSERT:
