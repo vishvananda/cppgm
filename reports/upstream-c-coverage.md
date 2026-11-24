@@ -597,7 +597,6 @@ execution harness, bare Wasm and WASI. These runs use freestanding
 startup for the cross targets. The following C23 gaps remain open
 in this area.
 
-- Declaring an object with inferred `auto`, including `constexpr auto`.
 - Storage classes on compound literals and their use as constant operands.
 - Named record constants with very large sparse array members.
   A record containing a ten-million-element array still reaches the
@@ -605,6 +604,35 @@ in this area.
 
 [C23 constexpr rules](../doc/c-conformance-notes.md#c23-constexpr-objects) ·
 [Frozen-input and constexpr scaling measurements](../docs/performance/c-frontend-scaling.md#c23-constexpr-objects)
+
+## C23 auto inference
+
+PA38 checks file and block definitions, traditional `auto` with a
+written type, and inference with `constexpr`, qualifiers, bit-fields,
+`register`, and thread storage. It exercises lvalue and pointer
+conversions, loop declarations, and a variably modified pointer
+initializer whose bound is evaluated once. The constraints fixtures
+reject a pending name, unsuitable declarators and initializers, and
+function, parameter, and type-name forms. The C17 controls keep written
+types with `auto` and allow `thread_local` as an identifier.
+
+The frozen C23 manifests pass 49 GCC and 16 Clang configurations.
+The matrix passes 808 probes, including 357 C23 probes, on Linux
+x86-64, WASI and bare Wasm. PA38 passes 587 native, 587 Wasm, 63 control,
+and three ABI cases. The three non-TLS inference programs run at `-O0`
+and `-O2` on both Linux and both Mach-O targets using local execution
+harnesses where needed, and on WASI and bare Wasm. The TLS fixture
+runs on both Linux targets, with AArch64 under QEMU using static glibc
+startup. Both Mach-O targets emit objects with thread-local variable
+descriptors for the TLS fixture.
+
+The strict course report passes all 11,674 tests. The debug-info,
+self-host through PA5, architecture, and placement checks pass.
+The student export verifies 26,774 portable reference outputs and passes
+PA1 and PA38 using the packaged reference binaries.
+
+[C23 inference rules](../doc/c-conformance-notes.md#c23-auto-inference) ·
+[Frozen-input and inference measurements](../docs/performance/c-frontend-scaling.md#c23-auto-inference)
 
 ## Additional editions
 

@@ -239,6 +239,34 @@ ten, and one hundred million elements. The resolved initializer
 plan is proportional to the written elements. A large array inside
 a named record still uses the aggregate interpreter's storage budget.
 
+## C23 auto inference
+
+Compared immutable GCC 15 builds of `16aec942c` and `424700e35` on CPU 71.
+All frozen runs emitted byte-identical objects. A/A task-clock spreads
+of 22.11% for C++ and 10.63% for SQLite leave the wall-time changes unresolved.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.00198% | +0.00435% | +0.00583% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.00239% | +0.00095% | +0.00460% |
+
+Each C23 syntax-only input pairs a `constexpr` definition with an
+enumeration that uses the constant. The inputs differ in the
+`auto` or `int` specifier. Each result is the median of three
+observations on CPU 73. Both forms scale linearly. The inference
+path adds about 1,380 retired instructions per definition and reuses
+the typed initializer. Peak RSS at 16,000 definitions is about
+37 MiB for each form. The two 4,000-definition inputs produce
+byte-identical x86-64 objects at `-O2`.
+
+| Definitions | Written type instructions | Inferred type instructions |
+| ---: | ---: | ---: |
+| 1,000 | 28,882,254 | 30,264,008 |
+| 2,000 | 60,646,256 | 63,401,307 |
+| 4,000 | 124,407,131 | 129,922,846 |
+| 8,000 | 241,468,314 | 252,519,303 |
+| 16,000 | 476,007,940 | 498,100,674 |
+
 ## Volatile assignment code generation
 
 The same source functions returning and discarding a volatile record
