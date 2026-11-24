@@ -13,7 +13,9 @@ static_assert(sizeof(double) == 8 && DBL_MANT_DIG == 53 && DBL_MAX_EXP == 1024);
 static_assert(sizeof(long double) == 16 && LDBL_MANT_DIG == 113 && LDBL_MAX_EXP == 16384);
 static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__);
 
-// Scale normal results by updating the exponent. Round subnormals once,
+// Use a single Wasm multiply when the power of two is representable
+// as a normal binary32 or binary64 operand. Scale binary128 by
+// adjusting its exponent. The general path rounds subnormals once
 // using the discarded bits of the original significand.
 #define DEFINE_SCALE(type, name, word, digits, max_exp) \
 	type name(type x, int n) \
@@ -30,9 +32,20 @@ static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__);
 			type value; \
 			word bits; \
 		} number = { .value = x }; \
+		const unsigned power = (unsigned)n + max_exp - 1; \
+		if (digits != LDBL_MANT_DIG && __builtin_expect(power - 1 < exponent_mask - 1, 1)) \
+		{ \
+			const word infinity = (word)exponent_mask << (fraction_bits + 1); \
+			typeof(number) result = { .bits = (word)power << fraction_bits }; \
+			result.value = x * result.value; \
+			if (__builtin_expect((word)(result.bits << 1) == infinity, 0) && (word)(number.bits << 1) != infinity) \
+				errno = ERANGE; \
+			return result.value; \
+		} \
+\
 		const unsigned encoded = (number.bits >> fraction_bits) & exponent_mask; \
 		const unsigned offset = encoded - 1; \
-		if (__builtin_expect((offset | (offset + (unsigned)n)) < exponent_mask - 1, 1)) \
+		if (digits == LDBL_MANT_DIG && __builtin_expect((offset | (offset + (unsigned)n)) < exponent_mask - 1, 1)) \
 		{ \
 			number.bits += (word)n << fraction_bits; \
 			return number.value; \
