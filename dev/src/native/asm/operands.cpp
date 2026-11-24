@@ -54,7 +54,7 @@ RM rm(const Operand& op, const assembly::Instruction& inst)
 			fail(inst, "this assembly relocation requires RIP-relative memory");
 		memory.symbol = address.symbol.symbol;
 		memory.absolute_symbol = true;
-		memory.address32 = (address.has_base && address.base.bits == 32) ||
+		memory.address32 = inst.code_bits == 32 || (address.has_base && address.base.bits == 32) ||
 			(address.has_index && address.index.bits == 32);
 	}
 	return memory;

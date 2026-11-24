@@ -894,6 +894,7 @@ std::vector<Instruction> Parser::run()
 		Instruction inst;
 		inst.line = line_;
 		inst.column = column_;
+		inst.code_bits = state_ != nullptr ? state_->code_bits : 64;
 		const size_t definition_first = pos_;
 		inst.mnemonic = word(false);
 		space();
@@ -944,12 +945,14 @@ std::vector<Instruction> Parser::run()
 			result.push_back(std::move(inst));
 			continue;
 		}
-		const bool branch = inst.mnemonic[0] == 'j' || inst.mnemonic == "call" || inst.mnemonic == "callq";
+		const bool branch = inst.mnemonic[0] == 'j' || inst.mnemonic == "call" || inst.mnemonic == "callq" ||
+			inst.mnemonic == "calll";
+		const bool far_branch = inst.mnemonic.compare(0, 5, "lcall") == 0 || inst.mnemonic.compare(0, 4, "ljmp") == 0;
 		if (current() != '\n' && current() != ';' && current() != '#' && pos_ != source_.size())
 		{
 			do
 			{
-				const bool indirect = branch && dialect_ == asm_model::Dialect::Att && take('*');
+				const bool indirect = (branch || far_branch) && dialect_ == asm_model::Dialect::Att && take('*');
 				Operand value = branch && !indirect ? target() : operand();
 				decorators(value);
 				inst.operands.push_back(std::move(value));

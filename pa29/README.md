@@ -230,6 +230,9 @@ arithmetic on label differences, including forward differences in another
 section. Determine the padding before finalizing symbol values, relocations,
 alignment, and unwind information. Reject circular dependencies between
 variable-size directives.
+In an ELF x86-64 object, `.code32` and `.code64` select the encoding mode of
+subsequent instructions. Use the current mode's register and address widths,
+including indirect control transfers and far pointers in mixed-mode code.
 
 In inline assembly, `.ascii` emits the bytes of its string operands.
 `.asciz` and `.string` append a zero byte to each operand. Adjacent

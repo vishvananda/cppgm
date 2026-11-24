@@ -421,7 +421,9 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 	}
 	else if (name == ".p2align" || name == ".balign" || name == ".align")
 		alignment(cursor, name == ".p2align" || (name == ".align" && target_ == Target::MacOS));
-	else if (name == ".code64" || name == ".subsections_via_symbols")
+	else if (name == ".code32" || name == ".code64")
+		syntax_.code_bits = name == ".code32" ? 32 : 64;
+	else if (name == ".subsections_via_symbols")
 	{
 	}
 	else if (name == ".set" || name == ".equ")

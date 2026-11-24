@@ -292,6 +292,10 @@ void encode_instruction(Assembler& out, const assembly::Instruction& inst)
 			return;
 		fail(inst, "instruction form is not implemented");
 	}
+	if (inst.code_bits == 32 && (suffix == 64 || (form->encoding == Encoding::Zero && form->bits == 64)))
+		fail(inst, "64-bit instruction in a 32-bit code sequence");
+	if (form->encoding == Encoding::FarBranch)
+		return encode_far_branch(out, inst, *form, suffix);
 	if (form->encoding == Encoding::Control)
 	{
 		encode_control_form(out, inst, *form, suffix);
@@ -363,6 +367,25 @@ void encode_instruction(Assembler& out, const assembly::Instruction& inst)
 		integer(out, inst, *form, suffix);
 }
 
+namespace {
+
+void check_legacy_operand(const assembly::Instruction& inst, const Operand& operand)
+{
+	if (operand.kind == OperandKind::Register &&
+		(operand.reg.number >= 8 ||
+			(operand.reg.bank == RegisterBank::Gpr &&
+				(operand.reg.bits == 64 ||
+					(operand.reg.bits == 8 && operand.reg.offset == 0 && operand.reg.number >= 4)))))
+		fail(inst, "register requires 64-bit code mode");
+	if (operand.kind == OperandKind::Memory &&
+		(operand.address.rip ||
+			(operand.address.has_base && (operand.address.base.bits != 32 || operand.address.base.number >= 8)) ||
+			(operand.address.has_index && (operand.address.index.bits != 32 || operand.address.index.number >= 8))))
+		fail(inst, "32-bit code requires a legacy address register");
+}
+
+} // namespace
+
 void encode_assembly(Assembler& out, const std::vector<assembly::Instruction>& instructions, const RM& exit_frame,
 	std::vector<uint32_t>* positions)
 {
@@ -380,6 +403,8 @@ void encode_assembly(Assembler& out, const std::vector<assembly::Instruction>& i
 		bool address32 = false;
 		for (auto& operand : inst.operands)
 		{
+			if (inst.code_bits == 32)
+				check_legacy_operand(inst, operand);
 			if (operand.kind != OperandKind::Memory)
 				continue;
 			if (operand.address.label != asm_model::kNoId)
@@ -428,7 +453,7 @@ void encode_assembly(Assembler& out, const std::vector<assembly::Instruction>& i
 					fail(inst, "decorator requires an EVEX instruction form");
 		if (segment != 0)
 			out.byte(segment);
-		if (address32)
+		if (address32 && inst.code_bits == 64)
 			out.byte(0x67);
 		if (!encode_assembly_branch(out, inst, labels))
 		{

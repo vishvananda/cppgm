@@ -9,31 +9,44 @@ using asm_detail::rm;
 using assembly::OperandKind;
 }
 
+namespace {
+
+void return_form(Assembler& out, const assembly::Instruction& inst, unsigned opcode, unsigned suffix)
+{
+	const bool far = opcode == 0xcb;
+	const unsigned bits = suffix != 0 ? suffix : far ? 32 : inst.code_bits;
+	if ((bits != inst.code_bits && !(far && bits == 32) && bits != 16) || (!far && inst.code_bits == 64 && bits == 16))
+		fail(inst, "return width is invalid for the current assembly mode");
+	if (bits == 16)
+		out.byte(0x66);
+	else if (far && bits == 64)
+		out.byte(0x48);
+	if (inst.operands.empty())
+		out.byte(opcode);
+	else if (inst.operands.size() == 1 && inst.operands[0].kind == OperandKind::Immediate &&
+		inst.operands[0].immediate <= UINT16_MAX)
+	{
+		out.byte(opcode - 1);
+		out.imm(inst.operands[0].immediate, 2);
+	}
+	else
+		fail(inst, "ret expects no operand or an unsigned 16-bit immediate");
+}
+} // namespace
+
 void encode_control_form(
 	Assembler& out, const assembly::Instruction& inst, const asm_detail::Form& form, unsigned suffix)
 {
-	if (inst.prefix != 0 || (suffix != 0 && suffix != 16 && suffix != 64) || (form.opcode == 0xc3 && suffix == 16))
-		fail(inst, "invalid stack-control prefix or width");
-	if (form.opcode == 0xc3)
-	{
-		if (inst.operands.empty())
-			out.ret();
-		else if (inst.operands.size() == 1 && inst.operands[0].kind == OperandKind::Immediate &&
-			inst.operands[0].immediate <= UINT16_MAX)
-		{
-			out.byte(0xc2);
-			out.imm(inst.operands[0].immediate, 2);
-		}
-		else
-			fail(inst, "ret expects no operand or an unsigned 16-bit immediate");
-		return;
-	}
+	if (inst.prefix != 0)
+		fail(inst, "invalid stack-control prefix");
+	if (form.opcode == 0xc3 || form.opcode == 0xcb)
+		return return_form(out, inst, form.opcode, suffix);
 	if (inst.operands.size() != 1)
 		fail(inst, "push/pop expects one operand");
 	const assembly::Operand& operand = inst.operands[0];
-	const unsigned bits = suffix != 0 ? suffix : operand.bits != 0 ? operand.bits : 64;
-	if ((bits != 16 && bits != 64) || (operand.bits != 0 && operand.bits != bits))
-		fail(inst, "push/pop requires a 16-bit or 64-bit operand");
+	const unsigned bits = suffix != 0 ? suffix : operand.bits != 0 ? operand.bits : inst.code_bits;
+	if ((bits != 16 && bits != inst.code_bits) || (operand.bits != 0 && operand.bits != bits))
+		fail(inst, "push/pop width is invalid for the current assembly mode");
 	const uint8_t prefix = bits == 16 ? 0x66 : 0;
 	if (operand.kind == OperandKind::Symbol && form.opcode == 0x50 &&
 		operand.address.relocation == assembly::Relocation::Address)
@@ -96,9 +109,9 @@ bool encode_system_register_move(Assembler& out, const assembly::Instruction& in
 		out.op(prefix, false, write ? 0x8e : 0x8c, 1, special.reg.number, rm(ordinary, inst));
 		return true;
 	}
-	if (ordinary.kind != OperandKind::Register || ordinary.reg.bank != RegisterBank::Gpr || ordinary.reg.bits != 64 ||
-		(suffix != 0 && suffix != 64))
-		fail(inst, "control and debug registers require a 64-bit general register");
+	if (ordinary.kind != OperandKind::Register || ordinary.reg.bank != RegisterBank::Gpr ||
+		ordinary.reg.bits != inst.code_bits || (suffix != 0 && suffix != inst.code_bits))
+		fail(inst, "control and debug moves require a general register of the current mode's width");
 	const uint32_t opcode = 0x0f20 + (special.reg.bank == RegisterBank::Debug ? 1 : 0) + (write ? 2 : 0);
 	out.op(0, false, opcode, 2, special.reg.number, rm(ordinary, inst));
 	return true;
@@ -200,15 +213,45 @@ void encode_system_form(
 		out.byte(port.immediate);
 }
 
+void encode_far_branch(Assembler& out, const assembly::Instruction& inst, const asm_detail::Form& form, unsigned suffix)
+{
+	const unsigned bits = suffix != 0 ? suffix : 32;
+	if (inst.prefix != 0 || (bits != 16 && bits != 32 && (bits != 64 || inst.code_bits != 64)))
+		fail(inst, "invalid far branch width or prefix");
+	const bool call = form.opcode == 0x9a;
+	if (inst.operands.size() == 1 && inst.operands[0].kind == OperandKind::Memory)
+	{
+		out.op(bits == 16 ? 0x66 : 0, bits == 64, 0xff, 1, call ? 3 : 5, rm(inst.operands[0], inst));
+		return;
+	}
+	if (inst.code_bits != 32 || inst.operands.size() != 2 || inst.operands[1].kind != OperandKind::Immediate ||
+		inst.operands[1].immediate > UINT16_MAX)
+		fail(inst, "far branch requires a memory pointer, or a segment and offset in 32-bit code");
+	const auto& address = inst.operands[0];
+	if (bits == 16)
+		out.byte(0x66);
+	out.byte(form.opcode);
+	if (address.kind == OperandKind::Symbol && address.address.relocation == assembly::Relocation::Address)
+		out.symbol_immediate(address.address.symbol.symbol, address.address.displacement, bits / 8, false);
+	else if (address.kind == OperandKind::Immediate &&
+		fits_operation(static_cast<int64_t>(address.immediate), bits / 8))
+		out.imm(address.immediate, bits / 8);
+	else
+		fail(inst, "invalid far branch offset");
+	out.imm(inst.operands[1].immediate, 2);
+}
+
 bool encode_assembly_branch(Assembler& out, const assembly::Instruction& inst, const std::vector<uint32_t>& labels)
 {
 	const int condition = asm_detail::branch_condition(inst.mnemonic);
-	const bool call = inst.mnemonic == "call" || inst.mnemonic == "callq";
-	const bool jump = inst.mnemonic == "jmp" || inst.mnemonic == "jmpq";
+	const bool call = inst.mnemonic == "call" || inst.mnemonic == "callq" || inst.mnemonic == "calll";
+	const bool jump = inst.mnemonic == "jmp" || inst.mnemonic == "jmpq" || inst.mnemonic == "jmpl";
 	if (!call && !jump && condition < 0)
 		return false;
-	if (inst.prefix != 0 || inst.operands.size() != 1)
-		fail(inst, "expected one branch target");
+	if (inst.prefix != 0 || inst.operands.size() != 1 ||
+		((inst.mnemonic == "callq" || inst.mnemonic == "jmpq") && inst.code_bits != 64) ||
+		((inst.mnemonic == "calll" || inst.mnemonic == "jmpl") && inst.code_bits != 32))
+		fail(inst, "expected one branch target matching the code mode");
 	const assembly::Operand& target = inst.operands[0];
 	if (target.kind == OperandKind::Label)
 	{
@@ -235,7 +278,7 @@ bool encode_assembly_branch(Assembler& out, const assembly::Instruction& inst, c
 	else if (condition >= 0)
 		fail(inst, "conditional branch requires a direct label or symbol");
 	else if ((target.kind == OperandKind::Register || target.kind == OperandKind::Memory) &&
-		(target.bits == 0 || target.bits == 64))
+		(target.bits == 0 || target.bits == inst.code_bits))
 	{
 		if (call)
 			out.call_rm(rm(target, inst));

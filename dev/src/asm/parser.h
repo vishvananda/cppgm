@@ -83,6 +83,7 @@ struct Instruction
 	std::vector<uint8_t> bytes;
 	uint32_t symbol_definition = asm_model::kNoId; // typed module label, if present
 	uint8_t prefix = 0;
+	uint8_t code_bits = 64;
 	bool is_exit = false;
 	uint32_t exit_tag = 0;
 	std::string mnemonic;
@@ -117,6 +118,7 @@ struct Syntax
 	bool power_alignment = false; // .align uses an exponent on Darwin, bytes on ELF
 	bool named_externals = false; // literal names can become object imports
 	bool register_aliases = false;
+	uint8_t code_bits = 64;
 };
 
 // The input is user assembly after its frontend's placeholder expansion.

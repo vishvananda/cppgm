@@ -58,7 +58,8 @@ enum class Encoding : std::uint8_t
 	VectorScalarMove,
 	SystemRegister,
 	UndefinedOperands,
-	Crc32
+	Crc32,
+	FarBranch
 };
 
 struct Form
@@ -96,7 +97,10 @@ inline const Form* forms(std::size_t& count)
 {
 	using E = Encoding;
 	static const Form kForms[] = {
-		{ "ret", E::Control, 0xc3, 0, 64, false, 0 },
+		{ "ret", E::Control, 0xc3, 0, 0, false, 0 },
+		{ "lret", E::Control, 0xcb, 0, 0, false, 0 },
+		{ "lcall", E::FarBranch, 0x9a, 0, 0, false, 0 },
+		{ "ljmp", E::FarBranch, 0xea, 0, 0, false, 0 },
 		{ "push", E::Control, 0x50, 0, 0, false, 0 },
 		{ "pop", E::Control, 0x58, 0, 0, false, 0 },
 		{ "cmovo", E::ConditionMove, 0x0f40, 0, 0, false, 0 },
@@ -321,16 +325,18 @@ inline const Form* forms(std::size_t& count)
 		{ "clac", E::Zero, 0x0f01ca, 0, 0, false, 0 },
 		{ "stac", E::Zero, 0x0f01cb, 0, 0, false, 0 },
 		{ "swapgs", E::Zero, 0x0f01f8, 0, 0, false, 0 },
-		{ "iretq", E::Zero, 0x48cf, 0, 0, false, 0 },
+		{ "iret", E::Zero, 0xcf, 0, 0, false, 0 },
+		{ "iretl", E::Zero, 0xcf, 0, 0, false, 0 },
+		{ "iretq", E::Zero, 0x48cf, 0, 64, false, 0 },
 		{ "cli", E::Zero, 0xfa, 0, 0, false, 0 },
 		{ "sti", E::Zero, 0xfb, 0, 0, false, 0 },
 		{ "hlt", E::Zero, 0xf4, 0, 0, false, 0 },
 		{ "leave", E::Zero, 0xc9, 0, 0, false, 0 },
-		{ "leaveq", E::Zero, 0xc9, 0, 0, false, 0 },
+		{ "leaveq", E::Zero, 0xc9, 0, 64, false, 0 },
 		{ "pushf", E::Zero, 0x9c, 0, 0, false, 0 },
-		{ "pushfq", E::Zero, 0x9c, 0, 0, false, 0 },
+		{ "pushfq", E::Zero, 0x9c, 0, 64, false, 0 },
 		{ "popf", E::Zero, 0x9d, 0, 0, false, 0 },
-		{ "popfq", E::Zero, 0x9d, 0, 0, false, 0 },
+		{ "popfq", E::Zero, 0x9d, 0, 64, false, 0 },
 		{ "lfence", E::Zero, 0x0faee8, 0, 0, false, 0 },
 		{ "mfence", E::Zero, 0x0faef0, 0, 0, false, 0 },
 		{ "sfence", E::Zero, 0x0faef8, 0, 0, false, 0 },
@@ -340,7 +346,7 @@ inline const Form* forms(std::size_t& count)
 		{ "stc", E::Zero, 0xf9, 0, 0, false, 0 },
 		{ "cmc", E::Zero, 0xf5, 0, 0, false, 0 },
 		{ "ud1", E::UndefinedOperands, 0x0fb9, 0, 0, false, 0 },
-		{ "sysretq", E::Zero, 0x480f07, 0, 0, false, 0 },
+		{ "sysretq", E::Zero, 0x480f07, 0, 64, false, 0 },
 		{ "sysretl", E::Zero, 0x0f07, 0, 0, false, 0 },
 		{ "fnclex", E::Zero, 0xdbe2, 0, 0, false, 0 },
 		{ "crc32b", E::Crc32, 0x0f38f0, 0xf2, 8, false, 0 },
