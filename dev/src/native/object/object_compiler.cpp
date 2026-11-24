@@ -1285,7 +1285,7 @@ void ObjectCompiler::add_relocations()
 		relocation.symbol = object_symbol(fixup.target);
 		if (fixup.absolute)
 		{
-			relocation.type = object::R_X86_64_64;
+			relocation.type = object::x86_absolute_relocation(fixup.end, fixup.kind == FixupKind::SignedAddress);
 			relocation.addend = fixup.addend;
 		}
 		else if (fixup.kind == FixupKind::Got)

@@ -92,6 +92,14 @@ enum RelocationType : uint32_t
 	R_MACHO_TLV = 0x10000
 };
 
+inline uint32_t x86_absolute_relocation(unsigned bytes, bool sign_extended = false)
+{
+	return bytes == 8 ? R_X86_64_64
+		: bytes == 4  ? (sign_extended ? R_X86_64_32S : R_X86_64_32)
+		: bytes == 2  ? R_X86_64_16
+					  : R_X86_64_8;
+}
+
 struct Relocation
 {
 	uint64_t offset;

@@ -22,7 +22,12 @@ void bit_test(Assembler& out, const assembly::Instruction& inst, const Form& for
 		fail(inst, "bit test/update requires a target and bit index");
 	const Operand& target = inst.operands[0];
 	const Operand& index = inst.operands[1];
-	if (index.kind == OperandKind::Immediate)
+	if (index.kind == OperandKind::Symbol && index.address.relocation == assembly::Relocation::Address)
+	{
+		out.op(bits == 16 ? 0x66 : 0, bits == 64, 0x0fba, 2, form.opcode, rm(target, inst), false, 1);
+		out.symbol_immediate(index.address.symbol.symbol, index.address.displacement, 1, false);
+	}
+	else if (index.kind == OperandKind::Immediate)
 	{
 		const int64_t value = static_cast<int64_t>(index.immediate);
 		if (!fits_operation(value, 1))

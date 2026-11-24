@@ -93,6 +93,9 @@ Preserve scalar SSE move bits and memory widths, including NaN payloads.
 Distinguish scalar-double `movsd` from its zero-operand 32-bit string form.
 Both dialects' string spellings are supported. Immediate moves preserve flags;
 explicit `movabs` accepts numeric and typed symbol addresses, including addends.
+Relocatable symbol operands use the encoding's field width. Preserve the
+distinction between sign-extended 32-bit immediates and displacements and
+32-bit fields that are used without sign extension.
 Nonreturning packets have no outputs and use an explicit `unreachable`
 continuation in LowIR. Validate `lock` against a lockable memory destination and
 repeat prefixes against string instructions. Implicit register operands and

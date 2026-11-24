@@ -40,14 +40,24 @@ RM rm(const Operand& op, const assembly::Instruction& inst)
 		memory.label = address.label;
 		return memory;
 	}
-	if (address.symbol.symbol != asm_model::kNoId || address.rip)
+	if (address.rip)
 	{
-		if (!address.rip || address.symbol.symbol == asm_model::kNoId || address.has_base || address.has_index)
-			fail(inst, "symbol memory requires an unindexed RIP-relative address");
+		if (address.symbol.symbol == asm_model::kNoId || address.has_base || address.has_index)
+			fail(inst, "RIP-relative memory requires an unindexed address symbol");
 		return RM::rip(address.symbol.symbol, address.displacement);
 	}
-	return RM::m(address.has_base ? physical(address.base, inst) : kNoReg, address.displacement,
+	RM memory = RM::m(address.has_base ? physical(address.base, inst) : kNoReg, address.displacement,
 		address.has_index ? physical(address.index, inst) : kNoReg, address.scale);
+	if (address.symbol.symbol != asm_model::kNoId)
+	{
+		if (address.relocation != assembly::Relocation::Address)
+			fail(inst, "this assembly relocation requires RIP-relative memory");
+		memory.symbol = address.symbol.symbol;
+		memory.absolute_symbol = true;
+		memory.address32 = (address.has_base && address.base.bits == 32) ||
+			(address.has_index && address.index.bits == 32);
+	}
+	return memory;
 }
 
 bool rex_required(const Operand& op)

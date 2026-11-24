@@ -26,6 +26,34 @@ using asm_detail::integer_width;
 using asm_detail::physical;
 using asm_detail::rm;
 
+void symbol_immediate(Assembler& out, const assembly::Instruction& inst, const Form& form, unsigned bits)
+{
+	const Operand& dst = inst.operands[0];
+	const Operand& src = inst.operands[1];
+	if (src.address.relocation != assembly::Relocation::Address ||
+		(form.encoding != Encoding::Move && form.encoding != Encoding::Alu))
+		fail(inst, "this instruction cannot encode a symbol immediate");
+	const uint8_t prefix = bits == 16 ? 0x66 : 0;
+	const bool wide = bits == 64;
+	const bool byte_regs = bits == 8 && byte_rex(inst);
+	unsigned bytes = wide ? 4 : bits / 8;
+	if (form.encoding == Encoding::Move && dst.kind == OperandKind::Register)
+	{
+		const Reg reg = physical(dst.reg, inst);
+		if (byte_regs && reg >= 4 && reg < 8)
+			out.byte(0x40);
+		out.op_plus(prefix, wide, bits == 8 ? 0xb0 : 0xb8, reg);
+		bytes = bits / 8;
+	}
+	else
+	{
+		const bool move = form.encoding == Encoding::Move;
+		const uint8_t opcode = (move ? 0xc6 : 0x80) + (bits != 8);
+		out.op(prefix, wide, opcode, 1, move ? 0 : form.opcode, rm(dst, inst), byte_regs, bytes);
+	}
+	out.symbol_immediate(src.address.symbol.symbol, src.address.displacement, bytes, wide && bytes == 4);
+}
+
 void integer(Assembler& out, const assembly::Instruction& inst, const Form& form, uint16_t suffix)
 {
 	if (inst.operands.size() != 2)
@@ -40,29 +68,14 @@ void integer(Assembler& out, const assembly::Instruction& inst, const Form& form
 			(src.kind != OperandKind::Immediate && src.kind != OperandKind::Symbol)))
 		fail(inst, "this absolute move form requires a 64-bit register and immediate");
 	const unsigned bytes = bits / 8;
-	if (src.kind == OperandKind::Symbol)
-	{
-		if (form.encoding != Encoding::Move || bits != 64 || dst.kind != OperandKind::Register ||
-			src.address.relocation != assembly::Relocation::Address)
-			fail(inst, "symbol immediate requires a 64-bit register move");
-		out.op_plus(0, true, 0xb8, physical(dst.reg, inst));
-		CodeFixup fixup;
-		fixup.offset = out.size();
-		fixup.target = src.address.symbol.symbol;
-		fixup.addend = src.address.displacement;
-		fixup.end = 8;
-		fixup.absolute = true;
-		fixup.branch = false;
-		out.fixups().push_back(fixup);
-		out.imm(0, 8);
-		return;
-	}
 	const uint8_t prefix = bits == 16 ? 0x66 : 0;
 	const bool byte_regs = bits == 8 && byte_rex(inst);
 	const bool wide = bits == 64;
 	if ((dst.kind != OperandKind::Register && dst.kind != OperandKind::Memory) ||
 		(dst.kind == OperandKind::Memory && src.kind == OperandKind::Memory))
 		fail(inst, "invalid integer destination or two memory operands");
+	if (src.kind == OperandKind::Symbol)
+		return symbol_immediate(out, inst, form, bits);
 	if (form.encoding == Encoding::Move)
 	{
 		if (src.kind == OperandKind::Immediate)

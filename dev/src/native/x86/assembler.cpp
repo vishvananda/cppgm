@@ -103,6 +103,28 @@ void Assembler::imm(int64_t value, unsigned bytes)
 		code_.push_back(static_cast<uint8_t>(static_cast<uint64_t>(value) >> (8 * k)));
 }
 
+void Assembler::symbol_immediate(uint32_t target, int32_t addend, uint8_t bytes, bool sign_extended)
+{
+	CodeFixup fixup;
+	fixup.offset = size();
+	fixup.target = target;
+	fixup.addend = addend;
+	fixup.end = bytes;
+	fixup.absolute = true;
+	fixup.branch = false;
+	fixup.kind = sign_extended ? FixupKind::SignedAddress : FixupKind::Address;
+	fixups_.push_back(fixup);
+	imm(0, bytes);
+}
+
+void Assembler::displacement32(const RM& rm)
+{
+	if (rm.absolute_symbol)
+		symbol_immediate(rm.symbol, rm.disp, 4, !rm.address32);
+	else
+		imm(rm.disp, 4);
+}
+
 void Assembler::op(uint8_t prefix, bool rex_w, uint32_t opcode, unsigned opcode_bytes, unsigned reg, const RM& rm,
 	bool byte_regs, unsigned imm_bytes)
 {
@@ -144,7 +166,7 @@ void Assembler::op(uint8_t prefix, bool rex_w, uint32_t opcode, unsigned opcode_
 		byte(static_cast<uint8_t>(0xc0 | r | (rm.reg & 7)));
 		return;
 	}
-	if (rm.symbol != 0xffffffffu || rm.label != 0xffffffffu)
+	if ((rm.symbol != 0xffffffffu && !rm.absolute_symbol) || rm.label != 0xffffffffu)
 	{
 		byte(static_cast<uint8_t>(0x05 | r));
 		if (rm.symbol != 0xffffffffu)
@@ -176,15 +198,18 @@ void Assembler::op(uint8_t prefix, bool rex_w, uint32_t opcode, unsigned opcode_
 		byte(static_cast<uint8_t>(0x04 | r));
 		const unsigned index = rm.index == kNoReg ? 4 : (rm.index & 7);
 		byte(static_cast<uint8_t>((scale_bits(rm.scale) << 6) | (index << 3) | 5));
-		imm(rm.disp, 4);
+		displacement32(rm);
 		return;
 	}
 	const unsigned base = rm.base & 7;
 	unsigned mod = 2;
-	if (rm.disp == 0 && base != 5)
-		mod = 0;
-	else if (fits_i8(rm.disp))
-		mod = 1;
+	if (!rm.absolute_symbol)
+	{
+		if (rm.disp == 0 && base != 5)
+			mod = 0;
+		else if (fits_i8(rm.disp))
+			mod = 1;
+	}
 	if (rm.index != kNoReg || base == 4)
 	{
 		byte(static_cast<uint8_t>((mod << 6) | r | 4));
@@ -196,7 +221,7 @@ void Assembler::op(uint8_t prefix, bool rex_w, uint32_t opcode, unsigned opcode_
 	if (mod == 1)
 		imm(rm.disp, 1);
 	else if (mod == 2)
-		imm(rm.disp, 4);
+		displacement32(rm);
 }
 
 void Assembler::op_plus(uint8_t prefix, bool rex_w, uint8_t opcode, Reg reg)

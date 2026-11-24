@@ -118,10 +118,7 @@ uint32_t data_relocation_type(unsigned bytes, bool relative)
 			: bytes == 4  ? object::R_X86_64_PC32
 			: bytes == 2  ? object::R_X86_64_PC16
 						  : object::R_X86_64_PC8;
-	return bytes == 8 ? object::R_X86_64_64
-		: bytes == 4  ? object::R_X86_64_32
-		: bytes == 2  ? object::R_X86_64_16
-					  : object::R_X86_64_8;
+	return object::x86_absolute_relocation(bytes);
 }
 
 } // namespace

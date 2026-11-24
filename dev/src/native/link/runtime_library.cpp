@@ -247,7 +247,9 @@ void CoreBuilder::to_object(ObjectFile& out) const
 		object::Relocation relocation;
 		relocation.offset = fixup.offset;
 		relocation.symbol = symbol_of[fixup.target - Image::kLocalSymbols];
-		relocation.type = fixup.absolute ? object::R_X86_64_64 : object::R_X86_64_PC32;
+		relocation.type = fixup.absolute
+			? object::x86_absolute_relocation(fixup.end, fixup.kind == FixupKind::SignedAddress)
+			: object::R_X86_64_PC32;
 		relocation.addend = fixup.absolute ? fixup.addend : static_cast<int64_t>(fixup.addend) - fixup.end;
 		out.sections[text].relocations.push_back(relocation);
 	}

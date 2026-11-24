@@ -20,6 +20,7 @@ namespace native {
 enum class FixupKind : uint8_t
 {
 	Address,
+	SignedAddress, // sign-extended absolute disp32 or imm32
 	Got,
 	TpOff,
 	GotTpOff,
@@ -31,9 +32,9 @@ struct CodeFixup
 	uint32_t offset;
 	uint32_t target; // image symbol
 	int32_t addend;
-	uint8_t end;
-	bool absolute; // 64-bit absolute address (data items)
-	bool branch;   // a call's or jump's target (else an address or operand)
+	uint8_t end; // bytes from the PC-relative field to the instruction end, or the absolute field width
+	bool absolute;
+	bool branch; // a call's or jump's target (else an address or operand)
 	FixupKind kind = FixupKind::Address;
 };
 
@@ -47,8 +48,10 @@ struct RM
 	Reg base = kNoReg; // memory: GPR, or kNoReg (absolute / RIP)
 	Reg index = kNoReg;
 	uint8_t scale = 1;
+	bool absolute_symbol = false;
+	bool address32 = false;
 	int32_t disp = 0;
-	uint32_t symbol = 0xffffffffu; // RIP-relative image symbol
+	uint32_t symbol = 0xffffffffu; // image symbol, normally RIP-relative
 	uint32_t label = 0xffffffffu;  // RIP-relative local label
 
 	static RM r(Reg reg)
@@ -125,6 +128,7 @@ public:
 		bool byte_regs = false, unsigned imm_bytes = 0);
 	// [REX] opcode+reg (for B8+r, C8+r, ...).
 	void op_plus(uint8_t prefix, bool rex_w, uint8_t opcode, Reg reg);
+	void symbol_immediate(uint32_t target, int32_t addend, uint8_t bytes, bool sign_extended);
 
 	// Common forms.
 	void mov_rr(Reg dst, Reg src);                                    // 64-bit
@@ -179,6 +183,7 @@ public:
 	void x87(uint8_t opcode, unsigned digit, const RM& mem);
 
 private:
+	void displacement32(const RM& rm);
 	struct LabelRef
 	{
 		uint32_t offset;

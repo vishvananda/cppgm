@@ -35,7 +35,16 @@ void encode_control_form(
 	if ((bits != 16 && bits != 64) || (operand.bits != 0 && operand.bits != bits))
 		fail(inst, "push/pop requires a 16-bit or 64-bit operand");
 	const uint8_t prefix = bits == 16 ? 0x66 : 0;
-	if (operand.kind == OperandKind::Register)
+	if (operand.kind == OperandKind::Symbol && form.opcode == 0x50 &&
+		operand.address.relocation == assembly::Relocation::Address)
+	{
+		if (prefix != 0)
+			out.byte(prefix);
+		out.byte(0x68);
+		out.symbol_immediate(
+			operand.address.symbol.symbol, operand.address.displacement, bits == 16 ? 2 : 4, bits == 64);
+	}
+	else if (operand.kind == OperandKind::Register)
 	{
 		if (operand.reg.bank != asm_model::RegisterBank::Gpr)
 			fail(inst, "push/pop requires a general-purpose register");

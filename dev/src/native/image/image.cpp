@@ -148,7 +148,7 @@ bool Image::write_executable(const std::string& path, uint32_t entry, std::strin
 	for (size_t i = 0; i < code_fixups_.size(); ++i)
 	{
 		const CodeFixup& fixup = code_fixups_[i];
-		if (fixup.kind != FixupKind::Address)
+		if (fixup.kind != FixupKind::Address && fixup.kind != FixupKind::SignedAddress)
 		{
 			error = "a GOT or thread-pointer reference in a native image";
 			return false;
@@ -162,7 +162,16 @@ bool Image::write_executable(const std::string& path, uint32_t entry, std::strin
 		const uint64_t target = address_of(fixup.target) + static_cast<int64_t>(fixup.addend);
 		if (fixup.absolute)
 		{
-			patch(text_, fixup.offset, target, 8);
+			const bool fits = fixup.kind == FixupKind::SignedAddress ? fits_i32(static_cast<int64_t>(target))
+				: fixup.end == 8                                     ? true
+				: fixup.end == 4                                     ? target <= UINT32_MAX
+								 : fits_operation(static_cast<int64_t>(target), fixup.end);
+			if (!fits)
+			{
+				error = "absolute assembly reference out of range";
+				return false;
+			}
+			patch(text_, fixup.offset, target, fixup.end);
 			continue;
 		}
 		const int64_t value = static_cast<int64_t>(target) -

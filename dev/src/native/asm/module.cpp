@@ -368,7 +368,8 @@ void ModuleAssembler::emit_instructions(std::vector<assembly::Instruction>& inst
 		relocation.offset = fixup.offset;
 		relocation.symbol = fixup.target;
 		relocation.addend = fixup.addend - (fixup.absolute ? 0 : fixup.end);
-		relocation.type = fixup.absolute        ? object::R_X86_64_64
+		relocation.type = fixup.absolute
+			? object::x86_absolute_relocation(fixup.end, fixup.kind == FixupKind::SignedAddress)
 			: fixup.kind == FixupKind::Got      ? object::R_X86_64_GOTPCREL
 			: fixup.kind == FixupKind::GotTpOff ? object::R_X86_64_GOTTPOFF
 			: fixup.kind == FixupKind::Tlv      ? object::R_MACHO_TLV
