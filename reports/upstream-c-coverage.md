@@ -3207,7 +3207,7 @@ the UTF-8 character interfaces were also unavailable in this mode.
 This isolates the observed behavior and declarations to the selected
 SDK and runtime pairing.
 
-The current inventory has 57 uncovered edition-and-rule entries on
+At that checkpoint, the inventory had 57 uncovered edition-and-rule entries on
 WASI. Of these, 37 are in C23. The earlier editions have four recurring
 gaps in the combined headers, the signal header and runtime, and
 default long-double stdio. Bare Wasm has 17 uncovered entries, all in
@@ -3245,15 +3245,60 @@ and Linux AArch64 under QEMU, 1,315 on WASI, and 1,002 on bare Wasm.
 The 76 harness test files, format audit, and release archive checks
 pass. The file audit reports its 13 existing warnings.
 
-The supplement closes six bare Wasm C23 inventory entries. Eleven
-remain open, covering the freestanding `<string.h>` interface,
-floating format indicators, header versions, and the combined header
-check. A separate link experiment called 18 required string functions
-from selected WASI SDK objects under bare Wasm at both optimization
-levels. The linked modules have no host imports. The SDK's own
-`<string.h>` requires a WASI target, so the bare profile still needs
-its own declarations and type-generic macros, plus an implementation
-of `memset_explicit`.
+The first supplement closed six bare Wasm C23 inventory entries. A
+link experiment also established that the SDK's musl string routines
+can execute under bare Wasm without host imports. The remaining bare
+checks are covered by the [expanded library](#bare-wasm-string-and-resource-headers)
+below.
 
 [Build and link commands](../BUILDING.md#bare-wasm-c23-library-supplement) ·
 [Bit utility requirements](../doc/c-conformance-notes.md#c23-bit-utilities-and-checked-integer-arithmetic)
+
+## Bare Wasm string and resource headers
+
+The archive includes 19 public string functions and their four internal
+helpers from WASI SDK 34. The selected objects use Wasm memory operations
+and local calls. Their compiled source paths identify the SDK's musl
+string sources. The kit carries the upstream notices beside the archive.
+The SDK's own `<string.h>` requires a WASI target. The bare header
+provides the C23 freestanding declarations and the five searches with
+const-preserving result types. The executable probe covers every public
+string symbol, qualified pointers including a pointer to a const-element
+array, and single evaluation of pointer, character and length operands.
+
+`memset_explicit` uses the bulk memory builtin and a memory barrier.
+The runtime probe checks the target bytes, adjacent bytes, and returned
+address. A caller that discards its buffer still emits `memory.fill`
+with LTO at `-O0`, `-O2` and `-Oz`.
+
+The supplement forwards the SDK resource headers and adds the
+C23 version macros for `<float.h>`, `<limits.h>`, `<stdarg.h>`,
+`<stddef.h>`, and `<stdint.h>`. The floating header exposes the
+binary32, binary64 and binary128 format indicators. The replay checks
+the underlying limits, integer types, variadic operations, and common
+definitions including `nullptr_t` and `unreachable`. Bare Wasm passes all
+124 tracked C23 inventory entries, including the combined header
+check. The stock hosted WASI configuration has 38 uncovered C23 entries
+with the new string probe in its inventory.
+
+Four probes for string functions, explicit fill, floating formats and
+variadics pass 32 mixed cppgm and Clang runs at `-O0` and `-O2` with
+both linkers. The modules validate and run without host imports. The
+extracted source-only archive builds the supplement, installs all five
+upstream notices, and passes the string program.
+
+The combined replay at `b329cef37` passes all 5,157 executed
+configurations. It covers 1,412 on each Linux architecture, with QEMU
+used for AArch64, 1,315 on WASI and 1,018 on bare Wasm. The 76 harness
+test files, format audit, and source release checks pass. The file
+audit reports its 13 existing warnings.
+
+On stock WASI, the archive already exports `strdup` and `strndup`.
+The C23 string allocation probe passes with cppgm and the SDK Clang
+when compiled with `_POSIX_C_SOURCE=200809L`. The strict default C23
+profile still lacks those declarations. This probe confirms the runtime
+implementations that a hosted C23 header can expose.
+
+[C23 string requirements](../doc/c-conformance-notes.md#c-library-calls-and-format-macros) ·
+[WASI SDK input](https://github.com/WebAssembly/wasi-sdk/releases/tag/wasi-sdk-34) ·
+[Compile and link measurements](../docs/performance/c-frontend-scaling.md#bare-wasm-string-library)

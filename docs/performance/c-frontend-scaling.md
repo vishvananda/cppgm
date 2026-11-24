@@ -3867,3 +3867,23 @@ Most of the measured work is the one-time header cost. A linked
 program taking one typed function's address produced a 184-byte
 module with one archive function body. The body lowers the count to
 Wasm's `i32.clz` instruction.
+
+## Bare Wasm string library
+
+The archive reuses 23 string objects from WASI SDK 34. The full SDK
+archive is 3,245,870 bytes. The supplement, including the bit and
+alignment functions, is 72,062 bytes. On CPU 71, the exact same C23
+string test object linked with either archive into a byte-identical
+9,435-byte module, and every module passed runtime verification.
+ABBA and BAAB measured 90.15% and 90.16% fewer retired user instructions
+with the supplement. The full-archive A/A spread was 33,403 instructions.
+
+The qualifier-preserving macros use a single call with a result type
+selected in `typeof`. Against explicit casts and direct function calls,
+the generic `strchr` emitted byte-identical objects for one and 256
+functions. At `-O2 -c`, ABBA and BAAB added 24,146 and 24,033 retired
+user instructions for one function, and 4,856,346 and 4,860,157 for
+256. The A/A spreads were 483 and 10,295 instructions. The typed
+null-pointer operand removed about 460,000 instructions from the
+256-function macro case compared with the initial compound-literal
+operand.
