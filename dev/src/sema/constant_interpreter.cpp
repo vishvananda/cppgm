@@ -2034,9 +2034,11 @@ bool ConstantInterpreter::evaluate(const syntax::Expr& expr, bool converted, Con
 		finish_allocations(expr.location);
 }
 
-bool ConstantInterpreter::evaluate_c_constant(const syntax::Expr& expr, bool converted, ConstValue& out)
+bool ConstantInterpreter::evaluate_c_constant(
+	const syntax::Expr& expr, bool converted, ConstValue& out, bool fold_address)
 {
 	c_constant_expression_ = true;
+	c_fold_address_constants_ = fold_address;
 	return evaluate(expr, converted, out);
 }
 

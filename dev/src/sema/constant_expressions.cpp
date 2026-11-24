@@ -767,6 +767,13 @@ bool ConstantInterpreter::convert_scalar(ConstValue& value, const Type* to, uint
 			value = IntegerValue(to, ConvertIntegral(bits, kind));
 			return true;
 		}
+		if (c_fold_address_constants_ && value.kind == ValueKind::Pointer &&
+			(value.root == RootKind::Null || value.root == RootKind::AbsoluteAddress))
+		{
+			const uint64_t bits = value.root == RootKind::Null ? 0 : static_cast<uint64_t>(value.address.offset);
+			value = kind.bits > 64 ? WideValue(to, bits) : IntegerValue(to, ConvertIntegral(bits, kind));
+			return true;
+		}
 		return fail(location, "a pointer converted to an integer in a constant expression");
 	}
 	if (to->kind == TypeKind::MemberPointer)
@@ -805,7 +812,8 @@ bool ConstantInterpreter::convert_scalar(ConstValue& value, const Type* to, uint
 			value.type = to;
 			return true;
 		}
-		if (c_static_initializer_ && to->kind == TypeKind::Pointer && value.kind == ValueKind::Integer)
+		if ((c_static_initializer_ || c_fold_address_constants_) && to->kind == TypeKind::Pointer &&
+			value.kind == ValueKind::Integer)
 		{
 			uint64_t bits = value.bits;
 			if (target_model::data_layout(analyzer_.types_.target()).pointer_bytes == 4)

@@ -98,7 +98,7 @@ bool SameCArithmeticValue(const ConstValue& left, const ConstValue& right)
 
 // Check operand forms even in a branch the evaluator skips (WG14 defect report 489).
 // C23 adds named constants to both the integer and arithmetic forms.
-bool Analyzer::c_integer_constant_operands(const syntax::Expr& root, bool arithmetic, bool* conditional) const
+bool Analyzer::c_integer_constant_operands(const syntax::Expr& root, bool arithmetic, bool* gnu_foldable) const
 {
 	using syntax::Expr;
 	using syntax::ExprKind;
@@ -137,6 +137,12 @@ bool Analyzer::c_integer_constant_operands(const syntax::Expr& root, bool arithm
 		case ExprKind::Cast:
 		{
 			const Expr* operand = WithoutParentheses(static_cast<const syntax::CastExpr*>(expr)->operand);
+			if (operand->facts->type->kind == TypeKind::Pointer)
+			{
+				if (gnu_foldable != nullptr && !arithmetic && IsIntegralOrUnscopedEnum(facts->type))
+					*gnu_foldable = true;
+				return false;
+			}
 			if (arithmetic || !CArithmetic(operand->facts->type) ||
 				(operand->kind != ExprKind::Literal && !CObjectConstant(operand)))
 				pending.push_back(operand);
@@ -162,8 +168,8 @@ bool Analyzer::c_integer_constant_operands(const syntax::Expr& root, bool arithm
 		}
 		case ExprKind::Conditional:
 		{
-			if (conditional != nullptr)
-				*conditional = true;
+			if (gnu_foldable != nullptr)
+				*gnu_foldable = true;
 			const auto* choice = static_cast<const syntax::ConditionalExpr*>(expr);
 			pending.push_back(choice->condition);
 			// GNU constant queries deliberately guard implementations that
@@ -303,18 +309,18 @@ bool Analyzer::integer_constant_expression(
 			return true;
 		}
 	}
-	bool conditional = false;
-	const bool standard_operands = c_integer_constant_operands(expr, false, required ? &conditional : nullptr);
-	if (standard_operands || conditional)
+	bool gnu_foldable = false;
+	const bool standard_operands = c_integer_constant_operands(expr, false, required ? &gnu_foldable : nullptr);
+	if (standard_operands || gnu_foldable)
 	{
 		ConstantInterpreter interpreter(*this);
 		ConstValue result;
-		if (interpreter.evaluate_c_constant(expr, false, result) && result.kind == ValueKind::Integer &&
-			(high != nullptr || HeldAsConstant(result)))
+		if (interpreter.evaluate_c_constant(expr, false, result, !standard_operands) &&
+			result.kind == ValueKind::Integer && (high != nullptr || HeldAsConstant(result)))
 		{
 			if (!standard_operands && positions_ != nullptr &&
 				!positions_->allow_gnu_c_extension(
-					expr.location, "folding a conditional to a C integer constant is a GNU extension"))
+					expr.location, "folding this expression to a C integer constant is a GNU extension"))
 				error(expr.location, "a C integer constant expression is required");
 			value = Constant{ result.bits, result.type };
 			if (high != nullptr)

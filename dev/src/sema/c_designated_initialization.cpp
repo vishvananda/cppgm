@@ -287,7 +287,7 @@ private:
 			analyzer_.error(index.location, "an array designator requires an array");
 		Constant value;
 		if (analyzer_.typed(index, scope_) == nullptr ||
-			!analyzer_.integer_constant_expression(index, scope_, value, false))
+			!analyzer_.integer_constant_expression(index, scope_, value, true))
 			analyzer_.error(index.location, "a C array designator requires an integer constant expression");
 		IntegralKind kind;
 		if (IntegralKindOf(value.type, kind) && kind.is_signed && static_cast<int64_t>(value.bits) < 0)

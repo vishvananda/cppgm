@@ -482,7 +482,9 @@ The first fixture set covers these parts of the C17 input profile:
   foldable array bound can still declare a variable-length array. Use C's
   integer constant expressions of value zero for null pointer conversions.
   GNU folding can supply the value of a conditional in a required constant
-  context, such as a case label. Diagnose this extension in pedantic mode.
+  context, such as a case label or array designator. It can also fold casts
+  from null or integer-derived pointer values back to integers. Diagnose
+  these extensions in pedantic mode.
 - Give a named `register` object automatic storage duration. Diagnose an
   explicit address of the object or a record member it contains, including
   a register parameter. A register pointer can designate other objects.

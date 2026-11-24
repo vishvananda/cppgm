@@ -50,7 +50,7 @@ public:
 	// recorded (a converted constant expression, 5.19p3, or a contextual
 	// conversion to bool).
 	bool evaluate(const syntax::Expr& expr, bool converted, ConstValue& out);
-	bool evaluate_c_constant(const syntax::Expr& expr, bool converted, ConstValue& out);
+	bool evaluate_c_constant(const syntax::Expr& expr, bool converted, ConstValue& out, bool fold_address = false);
 	const ConstValue* evaluate_c_initializer(const syntax::Expr& expr);
 	bool check_c_constexpr_initializer(
 		const syntax::Expr& expr, const Type* to, const DataMember* member, const ConstValue*& checked);
@@ -507,6 +507,7 @@ private:
 	bool checking_destruction_ = false;
 	// C 6.6p3 permits comma operators only on an unevaluated path.
 	bool c_constant_expression_ = false;
+	bool c_fold_address_constants_ = false;
 	bool c_constexpr_initializer_ = false;
 	bool c_static_initializer_ = false;
 	// GNU constant_p conditionals permit foldable reference casts in the
