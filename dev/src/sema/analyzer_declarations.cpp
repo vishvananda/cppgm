@@ -1100,6 +1100,14 @@ void Analyzer::declare_declarator(const Specifiers& specifiers, const syntax::In
 		init.declared = binding;
 		return;
 	}
+	if (c_source_ && specifiers.is_register)
+	{
+		const ScopeKind home = declaration_scope(scope)->kind;
+		const bool explicit_asm = home == ScopeKind::Namespace && info.asm_label != nullptr &&
+			(!c_pedantic_ || specifiers.quiet_c_extensions);
+		if (home != ScopeKind::Block && !explicit_asm)
+			error(info.location, "register storage requires a block-scope object or parameter");
+	}
 	init.declared = declare_variable(specifiers, info, init.initializer, scope, info.location, false, c_alignment);
 	// An auto variable template whose initializer is dependent: its
 	// specializations deduce their types (see variable_specialization).
@@ -1481,9 +1489,6 @@ Binding* Analyzer::declare_variable(const Specifiers& specifiers, const Declarat
 		specifiers.is_static && where->kind == ScopeKind::Class && !qualified;
 	bool definition = ((where->kind != ScopeKind::Class || qualified) && (!is_extern || initializer != nullptr)) ||
 		inline_member;
-	if (c_source_ && specifiers.is_register && where->kind != ScopeKind::Block &&
-		(where->kind != ScopeKind::Namespace || c_pedantic_ || info.asm_label == nullptr))
-		error(location, "register storage requires a block-scope object or parameter");
 	check_variable_specifiers(specifiers, type, where, qualified, member, definition, initializer != nullptr, location);
 	check_parameter_redeclaration(name.key, where, location);
 	const Binding* c_visible = c_source_ && specifiers.is_extern && where->kind == ScopeKind::Block
@@ -2277,6 +2282,8 @@ FunctionEntity* Analyzer::c_redeclared_function(FunctionEntity* previous, const 
 void Analyzer::check_function_qualifiers(
 	const Scope* where, const Identifier* key, const Type* type, const Specifiers& specifiers, uint32_t location)
 {
+	if (c_source_ && specifiers.is_register)
+		error(location, "register storage on a function declaration");
 	if (specifiers.c_auto_storage)
 		error(location, "auto on a C function declaration");
 	if (c_source_ && specifiers.is_constexpr)
@@ -2295,8 +2302,6 @@ void Analyzer::check_function_qualifiers(
 Binding* Analyzer::declare_function(const Specifiers& specifiers, const DeclaratorInfo& info, Scope* scope,
 	bool definition, uint32_t location, bool deleted)
 {
-	if (c_source_ && specifiers.is_register)
-		error(location, "register storage on a function declaration");
 	if (specifiers.is_constinit)
 		error(location, "__constinit on a function declaration");
 	if (specifiers.is_consteval && info.name != nullptr &&
