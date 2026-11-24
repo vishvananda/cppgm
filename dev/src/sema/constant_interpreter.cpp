@@ -1549,7 +1549,7 @@ bool ConstantInterpreter::advance(ConstValue& pointer, int64_t count, uint32_t l
 	if (pointer.root == RootKind::Function || pointer.type->kind != TypeKind::Pointer)
 		return fail(location, "arithmetic on a pointer that designates no object");
 	const Type* element = pointer.type->element;
-	const int64_t size = static_cast<int64_t>(size_of(element, location));
+	const int64_t size = analyzer_.c_source() && IsVoid(element) ? 1 : static_cast<int64_t>(size_of(element, location));
 	if (count == 0)
 		return true;
 	if (size == 0)

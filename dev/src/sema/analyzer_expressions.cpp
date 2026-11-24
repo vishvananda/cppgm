@@ -8,6 +8,7 @@
 #include "lex/identifier_table.h"
 #include "lex/number_literal.h"
 #include "lex/text_literal.h"
+#include "preprocess/preprocessor.h"
 #include "sema/aggregates.h"
 #include "sema/string_literals.h"
 
@@ -1435,9 +1436,10 @@ ExprFacts* Analyzer::arithmetic(const syntax::BinaryExpr& expr, ExprFacts* left,
 			{
 				const Type* left_element = lt->element->unqualified;
 				const Type* right_element = rt->element->unqualified;
-				if (IsVoid(left_element) ||
-					(left_element != right_element &&
-						!(c_source_ && conversions_.c_type_compatible(left_element, right_element))))
+				if (IsVoid(left_element) && IsVoid(right_element) && !complete_pointee(lt, expr.location))
+					return nullptr;
+				if (left_element != right_element &&
+					!(c_source_ && conversions_.c_type_compatible(left_element, right_element)))
 				{
 					if (!c_source_ || !conversions_.c_compatible_array_pointees(left_element, right_element))
 						return substitution_error(expr.location, "subtraction of pointers to different types"), nullptr;
@@ -1554,6 +1556,13 @@ bool Analyzer::complete_pointee(const Type* pointer, uint32_t location)
 	// defined object type (not void, an array of unknown bound or an
 	// incomplete class, whose completion may come later: not memoized).
 	const Type* element = pointer->unqualified->element;
+	if (c_source_ && IsVoid(element))
+	{
+		const char* message = "arithmetic on a void pointer is a GNU C extension";
+		if (c_explicit_extension_ || positions_ == nullptr || positions_->allow_gnu_c_extension(location, message))
+			return true;
+		return substitution_error(location, message);
+	}
 	if (IsVoid(element) ||
 		(element->kind == TypeKind::Array && !element->has_array_bound() && element->owner == nullptr &&
 			!element->runtime_array()))

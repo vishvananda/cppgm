@@ -1882,7 +1882,9 @@ RValue FunctionLowering::pointer_offset(const RValue& pointer, const RValue& off
 	const lowir::Type i64 = lowir::Type::scalar(lowir::TypeKind::I64);
 	RValue count = convert_integer(offset, index_type, i64, ConversionContext::Additive, true, literal);
 	const sema::Type* pointee = pointer_type->unqualified->element;
-	const uint64_t size = pointee->runtime_array() ? 0 : lowering_.size_of(pointee, location);
+	const uint64_t size = pointee->runtime_array() ? 0
+		: sema::IsVoid(pointee)                    ? 1
+												   : lowering_.size_of(pointee, location);
 	if (pointee->runtime_array())
 		count = binary(lowir::BinaryOp::Mul, i64, count,
 			convert_integer(runtime_array_size(pointee, location),
@@ -1923,7 +1925,7 @@ RValue FunctionLowering::pointer_difference(
 		size.type = i64;
 		return binary(lowir::BinaryOp::Div, i64, bytes, size, lowir::IF_EXACT);
 	}
-	const uint64_t size = lowering_.size_of(pointee, location);
+	const uint64_t size = sema::IsVoid(pointee) ? 1 : lowering_.size_of(pointee, location);
 	if (size == 1)
 		return bytes;
 	if ((size & (size - 1)) == 0)

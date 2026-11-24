@@ -1478,6 +1478,12 @@ bool ConstantInterpreter::pointer_arithmetic(
 		if (left.root != right.root || left.count != right.count || left.extra != right.extra ||
 			(left.address.entity != right.address.entity && !same_literal(left, right)))
 			return fail(expr.location, "a difference of pointers into different objects");
+		if (analyzer_.c_source() && IsVoid(left_type->element))
+		{
+			out = IntegerValue(expr.facts->type->unqualified,
+				static_cast<uint64_t>(left.address.offset) - static_cast<uint64_t>(right.address.offset));
+			return true;
+		}
 		const int64_t size = static_cast<int64_t>(size_of(left_type->element, expr.location));
 		if (size == 0)
 			return fail(expr.location, "a difference of pointers to an incomplete type");
