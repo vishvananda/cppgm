@@ -85,7 +85,8 @@ class CoverageTests(unittest.TestCase):
         self.assertEqual(rows['library.wasi-signal-emulation']['status'], 'passing')
 
     def test_library_runtime_applicability(self):
-        names = ('stdarg', 'stddef', 'stdio', 'string', 'stdlib', 'inttypes', 'wchar', 'stdatomic', 'uchar')
+        names = ('stdarg', 'stddef', 'stdio', 'string', 'stdlib', 'inttypes', 'wchar', 'stdatomic', 'uchar',
+                 'complex', 'fenv')
         checked = {name: {'include': 'usable'} for name in names}
         versions = {name: dict(status, version='current') for name, status in checked.items()}
 
@@ -98,6 +99,8 @@ class CoverageTests(unittest.TestCase):
         self.assertIn('library.va-copy-stdio', selected(self.native, 99))
         self.assertNotIn('library.c23-binary-stdio', selected(self.native, 23, c23=checked))
         self.assertIn('library.c23-binary-stdio', selected(self.native, 23))
+        self.assertEqual(selected(self.native, 23)['library.c23-complex-interfaces'], ('-lm',))
+        self.assertEqual(selected(self.native, 23)['library.c23-fenv-interfaces'], ('-lm',))
         self.assertEqual(selected(self.native, 23)['library.c23-atomic-interfaces'], ('-latomic',))
         self.assertIn('library.c23-stdlib-interfaces', selected(self.native, 23))
         self.assertIn('library.c23-wide-searches', selected(self.native, 23))
@@ -110,12 +113,18 @@ class CoverageTests(unittest.TestCase):
         self.assertNotIn('library.c23-string-allocation', bare)
         wasi = selected('wasi-hosted', 23, wasi_libraries={'c-printscan-long-double': '/sdk/lib/archive.a'})
         self.assertNotIn('library.stdio-long-double', wasi)
+        self.assertNotIn('library.stdio-temporary', wasi)
         self.assertEqual(wasi['library.wasi-stdio-long-double'], ('-lc-printscan-long-double',))
         supplemented = selected('wasi-c23-hosted', 23, c23=checked)
         self.assertIn('library.stdio-long-double', supplemented)
+        self.assertIn('library.stdio-temporary', supplemented)
         self.assertIn('library.c23-memalignment', supplemented)
         self.assertIn('library.c23-binary-conversion', supplemented)
-        self.assertIn('library.c23-binary-stdio', supplemented)
+        self.assertNotIn('library.c23-binary-stdio', supplemented)
+        stdio_versions = {**checked, 'stdio': versions['stdio'], 'inttypes': versions['inttypes']}
+        stdio_current = selected('wasi-c23-hosted', 23, c23=stdio_versions)
+        self.assertIn('library.c23-binary-stdio', stdio_current)
+        self.assertIn('library.c23-stdio-nan', stdio_current)
         self.assertNotIn('library.c23-atomic-interfaces', supplemented)
         self.assertEqual(selected('wasi-c23-hosted', 23)['library.c23-atomic-interfaces'], ())
         self.assertNotIn('library.c23-wide-searches', selected('wasi-c23-hosted', 23, c23=checked))
