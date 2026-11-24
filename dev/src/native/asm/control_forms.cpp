@@ -148,11 +148,22 @@ void encode_system_form(
 		fail(inst, "invalid system instruction prefix");
 	if (form.encoding == E::SystemWord || form.encoding == E::DescriptorQuery)
 		return segment_selector(out, inst, form, suffix);
+	if (form.encoding == E::SystemRegister)
+	{
+		if (inst.operands.size() != 1 || inst.operands[0].kind != OperandKind::Register)
+			fail(inst, "system instruction requires a general register");
+		const unsigned bits = asm_detail::integer_width(inst, form.bits);
+		if (bits != 32 && bits != 64)
+			fail(inst, "system instruction requires a 32-bit or 64-bit register");
+		out.op(form.prefix, form.bits == 0 && bits == 64, form.opcode >> 8, 2, form.opcode & 255,
+			rm(inst.operands[0], inst));
+		return;
+	}
 	if (form.encoding == E::ControlMemory)
 	{
 		if (inst.operands.size() != 1 || inst.operands[0].kind != OperandKind::Memory)
 			fail(inst, "expected one memory operand");
-		out.op(0, form.bits == 64, form.opcode >> 8, 2, form.opcode & 255, rm(inst.operands[0], inst));
+		out.op(form.prefix, form.bits == 64, form.opcode >> 8, 2, form.opcode & 255, rm(inst.operands[0], inst));
 		return;
 	}
 	if (form.encoding == E::NonTemporalStore)

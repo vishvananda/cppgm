@@ -137,7 +137,8 @@ void ModuleSymbols::type(uint32_t symbol, object::SymbolType type)
 }
 void ModuleSymbols::define_absolute(uint32_t symbol, uint64_t value)
 {
-	registers_.erase(out_.symbol_name(symbol));
+	if (!registers_.empty())
+		registers_.erase(out_.symbol_name(symbol));
 	object::Symbol& entry = out_.symbols[symbol];
 	if (entry.section == object::kAbsoluteSection)
 		entry.value = value;
@@ -146,7 +147,8 @@ void ModuleSymbols::define_absolute(uint32_t symbol, uint64_t value)
 }
 void ModuleSymbols::alias(uint32_t symbol, uint32_t target, int64_t addend)
 {
-	registers_.erase(out_.symbol_name(symbol));
+	if (!registers_.empty())
+		registers_.erase(out_.symbol_name(symbol));
 	aliases_.push_back(Alias{ symbol, target, addend });
 }
 uint32_t ModuleSymbols::numeric_symbol()

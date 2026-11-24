@@ -86,6 +86,28 @@ system_instructions:
     fninit
     movq %db0,%rax
     movq %r9,%db7
+    ud1 (%edx),%rdi
+    ud1 %esp,%ecx
+    sysretq
+    sysretl
+    rdpid %rax
+    rdpid %r9
+    rdgsbase %r9
+    rdgsbase %eax
+    wrfsbase %r10
+    fxsave (%rdi)
+    fxsave64 (%r9)
+    fxrstor (%rax)
+    fxrstor64 (%rax)
+    clflush (%rax)
+    clflushopt (%rax)
+    clwb (%rax)
+    fnclex
+    crc32b (%rax),%eax
+    crc32b (%rax),%r8
+    crc32w (%rax),%eax
+    crc32l (%rax),%eax
+    crc32q (%rax),%r8
     iretq
 
 .data

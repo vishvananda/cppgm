@@ -250,6 +250,33 @@ void vector(Assembler& out, const assembly::Instruction& inst, const Form& form)
 
 } // namespace
 
+void integer_system_binary(Assembler& out, const assembly::Instruction& inst, const Form& form)
+{
+	if (inst.prefix != 0 || inst.operands.size() != 2 || inst.operands[0].kind != OperandKind::Register ||
+		inst.operands[0].reg.bank != RegisterBank::Gpr)
+		fail(inst, "expected a general register and a register or memory operand");
+	const auto& dst = inst.operands[0];
+	const auto& src = inst.operands[1];
+	if (form.encoding == Encoding::UndefinedOperands)
+	{
+		const unsigned bits = integer_width(inst, 0);
+		if (bits == 8)
+			fail(inst, "undefined instruction requires a word operand");
+		out.op(bits == 16 ? 0x66 : 0, bits == 64, form.opcode, 2, physical(dst.reg, inst), rm(src, inst));
+		return;
+	}
+	const unsigned bits = form.bits;
+	const bool wide = dst.bits == 64;
+	if ((dst.bits != 32 && !wide) || (bits != 8 && wide != (bits == 64)) ||
+		(src.kind == OperandKind::Register ? src.reg.bank != RegisterBank::Gpr || src.bits != bits ||
+					(src.reg.offset != 0 && (wide || dst.reg.number >= 8))
+										   : src.kind != OperandKind::Memory || (src.bits != 0 && src.bits != bits)))
+		fail(inst, "invalid CRC32 operand widths");
+	if (bits == 16)
+		out.byte(0x66);
+	out.op(form.prefix, wide, form.opcode, 3, physical(dst.reg, inst), rm(src, inst), bits == 8 && byte_rex(inst));
+}
+
 void encode_instruction(Assembler& out, const assembly::Instruction& inst)
 {
 	if (!inst.mnemonic.empty() && inst.mnemonic[0] == 'v' &&
@@ -294,6 +321,8 @@ void encode_instruction(Assembler& out, const assembly::Instruction& inst)
 		(form->encoding == Encoding::Move && suffix == 64 && inst.operands.size() == 2 &&
 			(xmm(inst.operands[0]) || xmm(inst.operands[1]))))
 		return scalar_vector_move(out, inst, suffix != 0 ? suffix : form->bits);
+	if (form->encoding == Encoding::UndefinedOperands || form->encoding == Encoding::Crc32)
+		return integer_system_binary(out, inst, *form);
 	if (form->encoding >= Encoding::ControlMemory)
 	{
 		encode_system_form(out, inst, *form, suffix);
