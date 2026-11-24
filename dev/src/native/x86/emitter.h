@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "native/image/image.h"
+#include "native/asm/inline_module.h"
 #include "native/mir/mir.h"
 #include "native/x86/assembler.h"
 #include "support/telemetry.h"
@@ -142,6 +143,7 @@ public:
 		asm_.record_strings(options.assembly_text);
 	}
 	const std::vector<CodeString>& assembly_strings() const { return asm_.strings(); }
+	const std::vector<InlineModuleLocation>& inline_modules() const { return inline_modules_; }
 	const UnwindFacts& unwind() const { return unwind_; }
 	const std::vector<CodeLocation>& locations() const { return locations_; }
 	// The last function's frame displacements relative to its CFA: a
@@ -150,6 +152,7 @@ public:
 
 private:
 	std::vector<CodeLocation> locations_;
+	std::vector<InlineModuleLocation> inline_modules_;
 	void code_location(const Function& function, const Inst& inst);
 	void encode(const Function& function);
 	void prologue(const Function& function);

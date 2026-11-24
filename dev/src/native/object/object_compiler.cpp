@@ -124,6 +124,7 @@ private:
 	bool local_function(uint32_t image_symbol) const;
 	void prune_functions();
 	void place_text();
+	void place_inline_modules();
 	void place_globals();
 	void place_constants();
 	void place_startup();
@@ -169,6 +170,12 @@ private:
 	Function mir_;
 	bool assembly_text_;
 	std::vector<CodeString> assembly_strings_;
+	struct InlineFunctionModule
+	{
+		InlineModuleLocation site;
+		size_t function;
+	};
+	std::vector<InlineFunctionModule> inline_modules_;
 	std::vector<uint8_t> emitted_;           // per program symbol
 	std::vector<uint32_t> jump_thunk_index_; // per program symbol: 1 + its jump thunk, 0 none
 	size_t jump_thunks_indexed_ = 0;
@@ -488,6 +495,8 @@ void ObjectCompiler::function(lowir::SymbolId symbol)
 	const auto& strings = emitter_.assembly_strings();
 	if (!strings.empty())
 		assembly_strings_.insert(assembly_strings_.end(), strings.begin(), strings.end());
+	for (const auto& site : emitter_.inline_modules())
+		inline_modules_.push_back(InlineFunctionModule{ site, ranges_.size() });
 	ranges_.push_back(CodeRange{ symbol, image_.symbol(symbol).offset, image_.text().size(), 0, 0, false });
 	for (const lowir::CodeLabel& label : mir_.code_labels)
 		code_labels_.push_back(std::make_pair(label.symbol, symbol));
@@ -757,6 +766,24 @@ void ObjectCompiler::place_constants()
 		const uint32_t s = Image::kLocalSymbols + k;
 		if (image_.symbol(s).section == Section::Rodata)
 			placement_[slot(s)] = Placement{ rodata, base + image_.symbol(s).offset, 0 };
+	}
+}
+
+void ObjectCompiler::place_inline_modules()
+{
+	if (inline_modules_.empty())
+		return;
+	for (const auto& module : inline_modules_)
+		if (!ranges_[module.function].dropped)
+			for (uint32_t id = 1; id < module.site.module->inputs.size(); ++id)
+				object_symbol(module.site.module->inputs[id]);
+	InlineModulePlacement placement(*out_);
+	for (const auto& module : inline_modules_)
+	{
+		const InlineModuleLocation& site = module.site;
+		const CodeRange& range = ranges_[module.function];
+		if (!range.dropped)
+			placement.append(*site.module, range.section, range.base + site.offset - range.start, object_symbol_);
 	}
 }
 
@@ -1433,6 +1460,7 @@ void ObjectCompiler::finish(ObjectFile& out)
 		emit_assembly_items(out, program_, image_.target, object_symbol_, selector_.assembly_environment());
 	if (program_.assembly && !program_.assembly->functions.empty())
 		add_aliases();
+	place_inline_modules();
 	stats_.sections = out.sections.size() - 1;
 	stats_.symbols = out.symbols.size() - 1;
 	for (const object::Section& section : out.sections)

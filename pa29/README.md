@@ -230,6 +230,13 @@ addend can be grouped in parentheses before the addressing tuple.
 C records with a size of one, two, four, or eight bytes can use an
 integer register constraint. Preserve their complete representation.
 
+On x86-64 ELF, inline assembly can put data in other sections using the
+same section directives as module assembly. References to code labels
+within the template follow the final placement of the function. Preserve
+the section's data, alignment, and relocations, including symbol operands
+supplied by the C or C++ source. This form uses host object output and
+currently supports templates without outgoing `asm goto` labels.
+
 Preserve global/weak/local binding, hidden visibility, `.type`, `.size` and
 symbol aliases with `.set`/`.equ`. Support symbol addresses and constant addends,
 direct/conditional symbol branches, PLT references and calls to other objects.

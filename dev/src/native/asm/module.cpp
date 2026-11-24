@@ -8,9 +8,157 @@
 #include "native/asm/encoding.h"
 #include "native/asm/environment.h"
 #include "native/asm/functions.h"
+#include "native/asm/inline_module.h"
 #include "native/backend_error.h"
 
 namespace native {
+
+bool inline_has_sections(const std::vector<assembly::ModuleLine>& lines)
+{
+	for (const assembly::ModuleLine& line : lines)
+	{
+		assembly::ModuleCursor cursor(line);
+		cursor.space();
+		if (cursor.current() == '.')
+		{
+			const std::string name = cursor.word();
+			if (name == ".pushsection" || name == ".section" || name == ".popsection" || name == ".previous" ||
+				name == ".text" || name == ".data" || name == ".bss" || name == ".rodata")
+				return true;
+		}
+	}
+	return false;
+}
+
+std::shared_ptr<const InlineAssemblyModule> build_inline_module(
+	std::vector<assembly::ModuleLine>& lines, asm_model::Dialect dialect)
+{
+	auto result = std::make_shared<InlineAssemblyModule>();
+	result->object.assembly_text = true;
+	result->inputs.push_back(lowir::kNoId);
+	std::map<uint32_t, uint32_t> inputs;
+	for (auto& line : lines)
+		for (assembly::SymbolUse& use : line.symbols)
+		{
+			const uint32_t input = use.reference.symbol;
+			const auto entry = inputs.emplace(input, result->object.symbols.size());
+			use.reference.symbol = entry.first->second;
+			if (entry.second)
+			{
+				object::Symbol record;
+				record.binding = object::Binding::Global;
+				result->object.add_symbol(record);
+				result->inputs.push_back(input);
+			}
+		}
+	ModuleAssembler assembler(result->object, Target::Linux);
+	assembler.begin(dialect);
+	for (const assembly::ModuleLine& line : lines)
+		assembler.declare(line);
+	for (const assembly::ModuleLine& line : lines)
+		assembler.append(line);
+	assembler.finish();
+	return result;
+}
+
+InlineModulePlacement::InlineModulePlacement(object::ObjectFile& out) : out_(out), symbols_(out, Target::Linux)
+{
+	for (uint32_t id = 1; id < out_.sections.size(); ++id)
+	{
+		const auto& section = out_.sections[id];
+		if (section.group == object::kNoGroup)
+			sections_.emplace(
+				Key{ out_.string(section.name), section.kind, section.merge_size, section.merge_strings }, id);
+	}
+}
+
+uint32_t InlineModulePlacement::place_section(const object::ObjectFile& source, uint32_t section, uint64_t& offset)
+{
+	const object::Section& contents = source.sections[section];
+	const char* name = source.string(contents.name);
+	const auto found = sections_.emplace(Key{ name, contents.kind, contents.merge_size, contents.merge_strings },
+		static_cast<uint32_t>(out_.sections.size()));
+	const uint32_t id = found.first->second;
+	if (found.second)
+	{
+		out_.add_section(name, contents.kind, contents.align);
+		out_.sections[id].merge_size = contents.merge_size;
+		out_.sections[id].merge_strings = contents.merge_strings;
+	}
+	object::Section& destination = out_.sections[id];
+	offset = (destination.size + contents.align - 1) & ~(contents.align - 1);
+	destination.align = std::max(destination.align, contents.align);
+	if (destination.kind != object::SectionKind::Bss)
+	{
+		destination.bytes.resize(offset, destination.kind == object::SectionKind::Text ? 0x90 : 0);
+		destination.bytes.insert(destination.bytes.end(), contents.bytes.begin(), contents.bytes.end());
+	}
+	destination.size = offset + contents.size;
+	return id;
+}
+
+void InlineModulePlacement::append(const InlineAssemblyModule& module, uint32_t code_section, uint64_t code_offset,
+	const std::vector<uint32_t>& symbols)
+{
+	const object::ObjectFile& source = module.object;
+	std::vector<uint32_t> section_map(source.sections.size(), 0);
+	std::vector<uint64_t> offsets(source.sections.size(), 0);
+	section_map[module.text] = code_section;
+	offsets[module.text] = code_offset;
+	for (uint32_t id = 1; id < source.sections.size(); ++id)
+		if (id != module.text)
+			section_map[id] = place_section(source, id, offsets[id]);
+	std::vector<uint32_t> moved(source.symbols.size(), 0);
+	for (uint32_t id = 1; id < source.symbols.size(); ++id)
+	{
+		object::Symbol symbol = source.symbols[id];
+		if (id < module.inputs.size())
+		{
+			const uint32_t input = module.inputs[id];
+			if (symbol.section != object::kUndefinedSection || input >= symbols.size() || symbols[input] == 0)
+				throw BackendError("invalid definition or import of a typed inline assembly symbol");
+			moved[id] = symbols[input];
+			continue;
+		}
+		const char* name = source.symbol_name(id);
+		if (symbol.section != 0 && symbol.section < object::kAbsoluteSection)
+		{
+			symbol.value += offsets[symbol.section];
+			symbol.section = section_map[symbol.section];
+		}
+		if (symbol.binding == object::Binding::Local)
+		{
+			symbol.name = *name == '\0' ? 0 : out_.add_string(name);
+			moved[id] = out_.add_symbol(symbol);
+		}
+		else
+		{
+			const uint32_t global = symbols_.named(name);
+			moved[id] = global;
+			if (symbol.section != object::kUndefinedSection)
+			{
+				if (out_.symbols[global].section != object::kUndefinedSection)
+					throw BackendError("duplicate inline assembly definition: " + std::string(name));
+				symbol.name = out_.symbols[global].name;
+				out_.symbols[global] = symbol;
+			}
+		}
+	}
+	for (uint32_t id = 1; id < source.sections.size(); ++id)
+	{
+		auto& relocations = out_.sections[section_map[id]].relocations;
+		for (object::Relocation relocation : source.sections[id].relocations)
+		{
+			relocation.offset += offsets[id];
+			relocation.symbol = moved[relocation.symbol];
+			relocations.push_back(relocation);
+		}
+	}
+	if (out_.assembly_text)
+		for (const object::AssemblyString& span : source.assembly_strings)
+			out_.assembly_strings.push_back(
+				object::AssemblyString{ section_map[span.section], offsets[span.section] + span.offset, span.size });
+}
 
 ModuleAssembler::ModuleAssembler(object::ObjectFile& out, Target target)
 	: out_(out), target_(target), symbols_(out, target), unwind_(out, target)

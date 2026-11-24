@@ -435,8 +435,13 @@ void FunctionEmitter::emit(const Function& function)
 	uint32_t assembly_alignment = 1;
 	if (function.assembly)
 		for (const auto& plan : function.assembly->plans)
-			for (const auto& inst : plan->instructions)
-				assembly_alignment = std::max(assembly_alignment, inst.alignment);
+		{
+			if (plan->module)
+				assembly_alignment = std::max(assembly_alignment, static_cast<uint32_t>(plan->module->main().align));
+			else
+				for (const auto& inst : plan->instructions)
+					assembly_alignment = std::max(assembly_alignment, inst.alignment);
+		}
 	const uint32_t code_alignment = std::max(16u, assembly_alignment);
 	while (text.size() % code_alignment != 0)
 		text.push_back(0xcc);
@@ -498,6 +503,8 @@ void FunctionEmitter::emit(const Function& function)
 	}
 	if (!asm_.resolve_labels())
 		throw InternalError("branch out of range");
+	for (auto& module : inline_modules_)
+		module.offset = static_cast<uint32_t>(asm_.label_position(module.offset));
 	for (const lowir::CodeLabel& label : function.code_labels)
 		image_.define(label.symbol, Section::Text, asm_.label_position(labels_[label.block]));
 	image_.add_code_fixups(asm_.fixups(), 0);
@@ -786,6 +793,7 @@ void FunctionEmitter::code_location(const Function& function, const Inst& inst)
 void FunctionEmitter::encode(const Function& function)
 {
 	locations_.clear();
+	inline_modules_.clear();
 	asm_.reset_labels();
 	labels_.assign(function.blocks.size(), 0);
 	for (size_t b = 0; b < function.blocks.size(); ++b)
@@ -1408,6 +1416,15 @@ void FunctionEmitter::instruction(const Function& function, const Inst& inst, ui
 			else
 				encode_assembly_vector_transfer(
 					asm_, plan.transfer_register, rm(b), plan.transfer_store, plan.transfer_bytes);
+		}
+		else if (plan.module)
+		{
+			const object::Section& text = plan.module->main();
+			asm_.nops((uint32_t(0) - asm_.size()) & (text.align - 1));
+			const uint32_t position = asm_.new_label();
+			asm_.bind(position);
+			inline_modules_.push_back(InlineModuleLocation{ plan.module, position });
+			asm_.code().insert(asm_.code().end(), text.bytes.begin(), text.bytes.end());
 		}
 		else
 			encode_assembly(asm_, plan.instructions, inst.nops == 2 ? rm(b) : RM());

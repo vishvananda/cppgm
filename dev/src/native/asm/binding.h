@@ -12,6 +12,7 @@
 namespace native {
 
 class AssemblyEnvironment;
+struct InlineAssemblyModule;
 
 inline bool wide_assembly_operand(lowir::Type type)
 {
@@ -51,6 +52,7 @@ struct AssemblyPlan : AssemblyBinding
 	uint32_t reads = 0;
 	uint32_t writes = 0; // declared clobbers and operand setup destinations
 	std::vector<assembly::Instruction> instructions;
+	std::shared_ptr<const InlineAssemblyModule> module;
 };
 
 struct AssemblySites

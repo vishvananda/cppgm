@@ -4,6 +4,7 @@
 
 #include "asm/registers.h"
 #include "native/asm/environment.h"
+#include "native/asm/inline_module.h"
 #include "native/backend_error.h"
 #include "native/asm/constraints.h"
 
@@ -224,8 +225,18 @@ std::shared_ptr<const AssemblyPlan> bind_assembly(const lowir::AssemblyModule& m
 	try
 	{
 		auto expander = environment.snapshot(definition.environment);
+		auto lines = expander.expand(assembly::module_lines(source, symbols, labels));
+		if (inline_has_sections(lines))
+		{
+			if (target != Target::Linux)
+				unsupported("inline assembly sections require ELF");
+			if (!labels.empty())
+				unsupported("outgoing C labels in sectioned inline assembly");
+			plan->module = build_inline_module(lines, definition.dialect);
+			return plan;
+		}
 		assembly::ModuleLine expanded;
-		for (const auto& line : expander.expand(assembly::module_lines(source, symbols, labels)))
+		for (const auto& line : lines)
 		{
 			assembly::append_module_line(expanded, line);
 			expanded.text += '\n';

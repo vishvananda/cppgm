@@ -219,6 +219,8 @@ bool compile_program(
 				if (stats_line != nullptr)
 					phase = std::chrono::steady_clock::now();
 				emitter.emit(mir);
+				if (!emitter.inline_modules().empty())
+					throw BackendError("sectioned inline assembly requires host object output");
 				if (stats_line != nullptr)
 					encode_ms += milliseconds_since(phase);
 			}
