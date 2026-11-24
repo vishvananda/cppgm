@@ -18,6 +18,26 @@ The tools and the static and shared libraries are written to `dev/`. See
 a specific host compiler, set both `CXX` and `CPPGM_HOST_CXX` to its path
 on each make invocation.
 
+## Bare Wasm C23 library supplement
+
+Build the supplemental headers and runtime archive with cppgm and a WASI
+SDK that provides Clang resource headers and an archiver. The archive
+supplies the callable `<stdbit.h>` functions and `memalignment` for
+`wasm32-unknown-unknown`.
+
+```sh
+sdk=/path/to/wasi-sdk
+resource="$("$sdk/bin/clang" -print-resource-dir)"
+make -C dev/runtime/wasm-freestanding RESOURCE_DIR="$resource" AR="$sdk/bin/llvm-ar"
+
+runtime=obj/dev/runtime/wasm-freestanding
+dev/cppgm --target=wasm32-unknown-unknown -std=c23 -ffreestanding \
+  -isystem "$runtime/include" -resource-dir="$resource" --export=main \
+  example.c "$runtime/libcppgm-freestanding.a" -o example.wasm
+```
+
+## Assignment tests
+
 For the assignment suites, download `cppgm-<tag>-source-with-tests.tar.gz`.
 It includes the same implementation, the fixtures, expected outputs, runners
 and course documentation. From that archive, `make test-pa1` runs the first

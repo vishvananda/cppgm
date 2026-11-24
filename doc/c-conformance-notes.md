@@ -1478,6 +1478,12 @@ builtins. The argument is evaluated once, with its type determining which
 bits participate. C23 leaves an unrepresentable bit ceiling undefined.
 GCC's builtin returns the wrapped unsigned value.
 
+The header also makes the size and fixed- and least-width integer types
+available. Its byte order macros reflect the target's integer storage.
+The typed functions return `unsigned int` for counts, indices and width,
+`bool` for the single-bit predicate, and the operand type for floor and
+ceiling. External definitions allow callers to take their addresses.
+
 The C23 checked arithmetic macros report whether the mathematical result
 fits the pointed-to type and store the conversion of that result in either
 case. The SDK probes check mixed signs, narrowing, and the version macro.
@@ -1513,10 +1519,14 @@ including when prefixed by unary plus or minus.
 
 C23 adds `<stdbit.h>` and `<stdckdint.h>`. The published freestanding
 requirements include `<stdbit.h>`, the specified subset of `<string.h>`,
-and `memalignment` from `<stdlib.h>`. WG14 issue 1040
+and `memalignment` from `<stdlib.h>`. The latter returns the largest
+power-of-two alignment of an object pointer's address, including
+alignments beyond the supported `alignas` range. A null pointer
+returns zero. WG14 issue 1040
 tracks the omission of `<stdckdint.h>` from that list. WG14 issue 1074
 tracks the interaction of freestanding and conditional features,
 including the separate Annex F requirements.
+[C23 N3220 §§4, 7.24.9.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
 [WG14 issue 1040](https://www.open-std.org/jtc1/sc22/wg14/issues/c23/issue1040.html) ·
 [WG14 issue 1074](https://www.open-std.org/jtc1/sc22/wg14/issues/c23/issue1074.html)
 

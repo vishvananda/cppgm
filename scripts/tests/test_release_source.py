@@ -16,7 +16,9 @@ class SourceRelease(unittest.TestCase):
     def test_archives_have_the_tagged_inputs_and_reproduce(self):
         build = {'AUTHORS', 'BUILDING.md', 'LICENSE', 'NOTICE', 'Makefile', 'scripts/test_run_id.mk',
                  'dev/Makefile', 'dev/frontend_source_sets.mk', 'dev/gen_builtin_host_config.pl',
-                 'dev/cppgm.cpp', 'dev/src/driver/main.cpp', 'docs/lowir-library.md'}
+                 'dev/cppgm.cpp', 'dev/src/driver/main.cpp', 'docs/lowir-library.md',
+                 'dev/runtime/wasm-freestanding/Makefile', 'dev/runtime/wasm-freestanding/include/stdbit.h',
+                 'dev/runtime/wasm-freestanding/stdbit.c'}
         extras = {'dev/cppgm-scaffold.cpp', 'pa1/tests/case.t', 'pa1/tests/case.ref',
                   'pa1/scripts/run_all_tests.pl', 'benchmarks/input.cpp', 'README.md'}
         with tempfile.TemporaryDirectory() as directory:

@@ -16,7 +16,7 @@ import tempfile
 BUILD_PATHS = (
     'AUTHORS', 'BUILDING.md', 'LICENSE', 'NOTICE', 'Makefile', 'scripts/test_run_id.mk',
     'dev/Makefile', ':(top,glob)dev/*.mk', 'dev/gen_builtin_host_config.pl',
-    ':(top,glob)dev/*.cpp', ':(exclude,top,glob)dev/*-scaffold.cpp', 'dev/src',
+    ':(top,glob)dev/*.cpp', ':(exclude,top,glob)dev/*-scaffold.cpp', 'dev/src', 'dev/runtime',
     'docs/lowir-library.md',
 )
 

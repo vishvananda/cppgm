@@ -1024,6 +1024,13 @@ def probes(args, profiles, rules):
     native = NATIVE_PROFILES.get(host)
     if native is None:
         raise ValueError(f'no C probe profile for {host[0]} {host[1]}')
+    runtime = args.bare_runtime.resolve() if args.bare_runtime else None
+    if runtime:
+        if not (args.bare_wasm and args.wasi_resource_dir):
+            raise ValueError('--bare-runtime requires --bare-wasm and --wasi-resource-dir')
+        bare_archive = runtime / 'libcppgm-freestanding.a'
+        if not bare_archive.is_file() or not (runtime / 'include').is_dir():
+            raise ValueError(f'expected an include directory and {bare_archive.name} in {runtime}')
     output = args.output.resolve()
     work = output / 'inputs'
     work.mkdir(parents=True)
@@ -1056,6 +1063,8 @@ def probes(args, profiles, rules):
                                     sdk_headers, header_checks, wasi_libraries=wasi_libraries, reference=reference))
     if args.bare_wasm:
         bare = profiles['wasm-freestanding']
+        setup = ['-ffreestanding', '-nostdinc']
+        link = [compiler, '--target=' + bare['target'], '-nostdlib', '--export', 'main']
         bare_sdk = ()
         if args.wasi_resource_dir:
             resource_dir = args.wasi_resource_dir.resolve()
@@ -1063,10 +1072,13 @@ def probes(args, profiles, rules):
             builtins = resource_dir / 'lib/wasm32-unknown-wasip1/libclang_rt.builtins.a'
             bare_sdk = (include_dir, builtins)
             sdk_inputs.extend([include_dir / 'float.h', include_dir / '__float_float.h', include_dir / 'limits.h', builtins])
-        link = [compiler, '--target=' + bare['target'], '-nostdlib', '--export', 'main']
+        if runtime:
+            setup.extend(['-isystem', str(runtime / 'include')])
+            link.append(str(bare_archive))
+            sdk_inputs.extend([bare_archive, *sorted((runtime / 'include').rglob('*.h'))])
         runner = [args.wasmtime, 'run', '--invoke', 'main']
         reference = [wasm_reference, '--target=' + bare['target'], '-ffreestanding', '-nostdinc'] if wasm_reference else ()
-        results.extend(probe_target(output, bare, compiler, ['-ffreestanding', '-nostdinc'], link, runner,
+        results.extend(probe_target(output, bare, compiler, setup, link, runner,
                                     sdk_headers, header_checks, bare_sdk, reference=reference))
     revision = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
     inputs = sorted([*(path for path in work.rglob('*') if path.is_file()),
@@ -1116,6 +1128,7 @@ def main():
     run.add_argument('--wasi-resource-dir', type=Path)
     run.add_argument('--wasmtime', default='wasmtime')
     run.add_argument('--bare-wasm', action='store_true')
+    run.add_argument('--bare-runtime', type=Path, help='directory with the bare Wasm headers and runtime archive')
     run.add_argument('--report', action='store_true', help='print and save the clause matrix after probing')
     run.set_defaults(command=probes)
     show = commands.add_parser('report')

@@ -259,10 +259,12 @@ jobs:
         run: |
           set -euo pipefail
           work="$RUNNER_TEMP/c-conformance"
+          bare_runtime="$work/bare-runtime"
           resource="$(wasm-ref-clang++ -print-resource-dir)"
+          make -C dev/runtime/wasm-freestanding BUILD_DIR="$bare_runtime" RESOURCE_DIR="$resource"
           python3 scripts/c_conformance.py probe --output "$work" --report \
             --wasi-sysroot "$RUNNER_TEMP/wasm-tools/wasi-sdk/share/wasi-sysroot" \
-            --wasi-resource-dir "$resource" --bare-wasm \
+            --wasi-resource-dir "$resource" --bare-wasm --bare-runtime "$bare_runtime" \
             | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Store C clause evidence
         if: always()
@@ -272,6 +274,8 @@ jobs:
           path: |
             ${{ runner.temp }}/c-conformance/*.json
             ${{ runner.temp }}/c-conformance/inputs/
+            ${{ runner.temp }}/c-conformance/bare-runtime/include/
+            ${{ runner.temp }}/c-conformance/bare-runtime/libcppgm-freestanding.a
             ${{ runner.temp }}/c-conformance/**/*.stdout
             ${{ runner.temp }}/c-conformance/**/*.stderr
           retention-days: 14
