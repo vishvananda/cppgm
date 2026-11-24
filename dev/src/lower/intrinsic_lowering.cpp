@@ -476,6 +476,9 @@ RValue FunctionLowering::gnu_intrinsic(const syntax::CallExpr& expr, sema::Intri
 		// The pointer's bits are unchanged. LowIR memory effects and object
 		// lifetime events determine the loads through the returned pointer.
 		return operand(*expr.arguments[0], ConversionContext::Argument);
+	case sema::Intrinsic::ExtractReturnAddress:
+		// No additional address adjustment is needed on our targets.
+		return operand(*expr.arguments[0], ConversionContext::Argument);
 	case sema::Intrinsic::AssumeAligned:
 	{
 		const RValue value = operand(*expr.arguments[0], ConversionContext::Argument);

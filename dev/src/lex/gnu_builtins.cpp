@@ -69,6 +69,7 @@ const struct
 	{ "__builtin_elementwise_sub_sat",
 		{ GnuBuiltin::VectorElementwise, static_cast<uint8_t>(VectorLanewiseOp::SubSaturate), nullptr, 0 } },
 	{ "__builtin_expect", { GnuBuiltin::Expect, 0, "lll", 0 } },
+	{ "__builtin_extract_return_addr", { GnuBuiltin::ExtractReturnAddress, 0, nullptr, 0 } },
 	{ "__builtin_ffs", { GnuBuiltin::BitCount, 12, nullptr, 0 } },
 	{ "__builtin_ffsl", { GnuBuiltin::BitCount, 13, nullptr, 0 } },
 	{ "__builtin_ffsll", { GnuBuiltin::BitCount, 14, nullptr, 0 } },

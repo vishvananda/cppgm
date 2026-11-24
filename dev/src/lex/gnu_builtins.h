@@ -138,7 +138,8 @@ enum class GnuBuiltin : uint8_t
 	NondeterministicValue,
 	TypeGenericMath,
 	ClassifyType,
-	C23VaStart
+	C23VaStart,
+	ExtractReturnAddress
 };
 
 inline bool IsCoroutineBuiltin(GnuBuiltin builtin)

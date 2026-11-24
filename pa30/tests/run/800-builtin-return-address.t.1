@@ -1,10 +1,13 @@
 #if !__has_builtin(__builtin_return_address)
 #error missing return-address query probe
 #endif
+#if !__has_builtin(__builtin_extract_return_addr)
+#error missing return-address extraction probe
+#endif
 
 __attribute__((noinline)) void* read_caller()
 {
-    return __builtin_return_address(0);
+    return __builtin_extract_return_addr(__builtin_return_address(0));
 }
 
 __attribute__((noinline)) void* first_caller()
@@ -23,5 +26,8 @@ int main()
 {
     const void* first = first_caller();
     const void* second = second_caller();
-    return !first || !second || first == second;
+    int marker = 0;
+    int evaluations = 0;
+    const bool forwarded = __builtin_extract_return_addr((++evaluations, &marker)) == &marker;
+    return !first || !second || first == second || !forwarded || evaluations != 1;
 }

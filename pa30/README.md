@@ -114,6 +114,8 @@ hosted headers depend on:
   selected native activation. It uses the same constant level and frame
   chain as `__builtin_frame_address`. Level zero reports the continuation
   in the caller of the physical activation.
+  `__builtin_extract_return_addr(pointer)` converts its argument to `void*`,
+  evaluates it once and returns that address on the supported targets.
 - `__builtin_alloca_with_align(size, alignment)` allocates stack storage with
   the requested alignment. Evaluate `size` once. The alignment is a power of
   two in bits and must be an integral constant expression of at least eight.

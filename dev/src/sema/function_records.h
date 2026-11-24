@@ -314,7 +314,8 @@ enum class Intrinsic : uint8_t
 	AtomicIsLockFree,
 	// Legacy __builtin_classify_type with several evaluated arguments.
 	// Bits above the low byte hold the first argument's type category.
-	ClassifyType
+	ClassifyType,
+	ExtractReturnAddress
 };
 
 // Generic atomics whose storage needs the size-prefixed runtime ABI, or
