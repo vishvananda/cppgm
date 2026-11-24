@@ -192,6 +192,7 @@ C23_PROGRAMS = {
     'c23.bitint-literals': (PA38_GENERAL / '200-c23-bit-precise-literals.t', ()),
     'c23.bitint-integers': (PA38_GENERAL / '300-c23-bit-precise-integers.t', ()),
     'c23.bitint-calls': (PA38_GENERAL / '500-c23-bit-precise-calls.t', ()),
+    'c23.static-signaling-nan': (PA38_GENERAL / '500-c-static-signaling-nan.t', ()),
     'c23.bitint-bit-builtins': (PA38_GENERAL / '500-c23-bit-precise-builtins.t', ()),
     'c23.bitint-atomics': (PA38_GENERAL / '500-c23-bit-precise-atomics.t', ()),
     'c23.constexpr-scalars': (PA38_GENERAL / '300-c23-constexpr-scalars.t', ()),
@@ -254,6 +255,10 @@ C11_LIBRARY_SOURCES = {
 }
 C23_SDK_HEADERS = ROOT / 'scripts/tests/c_c23_sdk_headers.c'
 C23_LIBRARY_SOURCES = {
+    'library.c23-integer-widths': ('limits_width_macros', ROOT / 'scripts/tests/c_c23_integer_widths.c'),
+    'library.c23-stdint-widths': ('stdint_width_macros', ROOT / 'scripts/tests/c_c23_stdint_widths.c'),
+    'library.c23-float-constants': ('float_constants', ROOT / 'scripts/tests/c_c23_float_constants.c'),
+    'library.c23-float-formats': ('float_format_macros', ROOT / 'scripts/tests/c_c23_float_formats.c'),
     'library.c23-variadics': ('stdarg.h', ROOT / 'scripts/tests/c_c23_variadics.c'),
     'library.c23-checked-arithmetic': ('stdckdint.h', ROOT / 'scripts/tests/c_c23_checked_arithmetic.c'),
     'library.c23-bit-utilities': ('stdbit.h', ROOT / 'scripts/tests/c_c23_bit_utilities.c'),
@@ -600,8 +605,16 @@ def probe_c23_library(work, profile, flags, link, runner, bare_sdk, sdk_headers)
                if line.startswith('identifier CPP_GM_')}
     if 'CPP_GM_SDK_HEADERS' not in markers:
         raise ValueError(f"unexpected C23 SDK header probe output for {profile['id']}")
-    headers = {'stdarg.h': 'CPP_GM_STDARG', 'stdckdint.h': 'CPP_GM_STDCKDINT', 'stdbit.h': 'CPP_GM_STDBIT'}
-    available = {header: marker in markers for header, marker in headers.items()}
+    facilities = {
+        'stdarg.h': 'CPP_GM_STDARG',
+        'stdckdint.h': 'CPP_GM_STDCKDINT',
+        'stdbit.h': 'CPP_GM_STDBIT',
+        'limits_width_macros': 'CPP_GM_LIMITS_WIDTHS',
+        'stdint_width_macros': 'CPP_GM_STDINT_WIDTHS',
+        'float_constants': 'CPP_GM_FLOAT_CONSTANTS',
+        'float_format_macros': 'CPP_GM_FLOAT_FORMATS',
+    }
+    available = {name: marker in markers for name, marker in facilities.items()}
     has_stdarg_version = 'CPP_GM_STDARG_VERSION' in markers
     sdk_headers[profile['id']] = dict(available, stdarg_version_macro=has_stdarg_version)
     if has_stdarg_version:
@@ -623,10 +636,16 @@ def probe_target(output, profile, compiler, setup, link, runner, sdk_headers, ba
     c23_flags = [compiler, '--target=' + profile['target'], *setup, '-x', 'c', '-std=c23', '-pedantic-errors']
     c23_work = output / profile['id'] / 'c23'
     yield from probe_registers(c23_work, profile, 23, c23_flags, link, runner)
+    c23_limits = output / 'inputs/c23/combined.c'
+    for variant, passed, stages in probe_program(c23_work, profile, 'limits.combined', c23_limits,
+                                                  c23_flags, link, runner):
+        yield receipt('limits.combined', profile, 23, variant, passed, stages)
     yield from probe_c23_library(c23_work, profile, c23_flags, link, runner, bare_sdk, sdk_headers)
-    for case, (source, flags) in C23_PROGRAMS.items():
+    c23_programs = [(case, source, flags, ()) for case, (source, flags) in C23_PROGRAMS.items()]
+    c23_programs.extend(numeric)
+    for case, source, flags, link_flags in c23_programs:
         for variant, passed, stages in probe_program(c23_work, profile, case, source,
-                                                      [*c23_flags, *flags], link, runner):
+                                                      [*c23_flags, *flags], link, runner, link_flags):
             yield receipt(case, profile, 23, variant, passed, stages)
     for edition in (*LEGACY_STANDARDS, *PILOT_EDITIONS):
         legacy = edition in LEGACY_STANDARDS
@@ -691,7 +710,7 @@ def probes(args, profiles, rules):
     output = args.output.resolve()
     work = output / 'inputs'
     work.mkdir(parents=True)
-    for variant, edition in (('legacy', 90), ('modern', 99)):
+    for variant, edition in (('legacy', 90), ('modern', 99), ('c23', 23)):
         directory = work / variant
         directory.mkdir()
         with (directory / 'combined.c').open('wb') as file:

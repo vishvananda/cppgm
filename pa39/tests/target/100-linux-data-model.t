@@ -22,6 +22,10 @@ static_assert(char(-1) > 0 && wchar_t(-1) > 0, "unsigned character types");
 #error GNU C++ headers use the matching GNU version
 #endif
 static_assert(__FLT_EVAL_METHOD__ == 0, "evaluate at the nominal precision");
+static_assert(__FLT_IS_IEC_60559__ == 1 && __DBL_IS_IEC_60559__ == 1 && __LDBL_IS_IEC_60559__ == 1,
+              "floating formats consumed by GNU float.h");
+static_assert(__SCHAR_WIDTH__ == __CHAR_BIT__, "GNU byte width for limits.h");
+static_assert(__LONG_LONG_WIDTH__ == sizeof(long long) * __CHAR_BIT__, "GNU long long width for limits.h");
 #endif
 static_assert(sizeof(long double) == 16 && __LDBL_MANT_DIG__ == 113, "binary128");
 #if !defined(__STRICT_ANSI__)

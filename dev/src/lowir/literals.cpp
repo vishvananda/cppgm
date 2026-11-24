@@ -335,12 +335,24 @@ long double float_value(TypeKind kind, const Literal& bits)
 	if (kind == TypeKind::F32)
 	{
 		const uint32_t word = static_cast<uint32_t>(bits.low);
+		const uint32_t magnitude = word & 0x7fffffffu;
+		// A floating conversion quiets a signaling NaN. Widen its
+		// representation directly to retain the sign and payload.
+		if (magnitude > 0x7f800000u && magnitude < 0x7fc00000u)
+			return float_value(TypeKind::F80,
+				Literal{ kF80IntegerBit | (uint64_t(magnitude & 0x007fffffu) << 40),
+					uint64_t(0x7fff | ((word >> 31) << 15)) });
 		float narrow;
 		std::memcpy(&narrow, &word, sizeof narrow);
 		return narrow;
 	}
 	if (kind == TypeKind::F64)
 	{
+		const uint64_t magnitude = bits.low & 0x7fffffffffffffffull;
+		if (magnitude > 0x7ff0000000000000ull && magnitude < 0x7ff8000000000000ull)
+			return float_value(TypeKind::F80,
+				Literal{
+					kF80IntegerBit | ((magnitude & 0x000fffffffffffffull) << 11), 0x7fff | ((bits.low >> 63) << 15) });
 		double wide;
 		std::memcpy(&wide, &bits.low, sizeof wide);
 		return wide;

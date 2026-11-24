@@ -12,6 +12,17 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "freestanding-stdint-widths",
+      "path": "clang/test/Headers/stdint.c",
+      "sha256": "0322afbe53a2f256e4724a4515753ed48609daa4700b5c6b5e2f249f067b56c5",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": ["-ffreestanding"],
+      "upstream_flags": ["-ffreestanding"],
+      "obligation": "Check width macros for integer typedefs in the selected freestanding header"
+    },
+    {
       "id": "checked-integer-header-compile",
       "path": "clang/test/Headers/stdckdint.c",
       "sha256": "3ad69a353f5f1adf893231f0155415b5a236f46cb1d958790537f3ed0f00c3a4",

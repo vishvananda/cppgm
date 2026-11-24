@@ -1,7 +1,7 @@
 """Write includes and emit the combined translation-limits program for a C edition."""
 
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 
@@ -37,14 +37,18 @@ MODERN = Limits(includes=15, conditionals=63, macros=4095, arity=127, blocks=127
                 internal_significance=63, external_significance=31, external_names=4095, block_names=511,
                 cases=1023, members=1023, enumerators=1023, records=63)
 
+# C23 retains the modern source limits and specifies 32767 hosted object bytes.
+C23 = replace(MODERN, object_bytes=32767)
+LIMITS = {90: LEGACY, 95: LEGACY, 99: MODERN, 11: MODERN, 17: MODERN, 23: C23}
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('directory', type=Path)
-    parser.add_argument('--edition', type=int, choices=(90, 95, 99, 11, 17), default=99)
+    parser.add_argument('--edition', type=int, choices=LIMITS, default=99)
     args = parser.parse_args()
     legacy = args.edition in (90, 95)
-    limits = LEGACY if legacy else MODERN
+    limits = LIMITS[args.edition]
     output = args.directory
     output.mkdir(parents=True, exist_ok=True)
     for level in range(limits.includes):

@@ -18,9 +18,9 @@ class CoverageTests(unittest.TestCase):
                              for name, rule in self.rules.items()), 22)
         for rule in self.rules.values():
             if 'limits.combined' in rule['cases']:
-                self.assertEqual(set(rule['editions']), {90, 95, 99, 11, 17})
+                self.assertEqual(set(rule['editions']), {90, 95, 99, 11, 17, 23})
         receipts = {('limits.combined', self.native, edition, opt): 'passed'
-                    for edition in (90, 99) for opt in ('O0', 'O2')}
+                    for edition in (90, 99, 23) for opt in ('O0', 'O2')}
         rows = {(r['rule'], r['edition'], r['profile']): r['status']
                 for r in coverage(self.profiles, self.rules, receipts)}
         self.assertEqual(rows[('limits.block-depth', 90, self.native)], 'passing')
@@ -29,6 +29,9 @@ class CoverageTests(unittest.TestCase):
         self.assertEqual(rows[('limits.block-depth', 11, self.native)], 'uncovered')
         self.assertEqual(rows[('limits.block-depth', 99, 'wasi-hosted')], 'uncovered')
         self.assertEqual(rows[('limits.object-size', 99, 'wasm-freestanding')], 'inapplicable')
+        self.assertEqual(rows[('limits.object-size', 23, self.native)], 'passing')
+        self.assertEqual(rows[('limits.block-depth', 23, 'wasi-hosted')], 'uncovered')
+        self.assertEqual(rows[('limits.object-size', 23, 'wasm-freestanding')], 'inapplicable')
         self.assertEqual(rows[('limits.numeric-macros', 99, self.native)], 'uncovered')
 
     def test_native_rounding_query_uses_target_applicability(self):

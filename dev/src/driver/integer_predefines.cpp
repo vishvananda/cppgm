@@ -119,7 +119,9 @@ std::string integer_predefines(target_model::Target target)
 	define(text, "__CHAR16_TYPE__", FundamentalTypeName(kUnsignedShort.type));
 	define(text, "__CHAR32_TYPE__", FundamentalTypeName(kUnsignedInt.type));
 	integer_range(text, "SIG_ATOMIC", target_model::is_wasm(target) ? kLong : kInt, target);
-	define(text, "__CHAR_BIT__", "8");
+	const std::string char_width = std::to_string(integer_width(kSignedChar, target));
+	define(text, "__CHAR_BIT__", char_width);
+	define(text, "__SCHAR_WIDTH__", char_width);
 	define(text, "__BOOL_WIDTH__", "1");
 	define(text, "__SCHAR_MAX__", maximum(kSignedChar, target));
 	define(text, "__SHRT_MAX__", maximum(kShort, target));
@@ -129,7 +131,10 @@ std::string integer_predefines(target_model::Target target)
 	define(text, "__SHRT_WIDTH__", std::to_string(integer_width(kShort, target)));
 	define(text, "__INT_WIDTH__", std::to_string(integer_width(kInt, target)));
 	define(text, "__LONG_WIDTH__", std::to_string(integer_width(kLong, target)));
-	define(text, "__LLONG_WIDTH__", std::to_string(integer_width(kLongLong, target)));
+	// GCC and Clang resource headers spell this width differently.
+	const std::string long_long_width = std::to_string(integer_width(kLongLong, target));
+	define(text, "__LONG_LONG_WIDTH__", long_long_width);
+	define(text, "__LLONG_WIDTH__", long_long_width);
 	define(text, "__SIZEOF_SHORT__", std::to_string(FundamentalTypeSize(kShort.type, target)));
 	define(text, "__SIZEOF_INT__", std::to_string(FundamentalTypeSize(kInt.type, target)));
 	define(text, "__SIZEOF_LONG__", std::to_string(layout.long_bytes));

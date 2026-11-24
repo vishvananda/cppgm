@@ -716,6 +716,11 @@ The first fixture set covers these parts of the C17 input profile:
   all-matching operand gives its width. The C++ input mode does not expose
   these C-only names. Generic `__builtin_clzg`, `__builtin_ctzg`, and
   `__builtin_popcountg` also accept bit-precise unsigned integers in C.
+- Preserve signaling NaNs in static initializers for `float`, `double`,
+  and `long double`. The C23 `<float.h>` macros may call compiler builtins
+  to construct these constants. Unary plus preserves their representation,
+  and unary minus flips the sign bit while preserving the signaling bit
+  and payload.
 - In C23, accept `constexpr` object definitions with initializers and add
   `const` to their declared type. Give file-scope definitions internal
   linkage. Preserve automatic storage and distinct addresses for

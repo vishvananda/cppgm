@@ -1399,3 +1399,25 @@ The C23 variadic probes exercise the installed header's single-argument
 `va_start` and independent copies of the argument-list cursor.
 [C23 N3220 §§7.16, 7.18, 7.20](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
 [GCC bit builtins](https://gcc.gnu.org/onlinedocs/gcc-15.2.0/gcc/Bit-Operation-Builtins.html)
+
+
+## C23 translation and numerical limits
+
+C23 specifies a hosted object size of at least 32,767 bytes. The other
+thresholds exercised by the combined program match the modern editions.
+The generator uses 65,535 bytes for C99 through C17. WG14 issue 1106
+asks how to count nested constructs and whether additional limits are
+necessary. It is open. The generated program uses the stated depths
+and keeps a separate test result for each target and edition.
+
+`<limits.h>` supplies widths for the standard integer types and a
+`BITINT_MAXWIDTH` that is at least `ULLONG_WIDTH`. The matching limits
+in `<stdint.h>` have the types of the corresponding promoted integers.
+`<float.h>` reports format membership through the `*_IS_IEC_60559`
+macros. These macros describe radix, precision and exponent range.
+Annex F has separate requirements. A signaling NaN macro in a
+translation-time initializer retains its signaling representation,
+including when prefixed by unary plus or minus.
+
+[C23 draft N3220 §§5.2.5.2–5.2.5.3](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
+[WG14 issue 1106](https://www.open-std.org/JTC1/SC22/WG14/issues/c23/issue1106.html)

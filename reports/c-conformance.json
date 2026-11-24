@@ -80,14 +80,15 @@
     },
     {
       "id": "limits.block-depth",
-      "clause": "5.2.4.1p1",
+      "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",
       "editions": [
         90,
         95,
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Execute with at least 15 nested blocks in C90 and C95, or 127 in later editions.",
@@ -97,14 +98,15 @@
     },
     {
       "id": "limits.conditional-depth",
-      "clause": "5.2.4.1p1",
+      "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",
       "editions": [
         90,
         95,
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Translate at least 8 nested preprocessing conditionals in C90 and C95, or 63 in later editions.",
@@ -114,14 +116,15 @@
     },
     {
       "id": "limits.derived-declarators",
-      "clause": "5.2.4.1p1",
+      "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",
       "editions": [
         90,
         95,
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Accept a declaration with 12 type modifiers made up of pointers, arrays, and functions.",
@@ -131,14 +134,15 @@
     },
     {
       "id": "limits.declarator-parentheses",
-      "clause": "5.2.4.1p1",
+      "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",
       "editions": [
         90,
         95,
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Accept a declarator nested in 31 pairs of parentheses in C90 and C95, or 63 in later editions.",
@@ -148,14 +152,15 @@
     },
     {
       "id": "limits.expression-parentheses",
-      "clause": "5.2.4.1p1",
+      "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",
       "editions": [
         90,
         95,
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Accept an expression nested in 32 pairs of parentheses in C90 and C95, or 63 in later editions.",
@@ -165,14 +170,15 @@
     },
     {
       "id": "limits.internal-name-significance",
-      "clause": "5.2.4.1p1",
+      "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",
       "editions": [
         90,
         95,
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Distinguish internal identifiers and macro names at character 31 in C90 and C95, or character 63 in later editions.",
@@ -182,14 +188,15 @@
     },
     {
       "id": "limits.external-name-significance",
-      "clause": "5.2.4.1p1",
+      "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",
       "editions": [
         90,
         95,
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Distinguish external identifiers at character 6 in C90 and C95, or character 31 in later editions.",
@@ -199,14 +206,15 @@
     },
     {
       "id": "limits.external-identifiers",
-      "clause": "5.2.4.1p1",
+      "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",
       "editions": [
         90,
         95,
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Translate at least 511 external identifiers in C90 and C95, or 4,095 in later editions.",
@@ -216,14 +224,15 @@
     },
     {
       "id": "limits.block-identifiers",
-      "clause": "5.2.4.1p1",
+      "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",
       "editions": [
         90,
         95,
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Accept a block with at least 127 block-scope names in C90 and C95, or 511 in later editions.",
@@ -233,14 +242,15 @@
     },
     {
       "id": "limits.macro-identifiers",
-      "clause": "5.2.4.1p1",
+      "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",
       "editions": [
         90,
         95,
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Define at least 1,024 macros simultaneously in C90 and C95, or 4,095 in later editions.",
@@ -250,14 +260,15 @@
     },
     {
       "id": "limits.function-parameters",
-      "clause": "5.2.4.1p1",
+      "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",
       "editions": [
         90,
         95,
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Accept a definition with at least 31 function parameters in C90 and C95, or 127 in later editions.",
@@ -267,14 +278,15 @@
     },
     {
       "id": "limits.function-arguments",
-      "clause": "5.2.4.1p1",
+      "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",
       "editions": [
         90,
         95,
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Pass at least 31 arguments in one call in C90 and C95, or 127 in later editions.",
@@ -284,14 +296,15 @@
     },
     {
       "id": "limits.macro-parameters",
-      "clause": "5.2.4.1p1",
+      "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",
       "editions": [
         90,
         95,
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Declare at least 31 parameters to one macro in C90 and C95, or 127 in later editions.",
@@ -301,14 +314,15 @@
     },
     {
       "id": "limits.macro-arguments",
-      "clause": "5.2.4.1p1",
+      "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",
       "editions": [
         90,
         95,
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Substitute at least 31 arguments in one macro invocation in C90 and C95, or 127 in later editions.",
@@ -318,14 +332,15 @@
     },
     {
       "id": "limits.logical-line",
-      "clause": "5.2.4.1p1",
+      "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",
       "editions": [
         90,
         95,
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Translate a logical source line of 509 characters in C90 and C95, or 4,095 in later editions.",
@@ -335,14 +350,15 @@
     },
     {
       "id": "limits.string-literal",
-      "clause": "5.2.4.1p1",
+      "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",
       "editions": [
         90,
         95,
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Construct a concatenated narrow or wide string literal of at least 509 characters in C90 and C95, or 4,095 in later editions.",
@@ -352,31 +368,33 @@
     },
     {
       "id": "limits.object-size",
-      "clause": "5.2.4.1p1",
+      "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",
       "editions": [
         90,
         95,
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "hosted",
-      "requirement": "Store and read an object occupying at least 32,767 bytes in C90 and C95, or 65,535 in later editions.",
+      "requirement": "Store and read an object occupying at least 32,767 bytes in C90, C95 and C23, or 65,535 in C99 through C17.",
       "cases": [
         "limits.combined"
       ]
     },
     {
       "id": "limits.include-depth",
-      "clause": "5.2.4.1p1",
+      "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",
       "editions": [
         90,
         95,
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Reach a header through 8 nested inclusions in C90 and C95, or 15 in later editions.",
@@ -386,14 +404,15 @@
     },
     {
       "id": "limits.switch-cases",
-      "clause": "5.2.4.1p1",
+      "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",
       "editions": [
         90,
         95,
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Execute a switch with at least 257 case labels in C90 and C95, or 1,023 in later editions.",
@@ -403,14 +422,15 @@
     },
     {
       "id": "limits.record-members",
-      "clause": "5.2.4.1p1",
+      "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",
       "editions": [
         90,
         95,
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Access members of one record containing at least 127 members in C90 and C95, or 1,023 in later editions.",
@@ -420,14 +440,15 @@
     },
     {
       "id": "limits.enum-constants",
-      "clause": "5.2.4.1p1",
+      "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",
       "editions": [
         90,
         95,
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Accept at least 127 enumeration constants in C90 and C95, or 1,023 in later editions.",
@@ -437,14 +458,15 @@
     },
     {
       "id": "limits.nested-records",
-      "clause": "5.2.4.1p1",
+      "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",
       "editions": [
         90,
         95,
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Access a member through at least 15 nested record definitions in C90 and C95, or 63 in later editions.",
@@ -561,7 +583,8 @@
       "editions": [
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Provide the specified minimum integer ranges as preprocessing integer constant expressions and a positive MB_LEN_MAX.",
@@ -576,7 +599,8 @@
       "editions": [
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Make CHAR_MIN and CHAR_MAX agree with the actual signedness of plain char.",
@@ -591,7 +615,8 @@
       "editions": [
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Give each integer limit the type of the corresponding standard integer type after integer promotion.",
@@ -606,7 +631,8 @@
       "editions": [
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Report the selected floating formats, evaluation method, significand digits, exponents, finite extrema and epsilon in float.h.",
@@ -620,7 +646,8 @@
       "kind": "implementation-defined",
       "editions": [
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Advertise the supported subnormals and expose the exact least positive value of each type.",
@@ -635,7 +662,8 @@
       "editions": [
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "all",
       "requirement": "Report default round-to-nearest through FLT_ROUNDS in the selected header and runtime.",
@@ -650,7 +678,8 @@
       "editions": [
         99,
         11,
-        17
+        17,
+        23
       ],
       "environment": "hosted",
       "profiles": [
@@ -1506,6 +1535,51 @@
       "environment": "all",
       "requirement": "Apply type-generic bit counts and bit utilities using the operand's precision at compile time and at runtime.",
       "cases": ["c23.bitint-bit-builtins"]
+    },
+    {
+      "id": "library.c23-integer-widths",
+      "clause": "C23 5.3.5.3.2, N3220 5.2.5.3.2",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Expose the standard integer widths and a supported maximum bit-precise width through limits.h.",
+      "cases": ["library.c23-integer-widths"]
+    },
+    {
+      "id": "library.c23-stdint-widths",
+      "clause": "C23 7.22.2–7.22.3",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Use stdint.h widths consistent with the range and promoted limit macro types for the integer typedefs on the selected target.",
+      "cases": ["library.c23-stdint-widths"]
+    },
+    {
+      "id": "floating.c23-static-signaling-nan",
+      "clause": "C23 5.3.5.3.3, N3220 5.2.5.3.3p28",
+      "kind": "conditional",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Initialize signaling NaNs of all three real types with the written sign and payload.",
+      "cases": ["c23.static-signaling-nan"]
+    },
+    {
+      "id": "library.c23-float-constants",
+      "clause": "C23 5.3.5.3.3, N3220 5.2.5.3.3p28–p30,p32",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Supply normalized maxima and the infinity and NaN constants for the target formats, preserving signaling NaNs during static initialization.",
+      "cases": ["library.c23-float-constants"]
+    },
+    {
+      "id": "library.c23-float-formats",
+      "clause": "C23 5.3.5.3.3, N3220 5.2.5.3.3p24",
+      "kind": "implementation-defined",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Report whether each real type matches an ISO/IEC 60559 format in radix, precision and exponent range.",
+      "cases": ["library.c23-float-formats"]
     },
     {
       "id": "library.c23-variadics",

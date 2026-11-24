@@ -46,7 +46,9 @@ available when a C header precedes the C++ headers. ABI tags must survive that
 include order so separately compiled callers and definitions agree. Supply
 the signed and unsigned fixed-width type predefines for the target's data
 model, including the limits and integer-constant spellings used by
-`<stdint.h>`. On Darwin, the exact 64-bit type is `long long` and the
+`<stdint.h>`. GCC's `<limits.h>` reads `__SCHAR_WIDTH__` and
+`__LONG_LONG_WIDTH__` for the C23 width macros. Clang's resource header
+uses `__CHAR_BIT__` and `__LLONG_WIDTH__`. On Darwin, the exact 64-bit type is `long long` and the
 maximum-width type is `long`. In GNU dialects, also define
 `__GLIBCXX_TYPE_INT_N_0` as `__int128` and `__GLIBCXX_BITSIZE_INT_N_0` as 128,
 as GCC does; libstdc++ reads them to treat `__int128` as an integer type. Unwind
