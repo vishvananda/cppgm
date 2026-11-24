@@ -1812,13 +1812,33 @@
     },
     {
       "id": "library.c23-binary-conversion",
-      "clause": "C23 7.8.2, 7.24.1",
+      "clause": "C23 7.8.2, 7.24.1.7, 7.31.4.1.4",
       "kind": "required",
       "editions": [23],
       "environment": "hosted",
       "header": "stdlib",
-      "requirement": "Recognize lowercase and uppercase binary prefixes with base zero and base two in the signed and unsigned conversion functions.",
+      "requirement": "Recognize lowercase and uppercase binary prefixes with base zero and base two in narrow and wide conversions. Check malformed subjects, stop positions, signed limits and unsigned wraparound.",
       "cases": ["library.c23-binary-conversion"]
+    },
+    {
+      "id": "library.c23-sized-deallocation",
+      "clause": "C23 7.24.3.4–5",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "stdlib",
+      "requirement": "Release resized and aligned allocations through their sized deallocation functions, and accept null pointers.",
+      "cases": ["library.c23-sized-deallocation"]
+    },
+    {
+      "id": "library.c23-qualified-bsearch",
+      "clause": "C23 7.24.5.1",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "stdlib",
+      "requirement": "Preserve the searched elements' const qualification and evaluate arguments once. Keep the concrete bsearch function accessible.",
+      "cases": ["library.c23-qualified-bsearch"]
     },
     {
       "id": "library.c23-binary-stdio",

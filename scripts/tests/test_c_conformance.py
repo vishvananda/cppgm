@@ -110,7 +110,8 @@ class CoverageTests(unittest.TestCase):
         supplemented = selected('wasi-c23-hosted', 23, c23=checked)
         self.assertIn('library.stdio-long-double', supplemented)
         self.assertIn('library.c23-memalignment', supplemented)
-        self.assertNotIn('library.c23-binary-conversion', supplemented)
+        self.assertIn('library.c23-binary-conversion', supplemented)
+        self.assertNotIn('library.c23-binary-conversion', selected('wasi-hosted', 23, c23=checked))
         self.assertNotIn('library.c23-memalignment', selected('wasi-hosted', 23, c23=checked))
 
     def test_wasi_supplement_has_only_c23_receipts(self):

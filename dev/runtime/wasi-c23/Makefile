@@ -7,9 +7,10 @@ WASI_SYSROOT ?= $(abspath $(RESOURCE_DIR)/../../../share/wasi-sysroot)
 
 SHARED := ../wasm-freestanding
 SHARED_HEADERS := float.h limits.h stdarg.h stdbit.h stddef.h stdlib.h string.h
-LOCAL_HEADERS := assert.h setjmp.h stdint.h time.h uchar.h
+LOCAL_HEADERS := assert.h inttypes.h setjmp.h stdint.h time.h uchar.h wchar.h
 HEADERS := $(addprefix $(BUILD_DIR)/include/,$(SHARED_HEADERS) $(LOCAL_HEADERS))
-OBJECTS := $(addprefix $(BUILD_DIR)/,stdbit.o memalignment.o memset_explicit.o timespec_getres.o utf8.o)
+OBJECTS := $(addprefix $(BUILD_DIR)/,stdbit.o memalignment.o memset_explicit.o timespec_getres.o utf8.o \
+	binary_conversion.o sized_free.o)
 RUNTIME_CFLAGS := --target=wasm32-wasip1 --sysroot="$(WASI_SYSROOT)" -resource-dir="$(RESOURCE_DIR)" \
 	-x c -std=c23 -pedantic-errors -isystem "$(BUILD_DIR)/include" -O2
 
@@ -28,7 +29,11 @@ vpath %.c $(SHARED)
 $(BUILD_DIR)/%.o: %.c | $(HEADERS)
 	$(CC) $(RUNTIME_CFLAGS) $(CPPFLAGS) $(CFLAGS) -MD -MP -MF "$(@:.o=.d)" -c "$<" -o "$@"
 
-$(BUILD_DIR)/libcppgm-wasi-c23.a: $(OBJECTS)
-	$(AR) rcs "$@" $(OBJECTS)
+$(BUILD_DIR)/libcppgm-wasi-c23.a: $(OBJECTS) Makefile
+	@set -eu; \
+	stage=$$(mktemp -d "$(@D)/.wasi-runtime.XXXXXX"); \
+	trap 'rm -rf "$$stage"' EXIT; \
+	$(AR) rcs "$$stage/runtime.a" $(OBJECTS); \
+	mv "$$stage/runtime.a" "$@"
 
 -include $(OBJECTS:.o=.d)

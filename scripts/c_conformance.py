@@ -305,10 +305,14 @@ C23_VERSIONED_PROGRAMS = {
     'library.c23-string-operations': (ROOT / 'scripts/tests/c_c23_string_operations.c', 'string'),
     'library.c23-time-resolution': (ROOT / 'scripts/tests/c_c23_time_resolution.c', 'time'),
     'library.c23-uchar-utf8': (ROOT / 'scripts/tests/c_c23_uchar_utf8.c', 'uchar'),
+    'library.c23-sized-deallocation': (ROOT / 'scripts/tests/c_c23_sized_deallocation.c', 'stdlib'),
+    'library.c23-qualified-bsearch': (ROOT / 'scripts/tests/c_c23_qualified_bsearch.c', 'stdlib'),
 }
 WASI_SIGNAL = 'wasi-emulated-signal'
 WASI_LONG_DOUBLE_STDIO = 'c-printscan-long-double'
 WASI_C23_PROFILE = 'wasi-c23-hosted'
+WASI_C23_PARTIAL_CASES = {'library.c23-memalignment', 'library.c23-binary-conversion',
+                         'library.c23-sized-deallocation', 'library.c23-qualified-bsearch'}
 C23_LIBRARY_SOURCES = {
     'library.c23-integer-widths': ('limits_width_macros', ROOT / 'scripts/tests/c_c23_integer_widths.c'),
     'library.c23-stdint-widths': ('stdint_width_macros', ROOT / 'scripts/tests/c_c23_stdint_widths.c'),
@@ -917,10 +921,10 @@ def library_sources(profile, edition, checked, checked_c23, wasi_libraries):
             continue
         if not usable(required):
             continue
-        # Both supplemental libraries supply memalignment independently of
-        # the rest of stdlib.h.
-        use_version = case != 'library.c23-memalignment' or (hosted and profile['id'] != WASI_C23_PROFILE)
-        if use_version and any(checked_c23.get(name, {}).get('version') != 'current'
+        partial_header = not hosted and case == 'library.c23-memalignment'
+        if profile['id'] == WASI_C23_PROFILE:
+            partial_header = case in WASI_C23_PARTIAL_CASES
+        if not partial_header and any(checked_c23.get(name, {}).get('version') != 'current'
                                for name in required.split()):
             continue
         yield case, source, (), ()
