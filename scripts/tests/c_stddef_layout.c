@@ -1,5 +1,12 @@
 #include <stddef.h>
 
+#if defined(__STDC_VERSION_STDDEF_H__) && __STDC_VERSION_STDDEF_H__ >= 202311L
+static_assert(_Generic(nullptr, nullptr_t: 1, default: 0));
+#ifndef unreachable
+#error C23 stddef.h must define unreachable
+#endif
+#endif
+
 struct record
 {
 	char flag;

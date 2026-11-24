@@ -18,7 +18,9 @@ class SourceRelease(unittest.TestCase):
                  'dev/Makefile', 'dev/frontend_source_sets.mk', 'dev/gen_builtin_host_config.pl',
                  'dev/cppgm.cpp', 'dev/src/driver/main.cpp', 'docs/lowir-library.md',
                  'dev/runtime/wasm-freestanding/Makefile', 'dev/runtime/wasm-freestanding/include/stdbit.h',
-                 'dev/runtime/wasm-freestanding/stdbit.c'}
+                 'dev/runtime/wasm-freestanding/include/string.h', 'dev/runtime/wasm-freestanding/stdbit.c',
+                 'dev/runtime/wasm-freestanding/memset_explicit.c',
+                 'dev/runtime/wasm-freestanding/licenses/wasi-libc-libc-top-half-musl-COPYRIGHT.txt'}
         extras = {'dev/cppgm-scaffold.cpp', 'pa1/tests/case.t', 'pa1/tests/case.ref',
                   'pa1/scripts/run_all_tests.pl', 'benchmarks/input.cpp', 'README.md'}
         with tempfile.TemporaryDirectory() as directory:

@@ -1548,8 +1548,16 @@ archive with a separate compile and link opt-in.
 The header's function-like library macros and the underlying functions
 can both be tested through the required declarations. Taking the
 function's address exercises the same type as a call written with the
-function name parenthesized. `assert` is a macro with its own reinclusion
-rules. Reincluding its header uses the current definition of `NDEBUG`.
+function name parenthesized. The C23 `memchr`, `strchr`, `strrchr`,
+`strpbrk`, and `strstr` searches preserve the const qualification of
+the searched elements. The concrete function declarations continue to
+return unqualified pointers. The macros evaluate each argument once.
+`memset_explicit` fills the requested byte range and preserves those
+stores even if subsequent code stops using the object.
+[C23 N3220 §§7.26.5, 7.26.6.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+
+`assert` is a macro with its own reinclusion rules. Reincluding its
+header uses the current definition of `NDEBUG`.
 C23 uses a variadic macro, so a scalar compound-literal expression can
 contain an initializer comma without additional parentheses.
 [WG14 N1256 §§7.1.4, 7.2, 7.8](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·

@@ -275,6 +275,7 @@ jobs:
             ${{ runner.temp }}/c-conformance/*.json
             ${{ runner.temp }}/c-conformance/inputs/
             ${{ runner.temp }}/c-conformance/bare-runtime/include/
+            ${{ runner.temp }}/c-conformance/bare-runtime/licenses/
             ${{ runner.temp }}/c-conformance/bare-runtime/libcppgm-freestanding.a
             ${{ runner.temp }}/c-conformance/**/*.stdout
             ${{ runner.temp }}/c-conformance/**/*.stderr

@@ -1761,8 +1761,8 @@
       "editions": [23],
       "environment": "freestanding",
       "header": "string",
-      "requirement": "Provide the tested locale-independent string operations in a freestanding program.",
-      "cases": ["library.string-functions"]
+      "requirement": "Provide the required locale-independent string functions and the C23 qualifier-preserving searches in a freestanding program.",
+      "cases": ["library.string-functions", "library.c23-string-operations"]
     },
     {
       "id": "library.va-copy-stdio",
@@ -1853,6 +1853,16 @@
       "header": "string",
       "requirement": "Duplicate a complete string and both shorter and longer bounded prefixes, with independent mutable storage that can be freed.",
       "cases": ["library.c23-string-allocation"]
+    },
+    {
+      "id": "library.c23-hosted-string-operations",
+      "clause": "C23 7.26",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "string",
+      "requirement": "Preserve the searched pointer's const qualifier and evaluate each argument once. Exercise the underlying string and byte functions independently of their macros.",
+      "cases": ["library.c23-string-operations"]
     },
     {
       "id": "library.c23-time-resolution",

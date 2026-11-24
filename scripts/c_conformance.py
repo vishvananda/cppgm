@@ -302,6 +302,7 @@ C23_VERSIONED_PROGRAMS = {
     'library.c23-memalignment': (ROOT / 'scripts/tests/c_c23_memalignment.c', 'stdlib'),
     'library.c23-memset-explicit': (ROOT / 'scripts/tests/c_c23_memset_explicit.c', 'string'),
     'library.c23-string-allocation': (ROOT / 'scripts/tests/c_c23_string_allocation.c', 'string'),
+    'library.c23-string-operations': (ROOT / 'scripts/tests/c_c23_string_operations.c', 'string'),
     'library.c23-time-resolution': (ROOT / 'scripts/tests/c_c23_time_resolution.c', 'time'),
     'library.c23-uchar-utf8': (ROOT / 'scripts/tests/c_c23_uchar_utf8.c', 'uchar'),
 }
@@ -903,7 +904,8 @@ def library_sources(profile, edition, checked, checked_c23, wasi_libraries):
     if edition != 23:
         return
     for case, (source, required) in C23_VERSIONED_PROGRAMS.items():
-        if not hosted and case not in ('library.c23-memset-explicit', 'library.c23-memalignment'):
+        if not hosted and case not in ('library.c23-memset-explicit', 'library.c23-memalignment',
+                                       'library.c23-string-operations'):
             continue
         if not usable(required):
             continue

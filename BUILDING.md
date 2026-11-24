@@ -20,10 +20,11 @@ on each make invocation.
 
 ## Bare Wasm C23 library supplement
 
-Build the supplemental headers and runtime archive with cppgm and a WASI
-SDK that provides Clang resource headers and an archiver. The archive
-supplies the callable `<stdbit.h>` functions and `memalignment` for
-`wasm32-unknown-unknown`.
+Build the supplemental headers and runtime archive with cppgm and WASI
+SDK 34. The archive supplies the callable `<stdbit.h>` functions,
+`memalignment`, and the C23 freestanding `<string.h>` functions for
+`wasm32-unknown-unknown`. It reuses the SDK's musl string objects and
+includes their license notices in `licenses/` alongside the archive.
 
 ```sh
 sdk=/path/to/wasi-sdk

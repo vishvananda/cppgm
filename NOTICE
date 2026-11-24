@@ -21,6 +21,11 @@ License 2.0; the core specification documents use the W3C Software and
 Document Notice and License. Source revisions and hashes are recorded in
 doc/wasm/manifest.json.
 
+The bare WebAssembly C library supplement incorporates musl string objects
+from WASI SDK 34.0 (wasi-libc revision 2e6fb9d8ee0c) at build time. The
+upstream wasi-libc license texts and musl copyright notice are retained in
+dev/runtime/wasm-freestanding/licenses and installed beside the archive.
+
 The plain-text CWG issue references and WG21 papers under doc/cwg/ retain
 their source, contributor, revision and adoption information. They are
 attributed to their original WG21 contributors; the project does not claim
