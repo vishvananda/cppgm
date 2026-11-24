@@ -3597,3 +3597,41 @@ objects. A/A cycle spreads were 2.62% for C++ and 15.34% for SQLite.
 | --- | ---: | ---: | ---: |
 | C++ `semantic_overload.cpp` at `-O3` | 0.0030% | +0.0015% | +0.0034% |
 | SQLite 3.50.4 in GNU17 at `-O2` | 0.0012% | −0.0014% | +0.0012% |
+
+## C23 tag compatibility and composites across scopes
+
+Built `59269dfd9` and `ce5d135ed` with GCC 15 and used immutable
+binaries on CPU 71 of the Linux x86-64 host. The generated C23 sources
+declare two cycles of same-tag records in different scopes. Each record
+has two pointers to the next record. The two root definitions supply
+complementary pointer-to-array bounds. Each query group checks recursive
+compatibility and both operand orders of the conditional pointer composite.
+Zero, one, and 128 query groups emit byte-identical `-O2` objects at each
+size. The group costs subtract the corresponding median instruction counts
+over four observations. They include semantic analysis of each assertion.
+
+| Records per scope | No queries, instructions | First group, additional instructions | Next 127 groups, additional instructions | 128 groups, peak RSS KiB |
+| ---: | ---: | ---: | ---: | ---: |
+| 128 | 14,403,994 | 727,310 | 11,892,857 | 17,302 |
+| 512 | 46,322,643 | 2,592,247 | 12,328,843 | 17,322 |
+| 2,048 | 172,835,708 | 9,924,498 | 12,661,406 | 29,394 |
+
+The first group grows by 3.56× and 3.83× as each cycle quadruples.
+The repeated groups vary by about 6.5% across the full size range.
+Compatibility caches use pairs of tag entity identities and save
+successful results once the compared enum pairs have member lists.
+Composite lookup uses a symmetric pair key for the translation unit.
+The compatibility walk scans each pair's members once. Composite
+propagation processes each edge at most twice, once per reuse choice.
+A composite keeps an existing shape if it has every required
+member type. Otherwise it allocates the required shapes before binding
+recursive member types.
+
+Frozen C++ and SQLite object outputs matched in each observation.
+A/A cycle spreads were 3.36% and 37.42% respectively. The table reports
+retired instructions because cycle counts varied across repetitions.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.0037% | +0.0026% | +0.0035% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.0020% | −0.0009% | −0.0044% |

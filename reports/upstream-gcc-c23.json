@@ -12,6 +12,50 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "n3037-cross-scope-tag-aliasing",
+      "path": "gcc/testsuite/gcc.dg/c23-tag-alias-1.c",
+      "sha256": "edd988da4030c019f97f854e8100aa5b4536d2dd131240eb45978059859fe64a",
+      "dialect": "c23",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": ["-O2"],
+      "upstream_flags": ["-O2"],
+      "obligation": "Observe writes through compatible record and enumeration types from another scope"
+    },
+    {
+      "id": "n3037-cross-scope-flexible-member-aliasing",
+      "path": "gcc/testsuite/gcc.dg/c23-tag-alias-4.c",
+      "sha256": "409b3052c60e33faae1db30d7a72451e73af597facbd9af560e0156296235b3b",
+      "dialect": "c23",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": ["-O2"],
+      "upstream_flags": ["-O2"],
+      "obligation": "Keep struct types with matching flexible members compatible and observe aliasing accesses"
+    },
+    {
+      "id": "n3037-record-composite-aliasing",
+      "path": "gcc/testsuite/gcc.dg/c23-tag-alias-6.c",
+      "sha256": "c480f1ed240983d8bf8ce19ca1525eab4a900b26e0055e270689f2aa8b26f17e",
+      "dialect": "c23",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": ["-O2"],
+      "upstream_flags": ["-O2"],
+      "obligation": "Preserve aliasing through a composite record with a refined member bound"
+    },
+    {
+      "id": "n3037-record-composite-bitfield-aliasing",
+      "path": "gcc/testsuite/gcc.dg/c23-tag-alias-7.c",
+      "sha256": "4d60df32f4ba3aa8352cdba680fc16845571b1203d50d88bc24f141ab19b2107",
+      "dialect": "gnu23",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": ["-O2"],
+      "upstream_flags": ["-O2"],
+      "obligation": "Retain bit-field storage and observe writes through a composite record type"
+    },
+    {
       "id": "n3037-cross-scope-record-assignment",
       "path": "gcc/testsuite/gcc.dg/c23-tag-2.c",
       "sha256": "5f4db859ebe66fd6ed2b382ea08b857a3b6bafade14cb6e008c8aa716fc3ed27",

@@ -645,18 +645,69 @@ output as the direct audit. The architecture audits pass. The file audit
 adds one header-weight warning because its count includes field
 declarations in `entity_records.h`.
 
-The next gap is compatibility between distinct same-tag types across
-scopes. Local probes show that GCC and Clang accept a by-value call with
-matching records and a pointer conversion with reordered enum lists.
-Both agree that recursive member graphs can become compatible after a
-forward tag is completed. A differing field inside the cycle keeps the
-types incompatible. GCC also combines complementary pointer-to-array
-bounds in the result of a conditional expression between pointers to
-compatible records. cppgm still rejects those positive probes. Clang 21
-rejects the complementary-bound conditional in this probe as well.
 [WG14 rules](../doc/c-conformance-notes.md#c23-structure-and-union-tag-redefinitions) ·
 [PA38 record redefinition case](../pa38/tests/general/300-c23-record-redefinition.t) ·
 [Compile measurements](../docs/performance/c-frontend-scaling.md#c23-record-redefinitions)
+
+## C23 tag compatibility and composites across scopes
+
+Complete same-tag records compare member types and declaration facts
+across scopes. When those types are recursive, the comparison tracks
+pairs of typed record identities and checks every reachable pair before
+caching success. Fixed-base forward enum comparisons use GCC 15's
+behavior while WG14 issue 1018 remains open. They can change after a
+definition appears, including when the enum is a member of a larger
+record. The longer `_Generic` lists use the tag identity to find
+potentially compatible associations.
+
+Compatible records can be used for assignment, arguments and returns,
+and conditional expressions. A composite type retains each stronger
+member type and shares an existing record if it supplies all of them.
+When complementary bounds require a new record, the analyzer creates
+the required member tables before filling recursive links. The typed
+composite also supplies the bindings for anonymous member access.
+
+Nine PA38 cases cover these paths and the C17 boundary. The four runtime
+cases pass at `-O0` and `-O2` on Linux x86-64, Linux AArch64 under QEMU,
+both Mach-O targets under local loaders, WASI, and bare Wasm. Direct
+and LowIR-replay objects match byte for byte. Mixed Clang 21 and cppgm
+objects pass by-value arguments and returns in both directions on both
+Linux architectures at both optimization levels. The resulting objects
+and the synthesized recursive composite pass DWARF verification.
+
+The pinned GCC C23 manifest gains nine configurations, for 76 passing
+cases. Its four new execution cases check aliasing through matching
+tags and composites, including flexible members and bit-fields.
+The existing Clang C23 manifest passes all 22 configurations.
+Clang 21 rejects the complementary-bound conditional and takes a
+different view of the tested forward fixed-base enum case. The full
+Clang N3037 source also includes a later-edition type operand to
+`_Generic`, so its complete C23 run remains outside the manifest.
+The local C clause matrix passes 1,267 probes, and PA38 passes 679 native
+cases, 679 Wasm cases with optimized LowIR validation, 63 controls, and
+four ABI cases. The strict course report passes all 11,674 tests.
+The debug-info, PA36 smoke, architecture, file, and harness checks pass.
+The compiler self-hosts through PA5 and inception reproduces it byte for
+byte. The student export verifies 26,930 portable reference outputs.
+The exported PA1 and PA38 suites pass with the packaged tools.
+The placement audit scans 11,681 fixtures with zero placement or local
+hygiene findings. Its cached directory listings produce the same PA38
+output as the direct audit.
+
+Initial probes of the installed C23 `<stdckdint.h>` and `<stdbit.h>`
+pass on Linux x86-64 with GCC 15, Clang 21 and cppgm, and on Linux
+AArch64 with cppgm using the cross GCC and glibc headers. They cover
+header version macros, mixed-width arithmetic, and four bit operations.
+The extended x86-64 probe also passes all 14 generic bit operations
+on the five standard unsigned integer types and the mixed-sign checked
+arithmetic boundary cases at `-O0` and `-O2` with all three compilers.
+The checked arithmetic case also runs in WASI and bare Wasm with the
+SDK header and compiler-rt builtins. The broader library qualification
+needs the full operation set on other targets and separate receipts for
+each tested compiler, SDK and runtime pairing.
+[WG14 rules and open issue](../doc/c-conformance-notes.md#c23-tag-compatibility-across-scopes) ·
+[PA38 composite case](../pa38/tests/general/300-c23-tag-cross-scope-composite.t) ·
+[Compile measurements](../docs/performance/c-frontend-scaling.md#c23-tag-compatibility-and-composites-across-scopes)
 
 ## C23 bit-precise integers
 
