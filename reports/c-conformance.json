@@ -1841,13 +1841,23 @@
       "cases": ["library.c23-qualified-bsearch"]
     },
     {
+      "id": "library.c17-binary-stdio-control",
+      "clause": "C17 7.21.6.2, 7.22.1.4, 7.29.2.2",
+      "kind": "required",
+      "editions": [17],
+      "environment": "hosted",
+      "header": "stdio",
+      "requirement": "Stop a narrow or wide i input conversion at the start of a binary prefix in C17.",
+      "cases": ["library.c17-binary-stdio-control"]
+    },
+    {
       "id": "library.c23-binary-stdio",
-      "clause": "C23 7.8.1, 7.23.6.1–2",
+      "clause": "C23 7.8.1, 7.23.6.1–2, 7.31.2.1–2",
       "kind": "required",
       "editions": [23],
       "environment": "hosted",
       "header": "stdio",
-      "requirement": "Format and scan binary integers with b, wN and wfN, use the inttypes binary format macros, and recognize a binary prefix in an i input conversion.",
+      "requirement": "Format and scan binary integers with b, wN and wfN. Check field widths, precision, padding, assignment suppression and the number of consumed characters. Use the inttypes binary format macros and recognize a binary prefix in an i input conversion on narrow and wide streams.",
       "cases": ["library.c23-binary-stdio"]
     },
     {

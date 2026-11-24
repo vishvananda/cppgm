@@ -312,7 +312,7 @@ WASI_SIGNAL = 'wasi-emulated-signal'
 WASI_LONG_DOUBLE_STDIO = 'c-printscan-long-double'
 WASI_C23_PROFILE = 'wasi-c23-hosted'
 WASI_C23_PARTIAL_CASES = {'library.c23-memalignment', 'library.c23-binary-conversion',
-                         'library.c23-sized-deallocation', 'library.c23-qualified-bsearch'}
+                         'library.c23-sized-deallocation', 'library.c23-qualified-bsearch', 'library.c23-binary-stdio'}
 C23_LIBRARY_SOURCES = {
     'library.c23-integer-widths': ('limits_width_macros', ROOT / 'scripts/tests/c_c23_integer_widths.c'),
     'library.c23-stdint-widths': ('stdint_width_macros', ROOT / 'scripts/tests/c_c23_stdint_widths.c'),
@@ -361,6 +361,7 @@ CASES = {
     **{case: (RUN_STAGES, ('O0', 'O2')) for case in LIBRARY_PROGRAMS},
     **{case: (RUN_STAGES, ('O0', 'O2')) for case in C23_VERSIONED_PROGRAMS},
     'library.c17-binary-prefix-control': (RUN_STAGES, ('O0', 'O2')),
+    'library.c17-binary-stdio-control': (RUN_STAGES, ('O0', 'O2')),
     'library.setjmp': (RUN_STAGES, ('O0', 'O2')),
     'library.signal': (RUN_STAGES, ('O0', 'O2')),
     'library.wasi-signal-emulation': (RUN_STAGES, ('O0', 'O2')),
@@ -913,6 +914,9 @@ def library_sources(profile, edition, checked, checked_c23, wasi_libraries):
         source, required = C23_VERSIONED_PROGRAMS['library.c23-binary-conversion']
         if usable(required):
             yield 'library.c17-binary-prefix-control', source, (), ()
+        source, required = C23_VERSIONED_PROGRAMS['library.c23-binary-stdio']
+        if hosted and usable(required):
+            yield 'library.c17-binary-stdio-control', source, (), ()
     if edition != 23:
         return
     for case, (source, required) in C23_VERSIONED_PROGRAMS.items():

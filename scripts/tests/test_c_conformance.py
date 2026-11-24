@@ -85,7 +85,7 @@ class CoverageTests(unittest.TestCase):
         self.assertEqual(rows['library.wasi-signal-emulation']['status'], 'passing')
 
     def test_library_runtime_applicability(self):
-        names = ('stdarg', 'stddef', 'stdio', 'string', 'stdlib', 'inttypes')
+        names = ('stdarg', 'stddef', 'stdio', 'string', 'stdlib', 'inttypes', 'wchar')
         checked = {name: {'include': 'usable'} for name in names}
         versions = {name: dict(status, version='current') for name, status in checked.items()}
 
@@ -99,6 +99,7 @@ class CoverageTests(unittest.TestCase):
         self.assertNotIn('library.c23-binary-stdio', selected(self.native, 23, c23=checked))
         self.assertIn('library.c23-binary-stdio', selected(self.native, 23))
         self.assertIn('library.c17-binary-prefix-control', selected(self.native, 17, c23=checked))
+        self.assertIn('library.c17-binary-stdio-control', selected(self.native, 17, c23=checked))
         bare = selected('wasm-freestanding', 23)
         self.assertIn('library.stddef-layout', bare)
         self.assertIn('library.c23-memalignment', bare)
@@ -111,6 +112,8 @@ class CoverageTests(unittest.TestCase):
         self.assertIn('library.stdio-long-double', supplemented)
         self.assertIn('library.c23-memalignment', supplemented)
         self.assertIn('library.c23-binary-conversion', supplemented)
+        self.assertIn('library.c23-binary-stdio', supplemented)
+        self.assertNotIn('library.c23-binary-stdio', selected('wasi-hosted', 23, c23=checked))
         self.assertNotIn('library.c23-binary-conversion', selected('wasi-hosted', 23, c23=checked))
         self.assertNotIn('library.c23-memalignment', selected('wasi-hosted', 23, c23=checked))
 

@@ -25,6 +25,9 @@ The bare WebAssembly C library supplement incorporates musl string objects
 from WASI SDK 34.0 (wasi-libc revision 2e6fb9d8ee0c) at build time. The
 upstream wasi-libc license texts and musl copyright notice are retained in
 dev/runtime/wasm-freestanding/licenses and installed beside the archive.
+The hosted WASI C23 stdio supplement adapts the formatting engines and
+stream adapters from the same wasi-libc revision. Its build installs the
+same license texts and copyright notice.
 
 The plain-text CWG issue references and WG21 papers under doc/cwg/ retain
 their source, contributor, revision and adoption information. They are

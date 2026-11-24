@@ -7,15 +7,19 @@ WASI_SYSROOT ?= $(abspath $(RESOURCE_DIR)/../../../share/wasi-sysroot)
 
 SHARED := ../wasm-freestanding
 SHARED_HEADERS := float.h limits.h stdarg.h stdbit.h stddef.h stdlib.h string.h
-LOCAL_HEADERS := assert.h inttypes.h setjmp.h stdint.h time.h uchar.h wchar.h
+LOCAL_HEADERS := assert.h inttypes.h setjmp.h stdint.h stdio.h time.h uchar.h wchar.h
+NOTICES := $(patsubst $(SHARED)/licenses/%,$(BUILD_DIR)/licenses/%,$(wildcard $(SHARED)/licenses/*.txt))
 HEADERS := $(addprefix $(BUILD_DIR)/include/,$(SHARED_HEADERS) $(LOCAL_HEADERS))
+STDIO_SOURCES := printf scanf wprintf wscanf scan_integer vfprintf vfwprintf vfscanf vfwscanf \
+	vsnprintf vswprintf vsscanf vswscanf
+STDIO_OBJECTS := $(addprefix $(BUILD_DIR)/stdio/,$(addsuffix .o,$(STDIO_SOURCES)))
 OBJECTS := $(addprefix $(BUILD_DIR)/,stdbit.o memalignment.o memset_explicit.o timespec_getres.o utf8.o \
-	binary_conversion.o sized_free.o)
+	binary_conversion.o sized_free.o) $(STDIO_OBJECTS)
 RUNTIME_CFLAGS := --target=wasm32-wasip1 --sysroot="$(WASI_SYSROOT)" -resource-dir="$(RESOURCE_DIR)" \
 	-x c -std=c23 -pedantic-errors -isystem "$(BUILD_DIR)/include" -O2
 
 .PHONY: all
-all: $(HEADERS) $(BUILD_DIR)/libcppgm-wasi-c23.a
+all: $(HEADERS) $(NOTICES) $(BUILD_DIR)/libcppgm-wasi-c23.a
 
 $(addprefix $(BUILD_DIR)/include/,$(LOCAL_HEADERS)): $(BUILD_DIR)/include/%.h: include/%.h
 	mkdir -p "$(@D)"
@@ -25,9 +29,19 @@ $(addprefix $(BUILD_DIR)/include/,$(SHARED_HEADERS)): $(BUILD_DIR)/include/%.h: 
 	mkdir -p "$(@D)"
 	cp "$<" "$@"
 
+$(BUILD_DIR)/licenses/%.txt: $(SHARED)/licenses/%.txt
+	mkdir -p "$(@D)"
+	cp "$<" "$@"
+
 vpath %.c $(SHARED)
 $(BUILD_DIR)/%.o: %.c | $(HEADERS)
 	$(CC) $(RUNTIME_CFLAGS) $(CPPFLAGS) $(CFLAGS) -MD -MP -MF "$(@:.o=.d)" -c "$<" -o "$@"
+
+$(STDIO_OBJECTS): $(BUILD_DIR)/stdio/%.o: stdio/%.c Makefile | $(HEADERS)
+	mkdir -p "$(@D)"
+	$(CC) $(filter-out -std=c23 -pedantic-errors,$(RUNTIME_CFLAGS)) -std=gnu23 -D_XOPEN_SOURCE=700 \
+		'-Dhidden=__attribute__((visibility("hidden")))' $(CPPFLAGS) $(CFLAGS) \
+		-MD -MP -MF "$(@:.o=.d)" -c "$<" -o "$@"
 
 $(BUILD_DIR)/libcppgm-wasi-c23.a: $(OBJECTS) Makefile
 	@set -eu; \

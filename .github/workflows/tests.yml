@@ -282,6 +282,7 @@ jobs:
             ${{ runner.temp }}/c-conformance/bare-runtime/licenses/
             ${{ runner.temp }}/c-conformance/bare-runtime/libcppgm-freestanding.a
             ${{ runner.temp }}/c-conformance/wasi-c23-runtime/include/
+            ${{ runner.temp }}/c-conformance/wasi-c23-runtime/licenses/
             ${{ runner.temp }}/c-conformance/wasi-c23-runtime/libcppgm-wasi-c23.a
             ${{ runner.temp }}/c-conformance/**/*.stdout
             ${{ runner.temp }}/c-conformance/**/*.stderr
