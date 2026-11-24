@@ -3722,3 +3722,74 @@ provides 51 of the 120 missing math names found in SDK 34. The remaining
 [Rounding probe](../scripts/tests/c_c23_math_roundeven.c) ·
 [Integer range probe](../scripts/tests/c_c23_math_fromfp.c) ·
 [Compile and Wasm instruction measurements](../docs/performance/c-frontend-scaling.md#wasi-c23-rounding-and-integer-range-checks)
+
+### C static integer-to-real initialization
+
+Lowering extends a checked signed integer to the stored width expected
+by static conversion. The C semantic value stores a separate high
+word for wide integers. Static lowering uses a 128-bit value in all
+integer-to-floating conversions, including the binary128 path.
+
+The PA38 regression checks negative integer initializers for all three
+real types and a large unsigned value. PA38 passes 715 general tests
+on native Linux x86-64 and WASI, 63 controls and seven mixed-object ABI
+cases. The new regression also passes on Linux AArch64 under QEMU at
+`-O0`, `-O2`, and `-Oz`. The clean strict report passes 11,679 tests.
+Debug-info, the PA35 self-build through PA5, the PA36 smoke suite, the
+architecture and placement audits, and the student export pass.
+
+[PA38 regression](../pa38/tests/general/500-c-static-integer-to-real.t) ·
+[Frozen compile measurements](../docs/performance/c-frontend-scaling.md#c-static-integer-to-real-initialization)
+
+### Hosted WASI CORE-MATH functions
+
+The supplement includes the binary32 and binary64 implementations for
+12 families from the pinned CORE-MATH revision. Each compiles as its
+own archive member under the public C23 name. `rsqrtl` adapts the
+binary128 integer algorithm to WASI's 64-bit carry operations and fixed
+nearest-even rounding. Both source packages contain the implementations
+and their notices. The source-only package builds the archive and passes
+all three probes at `-Oz -flto`.
+
+The three probes pass all 48 mixed cppgm and SDK Clang compile and link
+configurations. All 24 binary32 and binary64 functions match a 256-bit
+MPFR oracle on 4,096 deterministic pseudorandom inputs per function.
+The binary128 reciprocal-square-root test matches MPFR on 131,072
+positive values, including subnormals and powers of two.
+
+The matrix passes all 4,377 configurations. Linux x86-64 runs 1,474,
+stock WASI runs 1,333, supplemented WASI runs 536 and bare Wasm runs
+1,034. The supplement passes 204 tracked C23 checks. This batch
+leaves 44 of the original 120 missing math names.
+
+[C23 N3096 §§7.12.4, 7.12.6, 7.12.7.9](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
+[Pinned CORE-MATH sources](../third_party/core-math/README.md) ·
+[Compile and Wasm instruction measurements](../docs/performance/c-frontend-scaling.md#hosted-wasi-core-math-functions)
+
+### Hosted WASI natural logarithm of one plus the argument
+
+The SDK 34 `log1pl` returns zero for the nonzero binary128 input
+`0x1p-2000L`. The supplement replaces that implementation and uses the
+same function for `logp1l`. The adapted FreeBSD range reduction retains
+the residual in binary128. The other two `logp1` forms use the SDK's
+existing `float` and `double` implementations.
+
+The cppgm and SDK Clang builds each match a binary128 MPFR oracle on
+32,768 inputs, including subnormals and inputs close to minus one. The
+new probe passes all 16 mixed WASI build and link configurations at
+`-O0` and `-O2`. It passes with GCC 15 and Clang 22 on Linux x86-64.
+All four CORE-MATH and logarithm probes pass with cppgm on Linux
+AArch64 under QEMU at `-O0`, `-O2`, and `-Oz`. The extracted source-only
+archive builds the runtime and passes all four probes at `-Oz -flto`.
+
+The matrix passes all 4,381 executed configurations. Linux x86-64
+runs 1,476, stock WASI runs 1,333, supplemented WASI runs 538 and bare
+Wasm runs 1,034. The supplement passes 205 tracked C23 checks.
+
+The archive now supplies 79 of the 120 math symbols missing from the
+pinned WASI SDK. The remaining 41 and the type-generic families keep
+`<math.h>` and `<tgmath.h>` open.
+
+[C23 N3096 §§7.12.6.14, F.10.3.14](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
+[FreeBSD msun source](https://github.com/freebsd/freebsd-src/blob/c9991e01149b5cd5a6710d70921b203ef7f16fc2/lib/msun/ld128/s_logl.c) ·
+[Natural logarithm probe](../scripts/tests/c_c23_math_logp1.c)

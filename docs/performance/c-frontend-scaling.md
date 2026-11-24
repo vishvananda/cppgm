@@ -4113,3 +4113,40 @@ ordered magnitude check reduces retired instructions by 23.91% in both
 paired blocks. The 12 precompiled Wasmtime observations all produce
 the checksum `254300000`. The linked module grows from 33,465 to 33,505
 bytes. Binary128 still uses the SDK's software rounding functions.
+
+## C static integer-to-real initialization
+
+The two immutable cppgm builds use GCC 15 host predefines. CPU 71 ran
+A/A, ABBA, and BAAB blocks on `semantic_overload.cpp` and the SQLite
+3.50.4 amalgamation, both at `-O3`. All 24 output objects match their
+respective controls byte for byte.
+
+| Input | A/A instruction spread | ABBA | BAAB |
+| --- | ---: | ---: | ---: |
+| Frozen C++ overloads | 162,393 | −0.0020% | +0.0014% |
+| Frozen C SQLite | 397,626 | −0.0008% | +0.0014% |
+
+The two orders give opposite signs. Wall times varied with concurrent
+validation work, including 6.39–12.52 seconds in the SQLite A/A block.
+
+## Hosted WASI CORE-MATH functions
+
+An immutable cppgm build compiles the same `<math.h>` consumer against
+the two overlays at `-O2`. All 12 objects match. A/A varies by 3,230
+retired user instructions. The 24 additional declarations add 335,398
+and 336,899 instructions in ABBA and BAAB on a 9.82 million instruction
+control.
+
+The linked runtime test calls all 24 binary32 and binary64 functions
+on 131,072 input pairs. The client, SDK, linker, and precompiled
+Wasmtime settings are identical. The library is built by SDK Clang for
+the control and cppgm for the candidate, both at `-O2`. All 12
+observations produce identical checksums. The A/A spread is 1,660
+retired user instructions. The cppgm-built runtime uses 6.87% more
+instructions in both paired blocks, from 2,110.6 million to 2,255.6
+million. The stripped modules are 242,340 and 275,964 bytes respectively.
+
+The `logp1` batch adds three public declarations. The same compiler and
+header workload produce identical objects against the two overlays.
+The A/A instruction spread is 2,597. ABBA and BAAB add 44,364 and
+42,329 instructions on a 10.17 million instruction control.

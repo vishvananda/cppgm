@@ -1670,6 +1670,25 @@ inputs and out-of-range results return a NaN. The SDK exposes no exception
 flags, so the `x` variants share the same implementations on WASI.
 [C23 N3096 §§7.12.9.8, 7.12.9.10–11, F.10.6.8, F.10.6.10–11](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
 
+The WASI supplement uses CORE-MATH for the binary32 and binary64
+half-revolution trigonometric functions, base-two and base-ten
+compensated exponentials and logarithms, and reciprocal square roots.
+`rsqrtl` uses the binary128 integer algorithm and returns a binary128
+value, including for inputs beyond binary64's range. The private port
+uses the SDK's fixed nearest-even rounding direction and its effective
+empty exception mask.
+[C23 N3096 §§7.12.4.8–14, 7.12.6.3–16, 7.12.7.9](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
+[CORE-MATH source attribution](../third_party/core-math/README.md)
+
+C23 gives the natural logarithm of one plus the argument the two
+spellings `log1p` and `logp1`. The WASI `float` and `double` functions
+call the SDK's `log1pf` and `log1p`. The supplement replaces the SDK's
+binary128 `log1pl` and uses the same implementation for `logp1l`.
+It keeps the range-reduction residual in binary128 so it preserves
+small inputs and distinguishes values that round to the same `double`.
+[C23 N3096 §§7.12.6.14, F.10.3.14](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
+[FreeBSD msun implementation](https://github.com/freebsd/freebsd-src/blob/c9991e01149b5cd5a6710d70921b203ef7f16fc2/lib/msun/ld128/s_logl.c)
+
 The WASI binary32, binary64, and binary128 formats have canonical
 representations for all of their bit patterns. The `iscanonical` macro
 evaluates its operand and returns true. The other C23 classification
