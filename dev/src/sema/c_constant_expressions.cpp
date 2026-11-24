@@ -163,9 +163,22 @@ bool Analyzer::c_integer_constant_operands(const syntax::Expr& root, bool arithm
 		{
 			const auto* conditional = static_cast<const syntax::ConditionalExpr*>(expr);
 			pending.push_back(conditional->condition);
-			if (conditional->then_expr != nullptr)
-				pending.push_back(conditional->then_expr);
-			pending.push_back(conditional->else_expr);
+			// GNU constant queries deliberately guard implementations that
+			// are available only at runtime. A folded query contributes
+			// only its selected operand to the constant expression.
+			const ExprFacts* condition = WithoutParentheses(conditional->condition)->facts;
+			if (facts->value != 0 && condition != nullptr && (condition->flags & kFolded) != 0)
+			{
+				const Expr* selected = condition->value != 0 ? conditional->then_expr : conditional->else_expr;
+				if (selected != nullptr)
+					pending.push_back(selected);
+			}
+			else
+			{
+				if (conditional->then_expr != nullptr)
+					pending.push_back(conditional->then_expr);
+				pending.push_back(conditional->else_expr);
+			}
 			break;
 		}
 		case ExprKind::BuiltinTrait:
