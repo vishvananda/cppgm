@@ -31,6 +31,8 @@
 #endif
 
 #define llogb(x) __cppgm_tg_unary(llogbf, (llogb), llogbl, (x))
+#define log10p1(x) __cppgm_tg_unary(log10p1f, (log10p1), log10p1l, (x))
+#define log2p1(x) __cppgm_tg_unary(log2p1f, (log2p1), log2p1l, (x))
 #define logp1(x) __cppgm_tg_unary(logp1f, (logp1), logp1l, (x))
 #define nextdown(x) __cppgm_tg_unary(nextdownf, (nextdown), nextdownl, (x))
 #define nextup(x) __cppgm_tg_unary(nextupf, (nextup), nextupl, (x))

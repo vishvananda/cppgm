@@ -755,7 +755,29 @@ static const struct
 	0,
 };
 
-long double log1pl(long double x)
+struct log_scale
+{
+	double high;
+	long double low;
+	long double full;
+};
+
+// The leading factors have few enough bits to multiply a float exactly.
+#define LOG2_HIGH 0x17154765000000p-52
+#define LOG2_LOW 0x15c17f0bbbe87fed0691d3e88eb57p-143L
+#define LOG10_HIGH 0x1bcb7b15000000p-54
+#define LOG10_LOW 0x137287195355baaafad33dc323ee3p-145L
+
+static const struct log_scale scale2 = { LOG2_HIGH, LOG2_LOW, LOG2_HIGH + LOG2_LOW };
+static const struct log_scale scale10 = { LOG10_HIGH, LOG10_LOW, LOG10_HIGH + LOG10_LOW };
+
+// The natural logarithm rounds back to x below 2^-113.
+enum
+{
+	SMALL_ARGUMENT_EXPONENT = 0x3f8d
+};
+
+static long double log1p_scaled(long double x, const struct log_scale* scale)
 {
 	const union binary128 input = { .value = x };
 	const int16_t sign_exponent = (int16_t)(input.words[1] >> 48);
@@ -770,8 +792,8 @@ long double log1pl(long double x)
 				return -INFINITY;
 			return exponent == 0x7fff ? x + x : __builtin_nanl("");
 		}
-		if (exponent <= 0x3f8d)
-			return x;
+		if (exponent <= SMALL_ARGUMENT_EXPONENT)
+			return scale == nullptr ? x : scale->full * x;
 		high = 1.0L;
 		low = x;
 	}
@@ -793,8 +815,8 @@ long double log1pl(long double x)
 	const double shift = (int)exponent - 16383;
 	const uint64_t fraction = reduced.words[1] & fraction_mask;
 	reduced.words[1] = fraction | (UINT64_C(0x3fff) << 48);
-	const union binary128 scale = { .words = { 0, (uint64_t)(0x7ffe - exponent) << 48 } };
-	low *= scale.value;
+	const union binary128 exponent_scale = { .words = { 0, (uint64_t)(0x7ffe - exponent) << 48 } };
+	low *= exponent_scale.value;
 
 	const unsigned i = (fraction + (UINT64_C(1) << (L2I - 2))) >> (L2I - 1);
 	const long double d_high = (reduced.value - H(i)) * G(i) + E(i);
@@ -829,7 +851,21 @@ long double log1pl(long double x)
 		(F_lo(i) + shift * ln2_lo + d_low) + d * d * P2;
 	const long double table_hi = F_hi(i) + shift * ln2_hi;
 	const long double result = table_hi + d;
-	return result + (tail + ((table_hi - result) + d));
+	const long double residual = tail + ((table_hi - result) + d);
+	if (scale == nullptr)
+		return result + residual;
+	// Scale the leading product exactly and add the corrections together.
+	const long double leading = (float)result;
+	const long double trailing = residual + (result - leading);
+	return scale->high * leading + (scale->full * trailing + scale->low * leading);
+}
+
+long double log1pl(long double x)
+{
+	const union binary128 bits = { .value = x };
+	if (((bits.words[1] >> 48) & 0x7fff) <= SMALL_ARGUMENT_EXPONENT)
+		return x;
+	return log1p_scaled(x, nullptr);
 }
 
 double logp1(double x)
@@ -845,4 +881,14 @@ float logp1f(float x)
 long double logp1l(long double x)
 {
 	return log1pl(x);
+}
+
+long double log2p1l(long double x)
+{
+	return log1p_scaled(x, &scale2);
+}
+
+long double log10p1l(long double x)
+{
+	return log1p_scaled(x, &scale10);
 }

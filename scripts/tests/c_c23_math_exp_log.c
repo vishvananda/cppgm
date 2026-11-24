@@ -1,3 +1,4 @@
+#include <float.h>
 #include <math.h>
 
 int main(void)
@@ -25,5 +26,19 @@ int main(void)
 	if (rsqrt(minimum) != 0x1p537 || rsqrtf(minimumf) != 0x1p74f || rsqrt(zero) != -INFINITY ||
 		rsqrtf(zerof) != -INFINITY || !isnan(rsqrt(-two)) || !isnan(rsqrtf(-twof)))
 		return 4;
+	volatile long double sevenl = 7.0L;
+	volatile long double ninety_ninel = 99.0L;
+	volatile long double zerol = -0.0L;
+	if (!(fabsl(log2p1l(sevenl) - 3.0L) <= 4 * LDBL_EPSILON) ||
+		!(fabsl(log10p1l(ninety_ninel) - 2.0L) <= 4 * LDBL_EPSILON) || !signbit(log2p1l(zerol)) ||
+		!signbit(log10p1l(zerol)))
+		return 5;
+#if LDBL_MAX_EXP >= 4096
+	volatile long double tiny = 0x1p-2000L;
+	const long double base_two = log2p1l(tiny);
+	const long double base_ten = log10p1l(tiny);
+	if (!(base_two > tiny && base_two < 2 * tiny && base_ten > tiny / 4 && base_ten < tiny / 2))
+		return 6;
+#endif
 	return 0;
 }
