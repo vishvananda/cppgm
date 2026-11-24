@@ -56,7 +56,8 @@ void write_make_rule(std::ostream& out, const MakeDependencies& options, const s
 		out << ' ' << quoted;
 		column += 1 + quoted.size();
 	};
-	prerequisite(source);
+	if (!source.empty())
+		prerequisite(source);
 	for (const std::string& header : headers)
 		prerequisite(header);
 	out << '\n';

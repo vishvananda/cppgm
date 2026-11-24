@@ -1378,15 +1378,15 @@ void write_side_dependencies(
 	const Invocation& invocation, const std::string& path, const std::vector<std::string>& headers)
 {
 	const MakeDependencies& options = invocation.dependencies;
-	const std::string source = path == "-" ? "<stdin>" : path;
-	const std::string default_target = output_name(source, compile_output_suffix(invocation));
+	const std::string source = path == "-" ? std::string() : path;
+	const std::string default_target = output_name(path, compile_output_suffix(invocation));
 	const std::string& output = invocation.output;
 	const std::string& target = output.empty() || invocation.preprocess_only ? default_target : output;
 	std::string file = options.file;
 	if (file.empty())
 	{
 		if (output.empty())
-			file = output_name(source, ".d");
+			file = output_name(path, ".d");
 		else
 		{
 			const size_t slash = output.rfind('/');
@@ -1868,7 +1868,7 @@ bool preprocess_unit(const Input& source, const Invocation& invocation, std::ost
 				{
 				}
 				if (only_dependencies)
-					write_make_rule(out, dependencies, output_name(path, ".o"), path,
+					write_make_rule(out, dependencies, output_name(input, ".o"), input == "-" ? std::string() : input,
 						preprocessor.dependency_headers(dependencies.include_system));
 				else
 					preprocessor.dump_macros(out);

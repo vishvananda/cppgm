@@ -232,7 +232,9 @@ New or newly required in PA30:
     quotes make-special characters. `-MP` adds an empty rule for each
     header so a removed header does not break an older dependency file.
   - The active include search determines the rule's physical source paths,
-    including forced headers. Preprocessing should run once in each route.
+    including forced headers. When reading from standard input, list the
+    headers and omit the standard input stream from the prerequisites.
+    Preprocessing should run once in each route.
 - hosted preprocessor-control flags:
   - `-D <macro>` and `-D<macro>`
   - `-U <macro>` and `-U<macro>`
