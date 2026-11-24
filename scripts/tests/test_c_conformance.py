@@ -101,6 +101,7 @@ class CoverageTests(unittest.TestCase):
         self.assertIn('library.c23-binary-stdio', selected(self.native, 23))
         self.assertEqual(selected(self.native, 23)['library.c23-complex-interfaces'], ('-lm',))
         self.assertEqual(selected(self.native, 23)['library.c23-fenv-interfaces'], ('-lm',))
+        self.assertEqual(selected(self.native, 23)['library.c23-math-classification'], ('-lm',))
         self.assertEqual(selected(self.native, 23)['library.c23-math-representation'], ('-lm',))
         self.assertEqual(selected(self.native, 23)['library.c23-atomic-interfaces'], ('-latomic',))
         self.assertIn('library.c23-stdlib-interfaces', selected(self.native, 23))
@@ -121,6 +122,7 @@ class CoverageTests(unittest.TestCase):
         self.assertIn('library.stdio-temporary', supplemented)
         self.assertIn('library.c23-memalignment', supplemented)
         self.assertIn('library.c23-binary-conversion', supplemented)
+        self.assertEqual(supplemented['library.c23-math-classification'], ())
         self.assertEqual(supplemented['library.c23-math-representation'], ())
         self.assertNotIn('library.c23-binary-stdio', supplemented)
         stdio_versions = {**checked, 'stdio': versions['stdio'], 'inttypes': versions['inttypes']}
@@ -133,6 +135,7 @@ class CoverageTests(unittest.TestCase):
         self.assertNotIn('library.c23-binary-stdio', selected('wasi-hosted', 23, c23=checked))
         self.assertNotIn('library.c23-binary-conversion', selected('wasi-hosted', 23, c23=checked))
         self.assertNotIn('library.c23-memalignment', selected('wasi-hosted', 23, c23=checked))
+        self.assertNotIn('library.c23-math-classification', selected('wasi-hosted', 23, c23=checked))
         self.assertNotIn('library.c23-math-representation', selected('wasi-hosted', 23, c23=checked))
 
     def test_wasi_supplement_has_only_c23_receipts(self):

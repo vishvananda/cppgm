@@ -1899,6 +1899,16 @@
       "cases": ["library.c23-stdio-nan"]
     },
     {
+      "id": "library.c23-math-classification",
+      "clause": "C23 7.12.3, 7.12.11.7",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "math",
+      "requirement": "Classify canonical values, signed zeros, subnormals, and signaling NaNs. Quiet a signaling NaN in canonicalization, including when source and destination coincide.",
+      "cases": ["library.c23-math-classification"]
+    },
+    {
       "id": "library.c23-math-representation",
       "clause": "C23 7.12.6.10, 7.12.11.5–6",
       "kind": "required",

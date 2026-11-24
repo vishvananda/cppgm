@@ -307,6 +307,7 @@ C23_VERSIONED_PROGRAMS = {
     'library.c23-binary-stdio': (ROOT / 'scripts/tests/c_c23_binary_stdio.c', 'stdio inttypes'),
     'library.c23-complex-interfaces': (ROOT / 'scripts/tests/c_c23_complex_interfaces.c', 'complex'),
     'library.c23-fenv-interfaces': (ROOT / 'scripts/tests/c_c23_fenv_interfaces.c', 'fenv'),
+    'library.c23-math-classification': (ROOT / 'scripts/tests/c_c23_math_classification.c', 'math'),
     'library.c23-math-representation': (ROOT / 'scripts/tests/c_c23_math_representation.c', 'math'),
     'library.c23-memalignment': (ROOT / 'scripts/tests/c_c23_memalignment.c', 'stdlib'),
     'library.c23-memset-explicit': (ROOT / 'scripts/tests/c_c23_memset_explicit.c', 'string'),
@@ -325,7 +326,7 @@ WASI_LONG_DOUBLE_STDIO = 'c-printscan-long-double'
 WASI_C23_PROFILE = 'wasi-c23-hosted'
 WASI_C23_PARTIAL_CASES = {'library.c23-memalignment', 'library.c23-binary-conversion',
                          'library.c23-sized-deallocation', 'library.c23-qualified-bsearch',
-                         'library.c23-math-representation'}
+                         'library.c23-math-classification', 'library.c23-math-representation'}
 C23_LIBRARY_SOURCES = {
     'library.c23-integer-widths': ('limits_width_macros', ROOT / 'scripts/tests/c_c23_integer_widths.c'),
     'library.c23-wchar-width': ('wchar_width_macro', ROOT / 'scripts/tests/c_c23_wchar_width.c'),
@@ -953,9 +954,7 @@ def library_sources(profile, edition, checked, checked_c23, wasi_libraries):
         link_flags = ()
         if case == 'library.c23-atomic-interfaces' and profile['target'].endswith('-linux-gnu'):
             link_flags = ('-latomic',)
-        elif (case in ('library.c23-complex-interfaces', 'library.c23-fenv-interfaces',
-                       'library.c23-math-representation')
-              and not profile['target'].startswith('wasm')):
+        elif required in ('complex', 'fenv', 'math') and not profile['target'].startswith('wasm'):
             link_flags = ('-lm',)
         yield case, source, (), link_flags
 

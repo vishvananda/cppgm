@@ -1659,6 +1659,15 @@ the specified sentinel for zero, infinity, or NaN. WASI's equal `int`
 and `long` ranges allow them to use the existing `ilogb` operations.
 [C23 N3096 §§7.12.6.10, 7.12.11.5–6](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
 
+The WASI binary32, binary64, and binary128 formats have canonical
+representations for all of their bit patterns. The `iscanonical` macro
+evaluates its operand and returns true. The other C23 classification
+macros use the existing compiler and SDK classifiers. `canonicalize`
+and its precision variants copy the object representation and set the
+quiet bit on NaNs. This preserves finite values, signed zeros, and the
+NaN sign and payload. The source and destination may be the same object.
+[C23 N3096 §§7.12.3, 7.12.11.7](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+
 The C23 wide-character searches preserve const qualification on their
 result elements. Their concrete functions retain mutable result pointer
 types when the macros are suppressed. `<wchar.h>` supplies `WCHAR_WIDTH`
