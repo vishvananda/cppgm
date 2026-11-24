@@ -7,6 +7,7 @@
 #include "lex/identifier_table.h"
 #include "preprocess/preprocessor.h"
 #include "sema/aggregates.h"
+#include "sema/constant_values.h"
 #include "sema/integral_arithmetic.h"
 #include "syntax/ast_render.h"
 
@@ -1227,6 +1228,17 @@ Entity* Analyzer::enum_specifier(
 		underlying = type_id(*specifier.underlying, scope)->unqualified;
 		if (!IsIntegralType(underlying) && !(template_depth_ != 0 && dependent_type(underlying)))
 			error(specifier.location, "enumeration underlying type is not integral");
+		if (c_source_)
+		{
+			if (underlying->kind == TypeKind::BitInt)
+				error(specifier.location, "a bit-precise integer type cannot be an enumeration base");
+			if (!c23_ && positions_ != nullptr)
+			{
+				const char* message = "a fixed enumeration base is a C23 extension";
+				if (!positions_->allow_gnu_c_extension(specifier.location, message))
+					error(specifier.location, message);
+			}
+		}
 	}
 	Scope* where = declaration_scope(scope);
 	while (c_source_ && where->kind == ScopeKind::Class)
@@ -1436,6 +1448,11 @@ Entity* Analyzer::qualified_enum_definition(
 void Analyzer::enumerators(EnumEntity* entity, const syntax::EnumSpecifier& specifier, const Binding* declaration,
 	Scope* print, Scope* lookup, Scope* values)
 {
+	if (c23_)
+	{
+		c23_enumerators(entity, specifier, declaration, print, lookup);
+		return;
+	}
 	// 7.2p5: with a fixed underlying type each value converts to it without
 	// narrowing; otherwise each enumerator has the type of its value, an
 	// omitted value is the previous one plus one (in a larger type if
@@ -1517,26 +1534,12 @@ void Analyzer::enumerators(EnumEntity* entity, const syntax::EnumSpecifier& spec
 				entity->negative = value.type == int_type || IsSignedConstant(value);
 		}
 		previous = value;
-		const NameEntry* entry = names_.find(lookup, enumerator.name);
-		if (entry != nullptr &&
-			(entry->value != nullptr ||
-				(entry->type != nullptr && (entry->type->kind != BindingKind::Type || IsClassTemplate(entry->type)))))
-			error(enumerator.location, "enumerator conflicts with an earlier declaration");
 		EnumeratorEntity* constant = new_entity<EnumeratorEntity>(
 			EntityKind::Enumerator, enumerator.name, lookup, entity->type);
 		constant->enumeration = entity;
 		constant->value = value;
 		constant->value_dependent = value_dependent;
-		Binding* binding = new_binding(BindingKind::Enumerator, enumerator.name, constant, entity->type);
-		binding->declaration = declaration;
-		binding->value_dependent = value_dependent;
-		print_in(print, binding);
-		declare_in(lookup, binding);
-		// 7.2p10, 11: an out-of-class definition does not make the
-		// unscoped enumerators public; they retain their enum's access.
-		if (lookup->kind == ScopeKind::Class)
-			binding->access = declaration->access;
-		enumerator_scratch_.push_back(constant);
+		bind_enumerator(constant, enumerator, declaration, print, lookup);
 	}
 	if (c_enum && !wide_c_enum)
 	{
@@ -1558,6 +1561,175 @@ void Analyzer::enumerators(EnumEntity* entity, const syntax::EnumSpecifier& spec
 			if (!c_enum && IsSignedConstant(constant->value) && static_cast<int64_t>(constant->value.bits) < 0)
 				entity->negative = true;
 			constant->value = Constant{ ConvertIntegral(constant->value.bits, kind), constant_type };
+		}
+	}
+	enumerator_scratch_.resize(base);
+	entity->definition = &specifier;
+}
+
+void Analyzer::bind_enumerator(EnumeratorEntity* constant, const syntax::Enumerator& enumerator,
+	const Binding* declaration, Scope* print, Scope* lookup)
+{
+	const NameEntry* entry = names_.find(lookup, enumerator.name);
+	if (entry != nullptr &&
+		(entry->value != nullptr ||
+			(entry->type != nullptr && (entry->type->kind != BindingKind::Type || IsClassTemplate(entry->type)))))
+		error(enumerator.location, "enumerator conflicts with an earlier declaration");
+	Binding* binding = new_binding(BindingKind::Enumerator, enumerator.name, constant, constant->type);
+	binding->declaration = declaration;
+	binding->value_dependent = constant->value_dependent;
+	print_in(print, binding);
+	declare_in(lookup, binding);
+	// An out-of-class definition retains the enumeration's member access.
+	if (lookup->kind == ScopeKind::Class)
+		binding->access = declaration->access;
+	enumerator_scratch_.push_back(constant);
+}
+
+namespace {
+
+bool CEnumFits(WideBits bits, bool negative, IntegralKind kind)
+{
+	if (kind.is_signed)
+		return (negative || (bits >> (kind.bits - 1)) == 0) && ConvertWideIntegral(bits, kind) == bits;
+	return !negative && (kind.bits == 128 || (bits >> kind.bits) == 0);
+}
+
+struct CEnumRange
+{
+	WideBits least = 0;
+	WideBits greatest = 0;
+
+	void add(WideBits bits, bool negative)
+	{
+		if (negative)
+		{
+			if (least == 0 || bits < least)
+				least = bits;
+		}
+		else if (bits > greatest)
+			greatest = bits;
+	}
+
+	bool fits(IntegralKind kind) const
+	{
+		return CEnumFits(least, least != 0, kind) && CEnumFits(greatest, false, kind);
+	}
+
+	const Type* type(TypeTable& types, bool is_signed) const
+	{
+		// The ISO integer model's widest ordinary types are intmax_t and
+		// uintmax_t. __int128 is available for an explicit base.
+		static const FundamentalType signed_types[] = { FundamentalType::Int, FundamentalType::LongInt,
+			FundamentalType::LongLongInt };
+		static const FundamentalType unsigned_types[] = { FundamentalType::UnsignedInt,
+			FundamentalType::UnsignedLongInt, FundamentalType::UnsignedLongLongInt };
+		for (FundamentalType candidate : is_signed ? signed_types : unsigned_types)
+		{
+			const Type* type = types.fundamental(candidate);
+			IntegralKind kind;
+			IntegralKindOf(type, kind);
+			if (fits(kind))
+				return type;
+		}
+		return nullptr;
+	}
+};
+
+} // namespace
+
+void Analyzer::c23_enumerators(
+	EnumEntity* entity, const syntax::EnumSpecifier& specifier, const Binding* declaration, Scope* print, Scope* lookup)
+{
+	entity->defined = true;
+	const size_t base = enumerator_scratch_.size();
+	const Type* int_type = types_.fundamental(FundamentalType::Int);
+	IntegralKind int_kind, fixed_kind;
+	IntegralKindOf(int_type, int_kind);
+	if (entity->fixed)
+		IntegralKindOf(entity->underlying, fixed_kind);
+	CEnumRange range;
+	const Type* previous_type = nullptr;
+	WideBits previous = 0;
+	bool previous_negative = false;
+	for (const syntax::Enumerator& enumerator : specifier.enumerators)
+	{
+		const Type* type = entity->fixed ? entity->type : int_type;
+		WideBits bits = 0;
+		bool negative = false;
+		if (enumerator.value != nullptr)
+		{
+			if (semantic())
+				integral_constant_operand(*enumerator.value, lookup, nullptr);
+			if (deferred_reserved_call())
+				return;
+			Constant value;
+			uint64_t high = 0;
+			if (!integer_constant_expression(*enumerator.value, lookup, value, true, &high))
+				return;
+			bits = (static_cast<WideBits>(high) << 64) | value.bits;
+			negative = (high >> 63) != 0 && IsSignedConstant(value);
+			if (!entity->fixed && value.type != int_type && !CEnumFits(bits, negative, int_kind))
+				type = value.type;
+		}
+		else if (previous_type != nullptr)
+		{
+			bits = previous + 1;
+			if (bits == 0 && !previous_negative)
+				error(enumerator.location, "enumerator value overflows");
+			negative = previous_negative && bits != 0;
+			if (!entity->fixed)
+			{
+				type = CommonType(types_, PromotedType(types_, previous_type), int_type);
+				IntegralKind kind;
+				IntegralKindOf(type, kind);
+				if (!CEnumFits(bits, negative, kind))
+				{
+					IntegralKind prior;
+					IntegralKindOf(previous_type, prior);
+					CEnumRange next;
+					next.add(bits, negative);
+					type = next.type(types_, prior.is_signed);
+					if (type == nullptr)
+						error(enumerator.location, "enumerator value overflows the largest integer type");
+				}
+			}
+		}
+		if (entity->fixed && !CEnumFits(bits, negative, fixed_kind))
+			error(enumerator.location, "enumerator value is not representable in the underlying type");
+		range.add(bits, negative);
+		previous_type = type;
+		previous = bits;
+		previous_negative = negative;
+		const uint64_t low = static_cast<uint64_t>(bits);
+		const uint64_t high = static_cast<uint64_t>(bits >> 64);
+		EnumeratorEntity* constant;
+		if (type != int_type && IsWideIntegral(type) && WideHigh(type, low) != high)
+		{
+			auto* wide = new_entity<WideEnumeratorEntity>(
+				EntityKind::Enumerator, enumerator.name, lookup, entity->type);
+			wide->high = high;
+			wide->extended_value = true;
+			constant = wide;
+		}
+		else
+			constant = new_entity<EnumeratorEntity>(EntityKind::Enumerator, enumerator.name, lookup, entity->type);
+		constant->enumeration = entity;
+		constant->value = Constant{ low, type };
+		bind_enumerator(constant, enumerator, declaration, print, lookup);
+	}
+	entity->negative = range.least != 0;
+	if (!entity->fixed)
+	{
+		if (range.fits(int_kind))
+			entity->underlying = entity->negative ? int_type : types_.fundamental(FundamentalType::UnsignedInt);
+		else
+		{
+			entity->underlying = range.type(types_, entity->negative);
+			if (entity->underlying == nullptr)
+				error(specifier.location, "no integer type can represent all enumeration values");
+			for (size_t i = base; i < enumerator_scratch_.size(); ++i)
+				enumerator_scratch_[i]->value.type = entity->type;
 		}
 	}
 	enumerator_scratch_.resize(base);

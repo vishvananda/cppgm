@@ -12,6 +12,7 @@ namespace sema {
 // ...) const & returning R`, `member-pointer of C to T`, `struct C`,
 // `enum class E`, `typename T`.
 void AppendTypeSpelling(const Type* type, std::string& out);
+void AppendWideEnumeratorValue(const WideEnumeratorEntity& enumerator, std::string& out);
 
 // Writes the PA6 `--emit-types` view of one translation unit's graph,
 // rooted at `translation-unit`: each scope's bindings in declaration order,

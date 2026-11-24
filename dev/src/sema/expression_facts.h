@@ -274,7 +274,10 @@ enum : uint32_t
 	// (5.3.5p5): no destructor runs and the global deallocation function
 	// frees the storage (undefined if the complete class's destructor is
 	// non-trivial or it declares one).
-	kIncompleteDelete = 1073741824
+	kIncompleteDelete = 1073741824,
+	// On a folded C23 enumerator reference, its entity has the high word.
+	// A delete expression cannot be folded.
+	kWideFolded = kIncompleteDelete
 };
 
 // The call a user-defined literal makes (2.14.8; ExprFacts::value of a

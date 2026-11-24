@@ -633,8 +633,9 @@ bool ConversionRules::value_conversion(
 	out.rank = ConversionRank::Conversion;
 	out.result = goal;
 	// 4.12: to bool (a GNU complex value too, true unless both parts are
-	// zero).
-	if (IsBool(goal))
+	// zero). An enum with a bool base has the same conversions in C.
+	const bool c_enum = c_source_ && goal->kind == TypeKind::Enum;
+	if (IsBool(goal) || (c_enum && IsBooleanEnumeration(goal)))
 	{
 		if (IsArithmetic(source) || IsIntegralOrUnscopedEnum(source) || IsComplex(source))
 		{
@@ -667,13 +668,14 @@ bool ConversionRules::value_conversion(
 		return true;
 	}
 	// C99 6.3.1.7: convert the real component to the destination type.
-	if (c_source_ && IsComplex(source) && (IsArithmetic(goal) || goal->kind == TypeKind::Enum))
+	if (c_source_ && IsComplex(source) && (IsArithmetic(goal) || c_enum))
 	{
 		out.second = ValueConversion::Complex;
 		return true;
 	}
 	// 4.7, 4.8, 4.9.
-	if ((IsIntegralType(goal) || (c_source_ && goal->kind == TypeKind::Enum)) && IsIntegralOrUnscopedEnum(source))
+	const bool integral_goal = c_enum || IsIntegralType(goal);
+	if (integral_goal && IsIntegralOrUnscopedEnum(source))
 	{
 		out.second = ValueConversion::IntegralConversion;
 		return true;
@@ -692,7 +694,7 @@ bool ConversionRules::value_conversion(
 		out.second = ValueConversion::FloatingConversion;
 		return true;
 	}
-	if ((IsFloating(goal) && IsIntegralOrUnscopedEnum(source)) || (IsIntegralType(goal) && IsFloating(source)))
+	if ((IsFloating(goal) && IsIntegralOrUnscopedEnum(source)) || (integral_goal && IsFloating(source)))
 	{
 		out.second = ValueConversion::FloatingIntegral;
 		return true;

@@ -306,7 +306,11 @@ bool ConstantInterpreter::rvalue(const syntax::Expr& expr, ConstValue& out)
 			out.type = type;
 		}
 		else
+		{
 			out = IntegerValue(type, facts->value);
+			if ((facts->flags & kWideFolded) != 0)
+				out.high = static_cast<const WideEnumeratorEntity*>(facts->entity)->high;
+		}
 		return true;
 	}
 	if ((facts->flags & kOperatorCall) != 0 && e->kind != syntax::ExprKind::Call &&
@@ -692,7 +696,7 @@ bool ConstantInterpreter::convert_scalar(ConstValue& value, const Type* to, uint
 		return vector_reinterpretation(value, to, location);
 	if (IsComplex(to))
 		return complex_convert(value, to, location);
-	if (IsBool(to))
+	if (IsBool(to) || (analyzer_.c_source() && IsBooleanEnumeration(to)))
 	{
 		bool result = false;
 		if (!truth_of(value, result, location))
@@ -1925,8 +1929,8 @@ bool ConstantInterpreter::increment(const syntax::UnaryExpr& expr, bool postfix,
 			return false;
 		stepped = FloatingValue(type, result);
 	}
-	else if (IsBool(type))
-		stepped = IntegerValue(type, 1);
+	else if (IsBool(type) || (analyzer_.c_source() && IsBooleanEnumeration(type)))
+		stepped = IntegerValue(type, !decrement || old.bits == 0);
 	else if (old.kind == ValueKind::Integer && IsWideIntegral(type))
 	{
 		WideBits result = 0;

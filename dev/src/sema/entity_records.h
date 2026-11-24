@@ -490,6 +490,14 @@ struct EnumeratorEntity : Entity
 	// A template definition's value-dependent enumerator: `value` is only
 	// its position until an instantiation (14.6.2.3).
 	bool value_dependent;
+	bool extended_value;
+};
+
+// C23 fixed enums can use a compiler-provided 128-bit integer type. The
+// usual enumerator layout keeps the full high word only when needed.
+struct WideEnumeratorEntity : EnumeratorEntity
+{
+	uint64_t high;
 };
 
 // A template parameter (14.1), with its position: the number of enclosing

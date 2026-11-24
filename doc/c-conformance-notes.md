@@ -3,6 +3,31 @@
 These notes record WG14 rules exercised by the course regressions and the
 initial upstream campaign. Clause numbers use the named edition or draft.
 
+## C23 enumeration members and fixed bases
+
+A fixed base names an integer type other than an enumeration or a
+bit-precise integer. The underlying type drops qualifiers, including
+atomic qualification. A base without a definition requires a standalone
+declaration. The enumerator has the enumeration type while evaluating
+later members. Each member value must fit the base. An implicit
+successor of the base's maximum violates the constraint.
+
+In a definition without a fixed base, an explicit value that fits in
+`int` gives its member type `int`. Wider explicit values retain their
+expression type during the definition. An implicit increment uses the
+type of the addition and preserves the previous member's signedness
+when widening after overflow. On completion, the members all have type
+`int` if every value fits. Otherwise they have the enumeration type.
+Its eligible compatible integer representation must hold every value.
+cppgm's inferred range ends at `intmax_t` and `uintmax_t`. The
+compiler-provided `__int128` is available as an explicit base.
+
+WG14 issues 1021 and 1130 remain open. They cover promotion wording
+and the prior type visible while redeclaring an enumerator.
+[C23 N3096 §6.7.2.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
+[WG14 issue 1021](https://www.open-std.org/jtc1/sc22/WG14/issues/c23/issue1021.html) ·
+[WG14 issue 1130](https://www.open-std.org/jtc1/sc22/WG14/issues/c23/issue1130.html)
+
 ## Named register objects and parameters
 
 An explicit unary `&` on a register object or a record member reached

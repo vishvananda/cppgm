@@ -168,6 +168,8 @@ bool ConstantEvaluator::eval(const syntax::Expr& expr, Constant& value)
 			(expr.kind == syntax::ExprKind::Literal && IsIntegralType(facts->type) &&
 				(facts->flags & kUserLiteral) == 0)))
 	{
+		if ((facts->flags & kWideFolded) != 0)
+			return fail(expr.location, "a 128-bit integer value is out of range for this constant");
 		value = facts->constant();
 		return true;
 	}
@@ -378,13 +380,17 @@ bool ConstantEvaluator::entity_value(const Entity& entity, uint32_t location, Co
 	switch (entity.kind)
 	{
 	case EntityKind::Enumerator:
+	{
 		// A pointer or reference template argument is no integral value, and
 		// a value-dependent enumerator has none yet.
-		if (static_cast<const EnumeratorEntity&>(entity).argument != nullptr ||
-			static_cast<const EnumeratorEntity&>(entity).value_dependent)
+		const auto& enumerator = static_cast<const EnumeratorEntity&>(entity);
+		if (enumerator.argument != nullptr || enumerator.value_dependent)
 			return fail(location, "not an integral constant expression");
-		value = static_cast<const EnumeratorEntity&>(entity).value;
+		if (enumerator.extended_value && IsWideIntegral(enumerator.value.type))
+			return fail(location, "a 128-bit integer value is out of range for this constant");
+		value = enumerator.value;
 		return true;
+	}
 	case EntityKind::Variable:
 	case EntityKind::Parameter:
 	{

@@ -28,6 +28,11 @@ struct IntegralKind
 // false for other types and for an enumeration whose underlying type is not
 // yet known.
 bool IntegralKindOf(const Type* type, IntegralKind& kind);
+inline bool IsBooleanEnumeration(const Type* type)
+{
+	IntegralKind kind;
+	return type->kind == TypeKind::Enum && IntegralKindOf(type, kind) && kind.is_bool;
+}
 bool IsIntegralType(const Type* type);
 FundamentalType BitIntStorage(const Type* type);
 // A 128-bit integer type (or an enumeration with one underlying). The

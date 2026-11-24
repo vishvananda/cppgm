@@ -8,6 +8,7 @@
 
 #include "lex/identifier_table.h"
 #include "sema/integral_arithmetic.h"
+#include "sema/semantic_dump.h"
 #include "sema/template_records.h"
 #include "sema/string_literals.h"
 #include "syntax/ast_render.h"
@@ -1122,7 +1123,10 @@ void Printer::node(const Item& item, std::vector<Item>& stack)
 	{
 		header("literal", ValueCategory::PRValue, item.retyped ? type : facts->type);
 		line_ += ' ';
-		AppendValue(facts->constant(), line_);
+		if ((facts->flags & kWideFolded) != 0)
+			AppendWideEnumeratorValue(*static_cast<const WideEnumeratorEntity*>(facts->entity), line_);
+		else
+			AppendValue(facts->constant(), line_);
 		end();
 		return;
 	}

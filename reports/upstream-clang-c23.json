@@ -12,6 +12,28 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "n3029-wide-enumeration-members",
+      "path": "clang/test/C/C23/n3029.c",
+      "sha256": "d5cea222dd4cd5758b18e7c71241091bedd31bba34c67b4e82e86a4d7487651b",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Type wide enum members during the enumerator list and give the completed members a common enumeration type"
+    },
+    {
+      "id": "n3030-qualified-enumeration-bases",
+      "path": "clang/test/C/C23/n3030_1.c",
+      "sha256": "80a686246f676ce5e563da41984a44cd0302e6fe9ba2c71fdaf1f9c126aa8fb9",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors", "-Wno-underlying-atomic-qualifier-ignored"],
+      "obligation": "Accept qualified integer bases and use their unqualified non-atomic types"
+    },
+    {
       "id": "n2508-free-labels",
       "path": "clang/test/C/C23/n2508.c",
       "sha256": "d19c01a925da6692fe64e76b5da5cf633efa4fe5f80a7371ad260daade34e4f8",

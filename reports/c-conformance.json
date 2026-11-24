@@ -1445,6 +1445,33 @@
       "cases": ["c23.nullptr-variadic", "c23.va-start-context"]
     },
     {
+      "id": "c23.enumeration-values",
+      "clause": "6.7.3.3",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Type ordinary enum members during and after their definition. Preserve signedness on implicit widening and diagnose a range with no eligible integer type.",
+      "cases": ["c23.enum-values", "c23.enum-signed-overflow", "c23.enum-unsigned-overflow", "c23.enum-no-compatible-type"]
+    },
+    {
+      "id": "c23.fixed-enumeration",
+      "clause": "6.7.3.3, 6.7.3.4",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Check the fixed base and forward declaration, use the enumeration member type and base conversions, and diagnose values outside that base.",
+      "cases": ["c23.enum-fixed", "c23.enum-bit-precise-base", "c23.enum-qualified-forward", "c23.enum-fixed-overflow"]
+    },
+    {
+      "id": "c23.fixed-wide-enumeration",
+      "clause": "6.7.3.3",
+      "kind": "implementation-defined",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Preserve both words of values of the supported fixed __int128 base through constant evaluation, storage, a function result, and a switch.",
+      "cases": ["c23.enum-fixed-wide"]
+    },
+    {
       "id": "c23.bit-precise-types",
       "clause": "6.2.5, 6.3.1.1, 6.3.1.8, 6.7.3.1, 6.7.3.2",
       "kind": "required",

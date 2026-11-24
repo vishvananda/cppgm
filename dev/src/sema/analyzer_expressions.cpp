@@ -877,6 +877,8 @@ ExprFacts* Analyzer::binding_expression(
 		ExprFacts* facts = new_facts(expr, enumerator->value.type, ValueCategory::PRValue);
 		facts->entity = enumerator;
 		facts->flags |= kFolded;
+		if (enumerator->extended_value && IsWideIntegral(facts->type))
+			facts->flags |= kWideFolded;
 		facts->value = enumerator->value.bits;
 		return facts;
 	}

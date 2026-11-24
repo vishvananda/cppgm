@@ -252,18 +252,26 @@ bool Analyzer::integer_constant_expression(
 	const syntax::Expr& expr, Scope* scope, Constant& value, bool required, uint64_t* high)
 {
 	if (!c_source_ || !semantic())
-		return constant_value(expr, scope, value, required);
+	{
+		if (!constant_value(expr, scope, value, required))
+			return false;
+		if (high != nullptr)
+			*high = static_cast<int64_t>(value.bits) < 0 && IsSignedConstant(value) ? UINT64_MAX : 0;
+		return true;
+	}
 	if (deferred_reserved_call() || failed())
 		return false;
 	const syntax::Expr* direct = WithoutParentheses(&expr);
 	const ExprFacts* facts = direct->facts;
-	if (high == nullptr && facts != nullptr && facts->type != nullptr && IsIntegralOrUnscopedEnum(facts->type) &&
+	if (facts != nullptr && facts->type != nullptr && IsIntegralOrUnscopedEnum(facts->type) &&
 		((direct->kind == syntax::ExprKind::Literal &&
 			 (facts->type->kind != TypeKind::BitInt || facts->type->bound <= 64)) ||
 			(direct->kind == syntax::ExprKind::Sizeof && (facts->flags & kRuntimeSize) == 0) ||
 			direct->kind == syntax::ExprKind::KeywordLiteral))
 	{
 		value = facts->constant();
+		if (high != nullptr)
+			*high = static_cast<int64_t>(value.bits) < 0 && IsSignedConstant(value) ? UINT64_MAX : 0;
 		return true;
 	}
 	if (c23_ && direct->kind == syntax::ExprKind::Id && facts != nullptr && facts->entity != nullptr &&

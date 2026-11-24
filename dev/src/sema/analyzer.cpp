@@ -290,6 +290,8 @@ template PredefinedNameEntity* Analyzer::new_entity<PredefinedNameEntity>(
 template BindingEntity* Analyzer::new_entity<BindingEntity>(EntityKind, const Identifier*, Scope*, const Type*);
 template FunctionEntity* Analyzer::new_entity<FunctionEntity>(EntityKind, const Identifier*, Scope*, const Type*);
 template EnumeratorEntity* Analyzer::new_entity<EnumeratorEntity>(EntityKind, const Identifier*, Scope*, const Type*);
+template WideEnumeratorEntity* Analyzer::new_entity<WideEnumeratorEntity>(
+	EntityKind, const Identifier*, Scope*, const Type*);
 template TemplateParameterEntity* Analyzer::new_entity<TemplateParameterEntity>(
 	EntityKind, const Identifier*, Scope*, const Type*);
 template Entity* Analyzer::new_entity<Entity>(EntityKind, const Identifier*, Scope*, const Type*);

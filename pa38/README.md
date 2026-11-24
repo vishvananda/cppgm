@@ -457,6 +457,19 @@ The first fixture set covers these parts of the C17 input profile:
   when the enumeration has negative values in that range. Diagnose constants
   outside the `int` range in pedantic modes. GNU C allows wider integer
   representations when needed.
+- In C23, accept a fixed enumeration base that names an ordinary integer
+  type. Ignore its qualifiers, including atomic qualification. Diagnose a
+  bit-precise or enumeration base and values that do not fit the fixed
+  type. Give each member the enumeration type, including inside its
+  definition. Use the base type’s numeric conversions and arithmetic.
+  A declaration with a fixed base and no body stands on its own.
+- For a C23 enumeration without a fixed base, retain the type of an
+  explicitly initialized value outside the `int` range while evaluating
+  the remaining members. An implicit increment that needs a wider type
+  preserves signedness. On completion, give the members type `int` if all
+  values fit. Otherwise give them the enumeration type and choose a
+  compatible integer representation that holds every value. Diagnose an
+  enumeration with no such representation.
 - GNU C supports forward references to an enumeration tag. Keep the type
   incomplete until its definition. A pointer or a non-defining declaration
   can refer to it in the meantime. A storage definition or a function

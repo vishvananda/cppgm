@@ -12,6 +12,43 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "n3029-enumeration-members",
+      "path": "gcc/testsuite/gcc.dg/c23-enum-1.c",
+      "sha256": "cc7f805d008e2892b9e650d5a7a83aa55e798f024e48a10470b937d4a9a1321c",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Use the member types prescribed inside and after an enum definition and widen implicit increments without changing signedness"
+    },
+    {
+      "id": "n3029-enumeration-range",
+      "path": "gcc/testsuite/gcc.dg/c23-enum-2.c",
+      "sha256": "56b0fe293f4fb50e433943fd0c1857190b79b2489367e731411f29cf9af41699",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "diagnostic_contains": {
+        "cppgm": "enumerator value overflows the largest integer type",
+        "upstream": "enumerator value outside the range"
+      },
+      "obligation": "Diagnose enumerator increments outside the eligible integer ranges"
+    },
+    {
+      "id": "n3030-fixed-enumeration-runtime",
+      "path": "gcc/testsuite/gcc.dg/c23-enum-6.c",
+      "sha256": "c7cecc44c026395c988b52c6d8b7de5e5d2b3993be59383ff69ebff84d4b4ef9",
+      "dialect": "c23",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors", "-O2"],
+      "upstream_flags": ["-pedantic-errors", "-O2"],
+      "obligation": "Preserve fixed enum bases across forward declarations, promotions, arithmetic, and scalar conversions, including bool"
+    },
+    {
       "id": "compound-literal-storage-runtime",
       "path": "gcc/testsuite/gcc.dg/c23-complit-2.c",
       "sha256": "ecf9f4bf2203d9ec0d545a1acfc191525eb1237cc01634872696f47231b69260",

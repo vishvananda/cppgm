@@ -8,6 +8,25 @@
 
 namespace sema {
 
+void AppendWideEnumeratorValue(const WideEnumeratorEntity& enumerator, std::string& out)
+{
+	unsigned __int128 magnitude = (static_cast<unsigned __int128>(enumerator.high) << 64) | enumerator.value.bits;
+	if (IsSignedConstant(enumerator.value) && (enumerator.high >> 63) != 0)
+	{
+		out += '-';
+		magnitude = 0 - magnitude;
+	}
+	char digits[40];
+	char* end = digits + sizeof digits;
+	char* start = end;
+	do
+	{
+		*--start = static_cast<char>('0' + magnitude % 10);
+		magnitude /= 10;
+	} while (magnitude != 0);
+	out.append(start, end);
+}
+
 namespace {
 
 const char* ClassKeySpelling(TokenKind key)
@@ -73,8 +92,14 @@ void AppendDeclaredType(const Binding* declaration, std::string& out)
 	out += BindingName(declaration);
 }
 
-void AppendValue(const Constant& value, std::string& out)
+void AppendEnumeratorValue(const EnumeratorEntity& enumerator, std::string& out)
 {
+	const Constant& value = enumerator.value;
+	if (enumerator.extended_value && IsWideIntegral(value.type))
+	{
+		AppendWideEnumeratorValue(static_cast<const WideEnumeratorEntity&>(enumerator), out);
+		return;
+	}
 	if (IsSignedConstant(value) && static_cast<int64_t>(value.bits) < 0)
 	{
 		out += '-';
@@ -171,7 +196,7 @@ void DumpWriter::binding(const Binding* binding, unsigned depth)
 		line_ += ' ';
 		AppendDeclaredType(binding->declaration, line_);
 		line_ += ' ';
-		AppendValue(static_cast<const EnumeratorEntity*>(binding->entity)->value, line_);
+		AppendEnumeratorValue(*static_cast<const EnumeratorEntity*>(binding->entity), line_);
 		break;
 	case BindingKind::Function:
 		line_ += "function ";

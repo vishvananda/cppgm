@@ -419,6 +419,9 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 			out.type_specifier = &specifier;
 			out.defines = specifier.enum_specifier->has_body;
 			out.elaborated = !out.defines;
+			if (c23_ && out.elaborated && specifier.enum_specifier->underlying != nullptr &&
+				(!lone_declaration || list.size != 1))
+				error(specifier.location, "a fixed enumeration declaration without a body must stand alone");
 			out.declared = enum_specifier(*specifier.enum_specifier, scope, lone_declaration, out.declared_binding);
 			named = out.declared != nullptr ? out.declared->type : nullptr;
 			break;

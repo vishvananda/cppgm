@@ -329,9 +329,14 @@ RValue FunctionLowering::rvalue(const syntax::Expr& expr)
 	// Folded value-initialization still needs the zero of the source type:
 	// null for a member pointer and a floating zero for a floating type.
 	if ((facts->flags & sema::kFolded) != 0)
+	{
+		if ((facts->flags & sema::kWideFolded) != 0)
+			return integer(lowering_.storage_type(facts->type),
+				lowir::Literal{ facts->value, static_cast<const sema::WideEnumeratorEntity*>(facts->entity)->high });
 		return facts->type->unqualified->kind == sema::TypeKind::MemberPointer || sema::IsFloating(facts->type)
 			? zero_value(facts->type)
 			: integer(facts->type, facts->value);
+	}
 	if ((facts->flags & sema::kStaticConstant) != 0)
 	{
 		// 9.4.2p3: the member's constant value (a member access's object
@@ -2248,7 +2253,7 @@ RValue FunctionLowering::stepped(const RValue& value, const sema::Type* type, bo
 	if (IsPointerType(type))
 		return pointer_offset(value, integer(lowir::Type::scalar(lowir::TypeKind::I64), 1),
 			lowering_.graph().types.fundamental(FundamentalType::LongInt), type, decrement, true, location);
-	if (IsBoolType(type))
+	if (IsBoolType(type) || (IsBooleanEnumeration(type) && lowering_.analyzer_->c_source()))
 	{
 		if (decrement)
 			return convert_op(lowir::ConvertOp::Trunc, value.type,

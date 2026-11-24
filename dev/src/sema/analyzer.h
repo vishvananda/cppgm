@@ -613,6 +613,10 @@ private:
 		const syntax::EnumSpecifier& specifier, const Type* underlying, Scope* scope, Binding*& printed);
 	void enumerators(EnumEntity* entity, const syntax::EnumSpecifier& specifier, const Binding* declaration,
 		Scope* print, Scope* lookup, Scope* values = nullptr);
+	void c23_enumerators(EnumEntity* entity, const syntax::EnumSpecifier& specifier, const Binding* declaration,
+		Scope* print, Scope* lookup);
+	void bind_enumerator(EnumeratorEntity* constant, const syntax::Enumerator& syntax, const Binding* declaration,
+		Scope* print, Scope* lookup);
 	void declare_member_enum_instance(EnumEntity* entity, ClassEntity* owner);
 	void instantiate_member_enum(EnumEntity* entity);
 	Constant next_enumerator_value(

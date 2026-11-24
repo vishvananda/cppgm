@@ -2258,6 +2258,8 @@ bool ProgramLowering::static_converted(
 		// 4.7: modulo 2^N; a 128-bit type keeps both halves.
 		if (kind.bits <= 64)
 		{
+			if (kind.is_bool && value.high != 0)
+				value.bits = 1;
 			value.bits = sema::ConvertIntegral(value.bits, kind);
 			value.high = kind.is_signed && static_cast<int64_t>(value.bits) < 0 ? ~uint64_t(0) : 0;
 		}
@@ -2322,7 +2324,12 @@ bool ProgramLowering::static_value(const syntax::Expr& expr, StaticValue& out, b
 			return static_c_value(literal, out, e->location);
 		}
 		if (IsIntegralLike(type) && (facts->flags & sema::kFolded) != 0)
-			return static_c_value(sema::IntegerValue(type, facts->value), out, e->location);
+		{
+			sema::ConstValue value = sema::IntegerValue(type, facts->value);
+			if ((facts->flags & sema::kWideFolded) != 0)
+				value.high = static_cast<const sema::WideEnumeratorEntity*>(facts->entity)->high;
+			return static_c_value(value, out, e->location);
+		}
 		if (const sema::ConstValue* checked = analyzer_->checked_c_static_value(*e))
 			return static_c_value(*checked, out, e->location);
 	}

@@ -1,6 +1,7 @@
 #include "lower/function_lowering.h"
 
 #include "lowir/literals.h"
+#include "sema/analyzer.h"
 #include "sema/conversions.h"
 #include "sema/constant_values.h"
 #include "sema/integral_arithmetic.h"
@@ -154,7 +155,7 @@ RValue FunctionLowering::convert(
 		return value;
 	if (to->kind == sema::TypeKind::Complex)
 		return complex_convert(value, from, to, context);
-	if (IsBoolType(to))
+	if (IsBoolType(to) || (IsBooleanEnumeration(to) && lowering_.analyzer_->c_source()))
 	{
 		if (IsBoolType(from))
 			return value;
