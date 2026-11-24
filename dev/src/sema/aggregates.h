@@ -8,6 +8,11 @@
 // and its lowering: which list element initializes which member.
 namespace sema {
 
+inline const Type* CTransparentUnionAbiType(const Type* type)
+{
+	return type->transparent_union() ? ClassOf(type)->members->variable->type->unqualified : type;
+}
+
 // 8.5.1p1: no user-provided constructors, no private or protected
 // non-static data members, no base classes and no virtual functions.
 // The analyzer's flag also excludes brace-or-equal-initializers in C++11;

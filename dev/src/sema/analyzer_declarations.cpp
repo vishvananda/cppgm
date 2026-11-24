@@ -101,14 +101,15 @@ bool StandardNoReturn(const syntax::Declarator* declarator)
 	return false;
 }
 
-bool Overloadable(const syntax::Attribute* leading, const syntax::Declarator* declarator)
+bool HasDeclarationAttribute(
+	const syntax::Attribute* leading, const syntax::Declarator* declarator, syntax::AttributeKind kind)
 {
 	for (const syntax::Attribute* attribute = leading; attribute != nullptr; attribute = attribute->next)
-		if (attribute->kind == syntax::AttributeKind::Overloadable)
+		if (attribute->kind == kind)
 			return true;
 	for (const syntax::Declarator* part = declarator; part != nullptr; part = part->nested)
 		for (const syntax::Attribute* attribute = part->attributes; attribute != nullptr; attribute = attribute->next)
-			if (attribute->kind == syntax::AttributeKind::Overloadable)
+			if (attribute->kind == kind)
 				return true;
 	return false;
 }
@@ -1030,7 +1031,7 @@ void Analyzer::declare_declarator(const Specifiers& specifiers, const syntax::In
 	if (c_language_ &&
 		(leading != nullptr || init.declarator->attributes != nullptr || init.declarator->nested != nullptr))
 	{
-		info.overloadable = Overloadable(leading, init.declarator);
+		info.overloadable = HasDeclarationAttribute(leading, init.declarator, syntax::AttributeKind::Overloadable);
 		if (info.overloadable && !function && c_source_)
 			error(info.location, "the overloadable attribute requires a function");
 	}
@@ -1057,6 +1058,8 @@ void Analyzer::declare_declarator(const Specifiers& specifiers, const syntax::In
 			error(info.location, "an exception-specification in a typedef declaration");
 		if (info.type == auto_placeholder_ || info.type == decltype_auto_placeholder_)
 			error(info.location, "typedef of auto");
+		if (c_source_ && HasDeclarationAttribute(leading, init.declarator, syntax::AttributeKind::TransparentUnion))
+			info.type = c_transparent_union_type(info.type, info.location);
 		check_type_packs(info.type, info.location);
 		Binding* binding = declare_typedef(declared_name(*info.name, declaration_scope(scope)), info.type, scope,
 			info.location, specifiers.quiet_c_extensions);
@@ -3153,7 +3156,8 @@ void Analyzer::function_definition(const syntax::FunctionDecl& decl, Scope* scop
 	if (c_source_ && info.parameters != nullptr && info.parameters->c_prototype_star)
 		error(decl.location, "[*] is allowed only in C function prototype scope");
 	if (c_language_)
-		info.overloadable = Overloadable(decl.attributes, decl.declarator);
+		info.overloadable = HasDeclarationAttribute(
+			decl.attributes, decl.declarator, syntax::AttributeKind::Overloadable);
 	Binding* binding = declare_function(specifiers, info, scope, true, decl.location);
 	settle_declaration_access(pending, pending, binding);
 	access_deferral_ = saved_deferral;

@@ -5,6 +5,7 @@
 
 #include "lex/identifier_table.h"
 #include "lowir/object_classes.h"
+#include "sema/aggregates.h"
 #include "sema/analyzer.h"
 #include "sema/conversions.h"
 #include "sema/integral_arithmetic.h"
@@ -3297,6 +3298,7 @@ bool ProgramLowering::returned_directly(const sema::ClassEntity* entity)
 
 lowir::Parameter ProgramLowering::parameter_for(const sema::Type* type, lowir::NameId name)
 {
+	type = sema::CTransparentUnionAbiType(type);
 	// 8.3.5: a reference parameter crosses as the address of the object
 	// it binds (`ptr [pass=by_address]`, with the referenced complete
 	// object's size); a class object by value as its bytes or its address

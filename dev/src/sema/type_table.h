@@ -64,6 +64,7 @@ public:
 		RefQualifier ref) const;
 	// The type of a class, enumeration or template parameter entity.
 	const Type* named(TypeKind kind, Entity* entity);
+	const Type* transparent_union(const Type* type);
 	// Template arguments: an integral constant of `type` (an
 	// unqualified integral or enumeration type), an argument pack of
 	// `count` elements, and a pack expansion of `pattern`.

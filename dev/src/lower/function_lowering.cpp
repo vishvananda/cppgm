@@ -182,7 +182,12 @@ void FunctionLowering::lower_definition()
 		Place place = Place();
 		place.storage = lowir::Value::slot(local.slot);
 		const sema::ClassEntity* cls = local.reference ? nullptr : sema::ClassOf(type);
-		if (cls != nullptr && !lowering_.passed_directly(cls))
+		if (type->transparent_union())
+		{
+			place.untyped = true;
+			store(incoming.type, incoming, place);
+		}
+		else if (cls != nullptr && !lowering_.passed_directly(cls))
 		{
 			// A class object passed by address is the caller's temporary
 			// (its slot stays unused, the course's frame), which the caller

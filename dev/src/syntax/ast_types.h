@@ -129,7 +129,8 @@ enum class AttributeKind : uint8_t
 	// GNU constructor[(priority)]: run the function before program entry.
 	Startup,
 	// GNU destructor[(priority)]: run the function at normal termination.
-	Shutdown
+	Shutdown,
+	TransparentUnion
 };
 
 struct TypeId;

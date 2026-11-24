@@ -408,6 +408,12 @@ The first fixture set covers these parts of the C17 input profile:
   Apply the GNU extension policy in pedantic mode.
 - A GNU C cast to a union initializes the first compatible named member
   from the operand, or copies an operand already of that union type.
+- A GNU `transparent_union` typedef with integer or pointer members of the
+  same machine width can accept an argument compatible with one of its
+  members. Null pointers and compatible conversions through `void*` can
+  initialize a pointer member. The first member determines the ABI for both
+  direct calls and calls through a function pointer. A function definition
+  can access the parameter's members as a union object.
 - For relational comparison, require pointers to qualified or unqualified
   versions of compatible object types. Equality also permits a null pointer
   constant, compatible function pointers, and an object pointer with a void

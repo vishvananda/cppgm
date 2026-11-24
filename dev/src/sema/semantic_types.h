@@ -123,6 +123,7 @@ struct Type
 	// Function: a member function's cv-qualifier-seq. Vector: 1 for
 	// Clang's ext_vector_type (whose scalar casts broadcast), else 0.
 	// Array: 1 for an explicitly zero-length GNU array, 2 for C [*].
+	// Class: 1 for a GNU transparent-union typedef.
 	uint8_t function_cv;
 	RefQualifier ref;
 	// Function: the parameter list ends with `...`.
@@ -180,6 +181,7 @@ struct Type
 	bool c_array_star() const { return kind == TypeKind::Array && function_cv == 2; }
 	bool constant_array_bound() const { return has_array_bound() && !c_array_star(); }
 	bool extended_vector() const { return kind == TypeKind::Vector && function_cv != 0; }
+	bool transparent_union() const { return kind == TypeKind::Class && function_cv != 0; }
 	bool is_reference() const { return kind == TypeKind::LValueReference || kind == TypeKind::RValueReference; }
 	bool c_unprototyped() const { return kind == TypeKind::Function && bound != 0; }
 	bool is_nothrow_function() const

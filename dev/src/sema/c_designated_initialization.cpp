@@ -1198,6 +1198,25 @@ void Analyzer::c_designated_list(
 	facts->c_initializer = plan;
 }
 
+const Type* Analyzer::c_transparent_union_type(const Type* type, uint32_t location)
+{
+	const ClassEntity* record = ClassOf(type);
+	if (record == nullptr || record->key != TokenKind::KW_UNION || !record->complete || record->members == nullptr)
+		return type;
+	uint64_t mode_size = 0, alignment = 0;
+	if (!type_size(record->members->variable->type, mode_size, alignment, location))
+		return type;
+	for (const DataMember* member = record->members; member != nullptr; member = member->next)
+	{
+		const Type* field = member->variable->type->unqualified;
+		uint64_t size;
+		if (member->bit_field || (field->kind != TypeKind::Pointer && !IsIntegralOrUnscopedEnum(field)) ||
+			!type_size(field, size, alignment, location) || size != mode_size)
+			return type; // GNU ignores the attribute on a union without a common integer mode.
+	}
+	return types_.transparent_union(type);
+}
+
 ExprFacts* Analyzer::c_union_cast(
 	const syntax::CastExpr& expr, const Type* type, const ClassEntity* record, Scope* scope)
 {

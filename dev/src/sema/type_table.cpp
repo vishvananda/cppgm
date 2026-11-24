@@ -460,6 +460,13 @@ const Type* TypeTable::find_function(
 	return nullptr;
 }
 
+const Type* TypeTable::transparent_union(const Type* type)
+{
+	Type key = *type;
+	key.function_cv = 1;
+	return intern(key);
+}
+
 const Type* TypeTable::named(TypeKind kind, Entity* entity)
 {
 	Type key = Key(kind);

@@ -3008,6 +3008,27 @@ void FunctionLowering::push_converted(
 		arguments_.push_back(bind_converted(argument, conversion, parameter, ConversionContext::Argument, false));
 	else if (parameter != nullptr && parameter->unqualified->kind == sema::TypeKind::Class)
 	{
+		if (parameter->transparent_union())
+		{
+			const sema::Type* abi = sema::CTransparentUnionAbiType(parameter);
+			const sema::Type* source = argument.facts->type;
+			if (sema::ClassOf(source) != nullptr)
+			{
+				Place object{};
+				object.storage = object_address(argument);
+				object.is_volatile = (source->cv & sema::kVolatile) != 0;
+				object.untyped = true;
+				arguments_.push_back(load(lowering_.storage_type(abi), object).value);
+			}
+			else
+			{
+				RValue value = apply_converted(argument, conversion, rvalue(argument), ConversionContext::Argument);
+				if (conversion != nullptr)
+					source = conversion->result;
+				arguments_.push_back(fit(convert(value, source, abi, ConversionContext::Argument), abi).value);
+			}
+			return;
+		}
 		// 5.2.2p4: a class parameter is copy-initialized in a temporary of
 		// the caller, passed as its bytes (the slot itself) or its address.
 		// One whose destructor runs is passed by address and destroyed by

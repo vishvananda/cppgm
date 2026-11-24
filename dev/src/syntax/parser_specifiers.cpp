@@ -199,6 +199,7 @@ bool Parser::gnu_attribute(const char* spelling, Attribute& attribute, bool& kep
 			AttributeKind::ExcludeFromExplicitInstantiation },
 		{ "always_inline", "__always_inline__", AttributeKind::AlwaysInline },
 		{ "overloadable", "__overloadable__", AttributeKind::Overloadable },
+		{ "transparent_union", "__transparent_union__", AttributeKind::TransparentUnion },
 		{ "gnu_inline", "__gnu_inline__", AttributeKind::GnuInline }, { "used", "__used__", AttributeKind::Used },
 		{ "noreturn", "__noreturn__", AttributeKind::NoReturn },
 		{ "returns_nonnull", "__returns_nonnull__", AttributeKind::ReturnsNonNull },

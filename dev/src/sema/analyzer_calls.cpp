@@ -3,6 +3,7 @@
 #include <cstring>
 
 #include "lex/identifier_table.h"
+#include "preprocess/preprocessor.h"
 
 // Function calls (5.2.2) and overload resolution (13.3) for the procedural
 // slice: candidates are the functions a name's lookup found; each viable
@@ -1014,6 +1015,30 @@ bool Analyzer::NonstaticMemberName(const ExprFacts* facts)
 	return (facts->flags & kBoundMember) != 0 && (facts->flags & kOverloadSet) == 0 && !IsStaticMemberFunction(facts);
 }
 
+bool Analyzer::c_transparent_union_sequence(const syntax::Expr& argument, const Type* type, Conversion& conversion)
+{
+	if (implicit_sequence(argument, type, conversion))
+		return true;
+	if (argument.facts->type == nullptr)
+		return false;
+	const Type* source = decayed(argument.facts);
+	const DataMember* fallback = nullptr;
+	Conversion pointer_conversion{};
+	for (const DataMember* member = ClassOf(type)->members; member != nullptr; member = member->next)
+	{
+		const Type* destination = member->variable->type->unqualified;
+		if (conversions_.c_type_compatible(source, destination) && implicit_sequence(argument, destination, conversion))
+			return true;
+		if (fallback == nullptr && destination->kind == TypeKind::Pointer &&
+			implicit_sequence(argument, destination, pointer_conversion))
+			fallback = member;
+	}
+	if (fallback == nullptr)
+		return false;
+	conversion = pointer_conversion;
+	return true;
+}
+
 bool Analyzer::implicit_sequence(const syntax::Expr& argument, const Type* parameter, Conversion& out, bool c_overload)
 {
 	if (argument.kind == syntax::ExprKind::BracedInit)
@@ -1416,6 +1441,8 @@ Resolution Analyzer::resolve(const syntax::Slice<syntax::Expr*>& call_arguments,
 							same_class_source(constructed, *nested->elements[0]) &&
 							conversions_.implicit(operand_of(nested->elements[0]->facts), parameter, false, slot);
 					}
+					else if (c_source_ && parameter->transparent_union())
+						viable = c_transparent_union_sequence(*call_arguments[i], parameter, slot);
 					else if (c_overload)
 					{
 						viable = implicit_sequence(*call_arguments[i], parameter, slot, true);
@@ -1532,9 +1559,27 @@ void Analyzer::convert_arguments(
 					argument.location);
 				continue;
 			}
-			if (chosen != nullptr && (argument.facts->flags & kOverloadSet) == 0)
+			const bool selected_sequence = chosen != nullptr && (argument.facts->flags & kOverloadSet) == 0;
+			if (selected_sequence || (c_source_ && parameter->transparent_union()))
 			{
-				Conversion conversion = argument_scratch_[first + i];
+				Conversion conversion = selected_sequence ? argument_scratch_[first + i] : Conversion{};
+				if (!selected_sequence && !c_transparent_union_sequence(argument, parameter, conversion))
+				{
+					argument_scratch_.resize(first);
+					substitution_error(argument.location, "no compatible transparent-union member for the argument");
+					return;
+				}
+				if (parameter->transparent_union() && conversion.target != parameter && !c_explicit_extension_ &&
+					positions_ != nullptr)
+				{
+					const char* message = "argument conversion to a transparent union is a GNU C extension";
+					if (!positions_->allow_gnu_c_extension(argument.location, message))
+					{
+						argument_scratch_.resize(first);
+						substitution_error(argument.location, message);
+						return;
+					}
+				}
 				if (conversion.c_array_extension != CArrayPointerExtension::None)
 				{
 					if (!check_c_array_pointer_extension(conversion.c_array_extension, argument.location))
