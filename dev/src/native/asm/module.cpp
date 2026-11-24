@@ -463,7 +463,7 @@ void ModuleAssembler::finish()
 	if (!section_stack_.empty())
 		throw BackendError("unbalanced module section stack");
 	layout_.finish();
-	finish_sizes();
+	finish_symbols();
 	symbols_.finish();
 	finish_data();
 	unwind_.finish(layout_);

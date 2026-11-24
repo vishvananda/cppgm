@@ -69,6 +69,18 @@ void ModuleAssembler::fold_difference(assembly::ModuleValue& value) const
 }
 void ModuleAssembler::fold_at(assembly::ModuleValue& value, uint32_t section, uint64_t at) const
 {
+	if (value.positive != 0 && value.positive != lowir::kNoId &&
+		out_.symbols[value.positive].section == object::kAbsoluteSection)
+	{
+		value.bits += out_.symbols[value.positive].value;
+		value.positive = lowir::kNoId;
+	}
+	if (value.negative != 0 && value.negative != lowir::kNoId &&
+		out_.symbols[value.negative].section == object::kAbsoluteSection)
+	{
+		value.bits -= out_.symbols[value.negative].value;
+		value.negative = lowir::kNoId;
+	}
 	if (value.positive == lowir::kNoId || value.negative == lowir::kNoId)
 		return;
 	const uint32_t plus_section = value.positive == 0 ? section : out_.symbols[value.positive].section;
@@ -262,18 +274,25 @@ void ModuleAssembler::size(assembly::ModuleCursor& cursor)
 		cursor.fail("module size requires an expression");
 	const assembly::ModuleValue bytes = assembly::assembly_module_expression(cursor, *this);
 	if (bytes.relocatable())
-		sizes_.push_back(SymbolSize{ id, section_, offset(), bytes });
+		sizes_.push_back({ id, section_, offset(), bytes });
 	else if (bytes.bits > INT64_MAX)
 		cursor.fail("module size requires a nonnegative absolute expression");
 	else
 		out_.symbols[id].size = bytes.bits;
 }
-void ModuleAssembler::finish_sizes()
+void ModuleAssembler::finish_symbols()
 {
+	for (DeferredSymbolValue& entry : absolute_definitions_)
+	{
+		fold_at(entry.value, entry.section, layout_.position(entry.section, entry.offset));
+		if (entry.value.relocatable())
+			throw BackendError("module symbol assignment requires an absolute value or one address");
+		symbols_.define_absolute(entry.symbol, entry.value.bits);
+	}
 	for (const RawSize& entry : raw_sizes_)
 		out_.symbols[entry.symbol].size = layout_.position(entry.section, entry.end) -
 			layout_.position(entry.section, entry.first);
-	for (SymbolSize& entry : sizes_)
+	for (DeferredSymbolValue& entry : sizes_)
 	{
 		fold_at(entry.value, entry.section, layout_.position(entry.section, entry.offset));
 		if (entry.value.relocatable() || entry.value.bits > INT64_MAX)
@@ -285,8 +304,8 @@ void ModuleAssembler::assign(uint32_t id, assembly::ModuleCursor& cursor)
 {
 	const assembly::ModuleValue value = assembly::assembly_module_expression(cursor, *this);
 	if (value.negative != lowir::kNoId)
-		cursor.fail("module symbol assignment requires an absolute value or one address");
-	if (value.positive == lowir::kNoId)
+		absolute_definitions_.push_back({ id, section_, offset(), value });
+	else if (value.positive == lowir::kNoId)
 		symbols_.define_absolute(id, value.bits);
 	else if (value.positive == 0)
 	{

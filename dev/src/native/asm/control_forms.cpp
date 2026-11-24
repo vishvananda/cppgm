@@ -70,19 +70,19 @@ void encode_control_form(
 bool encode_system_register_move(Assembler& out, const assembly::Instruction& inst, unsigned suffix)
 {
 	using asm_model::RegisterBank;
-	const auto system = [](const assembly::Operand& operand) {
+	const auto is_system_register = [](const assembly::Operand& operand) {
 		return operand.kind == OperandKind::Register &&
 			(operand.reg.bank == RegisterBank::Segment || operand.reg.bank == RegisterBank::Control ||
 				operand.reg.bank == RegisterBank::Debug);
 	};
 	const auto& dst = inst.operands[0];
 	const auto& src = inst.operands[1];
-	const bool write = system(dst);
-	if (!write && !system(src))
+	const bool write = is_system_register(dst);
+	if (!write && !is_system_register(src))
 		return false;
 	const auto& special = write ? dst : src;
 	const auto& ordinary = write ? src : dst;
-	if (inst.prefix != 0 || system(ordinary))
+	if (inst.prefix != 0 || is_system_register(ordinary))
 		fail(inst, "invalid system-register move");
 	if (special.reg.bank == RegisterBank::Segment)
 	{

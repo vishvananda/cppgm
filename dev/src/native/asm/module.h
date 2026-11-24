@@ -31,7 +31,7 @@ private:
 		const std::string& name, object::SectionKind kind, uint32_t merge_size = 0, bool merge_strings = false);
 	void data(assembly::ModuleCursor& cursor, unsigned bytes);
 	void finish_data();
-	void finish_sizes();
+	void finish_symbols();
 	assembly::ModuleValue expression_symbol(assembly::ModuleCursor& cursor) override;
 	void fold_difference(assembly::ModuleValue& value) const override;
 	void fold_at(assembly::ModuleValue& value, uint32_t section, uint64_t at) const;
@@ -64,14 +64,15 @@ private:
 		unsigned bytes;
 	};
 	std::vector<DataRelocation> data_relocations_;
-	struct SymbolSize
+	struct DeferredSymbolValue
 	{
 		uint32_t symbol;
 		uint32_t section;
 		uint64_t offset;
 		assembly::ModuleValue value;
 	};
-	std::vector<SymbolSize> sizes_;
+	std::vector<DeferredSymbolValue> sizes_;
+	std::vector<DeferredSymbolValue> absolute_definitions_;
 	struct RawSize
 	{
 		uint32_t symbol;

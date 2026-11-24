@@ -17,7 +17,10 @@ after_space:
     movl $73, %eax
     ret
     .cfi_endproc
-.size forward_layout, . - forward_layout
+.globl forward_end
+forward_end:
+.set function_length, forward_end - forward_layout
+.size forward_layout, function_length
 
 .pushsection .text.replacement,"ax",@progbits
 4:
@@ -32,6 +35,9 @@ after_alignment:
 .org after_alignment + 4, 0x34
     .byte 0x56
 .data
+.globl measured_function
+measured_function:
+    .4byte function_length
 .globl measured_space
 measured_space:
     .4byte after_space - before_space
