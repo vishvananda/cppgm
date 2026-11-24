@@ -39,7 +39,9 @@ lowir::TypeKind transfer_type(lowir::Type type, Reg reg)
 
 unsigned capture_bytes(lowir::Type type, Reg reg)
 {
-	const unsigned bytes = wide_assembly_operand(type) ? type.bytes : register_bytes(transfer_type(type, reg));
+	const unsigned bytes = wide_assembly_operand(type) ? type.bytes
+		: type.is_vector()                             ? 16
+													   : register_bytes(transfer_type(type, reg));
 	return assembly_vector_register(reg) && bytes < 4 ? 4 : bytes;
 }
 
