@@ -282,6 +282,20 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 		error(out.location, "consteval in a typedef declaration");
 	if (out.is_constinit && (lone_declaration || out.is_constexpr || out.is_typedef || out.is_friend))
 		error(out.location, "__constinit requires a variable declaration without constexpr, typedef or friend");
+	// __int128 and _BitInt allow one sign specifier in either order.
+	const auto is_unsigned_specifier = [&](uint32_t location) {
+		bool is_unsigned = false, has_sign = false;
+		for (const syntax::DeclSpecifier& specifier : list)
+		{
+			if (specifier.kind != syntax::DeclSpecKind::Keyword || !IsTypeKeyword(specifier.keyword))
+				continue;
+			if (has_sign || (specifier.keyword != TokenKind::KW_SIGNED && specifier.keyword != TokenKind::KW_UNSIGNED))
+				error(location, "invalid combination of type specifiers");
+			has_sign = true;
+			is_unsigned = specifier.keyword == TokenKind::KW_UNSIGNED;
+		}
+		return is_unsigned;
+	};
 	const Type* type = nullptr;
 	bool int128 = false, complex = false;
 	for (const syntax::DeclSpecifier& specifier : list)
@@ -339,7 +353,20 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 			const auto* builtin = specifier.operand->kind == syntax::ExprKind::BuiltinTrait
 				? static_cast<const syntax::BuiltinTraitExpr*>(specifier.operand)
 				: nullptr;
-			if (c_source_ && builtin != nullptr &&
+			if (c_source_ && builtin != nullptr && builtin->trait == GnuTrait::BitInt)
+			{
+				const bool is_unsigned = is_unsigned_specifier(specifier.location);
+				typed_value(*builtin->operand, scope);
+				Constant width;
+				if (integer_constant_expression(*builtin->operand, scope, width, true))
+				{
+					if (width.bits < (is_unsigned ? 1u : 2u) || width.bits > target_model::bit_int_max_width)
+						error(builtin->operand->location, "a _BitInt width is outside the supported range");
+					named = types_.bit_int(static_cast<unsigned>(width.bits), is_unsigned);
+				}
+				keywords = false;
+			}
+			else if (c_source_ && builtin != nullptr &&
 				(IsTypeofOperand(builtin->trait) || builtin->trait == GnuTrait::AddAtomic))
 			{
 				const ExprFacts* facts = typed_value(*specifier.operand, scope);
@@ -349,9 +376,6 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 			}
 			else
 				named = decltype_type(*specifier.operand, scope);
-			// `unsigned _BitInt ( N )`: the sign specifier is the _BitInt's.
-			if (builtin != nullptr && builtin->trait == GnuTrait::BitInt)
-				keywords = false;
 			break;
 		}
 		case syntax::DeclSpecKind::DecltypeAuto:
@@ -399,7 +423,11 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 	{
 		if (type != nullptr)
 			error(out.location, "more than one type in a declaration");
-		type = int128 ? int128_type(list, out.location) : keyword_type(list, out.location);
+		if (int128)
+			type = types_.fundamental(
+				is_unsigned_specifier(out.location) ? FundamentalType::UnsignedInt128 : FundamentalType::Int128);
+		else
+			type = keyword_type(list, out.location);
 	}
 	if (__builtin_expect(complex, 0))
 	{
@@ -634,29 +662,6 @@ const Type* Analyzer::keyword_type(const syntax::Slice<syntax::DeclSpecifier>& l
 	else
 		result = unsigned_count ? FundamentalType::UnsignedInt : FundamentalType::Int;
 	return types_.fundamental(result);
-}
-
-const Type* Analyzer::int128_type(const syntax::Slice<syntax::DeclSpecifier>& list, uint32_t location)
-{
-	// GCC's `signed __int128` and `unsigned __int128` (in either order): the
-	// 7.1.6.2 rules with one sign specifier and no other type keyword.
-	unsigned signs = 0, others = 0;
-	bool is_unsigned = false;
-	for (const syntax::DeclSpecifier& specifier : list)
-	{
-		if (specifier.kind != syntax::DeclSpecKind::Keyword || !IsTypeKeyword(specifier.keyword))
-			continue;
-		if (specifier.keyword == TokenKind::KW_SIGNED || specifier.keyword == TokenKind::KW_UNSIGNED)
-		{
-			++signs;
-			is_unsigned = specifier.keyword == TokenKind::KW_UNSIGNED;
-		}
-		else
-			++others;
-	}
-	if (signs > 1 || others != 0)
-		error(location, "invalid combination of type specifiers");
-	return types_.fundamental(is_unsigned ? FundamentalType::UnsignedInt128 : FundamentalType::Int128);
 }
 
 const Type* Analyzer::named_type(const syntax::Name& name, Scope* scope, NameTypeUse use)

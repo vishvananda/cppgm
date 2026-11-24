@@ -62,6 +62,14 @@ C23_SOURCE_REJECTIONS = (
     ('c23.nullptr-not-ice', '300-c23-nullptr-not-ice-bad.t', 'compile'),
     ('c23.nullptr-ordered', '300-c23-nullptr-ordered-bad.t', 'compile'),
     ('c23.va-start-context', '500-c23-va-start-outside-bad.t', 'compile'),
+    ('c23.bitint-suffix', '100-c23-bit-precise-suffix-bad.t', 'compile'),
+    ('c23.bitint-pp-range', '100-c23-bit-precise-pp-overflow-bad.t', 'compile'),
+    ('c23.bitint-width-limit', '300-c23-bit-precise-width-limit-bad.t', 'compile'),
+    ('c23.bitint-nonconstant-width', '300-c23-bit-precise-nonconstant-bad.t', 'compile'),
+    ('c23.bitint-signed-one', '300-c23-bit-precise-signed-one-bad.t', 'compile'),
+    ('c23.bitint-bitfield-width', '300-c23-bit-precise-bit-field-width-bad.t', 'compile'),
+    ('c23.bitint-overflow', '300-c23-bit-precise-overflow-bad.t', 'compile'),
+    ('c23.bitint-duplicate-case', '500-c23-bit-precise-duplicate-case-bad.t', 'compile'),
 )
 C23_SOURCE_CASES = (
     ('c23.version', '100-c23-version.t', 'preprocess'),
@@ -85,6 +93,10 @@ C23_PROGRAMS = {
     'c23.typeof-vla': (PA38_GENERAL / '300-c23-typeof-vla.t', ()),
     'c23.nullptr-conversions': (PA38_GENERAL / '300-c23-nullptr-conversions.t', ()),
     'c23.nullptr-variadic': (PA38_GENERAL / '500-c23-nullptr-variadic.t', ()),
+    'c23.bitint-literals': (PA38_GENERAL / '200-c23-bit-precise-literals.t', ()),
+    'c23.bitint-integers': (PA38_GENERAL / '300-c23-bit-precise-integers.t', ()),
+    'c23.bitint-calls': (PA38_GENERAL / '500-c23-bit-precise-calls.t', ()),
+    'c23.bitint-atomics': (PA38_GENERAL / '500-c23-bit-precise-atomics.t', ()),
 }
 FLEXIBLE_ARRAY = PA38_GENERAL / '300-c-flexible-array.t'
 RECORD_CONSTRAINTS = {

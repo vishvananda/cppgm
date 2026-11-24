@@ -12,6 +12,115 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "bitint-3",
+      "path": "gcc/testsuite/gcc.dg/bitint-3.c",
+      "sha256": "affc1b37ec00eb889fe022cc74841894fa17ff4e502ec1d56c0d28178134f1b3",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Division and remainder on bit-precise integers on both sides of a word boundary"
+    },
+    {
+      "id": "bitint-4",
+      "path": "gcc/testsuite/gcc.dg/bitint-4.c",
+      "sha256": "9687dbdc6b935f39dda710cbd6a8e12020b23902224bdbe7d57104e218c57f3c",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Shifts with separately typed bit-precise operands"
+    },
+    {
+      "id": "bitint-5",
+      "path": "gcc/testsuite/gcc.dg/bitint-5.c",
+      "sha256": "d1d190606dc4e0570e7438b38220cc3022b2673bebc82d4910316ce0bae9990e",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Width-dependent arithmetic and integer conversions"
+    },
+    {
+      "id": "bitint-6",
+      "path": "gcc/testsuite/gcc.dg/bitint-6.c",
+      "sha256": "e0422e103f12bff03c786c39ce0e532c49816163d5659c04d2350845f47dd73f",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "A bit-precise intermediate in a single-word arithmetic expression"
+    },
+    {
+      "id": "bitint-11",
+      "path": "gcc/testsuite/gcc.dg/bitint-11.c",
+      "sha256": "1ea789b5809988f50f931890e6eaeafec699b2b64d2f1571419d8478d31d14ef",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-O2",
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-O2",
+        "-pedantic-errors"
+      ],
+      "obligation": "Relational comparison of signed 127-bit arguments"
+    },
+    {
+      "id": "bitint-17",
+      "path": "gcc/testsuite/gcc.dg/bitint-17.c",
+      "sha256": "455db40ee8d59c42181d2280c60cb86c697514090ca8d392a82f6b1f056b842c",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-O2",
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-O2",
+        "-pedantic-errors"
+      ],
+      "obligation": "Declared bit-field type controls integer promotion"
+    },
+    {
+      "id": "bitint-22",
+      "path": "gcc/testsuite/gcc.dg/bitint-22.c",
+      "sha256": "caf58b4f4f7eaa06ea2f7baa8b800e5afe73baebb6a74b339bdee9ee6796db44",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Signed and unsigned type specifiers and small literal suffixes"
+    },
+    {
       "id": "c23-nullptr-1",
       "path": "gcc/testsuite/gcc.dg/c23-nullptr-1.c",
       "sha256": "54f44a40b66f789e629dbdd240ead75ac03154527529209b56044d5a1f85a94c",

@@ -1,5 +1,7 @@
 #include "lower/program_lowering.h"
 
+#include "sema/integral_arithmetic.h"
+
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
@@ -1449,6 +1451,8 @@ lowir::Type ProgramLowering::storage_type(const sema::Type* type)
 			return storage_type(entity->underlying);
 		break;
 	}
+	case sema::TypeKind::BitInt:
+		return storage_type(graph().types.fundamental(sema::BitIntStorage(type)));
 	case sema::TypeKind::Pointer:
 	case sema::TypeKind::BlockPointer:
 	case sema::TypeKind::LValueReference:

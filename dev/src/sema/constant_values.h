@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "sema/integral_arithmetic.h"
 #include "sema/semantic_types.h"
 #include "sema/subobject_address.h"
 
@@ -252,7 +253,7 @@ inline ConstValue IntegerValue(const Type* type, uint64_t bits)
 	// has a high half.
 	const Type* bare = type != nullptr ? type->unqualified : nullptr;
 	if (bare != nullptr &&
-		(bare->kind == TypeKind::Enum ||
+		(bare->kind == TypeKind::Enum || (bare->kind == TypeKind::BitInt && bare->bound > 64) ||
 			(bare->kind == TypeKind::Fundamental &&
 				(bare->fundamental == FundamentalType::Int128 ||
 					bare->fundamental == FundamentalType::UnsignedInt128))))
@@ -279,6 +280,9 @@ inline WideBits WideOf(const ConstValue& value)
 
 inline ConstValue WideValue(const Type* type, WideBits bits)
 {
+	IntegralKind kind;
+	if (type->unqualified->kind == TypeKind::BitInt && IntegralKindOf(type, kind))
+		bits = ConvertWideIntegral(bits, kind);
 	ConstValue value = IntegerValue(type, static_cast<uint64_t>(bits));
 	value.high = static_cast<uint64_t>(bits >> 64);
 	return value;

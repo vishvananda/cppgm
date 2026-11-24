@@ -735,6 +735,11 @@ void ProgramLowering::append_type_label(const sema::Type* type, std::string& out
 	case sema::TypeKind::Fundamental:
 		out += FundamentalTypeName(type->fundamental);
 		break;
+	case sema::TypeKind::BitInt:
+		if (type->fundamental == FundamentalType::UnsignedInt)
+			out += "unsigned ";
+		out += "_BitInt(" + std::to_string(type->bound) + ")";
+		break;
 	case sema::TypeKind::Class:
 	{
 		const sema::ClassEntity* entity = static_cast<const sema::ClassEntity*>(type->entity);
@@ -2959,6 +2964,7 @@ void ProgramLowering::classify_eightbytes(const sema::Type* type, uint64_t offse
 				mark(eightbyte, AC_INTEGER);
 			return;
 		}
+	case sema::TypeKind::BitInt:
 	case sema::TypeKind::Enum:
 	case sema::TypeKind::Pointer:
 	case sema::TypeKind::BlockPointer:
@@ -3048,10 +3054,12 @@ uint8_t ProgramLowering::object_classes(const sema::Type* type)
 {
 	if (target_model::describe(program_.target).architecture != target_model::Architecture::X86_64)
 		return 0;
-	// A member function pointer (an i128) is Itanium's pair of eightbytes,
-	// 8-aligned on the stack (an __int128 is 16-aligned).
-	if (object_mode_ && type->unqualified->kind == sema::TypeKind::MemberPointer &&
-		type->unqualified->element->kind == sema::TypeKind::Function)
+	// A member function pointer or wide _BitInt remains an i128 value
+	// but takes only eight-byte alignment on the x86 stack.
+	const sema::Type* bare = type->unqualified;
+	if (object_mode_ &&
+		((bare->kind == sema::TypeKind::MemberPointer && bare->element->kind == sema::TypeKind::Function) ||
+			(bare->kind == sema::TypeKind::BitInt && bare->bound > 64)))
 		return lowir::OC_STATED | lowir::EB_INTEGER | (lowir::EB_INTEGER << 2);
 	if (!type->is_reference() && SoftFloatOf(type) != SoftFloat::None)
 		return soft_float_classes(SoftFloatOf(type));

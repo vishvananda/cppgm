@@ -51,6 +51,9 @@ struct Place
 	// character type, so they are of no other object's bytes; std::byte is
 	// an enumeration that is one, so enumerations stay as they are).
 	bool byte_object = false;
+	// Bit-precise objects may have unspecified high bits in their container.
+	uint8_t bit_int_width = 0;
+	bool bit_int_signed = false;
 };
 
 // Where a conversion's operand stands: the course conventions fold a
@@ -1610,7 +1613,7 @@ private:
 	RValue read_c_atomic_value(const sema::Type* type, lowir::Type storage, const Place& place, uint32_t location);
 	void write_c_atomic_value(lowir::Type storage, const RValue& value, const Place& place, uint32_t location);
 	RValue atomic_update(sema::Intrinsic kind, lowir::Type type, lowir::Value target, const RValue& value,
-		lowir::MemoryOrder order, uint32_t location = 0);
+		lowir::MemoryOrder order, uint32_t location = 0, const sema::Type* value_type = nullptr);
 	lowir::MemoryOrder memory_order(const syntax::Expr& order, RValue* value = nullptr);
 	void emit_ordered(lowir::Instruction inst, const RValue& order);
 	BitField bit_field(const sema::VariableEntity* variable, uint32_t location);
@@ -1660,6 +1663,13 @@ private:
 	RValue apply_converted(
 		const syntax::Expr& expr, const sema::Conversion* conversion, const RValue& value, ConversionContext context);
 	RValue fit(const RValue& value, const sema::Type* type);
+	RValue normalize_bit_int(const RValue& value, unsigned width, bool sign);
+	RValue normalize_bit_int(const RValue& value, const sema::Type* type)
+	{
+		return type->kind == sema::TypeKind::BitInt
+			? normalize_bit_int(value, static_cast<unsigned>(type->bound), type->fundamental == FundamentalType::Int)
+			: value;
+	}
 	RValue convert(const RValue& value, const sema::Type* from, const sema::Type* to, ConversionContext context,
 		bool literal = false);
 	// An implicit conversion's standard conversion by its types alone (a

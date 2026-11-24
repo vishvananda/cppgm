@@ -83,7 +83,7 @@ RValue FunctionLowering::atomic_runtime_call(const syntax::CallExpr& expr, sema:
 		const lowir::Value target = operand(*operands[0], ConversionContext::Argument).value;
 		const RValue input = operand(*operands[1], ConversionContext::Argument);
 		const lowir::MemoryOrder order = memory_order(*operands[2]);
-		return atomic_update(kind, type, target, input, order, expr.location);
+		return atomic_update(kind, type, target, input, order, expr.location, pointer->element->unqualified);
 	}
 	const size_t base = arguments_.size();
 	arguments_.push_back(integer(
@@ -206,7 +206,7 @@ RValue FunctionLowering::atomic_buffered(const syntax::CallExpr& expr, sema::Int
 	{
 		Place view = {};
 		view.storage = result;
-		return load(value_storage, view);
+		return normalize_bit_int(load(value_storage, view), value_type);
 	}
 	copy_bytes(result, output, size, 1);
 	return RValue();
@@ -336,7 +336,7 @@ RValue FunctionLowering::read_c_atomic_value(
 	access.object = address_of(place);
 	access.result = result.storage;
 	emit_atomic_access(storage, access, RValue(), location);
-	return load(value_storage, result);
+	return normalize_bit_int(load(value_storage, result), type);
 }
 
 void FunctionLowering::write_c_atomic_value(
@@ -408,6 +408,7 @@ bool FunctionLowering::atomic_step(const Place& place, const sema::Type* type, l
 	const sema::Type* value = type->unqualified;
 	return place.is_atomic && storage.is_integer() &&
 		!(value->kind == sema::TypeKind::Fundamental && value->fundamental == FundamentalType::Bool) &&
+		(value->kind != sema::TypeKind::BitInt || value->bound == lowir::integer_bits(storage.kind())) &&
 		(storage.kind() != lowir::TypeKind::I128 || !lowering_.analyzer_->c_source());
 }
 
@@ -492,7 +493,10 @@ RValue FunctionLowering::begin_atomic_loop(
 	jump(loop.retry);
 	place(loop.retry);
 	if (storage == loop.bits)
-		return load(storage, expected);
+	{
+		const RValue raw = load(storage, expected);
+		return object.bit_int_width != 0 ? normalize_bit_int(raw, object.bit_int_width, object.bit_int_signed) : raw;
+	}
 	if (storage.kind() == lowir::TypeKind::Ptr)
 		return copy(storage, load(loop.bits, expected));
 	Place view = Place();
@@ -560,7 +564,7 @@ void FunctionLowering::end_atomic_loop(const Place& object, lowir::Type storage,
 }
 
 RValue FunctionLowering::atomic_update(sema::Intrinsic kind, lowir::Type type, lowir::Value target, const RValue& value,
-	lowir::MemoryOrder order, uint32_t location)
+	lowir::MemoryOrder order, uint32_t location, const sema::Type* value_type)
 {
 	// `__atomic_<op>_fetch` (the new value) and `__atomic_fetch_<op>` (the
 	// old). A subtraction adds the negated value; the bitwise updates retry
@@ -573,7 +577,9 @@ RValue FunctionLowering::atomic_update(sema::Intrinsic kind, lowir::Type type, l
 			  (static_cast<uint8_t>(Intrinsic::AtomicFetchAdd) - static_cast<uint8_t>(Intrinsic::AtomicAddFetch)))
 		: kind;
 	const bool runtime = type.kind() == lowir::TypeKind::I128;
-	if (!runtime && (op == Intrinsic::AtomicAddFetch || op == Intrinsic::AtomicSubFetch))
+	const bool partial = value_type != nullptr && value_type->kind == sema::TypeKind::BitInt &&
+		value_type->bound != lowir::integer_bits(type.kind());
+	if (!runtime && !partial && (op == Intrinsic::AtomicAddFetch || op == Intrinsic::AtomicSubFetch))
 	{
 		const RValue delta = op == Intrinsic::AtomicAddFetch ? value : unary(lowir::UnaryOp::Neg, value);
 		lowir::Instruction inst = lowir::make_instruction(lowir::Opcode::AtomicAddFetch, type);
@@ -587,6 +593,8 @@ RValue FunctionLowering::atomic_update(sema::Intrinsic kind, lowir::Type type, l
 	}
 	Place object = {};
 	object.storage = target;
+	if (partial)
+		qualify(object, value_type);
 	AtomicLoop loop;
 	loop.bits = type;
 	loop.runtime = runtime;
@@ -601,6 +609,8 @@ RValue FunctionLowering::atomic_update(sema::Intrinsic kind, lowir::Type type, l
 	RValue updated = binary(operation, type, previous, value);
 	if (op == Intrinsic::AtomicNandFetch)
 		updated = unary(lowir::UnaryOp::BitNot, updated);
+	if (partial)
+		updated = normalize_bit_int(updated, value_type);
 	end_atomic_loop(object, type, loop, updated, location, order);
 	return fetch_first ? previous : updated;
 }

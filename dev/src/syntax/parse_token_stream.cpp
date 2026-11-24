@@ -236,6 +236,24 @@ void ParseTokenStream::pull()
 			token.flags = static_cast<uint8_t>(post.type);
 			token.floating_bits = bits;
 		}
+		else if (post.form == LiteralForm::BitInt)
+		{
+			token.kind = ParseTokenKind::BitIntLiteral;
+			token.bit_int_width = static_cast<uint8_t>(post.elements);
+			if (post.type == FundamentalType::UnsignedInt)
+				token.flags |= kUnsignedBitIntLiteral;
+			uint64_t low = 0;
+			std::memcpy(&low, post.data, sizeof low);
+			if (token.bit_int_width > 64 || low > UINTPTR_MAX)
+			{
+				uint64_t* words = spellings_.allocate_array<uint64_t>(post.size / 8);
+				std::memcpy(words, post.data, post.size);
+				token.bit_int_words = words;
+				token.flags |= kStoredBitIntLiteral;
+			}
+			else
+				token.bit_int_low = static_cast<uintptr_t>(low);
+		}
 		break;
 	case PostTokenKind::EndOfFile:
 		token = end_;

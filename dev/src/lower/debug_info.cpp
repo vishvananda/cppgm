@@ -112,6 +112,13 @@ uint32_t DebugInfo::type(const sema::Type* source)
 	else
 		switch (source->kind)
 		{
+		case sema::TypeKind::BitInt:
+			record.kind = lowir::DebugKind::Base;
+			record.name = intern(name(source));
+			record.bytes = target_model::bit_int_bytes(static_cast<unsigned>(source->bound));
+			record.encoding = source->fundamental == FundamentalType::Int ? lowir::DebugEncoding::Signed
+																		  : lowir::DebugEncoding::Unsigned;
+			break;
 		case sema::TypeKind::Fundamental:
 		{
 			const FundamentalType fundamental = source->fundamental;

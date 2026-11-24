@@ -878,7 +878,8 @@ RValue FunctionLowering::atomic_intrinsic(const syntax::CallExpr& expr, sema::In
 	// The object's bits as stored, and as the builtin's result.
 	const auto stored_bits = [&](const RValue& value) { return is_pointer ? copy(stored, value) : value; };
 	const auto result_of = [&](const RValue& value) {
-		return reinterpreted ? reinterpret(value, object_type) : stored_bits(value);
+		return reinterpreted ? reinterpret(value, object_type)
+							 : normalize_bit_int(stored_bits(value), pointer->element->unqualified);
 	};
 	const auto store_through = [&](uint32_t i, const RValue& value) {
 		Place place = Place();
@@ -994,7 +995,8 @@ RValue FunctionLowering::atomic_intrinsic(const syntax::CallExpr& expr, sema::In
 		pointee->kind != sema::TypeKind::Function &&
 		!(pointee->kind == sema::TypeKind::Fundamental && pointee->fundamental == FundamentalType::Void))
 		value = binary(lowir::BinaryOp::Mul, type, value, integer(type, lowering_.size_of(pointee, expr.location)));
-	return result_of(atomic_update(kind, type, target, value, order_at(2)));
+	return result_of(
+		atomic_update(kind, type, target, value, order_at(2), expr.location, pointer->element->unqualified));
 }
 
 RValue FunctionLowering::overflow_intrinsic(const syntax::CallExpr& expr, sema::Intrinsic kind)

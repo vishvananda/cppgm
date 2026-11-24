@@ -86,6 +86,31 @@ inline NumberDialect NumberStreamDialect(NumberDialect dialect)
 NumberLiteral ClassifyNumber(const char* spelling, uint32_t length, NumberDialect dialect = NumberDialect::Gnu,
 	target_model::Target target = target_model::Target::Linux);
 
+struct BitIntLiteral
+{
+	uint64_t low;
+	uint64_t high;
+	uint8_t width; // zero for an invalid spelling or a value beyond the target limit
+	bool is_unsigned;
+};
+
+// The C-only wb or WB suffix, with an optional u/U before or after it.
+inline unsigned BitIntSuffixLength(const char* spelling, uint32_t length, NumberDialect dialect)
+{
+	if (!HasNumberSyntax(dialect, number_syntax::Imaginary) || length < 3)
+		return 0;
+	const char last = spelling[length - 1];
+	const unsigned trailing_unsigned = last == 'u' || last == 'U' ? 1 : 0;
+	const uint32_t end = length - trailing_unsigned;
+	const char w = spelling[end - 2], b = spelling[end - 1];
+	if (!((w == 'w' && b == 'b') || (w == 'W' && b == 'B')))
+		return 0;
+	const bool leading_unsigned = end > 2 && (spelling[end - 3] == 'u' || spelling[end - 3] == 'U');
+	return trailing_unsigned && leading_unsigned ? 0 : 2 + trailing_unsigned + leading_unsigned;
+}
+
+BitIntLiteral ClassifyBitInt(const char* spelling, uint32_t digits_end, unsigned suffix_length, NumberDialect dialect);
+
 // The value of a user-defined-integer-literal's digits (its spelling
 // before the ud-suffix at `suffix_begin`) as `n ULL` has it (2.14.8p3):
 // decimal, octal or hexadecimal; false if unsigned long long cannot

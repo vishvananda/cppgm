@@ -234,6 +234,22 @@ void ControllingExpressionEvaluator::classify_operator(const PPToken& pp)
 
 void ControllingExpressionEvaluator::classify_number(const PPToken& pp)
 {
+	if (const unsigned suffix = BitIntSuffixLength(pp.spelling, pp.length, literals_))
+	{
+		const BitIntLiteral bits = ClassifyBitInt(pp.spelling, pp.length - suffix, suffix, literals_);
+		// C23 6.10.2: evaluate as intmax_t or uintmax_t.
+		if (bits.width == 0 || bits.width > 64)
+			return;
+		if (binary_literal_diagnostics_ != nullptr && (pp.flags & kQuietSystemMacro) == 0)
+		{
+			const char* message = "wb and WB literal suffixes require C23";
+			if (!binary_literal_diagnostics_->allow_c_extension(pp.begin, CEdition::C23, message))
+				throw PreprocessError(pp.begin, message);
+		}
+		token_.kind = TokenClass::Operand;
+		token_.value = PPValue{ bits.low, bits.is_unsigned };
+		return;
+	}
 	// Only an integer literal without ud-suffix has integral type.
 	const NumberLiteral number = ClassifyNumber(pp.spelling, pp.length, literals_);
 	if (number.kind != NumberLiteralKind::Integer)

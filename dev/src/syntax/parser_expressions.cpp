@@ -847,6 +847,8 @@ Expr* Parser::parse_builtin_trait(GnuTrait trait)
 {
 	if (trait == GnuTrait::AddAtomic && c_source_)
 		require_c_extension(tok(), CEdition::C11, "the _Atomic type specifier is a C11 extension");
+	if (trait == GnuTrait::BitInt && c_source_)
+		require_c_extension(tok(), CEdition::C23, "the _BitInt type specifier is a C23 extension");
 	BuiltinTraitExpr* expr = make<BuiltinTraitExpr>(ExprKind::BuiltinTrait, location());
 	expr->trait = trait;
 	expr->types = Slice<TypeId*>{ nullptr, 0 };
@@ -1142,6 +1144,26 @@ Expr* Parser::parse_primary_expression()
 		literal->imaginary = true;
 		literal->component_type = token.imaginary_type();
 		literal->value = token.imaginary_component();
+		next();
+		return literal;
+	}
+	if (token.kind == ParseTokenKind::BitIntLiteral)
+	{
+		require_c_extension(token, CEdition::C23, "wb and WB literal suffixes require C23");
+		BitIntLiteralExpr* literal;
+		if (token.bit_int_width > 64)
+		{
+			auto* wide = make<WideBitIntLiteralExpr>(ExprKind::Literal, start);
+			wide->high = token.bit_int_words[1];
+			literal = wide;
+		}
+		else
+			literal = make<BitIntLiteralExpr>(ExprKind::Literal, start);
+		literal->spelling = token.spelling;
+		literal->bit_int = true;
+		literal->width = token.bit_int_width;
+		literal->is_unsigned = (token.flags & kUnsignedBitIntLiteral) != 0;
+		literal->low = (token.flags & kStoredBitIntLiteral) != 0 ? token.bit_int_words[0] : token.bit_int_low;
 		next();
 		return literal;
 	}

@@ -292,6 +292,10 @@ bool Analyzer::type_size(const Type* type, uint64_t& size, uint64_t& alignment, 
 		size = FundamentalTypeSize(type->fundamental, type->target);
 		alignment = type->binary128 ? target_model::data_layout(type->target).long_double_alignment : size;
 		return true;
+	case TypeKind::BitInt:
+		size = target_model::bit_int_bytes(static_cast<unsigned>(type->bound));
+		alignment = target_model::bit_int_alignment(type->target, static_cast<unsigned>(type->bound));
+		return true;
 	case TypeKind::Pointer:
 	case TypeKind::BlockPointer:
 		size = alignment = types_.layout().pointer_bytes;

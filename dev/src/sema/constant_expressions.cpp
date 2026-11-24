@@ -533,6 +533,8 @@ bool ConstantInterpreter::scalar_literal(const syntax::LiteralExpr& expr, const 
 	if (!IsFloating(type))
 	{
 		out = IntegerValue(type, facts->value);
+		if (expr.bit_int)
+			out.high = expr.integer_high_bits();
 		return true;
 	}
 	unsigned char scanned[16];
@@ -1411,9 +1413,9 @@ bool ConstantInterpreter::arithmetic(const syntax::BinaryExpr& expr, const Const
 		WideBits result = 0;
 		const bool shift = expr.op == TokenKind::OP_LSHIFT || expr.op == TokenKind::OP_RSHIFT;
 		const bool defined = shift
-			? WideShift(expr.op, KindOf(type).is_signed, WideInteger(left), KindOf(right.type), right.bits, result,
+			? WideShift(expr.op, KindOf(type), WideInteger(left), KindOf(right.type), right.bits, result,
 				  analyzer_.c_before_c99_)
-			: WideOperation(expr.op, KindOf(type).is_signed, WideInteger(left), WideInteger(right), result);
+			: WideOperation(expr.op, KindOf(type), WideInteger(left), WideInteger(right), result);
 		if (shift && IsWideIntegral(right.type) && right.high != 0 && defined)
 			return fail(expr.location, "a shift outside its defined range");
 		if (!defined)
@@ -1752,13 +1754,13 @@ bool ConstantInterpreter::compound_assignment(const syntax::BinaryExpr& expr, Co
 		if (IsWideIntegral(operation))
 		{
 			WideBits wide = 0;
-			const bool is_signed = KindOf(operation).is_signed;
+			const IntegralKind kind = KindOf(operation);
 			if (!shift && !convert_scalar(right, operation, expr.location))
 				return false;
-			defined = shift ? WideShift(op, is_signed, WideInteger(old), KindOf(right.type), right.bits, wide,
+			defined = shift ? WideShift(op, kind, WideInteger(old), KindOf(right.type), right.bits, wide,
 								  analyzer_.c_before_c99_) &&
 					!(IsWideIntegral(right.type) && right.high != 0)
-							: WideOperation(op, is_signed, WideInteger(old), WideInteger(right), wide);
+							: WideOperation(op, kind, WideInteger(old), WideInteger(right), wide);
 			result = WideValue(operation, wide);
 		}
 		else
@@ -1843,7 +1845,7 @@ bool ConstantInterpreter::unary(const syntax::UnaryExpr& expr, ConstValue& out)
 		{
 			WideBits result = ~WideInteger(value);
 			if (expr.op == TokenKind::OP_MINUS &&
-				!WideOperation(TokenKind::OP_MINUS, KindOf(type).is_signed, 0, WideInteger(value), result))
+				!WideOperation(TokenKind::OP_MINUS, KindOf(type), 0, WideInteger(value), result))
 				return fail(expr.location, "a negation that overflows");
 			out = WideValue(type, result);
 			return true;
@@ -1917,8 +1919,8 @@ bool ConstantInterpreter::increment(const syntax::UnaryExpr& expr, bool postfix,
 	else if (old.kind == ValueKind::Integer && IsWideIntegral(type))
 	{
 		WideBits result = 0;
-		if (!WideOperation(decrement ? TokenKind::OP_MINUS : TokenKind::OP_PLUS, KindOf(type).is_signed,
-				WideInteger(old), 1, result))
+		if (!WideOperation(
+				decrement ? TokenKind::OP_MINUS : TokenKind::OP_PLUS, KindOf(type), WideInteger(old), 1, result))
 			return fail(expr.location, "an increment that overflows");
 		stepped = WideValue(type, result);
 	}

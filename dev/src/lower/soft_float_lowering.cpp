@@ -422,7 +422,7 @@ bool SoftStaticConverted(const StaticValue& value, SoftFloat source, const sema:
 		// undefined (run time) unless the integer type represents it.
 		out = StaticValue();
 		out.kind = StaticValue::Kind::Integer;
-		if (kind.bits == 1)
+		if (kind.is_bool)
 		{
 			out.bits = decoded.nan || magnitude != 0 ? 1 : 0;
 			return true;

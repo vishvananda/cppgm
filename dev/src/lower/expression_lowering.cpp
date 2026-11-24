@@ -1497,6 +1497,8 @@ RValue FunctionLowering::literal(const syntax::LiteralExpr& expr, lowir::Value d
 	const lowir::Type storage = lowering_.storage_type(type);
 	if (sema::IsFloating(type))
 		return source_floating_literal(type, expr.spelling.text, expr.facts->value, expr.location);
+	if (expr.bit_int && type->bound > 64)
+		return integer(storage, lowir::Literal{ expr.facts->value, expr.integer_high_bits() });
 	return integer(storage, expr.facts->value);
 }
 
@@ -1544,7 +1546,8 @@ RValue FunctionLowering::builtin_trait_value(const syntax::BuiltinTraitExpr& tra
 	// An i128 is read as the object of its bytes its caller passes (see
 	// variadic_wide_object; object mode).
 	const bool wide = type.kind() == lowir::TypeKind::I128 &&
-		(lowering_.object_mode() || lowering_.aarch64_member_pointer_pair(facts->type));
+		(lowering_.object_mode() || lowering_.aarch64_member_pointer_pair(facts->type) ||
+			(target_model::is_wasm(program_.target) && facts->type->kind == sema::TypeKind::BitInt));
 	const lowir::Type read = wide ? variadic_wide_type(facts->type) : type;
 	lowir::Instruction inst = lowir::make_instruction(lowir::Opcode::VaArg, read);
 	inst.ops[0] = va_list_tag(*trait.operand);
@@ -1562,12 +1565,13 @@ RValue FunctionLowering::builtin_trait_value(const syntax::BuiltinTraitExpr& tra
 	else if (classes != 0)
 		builder_.body().argument_facts.push_back(lowir::ArgumentFacts{ instruction, 0, classes });
 	if (!wide)
-		return value;
+		return normalize_bit_int(value, facts->type);
 	Place bytes = Place();
 	bytes.storage = lowir::Value::slot(generated_slot(lowir::SlotKind::Arg, read));
 	store(read, value, bytes);
 	Place view = Place();
 	view.storage = address_of(bytes);
+	qualify(view, facts->type);
 	return load(type, view);
 }
 
@@ -1576,6 +1580,8 @@ lowir::Type FunctionLowering::variadic_wide_type(const sema::Type* type)
 	// psABI 3.2.3, Itanium 2.3: a member function pointer is a pair of
 	// eightbytes (8-aligned), an __int128 16-aligned.
 	const sema::Type* object = type->unqualified;
+	if (object->kind == sema::TypeKind::BitInt)
+		return lowir::Type::object(16, target_model::bit_int_alignment(object->target, 128) == 8 ? 3 : 4);
 	const bool pair = object->kind == sema::TypeKind::MemberPointer &&
 		object->element->kind == sema::TypeKind::Function;
 	return lowir::Type::object(16, pair ? 3 : 4);
@@ -1858,7 +1864,7 @@ RValue FunctionLowering::arithmetic_op(uint32_t token, const sema::Type* type, c
 	}
 	if (soft)
 		return soft_arithmetic(code, SoftFloatOf(type), left, right);
-	return binary(code, storage, left, right, signed_no_wrap(code, storage, is_unsigned));
+	return normalize_bit_int(binary(code, storage, left, right, signed_no_wrap(code, storage, is_unsigned)), type);
 }
 
 RValue FunctionLowering::pointer_offset(const RValue& pointer, const RValue& offset, const sema::Type* index_type,
@@ -2220,14 +2226,15 @@ RValue FunctionLowering::unary_expression(const syntax::UnaryExpr& expr)
 			return vector_unary(expr.op, expr.facts->type, value);
 		if (value.type.is_object() && SoftFloatOf(expr.facts->type) != SoftFloat::None)
 			return soft_negate(SoftFloatOf(expr.facts->type), value);
-		return unary(lowir::UnaryOp::Neg, value);
+		return normalize_bit_int(unary(lowir::UnaryOp::Neg, value), expr.facts->type);
 	}
 	case TokenKind::OP_COMPL:
 		if (expr.facts->type->unqualified->kind == sema::TypeKind::Complex)
 			return complex_unary(expr.op, expr.facts->type, operand(*expr.operand, ConversionContext::Unary));
 		if (expr.facts->type->unqualified->kind == sema::TypeKind::Vector)
 			return vector_unary(expr.op, expr.facts->type, operand(*expr.operand, ConversionContext::Unary));
-		return unary(lowir::UnaryOp::BitNot, operand(*expr.operand, ConversionContext::Unary));
+		return normalize_bit_int(
+			unary(lowir::UnaryOp::BitNot, operand(*expr.operand, ConversionContext::Unary)), expr.facts->type);
 	default:
 		throw LoweringError(expr.location, "a unary operator outside the procedural lowering slice");
 	}
@@ -2266,8 +2273,9 @@ RValue FunctionLowering::stepped(const RValue& value, const sema::Type* type, bo
 	const RValue one = value.type.is_float() ? floating(value.type, lowir::float_literal(value.type.kind(), 1.0L))
 											 : integer(value.type, 1);
 	const lowir::BinaryOp code = decrement ? lowir::BinaryOp::Sub : lowir::BinaryOp::Add;
-	return binary(
+	const RValue result = binary(
 		code, value.type, value, one, value.type.is_float() ? 0 : signed_no_wrap(code, value.type, !IsSigned(type)));
+	return normalize_bit_int(result, type);
 }
 
 Place FunctionLowering::prefix_increment(const syntax::UnaryExpr& expr)
@@ -2707,7 +2715,7 @@ RValue FunctionLowering::call(const syntax::CallExpr& expr, lowir::Value destina
 	end_call(throws);
 	if (result.kind() == lowir::TypeKind::Obj)
 		copy_result(value, facts->type, destination, expr.location);
-	return value;
+	return normalize_bit_int(value, facts->type);
 }
 
 lowir::Value FunctionLowering::block_call(const syntax::CallExpr& expr, lowir::Value destination, bool throws,
@@ -3051,10 +3059,11 @@ void FunctionLowering::push_converted(
 			const sema::Type* type = conversion != nullptr && conversion->target != nullptr
 				? conversion->target
 				: WithoutParentheses(&argument)->facts->type;
-			if (lowering_.aarch64_member_pointer_pair(type))
+			if (lowering_.aarch64_member_pointer_pair(type) ||
+				(target_model::is_wasm(program_.target) && type->kind == sema::TypeKind::BitInt))
 			{
-				// Keep the pair's eight-byte alignment at the unnamed
-				// boundary, even after folding its value to a literal.
+				// Preserve eight-byte alignment at the unnamed boundary
+				// for an Arm member pointer or Wasm's wide _BitInt.
 				variadic_argument_fact(0, lowir::TypeKind::Void, lowering_.aggregate_shape(type));
 				arguments_.push_back(variadic_wide_object(value, type));
 				return;

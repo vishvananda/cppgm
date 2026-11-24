@@ -81,8 +81,10 @@ struct LiteralExpr : Expr
 	bool imaginary = false;
 	bool floating = false;
 	bool has_string_value = false;
+	bool bit_int = false;
 
 	const StringLiteralValue* string_value() const;
+	uint64_t integer_high_bits() const;
 };
 
 struct StringLiteralExpr : LiteralExpr
@@ -100,6 +102,25 @@ struct FloatingLiteralExpr : LiteralExpr
 	const uint64_t* bits; // two words in target encoding, low word first
 	FundamentalType type;
 };
+
+struct BitIntLiteralExpr : LiteralExpr
+{
+	uint64_t low;
+	uint8_t width;
+	bool is_unsigned;
+};
+
+struct WideBitIntLiteralExpr : BitIntLiteralExpr
+{
+	uint64_t high;
+};
+
+inline uint64_t LiteralExpr::integer_high_bits() const
+{
+	if (bit_int && static_cast<const BitIntLiteralExpr*>(this)->width > 64)
+		return static_cast<const WideBitIntLiteralExpr*>(this)->high;
+	return 0;
+}
 
 struct ImaginaryLiteralExpr : LiteralExpr
 {

@@ -53,6 +53,7 @@ public:
 		bool extended = false);
 	const Type* mode(const Type* element, FundamentalType target, bool complex_mode = false);
 	const Type* complex(const Type* element);
+	const Type* bit_int(unsigned width, bool is_unsigned);
 	const Type* block_pointer(const Type* function);
 	const Type* function(const Type* result, const Type* const* params, uint32_t count, bool variadic, uint8_t cv,
 		RefQualifier ref, const Type* exception = nullptr);

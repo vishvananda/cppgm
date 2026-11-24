@@ -1400,6 +1400,33 @@
       "cases": ["c23.nullptr-variadic", "c23.va-start-context"]
     },
     {
+      "id": "c23.bit-precise-types",
+      "clause": "6.2.5, 6.3.1.1, 6.3.1.8, 6.7.3.1, 6.7.3.2",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Form a distinct integer type for each width and signedness within the advertised limits. Check the width's constant expression and range. Use the declared precision for bit-fields, conversions and arithmetic.",
+      "cases": ["c23.bitint-integers", "c23.bitint-width-limit", "c23.bitint-nonconstant-width", "c23.bitint-signed-one", "c23.bitint-bitfield-width", "c23.bitint-overflow"]
+    },
+    {
+      "id": "c23.bit-precise-literals",
+      "clause": "6.4.4.2, 6.10.2",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Interpret wb and WB constants at the smallest representable precision. In preprocessing conditions evaluate them in the intmax_t or uintmax_t domain.",
+      "cases": ["c23.bitint-literals", "c23.bitint-suffix", "c23.bitint-pp-range"]
+    },
+    {
+      "id": "c23.bit-precise-execution",
+      "clause": "6.5.3.3, 6.8.5.3, 7.16.1.1, 7.17.7",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Preserve bit-precise values across calls, unnamed arguments, case label comparisons, and atomic updates.",
+      "cases": ["c23.bitint-calls", "c23.bitint-atomics", "c23.bitint-duplicate-case"]
+    },
+    {
       "id": "c23.attribute-query",
       "clause": "6.10.2p9-p11, 6.7.13",
       "kind": "required",

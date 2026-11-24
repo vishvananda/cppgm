@@ -3,6 +3,29 @@
 These notes record WG14 rules exercised by the course regressions and the
 initial upstream campaign. Clause numbers use the named edition or draft.
 
+## C23 bit-precise integers
+
+The width includes the sign bit for a signed type. The minimum is two
+bits for a signed type and one for an unsigned type. cppgm supports
+widths through 128 and defines `__BITINT_MAXWIDTH__` for the target's
+`<limits.h>`. It ranks a bit-precise integer below a standard or
+extended integer of equal width. Converting an out-of-range integer to
+a signed bit-precise type keeps the low bits and interprets them as
+two's complement.
+[WG14 N3220 §§6.2.5, 6.2.6.2, 6.3.1.1–6.3.1.3, 6.7.3.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+
+The parser retains a typed operand for a width and the scanned value of
+a bit-precise literal. One-word values use the existing integer
+operations. Wider values use the existing two-word representation.
+Storage and calling conventions select the carrier's size and alignment.
+Wasm aligns a wide unnamed argument to eight bytes, in agreement with
+Clang's `va_arg` lowering. The selected Clang Wasm toolchain can align
+outgoing wide arguments to sixteen bytes. A wide unnamed argument after
+a single narrow one demonstrates the mismatch even between two Clang
+objects.
+[x86-64 psABI](https://gitlab.com/x86-psABIs/x86-64-ABI/-/blob/master/x86-64-ABI/low-level-sys-info.tex) ·
+[AAPCS64](https://github.com/ARM-software/abi-aa/blob/main/aapcs64/aapcs64.rst)
+
 ## Source line mapping and preprocessing numbers
 
 Translation phase 1 maps physical line endings. The C source mapping

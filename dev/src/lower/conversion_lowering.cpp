@@ -104,6 +104,34 @@ RValue FunctionLowering::fit(const RValue& value, const sema::Type* type)
 		value, type, lowir::Type::scalar(lowir::TypeKind::U8), ConversionContext::Initialization, false, false);
 }
 
+RValue FunctionLowering::normalize_bit_int(const RValue& value, unsigned width, bool sign)
+{
+	const unsigned storage_width = lowir::integer_bits(value.type.kind());
+	if (width == storage_width)
+		return value;
+	uint64_t bits = 0;
+	if (is_integer_literal(value, bits))
+	{
+		const sema::IntegralKind kind{ width, sign };
+		if (storage_width <= 64)
+			return integer(value.type, sema::ConvertIntegral(bits, kind));
+		lowir::Literal literal = builder_.body().literals[value.value.index];
+		const auto wide = sema::ConvertWideIntegral((static_cast<sema::WideBits>(literal.high) << 64) | bits, kind);
+		literal.low = static_cast<uint64_t>(wide);
+		literal.high = static_cast<uint64_t>(wide >> 64);
+		return integer(value.type, literal);
+	}
+	if (!sign)
+	{
+		lowir::Literal mask = lowir::integer_literal(0);
+		mask.low = width >= 64 ? UINT64_MAX : (uint64_t(1) << width) - 1;
+		mask.high = width > 64 ? (uint64_t(1) << (width - 64)) - 1 : 0;
+		return binary(lowir::BinaryOp::And, value.type, value, integer(value.type, mask));
+	}
+	const RValue shift = integer(value.type, storage_width - width);
+	return binary(lowir::BinaryOp::Shr, value.type, binary(lowir::BinaryOp::Shl, value.type, value, shift), shift);
+}
+
 RValue FunctionLowering::convert(
 	const RValue& value, const sema::Type* from, const sema::Type* to, ConversionContext context, bool literal)
 {
@@ -111,6 +139,11 @@ RValue FunctionLowering::convert(
 	to = to->unqualified;
 	if (from == to || sema::IsVoid(to))
 		return value;
+	if (__builtin_expect(to->kind == sema::TypeKind::BitInt, 0))
+	{
+		const sema::Type* storage = lowering_.graph().types.fundamental(sema::BitIntStorage(to));
+		return normalize_bit_int(convert(value, from, storage, context, literal), to);
+	}
 	const lowir::Type target = lowering_.storage_type(to);
 	const bool from_float = sema::IsFloating(from);
 	const bool to_float = sema::IsFloating(to);

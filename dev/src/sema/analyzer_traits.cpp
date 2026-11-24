@@ -85,6 +85,8 @@ int TypeClass(const Type* type)
 		if (IsIntegralType(type))
 			return 1;
 		return IsFloating(type) ? 8 : -1;
+	case TypeKind::BitInt:
+		return 1;
 	case TypeKind::Enum:
 		return 3;
 	case TypeKind::Pointer:

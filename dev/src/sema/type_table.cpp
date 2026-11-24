@@ -409,6 +409,15 @@ const Type* TypeTable::complex(const Type* element)
 	return intern(key);
 }
 
+const Type* TypeTable::bit_int(unsigned width, bool is_unsigned)
+{
+	Type key = Key(TypeKind::BitInt);
+	key.bound = width;
+	key.fundamental = is_unsigned ? FundamentalType::UnsignedInt : FundamentalType::Int;
+	key.dependence = 1;
+	return intern(key);
+}
+
 const Type* TypeTable::function(const Type* result, const Type* const* params, uint32_t count, bool variadic,
 	uint8_t cv, RefQualifier ref, const Type* exception)
 {

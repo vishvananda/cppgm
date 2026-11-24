@@ -2219,7 +2219,7 @@ bool ProgramLowering::static_converted(
 				out = value;
 				return true;
 			}
-			if (kind.bits == 1)
+			if (kind.is_bool)
 				value.bits = value.floating != 0 ? 1 : 0;
 			else if (kind.is_signed)
 				value.bits = static_cast<uint64_t>(static_cast<int64_t>(value.floating));
@@ -2237,7 +2237,7 @@ bool ProgramLowering::static_converted(
 		{
 			// A pointer to an integer wide enough (5.2.10p4): the address
 			// constant itself; to bool, a non-null address.
-			if (kind.bits == 1)
+			if (kind.is_bool)
 			{
 				value.kind = StaticValue::Kind::Integer;
 				value.bits = 1;
@@ -2253,6 +2253,20 @@ bool ProgramLowering::static_converted(
 		{
 			value.bits = sema::ConvertIntegral(value.bits, kind);
 			value.high = kind.is_signed && static_cast<int64_t>(value.bits) < 0 ? ~uint64_t(0) : 0;
+		}
+		else if (target->unqualified->kind == sema::TypeKind::BitInt && from != nullptr)
+		{
+			sema::IntegralKind source;
+			if (sema::IntegralKindOf(from, source))
+			{
+				const uint64_t high = source.bits > 64                         ? value.high
+					: source.is_signed && static_cast<int64_t>(value.bits) < 0 ? UINT64_MAX
+																			   : 0;
+				const sema::WideBits wide = sema::ConvertWideIntegral(
+					(static_cast<sema::WideBits>(high) << 64) | value.bits, kind);
+				value.bits = static_cast<uint64_t>(wide);
+				value.high = static_cast<uint64_t>(wide >> 64);
+			}
 		}
 		out = value;
 		return true;
@@ -2292,7 +2306,15 @@ bool ProgramLowering::static_value(const syntax::Expr& expr, StaticValue& out, b
 	const sema::Type* type = facts->type;
 	if (analyzer_->c_source())
 	{
-		if (IsIntegralLike(type) && (e->kind == syntax::ExprKind::Literal || (facts->flags & sema::kFolded) != 0))
+		if (IsIntegralLike(type) && e->kind == syntax::ExprKind::Literal)
+		{
+			sema::ConstValue literal = sema::IntegerValue(type, facts->value);
+			const auto& written = static_cast<const syntax::LiteralExpr&>(*e);
+			if (written.bit_int)
+				literal.high = written.integer_high_bits();
+			return static_c_value(literal, out, e->location);
+		}
+		if (IsIntegralLike(type) && (facts->flags & sema::kFolded) != 0)
 			return static_c_value(sema::IntegerValue(type, facts->value), out, e->location);
 		if (const sema::ConstValue* checked = analyzer_->checked_c_static_value(*e))
 			return static_c_value(*checked, out, e->location);

@@ -23,6 +23,7 @@ const char* UserDefinedFormName(LiteralForm form)
 	case LiteralForm::String:
 		return "string ";
 	case LiteralForm::Imaginary:
+	case LiteralForm::BitInt:
 		break;
 	}
 	return "";
@@ -126,7 +127,16 @@ void PostTokenWriter::append_type_and_value(const PostToken& token)
 	}
 	else if (token.form == LiteralForm::Imaginary)
 		append("_Complex ");
-	append(FundamentalTypeName(token.type));
+	if (token.form == LiteralForm::BitInt)
+	{
+		if (token.type == FundamentalType::UnsignedInt)
+			append("unsigned ");
+		append("_BitInt(");
+		buffer_.append(std::to_string(token.elements));
+		append(")");
+	}
+	else
+		append(FundamentalTypeName(token.type));
 	append(" ");
 	if (token.form == LiteralForm::Imaginary)
 		buffer_.append(2 * static_cast<std::size_t>(token.size), '0');

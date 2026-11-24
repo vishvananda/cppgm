@@ -3307,7 +3307,10 @@ void Analyzer::bit_field_member(const Specifiers& specifiers, const syntax::Init
 			uint64_t size = 0, natural = 0;
 			const Type* base = type->unqualified;
 			const bool boolean = base->kind == TypeKind::Fundamental && base->fundamental == FundamentalType::Bool;
-			const uint64_t limit = boolean ? 1 : type_size(base, size, natural, 0) ? size * 8 : 0;
+			const uint64_t limit = boolean          ? 1
+				: base->kind == TypeKind::BitInt    ? base->bound
+				: type_size(base, size, natural, 0) ? size * 8
+													: 0;
 			if (width > limit)
 				error(width_expr.location, "bit-field width exceeds the width of its type");
 		}

@@ -12,6 +12,17 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "bitint-24",
+      "path": "gcc/testsuite/gcc.dg/bitint-24.c",
+      "sha256": "6839775143df71e05c97e2c180211eef9e826d2d3505d611c4380e54e05a156c",
+      "dialect": "c11",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [],
+      "upstream_flags": [],
+      "obligation": "Declarations and literal suffixes as C11 extensions"
+    },
+    {
       "id": "c11-trigraphs",
       "path": "gcc/testsuite/gcc.dg/cpp/trigraphs.c",
       "sha256": "2122e526d79ccd1cf156d20eaf5dd8464328ecf816c08a18a1b648649a28cf5b",

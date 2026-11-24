@@ -531,7 +531,6 @@ private:
 	void specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scope* scope, Specifiers& out,
 		bool lone_declaration, bool deducing_class = false);
 	const Type* keyword_type(const syntax::Slice<syntax::DeclSpecifier>& list, uint32_t location);
-	const Type* int128_type(const syntax::Slice<syntax::DeclSpecifier>& list, uint32_t location);
 	enum class NameTypeUse : uint8_t
 	{
 		Type,
@@ -1859,7 +1858,8 @@ private:
 
 	// ------------------------------------------------ constants
 	bool constant_value(const syntax::Expr& expr, Scope* scope, Constant& value, bool required);
-	bool integer_constant_expression(const syntax::Expr& expr, Scope* scope, Constant& value, bool required);
+	bool integer_constant_expression(
+		const syntax::Expr& expr, Scope* scope, Constant& value, bool required, uint64_t* high = nullptr);
 	bool note_c_null_constant(const syntax::Expr& expr);
 	bool converted_constant(const syntax::Expr& expr, Constant& value, bool required);
 	void constant_operand(const syntax::Expr& expr, Scope* scope, bool resolved = true);

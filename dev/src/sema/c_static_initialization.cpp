@@ -253,7 +253,7 @@ const ConstValue* ConstantInterpreter::evaluate_c_initializer(const syntax::Expr
 		// target pointer, except for a known absolute address.
 		if ((source->kind == TypeKind::Array || source->kind == TypeKind::Function ||
 				source->kind == TypeKind::Pointer) &&
-			IntegralKindOf(expr.facts->type, kind) && kind.bits != 1)
+			IntegralKindOf(expr.facts->type, kind) && !kind.is_bool)
 		{
 			value = cast.operand;
 			address_integer = expr.facts->type->unqualified;

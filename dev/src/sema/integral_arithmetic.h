@@ -15,6 +15,13 @@ struct IntegralKind
 {
 	unsigned bits;
 	bool is_signed;
+	bool is_bool;
+	bool is_bit_precise;
+
+	IntegralKind() = default;
+	constexpr IntegralKind(unsigned width, bool sign, bool boolean = false, bool bit_precise = false)
+		: bits(width), is_signed(sign), is_bool(boolean), is_bit_precise(bit_precise)
+	{}
 };
 
 // For an integral type, or an enumeration through its underlying type;
@@ -22,6 +29,7 @@ struct IntegralKind
 // yet known.
 bool IntegralKindOf(const Type* type, IntegralKind& kind);
 bool IsIntegralType(const Type* type);
+FundamentalType BitIntStorage(const Type* type);
 // A 128-bit integer type (or an enumeration with one underlying). The
 // constant interpreter evaluates its values in 128 bits (sema::WideOf); a
 // Constant of such a type (an enumerator, a template argument, an integral
@@ -60,8 +68,9 @@ bool IntegralCompare(TokenKind op, bool is_signed, uint64_t a, uint64_t b);
 
 // The three, of a 128-bit type's values (the constant interpreter's; the
 // integral evaluator keeps 64-bit constants).
-bool WideOperation(TokenKind op, bool is_signed, unsigned __int128 a, unsigned __int128 b, unsigned __int128& out);
-bool WideShift(TokenKind op, bool is_signed, unsigned __int128 a, IntegralKind count_kind, uint64_t count,
+unsigned __int128 ConvertWideIntegral(unsigned __int128 value, IntegralKind kind);
+bool WideOperation(TokenKind op, IntegralKind kind, unsigned __int128 a, unsigned __int128 b, unsigned __int128& out);
+bool WideShift(TokenKind op, IntegralKind kind, unsigned __int128 a, IntegralKind count_kind, uint64_t count,
 	unsigned __int128& out, bool legacy_c);
 bool WideCompare(TokenKind op, bool is_signed, unsigned __int128 a, unsigned __int128 b);
 

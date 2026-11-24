@@ -1075,6 +1075,11 @@ void FunctionLowering::qualify(Place& place, const sema::Type* type)
 	place.is_volatile = (type->cv & sema::kVolatile) != 0;
 	place.is_atomic = (type->cv & sema::kAtomic) != 0;
 	place.byte_object = type->kind == sema::TypeKind::Fundamental && type->fundamental == FundamentalType::Bool;
+	if (type->kind == sema::TypeKind::BitInt)
+	{
+		place.bit_int_width = static_cast<uint8_t>(type->bound);
+		place.bit_int_signed = type->fundamental == FundamentalType::Int;
+	}
 }
 
 // An access the optimizer may tell apart by its type (IF_TYPED): a pointer,
@@ -1119,7 +1124,7 @@ RValue FunctionLowering::load(lowir::Type type, const Place& place)
 	RValue value;
 	value.value = emit_value(inst, type);
 	value.type = type;
-	return value;
+	return place.bit_int_width != 0 ? normalize_bit_int(value, place.bit_int_width, place.bit_int_signed) : value;
 }
 
 void FunctionLowering::store(lowir::Type type, const RValue& value, const Place& place)

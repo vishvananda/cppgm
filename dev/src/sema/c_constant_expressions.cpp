@@ -105,7 +105,8 @@ bool Analyzer::c_integer_constant_operands(const syntax::Expr& root) const
 	return true;
 }
 
-bool Analyzer::integer_constant_expression(const syntax::Expr& expr, Scope* scope, Constant& value, bool required)
+bool Analyzer::integer_constant_expression(
+	const syntax::Expr& expr, Scope* scope, Constant& value, bool required, uint64_t* high)
 {
 	if (!c_source_ || !semantic())
 		return constant_value(expr, scope, value, required);
@@ -113,8 +114,9 @@ bool Analyzer::integer_constant_expression(const syntax::Expr& expr, Scope* scop
 		return false;
 	const syntax::Expr* direct = WithoutParentheses(&expr);
 	const ExprFacts* facts = direct->facts;
-	if (facts != nullptr && facts->type != nullptr && IsIntegralOrUnscopedEnum(facts->type) &&
-		(direct->kind == syntax::ExprKind::Literal ||
+	if (high == nullptr && facts != nullptr && facts->type != nullptr && IsIntegralOrUnscopedEnum(facts->type) &&
+		((direct->kind == syntax::ExprKind::Literal &&
+			 (facts->type->kind != TypeKind::BitInt || facts->type->bound <= 64)) ||
 			(direct->kind == syntax::ExprKind::Sizeof && (facts->flags & kRuntimeSize) == 0) ||
 			direct->kind == syntax::ExprKind::KeywordLiteral))
 	{
@@ -126,9 +128,13 @@ bool Analyzer::integer_constant_expression(const syntax::Expr& expr, Scope* scop
 		ConstantInterpreter interpreter(*this);
 		ConstValue result;
 		if (interpreter.evaluate_c_constant(expr, false, result) && result.kind == ValueKind::Integer &&
-			HeldAsConstant(result))
+			(high != nullptr || HeldAsConstant(result)))
 		{
 			value = Constant{ result.bits, result.type };
+			if (high != nullptr)
+				*high = IsWideIntegral(value.type)                                    ? result.high
+					: IsSignedConstant(value) && static_cast<int64_t>(value.bits) < 0 ? UINT64_MAX
+																					  : 0;
 			return true;
 		}
 		if (required && interpreter.failure() != nullptr)

@@ -88,6 +88,9 @@ std::string DebugInfo::name(const sema::Type* source, bool qualified)
 	{
 	case sema::TypeKind::Fundamental:
 		return FundamentalTypeName(source->fundamental);
+	case sema::TypeKind::BitInt:
+		return std::string(source->fundamental == FundamentalType::UnsignedInt ? "unsigned " : "") + "_BitInt(" +
+			std::to_string(source->bound) + ")";
 	case sema::TypeKind::Class:
 	case sema::TypeKind::Enum:
 		return entity_name(source->entity, qualified);

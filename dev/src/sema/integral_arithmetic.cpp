@@ -12,7 +12,7 @@ bool FundamentalKind(FundamentalType type, IntegralKind& kind)
 	switch (type)
 	{
 	case FundamentalType::Bool:
-		kind = IntegralKind{ 1, false };
+		kind = IntegralKind{ 1, false, true };
 		return true;
 	case FundamentalType::Char:
 	case FundamentalType::SignedChar:
@@ -104,7 +104,15 @@ bool IntegralKindOf(const Type* type, IntegralKind& kind)
 			return false;
 		type = entity->underlying;
 	}
-	if (type->kind != TypeKind::Fundamental || !FundamentalKind(type->fundamental, kind))
+	if (type->kind != TypeKind::Fundamental)
+	{
+		if (type->kind != TypeKind::BitInt)
+			return false;
+		kind = IntegralKind{ static_cast<unsigned>(type->bound), type->fundamental == FundamentalType::Int, false,
+			true };
+		return true;
+	}
+	if (!FundamentalKind(type->fundamental, kind))
 		return false;
 	if (type->fundamental == FundamentalType::LongInt || type->fundamental == FundamentalType::UnsignedLongInt)
 		kind.bits = target_model::data_layout(type->target).long_bytes * 8;
@@ -116,13 +124,30 @@ bool IntegralKindOf(const Type* type, IntegralKind& kind)
 bool IsIntegralType(const Type* type)
 {
 	IntegralKind kind;
-	return type->unqualified->kind == TypeKind::Fundamental && FundamentalKind(type->unqualified->fundamental, kind);
+	type = type->unqualified;
+	return type->kind == TypeKind::Fundamental ? FundamentalKind(type->fundamental, kind)
+											   : type->kind == TypeKind::BitInt;
 }
 
 bool IsWideIntegral(const Type* type)
 {
 	IntegralKind kind;
 	return IntegralKindOf(type, kind) && kind.bits > 64;
+}
+
+FundamentalType BitIntStorage(const Type* type)
+{
+	const bool sign = type->fundamental == FundamentalType::Int;
+	const uint64_t width = type->bound;
+	if (width <= 8)
+		return sign ? FundamentalType::SignedChar : FundamentalType::UnsignedChar;
+	if (width <= 16)
+		return sign ? FundamentalType::ShortInt : FundamentalType::UnsignedShortInt;
+	if (width <= 32)
+		return type->fundamental;
+	if (width <= 64)
+		return sign ? FundamentalType::LongLongInt : FundamentalType::UnsignedLongLongInt;
+	return sign ? FundamentalType::Int128 : FundamentalType::UnsignedInt128;
 }
 
 bool HeldAsWideConstant(const Constant& value, IntegralKind to)
@@ -147,7 +172,7 @@ bool IsSignedConstant(const Constant& value)
 
 uint64_t ConvertIntegral(uint64_t bits, IntegralKind to)
 {
-	if (to.bits == 1)
+	if (to.bits == 1 && to.is_bool)
 		return bits != 0;
 	if (to.bits >= 64)
 		return bits;
@@ -271,10 +296,11 @@ bool IntegralShift(
 	out = ConvertIntegral(bits << count, kind);
 	if (kind.is_signed && !legacy_c)
 	{
-		// E1 non-negative and E1 * 2^E2 representable in the corresponding
-		// unsigned type; the result is that value converted to E1's type.
-		const uint64_t unsigned_maximum = kind.bits == 64 ? UINT64_MAX : (uint64_t(1) << kind.bits) - 1;
-		if (static_cast<int64_t>(bits) < 0 || (count != 0 && bits > (unsigned_maximum >> count)))
+		// C23 6.5.8 requires a signed bit-precise result to fit its own
+		// type. The course's C++ rule uses the corresponding unsigned range.
+		const unsigned discarded = 64 - (kind.bits - kind.is_bit_precise) + static_cast<unsigned>(count);
+		if (static_cast<int64_t>(bits) < 0 ||
+			(count != 0 && (discarded >= 64 ? bits != 0 : bits > (UINT64_MAX >> discarded))))
 			return false;
 	}
 	return true;
@@ -307,7 +333,16 @@ typedef __int128 SignedWide;
 
 } // namespace
 
-bool WideOperation(TokenKind op, bool is_signed, Wide a, Wide b, Wide& out)
+Wide ConvertWideIntegral(Wide value, IntegralKind kind)
+{
+	if (kind.bits == 128)
+		return value;
+	const Wide mask = (static_cast<Wide>(1) << kind.bits) - 1;
+	const Wide bits = value & mask;
+	return kind.is_signed && (bits >> (kind.bits - 1)) != 0 ? bits | ~mask : bits;
+}
+
+bool WideOperation(TokenKind op, IntegralKind kind, Wide a, Wide b, Wide& out)
 {
 	SignedWide result = 0;
 	bool overflow = false;
@@ -330,10 +365,10 @@ bool WideOperation(TokenKind op, bool is_signed, Wide a, Wide b, Wide& out)
 		out = 0;
 		if (b == 0)
 			return false;
-		if (is_signed)
+		if (kind.is_signed)
 		{
 			const SignedWide sa = static_cast<SignedWide>(a), sb = static_cast<SignedWide>(b);
-			if (sa == static_cast<SignedWide>(static_cast<Wide>(1) << 127) && sb == -1)
+			if (a == (~static_cast<Wide>(0) << (kind.bits - 1)) && sb == -1)
 				return false;
 			out = static_cast<Wide>(op == TokenKind::OP_DIV ? sa / sb : sa % sb);
 		}
@@ -353,25 +388,26 @@ bool WideOperation(TokenKind op, bool is_signed, Wide a, Wide b, Wide& out)
 		out = 0;
 		return false;
 	}
-	return !(is_signed && overflow);
+	return !kind.is_signed || (!overflow && ConvertWideIntegral(out, kind) == out);
 }
 
-bool WideShift(TokenKind op, bool is_signed, Wide a, IntegralKind count_kind, uint64_t count, Wide& out, bool legacy_c)
+bool WideShift(
+	TokenKind op, IntegralKind kind, Wide a, IntegralKind count_kind, uint64_t count, Wide& out, bool legacy_c)
 {
 	count = ConvertIntegral(count, count_kind);
 	out = 0;
-	if ((count_kind.is_signed && static_cast<int64_t>(count) < 0) || count >= 128)
+	if ((count_kind.is_signed && static_cast<int64_t>(count) < 0) || count >= kind.bits)
 		return false;
 	if (op == TokenKind::OP_RSHIFT)
 	{
-		out = is_signed ? static_cast<Wide>(static_cast<SignedWide>(a) >> count) : a >> count;
+		out = kind.is_signed ? static_cast<Wide>(static_cast<SignedWide>(a) >> count) : a >> count;
 		return true;
 	}
 	out = a << count;
-	// As IntegralShift: E1 non-negative and E1 * 2^E2 representable in the
-	// corresponding unsigned type.
-	return !is_signed || legacy_c ||
-		(static_cast<SignedWide>(a) >= 0 && (count == 0 || a <= (~static_cast<Wide>(0) >> count)));
+	const unsigned discarded = 128 - (kind.bits - kind.is_bit_precise) + static_cast<unsigned>(count);
+	return !kind.is_signed || legacy_c ||
+		(static_cast<SignedWide>(a) >= 0 &&
+			(count == 0 || (discarded >= 128 ? a == 0 : a <= (~static_cast<Wide>(0) >> discarded))));
 }
 
 bool WideCompare(TokenKind op, bool is_signed, Wide a, Wide b)
@@ -443,6 +479,21 @@ const Type* CommonType(TypeTable& types, const Type* a, const Type* b)
 	IntegralKind kb = ka;
 	IntegralKindOf(a, ka);
 	IntegralKindOf(b, kb);
+	const bool bit_a = a->kind == TypeKind::BitInt, bit_b = b->kind == TypeKind::BitInt;
+	if (bit_a || bit_b)
+	{
+		// C23 6.3.1.1: rank by width, with standard integers outranking
+		// bit-precise integers of equal width. Use the same tie break for
+		// the implementation's extended integer type.
+		if (ka.bits != kb.bits)
+			return ka.bits > kb.bits ? a : b;
+		if (ka.is_signed == kb.is_signed)
+			return bit_a ? b : a;
+		if (bit_a == bit_b)
+			return ka.is_signed ? b : a;
+		const Type* ordinary = bit_a ? b : a;
+		return types.fundamental(UnsignedOf(ordinary->fundamental));
+	}
 	if (ka.is_signed == kb.is_signed)
 		return Rank(a->fundamental) >= Rank(b->fundamental) ? a : b;
 	const Type* unsigned_type = ka.is_signed ? b : a;

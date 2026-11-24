@@ -92,6 +92,15 @@ ExprFacts* Analyzer::literal(const syntax::LiteralExpr& expr)
 		facts->value = imaginary.value;
 		return facts;
 	}
+	if (expr.bit_int)
+	{
+		const auto& literal = static_cast<const syntax::BitIntLiteralExpr&>(expr);
+		ExprFacts* facts = new_facts(expr, types_.bit_int(literal.width, literal.is_unsigned), ValueCategory::PRValue);
+		facts->value = literal.low;
+		if (literal.low == 0 && expr.integer_high_bits() == 0)
+			facts->flags |= kNullLiteral;
+		return facts;
+	}
 	const TokenSpelling& spelling = expr.spelling;
 	TextLiteralParts parts;
 	if (SplitTextLiteral(spelling.text, spelling.length, parts))

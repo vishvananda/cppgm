@@ -146,6 +146,22 @@ void PostTokenizer::convert_operator(uint8_t punctuator)
 
 void PostTokenizer::convert_number(const PPToken& pp)
 {
+	if (const unsigned suffix = BitIntSuffixLength(pp.spelling, pp.length, literals_))
+	{
+		const BitIntLiteral bits = ClassifyBitInt(pp.spelling, pp.length - suffix, suffix, literals_);
+		if (bits.width == 0)
+			return;
+		token_.kind = PostTokenKind::Literal;
+		token_.form = LiteralForm::BitInt;
+		token_.type = bits.is_unsigned ? FundamentalType::UnsignedInt : FundamentalType::Int;
+		token_.data = scalar_;
+		token_.elements = bits.width;
+		token_.size = bits.width > 64 ? 16 : 8;
+		std::memcpy(scalar_, &bits.low, sizeof bits.low);
+		if (bits.width > 64)
+			std::memcpy(scalar_ + 8, &bits.high, sizeof bits.high);
+		return;
+	}
 	const NumberLiteral number = ClassifyNumber(pp.spelling, pp.length, literals_, target_);
 	switch (number.kind)
 	{

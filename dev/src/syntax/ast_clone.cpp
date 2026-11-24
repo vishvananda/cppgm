@@ -1216,6 +1216,11 @@ Expr* SyntaxCloner::expr(const Expr* expr)
 			result = copy(static_cast<const FloatingLiteralExpr*>(expr));
 		else if (static_cast<const LiteralExpr*>(expr)->has_string_value)
 			result = copy(static_cast<const StringLiteralExpr*>(expr));
+		else if (static_cast<const LiteralExpr*>(expr)->bit_int)
+		{
+			const auto* integer = static_cast<const BitIntLiteralExpr*>(expr);
+			result = integer->width > 64 ? copy(static_cast<const WideBitIntLiteralExpr*>(integer)) : copy(integer);
+		}
 		else
 			result = copy(static_cast<const LiteralExpr*>(expr));
 		break;
@@ -1547,6 +1552,7 @@ Stmt* SyntaxCloner::stmt(const Stmt* stmt)
 		result->value = expr(result->value);
 		result->body = this->stmt(result->body);
 		result->converted = 0;
+		result->converted_high = 0;
 		return result;
 	}
 	case StmtKind::Default:

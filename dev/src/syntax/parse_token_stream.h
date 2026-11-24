@@ -21,6 +21,7 @@ enum class ParseTokenKind : uint8_t
 	UserDefinedLiteral,
 	ImaginaryLiteral,
 	FloatingLiteral,
+	BitIntLiteral,
 	EndOfFile
 };
 
@@ -39,7 +40,9 @@ enum ParseTokenFlag : uint8_t
 	kStringLiteral = 128,
 	// ImaginaryLiteral uses the low five bits for the component type.
 	kImaginaryTypeMask = 31,
-	kWideImaginaryLiteral = 64
+	kWideImaginaryLiteral = 64,
+	kUnsignedBitIntLiteral = 1,
+	kStoredBitIntLiteral = 2
 };
 
 static_assert(kFundamentalTypeCount <= kImaginaryTypeMask + 1, "the component type fits in the token flags");
@@ -51,7 +54,11 @@ static_assert(kFundamentalTypeCount <= kImaginaryTypeMask + 1, "the component ty
 struct ParseToken
 {
 	ParseTokenKind kind;
-	TokenKind simple;
+	union
+	{
+		TokenKind simple;
+		uint8_t bit_int_width;
+	};
 	uint8_t flags;
 	uint32_t location;
 	TokenSpelling spelling;
@@ -61,6 +68,8 @@ struct ParseToken
 		std::uintptr_t imaginary_value;
 		const uint64_t* wide_imaginary_value;
 		const uint64_t* floating_bits;
+		uintptr_t bit_int_low;
+		const uint64_t* bit_int_words;
 		const StringLiteralValue* string_value;
 	};
 
@@ -69,7 +78,8 @@ struct ParseToken
 	bool is_literal() const
 	{
 		return kind == ParseTokenKind::Literal || kind == ParseTokenKind::UserDefinedLiteral ||
-			kind == ParseTokenKind::ImaginaryLiteral || kind == ParseTokenKind::FloatingLiteral;
+			kind == ParseTokenKind::ImaginaryLiteral || kind == ParseTokenKind::FloatingLiteral ||
+			kind == ParseTokenKind::BitIntLiteral;
 	}
 	bool is_end() const { return kind == ParseTokenKind::EndOfFile; }
 	FundamentalType imaginary_type() const { return static_cast<FundamentalType>(flags & kImaginaryTypeMask); }

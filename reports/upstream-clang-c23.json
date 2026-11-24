@@ -12,6 +12,21 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "bitint-suffix",
+      "path": "clang/test/AST/bitint-suffix.c",
+      "sha256": "9ef171a0fdfe4952ed98bbbc89abe6e30c284c2b67162884da811c3f1f9a23cf",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": [
+        "-Wno-unused"
+      ],
+      "upstream_flags": [
+        "-Wno-unused"
+      ],
+      "obligation": "Parsing signed and unsigned bit-precise constants and querying their types"
+    },
+    {
       "id": "nullptr-conversion-codegen",
       "path": "clang/test/CodeGen/nullptr.c",
       "sha256": "b4e405cc20fdcbf86acdf103b11311ee84108c68310b6346b6052a0b06111e70",

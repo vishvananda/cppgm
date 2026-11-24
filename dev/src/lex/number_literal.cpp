@@ -354,6 +354,56 @@ NumberLiteral ClassifyFloating(const char* text, uint32_t length, uint32_t value
 
 } // namespace
 
+BitIntLiteral ClassifyBitInt(const char* text, uint32_t end, unsigned suffix_length, NumberDialect dialect)
+{
+	// C23 6.4.4.2: the smallest width representing the written magnitude,
+	// with a sign bit for wb/WB. Small literals need only one word.
+	if (end == 0)
+		return BitIntLiteral{};
+	unsigned radix = text[0] == '0' ? 8 : 10;
+	uint32_t begin = 0;
+	if (end >= 2 && text[0] == '0')
+	{
+		if (text[1] == 'x' || text[1] == 'X')
+			radix = 16;
+		else if (text[1] == 'b' || text[1] == 'B')
+			radix = 2;
+		if (radix != 8)
+			begin = 2;
+	}
+	if (begin == end || DigitsEnd(text, end, begin, radix, dialect) != end)
+		return BitIntLiteral{};
+	uint64_t low = 0, high = 0;
+	const uint64_t limit = UINT64_MAX / radix;
+	const unsigned remainder = static_cast<unsigned>(UINT64_MAX % radix);
+	for (uint32_t i = begin; i < end; ++i)
+	{
+		if (text[i] == '\'')
+			continue;
+		const unsigned digit = static_cast<unsigned>(HexDigitValue(text[i]));
+		if (high == 0 && (low < limit || (low == limit && digit <= remainder)))
+		{
+			low = low * radix + digit;
+			continue;
+		}
+		if (high > limit)
+			return BitIntLiteral{};
+		const unsigned __int128 carry = static_cast<unsigned __int128>(low) * radix + digit;
+		const uint64_t upper = high * radix;
+		const uint64_t extra = static_cast<uint64_t>(carry >> 64);
+		if (extra > UINT64_MAX - upper)
+			return BitIntLiteral{};
+		high = upper + extra;
+		low = static_cast<uint64_t>(carry);
+	}
+	const bool is_unsigned = suffix_length == 3;
+	const unsigned value_bits = high != 0 ? 128 - __builtin_clzll(high) : low != 0 ? 64 - __builtin_clzll(low) : 1;
+	const unsigned width = value_bits + !is_unsigned;
+	if (width > target_model::bit_int_max_width)
+		return BitIntLiteral{};
+	return BitIntLiteral{ low, high, static_cast<uint8_t>(width), is_unsigned };
+}
+
 NumberLiteral ClassifyNumber(const char* text, uint32_t length, NumberDialect dialect, target_model::Target target)
 {
 	if (length >= 2 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X'))

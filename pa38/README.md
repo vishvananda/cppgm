@@ -640,6 +640,23 @@ The first fixture set covers these parts of the C17 input profile:
   compatibility arguments have no execution effects. Use the existing
   target variadic call convention. A variadic `nullptr_t` argument can be
   read through `va_arg` as `void *` or a character pointer.
+- Form signed `_BitInt(N)` types for widths 2 through 128 and unsigned
+  types for widths 1 through 128. Evaluate the width as an integer constant
+  expression and check its range. Intern types by width and signedness. Use
+  the declared width for promotions, conversions, bit-fields, operations,
+  and atomic updates. A bit-precise value keeps its type through integer
+  promotion. Apply the usual arithmetic conversions when operands differ.
+- Choose the smallest bit-precise type that represents a `wb` or `WB`
+  literal. An optional `u` or `U` before or after the suffix makes the
+  type unsigned. Use `intmax_t` or `uintmax_t` arithmetic in preprocessing
+  conditions. In earlier C modes, the type specifier and suffixes follow
+  the C23 extension diagnostic policy.
+- Store bit-precise values in one, two, four, eight or sixteen bytes.
+  Values wider than 64 bits have sixteen-byte alignment on Arm and
+  eight-byte alignment on x86-64 and Wasm. Preserve the declared value
+  bits across storage and call boundaries. A switch can compare both
+  words of a wide case value, including during duplicate-label checks.
+  The compiler supplies the width limit through `__BITINT_MAXWIDTH__`.
 - Hosted C header declarations and their builtin operations through the
   existing hosted environment, including PA30's GNU startup-function attributes.
 - Support the reserved GNU spelling `__auto_type` in the C modes above.

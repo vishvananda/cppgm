@@ -12,6 +12,17 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "bitint-33",
+      "path": "gcc/testsuite/gcc.dg/bitint-33.c",
+      "sha256": "450b2dcda86f94a3ffaa16a97c64b0d1fbae99cb2af721d2014f62ab8de0d6d5",
+      "dialect": "c17",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [],
+      "upstream_flags": [],
+      "obligation": "C17 limits.h omits the C23 BITINT_MAXWIDTH macro"
+    },
+    {
       "id": "c17-nullptr-1",
       "path": "gcc/testsuite/gcc.dg/c17-nullptr-1.c",
       "sha256": "cbe1fc97139f01493673b20792e4233126bbab8d9c96936e780ae8403f55f0ec",

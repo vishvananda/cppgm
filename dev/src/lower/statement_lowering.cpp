@@ -1162,27 +1162,38 @@ void FunctionLowering::switch_statement(const syntax::ConditionalLoopStmt& stmt)
 			default_block = switch_labels_[i].block;
 			continue;
 		}
-		// A 128-bit condition's value extends by its type's signedness
-		// (sema/integral_arithmetic.h).
 		const syntax::CaseStmt* label_case = static_cast<const syntax::CaseStmt*>(label);
-		const sema::ExprFacts* label_facts = WithoutParentheses(label_case->value)->facts;
-		const sema::Type* label_type = label_facts->conversion != nullptr && label_facts->conversion->result != nullptr
-			? label_facts->conversion->result
-			: label_facts->type;
 		scratch_.push_back(selector.type.kind() == lowir::TypeKind::I128
-				? integer(label_type, label_case->converted).value
+				? integer(selector.type, lowir::Literal{ label_case->converted, label_case->converted_high }).value
 				: integer(selector.type, label_case->converted).value);
 		scratch_.push_back(lowir::Value::block(switch_labels_[i].block));
 	}
 	jump(dispatch);
 	place(dispatch);
-	lowir::Instruction inst = lowir::make_instruction(
-		lowir::Opcode::Switch, lowir::Type::scalar(lowir::TypeKind::Void));
-	inst.ops[0] = selector.value;
-	inst.ops[1] = lowir::Value::block(default_block);
-	inst.extra_first = builder_.add_operands(scratch_.data(), static_cast<uint32_t>(scratch_.size()));
-	inst.extra_count = static_cast<uint32_t>(scratch_.size());
-	terminate(inst);
+	if (selector.type.kind() == lowir::TypeKind::I128 && lowering_.analyzer_->c_source())
+	{
+		// Wide switches use the shared two-word comparison operation.
+		// The native and Wasm jump table paths use one-word keys.
+		for (size_t i = 0; i < scratch_.size(); i += 2)
+		{
+			const RValue label{ scratch_[i], selector.type };
+			const lowir::BlockId target = scratch_[i + 1].index;
+			const lowir::BlockId next = new_block(lowir::BlockKind::SwitchDispatch);
+			branch(compare(lowir::ComparePredicate::Eq, selector.type, selector, label), target, next);
+			place(next);
+		}
+		jump(default_block);
+	}
+	else
+	{
+		lowir::Instruction inst = lowir::make_instruction(
+			lowir::Opcode::Switch, lowir::Type::scalar(lowir::TypeKind::Void));
+		inst.ops[0] = selector.value;
+		inst.ops[1] = lowir::Value::block(default_block);
+		inst.extra_first = builder_.add_operands(scratch_.data(), static_cast<uint32_t>(scratch_.size()));
+		inst.extra_count = static_cast<uint32_t>(scratch_.size());
+		terminate(inst);
+	}
 	jumps_.push_back(JumpTargets{ end, lowir::kNoId, cleanups_.size(), eh_contexts_.size() });
 	substatement(*stmt.body);
 	jumps_.pop_back();

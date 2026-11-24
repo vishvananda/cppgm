@@ -77,7 +77,10 @@ enum class TypeKind : uint8_t
 	BlockPointer,
 	// GNU scalar mode of a dependent element; fundamental is the target
 	// signed integer or floating representation. Resolved at substitution.
-	Mode
+	Mode,
+	// C23 integer of width `bound`. The corresponding int or unsigned int
+	// in `fundamental` records its sign independently of its width.
+	BitInt
 };
 
 // A class member's access (clause 11), as a declaration gives it.

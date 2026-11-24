@@ -26,7 +26,8 @@ enum class LiteralForm : uint8_t
 	Floating,
 	Character,
 	String,
-	Imaginary
+	Imaginary,
+	BitInt
 };
 
 // One token from PostTokenizer. Pointers are borrowed and valid until the
@@ -67,7 +68,8 @@ struct PostToken
 	TokenSpelling ud_suffix;
 	// Literal and user-defined character and string literals: the value in
 	// its x86-64 representation. A string's code units include the
-	// terminating null, and `elements` is its array bound.
+	// terminating null, and `elements` is its array bound. For a bit-precise
+	// integer, `elements` is its width in bits and `type` records its sign.
 	const unsigned char* data;
 	uint32_t size;
 	uint32_t elements;

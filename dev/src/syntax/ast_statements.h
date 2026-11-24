@@ -181,6 +181,7 @@ struct CaseStmt : Stmt
 	// Semantics mode: the label's value converted to the switch's promoted
 	// condition type (6.4.2p2).
 	mutable uint64_t converted = 0;
+	mutable uint64_t converted_high = 0;
 };
 
 // default: and identifier: labels.

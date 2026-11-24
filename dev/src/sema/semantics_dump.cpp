@@ -168,6 +168,11 @@ void AppendType(const Type* type, std::string& out)
 		case TypeKind::Fundamental:
 			out += FundamentalTypeName(type->fundamental);
 			return;
+		case TypeKind::BitInt:
+			if (type->fundamental == FundamentalType::UnsignedInt)
+				out += "unsigned ";
+			out += "_BitInt(" + std::to_string(type->bound) + ")";
+			return;
 		case TypeKind::Class:
 		{
 			const ClassEntity* entity = static_cast<const ClassEntity*>(type->entity);

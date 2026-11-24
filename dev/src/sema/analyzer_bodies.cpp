@@ -702,7 +702,11 @@ void Analyzer::scoped_statement(const syntax::Stmt& stmt, Scope* scope, BodyCont
 		// pushed and popped above this one's.
 		const auto first = case_values_.begin() + static_cast<std::ptrdiff_t>(context.first_value);
 		std::sort(first, case_values_.end());
-		if (std::adjacent_find(first, case_values_.end()) != case_values_.end())
+		auto& wide = context.wide_values;
+		if (!wide.empty())
+			std::sort(wide.begin(), wide.end());
+		if (std::adjacent_find(first, case_values_.end()) != case_values_.end() ||
+			std::adjacent_find(wide.begin(), wide.end()) != wide.end())
 			error(stmt.location, "duplicate case value");
 		case_values_.resize(context.first_value);
 		return;
@@ -1111,10 +1115,20 @@ void Analyzer::case_label(const syntax::CaseStmt& stmt, Scope* scope)
 	// type's copy-initialization selects (5.19p3).
 	convert_to_scalar(*stmt.value, context->type, false);
 	Constant value;
-	integer_constant_expression(*stmt.value, scope, value, true);
-	convert_operand(*stmt.value, context->type);
 	IntegralKind kind;
 	IntegralKindOf(context->type, kind);
+	uint64_t high = 0;
+	const bool c_wide = c_source_ && (kind.bits > 64 || IsWideIntegral(facts_of(*stmt.value)->type));
+	integer_constant_expression(*stmt.value, scope, value, true, c_wide ? &high : nullptr);
+	convert_operand(*stmt.value, context->type);
+	if (c_wide && kind.bits > 64)
+	{
+		const auto wide = ConvertWideIntegral((static_cast<unsigned __int128>(high) << 64) | value.bits, kind);
+		stmt.converted = static_cast<uint64_t>(wide);
+		stmt.converted_high = static_cast<uint64_t>(wide >> 64);
+		context->wide_values.push_back(wide);
+		return;
+	}
 	// 5.19p3: the conversion of a converted constant expression is not
 	// narrowing (8.5.4p7): the value is representable in the promoted type.
 	if (!c_source_ && value.type->kind != TypeKind::Enum && !Representable(value, kind))
@@ -1122,6 +1136,8 @@ void Analyzer::case_label(const syntax::CaseStmt& stmt, Scope* scope)
 	else if (!HeldAsWideConstant(value, kind))
 		error(stmt.value->location, "a 128-bit case value beyond the 64-bit constants evaluated");
 	stmt.converted = ConvertIntegral(value.bits, kind);
+	if (kind.bits > 64)
+		stmt.converted_high = WideHigh(context->type, stmt.converted);
 	case_values_.push_back(stmt.converted);
 }
 
