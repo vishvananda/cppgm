@@ -298,6 +298,8 @@ private:
 	void skip_group();
 	bool skip_group_directive(const PPToken& name);
 	bool evaluate_condition(const PPToken& directive);
+	Identifier* conditional_macro(const PPToken& directive, const char* message);
+	void check_elif_macro(IdentifierRole role, const PPToken& directive) const;
 	void expect_end_of_directive(const PPToken& directive);
 	Conditional& innermost_conditional(const PPToken& directive);
 	void run_define(const PPToken& directive);
@@ -312,6 +314,8 @@ private:
 	// with its path and search directory index (-1 for none), or null.
 	SourceFile* find_include(const std::string& name, bool angle, bool next, std::string& path, int32_t& index);
 	[[noreturn]] void run_error(const PPToken& directive);
+	void run_warning(const PPToken& directive);
+	std::string diagnostic_directive_text(const char* directive);
 	void run_line(const PPToken& directive);
 	void run_pragma_directive();
 	bool c_stdc_pragma(const PPToken& token) const;
@@ -394,6 +398,8 @@ private:
 	ExtensionWarnings extension_warnings_;
 	bool splice_errors_;
 	bool warn_system_headers_;
+	bool warnings_as_errors_;
+	bool suppress_warnings_;
 	uint8_t ignored_extension_groups_ = 0;
 	std::vector<uint8_t> saved_extension_groups_;
 	// A sparse location history, with inherited settings recorded on entry

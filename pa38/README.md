@@ -46,6 +46,17 @@ slashes as separate tokens.
 `-std=gnu89` and `-std=gnu90` select C90 with GNU extensions, including
 `inline`, line comments, and digraphs.
 
+The experimental C23 preprocessing work uses `-std=c23`. Accept the
+aliases `-std=c2x` and `-std=iso9899:2024`, and `-std=gnu23` or
+`-std=gnu2x` for the GNU dialect. These modes define
+`__STDC_VERSION__` as `202311L`. Leave trigraphs unchanged unless
+explicitly enabled. Read `#elifdef` and `#elifndef` as conditional
+definedness tests on the written macro name. A reached `#warning`
+produces a diagnostic with the unexpanded message and normally allows
+translation to continue. In C23, recognize binary numbers and digit
+separators in integer and floating constants, preprocessing tokens,
+and decimal `#line` operands.
+
 In the legacy editions, where a declaration permits an omitted type, use
 `int`. This includes an old-style parameter without a declaration. A direct
 call to an undeclared identifier introduces a block-scope `extern int`

@@ -61,7 +61,8 @@ void language_standard(const std::string& standard, PreprocessorOptions& options
 		{ "c17", CEdition::C17, true }, { "gnu17", CEdition::C17, false }, { "c18", CEdition::C17, true },
 		{ "gnu18", CEdition::C17, false }, { "iso9899:1999", CEdition::C99, true },
 		{ "iso9899:2011", CEdition::C11, true }, { "iso9899:2017", CEdition::C17, true },
-		{ "iso9899:2018", CEdition::C17, true } };
+		{ "iso9899:2018", CEdition::C17, true }, { "c23", CEdition::C23, true }, { "gnu23", CEdition::C23, false },
+		{ "c2x", CEdition::C23, true }, { "gnu2x", CEdition::C23, false }, { "iso9899:2024", CEdition::C23, true } };
 	for (const auto& mode : c_modes)
 		if (standard == mode.spelling)
 		{

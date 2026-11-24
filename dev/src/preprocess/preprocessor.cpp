@@ -183,7 +183,8 @@ static SourceTranslation TranslationOptions(const PreprocessorOptions& options)
 
 Preprocessor::Preprocessor(const PreprocessorOptions& options, const std::string& path, std::istream* input)
 	: identifiers_(arena_, options.language, options.cxx_edition >= 20, options.c_edition, options.gnu_c()),
-	  names_(identifiers_), files_(TranslationOptions(options)), source_(files_, identifiers_, arena_, names_, *this),
+	  names_(identifiers_, options.language == SourceLanguage::C), files_(TranslationOptions(options)),
+	  source_(files_, identifiers_, arena_, names_, *this),
 	  expander_(arena_, identifiers_, names_, *this, macro_state_), directive_expander_(&expander_),
 	  macro_query_(identifiers_), evaluator_(macro_query_, options.literals, options.plain_char_unsigned),
 	  definition_parser_(arena_, names_.va_args, options.hosted), predefined_(nullptr), command_line_begin_(0),
@@ -198,7 +199,8 @@ Preprocessor::Preprocessor(const PreprocessorOptions& options, const std::string
 	  splice_errors_(options.source_lex.splice_errors == SourceOption::Default
 			  ? options.source_lex.warnings_as_errors
 			  : options.source_lex.splice_errors == SourceOption::Enabled),
-	  warn_system_headers_(options.warn_system_headers)
+	  warn_system_headers_(options.warn_system_headers), warnings_as_errors_(options.source_lex.warnings_as_errors),
+	  suppress_warnings_(options.source_lex.suppress_warnings)
 {
 	modes_.language = options.cxx_edition;
 	modes_.c_edition = options.c_edition;

@@ -1196,7 +1196,9 @@
       ],
       "environment": "all",
       "requirement": "Define __STDC_VERSION__ as 202311L in the C23 profile.",
-      "cases": []
+      "cases": [
+        "c23.version"
+      ]
     },
     {
       "id": "c23.include-query",
@@ -1220,7 +1222,10 @@
       ],
       "environment": "all",
       "requirement": "Leave trigraph sequences unchanged in the default C23 lexical profile, including before backslash-newline splicing.",
-      "cases": []
+      "cases": [
+        "c23.trigraph-default",
+        "c23.trigraph-spelling-and-splice"
+      ]
     },
     {
       "id": "c23.identifier-xid-nfc",
@@ -1275,7 +1280,9 @@
       ],
       "environment": "all",
       "requirement": "Select elifdef and elifndef branches by macro definedness, sharing the conditional group's skip and state rules.",
-      "cases": []
+      "cases": [
+        "c23.preprocessing-conditionals"
+      ]
     },
     {
       "id": "c23.attribute-query",
@@ -1308,7 +1315,9 @@
       ],
       "environment": "all",
       "requirement": "Diagnose a reached warning directive using its written preprocessing tokens. A warning directive does not require translation to fail.",
-      "cases": []
+      "cases": [
+        "c23.preprocessing-warning"
+      ]
     },
     {
       "id": "c23.embed-replacement",

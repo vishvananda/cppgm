@@ -14,6 +14,8 @@ enum class IdentifierRole : uint8_t
 	Ifdef,
 	Ifndef,
 	Elif,
+	Elifdef,
+	Elifndef,
 	Else,
 	Endif,
 	Include,
@@ -53,7 +55,7 @@ inline bool VariadicMacroName(const Identifier* identifier)
 // Interns the names the preprocessor recognizes and records their roles.
 struct PreprocessorNames
 {
-	explicit PreprocessorNames(IdentifierTable& identifiers);
+	PreprocessorNames(IdentifierTable& identifiers, bool c_source);
 
 	Identifier* defined;
 	Identifier* va_args;

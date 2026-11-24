@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <iostream>
 
 #include "lex/string_concatenation.h"
 #include "lex/text_literal.h"
@@ -21,6 +22,11 @@ const uint64_t kMaxLineNumber = 2147483647;
 bool IsPunctuatorToken(const PPToken& token, TokenKind kind)
 {
 	return token.kind == PPTokenKind::PreprocessingOpOrPunc && IsPunctuator(token.punctuator, kind);
+}
+
+bool IsElifMacro(IdentifierRole role)
+{
+	return role == IdentifierRole::Elifdef || role == IdentifierRole::Elifndef;
 }
 
 // The characters of an ordinary string literal without ud-suffix, decoded
@@ -72,6 +78,8 @@ void Preprocessor::run_directive()
 		run_conditional(role, directive);
 		return;
 	case IdentifierRole::Elif:
+	case IdentifierRole::Elifdef:
+	case IdentifierRole::Elifndef:
 	case IdentifierRole::Else:
 	case IdentifierRole::Endif:
 		run_elif_else_endif(role, directive);
@@ -85,10 +93,7 @@ void Preprocessor::run_directive()
 		run_include(directive, true);
 		return;
 	case IdentifierRole::Warning:
-		// GCC's #warning: a diagnostic, not an error (hosted mode).
-		if (!hosted_)
-			throw PreprocessError(directive.begin, "invalid preprocessing directive");
-		source_.skip_line();
+		run_warning(directive);
 		return;
 	case IdentifierRole::Define:
 		run_define(directive);
@@ -118,15 +123,44 @@ void Preprocessor::run_directive()
 
 void Preprocessor::run_error(const PPToken& directive)
 {
-	std::string message = "#error";
+	const std::string message = diagnostic_directive_text("#error");
+	throw PreprocessError(directive.begin, message.c_str());
+}
+
+void Preprocessor::run_warning(const PPToken& directive)
+{
+	if (modes_.language != 0)
+	{
+		if (!hosted_)
+			throw PreprocessError(directive.begin, "invalid preprocessing directive");
+		source_.skip_line();
+		return;
+	}
+	if (!allow_c_extension(directive.begin, CEdition::C23, "#warning is a C23 extension"))
+		throw PreprocessError(directive.begin, "#warning requires C23");
+	if (suppress_warnings_)
+	{
+		source_.skip_line();
+		return;
+	}
+	const std::string message = diagnostic_directive_text("#warning");
+	if (warnings_as_errors_)
+		throw PreprocessError(directive.begin, message.c_str());
+	std::cerr << describe(directive.begin, ("warning: " + message).c_str()) << '\n';
+}
+
+std::string Preprocessor::diagnostic_directive_text(const char* directive)
+{
+	std::string message = directive;
+	const size_t prefix = message.size();
 	for (const PPToken* token = &source_.next_in_line(); token->kind != PPTokenKind::NewLine;
 		token = &source_.next_in_line())
 	{
-		if (message.size() == sizeof("#error") - 1 || (token->flags & kLeadingSpace) != 0)
+		if (message.size() == prefix || (token->flags & kLeadingSpace) != 0)
 			message.push_back(' ');
 		message.append(token->spelling, token->length);
 	}
-	throw PreprocessError(directive.begin, message.c_str());
+	return message;
 }
 
 // ---- conditional inclusion ----------------------------------------------------------------
@@ -140,18 +174,15 @@ void Preprocessor::run_conditional(IdentifierRole role, const PPToken& directive
 	}
 	else
 	{
-		const PPToken name = source_.next_in_line();
-		if (name.kind != PPTokenKind::Identifier)
-			throw PreprocessError(directive.begin, "#ifdef and #ifndef require an identifier");
-		expect_end_of_directive(directive);
-		taken = (name.identifier->macro != nullptr) == (role == IdentifierRole::Ifdef);
+		Identifier* name = conditional_macro(directive, "#ifdef and #ifndef require an identifier");
+		taken = (name->macro != nullptr) == (role == IdentifierRole::Ifdef);
 		// The first thing in the file: a whole-file guard if its #endif ends
 		// the file.
 		SourceFrame& frame = source_.current();
 		if (role == IdentifierRole::Ifndef && frame.guard_state == GuardState::Start)
 		{
 			frame.guard_state = GuardState::Open;
-			frame.guard = name.identifier;
+			frame.guard = name;
 			frame.guard_depth = conditionals_.size();
 		}
 	}
@@ -160,11 +191,28 @@ void Preprocessor::run_conditional(IdentifierRole role, const PPToken& directive
 		skip_group();
 }
 
+Identifier* Preprocessor::conditional_macro(const PPToken& directive, const char* message)
+{
+	const PPToken name = source_.next_in_line();
+	if (name.kind != PPTokenKind::Identifier)
+		throw PreprocessError(directive.begin, message);
+	expect_end_of_directive(directive);
+	return name.identifier;
+}
+
+void Preprocessor::check_elif_macro(IdentifierRole role, const PPToken& directive) const
+{
+	if (IsElifMacro(role) &&
+		!allow_c_extension(directive.begin, CEdition::C23, "#elifdef and #elifndef are C23 extensions"))
+		throw PreprocessError(directive.begin, "#elifdef and #elifndef require C23");
+}
+
 void Preprocessor::run_elif_else_endif(IdentifierRole role, const PPToken& directive)
 {
 	// This directive ends a group that was taken, so the rest of the section
 	// is skipped; an #elif condition is not evaluated (16.1p6).
 	Conditional& conditional = innermost_conditional(directive);
+	check_elif_macro(role, directive);
 	if (role == IdentifierRole::Endif)
 	{
 		expect_end_of_directive(directive);
@@ -233,6 +281,8 @@ bool Preprocessor::skip_group_directive(const PPToken& name)
 		nested.push_back(false);
 		break;
 	case IdentifierRole::Elif:
+	case IdentifierRole::Elifdef:
+	case IdentifierRole::Elifndef:
 	case IdentifierRole::Else:
 		if (nested.empty())
 			break;
@@ -266,6 +316,7 @@ bool Preprocessor::skip_group_directive(const PPToken& name)
 	// A directive of the section being skipped.
 	track_guard(role);
 	Conditional& conditional = conditionals_.back();
+	check_elif_macro(role, name);
 	if (role == IdentifierRole::Endif)
 	{
 		expect_end_of_directive(name);
@@ -283,6 +334,12 @@ bool Preprocessor::skip_group_directive(const PPToken& name)
 	{
 		source_.skip_line();
 		return false;
+	}
+	else if (IsElifMacro(role))
+	{
+		const Identifier* macro = conditional_macro(name, "#elifdef and #elifndef require an identifier");
+		if ((macro->macro != nullptr) != (role == IdentifierRole::Elifdef))
+			return false;
 	}
 	else if (!evaluate_condition(name))
 	{
@@ -311,7 +368,7 @@ void Preprocessor::track_guard(IdentifierRole role)
 		{
 			if (role == IdentifierRole::Endif)
 				frame.guard_state = GuardState::Closed;
-			else if (role == IdentifierRole::Elif || role == IdentifierRole::Else)
+			else if (role == IdentifierRole::Elif || IsElifMacro(role) || role == IdentifierRole::Else)
 				frame.guard_state = GuardState::None;
 		}
 		return;
@@ -622,10 +679,14 @@ void Preprocessor::run_line(const PPToken& directive)
 	if (line_tokens_.empty() || line_tokens_.size() > 2 || line_tokens_[0].kind != PPTokenKind::PPNumber)
 		throw PreprocessError(directive.begin, "#line requires a line number");
 	const PPToken& digits = line_tokens_[0];
+	const bool c23_separators = modes_.language == 0 && modes_.c_edition >= CEdition::C23;
 	uint64_t number = 0;
 	for (uint32_t i = 0; i < digits.length; ++i)
 	{
 		const char c = digits.spelling[i];
+		if (c23_separators && c == '\'' && i != 0 && i + 1 < digits.length && digits.spelling[i - 1] >= '0' &&
+			digits.spelling[i - 1] <= '9' && digits.spelling[i + 1] >= '0' && digits.spelling[i + 1] <= '9')
+			continue;
 		if (c < '0' || c > '9')
 			throw PreprocessError(directive.begin, "#line requires a digit sequence");
 		number = number * 10 + static_cast<uint64_t>(c - '0');

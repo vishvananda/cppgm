@@ -53,6 +53,8 @@ def validate_manifest(manifest, root):
             dialects.update({'c89', 'gnu89', 'iso9899:1990'})
         elif edition == 95:
             dialects = {'iso9899:199409'}
+        elif edition == 23:
+            dialects.update({'c2x', 'gnu2x', 'iso9899:2024'})
     else:
         dialects = {f'c++{edition}', f'gnu++{edition}'}
     actions = C_ACTIONS if language == 'c' else {'compile', 'run'}

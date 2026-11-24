@@ -626,10 +626,19 @@ const PPToken& PPLexer::lex_pp_number()
 			if (sign.code_point == '+' || sign.code_point == '-')
 				take(sign);
 		}
-		else if (c == '.' ||
-			(digit_separators_ && c == '\'' && IsIdentifierContinue(peek_after(cur_).code_point, c99_identifiers_)))
+		else if (c == '.')
 		{
 			take(cur_);
+		}
+		else if (digit_separators_ && c == '\'')
+		{
+			// A quote and the following nondigit form one pp-number
+			// production. A sign cannot follow an e taken in that pair.
+			const SourceChar next = peek_after(cur_);
+			if (!IsIdentifierContinue(next.code_point, c99_identifiers_))
+				return finish(PPTokenKind::PPNumber);
+			take(cur_);
+			take(next);
 		}
 		else if (!take_identifier_continue())
 		{

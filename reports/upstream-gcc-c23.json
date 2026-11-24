@@ -1,0 +1,194 @@
+{
+  "schema": 1,
+  "suite": "gcc",
+  "language": "c",
+  "edition": 23,
+  "revision": "5115c7e447fc07457443df874bf57840e8316d5f",
+  "coverage": "Reviewed gcc C23 preprocessing and lexical configurations on Linux x86-64.",
+  "limitations": [
+    "Checks the listed acceptance, rejection, or execution outcomes.",
+    "Compiler-specific intermediate forms and diagnostic wording are ungraded."
+  ],
+  "exclusions": [],
+  "cases": [
+    {
+      "id": "c23-elifdef-1",
+      "path": "gcc/testsuite/gcc.dg/cpp/c23-elifdef-1.c",
+      "sha256": "c480f9e891ada56626a27c2b0e1030fb70eec6465f9dd82f1603670236903f8f",
+      "dialect": "c23",
+      "action": "preprocess",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Conditional definedness, branch selection and skipped nested groups"
+    },
+    {
+      "id": "c23-elifdef-2",
+      "path": "gcc/testsuite/gcc.dg/cpp/c23-elifdef-2.c",
+      "sha256": "7f389810e0f4583d18257f3cc14103ba2ce44f31d1e5622567646d96a6694a53",
+      "dialect": "c23",
+      "action": "preprocess",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Malformed or misplaced conditional preprocessing directives"
+    },
+    {
+      "id": "c23-trigraphs-1",
+      "path": "gcc/testsuite/gcc.dg/cpp/c23-trigraphs-1.c",
+      "sha256": "f5b1434d447170eb593751c57ab837fe979d1d564c2617ca11079905881f58dc",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "C23 leaves trigraph spellings unchanged in literals"
+    },
+    {
+      "id": "c23-trigraphs-2",
+      "path": "gcc/testsuite/gcc.dg/cpp/c23-trigraphs-2.c",
+      "sha256": "932d60f9807cc471b9fdf807096171dcc99383beba89e208bce188576734baa7",
+      "dialect": "c23",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors",
+        "-trigraphs"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors",
+        "-trigraphs"
+      ],
+      "obligation": "The explicit trigraph option still enables the older conversion",
+      "input_files": [
+        {
+          "path": "gcc/testsuite/gcc.dg/cpp/trigraphs.c",
+          "sha256": "2122e526d79ccd1cf156d20eaf5dd8464328ecf816c08a18a1b648649a28cf5b"
+        }
+      ]
+    },
+    {
+      "id": "c23-binary-constants-1",
+      "path": "gcc/testsuite/gcc.dg/c23-binary-constants-1.c",
+      "sha256": "af448cefe912752bb7b65b8906de0cd7d4f6324d21e9a288fedb31eac51a8878",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Binary integer value, width and suffix type",
+      "input_files": [
+        {
+          "path": "gcc/testsuite/gcc.dg/binary-constants-1.c",
+          "sha256": "656039bc094e32de79a967bda9b68acec403fe9c1a0d86b091cd853ccdae413d"
+        }
+      ]
+    },
+    {
+      "id": "c23-binary-constants-2",
+      "path": "gcc/testsuite/gcc.dg/c23-binary-constants-2.c",
+      "sha256": "d19bf6d7581ef97478b32fe6e84a467720a9f4294f42b6fa5301ab14d2068080",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Binary integer operands in preprocessing expressions"
+    },
+    {
+      "id": "c23-binary-constants-3",
+      "path": "gcc/testsuite/gcc.dg/c23-binary-constants-3.c",
+      "sha256": "2859bf58e6e9ba7d17cf5229e0a8edf9d37263014badc9df60d7294ae77b4c4c",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Malformed binary integer constants"
+    },
+    {
+      "id": "c23-digit-separators-1",
+      "path": "gcc/testsuite/gcc.dg/c23-digit-separators-1.c",
+      "sha256": "2a239522208f52dfafccaf00ed74039388d6a7862520ca138d1a21344379daf4",
+      "dialect": "c23",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Digit separators in integers, exponents, preprocessing numbers and line control"
+    },
+    {
+      "id": "c23-digit-separators-2",
+      "path": "gcc/testsuite/gcc.dg/c23-digit-separators-2.c",
+      "sha256": "13889cf9e84c3d8b13228d6238c67240d39c81f285bfb8dbe0d3ef3695138b54",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Malformed separators in constants"
+    },
+    {
+      "id": "c23-digit-separators-3",
+      "path": "gcc/testsuite/gcc.dg/c23-digit-separators-3.c",
+      "sha256": "3eaa929e7e42221a2b4b197ec16cc2643c931520b548d881e60590c06fc9fd9b",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Malformed separators in floating parameters"
+    },
+    {
+      "id": "c23-va-opt-1",
+      "path": "gcc/testsuite/gcc.dg/cpp/c23-va-opt-1.c",
+      "sha256": "c97a000dbb10221c853bfe689fa8d7bc158b523b13c66cb05d4abfefdb373ee7",
+      "dialect": "c23",
+      "action": "preprocess",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Variable argument omission and the standard __VA_OPT__ spelling"
+    }
+  ]
+}

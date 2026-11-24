@@ -327,8 +327,8 @@ jobs:
         run: |
           set -euo pipefail
           case "$SUITE" in
-            gcc) upstream_c=gcc-15; editions=(90 95 99 11 17) ;;
-            clang) upstream_c=clang-21; editions=(90 99 11 17) ;;
+            gcc) upstream_c=gcc-15; editions=(90 95 99 11 17 23) ;;
+            clang) upstream_c=clang-21; editions=(90 99 11 17 23) ;;
           esac
           failed=0
           for edition in "${editions[@]}"; do
@@ -399,7 +399,7 @@ jobs:
               cat "$summary" >> "$GITHUB_STEP_SUMMARY"
             fi
           done
-          for report in c90 c95 c99 c11 c17 c-testsuite csmith gcc-c-torture libc-test; do
+          for report in c90 c95 c99 c11 c17 c23 c-testsuite csmith gcc-c-torture libc-test; do
             summary="$RUNNER_TEMP/cxx11/$report/summary.md"
             if [ -f "$summary" ]; then
               cat "$summary" >> "$GITHUB_STEP_SUMMARY"

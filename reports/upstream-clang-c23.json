@@ -1,0 +1,79 @@
+{
+  "schema": 1,
+  "suite": "clang",
+  "language": "c",
+  "edition": 23,
+  "revision": "2078da43e25a4623cab2d0d60decddf709aaea28",
+  "coverage": "Reviewed clang C23 preprocessing and lexical configurations on Linux x86-64.",
+  "limitations": [
+    "Checks the listed acceptance, rejection, or execution outcomes.",
+    "Compiler-specific intermediate forms and diagnostic wording are ungraded."
+  ],
+  "exclusions": [],
+  "cases": [
+    {
+      "id": "n2549",
+      "path": "clang/test/C/C23/n2549.c",
+      "sha256": "be1b4471f9ab1d69d4ac60b56f5369b2745a56c34c24b8eb777119b3982854e6",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "N2549 binary integer constants"
+    },
+    {
+      "id": "n2940-no-trigraph",
+      "path": "clang/test/C/C23/n2940.c",
+      "sha256": "14ffba82fcf9c02a874a3b57e6b309bae11fdfd616f1f3fbd75c710b689320cd",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "N2940 removes default trigraph conversion"
+    },
+    {
+      "id": "n2940-explicit-trigraph",
+      "path": "clang/test/C/C23/n2940.c",
+      "sha256": "14ffba82fcf9c02a874a3b57e6b309bae11fdfd616f1f3fbd75c710b689320cd",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors",
+        "-ftrigraphs"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors",
+        "-ftrigraphs",
+        "-Wno-comment",
+        "-Wno-empty-translation-unit"
+      ],
+      "obligation": "Explicit trigraph conversion control"
+    },
+    {
+      "id": "n3033",
+      "path": "clang/test/C/C23/n3033.c",
+      "sha256": "f31f1c6dc01f5de814efa97fee2ac93b346198482b92f1a378f9d776f95acd45",
+      "dialect": "c23",
+      "action": "preprocess",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "N3033 variable argument omission and __VA_OPT__"
+    }
+  ]
+}

@@ -249,6 +249,20 @@ to clarity, wording and cross-references.
 | Unicode | GCC `cpp/c23-ucn*.c` and Clang `C/C23/n2836_n2939.c` cover the change to Unicode identifier properties and the literal rules. Check initial and continuation characters, normalization, and agreement between direct UTF-8 and universal spelling. |
 | Resource inclusion | GCC `cpp/embed-*.c` and Clang `C/C23/n3017.c` supply binary fixtures and cover resource status, replacement and parameters. The implementation must bound bytes read and tokens produced by the effective limit. |
 
+cppgm now selects the experimental C23 mode for all five spellings.
+The first batch enables the version macro, C23 trigraph defaults,
+`#elifdef`, `#elifndef` and `#warning`. The GCC digit-separator acceptance
+case exposed a lexical boundary and decimal line-control rule. The
+lexer consumes an apostrophe and the following nondigit together, so
+`0x0'e-0xe` has a subtraction after its first token. Decimal
+`#line` accepts separators between digits in C23. The pinned GCC and
+Clang lanes run eleven and four C23 configurations, respectively.
+PA38 covers these edition boundaries with the same native and WASI
+fixtures. The clause runner separately checks predefined version,
+trigraphs including splice behavior, conditional selection, and the
+warning's unexpanded message. Identifier normalization, resource
+inclusion and later declaration semantics still need implementation.
+
 [Clause inventory](c-conformance.json) ·
 [WG14 N3221 editor's report](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3221.htm) ·
 [WG14 N3220 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
@@ -282,8 +296,8 @@ deprecation diagnostics so they could check the language boundary.
 | `c95.digraphs` | A body delimited by `<%` and `%>` is accepted in C95 and diagnosed in pedantic C90. | PA38 checks directive delimiters and token pasting. Pinned GCC cases check stringization in both editions. |
 | `c95.wide-headers` | `<iso646.h>`, `<wchar.h>`, and `<wctype.h>` compose in C95. | The hosted probe runs restartable conversions, wide-string operations and classification in the C locale. It passed on x86-64 Linux, AArch64 Linux under QEMU, and WASI. |
 | `c95.inline-linkage` | GNU89's plain inline definition supplies its external symbol. An `extern inline` definition refers to the external symbol when emitted as a call. | PA38 links cppgm and an independent C provider. The glibc wide-header test also checks calls through the installed `btowc` wrapper at `-O0` and `-O2`. |
-| `c23.version` | `-std=c23` compiles a plain C function and defines `202311L`. | C23 driver support is open. |
-| `c23.trigraphs` | Trigraph braces form a valid body through C17. The same source is diagnosed in C23. | The C17 control compiles. |
+| `c23.version` | `-std=c23` compiles a plain C function and defines `202311L`. | The five aliases and the PA38 C23 version probe passed. |
+| `c23.trigraphs` | Trigraph braces form a valid body through C17. The same source is diagnosed in C23. | PA38 checks default removal, retained spelling and splice behavior, and the explicit conversion option. |
 | `c23.empty-parameters` | A call with an argument through a declaration with empty parentheses is accepted through C17 and diagnosed in C23. | The C17 control compiles. |
 | `c23.identifier-list` | An identifier-list definition with explicit parameter types compiles through C17 and is diagnosed in C23. | The C17 control compiles. |
 
@@ -358,6 +372,11 @@ Linux, QEMU AArch64 Linux, both Mach-O targets with local loaders,
 bare Wasm and WASI. The Wasm cross-object replay uses a freestanding
 entry point to preserve the original `main` spelling for the
 `__func__` probes. PA38 separately exercises hosted WASI startup.
+That batch passed all 11,673 strict course checks, 467 native and
+530 WASI PA38 checks, three PA38 native ABI checks, 106 PA39 checks,
+451 conformance probes, debug-info, inception and self-host through PA5.
+The 467 native, 530 WASI and three ABI checks also passed in the
+student export.
 
 [GCC C90 manifest](upstream-gcc-c90.json) ·
 [GCC C95 manifest](upstream-gcc-c95.json) ·

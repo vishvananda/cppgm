@@ -33,12 +33,17 @@ Identifier* Intern(IdentifierTable& identifiers, const char* spelling)
 
 } // namespace
 
-PreprocessorNames::PreprocessorNames(IdentifierTable& identifiers)
+PreprocessorNames::PreprocessorNames(IdentifierTable& identifiers, bool c_source)
 {
 	for (const NamedRole& named : kNamedRoles)
 	{
 		Identifier* identifier = identifiers.intern(named.spelling, static_cast<uint32_t>(std::strlen(named.spelling)));
 		identifier->role = static_cast<uint8_t>(named.role);
+	}
+	if (c_source)
+	{
+		Intern(identifiers, "elifdef")->role = static_cast<uint8_t>(IdentifierRole::Elifdef);
+		Intern(identifiers, "elifndef")->role = static_cast<uint8_t>(IdentifierRole::Elifndef);
 	}
 	defined = Intern(identifiers, "defined");
 	va_args = Intern(identifiers, "__VA_ARGS__");

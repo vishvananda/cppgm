@@ -449,7 +449,7 @@ sub source_args_for
 	my $is_c = $path =~ /\.c-standard$/;
 	my @standards = read_word_list($path);
 	my $pattern = $is_c
-		? qr/\A(?:(?:c|gnu)(?:89|90|99|11|17|18)|iso9899:(?:1990|199409|1999|2011|2017|2018))\z/
+		? qr/\A(?:(?:c|gnu)(?:89|90|99|11|17|18|23|2x)|iso9899:(?:1990|199409|1999|2011|2017|2018|2024))\z/
 		: qr/\A(?:c|gnu)\+\+(?:11|14|17|20)\z/;
 	my $language = $is_c ? 'C' : 'C++';
 	die "Expected one $language standard in $path\n"
