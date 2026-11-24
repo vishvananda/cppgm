@@ -1499,6 +1499,15 @@
       "cases": ["c23.block-labels", "c23.block-labels-vla", "c23.label-on-substatement-declaration", "c23.label-at-substatement-end", "c23.block-label-goto-vla", "c23.block-label-case-vla"]
     },
     {
+      "id": "compound.sizeof-operand",
+      "clause": "C99 6.5.2.5 and 6.5.3.4, C23 6.5.3.6 and 6.5.4.4",
+      "kind": "required",
+      "editions": [99, 11, 17, 23],
+      "environment": "all",
+      "requirement": "Treat a compound literal with its postfix operations as an operand of sizeof. Leave a fixed-size operand unevaluated.",
+      "cases": ["compound.sizeof"]
+    },
+    {
       "id": "c23.compound-storage-classes",
       "clause": "6.5.3.6, 6.7.2, 6.7.11",
       "kind": "required",

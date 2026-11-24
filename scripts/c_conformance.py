@@ -134,7 +134,9 @@ C23_SOURCE_CASES = (
 )
 C23_EMBED_SOURCE = PA38_GENERAL / '100-c23-embed.t'
 C23_EMBED_FIXTURES = C23_EMBED_SOURCE.with_suffix('.inc')
+SIZEOF_COMPOUND = PA38_GENERAL / '300-c99-sizeof-compound-literal.t'
 C23_PROGRAMS = {
+    'compound.sizeof': (SIZEOF_COMPOUND, ()),
     'c23.attribute-probe': (PA38_GENERAL / '100-c23-attribute-probe.t', ()),
     'c23.embed': (C23_EMBED_SOURCE, ('--embed-dir=' + str(C23_EMBED_FIXTURES / 'resources'),
                                     '-I' + str(C23_EMBED_FIXTURES / 'headers'))),
@@ -528,6 +530,7 @@ def probe_target(output, profile, compiler, setup, link, runner, bare_sdk=()):
                           stages[0]['classification'] == 'success', stages)
         else:
             sources.extend([
+                ('compound.sizeof', SIZEOF_COMPOUND, (), ()),
                 ('include.physical', INCLUDE_SOURCE, (), ()),
                 ('include.query', INCLUDE_QUERY, ('-I' + str(INCLUDE_QUERY.parent),), ()),
                 ('record.flexible-array', FLEXIBLE_ARRAY, (), ()),
