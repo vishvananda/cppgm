@@ -172,7 +172,7 @@ void FunctionEmitter::copy_bytes(const Inst& inst)
 		RM to = location(dst);
 		RM from = location(src);
 		uint32_t offset = 0;
-		const unsigned limit = !float_options_.sse2 ? 8 : function_->wide_bulk ? copy_chunk_limit(src, bytes) : 16;
+		const unsigned limit = !code_options_.sse2 ? 8 : function_->wide_bulk ? copy_chunk_limit(src, bytes) : 16;
 		const Reg x = limit >= 16 ? bulk_register() : kNoReg;
 		while (limit >= 16 && bytes - offset >= 16)
 		{
@@ -248,7 +248,7 @@ void FunctionEmitter::zero_bytes(const Inst& inst)
 	const uint32_t bytes = inst.aux;
 	const Operand& dst = inst.ops[0];
 	const RM to = dst.kind == OperandKind::Reg ? RM::m(dst.reg, 0) : rm(dst);
-	if ((bytes == 16 || (function_->wide_bulk && bytes > 16 && bytes <= 256)) && float_options_.sse2)
+	if ((bytes == 16 || (function_->wide_bulk && bytes > 16 && bytes <= 256)) && code_options_.sse2)
 	{
 		// 16-byte chunks of a cleared XMM register, then scalar stores.
 		const Reg x = bulk_register();
@@ -683,7 +683,7 @@ void FunctionEmitter::variadic_argument(const Inst& inst)
 
 void FunctionEmitter::va_copy_bytes(const RM& home, int32_t source, uint32_t offset, uint32_t bytes)
 {
-	if (!float_options_.sse2)
+	if (!code_options_.sse2)
 	{
 		// R10 and R11 name the source and va_list. Preserve a third
 		// register to copy to the frame without touching vector state.

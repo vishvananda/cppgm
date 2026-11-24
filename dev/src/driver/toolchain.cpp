@@ -281,8 +281,8 @@ struct Invocation
 	bool lowir_passes = true;
 	bool position_independent = false;
 	bool red_zone = true;
-	native::X86FloatOptions x86_float;
-	bool x86_float_explicit = false;
+	native::X86CodeOptions x86_code;
+	bool x86_code_explicit = false;
 	bool disable_sse2 = false;
 	bool disable_mmx = false;
 	FloatContract float_contract = FloatContract::Off;
@@ -456,9 +456,9 @@ bool x86_float_option(const std::string& arg, Invocation& invocation)
 		preprocessor.sse = preprocessor.sse2 = true;
 	}
 	else if (arg == "-mno-80387" || arg == "-mno-x87" || arg == "-m80387" || arg == "-mx87" || arg == "-mhard-float")
-		invocation.x86_float.x87 = arg == "-m80387" || arg == "-mx87" || arg == "-mhard-float";
+		invocation.x86_code.x87 = arg == "-m80387" || arg == "-mx87" || arg == "-mhard-float";
 	else if (arg == "-mno-fp-ret-in-387" || arg == "-mfp-ret-in-387")
-		invocation.x86_float.x87_return = arg == "-mfp-ret-in-387";
+		invocation.x86_code.x87_return = arg == "-mfp-ret-in-387";
 	else if (arg == "-mno-mmx" || arg == "-mmmx")
 		invocation.disable_mmx = arg == "-mno-mmx";
 	else if (sse_option(arg, preprocessor.sse_level))
@@ -471,21 +471,49 @@ bool x86_float_option(const std::string& arg, Invocation& invocation)
 	}
 	else
 		return false;
-	invocation.x86_float_explicit = true;
+	invocation.x86_code_explicit = true;
 	return true;
 }
 
-void configure_x86_float_options(Invocation& invocation)
+bool x86_code_option(const std::string& arg, Invocation& invocation)
 {
-	if (!invocation.x86_float_explicit)
+	if (arg == "-mred-zone" || arg == "-mno-red-zone")
+		invocation.red_zone = arg == "-mred-zone";
+	else if (arg == "-fjump-tables" || arg == "-fno-jump-tables")
+		invocation.x86_code.jump_tables = arg == "-fjump-tables";
+	else if (arg == "-mindirect-branch=keep" || arg == "-mindirect-branch=thunk-extern")
+	{
+		invocation.x86_code_explicit = true;
+		invocation.x86_code.external_indirect_thunks = arg == "-mindirect-branch=thunk-extern";
+	}
+	else if (arg == "-mindirect-branch-register" || arg == "-mno-indirect-branch-register")
+	{
+		invocation.x86_code_explicit = true;
+		invocation.x86_code.indirect_register_only = arg == "-mindirect-branch-register";
+	}
+	else if (arg == "-mindirect-branch-cs-prefix" || arg == "-mno-indirect-branch-cs-prefix")
+	{
+		invocation.x86_code_explicit = true;
+		invocation.x86_code.indirect_thunk_cs_prefix = arg == "-mindirect-branch-cs-prefix";
+	}
+	else
+		return x86_float_option(arg, invocation);
+	return true;
+}
+
+void configure_x86_code_options(Invocation& invocation)
+{
+	if (!invocation.x86_code_explicit)
 		return;
 	if (target_model::describe(invocation.target).architecture != target_model::Architecture::X86_64)
-		throw InvocationError("x86 floating-point options require an x86-64 target");
+		throw InvocationError("x86 machine options require an x86-64 target");
+	if (invocation.x86_code.external_indirect_thunks && invocation.target != native::Target::Linux)
+		throw InvocationError("external x86 indirect-branch thunks require an ELF target");
 	PreprocessorOptions& preprocessor = invocation.preprocessor;
-	invocation.x86_float.sse2 = preprocessor.sse2;
+	invocation.x86_code.sse2 = preprocessor.sse2;
 	invocation.optimizer.vectorize = preprocessor.sse2;
 	std::string macros;
-	if (!invocation.x86_float.x87)
+	if (!invocation.x86_code.x87)
 		macros += "#define _SOFT_FLOAT 1\n";
 	if (!preprocessor.sse2)
 		macros += "#undef __SSE2_MATH__\n";
@@ -517,7 +545,7 @@ bool refused_flag(const std::string& arg)
 		(arg != "-fpatchable-function-entry=0" && starts_with(arg, "-fpatchable-function-entry=")) ||
 		(arg != "-mharden-sls=none" && starts_with(arg, "-mharden-sls=")) ||
 		(arg != "-mfunction-return=keep" && starts_with(arg, "-mfunction-return=")) ||
-		(arg != "-mindirect-branch=keep" && starts_with(arg, "-mindirect-branch=")) ||
+		starts_with(arg, "-mindirect-branch=") ||
 		(arg != "-fzero-call-used-regs=skip" && starts_with(arg, "-fzero-call-used-regs="));
 }
 
@@ -748,8 +776,6 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 			invocation.position_independent = false;
 			pic_level = pie_level = 0;
 		}
-		else if (arg == "-mred-zone" || arg == "-mno-red-zone")
-			invocation.red_zone = arg == "-mred-zone";
 		else if (arg == "-ffunction-sections" || arg == "-fno-function-sections")
 			invocation.function_sections = arg == "-ffunction-sections";
 		else if (arg == "-pthread")
@@ -822,7 +848,7 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 			invocation.preprocessor.popcnt = arg == "-mpopcnt";
 			popcnt_explicit = true;
 		}
-		else if (x86_float_option(arg, invocation))
+		else if (x86_code_option(arg, invocation))
 			continue;
 		else if (arg == "-fno-rtti" || arg == "-frtti")
 			invocation.preprocessor.modes.rtti = arg == "-frtti";
@@ -949,7 +975,7 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 	if (!popcnt_explicit)
 		invocation.preprocessor.popcnt = invocation.preprocessor.sse_level >= 4;
 	configure_mode_macros(invocation, optimize_size, pic_level, pie_level);
-	configure_x86_float_options(invocation);
+	configure_x86_code_options(invocation);
 	// Preserve named objects and statement boundaries in the debugging level.
 	// Preprocessing still observes GCC's __OPTIMIZE__ for -Og.
 	if (invocation.debug_optimization && invocation.debug_types)
@@ -1140,7 +1166,7 @@ bool compile_native_sources(SourceInputs sources, const Invocation& invocation, 
 	if (!arm)
 		builder.reset(new native::ObjectBuilder(program, stats, eh_model, invocation.optimizer.level,
 			invocation.position_independent, invocation.target, invocation.red_zone, invocation.function_sections,
-			invocation.x86_float));
+			invocation.x86_code));
 	// At -O0 each definition is encoded (or written) as the lowering
 	// completes it; an optimizing level keeps the program until the
 	// optimizer has run.
@@ -1267,7 +1293,7 @@ bool compile_lowir_unit(const std::string& path, const Invocation& invocation, n
 	}
 	if (!native::compile_object(program, object, error, &stats, eh_model, invocation.optimizer.level,
 			invocation.position_independent, invocation.target, invocation.red_zone, invocation.function_sections,
-			invocation.x86_float))
+			invocation.x86_code))
 	{
 		std::cerr << "ERROR: " << path << ": " << error << std::endl;
 		return false;

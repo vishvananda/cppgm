@@ -193,6 +193,14 @@ Optional sidecars control or check the host flow:
 - `x.inspect.cmd`, `x.inspect.expect`, or `x.inspect.plan`: object-inspection
   checks that use the host symbol tools
 
+On ELF x86-64, `-mindirect-branch=thunk-extern` changes indirect calls
+and jumps to direct transfers to a link-provided `__x86_indirect_thunk_<reg>`.
+The register names the target, including one loaded from memory before the
+transfer. With `-mindirect-branch-cs-prefix`, prefix transfers through
+`r8` to `r15` with the CS prefix. With `-mindirect-branch-register`,
+use a register target even for ordinary indirect transfers.
+`-fno-jump-tables` suppresses switch jump tables.
+
 The checked-in PA27 tests cover:
 
 - DWARF 4 source-line tables and function ranges in hosted objects requested

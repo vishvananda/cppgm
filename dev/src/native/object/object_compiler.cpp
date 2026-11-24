@@ -108,7 +108,7 @@ class ObjectCompiler
 {
 public:
 	ObjectCompiler(lowir::Program& program, ObjectStats& stats, EhModel eh_model, int optimization_level,
-		bool position_independent, Target target, bool red_zone, bool function_sections, X86FloatOptions float_options);
+		bool position_independent, Target target, bool red_zone, bool function_sections, X86CodeOptions code_options);
 
 	// Selects and encodes one function definition.
 	void function(lowir::SymbolId symbol);
@@ -230,7 +230,7 @@ private:
 };
 
 ObjectCompiler::ObjectCompiler(lowir::Program& program, ObjectStats& stats, EhModel eh_model, int optimization_level,
-	bool position_independent, Target target, bool red_zone, bool function_sections, X86FloatOptions float_options)
+	bool position_independent, Target target, bool red_zone, bool function_sections, X86CodeOptions code_options)
 	: program_(program), stats_(stats), selector_(program), emitter_(image_, runtime_, stats.emit),
 	  share_entries_(optimization_level >= 1), eh_model_(eh_model), position_independent_(position_independent),
 	  function_sections_(function_sections && target == Target::Linux),
@@ -243,11 +243,28 @@ ObjectCompiler::ObjectCompiler(lowir::Program& program, ObjectStats& stats, EhMo
 	selector_.set_optimization_level(optimization_level);
 	emitter_.set_eh_model(eh_model);
 	emitter_.set_red_zone(red_zone);
-	emitter_.set_float_options(float_options);
-	selector_.set_sse2(float_options.sse2);
+	emitter_.set_code_options(code_options);
+	selector_.set_sse2(code_options.sse2);
+	selector_.set_jump_tables(code_options.jump_tables);
 	for (unsigned k = 0; k < kHostBuiltinCount; ++k)
 		host_builtins_[k] = std::make_pair(0u, 0u);
 	declare_symbols();
+	if (code_options.external_indirect_thunks)
+	{
+		const char* const thunks[] = { "__x86_indirect_thunk_rax", "__x86_indirect_thunk_rcx",
+			"__x86_indirect_thunk_rdx", "__x86_indirect_thunk_rbx", "__x86_indirect_thunk_rsp",
+			"__x86_indirect_thunk_rbp", "__x86_indirect_thunk_rsi", "__x86_indirect_thunk_rdi",
+			"__x86_indirect_thunk_r8", "__x86_indirect_thunk_r9", "__x86_indirect_thunk_r10",
+			"__x86_indirect_thunk_r11", "__x86_indirect_thunk_r12", "__x86_indirect_thunk_r13",
+			"__x86_indirect_thunk_r14", "__x86_indirect_thunk_r15" };
+		runtime_.indirect_thunk_base = image_.add_symbol();
+		runtime_names_.push_back(thunks[0]);
+		for (unsigned k = 1; k < kGprCount; ++k)
+		{
+			image_.add_symbol();
+			runtime_names_.push_back(thunks[k]);
+		}
+	}
 }
 
 lowir::NameId ObjectCompiler::object_name(lowir::SymbolId symbol) const
@@ -1409,9 +1426,9 @@ void ObjectCompiler::finish(ObjectFile& out)
 }
 
 ObjectBuilder::ObjectBuilder(lowir::Program& program, ObjectStats& stats, EhModel eh_model, int optimization_level,
-	bool position_independent, Target target, bool red_zone, bool function_sections, X86FloatOptions float_options)
+	bool position_independent, Target target, bool red_zone, bool function_sections, X86CodeOptions code_options)
 	: compiler_(new ObjectCompiler(program, stats, eh_model, optimization_level, position_independent, target, red_zone,
-		  function_sections, float_options))
+		  function_sections, code_options))
 {}
 
 ObjectBuilder::~ObjectBuilder()
@@ -1544,7 +1561,7 @@ void recover_jump_thunks(lowir::Program& program, EhModel eh_model)
 
 bool compile_object(lowir::Program& program, object::ObjectFile& out, std::string& error, ObjectStats* stats,
 	EhModel eh_model, int optimization_level, bool position_independent, Target target, bool red_zone,
-	bool function_sections, X86FloatOptions float_options)
+	bool function_sections, X86CodeOptions code_options)
 {
 	if (target_model::describe(target).architecture != target_model::Architecture::X86_64 ||
 		target_model::describe(program.target).architecture != target_model::Architecture::X86_64)
@@ -1556,7 +1573,7 @@ bool compile_object(lowir::Program& program, object::ObjectFile& out, std::strin
 	try
 	{
 		ObjectBuilder builder(program, stats != nullptr ? *stats : local, eh_model, optimization_level,
-			position_independent, target, red_zone, function_sections, float_options);
+			position_independent, target, red_zone, function_sections, code_options);
 		builder.finish(out);
 	}
 	catch (const BackendError& e)

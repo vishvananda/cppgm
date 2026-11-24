@@ -30,6 +30,8 @@ struct RuntimeSymbols
 	uint32_t eh_catch = 0;
 	// The host model's _Unwind_Resume.
 	uint32_t unwind_resume = 0;
+	// One external __x86_indirect_thunk_* symbol for each GPR, in order.
+	uint32_t indirect_thunk_base = 0;
 	// Darwin TLV lookup with a private ABI: r11 in/out, all other state preserved.
 	uint32_t tlv_lookup = 0;
 	// i128 division (libgcc's names): __divti3, __udivti3, __modti3,
@@ -108,13 +110,17 @@ struct EmitStats
 	telemetry::Counter scratch_carried_reloads = 0;
 };
 
-// Restrictions on compiler-generated XMM and x87 use; user assembly
-// encodes its explicitly written instructions under either policy.
-struct X86FloatOptions
+// Policies for compiler-generated x86 instructions. Explicit user assembly
+// encodes under its own instruction and control-flow contracts.
+struct X86CodeOptions
 {
 	bool sse2 = true; // the compiler's XMM path uses the SSE2 instruction set
 	bool x87 = true;
 	bool x87_return = true;
+	bool jump_tables = true;
+	bool external_indirect_thunks = false;
+	bool indirect_register_only = false;
+	bool indirect_thunk_cs_prefix = false;
 };
 
 class FunctionEmitter
@@ -129,7 +135,7 @@ public:
 	// model records each function's unwind facts.
 	void set_eh_model(EhModel model) { eh_model_ = model; }
 	void set_red_zone(bool enabled) { red_zone_ = enabled; }
-	void set_float_options(X86FloatOptions options) { float_options_ = options; }
+	void set_code_options(X86CodeOptions options) { code_options_ = options; }
 	const UnwindFacts& unwind() const { return unwind_; }
 	const std::vector<CodeLocation>& locations() const { return locations_; }
 	// The last function's frame displacements relative to its CFA: a
@@ -191,6 +197,7 @@ private:
 	void va_copy_bytes(const RM& home, int32_t source, uint32_t offset, uint32_t bytes);
 	void eh(const Inst& inst);
 	void call(const Inst& inst);
+	void indirect_transfer(const RM& target, bool call);
 	void loop_barrier();
 	void bit_test(const Inst& inst);
 	uint32_t strlen_prefix();
@@ -211,7 +218,7 @@ private:
 	uint64_t base_ = 0;
 	EhModel eh_model_ = EhModel::Course;
 	bool red_zone_ = true;
-	X86FloatOptions float_options_;
+	X86CodeOptions code_options_;
 	UnwindFacts unwind_;
 	uint32_t terminal_ = 0;      // the host resume terminal's label
 	bool dynamic_stack_ = false; // RSP moves (stack_alloc, pushed EH records)

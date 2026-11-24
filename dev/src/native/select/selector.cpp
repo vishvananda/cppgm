@@ -42,6 +42,11 @@ void Selector::set_sse2(bool enabled)
 	state_->set_sse2(enabled);
 }
 
+void Selector::set_jump_tables(bool enabled)
+{
+	state_->set_jump_tables(enabled);
+}
+
 void Selector::set_optimization_level(int level)
 {
 	state_->set_optimization_level(level);

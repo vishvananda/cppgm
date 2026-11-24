@@ -405,7 +405,7 @@ bool sse_operation(const Function& function, const Inst& inst)
 	return false;
 }
 
-void check_float_options(const Function& function, X86FloatOptions options)
+void check_float_options(const Function& function, X86CodeOptions options)
 {
 	if (!options.sse2)
 		for (const AbiPart& part : function.parts)
@@ -426,8 +426,8 @@ void check_float_options(const Function& function, X86FloatOptions options)
 
 void FunctionEmitter::emit(const Function& function)
 {
-	if (!float_options_.sse2 || !float_options_.x87 || !float_options_.x87_return)
-		check_float_options(function, float_options_);
+	if (!code_options_.sse2 || !code_options_.x87 || !code_options_.x87_return)
+		check_float_options(function, code_options_);
 	function_ = &function;
 	bulk_ = kNoReg;
 	calls_out_ = function.omit_frame_pointer && calls_out(function, image_.target);
@@ -996,7 +996,7 @@ void FunctionEmitter::jump_table(const Inst& inst)
 	asm_.lea(table, at);
 	asm_.mov_load(target, RM::m(table, 0, idx, 4), 4, true);
 	asm_.alu_rr(0, target, RM::r(table), 8);
-	asm_.jmp_rm(RM::r(target));
+	indirect_transfer(RM::r(target), false);
 }
 
 void FunctionEmitter::emit_tables(const Function& function)
@@ -1237,7 +1237,7 @@ void FunctionEmitter::tail_jump(const Function& function, const Inst& inst)
 	if (target.kind == OperandKind::Symbol)
 		asm_.jmp_symbol(target.symbol);
 	else
-		asm_.jmp_rm(RM::r(R11));
+		indirect_transfer(RM::r(R11), false);
 	ret.ret_end = asm_.size() - static_cast<uint32_t>(base_);
 	unwind_.returns.push_back(ret);
 	if (!relax_pass_)
@@ -1250,6 +1250,31 @@ void FunctionEmitter::loop_barrier()
 		loop_barriers_.push_back(static_cast<int32_t>(asm_.size()));
 }
 
+void FunctionEmitter::indirect_transfer(const RM& target, bool call)
+{
+	if (!code_options_.external_indirect_thunks && !code_options_.indirect_register_only)
+	{
+		call ? asm_.call_rm(target) : asm_.jmp_rm(target);
+		return;
+	}
+	// The explicit load uses the same reserved scratch as a tail jump.
+	// A call changes RSP before its thunk could read it.
+	const Reg reg = target.is_reg && target.reg != RSP ? target.reg : R11;
+	if (!target.is_reg)
+		asm_.mov_load(reg, target, 8, false);
+	else if (reg != target.reg)
+		asm_.mov_rr(reg, target.reg);
+	if (code_options_.external_indirect_thunks)
+	{
+		if (code_options_.indirect_thunk_cs_prefix && reg >= R8)
+			asm_.byte(0x2e);
+		const uint32_t symbol = runtime_.indirect_thunk_base + reg;
+		call ? asm_.call_symbol(symbol) : asm_.jmp_symbol(symbol);
+	}
+	else
+		call ? asm_.call_rm(RM::r(reg)) : asm_.jmp_rm(RM::r(reg));
+}
+
 void FunctionEmitter::call(const Inst& inst)
 {
 	const uint32_t done = (inst.flags & MF_STRLEN_PREFIX) ? strlen_prefix() : 0xffffffffu;
@@ -1259,7 +1284,7 @@ void FunctionEmitter::call(const Inst& inst)
 	if (target.kind == OperandKind::Symbol)
 		asm_.call_symbol(target.symbol);
 	else
-		asm_.call_rm(rm(target));
+		indirect_transfer(rm(target), true);
 	if (done != 0xffffffffu)
 		asm_.bind(done);
 	// Host EH: a potentially throwing call's LSDA range.
@@ -1526,7 +1551,7 @@ void FunctionEmitter::instruction(const Function& function, const Inst& inst, ui
 		branch(CC_O, false, labels_[a.symbol]);
 		break;
 	case Op::IndirectJump:
-		asm_.jmp_rm(rm(a));
+		indirect_transfer(rm(a), false);
 		break;
 	case Op::JumpTable:
 		jump_table(inst);

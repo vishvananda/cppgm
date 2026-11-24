@@ -1386,7 +1386,7 @@ bool FunctionSelector::emit_clustered_switch(
 	// so the 64-bit difference is the entry for every integer type.
 	const int64_t low = cases.front().first, high = cases.back().first;
 	const uint64_t span = static_cast<uint64_t>(high) - static_cast<uint64_t>(low);
-	if (machine::native_table(cases, clusters.size(), targets.size()) && fits_i32(low))
+	if (jump_tables_ && machine::native_table(cases, clusters.size(), targets.size()) && fits_i32(low))
 	{
 		canonicalize(false);
 		const uint32_t entries = static_cast<uint32_t>(span + 1);
