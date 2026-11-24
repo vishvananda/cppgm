@@ -3695,3 +3695,30 @@ and the modules unbuilt, so there is no cppgm kernel compile timing.
 [GCC preprocessor invocation](https://gcc.gnu.org/onlinedocs/cpp/Invocation.html) ·
 [GCC code generation options](https://gcc.gnu.org/onlinedocs/gcc/Code-Gen-Options.html) ·
 [Compile measurements](../docs/performance/c-frontend-scaling.md#linux-compiler-probe-changes)
+
+### Hosted WASI C23 rounding and integer range checks
+
+The supplement adds `roundeven` and the four `fromfp` families for
+`float`, `double` and `long double`. The `fromfp` functions use the
+C23 floating return types and check the requested width against the
+first excluded power of two. The probes cover signed zero, halfway
+values, nonfinite inputs, all five directions and widths through
+`UINT_MAX`. The WASI SDK environment has one rounding direction and
+no observable exception flags.
+
+Both probes pass all 32 mixed cppgm and SDK Clang compile and link
+configurations at `-O0` and `-O2`. Both pass with native GCC 15 and
+Clang 22 at those levels and with cppgm at `-O0`, `-O2` and `-Oz`,
+including Linux AArch64 under QEMU. The extracted source-only package
+builds the runtime and passes the probes at `-Oz -flto`.
+
+The C matrix passes all 4,365 executed configurations. Linux x86-64
+runs 1,468, stock WASI runs 1,333, the supplement runs 530 and bare
+Wasm runs 1,034. The supplement passes 201 tracked C23 checks. It now
+provides 51 of the 120 missing math names found in SDK 34. The remaining
+69 names keep `<math.h>` and `<tgmath.h>` open.
+
+[C23 N3096 §§7.12.9.8–11](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
+[Rounding probe](../scripts/tests/c_c23_math_roundeven.c) ·
+[Integer range probe](../scripts/tests/c_c23_math_fromfp.c) ·
+[Compile and Wasm instruction measurements](../docs/performance/c-frontend-scaling.md#wasi-c23-rounding-and-integer-range-checks)

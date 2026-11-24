@@ -4095,3 +4095,21 @@ input produces the same object bytes.
 Paired wall-time changes range from +3.13% to +4.32%, within the A/A
 variation. The GNU case-range ABI test covers over a billion values
 with one range and verifies both endpoints and neighboring cases.
+
+## WASI C23 rounding and integer range checks
+
+A single cppgm binary compiles a frozen `<math.h>` consumer at `-O2`
+against the parent and current overlays. All 12 objects match byte for
+byte. The A/A spread is 2,548 retired user instructions. Parsing the
+15 extra declarations and five rounding macros adds 309,258 and
+311,888 instructions in ABBA and BAAB on a 9.25 million instruction
+control.
+
+The runtime workload executes four million iterations. Each calls
+`fromfp`, `ufromfpf`, and `roundeven`, cycling across all five directions
+and 16 widths. A/A varies by 1,262 retired instructions. Replacing SDK
+call wrappers with the existing Wasm rounding lowering and using one
+ordered magnitude check reduces retired instructions by 23.91% in both
+paired blocks. The 12 precompiled Wasmtime observations all produce
+the checksum `254300000`. The linked module grows from 33,465 to 33,505
+bytes. Binary128 still uses the SDK's software rounding functions.
