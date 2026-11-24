@@ -645,12 +645,8 @@ const Type* Analyzer::composite_pointer(const ExprFacts* a, const ExprFacts* b, 
 	// other operand's type; otherwise the operands are similar pointers (or
 	// one is void*, or they point to classes related by derivation) and the
 	// result is qualified by both at the first level below the top.
-	const Type* ta = a->type->kind == TypeKind::Array || a->type->kind == TypeKind::Function
-		? types_.pointer(a->type->kind == TypeKind::Array ? a->type->element : a->type)
-		: a->type->unqualified;
-	const Type* tb = b->type->kind == TypeKind::Array || b->type->kind == TypeKind::Function
-		? types_.pointer(b->type->kind == TypeKind::Array ? b->type->element : b->type)
-		: b->type->unqualified;
+	const Type* ta = decayed(a);
+	const Type* tb = decayed(b);
 	const bool a_null = (a->flags & kNullLiteral) != 0 || IsNullptrType(ta);
 	const bool b_null = (b->flags & kNullLiteral) != 0 || IsNullptrType(tb);
 	if (a_null && b_null)

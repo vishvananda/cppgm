@@ -355,6 +355,203 @@
         "-pedantic-errors"
       ],
       "obligation": "Variable-length array typedefs require C99"
+    },
+    {
+      "id": "c90-array-lval-1",
+      "path": "gcc/testsuite/gcc.dg/c90-array-lval-1.c",
+      "sha256": "bde9dedb9b687122e14429670379dd15a26f6191d55649af0ac6db0b5292c49c",
+      "dialect": "c90",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "A non-lvalue array cannot decay in a C90 pointer expression or be subscripted in pedantic mode"
+    },
+    {
+      "id": "c90-array-lval-2",
+      "path": "gcc/testsuite/gcc.dg/c90-array-lval-2.c",
+      "sha256": "6d761932c33ea13e86fc6e1c39122e321c7f64a7d28f65097bf4eac64ec492ad",
+      "dialect": "c90",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "A comma expression preserves the array type of a non-lvalue right operand"
+    },
+    {
+      "id": "c90-array-lval-3",
+      "path": "gcc/testsuite/gcc.dg/c90-array-lval-3.c",
+      "sha256": "4813d4673e14065a01d8fc069086838f327fde267b957cd4785ef23ae5b9f16a",
+      "dialect": "c90",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Array members remain non-lvalues after conditional, comma and assignment expressions on records"
+    },
+    {
+      "id": "c90-array-lval-4",
+      "path": "gcc/testsuite/gcc.dg/c90-array-lval-4.c",
+      "sha256": "42307e1b609667d6f486698f26fc74a1ac99a3c4d313bc2c058f854b84d49f3f",
+      "dialect": "c90",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Size queries preserve the type of a non-lvalue array after comma sequencing"
+    },
+    {
+      "id": "c90-array-lval-6",
+      "path": "gcc/testsuite/gcc.dg/c90-array-lval-6.c",
+      "sha256": "b43c454250ebb1a70f18a234eb0349e64fa0de78a1218ff1cbcde2dd2b55d139",
+      "dialect": "c90",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "A C90 pointer initializer cannot implicitly convert a non-lvalue array"
+    },
+    {
+      "id": "c90-array-lval-7",
+      "path": "gcc/testsuite/gcc.dg/c90-array-lval-7.c",
+      "sha256": "9a57ea7ca527c3a8d32da8e20b0ca5e2de039a8eb343753dd44a3dd0d6c9b0be",
+      "dialect": "c90",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Non-lvalue arrays are invalid as C90 conditional operands"
+    },
+    {
+      "id": "c90-const-expr-1",
+      "path": "gcc/testsuite/gcc.dg/c90-const-expr-1.c",
+      "sha256": "291093df3c5b16afa786c7ac37afa7b2aad08303bfc015e63a54565f1f969f82",
+      "dialect": "c90",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "C90 static initializers reject prohibited operators even when their branch is not evaluated"
+    },
+    {
+      "id": "c90-const-expr-11",
+      "path": "gcc/testsuite/gcc.dg/c90-const-expr-11.c",
+      "sha256": "4be3b7f2b30bdb1bd046afccaa2edcaa29d762c7ec506004864b2c255cf2288b",
+      "dialect": "c90",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors",
+        "-O2",
+        "-fno-trapping-math"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors",
+        "-O2",
+        "-fno-trapping-math"
+      ],
+      "obligation": "C90 requires constant expressions in automatic aggregate initializer lists"
+    },
+    {
+      "id": "c90-const-expr-2",
+      "path": "gcc/testsuite/gcc.dg/c90-const-expr-2.c",
+      "sha256": "f0f6ea774f76b28bd60e0c811739c908c120e8bc812cce42cebcadec173cfccd",
+      "dialect": "c90",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [],
+      "upstream_flags": [],
+      "obligation": "C90 conditional typing distinguishes integer constant zero from an expression that merely folds to zero"
+    },
+    {
+      "id": "c90-func-1",
+      "path": "gcc/testsuite/gcc.dg/c90-func-1.c",
+      "sha256": "cdba676ab9284ae7d7a5db80c654517dac9c9fe0e4a70c84cbc74556905d1dc6",
+      "dialect": "c90",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "The predefined function name requires C99 in pedantic mode"
+    },
+    {
+      "id": "c90-left-shift-1",
+      "path": "gcc/testsuite/gcc.dg/c90-left-shift-1.c",
+      "sha256": "9ddb5b394a8768c41ffbca7cb8649e9b03995dead364fe388467f1c06d1611f4",
+      "dialect": "c90",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Signed C90 left shifts accept negative values in enumerators, initializers and case labels"
+    },
+    {
+      "id": "c90-left-shift-2",
+      "path": "gcc/testsuite/gcc.dg/c90-left-shift-2.c",
+      "sha256": "c9d37a7fb99548149cd83f79c215598fe2ff086824df80ef545e927a68964c5d",
+      "dialect": "c90",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Signed C90 left shift truncates to the width of its promoted operand"
+    },
+    {
+      "id": "c90-static-1",
+      "path": "gcc/testsuite/gcc.dg/c90-static-1.c",
+      "sha256": "5b6475a4490c4c8bb5d63e775650a77aa348ee9b826025205f81d91c8b563097",
+      "dialect": "c90",
+      "action": "compile",
+      "expect": "reject",
+      "candidate_flags": [
+        "-O2",
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-O2",
+        "-pedantic-errors"
+      ],
+      "obligation": "A used static function requires a definition even when the use is unreachable"
     }
   ]
 }

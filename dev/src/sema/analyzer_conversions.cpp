@@ -972,6 +972,8 @@ ExprFacts* Analyzer::conditional(const syntax::ConditionalExpr& expr, Scope* sco
 	// p6: prvalues after the standard conversions.
 	const Type* a = decayed(second);
 	const Type* b = decayed(third);
+	if (a->kind == TypeKind::Array || b->kind == TypeKind::Array)
+		return substitution_error(expr.location, "a non-lvalue array is not a conditional operand in C90"), nullptr;
 	const Type* type = nullptr;
 	if (a == b && !(c_source_ && IsIntegralOrUnscopedEnum(a)))
 		type = a;

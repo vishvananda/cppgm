@@ -338,12 +338,22 @@ void Analyzer::initialize_variable(
 	const ClassEntity* saved_class = flexible_class_;
 	const bool saved_given = flexible_given_;
 	const bool saved_static = c_static_initializer_;
+	const CLegacyInitializer saved_legacy = c_legacy_initializer_;
 	flexible_list_ = nullptr;
 	flexible_class_ = nullptr;
 	flexible_given_ = false;
 	if (c_source_)
 		c_static_initializer_ = variable->owner->kind == ScopeKind::Namespace || variable->is_static ||
 			variable->is_thread_local;
+	c_legacy_initializer_ = CLegacyInitializer::None;
+	if (c_before_c99_ && c_pedantic_ && !initializer->explicit_c_extension)
+	{
+		if (c_static_initializer_)
+			c_legacy_initializer_ = CLegacyInitializer::Static;
+		else if (initializer->expression != nullptr && initializer->expression->kind == syntax::ExprKind::BracedInit &&
+			(type->kind == TypeKind::Array || ClassOf(type) != nullptr))
+			c_legacy_initializer_ = CLegacyInitializer::AutomaticAggregate;
+	}
 	if (hosted_ && type->kind != TypeKind::Array && ClassOf(type) != nullptr &&
 		(variable->owner->kind == ScopeKind::Namespace || variable->is_static || variable->is_thread_local) &&
 		(initializer->kind == syntax::InitializerKind::Braced ||
@@ -354,9 +364,11 @@ void Analyzer::initialize_variable(
 		flexible_class_ = ClassOf(type);
 	}
 	variable->constructor = initialize_object(type, *initializer, scope, location);
-	if (c_static_initializer_ && !failed() && initializer->expression != nullptr)
+	if ((c_static_initializer_ || c_legacy_initializer_ == CLegacyInitializer::AutomaticAggregate) && !failed() &&
+		initializer->expression != nullptr)
 		check_c_static_initializer(*initializer->expression);
 	c_static_initializer_ = saved_static;
+	c_legacy_initializer_ = saved_legacy;
 	flexible_list_ = saved_flexible;
 	flexible_class_ = saved_class;
 	flexible_given_ = saved_given;

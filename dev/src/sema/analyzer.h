@@ -25,6 +25,7 @@
 #include "syntax/ast_clone.h"
 
 class SourcePositions;
+struct PreprocessorOptions;
 
 class IdentifierTable;
 struct CharacterLiteralValue;
@@ -60,15 +61,7 @@ public:
 	// The two distinguished placeholder types retained in declared signatures.
 	const Type* auto_placeholder() const { return auto_placeholder_; }
 	const Type* decltype_auto_placeholder() const { return decltype_auto_placeholder_; }
-	void set_source_language(SourceLanguage language, CEdition edition, bool extensions, bool freestanding)
-	{
-		c_source_ = language == SourceLanguage::C;
-		c_before_c99_ = c_source_ && edition < CEdition::C99;
-		c_freestanding_ = freestanding;
-		c_language_ = c_source_;
-		conversions_.set_c_source(c_source_, extensions);
-		names_.set_c_source(c_source_);
-	}
+	void set_source_language(const PreprocessorOptions& options);
 	// Hosted compilations take GNU's zero-length and flexible array
 	// members (see array_bound and member_size).
 	void set_hosted(bool on) { hosted_ = on; }
@@ -397,7 +390,7 @@ private:
 	void note_c_inline_object(const VariableEntity& variable, uint32_t location);
 	void note_c_inline_declaration(
 		FunctionEntity* function, const Specifiers& specifiers, bool definition, uint32_t location);
-	void finish_c_inline_constraints();
+	void finish_c_function_constraints();
 	const Type* redeclare_variable(VariableEntity* variable, const Type* type, const Specifiers& specifiers,
 		const DeclaratorInfo& info, const Scope* where, bool qualified, bool initialized, bool& definition,
 		uint32_t location);
@@ -530,7 +523,7 @@ private:
 	void record_constant_initializer(VariableEntity* variable, const syntax::Initializer* initializer, Scope* scope);
 	void check_c_static_initializer(const syntax::Expr& expr);
 	void c_initialize_compound_literal(const syntax::FunctionalCastExpr& expr, const Type* type, Scope* scope);
-	static bool c_integer_constant_operands(const syntax::Expr& expr);
+	bool c_integer_constant_operands(const syntax::Expr& expr) const;
 	void record_fixed_class_initializer(VariableEntity* variable, const syntax::Initializer* initializer, Scope* scope);
 	const Type* complete_array_from_initializer(const Type* type, const syntax::Initializer* initializer, bool typed);
 
@@ -825,7 +818,7 @@ private:
 	const ClassEntity* naming_class(const ClassEntity* home, const Scope* scope);
 	// A prvalue operand of a built-in operator: array-to-pointer,
 	// function-to-pointer and lvalue-to-rvalue conversions (5p9), recorded.
-	const Type* decayed(ExprFacts* facts);
+	const Type* decayed(const ExprFacts* facts);
 	// The integral promotions (4.5) of an arithmetic or unscoped
 	// enumeration operand; the usual arithmetic conversions (5p10).
 	const Type* promoted(const Type* type);
@@ -2275,6 +2268,7 @@ private:
 	// any linkage-specification (an explicit language linkage, 7.5p5).
 	bool c_source_;
 	bool c_before_c99_ = false;
+	bool c_pedantic_ = false;
 	bool c_freestanding_ = false;
 	bool c_language_;
 	bool linkage_extern_;
@@ -2339,15 +2333,15 @@ private:
 		uint32_t location;
 	};
 	std::vector<TentativeDefinition> c_tentative_definitions_;
-	struct CInlineConstraint
+	struct CFunctionConstraint
 	{
 		const FunctionEntity* function;
 		uint32_t location;
 		bool definition_required;
 		const char* message;
 	};
-	CInlineConstraint* c_inline_constraint_ = nullptr;
-	std::vector<CInlineConstraint> c_inline_constraints_;
+	CFunctionConstraint* c_inline_constraint_ = nullptr;
+	std::vector<CFunctionConstraint> c_function_constraints_;
 	uintptr_t stack_base_;
 	uintptr_t stack_budget_;
 	const Identifier* constructor_key_;
@@ -2421,6 +2415,13 @@ private:
 	const ClassEntity* flexible_class_ = nullptr;
 	bool flexible_given_ = false;
 	bool c_static_initializer_ = false;
+	enum class CLegacyInitializer : uint8_t
+	{
+		None,
+		Static,
+		AutomaticAggregate
+	};
+	CLegacyInitializer c_legacy_initializer_ = CLegacyInitializer::None;
 	// Nonzero where operands do not odr-use entities. Standard unevaluated
 	// operands count in the low bits. A GNU constant probe suppresses
 	// odr-use without imposing the standard's operand grammar.

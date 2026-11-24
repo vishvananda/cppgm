@@ -255,7 +255,8 @@ bool IntegralOperation(TokenKind op, IntegralKind kind, uint64_t a, uint64_t b, 
 	return true;
 }
 
-bool IntegralShift(TokenKind op, IntegralKind kind, uint64_t a, IntegralKind count_kind, uint64_t count, uint64_t& out)
+bool IntegralShift(
+	TokenKind op, IntegralKind kind, uint64_t a, IntegralKind count_kind, uint64_t count, uint64_t& out, bool legacy_c)
 {
 	const uint64_t bits = ConvertIntegral(a, kind);
 	count = ConvertIntegral(count, count_kind);
@@ -268,7 +269,7 @@ bool IntegralShift(TokenKind op, IntegralKind kind, uint64_t a, IntegralKind cou
 		return true;
 	}
 	out = ConvertIntegral(bits << count, kind);
-	if (kind.is_signed)
+	if (kind.is_signed && !legacy_c)
 	{
 		// E1 non-negative and E1 * 2^E2 representable in the corresponding
 		// unsigned type; the result is that value converted to E1's type.
@@ -355,7 +356,7 @@ bool WideOperation(TokenKind op, bool is_signed, Wide a, Wide b, Wide& out)
 	return !(is_signed && overflow);
 }
 
-bool WideShift(TokenKind op, bool is_signed, Wide a, IntegralKind count_kind, uint64_t count, Wide& out)
+bool WideShift(TokenKind op, bool is_signed, Wide a, IntegralKind count_kind, uint64_t count, Wide& out, bool legacy_c)
 {
 	count = ConvertIntegral(count, count_kind);
 	out = 0;
@@ -369,7 +370,8 @@ bool WideShift(TokenKind op, bool is_signed, Wide a, IntegralKind count_kind, ui
 	out = a << count;
 	// As IntegralShift: E1 non-negative and E1 * 2^E2 representable in the
 	// corresponding unsigned type.
-	return !is_signed || (static_cast<SignedWide>(a) >= 0 && (count == 0 || a <= (~static_cast<Wide>(0) >> count)));
+	return !is_signed || legacy_c ||
+		(static_cast<SignedWide>(a) >= 0 && (count == 0 || a <= (~static_cast<Wide>(0) >> count)));
 }
 
 bool WideCompare(TokenKind op, bool is_signed, Wide a, Wide b)

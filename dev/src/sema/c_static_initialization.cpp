@@ -47,14 +47,17 @@ bool KnownBoundCondition(const syntax::Expr& expr, bool& truth)
 
 } // namespace
 
-bool ConstantInterpreter::c_static_type_bounds(const syntax::Expr& expr)
+bool ConstantInterpreter::c_static_initializer_operands(const syntax::Expr& expr, bool legacy_initializer)
 {
 	// GCC accepts a variably modified cast when the bound contributes only
 	// type information to the relocation. Inspect the typed evaluation
 	// plan for operations that cannot occur in a C constant expression.
 	using syntax::ExprKind;
 	PendingBounds pending;
-	AppendBounds(analyzer_.graph_.runtime_bounds(&expr), pending);
+	if (legacy_initializer)
+		pending.push_back(&expr);
+	else
+		AppendBounds(analyzer_.graph_.runtime_bounds(&expr), pending);
 	while (!pending.empty())
 	{
 		const syntax::Expr* bound = CInitializerOperand(pending.back());
@@ -119,7 +122,7 @@ bool ConstantInterpreter::c_static_type_bounds(const syntax::Expr& expr)
 				return false;
 			pending.push_back(binary->left);
 			bool truth = false;
-			if ((binary->op == TokenKind::OP_LAND || binary->op == TokenKind::OP_LOR) &&
+			if (!legacy_initializer && (binary->op == TokenKind::OP_LAND || binary->op == TokenKind::OP_LOR) &&
 				KnownBoundCondition(*binary->left, truth) && truth == (binary->op == TokenKind::OP_LOR))
 				break;
 			pending.push_back(binary->right);
@@ -130,7 +133,7 @@ bool ConstantInterpreter::c_static_type_bounds(const syntax::Expr& expr)
 			const auto* choice = static_cast<const syntax::ConditionalExpr*>(bound);
 			pending.push_back(choice->condition);
 			bool truth = false;
-			if (KnownBoundCondition(*choice->condition, truth))
+			if (!legacy_initializer && KnownBoundCondition(*choice->condition, truth))
 				pending.push_back(truth ? choice->then_expr : choice->else_expr);
 			else
 			{
@@ -140,6 +143,11 @@ bool ConstantInterpreter::c_static_type_bounds(const syntax::Expr& expr)
 			break;
 		}
 		case ExprKind::Call:
+			if (legacy_initializer && bound->facts->entity != nullptr &&
+				bound->facts->entity->kind == EntityKind::Function &&
+				static_cast<const FunctionEntity*>(bound->facts->entity)->builtin != BuiltinFunction::None)
+				break;
+			// Fall through.
 		case ExprKind::BuiltinTrait:
 			if ((bound->facts->flags & kFolded) == 0)
 				return false;
@@ -161,16 +169,21 @@ void Analyzer::c_initialize_compound_literal(const syntax::FunctionalCastExpr& e
 {
 	expr.compound_static = scope == graph_.global;
 	const bool saved_static = c_static_initializer_;
+	const CLegacyInitializer saved_legacy = c_legacy_initializer_;
 	c_static_initializer_ = expr.compound_static;
+	c_legacy_initializer_ = expr.compound_static && c_before_c99_ && c_pedantic_ && !expr.quiet_c_extensions
+		? CLegacyInitializer::Static
+		: CLegacyInitializer::None;
 	const ClassEntity* record = ClassOf(type);
 	if (expr.compound_static && hosted_ && record != nullptr &&
 		(record->c_contains_flexible_array || record->c_contains_nested_flexible_array))
 		c_designated_list(*expr.braced, type, scope, true);
 	else
 		list_initialize(*expr.braced, type, scope);
-	c_static_initializer_ = saved_static;
 	if (expr.compound_static && !failed())
 		check_c_static_initializer(*expr.braced);
+	c_static_initializer_ = saved_static;
+	c_legacy_initializer_ = saved_legacy;
 }
 
 void Analyzer::check_c_static_initializer(const syntax::Expr& expr)
@@ -201,7 +214,22 @@ void Analyzer::check_c_static_initializer(const syntax::Expr& expr)
 	if (checked_c_static_value(*value) != nullptr)
 		return;
 	ConstantInterpreter interpreter(*this);
+	const bool automatic = c_legacy_initializer_ == CLegacyInitializer::AutomaticAggregate;
+	const char* message = automatic ? "a nonconstant automatic aggregate initializer requires C99"
+									: "a forbidden operator in a C90 constant initializer";
+	if (c_legacy_initializer_ != CLegacyInitializer::None && !interpreter.c_static_initializer_operands(*value, true))
+	{
+		require_c_extension(value->location, CEdition::C99, message);
+		if (automatic)
+			return;
+	}
 	const ConstValue* checked = interpreter.evaluate_c_initializer(*value);
+	if (automatic)
+	{
+		if (checked == nullptr)
+			require_c_extension(value->location, CEdition::C99, message);
+		return;
+	}
 	if (checked == nullptr)
 		error(value->location, "a C static initializer requires a constant expression");
 	c_static_value_index_.set(value, static_cast<uint32_t>(c_static_values_.size()));

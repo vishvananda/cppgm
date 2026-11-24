@@ -1411,7 +1411,8 @@ bool ConstantInterpreter::arithmetic(const syntax::BinaryExpr& expr, const Const
 		WideBits result = 0;
 		const bool shift = expr.op == TokenKind::OP_LSHIFT || expr.op == TokenKind::OP_RSHIFT;
 		const bool defined = shift
-			? WideShift(expr.op, KindOf(type).is_signed, WideInteger(left), KindOf(right.type), right.bits, result)
+			? WideShift(expr.op, KindOf(type).is_signed, WideInteger(left), KindOf(right.type), right.bits, result,
+				  analyzer_.c_before_c99_)
 			: WideOperation(expr.op, KindOf(type).is_signed, WideInteger(left), WideInteger(right), result);
 		if (shift && IsWideIntegral(right.type) && right.high != 0 && defined)
 			return fail(expr.location, "a shift outside its defined range");
@@ -1424,7 +1425,8 @@ bool ConstantInterpreter::arithmetic(const syntax::BinaryExpr& expr, const Const
 	out = IntegerValue(type, 0);
 	if (expr.op == TokenKind::OP_LSHIFT || expr.op == TokenKind::OP_RSHIFT)
 	{
-		if (!IntegralShift(expr.op, KindOf(type), left.bits, KindOf(right.type), right.bits, out.bits))
+		if (!IntegralShift(
+				expr.op, KindOf(type), left.bits, KindOf(right.type), right.bits, out.bits, analyzer_.c_before_c99_))
 			return fail(expr.location, "a shift outside its defined range");
 		return true;
 	}
@@ -1753,15 +1755,16 @@ bool ConstantInterpreter::compound_assignment(const syntax::BinaryExpr& expr, Co
 			const bool is_signed = KindOf(operation).is_signed;
 			if (!shift && !convert_scalar(right, operation, expr.location))
 				return false;
-			defined = shift ? WideShift(op, is_signed, WideInteger(old), KindOf(right.type), right.bits, wide) &&
+			defined = shift ? WideShift(op, is_signed, WideInteger(old), KindOf(right.type), right.bits, wide,
+								  analyzer_.c_before_c99_) &&
 					!(IsWideIntegral(right.type) && right.high != 0)
 							: WideOperation(op, is_signed, WideInteger(old), WideInteger(right), wide);
 			result = WideValue(operation, wide);
 		}
 		else
-			defined = shift
-				? IntegralShift(op, KindOf(operation), old.bits, KindOf(right.type), right.bits, result.bits)
-				: IntegralOperation(op, KindOf(operation), old.bits, right.bits, result.bits);
+			defined = shift ? IntegralShift(op, KindOf(operation), old.bits, KindOf(right.type), right.bits,
+								  result.bits, analyzer_.c_before_c99_)
+							: IntegralOperation(op, KindOf(operation), old.bits, right.bits, result.bits);
 		if (!defined)
 			return fail(expr.location, "an arithmetic operation with an undefined result");
 	}
@@ -2444,7 +2447,7 @@ bool ConstantInterpreter::cast(const syntax::Expr& expr, const syntax::Expr& ope
 	if (expr.kind == syntax::ExprKind::Cast)
 	{
 		if ((expr.facts->flags & kRuntimeTypeEvaluation) != 0 &&
-			(!c_static_initializer_ || !c_static_type_bounds(expr)))
+			(!c_static_initializer_ || !c_static_initializer_operands(expr)))
 			return fail(expr.location, "cast with an evaluated variably modified type name");
 		const TokenKind form = static_cast<const syntax::CastExpr&>(expr).cast;
 		if (form == TokenKind::KW_REINTERPET_CAST || form == TokenKind::KW_DYNAMIC_CAST)

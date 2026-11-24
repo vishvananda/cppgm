@@ -49,7 +49,9 @@ ParserState::ParserState(ParseTokenStream& tokens, IdentifierTable& identifiers,
 	// A function's predefined __func__ (8.4.1p8), GCC's __FUNCTION__ and
 	// __PRETTY_FUNCTION__: variables, whatever the lexical fallback would
 	// make of the upper-case names (`sizeof(__PRETTY_FUNCTION__)`).
-	for (const char* predefined : { "__func__", "__FUNCTION__", "__PRETTY_FUNCTION__" })
+	func_ = identifiers.intern("__func__", 8);
+	scopes_.declare(scopes_.global(), func_, NameBinding{ NameCategory::Value, false, nullptr });
+	for (const char* predefined : { "__FUNCTION__", "__PRETTY_FUNCTION__" })
 		scopes_.declare(scopes_.global(),
 			identifiers.intern(predefined, static_cast<uint32_t>(std::strlen(predefined))),
 			NameBinding{ NameCategory::Value, false, nullptr });

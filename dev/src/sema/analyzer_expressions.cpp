@@ -776,6 +776,16 @@ ExprFacts* Analyzer::binding_expression(
 	case BindingKind::Function:
 	{
 		FunctionEntity* function = static_cast<FunctionEntity*>(binding->entity);
+		if (c_pedantic_ && unevaluated_ == 0 && function->internal_linkage)
+		{
+			FunctionEntity* target = function->denotes != nullptr ? function->denotes : function;
+			if (!target->defined && !target->c_definition_required)
+			{
+				target->c_definition_required = true;
+				c_function_constraints_.push_back(
+					{ target, expr.location, true, "a C function with internal linkage is used but never defined" });
+			}
+		}
 		// A function template's name is a set too: its context selects the
 		// specialization (13.4, 14.8.2).
 		const bool several = (result.functions != nullptr && result.functions->next != nullptr) || function->templated;
@@ -941,12 +951,12 @@ ExprFacts* Analyzer::this_expression(uint32_t location)
 
 // ------------------------------------------------------- conversions
 
-const Type* Analyzer::decayed(ExprFacts* facts)
+const Type* Analyzer::decayed(const ExprFacts* facts)
 {
 	// 5p9 via 4.1-4.3: the prvalue an operand of a built-in operator reads.
 	const Type* type = facts->type;
 	if (type->kind == TypeKind::Array)
-		return types_.pointer(type->element);
+		return conversions_.array_decays(facts->category) ? types_.pointer(type->element) : type;
 	if (type->kind == TypeKind::Function)
 		return types_.pointer(type);
 	return type->unqualified;
@@ -2340,6 +2350,12 @@ ExprFacts* Analyzer::subscript(const syntax::SubscriptExpr& expr, Scope* scope)
 	index = facts_of(*expr.index);
 	const Type* bt = decayed(base);
 	const Type* it = decayed(index);
+	// GNU C permits subscripting a non-lvalue array in the legacy
+	// editions, which have no general conversion to pointer for it.
+	if (bt->kind == TypeKind::Array)
+		bt = types_.pointer(bt->element);
+	if (it->kind == TypeKind::Array)
+		it = types_.pointer(it->element);
 	if (base->type->unqualified->kind == TypeKind::Vector && base->type->unqualified->owner == nullptr &&
 		IsIntegralOrUnscopedEnum(it))
 	{
@@ -2363,18 +2379,31 @@ ExprFacts* Analyzer::subscript(const syntax::SubscriptExpr& expr, Scope* scope)
 		return nullptr;
 	}
 	const syntax::Expr& array = commuted ? *expr.index : *expr.base;
-	const bool potential = facts_of(array)->potential_result &&
-		facts_of(array)->type->unqualified->kind == TypeKind::Array;
-	if (potential)
+	ExprFacts* original = facts_of(array);
+	const bool is_array = original->type->kind == TypeKind::Array;
+	const bool potential = is_array && original->potential_result;
+	if (is_array && !conversions_.array_decays(original->category))
+	{
+		if (!expr.quiet_c_extensions)
+			require_c_extension(expr.location, CEdition::C99, "subscripting a non-lvalue array requires C99");
+		Conversion conversion = Conversion();
+		conversion.form = ConversionForm::Standard;
+		conversion.rank = ConversionRank::Exact;
+		conversion.first = LvalueTransform::ArrayToPointer;
+		conversion.target = conversion.result = bt;
+		if (potential)
+			record_conversion(original, conversion);
+		else
+			finish_conversion(array, conversion, true);
+	}
+	else if (potential)
 		potential_array_operand(array, bt);
 	else
 		convert_operand(array, bt);
 	convert_operand(commuted ? *expr.base : *expr.index, promoted(it));
-	const ExprFacts* original = facts_of(array);
 	// CWG1213: subscripting an array preserves its value category, unlike
-	// subscripting the pointer obtained after an actual decay.
-	const ValueCategory category = original->type->kind == TypeKind::Array &&
-			original->category != ValueCategory::LValue
+	// C's subscript, which denotes an lvalue via the pointer.
+	const ValueCategory category = !c_source_ && is_array && original->category != ValueCategory::LValue
 		? ValueCategory::XValue
 		: ValueCategory::LValue;
 	ExprFacts* facts = new_facts(expr, bt->element, category);

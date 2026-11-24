@@ -529,7 +529,8 @@ bool ConstantEvaluator::shift(
 	TypeTable& types = analyzer_.types_;
 	const Type* type = PromotedType(types, left.type);
 	value.type = type;
-	if (!IntegralShift(op, KindOf(type), left.bits, KindOf(PromotedType(types, right.type)), right.bits, value.bits))
+	if (!IntegralShift(op, KindOf(type), left.bits, KindOf(PromotedType(types, right.type)), right.bits, value.bits,
+			analyzer_.c_before_c99_))
 		return skipping_ != 0 || fail(location, "a shift outside its defined range");
 	return true;
 }

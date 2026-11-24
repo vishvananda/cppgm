@@ -289,8 +289,8 @@ bool Analyzer::function_body(FunctionEntity* function, const Type* type, const s
 	{
 		const bool check_c_inline = c_source_ && !c_before_c99_ && semantic() && function->is_inline &&
 			!function->internal_linkage && !function->c_external_definition && !function->gnu_inline;
-		CInlineConstraint constraint;
-		CInlineConstraint* saved_inline_constraint = nullptr;
+		CFunctionConstraint constraint;
+		CFunctionConstraint* saved_inline_constraint = nullptr;
 		if (check_c_inline)
 		{
 			constraint = { function, 0, false, nullptr };
@@ -329,7 +329,7 @@ bool Analyzer::function_body(FunctionEntity* function, const Type* type, const s
 		{
 			c_inline_constraint_ = saved_inline_constraint;
 			if (constraint.message != nullptr)
-				c_inline_constraints_.push_back(constraint);
+				c_function_constraints_.push_back(constraint);
 		}
 	}
 	if (body_ == &context)

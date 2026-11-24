@@ -249,6 +249,9 @@ deprecation diagnostics so they could check the language boundary.
 | `c90.control-scope` | Declarations in a control statement reach the enclosing block before C99. | PA38 checks selection and iteration statements and brackets the change with a C99 control. |
 | `c99.control-scope` | Selection and iteration substatements have their own scope. A name introduced by a `do` condition ends with that iteration statement. | PA38 runs typedef and enumerator shadowing probes. The pinned Clang block-scope case checks the parser boundary. |
 | `c90.later-constructs` | Pedantic C90 diagnoses C99 type specifiers, array declarator modifiers, compound literals, trailing enum commas, flexible members, and repeated qualifiers. | PA38 and GCC exercise the individual rejections. PA38 also checks equivalent C99 uses, including VLAs, and allowed explicit GNU extensions. |
+| `c90.array-conversion` | Non-lvalue arrays retain array type in C90. GCC and Clang support a GNU subscript extension. C99 adds the usual array decay for these operands. | PA38 covers pointer conversions, subscript, comma and size queries, and address-taking on a C99 subscript element. |
+| `c90.constant-context` | A legacy signed left shift uses the promoted type's bit representation. C90 initializers restrict operators in skipped branches and require constant elements in automatic aggregate lists. | The pinned GCC cases and paired PA38 probes check the arithmetic, constant initializers, conditional null typing, and GNU declaration suppression. |
+| `c90.function-use` | GCC diagnoses `__func__` in pedantic C90. A static function named in an expression requires a definition, with an exception for constant size queries. | PA38 checks the predefined name, an unreachable reference, a later definition after a block redeclaration, and a declaration used only under `sizeof`. |
 | `c11.record-and-typedef` | C11 permits anonymous structure and union members and redefinition of a typedef for the same non-variably-modified type. | PA38 runs both C11 features, checks the pedantic C99 diagnostics, and rejects a C11 typedef redefinition for a VLA. |
 | `c90.pp-number` | The ISO C90 and C95 grammars allow signs after `e` and `E`. C99 adds signs after `p` and `P`. | PA38 checks macro substitution, stringization and pasting. cppgm and GCC follow the legacy grammar. Clang keeps the signed binary exponent together in its legacy modes. |
 | `c95.digraphs` | A body delimited by `<%` and `%>` is accepted in C95 and diagnosed in pedantic C90. | PA38 checks directive delimiters and token pasting. Pinned GCC cases check stringization in both editions. |
@@ -259,14 +262,14 @@ deprecation diagnostics so they could check the language boundary.
 | `c23.empty-parameters` | A call with an argument through a declaration with empty parentheses is accepted through C17 and diagnosed in C23. | The C17 control compiles. |
 | `c23.identifier-list` | An identifier-list definition with explicit parameter types compiles through C17 and is diagnosed in C23. | The C17 control compiles. |
 
-The pinned legacy cohorts pass 23 GCC C90 configurations, five GCC C95
-configurations, and two Clang C90 configurations. In the broader GCC
-`c90-*.c` screen, 47 of 60 configurations agree, up from 34 of 60
-when both binaries use the complete pinned source directory. The
-remaining 13 differences cover non-lvalue array conversions, constant
-expressions, signed left shifts, `__func__`, and diagnostics for missing
-definitions of used static functions. Full hosted library qualification
-remains open.
+The pinned legacy cohorts pass 36 GCC C90 configurations, five GCC C95
+configurations, and two Clang C90 configurations. The broader GCC
+`c90-*.c` screen now agrees on all 60 selected configurations, up from
+47 before the expression and function-use fixes and 34 before the
+earlier diagnostics batch. All three binaries were checked with the
+complete pinned source directory. Clang 21 differs from GCC in some
+legacy diagnostics and shift behavior. Full hosted library
+qualification remains open.
 
 The strict course report passed 11,673 tests. PA38 passed on native x86-64
 and WASI in both the solution checkout and the student export. The positive

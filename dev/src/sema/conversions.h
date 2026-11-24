@@ -43,11 +43,14 @@ public:
 		: types_(types), visit_(0), completer_(nullptr), arithmetic_(false), c_source_(false)
 	{}
 
-	void set_c_source(bool on, bool extensions = false)
+	void set_c_source(bool on, bool extensions, bool before_c99)
 	{
 		c_source_ = on;
 		c_extensions_ = on && extensions;
+		c_before_c99_ = before_c99;
 	}
+	// In C90 and C95 the array-to-pointer conversion requires an lvalue.
+	bool array_decays(ValueCategory category) const { return !c_before_c99_ || category == ValueCategory::LValue; }
 	void set_completer(ClassCompleter* completer) { completer_ = completer; }
 	// The conversions of a built-in operator's operands to the type of the
 	// usual arithmetic conversions (5p10), which alone convert between
@@ -113,6 +116,7 @@ private:
 	bool arithmetic_;
 	bool c_source_;
 	bool c_extensions_ = false;
+	bool c_before_c99_ = false;
 };
 
 // Type classification shared by the conversion rules and expression typing.

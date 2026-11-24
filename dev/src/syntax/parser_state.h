@@ -443,6 +443,7 @@ protected:
 	const Identifier* coroutine_keywords_[3];
 	const Identifier* unnamed_namespace_;
 	const Identifier* c_extension_ = nullptr;
+	const Identifier* func_ = nullptr;
 	// GCC's 128-bit and extended floating type names, which may follow a
 	// complex specifier; the first, `__int128`, combines with `signed` and
 	// `unsigned`.

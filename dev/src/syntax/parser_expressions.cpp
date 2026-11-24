@@ -485,6 +485,8 @@ Expr* Parser::compound_literal(const TypeId* type, uint32_t start)
 		require_c_extension(tok(1), CEdition::C99, "compound literals require C99");
 	next();
 	FunctionalCastExpr* literal = make<FunctionalCastExpr>(ExprKind::FunctionalCast, start);
+	if (c_before_c99_)
+		literal->quiet_c_extensions = quiet_c_extensions(tok());
 	literal->type = type->specifiers;
 	if (c_source_)
 		literal->compound_type = type;
@@ -1084,6 +1086,8 @@ Expr* Parser::parse_postfix_suffixes(Expr* expr)
 			}
 			SubscriptExpr* subscript = make<SubscriptExpr>(ExprKind::Subscript, expr->location);
 			subscript->base = expr;
+			if (c_before_c99_)
+				subscript->quiet_c_extensions = quiet_c_extensions(token);
 			next();
 			const bool saved_angle = angle_;
 			angle_ = false;

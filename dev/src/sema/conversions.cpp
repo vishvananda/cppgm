@@ -491,6 +491,8 @@ bool ConversionRules::c_overload(const Operand& from, const Type* target, Conver
 {
 	const bool valid = implicit(from, target, false, out);
 	const Type* source = from.type->unqualified;
+	if (source->kind == TypeKind::Array && !array_decays(from.category))
+		return valid;
 	target = target->unqualified;
 	if (target->kind == TypeKind::Pointer)
 	{
@@ -555,6 +557,11 @@ bool ConversionRules::standard(const Operand& from, const Type* target, bool dir
 	// The lvalue transformation (4.1, 4.2, 4.3).
 	if (source->kind == TypeKind::Array)
 	{
+		if (!array_decays(from.category))
+		{
+			out.result = goal;
+			return source->unqualified == goal;
+		}
 		out.first = LvalueTransform::ArrayToPointer;
 		source = types_.pointer(source->element);
 	}

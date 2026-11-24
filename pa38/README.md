@@ -68,6 +68,27 @@ typedef with the same non-variably-modified type and an anonymous record
 member require C11 in pedantic mode. Keep honoring system-header
 diagnostic suppression and explicit GNU `__extension__` markers.
 
+In C90 and C95, only an array lvalue converts to a pointer. An array
+member of a returned struct retains its array type in a comma expression.
+With GNU extensions, allow a subscript of the returned array. Otherwise,
+diagnose the subscript in pedantic mode. Beginning in C99, such arrays
+take the usual array-to-pointer conversion. The element designated by
+subscripting a C array is an lvalue. Keep the temporary's lifetime rules
+when using pointers into a returned object.
+
+Use a bitwise signed left shift in C90 and C95. Keep the low bits within
+the promoted left operand's width, and reject invalid shift counts in
+required constant expressions. In pedantic C90 and C95, diagnose
+`__func__` and require constant elements for brace-initialized
+automatic aggregates. A legacy constant initializer cannot contain a
+call, assignment, increment, decrement, or comma even on a
+short-circuited branch. A constant `sizeof` operand remains unevaluated.
+Distinguish a null pointer constant from a pointer obtained by casting
+a value that only folds to zero. A used static function requires a
+definition in the same translation unit, including when its use is in
+unreachable code. A reference only under constant `sizeof` does not
+require a definition.
+
 `-ffreestanding` and `-fhosted` select the C execution environment. Bare
 Wasm defaults to freestanding and requires WASI for hosted C. Native
 targets and WASI default to hosted. The last environment flag wins.

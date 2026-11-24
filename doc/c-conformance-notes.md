@@ -131,6 +131,42 @@ analysis. C90 and C95 put these names in the enclosing block.
 [PA38 C99 scope fixture](../pa38/tests/general/500-c99-control-local-type-names.t) ·
 [PA38 C90 scope fixture](../pa38/tests/general/500-c90-control-scopes.t)
 
+## Array conversion in C90 and C95
+
+The conversion requires an array lvalue in the legacy editions. The
+array member of a structure returned by value therefore keeps its
+array type as the right operand of comma. It cannot initialize a
+pointer or participate in pointer arithmetic in that mode. GNU C
+permits subscripting the array as an extension, including the
+commuted form. Apply C99's broader conversion to all array expressions.
+An element reached through C's array subscript is an lvalue, subject
+to the lifetime restrictions on the temporary object.
+
+[GCC non-lvalue array extension](https://gcc.gnu.org/onlinedocs/gcc/Subscripting.html) ·
+[C99 with corrigenda, N1256 §§6.3.2.1 and 6.5.2.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
+[PA38 C90 array fixture](../pa38/tests/general/500-c90-returned-array-contexts.t) ·
+[PA38 C99 array fixture](../pa38/tests/general/500-c99-returned-array-contexts.t)
+
+## Constant contexts in legacy C
+
+WG14 DR 081 leaves signed left shift implementation-defined before C99.
+cppgm shifts the promoted left operand's bit representation, keeping
+the bits that fit the type's width. Validate the shift count in a
+constant expression before applying the operation. C90 and C95
+constant initializers exclude assignment, increment, decrement,
+function call, and comma operators even in a branch that will not be
+evaluated. A constant size query can have an unevaluated operand.
+In a brace-enclosed initializer of an automatic aggregate, the same
+constant-expression restriction applies to the elements. A GNU
+`__extension__` on the declaration can suppress the edition
+diagnostic. A compatible record expression used as an unbraced
+automatic initializer is allowed.
+
+[WG14 DR 081](https://www.open-std.org/jtc1/sc22/wg14/www/docs/dr_081.html) ·
+[GCC C90 shift rationale](https://gcc.gnu.org/legacy-ml/gcc-patches/2004-07/msg02126.html) ·
+[PA38 shift fixture](../pa38/tests/general/500-c90-signed-left-shift.t) ·
+[PA38 initializer fixture](../pa38/tests/general/500-c90-initializer-constant-contexts.t)
+
 ## Macros adjacent to quoted literals
 
 C17 6.4 tokenizes an identifier after a string or character literal as a

@@ -26,7 +26,7 @@ bool BuiltinIntegerConstantCandidate(const ExprFacts& facts)
 
 // C11 6.6p6 and DR 489: check the forms of operands even in a branch the
 // evaluator skips. The value evaluator handles 6.6p3 on the evaluated path.
-bool Analyzer::c_integer_constant_operands(const syntax::Expr& root)
+bool Analyzer::c_integer_constant_operands(const syntax::Expr& root) const
 {
 	using syntax::Expr;
 	using syntax::ExprKind;
@@ -74,6 +74,8 @@ bool Analyzer::c_integer_constant_operands(const syntax::Expr& root)
 		case ExprKind::Binary:
 		{
 			const auto* binary = static_cast<const syntax::BinaryExpr*>(expr);
+			if (c_before_c99_ && binary->op == TokenKind::OP_COMMA)
+				return false;
 			pending.push_back(binary->left);
 			pending.push_back(binary->right);
 			break;

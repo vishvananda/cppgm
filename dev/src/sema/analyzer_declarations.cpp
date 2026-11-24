@@ -1736,13 +1736,13 @@ Binding* Analyzer::declare_variable(const Specifiers& specifiers, const Declarat
 	return binding;
 }
 
-void Analyzer::finish_c_inline_constraints()
+void Analyzer::finish_c_function_constraints()
 {
 	// A later file-scope declaration can give a definition external
 	// status. Keep the first offending location until that status is final.
-	for (const CInlineConstraint& constraint : c_inline_constraints_)
+	for (const CFunctionConstraint& constraint : c_function_constraints_)
 	{
-		if (constraint.function->gnu_inline)
+		if (constraint.function->gnu_inline && !constraint.function->internal_linkage)
 			continue;
 		if (constraint.definition_required)
 		{
@@ -2589,7 +2589,7 @@ void Analyzer::note_c_inline_declaration(
 		function->c_external_definition = true;
 	if (specifiers.is_inline && !function->is_inline && !function->defined && !definition &&
 		!function->internal_linkage)
-		c_inline_constraints_.push_back({ function, location, true,
+		c_function_constraints_.push_back({ function, location, true,
 			"an external C inline function must have a definition in the same translation unit" });
 }
 

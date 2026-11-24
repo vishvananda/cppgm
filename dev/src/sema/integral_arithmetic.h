@@ -51,16 +51,18 @@ bool IntegralOperation(TokenKind op, IntegralKind kind, uint64_t a, uint64_t b, 
 // A shift (5.8) of `a` (of the promoted left operand's type `kind`) by
 // `count` (of the promoted right operand's type): false when the count is
 // negative or not less than the width, or a signed left shift overflows
-// (5.8p2 as amended by CWG 1457).
-bool IntegralShift(TokenKind op, IntegralKind kind, uint64_t a, IntegralKind count_kind, uint64_t count, uint64_t& out);
+// (5.8p2 as amended by CWG 1457). C90 and C95 use a bitwise signed
+// left shift with truncation to the width of the type (WG14 DR 081).
+bool IntegralShift(
+	TokenKind op, IntegralKind kind, uint64_t a, IntegralKind count_kind, uint64_t count, uint64_t& out, bool legacy_c);
 // A relational or equality operator (5.9, 5.10) on values of one type.
 bool IntegralCompare(TokenKind op, bool is_signed, uint64_t a, uint64_t b);
 
 // The three, of a 128-bit type's values (the constant interpreter's; the
 // integral evaluator keeps 64-bit constants).
 bool WideOperation(TokenKind op, bool is_signed, unsigned __int128 a, unsigned __int128 b, unsigned __int128& out);
-bool WideShift(
-	TokenKind op, bool is_signed, unsigned __int128 a, IntegralKind count_kind, uint64_t count, unsigned __int128& out);
+bool WideShift(TokenKind op, bool is_signed, unsigned __int128 a, IntegralKind count_kind, uint64_t count,
+	unsigned __int128& out, bool legacy_c);
 bool WideCompare(TokenKind op, bool is_signed, unsigned __int128 a, unsigned __int128 b);
 
 // Integral promotion (4.5) of an integral or unscoped enumeration type.

@@ -622,6 +622,8 @@ bool Parser::parse_name_component(NameMode mode, ListFrame<NameComponent>& compo
 	{
 		component.kind = NameComponentKind::Identifier;
 		component.identifier = tok().identifier;
+		if (c_before_c99_ && component.identifier == func_ && mode == NameMode::Expression)
+			require_c_extension(tok(), CEdition::C99, "__func__ requires C99");
 		next();
 		const uint32_t mentions = template_parameter_mentions_;
 		const uint32_t conflicts = conflicts_.uses;

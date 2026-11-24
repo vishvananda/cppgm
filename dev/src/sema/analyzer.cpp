@@ -5,6 +5,7 @@
 #include <string>
 
 #include "lex/identifier_table.h"
+#include "preprocess/preprocessor.h"
 #include "support/stack_budget.h"
 
 namespace sema {
@@ -90,6 +91,17 @@ Analyzer::Analyzer(SemanticGraph& graph, IdentifierTable& identifiers, AnalysisM
 	conversions_.set_completer(&completer_);
 }
 
+void Analyzer::set_source_language(const PreprocessorOptions& options)
+{
+	c_source_ = options.language == SourceLanguage::C;
+	c_before_c99_ = c_source_ && options.c_edition < CEdition::C99;
+	c_pedantic_ = c_source_ && options.extension_warnings != ExtensionWarnings::Disabled;
+	c_freestanding_ = options.c_freestanding;
+	c_language_ = c_source_;
+	conversions_.set_c_source(c_source_, options.gnu_c(), c_before_c99_);
+	names_.set_c_source(c_source_);
+}
+
 void Analyzer::analyze(const syntax::TranslationUnit& unit)
 {
 	char marker;
@@ -151,7 +163,7 @@ void Analyzer::analyze(const syntax::TranslationUnit& unit)
 	if (c_source_)
 	{
 		finish_c_tentative_definitions();
-		finish_c_inline_constraints();
+		finish_c_function_constraints();
 	}
 	// The rules decided once every class of the unit is complete (PA6's
 	// types too: an unused member's noexcept-specification is valid).

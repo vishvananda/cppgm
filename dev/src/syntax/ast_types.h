@@ -329,6 +329,7 @@ struct Initializer
 	InitializerKind kind;
 	// The typed backing object of a by-value array decomposition.
 	mutable bool array_copy = false;
+	bool explicit_c_extension = false;
 	uint32_t location;
 	// Assign: the clause; Braced: the list.
 	Expr* expression;

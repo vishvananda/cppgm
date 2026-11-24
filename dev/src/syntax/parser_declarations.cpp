@@ -1353,6 +1353,7 @@ Initializer* Parser::parse_initializer(bool allow_parenthesized)
 {
 	Initializer* initializer = make<Initializer>();
 	*initializer = Initializer();
+	initializer->explicit_c_extension = in_c_extension_;
 	initializer->location = location();
 	const bool saved_angle = angle_;
 	angle_ = false;

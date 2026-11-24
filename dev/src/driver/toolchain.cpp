@@ -941,8 +941,7 @@ bool lower_source(const std::string& path, const Invocation& invocation, lower::
 		sema::SemanticGraph graph(invocation.preprocessor.plain_char_unsigned, invocation.target);
 		graph.names.reserve(unit.counters().bindings);
 		sema::Analyzer analyzer(graph, unit.identifiers(), sema::AnalysisMode::Semantics);
-		analyzer.set_source_language(invocation.preprocessor.language, invocation.preprocessor.c_edition,
-			invocation.preprocessor.gnu_c(), invocation.preprocessor.c_freestanding);
+		analyzer.set_source_language(invocation.preprocessor);
 		analyzer.set_atomics_enabled(invocation.preprocessor.atomics_enabled);
 		if (invocation.preprocessor.language == SourceLanguage::Cxx)
 			analyzer.set_number_dialect(invocation.preprocessor.literals);
