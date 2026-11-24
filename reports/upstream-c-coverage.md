@@ -374,6 +374,59 @@ identical output. The candidate used 10.67 million, 31.56 million
 and 115.10 million retired instructions, respectively. The
 paired increase stayed at or below 0.05%.
 
+## C23 Unicode identifiers
+
+The C23 lexer enforces the Unicode 15.1 XID repertoire and NFC for
+raw, escaped and pasted identifiers. The PA38 cases cover valid
+combining marks, raw and escaped name equivalence, line splicing,
+Unicode 15.1 CJK, and distinct diagnostics for invalid characters or
+non-NFC spellings. The C17 control retains its older repertoire.
+The normalization check leaves string and preprocessing-number
+spellings intact. [WG14 N3220 §6.4.2.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+
+The implementation matched the Unicode data for all 1,114,112
+code-point lookups and passed 95,370 NFC decisions from the Unicode
+15.1 normalization corpus, plus 100,000 randomized decisions
+against the canonical decomposition and composition rules.
+The generator verifies the three upstream input hashes.
+[Unicode 15.1 database](https://www.unicode.org/Public/zipped/15.1.0/UCD.zip) ·
+[Unicode Normalization Forms](https://www.unicode.org/reports/tr15/)
+
+GCC 15 and Clang 21 accept the positive PA38 fixture. Both reject
+invalid XID use. GCC diagnoses the tested non-NFC identifiers.
+Clang 21 accepts the tested non-NFC cases in pedantic C23 mode.
+The pinned manifests pass 17 GCC cases and ten Clang cases.
+The clause matrix passes 538 probes, including 87 C23 probes, on
+Linux x86-64, WASI, and bare Wasm. The PA38 positive tests run at
+`-O0` and `-O2` on both Linux native targets, both Mach-O targets,
+WASI, and bare Wasm. Linux AArch64 uses QEMU and Mach-O uses the
+local loaders.
+
+PA38 passes 499 source cases in both the native and WASI lanes.
+The student export verified 26,638 portable reference files and
+passed PA1 and the PA38 native, WASI, control, and ABI lanes.
+The older C upstream manifests retain their reviewed outcomes.
+The strict course report passes 11,674 cases. Debug-info, inception,
+self-host through PA5, the harness checks, source and architecture
+audits, and the placement audit also pass.
+
+The frozen C++ overload and GNU17 SQLite builds produce identical
+objects in A/A, ABBA, and BAAB trials. Paired retired instructions
+change by +0.0030% and +0.0003%. RSS changes by +0.144% and −0.128%.
+A/A task-clock varies by 56% and 41% on the shared host.
+
+The source benchmark uses identifiers of 64 through 32,768
+characters and compiles to identical outputs. Retired instruction
+counts scale with consumed code points. The longest ASCII case
+changes by +0.026%. CJK starters add 11.5% and ordered combining
+marks use 5.0% fewer instructions than the previous lexer.
+For marks that need full reordering after a
+precomposed starter, the longest input adds 29.4% and uses
+334.6 million retired instructions. Plain Unicode starters and
+directly checkable combining sequences bypass allocation. When
+decomposition is needed, scratch covers the current normalization
+segment and canonical ordering is linear.
+
 ## Additional editions
 
 The driver baseline at `39e13e127` rejects `c90`, `c89`,
