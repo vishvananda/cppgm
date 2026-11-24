@@ -31,9 +31,9 @@ same license texts and copyright notice.
 The hosted WASI C23 math supplement also incorporates CORE-MATH sources
 under the MIT license. The individual copyright notices and license text
 are retained in third_party/core-math and installed with the runtime archive.
-The WASI binary128 `log1pl` implementation adapts FreeBSD's msun under the
-BSD 2-Clause License. Its copyright and license notice are retained in
-dev/runtime/wasi-c23/licenses and installed with the runtime archive.
+The WASI binary128 logarithms and compensated exponentials adapt FreeBSD's
+msun under the BSD 2-Clause License. Its copyright and license notices
+are retained in dev/runtime/wasi-c23/licenses and installed with the archive.
 The WASI C23 narrowing operations incorporate Berkeley SoftFloat under the
 BSD 3-Clause License. Its notices are retained in third_party/softfloat and
 installed with the runtime archive.

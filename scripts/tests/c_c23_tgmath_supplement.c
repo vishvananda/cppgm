@@ -8,6 +8,8 @@ static_assert(HAS_TYPE(rsqrt(4.0L), long double));
 static_assert(HAS_TYPE(nextup(0.0f), float));
 static_assert(HAS_TYPE(roundeven(1.5L), long double));
 static_assert(HAS_TYPE(logp1(1), double));
+static_assert(HAS_TYPE(exp10m1(2.0f), float));
+static_assert(HAS_TYPE(exp2m1(3.0L), long double));
 static_assert(HAS_TYPE(log10p1(99.0f), float));
 static_assert(HAS_TYPE(log2p1(7.0L), long double));
 static_assert(HAS_TYPE(llogb(4.0f), long));

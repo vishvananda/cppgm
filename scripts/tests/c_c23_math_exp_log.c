@@ -29,16 +29,30 @@ int main(void)
 	volatile long double sevenl = 7.0L;
 	volatile long double ninety_ninel = 99.0L;
 	volatile long double zerol = -0.0L;
+	volatile long double twol = 2.0L;
 	if (!(fabsl(log2p1l(sevenl) - 3.0L) <= 4 * LDBL_EPSILON) ||
 		!(fabsl(log10p1l(ninety_ninel) - 2.0L) <= 4 * LDBL_EPSILON) || !signbit(log2p1l(zerol)) ||
 		!signbit(log10p1l(zerol)))
 		return 5;
+	if (exp2m1l(twol + 1.0L) != 7.0L || !(fabsl(exp10m1l(twol) - 99.0L) <= 128 * LDBL_EPSILON) ||
+		!signbit(exp2m1l(zerol)) || !signbit(exp10m1l(zerol)) || exp10m1l(-INFINITY) != -1.0L ||
+		exp2m1l(INFINITY) != INFINITY)
+		return 6;
 #if LDBL_MAX_EXP >= 4096
 	volatile long double tiny = 0x1p-2000L;
 	const long double base_two = log2p1l(tiny);
 	const long double base_ten = log10p1l(tiny);
 	if (!(base_two > tiny && base_two < 2 * tiny && base_ten > tiny / 4 && base_ten < tiny / 2))
-		return 6;
+		return 7;
+	const long double exponential_two = exp2m1l(tiny);
+	const long double exponential_ten = exp10m1l(tiny);
+	if (!(exponential_two > tiny / 2 && exponential_two < tiny && exponential_ten > 2 * tiny &&
+			exponential_ten < 3 * tiny) ||
+		expm1l(tiny) != tiny)
+		return 8;
+	volatile long double large = 1024.0L;
+	if (exp2m1l(large) != 0x1p1024L || exp2m1l(16.0L * large) != INFINITY)
+		return 9;
 #endif
 	return 0;
 }

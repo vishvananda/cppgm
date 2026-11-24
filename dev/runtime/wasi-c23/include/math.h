@@ -39,8 +39,10 @@ float tanpif(float);
 
 double exp10m1(double);
 float exp10m1f(float);
+long double exp10m1l(long double);
 double exp2m1(double);
 float exp2m1f(float);
+long double exp2m1l(long double);
 double log10p1(double);
 float log10p1f(float);
 long double log10p1l(long double);

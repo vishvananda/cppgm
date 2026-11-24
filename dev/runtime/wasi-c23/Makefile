@@ -12,7 +12,7 @@ SHARED_HEADERS := __cppgm_search_result.h float.h limits.h stdarg.h stdbit.h std
 LOCAL_HEADERS := assert.h complex.h fenv.h inttypes.h math.h setjmp.h stdatomic.h stdint.h stdio.h tgmath.h time.h uchar.h wchar.h
 NOTICES := $(patsubst $(SHARED)/licenses/%,$(BUILD_DIR)/licenses/%,$(wildcard $(SHARED)/licenses/*.txt)) \
 	$(BUILD_DIR)/licenses/core-math.txt $(BUILD_DIR)/licenses/freebsd-log1pl.txt \
-	$(BUILD_DIR)/licenses/softfloat.txt
+	$(BUILD_DIR)/licenses/freebsd-expm1l.txt $(BUILD_DIR)/licenses/softfloat.txt
 HEADERS := $(addprefix $(BUILD_DIR)/include/,$(SHARED_HEADERS) $(LOCAL_HEADERS))
 STDIO_SOURCES := printf scanf wprintf wscanf scan_integer vfprintf vfwprintf vfscanf vfwscanf \
 	vsnprintf vswprintf vsscanf vswscanf
@@ -25,7 +25,7 @@ CORE_MATH_OBJECTS := $(CORE_MATH_F32_OBJECTS) $(CORE_MATH_F64_OBJECTS) $(CORE_MA
 SOFTFLOAT_OBJECTS := $(patsubst $(SOFTFLOAT)/%.c,$(BUILD_DIR)/softfloat/%.o,$(wildcard $(SOFTFLOAT)/*.c))
 OBJECTS := $(addprefix $(BUILD_DIR)/,stdbit.o memalignment.o memset_explicit.o timespec_getres.o utf8.o \
 	binary_conversion.o sized_free.o atomic_functions.o call_once.o strfrom.o fenv.o temporary_files.o \
-	math_representation.o math_classification.o math_extrema.o math_rounding.o math_logp1.o math_narrow.o) \
+	math_representation.o math_classification.o math_extrema.o math_rounding.o math_logp1.o math_narrow.o math_expm1.o) \
 	$(STDIO_OBJECTS) $(CORE_MATH_OBJECTS) $(SOFTFLOAT_OBJECTS)
 RUNTIME_CFLAGS := --target=wasm32-wasip1 --sysroot="$(WASI_SYSROOT)" -resource-dir="$(RESOURCE_DIR)" \
 	-x c -std=c23 -pedantic-errors -isystem "$(BUILD_DIR)/include" -O2
@@ -49,7 +49,7 @@ $(BUILD_DIR)/licenses/core-math.txt: $(CORE_MATH)/NOTICE
 	mkdir -p "$(@D)"
 	cp "$<" "$@"
 
-$(BUILD_DIR)/licenses/freebsd-log1pl.txt: licenses/freebsd-log1pl.txt
+$(addprefix $(BUILD_DIR)/licenses/,freebsd-log1pl.txt freebsd-expm1l.txt): $(BUILD_DIR)/licenses/%.txt: licenses/%.txt
 	mkdir -p "$(@D)"
 	cp "$<" "$@"
 
@@ -59,7 +59,7 @@ $(BUILD_DIR)/licenses/softfloat.txt: $(SOFTFLOAT)/COPYING.txt
 
 # Build the callable operations and temporary-name counter with Wasm atomics.
 $(addprefix $(BUILD_DIR)/,atomic_functions.o temporary_files.o): RUNTIME_CFLAGS += -matomics
-$(BUILD_DIR)/math_logp1.o: RUNTIME_CFLAGS += -ffp-contract=off
+$(addprefix $(BUILD_DIR)/,math_logp1.o math_expm1.o): RUNTIME_CFLAGS += -ffp-contract=off
 $(SOFTFLOAT_OBJECTS) $(BUILD_DIR)/math_narrow.o: RUNTIME_CFLAGS := $(filter-out -std=c23 -pedantic-errors,$(RUNTIME_CFLAGS)) -std=gnu23 -I "$(SOFTFLOAT)"
 
 vpath %.c $(SHARED)

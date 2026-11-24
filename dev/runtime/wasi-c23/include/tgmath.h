@@ -30,6 +30,8 @@
 #define __cppgm_tg_narrow3(d, l, x, y, z) _Generic((x) + (y) + (z), long double: (l), default: (d))((x), (y), (z))
 #endif
 
+#define exp10m1(x) __cppgm_tg_unary(exp10m1f, (exp10m1), exp10m1l, (x))
+#define exp2m1(x) __cppgm_tg_unary(exp2m1f, (exp2m1), exp2m1l, (x))
 #define llogb(x) __cppgm_tg_unary(llogbf, (llogb), llogbl, (x))
 #define log10p1(x) __cppgm_tg_unary(log10p1f, (log10p1), log10p1l, (x))
 #define log2p1(x) __cppgm_tg_unary(log2p1f, (log2p1), log2p1l, (x))
