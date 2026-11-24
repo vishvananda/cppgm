@@ -3635,3 +3635,26 @@ retired instructions because cycle counts varied across repetitions.
 | --- | ---: | ---: | ---: |
 | C++ `semantic_overload.cpp` at `-O3` | 0.0037% | +0.0026% | +0.0035% |
 | SQLite 3.50.4 in GNU17 at `-O2` | 0.0020% | −0.0009% | −0.0044% |
+
+## C23 bit utility lowering
+
+The bit utility calls keep the operation and the operand precision in the
+typed call facts. Constant interpretation uses at most two 64-bit counts
+per call. Runtime lowering emits a bounded sequence of existing LowIR
+operations and consumes the argument once. Neither path allocates a
+record for each bit or scans the source for a builtin spelling.
+
+With immutable binaries from the preceding revision and this change,
+an A/A block followed by ABBA and BAAB on CPU 71 produced byte-identical
+objects for frozen C++ semantic overloads and SQLite 3.50.4. Retired
+instruction changes were +0.00730% and +0.00678% for C++ and −0.00573%
+and −0.00530% for SQLite. The A/A spreads were 0.00193% and 0.01312%.
+Task-clock calibration had over 27% spread during the parallel validation
+work, which leaves the timing deltas unresolved.
+
+A separate `-O0` x86-64 scaling probe generated 512, 2,048, and 8,192
+functions with one `__builtin_stdc_bit_width` of a volatile
+`unsigned _BitInt(65)` load in each function. Its control used a
+cast of the shifted high word with the same type and source shape.
+Additional retired instructions per function were 29,275, 29,263,
+and 29,382. The difference includes the added LowIR and object emission.

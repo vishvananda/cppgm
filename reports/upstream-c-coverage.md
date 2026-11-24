@@ -2793,3 +2793,45 @@ transfers involving individually qualified subobjects remain an audit item.
   [Pinned generator](https://github.com/csmith-project/csmith/tree/30dccd73b78652c4719f36572994778a5b233a4e) ·
   [PA38 floating limits](../pa38/tests/general/500-hosted-c-float-limits.t) ·
   [PA38 struct returns](../pa38/tests/general/500-c-record-return.t)
+
+## C23 bit utilities and SDK headers
+
+The PA38 bit fixture exercises compile-time and runtime operations on
+declared widths of 7, 65 and 127 bits and on narrower bit-fields. It
+checks that GNU C headers can discover the builtins, the result types
+match the operation, and a side-effecting argument is evaluated once.
+GCC's pinned C11 run exercises the full family at `-O0` and `-O2`.
+Its negative cases cover unsupported operand types and plain `char`
+under `-funsigned-char`. The pinned GCC and Clang C23 cases exercise
+the installed checked arithmetic header.
+
+The clause matrix records the availability of the selected C23 SDK
+headers and the execution of the facilities they expose. All 1,290
+probes in the local Linux x86-64, WASI and bare Wasm run pass. Linux
+x86-64 covers the full bit operation set on the five standard unsigned
+widths, the library's typed function symbol, representative extended
+and bit-precise widths, mixed-sign checked arithmetic, and the C23
+variadic operations and header version. WASI and bare Wasm cover the
+checked arithmetic and variadic programs. The selected WASI SDK
+omits `<stdbit.h>` and the `<stdarg.h>` version macro. Those requirements
+remain uncovered where applicable.
+
+The same installed-header programs pass through the Linux AArch64
+GCC 14 and glibc sysroot under QEMU at both optimization levels.
+Direct compilation and replay of emitted LowIR are byte-identical
+and execute correctly for the PA38 bit regression on both Linux
+architectures, both Mach-O architectures, WASI and bare Wasm. The
+Mach-O runs use SDK-free local execution, with the native Apple SDK
+checks assigned to the existing CI workflows.
+
+The strict report passes 11,674 tests. The debug-info checks, PA36 smoke,
+PA35 through PA5, exact inception, and 76 harness test files pass. PA38
+passes 681 native and 681 Wasm tests, 63 controls and four mixed-toolchain
+ABI tests. The student export verifies 26,934 portable reference outputs.
+Its PA1 and PA38 suites pass with the bundled tools. The placement audit
+covers 11,683 fixtures with zero placement or local hygiene findings. All
+architecture audits pass with the 13 existing file-audit warnings.
+
+[WG14 and GCC references](../doc/c-conformance-notes.md#c23-bit-utilities-and-checked-integer-arithmetic) ·
+[PA38 regression](../pa38/tests/general/500-c23-bit-precise-builtins.t) ·
+[Compile measurements](../docs/performance/c-frontend-scaling.md#c23-bit-utility-lowering)
