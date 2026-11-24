@@ -594,13 +594,8 @@ reference binaries.
 The three positive fixtures pass at `-O0` and `-O2` on x86-64 Linux,
 AArch64 Linux under QEMU, both Mach-O targets through the local
 execution harness, bare Wasm and WASI. These runs use freestanding
-startup for the cross targets. The following C23 gaps remain open
-in this area.
-
-- Storage classes on compound literals and their use as constant operands.
-- Named record constants with very large sparse array members.
-  A record containing a ten-million-element array still reaches the
-  interpreter's storage budget when only a scalar member is needed.
+startup for the cross targets. The subsequent batches cover storage
+classes on compound literals and [large sparse arrays in record constants](#c23-sparse-arrays-in-record-constants).
 
 [C23 constexpr rules](../doc/c-conformance-notes.md#c23-constexpr-objects) ·
 [Frozen-input and constexpr scaling measurements](../docs/performance/c-frontend-scaling.md#c23-constexpr-objects)
@@ -731,14 +726,35 @@ generations match byte for byte. The student export verifies 26,821
 portable reference outputs and passes PA1 and PA38 with the packaged
 reference binaries.
 
-An explicitly initialized array element at index 9,999,999 still
-exhausts the constant interpreter's storage budget when a scalar
-member of the containing record is read. The otherwise identical
-literal with an implicit zero array tail succeeds. This extends the
-known sparse record gap from named objects to compound literals.
-
 [C23 storage rules](../doc/c-conformance-notes.md#c23-storage-class-specifiers-on-compound-literals) ·
 [Frozen-input and compound literal scaling](../docs/performance/c-frontend-scaling.md#c23-storage-class-specifiers-on-compound-literals)
+
+## C23 sparse arrays in record constants
+
+A constexpr array member whose designated writes would exceed dense
+evaluation storage can retain the checked initializer. Its containing
+record can supply a constant scalar member or be copied into another
+constexpr object. The emitter reads the same sparse writes and implicit
+zeros to build the stored object. PA38 checks a bit-field in an active
+union member, named and compound-literal constants, and runtime reads
+from the copied array and a static literal. GCC 15 accepts and runs the
+fixture in strict C23. cppgm passes it at `-O0` and `-O2` on Linux x86-64,
+Linux AArch64 under QEMU, both Mach-O targets in local image loaders,
+WASI and bare Wasm.
+
+The clause matrix passes all 940 local probes, including 471 C23
+probes. The pinned GCC C23 suite passes all 58 configurations. PA38
+passes 619 native, 619 Wasm, 63 control, and three native ABI cases.
+The strict course report passes all 11,674 tests. PA36 smoke and self-host
+through PA5 pass. The two self-hosted compiler generations are identical.
+The student export verifies 26,824 portable reference output files.
+
+An initializer that copies a sparse record and then overrides a
+descendant of its copied array still requires work. The override must
+preserve the previously supplied values of sibling subobjects.
+[C23 constexpr rules](../doc/c-conformance-notes.md#c23-constexpr-objects) ·
+[WG14 DR 413](https://open-std.org/JTC1/SC22/WG14/issues/c11c17/issue0413.html) ·
+[Frozen-input and sparse array measurements](../docs/performance/c-frontend-scaling.md#c23-sparse-arrays-in-record-constants)
 
 ## Additional editions
 
@@ -1359,6 +1375,8 @@ even when the build compiler runs on a different platform. Header-free
 macro dumps agreed with Clang 21 on all six targets in C99, C11, C17,
 and C++20, and with GCC 15 on Linux x86-64. Adding `-ffreestanding` in
 each C edition left the result unchanged.
+Header-free C23 macro dumps also agree with Clang 22 across the six
+targets and with GCC 15 on Linux x86-64.
 [C11 feature macros and threads, §§6.10.8.3 and 7.26.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [Clang Darwin predefines](https://github.com/llvm/llvm-project/blob/llvmorg-22.1.2/clang/lib/Basic/Targets/OSTargets.cpp)
 

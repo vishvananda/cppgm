@@ -3153,3 +3153,41 @@ has a positional string initializer. Baseline and candidate objects
 matched byte for byte at all four sizes. At 1,024 objects the instruction
 changes were +0.04417% in ABBA and +0.05505% in BAAB, with an A/A spread
 of 0.03588%.
+
+## C23 sparse arrays in record constants
+
+Compared immutable GCC 15 builds of `1af22bf37` and `046a0ed01` on CPU
+71. Every observation emitted the same object bytes for each frozen
+input. A/A task-clock spreads were 25.7% and 2.4%, and the paired
+task-clock changes disagreed between the two blocks. The instruction
+measurements are stable enough to compare compile work.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.00327% | +0.00078% | −0.00033% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.00204% | −0.00154% | −0.00129% |
+
+The strict C23 syntax probe initializes a record's byte array with
+descending, spaced designators, copies the record into another named
+constant, and asserts its scalar member. The baseline exceeded its
+storage budget on a ten-million-element reproducer. The candidate and
+GCC 15 accepted every size below. Each row is the median of three runs
+on CPU 73. At 256 writes, increasing the declared extent by 100× raises
+retired instructions by 0.55%. Each additional source write costs about
+10,600 instructions in the largest interval measured.
+
+| Array extent | Written elements | Retired instructions | Peak RSS (KiB) |
+| ---: | ---: | ---: | ---: |
+| 1,000,000 | 256 | 6,712,060 | 17,292 |
+| 10,000,000 | 256 | 6,730,248 | 17,340 |
+| 100,000,000 | 256 | 6,749,192 | 17,312 |
+| 100,000,000 | 512 | 9,474,003 | 17,348 |
+| 100,000,000 | 1,024 | 14,911,459 | 17,352 |
+| 100,000,000 | 2,048 | 25,788,225 | 17,392 |
+| 100,000,000 | 4,096 | 47,552,838 | 17,344 |
+| 100,000,000 | 8,192 | 91,084,501 | 17,404 |
+
+Arrays within the dense-storage budget still take the dense path. In
+single-run syntax probes with one written element, raising the extent
+from 1,024 to 262,144 increases retired instructions from 4.6 million to
+150 million. This identifies the work still needed below the budget.
