@@ -3381,3 +3381,46 @@ checks pass, with 13 existing file audit warnings.
 
 [C23 UTF-8 requirements and SDK state](../doc/c-conformance-notes.md#c-library-calls-and-format-macros) ·
 [Runtime measurements](../docs/performance/c-frontend-scaling.md#hosted-wasi-c23-utf-8)
+
+### Binary integer conversion and allocation
+
+The WASI supplement now redirects all six narrow and six wide
+integer conversions in C23. The same module can link a C17 caller
+using the SDK symbol and a C23 caller using the supplemental symbol.
+The shared scanner handles binary digits and range checks in one
+pass. The SDK continues to handle decimal, octal, hexadecimal, and
+other bases. The probes cover incomplete prefixes, end pointers,
+signed minima and maxima, unsigned negation, overflow with either
+sign, and function pointer calls.
+
+cppgm and the SDK Clang match GCC 15 and glibc on a deterministic
+80,000-input corpus. It checks narrow and wide results for both
+greatest-width conversions, end offsets, and `ERANGE`. The checksum
+is `4a3754e67b398228`. The C17 and C23 callers also pass together
+in one Wasm module.
+
+The supplement adds `free_sized` and `free_aligned_sized` using
+the SDK allocator. Its C23 `bsearch` macro preserves the qualifiers
+of the searched elements. Runtime tests cover resized and aligned
+objects, null frees, base and count operand effects, and concrete
+`bsearch` calls through function pointers. These two requirements
+now have their own inventory entries. The three programs pass
+32 mixed executions with cppgm and Clang at both optimization
+levels. The source-only package builds and runs all three. A failed
+archive build preserves the previous archive, and the retry produces
+the same bytes.
+
+The combined replay at `7074217b5` passes all 5,654 executed
+configurations. This includes 1,416 each on Linux x86-64 and Linux
+AArch64 under QEMU, 1,315 on stock WASI, 489 with the hosted
+supplement, and 1,018 on bare Wasm. The hosted supplement passes
+178 tracked C23 checks. Its 10 uncovered entries are binary stdio
+and the C23 version checks for `<complex.h>`, `<fenv.h>`,
+`<inttypes.h>`, `<math.h>`, `<stdatomic.h>`, `<stdio.h>`,
+`<stdlib.h>`, `<tgmath.h>`, and `<wchar.h>`. Advancing each version
+macro requires qualifying the corresponding C23 interfaces. Stock
+WASI has 40 uncovered C23 entries. All 76 harness test files and the
+format audit pass. The file audit reports its 13 existing warnings.
+
+[C23 integer conversion and allocation requirements](../doc/c-conformance-notes.md#c-library-calls-and-format-macros) ·
+[Runtime measurements](../docs/performance/c-frontend-scaling.md#hosted-wasi-c23-integer-conversions)

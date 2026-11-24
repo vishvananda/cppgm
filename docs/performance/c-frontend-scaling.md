@@ -3915,3 +3915,26 @@ ASCII characters. Every observation returns the same checksum,
 254,000,000. A/A spread is 1,308 retired user instructions. ABBA and
 BAAB show reductions of 47.766% and 47.766%, respectively, from
 about 971.4 million instructions to 507.4 million.
+
+## Hosted WASI C23 integer conversions
+
+The ordinary conversion path tests the base and first character
+before calling the WASI SDK. A shared prefix helper runs only on
+possible binary subjects. Each typed conversion scans the digits
+once and keeps the signed or unsigned range limit on that call.
+
+CPU 71 ran A/A, ABBA, and BAAB on two million conversions of a
+decimal subject and two million conversions of an equivalent
+binary subject. Wasmtime ran precompiled modules built by cppgm
+at `-O2`. The controls call the SDK C17 functions and supply the
+binary digits with base two. The C23 binary program includes the
+`0b` prefix. Each pair produces identical output.
+
+The binary case uses 40.822% fewer retired user instructions in
+both paired blocks, from about 1,631.5 million to 965.5 million.
+The decimal case adds 11.000% in both blocks, from about 745.5
+million to 827.5 million. A/A spreads are 1,665 and 1,651
+instructions. The initial dispatch added 12.342% on the decimal
+case. After testing whether to keep the prefix and value loops in
+the wrappers, the final layout keeps the prefix helper out of line
+and inlines the value loop.

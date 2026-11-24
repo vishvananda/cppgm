@@ -1581,6 +1581,23 @@ UTF-8 output from partial SDK input. Both use the first word of
 [Pinned WASI input decoder](https://github.com/WebAssembly/wasi-libc/blob/2e6fb9d8ee0c/libc-top-half/musl/src/multibyte/mbrtowc.c) ·
 [Pinned WASI mbsinit](https://github.com/WebAssembly/wasi-libc/blob/2e6fb9d8ee0c/libc-top-half/musl/src/multibyte/mbsinit.c)
 
+C23 narrow and wide integer conversions accept `0b` and `0B` with
+base zero or two. The prefix can follow leading space and a sign.
+A binary subject requires a digit after the prefix. Digit separators
+end the subject. Range errors consume all subject digits and set
+`errno` to `ERANGE`, even when a negative unsigned input overflows.
+The WASI C23 declarations redirect calls and function addresses to
+edition-specific symbols. Those entry points delegate other forms to
+the original SDK functions.
+[C23 N3220 §§7.8.2, 7.24.1.7, 7.31.4.1.4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+
+C23 permits the sized deallocation functions to call `free`.
+Their callers still provide the requested allocation size and, for
+aligned allocations, the requested alignment. The C23 `bsearch`
+macro preserves the base elements' const qualification. Its concrete
+function remains available with an unqualified result type.
+[C23 N3220 §§7.24.3.4–5, 7.24.5.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+
 `assert` is a macro with its own reinclusion rules. Reincluding its
 header uses the current definition of `NDEBUG`.
 C23 uses a variadic macro, so a scalar compound-literal expression can
