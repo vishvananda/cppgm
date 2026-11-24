@@ -3368,3 +3368,49 @@ CPU 76 shows the remaining repeated history traversal during lowering.
 Native `-O0 -c` runs on the two smallest emission inputs also produced
 byte-identical objects. The 16-pair case emits 33 local read-only symbols
 in 33,002,128 bytes. The 32-pair case emits 65 in 65,003,232 bytes.
+
+## GNU C23 sparse union active-member checks
+
+Compared immutable GCC 15 builds of `62b358d53` and `53b12d726` on CPU
+71. All frozen-input objects match byte for byte. SQLite's task-clock
+changes were −13.23% and +13.55%, so the comparison uses retired
+instructions.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.00223% | −0.00214% | −0.00332% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.00386% | +0.00131% | +0.00020% |
+
+A separate SQLite run gave task-clock changes of +1.40% and +0.09%,
+with an A/A spread of 33.55%. The corresponding instruction changes
+were −0.00068% and −0.00151%. All object files matched in both runs.
+
+The GNU23 syntax-only extent probe establishes the active member over
+one long range and changes one field inside that member in a copy. The
+baseline reaches its evaluator storage limit. The candidate checks a
+representative of each interval with the same active-member state.
+The tables use medians of three observations on CPU 73.
+
+| Declared extent | Retired instructions | Peak RSS (KiB) |
+| ---: | ---: | ---: |
+| 500,001 | 4,168,754 | 17,356 |
+| 50,000,001 | 4,168,571 | 17,392 |
+| 500,000,001 | 4,168,856 | 17,356 |
+
+The first copy series uses the same original union selection and one
+additional member-range update per declaration. The second series
+starts with 1,024 individually written rows inside the range. Each
+successive copy requires a subset of the previously checked interval.
+The comparison with the first sparse implementation isolates reuse of
+the preceding proof. A variant-changing copy or a copy that needs a
+wider interval recomputes the relevant boundaries.
+
+| Copy steps | Few source ranges | Many source ranges before proof reuse | Many source ranges with proof reuse |
+| ---: | ---: | ---: | ---: |
+| 1 | | 53,793,603 | 53,813,953 |
+| 16 | | 435,820,649 | 54,776,226 |
+| 64 | 8,332,968 | 1,641,543,109 | 57,992,419 |
+| 128 | 12,603,393 | | |
+| 256 | 21,182,240 | 6,173,120,392 | 70,854,069 |
+| 512 | 38,523,474 | | |
+| 1,024 | 73,057,070 | | |

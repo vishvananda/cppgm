@@ -802,10 +802,9 @@ zero replacement, and point updates after a projection. The fixtures
 pass at `-O0` and `-O2` on Linux x86-64, Linux AArch64 under QEMU, both
 Mach-O targets with local loaders, WASI, and bare Wasm. A separate
 pointwise oracle checks 32 generated sequences at both optimization
-levels on Linux x86-64. A copied union projection that must validate
-its inherited active member still uses the dense evaluator. A probe
-with 128 union elements passes and the 500,001-element case reaches
-the storage budget.
+levels on Linux x86-64. The original evaluator reached its storage
+budget on a 500,001-element copied union case. The follow-up performs
+[sparse active-member validation](#gnu-c23-sparse-union-active-member-checks).
 
 Increasing the represented extent from 500,001 to 500,000,001 records
 adds 0.04% retired instructions to the syntax-only field probe. Increasing
@@ -849,8 +848,7 @@ million and peak RSS falls from 163 MiB to 17 MiB. The LowIR emission probe
 still emits every intermediate global, and the writer revisits the
 shared history for every emitted copy. The smallest native object probe
 also emits all 33 snapshots, including those used only during constant
-evaluation. Partial writes that require eager union active-member checks
-still use the prior evaluator path.
+evaluation.
 
 All 11,674 strict course tests, 1,117 local C matrix probes, and 58 pinned
 GCC C23 configurations pass. PA38 passes 634 native, 634 Wasm, 63 control
@@ -863,6 +861,44 @@ with the packaged reference binaries.
 [PA38 member point updates](../pa38/tests/general/300-c23-constexpr-projected-member-points.t) ·
 [PA38 cell point updates](../pa38/tests/general/300-c23-constexpr-projected-cell-points.t) ·
 [Compile measurements](../docs/performance/c-frontend-scaling.md#gnu-c23-point-updates-after-range-writes)
+
+## GNU C23 sparse union active-member checks
+
+The evaluator checks inherited union selections at boundaries where the
+active member or the set of required selections can change. Scalar-only
+layers reuse the source's active-member state. A copy can also reuse a
+preceding proof when its required ranges are covered by that proof and
+the active members remain the same.
+
+The PA38 acceptance case copies an array of 200,001 records with nested
+unions, replaces a whole union in one row, and applies two overlapping
+member ranges. It checks both the copied values and the original
+snapshot. The rejection case widens an already checked range to include
+one row whose inherited member differs. The positive fixture passes at
+`-O0` and `-O2` on both Linux targets, both Mach-O targets with local
+loaders, WASI, and bare Wasm. All six targets give the active-member
+diagnostic for the rejection. An additional 64 generated sequences
+match the small dense evaluator at both optimization levels on Linux
+x86-64.
+
+The syntax-only extent probe uses 4.17 million retired instructions as
+the represented array grows from 500,001 to 500,000,001 elements. On a
+source with 1,024 individually written rows, reusing the preceding
+proof cuts the 256-copy probe from 6.17 billion to 70.85 million retired
+instructions. The frozen C++ and SQLite objects match byte for byte.
+
+All 11,674 strict course tests, 1,117 local C probes, 58 pinned GCC C23
+configurations, and the debug-info, PA36 smoke, and self-host checks
+pass. The two self-hosted compiler generations match byte for byte.
+PA38 passes 636 native, 636 Wasm, 63 control, and three ABI cases. The
+full placement audit finds zero placement issues in 11,637 fixtures.
+It uses cached directory listings and produces the same PA38 report as
+the direct audit. The student export verifies 26,857 portable reference
+outputs. PA1 and PA38 pass with the packaged reference binaries.
+
+[PA38 preserved union member](../pa38/tests/general/300-c23-constexpr-projected-union.t) ·
+[PA38 mixed active members](../pa38/tests/general/300-c23-constexpr-projected-union-inactive-bad.t) ·
+[Compile measurements](../docs/performance/c-frontend-scaling.md#gnu-c23-sparse-union-active-member-checks)
 
 ## Named register objects
 
