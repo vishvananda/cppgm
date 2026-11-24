@@ -1096,9 +1096,7 @@
       "id": "library.c95-wide-headers",
       "clause": "AMD1 (Multibyte Support Extension and alternative tokens)",
       "kind": "required",
-      "editions": [
-        95
-      ],
+      "editions": [95, 99, 11, 17, 23],
       "environment": "hosted",
       "requirement": "Compose iso646.h, wchar.h, and wctype.h for restartable conversions, string operations, and classification in the C locale.",
       "cases": [
@@ -1125,7 +1123,8 @@
       "kind": "required",
       "editions": [
         11,
-        17
+        17,
+        23
       ],
       "environment": "hosted",
       "requirement": "Allocate a 128-byte object at 64-byte alignment, permit access at both ends and free it using the selected libc.",
@@ -1139,7 +1138,8 @@
       "kind": "required",
       "editions": [
         11,
-        17
+        17,
+        23
       ],
       "environment": "hosted",
       "requirement": "Use TIME_UTC and struct timespec from <time.h>. Obtain the requested time base and a normalized nanosecond field.",
@@ -1153,7 +1153,8 @@
       "kind": "required",
       "editions": [
         11,
-        17
+        17,
+        23
       ],
       "environment": "hosted",
       "requirement": "Convert basic execution characters and the null character through the C-locale UTF-16 and UTF-32 interfaces. Verify byte counts and code units.",
@@ -1167,7 +1168,8 @@
       "kind": "required",
       "editions": [
         11,
-        17
+        17,
+        23
       ],
       "environment": "hosted",
       "requirement": "Call successfully registered at_quick_exit handlers in reverse registration order.",
@@ -1181,7 +1183,8 @@
       "kind": "required",
       "editions": [
         11,
-        17
+        17,
+        23
       ],
       "environment": "hosted",
       "requirement": "Create a file with mode wx, reject a second exclusive open and retain the original contents.",
@@ -1195,7 +1198,8 @@
       "kind": "conditional",
       "editions": [
         11,
-        17
+        17,
+        23
       ],
       "environment": "hosted",
       "requirement": "Expose the default hosted atomic interface. Check read-modify-write, compare-exchange, flag operations and agreement with the lock-free macro.",
@@ -1209,7 +1213,8 @@
       "kind": "conditional",
       "editions": [
         11,
-        17
+        17,
+        23
       ],
       "environment": "hosted",
       "profiles": [
@@ -1593,6 +1598,238 @@
       "environment": "all",
       "requirement": "Use the selected stdarg.h to initialize a variadic list without a named parameter and copy and consume the list.",
       "cases": ["library.c23-variadics"]
+    },
+    {
+      "id": "library.assert-reinclusion",
+      "clause": "7.2",
+      "kind": "required",
+      "editions": [90, 95, 99, 11, 17, 23],
+      "environment": "hosted",
+      "header": "assert",
+      "requirement": "Redefine assert on each inclusion according to NDEBUG and evaluate its operand exactly once when enabled.",
+      "cases": ["library.assert-reinclusion"]
+    },
+    {
+      "id": "library.ctype-locale",
+      "clause": "Character handling and localization, C99–C23 7.4 and 7.11",
+      "kind": "required",
+      "editions": [90, 95, 99, 11, 17, 23],
+      "environment": "hosted",
+      "header": "ctype",
+      "requirement": "Classify and map basic characters, evaluate a macro argument once, call the underlying function, and obtain the C locale's formatting fields.",
+      "cases": ["library.ctype-locale"]
+    },
+    {
+      "id": "library.stddef-layout",
+      "clause": "Common definitions <stddef.h>",
+      "kind": "required",
+      "editions": [90, 95, 99, 11, 17, 23],
+      "environment": "all",
+      "header": "stddef",
+      "requirement": "Provide size_t, ptrdiff_t, NULL and offsetof. Match the offset of a structure member to its actual address.",
+      "cases": ["library.stddef-layout"]
+    },
+    {
+      "id": "library.stdio-formats",
+      "clause": "Formatted input/output <stdio.h>",
+      "kind": "required",
+      "editions": [90, 95, 99, 11, 17, 23],
+      "environment": "hosted",
+      "header": "stdio",
+      "requirement": "Format promoted integer and floating arguments through a va_list and parse typed fields and a character count through the actual sscanf function.",
+      "cases": ["library.stdio-formats"]
+    },
+    {
+      "id": "library.stdio-long-double",
+      "clause": "Formatted input/output <stdio.h>",
+      "kind": "required",
+      "editions": [90, 95, 99, 11, 17, 23],
+      "environment": "hosted",
+      "header": "stdio",
+      "requirement": "Pass long double through a va_list to the formatter and read it back with the L length modifier.",
+      "cases": ["library.stdio-long-double"]
+    },
+    {
+      "id": "library.wasi-stdio-long-double",
+      "clause": "WASI SDK long double printscan archive",
+      "kind": "conditional",
+      "editions": [90, 95, 99, 11, 17, 23],
+      "environment": "hosted",
+      "header": "stdio",
+      "profiles": ["wasi-hosted"],
+      "outside_profile": "This opt-in configuration uses a WASI SDK archive.",
+      "requirement": "Format and read long double with the SDK's optional stdio implementation.",
+      "cases": ["library.wasi-stdio-long-double"]
+    },
+    {
+      "id": "library.stdio-streams",
+      "clause": "File access, character I/O, direct I/O and file positioning",
+      "kind": "required",
+      "editions": [90, 95, 99, 11, 17, 23],
+      "environment": "hosted",
+      "header": "stdio",
+      "requirement": "Write and read a binary update stream, use the putc and getc function forms, push back a character, clear end-of-file and restore a saved file position.",
+      "cases": ["library.stdio-streams"]
+    },
+    {
+      "id": "library.stdlib-allocation",
+      "clause": "Memory management <stdlib.h>",
+      "kind": "required",
+      "editions": [90, 95, 99, 11, 17, 23],
+      "environment": "hosted",
+      "header": "stdlib",
+      "requirement": "Allocate zeroed storage with calloc, copy the original contents through expansion by realloc and release the allocation.",
+      "cases": ["library.stdlib-allocation"]
+    },
+    {
+      "id": "library.stdlib-conversion",
+      "clause": "Numeric conversion and integer arithmetic <stdlib.h>",
+      "kind": "required",
+      "editions": [90, 95, 99, 11, 17, 23],
+      "environment": "hosted",
+      "header": "stdlib",
+      "requirement": "Parse valid and invalid subjects in several bases. Report overflow through the result, end pointer and errno. Return the quotient and remainder from div.",
+      "cases": ["library.stdlib-conversion"]
+    },
+    {
+      "id": "library.stdlib-search",
+      "clause": "Searching and sorting <stdlib.h>",
+      "kind": "required",
+      "editions": [90, 95, 99, 11, 17, 23],
+      "environment": "hosted",
+      "header": "stdlib",
+      "requirement": "Sort distinct integer keys through a C comparator and search for a present and an absent key.",
+      "cases": ["library.stdlib-search"]
+    },
+    {
+      "id": "library.string-functions",
+      "clause": "Copying, comparison and searching <string.h>",
+      "kind": "required",
+      "editions": [90, 95, 99, 11, 17, 23],
+      "environment": "hosted",
+      "header": "string",
+      "requirement": "Copy overlapping and disjoint byte ranges, compare bytes through a function pointer and find a prefix, a character and a substring.",
+      "cases": ["library.string-functions"]
+    },
+    {
+      "id": "library.freestanding-string-functions",
+      "clause": "C23 4p7, 7.26",
+      "kind": "required",
+      "editions": [23],
+      "environment": "freestanding",
+      "header": "string",
+      "requirement": "Provide the tested locale-independent string operations in a freestanding program.",
+      "cases": ["library.string-functions"]
+    },
+    {
+      "id": "library.va-copy-stdio",
+      "clause": "<stdarg.h> va_copy and <stdio.h> vsnprintf",
+      "kind": "required",
+      "editions": [99, 11, 17, 23],
+      "environment": "hosted",
+      "header": "stdarg",
+      "requirement": "Copy an already advanced argument list. Print the same remaining arguments independently to a full buffer and a truncated buffer.",
+      "cases": ["library.va-copy-stdio"]
+    },
+    {
+      "id": "library.inttypes-conversion",
+      "clause": "7.8",
+      "kind": "required",
+      "editions": [99, 11, 17, 23],
+      "environment": "hosted",
+      "header": "inttypes",
+      "requirement": "Use integer conversions and arithmetic from inttypes.h and round-trip maximum, least, fast and pointer-width integers with the public format macros.",
+      "cases": ["library.inttypes-conversion"]
+    },
+    {
+      "id": "library.c17-binary-prefix-control",
+      "clause": "C17 7.22.1.4",
+      "kind": "required",
+      "editions": [17],
+      "environment": "hosted",
+      "header": "stdlib",
+      "requirement": "In C17's initial C locale, consume the leading zero without interpreting a binary prefix.",
+      "cases": ["library.c17-binary-prefix-control"]
+    },
+    {
+      "id": "library.c23-assert",
+      "clause": "C23 7.2.1–2",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "assert",
+      "requirement": "Pass a compound literal containing a comma to the variadic assert macro and evaluate the scalar operand once.",
+      "cases": ["library.c23-assert"]
+    },
+    {
+      "id": "library.c23-binary-conversion",
+      "clause": "C23 7.8.2, 7.24.1",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "stdlib",
+      "requirement": "Recognize lowercase and uppercase binary prefixes with base zero and base two in the signed and unsigned conversion functions.",
+      "cases": ["library.c23-binary-conversion"]
+    },
+    {
+      "id": "library.c23-binary-stdio",
+      "clause": "C23 7.8.1, 7.23.6.1–2",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "stdio",
+      "requirement": "Format and scan binary integers with b, wN and wfN, use the inttypes binary format macros, and recognize a binary prefix in an i input conversion.",
+      "cases": ["library.c23-binary-stdio"]
+    },
+    {
+      "id": "library.c23-memalignment",
+      "clause": "C23 4p7, 7.24.9.1",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "header": "stdlib",
+      "requirement": "Return the alignment of a known object and its byte-offset address, and return zero for a null pointer.",
+      "cases": ["library.c23-memalignment"]
+    },
+    {
+      "id": "library.c23-memset-explicit",
+      "clause": "C23 4p7, 7.26.6.2",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "header": "string",
+      "requirement": "Write the converted byte value to the requested range, retain the surrounding bytes, and return the destination address.",
+      "cases": ["library.c23-memset-explicit"]
+    },
+    {
+      "id": "library.c23-string-allocation",
+      "clause": "C23 7.26.2",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "string",
+      "requirement": "Duplicate a complete string and both shorter and longer bounded prefixes, with independent mutable storage that can be freed.",
+      "cases": ["library.c23-string-allocation"]
+    },
+    {
+      "id": "library.c23-time-resolution",
+      "clause": "C23 7.29.2.7",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "time",
+      "requirement": "Get the TIME_UTC resolution with and without a destination and obtain the same normalized result from repeated calls.",
+      "cases": ["library.c23-time-resolution"]
+    },
+    {
+      "id": "library.c23-uchar-utf8",
+      "clause": "C23 7.30.1.1–2",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "uchar",
+      "requirement": "Convert a basic character and the null character between execution encoding and UTF-8 through independent restartable states.",
+      "cases": ["library.c23-uchar-utf8"]
     },
     {
       "id": "library.setjmp",

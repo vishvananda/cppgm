@@ -9,20 +9,21 @@ struct Integer
 {
 	FundamentalType type;
 	const char* suffix;
+	const char* format_length;
 	bool is_unsigned;
 };
 
 // Narrow unsigned constant macros have type int after integer promotion.
-constexpr Integer kSignedChar{ FundamentalType::SignedChar, "", false };
-constexpr Integer kUnsignedChar{ FundamentalType::UnsignedChar, "", true };
-constexpr Integer kShort{ FundamentalType::ShortInt, "", false };
-constexpr Integer kUnsignedShort{ FundamentalType::UnsignedShortInt, "", true };
-constexpr Integer kInt{ FundamentalType::Int, "", false };
-constexpr Integer kUnsignedInt{ FundamentalType::UnsignedInt, "U", true };
-constexpr Integer kLong{ FundamentalType::LongInt, "L", false };
-constexpr Integer kUnsignedLong{ FundamentalType::UnsignedLongInt, "UL", true };
-constexpr Integer kLongLong{ FundamentalType::LongLongInt, "LL", false };
-constexpr Integer kUnsignedLongLong{ FundamentalType::UnsignedLongLongInt, "ULL", true };
+constexpr Integer kSignedChar{ FundamentalType::SignedChar, "", "hh", false };
+constexpr Integer kUnsignedChar{ FundamentalType::UnsignedChar, "", "hh", true };
+constexpr Integer kShort{ FundamentalType::ShortInt, "", "h", false };
+constexpr Integer kUnsignedShort{ FundamentalType::UnsignedShortInt, "", "h", true };
+constexpr Integer kInt{ FundamentalType::Int, "", "", false };
+constexpr Integer kUnsignedInt{ FundamentalType::UnsignedInt, "U", "", true };
+constexpr Integer kLong{ FundamentalType::LongInt, "L", "l", false };
+constexpr Integer kUnsignedLong{ FundamentalType::UnsignedLongInt, "UL", "l", true };
+constexpr Integer kLongLong{ FundamentalType::LongLongInt, "LL", "ll", false };
+constexpr Integer kUnsignedLongLong{ FundamentalType::UnsignedLongLongInt, "ULL", "ll", true };
 
 unsigned integer_width(Integer integer, target_model::Target target)
 {
@@ -49,6 +50,21 @@ void integer_role(std::string& text, const std::string& role, Integer integer, t
 	define(text, prefix + "_MAX__", maximum(integer, target));
 }
 
+void formatted_integer_role(std::string& text, const std::string& role, Integer integer, target_model::Target target)
+{
+	integer_role(text, role, integer, target);
+	// Clang-style WASI headers use these for both input and output.
+	if (!target_model::is_wasm(target))
+		return;
+	const std::string prefix = "#define __" + role + "_FMT";
+	for (const char* specifier = integer.is_unsigned ? "Xoux" : "di"; *specifier; ++specifier)
+	{
+		text.append(prefix).push_back(*specifier);
+		text.append("__ \"").append(integer.format_length).push_back(*specifier);
+		text.append("\"\n");
+	}
+}
+
 void integer_constant(std::string& text, const std::string& role, Integer integer)
 {
 	const std::string prefix = "__" + role;
@@ -60,12 +76,12 @@ void fixed_width(
 	std::string& text, const char* width, Integer signed_type, Integer unsigned_type, target_model::Target target)
 {
 	const std::string suffix = width;
-	integer_role(text, "INT" + suffix, signed_type, target);
-	integer_role(text, "UINT" + suffix, unsigned_type, target);
-	integer_role(text, "INT_LEAST" + suffix, signed_type, target);
-	integer_role(text, "UINT_LEAST" + suffix, unsigned_type, target);
-	integer_role(text, "INT_FAST" + suffix, signed_type, target);
-	integer_role(text, "UINT_FAST" + suffix, unsigned_type, target);
+	formatted_integer_role(text, "INT" + suffix, signed_type, target);
+	formatted_integer_role(text, "UINT" + suffix, unsigned_type, target);
+	formatted_integer_role(text, "INT_LEAST" + suffix, signed_type, target);
+	formatted_integer_role(text, "UINT_LEAST" + suffix, unsigned_type, target);
+	formatted_integer_role(text, "INT_FAST" + suffix, signed_type, target);
+	formatted_integer_role(text, "UINT_FAST" + suffix, unsigned_type, target);
 	integer_constant(text, "INT" + suffix, signed_type);
 	integer_constant(text, "UINT" + suffix, unsigned_type);
 }
@@ -92,22 +108,22 @@ std::string integer_predefines(target_model::Target target)
 	const Integer intmax = layout.long_bytes == 4 ? kLongLong : kLong;
 	const Integer uintmax = layout.long_bytes == 4 ? kUnsignedLongLong : kUnsignedLong;
 	std::string text;
-	text.reserve(4096);
+	text.reserve(target_model::is_wasm(target) ? 8192 : 4096);
 	fixed_width(text, "8", kSignedChar, kUnsignedChar, target);
 	fixed_width(text, "16", kShort, kUnsignedShort, target);
 	fixed_width(text, "32", kInt, kUnsignedInt, target);
 	fixed_width(
 		text, "64", use_long_long ? kLongLong : kLong, use_long_long ? kUnsignedLongLong : kUnsignedLong, target);
-	integer_role(text, "INTMAX", intmax, target);
-	integer_role(text, "UINTMAX", uintmax, target);
+	formatted_integer_role(text, "INTMAX", intmax, target);
+	formatted_integer_role(text, "UINTMAX", uintmax, target);
 	integer_constant(text, "INTMAX", intmax);
 	integer_constant(text, "UINTMAX", uintmax);
 
 	// long is the pointer-sized integer on the supported LP64 and wasm32 ABIs.
-	integer_role(text, "INTPTR", kLong, target);
-	integer_role(text, "UINTPTR", kUnsignedLong, target);
-	integer_role(text, "PTRDIFF", kLong, target);
-	integer_role(text, "SIZE", kUnsignedLong, target);
+	formatted_integer_role(text, "INTPTR", kLong, target);
+	formatted_integer_role(text, "UINTPTR", kUnsignedLong, target);
+	formatted_integer_role(text, "PTRDIFF", kLong, target);
+	formatted_integer_role(text, "SIZE", kUnsignedLong, target);
 	const std::string pointer_bytes = std::to_string(layout.pointer_bytes);
 	define(text, "__SIZEOF_POINTER__", pointer_bytes);
 	define(text, "__SIZEOF_SIZE_T__", pointer_bytes);

@@ -1446,3 +1446,34 @@ when `__wasm_exception_handling__` is defined. cppgm implements the
 nonlocal jump in generated Wasm. The WASI SDK provides a signal emulation
 archive with a separate compile and link opt-in.
 [WASI SDK setjmp and longjmp notes](https://github.com/WebAssembly/wasi-sdk/blob/main/SetjmpLongjmp.md)
+
+## C library calls and format macros
+
+The header's function-like library macros and the underlying functions
+can both be tested through the required declarations. Taking the
+function's address exercises the same type as a call written with the
+function name parenthesized. `assert` is a macro with its own reinclusion
+rules. Reincluding its header uses the current definition of `NDEBUG`.
+C23 uses a variadic macro, so a scalar compound-literal expression can
+contain an initializer comma without additional parentheses.
+[WG14 N1256 §§7.1.4, 7.2, 7.8](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf) ·
+[WG14 N3220 §§7.1.4, 7.2, 7.8](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+
+WASI's Clang-style `<inttypes.h>` obtains its `PRI` and `SCN` values
+from the target's predefined format strings. Derive the length modifier
+from the same type descriptor as the integer role. wasm32 uses `int`
+for a 32-bit fixed-width integer, `long` for a pointer-width integer,
+and `long long` for the maximum-width integer. The first two have
+equal width and distinct modifiers. The SDK's long-double print and
+scan implementation uses the explicit `-lc-printscan-long-double` link
+option.
+[WASI SDK 34](https://github.com/WebAssembly/wasi-sdk/releases/tag/wasi-sdk-34)
+
+C23 integer conversions accept binary prefixes with base zero or two.
+The C17 control checks where the conversion stops in the initial C
+locale. The C23 stdio probes exercise binary formatting and scanning,
+including fixed-width and fast-width modifiers. The other C23 runtime
+cases check address alignment, explicit byte stores, string allocation,
+time resolution, and the restartable UTF-8 conversions.
+[WG14 N3220 §§7.23.6, 7.24, 7.26, 7.29, 7.30](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
+[WG14 binary formatting proposal](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2630.pdf)

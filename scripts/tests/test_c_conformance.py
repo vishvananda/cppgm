@@ -6,7 +6,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from c_library_headers import current_version_token, edition_headers, version_tokens
-from c_conformance import coverage, evidence_key, inventory, read_evidence, run_stages, INVENTORY
+from c_conformance import coverage, evidence_key, inventory, library_sources, read_evidence, run_stages, INVENTORY
 
 
 class CoverageTests(unittest.TestCase):
@@ -83,6 +83,30 @@ class CoverageTests(unittest.TestCase):
         self.assertEqual(rows['library.signal']['status'], 'uncovered')
         self.assertIn('requires the SDK emulation opt-in', rows['library.signal']['reason'])
         self.assertEqual(rows['library.wasi-signal-emulation']['status'], 'passing')
+
+    def test_library_runtime_applicability(self):
+        names = ('stdarg', 'stddef', 'stdio', 'string', 'stdlib', 'inttypes')
+        checked = {name: {'include': 'usable'} for name in names}
+        versions = {name: dict(status, version='current') for name, status in checked.items()}
+
+        def selected(profile_id, edition, c23=versions, wasi_libraries=None):
+            profile = self.profiles[profile_id]
+            return {case: link_flags for case, _, _, link_flags in
+                    library_sources(profile, edition, checked, c23, wasi_libraries or {})}
+
+        self.assertNotIn('library.va-copy-stdio', selected(self.native, 90))
+        self.assertIn('library.va-copy-stdio', selected(self.native, 99))
+        self.assertNotIn('library.c23-binary-stdio', selected(self.native, 23, c23=checked))
+        self.assertIn('library.c23-binary-stdio', selected(self.native, 23))
+        self.assertIn('library.c17-binary-prefix-control', selected(self.native, 17, c23=checked))
+        bare = selected('wasm-freestanding', 23)
+        self.assertIn('library.stddef-layout', bare)
+        self.assertIn('library.c23-memalignment', bare)
+        self.assertNotIn('library.stdlib-allocation', bare)
+        self.assertNotIn('library.c23-string-allocation', bare)
+        wasi = selected('wasi-hosted', 23, wasi_libraries={'c-printscan-long-double': '/sdk/lib/archive.a'})
+        self.assertNotIn('library.stdio-long-double', wasi)
+        self.assertEqual(wasi['library.wasi-stdio-long-double'], ('-lc-printscan-long-double',))
 
     def test_incomplete_or_failing_variant_never_passes(self):
         key = ('limits.combined', self.native, 99, 'O0')

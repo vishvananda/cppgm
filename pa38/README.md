@@ -151,6 +151,9 @@ For WASI C, define `__wasm_exception_handling__` so the SDK's
 Supply the target's scalar integer types, widths, limits and constant
 spellings to its headers. For example, on 64-bit Darwin `int64_t` is
 `long long` and `intmax_t` is `long`. Both have width 64.
+Supply the Wasm integer format macros used by `<inttypes.h>`. Choose each
+length modifier from the underlying integer type. In wasm32, `intptr_t`
+uses `long` and `int32_t` uses `int`, although both are 32 bits wide.
 Supply preprocessing constants for `<stdatomic.h>` that describe the
 scalar atomic operations supported by the target. In C11 and later modes,
 Wasm with `-mno-atomics` defines `__STDC_NO_ATOMICS__`. The lock-free

@@ -4,7 +4,11 @@
 #error the default hosted target must advertise atomic types
 #endif
 
+#if __STDC_VERSION__ >= 202311L
+static atomic_int value = 9;
+#else
 static atomic_int value = ATOMIC_VAR_INIT(9);
+#endif
 static atomic_flag flag = ATOMIC_FLAG_INIT;
 
 int main(void)

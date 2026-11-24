@@ -257,6 +257,33 @@ C11_LIBRARY_SOURCES = {
 C23_SDK_HEADERS = ROOT / 'scripts/tests/c_c23_sdk_headers.c'
 SETJMP_SOURCE = ROOT / 'scripts/tests/c_setjmp.c'
 SIGNAL_SOURCE = ROOT / 'scripts/tests/c_signal.c'
+LIBRARY_PROGRAMS = {
+    'library.c95-wide-headers': (95, C95_WIDE_HEADERS, 'iso646 limits wchar wctype'),
+    'library.assert-reinclusion': (90, ROOT / 'scripts/tests/c_assert_reinclusion.c', 'assert'),
+    'library.ctype-locale': (90, ROOT / 'scripts/tests/c_ctype_locale.c', 'ctype locale stdio string'),
+    'library.stddef-layout': (90, ROOT / 'scripts/tests/c_stddef_layout.c', 'stddef'),
+    'library.stdio-formats': (90, ROOT / 'scripts/tests/c_stdio_formats.c', 'stdarg stdio string'),
+    'library.stdio-long-double': (90, ROOT / 'scripts/tests/c_stdio_long_double.c', 'stdarg stdio string'),
+    'library.stdio-streams': (90, ROOT / 'scripts/tests/c_stdio_streams.c', 'stdio string'),
+    'library.stdlib-allocation': (90, ROOT / 'scripts/tests/c_stdlib_allocation.c', 'stdlib'),
+    'library.stdlib-conversion': (90, ROOT / 'scripts/tests/c_stdlib_conversion.c', 'errno limits stdlib'),
+    'library.stdlib-search': (90, ROOT / 'scripts/tests/c_stdlib_search.c', 'stdlib'),
+    'library.string-functions': (90, ROOT / 'scripts/tests/c_string_functions.c', 'string'),
+    'library.va-copy-stdio': (99, ROOT / 'scripts/tests/c_c99_va_copy.c', 'stdarg stdio string'),
+    'library.inttypes-conversion': (99, ROOT / 'scripts/tests/c_c99_inttypes.c', 'inttypes stdio string'),
+}
+C23_VERSIONED_PROGRAMS = {
+    'library.c23-assert': (ROOT / 'scripts/tests/c_c23_assert.c', 'assert'),
+    'library.c23-binary-conversion': (ROOT / 'scripts/tests/c_c23_binary_conversion.c', 'stdlib inttypes'),
+    'library.c23-binary-stdio': (ROOT / 'scripts/tests/c_c23_binary_stdio.c', 'stdio inttypes'),
+    'library.c23-memalignment': (ROOT / 'scripts/tests/c_c23_memalignment.c', 'stdlib'),
+    'library.c23-memset-explicit': (ROOT / 'scripts/tests/c_c23_memset_explicit.c', 'string'),
+    'library.c23-string-allocation': (ROOT / 'scripts/tests/c_c23_string_allocation.c', 'string'),
+    'library.c23-time-resolution': (ROOT / 'scripts/tests/c_c23_time_resolution.c', 'time'),
+    'library.c23-uchar-utf8': (ROOT / 'scripts/tests/c_c23_uchar_utf8.c', 'uchar'),
+}
+WASI_SIGNAL = 'wasi-emulated-signal'
+WASI_LONG_DOUBLE_STDIO = 'c-printscan-long-double'
 C23_LIBRARY_SOURCES = {
     'library.c23-integer-widths': ('limits_width_macros', ROOT / 'scripts/tests/c_c23_integer_widths.c'),
     'library.c23-stdint-widths': ('stdint_width_macros', ROOT / 'scripts/tests/c_c23_stdint_widths.c'),
@@ -272,7 +299,6 @@ CASES = {
     **{case: ((stage,), ('default',)) for case, _, stage in C23_SOURCE_CASES},
     **{case: (RUN_STAGES, ('O0', 'O2')) for case in C23_PROGRAMS},
     'limits.combined': (RUN_STAGES, ('O0', 'O2')),
-    'library.c95-wide-headers': (RUN_STAGES, ('O0', 'O2')),
     'limits.integer': (RUN_STAGES, ('O0', 'O2')),
     'limits.float': (RUN_STAGES, ('O0', 'O2')),
     'limits.rounding-default': (RUN_STAGES, ('O0', 'O2')),
@@ -297,9 +323,13 @@ CASES = {
     'environment.c-version': (('preprocess',), ('default',)),
     **{case: (RUN_STAGES, ('O0', 'O2')) for case in C11_LIBRARY_SOURCES},
     **{case: (RUN_STAGES, ('O0', 'O2')) for case in C23_LIBRARY_SOURCES},
+    **{case: (RUN_STAGES, ('O0', 'O2')) for case in LIBRARY_PROGRAMS},
+    **{case: (RUN_STAGES, ('O0', 'O2')) for case in C23_VERSIONED_PROGRAMS},
+    'library.c17-binary-prefix-control': (RUN_STAGES, ('O0', 'O2')),
     'library.setjmp': (RUN_STAGES, ('O0', 'O2')),
     'library.signal': (RUN_STAGES, ('O0', 'O2')),
     'library.wasi-signal-emulation': (RUN_STAGES, ('O0', 'O2')),
+    'library.wasi-stdio-long-double': (RUN_STAGES, ('O0', 'O2')),
     'library.c23-stdarg-version': (('preprocess',), ('default',)),
     **{case: (('compile',), ('default',)) for case in RECORD_CONSTRAINTS},
     **{case: (('compile',), ('default',)) for case in REGISTER_CONSTRAINTS},
@@ -420,6 +450,18 @@ def read_evidence(paths, profiles, header_checks=None):
     return receipts
 
 
+def missing_library_reason(case, profile, checked_c23):
+    if case == 'library.stdio-long-double' and profile == 'wasi-hosted':
+        return f'The selected WASI SDK requires -l{WASI_LONG_DOUBLE_STDIO}'
+    if case in C23_VERSIONED_PROGRAMS and checked_c23:
+        _, required = C23_VERSIONED_PROGRAMS[case]
+        missing = [f'<{name}.h>' for name in required.split()
+                   if checked_c23.get(name, {}).get('version') != 'current']
+        if missing:
+            return f"Current C23 header version unverified for {', '.join(missing)}"
+    return None
+
+
 def coverage(profiles, rules, receipts, header_checks=None):
     header_checks = header_checks or {}
     for rule in rules.values():
@@ -459,6 +501,8 @@ def coverage(profiles, rules, receipts, header_checks=None):
                         row['reason'] = f'<{name}.h> requires the SDK emulation opt-in'
                     elif rule['id'].startswith('library.header-version.') and header.get('version') == 'missing':
                         row['reason'] = f'<{name}.h> omits its C23 version macro'
+                    elif reason := missing_library_reason(rule['id'], profile, header_checks.get((profile, 23))):
+                        row['reason'] = reason
                 yield row
 
 
@@ -544,12 +588,15 @@ def numeric_sources(profile, bare_sdk):
     return sources
 
 
-def c11_library_sources(profile):
+def c11_library_sources(profile, edition):
     target = profile['target']
     wasm = target.startswith('wasm32-')
     linux = target.endswith('-linux-gnu')
     for case, source in C11_LIBRARY_SOURCES.items():
         if profile['environment'] != 'hosted':
+            continue
+        if edition == 23 and case == 'library.c11-header-facilities':
+            # C23 replaces the alignas/alignof macros with keywords.
             continue
         if case == 'library.c11-threads':
             if linux:
@@ -728,18 +775,55 @@ def probe_headers(output, work, profile, edition, flags, bare_sdk, header_checks
             yield receipt(case, profile, edition, 'default', passed, stages)
 
 
-def probe_hosted_header_programs(work, profile, edition, flags, link, runner, checked, signal_archive):
-    sources = []
-    if checked.get('setjmp', {}).get('include') == 'usable':
-        sources.append(('library.setjmp', SETJMP_SOURCE, (), ()))
-    signal = checked.get('signal', {}).get('include')
-    if signal == 'usable':
-        sources.append(('library.signal', SIGNAL_SOURCE, (), ()))
-    if signal == 'sdk-opt-in':
-        if signal_archive is not None and signal_archive.is_file():
-            sources.append(('library.wasi-signal-emulation', SIGNAL_SOURCE, ('-D_WASI_EMULATED_SIGNAL',),
-                            ('-lwasi-emulated-signal',)))
-            checked['signal']['emulation_archive'] = str(signal_archive)
+def library_sources(profile, edition, checked, checked_c23, wasi_libraries):
+    def usable(names):
+        return all(checked.get(name, {}).get('include') == 'usable' for name in names.split())
+
+    position = C_EDITIONS.index(edition)
+    hosted = profile['environment'] == 'hosted'
+    for case, (introduced, source, required) in LIBRARY_PROGRAMS.items():
+        if position < C_EDITIONS.index(introduced) or not usable(required):
+            continue
+        if not hosted and case not in ('library.stddef-layout', 'library.string-functions'):
+            continue
+        if case == 'library.stdio-long-double' and profile['id'] == 'wasi-hosted':
+            if WASI_LONG_DOUBLE_STDIO in wasi_libraries:
+                yield 'library.wasi-stdio-long-double', source, (), ('-l' + WASI_LONG_DOUBLE_STDIO,)
+        else:
+            yield case, source, (), ()
+    if usable('setjmp'):
+        yield 'library.setjmp', SETJMP_SOURCE, (), ()
+    if usable('signal'):
+        yield 'library.signal', SIGNAL_SOURCE, (), ()
+    elif checked.get('signal', {}).get('include') == 'sdk-opt-in' and WASI_SIGNAL in wasi_libraries:
+        yield 'library.wasi-signal-emulation', SIGNAL_SOURCE, ('-D_WASI_EMULATED_SIGNAL',), ('-l' + WASI_SIGNAL,)
+        checked['signal']['emulation_archive'] = str(wasi_libraries[WASI_SIGNAL])
+
+    if edition == 17:
+        source, required = C23_VERSIONED_PROGRAMS['library.c23-binary-conversion']
+        if usable(required):
+            yield 'library.c17-binary-prefix-control', source, (), ()
+    if edition != 23:
+        return
+    for case, (source, required) in C23_VERSIONED_PROGRAMS.items():
+        if not hosted and case not in ('library.c23-memset-explicit', 'library.c23-memalignment'):
+            continue
+        if not usable(required):
+            continue
+        # Freestanding C23 requires memalignment even though the rest of
+        # stdlib.h, including its version macro, is outside that profile.
+        use_version = hosted or case != 'library.c23-memalignment'
+        if use_version and any(checked_c23.get(name, {}).get('version') != 'current'
+                               for name in required.split()):
+            continue
+        yield case, source, (), ()
+
+
+def probe_header_programs(work, profile, edition, flags, link, runner, header_checks, wasi_libraries, bare_sdk):
+    editions = header_checks[profile['id']]
+    sources = library_sources(profile, edition, editions[str(edition)], editions['23'], wasi_libraries)
+    if bare_sdk:
+        flags = [*flags, '-isystem', str(bare_sdk[0])]
     for case, source, source_flags, link_flags in sources:
         for variant, passed, stages in probe_program(work, profile, case, source, [*flags, *source_flags],
                                                       link, runner, link_flags):
@@ -747,18 +831,19 @@ def probe_hosted_header_programs(work, profile, edition, flags, link, runner, ch
 
 
 def probe_target(output, profile, compiler, setup, link, runner, sdk_headers, header_checks,
-                 bare_sdk=(), signal_archive=None):
+                 bare_sdk=(), wasi_libraries=None):
     bare_wasm = profile['id'] == 'wasm-freestanding'
     if runner and (executable := which(runner[0])):
         runner = [str(Path(executable).absolute()), *runner[1:]]
     numeric = numeric_sources(profile, bare_sdk)
+    wasi_libraries = wasi_libraries or {}
     expect_no_threads = int(profile['target'].endswith('-apple-darwin'))
     yield from probe_c23_source_cases(output, profile, compiler, setup)
     c23_flags = [compiler, '--target=' + profile['target'], *setup, '-x', 'c', '-std=c23', '-pedantic-errors']
     c23_work = output / profile['id'] / 'c23'
     yield from probe_headers(output, c23_work, profile, 23, c23_flags, bare_sdk, header_checks)
-    checked = header_checks[profile['id']]['23']
-    yield from probe_hosted_header_programs(c23_work, profile, 23, c23_flags, link, runner, checked, signal_archive)
+    yield from probe_header_programs(c23_work, profile, 23, c23_flags, link, runner,
+                                     header_checks, wasi_libraries, bare_sdk)
     yield from probe_registers(c23_work, profile, 23, c23_flags, link, runner)
     c23_limits = output / 'inputs/c23/combined.c'
     for variant, passed, stages in probe_program(c23_work, profile, 'limits.combined', c23_limits,
@@ -767,6 +852,7 @@ def probe_target(output, profile, compiler, setup, link, runner, sdk_headers, he
     yield from probe_c23_library(c23_work, profile, c23_flags, link, runner, bare_sdk, sdk_headers)
     c23_programs = [(case, source, flags, ()) for case, (source, flags) in C23_PROGRAMS.items()]
     c23_programs.extend(numeric)
+    c23_programs.extend(c11_library_sources(profile, 23))
     for case, source, flags, link_flags in c23_programs:
         for variant, passed, stages in probe_program(c23_work, profile, case, source,
                                                       [*c23_flags, *flags], link, runner, link_flags):
@@ -777,8 +863,8 @@ def probe_target(output, profile, compiler, setup, link, runner, sdk_headers, he
         flags = [compiler, '--target=' + profile['target'], *setup, '-x', 'c', f'-std={standard}', '-pedantic-errors']
         work = output / profile['id'] / f'c{edition}'
         yield from probe_headers(output, work, profile, edition, flags, bare_sdk, header_checks)
-        checked = header_checks[profile['id']][str(edition)]
-        yield from probe_hosted_header_programs(work, profile, edition, flags, link, runner, checked, signal_archive)
+        yield from probe_header_programs(work, profile, edition, flags, link, runner,
+                                         header_checks, wasi_libraries, bare_sdk)
         yield from probe_registers(work, profile, edition, flags, link, runner)
         stages, _ = run_stages(work / 'thread-predefine', [
             ('preprocess', [*flags, f'-DEXPECT_NO_THREADS={expect_no_threads}', '-E', str(THREAD_PREDEFINE), '-o', '/dev/null']),
@@ -787,8 +873,6 @@ def probe_target(output, profile, compiler, setup, link, runner, sdk_headers, he
                       stages[0]['classification'] == 'success', stages)
         limits_directory = 'legacy' if legacy else 'modern'
         sources = [('limits.combined', output / 'inputs' / limits_directory / 'combined.c', (), ())]
-        if edition == 95 and profile['environment'] == 'hosted':
-            sources.append(('library.c95-wide-headers', C95_WIDE_HEADERS, (), ()))
         if legacy:
             stages, _ = run_stages(work / 'version', [
                 ('preprocess', [*flags, '-E', str(LEGACY_VERSION_PROBES[edition]), '-o', '/dev/null']),
@@ -805,7 +889,7 @@ def probe_target(output, profile, compiler, setup, link, runner, sdk_headers, he
             ])
         if edition in (11, 17):
             sources.append(('literal.code-units', STRING_SOURCE, (), ()))
-            sources.extend(c11_library_sources(profile))
+            sources.extend(c11_library_sources(profile, edition))
         for case, source, source_flags, link_flags in sources:
             for variant, passed, stages in probe_program(work, profile, case, source, [*flags, *source_flags],
                                                           link, runner, link_flags):
@@ -855,11 +939,12 @@ def probes(args, profiles, rules):
         sysroot = '--sysroot=' + str(args.wasi_sysroot)
         setup = [sysroot, '-resource-dir=' + str(args.wasi_resource_dir)]
         link = [compiler, '--target=' + wasi['target'], *setup]
-        signal_archive = args.wasi_sysroot.resolve() / 'lib/wasm32-wasip1/libwasi-emulated-signal.a'
-        if signal_archive.is_file():
-            sdk_inputs.append(signal_archive)
+        library_dir = args.wasi_sysroot.resolve() / 'lib/wasm32-wasip1'
+        wasi_libraries = {name: archive for name in (WASI_SIGNAL, WASI_LONG_DOUBLE_STDIO)
+                          if (archive := library_dir / f'lib{name}.a').is_file()}
+        sdk_inputs.extend(wasi_libraries.values())
         results.extend(probe_target(output, wasi, compiler, setup, link, [args.wasmtime, 'run', '--dir=.'],
-                                    sdk_headers, header_checks, signal_archive=signal_archive))
+                                    sdk_headers, header_checks, wasi_libraries=wasi_libraries))
     if args.bare_wasm:
         bare = profiles['wasm-freestanding']
         bare_sdk = ()
@@ -876,7 +961,7 @@ def probes(args, profiles, rules):
     revision = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
     inputs = sorted([*(path for path in work.rglob('*') if path.is_file()),
                      ERROR_SOURCE, INCLUDE_SOURCE, STRING_SOURCE, INCLUDE_QUERY, THREAD_PREDEFINE,
-                     C95_WIDE_HEADERS, *LEGACY_VERSION_PROBES.values(),
+                     *LEGACY_VERSION_PROBES.values(),
                      *(PA38_GENERAL / source for _, source, _ in C23_SOURCE_CASES),
                      *(source for source, _ in C23_PROGRAMS.values()), *C23_EMBED_FIXTURES.rglob('*.bin'),
                      INTEGER_LIMITS, FLOAT_LIMITS, DEFAULT_ROUNDING, ROUNDING_QUERY,
@@ -890,6 +975,8 @@ def probes(args, profiles, rules):
                      INCLUDE_QUERY.parent / 'c-header  spaces.h',
                      INCLUDE_SOURCE.parent / 'c-include-physical.h', INCLUDE_SOURCE.parent / 'c-include-local.h'])
     inputs.extend([C23_SDK_HEADERS, *(source for _, source in C23_LIBRARY_SOURCES.values())])
+    inputs.extend(source for _, source, _ in LIBRARY_PROGRAMS.values())
+    inputs.extend(source for source, _ in C23_VERSIONED_PROGRAMS.values())
     receipt_path = output / 'receipts.json'
     write_json(receipt_path, dict(schema=1, revision=revision, compiler_sha256=sha256(Path(compiler)),
                                   inputs={str(source): sha256(source) for source in inputs}, sdk_headers=sdk_headers,
