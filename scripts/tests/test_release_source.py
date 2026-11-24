@@ -38,7 +38,9 @@ class SourceRelease(unittest.TestCase):
                  'dev/runtime/wasi-c23/math_sdk_exp.c', 'dev/runtime/wasi-c23/math_sdk_exp10.c',
                  'dev/runtime/wasi-c23/math_sdk_expm1.c', 'dev/runtime/wasi-c23/math_sdk_expm1f.c',
                  'dev/runtime/wasi-c23/math_scale.c', 'dev/runtime/wasi-c23/math_sdk_log.c',
-                 'dev/runtime/wasi-c23/math_sdk_logf.c', 'dev/runtime/wasi-c23/math_hyperbolic.c'}
+                 'dev/runtime/wasi-c23/math_sdk_logf.c', 'dev/runtime/wasi-c23/math_hyperbolic.c',
+                 'dev/runtime/wasi-c23/math_sdk_trig.c', 'dev/runtime/wasi-c23/math_sdk_trigf.c',
+                 'dev/runtime/wasi-c23/math_sdk_trigl.c'}
         extras = {'dev/cppgm-scaffold.cpp', 'pa1/tests/case.t', 'pa1/tests/case.ref',
                   'pa1/scripts/run_all_tests.pl', 'benchmarks/input.cpp', 'README.md'}
         with tempfile.TemporaryDirectory() as directory:

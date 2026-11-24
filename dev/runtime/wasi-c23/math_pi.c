@@ -2,15 +2,11 @@
 #include <math.h>
 #include <stdint.h>
 
+#include "math_binary128.h"
 #include "math_error.h"
 
 static_assert(sizeof(long double) == 16 && LDBL_MANT_DIG == 113 && LDBL_MAX_EXP == 16384);
 static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__);
-
-// WASI SDK binary128 kernels for an angle with a separate residual.
-long double __sinl(long double, long double, int);
-long double __cosl(long double, long double);
-long double __tanl(long double, long double, int);
 
 typedef unsigned _BitInt(128) uint128;
 

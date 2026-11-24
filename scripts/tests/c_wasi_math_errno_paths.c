@@ -13,6 +13,14 @@
 			return __LINE__; \
 	} while (0)
 
+static __attribute__((noinline)) int error_byte_change(const unsigned char* cell, double angle)
+{
+	const unsigned char before = *cell;
+	volatile double result = sin(angle);
+	(void)result;
+	return *cell - before;
+}
+
 int main(void)
 {
 	CHECK(sqrt, (-1.0), EDOM, isnan(result));
@@ -71,6 +79,37 @@ int main(void)
 	CHECK(atanhl, (0x1p-1000L), EILSEQ, result == 0x1p-1000L);
 	CHECK(atanhl, (-NAN), EILSEQ, isnan(result));
 
+	CHECK(sin, (INFINITY), EDOM, isnan(result));
+	CHECK(sinf, (-INFINITY), EDOM, isnan(result));
+	CHECK(sinl, (INFINITY), EDOM, isnan(result));
+	CHECK(cos, (-INFINITY), EDOM, isnan(result));
+	CHECK(cosf, (INFINITY), EDOM, isnan(result));
+	CHECK(cosl, (-INFINITY), EDOM, isnan(result));
+	CHECK(tan, (INFINITY), EDOM, isnan(result));
+	CHECK(tanf, (-INFINITY), EDOM, isnan(result));
+	CHECK(tanl, (INFINITY), EDOM, isnan(result));
+	CHECK(sin, (-NAN), EILSEQ, isnan(result));
+	CHECK(cosf, (NAN), EILSEQ, isnan(result));
+	CHECK(tanl, (-NAN), EILSEQ, isnan(result));
+	CHECK(sinf, (-0.0f), EILSEQ, result == 0 && signbit(result));
+	CHECK(tan, (-0.0), EILSEQ, result == 0 && signbit(result));
+	CHECK(cosl, (0x1p-1000L), EILSEQ, result == 1.0L);
+	CHECK(sinl, (LDBL_MAX), EILSEQ, isfinite(result) && result >= -1.0L && result <= 1.0L);
+	CHECK(tanl, (0x1.ffffffffffffffffffffffffff90p-57L), EILSEQ, result == 0x1.ffffffffffffffffffffffffff91p-57L);
+
+	CHECK(asin, (-0x1.0000000000001p0), EDOM, isnan(result));
+	CHECK(asinf, (0x1.000002p0f), EDOM, isnan(result));
+	CHECK(asinl, (1.0L + 0x1p-112L), EDOM, isnan(result));
+	CHECK(acos, (INFINITY), EDOM, isnan(result));
+	CHECK(acosf, (-0x1.000002p0f), EDOM, isnan(result));
+	CHECK(acosl, (1.0L + 0x1p-112L), EDOM, isnan(result));
+	CHECK(asin, (-0.0), EILSEQ, result == 0 && signbit(result));
+	CHECK(asinl, (-NAN), EILSEQ, isnan(result));
+	CHECK(acos, (1.0), EILSEQ, result == 0 && !signbit(result));
+	CHECK(acosf, (0x1p-26f), EILSEQ, result == 0x1.921fb6p+0f);
+	CHECK(acosf, (-1.0f), EILSEQ, result == 0x1.921fb6p+1f);
+	CHECK(acosl, (1.0L - 0x1p-113L), EILSEQ, result > 0 && result < 0x1p-55L);
+
 	// Use -fmath-errno when compiling these direct calls with SDK Clang.
 	volatile double invalid_log = -2.0;
 	errno = EILSEQ;
@@ -79,6 +118,17 @@ int main(void)
 	volatile long double pole = -1.0L;
 	errno = EILSEQ;
 	if (atanhl(pole) != -INFINITY || errno != ERANGE)
+		return __LINE__;
+	volatile double infinite_angle = INFINITY;
+	errno = EILSEQ;
+	if (!isnan(sin(infinite_angle)) || errno != EDOM)
+		return __LINE__;
+	errno = EILSEQ;
+	if (error_byte_change((const unsigned char*)&errno, infinite_angle) != (unsigned char)EDOM - (unsigned char)EILSEQ)
+		return __LINE__;
+	volatile float outside_unit = 1.25f;
+	errno = EILSEQ;
+	if (!isnan(acosf(outside_unit)) || errno != EDOM)
 		return __LINE__;
 
 	CHECK(exp, (DBL_MAX), ERANGE, result == INFINITY);

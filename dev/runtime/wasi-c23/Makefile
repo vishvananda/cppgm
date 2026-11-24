@@ -28,7 +28,7 @@ OBJECTS := $(addprefix $(BUILD_DIR)/,stdbit.o memalignment.o memset_explicit.o t
 	math_representation.o math_classification.o math_extrema.o math_rounding.o math_logp1.o math_narrow.o \
 	math_expm1.o math_pi.o math_power.o math_remainder.o math_sdk_errors.o math_sdk_builtins.o \
 	math_sdk_exp.o math_sdk_exp10.o math_sdk_expm1.o math_sdk_expm1f.o math_scale.o \
-	math_sdk_log.o math_sdk_logf.o math_hyperbolic.o) \
+	math_sdk_log.o math_sdk_logf.o math_hyperbolic.o math_sdk_trig.o math_sdk_trigf.o math_sdk_trigl.o) \
 	$(STDIO_OBJECTS) $(CORE_MATH_OBJECTS) $(SOFTFLOAT_OBJECTS)
 RUNTIME_CFLAGS := --target=wasm32-wasip1 --sysroot="$(WASI_SYSROOT)" -resource-dir="$(RESOURCE_DIR)" \
 	-x c -std=c23 -pedantic-errors -isystem "$(BUILD_DIR)/include" -O2
@@ -64,7 +64,7 @@ $(BUILD_DIR)/licenses/softfloat.txt: $(SOFTFLOAT)/COPYING.txt
 $(addprefix $(BUILD_DIR)/,atomic_functions.o temporary_files.o): RUNTIME_CFLAGS += -matomics
 $(addprefix $(BUILD_DIR)/,math_logp1.o math_expm1.o math_pi.o math_power.o \
 	math_sdk_exp.o math_sdk_exp10.o math_sdk_expm1.o math_sdk_expm1f.o \
-	math_sdk_log.o math_sdk_logf.o math_hyperbolic.o): RUNTIME_CFLAGS += -ffp-contract=off
+	math_sdk_log.o math_sdk_logf.o math_hyperbolic.o math_sdk_trig.o math_sdk_trigf.o math_sdk_trigl.o): RUNTIME_CFLAGS += -ffp-contract=off
 $(SOFTFLOAT_OBJECTS) $(BUILD_DIR)/math_narrow.o: RUNTIME_CFLAGS := $(filter-out -std=c23 -pedantic-errors,$(RUNTIME_CFLAGS)) -std=gnu23 -I "$(SOFTFLOAT)"
 
 vpath %.c $(SHARED)
