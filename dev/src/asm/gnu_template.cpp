@@ -157,6 +157,9 @@ void pieces(PacketBuilder& packet, const std::string& source, const std::vector<
 				case 'c':
 					piece.format = Format::Bare;
 					break;
+				case 'a':
+					piece.format = Format::Address;
+					break;
 				case 'n':
 					piece.format = Format::Negated;
 					break;

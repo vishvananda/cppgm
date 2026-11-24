@@ -241,9 +241,16 @@ void encode_assembly(Assembler& out, const std::vector<assembly::Instruction>& i
 	{
 		const size_t index = &original - instructions.data();
 		assembly::Instruction inst = original;
+		uint8_t segment = 0;
 		for (auto& operand : inst.operands)
-			if (operand.kind == OperandKind::Memory && operand.address.label != asm_model::kNoId)
+		{
+			if (operand.kind != OperandKind::Memory)
+				continue;
+			if (operand.address.label != asm_model::kNoId)
 				operand.address.label = labels[operand.address.label];
+			if (operand.address.segment != 0)
+				segment = operand.address.segment;
+		}
 		if (positions != nullptr)
 			positions->push_back(out.size());
 		if (inst.alignment)
@@ -281,6 +288,8 @@ void encode_assembly(Assembler& out, const std::vector<assembly::Instruction>& i
 			for (const auto& operand : inst.operands)
 				if (operand.mask || operand.zero || operand.broadcast)
 					fail(inst, "decorator requires an EVEX instruction form");
+		if (segment != 0)
+			out.byte(segment);
 		if (!encode_assembly_branch(out, inst, labels))
 		{
 			const size_t first = out.fixups().size();

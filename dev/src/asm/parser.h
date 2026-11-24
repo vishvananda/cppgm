@@ -47,6 +47,7 @@ struct Address
 	bool has_base = false;
 	bool has_index = false;
 	uint8_t scale = 1;
+	uint8_t segment = 0; // optional x86 FS or GS override
 	int32_t displacement = 0;
 	bool rip = false;
 	asm_model::SymbolReference symbol;

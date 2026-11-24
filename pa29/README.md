@@ -212,6 +212,8 @@ substitutions, escapes, and embedded zero bytes.
 A static array or string literal can supply a symbol address to an
 immediate constraint. Check constraints against the operands that will be
 encoded, after any substitution or propagation.
+The GNU `%a` modifier uses a register or constant as a memory address.
+An x86 memory operand can carry an FS or GS segment override.
 
 Preserve global/weak/local binding, hidden visibility, `.type`, `.size` and
 symbol aliases with `.set`/`.equ`. Support symbol addresses and constant addends,

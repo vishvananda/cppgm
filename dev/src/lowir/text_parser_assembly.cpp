@@ -187,7 +187,8 @@ void Parser::parse_assembly()
 				advance();
 				piece.kind = asm_model::PieceKind::Operand;
 				piece.operand = assembly_number(kNoId - 1, "assembly template operand");
-				piece.format = static_cast<asm_model::Format>(assembly_number(4, "assembly operand format"));
+				piece.format = static_cast<asm_model::Format>(
+					assembly_number(static_cast<unsigned>(asm_model::Format::Address), "assembly operand format"));
 				piece.bits = static_cast<uint16_t>(assembly_number(UINT16_MAX, "assembly operand width"));
 				piece.offset = static_cast<uint8_t>(assembly_number(UINT8_MAX, "assembly operand offset"));
 			}

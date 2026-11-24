@@ -259,7 +259,7 @@ bool template_packet(const AssemblyModule& module, const AssemblyTemplate& site,
 	{
 		const Piece& piece = module.pieces[site.first_piece + i];
 		if (static_cast<unsigned>(piece.kind) > static_cast<unsigned>(PieceKind::Unique) ||
-			static_cast<unsigned>(piece.format) > static_cast<unsigned>(Format::Suffix))
+			static_cast<unsigned>(piece.format) > static_cast<unsigned>(Format::Address))
 			return invalid("invalid assembly template piece", error);
 		if (piece.kind == PieceKind::Text && !slice(piece.first, piece.count, module.text.size()))
 			return invalid("assembly text piece is out of bounds", error);

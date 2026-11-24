@@ -66,6 +66,8 @@ private:
 	void strings(Instruction& inst, bool terminate);
 	asm_model::Register reg();
 	Operand operand();
+	Operand unsegmented_operand();
+	uint8_t segment_override();
 	void decorators(Operand& operand);
 	Operand intel_memory(uint16_t bits);
 	Operand att_memory(int64_t displacement);
@@ -281,7 +283,45 @@ Operand Parser::att_memory(int64_t displacement)
 	return result;
 }
 
+uint8_t Parser::segment_override()
+{
+	size_t first = pos_;
+	if (register_prefix_)
+	{
+		if (current() != '%')
+			return 0;
+		++first;
+	}
+	if (first + 2 >= source_.size() || (source_[first + 1] != 's' && source_[first + 1] != 'S'))
+		return 0;
+	const char initial = static_cast<char>(source_[first] | 0x20);
+	if (initial != 'f' && initial != 'g')
+		return 0;
+	size_t colon = first + 2;
+	while (colon < source_.size() && (source_[colon] == ' ' || source_[colon] == '\t'))
+		++colon;
+	if (colon == source_.size() || source_[colon] != ':')
+		return 0;
+	while (pos_ <= colon)
+		step();
+	return initial == 'f' ? 0x64 : 0x65;
+}
+
 Operand Parser::operand()
+{
+	space();
+	const uint8_t segment = segment_override();
+	Operand result = unsegmented_operand();
+	if (segment != 0)
+	{
+		if (result.kind != OperandKind::Memory)
+			fail("segment override requires a memory operand");
+		result.address.segment = segment;
+	}
+	return result;
+}
+
+Operand Parser::unsegmented_operand()
 {
 	space();
 	Operand result;

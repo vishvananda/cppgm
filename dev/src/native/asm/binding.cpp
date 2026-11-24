@@ -90,14 +90,18 @@ void expand(std::string& source, const lowir::AssemblyModule& module, const lowi
 		}
 		if (plan.locations[piece.operand] == AL_SYMBOL)
 		{
-			if (piece.format != Format::Default && piece.format != Format::Bare)
+			if (piece.format != Format::Default && piece.format != Format::Bare && piece.format != Format::Address)
 				unsupported("this symbol formatting modifier");
 			if (definition.dialect == Dialect::Att && piece.format == Format::Default)
 				source += '$';
+			if (piece.format == Format::Address && definition.dialect == Dialect::Intel)
+				source += "[rip + ";
 			const std::string marker = "__cppgm_symbol";
 			symbols.push_back(assembly::SymbolUse{ static_cast<uint32_t>(source.size()),
 				static_cast<uint32_t>(marker.size()), plan.symbols[piece.operand] });
 			source += marker;
+			if (piece.format == Format::Address)
+				source += definition.dialect == Dialect::Att ? "(%rip)" : "]";
 			continue;
 		}
 		if (plan.locations[piece.operand] == AL_IMMEDIATE)
@@ -110,11 +114,17 @@ void expand(std::string& source, const lowir::AssemblyModule& module, const lowi
 			}
 			if (bits.high != 0 && (bits.high != ~uint64_t(0) || static_cast<int64_t>(bits.low) >= 0))
 				unsupported("immediates exceeding 64 bits");
-			if (piece.format != Format::Default && piece.format != Format::Bare && piece.format != Format::Negated)
+			if (piece.format != Format::Default && piece.format != Format::Bare && piece.format != Format::Negated &&
+				piece.format != Format::Address)
 				unsupported("this immediate formatting modifier");
 			if (definition.dialect == Dialect::Att && piece.format == Format::Default)
 				source += '$';
+			const bool bracket = piece.format == Format::Address && definition.dialect == Dialect::Intel;
+			if (bracket)
+				source += '[';
 			source += bits.high != 0 ? std::to_string(static_cast<int64_t>(bits.low)) : std::to_string(bits.low);
+			if (bracket)
+				source += ']';
 			continue;
 		}
 		const Reg r = plan.registers[piece.operand];
@@ -124,6 +134,14 @@ void expand(std::string& source, const lowir::AssemblyModule& module, const lowi
 				unsupported("this memory formatting modifier");
 			const Register address{ RegisterBank::Gpr, r, 64, 0 };
 			const std::string name = assembly::register_name(address);
+			source += definition.dialect == Dialect::Att ? "(%" + name + ")" : "[" + name + "]";
+			continue;
+		}
+		if (piece.format == Format::Address)
+		{
+			if (!is_gpr(r))
+				unsupported("noninteger register address");
+			const std::string name = assembly::register_name(Register{ RegisterBank::Gpr, r, 64, 0 });
 			source += definition.dialect == Dialect::Att ? "(%" + name + ")" : "[" + name + "]";
 			continue;
 		}
