@@ -6,3 +6,7 @@ clac
 stac
 swapgs
 iretq
+cli
+sti
+hlt
+leave

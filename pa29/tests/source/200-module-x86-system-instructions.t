@@ -18,6 +18,10 @@ system_instructions:
     clac
     stac
     swapgs
+    cli
+    sti
+    hlt
+    leaveq
     iretq
 
 .data
