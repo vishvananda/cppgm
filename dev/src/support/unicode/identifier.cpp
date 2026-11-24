@@ -3,18 +3,10 @@
 #include <algorithm>
 #include <array>
 
+#include "support/unicode/identifier_data.inc"
+
 namespace unicode {
 namespace {
-
-struct PropertyRange
-{
-	char32_t first;
-	char32_t last;
-	uint8_t combining_class;
-	uint8_t flags;
-};
-
-#include "support/unicode/identifier_data.inc"
 
 constexpr uint64_t kCodePointMask = (1ULL << 21) - 1;
 constexpr char32_t kLeadingJamo = 0x1100;
