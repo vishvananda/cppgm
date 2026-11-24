@@ -22,7 +22,8 @@ class SourceRelease(unittest.TestCase):
                  'dev/runtime/wasm-freestanding/memset_explicit.c',
                  'dev/runtime/wasm-freestanding/licenses/wasi-libc-libc-top-half-musl-COPYRIGHT.txt',
                  'dev/runtime/wasi-c23/Makefile', 'dev/runtime/wasi-c23/include/time.h',
-                 'dev/runtime/wasi-c23/timespec_getres.c'}
+                 'dev/runtime/wasi-c23/include/uchar.h', 'dev/runtime/wasi-c23/timespec_getres.c',
+                 'dev/runtime/wasi-c23/utf8.c'}
         extras = {'dev/cppgm-scaffold.cpp', 'pa1/tests/case.t', 'pa1/tests/case.ref',
                   'pa1/scripts/run_all_tests.pl', 'benchmarks/input.cpp', 'README.md'}
         with tempfile.TemporaryDirectory() as directory:

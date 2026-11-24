@@ -7,9 +7,9 @@ WASI_SYSROOT ?= $(abspath $(RESOURCE_DIR)/../../../share/wasi-sysroot)
 
 SHARED := ../wasm-freestanding
 SHARED_HEADERS := float.h limits.h stdarg.h stdbit.h stddef.h stdlib.h string.h
-LOCAL_HEADERS := assert.h setjmp.h stdint.h time.h
+LOCAL_HEADERS := assert.h setjmp.h stdint.h time.h uchar.h
 HEADERS := $(addprefix $(BUILD_DIR)/include/,$(SHARED_HEADERS) $(LOCAL_HEADERS))
-OBJECTS := $(addprefix $(BUILD_DIR)/,stdbit.o memalignment.o memset_explicit.o timespec_getres.o)
+OBJECTS := $(addprefix $(BUILD_DIR)/,stdbit.o memalignment.o memset_explicit.o timespec_getres.o utf8.o)
 RUNTIME_CFLAGS := --target=wasm32-wasip1 --sysroot="$(WASI_SYSROOT)" -resource-dir="$(RESOURCE_DIR)" \
 	-x c -std=c23 -pedantic-errors -isystem "$(BUILD_DIR)/include" -O2
 

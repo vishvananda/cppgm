@@ -1887,7 +1887,7 @@
       "editions": [23],
       "environment": "hosted",
       "header": "uchar",
-      "requirement": "Convert a basic character and the null character between execution encoding and UTF-8 through independent restartable states.",
+      "requirement": "Convert basic and multibyte characters through independent restartable states. Check split input, pending output, null arguments, and encoding errors.",
       "cases": ["library.c23-uchar-utf8"]
     },
     {
