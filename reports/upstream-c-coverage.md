@@ -3059,3 +3059,35 @@ tests with the bundled compiler tools.
 [PA38 capability regression](../pa38/tests/general/300-c-vla-capability.t) ·
 [PA38 ABI pair](../pa38/tests/general/300-vla-parameter-abi.t) ·
 [Compile measurements](../docs/performance/c-frontend-scaling.md#vla-capability-predefine)
+
+## LLVM C runtime campaign
+
+The scheduled upstream GCC job also checks the LLVM test suite at
+`28d2f36a29e8bb5de329a828f07729de66df0a9c`. The initial cohort has
+36 single-source C regressions and three multi-source MiBench programs.
+Each translation unit compiles to an ELF object independently. The
+host driver links those objects with the system C library. The
+runner checks the program output and exit status against LLVM's
+reference, including the hashed output of basicmath and FFT. The JPEG
+case also checks the decoded image against the digest measured with
+GCC 15 and Clang 21.
+
+GCC 15 and Clang 21 passed all 78 configurations locally. cppgm
+matched 64 at `-O0` and `-O2`. The remaining seven programs reproduce
+reviewed gaps at both levels, including missing GNU transparent-union
+argument conversion and a shutdown attribute that fails to produce a
+fini-array entry. The imported Duff's device input uses a GNU17
+implicit-int extension. A separate C90 replay compiles that input and
+fails at execution because the ignored non-void result reaches the
+function's end. An explicit return at that point restores the expected
+output.
+
+The replay inventory accounts for 1,708 GCC torture sources bundled
+with LLVM. The pinned GCC corpus has corresponding paths for 1,705
+of them, including 776 byte-identical sources. The remaining three
+LLVM archive cases have a separate exclusion in the manifest. Input
+identities and commands travel with the raw logs in the CI artifact.
+
+[LLVM sources](https://github.com/llvm/llvm-test-suite/tree/28d2f36a29e8bb5de329a828f07729de66df0a9c) ·
+[Scheduled runner](../scripts/run_llvm_c_runtime_ci_suite.py) ·
+[Reviewed gaps](upstream-llvm-c-runtime-known-gaps.json)

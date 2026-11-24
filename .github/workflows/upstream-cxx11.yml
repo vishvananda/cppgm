@@ -152,6 +152,20 @@ jobs:
           path: c-testsuite
           persist-credentials: false
 
+      - name: Check out pinned LLVM C runtime tests
+        if: ${{ matrix.suite == 'gcc' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: llvm/llvm-test-suite
+          ref: 28d2f36a29e8bb5de329a828f07729de66df0a9c
+          path: llvm-test-suite
+          sparse-checkout: |
+            SingleSource/Regression/C
+            MultiSource/Benchmarks/MiBench/automotive-basicmath
+            MultiSource/Benchmarks/MiBench/telecomm-FFT
+            MultiSource/Benchmarks/MiBench/consumer-jpeg
+          persist-credentials: false
+
       - name: Retain source license notices
         run: |
           python3 - <<'PYCODE'
@@ -165,6 +179,10 @@ jobs:
                                                  'LICENSE.TXT', 'clang/LICENSE.TXT', 'llvm/LICENSE.TXT'])]
           if Path('c-testsuite').is_dir():
               sources.append((Path('c-testsuite'), ['LICENSE', 'tests/LICENSE']))
+          if Path('llvm-test-suite').is_dir():
+              sources.append((Path('llvm-test-suite'), ['LICENSE.TXT', *[
+                  'MultiSource/Benchmarks/MiBench/' + name + '/LICENSE'
+                  for name in ('automotive-basicmath', 'telecomm-FFT', 'consumer-jpeg')]]))
           for root, names in sources:
               found = 0
               for name in names:
@@ -373,6 +391,11 @@ jobs:
             --gcc gcc-15 --upstream-version "$UPSTREAM_VERSION" --workers 2 \
             --work "$RUNNER_TEMP/musl-libc-test-build" --output "$RUNNER_TEMP/cxx11/libc-test"
 
+      - name: Run LLVM C runtime checks
+        if: ${{ !cancelled() && steps.candidate.outcome == 'success' && matrix.suite == 'gcc' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+        run: |
+          python3 scripts/run_llvm_c_runtime_ci_suite.py --candidate dev/cppgm +            --gcc gcc-15 --source-root llvm-test-suite --gcc-source-root upstream-sources +            --known-gaps reports/upstream-llvm-c-runtime-known-gaps.json +            --workers 2 --output "$RUNNER_TEMP/cxx11/llvm-c-runtime"
+
       - name: Publish counts and elapsed-time ratio
         if: always()
         run: |
@@ -399,7 +422,7 @@ jobs:
               cat "$summary" >> "$GITHUB_STEP_SUMMARY"
             fi
           done
-          for report in c90 c95 c99 c11 c17 c23 c-testsuite csmith gcc-c-torture libc-test; do
+          for report in c90 c95 c99 c11 c17 c23 c-testsuite csmith gcc-c-torture libc-test llvm-c-runtime; do
             summary="$RUNNER_TEMP/cxx11/$report/summary.md"
             if [ -f "$summary" ]; then
               cat "$summary" >> "$GITHUB_STEP_SUMMARY"

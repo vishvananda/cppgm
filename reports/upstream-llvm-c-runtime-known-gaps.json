@@ -1,0 +1,30 @@
+{
+  "2003-05-21-UnionTest": {
+    "diagnostic": "syntax error",
+    "reason": "The source uses the obsolete GNU field-colon initializer syntax."
+  },
+  "2003-05-23-TransparentUnion": {
+    "diagnostic": "no viable function for the call",
+    "reason": "Calls do not yet apply GNU transparent_union argument conversion."
+  },
+  "2003-06-16-InvalidInitializer": {
+    "diagnostic": "a C static initializer requires a constant expression",
+    "reason": "The GNU constant initializer takes a member address from a null base pointer."
+  },
+  "ConstructorDestructorAttributes": {
+    "stdout": "Create!\n",
+    "reason": "One of the two functions declared with startup or shutdown attributes does not run in the linked program."
+  },
+  "DuffsDevice": {
+    "diagnostic": "syntax error",
+    "reason": "The definition of sum omits its return type in the GNU17 configuration."
+  },
+  "globalrefs": {
+    "diagnostic": "invalid implicit conversion",
+    "reason": "A global long pointer is initialized with an int pointer. The native controls permit this constraint violation as an extension."
+  },
+  "consumer-jpeg": {
+    "diagnostic": "a C static initializer requires a constant expression",
+    "reason": "The historical JPEG sign-extension table uses a negative signed left shift as a GNU17 integer constant expression."
+  }
+}
