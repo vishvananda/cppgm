@@ -1900,7 +1900,7 @@ void Analyzer::expression_names(const syntax::Expr& expr, Scope* scope, bool une
 			type_id(*type, scope);
 		if (static_cast<const syntax::BuiltinTraitExpr&>(expr).operand != nullptr)
 			work.push_back(PendingExpr{ static_cast<const syntax::BuiltinTraitExpr&>(expr).operand,
-				static_cast<const syntax::BuiltinTraitExpr&>(expr).trait == GnuTrait::TypeofOperand });
+				IsTypeofOperand(static_cast<const syntax::BuiltinTraitExpr&>(expr).trait) });
 		return;
 	case syntax::ExprKind::New:
 		return new_expression(static_cast<const syntax::NewExpr&>(expr), scope, unevaluated);

@@ -30,14 +30,15 @@ public:
 	static const uint8_t kCAutoType = 0xf7;
 	static const uint8_t kFirstSpecial = kCAutoType;
 
-	explicit GnuNames(IdentifierTable& identifiers, bool gnu_c)
+	explicit GnuNames(IdentifierTable& identifiers)
 	{
 		for (uint32_t i = 0; i < static_cast<uint32_t>(GnuTrait::Declval); ++i)
 			mark(identifiers, GnuTraitName(static_cast<GnuTrait>(i)), static_cast<uint8_t>(i + 1));
-		mark(identifiers, "__typeof__", kTypeof);
-		mark(identifiers, "__typeof", kTypeof);
-		if (gnu_c)
-			mark(identifiers, "typeof", kTypeof);
+		if (identifiers.language() != SourceLanguage::C)
+		{
+			mark(identifiers, "__typeof__", kTypeof);
+			mark(identifiers, "__typeof", kTypeof);
+		}
 		mark(identifiers, "__attribute__", kAttribute);
 		mark(identifiers, "__attribute", kAttribute);
 		for (const char* spelling : { "_Complex", "__complex__", "__complex" })

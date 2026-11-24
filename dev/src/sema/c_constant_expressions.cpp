@@ -42,6 +42,7 @@ bool Analyzer::c_integer_constant_operands(const syntax::Expr& root) const
 		switch (expr->kind)
 		{
 		case ExprKind::Literal:
+		case ExprKind::KeywordLiteral:
 		case ExprKind::TypeTrait:
 			break;
 		case ExprKind::Sizeof:
@@ -114,7 +115,8 @@ bool Analyzer::integer_constant_expression(const syntax::Expr& expr, Scope* scop
 	const ExprFacts* facts = direct->facts;
 	if (facts != nullptr && facts->type != nullptr && IsIntegralOrUnscopedEnum(facts->type) &&
 		(direct->kind == syntax::ExprKind::Literal ||
-			(direct->kind == syntax::ExprKind::Sizeof && (facts->flags & kRuntimeSize) == 0)))
+			(direct->kind == syntax::ExprKind::Sizeof && (facts->flags & kRuntimeSize) == 0) ||
+			direct->kind == syntax::ExprKind::KeywordLiteral))
 	{
 		value = facts->constant();
 		return true;

@@ -720,7 +720,7 @@ bool Parser::parse_sizeof_operand(TypeId*& type, Expr*& operand, bool& parenthes
 Expr* Parser::parse_typeof_operand()
 {
 	BuiltinTraitExpr* expr = make<BuiltinTraitExpr>(ExprKind::BuiltinTrait, location());
-	expr->trait = GnuTrait::TypeofOperand;
+	expr->trait = at(TokenKind::KW_TYPEOF_UNQUAL) ? GnuTrait::TypeofUnqualOperand : GnuTrait::TypeofOperand;
 	expr->types = Slice<TypeId*>{ nullptr, 0 };
 	expr->type = nullptr;
 	next();

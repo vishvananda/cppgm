@@ -659,6 +659,14 @@ bool Parser::parse_decl_specifiers(ListFrame<DeclSpecifier>& list, SpecifierInfo
 				}
 				continue;
 			}
+			if (kind == TokenKind::KW_TYPEOF || kind == TokenKind::KW_TYPEOF_UNQUAL)
+			{
+				if (info.has_type)
+					break;
+				if (!parse_typeof_specifier(list, info))
+					return false;
+				continue;
+			}
 			break;
 		}
 		if (gnu == GnuNames::kConstinit && at_constinit_specifier())
@@ -799,6 +807,14 @@ bool Parser::continue_type_specifier_seq(ListFrame<DeclSpecifier>& list, Specifi
 			{
 				if (info.has_type || !parse_named_type_specifier(list, info))
 					break;
+				continue;
+			}
+			if (kind == TokenKind::KW_TYPEOF || kind == TokenKind::KW_TYPEOF_UNQUAL)
+			{
+				if (info.has_type)
+					break;
+				if (!parse_typeof_specifier(list, info))
+					return false;
 				continue;
 			}
 			break;

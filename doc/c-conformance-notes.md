@@ -1047,6 +1047,36 @@ omission in a macro defined and called in user source. GCC accepts
 the same omission for a system-header macro. cppgm follows that
 behavior and enables the diagnostic there with `-Wsystem-headers`.
 
+## C23 typeof specifiers
+
+The lexer reserves `typeof` in C23 and the GNU C dialects, and
+`typeof_unqual` in C23. GCC 15 and Clang 21 also accept `__typeof` and
+`__typeof_unqual`, with or without trailing underscores, in C17.
+The operators accept an expression or type name and diagnose a bit-field
+operand. They share the variably modified operand evaluation rules.
+A sole unnamed parameter of type `void` is an empty parameter list, even
+when the type came from an expression operand of `typeof`.
+
+The result retains the operand's type and qualifiers for `typeof`.
+`typeof_unqual` removes top-level qualifiers, including `_Atomic` from
+scalar and record types, and retains qualifiers beyond pointer derivations.
+Array dimensions carry the ordinary qualifiers of their elements. The
+unqualified version retains bounds and removes those ordinary qualifiers
+without removing atomic element types, following GCC's PR117781 tests.
+[WG14 N3220 §§6.2.5, 6.7.3.6, 6.7.7.4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
+[WG14 N2927](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2927.htm) ·
+[GCC array qualification fix](https://gcc.gnu.org/pipermail/gcc-cvs/2024-November/413304.html)
+
+## C23 boolean constants and static assertions
+
+`bool` names the same type as `_Bool`. `true` and `false` are predefined
+constants of that type with values 1 and 0, including in integer constant
+expressions. Preprocessing conditions interpret an unexpanded `true` as
+1 in C23. In earlier C modes it is an ordinary identifier, which becomes
+0 after macro expansion. C23 accepts `static_assert` with or without a
+message and also retains `_Static_assert` as an alternate spelling.
+[WG14 N3220 §§6.4.4.6, 6.6, 6.7.12, 6.10.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+
 ## C23 attribute inquiries
 
 `__has_c_attribute` is defined in C preprocessing conditions, including

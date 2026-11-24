@@ -261,6 +261,8 @@ public:
 				alternative_[kind] = entry.text;
 		}
 		primary_[static_cast<unsigned>(TokenKind::KW_RESTRICT)] = "restrict";
+		primary_[static_cast<unsigned>(TokenKind::KW_TYPEOF)] = "typeof";
+		primary_[static_cast<unsigned>(TokenKind::KW_TYPEOF_UNQUAL)] = "typeof_unqual";
 	}
 
 	const char* spelling(TokenKind kind, bool alternative) const
@@ -305,7 +307,30 @@ bool FindSimpleToken(const char* spelling, uint32_t length, TokenKind& kind)
 	return true;
 }
 
-bool FindCKeyword(const char* spelling, uint32_t length, bool inline_keyword, bool restrict_keyword, TokenKind& kind)
+static bool FindCTypeof(const char* spelling, uint32_t length, CEdition edition, bool gnu, TokenKind& kind)
+{
+	const bool reserved = spelling[0] == '_' && spelling[1] == '_';
+	if (reserved)
+	{
+		spelling += 2;
+		length -= 2;
+		if (spelling[length - 2] == '_' && spelling[length - 1] == '_')
+			length -= 2;
+	}
+	if (length == 6 && (reserved || gnu || edition >= CEdition::C23) && std::memcmp(spelling, "typeof", 6) == 0)
+	{
+		kind = TokenKind::KW_TYPEOF;
+		return true;
+	}
+	if (length == 13 && (reserved || edition >= CEdition::C23) && std::memcmp(spelling, "typeof_unqual", 13) == 0)
+	{
+		kind = TokenKind::KW_TYPEOF_UNQUAL;
+		return true;
+	}
+	return false;
+}
+
+bool FindCKeyword(const char* spelling, uint32_t length, CEdition edition, bool gnu, TokenKind& kind)
 {
 	if (FindSimpleToken(spelling, length, kind))
 	{
@@ -315,7 +340,12 @@ bool FindCKeyword(const char* spelling, uint32_t length, bool inline_keyword, bo
 			kind = TokenKind::KW_REGISTER;
 			return true;
 		case TokenKind::KW_INLINE:
-			return inline_keyword;
+			return gnu || edition >= CEdition::C99;
+		case TokenKind::KW_BOOL:
+		case TokenKind::KW_FALSE:
+		case TokenKind::KW_STATIC_ASSERT:
+		case TokenKind::KW_TRUE:
+			return edition >= CEdition::C23;
 		case TokenKind::KW_BREAK:
 		case TokenKind::KW_CASE:
 		case TokenKind::KW_CHAR:
@@ -352,11 +382,13 @@ bool FindCKeyword(const char* spelling, uint32_t length, bool inline_keyword, bo
 			break;
 		}
 	}
-	if (length == 8 && spelling[0] == 'r' && restrict_keyword && std::memcmp(spelling, "restrict", 8) == 0)
+	if (length == 8 && spelling[0] == 'r' && edition >= CEdition::C99 && std::memcmp(spelling, "restrict", 8) == 0)
 	{
 		kind = TokenKind::KW_RESTRICT;
 		return true;
 	}
+	if (length >= 6 && (spelling[0] == 't' || spelling[0] == '_') && FindCTypeof(spelling, length, edition, gnu, kind))
+		return true;
 	const struct
 	{
 		const char* name;

@@ -505,6 +505,8 @@ enum class GnuTrait : uint8_t
 	// a decltype-specifier of it: a prvalue of the expression's type (cv
 	// kept, no reference).
 	TypeofOperand,
+	// C's typeof_unqual, with the same operand grammar and evaluation rules.
+	TypeofUnqualOperand,
 	// Not spelled: a prvalue of a non-reference type, the operand of a
 	// temporary-binding trait (VAL<T>).
 	DeclvalPrvalue,
@@ -524,6 +526,10 @@ bool FindGnuTrait(const char* spelling, uint32_t length, GnuTrait& trait);
 inline bool IsGnuTypeTransform(GnuTrait trait)
 {
 	return trait >= GnuTrait::UnderlyingType && trait <= GnuTrait::BitInt;
+}
+inline bool IsTypeofOperand(GnuTrait trait)
+{
+	return trait == GnuTrait::TypeofOperand || trait == GnuTrait::TypeofUnqualOperand;
 }
 // The number of type-ids the trait takes: 1, 2, or 0 for one or more.
 uint32_t GnuTraitArity(GnuTrait trait);

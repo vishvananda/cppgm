@@ -417,6 +417,8 @@ bool Parser::statement_starts_declaration(bool& tentative)
 		case TokenKind::KW_NAMESPACE:
 		case TokenKind::KW_USING:
 		case TokenKind::KW_STATIC_ASSERT:
+		case TokenKind::KW_TYPEOF:
+		case TokenKind::KW_TYPEOF_UNQUAL:
 		case TokenKind::KW_TEMPLATE:
 		case TokenKind::KW_CONST:
 		case TokenKind::KW_VOLATILE:

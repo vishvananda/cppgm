@@ -12,6 +12,54 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "c23-typeof-1",
+      "path": "gcc/testsuite/gcc.dg/c23-typeof-1.c",
+      "sha256": "c31ad45531565289719faef44198b7b6b6fbdc9d382ac81061c1cc81b28b19b1",
+      "dialect": "c23",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Type and expression operands, qualification, redeclarations, and variably modified effects"
+    },
+    {
+      "id": "c23-typeof-2",
+      "path": "gcc/testsuite/gcc.dg/c23-typeof-2.c",
+      "sha256": "d79973c0f6b20543644c06ac52d1236856aff859239f46645aaba3997244bb35",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "diagnostic_contains": {
+        "cppgm": "applied to a bit-field",
+        "upstream": "applied to a bit-field"
+      },
+      "obligation": "Diagnose the bit-field constraint on typeof operands"
+    },
+    {
+      "id": "c23-typeof-4",
+      "path": "gcc/testsuite/gcc.dg/c23-typeof-4.c",
+      "sha256": "7d9c046a8cd3908f029ecb331694b91be788e00083dfb9b6f43040776184d8a9",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Qualified array types and compatible redeclarations"
+    },
+    {
+      "id": "c23-typeof-5",
+      "path": "gcc/testsuite/gcc.dg/c23-typeof-5.c",
+      "sha256": "177948c75ccf8bf61e7f53d75b285bac236b0803fd254e6294182433f7b4eeb3",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Preserve atomic qualification of elements of multidimensional arrays"
+    },
+    {
       "id": "c23-attr-noreturn-1",
       "path": "gcc/testsuite/gcc.dg/c23-attr-noreturn-1.c",
       "sha256": "4eed02b8886e4c8c26117fe9cf68fc2cd0d78ed487914e3ad3913c7b341997a6",

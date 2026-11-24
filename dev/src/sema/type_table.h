@@ -38,6 +38,7 @@ public:
 		return cv == 0 || (type->cv | cv) == type->cv ? type : qualified_anew(type, cv);
 	}
 	const Type* qualified_anew(const Type* type, uint8_t cv);
+	const Type* c_typeof_unqualified(const Type* type);
 	const Type* pointer(const Type* pointee);
 	const Type* reference(const Type* referee, bool rvalue);
 	const Type* member_pointer(const Type* owner, const Type* member);
@@ -107,7 +108,7 @@ private:
 	uint32_t mask_ = 255;
 	uint32_t count_;
 	const Type* fundamentals_[kFundamentalTypeCount];
-	// Parameter scratch for canonical function types.
+	// Scratch for canonical function parameters and array qualifier removal.
 	std::vector<const Type*> scratch_;
 	struct UnionSelectionHash
 	{
@@ -117,8 +118,13 @@ private:
 	{
 		size_t operator()(const SubobjectAddress& address) const;
 	};
+	struct InternedTypeHash
+	{
+		size_t operator()(const Type* type) const { return type->hash; }
+	};
 	FlatMap<UnionSelection, const UnionSelection*, UnionSelectionHash> union_selections_;
 	FlatMap<SubobjectAddress, const SubobjectAddress*, SubobjectAddressHash> subobject_addresses_;
+	FlatMap<const Type*, const Type*, InternedTypeHash> c_unqualified_arrays_;
 };
 
 } // namespace sema

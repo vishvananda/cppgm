@@ -52,13 +52,11 @@ bool Analyzer::type_dependent(const syntax::Expr* expr, Scope* scope)
 		// resulting type depends on that expression's value.
 		if (trait.trait == GnuTrait::BitInt)
 			return trait.operand == nullptr || instantiation_dependent(*trait.operand, scope);
-		if ((trait.trait == GnuTrait::TypeofOperand || trait.trait == GnuTrait::RealPart ||
-				trait.trait == GnuTrait::ImagPart) &&
+		if ((IsTypeofOperand(trait.trait) || trait.trait == GnuTrait::RealPart || trait.trait == GnuTrait::ImagPart) &&
 			trait.operand != nullptr)
 			return type_dependent(trait.operand, scope);
-		if (!IsGnuTypeTransform(trait.trait) && trait.trait != GnuTrait::TypeofOperand &&
-			trait.trait != GnuTrait::VaArg && trait.trait != GnuTrait::ConvertVector &&
-			trait.trait != GnuTrait::BitCast)
+		if (!IsGnuTypeTransform(trait.trait) && !IsTypeofOperand(trait.trait) && trait.trait != GnuTrait::VaArg &&
+			trait.trait != GnuTrait::ConvertVector && trait.trait != GnuTrait::BitCast)
 			return false;
 		const Type* type = type_id(*trait.types[0], scope);
 		return type == nullptr || dependent_type(type);

@@ -63,6 +63,7 @@ public:
 
 	void set_conditional_escapes(bool on) { conditional_escapes_ = on; }
 	void set_cxx_edition(uint8_t edition) { cxx_edition_ = edition; }
+	void set_true_keyword(bool on) { true_keyword_ = on; }
 	void set_binary_literal_diagnostics(const SourcePositions& positions) { binary_literal_diagnostics_ = &positions; }
 
 	// Evaluates the pp-tokens from `tokens` up to and including the next
@@ -137,6 +138,7 @@ private:
 	NumberDialect literals_;
 	bool conditional_escapes_ = false;
 	bool allow_defined_ = true;
+	bool true_keyword_ = true;
 	uint8_t cxx_edition_ = 11;
 	bool plain_char_unsigned_;
 	PPTokenCursor* tokens_;

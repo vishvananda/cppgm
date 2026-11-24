@@ -214,7 +214,8 @@ ExprFacts* Analyzer::builtin_trait(const syntax::BuiltinTraitExpr& expr, Scope* 
 		return new_facts(expr, type, category);
 	}
 	const bool c_atomic = c_source_ && expr.trait == GnuTrait::AddAtomic;
-	if ((expr.trait == GnuTrait::TypeofOperand && expr.operand == nullptr) || c_atomic)
+	const bool typeof_unqual = expr.trait == GnuTrait::TypeofUnqualOperand;
+	if ((IsTypeofOperand(expr.trait) && expr.operand == nullptr) || c_atomic)
 	{
 		// GNU typeof and C11 _Atomic can introduce variably modified
 		// type names. Carry the written bounds to the declaration or use
@@ -225,6 +226,8 @@ ExprFacts* Analyzer::builtin_trait(const syntax::BuiltinTraitExpr& expr, Scope* 
 			type = trait_type(expr.trait, type, expr.location);
 		if (type == nullptr)
 			return nullptr;
+		if (typeof_unqual)
+			type = types_.c_typeof_unqualified(type);
 		if (bounds != nullptr)
 			graph_.set_runtime_bounds(&expr, bounds);
 		ValueCategory category = ValueCategory::PRValue;
@@ -234,7 +237,7 @@ ExprFacts* Analyzer::builtin_trait(const syntax::BuiltinTraitExpr& expr, Scope* 
 			category = ValueCategory::XValue;
 		return new_facts(expr, type->is_reference() ? type->element : type, category);
 	}
-	if (expr.trait == GnuTrait::TypeofOperand)
+	if (IsTypeofOperand(expr.trait))
 	{
 		// GNU typeof (an unevaluated operand): the expression's type, cv
 		// kept (facts never hold a reference).
@@ -242,6 +245,11 @@ ExprFacts* Analyzer::builtin_trait(const syntax::BuiltinTraitExpr& expr, Scope* 
 											 : typed_value(*expr.operand, scope);
 		if (operand == nullptr)
 			return nullptr;
+		if (c_source_ && (operand->flags & kBitField) != 0)
+		{
+			substitution_error(expr.location, "typeof cannot be applied to a bit-field");
+			return nullptr;
+		}
 		if (c_source_ && operand->type->c_variably_modified)
 		{
 			RuntimeTypeEvaluation* step = graph_.arena.allocate_array<RuntimeTypeEvaluation>(1);
@@ -253,7 +261,8 @@ ExprFacts* Analyzer::builtin_trait(const syntax::BuiltinTraitExpr& expr, Scope* 
 		// A class prvalue operand is a temporary (12.2p1; no decltype
 		// exemption for a call, as GCC and Clang have it).
 		check_temporary_destruction(operand, expr.location);
-		return new_facts(expr, operand->type, ValueCategory::PRValue);
+		const Type* type = typeof_unqual ? types_.c_typeof_unqualified(operand->type) : operand->type;
+		return new_facts(expr, type, ValueCategory::PRValue);
 	}
 	if (expr.trait == GnuTrait::ConvertVector)
 	{

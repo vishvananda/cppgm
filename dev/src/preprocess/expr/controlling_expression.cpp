@@ -81,6 +81,7 @@ ControllingExpressionResult ControllingExpressionEvaluator::evaluate_embed_limit
 	ControllingExpressionEvaluator limit(macros_, literals_, plain_char_unsigned_);
 	limit.set_conditional_escapes(conditional_escapes_);
 	limit.set_cxx_edition(cxx_edition_);
+	limit.set_true_keyword(true_keyword_);
 	limit.allow_defined_ = false;
 	return limit.evaluate(tokens);
 }
@@ -114,8 +115,8 @@ void ControllingExpressionEvaluator::read_token()
 		token_.kind = TokenClass::End;
 		return;
 	case PPTokenKind::Identifier:
-		// Keywords are identifiers here; `true` and `false` are the course's
-		// 1 and 0, and every other identifier is replaced by 0 (16.1p4).
+		// The keyword `true` becomes 1. Other identifiers become 0, including
+		// an unexpanded `true` in earlier C modes.
 		if (SpellingIs(pp, "defined"))
 		{
 			if (allow_defined_)
@@ -123,7 +124,7 @@ void ControllingExpressionEvaluator::read_token()
 			return;
 		}
 		token_.kind = TokenClass::Operand;
-		token_.value = PPValue{ SpellingIs(pp, "true") ? 1u : 0u, false };
+		token_.value = PPValue{ SpellingIs(pp, "true") && true_keyword_ ? 1u : 0u, false };
 		return;
 	case PPTokenKind::PreprocessingOpOrPunc:
 		classify_operator(pp);

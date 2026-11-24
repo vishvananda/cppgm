@@ -1301,6 +1301,60 @@
       ]
     },
     {
+      "id": "c23.boolean-keywords",
+      "clause": "6.4.1, 6.4.4.6, 6.10.2p11",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Recognize bool as a type specifier and true and false as bool constants. Treat true as 1 and false as 0 in preprocessing conditions.",
+      "cases": ["c23.boolean-keywords"]
+    },
+    {
+      "id": "c23.static-assert-spelling",
+      "clause": "6.7.12",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Accept static_assert with and without a message, including bool integer constant expressions.",
+      "cases": ["c23.boolean-keywords"]
+    },
+    {
+      "id": "c23.typeof-keywords",
+      "clause": "6.4.1, 6.7.3.6p1",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Reserve typeof and typeof_unqual as keywords and accept their parenthesized type-name and expression operands.",
+      "cases": ["c23.typeof-qualifiers", "c23.typeof-reserved", "c23.typeof-unqual-reserved"]
+    },
+    {
+      "id": "c23.typeof-qualifiers",
+      "clause": "6.2.5p31-p32, 6.7.3.6p4-p5",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Preserve the operand type in typeof and remove top-level qualifiers in typeof_unqual, preserving pointee qualifiers and array atomic element types.",
+      "cases": ["c23.typeof-qualifiers"]
+    },
+    {
+      "id": "c23.typeof-operand-evaluation",
+      "clause": "6.7.3.6p4",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Evaluate a typeof or typeof_unqual operand only when its type is variably modified, retaining written bounds and nested evaluation.",
+      "cases": ["c23.typeof-vla"]
+    },
+    {
+      "id": "c23.typeof-bitfield-constraint",
+      "clause": "6.7.3.6p3",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Diagnose both typeof operators on operands designating a bit-field.",
+      "cases": ["c23.typeof-bitfield", "c23.typeof-unqual-bitfield"]
+    },
+    {
       "id": "c23.attribute-query",
       "clause": "6.10.2p9-p11, 6.7.13",
       "kind": "required",

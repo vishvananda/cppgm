@@ -50,8 +50,7 @@ public:
 	// `hosted`: a hosted compilation's contextual coroutine operators.
 	// `cxx14`/`cxx17`: standard syntax in the selected language mode.
 	ParserState(ParseTokenStream& tokens, IdentifierTable& identifiers, Arena& arena, bool hosted = false,
-		bool cxx14 = false, bool cxx17 = false, bool c_source = false, bool lexical_hints = true, bool cxx20 = false,
-		bool gnu_c = false);
+		bool cxx14 = false, bool cxx17 = false, bool c_source = false, bool lexical_hints = true, bool cxx20 = false);
 
 	// The furthest location where a parse failed (for the diagnostic).
 	uint32_t error_location() const { return error_location_; }

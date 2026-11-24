@@ -33,7 +33,7 @@ LEGACY_VERSION_PROBES = {
     90: PA38_GENERAL / '100-c90-version.t',
     95: PA38_GENERAL / '100-c95-digraphs.t',
 }
-C23_PREPROCESSOR_REJECTIONS = (
+C23_SOURCE_REJECTIONS = (
     ('c23.trigraph-default', '100-c23-trigraphs-bad.t', 'compile'),
     ('c23.attribute-probe-context', '100-c23-attribute-probe-context-bad.t', 'compile'),
     ('c23.attribute-probe-operand', '100-c23-attribute-probe-operand-bad.t', 'compile'),
@@ -51,13 +51,17 @@ C23_PREPROCESSOR_REJECTIONS = (
     ('c23.identifier-nfc-singleton', '100-c23-unicode-nfc-singleton-bad.t', 'compile'),
     ('c23.identifier-nfc-paste', '100-c23-unicode-nfc-paste-bad.t', 'compile'),
     ('c23.identifier-nfc-hangul', '100-c23-unicode-nfc-hangul-bad.t', 'compile'),
+    ('c23.typeof-bitfield', '300-c23-typeof-bitfield-bad.t', 'compile'),
+    ('c23.typeof-unqual-bitfield', '300-c23-typeof-unqual-bitfield-bad.t', 'compile'),
+    ('c23.typeof-reserved', '100-c23-typeof-reserved-bad.t', 'compile'),
+    ('c23.typeof-unqual-reserved', '100-c23-typeof-unqual-reserved-bad.t', 'compile'),
 )
-C23_PREPROCESSOR_CASES = (
+C23_SOURCE_CASES = (
     ('c23.version', '100-c23-version.t', 'preprocess'),
     ('c23.trigraph-spelling-and-splice', '100-c23-trigraph-spelling-and-splice.t', 'compile'),
     ('c23.preprocessing-conditionals', '100-c23-elifdef.t', 'compile'),
     ('c23.preprocessing-warning', '100-c23-warning.t', 'preprocess'),
-    *C23_PREPROCESSOR_REJECTIONS,
+    *C23_SOURCE_REJECTIONS,
 )
 C23_EMBED_SOURCE = PA38_GENERAL / '100-c23-embed.t'
 C23_EMBED_FIXTURES = C23_EMBED_SOURCE.with_suffix('.inc')
@@ -69,6 +73,9 @@ C23_PROGRAMS = {
     'c23.variadic-expansion': (PA38_GENERAL / '100-c23-variadic-macro.t', ()),
     'c23.literal-ucn': (PA38_GENERAL / '100-c23-literal-ucn.t', ()),
     'c23.unicode-identifiers': (PA38_GENERAL / '100-c23-unicode-identifiers.t', ()),
+    'c23.boolean-keywords': (PA38_GENERAL / '100-c23-bool-keywords.t', ()),
+    'c23.typeof-qualifiers': (PA38_GENERAL / '300-c23-typeof-qualifiers.t', ()),
+    'c23.typeof-vla': (PA38_GENERAL / '300-c23-typeof-vla.t', ()),
 }
 FLEXIBLE_ARRAY = PA38_GENERAL / '300-c-flexible-array.t'
 RECORD_CONSTRAINTS = {
@@ -85,7 +92,7 @@ RECORD_CONSTRAINTS = {
 }
 REJECTED_CASES = {
     'line.diagnostic-location', 'error.message', *RECORD_CONSTRAINTS,
-    *(case for case, _, _ in C23_PREPROCESSOR_REJECTIONS),
+    *(case for case, _, _ in C23_SOURCE_REJECTIONS),
 }
 C11_LIBRARY_SOURCES = {
     'library.c11-header-facilities': ROOT / 'scripts/tests/c_c11_header_facilities.c',
@@ -98,7 +105,7 @@ C11_LIBRARY_SOURCES = {
     'library.c11-threads': ROOT / 'scripts/tests/c_c11_threads.c',
 }
 CASES = {
-    **{case: ((stage,), ('default',)) for case, _, stage in C23_PREPROCESSOR_CASES},
+    **{case: ((stage,), ('default',)) for case, _, stage in C23_SOURCE_CASES},
     **{case: (RUN_STAGES, ('O0', 'O2')) for case in C23_PROGRAMS},
     'limits.combined': (RUN_STAGES, ('O0', 'O2')),
     'library.c95-wide-headers': (RUN_STAGES, ('O0', 'O2')),
@@ -365,10 +372,10 @@ def c11_library_sources(profile):
         yield case, source, (), ()
 
 
-def probe_c23_preprocessing(output, profile, compiler, setup):
+def probe_c23_source_cases(output, profile, compiler, setup):
     flags = [compiler, '--target=' + profile['target'], *setup, '-x', 'c', '-std=c23', '-pedantic-errors']
     work = output / profile['id'] / 'c23'
-    for case, name, stage in C23_PREPROCESSOR_CASES:
+    for case, name, stage in C23_SOURCE_CASES:
         source = str(PA38_GENERAL / name)
         options = ['-E', source, '-o', '/dev/null'] if stage == 'preprocess' else ['-fsyntax-only', source]
         stages, text = run_stages(work / case, [(stage, [*flags, *options])])
@@ -404,7 +411,7 @@ def probe_target(output, profile, compiler, setup, link, runner, bare_sdk=()):
         runner = [str(Path(executable).absolute()), *runner[1:]]
     numeric = numeric_sources(profile, bare_sdk)
     expect_no_threads = int(profile['target'].endswith('-apple-darwin'))
-    yield from probe_c23_preprocessing(output, profile, compiler, setup)
+    yield from probe_c23_source_cases(output, profile, compiler, setup)
     c23_flags = [compiler, '--target=' + profile['target'], *setup, '-x', 'c', '-std=c23', '-pedantic-errors']
     for case, (source, flags) in C23_PROGRAMS.items():
         for variant, passed, stages in probe_program(output / profile['id'] / 'c23', profile, case, source,
@@ -503,7 +510,7 @@ def probes(args, profiles, rules):
     revision = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
     inputs = sorted([*work.glob('*/*'), ERROR_SOURCE, INCLUDE_SOURCE, STRING_SOURCE, INCLUDE_QUERY, THREAD_PREDEFINE,
                      C95_WIDE_HEADERS, *LEGACY_VERSION_PROBES.values(),
-                     *(PA38_GENERAL / source for _, source, _ in C23_PREPROCESSOR_CASES),
+                     *(PA38_GENERAL / source for _, source, _ in C23_SOURCE_CASES),
                      *(source for source, _ in C23_PROGRAMS.values()), *C23_EMBED_FIXTURES.rglob('*.bin'),
                      INTEGER_LIMITS, FLOAT_LIMITS, DEFAULT_ROUNDING, ROUNDING_QUERY,
                      FENV_BINARY, FENV_CONVERT, FENV_COMPARE, FENV_QUAD, FENV_LIBM, FP_CONTRACT,

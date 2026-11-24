@@ -281,6 +281,45 @@ const Type* TypeTable::qualified_anew(const Type* type, uint8_t cv)
 	return intern(key);
 }
 
+const Type* TypeTable::c_typeof_unqualified(const Type* type)
+{
+	if (type->kind != TypeKind::Array)
+		return type->unqualified;
+
+	// The ordinary qualifiers of an array are carried by its elements.
+	// An array cannot itself be atomic, even if its elements are atomic.
+	// Memoize shared nested array types to keep the total work linear in
+	// the number of array types examined across a translation unit.
+	const size_t base = scratch_.size();
+	while (type->kind == TypeKind::Array)
+	{
+		const Type* const* known = c_unqualified_arrays_.find(type);
+		if (known != nullptr)
+		{
+			type = *known;
+			break;
+		}
+		scratch_.push_back(type);
+		type = type->element;
+	}
+	if (type->kind != TypeKind::Array && (type->cv & ~kAtomic) != 0)
+		type = qualified(type->unqualified, type->cv & kAtomic);
+	while (scratch_.size() != base)
+	{
+		const Type* original = scratch_.back();
+		scratch_.pop_back();
+		if (type == original->element)
+			type = original;
+		else if (original->c_array_star())
+			type = c_array_star(type);
+		else
+			type = array(
+				type, original->bound, original->owner, original->runtime_bound, original->zero_length_array());
+		c_unqualified_arrays_.insert(original, type);
+	}
+	return type;
+}
+
 const Type* TypeTable::pointer(const Type* pointee)
 {
 	Type key = Key(TypeKind::Pointer);

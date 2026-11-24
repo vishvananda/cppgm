@@ -46,7 +46,7 @@ slashes as separate tokens.
 `-std=gnu89` and `-std=gnu90` select C90 with GNU extensions, including
 `inline`, line comments, and digraphs.
 
-The experimental C23 preprocessing work uses `-std=c23`. Accept the
+The experimental C23 mode uses `-std=c23`. Accept the
 aliases `-std=c2x` and `-std=iso9899:2024`, and `-std=gnu23` or
 `-std=gnu2x` for the GNU dialect. These modes define
 `__STDC_VERSION__` as `202311L`. Leave trigraphs unchanged unless
@@ -605,8 +605,15 @@ The first fixture set covers these parts of the C17 input profile:
   literals even if the pointer result is discarded. A compound literal may
   have pointer-to-VLA type. Diagnose a compound literal of VLA type.
 - Accept `typeof` in GNU C and the alternate spellings `__typeof` and
-  `__typeof__` in all the C modes above. Preserve the operand type. Evaluate
-  the operand only when its type is variably modified. An indirection of
+  `__typeof__` in all the C modes above. C23 makes `typeof` and
+  `typeof_unqual` keywords. Accept `__typeof_unqual` and
+  `__typeof_unqual__` as extensions in earlier editions. Each takes a
+  parenthesized type name or expression. Diagnose a bit-field operand.
+  `typeof` preserves qualifiers. `typeof_unqual` removes the top-level
+  qualifiers, including `_Atomic` on non-array types. For an array,
+  preserve its bounds and the atomic qualification of its elements.
+  Keep pointee qualifiers when removing qualifiers from a pointer.
+  Evaluate the operand only when its type is variably modified. An indirection of
   `void *` has type `void`. Applying `&*` preserves the pointer, including a
   null pointer. A discarded void indirection evaluates the pointer's
   effects without a data access. Require an object type for a store or
@@ -614,6 +621,11 @@ The first fixture set covers these parts of the C17 input profile:
   sharing a specifier, repeat the evaluated expression operand for each
   declarator and capture written type-name bounds during the first
   declarator's evaluation.
+- Recognize `bool`, `true`, `false`, and `static_assert` in C23. Give
+  `true` and `false` type `bool` and allow them in integer constant
+  expressions. In C23 preprocessing conditions, their values are 1 and
+  0. In earlier C modes the spellings are ordinary identifiers and can
+  be defined as macros by headers or by source.
 - Hosted C header declarations and their builtin operations through the
   existing hosted environment, including PA30's GNU startup-function attributes.
 - Support the reserved GNU spelling `__auto_type` in the C modes above.

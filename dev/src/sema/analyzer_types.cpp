@@ -340,7 +340,7 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 				? static_cast<const syntax::BuiltinTraitExpr*>(specifier.operand)
 				: nullptr;
 			if (c_source_ && builtin != nullptr &&
-				(builtin->trait == GnuTrait::TypeofOperand || builtin->trait == GnuTrait::AddAtomic))
+				(IsTypeofOperand(builtin->trait) || builtin->trait == GnuTrait::AddAtomic))
 			{
 				const ExprFacts* facts = typed_value(*specifier.operand, scope);
 				named = facts != nullptr ? facts->type : nullptr;
@@ -1609,13 +1609,6 @@ const Type* Analyzer::apply_suffix(const syntax::DeclaratorSuffix& suffix, const
 		}
 	}
 	uint32_t count = static_cast<uint32_t>(parameter_scratch_.size() - base);
-	if (c_definition && earlier != nullptr)
-	{
-		declare_parameter(earlier, clause, count - 1, parameter_object_type(parameter_scratch_.back()));
-		graph_.set_c_parameter_scope(&clause, earlier);
-		if (parameter_bounds != nullptr)
-			graph_.set_runtime_bounds(earlier, parameter_bounds);
-	}
 	// A sole unnamed parameter of non-dependent type void is an empty list
 	// (8.3.5p4): one of a template parameter's type that an instantiation
 	// makes void is a parameter of type void. Otherwise no parameter has
@@ -1635,6 +1628,16 @@ const Type* Analyzer::apply_suffix(const syntax::DeclaratorSuffix& suffix, const
 				return type;
 			}
 		}
+	}
+	if (c_definition && earlier != nullptr)
+	{
+		// A typeof specifier can require a scope and still produce the sole
+		// void marker. Keep that scope without declaring a parameter for it.
+		if (count != 0)
+			declare_parameter(earlier, clause, count - 1, parameter_object_type(parameter_scratch_.back()));
+		graph_.set_c_parameter_scope(&clause, earlier);
+		if (parameter_bounds != nullptr)
+			graph_.set_runtime_bounds(earlier, parameter_bounds);
 	}
 	uint8_t cv = 0;
 	RefQualifier ref = RefQualifier::None;

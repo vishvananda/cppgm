@@ -65,8 +65,8 @@ private:
 	Arena& arena_;
 	SourceLanguage language_;
 	bool cxx20_;
-	bool c_inline_;
-	bool c_restrict_;
+	CEdition c_edition_;
+	bool gnu_c_;
 	std::vector<Identifier*> slots_;
 	uint32_t count_;
 };

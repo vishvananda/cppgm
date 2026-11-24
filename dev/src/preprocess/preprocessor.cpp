@@ -229,6 +229,7 @@ Preprocessor::Preprocessor(const PreprocessorOptions& options, const std::string
 	expander_.set_digraphs(digraphs);
 	evaluator_.set_conditional_escapes(options.gnu_c());
 	evaluator_.set_cxx_edition(options.cxx_edition);
+	evaluator_.set_true_keyword(options.language != SourceLanguage::C || options.c_edition >= CEdition::C23);
 	if (options.diagnose_pre_c23_binary_literals())
 		evaluator_.set_binary_literal_diagnostics(*this);
 	const bool separators = HasNumberSyntax(options.literals, number_syntax::Separators);

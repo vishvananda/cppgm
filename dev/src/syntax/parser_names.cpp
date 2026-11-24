@@ -1160,6 +1160,8 @@ bool Parser::at_type_specifier_start(uint32_t ahead)
 	case TokenKind::KW_RESTRICT:
 	case TokenKind::KW_TYPENAME:
 	case TokenKind::KW_DECLTYPE:
+	case TokenKind::KW_TYPEOF:
+	case TokenKind::KW_TYPEOF_UNQUAL:
 	case TokenKind::KW_CLASS:
 	case TokenKind::KW_STRUCT:
 	case TokenKind::KW_UNION:

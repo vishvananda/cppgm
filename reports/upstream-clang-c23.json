@@ -12,6 +12,28 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "n2927-typeof",
+      "path": "clang/test/C/C23/n2927.c",
+      "sha256": "07b2b88c1cb9d609c8ab035eda7a5c1e73c15c6dbbae875e1e754f51a5c50450",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors", "-Wno-invalid-utf8"],
+      "obligation": "N2927 function and array types, parameter adjustment, and incomplete array completion"
+    },
+    {
+      "id": "n2927-vla-size",
+      "path": "clang/test/C/C23/n2927_2.c",
+      "sha256": "2e53ab58eb56c295f0c62505f38b171cf9d05b69d324e15b5e5cd20270be551c",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Generate an object for sizeof of a typeof_unqual variable-length array"
+    },
+    {
       "id": "n2549",
       "path": "clang/test/C/C23/n2549.c",
       "sha256": "be1b4471f9ab1d69d4ac60b56f5369b2745a56c34c24b8eb777119b3982854e6",

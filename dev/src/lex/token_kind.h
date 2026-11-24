@@ -5,6 +5,8 @@
 
 #include <cstdint>
 
+#include "lex/source_language.h"
+
 // The keywords ([lex.key] 2.12) and operators and punctuators
 // ([lex.operators] 2.13) that phase 7 converts to `simple` tokens. `true`,
 // `false`, `nullptr`, `new` and `delete` are keywords here. Alternative
@@ -142,7 +144,9 @@
 	X(KW_CO_RETURN) \
 	X(KW_CO_YIELD) \
 	X(OP_SPACESHIP) \
-	X(KW_RESTRICT)
+	X(KW_RESTRICT) \
+	X(KW_TYPEOF) \
+	X(KW_TYPEOF_UNQUAL)
 // clang-format on
 
 enum class TokenKind : uint8_t
@@ -187,7 +191,8 @@ inline bool IsAlternativeSpelling(const char* spelling, uint32_t length)
 // `#`, `##`, `%:` and `%:%:` have no simple token.
 bool FindSimpleToken(const char* spelling, uint32_t length, TokenKind& kind);
 
-// `=` and the compound assignment operators (5.17).
-bool FindCKeyword(const char* spelling, uint32_t length, bool inline_keyword, bool restrict_keyword, TokenKind& kind);
+// The keywords reserved by the selected C dialect.
+bool FindCKeyword(const char* spelling, uint32_t length, CEdition edition, bool gnu, TokenKind& kind);
 
+// `=` and the compound assignment operators (5.17).
 bool IsAssignmentOperator(TokenKind kind);

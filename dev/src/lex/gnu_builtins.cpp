@@ -1107,5 +1107,7 @@ const char* GnuTraitName(GnuTrait trait)
 		return "__builtin_offsetof";
 	if (trait == GnuTrait::TypeofOperand)
 		return "__typeof__";
+	if (trait == GnuTrait::TypeofUnqualOperand)
+		return "typeof_unqual";
 	return kTraitNames[static_cast<unsigned>(trait)];
 }
