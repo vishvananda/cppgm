@@ -12,6 +12,51 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "n3037-record-redefinition-nested",
+      "path": "gcc/testsuite/gcc.dg/c23-tag-7.c",
+      "sha256": "f6ce909e494d341557287e77a808574bc5ebf9cbbdf738ff29027233166ae30f",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "diagnostic_contains": {
+        "cppgm": "nested record redefinition",
+        "upstream": "nested redefinition"
+      },
+      "obligation": "Accept the earlier repeated self-referential record and diagnose a nested definition of its own tag"
+    },
+    {
+      "id": "n3037-record-redefinition-nested-repeat",
+      "path": "gcc/testsuite/gcc.dg/c23-tag-8.c",
+      "sha256": "05712e8c10fd1dd8cc52c16659ced8faeaff7a2cca2aa3b6b1525377c9514177",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "diagnostic_contains": {
+        "cppgm": "nested record redefinition",
+        "upstream": "nested redefinition"
+      },
+      "obligation": "Reject an inner definition within the repeated definition of a complete block-scope record"
+    },
+    {
+      "id": "n3037-record-redefinition-alignment",
+      "path": "gcc/testsuite/gcc.dg/c23-tag-9.c",
+      "sha256": "18337728f383f041f5a0b07eec5b58dd304c0a57faa65a3c1e7e905b9fd0e991",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [],
+      "upstream_flags": [],
+      "diagnostic_contains": {
+        "cppgm": "incompatible record redefinition",
+        "upstream": "redefinition of struct or union"
+      },
+      "obligation": "Reject a repeated definition that changes a member's required alignment"
+    },
+    {
       "id": "n3037-enumeration-redefinition",
       "path": "gcc/testsuite/gcc.dg/c23-tag-enum-2.c",
       "sha256": "70329803b6ebfb75b47d0dd64d02987f8c50baed963a2cb1c14d470ca87844ed",

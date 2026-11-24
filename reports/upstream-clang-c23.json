@@ -12,6 +12,21 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "auto-incompatible-record-redefinition",
+      "path": "clang/test/C/C23/n3006.c",
+      "sha256": "65d0ff55cd474af4bc2303b21b9192a6a8691f60d4cc0234b8f8e6cae784b331",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [],
+      "upstream_flags": [],
+      "diagnostic_contains": {
+        "cppgm": "incompatible record redefinition",
+        "upstream": "type 'struct S1' has incompatible definitions"
+      },
+      "obligation": "Detect the first incompatible record definition in an inferred object's compound-literal initializer"
+    },
+    {
       "id": "n3029-wide-enumeration-members",
       "path": "clang/test/C/C23/n3029.c",
       "sha256": "d5cea222dd4cd5758b18e7c71241091bedd31bba34c67b4e82e86a4d7487651b",

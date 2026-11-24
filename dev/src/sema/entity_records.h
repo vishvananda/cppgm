@@ -337,6 +337,10 @@ struct ClassEntity : Entity
 	// Only GNU aligned attributes request it: one weaker than the class's
 	// natural alignment is ignored (GCC) rather than ill-formed (7.6.2p5).
 	bool alignment_request_gnu;
+	bool c_definition_active;
+	// Compare the alignment given on the definition separately from a
+	// GNU request on a forward declaration of the tag.
+	uint32_t c_definition_alignment;
 	// The direct bases whose constructors using-declarations inherit.
 	InheritedConstructorBase* inherits_constructors;
 	// Semantics mode, a polymorphic class once complete: its virtual

@@ -21,6 +21,41 @@ bool IsUnion(TokenKind key)
 	return key == TokenKind::KW_UNION;
 }
 
+bool SameCRecordDefinition(const ClassEntity& first, const ClassEntity& second, const PointerMap& aliases)
+{
+	if (first.key != second.key || first.member_count != second.member_count || first.pack != second.pack ||
+		first.packed != second.packed || first.c_definition_alignment != second.c_definition_alignment)
+		return false;
+	const DataMember* right = second.members;
+	for (const DataMember* left = first.members; left != nullptr; left = left->next, right = right->next)
+	{
+		const auto* a = static_cast<const VariableEntity*>(left->variable);
+		const auto* b = static_cast<const VariableEntity*>(right->variable);
+		if (a->name != b->name || left->bit_field != right->bit_field || left->width != right->width ||
+			left->packed != right->packed || a->alignment_request != b->alignment_request ||
+			(aliases.size() != 0 && aliases.find(a) != aliases.find(b)))
+			return false;
+		if (a->type->canonical == b->type->canonical)
+			continue;
+		// The anonymous-member rule compares the contents of those members.
+		// A named member's type still has to match exactly.
+		const ClassEntity* a_record = ClassOf(a->type);
+		const ClassEntity* b_record = ClassOf(b->type);
+		if (a->name != nullptr || a_record == nullptr || b_record == nullptr || a_record->storage == nullptr ||
+			b_record->storage == nullptr || a->type->cv != b->type->cv ||
+			!SameCRecordDefinition(*a_record, *b_record, aliases))
+			return false;
+	}
+	return true;
+}
+
+struct CRecordRedefinition
+{
+	ClassEntity& entity;
+	explicit CRecordRedefinition(ClassEntity& record) : entity(record) { entity.c_definition_active = true; }
+	~CRecordRedefinition() { entity.c_definition_active = false; }
+};
+
 struct CEnumDefinition
 {
 	EnumEntity* entity;
@@ -212,7 +247,27 @@ Entity* Analyzer::class_specifier(const syntax::ClassSpecifier& specifier, Scope
 		}
 	}
 	if (entity->scope != nullptr)
-		error(name->location, "class redefinition");
+	{
+		if (!c23_ || name->qualified())
+			error(name->location, "class redefinition");
+		if (!entity->complete || entity->c_definition_active)
+			error(name->location, "nested record redefinition");
+		if (specifier.key != entity->key)
+			error(name->location, "class-key does not agree with an earlier declaration");
+		const CRecordRedefinition active(*entity);
+		// Type the second list in its own member scope. The surrounding
+		// tag table still names the first definition, including for self
+		// references. The second list has no declaration in the output.
+		ClassEntity* repeated = new_entity<ClassEntity>(EntityKind::Class, entity->name, where, entity->type);
+		repeated->key = specifier.key;
+		repeated->label = entity->label;
+		class_body(repeated, specifier, parent, nullptr);
+		if (!SameCRecordDefinition(*entity, *repeated, aligned_variables_))
+			error(name->location, "incompatible record redefinition");
+		entity->may_alias |= repeated->may_alias;
+		class_linkage_attributes(entity, specifier.attributes, false, true, specifier.location);
+		return entity;
+	}
 	if (IsUnion(specifier.key) != IsUnion(entity->key))
 		error(name->location, "class-key does not agree with an earlier declaration");
 	const bool pattern_member = entity->templ != nullptr && entity->templ->role == TemplateRole::Pattern;
@@ -508,8 +563,11 @@ void Analyzer::class_body(ClassEntity* entity, const syntax::ClassSpecifier& spe
 	// the strictest winning: GCC's type attribute.)
 	if (template_depth_ == 0)
 	{
-		entity->alignment_request = std::max(entity->alignment_request,
-			static_cast<uint32_t>(attribute_alignment(specifier.attributes, parent, packed, no_inline)));
+		const uint32_t requested = static_cast<uint32_t>(
+			attribute_alignment(specifier.attributes, parent, packed, no_inline));
+		entity->alignment_request = std::max(entity->alignment_request, requested);
+		if (requested != 0 && c23_)
+			entity->c_definition_alignment = requested;
 		entity->alignment_request_gnu = true;
 		for (const syntax::Attribute* attribute = specifier.attributes; attribute != nullptr;
 			attribute = attribute->next)
@@ -560,6 +618,17 @@ void Analyzer::class_body(ClassEntity* entity, const syntax::ClassSpecifier& spe
 	current_access_ = saved_access;
 	member_scope_ = saved_member_scope;
 	entity->complete = true;
+	if (print == nullptr && c23_)
+	{
+		// This member list supplies only comparison facts. The original
+		// type retains its own layout and synthesized members.
+		if (class_depth_ == 0)
+		{
+			finish_class_exceptions(first_throw, first_override);
+			finish_class_nesting(first_deferred);
+		}
+		return;
+	}
 	for (const DataMember* member = entity->anonymous ? entity->members : nullptr;
 		member != nullptr && !entity->members_initialized; member = member->next)
 		entity->members_initialized = MemberInitialized(member);

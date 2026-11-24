@@ -28,6 +28,26 @@ and the prior type visible while redeclaring an enumerator.
 [WG14 issue 1021](https://www.open-std.org/jtc1/sc22/WG14/issues/c23/issue1021.html) ·
 [WG14 issue 1130](https://www.open-std.org/jtc1/sc22/WG14/issues/c23/issue1130.html)
 
+## C23 structure and union tag redefinitions
+
+After closing the first member list, a tagged structure or union stays
+complete through later definitions. Two definitions of the same tag in
+the same scope cannot be nested. Compare the lists in declaration order,
+including unnamed bit-fields, and check corresponding members' names,
+types, alignment requests, and bit-field widths. Resolve each member's
+type at its own declaration. If lookup finds a different tag in a
+nearer scope, its type is distinct even if its layout matches.
+
+Compare the contents of anonymous structure and union members. A type
+declared without a tag in a named member remains distinct from any
+other declaration of such a type. cppgm follows this distinction and
+diagnoses the same-tag nesting cases that Clang 21 accepts in its local
+probes. The record rules also compare the GNU layout attributes that
+cppgm implements. A type alignment specified on a forward declaration
+persists on the tag independently of the definitions' requests.
+[C23 N3220 §§6.2.7 and 6.7.3.4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
+[WG14 N3037](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3037.pdf)
+
 ## C23 enumeration tag redefinitions
 
 Repeated definitions of the same tag in the same scope share the

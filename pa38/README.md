@@ -477,6 +477,13 @@ The first fixture set covers these parts of the C17 input profile:
   different value, a missing or repeated member, and a definition nested
   inside the definition of the same tag. Earlier editions allow one
   definition per scope.
+- In C23, a tagged struct or union can have another definition in the
+  same scope. Keep the first definition complete while checking the
+  next one. Match members in order by name, exact type, alignment
+  request, and bit-field width. Compare the contents of corresponding
+  anonymous struct and union members. A named member declared with an
+  untagged struct or union still has its own type. Diagnose nested
+  definitions of the same tag and keep the first definition's layout.
 - GNU C supports forward references to an enumeration tag. Keep the type
   incomplete until its definition. A pointer or a non-defining declaration
   can refer to it in the meantime. A storage definition or a function
