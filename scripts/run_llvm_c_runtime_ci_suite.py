@@ -19,7 +19,7 @@ from upstream_dg_proxy import execute, sha256, write_json
 REVISION = '28d2f36a29e8bb5de329a828f07729de66df0a9c'
 SINGLE = Path('SingleSource/Regression/C')
 MIBENCH = Path('MultiSource/Benchmarks/MiBench')
-FLAGS = ('-x', 'c', '-std=gnu17', '-Wno-implicit-int', '-Wno-implicit-function-declaration',
+FLAGS = ('-x', 'c', '-Wno-implicit-int', '-Wno-implicit-function-declaration',
          '-Wno-int-conversion', '-Wno-error=incompatible-pointer-types')
 JPEG_IMAGE = '12574e15b69a374b77e6c03c5ebd56e2f3c183fc16d8e3c77fce6ac9c1cd723c'
 
@@ -27,7 +27,9 @@ JPEG_IMAGE = '12574e15b69a374b77e6c03c5ebd56e2f3c183fc16d8e3c77fce6ac9c1cd723c'
 def cohort(root, gcc_root):
     programs = []
     for source in sorted((root / SINGLE).glob('*.c')):
-        programs.append(dict(id=source.stem, sources=(source,), reference=source.with_suffix('.reference_output')))
+        dialect = 'gnu90' if source.stem == 'DuffsDevice' else 'gnu17'
+        programs.append(dict(id=source.stem, sources=(source,), dialect=dialect,
+                             reference=source.with_suffix('.reference_output')))
     for name, args, flags in (
         ('automotive-basicmath', (), ()),
         ('telecomm-FFT', ('8', '32768', '-i'), ('-DFP_ABSTOLERANCE=1e-5',)),
@@ -38,7 +40,7 @@ def cohort(root, gcc_root):
         if len(sources) < 2:
             raise ValueError(f'Missing multiple source files for {name}')
         reference, = directory.glob('*.reference_output')
-        program = dict(id=name, sources=sources, args=args, flags=flags, reference=reference)
+        program = dict(id=name, sources=sources, args=args, flags=flags, reference=reference, dialect='gnu17')
         if name == 'consumer-jpeg':
             program.update(args=(*args, str(directory / 'input_large.jpg')), image=JPEG_IMAGE)
         programs.append(program)
@@ -109,7 +111,8 @@ def run_program(task):
         return result, diagnostic
 
     for index, (source, obj) in enumerate(zip(program['sources'], objects)):
-        result, diagnostic = stage(f'compile-{index}', [compiler, *FLAGS, '-O' + level, *program.get('flags', ()),
+        result, diagnostic = stage(f'compile-{index}', [compiler, *FLAGS, '-std=' + program['dialect'],
+                                                       '-O' + level, *program.get('flags', ()),
                                                        '-c', str(source), '-o', obj])
         if result['classification'] != 'success':
             break
@@ -172,7 +175,7 @@ def main():
         raise ValueError('A compiler or LLVM input changed during the run')
     candidate = counts['candidate']
     summary = ('### LLVM C runtime checks\n\n'
-               f"cppgm matched {candidate['passed']} of {len(tasks)} GNU17 runs at -O0 and -O2. "
+               f"cppgm matched {candidate['passed']} of {len(tasks)} runs at -O0 and -O2. "
                f"{candidate['known-failure']} runs reproduced reviewed gaps.\n")
     (output / 'summary.md').write_text(summary)
     print(summary, end='')

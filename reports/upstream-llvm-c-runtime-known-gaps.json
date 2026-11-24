@@ -15,10 +15,6 @@
     "stdout": "Create!\n",
     "reason": "One of the two functions declared with startup or shutdown attributes does not run in the linked program."
   },
-  "DuffsDevice": {
-    "diagnostic": "syntax error",
-    "reason": "The definition of sum omits its return type in the GNU17 configuration."
-  },
   "globalrefs": {
     "diagnostic": "invalid implicit conversion",
     "reason": "A global long pointer is initialized with an int pointer. The native controls permit this constraint violation as an extension."

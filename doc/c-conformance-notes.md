@@ -886,6 +886,19 @@ argument passing, pointer comparisons, and pointer subtraction.
 [WG14 N2607](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2607.pdf) ·
 [PA38 C23 composite case](../pa38/tests/general/300-c23-qualified-array-pointer-composite.t)
 
+## Discarded function results
+
+C11 6.9.1p12 and C23 6.9.2 specify undefined behavior when a function
+reaches its final brace and the caller uses the missing value. A call
+that discards the result still returns control and retains the body's
+side effects. This applies to both scalar and aggregate return types.
+It differs from the separate hosted rule that falling off the end of
+`main` returns zero.
+
+[C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[C23 text](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
+[PA38 fallthrough regression](../pa38/tests/general/300-c-nonvoid-discarded-fallthrough.t)
+
 ## Evaluated type names and GNU `typeof`
 
 The evaluation of a VLA size expression can be observable even when a cast's

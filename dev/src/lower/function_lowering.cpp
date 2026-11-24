@@ -3,6 +3,7 @@
 #include <cstring>
 
 #include "lex/identifier_table.h"
+#include "sema/analyzer.h"
 #include "sema/conversions.h"
 #include "support/stack_budget.h"
 
@@ -455,6 +456,10 @@ void FunctionLowering::finish_body_end()
 	// whose paths all return).
 	if (!is_main_)
 	{
+		// C 6.9.1: reaching the final brace is valid when the caller
+		// discards the result. Keep the ABI's ordinary return path.
+		if (function_ != nullptr && !function_->noreturn && lowering_.analyzer_->c_source())
+			return zero_return(false);
 		if (!block_targeted(builder_.insertion_block()))
 			return zero_return(false);
 		terminate(lowir::make_instruction(lowir::Opcode::Unreachable, lowir::Type::scalar(lowir::TypeKind::Void)));

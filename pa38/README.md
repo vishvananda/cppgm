@@ -170,6 +170,11 @@ freestanding C, `main` is an ordinary function. Do not infer library
 semantics from the names of ordinary freestanding functions. Preserve
 the behavior of explicit builtins and generated helpers.
 
+Reaching the final brace of a function that returns a value is valid
+when the caller discards the result. Preserve the function's side
+effects and return control to the caller. Using the missing value has
+undefined behavior.
+
 With `-pedantic`, diagnose C11 syntax such as `_Generic` and `_Atomic` in
 C99 modes. With `-pedantic-errors`, reject those uses. System headers and
 the tokens supplied by their macro replacement lists suppress these diagnostics

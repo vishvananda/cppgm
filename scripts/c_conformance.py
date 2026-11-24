@@ -32,6 +32,7 @@ PAIR_STAGES = ('compile', 'compile-companion', 'link', 'run')
 THREAD_PREDEFINE = ROOT / 'scripts/tests/c_thread_predefine.c'
 C95_WIDE_HEADERS = ROOT / 'scripts/tests/c_c95_wide_headers.c'
 PA38_GENERAL = ROOT / 'pa38/tests/general'
+DISCARDED_FALLTHROUGH = PA38_GENERAL / '300-c-nonvoid-discarded-fallthrough.t'
 INCLUDE_QUERY = PA38_GENERAL / '100-c-has-include-header-operands.t'
 LEGACY_VERSION_PROBES = {
     90: PA38_GENERAL / '100-c90-version.t',
@@ -166,6 +167,7 @@ C23_EMBED_SOURCE = PA38_GENERAL / '100-c23-embed.t'
 C23_EMBED_FIXTURES = C23_EMBED_SOURCE.with_suffix('.inc')
 SIZEOF_COMPOUND = PA38_GENERAL / '300-c99-sizeof-compound-literal.t'
 C23_PROGRAMS = {
+    'function.ignored-fallthrough': (DISCARDED_FALLTHROUGH, ()),
     'compound.sizeof': (SIZEOF_COMPOUND, ()),
     'include.query': (INCLUDE_QUERY, ('-I' + str(INCLUDE_QUERY.parent),)),
     'c23.attribute-probe': (PA38_GENERAL / '100-c23-attribute-probe.t', ()),
@@ -932,7 +934,10 @@ def probe_target(output, profile, compiler, setup, link, runner, sdk_headers, he
         yield receipt('environment.thread-predefine', profile, edition, 'default',
                       stages[0]['classification'] == 'success', stages)
         limits_directory = 'legacy' if legacy else 'modern'
-        sources = [('limits.combined', output / 'inputs' / limits_directory / 'combined.c', (), ())]
+        sources = [
+            ('limits.combined', output / 'inputs' / limits_directory / 'combined.c', (), ()),
+            ('function.ignored-fallthrough', DISCARDED_FALLTHROUGH, (), ()),
+        ]
         if legacy:
             stages, _ = run_stages(work / 'version', [
                 ('preprocess', [*flags, '-E', str(LEGACY_VERSION_PROBES[edition]), '-o', '/dev/null']),

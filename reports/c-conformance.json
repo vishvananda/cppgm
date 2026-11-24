@@ -79,6 +79,15 @@
       ]
     },
     {
+      "id": "function.ignored-fallthrough",
+      "clause": "C11 6.9.1p12; C23 6.9.2",
+      "kind": "required",
+      "editions": [90, 95, 99, 11, 17, 23],
+      "environment": "all",
+      "requirement": "Continue execution after a function reaches its end when the caller discards its result. Preserve observable side effects and the ABI return path.",
+      "cases": ["function.ignored-fallthrough"]
+    },
+    {
       "id": "limits.block-depth",
       "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",
