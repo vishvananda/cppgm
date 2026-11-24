@@ -3658,3 +3658,28 @@ functions with one `__builtin_stdc_bit_width` of a volatile
 cast of the shifted high word with the same type and source shape.
 Additional retired instructions per function were 29,275, 29,263,
 and 29,382. The difference includes the added LowIR and object emission.
+
+## C23 translation limits and floating constant decoding
+
+The numeric predefines come from the selected target. The added GNU
+spellings extend the existing target tables once per translation unit.
+The floating decoder checks the bits already present in a LowIR
+literal. It widens signaling NaN encodings directly to preserve sign,
+payload and signaling state. The arithmetic path decodes finite values
+through the existing conversion.
+
+On CPU 71, the preceding compiler and the candidate produced
+byte-identical objects for all four frozen inputs. The pairs followed
+an A/A calibration block and used ABBA and BAAB.
+
+| Input | A/A instruction spread | ABBA retired instructions | BAAB retired instructions |
+| --- | ---: | ---: | ---: |
+| C++ semantic overloads | 0.00274% | −0.00004% | −0.00125% |
+| SQLite 3.50.4 | 0.00226% | +0.00076% | +0.00378% |
+| C23 arrays of 16,384 finite float and double initializers | 0.00014% | +0.27117% | +0.27120% |
+| C23 translation limits, bare Wasm | 0.00814% | +0.00629% | +0.01164% |
+
+The finite initializer case measures the decoder's busiest path in
+this batch. Task-clock spread was at least 1.68% for each A/A block
+during concurrent validation. The observations leave timing changes
+unresolved.

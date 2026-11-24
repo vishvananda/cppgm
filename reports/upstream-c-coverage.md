@@ -29,8 +29,8 @@ open column lists work to qualify the remainder of each group.
 
 ## Combined translation limits
 
-Section 5.2.4.1 requires a single executable program that exercises every
-applicable translation limit. The generator selects the 22 thresholds for
+Through C17, §5.2.4.1 requires a single executable program that exercises
+every applicable translation limit. The generator selects the 22 thresholds for
 the edition, including the 32,767-byte hosted object in C90 and C95 and
 the 65,535-byte hosted object in C99 through C17. Individual value checks
 have distinct exit codes. For C90 and C95, the generated program uses
@@ -2835,3 +2835,61 @@ architecture audits pass with the 13 existing file-audit warnings.
 [WG14 and GCC references](../doc/c-conformance-notes.md#c23-bit-utilities-and-checked-integer-arithmetic) ·
 [PA38 regression](../pa38/tests/general/500-c23-bit-precise-builtins.t) ·
 [Compile measurements](../docs/performance/c-frontend-scaling.md#c23-bit-utility-lowering)
+
+
+## C23 translation and numerical limits
+
+The combined C23 executable exercises the 22 translation limits using
+the edition's 32,767-byte hosted object threshold. GCC 15 and Clang 21
+pass the same source at `-O0` and `-O2`. cppgm emits byte-identical
+objects from source and LowIR replay at both levels on x86-64 and AArch64
+Linux, both Mach-O targets, WASI, and bare Wasm. Both forms execute
+successfully. The Mach-O runs use local loaders with SDK-free programs.
+The new C23 results feed the existing target CI matrix.
+
+The numerical probes exercise the C23 width macros in `<limits.h>` and
+`<stdint.h>`, including construction and execution with the advertised
+maximum `_BitInt` width. They also check normalized maxima, the floating
+format indicators, and static initialization with the SDK's signaling
+NaN macros. The GCC 14 AArch64 resource headers consume the GNU integer
+width and floating format predefines. The real SDK probes pass under
+QEMU at both optimization levels. The standalone PA38 regression checks
+sign and payload without requiring an SDK. Its direct and replayed
+objects agree and run on all six targets at both optimization levels.
+The decoder round-trips ordinary values, infinities, signed zero and both
+NaN classes in standalone GCC and Clang x86-64 builds with the x87
+and binary64 long double options. A Clang AArch64 build passes under QEMU with a
+binary128 host long double.
+
+The local matrix passes 1,386 probes across Linux x86-64, WASI and bare
+Wasm. The WASI resource `<limits.h>` and `<float.h>` supply the integer
+widths and floating constants. In the selected WASI sysroot, hosted
+`<stdint.h>` omits the widths that the freestanding Clang header provides.
+The Wasm `<float.h>` lacks the C23 format indicators. Both gaps remain
+uncovered in the matrix. The pinned Clang C23 suite passes 24
+configurations, including the freestanding integer-width test. Clang's
+separate `float.c` test also uses floating comparisons as extended
+integer constant expressions in static assertions. GCC rejects that form
+with `-pedantic-errors`.
+
+An initial syntax survey included each of the 31 C23 headers twice in
+a separate source file. All 31 parse using the selected Linux x86-64
+and AArch64 SDKs. WASI accepts 28 with its default setup. Its
+`<setjmp.h>` requires the Wasm exception-handling macro, and
+`<signal.h>` requires the SDK's emulation option. A nonlocal jump and a
+signal handler with `SIG_IGN` both execute at `-O0` and `-O2` when those
+header options and the signal emulation archive are selected. The two
+opt-in configurations still need matrix receipts.
+
+The strict report passes 11,674 tests. PA38 passes 682 native and 682
+Wasm tests, 63 controls and four ABI tests. PA39 passes 106 tests.
+Debug-info, PA36 smoke, PA35 through PA5, exact inception and 76 harness
+test files also pass. The architecture audits pass with 13 existing
+file audit warnings. Placement scans 11,684 fixtures with zero
+placement or local hygiene findings. The student export verifies
+26,937 portable reference outputs. PA1, PA38 native, Wasm and ABI, and
+the PA39 data-model check pass against the packaged tools.
+
+[WG14 clauses and open issue](../doc/c-conformance-notes.md#c23-translation-and-numerical-limits) ·
+[PA38 signaling NaN case](../pa38/tests/general/500-c-static-signaling-nan.t) ·
+[Compile measurements](../docs/performance/c-frontend-scaling.md#c23-translation-limits-and-floating-constant-decoding)
