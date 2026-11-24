@@ -29,6 +29,17 @@ void Analyzer::object_alias_attribute(Entity* entity, const syntax::Attribute& s
 	}
 	if (target.empty())
 		error(attribute->location, "empty alias target");
+	if (c_source_ && entity->kind == EntityKind::Variable)
+	{
+		// A C declaration without an initializer can provide a local
+		// alias, rather than tentatively defining a new object's bytes.
+		auto* variable = static_cast<VariableEntity*>(entity);
+		if (variable->c_tentative)
+		{
+			variable->c_tentative = false;
+			variable->defined = false;
+		}
+	}
 	const uint32_t previous = graph_.object_alias_index.find(entity);
 	if (previous != PointerMap::kMissing)
 	{

@@ -1227,7 +1227,14 @@ void ObjectCompiler::add_aliases()
 			if ((program_.symbols[id].kind == lowir::SymbolKind::FunctionDeclaration ||
 					program_.symbols[id].kind == lowir::SymbolKind::GlobalDeclaration) &&
 				names[object_name(id)])
-				declarations[object_name(id)] = object_symbol(id);
+			{
+				const uint32_t declaration = object_symbol(id);
+				// The alias gets its definition below. Its declared
+				// linkage then applies to that definition.
+				if (program_.symbols[id].metadata.binding == ir_model::SBM_INTERNAL)
+					out_->symbols[declaration].binding = Binding::Local;
+				declarations[object_name(id)] = declaration;
+			}
 	}
 
 	// (A function left out has no other name either.)

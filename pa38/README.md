@@ -372,6 +372,10 @@ The first fixture set covers these parts of the C17 input profile:
   supplied by the linker. Allow taking its address and import the symbol
   without an object layout. Reject a definition of an object of type
   `void`.
+- In ELF objects, a static C declaration with GNU `alias("target")` can
+  name an existing definition in its translation unit. Keep the alias's
+  local linkage and give it the target's storage. Reject a separate
+  definition with an initializer and resolve chains to their actual object.
 - In pedantic modes, check an explicit definition against every declaration
   of the same linked object in the translation unit. If a declaration's
   strongest standard alignment request exceeds the type's alignment, the
@@ -477,6 +481,8 @@ The first fixture set covers these parts of the C17 input profile:
   Check operand forms in conditional branches that evaluation skips. A
   foldable array bound can still declare a variable-length array. Use C's
   integer constant expressions of value zero for null pointer conversions.
+  GNU folding can supply the value of a conditional in a required constant
+  context, such as a case label. Diagnose this extension in pedantic mode.
 - Give a named `register` object automatic storage duration. Diagnose an
   explicit address of the object or a record member it contains, including
   a register parameter. A register pointer can designate other objects.

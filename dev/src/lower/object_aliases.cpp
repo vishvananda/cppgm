@@ -46,16 +46,26 @@ void ProgramLowering::prepare_source_object_aliases(const syntax::TranslationUni
 			for (const auto& init : static_cast<const syntax::SimpleDecl*>(declaration)->declarators)
 				note(init.declared);
 	}
+	std::vector<const sema::Entity*> resolved(graph_->object_aliases.size(), nullptr);
+	std::vector<bool> visiting(graph_->object_aliases.size(), false);
+	std::vector<uint32_t> path;
 	for (const auto& alias : graph_->object_aliases)
 	{
 		const sema::Entity* target = alias.entity;
-		for (size_t depth = 0;; ++depth)
+		for (;;)
 		{
-			if (depth > graph_->object_aliases.size())
-				throw LoweringError(alias.location, "cyclic GNU object aliases");
 			const uint32_t index = graph_->object_alias_index.find(target);
 			if (index == PointerMap::kMissing)
 				break;
+			if (resolved[index] != nullptr)
+			{
+				target = resolved[index];
+				break;
+			}
+			if (visiting[index])
+				throw LoweringError(alias.location, "cyclic GNU object aliases");
+			visiting[index] = true;
+			path.push_back(index);
 			const auto& edge = graph_->object_aliases[index];
 			const auto found = objects.find(edge.target);
 			if (found == objects.end())
@@ -69,6 +79,9 @@ void ProgramLowering::prepare_source_object_aliases(const syntax::TranslationUni
 				throw LoweringError(edge.location, "an alias and its target require compatible types");
 			target = next;
 		}
+		for (uint32_t index : path)
+			resolved[index] = target;
+		path.clear();
 		const bool function = target->kind == sema::EntityKind::Function;
 		const bool defined = function ? static_cast<const sema::FunctionEntity*>(target)->defined
 									  : static_cast<const sema::VariableEntity*>(target)->defined;
