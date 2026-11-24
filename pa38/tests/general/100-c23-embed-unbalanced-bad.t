@@ -1,3 +1,3 @@
 const unsigned char bytes[] = {
-#embed "embed-fixtures/bytes.bin" prefix((1,)
+#embed "100-c23-embed.inc/bytes.bin" prefix((1,)
 };

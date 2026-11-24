@@ -1,3 +1,3 @@
 const unsigned char bytes[] = {
-#embed "embed-fixtures/bytes.bin" vendor::unsupported(1)
+#embed "100-c23-embed.inc/bytes.bin" vendor::unsupported(1)
 };

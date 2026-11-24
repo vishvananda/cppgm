@@ -47,7 +47,7 @@ C23_PREPROCESSOR_CASES = (
     ('c23.embed-unbalanced', '100-c23-embed-unbalanced-bad.t', 'compile'),
 )
 C23_EMBED_SOURCE = PA38_GENERAL / '100-c23-embed.t'
-C23_EMBED_FIXTURES = PA38_GENERAL / 'embed-fixtures'
+C23_EMBED_FIXTURES = C23_EMBED_SOURCE.with_suffix('.inc')
 FLEXIBLE_ARRAY = PA38_GENERAL / '300-c-flexible-array.t'
 RECORD_CONSTRAINTS = {
     'record.flexible-only-member': ('200-c-flexible-only-member-bad.t', 'a flexible array must be the last member'),

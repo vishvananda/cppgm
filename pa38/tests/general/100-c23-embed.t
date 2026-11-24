@@ -1,4 +1,4 @@
-#define RESOURCE "embed-fixtures/bytes.bin"
+#define RESOURCE "100-c23-embed.inc/bytes.bin"
 #define PARAMS __limit__(1 + 1) __prefix__((16 + 1),) __suffix__(, 25)
 #define ANGLE <angle.bin>
 
@@ -35,13 +35,13 @@
 
 #line 400 "virtual/path/other.c"
 static const unsigned char full[] = {
-#embed "embed-fixtures/bytes.bin"
+#embed "100-c23-embed.inc/bytes.bin"
 };
 static const unsigned char affixed[] = {
 #embed RESOURCE PARAMS
 };
 static const unsigned char angle[] = {
-#embed ANGLE limit(__has_include("embed-fixtures/headers/include-only.bin"))
+#embed ANGLE limit(__has_include("100-c23-embed.inc/headers/include-only.bin"))
 };
 static const unsigned char empty[] = {
 #embed <empty.bin> prefix(99,) suffix(,99) __if_empty__(42)
