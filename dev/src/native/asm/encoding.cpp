@@ -232,7 +232,9 @@ void scalar_vector_move(Assembler& out, const assembly::Instruction& inst, unsig
 
 void vector(Assembler& out, const assembly::Instruction& inst, const Form& form)
 {
-	if (inst.operands.size() != 2)
+	const bool explicit_round_operand = form.opcode == 0x0f38cb && inst.operands.size() == 3 && xmm(inst.operands[2]) &&
+		inst.operands[2].reg.number == 0;
+	if (inst.operands.size() != 2 && !explicit_round_operand)
 		fail(inst, "expected two vector operands");
 	const Operand& dst = inst.operands[0];
 	const Operand& src = inst.operands[1];
@@ -270,16 +272,18 @@ void integer_system_binary(Assembler& out, const assembly::Instruction& inst, co
 		out.op(bits == 16 ? 0x66 : 0, bits == 64, form.opcode, 2, physical(dst.reg, inst), rm(src, inst));
 		return;
 	}
-	const unsigned bits = form.bits;
+	const unsigned bits = form.bits != 0 ? form.bits : src.bits != 0 ? src.bits : dst.bits;
 	const bool wide = dst.bits == 64;
-	if ((dst.bits != 32 && !wide) || (bits != 8 && wide != (bits == 64)) ||
+	if ((bits != 8 && bits != 16 && bits != 32 && bits != 64) || (dst.bits != 32 && !wide) ||
+		(bits != 8 && wide != (bits == 64)) ||
 		(src.kind == OperandKind::Register ? src.reg.bank != RegisterBank::Gpr || src.bits != bits ||
 					(src.reg.offset != 0 && (wide || dst.reg.number >= 8))
 										   : src.kind != OperandKind::Memory || (src.bits != 0 && src.bits != bits)))
 		fail(inst, "invalid CRC32 operand widths");
 	if (bits == 16)
 		out.byte(0x66);
-	out.op(form.prefix, wide, form.opcode, 3, physical(dst.reg, inst), rm(src, inst), bits == 8 && byte_rex(inst));
+	const uint32_t opcode = form.bits == 0 ? form.opcode + (bits != 8) : form.opcode;
+	out.op(form.prefix, wide, opcode, 3, physical(dst.reg, inst), rm(src, inst), bits == 8 && byte_rex(inst));
 }
 
 void encode_instruction(Assembler& out, const assembly::Instruction& inst)

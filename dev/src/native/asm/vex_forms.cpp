@@ -51,11 +51,49 @@ void emit(Assembler& out, const VexForm& form, unsigned bits, unsigned reg, unsi
 		out.byte(control);
 }
 
+void scalar_move(Assembler& out, const Instruction& inst)
+{
+	if (inst.prefix != 0 || inst.operands.size() != 2)
+		fail(inst, "vmovd requires a scalar and an XMM register");
+	const auto& dst = inst.operands[0];
+	const auto& src = inst.operands[1];
+	const bool load = dst.kind == OperandKind::Register && dst.reg.bank == RegisterBank::Vector;
+	const auto& reg = load ? dst : src;
+	const auto& scalar = load ? src : dst;
+	if (reg.kind != OperandKind::Register || reg.reg.bank != RegisterBank::Vector || reg.bits != 128 ||
+		(scalar.kind == OperandKind::Register
+				? scalar.reg.bank != RegisterBank::Gpr || scalar.bits != 32
+				: scalar.kind != OperandKind::Memory || (scalar.bits != 0 && scalar.bits != 32)))
+		fail(inst, "vmovd requires an XMM register and a 32-bit integer operand");
+	const uint8_t opcode = load ? 0x6e : 0x7e;
+	const VexForm form = { nullptr, L::Move, opcode, 1, 1, 0, 0, 0, 0, 0 };
+	emit(out, form, 128, asm_detail::physical(reg.reg, inst), 0, asm_detail::rm(scalar, inst), opcode, false, 0);
+}
+
+void rotate_immediate(Assembler& out, const Instruction& inst, unsigned suffix)
+{
+	if (inst.prefix != 0 || inst.operands.size() != 3 || inst.operands[0].kind != OperandKind::Register ||
+		inst.operands[2].kind != OperandKind::Immediate ||
+		!fits_operation(static_cast<int64_t>(inst.operands[2].immediate), 1))
+		fail(inst, "rorx requires a register destination, an integer source and a byte count");
+	const unsigned bits = asm_detail::integer_width(inst, suffix);
+	if (bits != 32 && bits != 64)
+		fail(inst, "rorx requires 32-bit or 64-bit operands");
+	const VexForm form = { nullptr, L::Move, 0xf0, 3, 3, static_cast<uint8_t>(bits == 64), 0, 0, 0, 0 };
+	emit(out, form, bits, asm_detail::physical(inst.operands[0].reg, inst), 0, asm_detail::rm(inst.operands[1], inst),
+		form.opcode, true, inst.operands[2].immediate);
+}
+
 } // namespace
 
 bool encode_bmi2_shift(Assembler& out, const Instruction& inst)
 {
 	const std::string& name = inst.mnemonic;
+	if (name == "rorx" || name == "rorxl" || name == "rorxq")
+	{
+		rotate_immediate(out, inst, name.size() == 4 ? 0 : name.back() == 'q' ? 64 : 32);
+		return true;
+	}
 	const uint8_t prefix = name.compare(0, 4, "shlx") == 0 ? 1
 		: name.compare(0, 4, "sarx") == 0                  ? 2
 		: name.compare(0, 4, "shrx") == 0                  ? 3
@@ -100,6 +138,11 @@ void encode_assembly_vector_transfer(
 
 bool encode_vex_form(Assembler& out, const assembly::Instruction& inst)
 {
+	if (inst.mnemonic == "vmovd")
+	{
+		scalar_move(out, inst);
+		return true;
+	}
 	if (inst.mnemonic == "vzeroupper" || inst.mnemonic == "vzeroall")
 	{
 		if (!inst.operands.empty() || inst.prefix != 0)

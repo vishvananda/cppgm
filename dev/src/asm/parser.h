@@ -88,6 +88,7 @@ struct Instruction
 	uint8_t prefix = 0;
 	uint8_t segment = 0;
 	uint8_t code_bits = 64;
+	asm_model::Dialect dialect = asm_model::Dialect::Att;
 	bool is_exit = false;
 	uint32_t exit_tag = 0;
 	std::string mnemonic;

@@ -161,6 +161,18 @@ void encode_system_form(
 		fail(inst, "invalid system instruction prefix");
 	if (form.encoding == E::SystemWord || form.encoding == E::DescriptorQuery)
 		return segment_selector(out, inst, form, suffix);
+	if (form.encoding == E::X87StackPop)
+	{
+		const auto& operands = inst.operands;
+		if (operands.size() != 2 || operands[0].kind != OperandKind::Register ||
+			operands[1].kind != OperandKind::Register || operands[0].reg.bank != asm_model::RegisterBank::X87 ||
+			operands[1].reg.bank != asm_model::RegisterBank::X87 || operands[1].reg.number != 0)
+			fail(inst, "x87 subtract/pop requires an x87 stack destination and ST(0) source");
+		const unsigned opcode = form.opcode ^ (inst.dialect == asm_model::Dialect::Intel ? 8 : 0);
+		out.byte(0xde);
+		out.byte(opcode | operands[0].reg.number);
+		return;
+	}
 	if (form.encoding == E::SystemRegister)
 	{
 		if (inst.operands.size() != 1 || inst.operands[0].kind != OperandKind::Register)

@@ -70,6 +70,7 @@ private:
 	bool directive(Instruction& inst);
 	void strings(Instruction& inst, bool terminate);
 	asm_model::Register reg();
+	void x87_index(const std::string& name, asm_model::Register& reg);
 	bool register_start(size_t at) const;
 	Operand operand();
 	Operand unsegmented_operand();
@@ -177,7 +178,19 @@ asm_model::Register Parser::reg()
 		fail("assembly register requires a percent prefix");
 	if (!parse_register(name.data(), name.size(), result))
 		fail("unknown architectural register: " + name);
+	x87_index(name, result);
 	return result;
+}
+
+void Parser::x87_index(const std::string& name, asm_model::Register& reg)
+{
+	if (reg.bank != asm_model::RegisterBank::X87 || name.size() != 2 || !take('('))
+		return;
+	const uint64_t index = integer();
+	if (index > 7)
+		fail("x87 register index exceeds seven");
+	expect(')');
+	reg.number = static_cast<uint8_t>(index);
 }
 
 void Parser::address_register(const Address& address, const asm_model::Register& reg) const
@@ -442,6 +455,8 @@ Operand Parser::unsegmented_operand()
 		{
 			if (register_prefix_ && !alias)
 				fail("assembly register requires a percent prefix");
+			if (!alias)
+				x87_index(name, result.reg);
 			result.kind = OperandKind::Register;
 			result.bits = result.reg.bits;
 			return result;
@@ -991,6 +1006,7 @@ std::vector<Instruction> Parser::run()
 		inst.line = line_;
 		inst.column = column_;
 		inst.code_bits = state_ != nullptr ? state_->code_bits : 64;
+		inst.dialect = dialect_;
 		const size_t definition_first = pos_;
 		inst.mnemonic = word(false);
 		space();
