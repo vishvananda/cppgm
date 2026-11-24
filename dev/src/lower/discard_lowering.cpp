@@ -276,6 +276,9 @@ void FunctionLowering::discard(const syntax::Expr& expr)
 				operand(*e, ConversionContext::Operand);
 			else if (trait == GnuTrait::RealPart || trait == GnuTrait::ImagPart)
 				discard(*static_cast<const syntax::BuiltinTraitExpr&>(*e).operand);
+			else if (trait == GnuTrait::Offsetof && facts != nullptr && (facts->flags & sema::kFolded) == 0)
+				for (const sema::OffsetofTerm* term = facts->offsetof_plan->terms; term != nullptr; term = term->next)
+					discard(*term->index);
 		}
 		return;
 	case syntax::ExprKind::Sizeof:

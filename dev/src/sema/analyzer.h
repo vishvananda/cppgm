@@ -1793,7 +1793,8 @@ private:
 		GnuTrait trait, const Type* const* types, uint32_t count, uint32_t location, Scope* scope, uint64_t& value);
 	const Type* trait_result_type(GnuTrait trait);
 	bool shape_trait(GnuTrait trait, const Type* type);
-	bool offsetof_value(const syntax::BuiltinTraitExpr& expr, Scope* scope, uint64_t& offset);
+	bool offsetof_value(
+		const syntax::BuiltinTraitExpr& expr, Scope* scope, uint64_t& offset, const OffsetofTerm** terms = nullptr);
 	bool member_offset(ClassEntity* cls, const Entity* member, uint64_t& bytes, uint32_t location);
 	bool trait_destructible(const Type* type, uint32_t location, Scope* scope, bool& nothrow, bool& trivial);
 	bool trait_convertible(const Type* from, const Type* to, uint32_t location, Scope* scope, bool& nothrow);

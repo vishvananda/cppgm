@@ -359,6 +359,10 @@ The first fixture set covers these parts of the C17 input profile:
   enclosing record for member access, designators, and `offsetof`.
   A duplicate visible member name or an incomplete member type is an
   error.
+- A GNU `__builtin_offsetof` designator can index array members at
+  runtime. Compute the fixed part from layout, then evaluate each runtime
+  index once and scale it by the size of the array element. A designator
+  with constant indices remains an integer constant expression.
 - In pedantic modes, check an explicit definition against every declaration
   of the same linked object in the translation unit. If a declaration's
   strongest standard alignment request exceeds the type's alignment, the

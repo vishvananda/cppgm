@@ -1533,6 +1533,21 @@ RValue FunctionLowering::builtin_trait_value(const syntax::BuiltinTraitExpr& tra
 		return convert_vector(trait);
 	if (trait.trait == GnuTrait::BitCast)
 		return bit_cast(trait);
+	if (trait.trait == GnuTrait::Offsetof)
+	{
+		const sema::OffsetofPlan& plan = *facts->offsetof_plan;
+		const lowir::Type type = lowering_.storage_type(facts->type);
+		RValue result = integer(type, plan.base);
+		for (const sema::OffsetofTerm* term = plan.terms; term != nullptr; term = term->next)
+		{
+			const RValue index = operand(*term->index, ConversionContext::Operand);
+			const sema::Type* from = WithoutParentheses(term->index)->facts->type;
+			const RValue converted = convert(index, from, facts->type, ConversionContext::Additive, false);
+			result = binary(lowir::BinaryOp::Add, type, result,
+				binary(lowir::BinaryOp::Mul, type, converted, integer(type, term->stride)));
+		}
+		return result;
+	}
 	if (trait.trait != GnuTrait::VaArg)
 		throw LoweringError(trait.location, "an unfolded type trait");
 	const lowir::Type type = lowering_.storage_type(facts->type);

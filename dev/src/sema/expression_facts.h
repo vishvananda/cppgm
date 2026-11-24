@@ -311,6 +311,19 @@ enum : uint64_t
 constexpr uint64_t kOverflowPredicate = 1u << 8;
 constexpr unsigned kOverflowResultWidthShift = 9;
 
+struct OffsetofTerm
+{
+	const syntax::Expr* index;
+	uint64_t stride;
+	const OffsetofTerm* next;
+};
+
+struct OffsetofPlan
+{
+	uint64_t base;
+	const OffsetofTerm* terms;
+};
+
 struct ExprFacts
 {
 	// 5p5, 5p6: never a reference type; glvalues keep their cv-qualifiers.
@@ -361,6 +374,8 @@ struct ExprFacts
 		// A co_await or co_yield expression's selected awaiter protocol.
 		const CoroutineAwait* coroutine_await;
 		const struct CInitializer* c_initializer;
+		// A C __builtin_offsetof with runtime array indices.
+		const OffsetofPlan* offsetof_plan;
 		// kImmediateValue: the complete constant result of an immediate call.
 		const ConstValue* immediate;
 	};

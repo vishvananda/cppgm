@@ -493,6 +493,8 @@ bool ConstantInterpreter::rvalue(const syntax::Expr& expr, ConstValue& out)
 		}
 		if (trait.trait >= GnuTrait::UnderlyingType)
 			return fail(e->location, "a builtin's value outside constant evaluation");
+		if (trait.trait == GnuTrait::Offsetof && (facts->flags & kFolded) == 0)
+			return fail(e->location, "an offsetof subscript that is no constant");
 		out = IntegerValue(facts->type->unqualified, facts->value);
 		return true;
 	}

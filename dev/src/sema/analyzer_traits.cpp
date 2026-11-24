@@ -194,12 +194,22 @@ ExprFacts* Analyzer::builtin_trait(const syntax::BuiltinTraitExpr& expr, Scope* 
 	if (expr.trait == GnuTrait::Offsetof)
 	{
 		uint64_t offset = 0;
-		if (!offsetof_value(expr, scope, offset))
+		const OffsetofTerm* terms = nullptr;
+		if (!offsetof_value(expr, scope, offset, c_source_ ? &terms : nullptr))
 			return nullptr;
 		ExprFacts* facts = new_facts(
 			expr, types_.fundamental(FundamentalType::UnsignedLongInt), ValueCategory::PRValue);
-		facts->value = offset;
-		facts->flags |= kFolded;
+		if (terms != nullptr)
+		{
+			auto* plan = arena_.allocate_array<OffsetofPlan>(1);
+			*plan = OffsetofPlan{ offset, terms };
+			facts->offsetof_plan = plan;
+		}
+		else
+		{
+			facts->value = offset;
+			facts->flags |= kFolded;
+		}
 		return facts;
 	}
 	if (expr.trait == GnuTrait::Declval)
@@ -777,14 +787,16 @@ bool Analyzer::trait_value(
 	return true;
 }
 
-bool Analyzer::offsetof_value(const syntax::BuiltinTraitExpr& expr, Scope* scope, uint64_t& offset)
+bool Analyzer::offsetof_value(
+	const syntax::BuiltinTraitExpr& expr, Scope* scope, uint64_t& offset, const OffsetofTerm** terms)
 {
 	// 18.2p4: the offset in bytes of the designated member (or element)
 	// from the start of an object of the type: its designator typed as
 	// member accesses and subscripts of such an object, then summed --
 	// data members by their class's layout (through the non-virtual base
 	// and anonymous member objects that hold them), elements by their
-	// constant indexes. A bit-field has no offset.
+	// indexes. A bit-field has no offset. In GNU C, retain a runtime index
+	// and element size when an array element's offset needs evaluation.
 	const ExprFacts* designator = typed(*expr.operand, scope);
 	if (designator == nullptr || failed())
 		return false;
@@ -794,12 +806,24 @@ bool Analyzer::offsetof_value(const syntax::BuiltinTraitExpr& expr, Scope* scope
 		if (e->kind == syntax::ExprKind::Subscript)
 		{
 			const syntax::SubscriptExpr& subscript = static_cast<const syntax::SubscriptExpr&>(*e);
-			Constant index;
+			if (subscript.base->facts->type->kind != TypeKind::Array)
+				return substitution_error(e->location, "an offsetof subscript requires an array member");
 			uint64_t size = 0, alignment = 0;
-			if (!integral_constant(*subscript.index, scope, index) ||
-				!type_size(e->facts->type, size, alignment, e->location))
+			if (!type_size(e->facts->type, size, alignment, e->location))
+				return false;
+			Constant index;
+			if (integral_constant(*subscript.index, scope, index))
+				offset += index.bits * size;
+			else if (terms != nullptr)
+			{
+				auto* term = arena_.allocate_array<OffsetofTerm>(1);
+				*term = OffsetofTerm{ subscript.index, size, *terms };
+				*terms = term;
+			}
+			else if (c_source_)
+				return false;
+			else
 				return substitution_error(e->location, "an offsetof subscript that is no constant");
-			offset += index.bits * size;
 			e = subscript.base;
 			continue;
 		}
