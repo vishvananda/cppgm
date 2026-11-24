@@ -2065,44 +2065,6 @@ ExprFacts* Analyzer::unary(const syntax::UnaryExpr& expr, Scope* scope)
 	return new_facts(expr, result, ValueCategory::PRValue);
 }
 
-static bool CRegisterCompoundLiteral(const syntax::Expr* expr)
-{
-	using syntax::ExprKind;
-	for (;;)
-	{
-		switch (expr->kind)
-		{
-		case ExprKind::Paren:
-			expr = static_cast<const syntax::ParenExpr*>(expr)->inner;
-			break;
-		case ExprKind::Generic:
-			expr = static_cast<const syntax::GenericExpr*>(expr)->selected;
-			break;
-		case ExprKind::Member:
-		{
-			const auto* member = static_cast<const syntax::MemberExpr*>(expr);
-			if (member->op != TokenKind::OP_DOT)
-				return false;
-			expr = member->base;
-			break;
-		}
-		case ExprKind::Subscript:
-		{
-			const auto* subscript = static_cast<const syntax::SubscriptExpr*>(expr);
-			expr = (expr->facts->flags & kCommuted) != 0 ? subscript->index : subscript->base;
-			if (expr->facts->type->kind != TypeKind::Array)
-				return false;
-			break;
-		}
-		case ExprKind::FunctionalCast:
-			return static_cast<const syntax::FunctionalCastExpr*>(expr)->compound_has(
-				syntax::FunctionalCastExpr::Register);
-		default:
-			return false;
-		}
-	}
-}
-
 ExprFacts* Analyzer::address_of(const syntax::UnaryExpr& expr, Scope* scope)
 {
 	// 5.3.1p3: `&C::m` of a qualified non-static member is a pointer to
@@ -2291,8 +2253,8 @@ ExprFacts* Analyzer::address_of(const syntax::UnaryExpr& expr, Scope* scope)
 													 : "taking the address of a bit-field");
 		return nullptr;
 	}
-	if (c_source_ && CRegisterCompoundLiteral(operand))
-		error(expr.location, "taking the address of a register compound literal");
+	if (c_source_)
+		check_c_register_address(*operand, expr.location);
 	odr_use_constants(*operand, nullptr);
 	return new_facts(expr, types_.pointer(inner->type), ValueCategory::PRValue);
 }
@@ -3001,26 +2963,7 @@ ExprFacts* Analyzer::cast_expression(const syntax::CastExpr& expr, Scope* scope)
 ExprFacts* Analyzer::functional_cast(const syntax::FunctionalCastExpr& expr, Scope* scope)
 {
 	if (expr.compound_type != nullptr)
-	{
-		const RuntimeTypeEvaluation* runtime_type = nullptr;
-		const Type* type = type_id(*expr.compound_type, scope, false, &runtime_type);
-		if (type == nullptr || failed())
-			return nullptr;
-		if (type->runtime_array())
-			error(expr.location, "a C compound literal cannot have variable length array type");
-		if (IsVoid(type) || type->kind == TypeKind::Function)
-			error(expr.location, "C compound literal requires an object type");
-		c_initialize_compound_literal(expr, type, scope);
-		if (failed())
-			return nullptr;
-		ExprFacts* facts = new_facts(expr, expr.braced->facts->type, ValueCategory::LValue);
-		if (runtime_type != nullptr)
-		{
-			graph_.set_runtime_bounds(&expr, runtime_type);
-			facts->flags |= kRuntimeTypeEvaluation;
-		}
-		return facts;
-	}
+		return c_compound_literal(expr, scope);
 
 	// 5.2.3: T(e) is the cast (T)e; T() and T{} value-initialize.
 	Specifiers specifiers;

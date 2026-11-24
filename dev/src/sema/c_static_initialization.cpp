@@ -182,8 +182,60 @@ const ConstValue* Analyzer::c_compound_constant(const syntax::FunctionalCastExpr
 	return stored;
 }
 
-void Analyzer::c_initialize_compound_literal(const syntax::FunctionalCastExpr& expr, const Type* type, Scope* scope)
+static bool CRegisterCompoundLiteral(const syntax::Expr* expr)
 {
+	using syntax::ExprKind;
+	for (;;)
+	{
+		switch (expr->kind)
+		{
+		case ExprKind::Paren:
+			expr = static_cast<const syntax::ParenExpr*>(expr)->inner;
+			break;
+		case ExprKind::Generic:
+			expr = static_cast<const syntax::GenericExpr*>(expr)->selected;
+			break;
+		case ExprKind::Member:
+		{
+			const auto* member = static_cast<const syntax::MemberExpr*>(expr);
+			if (member->op != TokenKind::OP_DOT)
+				return false;
+			expr = member->base;
+			break;
+		}
+		case ExprKind::Subscript:
+		{
+			const auto* subscript = static_cast<const syntax::SubscriptExpr*>(expr);
+			expr = (expr->facts->flags & kCommuted) != 0 ? subscript->index : subscript->base;
+			if (expr->facts->type->kind != TypeKind::Array)
+				return false;
+			break;
+		}
+		case ExprKind::FunctionalCast:
+			return static_cast<const syntax::FunctionalCastExpr*>(expr)->compound_has(
+				syntax::FunctionalCastExpr::Register);
+		default:
+			return false;
+		}
+	}
+}
+
+void Analyzer::check_c_register_address(const syntax::Expr& expr, uint32_t location)
+{
+	if (CRegisterCompoundLiteral(&expr))
+		error(location, "taking the address of a register compound literal");
+}
+
+ExprFacts* Analyzer::c_compound_literal(const syntax::FunctionalCastExpr& expr, Scope* scope)
+{
+	const RuntimeTypeEvaluation* runtime_type = nullptr;
+	const Type* type = type_id(*expr.compound_type, scope, false, &runtime_type);
+	if (type == nullptr || failed())
+		return nullptr;
+	if (type->runtime_array())
+		error(expr.location, "a C compound literal cannot have variable length array type");
+	if (IsVoid(type) || type->kind == TypeKind::Function)
+		error(expr.location, "C compound literal requires an object type");
 	using Literal = syntax::FunctionalCastExpr;
 	const bool file_scope = scope == graph_.global;
 	const bool thread = expr.compound_has(Literal::ThreadLocal);
@@ -223,6 +275,15 @@ void Analyzer::c_initialize_compound_literal(const syntax::FunctionalCastExpr& e
 	c_static_initializer_ = saved_static;
 	c_constexpr_initializer_ = saved_constexpr;
 	c_legacy_initializer_ = saved_legacy;
+	if (failed())
+		return nullptr;
+	ExprFacts* facts = new_facts(expr, expr.braced->facts->type, ValueCategory::LValue);
+	if (runtime_type != nullptr)
+	{
+		graph_.set_runtime_bounds(&expr, runtime_type);
+		facts->flags |= kRuntimeTypeEvaluation;
+	}
+	return facts;
 }
 
 void Analyzer::check_c_static_initializer(
