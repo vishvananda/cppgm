@@ -46,7 +46,7 @@ public:
 		const std::vector<uint32_t>& symbols, const std::vector<uint32_t>& exit_offsets);
 
 private:
-	using Key = std::tuple<std::string, object::SectionKind, uint32_t, bool>;
+	using Key = std::tuple<std::string, object::SectionKind, uint32_t, bool, bool>;
 	uint32_t place_section(const object::ObjectFile& source, uint32_t section, uint64_t& offset);
 	object::ObjectFile& out_;
 	ModuleSymbols symbols_;

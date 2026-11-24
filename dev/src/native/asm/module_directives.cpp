@@ -438,6 +438,7 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 		SectionKind kind = SectionKind::Data;
 		uint32_t merge_size = 0;
 		bool merge_strings = false;
+		bool note = false;
 		if (cursor.take(','))
 		{
 			if (target_ == Target::MacOS && section_name.compare(0, 2, "__") == 0)
@@ -474,6 +475,8 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 					const std::string type = cursor.word();
 					if (type == "nobits")
 						kind = SectionKind::Bss;
+					else if (type == "note" && target_ == Target::Linux && !merge)
+						note = true;
 					else if (type != "progbits")
 						cursor.fail("unsupported module section type");
 					if (merge)
@@ -496,7 +499,7 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 			kind = SectionKind::Rodata;
 		else if (section_name == ".bss")
 			kind = SectionKind::Bss;
-		section(section_name, kind, merge_size, merge_strings);
+		section(section_name, kind, merge_size, merge_strings, note);
 	}
 	else
 		return false;

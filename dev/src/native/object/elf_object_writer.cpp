@@ -235,7 +235,7 @@ void Encoder::add_contents()
 		section.name = section_name(false, from.name);
 		if (from.kind == SectionKind::Metadata && std::strcmp(object_.string(from.name), ".note.GNU-stack") == 0)
 			has_stack_note_ = true;
-		section.type = section_type(from.kind);
+		section.type = from.elf_note ? kShtNote : section_type(from.kind);
 		section.flags = section_flags(from);
 		const bool nobits = from.kind == SectionKind::Bss || from.kind == SectionKind::TlsBss;
 		section.size = nobits ? from.size : from.bytes.size();
@@ -627,11 +627,12 @@ void AssemblyWriter::select_section(uint32_t index)
 			out_ << attributes[i];
 	if (section.group != kNoGroup)
 		out_ << 'G';
-	const uint32_t type = section_type(section.kind);
+	const uint32_t type = section.elf_note ? kShtNote : section_type(section.kind);
 	out_ << "\",@"
 		 << (type == kShtNobits             ? "nobits"
 					: type == kShtInitArray ? "init_array"
 					: type == kShtFiniArray ? "fini_array"
+					: type == kShtNote      ? "note"
 											: "progbits");
 	if (flags & kShfMerge)
 		out_ << ',' << merge_entry_size(section);

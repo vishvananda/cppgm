@@ -172,8 +172,9 @@ InlineModulePlacement::InlineModulePlacement(object::ObjectFile& out) : out_(out
 	{
 		const auto& section = out_.sections[id];
 		if (section.group == object::kNoGroup)
-			sections_.emplace(
-				Key{ out_.string(section.name), section.kind, section.merge_size, section.merge_strings }, id);
+			sections_.emplace(Key{ out_.string(section.name), section.kind, section.merge_size, section.merge_strings,
+								  section.elf_note },
+				id);
 	}
 }
 
@@ -181,7 +182,8 @@ uint32_t InlineModulePlacement::place_section(const object::ObjectFile& source, 
 {
 	const object::Section& contents = source.sections[section];
 	const char* name = source.string(contents.name);
-	const auto found = sections_.emplace(Key{ name, contents.kind, contents.merge_size, contents.merge_strings },
+	const auto found = sections_.emplace(
+		Key{ name, contents.kind, contents.merge_size, contents.merge_strings, contents.elf_note },
 		static_cast<uint32_t>(out_.sections.size()));
 	const uint32_t id = found.first->second;
 	if (found.second)
@@ -189,6 +191,7 @@ uint32_t InlineModulePlacement::place_section(const object::ObjectFile& source, 
 		out_.add_section(name, contents.kind, contents.align);
 		out_.sections[id].merge_size = contents.merge_size;
 		out_.sections[id].merge_strings = contents.merge_strings;
+		out_.sections[id].elf_note = contents.elf_note;
 	}
 	object::Section& destination = out_.sections[id];
 	offset = (destination.size + contents.align - 1) & ~(contents.align - 1);
@@ -285,14 +288,14 @@ uint64_t ModuleAssembler::offset() const
 	return out_.sections[section_].size;
 }
 void ModuleAssembler::section(
-	const std::string& name, object::SectionKind kind, uint32_t merge_size, bool merge_strings)
+	const std::string& name, object::SectionKind kind, uint32_t merge_size, bool merge_strings, bool note)
 {
 	flush();
 	previous_ = section_;
 	for (uint32_t i = 1; i < out_.sections.size(); ++i)
 		if (name == out_.string(out_.sections[i].name) && out_.sections[i].kind == kind &&
 			out_.sections[i].group == object::kNoGroup && out_.sections[i].merge_size == merge_size &&
-			out_.sections[i].merge_strings == merge_strings)
+			out_.sections[i].merge_strings == merge_strings && out_.sections[i].elf_note == note)
 		{
 			section_ = i;
 			return;
@@ -300,6 +303,7 @@ void ModuleAssembler::section(
 	section_ = out_.add_section(name.c_str(), kind, 1);
 	out_.sections[section_].merge_size = merge_size;
 	out_.sections[section_].merge_strings = merge_strings;
+	out_.sections[section_].elf_note = note;
 }
 void ModuleAssembler::flush()
 {
@@ -349,8 +353,8 @@ void ModuleAssembler::append(std::vector<assembly::Instruction>& instructions)
 void ModuleAssembler::emit_instructions(std::vector<assembly::Instruction>& instructions)
 {
 	object::Section& section = out_.sections[section_];
-	if (section.kind != object::SectionKind::Text)
-		throw BackendError("module instructions require a text section");
+	if (section.kind == object::SectionKind::Bss || section.kind == object::SectionKind::TlsBss)
+		throw BackendError("module instructions require a file-backed section");
 	std::vector<uint32_t> buffer_lines;
 	for (const assembly::Instruction& instruction : instructions)
 	{
@@ -439,7 +443,9 @@ void ModuleAssembler::append(const assembly::ModuleLine& line)
 		return;
 	}
 	const bool syntax = !label && (name == ".intel_syntax" || name == ".att_syntax");
-	if (syntax && out_.sections[section_].kind != object::SectionKind::Text)
+	const auto kind = out_.sections[section_].kind;
+	const bool bss = kind == object::SectionKind::Bss || kind == object::SectionKind::TlsBss;
+	if (syntax && bss)
 	{
 		assembly::parse(line.text, syntax_.dialect, line.symbols, line.labels, &symbols_, &syntax_);
 		return;
@@ -456,10 +462,10 @@ void ModuleAssembler::append(const assembly::ModuleLine& line)
 		cursor.finish();
 		return;
 	}
-	if (out_.sections[section_].kind != object::SectionKind::Text)
+	if (bss)
 	{
 		if (!label)
-			cursor.fail("instructions require a text section");
+			cursor.fail("instructions require a file-backed section");
 		cursor.finish();
 		assembly::ModuleCursor definition(line, uses);
 		symbols_.define(symbol(definition), section_, offset());

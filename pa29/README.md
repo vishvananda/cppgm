@@ -212,6 +212,8 @@ string terminator is emitted. For ELF symbol types, also accept `STT_FUNC`,
 `.type symbol STT_FUNC` form. Preserve ELF merge flags `M` and `MS`
 and their entry sizes, with or without allocation. `.incbin` reads
 bytes from a named file, with optional byte offset and count.
+On ELF, `@note` selects a note section. Instructions can supply byte
+sequences in a file-backed data section while preserving its section flags.
 ELF data fields can hold a symbol address or a symbol difference. Fold a
 difference within one section and use a place-relative relocation when
 the subtracted address is in the data field's section.

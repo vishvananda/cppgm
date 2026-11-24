@@ -119,6 +119,7 @@ struct Section
 	uint32_t group = kNoGroup; // index into ObjectFile::groups
 	uint32_t merge_size = 0;   // ELF SHF_MERGE entry size
 	bool merge_strings = false;
+	bool elf_note = false;
 };
 
 struct AssemblyString
