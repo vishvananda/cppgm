@@ -985,6 +985,10 @@ void FunctionLowering::materialize_prvalue(const syntax::Expr& expr, lowir::Valu
 	if (e->kind == syntax::ExprKind::Coroutine)
 		return materialize_prvalue(lower_coroutine_await(*e), object, location);
 	const sema::ExprFacts* facts = e->facts;
+	if (e->kind == syntax::ExprKind::Cast)
+		if (const auto* plan = sema::CInitializerOf(e))
+			return c_initialize(
+				*plan, AddressPath{ AddressPath::Root::Value, object, path_steps_.size() }, facts->type->cv, location);
 	if (lowering_.analyzer_->c_source() && sema::ClassOf(facts->type) != nullptr)
 	{
 		// C records initialize from their values, without a copy constructor.

@@ -404,6 +404,10 @@ The first fixture set covers these parts of the C17 input profile:
   the base type before forming derived types.
 - Implicit conversions between object pointers and qualified `void*`, without
   discarding pointee qualifiers; integral initialization of enumeration objects.
+- GNU C arithmetic on `void*` and function pointers uses a one-byte stride.
+  Apply the GNU extension policy in pedantic mode.
+- A GNU C cast to a union initializes the first compatible named member
+  from the operand, or copies an operand already of that union type.
 - For relational comparison, require pointers to qualified or unqualified
   versions of compatible object types. Equality also permits a null pointer
   constant, compatible function pointers, and an object pointer with a void
@@ -484,6 +488,9 @@ The first fixture set covers these parts of the C17 input profile:
   integer constant expressions of value zero for null pointer conversions.
   A pointer-sized integer with static storage can hold a symbol address
   and a constant byte addend carried by a relocation.
+  GNU static initializers can form the byte offset of a member by taking its
+  address relative to a null pointer to a record. Reuse the record layout
+  facts for this expression.
   GNU folding can supply the value of a conditional in a required constant
   context, such as a case label or array designator. It can also fold casts
   from null or integer-derived pointer values back to integers. Diagnose

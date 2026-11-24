@@ -513,6 +513,7 @@ private:
 	void check_c_static_initializer(const syntax::Expr& expr, const Type* constexpr_type = nullptr,
 		const DataMember* member = nullptr, bool unchecked_designators = false);
 	ExprFacts* c_compound_literal(const syntax::FunctionalCastExpr& expr, Scope* scope);
+	ExprFacts* c_union_cast(const syntax::CastExpr& expr, const Type* type, const ClassEntity* record, Scope* scope);
 	void check_c_register_address(const syntax::Expr& expr, uint32_t location);
 	void check_c_constexpr_type(const Type* type, uint32_t location);
 	const ConstValue* c_compound_constant(const syntax::FunctionalCastExpr& expr);

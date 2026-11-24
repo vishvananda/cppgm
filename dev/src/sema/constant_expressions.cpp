@@ -9,6 +9,7 @@
 
 #include "lex/number_literal.h"
 #include "lex/extended_float.h"
+#include "preprocess/preprocessor.h"
 #include "sema/analyzer.h"
 #include "sema/aggregates.h"
 #include "sema/integral_arithmetic.h"
@@ -1508,7 +1509,7 @@ bool ConstantInterpreter::pointer_arithmetic(
 		if (left.root != right.root || left.count != right.count || left.extra != right.extra ||
 			(left.address.entity != right.address.entity && !same_literal(left, right)))
 			return fail(expr.location, "a difference of pointers into different objects");
-		if (analyzer_.c_source() && IsVoid(left_type->element))
+		if (analyzer_.c_source() && (IsVoid(left_type->element) || left_type->element->kind == TypeKind::Function))
 		{
 			out = IntegerValue(expr.facts->type->unqualified,
 				static_cast<uint64_t>(left.address.offset) - static_cast<uint64_t>(right.address.offset));
@@ -2796,8 +2797,17 @@ bool ConstantInterpreter::member_base(const syntax::MemberExpr& expr, ConstPlace
 			return false;
 		if (out == nullptr)
 			return true;
-		if (pointer.kind != ValueKind::Pointer || pointer.root == RootKind::Null)
-			return fail(expr.location, "a member access through a null pointer");
+		if (pointer.kind != ValueKind::Pointer)
+			return fail(expr.location, "a member access through a non-pointer");
+		if (pointer.root == RootKind::Null)
+		{
+			const char* message = "forming a member offset from a null pointer is a GNU C extension";
+			if (!c_static_initializer_ ||
+				(!analyzer_.c_explicit_extension_ && analyzer_.positions_ != nullptr &&
+					!analyzer_.positions_->allow_gnu_c_extension(expr.location, message)))
+				return fail(expr.location, "a member access through a null pointer");
+			pointer.root = RootKind::AbsoluteAddress;
+		}
 		object = PlaceOf(pointer, pointer.type->element);
 	}
 	else if (!object_place(*base, object))

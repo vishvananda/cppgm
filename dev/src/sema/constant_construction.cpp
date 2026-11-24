@@ -164,6 +164,8 @@ bool ConstantInterpreter::materialize(const syntax::Expr& expr, const ConstPlace
 		return construct(type, target, &view, constructor, e->location);
 	case syntax::ExprKind::Cast:
 	{
+		if (const auto* plan = CInitializerOf(e))
+			return c_initialize(*plan, target, e->location);
 		// 5.2.9p4, 5.4p4: `(T)e` and `static_cast<T>(e)` are `T t(e);`.
 		syntax::Expr* operand = static_cast<const syntax::CastExpr*>(e)->operand;
 		view.kind = syntax::InitializerKind::Parenthesized;

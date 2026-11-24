@@ -56,6 +56,11 @@ bool IsPointer(const Type* type)
 	return type->unqualified->kind == TypeKind::Pointer;
 }
 
+bool ArithmeticPointer(const Type* type, bool c_source)
+{
+	return c_source ? IsPointer(type) : IsObjectPointer(type);
+}
+
 bool IsMemberPointer(const Type* type)
 {
 	return type->unqualified->kind == TypeKind::MemberPointer;
@@ -1429,14 +1434,15 @@ ExprFacts* Analyzer::arithmetic(const syntax::BinaryExpr& expr, ExprFacts* left,
 	if (op == TokenKind::OP_PLUS || op == TokenKind::OP_MINUS)
 	{
 		// 5.7: pointer arithmetic on pointers to complete object types.
-		const bool lp = IsObjectPointer(lt), rp = IsObjectPointer(rt);
+		const bool lp = ArithmeticPointer(lt, c_source_), rp = ArithmeticPointer(rt, c_source_);
 		if (lp || rp)
 		{
 			if (op == TokenKind::OP_MINUS && lp && rp)
 			{
 				const Type* left_element = lt->element->unqualified;
 				const Type* right_element = rt->element->unqualified;
-				if (IsVoid(left_element) && IsVoid(right_element) && !complete_pointee(lt, expr.location))
+				if ((IsVoid(left_element) || left_element->kind == TypeKind::Function) &&
+					!complete_pointee(lt, expr.location))
 					return nullptr;
 				if (left_element != right_element &&
 					!(c_source_ && conversions_.c_type_compatible(left_element, right_element)))
@@ -1892,7 +1898,7 @@ ExprFacts* Analyzer::assignment(const syntax::BinaryExpr& expr, Scope* scope)
 	const Type* rt = decayed(right);
 	const Type* lt = type->unqualified;
 	const Type* operation = lt;
-	if ((op == TokenKind::OP_PLUS || op == TokenKind::OP_MINUS) && IsObjectPointer(lt))
+	if ((op == TokenKind::OP_PLUS || op == TokenKind::OP_MINUS) && ArithmeticPointer(lt, c_source_))
 	{
 		// 5.17p7: E1 += E2 with E1 a pointer to a complete object type.
 		if (!IsIntegralOrUnscopedEnum(rt))
@@ -2280,15 +2286,16 @@ ExprFacts* Analyzer::increment(const syntax::UnaryExpr& expr, Scope* scope)
 	}
 	const Type* type = operand->type;
 	const bool decrement = expr.op == TokenKind::OP_DEC;
+	const bool pointer = ArithmeticPointer(type, c_source_);
 	// GNU: a complex operand's real part is stepped.
 	if (IsBoolType(type) ? (!c_source_ && decrement)
-						 : !(IsArithmetic(type) || IsObjectPointer(type) || IsComplex(type) ||
+						 : !(IsArithmetic(type) || pointer || IsComplex(type) ||
 							   (c_source_ && type->unqualified->kind == TypeKind::Enum)))
 	{
 		substitution_error(expr.location, "invalid operand of increment or decrement");
 		return nullptr;
 	}
-	if (IsObjectPointer(type) && !complete_pointee(type->unqualified, expr.location))
+	if (pointer && !complete_pointee(type->unqualified, expr.location))
 		return nullptr;
 	if (expr.kind == syntax::ExprKind::Postfix)
 		return new_facts(expr, type->unqualified, ValueCategory::PRValue);
@@ -2908,6 +2915,10 @@ ExprFacts* Analyzer::cast_expression(const syntax::CastExpr& expr, Scope* scope)
 	const Type* target = type_id(*expr.type, scope, false, c_source_ ? &runtime_type : nullptr);
 	if (target != nullptr && expr.cast == TokenKind::KW_DYNAMIC_CAST && semantic())
 		return dynamic_cast_expression(expr, target, scope);
+	if (c_source_ && target != nullptr && semantic())
+		if (const ClassEntity* record = ClassOf(target))
+			if (record->key == TokenKind::KW_UNION)
+				return c_union_cast(expr, target, record, scope);
 	ExprFacts* facts = target != nullptr ? explicit_conversion(expr, target, expr.operand, expr.cast, scope) : nullptr;
 	if (facts == nullptr)
 		return nullptr;

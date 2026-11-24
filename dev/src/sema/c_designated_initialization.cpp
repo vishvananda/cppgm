@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <functional>
 
+#include "preprocess/preprocessor.h"
 #include "sema/aggregates.h"
 #include "sema/c_initializer.h"
 #include "sema/c_initializer_intervals.h"
@@ -1194,6 +1195,48 @@ void Analyzer::c_designated_list(
 	if (builder.has_flexible_elements())
 		facts->flags |= kFlexibleElements;
 	facts->c_initializer = plan;
+}
+
+ExprFacts* Analyzer::c_union_cast(
+	const syntax::CastExpr& expr, const Type* type, const ClassEntity* record, Scope* scope)
+{
+	const char* message = "casting a value to a union is a GNU C extension";
+	if (!c_explicit_extension_ && positions_ != nullptr && !positions_->allow_gnu_c_extension(expr.location, message))
+		return substitution_error(expr.location, message), nullptr;
+	const ExprFacts* operand = typed(*expr.operand, scope);
+	if (operand == nullptr || !require_complete(record))
+		return nullptr;
+	type = type->unqualified;
+	ExprFacts* facts = new_facts(expr, type, ValueCategory::PRValue);
+	CInitializer* plan = arena_.allocate_array<CInitializer>(1);
+	*plan = CInitializer{ type, expr.operand, {}, false, false, false, CInitializerProjection::None, false };
+	const Type* source = decayed(operand);
+	if (!conversions_.c_type_compatible(source, type, true))
+	{
+		const DataMember* selected = record->members;
+		while (selected != nullptr &&
+			(selected->variable->name == nullptr ||
+				!conversions_.c_type_compatible(source, selected->variable->type, true)))
+			selected = selected->next;
+		if (selected == nullptr)
+			return substitution_error(expr.location, "a cast to a C union requires a compatible member type"), nullptr;
+		const Type* member_type = selected->variable->type;
+		if (convert(*expr.operand, member_type, false) == nullptr)
+			return nullptr;
+		CInitializer* member = arena_.allocate_array<CInitializer>(1);
+		*member = CInitializer{ member_type, expr.operand, {}, false, false, false, CInitializerProjection::None,
+			false };
+		CInitializerChild* child = arena_.allocate_array<CInitializerChild>(1);
+		child->initializer = member;
+		child->member = selected;
+		child->index = selected->ordinal;
+		plan->value = nullptr;
+		plan->starts_value = true;
+		plan->children = { child, 1 };
+	}
+	facts->flags |= kCInitializer;
+	facts->c_initializer = plan;
+	return facts;
 }
 
 } // namespace sema

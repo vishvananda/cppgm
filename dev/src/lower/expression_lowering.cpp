@@ -1901,9 +1901,8 @@ RValue FunctionLowering::pointer_offset(const RValue& pointer, const RValue& off
 	const lowir::Type i64 = lowir::Type::scalar(lowir::TypeKind::I64);
 	RValue count = convert_integer(offset, index_type, i64, ConversionContext::Additive, true, literal);
 	const sema::Type* pointee = pointer_type->unqualified->element;
-	const uint64_t size = pointee->runtime_array() ? 0
-		: sema::IsVoid(pointee)                    ? 1
-												   : lowering_.size_of(pointee, location);
+	const bool byte_stride = sema::IsVoid(pointee) || pointee->kind == sema::TypeKind::Function;
+	const uint64_t size = pointee->runtime_array() ? 0 : byte_stride ? 1 : lowering_.size_of(pointee, location);
 	if (pointee->runtime_array())
 		count = binary(lowir::BinaryOp::Mul, i64, count,
 			convert_integer(runtime_array_size(pointee, location),
@@ -1919,10 +1918,7 @@ RValue FunctionLowering::pointer_offset(const RValue& pointer, const RValue& off
 		else
 			count = binary(lowir::BinaryOp::Sub, i64, integer(i64, 0), count);
 	}
-	const sema::Type* element = pointer_type->unqualified->element->unqualified;
-	const lowir::IndexBounds bounds = sema::IsVoid(element) || element->kind == sema::TypeKind::Function
-		? lowir::IndexBounds::None
-		: lowir::IndexBounds::InBounds;
+	const lowir::IndexBounds bounds = byte_stride ? lowir::IndexBounds::None : lowir::IndexBounds::InBounds;
 	return index(lowir::Type::scalar(lowir::TypeKind::I8), ir_model::IPK_NONE, pointer.value, count, bounds);
 }
 
@@ -1944,7 +1940,9 @@ RValue FunctionLowering::pointer_difference(
 		size.type = i64;
 		return binary(lowir::BinaryOp::Div, i64, bytes, size, lowir::IF_EXACT);
 	}
-	const uint64_t size = sema::IsVoid(pointee) ? 1 : lowering_.size_of(pointee, location);
+	const uint64_t size = sema::IsVoid(pointee) || pointee->kind == sema::TypeKind::Function
+		? 1
+		: lowering_.size_of(pointee, location);
 	if (size == 1)
 		return bytes;
 	if ((size & (size - 1)) == 0)

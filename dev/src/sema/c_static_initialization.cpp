@@ -346,6 +346,11 @@ void Analyzer::check_c_static_initializer(
 	if (facts == nullptr || facts->type == nullptr || value->kind == syntax::ExprKind::Literal ||
 		(facts->flags & kFolded) != 0)
 		return;
+	if (value->kind == syntax::ExprKind::Cast && CInitializerOf(value) != nullptr)
+	{
+		check_c_static_initializer(*static_cast<const syntax::CastExpr*>(value)->operand);
+		return;
+	}
 	if (value->kind == syntax::ExprKind::FunctionalCast)
 	{
 		const auto* literal = static_cast<const syntax::FunctionalCastExpr*>(value);

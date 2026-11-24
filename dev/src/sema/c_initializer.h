@@ -148,10 +148,10 @@ inline const syntax::BracedInitList* StaticCompoundInitializer(const syntax::Exp
 	return literal.compound_static || literal.compound_static_copy ? literal.braced : nullptr;
 }
 
-inline const CInitializer* CInitializerOf(const syntax::BracedInitList* list)
+inline const CInitializer* CInitializerOf(const syntax::Expr* expression)
 {
-	return list != nullptr && list->facts != nullptr && (list->facts->flags & kCInitializer) != 0
-		? list->facts->c_initializer
+	return expression != nullptr && expression->facts != nullptr && (expression->facts->flags & kCInitializer) != 0
+		? expression->facts->c_initializer
 		: nullptr;
 }
 

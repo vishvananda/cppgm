@@ -1553,15 +1553,15 @@ bool ProgramLowering::static_object(const sema::Type* type, const syntax::Initia
 	const syntax::Expr* expr = initializer->expression;
 	if (const auto* literal = sema::StaticCompoundInitializer(expr))
 		return static_element(type, *literal, out);
-	if (expr->kind != syntax::ExprKind::BracedInit)
+	if (expr->kind != syntax::ExprKind::BracedInit && !(analyzer_->c_source() && sema::ClassOf(type) != nullptr))
 		return static_string(type, *expr, out);
 	return static_element(type, *expr, out);
 }
 
 bool ProgramLowering::static_element(const sema::Type* type, const syntax::Expr& element, StaticData& out)
 {
-	if (element.kind == syntax::ExprKind::BracedInit)
-		if (const sema::CInitializer* plan = sema::CInitializerOf(static_cast<const syntax::BracedInitList*>(&element)))
+	if (element.kind == syntax::ExprKind::BracedInit || (analyzer_->c_source() && sema::ClassOf(type) != nullptr))
+		if (const sema::CInitializer* plan = sema::CInitializerOf(sema::CInitializerOperand(&element)))
 			return static_c_initializer(*plan, out);
 	if (const auto* literal = sema::StaticCompoundInitializer(&element))
 		return static_element(type, *literal, out);

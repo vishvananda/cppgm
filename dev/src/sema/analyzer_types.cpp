@@ -2171,9 +2171,11 @@ bool Analyzer::complete_pointee(const Type* pointer, uint32_t location)
 	// defined object type (not void, an array of unknown bound or an
 	// incomplete class, whose completion may come later: not memoized).
 	const Type* element = pointer->unqualified->element;
-	if (c_source_ && IsVoid(element))
+	if (c_source_ && (IsVoid(element) || element->kind == TypeKind::Function))
 	{
-		const char* message = "arithmetic on a void pointer is a GNU C extension";
+		const char* message = element->kind == TypeKind::Function
+			? "arithmetic on a function pointer is a GNU C extension"
+			: "arithmetic on a void pointer is a GNU C extension";
 		if (c_explicit_extension_ || positions_ == nullptr || positions_->allow_gnu_c_extension(location, message))
 			return true;
 		return substitution_error(location, message);
