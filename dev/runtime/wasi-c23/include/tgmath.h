@@ -30,6 +30,13 @@
 #define __cppgm_tg_narrow3(d, l, x, y, z) _Generic((x) + (y) + (z), long double: (l), default: (d))((x), (y), (z))
 #endif
 
+#define acospi(x) __cppgm_tg_unary(acospif, (acospi), acospil, (x))
+#define asinpi(x) __cppgm_tg_unary(asinpif, (asinpi), asinpil, (x))
+#define atanpi(x) __cppgm_tg_unary(atanpif, (atanpi), atanpil, (x))
+#define atan2pi(y, x) __cppgm_tg_binary(atan2pif, (atan2pi), atan2pil, (y), (x))
+#define cospi(x) __cppgm_tg_unary(cospif, (cospi), cospil, (x))
+#define sinpi(x) __cppgm_tg_unary(sinpif, (sinpi), sinpil, (x))
+#define tanpi(x) __cppgm_tg_unary(tanpif, (tanpi), tanpil, (x))
 #define exp10m1(x) __cppgm_tg_unary(exp10m1f, (exp10m1), exp10m1l, (x))
 #define exp2m1(x) __cppgm_tg_unary(exp2m1f, (exp2m1), exp2m1l, (x))
 #define llogb(x) __cppgm_tg_unary(llogbf, (llogb), llogbl, (x))

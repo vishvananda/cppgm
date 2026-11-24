@@ -5,6 +5,9 @@
 static_assert(HAS_TYPE(rsqrt(4), double));
 static_assert(HAS_TYPE(rsqrt(4.0f), float));
 static_assert(HAS_TYPE(rsqrt(4.0L), long double));
+static_assert(HAS_TYPE(sinpi(0.5L), long double));
+static_assert(HAS_TYPE(atan2pi(1.0f, 2), double));
+static_assert(HAS_TYPE(atan2pi(1.0f, 2.0L), long double));
 static_assert(HAS_TYPE(nextup(0.0f), float));
 static_assert(HAS_TYPE(roundeven(1.5L), long double));
 static_assert(HAS_TYPE(logp1(1), double));

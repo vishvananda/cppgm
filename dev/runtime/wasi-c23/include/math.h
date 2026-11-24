@@ -24,18 +24,25 @@ int canonicalizel(long double*, const long double*);
 
 double acospi(double);
 float acospif(float);
+long double acospil(long double);
 double asinpi(double);
 float asinpif(float);
+long double asinpil(long double);
 double atanpi(double);
 float atanpif(float);
+long double atanpil(long double);
 double atan2pi(double, double);
 float atan2pif(float, float);
+long double atan2pil(long double, long double);
 double cospi(double);
 float cospif(float);
+long double cospil(long double);
 double sinpi(double);
 float sinpif(float);
+long double sinpil(long double);
 double tanpi(double);
 float tanpif(float);
+long double tanpil(long double);
 
 double exp10m1(double);
 float exp10m1f(float);

@@ -1975,7 +1975,7 @@
       "editions": [23],
       "environment": "hosted",
       "header": "math",
-      "requirement": "Check the float and double half-revolution trigonometric functions at their quadrant and domain boundaries, including signed zeros.",
+      "requirement": "Check half-revolution trigonometric functions at all three real precisions. Include quadrant and domain boundaries, signed zeros, poles, and the wide integer and fractional range of binary128.",
       "cases": ["library.c23-math-pi"]
     },
     {
