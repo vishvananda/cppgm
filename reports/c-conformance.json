@@ -1949,6 +1949,16 @@
       "cases": ["library.c23-math-logp1"]
     },
     {
+      "id": "library.c23-math-narrow",
+      "clause": "C23 7.12.14, F.10.11",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "math",
+      "requirement": "Round arithmetic directly to the narrower return type. Check halfway cases, subnormals, overflow, signed zeros, nonfinite arguments, and a directed rounding mode when available.",
+      "cases": ["library.c23-math-narrow"]
+    },
+    {
       "id": "library.c23-math-pi",
       "clause": "C23 7.12.4.8–14",
       "kind": "required",

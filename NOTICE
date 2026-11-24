@@ -34,6 +34,9 @@ are retained in third_party/core-math and installed with the runtime archive.
 The WASI binary128 `log1pl` implementation adapts FreeBSD's msun under the
 BSD 2-Clause License. Its copyright and license notice are retained in
 dev/runtime/wasi-c23/licenses and installed with the runtime archive.
+The WASI C23 narrowing operations incorporate Berkeley SoftFloat under the
+BSD 3-Clause License. Its notices are retained in third_party/softfloat and
+installed with the runtime archive.
 
 The plain-text CWG issue references and WG21 papers under doc/cwg/ retain
 their source, contributor, revision and adoption information. They are

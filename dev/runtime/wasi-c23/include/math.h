@@ -107,6 +107,25 @@ long double fmaximum_mag_numl(long double, long double);
 double fminimum_mag_num(double, double);
 float fminimum_mag_numf(float, float);
 long double fminimum_mag_numl(long double, long double);
+
+float fadd(double, double);
+float faddl(long double, long double);
+double daddl(long double, long double);
+float fsub(double, double);
+float fsubl(long double, long double);
+double dsubl(long double, long double);
+float fmul(double, double);
+float fmull(long double, long double);
+double dmull(long double, long double);
+float fdiv(double, double);
+float fdivl(long double, long double);
+double ddivl(long double, long double);
+float ffma(double, double, double);
+float ffmal(long double, long double, long double);
+double dfmal(long double, long double, long double);
+float fsqrt(double);
+float fsqrtl(long double);
+double dsqrtl(long double);
 #endif
 
 #endif

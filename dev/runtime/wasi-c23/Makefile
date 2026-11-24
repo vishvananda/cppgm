@@ -7,10 +7,12 @@ WASI_SYSROOT ?= $(abspath $(RESOURCE_DIR)/../../../share/wasi-sysroot)
 
 SHARED := ../wasm-freestanding
 CORE_MATH := ../../../third_party/core-math
+SOFTFLOAT := ../../../third_party/softfloat
 SHARED_HEADERS := __cppgm_search_result.h float.h limits.h stdarg.h stdbit.h stddef.h stdlib.h string.h
 LOCAL_HEADERS := assert.h complex.h fenv.h inttypes.h math.h setjmp.h stdatomic.h stdint.h stdio.h time.h uchar.h wchar.h
 NOTICES := $(patsubst $(SHARED)/licenses/%,$(BUILD_DIR)/licenses/%,$(wildcard $(SHARED)/licenses/*.txt)) \
-	$(BUILD_DIR)/licenses/core-math.txt $(BUILD_DIR)/licenses/freebsd-log1pl.txt
+	$(BUILD_DIR)/licenses/core-math.txt $(BUILD_DIR)/licenses/freebsd-log1pl.txt \
+	$(BUILD_DIR)/licenses/softfloat.txt
 HEADERS := $(addprefix $(BUILD_DIR)/include/,$(SHARED_HEADERS) $(LOCAL_HEADERS))
 STDIO_SOURCES := printf scanf wprintf wscanf scan_integer vfprintf vfwprintf vfscanf vfwscanf \
 	vsnprintf vswprintf vsscanf vswscanf
@@ -20,10 +22,11 @@ CORE_MATH_F32_OBJECTS := $(addprefix $(BUILD_DIR)/core-math/,$(addsuffix f.o,$(C
 CORE_MATH_F64_OBJECTS := $(addprefix $(BUILD_DIR)/core-math/,$(addsuffix .o,$(CORE_MATH_NAMES)))
 CORE_MATH_F128_OBJECTS := $(BUILD_DIR)/core-math/rsqrtl.o
 CORE_MATH_OBJECTS := $(CORE_MATH_F32_OBJECTS) $(CORE_MATH_F64_OBJECTS) $(CORE_MATH_F128_OBJECTS)
+SOFTFLOAT_OBJECTS := $(patsubst $(SOFTFLOAT)/%.c,$(BUILD_DIR)/softfloat/%.o,$(wildcard $(SOFTFLOAT)/*.c))
 OBJECTS := $(addprefix $(BUILD_DIR)/,stdbit.o memalignment.o memset_explicit.o timespec_getres.o utf8.o \
 	binary_conversion.o sized_free.o atomic_functions.o call_once.o strfrom.o fenv.o temporary_files.o \
-	math_representation.o math_classification.o math_extrema.o math_rounding.o math_logp1.o) $(STDIO_OBJECTS) \
-	$(CORE_MATH_OBJECTS)
+	math_representation.o math_classification.o math_extrema.o math_rounding.o math_logp1.o math_narrow.o) \
+	$(STDIO_OBJECTS) $(CORE_MATH_OBJECTS) $(SOFTFLOAT_OBJECTS)
 RUNTIME_CFLAGS := --target=wasm32-wasip1 --sysroot="$(WASI_SYSROOT)" -resource-dir="$(RESOURCE_DIR)" \
 	-x c -std=c23 -pedantic-errors -isystem "$(BUILD_DIR)/include" -O2
 
@@ -50,9 +53,14 @@ $(BUILD_DIR)/licenses/freebsd-log1pl.txt: licenses/freebsd-log1pl.txt
 	mkdir -p "$(@D)"
 	cp "$<" "$@"
 
+$(BUILD_DIR)/licenses/softfloat.txt: $(SOFTFLOAT)/COPYING.txt
+	mkdir -p "$(@D)"
+	cp "$<" "$@"
+
 # Build the callable operations and temporary-name counter with Wasm atomics.
 $(addprefix $(BUILD_DIR)/,atomic_functions.o temporary_files.o): RUNTIME_CFLAGS += -matomics
 $(BUILD_DIR)/math_logp1.o: RUNTIME_CFLAGS += -ffp-contract=off
+$(SOFTFLOAT_OBJECTS) $(BUILD_DIR)/math_narrow.o: RUNTIME_CFLAGS := $(filter-out -std=c23 -pedantic-errors,$(RUNTIME_CFLAGS)) -std=gnu23 -I "$(SOFTFLOAT)"
 
 vpath %.c $(SHARED)
 $(BUILD_DIR)/%.o: %.c Makefile | $(HEADERS)
@@ -63,6 +71,10 @@ $(STDIO_OBJECTS): $(BUILD_DIR)/stdio/%.o: stdio/%.c Makefile | $(HEADERS)
 	$(CC) $(filter-out -std=c23 -pedantic-errors,$(RUNTIME_CFLAGS)) -std=gnu23 -D_XOPEN_SOURCE=700 \
 		'-Dhidden=__attribute__((visibility("hidden")))' $(CPPFLAGS) $(CFLAGS) \
 		-MD -MP -MF "$(@:.o=.d)" -c "$<" -o "$@"
+
+$(SOFTFLOAT_OBJECTS): $(BUILD_DIR)/softfloat/%.o: $(SOFTFLOAT)/%.c Makefile | $(HEADERS)
+	mkdir -p "$(@D)"
+	$(CC) $(RUNTIME_CFLAGS) $(CPPFLAGS) $(CFLAGS) -MD -MP -MF "$(@:.o=.d)" -c "$<" -o "$@"
 
 $(CORE_MATH_F32_OBJECTS): CORE_MATH_FORMAT := binary32
 $(CORE_MATH_F64_OBJECTS): CORE_MATH_FORMAT := binary64
