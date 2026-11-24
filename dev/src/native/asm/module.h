@@ -27,6 +27,8 @@ private:
 	void section(
 		const std::string& name, object::SectionKind kind, uint32_t merge_size = 0, bool merge_strings = false);
 	void data(assembly::ModuleCursor& cursor, unsigned bytes);
+	void finish_data();
+	uint32_t data_symbol(assembly::ModuleCursor& cursor, uint64_t& addend, bool subtract);
 	void strings(assembly::ModuleCursor& cursor, bool terminate);
 	void include_binary(assembly::ModuleCursor& cursor);
 	void alignment(assembly::ModuleCursor& cursor, bool power);
@@ -43,6 +45,16 @@ private:
 	uint32_t section_ = 0;
 	uint32_t previous_ = 0;
 	std::vector<uint32_t> section_stack_;
+	struct DataRelocation
+	{
+		uint64_t offset;
+		uint64_t addend;
+		uint32_t section;
+		uint32_t positive;
+		uint32_t negative;
+		unsigned bytes;
+	};
+	std::vector<DataRelocation> data_relocations_;
 	std::string code_;
 	std::vector<assembly::SymbolUse> uses_;
 	std::vector<uint32_t> code_lines_;

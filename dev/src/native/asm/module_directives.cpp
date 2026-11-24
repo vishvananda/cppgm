@@ -22,28 +22,49 @@ void ModuleAssembler::reserve(uint64_t count, uint8_t fill)
 	else if (fill != 0)
 		throw BackendError("nonzero initialization in module bss section");
 }
+uint32_t ModuleAssembler::data_symbol(assembly::ModuleCursor& cursor, uint64_t& addend, bool subtract)
+{
+	cursor.space();
+	if (const assembly::SymbolUse* use = cursor.symbol_use())
+	{
+		cursor.advance(use->count);
+		const uint64_t offset = static_cast<uint64_t>(use->reference.addend);
+		addend += subtract ? uint64_t(0) - offset : offset;
+		return use->reference.symbol;
+	}
+	const std::string name = cursor.word();
+	// Symbol zero denotes this data field's position in its section.
+	return name == "." ? 0 : symbols_.named(name);
+}
 void ModuleAssembler::data(assembly::ModuleCursor& cursor, unsigned bytes)
 {
 	do
 	{
 		uint64_t bits = 0;
-		uint32_t target = lowir::kNoId;
+		uint32_t positive = lowir::kNoId, negative = lowir::kNoId;
 		if (cursor.numeric())
 			bits = assembly::assembly_integer_expression(cursor);
 		else
 		{
-			target = symbol(cursor);
+			positive = data_symbol(cursor, bits, false);
+			assembly::ModuleCursor next = cursor;
+			if (next.take('-') && !next.numeric() && !next.end())
+			{
+				cursor.take('-');
+				negative = data_symbol(cursor, bits, true);
+			}
+			cursor.space();
 			if (cursor.current() == '+' || cursor.current() == '-')
-				bits = assembly::assembly_integer_addend(cursor);
+				bits += assembly::assembly_integer_addend(cursor);
 		}
 		const uint64_t first = offset();
 		reserve(bytes, 0);
-		if (target != lowir::kNoId)
+		if (positive != lowir::kNoId)
 		{
-			if (bytes != 8 || out_.sections[section_].kind == SectionKind::Bss)
-				cursor.fail("module symbol data requires an eight-byte address");
-			out_.sections[section_].relocations.push_back(
-				object::Relocation{ first, object::R_X86_64_64, target, static_cast<int64_t>(bits) });
+			if (out_.sections[section_].kind == SectionKind::Bss ||
+				(target_ != Target::Linux && (negative != lowir::kNoId || bytes != 8)))
+				cursor.fail("module symbol data expression is unavailable for this section or target");
+			data_relocations_.push_back(DataRelocation{ first, bits, section_, positive, negative, bytes });
 		}
 		else if (out_.sections[section_].kind == SectionKind::Bss)
 		{
@@ -55,6 +76,70 @@ void ModuleAssembler::data(assembly::ModuleCursor& cursor, unsigned bytes)
 				out_.sections[section_].bytes[first + i] = static_cast<uint8_t>(bits >> (8 * i));
 	} while (cursor.take(','));
 }
+
+namespace {
+
+uint32_t data_relocation_type(unsigned bytes, bool relative)
+{
+	if (relative)
+		return bytes == 8 ? object::R_X86_64_PC64
+			: bytes == 4  ? object::R_X86_64_PC32
+			: bytes == 2  ? object::R_X86_64_PC16
+						  : object::R_X86_64_PC8;
+	return bytes == 8 ? object::R_X86_64_64
+		: bytes == 4  ? object::R_X86_64_32
+		: bytes == 2  ? object::R_X86_64_16
+					  : object::R_X86_64_8;
+}
+
+} // namespace
+
+void ModuleAssembler::finish_data()
+{
+	if (data_relocations_.empty())
+		return;
+	std::vector<uint32_t> section_symbols(out_.sections.size(), 0);
+	for (const DataRelocation& word : data_relocations_)
+	{
+		object::Section& section = out_.sections[word.section];
+		uint64_t addend = word.addend;
+		uint32_t symbol = word.positive;
+		if (symbol == 0)
+		{
+			uint32_t& cached = section_symbols[word.section];
+			if (cached == 0)
+			{
+				object::Symbol entry;
+				entry.section = word.section;
+				entry.type = object::SymbolType::Section;
+				cached = out_.add_symbol(entry);
+			}
+			symbol = cached;
+			addend += word.offset;
+		}
+		const object::Symbol& positive = out_.symbols[symbol];
+		const bool relative = word.negative != lowir::kNoId;
+		if (relative)
+		{
+			const uint32_t minus_section = word.negative == 0 ? word.section : out_.symbols[word.negative].section;
+			const uint64_t minus_value = word.negative == 0 ? word.offset : out_.symbols[word.negative].value;
+			if (positive.section == minus_section && minus_section != object::kUndefinedSection &&
+				minus_section != object::kCommonSection)
+			{
+				const uint64_t bits = positive.value - minus_value + addend;
+				for (unsigned i = 0; i < word.bytes; ++i)
+					section.bytes[word.offset + i] = static_cast<uint8_t>(bits >> (8 * i));
+				continue;
+			}
+			if (minus_section != word.section)
+				throw BackendError("module symbol difference has no relocation for its subtrahend");
+			addend += word.offset - minus_value;
+		}
+		section.relocations.push_back(object::Relocation{
+			word.offset, data_relocation_type(word.bytes, relative), symbol, static_cast<int64_t>(addend) });
+	}
+}
+
 void ModuleAssembler::strings(assembly::ModuleCursor& cursor, bool terminate)
 {
 	do

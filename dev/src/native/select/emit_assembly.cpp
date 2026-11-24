@@ -27,6 +27,9 @@ bool floating(lowir::Type type)
 
 lowir::TypeKind transfer_type(lowir::Type type, Reg reg)
 {
+	const lowir::TypeKind object = integer_assembly_object(type);
+	if (object != lowir::TypeKind::Void)
+		return object;
 	if (type.is_vector())
 		return lowir::TypeKind::V128;
 	if (type.is_float() || assembly_vector_register(reg))
@@ -36,9 +39,7 @@ lowir::TypeKind transfer_type(lowir::Type type, Reg reg)
 
 unsigned capture_bytes(lowir::Type type, Reg reg)
 {
-	const unsigned bytes = wide_assembly_operand(type) ? type.bytes
-		: type.is_vector()                             ? 16
-													   : register_bytes(type.kind());
+	const unsigned bytes = wide_assembly_operand(type) ? type.bytes : register_bytes(transfer_type(type, reg));
 	return assembly_vector_register(reg) && bytes < 4 ? 4 : bytes;
 }
 
@@ -72,28 +73,29 @@ Operand FunctionSelector::assembly_input(
 	using lowir::TypeKind;
 	if (!memory && wide_assembly_operand(operand.type))
 		return wide_assembly_input(operand, value);
+	const TypeKind transfer = memory ? TypeKind::Ptr : transfer_type(operand.type, reg);
 	const lowir::Type input_type = memory || operand.input_storage ? lowir::Type::scalar(TypeKind::Ptr) : operand.type;
 	Operand source = memory_value_operand(value, input_type);
 	if (operand.input_storage && !memory)
 	{
 		load_into(R10, source, TypeKind::Ptr);
 		const Reg scratch = floating(operand.type) ? XMM15 : R11;
-		Inst& load = emit2(floating(operand.type) ? Op::FMov : Op::Load, operand.type.kind(),
-			Operand::make_reg(scratch), Operand::make_mem(R10, 0));
+		const TypeKind stored = operand.type.is_object() ? transfer : operand.type.kind();
+		Inst& load = emit2(floating(operand.type) ? Op::FMov : Op::Load, stored, Operand::make_reg(scratch),
+			Operand::make_mem(R10, 0));
 		if ((operand.flags & asm_model::AO_VOLATILE) != 0)
 			load.flags |= MF_VOLATILE;
 		source = Operand::make_reg(scratch);
 	}
 	// Capture inputs before setting any physical assembly register. The
 	// ordinary parallel-move scratch registers may themselves be operands.
-	const TypeKind transfer = memory ? TypeKind::Ptr : transfer_type(operand.type, reg);
 	const unsigned bytes = transfer == TypeKind::V128 ? 16 : register_bytes(transfer);
 	const Operand saved = Operand::make_frame(frame_alloc(bytes, bytes));
 	Move capture;
 	capture.dst = saved;
 	capture.src = source;
 	capture.type = transfer;
-	capture.src_type = memory || operand.input_storage ? transfer : operand.type.kind();
+	capture.src_type = memory || operand.input_storage || operand.type.is_object() ? transfer : operand.type.kind();
 	emit_move(capture);
 	return saved;
 }
@@ -241,9 +243,10 @@ void FunctionSelector::emit_assembly(const lowir::Instruction& inst)
 			continue;
 		}
 		const Reg value = floating(operand.type) ? XMM15 : R11;
-		load_into(value, Operand::make_frame(captures[i].value), operand.type.kind());
-		Inst& store = emit2(floating(operand.type) ? Op::FMov : Op::Store, operand.type.kind(),
-			Operand::make_mem(R10, 0), Operand::make_reg(value));
+		const TypeKind stored = operand.type.is_object() ? transfer_type(operand.type, value) : operand.type.kind();
+		load_into(value, Operand::make_frame(captures[i].value), stored);
+		Inst& store = emit2(
+			floating(operand.type) ? Op::FMov : Op::Store, stored, Operand::make_mem(R10, 0), Operand::make_reg(value));
 		if ((operand.flags & AO_VOLATILE) != 0)
 			store.flags |= MF_VOLATILE;
 	}

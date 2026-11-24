@@ -18,6 +18,24 @@ inline bool wide_assembly_operand(lowir::Type type)
 	return type.is_object() && (type.bytes == 32 || type.bytes == 64);
 }
 
+inline lowir::TypeKind integer_assembly_object(lowir::Type type)
+{
+	using lowir::TypeKind;
+	if (type.is_object())
+		switch (type.bytes)
+		{
+		case 1:
+			return TypeKind::U8;
+		case 2:
+			return TypeKind::U16;
+		case 4:
+			return TypeKind::U32;
+		case 8:
+			return TypeKind::I64;
+		}
+	return TypeKind::Void;
+}
+
 inline bool assembly_transfer_required(lowir::Type type, mir_model::Reg reg)
 {
 	return wide_assembly_operand(type) || (assembly_vector_register(reg) && reg >= 32) || assembly_mask_register(reg);

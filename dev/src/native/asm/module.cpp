@@ -178,6 +178,7 @@ void ModuleAssembler::finish()
 	if (!section_stack_.empty())
 		throw BackendError("unbalanced module section stack");
 	symbols_.finish();
+	finish_data();
 }
 void emit_assembly_items(object::ObjectFile& out, const lowir::Program& program, Target target,
 	const std::vector<uint32_t>& mapping, AssemblyEnvironment& environment)

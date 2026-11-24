@@ -203,6 +203,9 @@ string terminator is emitted. For ELF symbol types, also accept `STT_FUNC`,
 `.type symbol STT_FUNC` form. Preserve ELF merge flags `M` and `MS`
 and their entry sizes, with or without allocation. `.incbin` reads
 bytes from a named file, with optional byte offset and count.
+ELF data fields can hold a symbol address or a symbol difference. Fold a
+difference within one section and use a place-relative relocation when
+the subtracted address is in the data field's section.
 
 In inline assembly, `.ascii` emits the bytes of its string operands.
 `.asciz` and `.string` append a zero byte to each operand. Adjacent
@@ -214,6 +217,8 @@ immediate constraint. Check constraints against the operands that will be
 encoded, after any substitution or propagation.
 The GNU `%a` modifier uses a register or constant as a memory address.
 An x86 memory operand can carry an FS or GS segment override.
+C records with a size of one, two, four, or eight bytes can use an
+integer register constraint. Preserve their complete representation.
 
 Preserve global/weak/local binding, hidden visibility, `.type`, `.size` and
 symbol aliases with `.set`/`.equ`. Support symbol addresses and constant addends,

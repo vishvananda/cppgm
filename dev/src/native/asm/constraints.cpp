@@ -15,6 +15,8 @@ unsigned width(lowir::Type type, RegisterBank bank)
 {
 	if (bank == RegisterBank::Vector)
 		return wide_assembly_operand(type) ? type.bytes * 8 : 128;
+	if (type.is_object())
+		return type.bytes * 8;
 	return type.is_vector()                                        ? 128
 		: type.kind() == lowir::TypeKind::F32                      ? 32
 		: type.kind() == lowir::TypeKind::F64 || type.is_pointer() ? 64
@@ -24,12 +26,18 @@ unsigned width(lowir::Type type, RegisterBank bank)
 uint64_t register_domain(
 	const lowir::AssemblyModule& module, const lowir::AssemblyOperand& operand, const Alternative& alt)
 {
-	if ((operand.type.is_object() && !wide_assembly_operand(operand.type)) || operand.type.is_void() ||
-		operand.type.kind() == lowir::TypeKind::I128 || operand.type.kind() == lowir::TypeKind::F80)
+	const bool integer_object = integer_assembly_object(operand.type) != lowir::TypeKind::Void;
+	if ((operand.type.is_object() && !wide_assembly_operand(operand.type) && !integer_object) ||
+		operand.type.is_void() || operand.type.kind() == lowir::TypeKind::I128 ||
+		operand.type.kind() == lowir::TypeKind::F80)
 		return 0;
 	if (alt.matching != asm_model::kNoId)
+	{
+		if (integer_object)
+			return 0xffcfu;
 		return (uint64_t(0xffffffffu) << 16) | (operand.type.is_integer() ? (uint64_t(0xff) << 48) : 0) |
 			(operand.type.is_vector() || wide_assembly_operand(operand.type) ? 0 : 0xffcfu);
+	}
 	if ((alt.locations & AL_REGISTER) == 0)
 		return 0;
 	uint64_t mask = 0;
@@ -41,7 +49,9 @@ uint64_t register_domain(
 		const Register& reg = module.registers[group.first_register];
 		const Reg r = assembly_register_key(reg);
 		if (reg.offset != 0 || r == kNoReg ||
-			(reg.bank == RegisterBank::Gpr && (operand.type.is_vector() || operand.type.is_object())) ||
+			(reg.bank == RegisterBank::Gpr &&
+				(operand.type.is_vector() || (operand.type.is_object() && !integer_object))) ||
+			(reg.bank != RegisterBank::Gpr && integer_object) ||
 			(reg.bank == RegisterBank::Mask && !operand.type.is_integer()) ||
 			(reg.bits != 0 && reg.bits != width(operand.type, reg.bank)))
 			continue;

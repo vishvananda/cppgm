@@ -36,7 +36,8 @@ assembly::View<T> preserve(Arena& arena, const std::vector<T>& values)
 }
 
 const char* prepare_operands(Analyzer& analyzer, const syntax::AsmStmt& stmt, Scope* scope,
-	assembly::PacketBuilder& packet, std::vector<ConstValue>& addresses, FunctionEntity* function)
+	const std::vector<assembly::GnuOperand>& source_operands, assembly::PacketBuilder& packet,
+	std::vector<ConstValue>& addresses, FunctionEntity* function)
 {
 	using namespace asm_model;
 	packet.constants.resize(packet.operands.size());
@@ -99,7 +100,10 @@ const char* prepare_operands(Analyzer& analyzer, const syntax::AsmStmt& stmt, Sc
 		operand.input_storage = (operand.flags & AO_READ) != 0 && (locations & AL_MEMORY) != 0 &&
 			(operand.flags & AO_NO_MEMORY) == 0 && addressable && !constant.present && !symbol;
 		const Type* type = expr.facts->type->unqualified;
-		const bool scalar = IsScalar(type) || type->kind == TypeKind::Vector;
+		const unsigned bits = source_operands[i].bits;
+		const bool integer_sized_record = analyzer.c_source() && type->kind == TypeKind::Class && bits >= 8 &&
+			bits <= 64 && (bits & (bits - 1)) == 0;
+		const bool scalar = IsScalar(type) || type->kind == TypeKind::Vector || integer_sized_record;
 		if (!scalar && !symbol && ((locations & AL_MEMORY) == 0 || !addressable))
 			return "assembly operand requires scalar/vector data or addressable memory";
 		// Substitution and propagation can expose a constant or symbol.
@@ -205,7 +209,7 @@ void Analyzer::asm_statement(const syntax::AsmStmt& stmt, Scope* scope)
 	try
 	{
 		built = assembly::gnu_packet(text, operands, clobbers, stmt.is_volatile || stmt.is_goto, !stmt.is_extended);
-		if (const char* message = prepare_operands(*this, stmt, scope, built, addresses, body_->function))
+		if (const char* message = prepare_operands(*this, stmt, scope, operands, built, addresses, body_->function))
 			error(stmt.location, message);
 	}
 	catch (const assembly::AssemblyError& failure)
