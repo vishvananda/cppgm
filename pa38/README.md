@@ -511,8 +511,10 @@ The first fixture set covers these parts of the C17 input profile:
   An inline definition with external linkage and without `extern` supplies
   the symbol itself. Advertise the selected C rules to hosted headers with
   `__GNUC_GNU_INLINE__` or `__GNUC_STDC_INLINE__`.
-  GNU `gnu_inline` and `always_inline` attributes can also occur after the
-  return type's pointer operator.
+  GNU `gnu_inline` selects GNU89 rules for that C function in later
+  modes. A static definition retains internal linkage and can supply a
+  callable body. `gnu_inline` and `always_inline` attributes can also occur
+  after the return type's pointer operator.
 - For a GNU `packed` enumeration without a fixed base, choose the
   smallest compatible integer type that covers all member values.
 - Give C99 through C17 enumeration constants type `int`, including inside

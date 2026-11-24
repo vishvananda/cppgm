@@ -2628,6 +2628,8 @@ Binding* Analyzer::declare_function(const Specifiers& specifiers, const Declarat
 void Analyzer::note_c_inline_declaration(
 	FunctionEntity* function, const Specifiers& specifiers, bool definition, uint32_t location)
 {
+	if (definition)
+		function->c_extern_inline_definition = specifiers.is_inline && specifiers.is_extern;
 	if (c_before_c99_)
 	{
 		// GNU89 inline semantics depend on the definition's storage class.

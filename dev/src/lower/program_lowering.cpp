@@ -814,7 +814,7 @@ bool ProgramLowering::emitted_at_definition(const sema::FunctionEntity* function
 	// ISO C inline supplies an external definition if any file-scope
 	// declaration uses extern or leaves out inline (6.7.4p7).
 	if (analyzer_->c_source() && function->is_inline && !function->internal_linkage)
-		return function->c_external_definition && !function->gnu_inline;
+		return !sema::InlineOnlyDefinition(function, true);
 	// An inline definition (7.1.2p4: every unit that odr-uses it defines
 	// it) is emitted where odr-used; so is an internal always_inline one,
 	// or one whose body calls a reserved builtin this compiler lacks (as
@@ -1041,14 +1041,9 @@ void ProgramLowering::demand_entry(const sema::FunctionEntity* function, EntryVa
 								 (function->synthesized && function->is_inline)) &&
 		(assignment || function->copy_kind != sema::CopyKind::None ||
 			(!function->trivial && (function->constructor || function->destructor)));
-	// GNU gnu_inline: an inline function's definition serves inlining only
-	// (always_inline calls run it as a unit-local copy, see inline_copy);
-	// GCC never compiles it on its own, so its address and other calls
-	// name the external definition, which the declaration's object (its
-	// asm label) denotes. Emitting it would define that name here: glibc's
-	// C++ overloads of strchr wrap __builtin_strchr, a call of `strchr`.
-	// An ISO C inline-only definition also leaves the external symbol to
-	// another translation unit.
+	// An inline-only definition leaves its address and non-inlined calls
+	// bound to the external symbol. Its body can serve calls that this
+	// unit substitutes, as in GNU extern inline or glibc's C++ wrappers.
 	if (sema::InlineOnlyDefinition(function, analyzer_->c_source()))
 		return;
 	// A template's specialization (or an instance's member) is defined

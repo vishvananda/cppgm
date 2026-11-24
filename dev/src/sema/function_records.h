@@ -449,9 +449,8 @@ struct FunctionEntity : Entity
 	// Analyzer::define_function); Clang's
 	// exclude_from_explicit_instantiation: explicit instantiations of its
 	// class do not cover it, each unit using it instantiates and emits it
-	// (see Analyzer::InstantiationSuppressed); GNU gnu_inline, whose
-	// definition is never emitted on its own (see
-	// ProgramLowering::demand_entry).
+	// (see Analyzer::InstantiationSuppressed); GNU gnu_inline selects
+	// inline-only linkage in C++ and GNU89 semantics in C.
 	bool always_inline : 1;
 	// A GNU assembly input must become immediate during substitution.
 	bool deferred_asm_input : 1;
@@ -463,6 +462,7 @@ struct FunctionEntity : Entity
 	bool unavailable : 1;
 	// A C file-scope declaration with extern or without inline (6.7.4).
 	bool c_external_definition : 1;
+	bool c_extern_inline_definition : 1;
 	bool c_definition_required : 1;
 	// GNU used: an object-emission root.
 	bool used : 1;
@@ -622,11 +622,13 @@ inline FunctionEntity* PatternOf(const FunctionEntity* function)
 
 inline bool InlineOnlyDefinition(const FunctionEntity* function, bool c_source)
 {
+	if (c_source)
+		return function->is_inline && !function->internal_linkage &&
+			(function->gnu_inline ? function->c_extern_inline_definition : !function->c_external_definition);
 	if (function->gnu_inline || (function->primary != nullptr && function->primary->gnu_inline))
 		return true;
 	const FunctionEntity* pattern = PatternOf(function);
-	return (pattern != nullptr && pattern->gnu_inline) ||
-		(c_source && function->is_inline && !function->internal_linkage && !function->c_external_definition);
+	return pattern != nullptr && pattern->gnu_inline;
 }
 
 // A closure type's capture (5.1.2p14-p15): the variable or parameter
