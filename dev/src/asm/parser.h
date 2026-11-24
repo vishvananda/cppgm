@@ -74,6 +74,7 @@ struct Instruction
 {
 	bool label = false;
 	bool data = false;
+	bool string_data = false;
 	uint32_t alignment = 0;
 	uint32_t max_padding = UINT32_MAX;
 	int16_t fill = -1;

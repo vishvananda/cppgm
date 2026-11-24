@@ -121,6 +121,7 @@ struct X86CodeOptions
 	bool external_indirect_thunks = false;
 	bool indirect_register_only = false;
 	bool indirect_thunk_cs_prefix = false;
+	bool assembly_text = false;
 };
 
 class FunctionEmitter
@@ -135,7 +136,12 @@ public:
 	// model records each function's unwind facts.
 	void set_eh_model(EhModel model) { eh_model_ = model; }
 	void set_red_zone(bool enabled) { red_zone_ = enabled; }
-	void set_code_options(X86CodeOptions options) { code_options_ = options; }
+	void set_code_options(X86CodeOptions options)
+	{
+		code_options_ = options;
+		asm_.record_strings(options.assembly_text);
+	}
+	const std::vector<CodeString>& assembly_strings() const { return asm_.strings(); }
 	const UnwindFacts& unwind() const { return unwind_; }
 	const std::vector<CodeLocation>& locations() const { return locations_; }
 	// The last function's frame displacements relative to its CFA: a

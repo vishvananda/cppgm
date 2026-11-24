@@ -36,6 +36,14 @@ void Assembler::reset_labels()
 {
 	label_pos_.clear();
 	label_refs_.clear();
+	strings_.clear();
+}
+
+void Assembler::append_string(const std::vector<uint8_t>& bytes)
+{
+	if (record_strings_ && !bytes.empty())
+		strings_.push_back(CodeString{ size(), static_cast<uint32_t>(bytes.size()) });
+	code_.insert(code_.end(), bytes.begin(), bytes.end());
 }
 
 void Assembler::nops(unsigned bytes)

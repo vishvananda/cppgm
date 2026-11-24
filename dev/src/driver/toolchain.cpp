@@ -680,13 +680,19 @@ uint32_t parse_wasm_stack_size(const std::string& size)
 	return static_cast<uint32_t>(bytes);
 }
 
-// -S -emit-lowir compiles as -c does: LowIR is the only assembly form this
-// driver writes.
-void lowir_output(Invocation& invocation, bool assembly_output)
+void configure_compile_output(Invocation& invocation, bool assembly_output)
 {
-	if (assembly_output != invocation.emit_lowir)
-		throw InvocationError(assembly_output ? "-S requires -emit-lowir" : "-emit-lowir requires -S");
-	invocation.compile_only = invocation.compile_only || invocation.emit_lowir;
+	if (invocation.emit_lowir && !assembly_output)
+		throw InvocationError("-emit-lowir requires -S");
+	invocation.compile_only = invocation.compile_only || assembly_output;
+	invocation.x86_code.assembly_text = assembly_output && !invocation.emit_lowir;
+	if (invocation.x86_code.assembly_text && invocation.target != native::Target::Linux)
+		throw InvocationError("native -S requires an ELF x86-64 target");
+}
+
+const char* compile_output_suffix(const Invocation& invocation)
+{
+	return invocation.emit_lowir ? ".lowir" : invocation.x86_code.assembly_text ? ".s" : ".o";
 }
 
 void configure_mode_macros(Invocation& invocation, bool optimize_size, unsigned pic_level, unsigned pie_level)
@@ -963,7 +969,7 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 	input_language(invocation);
 	if (invocation.inputs.empty())
 		throw InvocationError("no input files");
-	lowir_output(invocation, assembly_output);
+	configure_compile_output(invocation, assembly_output);
 	// GCC's -pthread defines _REENTRANT ahead of every -D and -U wherever
 	// it is written (the host link adds the thread library; link mode's
 	// runtime needs nothing).
@@ -1361,7 +1367,7 @@ void write_side_dependencies(
 {
 	const MakeDependencies& options = invocation.dependencies;
 	const std::string source = path == "-" ? "<stdin>" : path;
-	const std::string default_target = output_name(source, invocation.emit_lowir ? ".lowir" : ".o");
+	const std::string default_target = output_name(source, compile_output_suffix(invocation));
 	const std::string& output = invocation.output;
 	const std::string& target = output.empty() || invocation.preprocess_only ? default_target : output;
 	std::string file = options.file;
@@ -1393,12 +1399,12 @@ void write_side_dependencies(
 		throw InputOutputError("cannot write " + file);
 }
 
-// -c's output for an input, or -S -emit-lowir's (<input>.lowir).
+// -c or -S output for an input.
 std::string default_output_name(const Invocation& invocation, const Input& input)
 {
 	if (!invocation.output.empty())
 		return invocation.output;
-	return output_name(input.name, invocation.emit_lowir ? ".lowir" : ".o");
+	return output_name(input.name, compile_output_suffix(invocation));
 }
 
 // The exception model of a -c object: a course object (`.obj`, PA25's
@@ -1409,11 +1415,14 @@ native::EhModel object_eh_model(const std::string& output)
 	return ends_with(output, ".obj") ? native::EhModel::Course : native::EhModel::Host;
 }
 
-bool write_native_object(const native::object::ObjectFile& object, const std::string& output, native::Target target)
+bool write_native_output(
+	const native::object::ObjectFile& object, const std::string& output, const Invocation& invocation)
 {
 	std::string error;
-	if (target_model::is_darwin(target) ? native::object::write_macho_object(object, output, error)
-										: native::object::write_elf_object(object, output, error))
+	const bool written = invocation.x86_code.assembly_text ? native::object::write_elf_assembly(object, output, error)
+		: target_model::is_darwin(invocation.target)       ? native::object::write_macho_object(object, output, error)
+														   : native::object::write_elf_object(object, output, error);
+	if (written)
 		return true;
 	std::cerr << "ERROR: " << error << std::endl;
 	return false;
@@ -1428,9 +1437,10 @@ int compile_lto_object(const Invocation& invocation)
 		throw InvocationError("-flto=full -c requires source inputs and an explicit -o");
 	check_output(invocation, output);
 	native::object::ObjectFile object;
-	if (!compile_native_sources(sources, invocation, object_eh_model(output), object))
+	if (!compile_native_sources(sources, invocation,
+			(invocation.x86_code.assembly_text ? native::EhModel::Host : object_eh_model(output)), object))
 		return EXIT_FAILURE;
-	return write_native_object(object, output, invocation.target) ? EXIT_SUCCESS : EXIT_FAILURE;
+	return write_native_output(object, output, invocation) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 // Libraries are link inputs: -c compiles the sources and ignores them.
@@ -1459,10 +1469,11 @@ int compile_mode(const Invocation& invocation)
 				return EXIT_FAILURE;
 			continue;
 		}
-		if (!compile_input(input, invocation, object_eh_model(output), object))
+		if (!compile_input(input, invocation,
+				(invocation.x86_code.assembly_text ? native::EhModel::Host : object_eh_model(output)), object))
 			return EXIT_FAILURE;
 		check_output(invocation, output);
-		if (!write_native_object(object, output, invocation.target))
+		if (!write_native_output(object, output, invocation))
 			return EXIT_FAILURE;
 	}
 	return EXIT_SUCCESS;
@@ -1954,7 +1965,8 @@ int run_toolchain(const std::vector<std::string>& args, const PreprocessorOption
 			throw InvocationError("-flto=full requires a link command or a supported native object build");
 	}
 	for (const Input& input : invocation.inputs)
-		if (input.kind == Input::Kind::Assembly && (invocation.syntax_only || invocation.emit_lowir))
+		if (input.kind == Input::Kind::Assembly &&
+			(invocation.syntax_only || invocation.emit_lowir || invocation.x86_code.assembly_text))
 			throw InvocationError("assembly input requires a compile or link invocation");
 
 	if (!wasm_target && !invocation.exports.empty())

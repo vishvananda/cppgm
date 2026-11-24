@@ -84,6 +84,14 @@ struct RM
 	}
 };
 
+// A string directive in the encoded bytes, retained for the optional
+// textual assembly output.
+struct CodeString
+{
+	uint32_t offset;
+	uint32_t size;
+};
+
 class Assembler
 {
 public:
@@ -92,6 +100,9 @@ public:
 	std::vector<uint8_t>& code() { return code_; }
 	uint32_t size() const { return static_cast<uint32_t>(code_.size()); }
 	std::vector<CodeFixup>& fixups() { return fixups_; }
+	void record_strings(bool enabled) { record_strings_ = enabled; }
+	const std::vector<CodeString>& strings() const { return strings_; }
+	void append_string(const std::vector<uint8_t>& bytes);
 
 	// Local labels: created unbound, bound to the current position.
 	uint32_t new_label();
@@ -181,6 +192,8 @@ private:
 	std::vector<CodeFixup> fixups_;
 	std::vector<int32_t> label_pos_;
 	std::vector<LabelRef> label_refs_;
+	std::vector<CodeString> strings_;
+	bool record_strings_ = false;
 };
 
 inline bool fits_i8(int64_t v)

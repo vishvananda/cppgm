@@ -128,7 +128,7 @@ for my $test (@tests)
 	@fixture_link = fixture_link_options($test);
 	my $profile = read_file(profile_path($test));
 	$profile =~ s/\s+\z//;
-	die "$test: unknown assembly profile '$profile'\n" if $profile !~ /\A(?:(?:lowir|gnu)(?:-reject)?|gnu-native|gnu-compile|native-source|lowir-native(?:-reject)?)\z/;
+	die "$test: unknown assembly profile '$profile'\n" if $profile !~ /\A(?:(?:lowir|gnu)(?:-reject)?|gnu-native|gnu-compile|gnu-text|native-source|lowir-native(?:-reject)?)\z/;
 	my $directory = File::Spec->rel2abs(tempdir('case-XXXXXX', DIR => $out, CLEANUP => 0));
 	if ($profile =~ /-reject\z/)
 	{
@@ -217,6 +217,16 @@ for my $test (@tests)
 				command($directory, "$label.roundtrip-compile", $app, "-$level", '-c', $canonical, '-o', "$directory/$label.roundtrip.o");
 				push @observations, observe($directory, "$label.roundtrip", "$directory/$label.roundtrip.o", $driver);
 			}
+			if ($profile eq 'gnu-text' && $^O eq 'linux')
+			{
+				my $text = "$directory/$label.s";
+				my $assembled = "$directory/$label.assembly.o";
+				command($directory, "$label.assembly", $app, "-$level", '-S', $source, '-o', $text);
+				die "$test: textual assembly lost its string directives\n"
+					if read_file($text) !~ /^\s*\.ascii\s+"/m;
+				command($directory, "$label.assemble", 'as', '--64', $text, '-o', $assembled);
+				push @observations, observe($directory, "$label.assembly-run", $assembled, $driver);
+			}
 			if (my @requested = requested_instructions($source))
 			{
 				my @inspect = $^O eq 'darwin' ? ('otool', '-tvV') : ('objdump', '-d');
@@ -233,7 +243,7 @@ for my $test (@tests)
 		}
 		++$index;
 	}
-	if ($profile eq 'gnu')
+	if ($profile eq 'gnu' || $profile eq 'gnu-text')
 	{
 		command($directory, 'host-compile', @host, '-std=c++11', '-O3', @stdlib, @fixture_link,
 			'-x', 'c++', $source, $driver, '-o', "$directory/host.program");

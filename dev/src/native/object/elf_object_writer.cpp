@@ -1,7 +1,11 @@
 #include "native/object/elf_object.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
+#include <iostream>
+#include <unordered_set>
 
 #include "native/object/elf_format.h"
 #include "support/flat_map.h"
@@ -427,6 +431,329 @@ bool write_elf_object(const ObjectFile& object, const std::string& path, std::st
 		return false;
 	}
 	return true;
+}
+
+namespace {
+
+void assembly_quote(std::ostream& out, const char* first, size_t count)
+{
+	out << '"';
+	for (size_t i = 0; i < count; ++i)
+	{
+		const unsigned char byte = static_cast<unsigned char>(first[i]);
+		if (byte == '"' || byte == '\\')
+			out << '\\' << char(byte);
+		else if (byte >= 32 && byte < 127)
+			out << char(byte);
+		else
+			out << '\\' << char('0' + (byte >> 6)) << char('0' + ((byte >> 3) & 7)) << char('0' + (byte & 7));
+	}
+	out << '"';
+}
+
+void assembly_quote(std::ostream& out, const std::string& text)
+{
+	assembly_quote(out, text.data(), text.size());
+}
+
+const char* assembly_relocation(uint32_t type)
+{
+#define RELOCATION(name) \
+	case name: \
+		return #name
+	switch (type)
+	{
+		RELOCATION(R_X86_64_NONE);
+		RELOCATION(R_X86_64_64);
+		RELOCATION(R_X86_64_PC32);
+		RELOCATION(R_X86_64_PLT32);
+		RELOCATION(R_X86_64_GOTPCREL);
+		RELOCATION(R_X86_64_32);
+		RELOCATION(R_X86_64_32S);
+		RELOCATION(R_X86_64_16);
+		RELOCATION(R_X86_64_PC16);
+		RELOCATION(R_X86_64_8);
+		RELOCATION(R_X86_64_PC8);
+		RELOCATION(R_X86_64_GOTTPOFF);
+		RELOCATION(R_X86_64_TPOFF32);
+		RELOCATION(R_X86_64_PC64);
+		RELOCATION(R_X86_64_GOTOFF64);
+		RELOCATION(R_X86_64_GOTPC32);
+		RELOCATION(R_X86_64_GOTPC64);
+		RELOCATION(R_X86_64_GOTPCRELX);
+		RELOCATION(R_X86_64_REX_GOTPCRELX);
+	default:
+		return nullptr;
+	}
+#undef RELOCATION
+}
+
+class AssemblyWriter
+{
+public:
+	AssemblyWriter(const ObjectFile& object, std::ostream& out);
+	bool write(std::string& error);
+
+private:
+	void symbol(uint32_t index);
+	void select_section(uint32_t index);
+	void bytes(const Section& section, uint64_t first, uint64_t last);
+	void contents(uint32_t index);
+	bool relocations(uint32_t index, std::string& error);
+
+	const ObjectFile& object_;
+	std::ostream& out_;
+	std::vector<std::string> symbols_, sections_;
+	std::vector<std::vector<uint32_t>> definitions_;
+	std::vector<std::vector<AssemblyString>> strings_;
+};
+
+AssemblyWriter::AssemblyWriter(const ObjectFile& object, std::ostream& out)
+	: object_(object), out_(out), symbols_(object.symbols.size()), sections_(object.sections.size()),
+	  definitions_(object.sections.size()), strings_(object.sections.size())
+{
+	std::unordered_set<std::string> used;
+	for (uint32_t i = 1; i < object.symbols.size(); ++i)
+	{
+		symbols_[i] = object.symbol_name(i);
+		used.insert(symbols_[i]);
+		const uint32_t section = object.symbols[i].section;
+		if (section < definitions_.size())
+			definitions_[section].push_back(i);
+	}
+	size_t names = 0;
+	auto local_name = [&]() {
+		std::string name;
+		do
+			name = ".Lcppgm." + std::to_string(names++);
+		while (!used.insert(name).second);
+		return name;
+	};
+	for (size_t i = 1; i < sections_.size(); ++i)
+	{
+		sections_[i] = local_name();
+		auto& symbols = definitions_[i];
+		std::stable_sort(symbols.begin(), symbols.end(),
+			[&](uint32_t a, uint32_t b) { return object.symbols[a].value < object.symbols[b].value; });
+	}
+	for (size_t i = 1; i < symbols_.size(); ++i)
+		if (symbols_[i].empty())
+			symbols_[i] = local_name();
+	for (const AssemblyString& span : object.assembly_strings)
+		strings_[span.section].push_back(span);
+}
+
+void AssemblyWriter::symbol(uint32_t index)
+{
+	const Symbol& symbol = object_.symbols[index];
+	const std::string& name = symbols_[index];
+	if (symbol.binding != Binding::Local)
+	{
+		out_ << (symbol.binding == Binding::Global ? "\t.globl " : "\t.weak ");
+		assembly_quote(out_, name);
+		out_ << '\n';
+	}
+	if (symbol.visibility != Visibility::Default)
+	{
+		const char* const visibility[] = { "", "\t.internal ", "\t.hidden ", "\t.protected " };
+		out_ << visibility[static_cast<unsigned>(symbol.visibility)];
+		assembly_quote(out_, name);
+		out_ << '\n';
+	}
+	const char* type = symbol.type == SymbolType::Function ? "function"
+		: symbol.type == SymbolType::Object                ? "object"
+		: symbol.type == SymbolType::Tls                   ? "tls_object"
+														   : nullptr;
+	if (type != nullptr)
+	{
+		out_ << "\t.type ";
+		assembly_quote(out_, name);
+		out_ << ", @" << type << '\n';
+	}
+	if (symbol.section == kUndefinedSection)
+		return;
+	if (symbol.section == kCommonSection || symbol.section == kAbsoluteSection)
+	{
+		out_ << (symbol.section == kCommonSection ? "\t.comm " : "\t.set ");
+		assembly_quote(out_, name);
+		out_ << ", ";
+		if (symbol.section == kCommonSection)
+			out_ << symbol.size << ", ";
+		out_ << symbol.value << '\n';
+		return;
+	}
+	if (symbol.value > object_.sections[symbol.section].size)
+	{
+		// GNU .set may deliberately put an alias beyond its section.
+		out_ << "\t.set ";
+		assembly_quote(out_, name);
+		out_ << ", " << sections_[symbol.section] << '+' << symbol.value << '\n';
+	}
+	else
+	{
+		assembly_quote(out_, name);
+		out_ << ":\n";
+	}
+	if (symbol.size != 0)
+	{
+		out_ << "\t.size ";
+		assembly_quote(out_, name);
+		out_ << ", " << symbol.size << '\n';
+	}
+}
+
+void AssemblyWriter::select_section(uint32_t index)
+{
+	const Section& section = object_.sections[index];
+	const uint64_t flags = section_flags(section.kind);
+	out_ << "\t.section ";
+	assembly_quote(out_, object_.string(section.name));
+	out_ << ",\"";
+	const char attributes[] = { 'a', 'w', 'x', 'M', 'S', 'T' };
+	const uint64_t bits[] = { kShfAlloc, kShfWrite, kShfExecinstr, kShfMerge, kShfStrings, kShfTls };
+	for (size_t i = 0; i < sizeof attributes; ++i)
+		if (flags & bits[i])
+			out_ << attributes[i];
+	if (section.group != kNoGroup)
+		out_ << 'G';
+	const uint32_t type = section_type(section.kind);
+	out_ << "\",@"
+		 << (type == kShtNobits             ? "nobits"
+					: type == kShtInitArray ? "init_array"
+					: type == kShtFiniArray ? "fini_array"
+											: "progbits");
+	if (flags & kShfMerge)
+		out_ << ",1";
+	if (section.group != kNoGroup)
+	{
+		out_ << ',';
+		assembly_quote(out_, symbols_[object_.groups[section.group].signature]);
+		out_ << ",comdat";
+	}
+	out_ << ",unique," << index << '\n';
+	if (section.align > 1)
+		out_ << "\t.balign " << section.align << '\n';
+	out_ << sections_[index] << ":\n";
+}
+
+void AssemblyWriter::bytes(const Section& section, uint64_t first, uint64_t last)
+{
+	if (first == last)
+		return;
+	if (section.kind == SectionKind::Bss || section.kind == SectionKind::TlsBss)
+	{
+		out_ << "\t.zero " << last - first << '\n';
+		return;
+	}
+	while (first < last)
+	{
+		out_ << "\t.byte " << unsigned(section.bytes[first++]);
+		for (unsigned i = 1; i < 16 && first < last; ++i)
+			out_ << ',' << unsigned(section.bytes[first++]);
+		out_ << '\n';
+	}
+}
+
+void AssemblyWriter::contents(uint32_t index)
+{
+	const Section& section = object_.sections[index];
+	const auto& definitions = definitions_[index];
+	const auto& strings = strings_[index];
+	size_t d = 0, s = 0;
+	uint64_t at = 0;
+	while (d < definitions.size() || s < strings.size())
+	{
+		const uint64_t definition = d < definitions.size() ? object_.symbols[definitions[d]].value : UINT64_MAX;
+		const uint64_t string = s < strings.size() ? std::max(at, strings[s].offset) : UINT64_MAX;
+		if (definition <= string)
+		{
+			const uint64_t next = std::min(definition, section.size);
+			bytes(section, at, next);
+			at = next;
+			symbol(definitions[d++]);
+		}
+		else
+		{
+			bytes(section, at, string);
+			const uint64_t end = strings[s].offset + strings[s].size;
+			at = std::min(definition, end);
+			s += at == end;
+			out_ << "\t.ascii ";
+			assembly_quote(out_, reinterpret_cast<const char*>(section.bytes.data() + string), at - string);
+			out_ << '\n';
+		}
+	}
+	bytes(section, at, section.size);
+}
+
+bool AssemblyWriter::relocations(uint32_t index, std::string& error)
+{
+	for (const Relocation& relocation : object_.sections[index].relocations)
+	{
+		const char* name = assembly_relocation(relocation.type);
+		if (name == nullptr)
+		{
+			error = "relocation has no x86 assembly spelling";
+			return false;
+		}
+		out_ << "\t.reloc " << sections_[index] << '+' << relocation.offset << ", " << name;
+		if (relocation.symbol != 0)
+		{
+			out_ << ", ";
+			assembly_quote(out_, symbols_[relocation.symbol]);
+			if (relocation.addend >= 0)
+				out_ << '+';
+			out_ << relocation.addend;
+		}
+		out_ << '\n';
+	}
+	return true;
+}
+
+bool AssemblyWriter::write(std::string& error)
+{
+	for (uint32_t i = 1; i < object_.symbols.size(); ++i)
+		if (object_.symbols[i].section == kUndefinedSection || object_.symbols[i].section >= kAbsoluteSection)
+			symbol(i);
+	for (uint32_t i = 1; i < object_.sections.size(); ++i)
+	{
+		select_section(i);
+		contents(i);
+		if (!relocations(i, error))
+			return false;
+	}
+	out_ << "\t.section .note.GNU-stack,\"\",@progbits\n";
+	return true;
+}
+
+} // namespace
+
+bool write_elf_assembly(const ObjectFile& object, const std::string& path, std::string& error)
+{
+	if (path == "-")
+	{
+		AssemblyWriter writer(object, std::cout);
+		if (!writer.write(error))
+			return false;
+		std::cout.flush();
+		if (std::cout)
+			return true;
+	}
+	else
+	{
+		std::ofstream stream(path);
+		if (stream)
+		{
+			AssemblyWriter writer(object, stream);
+			if (!writer.write(error))
+				return false;
+			stream.close();
+			if (stream)
+				return true;
+		}
+	}
+	error = "cannot write " + path;
+	return false;
 }
 
 } // namespace object

@@ -201,6 +201,11 @@ Adjacent quoted pieces in one string operand concatenate before an optional
 string terminator is emitted. For ELF symbol types, also accept `STT_FUNC`
 and `STT_OBJECT`, including the space-separated `.type symbol STT_FUNC` form.
 
+In inline assembly, `.ascii` emits the bytes of its string operands.
+`.asciz` and `.string` append a zero byte to each operand. Adjacent
+quoted fragments form one operand. They can contain GNU operand
+substitutions, escapes, and embedded zero bytes.
+
 Preserve global/weak/local binding, hidden visibility, `.type`, `.size` and
 symbol aliases with `.set`/`.equ`. Support symbol addresses and constant addends,
 direct/conditional symbol branches, PLT references and calls to other objects.
@@ -301,7 +306,9 @@ Tests check native behavior, complete value bits, guard bytes, ABI preservation,
 output ordering and LowIR roundtrips. Portable source cases also run with the host
 compiler. A `gnu-native` profile uses the supplied observer directly when host
 compiler behavior does not provide an independent oracle; it still checks
-source compilation and LowIR roundtrips at every optimization level. Allocation choices and surrounding instructions are unconstrained;
+source compilation and LowIR roundtrips at every optimization level.
+On Linux, the `gnu-text` profile also reassembles `cppgm -S` output with
+GNU `as` and checks that string directives survive. Allocation choices and surrounding instructions are unconstrained;
 assembly instructions explicitly requested by the source must be emitted.
 Reject malformed syntax, inconsistent constraints and type errors with failure.
 Report unsupported native capabilities clearly. Exact diagnostic text is not

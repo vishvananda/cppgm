@@ -63,6 +63,7 @@ private:
 	bool att_address_tuple() const;
 	bool syntax(const std::string& name);
 	bool directive(Instruction& inst);
+	void strings(Instruction& inst, bool terminate);
 	asm_model::Register reg();
 	Operand operand();
 	void decorators(Operand& operand);
@@ -594,9 +595,34 @@ void Parser::resolve_labels(std::vector<Instruction>& instructions)
 		}
 }
 
+void Parser::strings(Instruction& inst, bool terminate)
+{
+	ModuleCursor cursor(source_, static_cast<uint32_t>(pos_), line_, column_);
+	inst.data = inst.string_data = true;
+	do
+	{
+		do
+		{
+			const std::string value = cursor.quoted();
+			if (value.size() + inst.bytes.size() + terminate > (1u << 20))
+				cursor.fail("assembly data exceeds byte limit");
+			inst.bytes.insert(inst.bytes.end(), value.begin(), value.end());
+		} while (cursor.quoted_start());
+		if (terminate)
+			inst.bytes.push_back(0);
+	} while (cursor.take(','));
+	while (pos_ < cursor.position())
+		step();
+}
+
 bool Parser::directive(Instruction& inst)
 {
 	const std::string& name = inst.mnemonic;
+	if (name == ".ascii" || name == ".asciz" || name == ".string")
+	{
+		strings(inst, name != ".ascii");
+		return true;
+	}
 	if (name == ".p2align" || name == ".balign" || name == ".align")
 	{
 		uint64_t alignment = expression();

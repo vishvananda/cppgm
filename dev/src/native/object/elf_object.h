@@ -16,6 +16,7 @@ namespace object {
 // .note.GNU-stack.
 void encode_elf_object(const ObjectFile& object, std::vector<uint8_t>& out);
 bool write_elf_object(const ObjectFile& object, const std::string& path, std::string& error);
+bool write_elf_assembly(const ObjectFile& object, const std::string& path, std::string& error);
 
 // Decodes an x86-64 ET_REL image into `object`. Sections a static
 // executable never loads (notes, unwind tables, debug and comment

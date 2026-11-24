@@ -261,7 +261,10 @@ void encode_assembly(Assembler& out, const std::vector<assembly::Instruction>& i
 		}
 		if (inst.data)
 		{
-			out.code().insert(out.code().end(), inst.bytes.begin(), inst.bytes.end());
+			if (inst.string_data)
+				out.append_string(inst.bytes);
+			else
+				out.code().insert(out.code().end(), inst.bytes.begin(), inst.bytes.end());
 			continue;
 		}
 		if (inst.is_exit)

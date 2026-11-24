@@ -66,6 +66,9 @@ void ModuleAssembler::strings(assembly::ModuleCursor& cursor, bool terminate)
 		if (out_.sections[section_].kind == SectionKind::Bss)
 			cursor.fail("string in module bss");
 		std::copy(value.begin(), value.end(), out_.sections[section_].bytes.begin() + first);
+		if (out_.assembly_text && (!value.empty() || terminate))
+			out_.assembly_strings.push_back(
+				object::AssemblyString{ section_, first, static_cast<uint32_t>(value.size()) + terminate });
 	} while (cursor.take(','));
 }
 void ModuleAssembler::alignment(assembly::ModuleCursor& cursor, bool power)

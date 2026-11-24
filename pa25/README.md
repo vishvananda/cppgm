@@ -119,6 +119,11 @@ state under the program's own management.
 
 ### Command-Line Contract
 
+On ELF x86-64, `cppgm -S` writes GNU assembly to the requested output
+or an input-derived `.s` file. It expresses the target bytes, section and
+symbol properties, and relocations in assembly directives. Source string
+directives still appear as strings in the assembly output.
+
 Required compile forms:
 
 ```sh

@@ -167,6 +167,8 @@ private:
 	Selector selector_;
 	FunctionEmitter emitter_;
 	Function mir_;
+	bool assembly_text_;
+	std::vector<CodeString> assembly_strings_;
 	std::vector<uint8_t> emitted_;           // per program symbol
 	std::vector<uint32_t> jump_thunk_index_; // per program symbol: 1 + its jump thunk, 0 none
 	size_t jump_thunks_indexed_ = 0;
@@ -232,8 +234,8 @@ private:
 ObjectCompiler::ObjectCompiler(lowir::Program& program, ObjectStats& stats, EhModel eh_model, int optimization_level,
 	bool position_independent, Target target, bool red_zone, bool function_sections, X86CodeOptions code_options)
 	: program_(program), stats_(stats), selector_(program), emitter_(image_, runtime_, stats.emit),
-	  share_entries_(optimization_level >= 1), eh_model_(eh_model), position_independent_(position_independent),
-	  function_sections_(function_sections && target == Target::Linux),
+	  assembly_text_(code_options.assembly_text), share_entries_(optimization_level >= 1), eh_model_(eh_model),
+	  position_independent_(position_independent), function_sections_(function_sections && target == Target::Linux),
 	  cold_sections_(optimization_level >= 1 && target == Target::Linux)
 {
 	image_.target = target;
@@ -483,6 +485,9 @@ void ObjectCompiler::function(lowir::SymbolId symbol)
 		emitter_.emit(mir_);
 		stats_.encode_ms += milliseconds_since(phase);
 	}
+	const auto& strings = emitter_.assembly_strings();
+	if (!strings.empty())
+		assembly_strings_.insert(assembly_strings_.end(), strings.begin(), strings.end());
 	ranges_.push_back(CodeRange{ symbol, image_.symbol(symbol).offset, image_.text().size(), 0, 0, false });
 	for (const lowir::CodeLabel& label : mir_.code_labels)
 		code_labels_.push_back(std::make_pair(label.symbol, symbol));
@@ -683,6 +688,7 @@ void ObjectCompiler::place_text()
 	program_symbols_ = static_cast<uint32_t>(program_.symbols.size());
 	placement_.assign(program_symbols_ + image_.local_count(), Placement());
 	const std::vector<uint8_t>& code = image_.text();
+	size_t text_string = 0;
 	for (CodeRange& range : ranges_)
 	{
 		if (range.dropped)
@@ -712,6 +718,13 @@ void ObjectCompiler::place_text()
 		section.bytes.resize(range.base, 0xcc);
 		section.bytes.insert(section.bytes.end(), code.begin() + range.start, code.begin() + range.end);
 		section.size = section.bytes.size();
+		while (text_string < assembly_strings_.size() && assembly_strings_[text_string].offset < range.end)
+		{
+			const CodeString& span = assembly_strings_[text_string++];
+			if (span.offset >= range.start)
+				out_->assembly_strings.push_back(
+					object::AssemblyString{ range.section, range.base + span.offset - range.start, span.size });
+		}
 		placement_[slot(range.symbol)] = Placement{ range.section, range.base, range.end - range.start };
 	}
 	for (const lowir::EquivalentEntry& alias : shared_aliases_)
@@ -1389,6 +1402,7 @@ void ObjectCompiler::place_debug()
 void ObjectCompiler::finish(ObjectFile& out)
 {
 	out_ = &out;
+	out.assembly_text = assembly_text_;
 	emit_remaining();
 	prune_functions();
 	if (image_.target == Target::MacOS && eh_model_ == EhModel::Host)

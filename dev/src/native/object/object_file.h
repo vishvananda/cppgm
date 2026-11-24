@@ -111,6 +111,13 @@ struct Section
 	uint32_t group = kNoGroup; // index into ObjectFile::groups
 };
 
+struct AssemblyString
+{
+	uint32_t section;
+	uint64_t offset;
+	uint32_t size;
+};
+
 struct Symbol
 {
 	uint32_t name = 0; // offset in ObjectFile::strings
@@ -159,6 +166,10 @@ struct ObjectFile
 	std::vector<Section> sections;
 	std::vector<Symbol> symbols;
 	std::vector<Group> groups;
+	// String directives for native assembly output. Each span names the
+	// original bytes already present in its section.
+	bool assembly_text = false;
+	std::vector<AssemblyString> assembly_strings;
 };
 
 } // namespace object
