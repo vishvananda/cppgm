@@ -3750,3 +3750,68 @@ The one-function input saves roughly 2,100 retired instructions.
 The other inputs vary by hundredths of a percent or less. A/A
 task-clock spread ranged from 1.52% to 34.92% during validation, which
 leaves timing changes unresolved.
+
+## C array pointer qualification
+
+The compiler checks array bounds and qualifiers from the interned
+types. An ordinary conversion uses the existing compatibility walk.
+The conditional operator reuses the existing composite type rules
+and the array qualifier memo. The explicit extension bit fits into
+the existing expression record alignment.
+
+The preceding compiler and `60142786b` ran on CPU 71 in A/A, ABBA
+and BAAB blocks. All 48 observations produced byte-identical objects
+for their respective inputs.
+
+| Input | A/A instruction spread | ABBA retired instructions | BAAB retired instructions |
+| --- | ---: | ---: | ---: |
+| WASI C23, one function | 0.00493% | +0.00048% | +0.00021% |
+| WASI C23, combined translation limits | 0.00437% | +0.02198% | +0.02338% |
+| x86-64 SQLite 3.50.4 | 0.00117% | +0.00320% | +0.00428% |
+| x86-64 C++ semantic overloads | 0.00970% | +0.00360% | +0.00157% |
+
+A `-fsyntax-only` series reused one fixed and one runtime array type
+in 512, 2,048 and 8,192 conditional assignments. Each checked the
+C23 composite type and used the resulting pointer. Adding assignments
+cost 35,447 and 35,503 retired instructions per assignment in the two
+intervals. An equivalent control with explicit row-pointer casts cost
+about 60,000 per added assignment. The controls and implicit cases
+produced the expected results after compilation and native execution.
+The largest syntax-only input used 19,248 KiB peak RSS with implicit
+conversion and 26,936 KiB with explicit casts.
+
+## C branch checkpoint against main
+
+The Linux x86-64 host compiler built `80079d548` and `60142786b` with
+the same GCC 15 and host flags. CPU 72 ran A/A, ABBA and BAAB blocks
+over five frozen C++ inputs. Each input's object matched byte for byte
+across all observations.
+
+| Input | A/A instruction spread | ABBA retired instructions | BAAB retired instructions |
+| --- | ---: | ---: | ---: |
+| `semantic_overload.cpp` | 0.00222% | +0.06438% | +0.06245% |
+| `semantic_model.cpp` | 0.00467% | +0.12695% | +0.12354% |
+| `recog_token_buffer.cpp` | 0.01029% | +0.38280% | +0.37786% |
+| `parser_trace.cpp` | 0.00515% | +0.36397% | +0.36373% |
+| `cppast_dump.cpp` | 0.01404% | +0.28484% | +0.28282% |
+
+A/A task-clock spread ranged from 0.71% to 10.39% during concurrent
+validation. The measurements leave wall time unresolved. The
+portable check covers the five frozen inputs that compiled with the
+supplied header closure and flags on both revisions. Native macOS
+hardware-counter qualification remains open.
+
+## C function fallthrough
+
+Handling a discarded C return value branches at the function's end and
+uses the existing return representation. The `60142786b` and
+`fe0662389` binaries produced identical objects in all paired runs.
+The two retired-instruction deltas were −0.00269% and +0.00290% on
+the one-function WASI input, −0.04200% and −0.04940% on the WASI
+translation-limits input, +0.01238% and +0.01501% on SQLite, and
+−0.00197% and −0.00154% on the frozen C++ semantic-overload input.
+
+Repeating the primary C++ comparison with `fe0662389` against
+`80079d548` produced identical objects and retired-instruction changes
+of +0.06605% and +0.06778%. The A/A instruction spread was 0.00602%.
+Task-clock changes of +0.47% and +0.82% were within the 2.87% A/A spread.

@@ -3033,8 +3033,9 @@ outcomes. For compatible fixed and runtime bounds in C23, cppgm rejects
 assignments, equality comparisons and pointer subtraction that GCC 15
 and Clang 22 accept. GCC 15 also accepts the conditional with a
 const-element VLA and a volatile-element fixed array, following the C23
-composite type and qualifier rule. The inventory leaves both the
-earlier-edition boundary and the C23 composites open.
+composite type and qualifier rule. This gate left both rules open.
+The [array pointer qualification run](#array-pointer-qualification-and-function-fallthrough)
+below records their resolution.
 
 The full clause probe runner passes all 4,492 executed configurations
 across Linux x86-64, Linux AArch64 under QEMU, WASI and bare Wasm. This
@@ -3073,14 +3074,14 @@ case also checks the decoded image against the digest measured with
 GCC 15 and Clang 21.
 
 GCC 15 and Clang 21 passed all 78 configurations locally. cppgm
-matched 64 at `-O0` and `-O2`. The remaining seven programs reproduce
-reviewed gaps at both levels, including missing GNU transparent-union
-argument conversion and a shutdown attribute that fails to produce a
-fini-array entry. The imported Duff's device input uses a GNU17
-implicit-int extension. A separate C90 replay compiles that input and
-fails at execution because the ignored non-void result reaches the
-function's end. An explicit return at that point restores the expected
-output.
+matched 64 at first. Replaying Duff's device in its legacy GNU90 mode
+exposed a runtime failure. The ignored non-void result reached the
+function's end, where cppgm used the C++ unreachable terminator.
+The C return path now passes the unchanged program at both levels.
+The current result is 66 of 78. Six programs reproduce reviewed gaps
+at both levels, including missing GNU transparent-union argument
+conversion and a shutdown attribute that fails to produce a fini-array
+entry.
 
 The replay inventory accounts for 1,708 GCC torture sources bundled
 with LLVM. The pinned GCC corpus has corresponding paths for 1,705
@@ -3091,3 +3092,51 @@ identities and commands travel with the raw logs in the CI artifact.
 [LLVM sources](https://github.com/llvm/llvm-test-suite/tree/28d2f36a29e8bb5de329a828f07729de66df0a9c) ·
 [Scheduled runner](../scripts/run_llvm_c_runtime_ci_suite.py) ·
 [Reviewed gaps](upstream-llvm-c-runtime-known-gaps.json)
+
+## Array pointer qualification and function fallthrough
+
+Array pointer conversions now use the edition's qualification of the
+immediately pointed-to type. ISO C through C17 accepts a pointer to an
+array of const elements as a plain void pointer. The same editions
+diagnose conversions that add qualification to array elements when
+pedantic mode requires it. Explicit `__extension__` scopes and system
+headers continue to admit the extension. With `-Wsystem-headers`, the
+system-header comparison reports the required diagnostic.
+
+In C23 the array inherits its ordinary element qualifiers. Both implicit
+argument conversion and composite operations accept compatible fixed
+and runtime bounds. Equality, ordering, subtraction and conditional
+selection preserve the required qualification. The controls include
+incompatible fixed bounds, atomic element mismatch and qualification
+behind another pointer level. GCC 15 agrees with all the new strict
+fixtures. Clang 22 differs at the earlier-edition boundary and rejects
+the C23 mixed-qualifier conditional. The clause text supplies the
+expected result in those comparisons.
+
+The VLA replay passes 2,532 configurations. The C fallthrough
+regression passes a further 72 configurations with both optimization
+levels in six editions, including a scalar result and an aggregate
+result that the caller discards. Both batches run on Linux x86-64,
+Linux AArch64 under QEMU, WASI and bare Wasm. The Darwin checks use
+SDK-free Mach-O loaders for both architectures.
+
+The combined driver matrix passes all 4,756 executed configurations
+across the two Linux and two Wasm profiles. The current compiler passes
+the reviewed manifest checks for 203 pinned GCC configurations and
+39 pinned Clang configurations. A follow-up diagnostic probe found
+that cppgm accepts ordered comparisons of two function pointers or of
+an array pointer with a void pointer in pedantic C17 and C23.
+GCC 15 and Clang 22 diagnose both forms. The inventory now tracks those
+relational constraints separately from array qualification.
+
+The exact compiler passes the 11,674 strict checks, debug-info checks,
+PA38 native, Wasm, ABI and driver suites, PA35 through PA5, PA36
+smoke, and inception. The architecture and harness audits pass. The
+file audit reports 13 existing warnings. The placement audit checks
+11,702 fixtures with no placement or local test hygiene findings.
+The student export verifies 26,983 portable reference outputs. The
+bundled tools pass PA1 and PA38's native, Wasm and ABI lanes.
+
+[Qualification references](../doc/c-conformance-notes.md#array-pointer-qualification) ·
+[Discarded-result references](../doc/c-conformance-notes.md#discarded-function-results) ·
+[Compile measurements](../docs/performance/c-frontend-scaling.md#c-array-pointer-qualification)

@@ -88,6 +88,15 @@
       "cases": ["function.ignored-fallthrough"]
     },
     {
+      "id": "expression.pointer-ordering-constraints",
+      "clause": "C11 6.5.8p2; C23 6.5.9",
+      "kind": "required",
+      "editions": [90, 95, 99, 11, 17, 23],
+      "environment": "all",
+      "requirement": "Require pointers to qualified or unqualified versions of compatible object types in a relational comparison. Diagnose ordered comparisons of function pointers or an array pointer with a void pointer.",
+      "cases": []
+    },
+    {
       "id": "limits.block-depth",
       "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",
