@@ -3568,3 +3568,32 @@ make the cycle measurements unsuitable for a timing conclusion.
 | --- | ---: | ---: | ---: |
 | C++ `semantic_overload.cpp` at `-O3` | 0.0018% | −0.0030% | −0.0011% |
 | SQLite 3.50.4 in GNU17 at `-O2` | 0.0050% | +0.0013% | +0.0004% |
+
+## C23 record redefinitions
+
+Compared immutable GCC 15 builds of `ee86c1ccd` and `200531981`
+on x86-64 Linux CPU 71. The input defines `struct Record` with named
+`int` fields and initializes its first field. The eight-definition
+series writes seven repeats using a typedef of `signed int` for each
+field. Every observation uses strict C23 and `-O2 -c`. The object is
+byte-identical across all observations at each size.
+
+| Members per definition | Baseline single definition, instructions | Candidate single definition, ABBA / BAAB change | Candidate eight definitions, instructions | Eight definitions, peak RSS KiB |
+| ---: | ---: | ---: | ---: | ---: |
+| 512 | 8,466,413 | +0.0012% / +0.0011% | 41,071,194 | 17,336 |
+| 2,048 | 21,930,600 | +0.0006% / +0.0010% | 151,810,064 | 20,570 |
+| 8,192 | 75,882,353 | +0.0002% / +0.0002% | 595,387,263 | 57,202 |
+
+The seven extra lists add 32.6, 129.9, and 519.5 million instructions.
+Each quadrupling of fields adds about four times the work. `ClassEntity`
+stays 288 bytes in both GCC builds. Only repeated definitions allocate
+an additional member scope. Those declarations are typed once and use
+the original tag identity without constructing a second layout.
+
+The frozen C++ and SQLite controls also produced byte-identical
+objects. A/A cycle spreads were 2.62% for C++ and 15.34% for SQLite.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.0030% | +0.0015% | +0.0034% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.0012% | −0.0014% | +0.0012% |

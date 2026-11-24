@@ -602,13 +602,61 @@ give the same PA38 results as the direct audit. The student export
 verifies 26,894 portable reference outputs. The exported PA1 and PA38
 suites pass with the packaged reference binaries.
 
-Compatible same-scope structure and union definitions and compatible
-tags across scopes remain open in cppgm. The pinned Clang N3037 tests
-include these cases. WG14 issue 1130 remains open for the transient type
-of a redeclared enumerator.
+WG14 issue 1130 remains open for the transient type of a redeclared
+enumerator.
 [WG14 rules and issues](../doc/c-conformance-notes.md#c23-enumeration-tag-redefinitions) ·
 [PA38 redefinition case](../pa38/tests/general/300-c23-enum-redefinition.t) ·
 [Compile measurements](../docs/performance/c-frontend-scaling.md#c23-enumeration-redefinitions)
+
+## C23 structure and union redefinitions
+
+Repeated definitions of a same-scope record keep the original tag
+complete. Each repeated member list is typed in a separate member
+scope. Comparison uses canonical types, member order, alignment
+requests, and bit-field facts. Anonymous members are compared by
+their contents. A nested definition of the same tag is diagnosed.
+The original type supplies layout and code generation.
+
+Thirteen PA38 cases cover recursive records, anonymous members, nested
+tags, flexible arrays, alignment and packing, incompatible member
+lists, and the C17 boundary. Three runtime cases pass at `-O0` and
+`-O2` on both Linux architectures, both Mach-O targets, WASI, and bare
+Wasm. Direct and LowIR-replay objects match byte for byte on all six
+targets. The native replay uses QEMU for Linux AArch64 and the local
+loaders for Mach-O. A mixed Clang and cppgm probe passes in both compiler
+directions on Linux x86-64 and AArch64 at both optimization levels. The
+cppgm objects in that probe also pass DWARF verification.
+
+The new GCC configurations require the intended redefinition diagnostic
+after preceding valid definitions. The alignment source uses the flags
+from its GCC test because it also contains GNU expression `alignof`.
+The Clang N3006 configuration checks the first incompatible record
+definition in a compound-literal initializer. The pinned C23 cohorts
+pass 67 GCC and 22 Clang configurations. The local C matrix passes
+1,231 probes. PA38 passes 670 native cases, 670 Wasm cases with optimized
+LowIR validation, 63 controls, and four ABI cases. The strict course
+suite passes all 11,674 tests. The debug-info, PA36 smoke, and harness
+checks pass. Self-hosting through PA5 passes, and inception reproduces
+the compiler byte for byte. The export verifies 26,913 portable reference
+outputs. The exported PA1 and PA38 suites pass with the packaged tools.
+The placement audit scans 11,672 fixtures with zero placement or local
+hygiene findings. Its cached directory listings produce the same PA38
+output as the direct audit. The architecture audits pass. The file audit
+adds one header-weight warning because its count includes field
+declarations in `entity_records.h`.
+
+The next gap is compatibility between distinct same-tag types across
+scopes. Local probes show that GCC and Clang accept a by-value call with
+matching records and a pointer conversion with reordered enum lists.
+Both agree that recursive member graphs can become compatible after a
+forward tag is completed. A differing field inside the cycle keeps the
+types incompatible. GCC also combines complementary pointer-to-array
+bounds in the result of a conditional expression between pointers to
+compatible records. cppgm still rejects those positive probes. Clang 21
+rejects the complementary-bound conditional in this probe as well.
+[WG14 rules](../doc/c-conformance-notes.md#c23-structure-and-union-tag-redefinitions) ·
+[PA38 record redefinition case](../pa38/tests/general/300-c23-record-redefinition.t) ·
+[Compile measurements](../docs/performance/c-frontend-scaling.md#c23-record-redefinitions)
 
 ## C23 bit-precise integers
 
