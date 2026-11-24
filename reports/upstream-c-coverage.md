@@ -3078,10 +3078,10 @@ matched 64 at first. Replaying Duff's device in its legacy GNU90 mode
 exposed a runtime failure. The ignored non-void result reached the
 function's end, where cppgm used the C++ unreachable terminator.
 The C return path now passes the unchanged program at both levels.
-The current result is 66 of 78. Six programs reproduce reviewed gaps
-at both levels, including missing GNU transparent-union argument
-conversion and a shutdown attribute that fails to produce a fini-array
-entry.
+The GNU shutdown work also passes LLVM's unchanged
+`ConstructorDestructorAttributes` at both levels. The current result
+is 68 of 78. Five programs reproduce reviewed gaps at both levels,
+including missing GNU transparent-union argument conversion.
 
 The replay inventory accounts for 1,708 GCC torture sources bundled
 with LLVM. The pinned GCC corpus has corresponding paths for 1,705
@@ -3126,8 +3126,9 @@ the reviewed manifest checks for 203 pinned GCC configurations and
 39 pinned Clang configurations. A follow-up diagnostic probe found
 that cppgm accepts ordered comparisons of two function pointers or of
 an array pointer with a void pointer in pedantic C17 and C23.
-GCC 15 and Clang 22 diagnose both forms. The inventory now tracks those
-relational constraints separately from array qualification.
+GCC 15 and Clang 22 diagnose both forms. The
+[ordered comparison replay](#ordered-pointer-comparisons-and-gnu-shutdown)
+below records the fix.
 
 The exact compiler passes the 11,674 strict checks, debug-info checks,
 PA38 native, Wasm, ABI and driver suites, PA35 through PA5, PA36
@@ -3140,3 +3141,78 @@ bundled tools pass PA1 and PA38's native, Wasm and ABI lanes.
 [Qualification references](../doc/c-conformance-notes.md#array-pointer-qualification) ·
 [Discarded-result references](../doc/c-conformance-notes.md#discarded-function-results) ·
 [Compile measurements](../docs/performance/c-frontend-scaling.md#c-array-pointer-qualification)
+
+## Ordered pointer comparisons and GNU shutdown
+
+The ordered comparison replay passes 504 configurations at `-O0`
+and `-O2` across six C editions and six targets. The new diagnostics
+cover function pointers, an object pointer and a void pointer, both
+forms of a null pointer constant, and pointers to corresponding signed
+and unsigned types. The runtime controls preserve ordering between
+compatible qualified object pointers and between compatible void
+pointers. They also preserve legal equality comparisons. The explicit
+GNU and system-header controls pass, including the expected system
+header diagnostic when warnings are enabled there. GCC 15 and Clang 22
+agree on the strict controls. The tested Clang diagnostic for function
+pointer ordering still fires within an explicit GNU extension.
+
+The shutdown tests verify output ordering after normal termination.
+They pass with the system C library on x86-64 and with Linux AArch64
+under QEMU at both optimization levels in all six editions. The two
+ELF writers emit prioritized `SHT_FINI_ARRAY` sections. Relinking the
+two PA30 objects in the reverse order produces identical output on
+Linux. The `exit` and `_Exit` controls exercise normal and abrupt
+termination. The flat x86 LowIR and internal linker routes exercise
+the same order.
+
+WASI registers the callbacks through its C runtime. The program passes
+at both optimization levels and with `-Oz -flto`. Both Mach-O targets
+pass the SDK-free loader test, which checks callback ordering and the
+DSO handle passed by each registration. Bare Wasm passes with an
+explicit exit callback runtime. Native macOS SDK tests remain open.
+
+The current driver replay passes all 5,128 configurations across
+x86-64 Linux, AArch64 Linux under QEMU, WASI, and bare Wasm. Every
+applicable rule represented in the Linux inventory has passing
+evidence across all six editions on both architectures.
+
+The strict report passes 11,677 tests. Debug-info checks, PA35 through
+PA5, PA36 smoke, exact inception, the 76 harness test files, and the
+architecture and format audits pass. The file audit reports 13
+existing warnings. The placement audit checks 11,713 fixtures with
+no placement or local hygiene findings. PA38 passes 708 tests per
+native and Wasm lane, 63 controls, and four mixed-toolchain ABI tests.
+The student export verifies 27,015 portable reference outputs. Its
+bundled tools pass PA1, the PA30 shutdown regression, and the PA38
+native, Wasm, and ABI suites.
+
+[Ordered comparison references](../doc/c-conformance-notes.md#ordered-pointer-comparisons) ·
+[Shutdown references](../doc/c-conformance-notes.md#gnu-shutdown-functions) ·
+[Compile measurements](../docs/performance/c-frontend-scaling.md#pointer-ordering-and-gnu-shutdown)
+
+### Paired WASI library probes
+
+The pinned WASI SDK 34 sysroot produced the same outcome with its
+reference Clang and cppgm on 15 strict C23 library probes. Integer
+limits widths, the variadic interfaces, and checked arithmetic
+compiled and ran in both. Binary integer conversion failed at runtime
+on the first binary-prefix check with both compilers.
+
+The other eleven probes failed during compilation with both compilers.
+The SDK has a single-argument assert macro and lacks the binary stdio
+format macro, the tested `stdint.h` widths and floating-format
+indicators, and `<stdbit.h>`. The tested declarations for
+`memalignment`, `memset_explicit`, `strndup`, `timespec_getres`, and
+the UTF-8 character interfaces were also unavailable in this mode.
+This isolates the observed behavior and declarations to the selected
+SDK and runtime pairing.
+
+The current inventory has 57 uncovered edition-and-rule entries on
+WASI. Of these, 37 are in C23. The earlier editions have four recurring
+gaps in the combined headers, the signal header and runtime, and
+default long-double stdio. Bare Wasm has 17 uncovered entries, all in
+C23. They include the freestanding string and allocation headers,
+bit utilities, and required header version macros.
+
+[WASI SDK pin](../scripts/wasm_tools.json) ·
+[Header and runtime checklist](../scripts/c_library_headers.py)

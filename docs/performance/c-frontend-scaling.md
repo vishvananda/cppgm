@@ -3815,3 +3815,37 @@ Repeating the primary C++ comparison with `fe0662389` against
 `80079d548` produced identical objects and retired-instruction changes
 of +0.06605% and +0.06778%. The A/A instruction spread was 0.00602%.
 Task-clock changes of +0.47% and +0.82% were within the 2.87% A/A spread.
+
+## Pointer ordering and GNU shutdown
+
+Pointer ordering reuses the composite type already computed for the
+operator. It checks the original operand forms before applying their
+conversions. Shutdown attributes use sparse records shared with the
+constructor implementation. Ordinary declarations retain their existing
+function record size. The linker orders the emitted ELF finalizers.
+Wasm emits one startup registration per callback.
+
+On CPU 71, A/A, ABBA and BAAB blocks used identical inputs and
+compared `fe0662389` with the pointer-ordering compiler
+`f7e0d62d6`, then `f7e0d62d6` with `bc0ff59ef`.
+Every observation produced byte-identical objects for its input.
+
+| Input | Pointer ordering ABBA | Pointer ordering BAAB | Shutdown ABBA | Shutdown BAAB |
+| --- | ---: | ---: | ---: | ---: |
+| WASI C23, one function | +0.00079% | +0.00026% | +0.00382% | +0.00186% |
+| WASI C23, combined translation limits | +0.00017% | +0.00214% | +0.00278% | −0.00027% |
+| x86-64 SQLite 3.50.4 | −0.00003% | +0.00222% | +0.00350% | +0.00387% |
+| x86-64 C++ semantic overloads | +0.00054% | −0.00062% | −0.00009% | +0.00121% |
+
+The table reports retired instructions. A/A instruction spread was
+at most 0.009%. Task-clock calibration varied between 1.60% and
+68.45% across the blocks and leaves wall time unresolved.
+
+A separate `-O0 -c` series generated 256, 1,024 and 4,096 hooks
+with a fixed priority. The control used the same function bodies
+with the `used` attribute. Additional retired instructions per
+added hook in the two intervals were 6,460 and 6,534 for x86-64 ELF,
+and 29,002 and 29,288 for bare Wasm. The Wasm cost includes generating
+and emitting the additional registration function. The largest case
+used 22,648 KiB peak RSS on x86-64 and 24,756 KiB on Wasm, compared
+with 20,720 KiB and 20,588 KiB for their controls.
