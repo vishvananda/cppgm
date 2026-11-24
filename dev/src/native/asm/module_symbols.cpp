@@ -132,7 +132,8 @@ uint32_t ModuleSymbols::numeric_reference(
 	if (use == 'b')
 	{
 		if (label.previous == 0)
-			throw assembly::AssemblyError{ "undefined backward label " + name, line.line, uint32_t(first + 1) };
+			throw BackendError("module assembly line " + std::to_string(line.line) + ", column " +
+				std::to_string(first + 1) + ": undefined backward label " + name);
 		return label.previous;
 	}
 	if (label.pending == 0)
