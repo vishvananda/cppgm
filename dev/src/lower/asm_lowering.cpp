@@ -41,7 +41,9 @@ void FunctionLowering::asm_statement(const syntax::AsmStmt& stmt)
 	{
 		const syntax::Expr& expr = *expressions[i];
 		const asm_model::Operand& argument = packet.operands.data[i];
-		const lowir::Type type = lowering_.storage_type(expr.facts->type->unqualified);
+		const sema::Type* source_type = expr.facts->type->unqualified;
+		const lowir::Type type = source_type->kind == sema::TypeKind::Function ? program_.pointer_type()
+																			   : lowering_.storage_type(source_type);
 		types.push_back(type);
 		lowir::Value destination = lowir::Value::none();
 		if (argument.output != asm_model::kNoId && (argument.flags & asm_model::AO_NO_MEMORY) != 0)

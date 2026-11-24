@@ -88,9 +88,10 @@ const char* prepare_operands(Analyzer& analyzer, const syntax::AsmStmt& stmt, Sc
 		{
 			ConstantInterpreter interpreter(analyzer);
 			ConstValue value = ConstValue();
-			const bool array = expr.facts->type->unqualified->kind == TypeKind::Array;
-			const bool known = array ? interpreter.evaluate_designation(expr, value)
-									 : interpreter.evaluate(expr, true, value);
+			const TypeKind kind = expr.facts->type->unqualified->kind;
+			const bool designated = kind == TypeKind::Array || kind == TypeKind::Function;
+			const bool known = designated ? interpreter.evaluate_designation(expr, value)
+										  : interpreter.evaluate(expr, true, value);
 			if (known && value.kind == ValueKind::Pointer && value.root != RootKind::Null &&
 				value.root != RootKind::Object)
 				addresses[i] = value;
@@ -103,7 +104,8 @@ const char* prepare_operands(Analyzer& analyzer, const syntax::AsmStmt& stmt, Sc
 		const unsigned bits = source_operands[i].bits;
 		const bool integer_sized_record = analyzer.c_source() && type->kind == TypeKind::Class && bits >= 8 &&
 			bits <= 64 && (bits & (bits - 1)) == 0;
-		const bool scalar = IsScalar(type) || type->kind == TypeKind::Vector || integer_sized_record;
+		const bool scalar = IsScalar(type) || type->kind == TypeKind::Vector || type->kind == TypeKind::Function ||
+			integer_sized_record;
 		if (!scalar && !symbol && ((locations & AL_MEMORY) == 0 || !addressable))
 			return "assembly operand requires scalar/vector data or addressable memory";
 		// Substitution and propagation can expose a constant or symbol.
@@ -174,6 +176,8 @@ void Analyzer::asm_statement(const syntax::AsmStmt& stmt, Scope* scope)
 		if (output && (!modifiable_lvalue(facts) || facts->category != ValueCategory::LValue))
 			error(source.location, "assembly output requires a modifiable lvalue");
 		const Type* type = facts->type->unqualified;
+		if (!output && type->kind == TypeKind::Function)
+			type = types_.pointer(type);
 		IntegralKind flag_kind;
 		if (operand.constraint.compare(0, 4, "=@cc") == 0 && !IntegralKindOf(type, flag_kind))
 			error(source.location, "assembly flag output requires an integer type");

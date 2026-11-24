@@ -219,7 +219,7 @@ In inline assembly, `.ascii` emits the bytes of its string operands.
 quoted fragments form one operand. They can contain GNU operand
 substitutions, escapes, and embedded zero bytes.
 
-A static array or string literal can supply a symbol address to an
+A function designator, static array or string literal can supply a symbol address to an
 immediate constraint. Check constraints against the operands that will be
 encoded, after any substitution or propagation.
 The GNU `%a` modifier uses a register or constant as a memory address.
