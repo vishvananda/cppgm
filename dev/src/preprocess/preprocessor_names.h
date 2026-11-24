@@ -19,6 +19,7 @@ enum class IdentifierRole : uint8_t
 	Else,
 	Endif,
 	Include,
+	Embed,
 	Define,
 	Undef,
 	Line,

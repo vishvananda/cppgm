@@ -84,6 +84,9 @@ std::string PredefinedText(const PreprocessorOptions& options, const FeatureMode
 		}
 		if (options.c_edition >= CEdition::C11)
 			text += "#define __STDC_NO_VLA__ 1\n";
+		if (options.c_edition >= CEdition::C23)
+			text +=
+				"#define __STDC_EMBED_NOT_FOUND__ 0\n#define __STDC_EMBED_FOUND__ 1\n#define __STDC_EMBED_EMPTY__ 2\n";
 		if (options.hosted)
 			text += options.c_edition < CEdition::C99 ? "#define __GNUC_GNU_INLINE__ 1\n"
 													  : "#define __GNUC_STDC_INLINE__ 1\n";
@@ -189,9 +192,9 @@ Preprocessor::Preprocessor(const PreprocessorOptions& options, const std::string
 	  macro_query_(identifiers_), evaluator_(macro_query_, options.literals, options.plain_char_unsigned),
 	  definition_parser_(arena_, names_.va_args, options.hosted), predefined_(nullptr), command_line_begin_(0),
 	  command_line_end_(0), host_predefines_begin_(0), host_predefines_end_(0), builtin_begin_(0), builtin_end_(0),
-	  missing_headers_note_(options.missing_headers_note), hosted_(options.hosted), assembler_(options.assembler),
-	  modes_(options.modes), wasm_attributes_(target_model::is_wasm(options.target)), directives_(0),
-	  skipped_directives_(0), includes_(0), guarded_skips_(0), finished_(false), pack_(0),
+	  embed_paths_(options.embed_paths), missing_headers_note_(options.missing_headers_note), hosted_(options.hosted),
+	  assembler_(options.assembler), modes_(options.modes), wasm_attributes_(target_model::is_wasm(options.target)),
+	  directives_(0), skipped_directives_(0), includes_(0), guarded_skips_(0), finished_(false), pack_(0),
 	  extension_warnings_(options.language == SourceLanguage::Cxx && options.strict &&
 				  options.extension_warnings == ExtensionWarnings::Disabled
 			  ? ExtensionWarnings::Pedantic
@@ -313,6 +316,9 @@ std::vector<std::string> Preprocessor::dependency_headers(bool include_system) c
 		if (seen.insert(path).second)
 			headers.push_back(path);
 	}
+	for (const auto& dependency : embed_dependencies_)
+		if ((include_system || !dependency.second) && seen.insert(dependency.first).second)
+			headers.push_back(dependency.first);
 	return headers;
 }
 
@@ -323,6 +329,12 @@ void Preprocessor::define_builtin_macros()
 	names_.counter->macro = MakeBuiltinMacro(arena_, names_.counter, BuiltinMacro::Counter);
 	names_.has_cpp_attribute->macro = MakeBuiltinMacro(arena_, names_.has_cpp_attribute, BuiltinMacro::HasCppAttribute);
 	names_.has_attribute->macro = MakeBuiltinMacro(arena_, names_.has_attribute, BuiltinMacro::HasAttribute);
+	if (modes_.language == 0 && modes_.c_edition >= CEdition::C23)
+	{
+		Identifier* name = identifiers_.intern("__has_embed", 11);
+		name->role = static_cast<uint8_t>(IdentifierRole::ReservedMacroName);
+		name->macro = MakeBuiltinMacro(arena_, name, BuiltinMacro::HasEmbed);
+	}
 	if (!hosted_)
 		return;
 	static const struct

@@ -44,6 +44,7 @@ PreprocessorNames::PreprocessorNames(IdentifierTable& identifiers, bool c_source
 	{
 		Intern(identifiers, "elifdef")->role = static_cast<uint8_t>(IdentifierRole::Elifdef);
 		Intern(identifiers, "elifndef")->role = static_cast<uint8_t>(IdentifierRole::Elifndef);
+		Intern(identifiers, "embed")->role = static_cast<uint8_t>(IdentifierRole::Embed);
 	}
 	defined = Intern(identifiers, "defined");
 	va_args = Intern(identifiers, "__VA_ARGS__");

@@ -231,6 +231,18 @@ bool sse_option(const std::string& option, uint8_t& level)
 	return false;
 }
 
+bool embed_directory_option(const std::string& option, std::vector<std::string>* paths)
+{
+	constexpr auto prefix_length = sizeof("--embed-dir=") - 1;
+	if (option.compare(0, prefix_length, "--embed-dir=") != 0)
+		return false;
+	if (option.size() == prefix_length)
+		throw InvocationError("missing directory after --embed-dir=");
+	if (paths != nullptr)
+		paths->push_back(option.substr(prefix_length));
+	return true;
+}
+
 namespace {
 
 // An input in command-line order: a source, serialized LowIR (`.lowir`,
@@ -405,6 +417,8 @@ bool parse_include_option(const std::vector<std::string>& args, size_t& i, Prepr
 		options.system_include_paths.push_back(std::move(value));
 	else if (option_value(args, i, "-I", value))
 		options.include_paths.push_back(std::move(value));
+	else if (embed_directory_option(args[i], &options.embed_paths))
+		return true;
 	else
 		return false;
 	return true;

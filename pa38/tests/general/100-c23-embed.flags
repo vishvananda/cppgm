@@ -1,0 +1,1 @@
+-pedantic-errors --embed-dir=tests/general/embed-fixtures/resources -Itests/general/embed-fixtures/headers

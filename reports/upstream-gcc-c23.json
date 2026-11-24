@@ -189,6 +189,51 @@
         "-pedantic-errors"
       ],
       "obligation": "Variable argument omission and the standard __VA_OPT__ spelling"
+    },
+    {
+      "id": "embed-8",
+      "path": "gcc/testsuite/gcc.dg/cpp/embed-8.c",
+      "sha256": "97c45435a07189259e6c634141c7a4d6e00b02586c5446e164de89b2db187018",
+      "dialect": "c23",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Computed __FILE__ resource, byte equality, limited slices, designated initializer affixes"
+    },
+    {
+      "id": "embed-9",
+      "path": "gcc/testsuite/gcc.dg/cpp/embed-9.c",
+      "sha256": "763a16ca26b9af44f756ecdb9ef5f6cb55f650ec852bab41561dc4b1960bf00f",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Limited and full resources adjacent to array designators"
+    },
+    {
+      "id": "embed-12",
+      "path": "gcc/testsuite/gcc.dg/cpp/embed-12.c",
+      "sha256": "7aed9879ed8740b05d0fee9b360a69e0f1400766789d30b4928e04d2cbc2a741",
+      "dialect": "c23",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Full resource in an initializer with overwrites and evaluation of surviving elements"
     }
   ]
 }

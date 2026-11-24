@@ -225,6 +225,7 @@ struct SourceOutputInvocation
 	bool rtti = true;
 	vector<string> include_paths;
 	vector<string> quote_include_paths;
+	vector<string> embed_paths;
 	vector<string> system_include_paths;
 	string command_line;
 	bool wasm_atomics = true;
@@ -422,6 +423,8 @@ SourceOutputInvocation parse_source_output_invocation(const vector<string>& args
 			invocation.quote_include_paths.push_back(i == option ? args[i].substr(7) : args[i]);
 			continue;
 		}
+		if (driver::embed_directory_option(args[i], &invocation.embed_paths))
+			continue;
 		if (consume_joined_or_separate_option(args, i, "-isystem", "path"))
 		{
 			invocation.system_include_paths.push_back(i == option ? args[i].substr(8) : args[i]);
@@ -551,6 +554,8 @@ bool consume_preprocess_option(const vector<string>& args, size_t& i)
 
 bool consume_search_option(const vector<string>& args, size_t& i)
 {
+	if (driver::embed_directory_option(args[i]))
+		return true;
 	if (consume_joined_or_separate_option(args, i, "-I", "path"))
 	{
 		return true;
@@ -787,6 +792,7 @@ PreprocessorOptions source_preprocessor_options(const SourceOutputInvocation& in
 	PreprocessorOptions options = source_preprocessor_options();
 	options.include_paths = invocation.include_paths;
 	options.quote_include_paths = invocation.quote_include_paths;
+	options.embed_paths = invocation.embed_paths;
 	options.system_include_paths = invocation.system_include_paths;
 	options.command_line = invocation.command_line;
 	options.extension_warnings = invocation.extension_warnings;

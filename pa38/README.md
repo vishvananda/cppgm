@@ -57,6 +57,31 @@ translation to continue. In C23, recognize binary numbers and digit
 separators in integer and floating constants, preprocessing tokens,
 and decimal `#line` operands.
 
+In C23, use `#embed "name"` or `#embed <name>` to read a binary
+resource as a comma-separated sequence of unsigned byte values.
+For a quoted name, search beside the physical source file first,
+even after `#line`. Search the `--embed-dir=directory` options
+in order for angle names and as a fallback for quoted names. Use
+this separate search path for resources.
+
+Apply macro replacement to computed resource names and to embed
+parameters. Support `limit`, `prefix`, `suffix`, and `if_empty`
+with or without the pair of underscores on each end. `limit`
+takes a nonnegative preprocessing integer expression without
+`defined`. `prefix` and `suffix` supply their own punctuation.
+An empty resource or a zero limit selects `if_empty`, if present.
+Diagnose missing resources, unsupported parameters, and invalid
+or repeated standard parameters.
+
+In a preprocessing condition, `__has_embed` resolves the same
+resource and parameters. Return `__STDC_EMBED_NOT_FOUND__` (0)
+for a missing resource or unsupported parameter,
+`__STDC_EMBED_FOUND__` (1) for a nonempty result, and
+`__STDC_EMBED_EMPTY__` (2) for an empty result. Determine this
+from the resource size without reading its contents. Feed a
+directive's expansion into the existing token stream as it is
+consumed, bounded by the effective limit.
+
 In the legacy editions, where a declaration permits an omitted type, use
 `int`. This includes an old-style parameter without a declaration. A direct
 call to an undeclared identifier introduces a block-scope `extern int`

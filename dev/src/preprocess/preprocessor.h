@@ -68,6 +68,8 @@ struct PreprocessorOptions
 	std::vector<std::string> include_paths;
 	// Directories searched only for quoted includes, before the -I chain.
 	std::vector<std::string> quote_include_paths;
+	// Resource search directories for C23 #embed and __has_embed.
+	std::vector<std::string> embed_paths;
 	// Hosted mode (cppgm's -E, -c and link modes, PA26/PA30): the system
 	// directories searched after include_paths by both #include forms
 	// (-isystem, then the host's standard directories unless -nostdinc),
@@ -277,6 +279,7 @@ private:
 	uint64_t presumed_line(uint32_t location) override;
 	TokenSpelling presumed_file_literal(uint32_t location) override;
 	bool can_include(const std::string& name, bool angle, bool next) override;
+	unsigned has_embed(const std::vector<PPToken>& operand, uint32_t location) override;
 	bool has_feature(const char* spelling, uint32_t length, bool extension) override;
 	uint32_t builtin_version(const char* spelling, uint32_t length, uint32_t location) override;
 	bool has_target_attribute(const char* spelling, uint32_t length) override;
@@ -286,6 +289,10 @@ private:
 	void report_spaced_splices(const SourceFrame& frame) const;
 
 	void define_builtin_macros();
+	void run_embed(const PPToken& directive);
+	struct EmbedOperand;
+	EmbedOperand parse_embed(const std::vector<PPToken>& tokens, uint32_t location);
+	bool find_embed(const EmbedOperand& operand, std::string& path, uint64_t& size);
 	void run_pragma_operator(const PPToken& pragma);
 	void run_pragma(const char* text, uint32_t length, uint32_t location);
 	void mark_once();
@@ -366,6 +373,8 @@ private:
 	// Quote-only directories, then the -I and system directories.
 	// Includes retain the index in this combined chain for #include_next.
 	std::vector<std::string> include_paths_;
+	std::vector<std::string> embed_paths_;
+	std::vector<std::pair<std::string, bool>> embed_dependencies_;
 	size_t angle_paths_;
 	size_t system_paths_;
 	std::string missing_headers_note_;

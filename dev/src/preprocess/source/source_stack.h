@@ -62,6 +62,8 @@ protected:
 	~SourceFrameObserver() {}
 };
 
+class EmbeddedResource;
+
 // The stack of files being read, as preprocessing tokens for the
 // preprocessor. White space and new-lines become token flags; identifiers
 // are interned; spellings the lexer built in scratch storage are copied into
@@ -96,8 +98,8 @@ public:
 
 	// The text stopped at a directive's `#`, or at the end of the
 	// translation unit.
-	bool at_directive() const { return at_directive_; }
-	bool at_end() const { return at_end_; }
+	bool at_directive() const { return text_state_ == TextState::Directive; }
+	bool at_end() const { return text_state_ == TextState::End; }
 	uint32_t directive_location() const { return directive_location_; }
 
 	// Directive lines. begin_directive() starts the directive whose `#`
@@ -105,7 +107,8 @@ public:
 	// new-line. In line mode the
 	// ExpansionInput reads the rest of the line, starting with `first` if
 	// given, and ends at the new-line.
-	void begin_directive() { at_directive_ = false; }
+	void begin_directive() { text_state_ = TextState::Source; }
+	void embed(std::unique_ptr<EmbeddedResource> resource);
 	const PPToken& next_in_line();
 	void skip_line();
 	void begin_line_input(const PPToken* first);
@@ -137,6 +140,14 @@ public:
 	telemetry::Counter tokens_read() const { return tokens_read_; }
 
 private:
+	enum class TextState : uint8_t
+	{
+		Source,
+		Directive,
+		End,
+		Embed
+	};
+
 	void lex_text(PPToken& token);
 	void lex_line(PPToken& token);
 	void read_line_token(PPToken& token);
@@ -149,13 +160,13 @@ private:
 	const PreprocessorNames& names_;
 	SourceFrameObserver& observer_;
 	std::vector<std::unique_ptr<SourceFrame>> frames_;
+	std::unique_ptr<EmbeddedResource> resource_;
 	PPToken token_;
 	PPToken peeked_;
 	bool has_peeked_;
 	bool line_mode_;
 	bool line_ended_;
-	bool at_directive_;
-	bool at_end_;
+	TextState text_state_ = TextState::Source;
 	bool allow_va_args_;
 	bool hosted_;
 	bool report_splices_ = false;

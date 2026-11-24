@@ -79,11 +79,12 @@ def validate_manifest(manifest, root):
                 raise ValueError('Source projection requires a compile acceptance check')
         for dependency in case.get('input_files', []):
             checked_file(root, dependency, 'Input dependency')
-        for spelling in case.get('include_directories', []):
-            path = Path(spelling)
-            if (path.is_absolute() or '..' in path.parts or
-                    not (root / path).resolve().is_relative_to(root) or not (root / path).is_dir()):
-                raise ValueError('Include directory missing or outside corpus')
+        for key in ('include_directories', 'embed_directories'):
+            for spelling in case.get(key, []):
+                path = Path(spelling)
+                if (path.is_absolute() or '..' in path.parts or
+                        not (root / path).resolve().is_relative_to(root) or not (root / path).is_dir()):
+                    raise ValueError(f'{key} directory missing or outside corpus')
         inputs = {dependency['path'] for dependency in case.get('input_files', [])}
         for edge in case.get('include_edges', []):
             if edge['source'] not in inputs or edge['resolved'] not in inputs:
@@ -177,10 +178,11 @@ def run_case(arguments):
         obj = directory / 'test.o'
         flags = case['candidate_flags' if role == 'cppgm' else 'upstream_flags']
         include_flags = ['-I' + str(Path(root) / path) for path in case.get('include_directories', [])]
+        embed_flags = ['--embed-dir=' + str(Path(root) / path) for path in case.get('embed_directories', [])]
         cc1 = flags[:1] == ['-cc1']
         is_c = '++' not in case['dialect']
         command = [compiler, *(['-cc1'] if cc1 else []), *(['-x', 'c'] if is_c else []),
-                   '-std=' + case['dialect'], *(flags[1:] if cc1 else flags), *include_flags]
+                   '-std=' + case['dialect'], *(flags[1:] if cc1 else flags), *include_flags, *embed_flags]
         action = case['action']
         if action == 'preprocess':
             command.extend(['-E', source])

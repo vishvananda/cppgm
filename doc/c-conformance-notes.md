@@ -1013,3 +1013,20 @@ as other floating expressions in the scope.
 [WG14 N1570 §§7.3.4, 7.6.1, G.5.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [PA38 range probe](../pa38/tests/general/500-c-complex-limited-range.t) ·
 [PA38 status probe](../pa38/tests/general/500-c-complex-fenv.t)
+## C23 resource inclusion
+
+`#embed` and `__has_embed` share the same search and effective length.
+The physical source directory precedes resource directories for quoted
+names. Angle names use the ordered `--embed-dir=` list. Absolute names
+refer directly to a regular file. This keeps resource lookup independent
+of the header search and of presumed locations from `#line`. Found
+resources in directives and queries are included in generated dependencies.
+
+The effective length is the file size capped by the preprocessing
+expression in `limit`. A zero limit still requires a successful lookup.
+`prefix` and `suffix` wrap nonempty byte expansions. `if_empty` supplies
+the entire empty expansion. Unsupported parameter names give a valid
+query a zero result and are diagnosed in directives. The GCC and Clang
+vendor parameters are outside this implementation.
+[WG14 N3220 §§6.10.2, 6.10.4, and 6.10.10.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
+[GCC binary resource inclusion](https://gcc.gnu.org/onlinedocs/cpp/Binary-Resource-Inclusion.html)

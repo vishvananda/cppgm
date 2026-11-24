@@ -1328,18 +1328,28 @@
       ],
       "environment": "all",
       "requirement": "Replace a resource directive with its comma-separated byte values and report a missing or unsupported required resource.",
-      "cases": []
+      "cases": [
+        "c23.embed",
+        "c23.embed-missing",
+        "c23.embed-unsupported"
+      ]
     },
     {
       "id": "c23.embed-parameters",
-      "clause": "6.10.4.2",
+      "clause": "6.10.4.2–6.10.4.5",
       "kind": "required",
       "editions": [
         23
       ],
       "environment": "all",
       "requirement": "Apply limit, prefix, suffix and if_empty, including alternative parameter spellings, and diagnose malformed and repeated parameters.",
-      "cases": []
+      "cases": [
+        "c23.embed",
+        "c23.embed-duplicate",
+        "c23.embed-negative-limit",
+        "c23.embed-defined-limit",
+        "c23.embed-unbalanced"
+      ]
     },
     {
       "id": "c23.embed-query",
@@ -1350,7 +1360,10 @@
       ],
       "environment": "all",
       "requirement": "Use the same search and effective resource size as embed to distinguish zero for unavailable or unsupported resources, one for nonempty resources and two for empty resources.",
-      "cases": []
+      "cases": [
+        "c23.embed",
+        "c23.embed-duplicate"
+      ]
     }
   ]
 }

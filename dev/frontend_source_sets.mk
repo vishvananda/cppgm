@@ -19,7 +19,7 @@ FRONTEND_PHASE_BASENAMES_literals := types/fundamental_type lex/gnu_builtins lex
 FRONTEND_PHASE_BASENAMES_posttoken := support/memory/arena lex/identifier_table lex/string_concatenation lex/post_tokenizer
 FRONTEND_PHASE_BASENAMES_ppexpr := preprocess/expr/pp_arithmetic preprocess/expr/controlling_expression
 # Translation phase 4: directives, macro replacement and the file stack.
-FRONTEND_PHASE_BASENAMES_preprocess := preprocess/preprocessor_names preprocess/source/source_files preprocess/source/source_stack preprocess/macro/hide_sets preprocess/macro/macro_definition preprocess/macro/feature_probes preprocess/macro/macro_expander preprocess/preprocessor preprocess/preprocessor_directives
+FRONTEND_PHASE_BASENAMES_preprocess := preprocess/preprocessor_names preprocess/source/source_files preprocess/source/source_stack preprocess/macro/hide_sets preprocess/macro/macro_definition preprocess/macro/feature_probes preprocess/macro/macro_expander preprocess/preprocessor preprocess/preprocessor_directives preprocess/resource_embedding
 
 # Translation phases 7-8 as far as PA5 goes: the parser and its tree, with
 # the dump view.

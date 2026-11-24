@@ -65,6 +65,9 @@ public:
 	// Evaluates the pp-tokens from `tokens` up to and including the next
 	// new-line or end-of-file. Propagates the cursor's exceptions.
 	ControllingExpressionResult evaluate(PPTokenCursor& tokens);
+	// A resource size can be queried while evaluate() is still pulling a
+	// surrounding #if expression. Its evaluator needs independent stacks.
+	ControllingExpressionResult evaluate_embed_limit(PPTokenCursor& tokens) const;
 
 private:
 	enum class TokenClass : uint8_t
@@ -129,6 +132,7 @@ private:
 	const MacroDefinitionQuery& macros_;
 	NumberDialect literals_;
 	bool conditional_escapes_ = false;
+	bool allow_defined_ = true;
 	uint8_t cxx_edition_ = 11;
 	bool plain_char_unsigned_;
 	PPTokenCursor* tokens_;

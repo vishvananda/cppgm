@@ -75,6 +75,15 @@ ControllingExpressionResult ControllingExpressionEvaluator::evaluate(PPTokenCurs
 	return result;
 }
 
+ControllingExpressionResult ControllingExpressionEvaluator::evaluate_embed_limit(PPTokenCursor& tokens) const
+{
+	ControllingExpressionEvaluator limit(macros_, literals_, plain_char_unsigned_);
+	limit.set_conditional_escapes(conditional_escapes_);
+	limit.set_cxx_edition(cxx_edition_);
+	limit.allow_defined_ = false;
+	return limit.evaluate(tokens);
+}
+
 // Token conversion
 
 const PPToken& ControllingExpressionEvaluator::pull()
@@ -108,7 +117,8 @@ void ControllingExpressionEvaluator::read_token()
 		// 1 and 0, and every other identifier is replaced by 0 (16.1p4).
 		if (SpellingIs(pp, "defined"))
 		{
-			token_.kind = TokenClass::Defined;
+			if (allow_defined_)
+				token_.kind = TokenClass::Defined;
 			return;
 		}
 		token_.kind = TokenClass::Operand;

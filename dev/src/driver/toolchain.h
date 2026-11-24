@@ -76,6 +76,7 @@ bool source_lex_option(const std::string& option, SourceLexOptions& options);
 
 // Enable an SSE extension and its prerequisites, or disable it and dependents.
 bool sse_option(const std::string& option, uint8_t& level);
+bool embed_directory_option(const std::string& option, std::vector<std::string>* paths = nullptr);
 
 enum class FloatContract : uint8_t
 {

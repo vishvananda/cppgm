@@ -114,7 +114,7 @@ bool MacroExpander::start_expansion()
 	// Returns whether current_ began an expansion; otherwise it is a
 	// replaced token, possibly now painted, a number or a string.
 	Identifier* identifier = current_.identifier;
-	if (controlling_expression_ && identifier == names_.defined)
+	if (controlling_expression_ && identifier == names_.defined && !embed_operand_)
 	{
 		replace_defined();
 		return false;
@@ -1265,6 +1265,11 @@ void MacroExpander::replace_builtin(const MacroDefinition& macro)
 		if (controlling_expression_)
 			replace_has_include(macro.builtin == BuiltinMacro::HasIncludeNext);
 		return;
+	case BuiltinMacro::HasEmbed:
+		if (!controlling_expression_)
+			throw PreprocessError(current_.begin, "__has_embed is only allowed in a preprocessing condition");
+		replace_has_embed();
+		return;
 	case BuiltinMacro::HasBuiltin:
 		if (controlling_expression_)
 			replace_has_builtin();
@@ -1424,6 +1429,50 @@ void MacroExpander::replace_has_include(bool next)
 	const bool found = environment_.can_include(name, angle, next);
 	current_ = operator_token;
 	set_number(found ? "1" : "0", 1);
+}
+
+void MacroExpander::replace_has_embed()
+{
+	const PPToken query = current_;
+	PPToken token;
+	read(token);
+	if (!IsPunctuatorToken(token, TokenKind::OP_LPAREN))
+		throw PreprocessError(query.begin, "expected `(` after __has_embed");
+	const bool previous = set_embed_operand(true);
+	read<true>(token);
+	std::vector<PPToken> operand;
+	size_t depth = 0;
+	bool angle_name = false;
+	for (;;)
+	{
+		token = expand_include_token(token);
+		if (token.kind == PPTokenKind::EndOfFile || token.kind == PPTokenKind::NewLine)
+			throw PreprocessError(query.begin, "expected `)` after the __has_embed operand");
+		if (angle_name)
+		{
+			angle_name = !IsPunctuatorToken(token, TokenKind::OP_GT);
+		}
+		else if (operand.empty() && IsPunctuatorToken(token, TokenKind::OP_LT))
+		{
+			angle_name = true;
+		}
+		else if (IsPunctuatorToken(token, TokenKind::OP_RPAREN))
+		{
+			if (depth == 0)
+				break;
+			--depth;
+		}
+		else if (IsPunctuatorToken(token, TokenKind::OP_LPAREN))
+		{
+			++depth;
+		}
+		operand.push_back(token);
+		read(token);
+	}
+	set_embed_operand(previous);
+	const unsigned answer = environment_.has_embed(operand, query.begin);
+	current_ = query;
+	set_number(answer == 2 ? "2" : answer == 1 ? "1" : "0", 1);
 }
 
 PPToken MacroExpander::expand_include_token(PPToken token)

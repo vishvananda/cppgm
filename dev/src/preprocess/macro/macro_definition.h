@@ -27,6 +27,7 @@ enum class BuiltinMacro : uint8_t
 	HasAttribute,
 	HasInclude,
 	HasIncludeNext,
+	HasEmbed,
 	HasBuiltin,
 	HasFeature,
 	HasExtension,

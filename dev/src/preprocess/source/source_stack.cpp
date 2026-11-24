@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include "preprocess/preprocess_error.h"
+#include "preprocess/source/embedded_resource.h"
 
 namespace {
 
@@ -21,11 +22,17 @@ PPToken EndToken(uint32_t location)
 SourceStack::SourceStack(SourceFiles& files, IdentifierTable& identifiers, Arena& arena, const PreprocessorNames& names,
 	SourceFrameObserver& observer)
 	: files_(files), identifiers_(identifiers), arena_(arena), names_(names), observer_(observer), token_(EndToken(0)),
-	  peeked_(EndToken(0)), has_peeked_(false), line_mode_(false), line_ended_(false), at_directive_(false),
-	  at_end_(false), allow_va_args_(false), hosted_(false), directive_location_(0), tokens_read_(0)
+	  peeked_(EndToken(0)), has_peeked_(false), line_mode_(false), line_ended_(false), allow_va_args_(false),
+	  hosted_(false), directive_location_(0), tokens_read_(0)
 {}
 
 SourceStack::~SourceStack() = default;
+
+void SourceStack::embed(std::unique_ptr<EmbeddedResource> resource)
+{
+	resource_ = std::move(resource);
+	text_state_ = TextState::Embed;
+}
 
 void SourceStack::enter(SourceFile* file, std::string presumed_name, std::size_t conditional_depth,
 	int32_t search_index, uint32_t included_at, bool system)
@@ -125,10 +132,20 @@ const PPToken& SourceStack::peek()
 
 void SourceStack::lex_text(PPToken& token)
 {
-	if (at_directive_ || at_end_)
+	if (text_state_ != TextState::Source)
 	{
-		token = EndToken(directive_location_);
-		return;
+		if (text_state_ != TextState::Embed)
+		{
+			token = EndToken(directive_location_);
+			return;
+		}
+		if (resource_->next(token))
+		{
+			++tokens_read_;
+			return;
+		}
+		resource_.reset();
+		text_state_ = TextState::Source;
 	}
 	SourceFrame* frame = frames_.back().get();
 	uint8_t flags = frame->at_line_start ? static_cast<uint8_t>(kStartOfLine | kLeadingSpace) : 0;
@@ -152,7 +169,7 @@ void SourceStack::lex_text(PPToken& token)
 		case PPTokenKind::EndOfFile:
 			if (frames_.size() == 1)
 			{
-				at_end_ = true;
+				text_state_ = TextState::End;
 				directive_location_ = lexed.begin;
 				token = EndToken(lexed.begin);
 				return;
@@ -169,7 +186,7 @@ void SourceStack::lex_text(PPToken& token)
 		frame->at_line_start = false;
 		if ((flags & kStartOfLine) != 0 && lexed.punctuator == kHashPunctuator)
 		{
-			at_directive_ = true;
+			text_state_ = TextState::Directive;
 			directive_location_ = lexed.begin;
 			token = EndToken(lexed.begin);
 			return;

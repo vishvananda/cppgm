@@ -74,6 +74,91 @@
         "-pedantic-errors"
       ],
       "obligation": "N3033 variable argument omission and __VA_OPT__"
+    },
+    {
+      "id": "embed_search_paths",
+      "path": "clang/test/Preprocessor/embed_search_paths.c",
+      "sha256": "74cf30c1bb4d2c3bee5bd34c274f4594f9e2830715f088875aab404ca1b2bbc1",
+      "dialect": "c23",
+      "action": "preprocess",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-cc1"
+      ],
+      "obligation": "Angle lookup continues to the next resource directory",
+      "input_files": [
+        {
+          "path": "clang/test/Preprocessor/Inputs/jk.txt",
+          "sha256": "31b25869b39f1baa9e7fc279255901b696c36629e57294d4455f479534139852"
+        }
+      ],
+      "embed_directories": [
+        "clang/test/Preprocessor/.",
+        "clang/test/Preprocessor/Inputs"
+      ]
+    },
+    {
+      "id": "embed_file_not_found_quote",
+      "path": "clang/test/Preprocessor/embed_file_not_found_quote.c",
+      "sha256": "b590a1351fcf51120e11cf357ce9221d9b25c1aae4f756577d44e390cedfb82a",
+      "dialect": "c23",
+      "action": "preprocess",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-cc1"
+      ],
+      "obligation": "A required quoted resource must exist"
+    },
+    {
+      "id": "embed_file_not_found_chevron",
+      "path": "clang/test/Preprocessor/embed_file_not_found_chevron.c",
+      "sha256": "6de018d697eec77bd79740418cba66518678f59c3ac1d9ace3004ac3640c0418",
+      "dialect": "c23",
+      "action": "preprocess",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-cc1"
+      ],
+      "obligation": "A required angle resource must exist"
+    },
+    {
+      "id": "embed_parameter_unrecognized",
+      "path": "clang/test/Preprocessor/embed_parameter_unrecognized.c",
+      "sha256": "020865b58a7a5e46f94864cd3087d1b23106dfeb9c26f104db18001cb5e30523",
+      "dialect": "c23",
+      "action": "preprocess",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-cc1"
+      ],
+      "obligation": "Unknown parameters are diagnosed in a resource directive"
+    },
+    {
+      "id": "embed-reject-device-files-lin",
+      "path": "clang/test/Preprocessor/embed-reject-device-files-lin.c",
+      "sha256": "5c638d9bfbe1f19346f92cf03cc3146490b6df8ffe56041e04756598cefb1c48",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-cc1"
+      ],
+      "obligation": "Linux device files are outside the regular-file resource policy"
     }
   ]
 }

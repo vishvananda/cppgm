@@ -87,6 +87,9 @@ void Preprocessor::run_directive()
 	case IdentifierRole::Include:
 		run_include(directive, false);
 		return;
+	case IdentifierRole::Embed:
+		run_embed(directive);
+		return;
 	case IdentifierRole::IncludeNext:
 		if (!hosted_)
 			throw PreprocessError(directive.begin, "invalid preprocessing directive");

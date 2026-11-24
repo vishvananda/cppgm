@@ -45,6 +45,7 @@ public:
 	// Whether `#include` (`#include_next` with `next`) of the name would
 	// find a file (the hosted __has_include operators).
 	virtual bool can_include(const std::string& name, bool angle, bool next) = 0;
+	virtual unsigned has_embed(const std::vector<PPToken>& operand, uint32_t location) = 0;
 	// Whether the language feature is provided (`__has_feature` and
 	// `__has_extension`, preprocess/macro/feature_probes.h).
 	virtual bool has_feature(const char* spelling, uint32_t length, bool extension) = 0;
@@ -135,6 +136,12 @@ public:
 	// In a controlling expression, `defined` and __has_cpp_attribute are
 	// evaluated as they are rescanned ([cpp.cond] 16.1p4).
 	void set_controlling_expression(bool enabled) { controlling_expression_ = enabled; }
+	bool set_embed_operand(bool enabled)
+	{
+		const bool previous = embed_operand_;
+		embed_operand_ = enabled;
+		return previous;
+	}
 	// Pasted spellings are lexed as hosted pp-numbers
 	// (PPLexerOptions::binary_exponents).
 	void set_binary_exponents(bool enabled) { binary_exponents_ = enabled; }
@@ -315,6 +322,7 @@ private:
 	void replace_defined();
 	void replace_has_cpp_attribute(bool gnu);
 	void replace_has_include(bool next);
+	void replace_has_embed();
 	// Rescan an already-read probe operand without consuming an enclosing
 	// invocation's argument. Uses the ordinary expansion contexts and hides.
 	PPToken expand_include_token(PPToken token);
@@ -334,6 +342,7 @@ private:
 	ExpansionInput* input_;
 	HideSets hide_sets_;
 	bool controlling_expression_;
+	bool embed_operand_ = false;
 	bool binary_exponents_;
 	bool digit_separators_;
 	bool hosted_recursion_;
