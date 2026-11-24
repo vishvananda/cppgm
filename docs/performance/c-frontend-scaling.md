@@ -4295,3 +4295,55 @@ The driver macro adds 0.032% retired instructions when compiling the
 binary128 transcendental probe for WASI. The A/A spread is 592 out of
 22.49 million instructions. All 12 objects match byte for byte across
 the A/A, ABBA, and BAAB runs.
+
+## WASI logarithms and inverse hyperbolic functions
+
+The precompiled Wasmtime workloads run 262,144 calls on CPU 71. They
+use the same SDK Clang client object and linker in both variants.
+The control uses SDK 34 and the previous supplement. The candidate
+uses the new cppgm-built supplement. All 12 runs per workload produce
+identical checksums. The binary128 workloads round to float for the
+checksum and the MPFR corpus checks the full binary128 results.
+
+| Workload | A/A instruction spread | Control, millions | Candidate, millions | Change |
+| --- | ---: | ---: | ---: | ---: |
+| `log10` | 1,343 | 26.380 | 28.214 | +6.95% |
+| `log10f` | 1,342 | 22.711 | 24.544 | +8.07% |
+| `log1p` | 1,050 | 26.424 | 27.482 | +4.01% |
+| `log1pf` | 1,490 | 24.966 | 25.500 | +2.14% |
+| `logp1` | 2,012 | 30.619 | 27.483 | −10.24% |
+| `logp1f` | 901 | 29.161 | 25.763 | −11.65% |
+| `acosh` | 586 | 34.908 | 35.397 | +1.40% |
+| `acoshf` | 1,862 | 32.221 | 32.892 | +2.08% |
+| `acoshl` | 2,071 | 260.909 | 3,301.500 | +1,165.38% |
+| `atanh` | 716 | 35.892 | 36.192 | +0.84% |
+| `atanhf` | 1,225 | 32.839 | 33.270 | +1.31% |
+| `atanhl` | 1,951 | 3,432.770 | 3,551.476 | +3.46% |
+| `atanhl` with tiny arguments | 3,231 | 3,237.574 | 137.102 | −95.77% |
+
+The `acoshl` control converts to binary64. Its full-precision replacement
+uses software binary128 arithmetic and the existing logarithms. Removing
+one binary128 division and checking the encoded exponent reduces the
+new path from 3,684.247 million to 3,301.500 million instructions.
+For scalar `atanh`, reapplying the input sign in the result word
+removes a `copysign` call. That brought the double and float workloads
+from 11–13% overhead to 0.8–1.3%. The tiny `atanhl` case returns the
+input once the omitted correction is below the rounding boundary.
+
+## C thread-local object lowering
+
+An immutable compiler pair compiles each input with `-O2` on CPU 71.
+The external TLS input updates 256 distinct C thread-local objects.
+Both outputs link against the same GCC 15 definitions and return the
+same results. The object shrinks from 178,488 to 32,272 bytes. All 12
+objects for each control input match byte for byte.
+
+| Input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| 256 external C TLS objects | 2,241 | −87.5276% | −87.5273% |
+| SQLite 3.50.4 C amalgamation | 342,243 | −0.1147% | −0.1147% |
+| Frozen C++ semantic input | 286,898 | −0.0148% | −0.0159% |
+
+The TLS input drops from 190.1 million to 23.7 million retired user
+instructions. In the control runs, paired wall times range from 5.00 to
+5.08 seconds for SQLite and from 2.98 to 3.03 seconds for C++.

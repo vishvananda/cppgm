@@ -467,6 +467,18 @@ extension spellings in C99.
 [C23 draft, N3096](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
 [PA38 edition control](../pa38/tests/general/500-c11-edition-syntax.t)
 
+## C11 thread-local storage across translation units
+
+Each thread has its own instance of an object with thread storage
+duration. C declarations refer to that instance through the target's
+thread-local storage ABI. On Mach-O, the C reference uses the variable
+descriptor exported by the defining translation unit. cppgm also
+supplies the Darwin C++ wrapper for a C definition used by a C++ caller
+with the corresponding C-linkage declaration.
+
+[C11 N1570 §§6.2.4, 6.7.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[PA38 mixed-object program](../pa38/tests/abi/400-c-thread-local-linkage.t.1)
+
 ## C11 alignment and assertions
 
 C11 lists alignment in the declaration specifiers (6.7) and DR 444

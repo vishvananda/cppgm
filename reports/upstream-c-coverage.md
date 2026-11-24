@@ -4032,3 +4032,58 @@ qualification remains open.
 [WASI SDK 34 `exp` kernel](https://github.com/WebAssembly/wasi-libc/blob/2e6fb9d8ee0cdf9e431fbcabe8af3115de000a13/libc-top-half/musl/src/math/exp.c) ·
 [WASI SDK 34 `exp2l` implementation](https://github.com/WebAssembly/wasi-libc/blob/2e6fb9d8ee0cdf9e431fbcabe8af3115de000a13/libc-top-half/musl/src/math/exp2l.c) ·
 [Wasm instruction measurements](../docs/performance/c-frontend-scaling.md#wasi-exponentials-and-scaling)
+
+### WASI logarithms and inverse hyperbolic functions
+
+The supplement now reports domain and pole errors through `errno` in
+`log10`, `log1p`, `acosh`, and `atanh` at the supported precisions. The
+binary32 and binary64 logarithms share their reduction and polynomial
+within each precision. The C23 `logp1` spellings use the same paths.
+The inherited audit reaches **55 of 76** expected outcomes, up from 46.
+
+SDK 34 can return a finite value for `acosh(-0x1.a17e45b8ac257p+22)`.
+The supplemental implementation returns NaN and reports `EDOM`. The
+SDK's `acoshl` converts its argument to double. The supplement uses
+binary128 arithmetic, including near one and beyond `DBL_MAX`.
+
+Both archive builds match MPFR within one ULP for the sampled finite
+logarithms and within two ULPs for the sampled inverse hyperbolic
+functions. The corpus has 131,072 inputs per function. The two archive
+builds agree on all numeric outputs, including signs of zeros and
+infinities. In `acoshl`, the stock SDK returned zero for 1,998 finite
+nonzero results and infinity for 3,893 finite results in the corpus.
+The supplement returns the expected classification for every sample.
+
+All 16 mixed WASI configurations pass the errno probe. The direct calls
+pass at `-O0` and `-O2` with cppgm and with SDK Clang using
+`-fmath-errno`. SDK Clang's default WASI mode can omit the errno reload
+for a direct `log1p` call. Hosted math error reporting remains uncovered.
+
+[WASI SDK 34 `log1p`](https://github.com/WebAssembly/wasi-libc/blob/2e6fb9d8ee0cdf9e431fbcabe8af3115de000a13/libc-top-half/musl/src/math/log1p.c) ·
+[WASI SDK 34 `acoshl`](https://github.com/WebAssembly/wasi-libc/blob/2e6fb9d8ee0cdf9e431fbcabe8af3115de000a13/libc-top-half/musl/src/math/acoshl.c) ·
+[Wasm instruction measurements](../docs/performance/c-frontend-scaling.md#wasi-logarithms-and-inverse-hyperbolic-functions)
+
+### C thread-local object interoperability
+
+C uses the target's thread-local storage addressing directly. The old
+cppgm Mach-O objects referenced a C++ initialization wrapper that Clang
+C providers did not define. Both Intel and Apple Silicon now emit the
+expected thread-local variable descriptor relocations for external C
+objects. The PA38 fixture accesses a host-defined thread-local object and
+passes a cppgm-defined thread-local object back to the host compiler.
+
+The fixture runs on Linux x86-64 with GCC and Clang providers, Linux
+AArch64 under QEMU, and WASI with both linkers. It cross-links on Intel
+macOS and Apple Silicon. Separate mixed-object cross-links confirm
+that Clang C++ callers can still use cppgm C definitions on Darwin.
+The direct and LowIR round-trip objects match at `-O0` on all five targets.
+Native execution on both macOS targets remains open.
+
+The combined replay at `3cdeea35b` passes 5,931 configurations across
+Linux x86-64, Linux AArch64 under QEMU, stock WASI, supplemented WASI,
+and bare Wasm. The extracted source-only archive passes all nine math
+probes at `-Oz -flto`.
+
+[PA38 mixed-object fixture](../pa38/tests/abi/400-c-thread-local-linkage.t.1) ·
+[C11 N1570 §§6.2.4, 6.7.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[Compile instruction measurements](../docs/performance/c-frontend-scaling.md#c-thread-local-object-lowering)
