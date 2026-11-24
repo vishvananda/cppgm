@@ -99,6 +99,12 @@ struct CodeString
 	uint32_t size;
 };
 
+struct CodeLabelReference
+{
+	uint32_t offset, base, target;
+	uint8_t size;
+};
+
 class Assembler
 {
 public:
@@ -118,6 +124,7 @@ public:
 	int32_t label_position(uint32_t label) const { return label_pos_[label]; }
 	// Patches every label reference; false if a label is unbound.
 	bool resolve_labels();
+	bool record_label_references(std::vector<CodeLabelReference>& output) const;
 	void reset_labels();
 
 	void byte(uint8_t b) { code_.push_back(b); }

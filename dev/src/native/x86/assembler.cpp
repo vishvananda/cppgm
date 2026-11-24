@@ -97,6 +97,18 @@ bool Assembler::resolve_labels()
 	return true;
 }
 
+bool Assembler::record_label_references(std::vector<CodeLabelReference>& output) const
+{
+	for (const LabelRef& ref : label_refs_)
+	{
+		if (!bound(ref.label) || (ref.base != kNoLabel && !bound(ref.base)))
+			return false;
+		const uint32_t base = ref.base == kNoLabel ? ref.offset + ref.end : label_position(ref.base);
+		output.push_back({ ref.offset, base, static_cast<uint32_t>(label_position(ref.label)), ref.size });
+	}
+	return true;
+}
+
 void Assembler::imm(int64_t value, unsigned bytes)
 {
 	for (unsigned k = 0; k < bytes; ++k)

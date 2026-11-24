@@ -92,7 +92,7 @@ void ModuleLayout::Section::complete(size_t index, uint64_t size)
 {
 	fragments[index].size = size;
 	unresolved.erase(index);
-	const int64_t delta = static_cast<int64_t>(size) - 1;
+	const int64_t delta = static_cast<int64_t>(size) - fragments[index].original_size;
 	for (++index; index < deltas.size(); index += index & (size_t(0) - index))
 		deltas[index] += delta;
 }
@@ -104,6 +104,10 @@ bool ModuleLayout::crosses(uint32_t section, uint64_t from, uint64_t to) const
 void ModuleLayout::append(uint32_t section, Fragment fragment)
 {
 	sections_[section].fragments.push_back(std::move(fragment));
+}
+bool ModuleLayout::record_labels(uint32_t section, const Assembler& assembler)
+{
+	return assembler.record_label_references(sections_[section].labels);
 }
 int64_t ModuleLayout::shift(uint32_t section, uint64_t from, uint64_t to)
 {
@@ -130,7 +134,9 @@ void ModuleLayout::resolve(uint32_t section, Section& layout, size_t index)
 		throw BackendError("module section layout dependency depth exceeds limit");
 	fragment.visiting = true;
 	uint64_t size = 0;
-	if (fragment.kind == Kind::Align)
+	if (fragment.kind == Kind::Jump)
+		size = fragment.short_jump ? 2 : fragment.original_size;
+	else if (fragment.kind == Kind::Align)
 	{
 		const uint64_t at = fragment.offset + shift(section, 0, fragment.offset);
 		const uint64_t padding = (uint64_t(0) - at) & (fragment.alignment - 1);
@@ -153,13 +159,40 @@ void ModuleLayout::resolve(uint32_t section, Section& layout, size_t index)
 	fragment.visiting = false;
 	--depth_;
 }
+
+int64_t ModuleLayout::jump_displacement(
+	uint32_t id, const Section& layout, const Fragment& fragment, uint64_t origin) const
+{
+	const object::Relocation& relocation = out_.sections[id].relocations[fragment.jump_relocation];
+	const uint64_t target = out_.symbols[relocation.symbol].value;
+	const uint64_t destination = target + layout.subtotal(layout.boundary(target));
+	return static_cast<int64_t>(destination - (origin + fragment.size) + relocation.addend + 4);
+}
+
+bool ModuleLayout::widen_jumps(uint32_t id, Section& layout)
+{
+	bool changed = false;
+	int64_t delta = 0;
+	for (Fragment& fragment : layout.fragments)
+	{
+		if (fragment.short_jump && !fits_i8(jump_displacement(id, layout, fragment, fragment.offset + delta)))
+		{
+			fragment.short_jump = false;
+			changed = true;
+		}
+		delta += static_cast<int64_t>(fragment.size) - fragment.original_size;
+	}
+	return changed;
+}
+
 void ModuleLayout::materialize(uint32_t id, const Section& layout)
 {
 	object::Section& section = out_.sections[id];
 	const uint64_t size = section.size + layout.prefix.back();
 	if (size > kModuleByteLimit)
 		throw BackendError("module section exceeds the byte limit");
-	if (section.kind != object::SectionKind::Bss)
+	std::vector<uint32_t> folded_jumps;
+	if (!layout.fragments.empty() && section.kind != object::SectionKind::Bss)
 	{
 		std::vector<uint8_t> bytes;
 		bytes.reserve(size);
@@ -168,40 +201,92 @@ void ModuleLayout::materialize(uint32_t id, const Section& layout)
 		for (const Fragment& fragment : layout.fragments)
 		{
 			bytes.insert(bytes.end(), section.bytes.begin() + first, section.bytes.begin() + fragment.offset);
-			if (fragment.fill < 0)
+			if (fragment.kind == Kind::Jump)
+			{
+				const int64_t displacement = fragment.local_jump ? jump_displacement(id, layout, fragment, bytes.size())
+																 : INT64_MAX;
+				if (displacement >= INT32_MIN && displacement <= INT32_MAX)
+				{
+					code.byte(fragment.short_jump ? 0xeb : 0xe9);
+					code.imm(displacement, fragment.size - 1);
+					folded_jumps.push_back(fragment.jump_relocation);
+				}
+				else
+					bytes.insert(bytes.end(), section.bytes.begin() + fragment.offset,
+						section.bytes.begin() + fragment.offset + fragment.original_size);
+			}
+			else if (fragment.fill < 0)
 				code.nops(static_cast<uint32_t>(fragment.size));
 			else
 				bytes.insert(bytes.end(), fragment.size, static_cast<uint8_t>(fragment.fill));
-			first = fragment.offset + 1;
+			first = fragment.offset + fragment.original_size;
 		}
 		bytes.insert(bytes.end(), section.bytes.begin() + first, section.bytes.end());
 		section.bytes.swap(bytes);
 	}
 	section.size = size;
+	if (!folded_jumps.empty())
+	{
+		size_t next = 0, removed = 0;
+		for (uint32_t i = 0; i < section.relocations.size(); ++i)
+		{
+			if (removed < folded_jumps.size() && i == folded_jumps[removed])
+				++removed;
+			else
+				section.relocations[next++] = section.relocations[i];
+		}
+		section.relocations.resize(next);
+	}
 	for (object::Relocation& relocation : section.relocations)
 		relocation.offset = position(id, relocation.offset);
+	for (const CodeLabelReference& ref : layout.labels)
+	{
+		const int64_t displacement = static_cast<int64_t>(position(id, ref.target) - position(id, ref.base));
+		if (ref.size == 1 && !fits_i8(displacement))
+			throw BackendError("short local branch is out of range after module layout");
+		const uint64_t offset = position(id, ref.offset);
+		for (unsigned i = 0; i < ref.size; ++i)
+			section.bytes[offset + i] = static_cast<uint8_t>(static_cast<uint64_t>(displacement) >> (8 * i));
+	}
 }
 void ModuleLayout::finish()
 {
 	if (sections_.empty())
 		return;
 	for (auto& entry : sections_)
+		for (Fragment& fragment : entry.second.fragments)
+			if (fragment.kind == Kind::Jump)
+			{
+				const object::Relocation& relocation = out_.sections[entry.first].relocations[fragment.jump_relocation];
+				const object::Symbol& target = out_.symbols[relocation.symbol];
+				fragment.local_jump = target.section == entry.first && target.binding == object::Binding::Local;
+				fragment.short_jump = fragment.local_jump;
+			}
+	bool widened;
+	do
 	{
-		Section& layout = entry.second;
-		layout.deltas.resize(layout.fragments.size() + 1);
-		for (size_t i = 0; i < layout.fragments.size(); ++i)
-			layout.unresolved.emplace_hint(layout.unresolved.end(), i);
-	}
-	for (auto& entry : sections_)
-		while (!entry.second.unresolved.empty())
-			resolve(entry.first, entry.second, *entry.second.unresolved.begin());
+		for (auto& entry : sections_)
+		{
+			Section& layout = entry.second;
+			layout.deltas.assign(layout.fragments.size() + 1, 0);
+			for (size_t i = 0; i < layout.fragments.size(); ++i)
+				layout.unresolved.emplace_hint(layout.unresolved.end(), i);
+		}
+		for (auto& entry : sections_)
+			while (!entry.second.unresolved.empty())
+				resolve(entry.first, entry.second, *entry.second.unresolved.begin());
+		widened = false;
+		for (auto& entry : sections_)
+			widened |= widen_jumps(entry.first, entry.second);
+	} while (widened);
 	for (auto& entry : sections_)
 	{
 		Section& layout = entry.second;
 		layout.prefix.reserve(layout.fragments.size() + 1);
 		layout.prefix.push_back(0);
 		for (const Fragment& fragment : layout.fragments)
-			layout.prefix.push_back(layout.prefix.back() + static_cast<int64_t>(fragment.size) - 1);
+			layout.prefix.push_back(
+				layout.prefix.back() + static_cast<int64_t>(fragment.size) - fragment.original_size);
 		materialize(entry.first, layout);
 	}
 	fixed_ = true;

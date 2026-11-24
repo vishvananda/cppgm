@@ -93,6 +93,7 @@ private:
 	uint32_t raw_section_ = 0;
 	uint32_t raw_first_ = 0;
 	bool raw_initial_ = false;
+	bool relax_local_jumps_ = false;
 };
 
 void emit_assembly_items(object::ObjectFile& out, const lowir::Program& program, Target target,

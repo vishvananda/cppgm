@@ -366,11 +366,24 @@ void ModuleAssembler::emit_instructions(std::vector<assembly::Instruction>& inst
 	for (assembly::Instruction& instruction : instructions)
 		if (instruction.line != 0 && instruction.line <= code_lines_.size())
 			instruction.line = code_lines_[instruction.line - 1];
+	if (relax_local_jumps_)
+		for (assembly::Instruction& instruction : instructions)
+			if (instruction.mnemonic == "jmp" && instruction.operands.size() == 1 && instruction.segment == 0)
+			{
+				assembly::Operand& target = instruction.operands[0];
+				if (target.kind != assembly::OperandKind::Label)
+					continue;
+				assembly::Instruction& label = instructions[target.label];
+				if (label.symbol_definition == asm_model::kNoId)
+					label.symbol_definition = symbols_.named(label.mnemonic);
+				target.kind = assembly::OperandKind::Symbol;
+				target.address.symbol.symbol = label.symbol_definition;
+			}
 	Assembler assembler(section.bytes);
 	assembler.record_strings(out_.assembly_text);
 	std::vector<uint32_t> positions;
 	encode_assembly(assembler, instructions, RM(), &positions);
-	if (!assembler.resolve_labels())
+	if (!(relax_local_jumps_ ? layout_.record_labels(section_, assembler) : assembler.resolve_labels()))
 		throw BackendError("unresolved module assembly label");
 	section.size = section.bytes.size();
 	for (const CodeString& span : assembler.strings())
@@ -386,12 +399,14 @@ void ModuleAssembler::emit_instructions(std::vector<assembly::Instruction>& inst
 	size_t instruction = 0;
 	for (const CodeFixup& fixup : assembler.fixups())
 	{
-		if (fixup.subtrahend != asm_model::kNoId || fixup.target == 0)
+		const bool difference = fixup.subtrahend != asm_model::kNoId || fixup.target == 0;
+		if (difference || (relax_local_jumps_ && fixup.branch))
+			while (instruction + 1 < positions.size() && positions[instruction + 1] <= fixup.offset)
+				++instruction;
+		if (difference)
 		{
 			if (!fixup.absolute)
 				throw BackendError("a place-relative instruction cannot also encode an unresolved symbol difference");
-			while (instruction + 1 < positions.size() && positions[instruction + 1] <= fixup.offset)
-				++instruction;
 			const uint32_t type = object::x86_absolute_relocation(fixup.end, fixup.kind == FixupKind::SignedAddress);
 			data_relocations_.push_back({ fixup.offset, positions[instruction], static_cast<uint64_t>(fixup.addend),
 				section_, fixup.target, fixup.subtrahend, fixup.end, type });
@@ -410,6 +425,10 @@ void ModuleAssembler::emit_instructions(std::vector<assembly::Instruction>& inst
 			: fixup.kind == FixupKind::TpOff    ? object::R_X86_64_TPOFF32
 			: fixup.branch                      ? object::R_X86_64_PLT32
 												: object::R_X86_64_PC32;
+		if (relax_local_jumps_ && fixup.branch && instructions[instruction].mnemonic == "jmp" &&
+			fixup.offset == positions[instruction] + 1 &&
+			instructions[instruction].operands[0].address.relocation == assembly::Relocation::Address)
+			layout_.append(section_, { positions[instruction], static_cast<uint32_t>(section.relocations.size()) });
 		section.relocations.push_back(relocation);
 	}
 	unwind_.flush(section_, buffer_lines, positions, static_cast<uint32_t>(section.size));
@@ -418,6 +437,13 @@ void ModuleAssembler::declare(const assembly::ModuleLine& line)
 {
 	assembly::ModuleCursor cursor(line);
 	const std::string name = cursor.word();
+	if (!relax_local_jumps_ && target_ == Target::Linux)
+	{
+		if (name == ".")
+			relax_local_jumps_ = cursor.take('=');
+		else if (name == ".set" || name == ".equ")
+			relax_local_jumps_ = cursor.word() == "." && cursor.take(',');
+	}
 	if (name == ".globl" || name == ".global" || name == ".weak" || name == ".weak_definition" || name == ".local" ||
 		name == ".hidden" || name == ".private_extern" || name == ".type")
 	{

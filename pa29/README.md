@@ -306,6 +306,9 @@ For port instructions accept GNU AT&T's parenthesized DX spelling alongside
 the plain register operand. Encode `loop`, `loope` and `loopne` with a signed
 byte displacement to their local target. A location-counter assignment such
 as `. = label + 16` advances the current section and zero-fills the gap.
+In a section laid out by these assignments, choose the short encoding for a
+local `jmp` when its signed byte displacement fits the final layout. Recompute
+affected branch offsets and relocations when their instruction widths change.
 Expansion must have bounded
 nesting, work and output size; malformed blocks and runaway recursion fail.
 
