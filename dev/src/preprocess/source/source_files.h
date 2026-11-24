@@ -132,6 +132,7 @@ public:
 	// Each path is looked up once per translation unit; files are assumed
 	// not to change while it is preprocessed.
 	SourceFile* open(const std::string& path);
+	SourceFile* open_primary(const std::string& path);
 
 	// A file that is not on disk, such as the predefined macro definitions.
 	SourceFile* add_text(std::string name, std::string text);

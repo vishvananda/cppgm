@@ -574,6 +574,7 @@ private:
 		const syntax::Stmt* statement;
 		lowir::BlockId block;
 	};
+	void switch_range_branches(const RValue& selector);
 
 	// A short-circuit operator of a condition chain: its right operand's
 	// block and the targets that operand branches to.

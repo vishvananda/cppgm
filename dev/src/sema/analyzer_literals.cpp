@@ -109,7 +109,7 @@ ExprFacts* Analyzer::literal(const syntax::LiteralExpr& expr)
 		{
 			// Lexing has already validated escapes for the source dialect.
 			const CharacterLiteralValue character = EvaluateCharacterLiteral(
-				spelling.text, spelling.length, CharacterDialect::Gnu, true, c23_ ? 20 : cxx_edition_);
+				spelling.text, spelling.length, CharacterDialect::Gnu, true, c23_ ? 20 : cxx_edition_, short_wchar_);
 			if (character.valid && character.suffix_begin != spelling.length)
 				return user_character_literal(expr, character);
 			if (!character.valid || character.suffix_begin != spelling.length)

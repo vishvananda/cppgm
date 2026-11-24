@@ -1011,6 +1011,11 @@ void SyntaxRenderer::statement(const Stmt& stmt)
 		const CaseStmt& label = static_cast<const CaseStmt&>(stmt);
 		text("case");
 		expression(*label.value);
+		if (label.range_end != nullptr)
+		{
+			text("...");
+			expression(*label.range_end->expression);
+		}
 		text(":");
 		statement(*label.body);
 		break;

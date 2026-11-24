@@ -1153,6 +1153,7 @@ void FunctionLowering::switch_statement(const syntax::ConditionalLoopStmt& stmt)
 	switch_first_ = switch_labels_.size();
 	scan_switch_labels(*stmt.body, switch_labels_);
 	lowir::BlockId default_block = end;
+	bool has_ranges = false;
 	scratch_.clear();
 	for (size_t i = switch_first_; i < switch_labels_.size(); ++i)
 	{
@@ -1163,6 +1164,11 @@ void FunctionLowering::switch_statement(const syntax::ConditionalLoopStmt& stmt)
 			continue;
 		}
 		const syntax::CaseStmt* label_case = static_cast<const syntax::CaseStmt*>(label);
+		if (label_case->range_end != nullptr)
+		{
+			has_ranges = true;
+			continue;
+		}
 		scratch_.push_back(selector.type.kind() == lowir::TypeKind::I128
 				? integer(selector.type, lowir::Literal{ label_case->converted, label_case->converted_high }).value
 				: integer(selector.type, label_case->converted).value);
@@ -1170,6 +1176,8 @@ void FunctionLowering::switch_statement(const syntax::ConditionalLoopStmt& stmt)
 	}
 	jump(dispatch);
 	place(dispatch);
+	if (has_ranges)
+		switch_range_branches(selector);
 	if (selector.type.kind() == lowir::TypeKind::I128 && lowering_.analyzer_->c_source())
 	{
 		// Wide switches use the shared two-word comparison operation.
@@ -1203,6 +1211,35 @@ void FunctionLowering::switch_statement(const syntax::ConditionalLoopStmt& stmt)
 	switch_labels_.resize(switch_first_);
 	switch_first_ = saved_first;
 	leave_scope(depth);
+}
+
+void FunctionLowering::switch_range_branches(const RValue& selector)
+{
+	const lowir::Type type = selector.type;
+	for (size_t i = switch_first_; i < switch_labels_.size(); ++i)
+	{
+		const SwitchLabels& label = switch_labels_[i];
+		if (label.statement->kind != syntax::StmtKind::Case)
+			continue;
+		const auto& range = static_cast<const syntax::CaseStmt&>(*label.statement);
+		if (range.range_end == nullptr)
+			continue;
+		const unsigned __int128 first = (static_cast<unsigned __int128>(range.converted_high) << 64) | range.converted;
+		const unsigned __int128 last = (static_cast<unsigned __int128>(range.range_end->converted_high) << 64) |
+			range.range_end->converted;
+		const unsigned __int128 count = last - first;
+		const auto constant = [&](unsigned __int128 value) {
+			return type.kind() == lowir::TypeKind::I128
+				? integer(type, lowir::Literal{ static_cast<uint64_t>(value), static_cast<uint64_t>(value >> 64) })
+				: integer(type, static_cast<uint64_t>(value));
+		};
+		// The same wrapping subtraction tests signed and unsigned intervals,
+		// including those that cross zero. It costs no work per covered value.
+		const RValue delta = binary(lowir::BinaryOp::Sub, type, selector, constant(first));
+		const lowir::BlockId next = new_block(lowir::BlockKind::SwitchDispatch);
+		branch(compare(lowir::ComparePredicate::Ule, type, delta, constant(count)), label.block, next);
+		place(next);
+	}
 }
 
 void FunctionLowering::scan_switch_labels(const syntax::Stmt& stmt, std::vector<SwitchLabels>& out)

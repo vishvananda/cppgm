@@ -36,6 +36,7 @@
 #include "support/internal_error.h"
 #include "support/telemetry.h"
 #include "support/tool_errors.h"
+#include "support/version.h"
 #include "syntax/syntax_unit.h"
 #include "wasm/backend.h"
 #include "wasm/assembly.h"
@@ -285,8 +286,10 @@ struct Invocation
 	// -ffunction-sections: each function in a section of its own.
 	bool function_sections = false;
 	bool preprocess_only = false;
+	bool preprocess_text = false;
 	bool dump_macros = false;
 	bool trace_includes = false;
+	bool assembler_version = false;
 	MakeDependencies dependencies;
 	ir_model::SymbolVisibility visibility = ir_model::SV_DEFAULT;
 	bool visibility_inlines_hidden = false;
@@ -430,16 +433,24 @@ bool parse_include_option(const std::vector<std::string>& args, size_t& i, Prepr
 // harmless).
 bool refused_flag(const std::string& arg)
 {
-	static const char* const kRefused[] = { "-fshort-wchar", "-fshort-enums", "-fpack-struct", "-funsigned-bitfields",
+	static const char* const kRefused[] = { "-fshort-enums", "-fpack-struct", "-funsigned-bitfields",
 		"-fno-signed-bitfields", "-fno-elide-constructors", "-m32", "-mx32", "-m16", "-mlong-double-64",
 		"-mlong-double-128", "-msoft-float", "-mno-sse", "-mno-sse2", "-mno-80387", "-mno-fp-ret-in-387",
-		"-mfpmath=387" };
+		"-mfpmath=387", "-fstack-protector", "-fstack-protector-strong", "-fstack-protector-all",
+		"-fstack-protector-explicit", "-fcf-protection", "-fcf-protection=branch", "-fcf-protection=return",
+		"-fcf-protection=full", "-ftrivial-auto-var-init=zero", "-ftrivial-auto-var-init=pattern",
+		"-fno-integrated-as" };
 	for (const char* refused : kRefused)
 	{
 		if (arg == refused)
 			return true;
 	}
-	return starts_with(arg, "-fpack-struct=") || starts_with(arg, "-mabi=");
+	return starts_with(arg, "-fpack-struct=") || starts_with(arg, "-mabi=") ||
+		(arg != "-fpatchable-function-entry=0" && starts_with(arg, "-fpatchable-function-entry=")) ||
+		(arg != "-mharden-sls=none" && starts_with(arg, "-mharden-sls=")) ||
+		(arg != "-mfunction-return=keep" && starts_with(arg, "-mfunction-return=")) ||
+		(arg != "-mindirect-branch=keep" && starts_with(arg, "-mindirect-branch=")) ||
+		(arg != "-fzero-call-used-regs=skip" && starts_with(arg, "-fzero-call-used-regs="));
 }
 
 bool accepted_flag(const std::string& arg)
@@ -471,6 +482,14 @@ bool parse_dependency_option(const std::vector<std::string>& args, size_t& i, Ma
 		options.mode = arg == "-M" || arg == "-MM" ? MakeDependencies::Mode::Only : MakeDependencies::Mode::SideFile;
 		options.include_system = arg == "-M" || arg == "-MD";
 	}
+	else if (starts_with(arg, "-Wp,-MD,") || starts_with(arg, "-Wp,-MMD,"))
+	{
+		options.mode = MakeDependencies::Mode::SideFile;
+		options.include_system = starts_with(arg, "-Wp,-MD,");
+		options.file = arg.substr(arg.find(',', 4) + 1);
+		if (options.file.empty())
+			throw InvocationError("missing dependency output file after " + arg);
+	}
 	else if (arg == "-MP")
 		options.phony = true;
 	else if (option_value(args, i, "-MF", options.file))
@@ -488,6 +507,24 @@ bool parse_dependency_option(const std::vector<std::string>& args, size_t& i, Ma
 			throw InvocationError("empty dependency target");
 		options.targets.push_back(quoted ? quote_make_name(target) : std::move(target));
 	}
+	return true;
+}
+
+bool preprocess_option(const std::string& arg, Invocation& invocation)
+{
+	if (arg == "-E")
+		invocation.preprocess_only = true;
+	else if (arg == "-P")
+		invocation.preprocess_text = true;
+	else if (arg == "-dM")
+		invocation.dump_macros = true;
+	else if (arg == "-H")
+		invocation.trace_includes = true;
+	else if (arg == "-Wa,--version")
+		invocation.assembler_version = true;
+	// Assembly diagnostics are already errors in the integrated assembler.
+	else if (arg != "-fintegrated-as" && arg != "-Wa,--fatal-warnings" && arg != "-Wa,--no-fatal-warnings")
+		return false;
 	return true;
 }
 
@@ -586,8 +623,12 @@ void configure_preprocessor(Invocation& invocation, StandardIncludes includes, c
 	if (!preprocess_only && (invocation.dump_macros || invocation.trace_includes))
 		throw InvocationError("-dM and -H require -E");
 	for (const Input& input : invocation.inputs)
-		if (input.name == "-" && !preprocess_only)
-			throw InvocationError("standard input requires -E");
+	{
+		if (input.name == "-" && !preprocess_only && input.kind != Input::Kind::Assembly)
+			throw InvocationError("standard input requires -E or -x assembler-with-cpp");
+		if (input.kind == Input::Kind::Assembly)
+			invocation.preprocess_text = true;
+	}
 	configure_source_language(
 		invocation.source_language, invocation.standard, invocation.exceptions, invocation.preprocessor);
 	configure_c_environment(invocation.preprocessor, invocation.target, invocation.c_environment);
@@ -652,12 +693,8 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 			invocation.wasm_atomics = arg == "-matomics";
 			invocation.wasm_atomics_explicit = true;
 		}
-		else if (arg == "-E")
-			invocation.preprocess_only = true;
-		else if (arg == "-dM")
-			invocation.dump_macros = true;
-		else if (arg == "-H")
-			invocation.trace_includes = true;
+		else if (preprocess_option(arg, invocation))
+			continue;
 		else if (select_standard_includes(arg, includes))
 			continue;
 		else if (starts_with(arg, "--gcc-install-dir="))
@@ -721,6 +758,8 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 			continue;
 		else if (arg == "-fno-rtti" || arg == "-frtti")
 			invocation.preprocessor.modes.rtti = arg == "-frtti";
+		else if (arg == "-fshort-wchar" || arg == "-fno-short-wchar")
+			invocation.preprocessor.short_wchar = arg == "-fshort-wchar";
 		else if (arg == "-funsigned-char" || arg == "-fno-signed-char" || arg == "-fsigned-char" ||
 			arg == "-fno-unsigned-char")
 		{
@@ -1174,7 +1213,15 @@ bool compile_input(const Input& input, const Invocation& invocation, native::EhM
 		if (target_model::is_aarch64(invocation.target))
 			throw InvocationError(
 				"the integrated module assembler supports x86-64 assembly; pass an assembled AArch64 object");
-		return compile_native_assembly(input.name, invocation.preprocessor, invocation.target, object);
+		const MakeDependencies& dependencies = invocation.dependencies;
+		const bool side_file = dependencies.mode == MakeDependencies::Mode::SideFile;
+		std::vector<std::string> headers;
+		if (!compile_native_assembly(input.name, invocation.preprocessor, invocation.target, object,
+				side_file ? &headers : nullptr, dependencies.include_system))
+			return false;
+		if (side_file)
+			write_side_dependencies(invocation, input.name, headers);
+		return true;
 	}
 	return input.kind == Input::Kind::LowIR
 		? compile_lowir_unit(input.name, invocation, eh_model, object, lowir_output)
@@ -1192,7 +1239,7 @@ bool regular_file(const std::string& path)
 void check_output(const Invocation& invocation, const std::string& output)
 {
 	struct stat out;
-	if (stat(output.c_str(), &out) != 0)
+	if (stat(output.c_str(), &out) != 0 || !S_ISREG(out.st_mode))
 		return;
 	for (const Input& input : invocation.inputs)
 	{
@@ -1640,6 +1687,7 @@ bool preprocess_tokens(
 	// The stream types literals as the course's preprocessor does.
 	PostTokenizer tokens(preprocessor, nullptr, NumberStreamDialect(invocation.preprocessor.literals),
 		invocation.target, invocation.preprocessor.gnu_c(), invocation.preprocessor.cxx_edition);
+	tokens.set_short_wchar(invocation.preprocessor.short_wchar);
 	tokens.set_c23(
 		invocation.preprocessor.language == SourceLanguage::C && invocation.preprocessor.c_edition >= CEdition::C23);
 	tokens.set_source_positions(preprocessor, invocation.preprocessor.iso_c_before_c99());
@@ -1657,31 +1705,41 @@ bool preprocess_tokens(
 	}
 }
 
+void preprocess_source(Preprocessor& preprocessor, std::ostream& output)
+{
+	bool after_token = false;
+	for (;;)
+	{
+		const PPToken& token = preprocessor.next();
+		if (token.kind == PPTokenKind::EndOfFile)
+			break;
+		if (token.kind == PPTokenKind::WhitespaceSequence || token.kind == PPTokenKind::NewLine)
+			continue;
+		if (after_token)
+			output.put((token.flags & kStartOfLine) != 0 ? '\n' : ' ');
+		output.write(token.spelling, token.length);
+		after_token = true;
+	}
+	if (after_token)
+		output.put('\n');
+}
+
 bool preprocess_unit(const Input& source, const Invocation& invocation, std::ostream& out, PostTokenWriter& output)
 {
 	const std::string& input = source.name;
 	const std::string path = input == "-" ? "<stdin>" : input;
 	const MakeDependencies& dependencies = invocation.dependencies;
 	const bool only_dependencies = dependencies.mode == MakeDependencies::Mode::Only;
-	if (!only_dependencies && !invocation.dump_macros)
+	if (!only_dependencies && !invocation.dump_macros && !invocation.preprocess_text)
 		output.write_line("sof " + path);
 	try
 	{
-		std::ifstream empty;
-		if (input == "/dev/null")
-			empty.open(input);
-		std::istream* stream = input == "-" ? &std::cin : empty.is_open() ? &empty : nullptr;
+		const bool assembly = source.kind == Input::Kind::Assembly;
 		PreprocessorOptions assembly_options;
-		if (source.kind == Input::Kind::Assembly)
-		{
-			assembly_options = invocation.preprocessor;
-			assembly_options.assembler = true;
-			assembly_options.language = SourceLanguage::C;
-			assembly_options.cxx_edition = 0;
-			assembly_options.builtin_declarations.clear();
-		}
+		if (assembly)
+			assembly_options = assembly_preprocessor_options(invocation.preprocessor);
 		Preprocessor preprocessor(
-			source.kind == Input::Kind::Assembly ? assembly_options : invocation.preprocessor, path, stream);
+			assembly ? assembly_options : invocation.preprocessor, path, input == "-" ? &std::cin : nullptr);
 		try
 		{
 			if (only_dependencies || invocation.dump_macros)
@@ -1695,6 +1753,10 @@ bool preprocess_unit(const Input& source, const Invocation& invocation, std::ost
 				else
 					preprocessor.dump_macros(out);
 			}
+			else if (assembly)
+				out << assembly_source(preprocessor) << '\n';
+			else if (invocation.preprocess_text)
+				preprocess_source(preprocessor, out);
 			else if (!preprocess_tokens(preprocessor, path, invocation, output))
 				return false;
 			if (invocation.trace_includes)
@@ -1730,7 +1792,7 @@ int preprocess_mode(const Invocation& invocation)
 	std::vector<const Input*> sources;
 	for (const Input& input : invocation.inputs)
 	{
-		if (input.kind == Input::Kind::Source || (only_dependencies && input.kind == Input::Kind::Assembly))
+		if (input.kind == Input::Kind::Source || input.kind == Input::Kind::Assembly)
 			sources.push_back(&input);
 		else if (only_dependencies || input.kind != Input::Kind::Library)
 			throw InvocationError("preprocessing requires source inputs: " + input.name);
@@ -1738,7 +1800,7 @@ int preprocess_mode(const Invocation& invocation)
 	if (!only_dependencies && sources.size() != 1 && !path.empty())
 		throw InvocationError("cannot specify -o with -E and several inputs");
 	std::ofstream file;
-	if (!path.empty() && (!only_dependencies || path != "-"))
+	if (!path.empty() && path != "-")
 	{
 		check_output(invocation, path);
 		file.open(path, std::ios::binary);
@@ -1747,7 +1809,7 @@ int preprocess_mode(const Invocation& invocation)
 	}
 	std::ostream& out = file.is_open() ? file : std::cout;
 	PostTokenWriter output(out);
-	if (!only_dependencies && !invocation.dump_macros)
+	if (!only_dependencies && !invocation.dump_macros && !invocation.preprocess_text)
 		output.write_line("preproc " + std::to_string(sources.size()));
 	for (const Input* source : sources)
 		if (!preprocess_unit(*source, invocation, out, output))
@@ -1780,6 +1842,9 @@ int debug_type_request(const std::string& arg)
 int run_toolchain(const std::vector<std::string>& args, const PreprocessorOptions& base)
 {
 	const Invocation invocation = parse(args, base);
+	if (invocation.assembler_version && !invocation.preprocess_only &&
+		invocation.dependencies.mode != MakeDependencies::Mode::Only)
+		std::cout << "cppgm integrated assembler " CPPGM_VERSION "\n";
 	if (invocation.dependencies.mode == MakeDependencies::Mode::Only)
 		return preprocess_mode(invocation);
 	const bool wasm_target = target_model::is_wasm(invocation.target);
@@ -1792,8 +1857,7 @@ int run_toolchain(const std::vector<std::string>& args, const PreprocessorOption
 			throw InvocationError("-flto=full requires a link command or a supported native object build");
 	}
 	for (const Input& input : invocation.inputs)
-		if (input.kind == Input::Kind::Assembly &&
-			(invocation.preprocess_only || invocation.syntax_only || invocation.emit_lowir))
+		if (input.kind == Input::Kind::Assembly && (invocation.syntax_only || invocation.emit_lowir))
 			throw InvocationError("assembly input requires a compile or link invocation");
 
 	if (!wasm_target && !invocation.exports.empty())

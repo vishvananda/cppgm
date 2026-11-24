@@ -174,9 +174,17 @@ struct RangeForStmt : Stmt
 	bool array_decomposition_by_value = false;
 };
 
+struct CaseRangeEnd
+{
+	Expr* expression;
+	mutable uint64_t converted = 0;
+	mutable uint64_t converted_high = 0;
+};
+
 struct CaseStmt : Stmt
 {
 	Expr* value;
+	CaseRangeEnd* range_end = nullptr;
 	Stmt* body;
 	// Semantics mode: the label's value converted to the switch's promoted
 	// condition type (6.4.2p2).

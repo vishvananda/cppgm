@@ -8,7 +8,6 @@
 #include "preprocess/preprocessor.h"
 
 namespace driver {
-namespace {
 
 std::string assembly_source(Preprocessor& preprocessor)
 {
@@ -21,32 +20,38 @@ std::string assembly_source(Preprocessor& preprocessor)
 			return source;
 		if ((token.flags & kStartOfLine) != 0)
 		{
-			source.push_back('\n');
+			if (!source.empty())
+				source.push_back('\n');
 			comment = false;
 		}
 		if (token.punctuator == kHashPunctuator)
 			comment = true;
 		if (comment || token.kind == PPTokenKind::WhitespaceSequence || token.kind == PPTokenKind::NewLine)
 			continue;
-		if ((token.flags & kLeadingSpace) != 0)
+		if ((token.flags & kLeadingSpace) != 0 && !source.empty() && source.back() != '\n')
 			source.push_back(' ');
 		source.append(token.spelling, token.length);
 	}
 }
 
-} // namespace
-
-bool compile_native_assembly(
-	const std::string& path, const PreprocessorOptions& base, native::Target target, native::object::ObjectFile& object)
+PreprocessorOptions assembly_preprocessor_options(const PreprocessorOptions& base)
 {
 	PreprocessorOptions options = base;
 	options.assembler = true;
 	options.language = SourceLanguage::C;
 	options.cxx_edition = 0;
 	options.builtin_declarations.clear();
+	return options;
+}
+
+bool compile_native_assembly(const std::string& path, const PreprocessorOptions& base, native::Target target,
+	native::object::ObjectFile& object, std::vector<std::string>* headers, bool include_system_headers)
+{
+	const std::string name = path == "-" ? "<stdin>" : path;
 	try
 	{
-		Preprocessor preprocessor(options, path);
+		const PreprocessorOptions options = assembly_preprocessor_options(base);
+		Preprocessor preprocessor(options, name, path == "-" ? &std::cin : nullptr);
 		try
 		{
 			assembly::ModuleExpander expander;
@@ -59,6 +64,8 @@ bool compile_native_assembly(
 			for (const auto& line : lines)
 				assembler.append(line);
 			assembler.finish();
+			if (headers != nullptr)
+				*headers = preprocessor.dependency_headers(include_system_headers);
 			return true;
 		}
 		catch (const PreprocessError& failure)

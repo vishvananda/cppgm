@@ -26,6 +26,7 @@ public:
 	// IsUserDefinedSuffix).
 	void set_reserved_suffixes(bool on) { reserved_suffixes_ = on; }
 	void set_conditional_escapes(bool on) { conditional_escapes_ = on; }
+	void set_short_wchar(bool on) { short_wchar_ = on; }
 
 	// Appends the next piece. The spelling is copied.
 	void add(const char* spelling, uint32_t length);
@@ -44,11 +45,15 @@ public:
 	// After a successful concatenate(): the array element type, the code
 	// units (little-endian), the array bound and the ud-suffix (empty if
 	// none).
-	FundamentalType element_type() const { return StringElementType(prefix_); }
+	FundamentalType element_type() const
+	{
+		return prefix_ == EncodingPrefix::Wide && short_wchar_ ? FundamentalType::UnsignedShortInt
+															   : StringElementType(prefix_);
+	}
 	EncodingPrefix encoding_prefix() const { return prefix_; }
 	const unsigned char* data() const { return reinterpret_cast<const unsigned char*>(units_.data()); }
 	uint32_t size() const { return static_cast<uint32_t>(units_.size()); }
-	uint32_t element_count() const { return size() / CodeUnitWidth(prefix_); }
+	uint32_t element_count() const { return size() / width_; }
 	TokenSpelling ud_suffix() const { return suffix_; }
 	bool numeric_escapes() const { return numeric_escapes_; }
 
@@ -73,5 +78,6 @@ private:
 	TokenSpelling suffix_ = TokenSpelling{ nullptr, 0 };
 	bool reserved_suffixes_ = false;
 	bool conditional_escapes_ = false;
+	bool short_wchar_ = false;
 	bool numeric_escapes_ = false;
 };

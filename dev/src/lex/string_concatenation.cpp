@@ -26,7 +26,7 @@ bool StringLiteralSequence::concatenate()
 	if (!combine_prefixes_and_suffixes())
 		return false;
 
-	width_ = CodeUnitWidth(prefix_);
+	width_ = prefix_ == EncodingPrefix::Wide && short_wchar_ ? 2 : CodeUnitWidth(prefix_);
 	for (const Piece& piece : pieces_)
 	{
 		// Splitting succeeded in combine_prefixes_and_suffixes().

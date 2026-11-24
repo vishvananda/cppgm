@@ -36,6 +36,11 @@ public:
 	// exceptions (SourceError from the lexer).
 	const PostToken& next();
 	void set_c23(bool enabled) { c23_ = enabled; }
+	void set_short_wchar(bool enabled)
+	{
+		short_wchar_ = enabled;
+		strings_.set_short_wchar(enabled);
+	}
 
 	// Syntax uses the classified component and converts its value on demand.
 	void defer_imaginary_values() { defer_imaginary_values_ = true; }
@@ -70,6 +75,7 @@ private:
 	NumberDialect literals_;
 	bool conditional_escapes_;
 	bool c23_ = false;
+	bool short_wchar_ = false;
 	uint8_t cxx_edition_;
 	target_model::Target target_;
 	// A pp-token pulled past the end of a string literal sequence.

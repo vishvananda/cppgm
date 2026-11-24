@@ -882,6 +882,8 @@ void AstDumper::statement(const Stmt& stmt)
 		const CaseStmt& label = static_cast<const CaseStmt&>(stmt);
 		open("case-statement");
 		expression(*label.value);
+		if (label.range_end != nullptr)
+			expression(*label.range_end->expression);
 		statement(*label.body);
 		close();
 		break;

@@ -2536,10 +2536,30 @@ bool ConstantInterpreter::cast(const syntax::Expr& expr, const syntax::Expr& ope
 		out.type = type;
 		return discard(operand_expr);
 	}
-	const ExprFacts* facts = WithoutParentheses(&operand_expr)->facts;
+	const syntax::Expr* operand = WithoutParentheses(&operand_expr);
+	const ExprFacts* facts = operand->facts;
 	if (c_static_initializer_ && IsPointer(type) && IsIntegralOrUnscopedEnum(facts->type) &&
 		!analyzer_.c_integer_constant_operands(operand_expr))
+	{
+		// A pointer-sized integer round trip preserves the relocation. Keep
+		// the original address as the constant value for the outer cast.
+		if (operand->kind == syntax::ExprKind::Cast && (facts->flags & kRuntimeTypeEvaluation) == 0)
+		{
+			const syntax::Expr& original = *static_cast<const syntax::CastExpr*>(operand)->operand;
+			const Type* source = original.facts->type;
+			const unsigned pointer_bits = target_model::data_layout(analyzer_.types_.target()).pointer_bytes * 8;
+			IntegralKind kind;
+			if (IntegralKindOf(facts->type, kind) && kind.bits == pointer_bits &&
+				(IsPointer(source) || source->kind == TypeKind::Array || source->kind == TypeKind::Function))
+			{
+				if (!rvalue(original, out) || out.kind != ValueKind::Pointer)
+					return false;
+				out.type = type->unqualified;
+				return true;
+			}
+		}
 		return fail(expr.location, "an integer cast to a C address constant must be an integer constant expression");
+	}
 	const Conversion* conversion = facts->conversion;
 	if (ConversionFunction(conversion))
 		return converted(operand_expr, conversion, out) && convert_scalar(out, type, expr.location);

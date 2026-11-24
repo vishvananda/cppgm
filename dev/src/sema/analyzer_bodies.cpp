@@ -709,6 +709,29 @@ void Analyzer::scoped_statement(const syntax::Stmt& stmt, Scope* scope, BodyCont
 		if (std::adjacent_find(first, case_values_.end()) != case_values_.end() ||
 			std::adjacent_find(wide.begin(), wide.end()) != wide.end())
 			error(stmt.location, "duplicate case value");
+		if (!context.ranges.empty())
+		{
+			IntegralKind kind;
+			IntegralKindOf(context.type, kind);
+			// Signed constants are sign-extended. Flip the highest bit so
+			// sorting an unsigned representation follows signed order.
+			const uint64_t sign = kind.is_signed ? uint64_t(1) << 63 : 0;
+			for (auto it = first; it != case_values_.end(); ++it)
+			{
+				const uint64_t key = *it ^ sign;
+				context.ranges.push_back(CaseValueRange{ key, key });
+			}
+			for (unsigned __int128 value : wide)
+			{
+				const auto key = value ^ (static_cast<unsigned __int128>(sign) << 64);
+				context.ranges.push_back(CaseValueRange{ key, key });
+			}
+			std::sort(context.ranges.begin(), context.ranges.end(),
+				[](const CaseValueRange& a, const CaseValueRange& b) { return a.first < b.first; });
+			for (size_t i = 1; i < context.ranges.size(); ++i)
+				if (context.ranges[i - 1].last >= context.ranges[i].first)
+					error(stmt.location, "overlapping case values");
+		}
 		case_values_.resize(context.first_value);
 		return;
 	}
@@ -775,6 +798,8 @@ void Analyzer::scoped_statement(const syntax::Stmt& stmt, Scope* scope, BodyCont
 				error(stmt.location,
 					"case label inside a try block, handler (15p2) or statement expression the switch encloses");
 			expression(case_stmt.value, scope);
+			if (case_stmt.range_end != nullptr)
+				expression(case_stmt.range_end->expression, scope);
 		}
 		return statement(*case_stmt.body, scope);
 	}
@@ -1108,38 +1133,64 @@ void Analyzer::case_label(const syntax::CaseStmt& stmt, Scope* scope)
 	if (context->handled != body_->handled)
 		error(
 			stmt.location, "case label inside a try block, handler (15p2) or statement expression the switch encloses");
-	typed_value(*stmt.value, scope);
-	// A deferred reserved builtin call (see deferrable_statement).
-	if (deferred_reserved_call())
-		return;
-	// A class operand converts by the conversion function the promoted
-	// type's copy-initialization selects (5.19p3).
-	convert_to_scalar(*stmt.value, context->type, false);
-	Constant value;
 	IntegralKind kind;
 	IntegralKindOf(context->type, kind);
-	uint64_t high = 0;
-	const bool c_wide = c_source_ && (kind.bits > 64 || IsWideIntegral(facts_of(*stmt.value)->type));
-	integer_constant_expression(*stmt.value, scope, value, true, c_wide ? &high : nullptr);
-	convert_operand(*stmt.value, context->type);
-	if (c_wide && kind.bits > 64)
-	{
-		const auto wide = ConvertWideIntegral((static_cast<unsigned __int128>(high) << 64) | value.bits, kind);
-		stmt.converted = static_cast<uint64_t>(wide);
-		stmt.converted_high = static_cast<uint64_t>(wide >> 64);
-		context->wide_values.push_back(wide);
+	const Type* type = context->type;
+	const auto read_value = [&](const syntax::Expr& expression, uint64_t& low, uint64_t& high) {
+		typed_value(expression, scope);
+		// A deferred reserved builtin call (see deferrable_statement).
+		if (deferred_reserved_call())
+			return false;
+		// A class operand converts by the conversion function the promoted
+		// type's copy-initialization selects (5.19p3).
+		convert_to_scalar(expression, type, false);
+		Constant value;
+		uint64_t value_high = 0;
+		const bool c_wide = c_source_ && (kind.bits > 64 || IsWideIntegral(facts_of(expression)->type));
+		integer_constant_expression(expression, scope, value, true, c_wide ? &value_high : nullptr);
+		convert_operand(expression, type);
+		if (c_wide && kind.bits > 64)
+		{
+			const auto wide = ConvertWideIntegral(
+				(static_cast<unsigned __int128>(value_high) << 64) | value.bits, kind);
+			low = static_cast<uint64_t>(wide);
+			high = static_cast<uint64_t>(wide >> 64);
+			return true;
+		}
+		// 5.19p3: the conversion of a converted constant expression is not
+		// narrowing (8.5.4p7): the value is representable in the promoted type.
+		if (!c_source_ && value.type->kind != TypeKind::Enum && !Representable(value, kind))
+			error(expression.location, "case value narrowed by conversion to the switch condition's type");
+		else if (!HeldAsWideConstant(value, kind))
+			error(expression.location, "a 128-bit case value beyond the 64-bit constants evaluated");
+		low = ConvertIntegral(value.bits, kind);
+		if (kind.bits > 64)
+			high = WideHigh(type, low);
+		return true;
+	};
+	if (!read_value(*stmt.value, stmt.converted, stmt.converted_high))
 		return;
+	if (stmt.range_end != nullptr)
+	{
+		const auto& end = *stmt.range_end;
+		if (!read_value(*end.expression, end.converted, end.converted_high))
+			return;
+		const auto key = [kind](uint64_t low, uint64_t high) -> unsigned __int128 {
+			const uint64_t sign = kind.is_signed ? uint64_t(1) << 63 : 0;
+			if (kind.bits <= 64)
+				return low ^ sign;
+			return (static_cast<unsigned __int128>(high ^ sign) << 64) | low;
+		};
+		const auto first = key(stmt.converted, stmt.converted_high);
+		const auto last = key(end.converted, end.converted_high);
+		if (first > last)
+			error(stmt.location, "empty case range");
+		context->ranges.push_back(CaseValueRange{ first, last });
 	}
-	// 5.19p3: the conversion of a converted constant expression is not
-	// narrowing (8.5.4p7): the value is representable in the promoted type.
-	if (!c_source_ && value.type->kind != TypeKind::Enum && !Representable(value, kind))
-		error(stmt.value->location, "case value narrowed by conversion to the switch condition's type");
-	else if (!HeldAsWideConstant(value, kind))
-		error(stmt.value->location, "a 128-bit case value beyond the 64-bit constants evaluated");
-	stmt.converted = ConvertIntegral(value.bits, kind);
-	if (kind.bits > 64)
-		stmt.converted_high = WideHigh(context->type, stmt.converted);
-	case_values_.push_back(stmt.converted);
+	else if (c_source_ && kind.bits > 64)
+		context->wide_values.push_back((static_cast<unsigned __int128>(stmt.converted_high) << 64) | stmt.converted);
+	else
+		case_values_.push_back(stmt.converted);
 }
 
 void Analyzer::return_statement(const syntax::ValueStmt& stmt, Scope* scope)

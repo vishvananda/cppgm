@@ -155,6 +155,7 @@ public:
 	// GNU recursion suppression follows active replacement contexts; the
 	// course-defined token nesting remains the default.
 	void set_hosted_recursion(bool enabled) { hosted_recursion_ = enabled; }
+	void set_assembler(bool enabled) { assembler_ = enabled; }
 
 	// The next token of the macro-replaced input, with the input's EndOfFile
 	// at its end. Valid until the next call. Throws PreprocessError.
@@ -316,7 +317,7 @@ private:
 	template<bool has_placemarkers = false>
 	PPToken stringize(const std::vector<PPToken>& tokens, uint32_t begin, uint32_t end,
 		const ReplacementToken& operator_token, const PPToken& head);
-	PPToken paste_tokens(const PPToken& left, const PPToken& right);
+	bool paste_tokens(PPToken& left, PPToken& right);
 	void remove_placemarkers(uint32_t begin);
 
 	void replace_builtin(const MacroDefinition& macro);
@@ -347,6 +348,7 @@ private:
 	bool binary_exponents_;
 	bool digit_separators_;
 	bool hosted_recursion_;
+	bool assembler_ = false;
 	bool conditional_escapes_ = false;
 	bool unicode_literal_prefixes_ = true;
 	CEdition c_edition_ = CEdition::C17;

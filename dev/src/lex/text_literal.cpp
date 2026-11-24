@@ -291,8 +291,8 @@ CharacterLiteralValue EvaluateMulticharacterLiteral(const char* text, const Text
 
 } // namespace
 
-CharacterLiteralValue EvaluateCharacterLiteral(
-	const char* text, uint32_t length, CharacterDialect dialect, bool conditional_escapes, uint8_t cxx_edition)
+CharacterLiteralValue EvaluateCharacterLiteral(const char* text, uint32_t length, CharacterDialect dialect,
+	bool conditional_escapes, uint8_t cxx_edition, bool short_wchar)
 {
 	CharacterLiteralValue result = { false, false, FundamentalType::Int, 0, length };
 	TextLiteralParts parts;
@@ -333,6 +333,11 @@ CharacterLiteralValue EvaluateCharacterLiteral(
 		if (result.code_point > 0xFFFF)
 			return result;
 		result.type = FundamentalType::Char16T;
+		break;
+	case EncodingPrefix::Wide:
+		if (short_wchar && result.code_point > 0xFFFF)
+			return result;
+		result.type = short_wchar ? FundamentalType::UnsignedShortInt : FundamentalType::WcharT;
 		break;
 	default:
 		result.type = StringElementType(parts.prefix);

@@ -949,8 +949,9 @@ void Analyzer::anonymous_union(ClassEntity* entity, const Specifiers& specifiers
 	entity->scope->label = label;
 	for (const Binding* member = entity->scope->bindings; member != nullptr; member = member->next)
 	{
-		// A nested unnamed class's placeholder line is not a member.
-		if (member->hidden)
+		// A nested unnamed class's placeholder line and C tag declarations
+		// printed here belong outside member-name injection.
+		if (member->hidden || (c_source_ && member->kind == BindingKind::Type))
 			continue;
 		if (member->kind != BindingKind::Variable)
 			error(location, "an anonymous union can only have non-static data members");

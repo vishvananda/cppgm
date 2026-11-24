@@ -60,7 +60,7 @@ bool IsAssignment(CopyKind kind)
 // The case or default label a switch on `value` transfers to (6.4.2p5),
 // searched through the statements of its body outside nested switches.
 const syntax::Stmt* SwitchTarget(
-	const syntax::Stmt* stmt, uint64_t value, const syntax::Stmt*& fallback, uint32_t depth)
+	const syntax::Stmt* stmt, const ConstValue& value, const syntax::Stmt*& fallback, uint32_t depth)
 {
 	if (stmt == nullptr || depth > 256)
 		return nullptr;
@@ -76,7 +76,22 @@ const syntax::Stmt* SwitchTarget(
 	case syntax::StmtKind::Case:
 	{
 		const syntax::CaseStmt* label = static_cast<const syntax::CaseStmt*>(stmt);
-		if (label->converted == value)
+		if (label->range_end != nullptr && IsWideIntegral(value.type))
+		{
+			const unsigned __int128 bits = (static_cast<unsigned __int128>(value.high) << 64) | value.bits;
+			const unsigned __int128 first = (static_cast<unsigned __int128>(label->converted_high) << 64) |
+				label->converted;
+			const unsigned __int128 last = (static_cast<unsigned __int128>(label->range_end->converted_high) << 64) |
+				label->range_end->converted;
+			if (bits - first <= last - first)
+				return stmt;
+		}
+		else if (label->range_end != nullptr)
+		{
+			if (value.bits - label->converted <= label->range_end->converted - label->converted)
+				return stmt;
+		}
+		else if (label->converted == value.bits && (!IsWideIntegral(value.type) || label->converted_high == value.high))
 			return stmt;
 		return SwitchTarget(label->body, value, fallback, depth + 1);
 	}
@@ -1338,7 +1353,7 @@ bool ConstantInterpreter::switch_statement(const syntax::ConditionalLoopStmt& st
 	if (value.kind != ValueKind::Integer)
 		return fail(stmt.location, "a switch condition that is not an integer");
 	const syntax::Stmt* fallback = nullptr;
-	const syntax::Stmt* target = SwitchTarget(stmt.body, value.bits, fallback, 0);
+	const syntax::Stmt* target = SwitchTarget(stmt.body, value, fallback, 0);
 	if (target == nullptr)
 		target = fallback;
 	bool done = true;

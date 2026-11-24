@@ -55,6 +55,7 @@ enum class DriverMode
 struct DriverInvocation
 {
 	DriverMode mode;
+	size_t query_index = 0;
 
 	DriverInvocation() : mode(DriverMode::Link) {}
 };
@@ -99,7 +100,7 @@ bool ends_with(const string& value, const string& suffix)
 bool is_query_driver_flag(const string& arg)
 {
 	return arg == "--version" || arg == "-v" || arg == "-dumpmachine" || arg == "-dumpversion" ||
-		arg == "-print-search-dirs";
+		arg == "-print-search-dirs" || starts_with(arg, "-print-file-name=");
 }
 
 bool is_optimization_flag(const string& arg)
@@ -210,6 +211,7 @@ struct SourceOutputInvocation
 	driver::StandardIncludes includes = driver::StandardIncludes::All;
 	string gcc_install_dir;
 	int plain_char_unsigned = -1;
+	bool short_wchar = false;
 	bool popcnt = false;
 	bool popcnt_explicit = false;
 	uint8_t sse_level = 0;
@@ -397,6 +399,11 @@ SourceOutputInvocation parse_source_output_invocation(const vector<string>& args
 			args[i] == "-fno-unsigned-char")
 		{
 			invocation.plain_char_unsigned = args[i] == "-funsigned-char" || args[i] == "-fno-signed-char";
+			continue;
+		}
+		if (args[i] == "-fshort-wchar" || args[i] == "-fno-short-wchar")
+		{
+			invocation.short_wchar = args[i] == "-fshort-wchar";
 			continue;
 		}
 		const size_t option = i;
@@ -681,13 +688,15 @@ DriverInvocation parse_driver_invocation(const vector<string>& args)
 	}
 
 	DriverInvocation invocation;
-	if (is_query_driver_flag(args[0]))
+	const size_t first = args.size() == 2 && args[0] == "-fintegrated-as" ? 1 : 0;
+	if (is_query_driver_flag(args[first]))
 	{
-		if (args.size() != 1)
+		if (args.size() != 1 && first == 0 && !(args.size() == 2 && args[1] == "-fintegrated-as"))
 		{
 			throw InvocationError("query flag must be used as a direct invocation");
 		}
 		invocation.mode = DriverMode::Query;
+		invocation.query_index = first;
 		return invocation;
 	}
 
@@ -718,7 +727,7 @@ DriverInvocation parse_driver_invocation(const vector<string>& args)
 		{
 			continue;
 		}
-		if (args[i] == "-dM" || args[i] == "-H")
+		if (args[i] == "-dM" || args[i] == "-H" || args[i] == "-P")
 			continue;
 		if (args[i] == "-E")
 		{
@@ -803,6 +812,7 @@ PreprocessorOptions source_preprocessor_options(const SourceOutputInvocation& in
 	driver::configure_c_environment(options, invocation.target, invocation.c_environment);
 	options.plain_char_unsigned = invocation.plain_char_unsigned < 0 ? invocation.target == native::Target::AArch64Linux
 																	 : invocation.plain_char_unsigned != 0;
+	options.short_wchar = invocation.short_wchar;
 	options.popcnt = invocation.popcnt;
 	options.modes.rtti = invocation.rtti;
 	options.sse_level = invocation.sse_level;
@@ -1317,7 +1327,7 @@ int run_driver_mode(const vector<string>& args)
 	switch (invocation.mode)
 	{
 	case DriverMode::Query:
-		return driver::run_query(args[0]);
+		return driver::run_query(args[invocation.query_index]);
 	case DriverMode::Preprocess:
 	case DriverMode::Compile:
 	case DriverMode::Link:
@@ -1342,6 +1352,7 @@ int run_cppgm(const vector<string>& raw_args)
 		// list more).
 		cout << cppgm_help_text() << "\n"
 			 << "this compiler's flags:\n"
+				"  -E -P              write preprocessed source without line markers\n"
 				"  -S -emit-lowir      write the LowIR that -c compiles, after the LowIR optimizer\n"
 				"                      (default output: <input>.lowir)\n"
 				"  -fno-lowir-passes   compile without the LowIR optimizer; the back end runs at the -O level\n"

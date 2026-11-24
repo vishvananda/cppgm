@@ -62,6 +62,7 @@ public:
 		NumberDialect literals = NumberDialect::Cxx11, bool plain_char_unsigned = false);
 
 	void set_conditional_escapes(bool on) { conditional_escapes_ = on; }
+	void set_short_wchar(bool on) { short_wchar_ = on; }
 	void set_cxx_edition(uint8_t edition) { cxx_edition_ = edition; }
 	void set_true_keyword(bool on) { true_keyword_ = on; }
 	void set_binary_literal_diagnostics(const SourcePositions& positions) { binary_literal_diagnostics_ = &positions; }
@@ -137,6 +138,7 @@ private:
 	const SourcePositions* binary_literal_diagnostics_ = nullptr;
 	NumberDialect literals_;
 	bool conditional_escapes_ = false;
+	bool short_wchar_ = false;
 	bool allow_defined_ = true;
 	bool true_keyword_ = true;
 	uint8_t cxx_edition_ = 11;

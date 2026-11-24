@@ -36,6 +36,20 @@ are separate choices. `-x c++` continues to select C++; a language and standard
 that disagree must be diagnosed. The existing `.c` handling is unchanged unless
 C is selected explicitly.
 
+For C input, `-fshort-wchar` selects `unsigned short` as the type of wide
+character constants and the element type of wide string literals. Wide
+strings use UTF-16 code units and the `__WCHAR_*` and `__SIZEOF_WCHAR_T__`
+predefines describe the selected type. `-fno-short-wchar` restores the target
+default. Use the same setting across translation units that share wide types.
+
+GNU C modes recognize `asm` as the spelling of `__asm__`. In ISO C modes,
+`asm` remains an ordinary identifier.
+
+Accept GNU C's `case first ... last:` labels. Both bounds are integer
+constant expressions converted to the promoted switch type. Ranges are
+inclusive and must be ordered, with no overlap with another label in the
+same switch. The width of a range must not determine the size of the IR.
+
 Use `-std=c90`, `-std=c89`, or `-std=iso9899:1990` for ISO C90. These
 modes leave `__STDC_VERSION__` undefined. The C95 amendment mode,
 `-std=iso9899:199409`, defines it as `199409L` and recognizes digraphs in

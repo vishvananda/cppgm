@@ -80,6 +80,7 @@ ControllingExpressionResult ControllingExpressionEvaluator::evaluate_embed_limit
 {
 	ControllingExpressionEvaluator limit(macros_, literals_, plain_char_unsigned_);
 	limit.set_conditional_escapes(conditional_escapes_);
+	limit.set_short_wchar(short_wchar_);
 	limit.set_cxx_edition(cxx_edition_);
 	limit.set_true_keyword(true_keyword_);
 	limit.allow_defined_ = false;
@@ -268,7 +269,7 @@ void ControllingExpressionEvaluator::classify_character(const PPToken& pp)
 	// expressions.
 	const CharacterLiteralValue character = EvaluateCharacterLiteral(pp.spelling, pp.length,
 		HasNumberSyntax(literals_, number_syntax::GnuCharacter) ? CharacterDialect::Gnu : CharacterDialect::Course,
-		conditional_escapes_, cxx_edition_);
+		conditional_escapes_, cxx_edition_, short_wchar_);
 	if (!character.valid || character.multicharacter || character.suffix_begin != pp.length)
 		return;
 	token_.kind = TokenClass::Operand;

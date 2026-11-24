@@ -193,6 +193,9 @@ Support `.text`, `.data`, `.bss`, `.rodata`, `.section`, the section stack and
 `.previous`; `.byte`/`.short`/`.word`/`.long`/`.quad`, `.zero`/`.space`/`.skip`,
 `.ascii`/`.asciz`/`.string`, and `.p2align`/`.balign`/`.align`/`.align`. Respect target
 alignment and section spelling differences.
+Adjacent quoted pieces in one string operand concatenate before an optional
+string terminator is emitted. For ELF symbol types, also accept `STT_FUNC`
+and `STT_OBJECT`, including the space-separated `.type symbol STT_FUNC` form.
 
 Preserve global/weak/local binding, hidden visibility, `.type`, `.size` and
 symbol aliases with `.set`/`.equ`. Support symbol addresses and constant addends,

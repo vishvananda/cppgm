@@ -219,6 +219,15 @@ Stmt* Parser::parse_statement(Stmt** declaration_after_label)
 		CaseStmt* label = make<CaseStmt>(StmtKind::Case, start);
 		next();
 		label->value = parse_expression();
+		if (c_source_ && accept(TokenKind::OP_DOTS))
+		{
+			require_gnu_c_extension(start, "case ranges are a GNU C extension");
+			Expr* last = parse_expression();
+			if (last == nullptr)
+				return nullptr;
+			label->range_end = make<CaseRangeEnd>();
+			label->range_end->expression = last;
+		}
 		if (label->value == nullptr || !expect(TokenKind::OP_COLON))
 			return nullptr;
 		label->body = parse_label_body(declaration_after_label);

@@ -201,6 +201,11 @@ Previously required:
 New or newly required in PA30:
 
 - hosted preprocess mode: `-E`
+  - `-E -P` writes expanded preprocessing tokens as source text without line
+    markers. Preserve token boundaries and use `-o -` for standard output.
+  - `-E -x assembler-with-cpp` also writes source text. In this mode a paste
+    such as `. ## text` may leave separate preprocessing tokens that appear
+    adjacent in the resulting assembly.
   - `-E -dM` writes the active object-like and function-like definitions
     after reading the input, including command-line and header definitions.
     It omits computed builtins such as `__LINE__`. Use `-` as the input to
@@ -212,6 +217,8 @@ New or newly required in PA30:
     The default output is standard output. Use `-MF <file>` to select a file.
   - `-MD` and `-MMD` also write a make rule during compilation. The default
     depfile is named for the output, with a `.d` suffix.
+    `-Wp,-MD,<file>` and `-Wp,-MMD,<file>` select the corresponding mode and
+    dependency file together.
   - `-M` and `-MD` include system headers. `-MM` and `-MMD` omit system
     headers and headers reached solely through them. A system-header pragma
     also excludes subsequent includes from that file. The file itself keeps

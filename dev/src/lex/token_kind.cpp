@@ -342,6 +342,8 @@ bool FindCKeyword(const char* spelling, uint32_t length, CEdition edition, bool 
 			return true;
 		case TokenKind::KW_INLINE:
 			return gnu || edition >= CEdition::C99;
+		case TokenKind::KW_ASM:
+			return gnu;
 		case TokenKind::KW_ALIGNAS:
 		case TokenKind::KW_ALIGNOF:
 		case TokenKind::KW_BOOL:

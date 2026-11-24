@@ -891,8 +891,8 @@ uint32_t MacroExpander::substitute_optional(const MacroDefinition& macro, const 
 		first.flags = static_cast<uint8_t>((first.flags & ~kLeadingSpace) | (op.token.flags & kLeadingSpace));
 		if (paste)
 		{
-			context_tokens_[begin - 1] = paste_tokens(context_tokens_[begin - 1], first);
-			context_tokens_.erase(context_tokens_.begin() + begin);
+			if (paste_tokens(context_tokens_[begin - 1], first))
+				context_tokens_.erase(context_tokens_.begin() + begin);
 			paste = false;
 		}
 	}
@@ -1079,8 +1079,9 @@ void MacroExpander::emit(const PPToken& token, bool& paste)
 		return;
 	}
 	paste = false;
-	PPToken& left = context_tokens_.back();
-	left = paste_tokens(left, token);
+	PPToken right = token;
+	if (!paste_tokens(context_tokens_.back(), right))
+		context_tokens_.push_back(right);
 }
 
 template<bool has_placemarkers>
@@ -1123,7 +1124,7 @@ PPToken MacroExpander::stringize(const std::vector<PPToken>& tokens, uint32_t be
 	return token;
 }
 
-PPToken MacroExpander::paste_tokens(const PPToken& left, const PPToken& right)
+bool MacroExpander::paste_tokens(PPToken& left, PPToken& right)
 {
 	// A placemarker operand leaves the other operand as it is (16.3.3p3).
 	// Either way the result is a token of the replacement list again: it
@@ -1137,7 +1138,8 @@ PPToken MacroExpander::paste_tokens(const PPToken& left, const PPToken& right)
 		if (result.kind != PPTokenKind::Placemarker)
 			result.hide_set = hide_sets_.merge(building_chain_, result.hide_set);
 		result.origin = building_serial_;
-		return result;
+		left = result;
+		return true;
 	}
 
 	// The spellings are joined and lexed again; they shall form exactly one
@@ -1162,13 +1164,21 @@ PPToken MacroExpander::paste_tokens(const PPToken& left, const PPToken& right)
 	options.digit_separators = digit_separators_;
 	PPLexer lexer(text, options);
 	PPToken result = PPToken();
+	const auto invalid = [&](const char* message) {
+		if (!assembler_)
+			throw PreprocessError(head.begin, message);
+		// GNU assembly constructs such as . ## section need neither a
+		// C token nor a separator. Both operands remain available for rescan.
+		right.flags &= static_cast<uint8_t>(~(kLeadingSpace | kStartOfLine));
+		return false;
+	};
 	try
 	{
 		const PPToken& token = lexer.next();
 		if (token.kind == PPTokenKind::WhitespaceSequence || token.kind == PPTokenKind::NewLine ||
 			token.end != scratch_.size())
 		{
-			throw PreprocessError(head.begin, "token pasting does not form one preprocessing token");
+			return invalid("token pasting does not form one preprocessing token");
 		}
 		result.kind = token.kind;
 		result.punctuator = token.punctuator;
@@ -1190,14 +1200,15 @@ PPToken MacroExpander::paste_tokens(const PPToken& left, const PPToken& right)
 	}
 	catch (const SourceError&)
 	{
-		throw PreprocessError(head.begin, "token pasting does not form a valid preprocessing token");
+		return invalid("token pasting does not form a valid preprocessing token");
 	}
 	result.flags = (left.flags & (kLeadingSpace | kStartOfLine)) | (left.flags & right.flags & kQuietSystemMacro);
 	result.begin = head.begin;
 	result.end = head.end;
 	result.hide_set = building_chain_;
 	result.origin = building_serial_;
-	return result;
+	left = result;
+	return true;
 }
 
 void MacroExpander::remove_placemarkers(uint32_t begin)

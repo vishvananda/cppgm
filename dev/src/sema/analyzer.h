@@ -2275,7 +2275,7 @@ private:
 	bool c23_ = false;
 	bool c_pedantic_ = false;
 	bool c_explicit_extension_ = false;
-	bool c_freestanding_ = false;
+	bool c_freestanding_ = false, short_wchar_ = false;
 	bool c_language_;
 	bool linkage_extern_;
 	bool linkage_specified_;

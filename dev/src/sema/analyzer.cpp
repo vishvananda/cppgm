@@ -98,6 +98,7 @@ void Analyzer::set_source_language(const PreprocessorOptions& options)
 	c23_ = c_source_ && options.c_edition >= CEdition::C23;
 	c_pedantic_ = c_source_ && options.extension_warnings != ExtensionWarnings::Disabled;
 	c_freestanding_ = options.c_freestanding;
+	short_wchar_ = options.short_wchar;
 	c_language_ = c_source_;
 	conversions_.set_c_source(c_source_, options.gnu_c(), c_before_c99_, c23_);
 	if (c23_)

@@ -18,6 +18,7 @@ SyntaxUnit::SyntaxUnit(const PreprocessorOptions& options, const std::string& pa
 	if (options.language == SourceLanguage::C)
 	{
 		post_tokens_.set_c23(options.c_edition >= CEdition::C23);
+		post_tokens_.set_short_wchar(options.short_wchar);
 		preprocessor_.observe_c_float_pragma(&tokens_, ParseTokenStream::note_c_float_pragma);
 		parser_.set_c_contract_default(options.c_contract_by_default);
 		parser_.set_c_edition(options.c_edition);

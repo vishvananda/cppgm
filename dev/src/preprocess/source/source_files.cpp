@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstring>
 #include <fstream>
+#include <iterator>
 #include <limits>
 
 #include "preprocess/preprocess_error.h"
@@ -60,6 +61,19 @@ SourceFile* SourceFiles::open(const std::string& path)
 	SourceFile* file = find_or_read(path);
 	by_path_.emplace(path, file);
 	return file;
+}
+
+SourceFile* SourceFiles::open_primary(const std::string& path)
+{
+	if (SourceFile* regular = open(path))
+		return regular;
+	// Explicit inputs can be character streams. Include resolution still
+	// uses regular files with a stable identity.
+	struct stat info;
+	if (stat(path.c_str(), &info) != 0 || !S_ISCHR(info.st_mode))
+		return nullptr;
+	std::ifstream stream(path, std::ios::binary);
+	return stream ? add_text(path, std::string(std::istreambuf_iterator<char>(stream), {})) : nullptr;
 }
 
 SourceFile* SourceFiles::find_or_read(const std::string& path)

@@ -58,7 +58,9 @@ void ModuleAssembler::strings(assembly::ModuleCursor& cursor, bool terminate)
 {
 	do
 	{
-		const std::string value = cursor.quoted();
+		std::string value = cursor.quoted();
+		while (cursor.quoted_start())
+			value += cursor.quoted();
 		const uint64_t first = offset();
 		reserve(value.size() + terminate, 0);
 		if (out_.sections[section_].kind == SectionKind::Bss)
@@ -111,19 +113,16 @@ void ModuleAssembler::size(assembly::ModuleCursor& cursor)
 void ModuleAssembler::type(assembly::ModuleCursor& cursor)
 {
 	const uint32_t id = symbol(cursor);
-	if (!cursor.take(','))
-		cursor.fail("module type requires its kind");
+	cursor.take(',');
 	cursor.take('@');
 	cursor.take('%');
 	const std::string kind = cursor.word();
-	if (kind == "function" || kind == "gnu_indirect_function")
-	{
-		if (kind != "function")
-			cursor.fail("indirect function module definition is not implemented");
+	if (kind == "function" || kind == "STT_FUNC")
 		out_.symbols[id].type = object::SymbolType::Function;
-	}
-	else if (kind == "object")
+	else if (kind == "object" || kind == "STT_OBJECT")
 		out_.symbols[id].type = object::SymbolType::Object;
+	else if (kind == "gnu_indirect_function")
+		cursor.fail("indirect function module definition is not implemented");
 	else
 		cursor.fail("unsupported module symbol type");
 }

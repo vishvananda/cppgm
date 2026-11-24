@@ -934,6 +934,8 @@ void Printer::statement(const syntax::Stmt& stmt, unsigned depth)
 		const syntax::CaseStmt& case_stmt = static_cast<const syntax::CaseStmt&>(stmt);
 		simple_line(depth, "case-statement");
 		expression(case_stmt.value, depth + 1);
+		if (case_stmt.range_end != nullptr)
+			expression(case_stmt.range_end->expression, depth + 1);
 		statement(*case_stmt.body, depth + 1);
 		return;
 	}

@@ -1560,6 +1560,13 @@ Stmt* SyntaxCloner::stmt(const Stmt* stmt)
 	{
 		CaseStmt* result = copy(static_cast<const CaseStmt*>(stmt));
 		result->value = expr(result->value);
+		if (result->range_end != nullptr)
+		{
+			result->range_end = copy(result->range_end);
+			result->range_end->expression = expr(result->range_end->expression);
+			result->range_end->converted = 0;
+			result->range_end->converted_high = 0;
+		}
 		result->body = this->stmt(result->body);
 		result->converted = 0;
 		result->converted_high = 0;

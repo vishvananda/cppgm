@@ -228,6 +228,7 @@ Preprocessor::Preprocessor(const PreprocessorOptions& options, const std::string
 	source_.set_digraphs(digraphs);
 	expander_.set_digraphs(digraphs);
 	evaluator_.set_conditional_escapes(options.gnu_c());
+	evaluator_.set_short_wchar(options.short_wchar);
 	evaluator_.set_cxx_edition(
 		options.language == SourceLanguage::C && options.c_edition >= CEdition::C23 ? 20 : options.cxx_edition);
 	evaluator_.set_true_keyword(options.language != SourceLanguage::C || options.c_edition >= CEdition::C23);
@@ -239,8 +240,9 @@ Preprocessor::Preprocessor(const PreprocessorOptions& options, const std::string
 	expander_.set_binary_exponents(exponents);
 	expander_.set_digit_separators(separators);
 	expander_.set_hosted_recursion(hosted_);
+	expander_.set_assembler(assembler_);
 	SourceFile* primary = input == nullptr
-		? files_.open(path)
+		? files_.open_primary(path)
 		: files_.add_text(path, std::string(std::istreambuf_iterator<char>(*input), {}));
 	if (primary == nullptr)
 		throw PreprocessError(0, "cannot open the source file");

@@ -17,6 +17,8 @@
 // stream (`preproc <n>`, then `sof`/posttoken/`eof` records per source).
 // -dM with -E writes the active macro definitions in source form. -H
 // with -E writes the header trace to standard error.
+// -P with -E writes expanded preprocessing tokens without line markers.
+// Assembly preprocessing writes source text suitable for the assembler.
 //
 // Options: -c, -E, -o <file>, -I <dir>, -isystem <dir>, -D <name>[=<value>],
 // -U <name>, -L <dir>, -l <name> (each also joined), -include <file>,

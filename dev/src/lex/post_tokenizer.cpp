@@ -238,7 +238,7 @@ void PostTokenizer::convert_character(const PPToken& pp)
 		positions_->diagnose_c23_literal_ucn(pp.begin);
 	const CharacterLiteralValue value = EvaluateCharacterLiteral(pp.spelling, pp.length,
 		HasNumberSyntax(literals_, number_syntax::GnuCharacter) ? CharacterDialect::Gnu : CharacterDialect::Course,
-		conditional_escapes_, c23_ ? 20 : cxx_edition_);
+		conditional_escapes_, c23_ ? 20 : cxx_edition_, short_wchar_);
 	if (!value.valid)
 		return;
 	const FundamentalType type = c23_ && value.type == FundamentalType::Char8T ? FundamentalType::UnsignedChar

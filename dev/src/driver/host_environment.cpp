@@ -13,6 +13,7 @@
 
 #include "cppgm_builtin_host_config.h"
 #include "driver/wasm_environment.h"
+#include "support/tool_errors.h"
 #include "support/version.h"
 
 namespace driver {
@@ -135,6 +136,18 @@ void configure_target_atomics(PreprocessorOptions& options, bool wasm_atomics)
 void configure_target_environment(PreprocessorOptions& options, native::Target target, bool wasm_atomics)
 {
 	options.target = target;
+	if (options.short_wchar)
+	{
+		if (options.language != SourceLanguage::C)
+			throw InvocationError("-fshort-wchar requires C input");
+		options.command_line.insert(0,
+			"#undef __WCHAR_TYPE__\n#define __WCHAR_TYPE__ short unsigned int\n"
+			"#undef __SIZEOF_WCHAR_T__\n#define __SIZEOF_WCHAR_T__ 2\n"
+			"#undef __WCHAR_WIDTH__\n#define __WCHAR_WIDTH__ 16\n"
+			"#undef __WCHAR_MAX__\n#define __WCHAR_MAX__ 65535\n"
+			"#undef __WCHAR_MIN__\n#define __WCHAR_MIN__ 0\n"
+			"#undef __WCHAR_UNSIGNED__\n#define __WCHAR_UNSIGNED__ 1\n");
+	}
 	configure_target_atomics(options, wasm_atomics);
 	if (target_model::is_aarch64(target))
 	{
@@ -669,6 +682,20 @@ std::string host_query(const std::string& flag)
 		return cppgm_builtin_host_config::kTarget;
 	if (flag == "-dumpversion")
 		return cppgm_builtin_host_config::kVersion;
+	if (flag.compare(0, 17, "-print-file-name=") == 0)
+	{
+		const std::string name = flag.substr(17);
+		GccInstallation built;
+		if (name == "include" && BuiltInstallation(built))
+		{
+			if (built.usable(true))
+				return built.directory + "/include\n";
+			GccInstallation found;
+			if (FindInstallation(built, found, true))
+				return found.directory + "/include\n";
+		}
+		return name + '\n';
+	}
 	return cppgm_builtin_host_config::kSearchDirs;
 }
 

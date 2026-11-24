@@ -223,6 +223,12 @@ struct LayoutFrame
 	const DataMember* member;
 };
 
+struct CaseValueRange
+{
+	unsigned __int128 first;
+	unsigned __int128 last;
+};
+
 // A switch statement being analyzed (semantics mode): its promoted
 // condition type, whether it has a default label, and where its case values
 // start on the analysis's stack of them.
@@ -232,6 +238,7 @@ struct SwitchContext
 	bool has_default;
 	size_t first_value;
 	std::vector<unsigned __int128> wide_values;
+	std::vector<CaseValueRange> ranges;
 	// Automatic variables of the switch body in scope at this point whose
 	// declarations a jump to a later label would bypass (6.7p3), and the
 	// try blocks and handlers being analyzed where it began (15p2).
