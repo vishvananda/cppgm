@@ -300,6 +300,37 @@ Each value is the median of three observations on CPU 73.
 At 2,048 functions and `-O2`, median peak RSS is 24,100 KiB for the
 explicit call and 22,048 KiB for the empty initializer.
 
+## C23 labels in compound statements
+
+Compared immutable GCC 15 builds of `ea6523069` and `079f8e0c0` on CPU 71.
+Every frozen compile emitted a byte-identical object. A/A task-clock spreads
+of 0.73% for C++ and 2.40% for SQLite exceed all observed paired changes.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.00271% | +0.00282% | +0.00214% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.00216% | +0.00271% | +0.00342% |
+
+Each generated function has a loop with a label before a declaration and
+a forward jump to a label at the end of its block. The control writes an
+explicit null statement after each label. The candidate inserts the same
+null statements during parsing of the C23 form. All three configurations
+emit byte-identical x86-64 objects at `-O0` and `-O2`. Results show linear
+growth in retired instructions. Each cell uses the median of three
+observations on CPU 73.
+
+| Functions | `-O0` baseline explicit | `-O0` candidate explicit | `-O0` candidate free labels | `-O2` candidate free labels |
+| ---: | ---: | ---: | ---: | ---: |
+| 128 | 27,069,203 | 27,090,147 | 26,869,949 | 97,579,526 |
+| 256 | 50,221,432 | 50,268,690 | 49,827,210 | 190,986,545 |
+| 512 | 96,737,401 | 96,819,680 | 95,946,219 | 378,341,210 |
+| 1,024 | 189,076,054 | 189,237,101 | 187,484,461 | 752,023,725 |
+| 2,048 | 375,215,514 | 375,567,377 | 372,132,434 | 1,502,575,173 |
+
+At 2,048 functions, the candidate uses about 22 MiB at `-O0` and 25 MiB
+at `-O2` with free labels. The candidate also emits an object for one
+switch with 1,023 consecutive case labels and a terminal default label.
+
 ## Volatile assignment code generation
 
 The same source functions returning and discarding a volatile record

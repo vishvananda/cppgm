@@ -660,6 +660,41 @@ PA1 and PA38 using the packaged reference binaries.
 [C23 empty initialization rules](../doc/c-conformance-notes.md#c23-empty-initialization-of-variable-length-arrays) ·
 [Frozen-input and variable-length array measurements](../docs/performance/c-frontend-scaling.md#c23-empty-initialization-of-variable-length-arrays)
 
+## C23 labels in compound statements
+
+PA38 covers declarations after named, case, and default labels, chained
+labels, and jumps to labels at block ends. A backward goto to a
+declaration checks that the VLA is initialized on each entry. The
+constraint cases reject jumps past a variably modified declaration,
+free labels on unbraced substatements, and free labels in pedantic C17.
+
+GCC 15 and Clang 21 run both positive fixtures on Linux x86-64. Both
+fixtures pass at `-O0` and `-O2` on x86-64 Linux, AArch64 Linux under
+QEMU, both Mach-O targets under local execution harnesses, and both
+Wasm targets. The Mach-O replays use freestanding startup.
+
+The pinned C23 manifests pass all 52 GCC and 19 Clang configurations.
+The new C17 configurations pass both default and pedantic checks where
+selected. GCC passes all 27 C17 configurations. The Clang C17 manifest
+has eight passes and the existing `__STDC_NO_VLA__` qualification gap.
+
+The clause matrix passes 856 probes, including 405 C23 probes, on Linux
+x86-64, WASI, and bare Wasm. PA38 passes 602 native, 602 Wasm, 63 control,
+and three ABI cases. The debug-info, self-host through PA5, and compiler
+architecture checks pass. The placement audit scanned 11,603 fixtures
+with no findings. The two self-hosted compiler generations match byte
+for byte. The student export verifies 26,797 portable reference
+outputs and passes PA1 and PA38 using the packaged reference binaries.
+
+Strict course validation passed all 11,674 tests across the full report
+and a PA33 retry. The full report passed 11,668 tests. Its six PA33
+quality checks stopped when a parallel architecture audit relinked
+the reference compiler. PA33 passed all 880 tests on retry with
+fixed binaries.
+
+[C23 label rules](../doc/c-conformance-notes.md#c23-labels-in-compound-statements) ·
+[Frozen-input and label scaling measurements](../docs/performance/c-frontend-scaling.md#c23-labels-in-compound-statements)
+
 ## Additional editions
 
 The driver baseline at `39e13e127` rejects `c90`, `c89`,
@@ -1486,6 +1521,14 @@ PA38 driver slice at `-O0` and `-O2`. It checks direct compilation and
 linking, object linkage with cppgm and the host driver, and the LowIR
 backend path. Native workflow results and the full Darwin qualification
 remain pending. [PA38 type queries](../pa38/tests/general/500-types-compatible-vla.t)
+
+The local Mach-O execution harnesses also pass 144 runs across Intel
+and Arm Darwin. The replay uses 17 PA38 fixtures in C11 and C17, the
+GNU `typeof` fixture in each corresponding GNU dialect, and both
+`-O0` and `-O2`. It covers prototype-scope stars, atomic and function
+pointer types, multidimensional bounds, repeated scope exits, and a
+two-translation-unit C call. The harnesses supply freestanding startup.
+Hosted SDK qualification still requires the native Darwin workflows.
 
 ## Restricted pointer types
 
