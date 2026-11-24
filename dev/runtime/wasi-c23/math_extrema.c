@@ -1,4 +1,4 @@
-#include <math.h>
+#include "math_error.h"
 
 double fmaximum(double left, double right)
 {
@@ -75,3 +75,18 @@ long double fminimuml(long double left, long double right)
 DEFINE_EXTREMA(float, f, fabsf)
 DEFINE_EXTREMA(double, , fabs)
 DEFINE_EXTREMA(long double, l, fabsl)
+
+#define DEFINE_POSITIVE_DIFFERENCE(type, suffix) \
+	type fdim##suffix(type x, type y) \
+	{ \
+		if (x <= y) \
+			return 0; \
+		const type delta = x - y; \
+		if (isinf(delta) && isfinite(x) && isfinite(y)) \
+			errno = ERANGE; \
+		return delta; \
+	}
+
+DEFINE_POSITIVE_DIFFERENCE(float, f)
+DEFINE_POSITIVE_DIFFERENCE(double, )
+DEFINE_POSITIVE_DIFFERENCE(long double, l)

@@ -276,6 +276,29 @@ int main(void)
 	CHECK(sinhl, (-INFINITY), EILSEQ, result == -INFINITY);
 	CHECK(coshl, (NAN), EILSEQ, isnan(result));
 
+	CHECK(nextafterf, (FLT_MAX, INFINITY), ERANGE, result == INFINITY);
+	CHECK(nextafter, (-DBL_MAX, -INFINITY), ERANGE, result == -INFINITY);
+	CHECK(nextafterl, (LDBL_MAX, INFINITY), ERANGE, result == INFINITY);
+	CHECK(nexttowardf, (1.0f, 1.0L + 0x1p-112L), EILSEQ, result == 0x1.000002p0f);
+	CHECK(nexttoward, (1.0, 1.0L - 0x1p-112L), EILSEQ, result == 0x1.fffffffffffffp-1);
+	CHECK(nexttowardl, (-LDBL_MAX, -INFINITY), ERANGE, result == -INFINITY);
+	CHECK(nextafterl, (-0.0L, 0.0L), EILSEQ, result == 0.0L && !signbit(result));
+	CHECK(nextafterf, (0.0f, -0.0f), EILSEQ, result == 0.0f && signbit(result));
+	CHECK(nextupf, (FLT_MAX), EILSEQ, result == INFINITY);
+	CHECK(nextupl, (-INFINITY), EILSEQ, result == -LDBL_MAX);
+	CHECK(nextupl, (-LDBL_TRUE_MIN), EILSEQ, result == 0 && signbit(result));
+	CHECK(nextdown, (0.0), EILSEQ, result == -DBL_TRUE_MIN);
+	CHECK(nextdownl, (-LDBL_MAX), EILSEQ, result == -INFINITY);
+	CHECK(nextup, (INFINITY), EILSEQ, result == INFINITY);
+	CHECK(nextdownf, (NAN), EILSEQ, isnan(result));
+	CHECK(fdim, (DBL_MAX, -DBL_MAX), ERANGE, result == INFINITY);
+	CHECK(fdimf, (FLT_MAX, -FLT_MAX), ERANGE, result == INFINITY);
+	CHECK(fdiml, (LDBL_MAX, -LDBL_MAX), ERANGE, result == INFINITY);
+	CHECK(fdiml, (INFINITY, -INFINITY), EILSEQ, result == INFINITY);
+	CHECK(fdiml, (INFINITY, INFINITY), EILSEQ, result == 0.0L && !signbit(result));
+	CHECK(fdim, (-0.0, +0.0), EILSEQ, result == 0.0 && !signbit(result));
+	CHECK(fdimf, (NAN, 0.0f), EILSEQ, isnan(result));
+
 	volatile float large_float = FLT_MAX;
 	errno = EILSEQ;
 	if (fmaf(large_float, 3.0f, -large_float) != INFINITY || errno != ERANGE)
@@ -287,6 +310,12 @@ int main(void)
 	volatile long double large_quad = LDBL_MAX;
 	errno = EILSEQ;
 	if (coshl(large_quad) != INFINITY || errno != ERANGE)
+		return FAILURE;
+	errno = EILSEQ;
+	if (nextafterf(large_float, INFINITY) != INFINITY || errno != ERANGE)
+		return FAILURE;
+	errno = EILSEQ;
+	if (fdim(large_double, -large_double) != INFINITY || errno != ERANGE)
 		return FAILURE;
 	return 0;
 }
