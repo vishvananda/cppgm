@@ -24,20 +24,75 @@ const CInitializerChild* ArraySpan(syntax::Slice<const CInitializerChild> spans,
 	return span != end && span->index <= index ? span : nullptr;
 }
 
-bool PreservesVariant(const CInitializer& plan)
+bool MayContainUnion(const Type* type)
 {
-	for (const auto& lane : plan.field_spans())
-		if (lane.kind == CInitializerFieldKind::PreserveVariant)
-			return true;
-	return false;
+	while (type->kind == TypeKind::Array)
+		type = type->element;
+	return ClassOf(type) != nullptr;
 }
 
-bool CanKeepPointUpdate(const CInitializer& plan, bool inherited)
+bool MayChangeVariant(const CInitializerFieldSpans& lane)
+{
+	if (lane.kind != CInitializerFieldKind::Value)
+		return lane.kind != CInitializerFieldKind::PreserveVariant;
+	return MayContainUnion(lane.spans()[0].initializer->type);
+}
+
+struct UnionEffects
+{
+	bool preserves, changes;
+};
+
+UnionEffects ArrayUnionEffects(const CInitializer& plan)
+{
+	UnionEffects result{ false, !plan.children.empty() || plan.projection == CInitializerProjection::Rectangles };
+	for (const auto& lane : plan.field_spans())
+		if (lane.kind == CInitializerFieldKind::PreserveVariant)
+			result.preserves = true;
+		else if (!result.changes)
+			result.changes = MayChangeVariant(lane);
+	return result;
+}
+
+bool ProvesVariantRanges(const CArrayConstant* source, const CInitializer& plan)
+{
+	if (source == nullptr || source->same_variants == nullptr)
+		return false;
+	// This source preserved the same active members that it checked. Reuse
+	// those checks when the next copy requires a subset of the same ranges.
+	const auto proven = source->initializer->field_spans();
+	const auto* prior = proven.begin();
+	for (const auto& lane : plan.field_spans())
+	{
+		if (lane.kind != CInitializerFieldKind::PreserveVariant)
+			continue;
+		while (prior != proven.end() &&
+			(prior->kind != CInitializerFieldKind::PreserveVariant || prior->owner != lane.owner ||
+				prior->offset != lane.offset || prior->member != lane.member))
+			++prior;
+		if (prior == proven.end())
+			return false;
+		for (const auto& span : lane.spans())
+		{
+			const auto* covering = ArraySpan(prior->spans(), span.index);
+			if (covering == nullptr || covering->limit < span.limit)
+				return false;
+		}
+		++prior;
+	}
+	return true;
+}
+
+bool CanKeepPointUpdate(const CInitializer& plan, bool inherited, bool& changes_variant)
 {
 	if (plan.projection != CInitializerProjection::None || plan.has_storage_extent ||
 		(plan.value != nullptr && !plan.children.empty()))
 		return false;
-	inherited = inherited && !plan.replaces_value();
+	if (inherited && plan.replaces_value())
+	{
+		changes_variant |= MayContainUnion(plan.type);
+		inherited = false;
+	}
 	if (plan.children.empty())
 		return true;
 	const auto* record = ClassOf(plan.type);
@@ -45,18 +100,19 @@ bool CanKeepPointUpdate(const CInitializer& plan, bool inherited)
 		return false;
 	for (const auto& child : plan.children)
 		if ((inherited && plan.type->kind == TypeKind::Array && child.limit - child.index != 1) ||
-			!CanKeepPointUpdate(*child.initializer, inherited))
+			!CanKeepPointUpdate(*child.initializer, inherited, changes_variant))
 			return false;
 	return true;
 }
 
-bool KeepPointUpdates(const CInitializer& plan)
+bool KeepPointUpdates(const CInitializer& plan, bool& changes_variant)
 {
 	const auto needs_source = [](const CInitializerChild& child) { return !child.initializer->replaces_value(); };
 	if (plan.children.empty() || std::none_of(plan.children.begin(), plan.children.end(), needs_source))
 		return false;
 	for (const auto& entry : plan.children)
-		if ((needs_source(entry) && entry.limit - entry.index != 1) || !CanKeepPointUpdate(*entry.initializer, true))
+		if ((needs_source(entry) && entry.limit - entry.index != 1) ||
+			!CanKeepPointUpdate(*entry.initializer, true, changes_variant))
 			return false;
 	return true;
 }
@@ -191,7 +247,7 @@ ConstantInterpreter::StorageView ConstantInterpreter::c_array_element(
 }
 
 ConstantInterpreter::StorageView ConstantInterpreter::c_projected_element(
-	const CArrayConstant& array, const Type* type, uint64_t index, uint32_t location)
+	const CArrayConstant& array, const Type* type, uint64_t index, uint32_t location, bool check_variants)
 {
 	const Type* element = type->element;
 	SmallList<const CInitializer*, 8> layers;
@@ -199,6 +255,8 @@ ConstantInterpreter::StorageView ConstantInterpreter::c_projected_element(
 	StorageView source(nullptr, element);
 	for (const CArrayConstant* current = &array; current != nullptr; current = current->previous)
 	{
+		if (check_variants)
+			current = current->variant_source();
 		if (const ConstValue* patch = PatchedElement(current->patches, type->bound, index))
 		{
 			source = StorageView(const_cast<ConstValue*>(patch));
@@ -257,6 +315,80 @@ ConstantInterpreter::StorageView ConstantInterpreter::c_projected_element(
 	return StorageView(initialized ? value : nullptr);
 }
 
+bool ConstantInterpreter::check_c_array_variants(const CArrayConstant& array, uint32_t location)
+{
+	const CInitializer& plan = *array.initializer;
+	struct Span
+	{
+		uint64_t first, limit;
+	};
+	SmallList<Span, 8> required;
+	SmallList<uint64_t, 16> edges;
+	for (const auto& lane : plan.field_spans())
+		if (lane.kind == CInitializerFieldKind::PreserveVariant)
+			for (const auto& span : lane.spans())
+			{
+				required.push_back({ span.index, span.limit });
+				edges.push_back(span.index);
+				edges.push_back(span.limit);
+			}
+	if (required.empty())
+		return true;
+	std::sort(required.begin(), required.end(), [](const Span& a, const Span& b) { return a.first < b.first; });
+	const auto bounds = std::minmax_element(edges.begin(), edges.end());
+	const uint64_t first = *bounds.first, limit = *bounds.second;
+	const auto add_span = [&](uint64_t lo, uint64_t hi) {
+		if (lo < limit && first < hi)
+		{
+			edges.push_back(std::max(first, lo));
+			edges.push_back(std::min(limit, hi));
+		}
+	};
+	const auto add_patch = [&](uint64_t lo, uint64_t hi, const ConstValue&) {
+		add_span(lo, hi);
+		return true;
+	};
+	// Between these boundaries every row has the same active-member
+	// selections. Only visit runs where a PreserveVariant lane needs them.
+	for (const auto* version = &array; version != nullptr; version = version->previous)
+	{
+		version = version->variant_source();
+		VisitCArrayPatches(version->patches, 0, plan.type->bound, add_patch);
+		if (version->prefix != nullptr)
+			for (uint64_t i = first, end = std::min<uint64_t>(version->prefix->count, limit); i <= end; ++i)
+				edges.push_back(i);
+		if (const auto* init = version->initializer)
+		{
+			for (const auto& child : init->children)
+				add_span(child.index, child.limit);
+			for (const auto& lane : init->field_spans())
+				if (MayChangeVariant(lane))
+					for (const auto& span : lane.spans())
+						add_span(span.index, span.limit);
+		}
+	}
+	std::sort(edges.begin(), edges.end());
+	const uint64_t* edge = edges.begin();
+	const uint64_t* end = std::unique(edges.begin(), edges.end());
+	const uint32_t owner = mutable_owner_;
+	const uint32_t generation = mutable_generation_;
+	for (const auto& span : required)
+	{
+		while (edge != end && *edge < span.first)
+			++edge;
+		while (edge != end && *edge < span.limit)
+		{
+			const Region frame = region();
+			const auto value = c_projected_element(array, plan.type, *edge++, location, true);
+			mutable_owner_ = owner;
+			mutable_generation_ = generation;
+			if (!value || !release(frame))
+				return false;
+		}
+	}
+	return true;
+}
+
 bool ConstantInterpreter::c_projected_row(
 	const CInitializer& plan, const ConstPlace& row, uint64_t index, uint32_t location)
 {
@@ -304,9 +436,8 @@ ConstantInterpreter::CArrayInitialization ConstantInterpreter::prepare_c_array(
 {
 	inherited = inherited && plan.value == nullptr;
 	const bool ordinary = plan.projection == CInitializerProjection::None;
-	// Preservation of an active union member still requires an eager check.
 	const bool projected = !ordinary && c_constexpr_initializer_ && plan.value == nullptr &&
-		leaves(plan.type, 0) > kArrayExpansionBytes / sizeof(ConstValue) && !PreservesVariant(plan);
+		leaves(plan.type, 0) > kArrayExpansionBytes / sizeof(ConstValue);
 	// Retain the typed plan when the value would mostly consist of implicit
 	// elements. Preserve the inexpensive path for small and dense arrays.
 	const auto sparse = [&] {
@@ -335,19 +466,27 @@ ConstantInterpreter::CArrayInitialization ConstantInterpreter::prepare_c_array(
 				const ConstValue* prefix = storage->count == 0 ? nullptr : publish(*storage, location);
 				if (storage->count != 0 && prefix == nullptr)
 					return CArrayInitialization::Failed;
-				previous = StoreArray(analyzer_.arena_, plan.type, { nullptr, prefix, nullptr, nullptr }).c_array;
+				previous =
+					StoreArray(analyzer_.arena_, plan.type, { nullptr, prefix, nullptr, nullptr, nullptr }).c_array;
 			}
 			else
 				return CArrayInitialization::InPlace;
 		}
-		*storage = StoreArray(analyzer_.arena_, plan.type, { &plan, nullptr, nullptr, previous });
+		CArrayConstant next{ &plan, nullptr, nullptr, previous, nullptr };
+		const auto effects = ArrayUnionEffects(plan);
+		if (effects.preserves && (effects.changes || !ProvesVariantRanges(previous, plan)) &&
+			!check_c_array_variants(next, location))
+			return CArrayInitialization::Failed;
+		if (previous != nullptr && !effects.changes)
+			next.same_variants = previous->variant_source();
+		*storage = StoreArray(analyzer_.arena_, plan.type, next);
 		return CArrayInitialization::Stored;
 	}
 	if (!inherited)
 	{
 		if (save_plan)
 		{
-			*storage = StoreArray(analyzer_.arena_, plan.type, { &plan, nullptr, nullptr, nullptr });
+			*storage = StoreArray(analyzer_.arena_, plan.type, { &plan, nullptr, nullptr, nullptr, nullptr });
 			return CArrayInitialization::Stored;
 		}
 		if (retained && plan.value != nullptr)
@@ -356,9 +495,13 @@ ConstantInterpreter::CArrayInitialization ConstantInterpreter::prepare_c_array(
 	}
 	// Keep the typed subobject write when the source already contains sparse
 	// layers. Each update can be retained without reading the older row.
-	if (ordinary && retained && c_constexpr_initializer_ && storage->c_array->has_layers() && KeepPointUpdates(plan))
+	bool changes_variant = false;
+	if (ordinary && retained && c_constexpr_initializer_ && storage->c_array->has_layers() &&
+		KeepPointUpdates(plan, changes_variant))
 	{
-		*storage = StoreArray(analyzer_.arena_, plan.type, { &plan, nullptr, nullptr, storage->c_array });
+		const auto* source = storage->c_array;
+		const auto* variant_source = changes_variant ? nullptr : source->variant_source();
+		*storage = StoreArray(analyzer_.arena_, plan.type, { &plan, nullptr, nullptr, source, variant_source });
 		return CArrayInitialization::Stored;
 	}
 	if (ordinary &&
@@ -407,6 +550,7 @@ bool ConstantInterpreter::patch_c_array(
 		if (updated.prefix == nullptr)
 			return false;
 	}
+	updated.same_variants = nullptr;
 	Arena& arena = analyzer_.arena_;
 	PointerMap repeated;
 	std::vector<const CArrayPatch*> values;

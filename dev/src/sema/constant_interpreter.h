@@ -214,7 +214,8 @@ private:
 		ConstValue* value, const Type* type, int64_t offset, const Type* wanted, bool write, uint32_t depth);
 	StorageView descend_c_array(const ConstValue& array, int64_t offset, const Type* wanted, uint32_t depth);
 	StorageView c_array_element(const CArrayConstant& array, const Type* type, uint64_t index, uint32_t location);
-	StorageView c_projected_element(const CArrayConstant& array, const Type* type, uint64_t index, uint32_t location);
+	StorageView c_projected_element(
+		const CArrayConstant& array, const Type* type, uint64_t index, uint32_t location, bool check_variants = false);
 	bool c_projected_row(const CInitializer& plan, const ConstPlace& row, uint64_t index, uint32_t location);
 	StorageView select_variant(ConstValue* storage, const Type* type, const DataMember* member, int64_t offset,
 		const UnionSelection* outer, bool write, uint32_t location);
@@ -379,6 +380,7 @@ private:
 	};
 	CArrayInitialization prepare_c_array(
 		const CInitializer& plan, const ConstPlace& target, uint32_t location, bool inherited);
+	bool check_c_array_variants(const CArrayConstant& array, uint32_t location);
 	bool expand_c_array(ConstValue& array, uint32_t location);
 	bool patch_c_array(
 		ConstValue& array, const Type* type, syntax::Slice<const CInitializerChild> children, uint32_t location);

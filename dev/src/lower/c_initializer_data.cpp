@@ -932,7 +932,7 @@ bool ProgramLowering::static_c_initializer(const sema::CInitializer& plan, Stati
 		uint32_t next = 0;
 		return static_aggregate(type, nullptr, next, out, &plan);
 	}
-	return static_c_array(type, sema::CArrayConstant{ &plan, nullptr, nullptr, nullptr }, out);
+	return static_c_array(type, sema::CArrayConstant{ &plan, nullptr, nullptr, nullptr, nullptr }, out);
 }
 
 bool ProgramLowering::static_c_array(const sema::Type* type, const sema::CArrayConstant& array, StaticData& out)

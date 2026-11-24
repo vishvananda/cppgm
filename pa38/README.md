@@ -691,7 +691,8 @@ The first fixture set covers these parts of the C17 input profile:
   subobjects retain their value from earlier initializers, including from a
   copied aggregate. A point update can replace a member within a repeated
   cell. Keep large ranges and intervening point updates sparse during
-  constant evaluation.
+  constant evaluation. When a range update preserves an inherited union
+  member, require that member to be active throughout the range.
 - In C23, infer the type in `auto name = expression` when the declaration
   has no written type. Accept one object declarator consisting of an
   identifier with optional attributes and enclosing parentheses.

@@ -24,6 +24,10 @@ struct CArrayConstant
 	const CArrayPatch* patches;
 	// A subobject update retains the unchanged values of the source array.
 	const CArrayConstant* previous;
+	// Scalar writes can change the value while preserving its active members.
+	const CArrayConstant* same_variants;
+
+	const CArrayConstant* variant_source() const { return same_variants == nullptr ? this : same_variants; }
 
 	bool has_layers() const
 	{
