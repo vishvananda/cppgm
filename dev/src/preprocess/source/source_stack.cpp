@@ -61,7 +61,7 @@ void SourceStack::enter(SourceFile* file, std::string presumed_name, std::size_t
 	options.lone_quotes = hosted_;
 	options.gnu_escapes = hosted_;
 	options.keyword_macros = hosted_;
-	options.dollar_identifiers = hosted_;
+	options.dollar_identifiers = hosted_ && !assembler_;
 	options.crlf_splices = options.c_source || hosted_;
 	if (options.c_source && report_splices_)
 		options.spaced_splice_offsets = &frame->spaced_splices;

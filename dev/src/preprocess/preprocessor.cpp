@@ -213,6 +213,7 @@ Preprocessor::Preprocessor(const PreprocessorOptions& options, const std::string
 	modes_.pedantic_errors = options.extension_warnings == ExtensionWarnings::Errors;
 	expander_.set_input(&source_);
 	source_.set_hosted(hosted_);
+	source_.set_assembler(assembler_);
 	source_.set_report_splices(options.source_lex.warn_spaced_splices && !options.source_lex.suppress_warnings);
 	source_.set_conditional_escapes(options.gnu_c());
 	source_.set_cxx_edition(options.cxx_edition);

@@ -118,6 +118,7 @@ public:
 	// Hosted lexical extensions (hexadecimal pp-numbers and opaque comment
 	// bytes) in the files entered from now on.
 	void set_hosted(bool enabled) { hosted_ = enabled; }
+	void set_assembler(bool enabled) { assembler_ = enabled; }
 	void set_report_splices(bool on) { report_splices_ = on; }
 	void set_conditional_escapes(bool on) { conditional_escapes_ = on; }
 	void set_cxx_edition(uint8_t edition) { cxx_edition_ = edition; }
@@ -169,6 +170,7 @@ private:
 	TextState text_state_ = TextState::Source;
 	bool allow_va_args_;
 	bool hosted_;
+	bool assembler_ = false;
 	bool report_splices_ = false;
 	bool conditional_escapes_ = false;
 	bool unicode_literal_prefixes_ = true;

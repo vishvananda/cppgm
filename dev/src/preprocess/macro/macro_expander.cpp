@@ -1160,7 +1160,7 @@ bool MacroExpander::paste_tokens(PPToken& left, PPToken& right)
 	options.binary_exponents = binary_exponents_;
 	options.gnu_escapes = options.c_source || binary_exponents_;
 	options.keyword_macros = hosted_recursion_;
-	options.dollar_identifiers = hosted_recursion_;
+	options.dollar_identifiers = hosted_recursion_ && !assembler_;
 	options.digit_separators = digit_separators_;
 	PPLexer lexer(text, options);
 	PPToken result = PPToken();

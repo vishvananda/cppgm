@@ -191,7 +191,8 @@ Use all incoming paths when deciding whether a shared block is cold.
 Namespace asm uses the shared `assembly_global` boundary.
 For a standalone native `.S` file, run the preprocessor before passing the
 source to the same integrated module assembler. The driver also accepts
-`-x assembler-with-cpp` to select that input language explicitly.
+`-x assembler-with-cpp` to select that input language explicitly. An AT&T
+immediate prefix is separate from the macro name that follows it.
 Use `-` as that input to read from standard input. `-fintegrated-as`
 explicitly selects the integrated assembler, and `-Wa,--version`
 reports its version.
