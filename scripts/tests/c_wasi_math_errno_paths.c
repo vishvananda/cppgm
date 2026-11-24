@@ -3,6 +3,9 @@
 #include <limits.h>
 #include <math.h>
 
+// Keep every failure status nonzero when WASI returns an 8-bit exit status.
+#define FAILURE (((__LINE__ - 1) % 255) + 1)
+
 #define CHECK(fn, args, error, predicate) \
 	do \
 	{ \
@@ -10,7 +13,7 @@
 		errno = EILSEQ; \
 		const typeof(call args) result = call args; \
 		if (errno != (error) || !(predicate)) \
-			return __LINE__; \
+			return FAILURE; \
 	} while (0)
 
 static __attribute__((noinline)) int error_byte_change(const unsigned char* cell, double angle)
@@ -114,22 +117,22 @@ int main(void)
 	volatile double invalid_log = -2.0;
 	errno = EILSEQ;
 	if (!isnan(log1p(invalid_log)) || errno != EDOM)
-		return __LINE__;
+		return FAILURE;
 	volatile long double pole = -1.0L;
 	errno = EILSEQ;
 	if (atanhl(pole) != -INFINITY || errno != ERANGE)
-		return __LINE__;
+		return FAILURE;
 	volatile double infinite_angle = INFINITY;
 	errno = EILSEQ;
 	if (!isnan(sin(infinite_angle)) || errno != EDOM)
-		return __LINE__;
+		return FAILURE;
 	errno = EILSEQ;
 	if (error_byte_change((const unsigned char*)&errno, infinite_angle) != (unsigned char)EDOM - (unsigned char)EILSEQ)
-		return __LINE__;
+		return FAILURE;
 	volatile float outside_unit = 1.25f;
 	errno = EILSEQ;
 	if (!isnan(acosf(outside_unit)) || errno != EDOM)
-		return __LINE__;
+		return FAILURE;
 
 	CHECK(exp, (DBL_MAX), ERANGE, result == INFINITY);
 	CHECK(expf, (FLT_MAX), ERANGE, result == INFINITY);
@@ -236,5 +239,54 @@ int main(void)
 	CHECK(fsqrt, (DBL_MAX), ERANGE, result == INFINITY);
 	CHECK(fsqrtl, (-1.0L), EDOM, isnan(result));
 	CHECK(dsqrtl, (NAN), EILSEQ, isnan(result));
+	CHECK(hypot, (DBL_MAX, DBL_MAX), ERANGE, result == INFINITY);
+	CHECK(hypotf, (FLT_MAX, -FLT_MAX), ERANGE, result == INFINITY);
+	CHECK(hypotl, (-LDBL_MAX, LDBL_MAX), ERANGE, result == INFINITY);
+	CHECK(hypot, (DBL_MAX, DBL_TRUE_MIN), EILSEQ, result == DBL_MAX);
+	CHECK(hypotf, (0x1.0000e6p+0f, 0x1.48d5ep+5f), EILSEQ, result == 0x1.48eec8p+5f);
+	CHECK(hypotl, (LDBL_TRUE_MIN, LDBL_TRUE_MIN), EILSEQ, result == LDBL_TRUE_MIN);
+	CHECK(hypot, (NAN, -INFINITY), EILSEQ, result == INFINITY);
+	CHECK(hypotf, (-INFINITY, NAN), EILSEQ, result == INFINITY);
+	CHECK(hypotl, (NAN, -INFINITY), EILSEQ, result == INFINITY);
+	CHECK(hypotl, (NAN, 1.0L), EILSEQ, isnan(result));
+	CHECK(hypotl, (-0.0L, -0.0L), EILSEQ, result == 0.0L && !signbit(result));
+
+	CHECK(fmaf, (FLT_MAX, 3.0f, -FLT_MAX), ERANGE, result == INFINITY);
+	CHECK(fmaf, (-FLT_MAX, 3.0f, FLT_MAX), ERANGE, result == -INFINITY);
+	CHECK(fmaf, (FLT_MAX, 2.0f, -FLT_MAX), EILSEQ, result == FLT_MAX);
+	CHECK(fmaf, (FLT_MAX, 1.0f, 0x1p103f), ERANGE, result == INFINITY);
+	CHECK(fmaf, (FLT_MAX, 1.0f, 0x1.fffffep102f), EILSEQ, result == FLT_MAX);
+	CHECK(fmaf, (0x1.fffffcp-76f, 0x1.000002p-75f, 0x1.fffffcp-127f), EILSEQ, result == 0x1.fffffcp-127f);
+	CHECK(fmaf, (INFINITY, 2.0f, 1.0f), EILSEQ, result == INFINITY);
+	CHECK(fmaf, (NAN, 2.0f, 1.0f), EILSEQ, isnan(result));
+	CHECK(fmaf, (-0.0f, 1.0f, -0.0f), EILSEQ, result == 0.0f && signbit(result));
+
+	const long double finite_edge = 0x1.62e9bb80635d81d36125b64da4a6p+13L;
+	const long double overflow_edge = 0x1.62e9bb80635d81d36125b64da4a7p+13L;
+	CHECK(sinhl, (-LDBL_MAX), ERANGE, result == -INFINITY);
+	CHECK(coshl, (-LDBL_MAX), ERANGE, result == INFINITY);
+	CHECK(sinhl, (finite_edge), EILSEQ, result > LDBL_MAX * 0.99L && isfinite(result));
+	CHECK(coshl, (-finite_edge), EILSEQ, result > LDBL_MAX * 0.99L && isfinite(result));
+	CHECK(sinhl, (-overflow_edge), ERANGE, result == -INFINITY);
+	CHECK(coshl, (overflow_edge), ERANGE, result == INFINITY);
+	CHECK(sinhl, (-0.0L), EILSEQ, result == 0.0L && signbit(result));
+	CHECK(coshl, (0x1p-3000L), EILSEQ, result == 1.0L);
+	CHECK(sinhl, (-0x1p-3000L), EILSEQ, result == -0x1p-3000L);
+	CHECK(coshl, (-INFINITY), EILSEQ, result == INFINITY);
+	CHECK(sinhl, (-INFINITY), EILSEQ, result == -INFINITY);
+	CHECK(coshl, (NAN), EILSEQ, isnan(result));
+
+	volatile float large_float = FLT_MAX;
+	errno = EILSEQ;
+	if (fmaf(large_float, 3.0f, -large_float) != INFINITY || errno != ERANGE)
+		return FAILURE;
+	volatile double large_double = DBL_MAX;
+	errno = EILSEQ;
+	if (hypot(large_double, large_double) != INFINITY || errno != ERANGE)
+		return FAILURE;
+	volatile long double large_quad = LDBL_MAX;
+	errno = EILSEQ;
+	if (coshl(large_quad) != INFINITY || errno != ERANGE)
+		return FAILURE;
 	return 0;
 }

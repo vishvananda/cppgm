@@ -2,6 +2,7 @@
 #include <float.h>
 #include <stdint.h>
 
+#include "math_binary128.h"
 #include "math_error.h"
 
 static_assert(FLT_EVAL_METHOD == 0 && FLT_MANT_DIG == 24 && DBL_MANT_DIG == 53 && LDBL_MANT_DIG == 113);
@@ -124,4 +125,53 @@ long double atanhl(long double x)
 	input.value = 0.5L * log1pl(argument);
 	input.words[1] |= sign;
 	return input.value;
+}
+
+// Compute both functions using expm1 near zero and an exponential
+// with reciprocal correction elsewhere.
+static inline __attribute__((always_inline)) long double hyperbolic_quad(long double x, bool cosine)
+{
+	union binary128 magnitude = { .value = x };
+	const bool negative = magnitude.words[1] >> 63;
+	magnitude.words[1] &= UINT64_C(0x7fffffffffffffff);
+	const unsigned exponent = magnitude.words[1] >> 48;
+	enum
+	{
+		bias = LDBL_MAX_EXP - 1
+	};
+	if (exponent == 2 * LDBL_MAX_EXP - 1)
+		return cosine ? magnitude.value + magnitude.value : x + x;
+	if (exponent < bias - 57)
+		return cosine ? 1.0L : x;
+
+	long double result;
+	if (exponent < bias)
+	{
+		const long double t = expm1l(magnitude.value);
+		const long double ratio = t / (1.0L + t);
+		result = cosine ? 1.0L + (0.5L * t) * ratio : 0.5L * (t + ratio);
+	}
+	else if (exponent < bias + 6)
+	{
+		const long double t = expl(magnitude.value);
+		const long double reciprocal = 1.0L / t;
+		result = 0.5L * (cosine ? t + reciprocal : t - reciprocal);
+	}
+	else
+	{
+		// The reciprocal is below rounding scale. Halve during
+		// reconstruction to retain inputs near the overflow boundary.
+		result = __cppgm_wasi_exp_half(magnitude.value);
+	}
+	return !cosine && negative ? -result : result;
+}
+
+long double sinhl(long double x)
+{
+	return hyperbolic_quad(x, false);
+}
+
+long double coshl(long double x)
+{
+	return hyperbolic_quad(x, true);
 }

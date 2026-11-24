@@ -506,7 +506,7 @@ static long double reconstruct_exponential(unsigned index, int k, long double r1
 	return result * power_of_two(k);
 }
 
-long double __cppgm_wasi_exp_split(long double x, long double low)
+static inline __attribute__((always_inline)) long double exp_split_scaled(long double x, long double low, int offset)
 {
 	if (x >= 0x1p14L)
 		return math_range_error();
@@ -516,13 +516,23 @@ long double __cppgm_wasi_exp_split(long double x, long double low)
 	const double step = __builtin_nearbyint((double)x * INV_L);
 	const int n = (int)step;
 	const unsigned index = (unsigned)n % INTERVALS;
-	const int k = (n - (int)index) / INTERVALS;
+	const int k = (n - (int)index) / INTERVALS + offset;
 	if (k > LDBL_MAX_EXP)
 		return math_range_error();
 	if (k < LDBL_MIN_EXP - LDBL_MANT_DIG - 1)
 		return 0.0L;
 
 	return reconstruct_exponential(index, k, x - step * L1, low - step * L2);
+}
+
+long double __cppgm_wasi_exp_split(long double x, long double low)
+{
+	return exp_split_scaled(x, low, 0);
+}
+
+long double __cppgm_wasi_exp_half(long double x)
+{
+	return exp_split_scaled(x, 0.0L, -1);
 }
 
 long double expl(long double x)
