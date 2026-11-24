@@ -26,14 +26,14 @@
 
 int main(void)
 {
-	CHECK(unsigned char, UCHAR_WIDTH);
-	CHECK(unsigned short, USHRT_WIDTH);
-	CHECK(unsigned int, UINT_WIDTH);
-	CHECK(unsigned long, ULONG_WIDTH);
-	CHECK(unsigned long long, ULLONG_WIDTH);
+	CHECK(unsigned char, sizeof(unsigned char) * CHAR_BIT);
+	CHECK(unsigned short, sizeof(unsigned short) * CHAR_BIT);
+	CHECK(unsigned int, sizeof(unsigned int) * CHAR_BIT);
+	CHECK(unsigned long, sizeof(unsigned long) * CHAR_BIT);
+	CHECK(unsigned long long, sizeof(unsigned long long) * CHAR_BIT);
 
 	unsigned int (*leading)(unsigned char) = &stdc_leading_zeros_uc;
-	if (leading(1) != UCHAR_WIDTH - 1)
+	if (leading(1) != CHAR_BIT - 1)
 		return 3;
 	return 0;
 }
