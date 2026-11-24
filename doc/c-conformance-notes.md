@@ -1046,3 +1046,22 @@ In C17 with `-pedantic-errors`, GCC 15 and Clang 21 reject the
 omission in a macro defined and called in user source. GCC accepts
 the same omission for a system-header macro. cppgm follows that
 behavior and enables the diagnostic there with `-Wsystem-headers`.
+
+## C23 Unicode identifiers
+
+C23 uses XID_Start and XID_Continue for Unicode identifiers and
+requires the decoded spelling to be in NFC. The compiler uses the
+Unicode Character Database 15.1.0 for both checks. Raw and escaped
+code points participate in the same check, including after line
+splicing and token pasting. The check precedes identifier interning
+and leaves valid spellings intact.
+[WG14 N2836](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2836.pdf) ·
+[WG14 N3220 §6.4.2.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+
+Use the generated tables checked in with the compiler. The table
+generator checks the hashes of its three inputs from the Unicode
+15.1.0 Character Database archive. The implementation uses NFC
+Quick_Check and canonical combining classes to identify the small
+segments that need decomposition and recomposition.
+[Unicode 15.1.0 UCD archive](https://www.unicode.org/Public/zipped/15.1.0/UCD.zip) ·
+[Unicode Normalization Forms](https://www.unicode.org/reports/tr15/)

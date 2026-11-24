@@ -3,6 +3,7 @@
 #include <cstring>
 
 #include "preprocess/lexer/char_classes.h"
+#include "support/unicode/identifier.h"
 #include "support/unicode/utf8.h"
 
 PPLexer::PPLexer(const SourceBuffer& source, const PPLexerOptions& options)
@@ -10,7 +11,7 @@ PPLexer::PPLexer(const SourceBuffer& source, const PPLexerOptions& options)
 	  cur_(reader_.logical(source.begin_offset())), token_(), token_begin_(0), clean_end_(0), token_end_(0),
 	  base_(options.location_base), dirty_(false), header_names_on_request_(options.header_names_on_request),
 	  c_source_(options.c_source), unicode_literal_prefixes_(options.unicode_literal_prefixes),
-	  c99_identifiers_(options.c99_identifiers), line_comments_(options.line_comments), digraphs_(options.digraphs),
+	  c_edition_(options.c_edition), line_comments_(options.line_comments), digraphs_(options.digraphs),
 	  binary_exponents_(options.binary_exponents), digit_separators_(options.digit_separators),
 	  utf8_character_literals_(options.cxx_edition >= 17), cxx20_(options.cxx_edition >= 20),
 	  legacy_comment_bytes_(options.legacy_comment_bytes), lone_quotes_(options.lone_quotes),
@@ -37,7 +38,14 @@ const PPToken& PPLexer::next()
 	if (__builtin_expect(context_ == DirectiveContext::AfterInclude, 0) && (c == '<' || c == '"') &&
 		try_lex_header_name())
 		return finish(PPTokenKind::HeaderName);
-	if (IsIdentifierStart(c, c99_identifiers_) || (c == '$' && dollar_identifiers_))
+	if (c >= 0x80)
+	{
+		if (c_edition_ == CEdition::C23)
+			return lex_c23_identifier(cur_, nullptr);
+		if (IsIdentifierStart(c, c_edition_ == CEdition::C99))
+			return lex_identifier_or_prefixed_literal();
+	}
+	else if (IsAsciiNondigit(c) || (c == '$' && dollar_identifiers_))
 		return lex_identifier_or_prefixed_literal();
 	if (IsAsciiDigit(c) || (c == '.' && IsAsciiDigit(peek_after(cur_).code_point)))
 		return lex_pp_number();
@@ -490,19 +498,26 @@ bool PPLexer::take_identifier_continue()
 		if (!read_universal_character_name(cur_, ucn))
 			return false;
 		const SourceChar c = ucn_outside_literal(ucn);
-		if (!IsIdentifierContinue(c.code_point, c99_identifiers_))
+		if (!is_identifier_continue(c.code_point))
 		{
-			if (c99_identifiers_)
+			if (c_edition_ == CEdition::C99)
 				throw SourceError(ucn.begin, "universal character name is outside the C99 identifier ranges");
 			return false;
 		}
 		take_ucn(ucn, c);
 		return true;
 	}
-	if (!IsIdentifierContinue(cur_.code_point, c99_identifiers_) && !(cur_.code_point == '$' && dollar_identifiers_))
+	if (!is_identifier_continue(cur_.code_point) && !(cur_.code_point == '$' && dollar_identifiers_))
 		return false;
 	take(cur_);
 	return true;
+}
+
+bool PPLexer::is_identifier_continue(int32_t code_point) const
+{
+	if (code_point >= 0x80 && c_edition_ == CEdition::C23)
+		return unicode::Properties(code_point).xid_continue();
+	return IsIdentifierContinue(code_point, c_edition_ == CEdition::C99);
 }
 
 // Extends a spelling that is still a view of the source over the letters,
@@ -538,9 +553,19 @@ const PPToken& PPLexer::lex_identifier_or_prefixed_literal()
 	take(cur_);
 	if (!take_identifier_bytes())
 	{
-		while (take_identifier_continue())
+		if (c_edition_ == CEdition::C23)
 		{
+			// The byte loop has already checked the ASCII prefix. Only
+			// its final character can compose with an upcoming mark.
+			const unsigned char last = dirty_ ? scratch_.back() : bytes()[clean_end_ - 1];
+			unicode::NfcCheck check;
+			check.append(last, {});
+			take_c23_identifier_tail(check);
 		}
+		else
+			while (take_identifier_continue())
+			{
+			}
 	}
 
 	// An identifier that spells an encoding prefix, directly followed by a
@@ -575,10 +600,12 @@ const PPToken& PPLexer::lex_backslash()
 	}
 
 	const SourceChar c = ucn_outside_literal(ucn);
+	if (c_edition_ == CEdition::C23)
+		return lex_c23_identifier(c, &ucn);
 	take_ucn(ucn, c);
-	if (!IsIdentifierStart(c.code_point, c99_identifiers_))
+	if (!IsIdentifierStart(c.code_point, c_edition_ == CEdition::C99))
 	{
-		if (c99_identifiers_)
+		if (c_edition_ == CEdition::C99)
 			throw SourceError(ucn.begin, "universal character name cannot start a C99 identifier");
 		return finish(PPTokenKind::NonWhitespaceCharacter);
 	}
@@ -586,6 +613,58 @@ const PPToken& PPLexer::lex_backslash()
 	{
 	}
 	return finish(PPTokenKind::Identifier);
+}
+
+const PPToken& PPLexer::lex_c23_identifier(const SourceChar& first, const UniversalCharacterName* ucn)
+{
+	const char32_t point = first.code_point;
+	const unicode::CharacterProperties properties = unicode::Properties(point);
+	if (ucn != nullptr)
+		take_ucn(*ucn, first);
+	else
+		take(first);
+	if (!properties.xid_start())
+		return finish(PPTokenKind::NonWhitespaceCharacter);
+
+	unicode::NfcCheck check;
+	if (!check.append(point, properties))
+		throw SourceError(token_begin_, "identifier is not in Unicode Normalization Form C");
+	take_c23_identifier_tail(check);
+	return finish(PPTokenKind::Identifier);
+}
+
+void PPLexer::take_c23_identifier_tail(unicode::NfcCheck& check)
+{
+	for (;;)
+	{
+		SourceChar next = cur_;
+		const bool escaped = next.code_point == '\\';
+		UniversalCharacterName ucn;
+		if (escaped)
+		{
+			if (!read_universal_character_name(next, ucn))
+				break;
+			next = ucn_outside_literal(ucn);
+		}
+		const int32_t point = next.code_point;
+		unicode::CharacterProperties properties{};
+		if (point >= 0x80)
+		{
+			properties = unicode::Properties(point);
+			if (!properties.xid_continue())
+				break;
+		}
+		else if (!IsAsciiNondigit(point) && !IsAsciiDigit(point) && !(point == '$' && dollar_identifiers_))
+			break;
+		if (!check.append(point, properties))
+			throw SourceError(token_begin_, "identifier is not in Unicode Normalization Form C");
+		if (escaped)
+			take_ucn(ucn, next);
+		else
+			take(next);
+	}
+	if (!check.normalized())
+		throw SourceError(token_begin_, "identifier is not in Unicode Normalization Form C");
 }
 
 // ---- pp-numbers -----------------------------------------------------------------
@@ -635,7 +714,7 @@ const PPToken& PPLexer::lex_pp_number()
 			// A quote and the following nondigit form one pp-number
 			// production. A sign cannot follow an e taken in that pair.
 			const SourceChar next = peek_after(cur_);
-			if (!IsIdentifierContinue(next.code_point, c99_identifiers_))
+			if (!is_identifier_continue(next.code_point))
 				return finish(PPTokenKind::PPNumber);
 			take(cur_);
 			take(next);

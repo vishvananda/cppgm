@@ -14,7 +14,7 @@ FRONTEND_BUILTIN_CONFIG_SOURCE_ID := driver/host_environment
 # interning and the arena it uses), controlling-expression
 # evaluation and phase 4 (the preprocessor). Tool output adapters are listed
 # only by their tools.
-FRONTEND_PHASE_BASENAMES_pplex := support/unicode/utf8 preprocess/source/source_buffer preprocess/source/translation_reader preprocess/lexer/char_classes preprocess/lexer/pp_lexer preprocess/lexer/pp_lexer_literals preprocess/lexer/pp_lexer_punctuators
+FRONTEND_PHASE_BASENAMES_pplex := support/unicode/utf8 support/unicode/identifier preprocess/source/source_buffer preprocess/source/translation_reader preprocess/lexer/char_classes preprocess/lexer/pp_lexer preprocess/lexer/pp_lexer_literals preprocess/lexer/pp_lexer_punctuators
 FRONTEND_PHASE_BASENAMES_literals := types/fundamental_type lex/gnu_builtins lex/token_kind lex/ud_suffix lex/number_literal lex/interchange_float lex/text_literal
 FRONTEND_PHASE_BASENAMES_posttoken := support/memory/arena lex/identifier_table lex/string_concatenation lex/post_tokenizer
 FRONTEND_PHASE_BASENAMES_ppexpr := preprocess/expr/pp_arithmetic preprocess/expr/controlling_expression

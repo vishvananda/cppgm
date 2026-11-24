@@ -159,6 +159,22 @@
         "-cc1"
       ],
       "obligation": "Linux device files are outside the regular-file resource policy"
+    },
+    {
+      "id": "escape_newline_unicode",
+      "path": "clang/test/Lexer/escape_newline_unicode.c",
+      "sha256": "7b3be099a681b5b232d101d79c5e96a3cf9e1736fd57cdb7295c4c1c61cf5cba",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-cc1",
+        "-pedantic-errors"
+      ],
+      "obligation": "Unicode characters which cannot start or continue a C23 identifier after a splice"
     }
   ]
 }

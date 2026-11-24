@@ -43,6 +43,12 @@ C23_PREPROCESSOR_REJECTIONS = (
     ('c23.embed-unbalanced', '100-c23-embed-unbalanced-bad.t', 'compile'),
     ('c23.literal-surrogate', '100-c23-literal-surrogate-bad.t', 'compile'),
     ('c23.literal-malformed-ucn', '100-c23-literal-malformed-ucn-bad.t', 'compile'),
+    ('c23.identifier-escaped-start', '100-c23-unicode-escaped-start-bad.t', 'compile'),
+    ('c23.identifier-raw-continue', '100-c23-unicode-raw-continue-bad.t', 'compile'),
+    ('c23.identifier-nfc-reorder', '100-c23-unicode-nfc-reorder-bad.t', 'compile'),
+    ('c23.identifier-nfc-singleton', '100-c23-unicode-nfc-singleton-bad.t', 'compile'),
+    ('c23.identifier-nfc-paste', '100-c23-unicode-nfc-paste-bad.t', 'compile'),
+    ('c23.identifier-nfc-hangul', '100-c23-unicode-nfc-hangul-bad.t', 'compile'),
 )
 C23_PREPROCESSOR_CASES = (
     ('c23.version', '100-c23-version.t', 'preprocess'),
@@ -59,6 +65,7 @@ C23_PROGRAMS = {
     'c23.number-spellings': (PA38_GENERAL / '100-c23-number-spellings.t', ()),
     'c23.variadic-expansion': (PA38_GENERAL / '100-c23-variadic-macro.t', ()),
     'c23.literal-ucn': (PA38_GENERAL / '100-c23-literal-ucn.t', ()),
+    'c23.unicode-identifiers': (PA38_GENERAL / '100-c23-unicode-identifiers.t', ()),
 }
 FLEXIBLE_ARRAY = PA38_GENERAL / '300-c-flexible-array.t'
 RECORD_CONSTRAINTS = {

@@ -39,3 +39,7 @@ The offline C++ drafts under doc/ retain their original ISO/IEC and WG21
 attribution. N4140 is reproduced from Tim Song’s public source rendering;
 N4659 is the WG21-hosted working draft. Source revisions and checksums are
 recorded in doc/language-drafts.json; see doc/REFERENCES.md.
+
+The generated identifier tables under dev/src/support/unicode/ use data from
+the Unicode Character Database 15.1.0. Copyright belongs to Unicode, Inc.
+The Unicode License V3 is retained in dev/src/support/unicode/LICENSE-UNICODE.txt.

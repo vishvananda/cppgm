@@ -122,7 +122,7 @@ public:
 	void set_conditional_escapes(bool on) { conditional_escapes_ = on; }
 	void set_cxx_edition(uint8_t edition) { cxx_edition_ = edition; }
 	void set_unicode_literal_prefixes(bool on) { unicode_literal_prefixes_ = on; }
-	void set_c99_identifiers(bool on) { c99_identifiers_ = on; }
+	void set_c_edition(CEdition edition) { c_edition_ = edition; }
 	void set_line_comments(bool on) { line_comments_ = on; }
 	void set_digraphs(bool on) { digraphs_ = on; }
 	bool digit_separators() const { return digit_separators_; }
@@ -172,7 +172,7 @@ private:
 	bool report_splices_ = false;
 	bool conditional_escapes_ = false;
 	bool unicode_literal_prefixes_ = true;
-	bool c99_identifiers_ = false;
+	CEdition c_edition_ = CEdition::C17;
 	bool line_comments_ = true;
 	bool digraphs_ = true;
 	uint8_t cxx_edition_ = 11;

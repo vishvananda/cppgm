@@ -1236,7 +1236,15 @@
       ],
       "environment": "all",
       "requirement": "Use XID_Start and XID_Continue for raw and escaped Unicode identifiers and diagnose identifiers outside Normalization Form C.",
-      "cases": []
+      "cases": [
+        "c23.unicode-identifiers",
+        "c23.identifier-escaped-start",
+        "c23.identifier-raw-continue",
+        "c23.identifier-nfc-reorder",
+        "c23.identifier-nfc-singleton",
+        "c23.identifier-nfc-paste",
+        "c23.identifier-nfc-hangul"
+      ]
     },
     {
       "id": "c23.literal-universal-names",

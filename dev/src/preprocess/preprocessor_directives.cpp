@@ -993,6 +993,7 @@ bool Preprocessor::continue_macro_arguments()
 	directive.set_input(&source_);
 	directive.set_binary_exponents(source_.binary_exponents());
 	directive.set_digit_separators(source_.digit_separators());
+	directive.set_c_edition(modes_.c_edition);
 	directive.set_hosted_recursion(hosted_);
 	struct Restore
 	{

@@ -219,9 +219,9 @@ Preprocessor::Preprocessor(const PreprocessorOptions& options, const std::string
 		options.c_edition >= CEdition::C11;
 	source_.set_unicode_literal_prefixes(unicode_literal_prefixes);
 	expander_.set_unicode_literal_prefixes(unicode_literal_prefixes);
-	const bool c99_identifiers = options.language == SourceLanguage::C && options.c_edition == CEdition::C99;
-	source_.set_c99_identifiers(c99_identifiers);
-	expander_.set_c99_identifiers(c99_identifiers);
+	const CEdition c_edition = options.language == SourceLanguage::C ? options.c_edition : CEdition::C17;
+	source_.set_c_edition(c_edition);
+	expander_.set_c_edition(c_edition);
 	const bool iso_c = options.language == SourceLanguage::C && options.strict;
 	source_.set_line_comments(!options.iso_c_before_c99());
 	const bool digraphs = !iso_c || options.c_edition >= CEdition::C95;

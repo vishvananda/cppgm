@@ -149,7 +149,7 @@ public:
 	void set_conditional_escapes(bool on) { conditional_escapes_ = on; }
 	void set_cxx_edition(uint8_t edition) { cxx_edition_ = edition; }
 	void set_unicode_literal_prefixes(bool on) { unicode_literal_prefixes_ = on; }
-	void set_c99_identifiers(bool on) { c99_identifiers_ = on; }
+	void set_c_edition(CEdition edition) { c_edition_ = edition; }
 	void set_digraphs(bool on) { digraphs_ = on; }
 	void set_digit_separators(bool enabled) { digit_separators_ = enabled; }
 	// GNU recursion suppression follows active replacement contexts; the
@@ -349,7 +349,7 @@ private:
 	bool hosted_recursion_;
 	bool conditional_escapes_ = false;
 	bool unicode_literal_prefixes_ = true;
-	bool c99_identifiers_ = false;
+	CEdition c_edition_ = CEdition::C17;
 	bool digraphs_ = true;
 	uint8_t cxx_edition_ = 11;
 	// An expansion that produced nothing had white space before its name;

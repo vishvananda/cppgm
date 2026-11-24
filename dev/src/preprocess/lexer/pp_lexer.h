@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 
+#include "lex/source_language.h"
 #include "lex/token_spelling.h"
 #include "preprocess/lexer/pp_token.h"
 #include "preprocess/source/source_buffer.h"
@@ -10,12 +11,16 @@
 #include "preprocess/tokens/pp_token_cursor.h"
 #include "support/unicode/utf8.h"
 
+namespace unicode {
+class NfcCheck;
+}
+
 struct PPLexerOptions
 {
 	bool c_source = false;
 	// ISO C before C11 recognizes only the wide L prefix.
 	bool unicode_literal_prefixes = true;
-	bool c99_identifiers = false;
+	CEdition c_edition = CEdition::C17;
 	bool line_comments = true;
 	bool digraphs = true;
 	// Added to token offsets: the buffer's base in a translation unit's
@@ -172,6 +177,9 @@ private:
 	void take_ucn(const UniversalCharacterName& ucn, const SourceChar& decoded);
 	bool take_identifier_start();
 	bool take_identifier_continue();
+	bool is_identifier_continue(int32_t code_point) const;
+	void take_c23_identifier_tail(unicode::NfcCheck& check);
+	const PPToken& lex_c23_identifier(const SourceChar& first, const UniversalCharacterName* ucn);
 	const PPToken& lex_identifier_or_prefixed_literal();
 	const PPToken& lex_backslash();
 	const PPToken& lex_pp_number();
@@ -208,7 +216,7 @@ private:
 	bool header_names_on_request_;
 	bool c_source_;
 	bool unicode_literal_prefixes_;
-	bool c99_identifiers_;
+	CEdition c_edition_;
 	bool line_comments_;
 	bool digraphs_;
 	bool binary_exponents_;

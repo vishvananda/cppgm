@@ -249,6 +249,36 @@
         "-pedantic-errors"
       ],
       "obligation": "Surrogate and out-of-range universal character names remain invalid in C23 literals"
+    },
+    {
+      "id": "ucnid-3",
+      "path": "gcc/testsuite/gcc.dg/cpp/ucnid-3.c",
+      "sha256": "cb454845ff0362008121f391e3b556876c310e0e214dd8dd0f26d4fcff5fc152",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Paste two valid escaped identifier spellings in C23"
+    },
+    {
+      "id": "warn-normalized-4-unicode",
+      "path": "gcc/testsuite/gcc.dg/cpp/warn-normalized-4-unicode.c",
+      "sha256": "06479ea8ba799baae96890a4fc2ae8162fd8ad776659da7c79150c16e32d46eb",
+      "dialect": "c23",
+      "action": "preprocess",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Non-NFC Tibetan letter inside raw and escaped identifiers"
     }
   ]
 }

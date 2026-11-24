@@ -230,6 +230,14 @@ In ISO C99, lex `u`, `U`, and `u8` before a quote as identifiers.
 Use the same edition for macro pasting. C11 and GNU99 accept Unicode
 literal prefixes.
 
+In C23 identifiers, use Unicode 15.1's XID_Start and XID_Continue
+properties for raw and escaped code points, with underscore allowed
+as an initial character. Require the decoded identifier to be in
+Normalization Form C. Diagnose non-NFC identifiers without changing
+their spelling. Apply both rules to pasted identifiers. The
+normalization rule applies to identifiers, so keep string and
+preprocessing-number spellings as written.
+
 Accept `#pragma STDC FP_CONTRACT ON`, `OFF`, and `DEFAULT` at file
 scope and before a compound block's first declaration or statement.
 Accept the same settings through `_Pragma`. Restore the enclosing setting
