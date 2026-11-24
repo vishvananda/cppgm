@@ -749,12 +749,48 @@ The strict course report passes all 11,674 tests. PA36 smoke and self-host
 through PA5 pass. The two self-hosted compiler generations are identical.
 The student export verifies 26,824 portable reference output files.
 
-An initializer that copies a sparse record and then overrides a
-descendant of its copied array still requires work. The override must
-preserve the previously supplied values of sibling subobjects.
+The follow-up extends this to [updates after copies](#c23-updates-after-sparse-record-copies).
 [C23 constexpr rules](../doc/c-conformance-notes.md#c23-constexpr-objects) ·
 [WG14 DR 413](https://open-std.org/JTC1/SC22/WG14/issues/c11c17/issue0413.html) ·
 [Frozen-input and sparse array measurements](../docs/performance/c-frontend-scaling.md#c23-sparse-arrays-in-record-constants)
+
+## C23 updates after sparse record copies
+
+Successive copies share the checked initializer and unchanged interval
+tree nodes. A designator updates the selected element or span. The
+evaluator reads an older element value only when the update needs to
+preserve part of that element. Static data emission merges source writes
+and updates in storage order. The compact representation also applies
+below the former evaluator storage cutoff.
+
+PA38 checks successive copies, preserved fields of the same array
+element, zero-fill after braced replacement, a copied string prefix,
+and a nested GNU range patch. Both fixtures pass at `-O0` and `-O2`
+on both Linux architectures, both Mach-O local execution harnesses,
+WASI and bare Wasm. A separate Linux runtime probe checks six snapshots
+from a deterministic 2,048-update sequence. WG14's resolution of DR 413
+requires preservation of the other subobjects. GCC 15 fails the
+preservation assertion in the strict fixture. Clang 22 rejects the
+copied-and-patched `constexpr` initializers. On the ordinary C17
+example from DR 413, cppgm and Clang 22 preserve the other subobjects.
+GCC 15 fails the runtime check.
+
+The C matrix passes all 946 local probes, including 477 C23 probes.
+The pinned GCC C23 configurations pass all 58. PA38 passes 621 native,
+621 Wasm, 63 control and three native ABI cases.
+The strict course report passes all 11,674 cases. Debug-info checks,
+PA36 smoke and self-host through PA5 pass, and the two self-hosted
+compiler generations match byte for byte.
+The placement audit reports no findings across 11,622 fixtures. The
+student export verifies 26,830 portable reference output files.
+
+GNU projections through fields or across array dimensions can still
+require dense evaluator storage. A 500,001-element record array reaches
+that budget both with independent overlapping field ranges and with a
+field range applied after a copy. The corresponding static initializer
+passes its Linux runtime check through the existing static data path.
+[WG14 DR 413](https://open-std.org/JTC1/SC22/WG14/issues/c11c17/issue0413.html) ·
+[Frozen-input and copy scaling measurements](../docs/performance/c-frontend-scaling.md#c23-updates-after-sparse-record-copies)
 
 ## Additional editions
 

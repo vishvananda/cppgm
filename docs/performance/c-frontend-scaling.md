@@ -3187,7 +3187,49 @@ retired instructions by 0.55%. Each additional source write costs about
 | 100,000,000 | 4,096 | 47,552,838 | 17,344 |
 | 100,000,000 | 8,192 | 91,084,501 | 17,404 |
 
-Arrays within the dense-storage budget still take the dense path. In
-single-run syntax probes with one written element, raising the extent
-from 1,024 to 262,144 increases retired instructions from 4.6 million to
-150 million. This identifies the work still needed below the budget.
+This build still took the dense path within the storage budget. The
+[follow-up measurements](#c23-updates-after-sparse-record-copies) include
+that calibration and the compact path at the same sizes.
+
+## C23 updates after sparse record copies
+
+Compared immutable GCC 15 builds of `5ffaf69ef` and `a5a887139` on CPU 71.
+Every frozen-input observation emitted the same object bytes. The A/A
+task-clock spreads were 14.8% and 2.8%. The paired blocks show different
+task-clock changes, so the comparison uses retired instructions.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.00144% | −0.00143% | +0.00062% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.00323% | +0.00267% | −0.00234% |
+
+The first syntax probe initializes the last element of a byte array and
+copies its record. Each cell is the median of three runs on CPU 73. At
+262,144 elements, the candidate retires 37 times fewer instructions
+and uses 70% less peak RSS. Its measured compile work stays level as
+the array extent increases.
+
+| Array extent | Baseline instructions | Candidate instructions | Baseline peak RSS (KiB) | Candidate peak RSS (KiB) |
+| ---: | ---: | ---: | ---: | ---: |
+| 64 | 4,066,385 | 4,027,818 | 17,424 | 17,424 |
+| 1,024 | 4,602,591 | 4,027,913 | 17,356 | 17,260 |
+| 16,384 | 13,159,581 | 4,028,128 | 17,520 | 17,388 |
+| 262,144 | 150,064,573 | 4,028,194 | 57,528 | 17,480 |
+
+The second syntax probe starts with 8,192 designators in a
+100-million-element array. Every successive declaration copies the
+previous record and changes one element. It uses the same initial
+initializer and reuses the interval nodes untouched by each write.
+The median of three runs per size rises by about 54,000 instructions
+per additional declaration. This includes parsing and checking the
+declaration.
+
+| Copy-and-update declarations | Retired instructions | Peak RSS (KiB) |
+| ---: | ---: | ---: |
+| 0 | 91,092,824 | 17,400 |
+| 128 | 97,948,589 | 17,316 |
+| 256 | 104,805,641 | 17,380 |
+| 512 | 118,524,942 | 18,032 |
+| 1,024 | 146,050,421 | 17,356 |
+| 2,048 | 201,163,453 | 17,924 |
+| 4,096 | 311,947,944 | 23,868 |
