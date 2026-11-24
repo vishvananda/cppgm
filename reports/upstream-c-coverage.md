@@ -695,6 +695,51 @@ fixed binaries.
 [C23 label rules](../doc/c-conformance-notes.md#c23-labels-in-compound-statements) ·
 [Frozen-input and label scaling measurements](../docs/performance/c-frontend-scaling.md#c23-labels-in-compound-statements)
 
+## C23 storage-class specifiers on compound literals
+
+PA38 exercises static, automatic, register, and thread storage,
+including a static array's decay, repeated evaluation of an automatic
+literal, and accesses to thread-local objects. The constexpr fixture
+checks scalar and aggregate constant operands, member access, copies,
+address qualification, and a complex initializer converted to its
+destination format. The constraint fixtures cover invalid combinations,
+addresses, initializers, and external inline definitions. The C17
+control diagnoses a storage specifier supplied under pedantic mode.
+A C99 fixture checks fixed-size literal operands of `sizeof`, including a
+typedef and a subscript.
+
+The pinned GCC C23 manifest passes all 58 configurations, including
+the full `c23-constexpr-1` case and the pthread runtime case. The clause
+matrix passes 934 probes, including 465 C23 probes, on Linux x86-64,
+WASI and bare Wasm. The C99 `sizeof` fixture is replayed in C99, C11,
+C17 and C23. The existing header inquiry case also passes in C23 on
+each of those profiles.
+
+The storage, constexpr, and `sizeof` fixtures pass at `-O0` and
+`-O2` on both Linux targets, both local Mach-O execution harnesses,
+WASI and bare Wasm. The thread-storage fixture runs on both Linux
+architectures and both Wasm profiles. The actual pthread case also
+passes at both optimization levels under AArch64 QEMU using static
+glibc startup. Both Darwin architectures emit thread-local variable
+descriptors. Hosted Darwin thread execution requires native validation.
+
+PA38 passes 618 native, 618 Wasm, 63 control, and three ABI cases.
+All 11,674 strict course tests pass, as do the debug-info, PA36 smoke,
+self-host through PA5, and compiler audits. The placement audit scans
+11,619 fixtures with no findings. The two self-hosted compiler
+generations match byte for byte. The student export verifies 26,821
+portable reference outputs and passes PA1 and PA38 with the packaged
+reference binaries.
+
+An explicitly initialized array element at index 9,999,999 still
+exhausts the constant interpreter's storage budget when a scalar
+member of the containing record is read. The otherwise identical
+literal with an implicit zero array tail succeeds. This extends the
+known sparse record gap from named objects to compound literals.
+
+[C23 storage rules](../doc/c-conformance-notes.md#c23-storage-class-specifiers-on-compound-literals) ·
+[Frozen-input and compound literal scaling](../docs/performance/c-frontend-scaling.md#c23-storage-class-specifiers-on-compound-literals)
+
 ## Additional editions
 
 The driver baseline at `39e13e127` rejects `c90`, `c89`,

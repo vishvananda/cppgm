@@ -331,6 +331,43 @@ At 2,048 functions, the candidate uses about 22 MiB at `-O0` and 25 MiB
 at `-O2` with free labels. The candidate also emits an object for one
 switch with 1,023 consecutive case labels and a terminal default label.
 
+## C23 storage-class specifiers on compound literals
+
+Compared immutable GCC 15 builds of `36a68c6e4` and `6271dcb37`
+on CPU 71. All frozen runs emitted byte-identical objects. The two
+paired orders had opposite signs in task clock for both inputs.
+The A/A task-clock spreads were 6.27% and 5.41%, respectively.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.00184% | +0.00070% | −0.00164% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.00015% | +0.00426% | +0.00740% |
+
+The static pair compares a named static array with a static compound
+literal containing the same three elements. Each enclosing function
+returns a dynamically indexed element. At 2,048 functions the
+`-O2` outputs have identical `.text` and `.data` contents. The
+constexpr pair reads a scalar member into an enumerator and checks
+it with a static assertion. Its control uses a separately declared
+constant record. Each cell is median retired instructions over three
+observations on CPU 73.
+
+| Functions or constants | Static named | Static compound | Constexpr named | Constexpr compound |
+| ---: | ---: | ---: | ---: | ---: |
+| 128 | 29,662,438 | 28,149,945 | 11,082,594 | 10,004,986 |
+| 256 | 55,241,842 | 52,199,491 | 18,807,841 | 16,276,587 |
+| 512 | 106,370,361 | 100,356,115 | 33,461,166 | 29,083,653 |
+| 1,024 | 208,578,431 | 196,500,043 | 63,469,758 | 54,184,973 |
+| 2,048 | 413,116,881 | 388,960,250 | 126,695,319 | 106,849,952 |
+
+Both comparisons scale linearly in the number of written objects.
+At 2,048 functions the static literal retires 5.85% fewer instructions,
+and the constexpr member probe retires 15.66% fewer instructions.
+The static literal avoids staging a second set of zero-data items
+before attaching its checked initial image. Constexpr records reuse
+the materialized value after the first constant read. A distant
+explicit array element can still exceed the evaluator's storage budget.
+
 ## Volatile assignment code generation
 
 The same source functions returning and discarding a volatile record
