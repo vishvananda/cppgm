@@ -4418,3 +4418,40 @@ instructions than the SDK with the original arithmetic split.
 Retaining the upper 56 bits directly avoids three software
 binary128 operations per split. The full corpus produces identical
 binary128 result bits with both splitting methods.
+
+## Trigonometric call fusion
+
+Both compiler binaries use the same frozen source and emit byte-identical
+object files in all twelve runs for each workload. Hardware counters
+were pinned to CPU 75. The paired instruction changes are within the
+A/A calibration spread for both inputs.
+
+| Input at `-O2` | A/A instruction spread | ABBA instructions | BAAB instructions |
+| --- | ---: | ---: | ---: |
+| Frozen C++ semantic input | 391,883 | −0.0002% | −0.0025% |
+| SQLite 3.50.4 C amalgamation | 668,811 | −0.0033% | −0.0014% |
+
+## WASI adjacent values and positive differences
+
+The control links against the previous cppgm-built supplement and SDK
+34. Each workload makes 262,144 calls with the same SDK Clang client,
+linker, Wasmtime runner, and CPU 74 affinity. The A/A, ABBA, and BAAB
+runs produce identical checksums of the full result bits.
+
+| Workload | Control, millions | Candidate, millions | ABBA | BAAB |
+| --- | ---: | ---: | ---: | ---: |
+| `nextafter` | 16.762 | 16.945 | +1.09% | +1.08% |
+| `nextafterf` | 17.024 | 17.208 | +1.08% | +1.08% |
+| `nextafterl` | 323.744 | 226.357 | −30.08% | −30.08% |
+| `nexttoward` | 91.798 | 74.629 | −18.70% | −18.70% |
+| `nexttowardf` | 92.593 | 75.423 | −18.54% | −18.54% |
+| `nextupf` | 20.228 | 13.666 | −32.44% | −32.44% |
+| `nextupl` | 255.636 | 125.340 | −50.97% | −50.97% |
+| `fdim` | 14.717 | 12.883 | −12.46% | −12.46% |
+| `fdimf` | 14.979 | 13.144 | −12.26% | −12.24% |
+| `fdiml` | 326.685 | 274.577 | −15.95% | −15.95% |
+
+The initial scalar `nextafter` bit comparisons added about 21% retired
+instructions. Hardware comparisons reduced this to about 1.1%. The
+binary128 path compares encoded magnitudes and signs, avoiding
+software floating-point comparisons.

@@ -4122,11 +4122,12 @@ and combined-host receipts use the same compiler binary and match all
 41 generated input digests. The extracted source-only archive passes
 all nine math probes at `-Oz -flto`.
 
-A separate native repro remains open. On x86-64 Linux, an `errno` reset
-between `sin(INFINITY)` and `cos(INFINITY)` produces two `EDOM` values at
-`-O0`. At `-O2`, cppgm combines the calls into GNU `sincos` and the
-second read yields zero. GCC 15 also combines these calls at `-O2` with
-`-fmath-errno`, and both reads yield zero.
+A native repro showed an `errno` reset between `sin(INFINITY)` and
+`cos(INFINITY)` producing two `EDOM` values at `-O0`. At `-O2`,
+cppgm combined the calls into GNU `sincos` and the second read yielded
+zero. GCC 15 also combined these calls at `-O2` with `-fmath-errno`,
+and both reads yielded zero. The subsequent PA33 fix preserves both
+error updates. [Native validation](#trigonometric-call-fusion-and-errno)
 
 [PA33 error number fixture](../pa33/tests/o2/600-observable-error-number.t) ·
 [WASI SDK 34 trigonometric sources](https://github.com/WebAssembly/wasi-libc/tree/2e6fb9d8ee0cdf9e431fbcabe8af3115de000a13/libc-top-half/musl/src/math) ·
@@ -4163,12 +4164,59 @@ zero for 4,800 finite nonzero `sinhl` results. The maximum sampled
 errors with the supplement are two ULPs for `sinhl` and one ULP for
 `coshl`.
 
-Hosted math reporting remains open. An expanded probe observed
-missing error-number updates in the SDK's remainder, positive
-difference, adjacent-value, and gamma functions. These cases include
-errors that the standard leaves optional or implementation-defined.
-[C23 N3096 §7.12](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+An expanded probe observed missing error-number updates in the SDK's
+remainder, positive difference, adjacent-value, and gamma functions.
+These cases include errors that the standard leaves optional or
+implementation-defined. The next batch covers positive difference and
+adjacent values. [C23 N3096 §7.12](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
+[Adjacent-value and difference results](#wasi-adjacent-values-and-positive-differences)
 
 [WASI SDK 34 `fmaf`](https://github.com/WebAssembly/wasi-libc/blob/2e6fb9d8ee0cdf9e431fbcabe8af3115de000a13/libc-top-half/musl/src/math/fmaf.c) ·
 [WASI SDK 34 `coshl`](https://github.com/WebAssembly/wasi-libc/blob/2e6fb9d8ee0cdf9e431fbcabe8af3115de000a13/libc-top-half/musl/src/math/coshl.c) ·
 [Wasm instruction measurements](../docs/performance/c-frontend-scaling.md#wasi-hypotenuse-fused-multiply-add-and-hyperbolic-overflow)
+
+### Trigonometric call fusion and errno
+
+GNU `sincos` call fusion now checks writes that can reach the error
+number. The optimizer keeps each call's error update when a store,
+callback, or other math call can change `errno` on an intervening path.
+The proof uses the effective call effects and the alias guarantees on
+typed stores. Fusion still applies across verified disjoint writes and
+when ordinary calls share an argument across blocks.
+
+The PA33 hosted regression checks adjacent calls, conditional stores,
+a non-inlined reset, an overflowing call to `exp`, and writes through
+`unsigned char *`. The original compiler fails the adjacent-call case.
+Clang 22 with `-fmath-errno` agrees with cppgm's corrected x86-64
+execution. AArch64 under QEMU produces the same results at `-O0`,
+`-O2`, and `-O3`.
+
+[PA33 hosted fixture](../pa33/tests/host/o2/600-sincos-error-number.t.1) ·
+[Compile instruction measurements](../docs/performance/c-frontend-scaling.md#trigonometric-call-fusion)
+
+### WASI adjacent values and positive differences
+
+The supplement reports `ERANGE` for finite overflow in `nextafter`,
+`nexttoward`, and `fdim` in all three precisions. The C23 `nextup` and
+`nextdown` functions preserve `errno` on the corresponding steps to
+infinity. The runtime probe exercises signed zero, the smallest
+subnormal, equal infinities, NaNs, and a `nexttoward` target that loses
+its direction when converted to float or double. All 16 mixed WASI
+configurations pass the direct and indirect calls. Each final archive
+also passes the 76 inherited math audit cases. The replay at
+`48e4f634c` passes 5,931 configurations. The extracted source-only
+package passes all nine math probes at `-Oz -flto`.
+
+On 65,536 operand pairs per precision, all tested result bits match
+glibc and libquadmath. The comparisons cover `nextafter`, `nextup`,
+`nextdown`, and `fdim`. The error-number probe covers the wider-target
+`nexttoward` cases separately.
+
+Hosted math reporting remains open. A direct-call probe shows that
+`-O2` replaces `pow(DBL_MAX, 2.0)` and `pow(-0.0, -1.0)` on volatile
+inputs with multiplication and division. Both calls produce the
+expected infinity class and lose their Linux `ERANGE` updates. The WASI
+SDK also omits the pole error number for the reciprocal case at `-O0`.
+
+[C23 N3096 §§7.12.11.3–6, 7.12.12.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
+[Wasm instruction measurements](../docs/performance/c-frontend-scaling.md#wasi-adjacent-values-and-positive-differences)

@@ -1664,12 +1664,20 @@ conversions, operations, and selected library macros.
 [C23 N3096 §§7.6, 7.6.2, 7.6.4, 7.6.5](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
 
 The `nextup` and `nextdown` families step to the adjacent representable
-value in the requested direction. The WASI implementations use the SDK's
-`nextafter` functions and preserve signed zero when stepping from the
-smallest subnormals. The `llogb` families return a `long` exponent or
-the specified sentinel for zero, infinity, or NaN. WASI's equal `int`
-and `long` ranges allow them to use the existing `ilogb` operations.
-[C23 N3096 §§7.12.6.10, 7.12.11.5–6](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+value in the requested direction. They preserve signed zero when
+stepping from the smallest subnormals and preserve `errno` when stepping
+from the largest finite magnitude to infinity. The WASI `nextafter`
+and `nexttoward` families report `ERANGE` on that outward step and
+preserve the sign of the second argument when the arguments compare
+equal. `nexttoward` compares the full binary128 target before selecting
+a direction in the result format. The `fdim` family reports `ERANGE`
+when subtracting two finite operands overflows.
+[C23 N3096 §§7.12.11.3–6, 7.12.12.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+
+The `llogb` families return a `long` exponent or the specified sentinel
+for zero, infinity, or NaN. WASI's equal `int` and `long` ranges allow
+them to use the existing `ilogb` operations.
+[C23 N3096 §7.12.6.10](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
 
 `roundeven` always chooses the nearest integer with ties to even.
 The WASI supplement uses the SDK's fixed nearest-even rounding for all
