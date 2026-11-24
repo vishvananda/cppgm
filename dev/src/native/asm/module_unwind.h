@@ -7,6 +7,8 @@
 #include "native/target.h"
 
 namespace native {
+class ModuleLayout;
+
 class ModuleUnwind
 {
 public:
@@ -18,7 +20,8 @@ public:
 	bool pending() const { return !events_.empty(); }
 	void flush(
 		uint32_t section, const std::vector<uint32_t>& lines, const std::vector<uint32_t>& positions, uint32_t end);
-	void finish();
+	void boundary();
+	void finish(const ModuleLayout& layout);
 
 private:
 	struct Procedure;
@@ -30,6 +33,14 @@ private:
 	void pointer_relocation(uint32_t section, uint32_t offset, uint8_t encoding,
 		const asm_model::SymbolReference& reference, bool personality);
 	std::vector<AssemblyCfiEvent> events_;
+	struct PositionedEvent
+	{
+		AssemblyCfiEvent event;
+		uint32_t section;
+		uint32_t offset;
+		bool boundary;
+	};
+	std::vector<PositionedEvent> positioned_;
 	std::unique_ptr<Procedure> current_;
 	uint32_t frame_ = 0;
 	struct Cie

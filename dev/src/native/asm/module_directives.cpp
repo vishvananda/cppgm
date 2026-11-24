@@ -10,6 +10,17 @@ namespace native {
 namespace {
 using object::SectionKind;
 const uint64_t kModuleByteLimit = 64u * 1024u * 1024u;
+
+unsigned scalar_data_width(const std::string& name)
+{
+	if (name == ".quad" || name == ".8byte")
+		return 8;
+	if (name == ".long" || name == ".int" || name == ".4byte")
+		return 4;
+	if (name == ".short" || name == ".word" || name == ".value" || name == ".2byte")
+		return 2;
+	return name == ".byte" ? 1 : 0;
+}
 }
 void ModuleAssembler::reserve(uint64_t count, uint8_t fill)
 {
@@ -21,6 +32,14 @@ void ModuleAssembler::reserve(uint64_t count, uint8_t fill)
 		section.bytes.resize(section.size, fill);
 	else if (fill != 0)
 		throw BackendError("nonzero initialization in module bss section");
+}
+void ModuleAssembler::stage(ModuleLayout::Fragment fragment)
+{
+	const auto& section = out_.sections[section_];
+	if ((section.kind == SectionKind::Bss || section.kind == SectionKind::TlsBss) && fragment.fill != 0)
+		throw BackendError("nonzero initialization in module bss section");
+	layout_.append(section_, std::move(fragment));
+	reserve(1, 0);
 }
 assembly::ModuleValue ModuleAssembler::expression_symbol(assembly::ModuleCursor& cursor)
 {
@@ -46,15 +65,21 @@ assembly::ModuleValue ModuleAssembler::expression_symbol(assembly::ModuleCursor&
 }
 void ModuleAssembler::fold_difference(assembly::ModuleValue& value) const
 {
+	fold_at(value, section_, offset());
+}
+void ModuleAssembler::fold_at(assembly::ModuleValue& value, uint32_t section, uint64_t at) const
+{
 	if (value.positive == lowir::kNoId || value.negative == lowir::kNoId)
 		return;
-	const uint32_t plus_section = value.positive == 0 ? section_ : out_.symbols[value.positive].section;
-	const uint32_t minus_section = value.negative == 0 ? section_ : out_.symbols[value.negative].section;
+	const uint32_t plus_section = value.positive == 0 ? section : out_.symbols[value.positive].section;
+	const uint32_t minus_section = value.negative == 0 ? section : out_.symbols[value.negative].section;
 	if (plus_section != minus_section || plus_section == object::kUndefinedSection ||
 		plus_section == object::kCommonSection)
 		return;
-	const uint64_t plus = value.positive == 0 ? offset() : out_.symbols[value.positive].value;
-	const uint64_t minus = value.negative == 0 ? offset() : out_.symbols[value.negative].value;
+	const uint64_t plus = value.positive == 0 ? at : out_.symbols[value.positive].value;
+	const uint64_t minus = value.negative == 0 ? at : out_.symbols[value.negative].value;
+	if (layout_.crosses(plus_section, minus, plus))
+		return;
 	value.bits += plus - minus;
 	value.positive = value.negative = lowir::kNoId;
 }
@@ -106,8 +131,9 @@ void ModuleAssembler::finish_data()
 	if (data_relocations_.empty())
 		return;
 	std::vector<uint32_t> section_symbols(out_.sections.size(), 0);
-	for (const DataRelocation& word : data_relocations_)
+	for (DataRelocation& word : data_relocations_)
 	{
+		word.offset = layout_.position(word.section, word.offset);
 		object::Section& section = out_.sections[word.section];
 		uint64_t addend = word.addend;
 		uint32_t symbol = word.positive;
@@ -212,7 +238,8 @@ void ModuleAssembler::alignment(assembly::ModuleCursor& cursor, bool power)
 	}
 	if (alignment == 0 || alignment > (1u << 20) || (alignment & (alignment - 1)) != 0)
 		cursor.fail("module alignment requires a bounded power of two");
-	uint8_t fill = out_.sections[section_].kind == SectionKind::Text ? 0x90 : 0;
+	const bool text = out_.sections[section_].kind == SectionKind::Text;
+	int16_t fill = text ? -1 : 0;
 	uint64_t maximum = UINT64_MAX;
 	if (cursor.take(','))
 	{
@@ -222,9 +249,14 @@ void ModuleAssembler::alignment(assembly::ModuleCursor& cursor, bool power)
 			maximum = assembly::assembly_integer_expression(cursor);
 	}
 	out_.sections[section_].align = std::max(out_.sections[section_].align, alignment);
-	const uint64_t bytes = (uint64_t(0) - offset()) & (alignment - 1);
-	if (bytes <= maximum)
-		reserve(bytes, fill);
+	if (layout_.pending(section_))
+		stage({ offset(), fill, alignment, maximum });
+	else
+	{
+		const uint64_t bytes = (uint64_t(0) - offset()) & (alignment - 1);
+		if (bytes <= maximum)
+			reserve(bytes, text && fill < 0 ? 0x90 : fill);
+	}
 }
 void ModuleAssembler::size(assembly::ModuleCursor& cursor)
 {
@@ -232,9 +264,25 @@ void ModuleAssembler::size(assembly::ModuleCursor& cursor)
 	if (!cursor.take(','))
 		cursor.fail("module size requires an expression");
 	const assembly::ModuleValue bytes = assembly::assembly_module_expression(cursor, *this);
-	if (bytes.relocatable() || bytes.bits > INT64_MAX)
+	if (bytes.relocatable())
+		sizes_.push_back(SymbolSize{ id, section_, offset(), bytes });
+	else if (bytes.bits > INT64_MAX)
 		cursor.fail("module size requires a nonnegative absolute expression");
-	out_.symbols[id].size = bytes.bits;
+	else
+		out_.symbols[id].size = bytes.bits;
+}
+void ModuleAssembler::finish_sizes()
+{
+	for (const RawSize& entry : raw_sizes_)
+		out_.symbols[entry.symbol].size = layout_.position(entry.section, entry.end) -
+			layout_.position(entry.section, entry.first);
+	for (SymbolSize& entry : sizes_)
+	{
+		fold_at(entry.value, entry.section, layout_.position(entry.section, entry.offset));
+		if (entry.value.relocatable() || entry.value.bits > INT64_MAX)
+			throw BackendError("module size requires a nonnegative absolute expression");
+		out_.symbols[entry.symbol].size = entry.value.bits;
+	}
 }
 void ModuleAssembler::assign(uint32_t id, assembly::ModuleCursor& cursor)
 {
@@ -244,7 +292,12 @@ void ModuleAssembler::assign(uint32_t id, assembly::ModuleCursor& cursor)
 	if (value.positive == lowir::kNoId)
 		symbols_.define_absolute(id, value.bits);
 	else if (value.positive == 0)
-		symbols_.define(id, section_, offset() + value.bits);
+	{
+		object::Symbol anchor;
+		anchor.section = section_;
+		anchor.value = offset();
+		symbols_.alias(id, out_.add_symbol(anchor), static_cast<int64_t>(value.bits));
+	}
 	else
 		symbols_.alias(id, value.positive, static_cast<int64_t>(value.bits));
 }
@@ -293,21 +346,31 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 		type(cursor);
 	else if (name == ".size")
 		size(cursor);
-	else if (name == ".byte" || name == ".word" || name == ".short" || name == ".long" || name == ".int" ||
-		name == ".quad")
-		data(cursor, name == ".byte" ? 1 : name == ".word" || name == ".short" ? 2 : name == ".quad" ? 8 : 4);
+	else if (const unsigned width = scalar_data_width(name))
+		data(cursor, width);
 	else if (name == ".ascii" || name == ".asciz" || name == ".string")
 		strings(cursor, name != ".ascii");
 	else if (name == ".incbin")
 		include_binary(cursor);
 	else if (name == ".zero" || name == ".space" || name == ".skip")
 	{
-		const uint64_t bytes = assembly::assembly_integer_expression(cursor);
-		const uint8_t fill = cursor.take(',') ? static_cast<uint8_t>(assembly::assembly_integer_expression(cursor)) : 0;
-		reserve(bytes, fill);
+		auto expression = assembly::parse_module_expression(cursor, *this);
+		const int16_t fill = cursor.take(',') ? static_cast<uint8_t>(assembly::assembly_integer_expression(cursor)) : 0;
+		if (expression.has_symbols)
+			stage({ offset(), ModuleLayout::Kind::Space, fill, std::move(expression) });
+		else
+			reserve(assembly::evaluate_module_expression(expression, *this).bits, fill);
 	}
 	else if (name == ".org")
 	{
+		if (layout_.pending(section_))
+		{
+			auto expression = assembly::parse_module_expression(cursor, *this);
+			const int16_t fill = cursor.take(',') ? static_cast<uint8_t>(assembly::assembly_integer_expression(cursor))
+												  : 0;
+			stage({ offset(), ModuleLayout::Kind::Origin, fill, std::move(expression) });
+			return true;
+		}
 		assembly::ModuleValue end = assembly::assembly_module_expression(cursor, *this);
 		if (end.positive != lowir::kNoId && end.negative == lowir::kNoId)
 		{

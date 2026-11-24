@@ -10,18 +10,22 @@ namespace {
 class Expression
 {
 public:
-	explicit Expression(ModuleCursor& cursor, bool registers = false, ExpressionSymbols* symbols = nullptr)
-		: cursor_(cursor), symbols_(symbols), registers_(registers)
+	explicit Expression(ModuleCursor& cursor, bool registers = false, ExpressionSymbols* symbols = nullptr,
+		ModuleExpression* plan = nullptr)
+		: cursor_(cursor), symbols_(symbols), plan_(plan), registers_(registers)
 	{}
 	uint64_t run() { return integer(binary(1, 0)); }
 	uint64_t addend() { return integer(tail({}, 1, 0)); }
 	ModuleValue relocatable() { return binary(1, 0).data; }
+	ModuleValue evaluate(const ModuleExpression& plan);
 
 private:
 	struct Value
 	{
+		Value() : reg{} {}
+		explicit Value(ModuleValue value) : data(value), reg{} {}
 		ModuleValue data;
-		asm_model::Register reg{};
+		asm_model::Register reg;
 	};
 	struct Operator
 	{
@@ -32,11 +36,14 @@ private:
 	Value primary(unsigned depth);
 	Value binary(unsigned minimum, unsigned depth);
 	Value tail(Value result, unsigned minimum, unsigned depth);
+	Value unary(char op, Value operand);
+	Value binary_value(const char* op, Value left, Value right);
 	uint64_t apply(const std::string& op, Value a, Value b);
 	ModuleValue combine(ModuleValue a, ModuleValue b, bool subtract);
 	uint64_t integer(Value value) const;
 	ModuleCursor& cursor_;
 	ExpressionSymbols* symbols_;
+	ModuleExpression* plan_;
 	bool registers_;
 };
 Expression::Operator Expression::operation()
@@ -66,21 +73,14 @@ Expression::Value Expression::primary(unsigned depth)
 	if (depth > 64)
 		cursor_.fail("module expression nesting exceeds limit");
 	Value result;
-	if (cursor_.take('-'))
+	const char* prefix = cursor_.take('-') ? "-" : cursor_.take('~') ? "~" : cursor_.take('+') ? "+" : nullptr;
+	if (prefix != nullptr)
 	{
 		result = primary(depth + 1);
-		if (result.reg.bits != 0)
-			cursor_.fail("absolute expression cannot use a register as an integer");
-		result.data.bits = uint64_t(0) - result.data.bits;
-		std::swap(result.data.positive, result.data.negative);
-	}
-	else if (cursor_.take('~'))
-		result.data.bits = ~integer(primary(depth + 1));
-	else if (cursor_.take('+'))
-	{
-		result = primary(depth + 1);
-		if (result.reg.bits != 0)
-			cursor_.fail("absolute expression cannot use a register as an integer");
+		if (plan_ != nullptr)
+			plan_->steps.push_back({ prefix, {}, true });
+		else
+			result = unary(*prefix, result);
 	}
 	else if (cursor_.take('('))
 	{
@@ -103,6 +103,11 @@ Expression::Value Expression::primary(unsigned depth)
 			cursor_.fail("absolute expression cannot use a relocatable symbol");
 		else
 			result.data.bits = cursor_.number();
+		if (plan_ != nullptr)
+		{
+			plan_->has_symbols |= result.data.relocatable();
+			plan_->steps.push_back({ nullptr, result.data, false });
+		}
 	}
 	return result;
 }
@@ -119,16 +124,56 @@ Expression::Value Expression::tail(Value result, unsigned minimum, unsigned dept
 			return result;
 		cursor_.advance(static_cast<uint32_t>(std::strlen(op.text)));
 		const Value right = binary(op.precedence + 1, depth + 1);
-		if (result.data.relocatable() || right.data.relocatable())
-		{
-			if ((op.text[0] != '+' && op.text[0] != '-') || result.reg.bits != 0 || right.reg.bits != 0)
-				cursor_.fail("non-additive operation on a relocatable symbol");
-			result.data = combine(result.data, right.data, op.text[0] == '-');
-		}
+		if (plan_ != nullptr)
+			plan_->steps.push_back({ op.text, {}, false });
 		else
-			result.data.bits = apply(op.text, result, right);
-		result.reg = {};
+			result = binary_value(op.text, result, right);
 	}
+}
+Expression::Value Expression::unary(char op, Value operand)
+{
+	if (op == '~')
+		return Value{ ModuleValue{ ~integer(operand) } };
+	if (operand.reg.bits != 0)
+		cursor_.fail("absolute expression cannot use a register as an integer");
+	if (op == '-')
+	{
+		operand.data.bits = uint64_t(0) - operand.data.bits;
+		std::swap(operand.data.positive, operand.data.negative);
+	}
+	return operand;
+}
+Expression::Value Expression::binary_value(const char* op, Value left, Value right)
+{
+	if (left.data.relocatable() || right.data.relocatable())
+	{
+		if ((op[0] != '+' && op[0] != '-') || left.reg.bits != 0 || right.reg.bits != 0)
+			cursor_.fail("non-additive operation on a relocatable symbol");
+		return Value{ combine(left.data, right.data, op[0] == '-') };
+	}
+	return Value{ ModuleValue{ apply(op, left, right) } };
+}
+ModuleValue Expression::evaluate(const ModuleExpression& plan)
+{
+	std::vector<Value> stack;
+	for (const ModuleExpression::Step& step : plan.steps)
+	{
+		if (step.op == nullptr)
+		{
+			ModuleValue value = step.literal;
+			symbols_->fold_difference(value);
+			stack.push_back(Value{ value });
+		}
+		else if (step.unary)
+			stack.back() = unary(step.op[0], stack.back());
+		else
+		{
+			const Value right = stack.back();
+			stack.pop_back();
+			stack.back() = binary_value(step.op, stack.back(), right);
+		}
+	}
+	return stack.back().data;
 }
 ModuleValue Expression::combine(ModuleValue a, ModuleValue b, bool subtract)
 {
@@ -219,6 +264,20 @@ uint64_t assembly_integer_addend(ModuleCursor& cursor)
 ModuleValue assembly_module_expression(ModuleCursor& cursor, ExpressionSymbols& symbols)
 {
 	return Expression(cursor, false, &symbols).relocatable();
+}
+ModuleExpression parse_module_expression(ModuleCursor& cursor, ExpressionSymbols& symbols)
+{
+	ModuleExpression plan;
+	plan.line = cursor.line();
+	plan.column = cursor.column();
+	Expression(cursor, false, &symbols, &plan).relocatable();
+	return plan;
+}
+ModuleValue evaluate_module_expression(const ModuleExpression& plan, ExpressionSymbols& symbols)
+{
+	const std::string empty;
+	ModuleCursor cursor(empty, 0, plan.line, plan.column);
+	return Expression(cursor, false, &symbols).evaluate(plan);
 }
 uint64_t module_expression(const ModuleLine& line, uint32_t first)
 {

@@ -2,6 +2,7 @@
 
 #include "asm/module_expression.h"
 #include "lowir/program.h"
+#include "native/asm/module_layout.h"
 #include "native/asm/module_symbols.h"
 #include "native/asm/module_unwind.h"
 
@@ -30,8 +31,10 @@ private:
 		const std::string& name, object::SectionKind kind, uint32_t merge_size = 0, bool merge_strings = false);
 	void data(assembly::ModuleCursor& cursor, unsigned bytes);
 	void finish_data();
+	void finish_sizes();
 	assembly::ModuleValue expression_symbol(assembly::ModuleCursor& cursor) override;
 	void fold_difference(assembly::ModuleValue& value) const override;
+	void fold_at(assembly::ModuleValue& value, uint32_t section, uint64_t at) const;
 	void assign(uint32_t id, assembly::ModuleCursor& cursor);
 	void strings(assembly::ModuleCursor& cursor, bool terminate);
 	void include_binary(assembly::ModuleCursor& cursor);
@@ -39,11 +42,13 @@ private:
 	void size(assembly::ModuleCursor& cursor);
 	void type(assembly::ModuleCursor& cursor);
 	void reserve(uint64_t count, uint8_t fill);
+	void stage(ModuleLayout::Fragment fragment);
 	uint64_t offset() const;
 	uint32_t symbol(assembly::ModuleCursor& cursor) { return symbols_.token(cursor); }
 	object::ObjectFile& out_;
 	Target target_;
 	ModuleSymbols symbols_;
+	ModuleLayout layout_;
 	ModuleUnwind unwind_;
 	assembly::Syntax syntax_;
 	uint32_t section_ = 0;
@@ -59,6 +64,22 @@ private:
 		unsigned bytes;
 	};
 	std::vector<DataRelocation> data_relocations_;
+	struct SymbolSize
+	{
+		uint32_t symbol;
+		uint32_t section;
+		uint64_t offset;
+		assembly::ModuleValue value;
+	};
+	std::vector<SymbolSize> sizes_;
+	struct RawSize
+	{
+		uint32_t symbol;
+		uint32_t section;
+		uint64_t first;
+		uint64_t end;
+	};
+	std::vector<RawSize> raw_sizes_;
 	std::string code_;
 	std::vector<assembly::SymbolUse> uses_;
 	std::vector<uint32_t> code_lines_;

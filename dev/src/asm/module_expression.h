@@ -6,10 +6,25 @@ namespace assembly {
 
 struct ModuleValue
 {
-	uint64_t bits = 0;
+	ModuleValue(uint64_t value = 0) : bits(value) {}
+	uint64_t bits;
 	uint32_t positive = asm_model::kNoId;
 	uint32_t negative = asm_model::kNoId;
 	bool relocatable() const { return positive != asm_model::kNoId || negative != asm_model::kNoId; }
+};
+
+struct ModuleExpression
+{
+	struct Step
+	{
+		const char* op;
+		ModuleValue literal;
+		bool unary;
+	};
+	std::vector<Step> steps;
+	uint32_t line = 0;
+	uint32_t column = 0;
+	bool has_symbols = false;
 };
 
 struct ExpressionSymbols
@@ -23,6 +38,8 @@ struct ExpressionSymbols
 uint64_t assembly_integer_expression(ModuleCursor& cursor);
 uint64_t assembly_integer_addend(ModuleCursor& cursor);
 ModuleValue assembly_module_expression(ModuleCursor& cursor, ExpressionSymbols& symbols);
+ModuleExpression parse_module_expression(ModuleCursor& cursor, ExpressionSymbols& symbols);
+ModuleValue evaluate_module_expression(const ModuleExpression& plan, ExpressionSymbols& symbols);
 
 // A complete expression, including register comparisons in macro conditions.
 uint64_t module_expression(const ModuleLine& line, uint32_t first = 0);

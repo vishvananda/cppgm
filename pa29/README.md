@@ -200,7 +200,8 @@ code, scalar data, pointer relocations, BSS, strings and alignment directly.
 Support `.text`, `.data`, `.bss`, `.rodata`, `.section`, the section stack and
 `.previous`; `.byte`/`.short`/`.word`/`.long`/`.quad`, `.zero`/`.space`/`.skip`,
 `.ascii`/`.asciz`/`.string`, and `.p2align`/`.balign`/`.align`/`.align`. Respect target
-alignment and section spelling differences.
+alignment and section spelling differences. Accept `.2byte`, `.4byte` and
+`.8byte` as explicit-width scalar data directives.
 Adjacent quoted pieces in one string operand concatenate before an optional
 string terminator is emitted. For ELF symbol types, also accept `STT_FUNC`,
 `STT_OBJECT`, and `STT_NOTYPE`, including the space-separated
@@ -216,7 +217,11 @@ of that number and `f` the next one, even across section changes.
 a symbol address with an addend. A difference of defined labels in one
 section is absolute and can serve as a symbol's `.size`. Scalar data
 expressions can group symbol terms in parentheses. `.org` fills up to a
-fixed or already defined same-section position.
+fixed or already defined same-section position. A space count may use
+arithmetic on label differences, including forward differences in another
+section. Determine the padding before finalizing symbol values, relocations,
+alignment, and unwind information. Reject circular dependencies between
+variable-size directives.
 
 In inline assembly, `.ascii` emits the bytes of its string operands.
 `.asciz` and `.string` append a zero byte to each operand. Adjacent

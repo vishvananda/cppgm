@@ -1,5 +1,6 @@
 #include "native/asm/module_unwind.h"
 
+#include "native/asm/module_layout.h"
 #include "native/backend_error.h"
 
 #include <cstring>
@@ -80,7 +81,7 @@ void ModuleUnwind::flush(
 	{
 		while (index < lines.size() && lines[index] < event.anchor)
 			++index;
-		apply(event, section, index < positions.size() ? positions[index] : end);
+		positioned_.push_back({ event, section, index < positions.size() ? positions[index] : end, false });
 	}
 	events_.clear();
 }
@@ -210,9 +211,19 @@ void ModuleUnwind::emit(uint32_t end)
 	if (description.lsda_encoding != 0xff)
 		pointer_relocation(frame_, lsda_field, description.lsda_encoding, procedure.lsda, false);
 }
-void ModuleUnwind::finish()
+void ModuleUnwind::boundary()
 {
-	if (current_)
-		throw BackendError("assembly CFI line " + std::to_string(1) + ": " + "unterminated CFI procedure");
+	positioned_.push_back({ {}, 0, 0, true });
+}
+void ModuleUnwind::finish(const ModuleLayout& layout)
+{
+	boundary();
+	for (const PositionedEvent& positioned : positioned_)
+	{
+		if (!positioned.boundary)
+			apply(positioned.event, positioned.section, layout.position(positioned.section, positioned.offset));
+		else if (current_)
+			throw BackendError("assembly CFI line 1: unterminated CFI procedure");
+	}
 }
 } // namespace native

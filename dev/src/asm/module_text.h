@@ -43,6 +43,8 @@ public:
 	void finish();
 	[[noreturn]] void fail(const std::string& message) const;
 	uint32_t position() const { return position_; }
+	uint32_t line() const { return line_; }
+	uint32_t column() const { return column_ + position_ - first_; }
 	void advance(uint32_t count) { position_ += count; }
 
 private:

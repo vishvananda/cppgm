@@ -270,7 +270,7 @@ void InlineModulePlacement::append(const InlineAssemblyModule& module, uint32_t 
 }
 
 ModuleAssembler::ModuleAssembler(object::ObjectFile& out, Target target)
-	: out_(out), target_(target), symbols_(out, target), unwind_(out, target)
+	: out_(out), target_(target), symbols_(out, target), layout_(out), unwind_(out, target)
 {
 	syntax_.power_alignment = target == Target::MacOS;
 	section(".text", object::SectionKind::Text);
@@ -418,8 +418,7 @@ void ModuleAssembler::append(const assembly::ModuleLine& line)
 		return;
 	}
 	const bool code_data = out_.sections[section_].kind == object::SectionKind::Text &&
-		(name == ".p2align" || name == ".balign" || name == ".align" || name == ".zero" || name == ".space" ||
-			name == ".skip" ||
+		(((name == ".p2align" || name == ".balign" || name == ".align") && !layout_.pending(section_)) ||
 			((name == ".byte" || name == ".short" || name == ".word" || name == ".long" || name == ".quad") &&
 				cursor.numeric() && cursor.current() != '(' && cursor.symbol_use() == nullptr));
 	if (name[0] == '.' && !label && !syntax && !code_data)
@@ -460,11 +459,13 @@ void ModuleAssembler::begin(asm_model::Dialect dialect)
 void ModuleAssembler::finish()
 {
 	flush();
-	unwind_.finish();
 	if (!section_stack_.empty())
 		throw BackendError("unbalanced module section stack");
+	layout_.finish();
+	finish_sizes();
 	symbols_.finish();
 	finish_data();
+	unwind_.finish(layout_);
 }
 void emit_assembly_items(object::ObjectFile& out, const lowir::Program& program, Target target,
 	const std::vector<uint32_t>& mapping, AssemblyEnvironment& environment)

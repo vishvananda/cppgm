@@ -17,7 +17,7 @@ void ModuleAssembler::module_start()
 void ModuleAssembler::begin_raw(uint32_t id, const std::string& name, bool comdat, bool initial)
 {
 	flush();
-	unwind_.finish();
+	unwind_.boundary();
 	if (comdat)
 	{
 		section_ = out_.add_section(name.c_str(), object::SectionKind::Text, 16);
@@ -31,9 +31,14 @@ void ModuleAssembler::begin_raw(uint32_t id, const std::string& name, bool comda
 		section(name, object::SectionKind::Text);
 	auto& text = out_.sections[section_];
 	text.align = std::max<uint64_t>(text.align, 16);
-	while (text.bytes.size() % 16 != 0)
-		text.bytes.push_back(0xcc);
-	text.size = text.bytes.size();
+	if (layout_.pending(section_))
+		stage({ offset(), 0xcc, 16, UINT64_MAX });
+	else
+	{
+		while (text.bytes.size() % 16 != 0)
+			text.bytes.push_back(0xcc);
+		text.size = text.bytes.size();
+	}
 	symbols_.bind(id, out_.symbols[id].binding);
 	symbols_.define(id, section_, text.size);
 	out_.symbols[id].type = object::SymbolType::Function;
@@ -49,14 +54,17 @@ void ModuleAssembler::end_raw()
 	if (raw_initial_)
 		unwind_.end(static_cast<uint32_t>(code_lines_.size() + 1));
 	flush();
-	unwind_.finish();
+	unwind_.boundary();
 	if (section_ != raw_section_ || !section_stack_.empty())
 		throw BackendError("assembly function must restore its code section");
 	auto& text = out_.sections[section_];
 	text.bytes.push_back(0x0f);
 	text.bytes.push_back(0x0b);
 	text.size = text.bytes.size();
-	out_.symbols[raw_symbol_].size = text.size - raw_first_;
+	if (layout_.crosses(section_, raw_first_, text.size))
+		raw_sizes_.push_back({ raw_symbol_, section_, raw_first_, text.size });
+	else
+		out_.symbols[raw_symbol_].size = text.size - raw_first_;
 	raw_symbol_ = 0;
 }
 void emit_assembly_function(ModuleAssembler& assembler, const lowir::Program& program,
