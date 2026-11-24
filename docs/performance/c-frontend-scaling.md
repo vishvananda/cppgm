@@ -3849,3 +3849,21 @@ and 29,002 and 29,288 for bare Wasm. The Wasm cost includes generating
 and emitting the additional registration function. The largest case
 used 22,648 KiB peak RSS on x86-64 and 24,756 KiB on Wasm, compared
 with 20,720 KiB and 20,588 KiB for their controls.
+
+## Bare Wasm C23 bit header
+
+The generic macros expand directly to the existing typed C bit builtins.
+CPU 71 ran A/A, ABBA and BAAB blocks at `-O2 -c` with the compiler
+from `bc0ff59ef`. Each program used one or 256 functions calling
+`stdc_leading_zeros`. The baseline defined that macro directly.
+The supplement case included `<stdbit.h>`, which also supplies the
+callable declarations and size and integer type names. All paired
+objects were byte-identical.
+
+The one-function program added 3,286,130 and 3,286,242 retired user
+instructions in ABBA and BAAB. The 256-function program added
+3,399,284 and 3,401,815. A/A spreads were 209 and 12,684 instructions.
+Most of the measured work is the one-time header cost. A linked
+program taking one typed function's address produced a 184-byte
+module with one archive function body. The body lowers the count to
+Wasm's `i32.clz` instruction.

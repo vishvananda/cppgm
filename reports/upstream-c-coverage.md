@@ -3216,3 +3216,44 @@ bit utilities, and required header version macros.
 
 [WASI SDK pin](../scripts/wasm_tools.json) ·
 [Header and runtime checklist](../scripts/c_library_headers.py)
+
+## Bare Wasm C23 library supplement
+
+The bare Wasm replay builds a supplemental runtime archive with
+cppgm at `-O2`. The supplement provides `<stdbit.h>` and the
+freestanding `memalignment` interface of `<stdlib.h>`. The C23
+probe checks the endian macros, size and integer types, and all
+70 callable bit functions alongside the type-generic macros. The
+extended-width probe also checks unsigned 128-bit and bit-precise
+operands. The alignment probe checks a null pointer, an unaligned
+address, and the power-of-two alignment of a stack object.
+
+At `-O0` and `-O2`, cppgm callers link with the Clang 23 archive
+and Clang callers link with the cppgm archive. Both the internal
+linker and LLD pass all 24 mixed executions under Wasmtime. A
+program using one bit function retains one archive function body.
+The linked module is 184 bytes with no host imports.
+
+The source-only release archive contains the build recipe and
+sources. The extracted archive builds the runtime and passes
+the bit utility probe using the documented driver invocation.
+The CI evidence includes the runtime archive, headers, and hashes.
+
+The combined replay passes all 5,137 executed configurations at
+`53f89bcf6`. It covers 1,410 configurations each on Linux x86-64
+and Linux AArch64 under QEMU, 1,315 on WASI, and 1,002 on bare Wasm.
+The 76 harness test files, format audit, and release archive checks
+pass. The file audit reports its 13 existing warnings.
+
+The supplement closes six bare Wasm C23 inventory entries. Eleven
+remain open, covering the freestanding `<string.h>` interface,
+floating format indicators, header versions, and the combined header
+check. A separate link experiment called 18 required string functions
+from selected WASI SDK objects under bare Wasm at both optimization
+levels. The linked modules have no host imports. The SDK's own
+`<string.h>` requires a WASI target, so the bare profile still needs
+its own declarations and type-generic macros, plus an implementation
+of `memset_explicit`.
+
+[Build and link commands](../BUILDING.md#bare-wasm-c23-library-supplement) ·
+[Bit utility requirements](../doc/c-conformance-notes.md#c23-bit-utilities-and-checked-integer-arithmetic)
