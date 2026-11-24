@@ -1989,6 +1989,16 @@
       "cases": ["library.math-error-reporting"]
     },
     {
+      "id": "library.long-double-remainders",
+      "clause": "C99–C23 7.12.10.2–3",
+      "kind": "required",
+      "editions": [99, 11, 17, 23],
+      "environment": "hosted",
+      "header": "math",
+      "requirement": "Compute long double remainders and expose at least three low quotient bits. Check ties to even, signed zero, subnormal divisors, and the largest finite input.",
+      "cases": ["library.long-double-remainders"]
+    },
+    {
       "id": "library.long-double-transcendentals",
       "clause": "C99–C17 7.12.6, 7.12.7; C23 7.12.6, 7.12.7",
       "kind": "required",

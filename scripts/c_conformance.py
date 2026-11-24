@@ -298,6 +298,7 @@ LIBRARY_PROGRAMS = {
     'library.stdlib-search': (90, ROOT / 'scripts/tests/c_stdlib_search.c', 'stdlib'),
     'library.string-functions': (90, ROOT / 'scripts/tests/c_string_functions.c', 'string'),
     'library.va-copy-stdio': (99, ROOT / 'scripts/tests/c_c99_va_copy.c', 'stdarg stdio string'),
+    'library.long-double-remainders': (99, ROOT / 'scripts/tests/c_long_double_remainders.c', 'math'),
     'library.long-double-transcendentals': (99, ROOT / 'scripts/tests/c_long_double_transcendentals.c', 'math'),
     'library.math-error-reporting': (99, ROOT / 'scripts/tests/c_math_error_reporting.c', 'math fenv errno'),
     'library.inttypes-conversion': (99, ROOT / 'scripts/tests/c_c99_inttypes.c', 'inttypes stdio string'),
@@ -524,8 +525,11 @@ def missing_library_reason(case, profile, checked_c23):
         return f'The selected WASI SDK requires -l{WASI_LONG_DOUBLE_STDIO}'
     if case == 'library.stdio-temporary' and profile == 'wasi-hosted':
         return 'The selected WASI SDK omits the temporary-file functions'
-    if case == 'library.long-double-transcendentals' and profile == 'wasi-hosted':
-        return 'The selected WASI SDK narrows these binary128 functions to binary64'
+    if profile == 'wasi-hosted':
+        if case == 'library.long-double-transcendentals':
+            return 'The selected WASI SDK narrows these binary128 functions to binary64'
+        if case == 'library.long-double-remainders':
+            return 'The selected WASI SDK miscalculates some binary128 remainders and quotient bits'
     if case == 'library.math-error-reporting' and profile in {'wasi-hosted', WASI_C23_PROFILE}:
         return 'WASI advertises MATH_ERREXCEPT without the required exception flags'
     if case in C23_VERSIONED_PROGRAMS and checked_c23:
@@ -930,7 +934,7 @@ def library_sources(profile, edition, checked, checked_c23, wasi_libraries):
             continue
         if not hosted and case not in ('library.stddef-layout', 'library.string-functions'):
             continue
-        if case == 'library.long-double-transcendentals':
+        if case in {'library.long-double-transcendentals', 'library.long-double-remainders'}:
             if profile['id'] != 'wasi-hosted':
                 yield case, source, (), () if profile['target'].startswith('wasm') else ('-lm',)
             continue
