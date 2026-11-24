@@ -94,7 +94,23 @@
       "editions": [90, 95, 99, 11, 17, 23],
       "environment": "all",
       "requirement": "Require pointers to qualified or unqualified versions of compatible object types in a relational comparison. Diagnose ordered comparisons of function pointers or an array pointer with a void pointer.",
-      "cases": []
+      "cases": [
+        "expression.pointer-order",
+        "expression.pointer-order-array-void",
+        "expression.pointer-order-function",
+        "expression.pointer-order-zero",
+        "expression.pointer-order-void-zero",
+        "expression.pointer-order-signedness"
+      ]
+    },
+    {
+      "id": "expression.pointer-order-extensions",
+      "clause": "GNU C relational comparison extensions",
+      "kind": "gnu",
+      "editions": [90, 95, 99, 11, 17, 23],
+      "environment": "all",
+      "requirement": "Apply explicit GNU extension and system-header diagnostic policy to supported pointer ordering extensions.",
+      "cases": ["expression.pointer-order-extension"]
     },
     {
       "id": "limits.block-depth",

@@ -14,16 +14,16 @@ namespace sema {
 
 ExprFacts* Analyzer::typed_c_extension(const syntax::Expr& expr, Scope* scope)
 {
-	const bool saved = quiet_c_array_extensions_;
-	quiet_c_array_extensions_ = true;
+	const bool saved = c_explicit_extension_;
+	c_explicit_extension_ = true;
 	ExprFacts* facts = typed_form(expr, scope);
-	quiet_c_array_extensions_ = saved;
+	c_explicit_extension_ = saved;
 	return facts;
 }
 
 bool Analyzer::check_c_array_pointer_extension(CArrayPointerExtension extension, uint32_t location)
 {
-	if (quiet_c_array_extensions_)
+	if (c_explicit_extension_)
 		return true;
 	const bool new_qualification = extension == CArrayPointerExtension::C23Qualification;
 	const char* message = new_qualification ? "array pointer qualification conversion requires C23"
@@ -31,6 +31,25 @@ bool Analyzer::check_c_array_pointer_extension(CArrayPointerExtension extension,
 	if (positions_ == nullptr ||
 		(new_qualification ? positions_->allow_c_extension(location, CEdition::C23, message)
 						   : positions_->allow_gnu_c_extension(location, message)))
+		return true;
+	substitution_error(location, message);
+	return false;
+}
+
+bool Analyzer::check_c_pointer_order(const Type* left, const Type* right, const Type* composite, uint32_t location)
+{
+	// The composite already established compatibility, except where an
+	// extension produced void* or a null constant adopted the other type.
+	if (left->kind == TypeKind::Pointer && right->kind == TypeKind::Pointer)
+	{
+		const Type* pointee = composite->element;
+		const bool is_void = IsVoid(pointee);
+		if (pointee->kind != TypeKind::Function && IsVoid(left->element) == is_void &&
+			IsVoid(right->element) == is_void)
+			return true;
+	}
+	const char* message = "ordered pointer comparison requires pointers to compatible object types";
+	if (c_explicit_extension_ || positions_ == nullptr || positions_->allow_gnu_c_extension(location, message))
 		return true;
 	substitution_error(location, message);
 	return false;

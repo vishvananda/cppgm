@@ -365,6 +365,11 @@ The first fixture set covers these parts of the C17 input profile:
   the base type before forming derived types.
 - Implicit conversions between object pointers and qualified `void*`, without
   discarding pointee qualifiers; integral initialization of enumeration objects.
+- For relational comparison, require pointers to qualified or unqualified
+  versions of compatible object types. Equality also permits a null pointer
+  constant, compatible function pointers, and an object pointer with a void
+  pointer. Apply the pedantic and system-header policy to supported GNU
+  ordered-pointer comparisons.
 - GNU C pointer extensions used by hosted libraries: implicit conversions
   between function pointers and `void*`, and between pointers to corresponding
   signed/unsigned integer types (including the three character types).

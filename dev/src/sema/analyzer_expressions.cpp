@@ -1819,6 +1819,8 @@ ExprFacts* Analyzer::comparison(const syntax::BinaryExpr& expr, ExprFacts* left,
 		substitution_error(expr.location, "invalid operands to a comparison");
 		return nullptr;
 	}
+	if (c_source_ && !equality && !check_c_pointer_order(lt, rt, composite, expr.location))
+		return nullptr;
 	convert_operand(*expr.left, composite);
 	convert_operand(*expr.right, composite);
 	return new_facts(expr, boolean, ValueCategory::PRValue);

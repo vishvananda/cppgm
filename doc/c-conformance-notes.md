@@ -886,6 +886,21 @@ argument passing, pointer comparisons, and pointer subtraction.
 [WG14 N2607](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2607.pdf) ·
 [PA38 C23 composite case](../pa38/tests/general/300-c23-qualified-array-pointer-composite.t)
 
+## Ordered pointer comparisons
+
+C11 6.5.8 and C23 6.5.9 require pointers to compatible object types,
+allowing qualifications on either referenced type. Compatible void
+pointers satisfy this rule. An object pointer and a pointer to void
+with a different referenced type may compare for equality under
+C11 6.5.9 and C23 6.5.10. Those equality clauses also permit compatible
+function pointers and null pointer constants. The corresponding
+ordered comparisons require a diagnostic. A supported GNU form may
+still use the existing extension and system-header policy.
+
+[C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[C23 text](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
+[PA38 comparison control](../pa38/tests/general/300-c-pointer-order.t)
+
 ## Discarded function results
 
 C11 6.9.1p12 and C23 6.9.2 specify undefined behavior when a function
