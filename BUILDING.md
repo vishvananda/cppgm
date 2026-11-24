@@ -39,14 +39,16 @@ dev/cppgm --target=wasm32-unknown-unknown -std=c23 -ffreestanding \
 
 ## Hosted WASI C23 library supplement
 
-The hosted supplement builds against the same WASI SDK 34. It supplies
+The hosted supplement builds against unmodified WASI SDK 34. It supplies
 C23 assertions, bit utilities, string functions, alignment, clock
 resolution, UTF-8 conversion, binary integer conversion, and sized
 deallocation. It also supplies const-preserving searches, callable atomic
 fences and flag operations, `call_once`, and `strfromd`, `strfromf`, and
 `strfroml`. Narrow and wide formatted I/O support C23 binary conversions.
-The supplement also supplies the complex constructors and floating-point
-environment interfaces. Temporary files use the guest working directory.
+The supplement provides the C23 math and type-generic math interfaces,
+complex constructors, and floating-point environment interfaces. The
+WASI SDK uses fixed nearest-even rounding. Math exception reporting
+remains open in the [C coverage inventory](reports/upstream-c-coverage.md). Temporary files use the guest working directory.
 For applications that create them under Wasmtime, preopen that directory
 with `wasmtime run --dir=. example.wasm`. The tested configuration includes
 the SDK's signal emulation and long-double stdio libraries.

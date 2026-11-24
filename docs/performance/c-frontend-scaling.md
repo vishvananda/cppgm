@@ -4203,3 +4203,40 @@ spread is 812 instructions. The cppgm archive uses 0.02% fewer retired
 user instructions in both paired blocks, from 3,823.0 million to
 3,822.1 million. Stripped Wasm size is 47,485 bytes for SDK Clang and
 51,859 bytes for cppgm.
+
+## WASI C23 power functions
+
+A precompiled Wasmtime benchmark calls the four float power functions
+on 65,536 input tuples. Both modules use the same cppgm-built runtime,
+SDK Clang client compiler, and linker. One calls the binary128 entries
+and converts the results to float. The other calls the float entries,
+which use binary64 arithmetic for these inputs. All 12 runs on CPU 71
+produce the same checksum. The A/A spread is 1,567 retired user
+instructions. ABBA and BAAB reduce the count from 12,910.6 million to
+67.1 million, or 99.48%. The stripped modules are 63,753 and 68,684
+bytes. The float API retains its fallback for large integer exponents.
+
+The shared logarithm evaluation runs the existing `log1pl` workload
+with the same client object and runtime compiler. All 12 runs produce
+identical checksums. The A/A spread is 1,244 instructions. The refactor
+adds 0.16% retired instructions in both paired blocks. The modules are
+32,378 and 32,426 bytes.
+
+For a small consumer of the existing `sqrt`, `scalbn`, and `log1p`
+generic macros, the math additions leave all 12 output objects
+identical. A/A varies by 3,945 retired user instructions. Additional
+header declarations and macros cost about 148,000 instructions in
+both paired blocks on a 23.95 million instruction control.
+
+## WASI binary128 remainder
+
+The Wasmtime workload calls `remquol` on 262,144 inputs with zero low
+significand words. The stock SDK and supplemental implementation
+produce identical checksums over the binary128 results and low three
+quotient bits. Both runs use the same SDK Clang client and linker.
+The A/A spread is 1,248 retired user instructions on CPU 71. The
+integer-significand implementation reduces instructions from
+391.0 million to 298.7 million in ABBA and BAAB, or 23.61%. The
+stripped module shrinks from 25,349 to 23,654 bytes. An initial
+implementation that reused `fmodl` and floating-point comparisons
+used 872.0 million instructions on this workload.

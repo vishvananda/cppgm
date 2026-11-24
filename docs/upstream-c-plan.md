@@ -537,6 +537,15 @@ chains independently.
   before using an SDK result to qualify the compiler and runtime together.
   [Edition and SDK header checklist](../scripts/c_library_headers.py)
   [Runtime interface probes](../reports/upstream-c-coverage.md#c-library-runtime-interfaces)
+- Keep the WASI supplement paired with the pinned, unmodified SDK. The
+  supplement now supplies the C23 math symbols and generic macros. Test
+  inherited binary128 operations across the target's full range and record
+  SDK-specific failures through the same runtime profiles. Close the hosted
+  math error reporting requirement before qualifying that environment.
+  The SDK advertises exception reporting without the corresponding flags.
+  Verify a reporting mechanism against domain and overflow calls before
+  changing the advertised mode.
+  [WASI math results](../reports/upstream-c-coverage.md#hosted-wasi-power-functions-and-binary128-range)
 - Qualify C11 atomics, threads, complex arithmetic, and VLAs separately.
   For atomics, cover ordinary lvalue conversions and assignment, valid
   and invalid explicit memory orders, both outcomes of compare-exchange,

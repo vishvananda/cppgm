@@ -1721,9 +1721,34 @@ The software path has no mutable rounding or exception state.
 The WASI `<tgmath.h>` overlay selects the completed C23 families by
 their generic parameters. It uses `__builtin_tgmath` for direct selection
 with cppgm and `_Generic` on compilers that lack the builtin. Both paths
-evaluate each argument once. The math and type-generic math version
-macros remain open while other C23 math families are outstanding.
+evaluate each argument once. The C23 math and type-generic math headers
+supply their version macros. The integer parameter of `compoundn`,
+`pown`, and `rootn` leaves the floating return type determined by the
+base argument. Both arguments to `powr` participate in type selection.
 [C23 N3096 §7.27](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+
+The binary128 power functions use split logarithms and exponentials.
+`compoundnl` retains the residual when forming `1 + x`. `rootnl`
+retains the residual when computing the reciprocal of the integer
+exponent. The scaled exponential rounds at the final spacing before
+forming a subnormal result. The supplement reuses these kernels for
+the SDK's existing `expl`, `logl`, `log2l`, `log10l`, and `powl`
+entry points.
+[C23 N3096 §§7.12.6, 7.12.7, F.10.4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+
+The binary128 remainder functions work on the integer significands.
+They retain the three low quotient bits, select the nearest quotient
+with ties to even, and preserve signed zero. The fixed format lets the
+implementation normalize and encode the result without floating
+arithmetic.
+[C23 N3096 §§7.12.10.2–3, F.10.7.2–3](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+
+The selected WASI SDK advertises `MATH_ERREXCEPT` in `math_errhandling`
+and leaves `FE_INVALID`, `FE_DIVBYZERO`, and `FE_OVERFLOW` undefined.
+Both WASI profiles record the required hosted math reporting behavior
+as uncovered. Linux probes check domain and overflow through the
+advertised reporting mechanisms.
+[C23 N3096 §7.12p20, §7.12.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
 
 The WASI binary32, binary64, and binary128 formats have canonical
 representations for all of their bit patterns. The `iscanonical` macro

@@ -3881,3 +3881,78 @@ header version macros.
 [C23 N3096 §§7.12.4.8–14, 7.12.6.3–6](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
 [FreeBSD exponential source](https://github.com/freebsd/freebsd-src/blob/72d7d152c2ff4708928ae1f94b940b5528ba5013/lib/msun/ld128/s_expl.c) ·
 [Wasm instruction measurements](../docs/performance/c-frontend-scaling.md#wasi-binary128-exponentials-and-pi-scaled-angles)
+
+### Hosted WASI power functions and binary128 range
+
+The WASI SDK 34 supplement supplies all three precisions of
+`compoundn`, `pown`, `powr`, and `rootn` with their type-generic
+forms. The SDK declares `exp10` under its GNU extension gate. The
+supplement exposes its three C23 declarations and generic form and
+extends `exp10l` to the binary128 range. The archive now supplies all
+120 C23 math names found missing in the pinned SDK. The math and
+type-generic math headers supply their C23 version macros.
+
+The power functions use existing logarithm reduction and exponential
+tables. They preserve the residual of `1 + x`, integer parity through
+`LLONG_MAX`, and subnormal results. The cppgm and SDK Clang archives
+produce identical results on 65,536 deterministic MPFR comparisons
+per binary128 power function. All samples are within one ULP. A
+separate 131,072-case comparison finds `exp10l` within one ULP.
+
+The stock SDK also narrows the inputs of `expl`, `logl`, `log2l`,
+`log10l`, and `powl` to binary64. The supplement uses the existing
+binary128 kernels for these entry points. The archive builds agree
+with MPFR within one ULP for `expl` and bit for bit for the three
+logarithms across 131,072 deterministic inputs each. The sampled
+positive-base `powl` outputs agree with the checked `powrl` results.
+
+The four power and logarithm probes pass 64 mixed cppgm and SDK Clang
+compile and link configurations. The binary128 range probe passes
+another 64 mixed configurations spanning C99, C11, C17, and C23.
+The new range and math reporting probes pass with GCC 15 and Clang 22
+on Linux x86-64 and with cppgm on Linux AArch64 under QEMU. Seven
+probes pass at `-Oz -flto` from the extracted source-only archive.
+
+The two matrix replays pass all 5,911 executed configurations. They
+cover 1,498 each on Linux x86-64 and Linux AArch64 under QEMU, 1,333 on
+stock WASI, 548 on the WASI supplement, and 1,034 on bare Wasm. The supplement passes 211 tracked C23
+requirements. Its remaining uncovered requirement is hosted math
+error reporting. The SDK advertises `MATH_ERREXCEPT` and omits
+`FE_INVALID`, `FE_DIVBYZERO`, and `FE_OVERFLOW`. The focused probe
+reproduces this in both WASI configurations.
+
+On the glibc 2.43 Linux x86-64 replay, the uncovered C23 requirement
+is `WCHAR_WIDTH` when only `<wchar.h>` is included. GCC 15 and
+Clang 22 both reproduce the omission and report 32 when including
+`<stdint.h>`.
+
+[C23 N3096 §§7.12, 7.12.6–7, 7.27, 7.31.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
+[Runtime and compile instruction measurements](../docs/performance/c-frontend-scaling.md#wasi-c23-power-functions)
+
+### Hosted WASI binary128 remainders
+
+With WASI SDK 34, `remquol(1 + 0x1p-64L, 0.5L, &quotient)` loses the
+small remainder. For `1.25 + 0x1p-64L` and the same divisor, it
+selects the wrong quotient. The supplement computes `remquol` and
+`remainderl` from the integer significands. It preserves signed zero
+and the three required low quotient bits. The regression exercises
+halfway cases, negative divisors, subnormals, and the largest finite
+input.
+
+Both runtime compiler builds agree with an independent integer oracle
+on all 65,536 sampled operand pairs across the binary128 exponent
+range. The probe passes all 16 mixed WASI compile and link
+configurations. It also passes with GCC 15 and Clang 22 on Linux
+x86-64 across C99, C11, C17, and C23 and with cppgm on Linux AArch64
+under QEMU. The extracted source-only archive passes eight math
+probes at `-Oz -flto`.
+
+The combined matrix passes all 5,929 executed configurations. Linux
+x86-64 and Linux AArch64 under QEMU each run 1,506, stock WASI runs
+1,333, the WASI supplement runs 550, and bare Wasm runs 1,034. The
+supplement passes 212 of its tracked C23 requirements, with hosted
+math error reporting still uncovered. Native macOS qualification
+remains open.
+
+[C23 N3096 §§7.12.10.2–3, F.10.7.2–3](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
+[Wasm instruction measurements](../docs/performance/c-frontend-scaling.md#wasi-binary128-remainder)
