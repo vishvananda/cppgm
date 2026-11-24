@@ -1879,6 +1879,26 @@
       "cases": ["library.c23-binary-stdio"]
     },
     {
+      "id": "library.c23-complex-interfaces",
+      "clause": "C23 7.3.1, 7.3.4–9",
+      "kind": "conditional",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "complex",
+      "requirement": "Construct all three complex types with the CMPLX macros, preserve component values and signs in constant initializers, and call each function family through its concrete signature.",
+      "cases": ["library.c23-complex-interfaces"]
+    },
+    {
+      "id": "library.c23-fenv-interfaces",
+      "clause": "C23 7.6.4.4, 7.6.4.6, 7.6.5.1, 7.6.5.4",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "fenv",
+      "requirement": "Set supported exceptions, inspect saved flags, and save and restore the supported dynamic control modes independently of the status flags.",
+      "cases": ["library.c23-fenv-interfaces"]
+    },
+    {
       "id": "library.c23-atomic-interfaces",
       "clause": "C23 7.17.1–8",
       "kind": "conditional",

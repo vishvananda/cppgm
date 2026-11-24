@@ -304,6 +304,8 @@ C23_VERSIONED_PROGRAMS = {
     'library.c23-assert': (ROOT / 'scripts/tests/c_c23_assert.c', 'assert'),
     'library.c23-binary-conversion': (ROOT / 'scripts/tests/c_c23_binary_conversion.c', 'stdlib inttypes'),
     'library.c23-binary-stdio': (ROOT / 'scripts/tests/c_c23_binary_stdio.c', 'stdio inttypes'),
+    'library.c23-complex-interfaces': (ROOT / 'scripts/tests/c_c23_complex_interfaces.c', 'complex'),
+    'library.c23-fenv-interfaces': (ROOT / 'scripts/tests/c_c23_fenv_interfaces.c', 'fenv'),
     'library.c23-memalignment': (ROOT / 'scripts/tests/c_c23_memalignment.c', 'stdlib'),
     'library.c23-memset-explicit': (ROOT / 'scripts/tests/c_c23_memset_explicit.c', 'string'),
     'library.c23-string-allocation': (ROOT / 'scripts/tests/c_c23_string_allocation.c', 'string'),

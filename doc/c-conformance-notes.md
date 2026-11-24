@@ -1619,6 +1619,27 @@ using the SDK's inline operations and emits a hardware fence for a
 nonrelaxed thread fence. Signal fences retain their compiler ordering.
 [C23 N3220 §7.17](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
 
+The `CMPLX`, `CMPLXF`, and `CMPLXL` macros preserve the converted
+real and imaginary components. They must support static and thread
+initializers when the operands support those initializers, and remain
+arithmetic constant expressions for arithmetic constant operands.
+The WASI supplement uses the typed complex constructor in C11 and later
+modes. The three constructor macros preserve negative zero and the
+precision of `long double` without intermediate complex arithmetic.
+The SDK supplies the callable functions at all three precisions.
+[C23 N3096 §§7.3.1, 7.3.9.3](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+
+C23 adds `fesetexcept`, `fetestexceptflag`, `fegetmode`, and `fesetmode`.
+The flag functions operate on supported exceptions. The mode functions
+save and restore control modes independently of the status flags.
+The WASI SDK exposes an empty exception mask and a single rounding
+direction, `FE_TONEAREST`. The supplemental routines use that fixed
+environment, with a saved mode value and `FE_DFL_MODE` both restoring
+round to nearest. Compiler qualification still needs the scoped
+`FENV_ROUND` directive, including its effect on floating constants,
+conversions, operations, and selected library macros.
+[C23 N3096 §§7.6, 7.6.2, 7.6.4, 7.6.5](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+
 The C23 wide-character searches preserve const qualification on their
 result elements. Their concrete functions retain mutable result pointer
 types when the macros are suppressed. `<wchar.h>` supplies `WCHAR_WIDTH`
