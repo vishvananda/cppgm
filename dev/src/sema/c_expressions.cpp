@@ -26,6 +26,7 @@ struct CompatibilityFacts
 class GenericAssociationIndex
 {
 public:
+	explicit GenericAssociationIndex(bool c23) : c23_(c23) {}
 	bool insert(const Type* type, ConversionRules& conversions);
 
 private:
@@ -48,6 +49,7 @@ private:
 	FlatMap<const Type*, CompatibilityFacts, std::hash<const Type*>> types_;
 	FlatMap<uint64_t, Family, std::hash<uint64_t>> families_;
 	std::vector<Entry> entries_;
+	bool c23_;
 };
 
 CompatibilityFacts& GenericAssociationIndex::facts(const Type* type)
@@ -64,6 +66,12 @@ CompatibilityFacts GenericAssociationIndex::compute_facts(const Type* type)
 	const bool enumeration = type->kind == TypeKind::Enum;
 	if (enumeration || (type->kind == TypeKind::Fundamental && IsIntegralType(type)))
 		return { 0x80u | type->cv, enumeration, false };
+	if (c23_ && type->kind == TypeKind::Class)
+	{
+		const ClassEntity* record = ClassOf(type);
+		if (!record->anonymous)
+			return { reinterpret_cast<uintptr_t>(record->name) * 0x517cc1b727220a95ull + type->cv, true, false };
+	}
 	if (type->kind != TypeKind::Array && type->kind != TypeKind::Pointer && type->kind != TypeKind::Function)
 		return { type->hash, false, false };
 	const CompatibilityFacts element = facts(type->element);
@@ -130,7 +138,7 @@ ExprFacts* Analyzer::generic_selection(const syntax::GenericExpr& expr, Scope* s
 	SmallList<const Type*, short_list> associations;
 	std::unique_ptr<GenericAssociationIndex> index;
 	if (expr.associations.size > short_list)
-		index.reset(new GenericAssociationIndex());
+		index.reset(new GenericAssociationIndex(c23_));
 	for (const syntax::GenericAssociation& association : expr.associations)
 	{
 		if (association.type == nullptr)

@@ -12,6 +12,69 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "n3037-cross-scope-record-assignment",
+      "path": "gcc/testsuite/gcc.dg/c23-tag-2.c",
+      "sha256": "5f4db859ebe66fd6ed2b382ea08b857a3b6bafade14cb6e008c8aa716fc3ed27",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Accept assignment and argument conversions between compatible tags from different scopes"
+    },
+    {
+      "id": "n3037-record-composite-prototypes",
+      "path": "gcc/testsuite/gcc.dg/c23-tag-composite-2.c",
+      "sha256": "b130f9fce68cd3757958f35916b4b0ee2eb306f30c65bbb92ef98af0c9238a83",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Keep a complete array bound through a composite record member's function return type"
+    },
+    {
+      "id": "n3037-record-composite-conditional",
+      "path": "gcc/testsuite/gcc.dg/c23-tag-composite-4.c",
+      "sha256": "e4b887fb3aebb139f0af745f6b1fdf39cade5b0d9a837eaaf74897b323fdf4ec",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Form the type of a conditional expression with compatible record operands"
+    },
+    {
+      "id": "n3037-record-composite-anonymous-members",
+      "path": "gcc/testsuite/gcc.dg/c23-tag-composite-5.c",
+      "sha256": "20aeeee1342a2006c1fd849a100b3f92e47da4f42f0db7b1e8ff3affea520378",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "diagnostic_contains": {
+        "cppgm": "incompatible record redefinition",
+        "upstream": "redefinition of struct or union"
+      },
+      "obligation": "Allow anonymous selectors on earlier valid composites and diagnose a later change of member kind"
+    },
+    {
+      "id": "n3037-cross-scope-enum-bases",
+      "path": "gcc/testsuite/gcc.dg/c23-tag-enum-4.c",
+      "sha256": "6c6db5fd4d32d9b2515659005c27f8e9bf6cdded9467b7bbf7ad1857d54ef506",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "diagnostic_contains": {
+        "cppgm": "invalid implicit conversion",
+        "upstream": "incompatible pointer type"
+      },
+      "obligation": "Accept value conversions and matching fixed-base tags, then diagnose different bases through pointers"
+    },
+    {
       "id": "n3037-record-redefinition-nested",
       "path": "gcc/testsuite/gcc.dg/c23-tag-7.c",
       "sha256": "f6ce909e494d341557287e77a808574bc5ebf9cbbdf738ff29027233166ae30f",

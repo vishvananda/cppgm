@@ -987,6 +987,8 @@ ExprFacts* Analyzer::conditional(const syntax::ConditionalExpr& expr, Scope* sco
 	const Type* type = nullptr;
 	if (a == b && !(c_source_ && IsIntegralOrUnscopedEnum(a)))
 		type = a;
+	else if (c23_ && a->kind == TypeKind::Class && b->kind == TypeKind::Class && conversions_.c_type_compatible(a, b))
+		type = conversions_.c_composite_type(a, b);
 	else if ((IsArithmetic(a) || IsIntegralOrUnscopedEnum(a) || IsComplex(a)) &&
 		(IsArithmetic(b) || IsIntegralOrUnscopedEnum(b) || IsComplex(b)))
 		type = usual_arithmetic(field_promoted(second, a), field_promoted(third, b));

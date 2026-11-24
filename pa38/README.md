@@ -484,6 +484,18 @@ The first fixture set covers these parts of the C17 input profile:
   anonymous struct and union members. A named member declared with an
   untagged struct or union still has its own type. Diagnose nested
   definitions of the same tag and keep the first definition's layout.
+- In C23, tags declared in different scopes can name distinct,
+  compatible types. Match complete records of the same tag and kind
+  by member order, names, compatible types, alignments, and bit-field
+  widths. Compare corresponding anonymous members by their contents.
+  For enums, match the names and values in any order and compare any
+  fixed bases. Recheck a record pair after completion of a tag reached
+  through its members. Handle recursive member types.
+- Use the composite type where required for compatible records. Keep
+  the stronger array bounds and function prototypes within their
+  members, including through pointers and recursive fields. Support
+  assignment, by-value calls, and conditional expressions with these
+  compatible types.
 - GNU C supports forward references to an enumeration tag. Keep the type
   incomplete until its definition. A pointer or a non-defining declaration
   can refer to it in the meantime. A storage definition or a function

@@ -252,6 +252,7 @@ public:
 	static bool OriginalStorageAvailable(const VariableEntity* variable);
 
 private:
+	friend struct AnalyzerClassCompleter;
 	friend class ConstantEvaluator;
 	friend class ConstantInterpreter;
 
@@ -2392,12 +2393,7 @@ private:
 	ConversionRules conversions_;
 	// Completes class template instances for the conversion rules'
 	// derivation queries.
-	struct InstanceCompleter : ClassCompleter
-	{
-		Analyzer* analyzer;
-		bool complete(const ClassEntity* entity) override { return analyzer->require_complete(entity); }
-	};
-	InstanceCompleter completer_;
+	AnalyzerClassCompleter completer_;
 	BodyContext* body_;
 	// Where odr-uses are recorded: the definition being analyzed, or the
 	// unit's roots; and the mark that keeps each list free of repeats.

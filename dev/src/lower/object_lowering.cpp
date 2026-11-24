@@ -349,8 +349,11 @@ void FunctionLowering::initialize_from(
 		// A glvalue whose copy the analysis left to the object's bytes.
 		const sema::ClassEntity* target = sema::ClassOf(
 			conversion != nullptr && conversion->result != nullptr ? conversion->result : e->facts->type);
-		const lowir::Value source = to_base(address(*e), sema::ClassOf(e->facts->type), target, location);
-		if ((e->facts->type->cv & sema::kVolatile) != 0 && lowering_.analyzer_->c_source())
+		const bool c_source = lowering_.analyzer_->c_source();
+		const lowir::Value storage = address(*e);
+		const lowir::Value source = c_source ? storage
+											 : to_base(storage, sema::ClassOf(e->facts->type), target, location);
+		if ((e->facts->type->cv & sema::kVolatile) != 0 && c_source)
 			copy_volatile_record(e->facts->type, source, object, true, false, location);
 		else if (!target->empty)
 			copy_object(target->type, source, object, location);

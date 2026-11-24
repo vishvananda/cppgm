@@ -100,6 +100,8 @@ void Analyzer::set_source_language(const PreprocessorOptions& options)
 	c_freestanding_ = options.c_freestanding;
 	c_language_ = c_source_;
 	conversions_.set_c_source(c_source_, options.gnu_c(), c_before_c99_);
+	if (c23_)
+		conversions_.set_c23_tag_lookup(&names_, &aligned_variables_);
 	names_.set_c_source(c_source_);
 }
 

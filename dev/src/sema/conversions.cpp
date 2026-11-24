@@ -1,13 +1,64 @@
 #include "sema/conversions.h"
 
+#include <functional>
 #include <vector>
 
 #include "sema/integral_arithmetic.h"
+#include "sema/lookup.h"
+#include "support/pointer_map.h"
 #include "support/small_list.h"
+#include "syntax/ast.h"
 
 namespace sema {
 
 namespace {
+
+template<typename MatchType>
+bool MatchCRecordMembers(
+	const ClassEntity& first, const ClassEntity& second, const PointerMap& aliases, MatchType match_type)
+{
+	if (first.key != second.key || first.member_count != second.member_count || first.pack != second.pack ||
+		first.packed != second.packed || first.c_definition_alignment != second.c_definition_alignment)
+		return false;
+	const DataMember* right = second.members;
+	for (const DataMember* left = first.members; left != nullptr; left = left->next, right = right->next)
+	{
+		const auto* a = static_cast<const VariableEntity*>(left->variable);
+		const auto* b = static_cast<const VariableEntity*>(right->variable);
+		if (a->name != b->name || left->bit_field != right->bit_field || left->width != right->width ||
+			left->packed != right->packed || a->alignment_request != b->alignment_request ||
+			(aliases.size() != 0 && aliases.find(a) != aliases.find(b)))
+			return false;
+		if (a->type->canonical != b->type->canonical && !match_type(*a, *b))
+			return false;
+	}
+	return true;
+}
+
+bool CAnonymousMembers(const VariableEntity& first, const VariableEntity& second)
+{
+	if (first.name != nullptr || second.name != nullptr || first.type->cv != second.type->cv)
+		return false;
+	const ClassEntity* a = ClassOf(first.type);
+	const ClassEntity* b = ClassOf(second.type);
+	return a != nullptr && b != nullptr && a->storage != nullptr && b->storage != nullptr;
+}
+
+uint64_t EnumeratorHigh(const EnumeratorEntity& enumerator, bool is_signed)
+{
+	if (enumerator.extended_value)
+		return static_cast<const WideEnumeratorEntity&>(enumerator).high;
+	return is_signed && (enumerator.value.bits >> 63) != 0 ? UINT64_MAX : 0;
+}
+
+const EnumeratorEntity* CEnumMember(const NameLookup& names, const EnumEntity& type, const Identifier* name)
+{
+	const NameEntry* entry = names.find(type.owner, name);
+	if (entry == nullptr || entry->value == nullptr || entry->value->kind != BindingKind::Enumerator)
+		return nullptr;
+	const auto* member = static_cast<const EnumeratorEntity*>(entry->value->entity);
+	return member->enumeration == &type ? member : nullptr;
+}
 
 bool IsFundamental(const Type* type, FundamentalType which)
 {
@@ -131,6 +182,128 @@ const Type* DerivationTarget(const Conversion& conversion)
 }
 
 } // namespace
+
+bool SameCRecordDefinition(const ClassEntity& first, const ClassEntity& second, const PointerMap& aliases)
+{
+	return MatchCRecordMembers(first, second, aliases, [&](const VariableEntity& a, const VariableEntity& b) {
+		return CAnonymousMembers(a, b) && SameCRecordDefinition(*ClassOf(a.type), *ClassOf(b.type), aliases);
+	});
+}
+
+bool SameCEnumValue(const EnumeratorEntity& original, uint64_t low, uint64_t high, bool negative)
+{
+	const bool is_signed = IsSignedConstant(original.value);
+	return original.value.bits == low && EnumeratorHigh(original, is_signed) == high &&
+		negative == (is_signed && (high >> 63) != 0);
+}
+
+size_t ConversionRules::CTagPairHash::operator()(const CTagPair& pair) const
+{
+	return (reinterpret_cast<uintptr_t>(pair.first) >> 3) * 0x9e3779b97f4a7c15ull ^
+		(reinterpret_cast<uintptr_t>(pair.second) >> 3);
+}
+
+ConversionRules::CTagPair ConversionRules::CTagPair::symmetric_key() const
+{
+	return std::less<const Entity*>()(second, first) ? CTagPair{ second, first } : *this;
+}
+
+struct ConversionRules::CTagComparison
+{
+	CTagComparison*& active;
+	FlatMap<CTagPair, bool, CTagPairHash> seen;
+	std::vector<CTagPair> records;
+	bool stable = true;
+
+	explicit CTagComparison(CTagComparison*& current) : active(current) { active = this; }
+	~CTagComparison() { active = nullptr; }
+
+	void add_record(const CTagPair& pair)
+	{
+		if (seen.find(pair) != nullptr)
+			return;
+		seen.insert(pair, true);
+		records.push_back(pair);
+	}
+};
+
+bool ConversionRules::c_tag_compatible(const Type* source, const Type* target, bool anonymous_member)
+{
+	const Entity* first = source->entity;
+	const Entity* second = target->entity;
+	if (first->name != second->name || (first->name == nullptr && !anonymous_member))
+		return false;
+	const CTagPair pair = CTagPair{ first, second }.symmetric_key();
+	if (compatible_tags_.find(pair) != nullptr)
+		return true;
+	if (source->kind == TypeKind::Enum)
+	{
+		const auto& a = static_cast<const EnumEntity&>(*first);
+		const auto& b = static_cast<const EnumEntity&>(*second);
+		if (a.fixed != b.fixed || (a.fixed && a.underlying != b.underlying))
+			return false;
+		if (a.definition == nullptr || b.definition == nullptr)
+		{
+			// GCC's fixed-base forward tags agree while both lists are absent.
+			// Completing either tag can change the answer to this query.
+			const bool compatible = a.fixed && a.definition == b.definition;
+			if (compatible && c_tag_comparison_ != nullptr)
+				c_tag_comparison_->stable = false;
+			return compatible;
+		}
+		if (a.definition->name == nullptr || b.definition->name == nullptr ||
+			a.definition->enumerators.size != b.definition->enumerators.size)
+			return false;
+		for (const syntax::Enumerator& entry : a.definition->enumerators)
+		{
+			const EnumeratorEntity* a_member = CEnumMember(*c23_names_, a, entry.name);
+			const EnumeratorEntity* b_member = CEnumMember(*c23_names_, b, entry.name);
+			if (a_member == nullptr || b_member == nullptr)
+				return false;
+			const bool sign = IsSignedConstant(a_member->value);
+			const uint64_t high = EnumeratorHigh(*a_member, sign);
+			if (!SameCEnumValue(*b_member, a_member->value.bits, high, sign && (high >> 63) != 0))
+				return false;
+		}
+		compatible_tags_.insert(pair, true);
+		return true;
+	}
+	const auto& a = static_cast<const ClassEntity&>(*first);
+	const auto& b = static_cast<const ClassEntity&>(*second);
+	if (!a.complete || !b.complete || a.key != b.key || (a.anonymous || b.anonymous) != anonymous_member ||
+		a.alignment_request != b.alignment_request)
+		return false;
+	if (c_tag_comparison_ != nullptr)
+	{
+		c_tag_comparison_->add_record(pair);
+		return true;
+	}
+	// Walk mutually recursive types as a set of ordered comparisons. A
+	// revisited pair needs no new work, and only a successful closed
+	// walk can publish a permanent compatibility fact.
+	CTagComparison comparison(c_tag_comparison_);
+	comparison.add_record(pair);
+	for (size_t i = 0; i < comparison.records.size(); ++i)
+	{
+		const CTagPair current = comparison.records[i];
+		if (!MatchCRecordMembers(static_cast<const ClassEntity&>(*current.first),
+				static_cast<const ClassEntity&>(*current.second), *c23_alignments_,
+				[&](const VariableEntity& left, const VariableEntity& right) {
+					if (CAnonymousMembers(left, right))
+						return c_tag_compatible(left.type, right.type, true);
+					// A flexible array member does not match a sized member.
+					if (left.type->kind == TypeKind::Array && right.type->kind == TypeKind::Array &&
+						left.type->has_array_bound() != right.type->has_array_bound())
+						return false;
+					return c_type_compatible(left.type, right.type);
+				}))
+			return false;
+	}
+	if (comparison.stable)
+		for (const CTagPair& match : comparison.records)
+			compatible_tags_.insert(match, true);
+	return true;
+}
 
 bool IsFloating(const Type* type)
 {
@@ -309,6 +482,8 @@ bool ConversionRules::c_type_compatible(const Type* source, const Type* target, 
 		return c_type_compatible(source, static_cast<const EnumEntity*>(target->entity)->underlying);
 	if (source->kind != target->kind)
 		return false;
+	if (source->kind == TypeKind::Class || source->kind == TypeKind::Enum)
+		return c23_names_ != nullptr && c_tag_compatible(source, target);
 	if (source->kind == TypeKind::Pointer)
 		return c_type_compatible(source->element, target->element);
 	if (source->kind == TypeKind::Array)
@@ -327,6 +502,222 @@ bool ConversionRules::c_type_compatible(const Type* source, const Type* target, 
 	return true;
 }
 
+namespace {
+
+unsigned CArrayBoundStrength(const Type* type)
+{
+	if (type->constant_array_bound())
+		return 3;
+	if (type->runtime_bound != nullptr)
+		return 2;
+	return type->c_array_star() ? 1 : 0;
+}
+
+unsigned CFunctionPrototypeStrength(const Type* type)
+{
+	return !type->c_unprototyped() ? 2 : type->param_count != 0;
+}
+
+} // namespace
+
+// A record can be reused only if each member already meets the composite
+// requirements, including members reached through recursive pointers. Walk
+// the pairs once and propagate lost reuse choices back along their edges.
+struct ConversionRules::CTagComposite
+{
+	enum : uint8_t
+	{
+		Prior = 1,
+		Declared = 2,
+		Either = Prior | Declared
+	};
+	struct Record
+	{
+		CTagPair pair;
+		uint32_t first_parent;
+		uint8_t reuse;
+		const Type* type;
+		ClassEntity* created;
+	};
+	struct ParentEdge
+	{
+		uint32_t record;
+		uint32_t next;
+	};
+
+	CTagComposite*& active;
+	FlatMap<CTagPair, uint32_t, CTagPairHash> indices;
+	std::vector<Record> records;
+	std::vector<ParentEdge> parents;
+
+	explicit CTagComposite(CTagComposite*& current) : active(current) { active = this; }
+	~CTagComposite() { active = nullptr; }
+
+	uint32_t add_record(const CTagPair& pair)
+	{
+		if (const uint32_t* found = indices.find(pair))
+			return *found;
+		const uint32_t index = static_cast<uint32_t>(records.size());
+		indices.insert(pair, index);
+		records.push_back(Record{ pair, PointerMap::kMissing, Either, nullptr, nullptr });
+		return index;
+	}
+
+	void prefer(uint32_t index, unsigned prior, unsigned declared)
+	{
+		if (prior != declared)
+			records[index].reuse &= prior > declared ? Prior : Declared;
+	}
+
+	void require_members(const Type* prior, const Type* declared, uint32_t index)
+	{
+		if (prior->canonical == declared->canonical)
+			return;
+		switch (declared->kind)
+		{
+		case TypeKind::Pointer:
+			require_members(prior->element, declared->element, index);
+			break;
+		case TypeKind::Array:
+			prefer(index, CArrayBoundStrength(prior), CArrayBoundStrength(declared));
+			require_members(prior->element, declared->element, index);
+			break;
+		case TypeKind::Function:
+			prefer(index, CFunctionPrototypeStrength(prior), CFunctionPrototypeStrength(declared));
+			require_members(prior->element, declared->element, index);
+			if (!prior->c_unprototyped() && !declared->c_unprototyped())
+				for (uint32_t i = 0; i < declared->param_count; ++i)
+					require_members(prior->params[i]->unqualified, declared->params[i]->unqualified, index);
+			break;
+		case TypeKind::Class:
+		{
+			const uint32_t child = add_record(CTagPair{ prior->entity, declared->entity });
+			Record& link = records[child];
+			parents.push_back(ParentEdge{ index, link.first_parent });
+			link.first_parent = static_cast<uint32_t>(parents.size() - 1);
+			break;
+		}
+		default:
+			break;
+		}
+	}
+
+	void plan(const CTagPair& root)
+	{
+		add_record(root);
+		for (size_t i = 0; i < records.size(); ++i)
+		{
+			const CTagPair pair = records[i].pair;
+			const auto& prior = static_cast<const ClassEntity&>(*pair.first);
+			const auto& declared = static_cast<const ClassEntity&>(*pair.second);
+			prefer(static_cast<uint32_t>(i), prior.may_alias, declared.may_alias);
+			const DataMember* b = declared.members;
+			for (const DataMember* a = prior.members; a != nullptr; a = a->next, b = b->next)
+				require_members(a->variable->type, b->variable->type, static_cast<uint32_t>(i));
+		}
+		propagate_reuse();
+		plan_anonymous_members();
+	}
+
+	void propagate_reuse()
+	{
+		std::vector<uint32_t> pending;
+		for (size_t i = 0; i < records.size(); ++i)
+			if (records[i].reuse != Either)
+				pending.push_back(static_cast<uint32_t>(i));
+		for (size_t i = 0; i < pending.size(); ++i)
+		{
+			const Record& child = records[pending[i]];
+			for (uint32_t link = child.first_parent; link != PointerMap::kMissing; link = parents[link].next)
+			{
+				const uint32_t index = parents[link].record;
+				Record& parent = records[index];
+				const uint8_t reuse = parent.reuse & child.reuse;
+				if (reuse == parent.reuse)
+					continue;
+				parent.reuse = reuse;
+				pending.push_back(index);
+			}
+		}
+	}
+
+	void plan_anonymous_members()
+	{
+		// An anonymous member's storage binding belongs to its containing
+		// object. A synthesized parent needs its own anonymous child.
+		for (size_t i = 0; i < records.size(); ++i)
+		{
+			if (records[i].reuse != 0)
+				continue;
+			const CTagPair pair = records[i].pair;
+			const DataMember* b = static_cast<const ClassEntity*>(pair.second)->members;
+			for (const DataMember* a = static_cast<const ClassEntity*>(pair.first)->members; a != nullptr;
+				a = a->next, b = b->next)
+			{
+				const auto& left = static_cast<const VariableEntity&>(*a->variable);
+				const auto& right = static_cast<const VariableEntity&>(*b->variable);
+				if (!CAnonymousMembers(left, right))
+					continue;
+				const CTagPair child{ left.type->entity, right.type->entity };
+				if (const uint32_t* index = indices.find(child))
+					records[*index].reuse = 0;
+			}
+		}
+	}
+};
+
+const Type* ConversionRules::c_composite_record(const Type* prior, const Type* declared)
+{
+	const CTagPair pair{ prior->entity, declared->entity };
+	if (c_tag_composite_ != nullptr)
+		return types_.qualified(c_tag_composite_->records[*c_tag_composite_->indices.find(pair)].type, declared->cv);
+	if (const Type* const* saved = composite_tags_.find(pair.symmetric_key()))
+		return types_.qualified(*saved, declared->cv);
+	CTagComposite composite(c_tag_composite_);
+	composite.plan(pair);
+	for (CTagComposite::Record& item : composite.records)
+	{
+		const auto& a = static_cast<const ClassEntity&>(*item.pair.first);
+		const auto& b = static_cast<const ClassEntity&>(*item.pair.second);
+		if (item.reuse == 0)
+		{
+			if (!b.anonymous)
+				if (const Type* const* saved = composite_tags_.find(item.pair.symmetric_key()))
+				{
+					item.type = *saved;
+					continue;
+				}
+			item.created = completer_->begin_c_composite_record(b);
+			item.created->may_alias = a.may_alias || b.may_alias;
+			item.type = item.created->type;
+		}
+		else
+			item.type = (item.reuse & CTagComposite::Declared) != 0 ? b.type : a.type;
+	}
+	std::vector<const Type*> members;
+	// Direct anonymous children follow their parent in the walk. Bind
+	// their members before the parent injects them into its own scope.
+	for (auto item = composite.records.rbegin(); item != composite.records.rend(); ++item)
+	{
+		if (item->created == nullptr)
+			continue;
+		const auto& target = static_cast<const ClassEntity&>(*item->pair.second);
+		const DataMember* b = target.members;
+		members.clear();
+		for (const DataMember* a = static_cast<const ClassEntity*>(item->pair.first)->members; a != nullptr;
+			a = a->next, b = b->next)
+			members.push_back(c_composite_type(a->variable->type, b->variable->type));
+		completer_->finish_c_composite_record(*item->created, target, members.data());
+	}
+	for (const CTagComposite::Record& item : composite.records)
+	{
+		const CTagPair key = item.pair.symmetric_key();
+		if (!static_cast<const ClassEntity*>(item.pair.second)->anonymous && composite_tags_.find(key) == nullptr)
+			composite_tags_.insert(key, item.type);
+	}
+	return types_.qualified(composite.records.front().type, declared->cv);
+}
+
 const Type* ConversionRules::c_composite_type(const Type* prior, const Type* declared)
 {
 	if (prior->canonical == declared->canonical)
@@ -335,6 +726,8 @@ const Type* ConversionRules::c_composite_type(const Type* prior, const Type* dec
 	// derived type. Reuse either existing type if its children already fit.
 	switch (declared->kind)
 	{
+	case TypeKind::Class:
+		return c_composite_record(prior, declared);
 	case TypeKind::Pointer:
 	{
 		const Type* element = c_composite_type(prior->element, declared->element);
@@ -539,7 +932,8 @@ bool ConversionRules::standard(const Operand& from, const Type* target, bool dir
 	// are not considered here.
 	if (source->unqualified->kind == TypeKind::Class || goal->kind == TypeKind::Class)
 	{
-		if (source->unqualified == goal)
+		if (source->unqualified == goal ||
+			(c23_names_ != nullptr && goal->kind == TypeKind::Class && c_type_compatible(source->unqualified, goal)))
 		{
 			out.result = goal;
 			return true;

@@ -189,7 +189,8 @@ RValue FunctionLowering::convert(
 		{
 			const sema::ClassEntity* derived = IsPointerType(from) ? sema::ClassOf(from->element) : nullptr;
 			const sema::ClassEntity* base = IsPointerType(to) ? sema::ClassOf(to->element) : nullptr;
-			if (derived != nullptr && base != nullptr && derived != base && context != ConversionContext::Cast)
+			if (derived != nullptr && base != nullptr && derived != base && context != ConversionContext::Cast &&
+				!lowering_.analyzer_->c_source())
 				return pointer_to_base(value, derived, base, 0);
 			return value;
 		}

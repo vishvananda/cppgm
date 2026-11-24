@@ -21,34 +21,6 @@ bool IsUnion(TokenKind key)
 	return key == TokenKind::KW_UNION;
 }
 
-bool SameCRecordDefinition(const ClassEntity& first, const ClassEntity& second, const PointerMap& aliases)
-{
-	if (first.key != second.key || first.member_count != second.member_count || first.pack != second.pack ||
-		first.packed != second.packed || first.c_definition_alignment != second.c_definition_alignment)
-		return false;
-	const DataMember* right = second.members;
-	for (const DataMember* left = first.members; left != nullptr; left = left->next, right = right->next)
-	{
-		const auto* a = static_cast<const VariableEntity*>(left->variable);
-		const auto* b = static_cast<const VariableEntity*>(right->variable);
-		if (a->name != b->name || left->bit_field != right->bit_field || left->width != right->width ||
-			left->packed != right->packed || a->alignment_request != b->alignment_request ||
-			(aliases.size() != 0 && aliases.find(a) != aliases.find(b)))
-			return false;
-		if (a->type->canonical == b->type->canonical)
-			continue;
-		// The anonymous-member rule compares the contents of those members.
-		// A named member's type still has to match exactly.
-		const ClassEntity* a_record = ClassOf(a->type);
-		const ClassEntity* b_record = ClassOf(b->type);
-		if (a->name != nullptr || a_record == nullptr || b_record == nullptr || a_record->storage == nullptr ||
-			b_record->storage == nullptr || a->type->cv != b->type->cv ||
-			!SameCRecordDefinition(*a_record, *b_record, aliases))
-			return false;
-	}
-	return true;
-}
-
 struct CRecordRedefinition
 {
 	ClassEntity& entity;
@@ -90,6 +62,88 @@ ClassEntity* Analyzer::new_class(TokenKind key, const Identifier* name, Scope* o
 			graph_.local_classes.push_back(entity);
 	}
 	return entity;
+}
+
+bool AnalyzerClassCompleter::complete(const ClassEntity* entity)
+{
+	return analyzer->require_complete(entity);
+}
+
+ClassEntity* AnalyzerClassCompleter::begin_c_composite_record(const ClassEntity& prototype)
+{
+	// A composite type has its own member table and no lexical tag binding.
+	// Publish its identity before resolving member types that refer to it.
+	auto* entity = analyzer->new_entity<ClassEntity>(EntityKind::Class, prototype.name, prototype.owner, nullptr);
+	entity->type = analyzer->types_.named(TypeKind::Class, entity);
+	entity->key = prototype.key;
+	entity->label = prototype.label;
+	entity->scope = analyzer->new_scope(ScopeKind::Class, prototype.owner, nullptr, entity, entity->label);
+	entity->pack = prototype.pack;
+	entity->packed = prototype.packed;
+	entity->alignment_request = prototype.alignment_request;
+	entity->alignment_request_gnu = prototype.alignment_request_gnu;
+	entity->c_definition_alignment = prototype.c_definition_alignment;
+	entity->anonymous = prototype.anonymous;
+	entity->empty = prototype.empty;
+	entity->c_has_named_member = prototype.c_has_named_member;
+	entity->c_contains_flexible_array = prototype.c_contains_flexible_array;
+	entity->c_contains_nested_flexible_array = prototype.c_contains_nested_flexible_array;
+	entity->copy_members = FactState::Done;
+	return entity;
+}
+
+void AnalyzerClassCompleter::finish_c_composite_record(
+	ClassEntity& record, const ClassEntity& prototype, const Type* const* member_types)
+{
+	Scope* scope = record.scope;
+	for (const DataMember* original = prototype.members; original != nullptr; original = original->next)
+	{
+		const Type* type = member_types[record.member_count];
+		const auto* earlier = static_cast<const VariableEntity*>(original->variable);
+		auto* variable = analyzer->new_entity<VariableEntity>(EntityKind::Variable, earlier->name, scope, type);
+		variable->member = true;
+		variable->bit_field = original->bit_field;
+		variable->alignment_request = earlier->alignment_request;
+		const uint32_t alias = analyzer->aligned_variables_.find(earlier);
+		if (alias != PointerMap::kMissing)
+			analyzer->aligned_variables_.set(variable, alias);
+		if (type->kind == TypeKind::Pointer)
+		{
+			const uint32_t pointee = analyzer->aligned_variables_.find(reinterpret_cast<const char*>(earlier) + 1);
+			if (pointee != PointerMap::kMissing)
+				analyzer->aligned_variables_.set(reinterpret_cast<const char*>(variable) + 1, pointee);
+		}
+		auto* member = static_cast<DataMember*>(analyzer->arena_.allocate(sizeof(DataMember), alignof(DataMember)));
+		*member = DataMember{ variable, original->width, original->bit_field, original->access, false, original->packed,
+			0, record.member_count++, 0, nullptr };
+		variable->data_member = member;
+		(record.last_member == nullptr ? record.members : record.last_member->next) = member;
+		record.last_member = member;
+		if (variable->name != nullptr)
+		{
+			Binding* binding = analyzer->new_binding(BindingKind::Variable, variable->name, variable, type);
+			analyzer->print_in(scope, binding);
+			analyzer->declare_in(scope, binding);
+		}
+		else if (ClassEntity* child = const_cast<ClassEntity*>(ClassOf(type)))
+		{
+			if (child->storage == nullptr)
+			{
+				child->storage = analyzer->new_binding(BindingKind::Variable, nullptr, variable, type);
+				child->storage->hidden = true;
+			}
+			for (const Binding* field = child->scope->bindings; field != nullptr; field = field->next)
+			{
+				if (field->hidden || field->name == nullptr || field->kind != BindingKind::Variable)
+					continue;
+				Binding* binding = analyzer->new_binding(
+					BindingKind::Variable, field->name, field->entity, field->type);
+				analyzer->print_in(scope, binding);
+				analyzer->declare_in(scope, binding);
+			}
+		}
+	}
+	record.complete = true;
 }
 
 size_t LocalNumberHash::operator()(const LocalNumberKey& key) const
@@ -1736,17 +1790,6 @@ struct CEnumRange
 	}
 };
 
-bool SameCEnumValue(const EnumeratorEntity& original, WideBits bits, bool negative)
-{
-	const Constant& value = original.value;
-	const bool is_signed = IsSignedConstant(value);
-	const uint64_t high = original.extended_value ? static_cast<const WideEnumeratorEntity&>(original).high
-		: is_signed && (value.bits >> 63) != 0    ? UINT64_MAX
-												  : 0;
-	return value.bits == static_cast<uint64_t>(bits) && high == static_cast<uint64_t>(bits >> 64) &&
-		negative == (is_signed && (high >> 63) != 0);
-}
-
 } // namespace
 
 void Analyzer::c23_enumerators(
@@ -1827,7 +1870,7 @@ void Analyzer::c23_enumerators(
 				error(enumerator.location, "enumeration redeclared with a different member");
 			if (seen.find(enumerator.name) != nullptr)
 				error(enumerator.location, "duplicate member in enumeration redefinition");
-			if (!SameCEnumValue(*original, bits, negative))
+			if (!SameCEnumValue(*original, static_cast<uint64_t>(bits), static_cast<uint64_t>(bits >> 64), negative))
 				error(enumerator.location, "enumerator redeclared with a different value");
 			// Keep the completed definition's bindings available to this list.
 			previous_type = original->value.type;

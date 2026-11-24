@@ -5,8 +5,14 @@
 
 #include "sema/expression_facts.h"
 #include "sema/type_table.h"
+#include "support/flat_map.h"
+
+class PointerMap;
 
 namespace sema {
+
+class NameLookup;
+class Analyzer;
 
 // What a conversion needs to know about its source expression.
 struct Operand
@@ -31,9 +37,21 @@ class ClassCompleter
 {
 public:
 	virtual bool complete(const ClassEntity* entity) = 0;
+	virtual ClassEntity* begin_c_composite_record(const ClassEntity& prototype) = 0;
+	virtual void finish_c_composite_record(
+		ClassEntity& record, const ClassEntity& prototype, const Type* const* member_types) = 0;
 
 protected:
 	~ClassCompleter() {}
+};
+
+struct AnalyzerClassCompleter : ClassCompleter
+{
+	Analyzer* analyzer;
+	bool complete(const ClassEntity* entity) override;
+	ClassEntity* begin_c_composite_record(const ClassEntity& prototype) override;
+	void finish_c_composite_record(
+		ClassEntity& record, const ClassEntity& prototype, const Type* const* member_types) override;
 };
 
 class ConversionRules
@@ -48,6 +66,11 @@ public:
 		c_source_ = on;
 		c_extensions_ = on && extensions;
 		c_before_c99_ = before_c99;
+	}
+	void set_c23_tag_lookup(const NameLookup* names, const PointerMap* alignments)
+	{
+		c23_names_ = names;
+		c23_alignments_ = alignments;
 	}
 	// In C90 and C95 the array-to-pointer conversion requires an lvalue.
 	bool array_decays(ValueCategory category) const { return !c_before_c99_ || category == ValueCategory::LValue; }
@@ -107,6 +130,21 @@ private:
 	bool reference(const Operand& from, const Type* target, Conversion& out);
 	bool value_conversion(const Type* source, uint16_t flags, const Type* target, bool direct, Conversion& out);
 	const Type* c_composite_function(const Type* prior, const Type* declared);
+	bool c_tag_compatible(const Type* source, const Type* target, bool anonymous_member = false);
+	struct CTagPair
+	{
+		const Entity* first;
+		const Entity* second;
+		bool operator==(const CTagPair& other) const { return first == other.first && second == other.second; }
+		CTagPair symmetric_key() const;
+	};
+	struct CTagPairHash
+	{
+		size_t operator()(const CTagPair& pair) const;
+	};
+	struct CTagComparison;
+	struct CTagComposite;
+	const Type* c_composite_record(const Type* prior, const Type* declared);
 
 	TypeTable& types_;
 	// Scratch of is_base_of, reused across queries, and its visit mark.
@@ -117,7 +155,16 @@ private:
 	bool c_source_;
 	bool c_extensions_ = false;
 	bool c_before_c99_ = false;
+	const NameLookup* c23_names_ = nullptr;
+	const PointerMap* c23_alignments_ = nullptr;
+	CTagComparison* c_tag_comparison_ = nullptr;
+	FlatMap<CTagPair, bool, CTagPairHash> compatible_tags_;
+	CTagComposite* c_tag_composite_ = nullptr;
+	FlatMap<CTagPair, const Type*, CTagPairHash> composite_tags_;
 };
+
+bool SameCRecordDefinition(const ClassEntity& first, const ClassEntity& second, const PointerMap& aliases);
+bool SameCEnumValue(const EnumeratorEntity& original, uint64_t low, uint64_t high, bool negative);
 
 // Type classification shared by the conversion rules and expression typing.
 bool IsArithmetic(const Type* type);

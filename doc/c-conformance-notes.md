@@ -48,6 +48,33 @@ persists on the tag independently of the definitions' requests.
 [C23 N3220 §§6.2.7 and 6.7.3.4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
 [WG14 N3037](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3037.pdf)
 
+## C23 tag compatibility across scopes
+
+Complete records with the same tag and kind may be compatible
+across scopes. Compare each member's compatible type, name, alignment
+and bit-field facts in order. The anonymous-member rule applies to
+anonymous structures and unions embedded as members. A named field of
+an untagged type retains its distinct type. A flexible array member and
+a sized member do not match in the GCC and Clang C23 checks.
+
+Check each pair in a recursive group before saving compatibility.
+An incomplete record can acquire members later, so a failed comparison
+must be reconsidered after completion. A composite record preserves
+the stronger types of corresponding members. One original record can
+supply the composite if all of its members already meet the requirements.
+
+cppgm follows GCC 15 when comparing fixed-base enum tags with unknown
+members. Two forward declarations with matching tags and bases are
+compatible. A forward declaration and a definition remain distinct until
+both have member lists to compare. Clang 21 also treats a tag with a
+member list as compatible with a matching forward tag in the tested
+case. WG14 issue 1018 covers the differing interpretations. A result
+that depends on two forward enum declarations can change when either
+definition appears, including inside a record comparison.
+[C23 N3220 §6.2.7](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
+[WG14 issue log N3977, issues 1018 and 1027](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3977.htm) ·
+[WG14 N3980](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3980.pdf)
+
 ## C23 enumeration tag redefinitions
 
 Repeated definitions of the same tag in the same scope share the
