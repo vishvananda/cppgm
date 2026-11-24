@@ -4,7 +4,7 @@
   "language": "c",
   "edition": 23,
   "revision": "2078da43e25a4623cab2d0d60decddf709aaea28",
-  "coverage": "Reviewed clang C23 preprocessing and lexical configurations on Linux x86-64.",
+  "coverage": "Reviewed Clang C23 preprocessing, syntax, type, initialization, and object-emission cases on Linux x86-64.",
   "limitations": [
     "Checks the listed acceptance, rejection, or execution outcomes.",
     "Compiler-specific intermediate forms and diagnostic wording are ungraded."

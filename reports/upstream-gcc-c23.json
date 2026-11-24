@@ -4,7 +4,7 @@
   "language": "c",
   "edition": 23,
   "revision": "5115c7e447fc07457443df874bf57840e8316d5f",
-  "coverage": "Reviewed gcc C23 preprocessing and lexical configurations on Linux x86-64.",
+  "coverage": "Reviewed GCC C23 preprocessing, syntax, type, initialization, and runtime cases on Linux x86-64.",
   "limitations": [
     "Checks the listed acceptance, rejection, or execution outcomes.",
     "Compiler-specific intermediate forms and diagnostic wording are ungraded."
@@ -14,7 +14,7 @@
     {
       "id": "empty-initialization-execution",
       "path": "gcc/testsuite/gcc.dg/c23-empty-init-1.c",
-      "sha256": "828f824ba8541ca828ca2a68b4ebfa49706e3d8e8de6e179c5590632d8d799",
+      "sha256": "828f824ba8541ca828ca9c2a68b4ebfa49706e3d8e8de6e179c5590632d8d799",
       "dialect": "c23",
       "action": "run",
       "expect": "accept",

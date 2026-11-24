@@ -634,6 +634,32 @@ PA1 and PA38 using the packaged reference binaries.
 [C23 inference rules](../doc/c-conformance-notes.md#c23-auto-inference) ·
 [Frozen-input and inference measurements](../docs/performance/c-frontend-scaling.md#c23-auto-inference)
 
+## C23 empty initialization of variable-length arrays
+
+PA38 checks zero initialization of multidimensional automatic VLAs,
+including aggregate padding, a side-effecting bound and reuse of a
+captured typedef bound. The constraint fixtures reject nonempty VLA
+initializers, static-storage VLAs, VLA compound literals, and empty
+initializers for arrays of unknown extent. A pedantic C17 control
+rejects empty initialization.
+
+The pinned manifests pass 51 GCC and 17 Clang C23 configurations.
+The clause matrix passes 832 probes, including 381 C23 probes,
+on Linux x86-64, WASI and bare Wasm. Both PA38 positive fixtures also
+run at `-O0` and `-O2` on those targets, on AArch64 Linux under QEMU,
+and on both Mach-O targets through the local execution harness.
+GCC 15 and Clang 21 run the positive fixtures on Linux x86-64.
+
+PA38 passes 594 native, 594 Wasm, 63 control, and three ABI cases.
+The strict course report passes all 11,674 tests.
+The PA36 smoke, debug-info, self-host through PA5, architecture,
+and placement checks pass. The placement audit scanned 11,595 fixtures.
+The student export verifies 26,785 portable reference outputs and passes
+PA1 and PA38 using the packaged reference binaries.
+
+[C23 empty initialization rules](../doc/c-conformance-notes.md#c23-empty-initialization-of-variable-length-arrays) ·
+[Frozen-input and variable-length array measurements](../docs/performance/c-frontend-scaling.md#c23-empty-initialization-of-variable-length-arrays)
+
 ## Additional editions
 
 The driver baseline at `39e13e127` rejects `c90`, `c89`,

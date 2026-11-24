@@ -267,6 +267,39 @@ byte-identical x86-64 objects at `-O2`.
 | 8,000 | 241,468,314 | 252,519,303 |
 | 16,000 | 476,007,940 | 498,100,674 |
 
+## C23 empty initialization of variable-length arrays
+
+Compared immutable GCC 15 builds of `3ca66ef36` and `8a25f465b` on CPU 71.
+All frozen runs emitted byte-identical objects. A/A task-clock spreads
+of 26.21% for C++ and 23.53% for SQLite leave the wall-time changes unresolved.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.00149% | +0.00116% | −0.00223% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.00431% | −0.00031% | −0.00207% |
+
+Each generated C23 function allocates a VLA, zeroes it, writes one
+element, and returns an indexed value. The control uses
+`__builtin_memset(a, 0, sizeof a)`. The C23 form uses `int a[length] = {};`.
+Both forms scale linearly in the number of declarations and emit
+byte-identical x86-64 objects at `-O0` and `-O2` throughout the tested
+range. The implicit initializer forwards the captured allocation size to
+the existing bulk-memory operation. Compiler work is independent of the
+number of elements at runtime.
+
+Each value is the median of three observations on CPU 73.
+
+| Functions | `-O0` explicit instructions | `-O0` empty initializer instructions | `-O2` explicit instructions | `-O2` empty initializer instructions |
+| ---: | ---: | ---: | ---: | ---: |
+| 128 | 22,912,217 | 19,649,815 | 40,998,036 | 37,212,872 |
+| 256 | 41,870,556 | 35,341,717 | 77,956,100 | 70,409,886 |
+| 512 | 79,949,943 | 66,894,133 | 152,064,324 | 136,972,634 |
+| 1,024 | 155,578,522 | 129,507,124 | 299,736,641 | 269,672,104 |
+| 2,048 | 307,843,530 | 256,086,321 | 596,518,595 | 536,042,544 |
+
+At 2,048 functions and `-O2`, median peak RSS is 24,100 KiB for the
+explicit call and 22,048 KiB for the empty initializer.
+
 ## Volatile assignment code generation
 
 The same source functions returning and discarding a volatile record
