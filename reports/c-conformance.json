@@ -1210,6 +1210,138 @@
       "cases": [
         "include.query"
       ]
+    },
+    {
+      "id": "c23.trigraph-removal",
+      "clause": "5.1.1.2p1",
+      "kind": "required",
+      "editions": [
+        23
+      ],
+      "environment": "all",
+      "requirement": "Leave trigraph sequences unchanged in the default C23 lexical profile, including before backslash-newline splicing.",
+      "cases": []
+    },
+    {
+      "id": "c23.identifier-xid-nfc",
+      "clause": "6.4.2.1p1-p3, Annex D",
+      "kind": "required",
+      "editions": [
+        23
+      ],
+      "environment": "all",
+      "requirement": "Use XID_Start and XID_Continue for raw and escaped Unicode identifiers and diagnose identifiers outside Normalization Form C.",
+      "cases": []
+    },
+    {
+      "id": "c23.literal-universal-names",
+      "clause": "6.4.3, 6.4.4.4, 6.4.5",
+      "kind": "required",
+      "editions": [
+        23
+      ],
+      "environment": "all",
+      "requirement": "Permit universal character names for basic, control and NUL characters within quoted literals, while enforcing the restrictions on malformed names and surrogate values.",
+      "cases": []
+    },
+    {
+      "id": "c23.binary-integer-constant",
+      "clause": "6.4.4.2",
+      "kind": "required",
+      "editions": [
+        23
+      ],
+      "environment": "all",
+      "requirement": "Read binary integer constants with the nondecimal base and suffix rules for value and type.",
+      "cases": []
+    },
+    {
+      "id": "c23.digit-separators",
+      "clause": "6.4.4.2-6.4.4.3, 6.4.8",
+      "kind": "required",
+      "editions": [
+        23
+      ],
+      "environment": "all",
+      "requirement": "Recognize digit separators in integer and floating constants, including exponent digits, and preserve preprocessing token boundaries through stringization and pasting.",
+      "cases": []
+    },
+    {
+      "id": "c23.elifdef",
+      "clause": "6.10.2p11-p17",
+      "kind": "required",
+      "editions": [
+        23
+      ],
+      "environment": "all",
+      "requirement": "Select elifdef and elifndef branches by macro definedness, sharing the conditional group's skip and state rules.",
+      "cases": []
+    },
+    {
+      "id": "c23.attribute-query",
+      "clause": "6.10.2p9-p11, 6.7.13",
+      "kind": "required",
+      "editions": [
+        23
+      ],
+      "environment": "all",
+      "requirement": "Treat __has_c_attribute as defined in conditional directives, and report the supported revision for a known standard attribute and zero for unsupported attributes.",
+      "cases": []
+    },
+    {
+      "id": "c23.variadic-macro-omission",
+      "clause": "6.10.5.1",
+      "kind": "required",
+      "editions": [
+        23
+      ],
+      "environment": "all",
+      "requirement": "Accept omitted variable arguments, and expand __VA_OPT__ with the correct empty or nonempty result, including stringization and pasting.",
+      "cases": []
+    },
+    {
+      "id": "c23.warning-directive",
+      "clause": "6.10.7",
+      "kind": "required",
+      "editions": [
+        23
+      ],
+      "environment": "all",
+      "requirement": "Diagnose a reached warning directive using its written preprocessing tokens. A warning directive does not require translation to fail.",
+      "cases": []
+    },
+    {
+      "id": "c23.embed-replacement",
+      "clause": "6.10.4.1",
+      "kind": "required",
+      "editions": [
+        23
+      ],
+      "environment": "all",
+      "requirement": "Replace a resource directive with its comma-separated byte values and report a missing or unsupported required resource.",
+      "cases": []
+    },
+    {
+      "id": "c23.embed-parameters",
+      "clause": "6.10.4.2",
+      "kind": "required",
+      "editions": [
+        23
+      ],
+      "environment": "all",
+      "requirement": "Apply limit, prefix, suffix and if_empty, including alternative parameter spellings, and diagnose malformed and repeated parameters.",
+      "cases": []
+    },
+    {
+      "id": "c23.embed-query",
+      "clause": "6.10.2p7-p11, 6.10.10.2",
+      "kind": "required",
+      "editions": [
+        23
+      ],
+      "environment": "all",
+      "requirement": "Use the same search and effective resource size as embed to distinguish zero for unavailable or unsupported resources, one for nonempty resources and two for empty resources.",
+      "cases": []
     }
   ]
 }

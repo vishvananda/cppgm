@@ -230,6 +230,31 @@ that an automatic division still raises invalid on native targets.
 [PA38 zero division fixture](../pa38/tests/general/500-c-fenv-static-zero-division.t) ·
 [WG14 N1570 §§7.12.3, 7.12.14, and Annex F.8](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
 
+## C23 preprocessing baseline
+
+GCC 15 and Clang 21 both accept `c23`, `gnu23`, `c2x`, `gnu2x`, and
+`iso9899:2024` and report `202311L` for all five spellings. The
+clause inventory records the source and preprocessing obligations
+individually. It uses N3220 for clause numbers and checks adoption
+against the proposals. N3220 is a related public C2y working draft.
+The WG14 editor's report attributes the corresponding C23 draft edits
+to clarity, wording and cross-references.
+
+| Area | Baseline and upstream sources |
+| --- | --- |
+| Trigraphs | Both compilers translate trigraphs in ISO C17 and leave them unchanged in C23. GCC `cpp/c23-trigraphs-*.c` and Clang `C/C23/n2940.c` cover this boundary and explicit enabling. |
+| Binary numbers and digit separators | Both compilers accept binary integer literals and separators in C23 and reject the probe in pedantic C17. GCC `c23-binary-constants-*.c` and `c23-digit-separators-*.c`, and Clang `C/C23/n2549.c`, check value, type, token formation and diagnostics. |
+| Conditional directives | GCC and Clang select the same groups for valid `#elifdef` and `#elifndef` in C23. They reject these directives in the outer conditional section in pedantic C17. GCC skips an unrecognized form inside a nested skipped group, where Clang issues an extension error. GCC `cpp/c23-elifdef-*.c` covers the forms and operands. |
+| Warning directives | A reached C23 `#warning` produces a diagnostic with the unexpanded message. Both compilers accept the file under `-pedantic-errors` and suppress the warning in a skipped group. |
+| Unicode | GCC `cpp/c23-ucn*.c` and Clang `C/C23/n2836_n2939.c` cover the change to Unicode identifier properties and the literal rules. Check initial and continuation characters, normalization, and agreement between direct UTF-8 and universal spelling. |
+| Resource inclusion | GCC `cpp/embed-*.c` and Clang `C/C23/n3017.c` supply binary fixtures and cover resource status, replacement and parameters. The implementation must bound bytes read and tokens produced by the effective limit. |
+
+[Clause inventory](c-conformance.json) ·
+[WG14 N3221 editor's report](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3221.htm) ·
+[WG14 N3220 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
+[GCC change inventory](https://gcc.gnu.org/projects/c-status.html) ·
+[Clang change inventory](https://clang.llvm.org/c_status.html)
+
 ## Additional editions
 
 The driver baseline at `39e13e127` rejects `c90`, `c89`,
@@ -317,6 +342,22 @@ across Linux x86-64, WASI, and bare Wasm. The 876 runtime cases and the
 113 of 128 GCC torture configurations reproduced their prior results.
 Debug-info checks, inception, self-hosting through PA5, the harness
 tests, and the source and placement audits passed.
+
+After the expression and function-use fixes, the frozen C++ overload and
+GNU17 SQLite inputs produced byte-identical objects in A/A, ABBA and BAAB
+blocks. Retired instructions rose by 0.008% on both inputs. Peak RSS rose
+by 0.003% and 0.060%, respectively. Task-clock effects were within the
+23% to 36% A/A spreads. In generated pedantic C90 sources with 128 to
+1,024 conditional initializers, the additional operand checks added
+0.54% to 1.04% retired instructions. Each doubling remained below
+1.81 times the previous count. The matched C99 input changed by
+-0.021% to +0.059%. Both editions produced byte-identical objects.
+
+The eight new executable probes passed `-O0` and `-O2` on x86-64
+Linux, QEMU AArch64 Linux, both Mach-O targets with local loaders,
+bare Wasm and WASI. The Wasm cross-object replay uses a freestanding
+entry point to preserve the original `main` spelling for the
+`__func__` probes. PA38 separately exercises hosted WASI startup.
 
 [GCC C90 manifest](upstream-gcc-c90.json) ·
 [GCC C95 manifest](upstream-gcc-c95.json) ·
