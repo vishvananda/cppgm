@@ -298,6 +298,8 @@ LIBRARY_PROGRAMS = {
     'library.stdlib-search': (90, ROOT / 'scripts/tests/c_stdlib_search.c', 'stdlib'),
     'library.string-functions': (90, ROOT / 'scripts/tests/c_string_functions.c', 'string'),
     'library.va-copy-stdio': (99, ROOT / 'scripts/tests/c_c99_va_copy.c', 'stdarg stdio string'),
+    'library.long-double-transcendentals': (99, ROOT / 'scripts/tests/c_long_double_transcendentals.c', 'math'),
+    'library.math-error-reporting': (99, ROOT / 'scripts/tests/c_math_error_reporting.c', 'math fenv errno'),
     'library.inttypes-conversion': (99, ROOT / 'scripts/tests/c_c99_inttypes.c', 'inttypes stdio string'),
 }
 C23_VERSIONED_PROGRAMS = {
@@ -522,6 +524,10 @@ def missing_library_reason(case, profile, checked_c23):
         return f'The selected WASI SDK requires -l{WASI_LONG_DOUBLE_STDIO}'
     if case == 'library.stdio-temporary' and profile == 'wasi-hosted':
         return 'The selected WASI SDK omits the temporary-file functions'
+    if case == 'library.long-double-transcendentals' and profile == 'wasi-hosted':
+        return 'The selected WASI SDK narrows these binary128 functions to binary64'
+    if case == 'library.math-error-reporting' and profile in {'wasi-hosted', WASI_C23_PROFILE}:
+        return 'WASI advertises MATH_ERREXCEPT without the required exception flags'
     if case in C23_VERSIONED_PROGRAMS and checked_c23:
         _, required = C23_VERSIONED_PROGRAMS[case]
         missing = [f'<{name}.h>' for name in required.split()
@@ -923,6 +929,14 @@ def library_sources(profile, edition, checked, checked_c23, wasi_libraries):
         if position < C_EDITIONS.index(introduced) or not usable(required):
             continue
         if not hosted and case not in ('library.stddef-layout', 'library.string-functions'):
+            continue
+        if case == 'library.long-double-transcendentals':
+            if profile['id'] != 'wasi-hosted':
+                yield case, source, (), () if profile['target'].startswith('wasm') else ('-lm',)
+            continue
+        if case == 'library.math-error-reporting':
+            if profile['id'] not in {'wasi-hosted', WASI_C23_PROFILE}:
+                yield case, source, (), ('-lm',)
             continue
         if case == 'library.stdio-temporary' and profile['id'] == 'wasi-hosted':
             continue

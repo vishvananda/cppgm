@@ -97,6 +97,7 @@ class CoverageTests(unittest.TestCase):
 
         self.assertNotIn('library.va-copy-stdio', selected(self.native, 90))
         self.assertIn('library.va-copy-stdio', selected(self.native, 99))
+        self.assertEqual(selected(self.native, 99)['library.long-double-transcendentals'], ('-lm',))
         self.assertNotIn('library.c23-binary-stdio', selected(self.native, 23, c23=checked))
         self.assertIn('library.c23-binary-stdio', selected(self.native, 23))
         self.assertEqual(selected(self.native, 23)['library.c23-complex-interfaces'], ('-lm',))
@@ -126,10 +127,12 @@ class CoverageTests(unittest.TestCase):
         wasi = selected('wasi-hosted', 23, wasi_libraries={'c-printscan-long-double': '/sdk/lib/archive.a'})
         self.assertNotIn('library.stdio-long-double', wasi)
         self.assertNotIn('library.stdio-temporary', wasi)
+        self.assertNotIn('library.long-double-transcendentals', wasi)
         self.assertEqual(wasi['library.wasi-stdio-long-double'], ('-lc-printscan-long-double',))
         self.assertNotIn('library.c23-math-power', selected('wasi-c23-hosted', 23, c23=checked))
         math_versions = {**checked, 'math': versions['math'], 'tgmath': versions['tgmath']}
         supplemented = selected('wasi-c23-hosted', 23, c23=math_versions)
+        self.assertEqual(supplemented['library.long-double-transcendentals'], ())
         self.assertIn('library.stdio-long-double', supplemented)
         self.assertIn('library.stdio-temporary', supplemented)
         self.assertIn('library.c23-memalignment', supplemented)

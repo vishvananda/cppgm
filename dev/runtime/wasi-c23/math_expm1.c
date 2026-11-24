@@ -518,6 +518,13 @@ long double __cppgm_wasi_exp_split(long double x, long double low)
 	return reconstruct_exponential(index, k, x - step * L1, low - step * L2);
 }
 
+long double expl(long double x)
+{
+	if (isnan(x))
+		return x + x;
+	return __cppgm_wasi_exp_split(x, 0.0L);
+}
+
 long double exp10l(long double x)
 {
 	if (isnan(x))

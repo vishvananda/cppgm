@@ -29,6 +29,45 @@ static long double positive_power(long double x, long double y)
 	return power_from_log(__cppgm_wasi_log_split(x, 0.0L), y, 0.0L);
 }
 
+long double powl(long double x, long double y)
+{
+	if (y == 0)
+		return issignaling(x) ? x + x : 1.0L;
+	if (x == 1)
+		return issignaling(y) ? y + y : 1.0L;
+	if (isnan(x) || isnan(y))
+		return x + y;
+
+	const long double magnitude = __builtin_fabsl(x);
+	const bool finite_base = isfinite(magnitude);
+	if (isinf(y))
+	{
+		if (magnitude == 1)
+			return 1.0L;
+		return (magnitude > 1) == (y > 0) ? INFINITY : 0.0L;
+	}
+
+	bool negative = false;
+	if (signbit(x))
+	{
+		if (y == truncl(y))
+		{
+			const long double half = y * 0.5L;
+			negative = half != truncl(half);
+		}
+		else if (finite_base && magnitude != 0)
+			return __builtin_nanl("");
+	}
+	long double result;
+	if (magnitude == 0 || !finite_base)
+		result = y < 0 ? 1.0L / magnitude : magnitude;
+	else if (magnitude == 1)
+		result = 1.0L;
+	else
+		result = positive_power(magnitude, y);
+	return negative ? -result : result;
+}
+
 long double powrl(long double x, long double y)
 {
 	if (isnan(x) || isnan(y))
@@ -118,6 +157,12 @@ float compoundnf(float x, long long n)
 		return 1.0f;
 	if (n == 1)
 		return 1.0f + x;
+	if (n == 2 || n == 3)
+	{
+		const double base = 1.0 + (double)x;
+		const double square = base * base;
+		return (float)(n == 2 ? square : square * base);
+	}
 	return (float)exp(log1p((double)x) * (double)n);
 }
 

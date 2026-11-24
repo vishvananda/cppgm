@@ -1979,6 +1979,26 @@
       "cases": ["library.c23-math-pi"]
     },
     {
+      "id": "library.math-error-reporting",
+      "clause": "C99–C17 7.12, 7.12.1; C23 7.12p20, 7.12.1",
+      "kind": "required",
+      "editions": [99, 11, 17, 23],
+      "environment": "hosted",
+      "header": "math",
+      "requirement": "Provide a hosted math error reporting mechanism. If exceptions are advertised, supply the required flags. Verify domain and overflow reporting through the advertised mechanisms.",
+      "cases": ["library.math-error-reporting"]
+    },
+    {
+      "id": "library.long-double-transcendentals",
+      "clause": "C99–C17 7.12.6, 7.12.7; C23 7.12.6, 7.12.7",
+      "kind": "required",
+      "editions": [99, 11, 17, 23],
+      "environment": "hosted",
+      "header": "math",
+      "requirement": "Evaluate long double powers, exponentials and logarithms over the exponent and significand range of the target format. Check powers near one, parity, signed zero, and the domain boundary.",
+      "cases": ["library.long-double-transcendentals"]
+    },
+    {
       "id": "library.c23-math-power",
       "clause": "C23 7.12.7.2, 7.12.7.6–8, F.10.4.2, F.10.4.6–8",
       "kind": "required",

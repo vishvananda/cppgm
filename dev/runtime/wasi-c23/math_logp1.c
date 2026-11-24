@@ -805,41 +805,8 @@ static inline struct log_reduction reduce_log_argument(union binary128 reduced, 
 	return (struct log_reduction){ d, d_low + (d_high - d), shift, i };
 }
 
-static long double log1p_scaled(long double x, const struct log_scale* scale)
+static inline long double evaluate_log(struct log_reduction base, const struct log_scale* scale)
 {
-	const union binary128 input = { .value = x };
-	const int16_t sign_exponent = (int16_t)(input.words[1] >> 48);
-	long double high;
-	long double low;
-	if (sign_exponent < 0x3fff)
-	{
-		const unsigned exponent = sign_exponent & 0x7fff;
-		if (exponent >= 0x3fff)
-		{
-			if (exponent == 0x3fff && ((input.words[1] & fraction_mask) | input.words[0]) == 0)
-				return -INFINITY;
-			return exponent == 0x7fff ? x + x : __builtin_nanl("");
-		}
-		if (exponent <= SMALL_ARGUMENT_EXPONENT)
-			return scale == nullptr ? x : scale->full * x;
-		high = 1.0L;
-		low = x;
-	}
-	else if (sign_exponent == 0x7fff)
-	{
-		return x + x;
-	}
-	else
-	{
-		high = x;
-		// For x at least 2^226 the logarithm rounds without the increment.
-		low = sign_exponent < 0x40e1 ? 1.0L : 0.0L;
-	}
-
-	// Form 1+x as a sum of two binary128 values with an exact residual.
-	union binary128 reduced = { .value = high + low };
-	low = (high - reduced.value) + low;
-	const struct log_reduction base = reduce_log_argument(reduced, low, 0);
 	const long double d = base.delta;
 	const long double d_low = base.residual;
 	const unsigned i = base.index;
@@ -879,6 +846,43 @@ static long double log1p_scaled(long double x, const struct log_scale* scale)
 	return scale->high * leading + (scale->full * trailing + scale->low * leading);
 }
 
+static long double log1p_scaled(long double x, const struct log_scale* scale)
+{
+	const union binary128 input = { .value = x };
+	const int16_t sign_exponent = (int16_t)(input.words[1] >> 48);
+	long double high;
+	long double low;
+	if (sign_exponent < 0x3fff)
+	{
+		const unsigned exponent = sign_exponent & 0x7fff;
+		if (exponent >= 0x3fff)
+		{
+			if (exponent == 0x3fff && ((input.words[1] & fraction_mask) | input.words[0]) == 0)
+				return -INFINITY;
+			return exponent == 0x7fff ? x + x : __builtin_nanl("");
+		}
+		if (exponent <= SMALL_ARGUMENT_EXPONENT)
+			return scale == nullptr ? x : scale->full * x;
+		high = 1.0L;
+		low = x;
+	}
+	else if (sign_exponent == 0x7fff)
+	{
+		return x + x;
+	}
+	else
+	{
+		high = x;
+		// For x at least 2^226 the logarithm rounds without the increment.
+		low = sign_exponent < 0x40e1 ? 1.0L : 0.0L;
+	}
+
+	// Form 1+x as a sum of two binary128 values with an exact residual.
+	union binary128 reduced = { .value = high + low };
+	low = (high - reduced.value) + low;
+	return evaluate_log(reduce_log_argument(reduced, low, 0), scale);
+}
+
 long double log1pl(long double x)
 {
 	const union binary128 bits = { .value = x };
@@ -912,7 +916,7 @@ long double log10p1l(long double x)
 	return log1p_scaled(x, &scale10);
 }
 
-struct math_split __cppgm_wasi_log_split(long double x, long double low)
+static inline struct log_reduction reduce_positive_log(long double x, long double low)
 {
 	union binary128 bits = { .value = x };
 	int subnormal_shift = 0;
@@ -921,7 +925,44 @@ struct math_split __cppgm_wasi_log_split(long double x, long double low)
 		bits.value *= 0x1p113L;
 		subnormal_shift = 113;
 	}
-	const struct log_reduction base = reduce_log_argument(bits, low, subnormal_shift);
+	return reduce_log_argument(bits, low, subnormal_shift);
+}
+
+static long double logarithm(long double x, const struct log_scale* scale)
+{
+	if (isnan(x))
+		return x + x;
+	if (x == 0)
+		return -INFINITY;
+	if (x < 0)
+		return __builtin_nanl("");
+	if (isinf(x))
+		return x;
+
+	const struct log_reduction base = reduce_positive_log(x, 0.0L);
+	if (scale == &scale2 && base.index == 0 && base.delta == 0)
+		return base.shift;
+	return evaluate_log(base, scale);
+}
+
+long double logl(long double x)
+{
+	return logarithm(x, nullptr);
+}
+
+long double log2l(long double x)
+{
+	return logarithm(x, &scale2);
+}
+
+long double log10l(long double x)
+{
+	return logarithm(x, &scale10);
+}
+
+struct math_split __cppgm_wasi_log_split(long double x, long double low)
+{
+	const struct log_reduction base = reduce_positive_log(x, low);
 	const unsigned i = base.index;
 	const double shift = base.shift;
 	const long double d = base.delta;
