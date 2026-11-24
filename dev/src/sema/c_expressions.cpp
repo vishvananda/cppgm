@@ -121,8 +121,39 @@ bool GenericAssociationIndex::insert(const Type* type, ConversionRules& conversi
 
 } // namespace
 
-ExprFacts* Analyzer::generic_selection(const syntax::GenericExpr& expr, Scope* scope)
+ExprFacts* Analyzer::selection_expression(const syntax::SelectionExpr& selection, Scope* scope)
 {
+	if (selection.selection == syntax::SelectionKind::Choose)
+	{
+		const auto& expr = static_cast<const syntax::ChooseExpr&>(selection);
+		++unevaluated_;
+		const ExprFacts* control = typed(*expr.control, scope);
+		--unevaluated_;
+		if (control == nullptr)
+			return nullptr;
+		Constant condition;
+		uint64_t high = 0;
+		if (control->type == nullptr || !IsIntegralOrUnscopedEnum(control->type) ||
+			!integer_constant_expression(*expr.control, scope, condition, false, &high))
+			error(expr.control->location, "__builtin_choose_expr requires an integer constant condition");
+
+		const bool choose_then = condition.bits != 0 || high != 0;
+		// Check both arms in source order. Only the selected arm may require a
+		// definition or have runtime effects.
+		unevaluated_ += !choose_then;
+		ExprFacts* then_facts = typed(*expr.then_expr, scope);
+		unevaluated_ -= !choose_then;
+		unevaluated_ += choose_then;
+		ExprFacts* else_facts = typed(*expr.else_expr, scope);
+		unevaluated_ -= choose_then;
+		if (then_facts == nullptr || else_facts == nullptr)
+			return nullptr;
+		expr.selected = choose_then ? expr.then_expr : expr.else_expr;
+		ExprFacts* selected_facts = choose_then ? then_facts : else_facts;
+		expr.facts = selected_facts;
+		return selected_facts;
+	}
+	const auto& expr = static_cast<const syntax::GenericExpr&>(selection);
 	// C17 6.5.1.1: type the control without evaluating it. Lvalue,
 	// array and function conversions apply, but not integer promotions.
 	++unevaluated_;
@@ -187,36 +218,6 @@ ExprFacts* Analyzer::generic_selection(const syntax::GenericExpr& expr, Scope* s
 	// value category, bit-field facts and subsequent contextual conversion.
 	expr.facts = expr.selected->facts;
 	return const_cast<ExprFacts*>(expr.facts);
-}
-
-ExprFacts* Analyzer::choose_expression(const syntax::ChooseExpr& expr, Scope* scope)
-{
-	++unevaluated_;
-	const ExprFacts* control = typed(*expr.control, scope);
-	--unevaluated_;
-	if (control == nullptr)
-		return nullptr;
-	Constant condition;
-	uint64_t high = 0;
-	if (control->type == nullptr || !IsIntegralOrUnscopedEnum(control->type) ||
-		!integer_constant_expression(*expr.control, scope, condition, false, &high))
-		error(expr.control->location, "__builtin_choose_expr requires an integer constant condition");
-
-	const bool choose_then = condition.bits != 0 || high != 0;
-	// Check both arms in source order. Only the selected arm may require a
-	// definition or have runtime effects.
-	unevaluated_ += !choose_then;
-	ExprFacts* then_facts = typed(*expr.then_expr, scope);
-	unevaluated_ -= !choose_then;
-	unevaluated_ += choose_then;
-	ExprFacts* else_facts = typed(*expr.else_expr, scope);
-	unevaluated_ -= choose_then;
-	if (then_facts == nullptr || else_facts == nullptr)
-		return nullptr;
-	expr.selected = choose_then ? expr.then_expr : expr.else_expr;
-	ExprFacts* selected_facts = choose_then ? then_facts : else_facts;
-	expr.facts = selected_facts;
-	return selected_facts;
 }
 
 } // namespace sema

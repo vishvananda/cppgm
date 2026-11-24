@@ -43,6 +43,7 @@ private:
 	void specifier(const DeclSpecifier& specifier);
 	void initializer(const Initializer& initializer);
 	void operand(const Expr& expr);
+	void selection(const SelectionExpr& expr);
 	void chain_rest(const Expr& expr);
 	void call_like(const Expr& expr);
 	void lambda(const LambdaExpr& lambda);

@@ -540,6 +540,35 @@ void SyntaxRenderer::call_like(const Expr& expr)
 	text(")");
 }
 
+void SyntaxRenderer::selection(const SelectionExpr& expr)
+{
+	const bool choose = expr.selection == SelectionKind::Choose;
+	text(choose ? "__builtin_choose_expr(" : "_Generic(");
+	expression(*expr.control);
+	if (choose)
+	{
+		const auto& choice = static_cast<const ChooseExpr&>(expr);
+		text(",");
+		expression(*choice.then_expr);
+		text(",");
+		expression(*choice.else_expr);
+	}
+	else
+	{
+		for (const GenericAssociation& association : static_cast<const GenericExpr&>(expr).associations)
+		{
+			text(",");
+			if (association.type != nullptr)
+				type_id(*association.type);
+			else
+				text("default");
+			text(":");
+			expression(*association.expression);
+		}
+	}
+	text(")");
+}
+
 void SyntaxRenderer::operand(const Expr& expr)
 {
 	// Chain nodes are handled by expression().
@@ -602,35 +631,8 @@ void SyntaxRenderer::operand(const Expr& expr)
 		break;
 	}
 	case ExprKind::Selection:
-	{
-		if (static_cast<const SelectionExpr&>(expr).selection == SelectionKind::Choose)
-		{
-			const auto& choice = static_cast<const ChooseExpr&>(expr);
-			text("__builtin_choose_expr(");
-			expression(*choice.control);
-			text(",");
-			expression(*choice.then_expr);
-			text(",");
-			expression(*choice.else_expr);
-			text(")");
-			break;
-		}
-		const GenericExpr& generic = static_cast<const GenericExpr&>(expr);
-		text("_Generic(");
-		expression(*generic.control);
-		for (const GenericAssociation& association : generic.associations)
-		{
-			text(",");
-			if (association.type != nullptr)
-				type_id(*association.type);
-			else
-				text("default");
-			text(":");
-			expression(*association.expression);
-		}
-		text(")");
+		selection(static_cast<const SelectionExpr&>(expr));
 		break;
-	}
 	case ExprKind::Conditional:
 	{
 		const ConditionalExpr& conditional = static_cast<const ConditionalExpr&>(expr);
