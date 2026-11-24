@@ -14,6 +14,7 @@
 
 namespace sema {
 struct CInitializer;
+struct CInitializerChild;
 struct CInitializerFieldSpans;
 
 class Analyzer;
@@ -211,7 +212,8 @@ private:
 	};
 	StorageView descend(
 		ConstValue* value, const Type* type, int64_t offset, const Type* wanted, bool write, uint32_t depth);
-	StorageView descend_c_array(const CInitializer& plan, int64_t offset, const Type* wanted, uint32_t depth);
+	StorageView descend_c_array(const ConstValue& array, int64_t offset, const Type* wanted, uint32_t depth);
+	StorageView c_array_element(const CArrayConstant& array, const Type* type, uint64_t index, uint32_t location);
 	StorageView select_variant(ConstValue* storage, const Type* type, const DataMember* member, int64_t offset,
 		const UnionSelection* outer, bool write, uint32_t location);
 	const ConstValue* literal_object(const syntax::LiteralExpr* literal, uint32_t location);
@@ -367,6 +369,18 @@ private:
 	bool initialize_object(
 		const Type* type, const ConstPlace& target, const syntax::Initializer& init, uint32_t location);
 	bool c_initialize(const CInitializer& plan, const ConstPlace& target, uint32_t location, bool inherited = false);
+	enum class CArrayInitialization : uint8_t
+	{
+		InPlace,
+		Stored,
+		Failed
+	};
+	CArrayInitialization prepare_c_array(
+		const CInitializer& plan, const ConstPlace& target, uint32_t location, bool inherited);
+	bool expand_c_array(ConstValue& array, uint32_t location);
+	bool patch_c_array(ConstValue& array, const CInitializer& plan, uint32_t location);
+	const ConstValue* evaluate_c_array_patch(
+		const CArrayConstant& source, const CInitializerChild& child, const Type* type, uint32_t location);
 	bool c_initialize_field_spans(const CInitializer& plan, const ConstPlace& target, uint32_t location);
 	bool c_select_variant(
 		const CInitializerFieldSpans& lane, const ConstPlace& target, uint64_t stride, uint32_t location);

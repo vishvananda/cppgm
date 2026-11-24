@@ -103,6 +103,13 @@ runtime storage. The same rules apply when another constexpr object is
 initialized from the aggregate value.
 [WG14 N3220 §§6.6, 6.7.11](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
 
+After a copy initializer, a later designator replaces the named
+subobject and preserves values supplied for its siblings. A braced
+initializer still initializes its whole destination, including implicit
+zeros. These rules also apply to copies of C23 constexpr objects.
+[WG14 DR 413](https://open-std.org/JTC1/SC22/WG14/issues/c11c17/issue0413.html) ·
+[WG14 DR 253](https://www.open-std.org/jtc1/sc22/wg14/issues/c99/issue0253.html)
+
 ## C23 bit-precise integers
 
 The width includes the sign bit for a signed type. The minimum is two

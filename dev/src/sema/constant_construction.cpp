@@ -652,21 +652,11 @@ bool ConstantInterpreter::c_initialize(
 	const CInitializer& plan, const ConstPlace& target, uint32_t location, bool inherited)
 {
 	inherited = inherited && !plan.starts_value;
-	// The checked C constexpr initializer contains all writes and the zero
-	// regions between them. Retain that plan when dense storage would exceed
-	// the evaluation budget. A copy can share the translation-unit facts.
-	if (c_constexpr_initializer_ && !inherited && plan.type->kind == TypeKind::Array && plan.value == nullptr &&
-		plan.projection == CInitializerProjection::None && !plan.children.empty() &&
-		leaves(plan.type, 0) > kArrayExpansionBytes / sizeof(ConstValue))
+	if (plan.type->kind == TypeKind::Array && (c_constexpr_initializer_ || inherited || plan.value != nullptr))
 	{
-		ConstValue* storage = nullptr;
-		if (!locate(target, true, storage, location))
-			return false;
-		*storage = ConstValue();
-		storage->kind = ValueKind::CArrayInitializer;
-		storage->type = plan.type;
-		storage->c_initializer = &plan;
-		return true;
+		const auto prepared = prepare_c_array(plan, target, location, inherited);
+		if (prepared != CArrayInitialization::InPlace)
+			return prepared == CArrayInitialization::Stored;
 	}
 	if (plan.value != nullptr)
 	{

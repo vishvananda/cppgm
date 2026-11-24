@@ -628,9 +628,15 @@ ConstantInterpreter::StorageView ConstantInterpreter::descend(
 		return descend(element, type->element, offset - static_cast<int64_t>(index * size), wanted, write, depth + 1);
 	}
 	if (value != nullptr && value->kind != ValueKind::Class)
-		return !write && value->kind == ValueKind::CArrayInitializer
-			? descend_c_array(*value->c_initializer, offset, wanted, depth)
-			: StorageView();
+	{
+		if (value->kind != ValueKind::CArrayInitializer)
+			return StorageView();
+		if (!write)
+			return descend_c_array(*value, offset, wanted, depth);
+		if (!expand_c_array(*value, 0))
+			return StorageView();
+		return descend(value, type, offset, wanted, true, depth);
+	}
 	const ClassEntity* cls = ClassOf(type);
 	if (cls == nullptr)
 		return StorageView();

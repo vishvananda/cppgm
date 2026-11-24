@@ -20,6 +20,7 @@ class SourcePositions;
 
 namespace sema {
 class StringCodeUnits;
+struct CArrayConstant;
 struct CInitializer;
 class Analyzer;
 struct ConstValue;
@@ -1423,7 +1424,8 @@ private:
 	bool static_c_initializer(const sema::CInitializer& plan, StaticData& out);
 	class CStaticData;
 	void append_c_initializer_repeat(const StaticData& value, uint64_t count, uint64_t width, StaticData& out);
-	bool c_initializer_placements(const sema::CInitializer& plan, uint64_t offset, std::vector<StaticPlacement>& out);
+	bool c_array_placements(const sema::ConstValue& value, uint64_t offset, std::vector<StaticPlacement>& out);
+	bool static_c_array(const sema::Type* type, const sema::CArrayConstant& array, StaticData& out);
 	bool static_c_value(const sema::ConstValue& value, StaticValue& out, uint32_t location);
 	bool static_aggregate(const sema::Type* type, const syntax::BracedInitList* list, uint32_t& next, StaticData& out,
 		const sema::CInitializer* plan = nullptr, bool omit_c_tail = false);

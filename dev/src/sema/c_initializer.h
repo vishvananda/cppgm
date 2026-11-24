@@ -121,6 +121,21 @@ inline const syntax::Expr* CInitializerOperand(const syntax::Expr* value)
 	return value;
 }
 
+inline const syntax::LiteralExpr* CInitializerString(const syntax::Expr* expr)
+{
+	if (expr == nullptr)
+		return nullptr;
+	expr = CInitializerOperand(expr);
+	if (expr->kind == syntax::ExprKind::BracedInit)
+	{
+		const auto elements = static_cast<const syntax::BracedInitList*>(expr)->elements;
+		if (elements.size != 1)
+			return nullptr;
+		expr = CInitializerOperand(elements[0]);
+	}
+	return expr->kind == syntax::ExprKind::Literal ? static_cast<const syntax::LiteralExpr*>(expr) : nullptr;
+}
+
 inline const syntax::BracedInitList* StaticCompoundInitializer(const syntax::Expr* expr)
 {
 	if (expr == nullptr)

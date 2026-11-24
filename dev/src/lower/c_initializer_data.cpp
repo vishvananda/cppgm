@@ -11,6 +11,7 @@
 #include "sema/aggregates.h"
 #include "sema/c_initializer.h"
 #include "sema/c_initializer_intervals.h"
+#include "sema/constant_c_array.h"
 #include "sema/constant_interpreter.h"
 #include "sema/constant_values.h"
 #include "support/small_list.h"
@@ -773,12 +774,12 @@ uint64_t ProgramLowering::c_initializer_size(const sema::CInitializer& plan)
 	return extent != 0 ? extent : size_of(plan.type, 0);
 }
 
-bool ProgramLowering::c_initializer_placements(
-	const sema::CInitializer& plan, uint64_t offset, std::vector<StaticPlacement>& out)
+bool ProgramLowering::c_array_placements(
+	const sema::ConstValue& value, uint64_t offset, std::vector<StaticPlacement>& out)
 {
 	StaticData data;
-	return static_c_initializer(plan, data) &&
-		CollectPlacements(data, offset, c_initializer_size(plan), program_.pointer_type().pointer_bytes(), out);
+	return static_c_array(value.type, *value.c_array, data) &&
+		CollectPlacements(data, offset, size_of(value.type, 0), program_.pointer_type().pointer_bytes(), out);
 }
 
 bool ProgramLowering::static_c_initializer(const sema::CInitializer& plan, StaticData& out)
@@ -795,30 +796,38 @@ bool ProgramLowering::static_c_initializer(const sema::CInitializer& plan, Stati
 		uint32_t next = 0;
 		return static_aggregate(type, nullptr, next, out, &plan);
 	}
+	return static_c_array(type, sema::CArrayConstant{ &plan, nullptr, nullptr }, out);
+}
 
+bool ProgramLowering::static_c_array(const sema::Type* type, const sema::CArrayConstant& array, StaticData& out)
+{
+	const sema::CInitializer* plan = array.initializer;
 	std::vector<uint64_t> scratch;
 	sema::StringCodeUnits units;
-	if (plan.value != nullptr)
+	if (plan != nullptr && plan->value != nullptr)
 	{
-		const syntax::Expr* literal = sema::CInitializerOperand(plan.value);
-		if (literal->kind == syntax::ExprKind::BracedInit)
-			literal = sema::CInitializerOperand(static_cast<const syntax::BracedInitList*>(literal)->elements[0]);
-		if (literal->kind != syntax::ExprKind::Literal)
+		const auto* literal = sema::CInitializerString(plan->value);
+		if (literal == nullptr)
 			return false;
-		units = sema::ReadStringCodeUnits(static_cast<const syntax::LiteralExpr&>(*literal), scratch);
+		units = sema::ReadStringCodeUnits(*literal, scratch);
 		if (!units)
 			return false;
 	}
-	const uint64_t stride = size_of(type->element, 0);
+	const sema::Type* element = type->element;
+	const uint64_t stride = size_of(element, 0);
 	PointerMap saved_items;
 	std::vector<StaticData> repeated;
 	uint64_t next = 0;
 	const auto fill = [&](uint64_t limit) {
+		if (array.prefix != nullptr)
+			for (; next < limit && next < array.prefix->count; ++next)
+				if (!constant_data(element, array.prefix->elements[next], out, 0))
+					return false;
 		for (; next < limit && next < units.size(); ++next)
 		{
 			lowir::DataItem item = lowir::DataItem();
 			item.kind = lowir::DataItemKind::Scalar;
-			item.type = storage_type(type->element);
+			item.type = storage_type(element);
 			item.constant = { lowir::ValueKind::Integer, lowir::TypeKind::Void,
 				lowir::integer_literal(static_cast<int64_t>(units[static_cast<size_t>(next)])) };
 			append_item(item, out);
@@ -826,35 +835,64 @@ bool ProgramLowering::static_c_initializer(const sema::CInitializer& plan, Stati
 		if (next < limit)
 			append_zero((limit - next) * stride, out);
 		next = limit;
+		return true;
 	};
-	for (const auto& child : plan.children)
-	{
-		fill(child.index);
-		if (!child.initializer->repeat_value)
+	const auto emit_source = [&](const sema::CInitializer& child, uint64_t count) {
+		if (!child.repeat_value)
+			return static_c_initializer(child, out);
+		uint32_t saved = saved_items.find(&child);
+		if (saved == PointerMap::kMissing)
 		{
-			if (!static_c_initializer(*child.initializer, out))
+			saved = static_cast<uint32_t>(repeated.size());
+			repeated.emplace_back();
+			if (!static_c_initializer(child, repeated.back()))
 				return false;
+			const auto& items = repeated.back().items;
+			if (std::all_of(items.begin(), items.end(), IsZeroItem))
+				repeated.back().items.clear();
+			saved_items.set(&child, saved);
 		}
-		else
+		append_c_initializer_repeat(repeated[saved], count, stride, out);
+		return true;
+	};
+	const auto entries = plan != nullptr ? plan->children : syntax::Slice<const sema::CInitializerChild>{};
+	uint32_t entry = 0;
+	const auto emit_before = [&](uint64_t end) {
+		while (entry < entries.size && next < end)
 		{
-			uint32_t saved = saved_items.find(child.initializer);
-			if (saved == PointerMap::kMissing)
+			const auto& child = entries[entry];
+			if (child.limit <= next)
 			{
-				saved = static_cast<uint32_t>(repeated.size());
-				repeated.emplace_back();
-				if (!static_c_initializer(*child.initializer, repeated.back()))
-					return false;
-				const auto& items = repeated.back().items;
-				if (std::all_of(items.begin(), items.end(), IsZeroItem))
-					repeated.back().items.clear();
-				saved_items.set(child.initializer, saved);
+				++entry;
+				continue;
 			}
-			append_c_initializer_repeat(repeated[saved], child.limit - child.index, stride, out);
+			if (child.index >= end)
+				break;
+			const uint64_t start = std::max(next, child.index);
+			const uint64_t limit = std::min(end, child.limit);
+			if (!fill(start) || !emit_source(*child.initializer, limit - start))
+				return false;
+			next = limit;
 		}
-		next = child.limit;
-	}
-	fill(type->bound);
-	return true;
+		return fill(end);
+	};
+	const auto emit_patch = [&](uint64_t first, uint64_t limit, const sema::ConstValue& value) {
+		if (!emit_before(first))
+			return false;
+		next = limit;
+		if (limit - first == 1)
+			return constant_data(element, value, out, 0);
+		StaticData sample;
+		if (!constant_data(element, value, sample, 0))
+			return false;
+		if (std::all_of(sample.items.begin(), sample.items.end(), IsZeroItem))
+			sample.items.clear();
+		append_c_initializer_repeat(sample, limit - first, stride, out);
+		return true;
+	};
+	// The base and patches are in storage order, so each source span is
+	// visited once even when several writes intersect it.
+	return sema::VisitCArrayPatches(array.patches, 0, type->bound, emit_patch) && emit_before(type->bound);
 }
 
 void ProgramLowering::append_c_initializer_repeat(

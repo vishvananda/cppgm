@@ -18,7 +18,7 @@ struct LiteralExpr;
 namespace sema {
 
 struct DataMember;
-struct CInitializer;
+struct CArrayConstant;
 struct VariableEntity;
 struct FunctionEntity;
 
@@ -48,7 +48,7 @@ enum class ValueKind : uint8_t
 	// ordinal (a union's members, one of them active).
 	Array,
 	Class,
-	// A C constexpr array backed by its checked sparse initializer.
+	// A C array backed by checked initialization and sparse updates.
 	CArrayInitializer
 };
 
@@ -177,7 +177,7 @@ struct ConstValue
 		uint64_t bits;
 		long double floating;
 		ConstValue* elements;
-		const CInitializer* c_initializer;
+		const CArrayConstant* c_array;
 		struct
 		{
 			const void* entity;

@@ -498,6 +498,7 @@ The first fixture set covers these parts of the C17 input profile:
   brace pair. Continue with the next subobject after the designated one,
   including through nested arrays, records, and a union's selected member.
   A later designator replaces the value of the subobject it names. An
+  earlier whole-object initializer still supplies the other subobjects. An
   initializer in braces supplies a new value for the whole subobject,
   including implicit zeros. Check overwritten expressions for valid names,
   types, and the constant-expression requirements for static storage.
