@@ -1598,6 +1598,18 @@ macro preserves the base elements' const qualification. Its concrete
 function remains available with an unqualified result type.
 [C23 N3220 §§7.24.3.4–5, 7.24.5.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
 
+C23 narrow and wide formatted output accepts `%b` for unsigned binary
+and permits `%B` with an uppercase prefix. The same field width,
+precision, and padding rules apply as for the other unsigned digit
+conversions. Input accepts `%b` and recognizes binary prefixes in `%i`.
+An input field width counts the sign and prefix. The `wN` and `wfN`
+modifiers select exact-width or minimum-width types and fast types,
+respectively. On WASI, `wf16` selects the SDK's 32-bit fast type. `PRIb*`, `PRIB*`,
+and `SCNb*` specify the conversions for the typedefs in `<stdint.h>`.
+The WASI supplement selects separate formatted I/O symbols in C23 so
+that earlier-mode `%i` callers retain their original prefix behavior.
+[C23 N3220 §§7.8.1, 7.23.6.1–2, 7.31.2.1–2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+
 `assert` is a macro with its own reinclusion rules. Reincluding its
 header uses the current definition of `NDEBUG`.
 C23 uses a variadic macro, so a scalar compound-literal expression can

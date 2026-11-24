@@ -3938,3 +3938,26 @@ instructions. The initial dispatch added 12.342% on the decimal
 case. After testing whether to keep the prefix and value loops in
 the wrappers, the final layout keeps the prefix helper out of line
 and inlines the value loop.
+
+## Hosted WASI C23 formatted I/O
+
+The workload makes 200,000 pairs of `snprintf` and `sscanf` calls
+with decimal, hexadecimal, and string fields. The same cppgm build
+compiles the workload in each configuration. The control uses the
+SDK 34 long-double printscan library. The two candidates use a
+supplement built by cppgm or SDK Clang at `-O2`. CPU 71 runs A/A,
+ABBA, and BAAB on precompiled Wasmtime modules. Every observation
+returns checksum `1680542322854`. The A/A spread is 1,279 retired
+user instructions.
+
+The cppgm-built supplement uses 1.347% fewer retired instructions in
+both paired blocks, from 1,020.7 million to 1,007.0 million. The
+Clang-built supplement uses 0.595% fewer. Building the supplement at
+`-Oz` in the initial experiment increased retired instructions by
+14.886%, so the build retains `-O2`.
+
+For a binary whose only I/O call is a decimal `snprintf`, the stripped
+module is 30,316 bytes with the SDK, 30,898 with the Clang-built
+supplement, and 40,397 with the cppgm-built supplement. All three have
+the same WASI imports. The string adapter links independently of
+scanf, wide I/O, and the standard streams.

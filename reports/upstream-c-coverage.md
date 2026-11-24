@@ -3424,3 +3424,47 @@ format audit pass. The file audit reports its 13 existing warnings.
 
 [C23 integer conversion and allocation requirements](../doc/c-conformance-notes.md#c-library-calls-and-format-macros) ·
 [Runtime measurements](../docs/performance/c-frontend-scaling.md#hosted-wasi-c23-integer-conversions)
+
+### Binary formatted I/O
+
+The hosted supplement adapts the four formatting and scanning engines
+from WASI SDK 34. They share argument-type handling across narrow and
+wide callers and reuse the SDK stream layout, buffered I/O, locking,
+and floating-point input. The archive keeps the string adapters
+independent of the standard streams. A program using only `snprintf`
+keeps the SDK control's WASI import set.
+
+The C23 paths implement `%b`, `%B` output, binary prefixes for `%i`
+input, and the `wN` and `wfN` integer widths exposed by the SDK. The
+`<inttypes.h>` probe exercises all 42 binary macros, including the
+minimum-width, fast, greatest-width, and pointer-width forms. The
+header provides the C23 version macro. The `<stdio.h>` version check
+remains open. For example, the pinned SDK lacks `tmpfile` and `tmpnam`.
+
+The focused probe covers field width, precision, padding, assignment
+suppression, variadic forwarding, stream I/O, and function addresses.
+The C17 control stops before the binary prefix in both scan families.
+One Wasm module links C17 and C23 callers and exercises both behaviors.
+The same module tests scansets and incomplete binary fields. A separate
+15,000-value corpus checks each value through both narrow and wide
+formatting and scanning. cppgm and SDK Clang clients match GCC 15 and
+Clang 22 with glibc on checksum `4a36bc872c3c0adf`.
+
+All 80 mixed-toolchain runs pass at `-O0` and `-O2` using both linkers.
+The extracted source-only package installs the five upstream notices
+and passes a linked probe at `-O2` and at `-Oz -flto`. The combined
+replay at `0c104024c` passes all 5,663 configurations. Linux x86-64
+and Linux AArch64 under QEMU each run 1,418, stock WASI runs 1,317,
+the hosted supplement runs 492, and bare Wasm runs 1,018. The 76
+harness test files and the pinned format audit pass. The file audit
+passes with 13 existing warnings and two duplication warnings for
+shared structure in the upstream narrow and wide engine sources.
+
+The supplement passes 180 tracked C23 checks. The eight open entries
+are the version and interface checks for `<complex.h>`, `<fenv.h>`,
+`<math.h>`, `<stdatomic.h>`, `<stdio.h>`, `<stdlib.h>`, `<tgmath.h>`,
+and `<wchar.h>`.
+
+[C23 formatted I/O requirements](../doc/c-conformance-notes.md#c-library-calls-and-format-macros) ·
+[WASI source provenance](../dev/runtime/wasi-c23/stdio/README.md) ·
+[Runtime and size measurements](../docs/performance/c-frontend-scaling.md#hosted-wasi-c23-formatted-io)
