@@ -890,6 +890,7 @@ inline const EvexVariant* evex_variants(std::size_t& count)
 		{ "vpshufhw", 0, 7, 16, 3 },
 		{ "vpshuflw", 0, 7, 16, 3 },
 		{ "vpalignr", 0, 7, 8, 3 },
+		{ "vpclmulqdq", 0, 7, 64, 0 },
 		{ "vbroadcastss", 0, 7, 32, 3 },
 		{ "vbroadcastsd", 1, 6, 64, 3 },
 		{ "vpsllw", 0, 7, 16, 3 },
@@ -948,6 +949,8 @@ inline const EvexForm* evex_forms(std::size_t& count)
 		{ { "vextractf64x2", L::Extract, 0x19, 3, 1, 1, 6, 128, 0, 0 }, 64, 3 },
 		{ { "vextracti32x4", L::Extract, 0x39, 3, 1, 0, 6, 128, 0, 0 }, 32, 3 },
 		{ { "vextracti64x2", L::Extract, 0x39, 3, 1, 1, 6, 128, 0, 0 }, 64, 3 },
+		{ { "vextracti32x8", L::Extract, 0x3b, 3, 1, 0, 4, 256, 0, 0 }, 32, 3 },
+		{ { "vextracti64x4", L::Extract, 0x3b, 3, 1, 1, 4, 256, 0, 0 }, 64, 3 },
 		{ { "vpabsq", L::Unary, 0x1f, 2, 1, 1, 7, 0, 0, 0 }, 64, 7 },
 	};
 	count = sizeof kEvexForms / sizeof kEvexForms[0];

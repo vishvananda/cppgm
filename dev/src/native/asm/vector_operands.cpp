@@ -119,7 +119,7 @@ VectorEncodingPlan prepare_vector_encoding(const Instruction& inst, const VexFor
 			other = asm_detail::rm(dst, inst);
 		}
 		else
-			other = location(dst, 128, 128, inst, register_count);
+			other = location(dst, memory_bits, memory_bits, inst, register_count);
 		has_immediate = true;
 		control = immediate(operands[2], inst);
 	}
