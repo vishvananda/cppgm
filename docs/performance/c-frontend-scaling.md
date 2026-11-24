@@ -3449,3 +3449,58 @@ retires 265,345,707 instructions at that size and 18,308,189 at 16 pairs.
 LowIR output grows from 92,024 to 733,678 bytes across those inputs.
 The median of three runs on CPU 76 captures the remaining repeated
 traversal when all snapshots need storage.
+
+## C23 shared snapshot emission
+
+Compared immutable GCC 15 builds of `a6f63a350` and `41862d7f3`. The
+frontend scaling generator reproduces the forward and reverse address
+tables and the single-snapshot control. All three inputs at each size emitted
+byte-identical LowIR across two observations per arm.
+The table reports millions of retired instructions in ABBA order on CPU 76.
+[Frontend scaling generator](../../benchmarks/frontend_scaling/README.md)
+
+| Update pairs | Forward baseline | Forward candidate | Reverse baseline | Reverse candidate | Last only baseline | Last only candidate |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 16 | 18.306 | 16.107 | 18.304 | 16.093 | 6.639 | 6.643 |
+| 32 | 37.692 | 28.140 | 37.743 | 28.092 | 8.929 | 8.933 |
+| 64 | 92.257 | 52.274 | 92.414 | 52.152 | 13.507 | 13.515 |
+| 128 | 265.107 | 100.688 | 265.343 | 100.450 | 22.691 | 22.711 |
+
+At 128 pairs, the forward probe retires 62% fewer instructions.
+Driver LowIR emission grows 1.93× from 64 to 128 pairs with the shared
+history, and its output grows from 366,969 to 733,678 bytes. The
+single-snapshot control stays within 0.11% of the baseline at each size.
+Peak RSS is about 18 MiB with both builds on these inputs.
+
+Direct `-O0 -c` on CPU 73 includes writing every addressed image. At
+128 pairs it retires 427.54 million instructions before and 263.01
+million after. Both produce the same 257,018,352-byte object at around
+507 MiB peak RSS. An independently compiled observer checks the
+addresses, affected rows, and zero tail of all images at 16, 64, and
+128 pairs.
+
+The masked-snapshot probe builds a chain of disjoint writes. Each
+observed sibling clears the chain's complete written region. A block
+with a single covering write can discard earlier writes without
+sweeping them. The following ABBA results on CPU 74 use driver
+`-O0 -S -emit-lowir`. All outputs match byte for byte.
+
+| Shared layers and emitted siblings | Baseline instructions (millions) | Candidate instructions (millions) | LowIR bytes |
+| ---: | ---: | ---: | ---: |
+| 31 | 11.542 | 9.125 | 3,376 |
+| 63 | 27.100 | 15.507 | 6,800 |
+| 127 | 81.704 | 31.397 | 13,703 |
+| 255 | 285.622 | 75.189 | 27,655 |
+
+At size 255, syntax-only compilation retires 35.80 million instructions.
+The rectangle sweep accounts for 19% of samples in the full compile.
+The first shared history and partially covered blocks still require
+composition.
+
+The frozen C++ and SQLite controls produced byte-identical objects
+in every observation. Task-clock A/A spreads were 14.47% and 22.48%.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.00473% | +0.00059% | +0.00122% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.00385% | −0.00079% | −0.00113% |

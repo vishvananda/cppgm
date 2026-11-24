@@ -5,6 +5,17 @@ import sys
 
 from editions import EDITIONS, source
 
+SNAPSHOT_ORDERS = {
+    'c23-constexpr-snapshots': 'forward',
+    'c23-constexpr-snapshots-reverse': 'reverse',
+    'c23-constexpr-last-snapshot': 'last',
+}
+
+SNAPSHOT_TYPES = """\
+struct Cell { unsigned char first, second; };
+struct Record { struct Cell cells[500001]; };
+struct Box { struct Record record; };"""
+
 
 def c_continued_comment(size):
     print('// ' + '?' * size + '\\')
@@ -215,6 +226,40 @@ def c_designated_sparse(size):
     print(f'_Static_assert(sizeof table == {size}, "completed bound");')
 
 
+def c23_constexpr_snapshots(size, addresses):
+    print(SNAPSHOT_TYPES)
+    print('constexpr struct Box old0 = { .record.cells[1 ... 8].first = 1, '
+          '.record.cells[2 ... 7].second = 2 };')
+    for index in range(1, size + 1):
+        point = (index - 1) % 128 + 1
+        print(f'constexpr struct Box update{index} = {{ .record = old{index - 1}.record, '
+              '.record.cells[200 ... 350].first = 7, .record.cells[220 ... 380].second = 9 };')
+        print(f'constexpr struct Box old{index} = {{ .record = update{index}.record, '
+              f'.record.cells[200+{point}].first = 4 }};')
+    print(f'const struct Box *last(void) {{ return &old{size}; }}')
+    if addresses == 'last':
+        return
+    names = ['&old0']
+    for index in range(1, size + 1):
+        names.extend((f'&update{index}', f'&old{index}'))
+    if addresses == 'reverse':
+        names.reverse()
+    print('\nconst struct Box *const addresses[] = { ' + ', '.join(names) + ' };')
+
+
+def c23_constexpr_masked_snapshots(size):
+    print(SNAPSHOT_TYPES)
+    print('constexpr struct Box base0 = { .record.cells[0 ... 1].first = 1 };')
+    for i in range(1, size):
+        print(f'constexpr struct Box base{i} = {{ .record = base{i-1}.record, '
+              f'.record.cells[{4*i} ... {4*i+1}].first = 1 }};')
+    for i in range(size):
+        print(f'constexpr struct Box branch{i} = {{ .record = base{size-1}.record, '
+              f'.record.cells[0 ... {4*size}].first = 0 }};')
+    names = ', '.join(f'&branch{i}' for i in range(size))
+    print('const struct Box *const used[] = { ' + names + ' };')
+
+
 def c_alignment_specifiers(size, interleaved):
     if interleaved:
         print('const _Alignas(16) ' * size + 'char value = 1;')
@@ -287,7 +332,7 @@ def main():
                                         'c-inferred-object-declarations', 'c-explicit-object-declarations',
                                         'c-vla-dimensions', 'c-vla-extent-uses',
                                         'c-typeof-shared-bounds', 'c-designated-overwrites', 'c-designated-sparse',
-                                        *EDITIONS])
+                                        'c23-constexpr-masked-snapshots', *SNAPSHOT_ORDERS, *EDITIONS])
     parser.add_argument('size', type=int)
     args = parser.parse_args()
     if args.size < 1:
@@ -397,6 +442,12 @@ def main():
         return
     if args.case == 'c-designated-sparse':
         c_designated_sparse(args.size)
+        return
+    if args.case in SNAPSHOT_ORDERS:
+        c23_constexpr_snapshots(args.size, SNAPSHOT_ORDERS[args.case])
+        return
+    if args.case == 'c23-constexpr-masked-snapshots':
+        c23_constexpr_masked_snapshots(args.size)
         return
     if args.case == 'macro-replacements':
         print('#define EMPTY()')

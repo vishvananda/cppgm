@@ -164,6 +164,22 @@ the final value. Measure 128 through 2048 entries by successive doublings.
 length from 16,384 through 131,072. Measure C17 syntax-only for both inputs
 to isolate the cost of analyzing the written initializers.
 
+`c23-constexpr-snapshots` and `c23-constexpr-snapshots-reverse` demand the
+addresses of every version in a chain of copied records, in declaration
+order and in reverse. Each update alternates overlapping range writes and
+a point write. `c23-constexpr-last-snapshot` uses only the final address.
+Use 16, 32, 64 and 128 update pairs. Measure driver LowIR with
+`-std=gnu23 -O0 -S -emit-lowir` and compare each output byte for byte with
+its baseline. Measure `-c` separately to include writing the complete
+object images. The 128-pair address table needs about 257 MB of object data
+on x86-64 Linux.
+
+`c23-constexpr-masked-snapshots` starts with a shared history of disjoint
+range writes and emits sibling copies that each clear the same field over
+the whole history. Measure driver LowIR at sizes 31, 63, 127 and 255 to
+check how compile work scales when the number of emitted objects doubles
+and every image is zero-filled.
+
 `c-composite-redeclarations` grows a chain of compatible declarations
 with a bound supplied through a pointer. `c-tentative-arrays` grows the
 number of distinct file-scope arrays that are still incomplete at the end

@@ -20,7 +20,7 @@ open column lists work to qualify the remainder of each group.
 | 6.5 Expressions | PA38 checks C value categories, generic selection, compound literals, casts and short-circuit effects. | Test aliasing, volatile and atomic effects, evaluation order and arithmetic boundaries across optimization levels. |
 | 6.6 Constant expressions | PA38 exercises array bounds, static initialization and static assertions. | Distinguish the integer, arithmetic and address constant expression requirements from ordinary folding. |
 | 6.7 Declarations and type names | PA38 covers tags, old and new function declarations, initializers, designators and one-dimensional VLAs. | Complete variably modified types, nested and overlapping designators, flexible arrays, repeated qualifiers and edition diagnostics. |
-| 6.7.2.2–6.7.2.3 Enumeration specifiers and tags | PA38 checks the `int` constant rule, compatible object types, out-of-range diagnostics and GNU incomplete tags. | Qualify C23 enum bases and wider constants when that edition is enabled. |
+| 6.7.2.2–6.7.2.3 Enumeration specifiers and tags | PA38 checks the `int` constant rule, compatible object types, out-of-range diagnostics and GNU incomplete tags. | Qualify [C23 enum bases and wider constants](#c23-enumeration-triage). |
 | 6.8 Statements and blocks | PA38 checks control flow, switch conversion and VLA scope exits. GCC's C99 runtime test checks for-declaration scoping. | Qualify for-declaration constraints, nested scopes and jumps involving variably modified types. |
 | 6.9 External definitions | PA38 mixes units with common objects, inline definitions and identifier-list functions. | Check more cross-unit combinations, symbol visibility and inline linkage on each ABI. |
 | 6.10 Preprocessing | PA4 covers shared macro replacement, conditional inclusion, pragmas and line control. PA38 probes C predefined macros. | Pin the GCC preprocessing corpus and qualify required diagnostics, mode macros and hosted header extensions. |
@@ -526,6 +526,23 @@ and self-host through PA5 pass again.
 
 [Frozen-input and feature scaling measurements](../docs/performance/c-frontend-scaling.md#c23-nullptr-and-variadic-calls)
 
+## C23 enumeration triage
+
+In strict C23 on Linux x86-64, cppgm, GCC 15, and Clang 22 accept an
+`unsigned char` enum base with an enumerator of 255 and diagnose 256.
+cppgm also accepts a fixed `unsigned _BitInt(9)` base. GCC and Clang
+diagnose that base, which the draft excludes.
+cppgm still diagnoses a non-fixed enumeration containing `1ULL << 42`
+and its implicit successor as a GNU extension. Both reference compilers
+accept the program. Qualification needs cases for the enumerator types
+during the definition, their types after completion, and the constraint
+when no compatible integer type can represent every value. A second
+probe crosses `INT_MAX` by implicit increment and checks signedness
+during the definition. GCC and Clang accept it in strict C23 and
+diagnose it in pedantic C17.
+[WG14 N3096 enumeration rules](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
+[WG14 issue 1130](https://open-std.org/JTC1/SC22/WG14/issues/c23/issue1130.html)
+
 ## C23 bit-precise integers
 
 PA38 exercises integer constant widths and their limits, literal suffixes,
@@ -924,7 +941,9 @@ The 128-copy native probe reduces the object from 257,009,920 to
 1,001,048 bytes and retired instructions from 424.90 million to 22.66
 million. Every measured program returns the expected final image. When
 code or data requires every intermediate address, the static data writer
-still walks the shared history for each emitted image.
+previously walked the shared history for each emitted image. The next
+batch shares the prepared writes.
+[Shared snapshot emission](#c23-shared-snapshot-emission)
 
 All 11,674 strict course tests, 1,117 local C clause probes, and 58 pinned
 GCC C23 configurations pass. PA38 passes 636 native cases, 636 Wasm
@@ -939,6 +958,50 @@ and ABI tests pass with the packaged reference binaries.
 
 [PA38 constant object demand](../pa38/tests/abi/300-c23-constexpr-object-demand.t) ·
 [Compile measurements](../docs/performance/c-frontend-scaling.md#c23-file-scope-constant-object-demand)
+
+## C23 shared snapshot emission
+
+The static writer keeps the existing single sweep for the first layered
+array image of a canonical type. On another emission of that type, it
+indexes typed array versions and lowers the writes of each reached version
+once. Consecutive suffixes form reusable blocks of power-of-two length.
+Each block summarizes its winning byte and bit ranges. Explicit zero
+writes remain in a block so they can clear data supplied by earlier
+blocks. When one newer write covers an older block's full row and bit
+extent, the writer skips that block. The storage belongs to the
+translation unit, and source layout and relocation items stay in their
+typed lowering representation.
+
+The PA38 regression observes a chain of overlapping updates and a sibling
+copy through an address table. It checks distinct object addresses,
+bit-field zero writes, full and partial erasure, preserved fields, and
+zero-filled elements. At `-O0` and `-O2` on all six targets, the direct
+objects match the baseline and the objects rebuilt from driver LowIR
+byte for byte. The test executes natively on Linux x86-64, through QEMU
+on Linux AArch64, through local Mach-O loaders on both Darwin targets,
+and through Wasmtime on WASI and bare Wasm.
+
+For 128 pairs of range and point writes, driver LowIR emission falls
+from 265 million to 101 million retired instructions for both address
+orders. Native `-c` falls from 428 million to 263 million while
+writing the same 257 MB object. The single-address control and frozen
+C++ and SQLite inputs retain their previous compile cost. A 255-sibling
+probe in which every sibling clears a shared history falls from 286
+million to 75 million instructions.
+
+All 11,674 strict course tests, 1,117 C clause probes, and 58 pinned
+GCC C23 configurations pass. PA38 passes 637 native cases, 637 Wasm
+cases with the optional optimized LowIR check, 63 controls, and four
+ABI cases. Debug-info tests, PA36 smoke tests, and the architecture and
+file audits pass. PA35 passes through PA5, and inception reproduces the
+compiler byte for byte. The placement audit covers 11,639 fixtures with
+zero placement or local hygiene findings. Its cached directory listings
+produce the same PA38 report as the direct audit. The student export
+verifies 26,864 portable reference outputs. PA1 and PA38 native, Wasm,
+control, and ABI checks pass with the packaged binaries.
+
+[PA38 shared snapshots](../pa38/tests/general/300-c23-constexpr-shared-snapshots.t) ·
+[Compile measurements](../docs/performance/c-frontend-scaling.md#c23-shared-snapshot-emission)
 
 ## Named register objects
 
