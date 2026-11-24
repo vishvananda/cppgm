@@ -34,6 +34,10 @@ are retained in third_party/core-math and installed with the runtime archive.
 The WASI binary128 logarithms and compensated exponentials adapt FreeBSD's
 msun under the BSD 2-Clause License. Its copyright and license notices
 are retained in dev/runtime/wasi-c23/licenses and installed with the archive.
+The WASI trigonometric supplement adapts the FreeBSD msun and musl
+implementations in the same wasi-libc revision. Its source files retain
+Sun Microsystems' copyright and redistribution permission, including
+work developed at SunPro and SunSoft.
 The WASI C23 narrowing operations incorporate Berkeley SoftFloat under the
 BSD 3-Clause License. Its notices are retained in third_party/softfloat and
 installed with the runtime archive.

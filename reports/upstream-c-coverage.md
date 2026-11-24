@@ -4087,3 +4087,47 @@ probes at `-Oz -flto`.
 [PA38 mixed-object fixture](../pa38/tests/abi/400-c-thread-local-linkage.t.1) ·
 [C11 N1570 §§6.2.4, 6.7.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
 [Compile instruction measurements](../docs/performance/c-frontend-scaling.md#c-thread-local-object-lowering)
+
+### WASI trigonometric domain errors
+
+The supplement reports `EDOM` for infinite arguments to `sin`, `cos`,
+and `tan`, and for arguments outside `[-1, 1]` to `asin` and `acos`.
+All three precisions preserve the caller's error number for valid
+arguments and quiet NaNs. The implementation uses the SDK's reduced-angle
+kernels and shares the inverse polynomial within each precision.
+
+Both archive builds pass **70 of 76** inherited math audit cases, up
+from 55. The remaining cases are finite overflow in `hypot`, `hypotf`,
+`hypotl`, `fmaf`, `sinhl`, and `coshl`. Hosted math reporting remains
+uncovered in the target matrix.
+
+Both builds match MPFR within one ULP on 65,536 samples per function
+across all 15 functions. They agree on every numeric result. Compared
+with SDK 34, the correctly rounded `acosf` results increase from 24,029
+to 30,906 after correcting the constants returned at zero and at −1.
+The correctly rounded `tanl` results increase from 59,083 to 59,604
+after tightening the interval where the input itself is returned. The
+other 13 functions match the SDK on every sampled numeric result.
+
+At `-O2`, cppgm previously reused a value stored to the SDK's direct
+`errno` symbol before a math call. The same bug affected a byte load
+through an opaque pointer. PA33 now checks that LowIR preserves the
+reads. All 16 mixed WASI compile and link configurations pass the
+runtime probe. SDK Clang client builds use `-fmath-errno` for direct calls.
+
+The replay at `2c87b27ca` passes 5,931 configurations, including 1,506
+each on Linux x86-64 and Linux AArch64 under QEMU, 1,333 on stock WASI,
+552 on supplemented WASI, and 1,034 on bare Wasm. The Linux AArch64
+and combined-host receipts use the same compiler binary and match all
+41 generated input digests. The extracted source-only archive passes
+all nine math probes at `-Oz -flto`.
+
+A separate native repro remains open. On x86-64 Linux, an `errno` reset
+between `sin(INFINITY)` and `cos(INFINITY)` produces two `EDOM` values at
+`-O0`. At `-O2`, cppgm combines the calls into GNU `sincos` and the
+second read yields zero. GCC 15 also combines these calls at `-O2` with
+`-fmath-errno`, and both reads yield zero.
+
+[PA33 error number fixture](../pa33/tests/o2/600-observable-error-number.t) ·
+[WASI SDK 34 trigonometric sources](https://github.com/WebAssembly/wasi-libc/tree/2e6fb9d8ee0cdf9e431fbcabe8af3115de000a13/libc-top-half/musl/src/math) ·
+[Wasm instruction measurements](../docs/performance/c-frontend-scaling.md#wasi-trigonometric-domain-errors)

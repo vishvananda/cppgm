@@ -4347,3 +4347,44 @@ objects for each control input match byte for byte.
 The TLS input drops from 190.1 million to 23.7 million retired user
 instructions. In the control runs, paired wall times range from 5.00 to
 5.08 seconds for SQLite and from 2.98 to 3.03 seconds for C++.
+
+## WASI trigonometric domain errors
+
+Both variants use the same SDK Clang client and linker. The control
+uses SDK 34 and the previous supplement. The candidate uses the new
+cppgm-built supplement. Each precompiled Wasmtime workload makes
+262,144 calls pinned to CPU 71. The 27 workloads cover small arguments
+within the primary interval, mixed angles requiring reduction, inverse
+functions over their valid range, and tiny binary128 arguments. All 12
+outputs per workload have matching checksums over the full result bits.
+Each A/A instruction spread is below 0.013% of its mean.
+
+| Workload | Control, millions | Candidate, millions | Instruction change |
+| --- | ---: | ---: | ---: |
+| Small `sinf` arguments | 21.808 | 22.859 | +4.82% |
+| Mixed `sinf` arguments | 31.672 | 32.312 | +2.02% |
+| Small `tanf` arguments | 24.431 | 25.481 | +4.30% |
+| Mixed `tanf` arguments | 33.606 | 34.136 | +1.58% |
+| `asinf` | 17.144 | 17.602 | +2.67% |
+| `acos` | 21.007 | 19.958 | −5.00% |
+| `acosf` | 17.600 | 17.205 | −2.24% |
+| Tiny `sinl` arguments | 128.922 | 117.397 | −8.94% |
+| Tiny `cosl` arguments | 2,141.199 | 117.921 | −94.49% |
+| Tiny `tanl` arguments | 128.923 | 117.656 | −8.74% |
+
+The remaining workloads range from −3.03% to +1.38%. Selecting the
+signed quadrant before calling the float kernel removed the need to
+keep a sign live through that call. The initial small-argument overhead
+was 7.23% for `sinf` and 6.44% for `tanf`. Binary128 classification uses
+the encoded exponent and stored significand. For tiny `cosl` arguments,
+the result rounds to exactly one and the polynomial is skipped.
+
+The compiler change that preserves error-number loads was also tested
+with immutable native compilers at `-O2`. All twelve objects for each
+input match byte for byte. The SQLite wall-time changes have opposite
+signs in the two blocks, so wall time is inconclusive.
+
+| Input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| SQLite 3.50.4 C amalgamation | 196,760 | −0.1169% | −0.1176% |
+| Frozen C++ semantic input | 148,007 | −0.0142% | −0.0133% |
