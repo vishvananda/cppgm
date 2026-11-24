@@ -34,6 +34,8 @@
 #include <math.h>
 #include <stdint.h>
 
+#include "math_binary128.h"
+
 static_assert(sizeof(long double) == 16 && LDBL_MANT_DIG == 113 && LDBL_MAX_EXP == 16384);
 static_assert(FE_ALL_EXCEPT == 0 && FE_TONEAREST == 0);
 
@@ -359,6 +361,21 @@ static long double small_exp_minus_one(long double x, long double low, unsigned 
 	return x + (square_low + q + square_high);
 }
 
+static inline long double exponential_correction(long double r1, long double r2)
+{
+	const long double r = r1 + r2;
+	const double dr = r;
+	return r2 + r * r * (A2 + r * (A3 + r * (A4 + r * (A5 + r * (A6 + dr * (A7 + dr * (A8 + dr * (A9 + dr * A10))))))));
+}
+
+static inline struct math_split reduce_base_ten(long double x, double step)
+{
+	// log10(2)/128, split so the product with the integer step is exact.
+	const long double remainder = x - step * 0x1.34413509f79fef311f12b3p-9L;
+	const double tail = step * -2.171579727024258611888423e-30;
+	return (struct math_split){ remainder * LN10_HIGH, remainder * LN10_LOW + tail * (LN10_HIGH + LN10_LOW) };
+}
+
 static long double exponential_minus_one(long double x, const struct exponential_scale* scale)
 {
 	const union binary128 input = { .value = x };
@@ -416,21 +433,16 @@ static long double exponential_minus_one(long double x, const struct exponential
 	}
 	else if (scale == &base_ten)
 	{
-		// log10(2)/128, split so the product with the integer step is exact.
-		const long double remainder = x - step * 0x1.34413509f79fef311f12b3p-9L;
-		const double tail = step * -2.171579727024258611888423e-30;
-		r1 = remainder * LN10_HIGH;
-		r2 = remainder * LN10_LOW + tail * (LN10_HIGH + LN10_LOW);
+		const struct math_split remainder = reduce_base_ten(x, step);
+		r1 = remainder.high;
+		r2 = remainder.low;
 	}
 	else
 	{
 		r1 = x - step * L1;
 		r2 = step * -L2;
 	}
-	const long double r = r1 + r2;
-	const double dr = r;
-	const long double q = r2 +
-		r * r * (A2 + r * (A3 + r * (A4 + r * (A5 + r * (A6 + dr * (A7 + dr * (A8 + dr * (A9 + dr * A10))))))));
+	const long double q = exponential_correction(r1, r2);
 	const long double hi = tbl[index].hi;
 	const long double lo = tbl[index].lo;
 	const long double t = hi + lo;
@@ -466,3 +478,66 @@ long double exp10m1l(long double x)
 {
 	return exponential_minus_one(x, &base_ten);
 }
+
+static long double reconstruct_exponential(unsigned index, int k, long double r1, long double r2)
+{
+	const long double q = exponential_correction(r1, r2);
+	const long double hi = tbl[index].hi;
+	const long double lo = tbl[index].lo;
+	const long double tail = lo + (hi + lo) * (q + r1);
+	if (k < LDBL_MIN_EXP - 1)
+	{
+		// Round directly at subnormal spacing before scaling down.
+		const long double shift = power_of_two(LDBL_MIN_EXP - 1 - k);
+		const long double shifted = hi + shift;
+		const long double rounding_tail = (hi - (shifted - shift)) + tail;
+		return scalbnl((shifted + rounding_tail) - shift, k);
+	}
+	const long double result = hi + tail;
+	if (k == LDBL_MAX_EXP)
+		return result * 2.0L * 0x1p16383L;
+	return result * power_of_two(k);
+}
+
+long double __cppgm_wasi_exp_split(long double x, long double low)
+{
+	if (x >= 0x1p14L)
+		return INFINITY;
+	if (x <= -0x1p14L)
+		return 0.0L;
+
+	const double step = __builtin_nearbyint((double)x * INV_L);
+	const int n = (int)step;
+	const unsigned index = (unsigned)n % INTERVALS;
+	const int k = (n - (int)index) / INTERVALS;
+	if (k > LDBL_MAX_EXP)
+		return INFINITY;
+	if (k < LDBL_MIN_EXP - LDBL_MANT_DIG - 1)
+		return 0.0L;
+
+	return reconstruct_exponential(index, k, x - step * L1, low - step * L2);
+}
+
+long double exp10l(long double x)
+{
+	if (isnan(x))
+		return x + x;
+	if (x >= 0x1p13L)
+		return INFINITY;
+	if (x <= -0x1p13L)
+		return 0.0L;
+
+	const double step = __builtin_nearbyint((double)x * base_ten.inverse_step);
+	const int n = (int)step;
+	const unsigned index = (unsigned)n % INTERVALS;
+	const int k = (n - (int)index) / INTERVALS;
+	if (k > LDBL_MAX_EXP)
+		return INFINITY;
+	if (k < LDBL_MIN_EXP - LDBL_MANT_DIG - 1)
+		return 0.0L;
+	const struct math_split remainder = reduce_base_ten(x, step);
+	return reconstruct_exponential(index, k, remainder.high, remainder.low);
+}
+
+// The SDK supplies both spellings from a single archive member.
+long double pow10l(long double x) __attribute__((weak, alias("exp10l")));

@@ -14,8 +14,9 @@ int main(void)
 	volatile float ninety_ninef = 99.0f;
 	volatile float minimumf = 0x1p-148f;
 
-	if (exp10m1(two) != 99.0 || exp2m1(two + 1) != 7.0 || log10p1(ninety_nine) != 2.0 || exp10m1f(twof) != 99.0f ||
-		exp2m1f(twof + 1) != 7.0f || log10p1f(ninety_ninef) != 2.0f || !(fabs(log2p1(seven) - 3.0) <= 0x1p-51) ||
+	if (exp10(two) != 100.0 || exp10f(twof) != 100.0f || exp10m1(two) != 99.0 || exp2m1(two + 1) != 7.0 ||
+		log10p1(ninety_nine) != 2.0 || exp10m1f(twof) != 99.0f || exp2m1f(twof + 1) != 7.0f ||
+		log10p1f(ninety_ninef) != 2.0f || !(fabs(log2p1(seven) - 3.0) <= 0x1p-51) ||
 		!(fabsf(log2p1f(sevenf) - 3.0f) <= 0x1p-22f))
 		return 1;
 	if (!signbit(exp10m1(zero)) || !signbit(exp2m1(zero)) || !signbit(log10p1(zero)) || !signbit(log2p1(zero)) ||
@@ -34,9 +35,9 @@ int main(void)
 		!(fabsl(log10p1l(ninety_ninel) - 2.0L) <= 4 * LDBL_EPSILON) || !signbit(log2p1l(zerol)) ||
 		!signbit(log10p1l(zerol)))
 		return 5;
-	if (exp2m1l(twol + 1.0L) != 7.0L || !(fabsl(exp10m1l(twol) - 99.0L) <= 128 * LDBL_EPSILON) ||
-		!signbit(exp2m1l(zerol)) || !signbit(exp10m1l(zerol)) || exp10m1l(-INFINITY) != -1.0L ||
-		exp2m1l(INFINITY) != INFINITY)
+	if (exp10l(twol) != 100.0L || exp2m1l(twol + 1.0L) != 7.0L ||
+		!(fabsl(exp10m1l(twol) - 99.0L) <= 128 * LDBL_EPSILON) || !signbit(exp2m1l(zerol)) ||
+		!signbit(exp10m1l(zerol)) || exp10m1l(-INFINITY) != -1.0L || exp2m1l(INFINITY) != INFINITY)
 		return 6;
 #if LDBL_MAX_EXP >= 4096
 	volatile long double tiny = 0x1p-2000L;
@@ -51,7 +52,8 @@ int main(void)
 		expm1l(tiny) != tiny)
 		return 8;
 	volatile long double large = 1024.0L;
-	if (exp2m1l(large) != 0x1p1024L || exp2m1l(16.0L * large) != INFINITY)
+	if (!isfinite(exp10l(large)) || exp10l(large) <= 0x1p1024L || exp10l(-16.0L * large) != 0.0L ||
+		exp2m1l(large) != 0x1p1024L || exp2m1l(16.0L * large) != INFINITY)
 		return 9;
 #endif
 	return 0;

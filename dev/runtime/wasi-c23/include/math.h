@@ -4,6 +4,8 @@
 #include_next <math.h>
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
+#define __STDC_VERSION_MATH_H__ 202311L
+
 #define FP_LLOGB0 (FP_ILOGB0 + 0L)
 #define FP_LLOGBNAN (FP_ILOGBNAN + 0L)
 
@@ -44,6 +46,9 @@ double tanpi(double);
 float tanpif(float);
 long double tanpil(long double);
 
+double exp10(double);
+float exp10f(float);
+long double exp10l(long double);
 double exp10m1(double);
 float exp10m1f(float);
 long double exp10m1l(long double);
@@ -59,6 +64,19 @@ long double log2p1l(long double);
 double logp1(double);
 float logp1f(float);
 long double logp1l(long double);
+double compoundn(double, long long);
+float compoundnf(float, long long);
+long double compoundnl(long double, long long);
+double pown(double, long long);
+float pownf(float, long long);
+long double pownl(long double, long long);
+double powr(double, double);
+float powrf(float, float);
+long double powrl(long double, long double);
+double rootn(double, long long);
+float rootnf(float, long long);
+long double rootnl(long double, long long);
+
 double rsqrt(double);
 float rsqrtf(float);
 long double rsqrtl(long double);

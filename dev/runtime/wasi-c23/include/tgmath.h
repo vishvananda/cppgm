@@ -4,6 +4,8 @@
 #include_next <tgmath.h>
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
+#define __STDC_VERSION_TGMATH_H__ 202311L
+
 #ifdef __has_builtin
 #if __has_builtin(__builtin_tgmath)
 #define __CPPGM_TGMATH_BUILTIN 1
@@ -13,6 +15,7 @@
 #ifdef __CPPGM_TGMATH_BUILTIN
 // Expand the selection helpers as names, so nested calls enter the builtin directly.
 #define __cppgm_tg_unary __builtin_tgmath
+#define __cppgm_tg_fixed_second __builtin_tgmath
 #define __cppgm_tg_binary __builtin_tgmath
 #define __cppgm_tg_fromfp __builtin_tgmath
 #define __cppgm_tg_narrow1 __builtin_tgmath
@@ -23,6 +26,7 @@
 #define __cppgm_tg_real(f, d, l, x) _Generic((x), float: (f), long double: (l), default: (d))
 #define __cppgm_tg_rank(x) _Generic((x), float: 0.0f, long double: 0.0L, default: 0.0)
 #define __cppgm_tg_unary(f, d, l, x) __cppgm_tg_real(f, d, l, x)((x))
+#define __cppgm_tg_fixed_second(f, d, l, x, n) __cppgm_tg_real(f, d, l, x)((x), (n))
 #define __cppgm_tg_binary(f, d, l, x, y) __cppgm_tg_real(f, d, l, __cppgm_tg_rank(x) + __cppgm_tg_rank(y))((x), (y))
 #define __cppgm_tg_fromfp(f, d, l, x, direction, width) __cppgm_tg_real(f, d, l, x)((x), (direction), (width))
 #define __cppgm_tg_narrow1(d, l, x) _Generic((x), long double: (l), default: (d))((x))
@@ -37,6 +41,7 @@
 #define cospi(x) __cppgm_tg_unary(cospif, (cospi), cospil, (x))
 #define sinpi(x) __cppgm_tg_unary(sinpif, (sinpi), sinpil, (x))
 #define tanpi(x) __cppgm_tg_unary(tanpif, (tanpi), tanpil, (x))
+#define exp10(x) __cppgm_tg_unary(exp10f, (exp10), exp10l, (x))
 #define exp10m1(x) __cppgm_tg_unary(exp10m1f, (exp10m1), exp10m1l, (x))
 #define exp2m1(x) __cppgm_tg_unary(exp2m1f, (exp2m1), exp2m1l, (x))
 #define llogb(x) __cppgm_tg_unary(llogbf, (llogb), llogbl, (x))
@@ -45,6 +50,10 @@
 #define logp1(x) __cppgm_tg_unary(logp1f, (logp1), logp1l, (x))
 #define nextdown(x) __cppgm_tg_unary(nextdownf, (nextdown), nextdownl, (x))
 #define nextup(x) __cppgm_tg_unary(nextupf, (nextup), nextupl, (x))
+#define compoundn(x, n) __cppgm_tg_fixed_second(compoundnf, (compoundn), compoundnl, (x), (n))
+#define pown(x, n) __cppgm_tg_fixed_second(pownf, (pown), pownl, (x), (n))
+#define powr(x, y) __cppgm_tg_binary(powrf, (powr), powrl, (x), (y))
+#define rootn(x, n) __cppgm_tg_fixed_second(rootnf, (rootn), rootnl, (x), (n))
 #define roundeven(x) __cppgm_tg_unary(roundevenf, (roundeven), roundevenl, (x))
 #define rsqrt(x) __cppgm_tg_unary(rsqrtf, (rsqrt), rsqrtl, (x))
 

@@ -11,6 +11,12 @@ static_assert(HAS_TYPE(atan2pi(1.0f, 2.0L), long double));
 static_assert(HAS_TYPE(nextup(0.0f), float));
 static_assert(HAS_TYPE(roundeven(1.5L), long double));
 static_assert(HAS_TYPE(logp1(1), double));
+static_assert(HAS_TYPE(pown(2.0f, 3LL), float));
+static_assert(HAS_TYPE(powr(2.0f, 3), double));
+static_assert(HAS_TYPE(powr(2.0f, 3.0L), long double));
+static_assert(HAS_TYPE(compoundn(1.0L, 2), long double));
+static_assert(HAS_TYPE(rootn(4, 2), double));
+static_assert(HAS_TYPE(exp10(2.0f), float));
 static_assert(HAS_TYPE(exp10m1(2.0f), float));
 static_assert(HAS_TYPE(exp2m1(3.0L), long double));
 static_assert(HAS_TYPE(log10p1(99.0f), float));
@@ -53,5 +59,10 @@ int main(void)
 	float (*ordinary)(double, double) = fadd;
 	if (ordinary(1.0, 2.0) != 3.0f || (fadd)(1.0, 2.0) != 3.0f)
 		return 7;
+	long long exponent = 2;
+	if (pown(value(&count), exponent++) != 16.0f || count != 5 || exponent != 3)
+		return 8;
+	if (compoundn(0.5L, 2) != 2.25L || rootn(4, 2) != 2.0 || powr(2.0f, 3.0L) != 8.0L)
+		return 9;
 	return 0;
 }

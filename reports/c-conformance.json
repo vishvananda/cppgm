@@ -1920,12 +1920,12 @@
     },
     {
       "id": "library.c23-math-exp-log",
-      "clause": "C23 7.12.6.3, 7.12.6.5, 7.12.6.13, 7.12.6.16, 7.12.7.9",
+      "clause": "C23 7.12.6.2–3, 7.12.6.5, 7.12.6.13, 7.12.6.16, 7.12.7.9",
       "kind": "required",
       "editions": [23],
       "environment": "hosted",
       "header": "math",
-      "requirement": "Check compensated exponentials and logarithms at all three precisions, including arguments too small for binary64. Check the float and double reciprocal square roots.",
+      "requirement": "Check base-ten and compensated exponentials and compensated logarithms at all three precisions, including results outside binary64. Check the float and double reciprocal square roots.",
       "cases": ["library.c23-math-exp-log"]
     },
     {
@@ -1977,6 +1977,16 @@
       "header": "math",
       "requirement": "Check half-revolution trigonometric functions at all three real precisions. Include quadrant and domain boundaries, signed zeros, poles, and the wide integer and fractional range of binary128.",
       "cases": ["library.c23-math-pi"]
+    },
+    {
+      "id": "library.c23-math-power",
+      "clause": "C23 7.12.7.2, 7.12.7.6–8, F.10.4.2, F.10.4.6–8",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "math",
+      "requirement": "Compute integer and real powers, integer roots, and compound growth at all three real precisions, preserving signed zero, large integer parity, and near-one and subnormal results.",
+      "cases": ["library.c23-math-power"]
     },
     {
       "id": "library.c23-math-representation",

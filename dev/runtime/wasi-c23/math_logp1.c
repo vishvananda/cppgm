@@ -31,6 +31,8 @@
 #include <math.h>
 #include <stdint.h>
 
+#include "math_binary128.h"
+
 static_assert(sizeof(long double) == 16 && LDBL_MANT_DIG == 113 && LDBL_MAX_EXP == 16384);
 
 union binary128
@@ -777,6 +779,32 @@ enum
 	SMALL_ARGUMENT_EXPONENT = 0x3f8d
 };
 
+struct log_reduction
+{
+	long double delta;
+	long double residual;
+	double shift;
+	unsigned index;
+};
+
+static inline struct log_reduction reduce_log_argument(union binary128 reduced, long double low, int subnormal_shift)
+{
+	const unsigned exponent = reduced.words[1] >> 48;
+	const double shift = (int)exponent - 16383 - subnormal_shift;
+	const uint64_t fraction = reduced.words[1] & fraction_mask;
+	reduced.words[1] = fraction | (UINT64_C(0x3fff) << 48);
+	const union binary128 exponent_scale = { .words = { 0, (uint64_t)(0x7ffe - exponent) << 48 } };
+	low *= exponent_scale.value;
+
+	const unsigned i = (fraction + (UINT64_C(1) << (L2I - 2))) >> (L2I - 1);
+	const long double d_high = (reduced.value - H(i)) * G(i) + E(i);
+	// Keep the residual in binary128. At table index zero it can carry
+	// the entire argument, so narrowing it would lose significant bits.
+	const long double d_low = low * G(i);
+	const long double d = d_high + d_low;
+	return (struct log_reduction){ d, d_low + (d_high - d), shift, i };
+}
+
 static long double log1p_scaled(long double x, const struct log_scale* scale)
 {
 	const union binary128 input = { .value = x };
@@ -811,20 +839,11 @@ static long double log1p_scaled(long double x, const struct log_scale* scale)
 	// Form 1+x as a sum of two binary128 values with an exact residual.
 	union binary128 reduced = { .value = high + low };
 	low = (high - reduced.value) + low;
-	const unsigned exponent = reduced.words[1] >> 48;
-	const double shift = (int)exponent - 16383;
-	const uint64_t fraction = reduced.words[1] & fraction_mask;
-	reduced.words[1] = fraction | (UINT64_C(0x3fff) << 48);
-	const union binary128 exponent_scale = { .words = { 0, (uint64_t)(0x7ffe - exponent) << 48 } };
-	low *= exponent_scale.value;
-
-	const unsigned i = (fraction + (UINT64_C(1) << (L2I - 2))) >> (L2I - 1);
-	const long double d_high = (reduced.value - H(i)) * G(i) + E(i);
-	// Keep the residual in binary128. At table index zero it can carry
-	// the entire argument, so narrowing it would lose significant bits.
-	long double d_low = low * G(i);
-	const long double d = d_high + d_low;
-	d_low += d_high - d;
+	const struct log_reduction base = reduce_log_argument(reduced, low, 0);
+	const long double d = base.delta;
+	const long double d_low = base.residual;
+	const unsigned i = base.index;
+	const double shift = base.shift;
 	const double dd = (double)d;
 	const long double tail = d * d * d *
 			(P3 +
@@ -891,4 +910,56 @@ long double log2p1l(long double x)
 long double log10p1l(long double x)
 {
 	return log1p_scaled(x, &scale10);
+}
+
+struct math_split __cppgm_wasi_log_split(long double x, long double low)
+{
+	union binary128 bits = { .value = x };
+	int subnormal_shift = 0;
+	if ((bits.words[1] >> 48) == 0)
+	{
+		bits.value *= 0x1p113L;
+		subnormal_shift = 113;
+	}
+	const struct log_reduction base = reduce_log_argument(bits, low, subnormal_shift);
+	const unsigned i = base.index;
+	const double shift = base.shift;
+	const long double d = base.delta;
+	const long double d_low = base.residual;
+
+	// The table bounds |d| by 0.0053. Preserve the square's residual and
+	// use the Taylor coefficients through degree 18 for large exponents.
+	const double dd = d;
+	const double last = 1.0 / 13.0 +
+		dd * (-1.0 / 14.0 + dd * (1.0 / 15.0 + dd * (-1.0 / 16.0 + dd * (1.0 / 17.0 + dd * (-1.0 / 18.0)))));
+	const long double cubic = 1.0L / 3.0L +
+		d *
+			(-1.0L / 4.0L +
+				d *
+					(1.0L / 5.0L +
+						d *
+							(-1.0L / 6.0L +
+								d *
+									(1.0L / 7.0L +
+										d *
+											(-1.0L / 8.0L +
+												d *
+													(1.0L / 9.0L +
+														d *
+															(-1.0L / 10.0L +
+																d *
+																	(1.0L / 11.0L +
+																		d * (-1.0L / 12.0L + d * last)))))))));
+	const long double square = d * d;
+	const long double half_square_tail = 0.5L * __builtin_fmal(d, d, -square);
+	const long double table_hi = F_hi(i) + shift * ln2_hi;
+	const long double first = table_hi + d;
+	const long double table_lo = F_lo(i) + shift * ln2_lo;
+	const long double middle = first - 0.5L * square;
+	const long double middle_tail = ((table_hi - first) + d) + ((first - middle) - 0.5L * square);
+	const long double correction = d_low != 0 ? d_low / (1.0L + d) : 0.0L;
+	const long double small = square * d * cubic + correction - half_square_tail;
+	const long double result = middle + table_lo;
+	const long double residual = ((middle - result) + table_lo) + (middle_tail + small);
+	return (struct math_split){ result, residual };
 }

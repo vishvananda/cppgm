@@ -31,7 +31,8 @@ class SourceRelease(unittest.TestCase):
                  'third_party/core-math/binary128/rsqrtl.c', 'dev/runtime/wasi-c23/math_narrow.c',
                  'third_party/softfloat/COPYING.txt', 'third_party/softfloat/s_roundPackToF128.c',
                  'dev/runtime/wasi-c23/include/tgmath.h', 'dev/runtime/wasi-c23/math_expm1.c',
-                 'dev/runtime/wasi-c23/licenses/freebsd-expm1l.txt', 'dev/runtime/wasi-c23/math_pi.c'}
+                 'dev/runtime/wasi-c23/licenses/freebsd-expm1l.txt', 'dev/runtime/wasi-c23/math_pi.c',
+                 'dev/runtime/wasi-c23/math_binary128.h', 'dev/runtime/wasi-c23/math_power.c'}
         extras = {'dev/cppgm-scaffold.cpp', 'pa1/tests/case.t', 'pa1/tests/case.ref',
                   'pa1/scripts/run_all_tests.pl', 'benchmarks/input.cpp', 'README.md'}
         with tempfile.TemporaryDirectory() as directory:
