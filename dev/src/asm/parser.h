@@ -107,6 +107,7 @@ struct SymbolLookup
 	virtual bool lookup(const std::string& name, asm_model::SymbolReference& reference) = 0;
 	virtual bool interposable(const std::string&) const { return false; }
 	virtual bool absolute(uint32_t, uint64_t&) const { return false; }
+	virtual bool register_alias(const std::string&, asm_model::Register&) const { return false; }
 };
 
 struct Syntax
@@ -115,6 +116,7 @@ struct Syntax
 	bool register_prefix = true;
 	bool power_alignment = false; // .align uses an exponent on Darwin, bytes on ELF
 	bool named_externals = false; // literal names can become object imports
+	bool register_aliases = false;
 };
 
 // The input is user assembly after its frontend's placeholder expansion.

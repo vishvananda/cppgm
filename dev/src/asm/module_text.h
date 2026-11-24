@@ -12,6 +12,7 @@ struct ModuleLine
 	uint32_t line = 1;
 	bool absolute_assignment = false;
 	uint64_t assignment = 0;
+	asm_model::Register register_assignment = {};
 };
 
 // Retain source bytes and typed placeholder spans while splitting statements.
@@ -41,6 +42,7 @@ public:
 	std::string word();
 	std::string quoted();
 	uint64_t number();
+	asm_model::Bits wide_number();
 	const SymbolUse* symbol_use() const;
 	std::string rest();
 	void finish();
@@ -51,6 +53,8 @@ public:
 	void advance(uint32_t count) { position_ += count; }
 
 private:
+	template<typename UInt>
+	UInt number_as();
 	const std::string& source_;
 	const std::vector<SymbolUse>* symbols_ = nullptr;
 	uint32_t line_;

@@ -197,7 +197,8 @@ std::string ModuleCursor::word()
 		fail("expected module assembly identifier");
 	return source_.substr(first, position_ - first);
 }
-uint64_t ModuleCursor::number()
+template<typename UInt>
+UInt ModuleCursor::number_as()
 {
 	space();
 	const bool negative = take('-');
@@ -211,19 +212,28 @@ uint64_t ModuleCursor::number()
 		if (base != 8)
 			position_ += 2;
 	}
-	uint64_t value = 0;
+	UInt value = 0;
 	bool seen = false;
 	while (position_ < source_.size() && digit(source_[position_]) < base)
 	{
 		const unsigned part = digit(source_[position_++]);
-		if (value > (UINT64_MAX - part) / base)
-			fail("module integer exceeds 64 bits");
+		if (value > (static_cast<UInt>(-1) - part) / base)
+			fail(sizeof(UInt) == 8 ? "module integer exceeds 64 bits" : "module integer exceeds 128 bits");
 		value = value * base + part;
 		seen = true;
 	}
 	if (!seen)
 		fail("expected module integer");
-	return negative ? uint64_t(0) - value : value;
+	return negative ? UInt(0) - value : value;
+}
+uint64_t ModuleCursor::number()
+{
+	return number_as<uint64_t>();
+}
+asm_model::Bits ModuleCursor::wide_number()
+{
+	const __uint128_t value = number_as<__uint128_t>();
+	return asm_model::Bits{ static_cast<uint64_t>(value), static_cast<uint64_t>(value >> 64) };
 }
 std::string ModuleCursor::quoted()
 {

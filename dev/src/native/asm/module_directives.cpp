@@ -121,6 +121,24 @@ void ModuleAssembler::data(assembly::ModuleCursor& cursor, unsigned bytes)
 	} while (cursor.take(','));
 }
 
+void ModuleAssembler::wide_data(assembly::ModuleCursor& cursor)
+{
+	if (out_.sections[section_].kind == SectionKind::Bss)
+		cursor.fail("128-bit data requires a file-backed section");
+	do
+	{
+		const asm_model::Bits value = cursor.wide_number();
+		const uint64_t first = offset();
+		reserve(16, 0);
+		auto& bytes = out_.sections[section_].bytes;
+		for (unsigned i = 0; i < 8; ++i)
+		{
+			bytes[first + i] = static_cast<uint8_t>(value.low >> (i * 8));
+			bytes[first + 8 + i] = static_cast<uint8_t>(value.high >> (i * 8));
+		}
+	} while (cursor.take(','));
+}
+
 namespace {
 
 uint32_t data_relocation_type(unsigned bytes, bool relative)
@@ -364,6 +382,8 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 		size(cursor);
 	else if (const unsigned width = scalar_data_width(name))
 		data(cursor, width);
+	else if (name == ".octa")
+		wide_data(cursor);
 	else if (name == ".ascii" || name == ".asciz" || name == ".string")
 		strings(cursor, name != ".ascii");
 	else if (name == ".incbin")
@@ -499,6 +519,8 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 			kind = SectionKind::Rodata;
 		else if (section_name == ".bss")
 			kind = SectionKind::Bss;
+		if (note && kind == SectionKind::Bss)
+			cursor.fail("a note section requires file contents");
 		section(section_name, kind, merge_size, merge_strings, note);
 	}
 	else

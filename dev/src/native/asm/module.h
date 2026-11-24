@@ -30,6 +30,7 @@ private:
 	void section(const std::string& name, object::SectionKind kind, uint32_t merge_size = 0, bool merge_strings = false,
 		bool note = false);
 	void data(assembly::ModuleCursor& cursor, unsigned bytes);
+	void wide_data(assembly::ModuleCursor& cursor);
 	void finish_data();
 	void finish_symbols();
 	assembly::ModuleValue expression_symbol(assembly::ModuleCursor& cursor) override;

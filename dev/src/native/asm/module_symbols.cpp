@@ -75,6 +75,18 @@ bool ModuleSymbols::absolute(uint32_t symbol, uint64_t& value) const
 	value = out_.symbols[symbol].value;
 	return true;
 }
+bool ModuleSymbols::register_alias(const std::string& name, asm_model::Register& reg) const
+{
+	const auto found = registers_.find(name);
+	if (found == registers_.end())
+		return false;
+	reg = found->second;
+	return true;
+}
+void ModuleSymbols::define_register_alias(const std::string& name, asm_model::Register reg)
+{
+	registers_[name] = reg;
+}
 void remap_assembly_symbols(std::vector<assembly::SymbolUse>& uses, const std::vector<uint32_t>& symbols)
 {
 	for (assembly::SymbolUse& use : uses)
@@ -125,6 +137,7 @@ void ModuleSymbols::type(uint32_t symbol, object::SymbolType type)
 }
 void ModuleSymbols::define_absolute(uint32_t symbol, uint64_t value)
 {
+	registers_.erase(out_.symbol_name(symbol));
 	object::Symbol& entry = out_.symbols[symbol];
 	if (entry.section == object::kAbsoluteSection)
 		entry.value = value;
@@ -133,6 +146,7 @@ void ModuleSymbols::define_absolute(uint32_t symbol, uint64_t value)
 }
 void ModuleSymbols::alias(uint32_t symbol, uint32_t target, int64_t addend)
 {
+	registers_.erase(out_.symbol_name(symbol));
 	aliases_.push_back(Alias{ symbol, target, addend });
 }
 uint32_t ModuleSymbols::numeric_symbol()

@@ -17,6 +17,8 @@ public:
 	bool lookup(const std::string& name, asm_model::SymbolReference& reference) override;
 	bool interposable(const std::string& name) const override;
 	bool absolute(uint32_t symbol, uint64_t& value) const override;
+	bool register_alias(const std::string& name, asm_model::Register& reg) const override;
+	void define_register_alias(const std::string& name, asm_model::Register reg);
 	uint32_t named(const std::string& name);
 	uint32_t token(assembly::ModuleCursor& cursor);
 	void define(uint32_t symbol, uint32_t section, uint64_t offset);
@@ -45,6 +47,7 @@ private:
 	object::ObjectFile& out_;
 	Target target_;
 	std::map<std::string, uint32_t> names_;
+	std::map<std::string, asm_model::Register> registers_;
 	std::map<uint32_t, object::Binding> bindings_;
 	std::set<uint32_t> explicit_types_;
 	std::vector<Alias> aliases_;

@@ -417,6 +417,14 @@ void ModuleAssembler::append(const assembly::ModuleLine& line)
 	assembly::ModuleCursor cursor(line, uses);
 	const std::string name = cursor.word();
 	const bool label = cursor.take(':');
+	if (line.register_assignment.bits != 0)
+	{
+		flush();
+		symbols_.define_register_alias(
+			name == ".set" || name == ".equ" ? cursor.word() : name, line.register_assignment);
+		syntax_.register_aliases = true;
+		return;
+	}
 	if (!label && cursor.take('='))
 	{
 		flush();

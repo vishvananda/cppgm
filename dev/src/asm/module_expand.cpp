@@ -1,6 +1,7 @@
 #include "asm/module_expand.h"
 
 #include "asm/module_expression.h"
+#include "asm/registers.h"
 
 namespace assembly {
 namespace {
@@ -95,6 +96,15 @@ uint64_t ModuleExpander::expression(const ModuleLine& line, uint32_t first) cons
 }
 void ModuleExpander::assignment(const std::string& name, ModuleCursor& cursor, ModuleLine& line)
 {
+	if (cursor.take('%'))
+	{
+		const std::string spelling = cursor.word();
+		if (!parse_register(spelling.data(), spelling.size(), line.register_assignment))
+			cursor.fail("unknown register in assembly alias: " + spelling);
+		cursor.finish();
+		constants_.erase(name);
+		return;
+	}
 	ExpansionConstants constants(constants_);
 	const ModuleExpression plan = parse_module_expression(cursor, constants);
 	cursor.finish();

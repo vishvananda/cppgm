@@ -205,7 +205,7 @@ Support `.text`, `.data`, `.bss`, `.rodata`, `.section`, the section stack and
 `.previous`; `.byte`/`.short`/`.word`/`.long`/`.quad`, `.zero`/`.space`/`.skip`,
 `.ascii`/`.asciz`/`.string`, and `.p2align`/`.balign`/`.align`/`.align`. Respect target
 alignment and section spelling differences. Accept `.2byte`, `.4byte` and
-`.8byte` as explicit-width scalar data directives.
+`.8byte` as explicit-width scalar data directives. `.octa` accepts 128-bit integer literals.
 Adjacent quoted pieces in one string operand concatenate before an optional
 string terminator is emitted. For ELF symbol types, also accept `STT_FUNC`,
 `STT_OBJECT`, and `STT_NOTYPE`, including the space-separated
@@ -221,7 +221,8 @@ Numbered labels can be reused. Suffix `b` selects the preceding definition
 of that number and `f` the next one, even across section changes. ELF symbol
 immediates can refer to a local label in the same assembly block.
 `.set`, `.equ` and `symbol = expression` accept an absolute expression or
-a symbol address with an addend. A difference of defined labels in one
+a symbol address with an addend. A register name on the right of `.set`
+creates a register alias usable in an operand or addressing tuple. A difference of defined labels in one
 section is absolute and can serve as a symbol's `.size`. Scalar data
 expressions can group symbol terms in parentheses. `.org` fills up to a
 fixed or already defined same-section position. A space count may use

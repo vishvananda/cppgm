@@ -67,6 +67,7 @@ private:
 	bool directive(Instruction& inst);
 	void strings(Instruction& inst, bool terminate);
 	asm_model::Register reg();
+	bool register_start(size_t at) const;
 	Operand operand();
 	Operand unsegmented_operand();
 	uint8_t segment_override();
@@ -135,16 +136,34 @@ bool Parser::att_address_tuple() const
 	if (next == source_.size())
 		return false;
 	const char first = source_[next];
-	return first == ',' || (register_prefix_ ? first == '%' : alpha(first));
+	return first == ',' || register_start(next);
+}
+
+bool Parser::register_start(size_t at) const
+{
+	if (at >= source_.size())
+		return false;
+	if (register_prefix_ ? source_[at] == '%' : alpha(source_[at]))
+		return true;
+	if (state_ == nullptr || !state_->register_aliases || lookup_ == nullptr || !alpha(source_[at]))
+		return false;
+	size_t end = at + 1;
+	while (end < source_.size() && (alpha(source_[end]) || (source_[end] >= '0' && source_[end] <= '9')))
+		++end;
+	asm_model::Register alias;
+	return lookup_->register_alias(source_.substr(at, end - at), alias);
 }
 
 asm_model::Register Parser::reg()
 {
 	space();
-	if (register_prefix_)
-		expect('%');
-	const std::string name = word();
+	const bool prefixed = register_prefix_ && take('%');
+	const std::string name = word(false);
 	asm_model::Register result;
+	if (state_ != nullptr && state_->register_aliases && lookup_ != nullptr && lookup_->register_alias(name, result))
+		return result;
+	if (register_prefix_ && !prefixed)
+		fail("assembly register requires a percent prefix");
 	if (!parse_register(name.data(), name.size(), result))
 		fail("unknown architectural register: " + name);
 	return result;
@@ -202,7 +221,7 @@ Operand Parser::intel_memory(uint16_t bits)
 				displacement += bound.address.displacement;
 			}
 		}
-		else if (register_prefix_ ? current() == '%' : alpha(current()))
+		else if (register_start(pos_))
 		{
 			if (minus)
 				fail("an assembly address cannot subtract a register");
@@ -259,7 +278,7 @@ Operand Parser::att_memory(int64_t displacement)
 	if (!take('('))
 		return result;
 	space();
-	if (!rip_register(result.address) && (register_prefix_ ? current() == '%' : alpha(current())))
+	if (!rip_register(result.address) && (register_start(pos_)))
 	{
 		result.address.base = reg();
 		address_register(result.address, result.address.base);
@@ -347,7 +366,7 @@ Operand Parser::unsegmented_operand()
 			result.address.local = binding.local;
 			result.address.relocation = binding.relocation;
 		}
-		else if (register_prefix_ ? current() == '%' : alpha(current()))
+		else if (register_start(pos_))
 		{
 			result.kind = OperandKind::Register;
 			result.reg = reg();
@@ -371,9 +390,11 @@ Operand Parser::unsegmented_operand()
 	if (alpha(current()))
 	{
 		const std::string name = word();
-		if (parse_register(name.data(), name.size(), result.reg))
+		const bool alias = state_ != nullptr && state_->register_aliases && lookup_ != nullptr &&
+			lookup_->register_alias(name, result.reg);
+		if (alias || parse_register(name.data(), name.size(), result.reg))
 		{
-			if (register_prefix_)
+			if (register_prefix_ && !alias)
 				fail("assembly register requires a percent prefix");
 			result.kind = OperandKind::Register;
 			result.bits = result.reg.bits;
@@ -520,7 +541,8 @@ bool Parser::symbol(Operand& operand)
 		asm_model::Register reg;
 		if (name == "rip" || name == "byte" || name == "word" || name == "dword" || name == "qword" ||
 			name == "xmmword" || name == "ymmword" || name == "zmmword" || name == "tbyte" ||
-			parse_register(name.data(), name.size(), reg))
+			parse_register(name.data(), name.size(), reg) ||
+			(state_ != nullptr && state_->register_aliases && lookup_ != nullptr && lookup_->register_alias(name, reg)))
 			return false;
 		if (lookup_ != nullptr && !numeric)
 		{
