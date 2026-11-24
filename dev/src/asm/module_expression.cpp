@@ -10,14 +10,17 @@ namespace {
 class Expression
 {
 public:
-	explicit Expression(ModuleCursor& cursor, bool registers = false) : cursor_(cursor), registers_(registers) {}
+	explicit Expression(ModuleCursor& cursor, bool registers = false, ExpressionSymbols* symbols = nullptr)
+		: cursor_(cursor), symbols_(symbols), registers_(registers)
+	{}
 	uint64_t run() { return integer(binary(1, 0)); }
 	uint64_t addend() { return integer(tail({}, 1, 0)); }
+	ModuleValue relocatable() { return binary(1, 0).data; }
 
 private:
 	struct Value
 	{
-		uint64_t bits = 0;
+		ModuleValue data;
 		asm_model::Register reg{};
 	};
 	struct Operator
@@ -30,8 +33,10 @@ private:
 	Value binary(unsigned minimum, unsigned depth);
 	Value tail(Value result, unsigned minimum, unsigned depth);
 	uint64_t apply(const std::string& op, Value a, Value b);
+	ModuleValue combine(ModuleValue a, ModuleValue b, bool subtract);
 	uint64_t integer(Value value) const;
 	ModuleCursor& cursor_;
+	ExpressionSymbols* symbols_;
 	bool registers_;
 };
 Expression::Operator Expression::operation()
@@ -52,7 +57,9 @@ uint64_t Expression::integer(Value value) const
 {
 	if (value.reg.bits != 0)
 		cursor_.fail("absolute expression cannot use a register as an integer");
-	return value.bits;
+	if (value.data.relocatable())
+		cursor_.fail("absolute expression cannot use a relocatable symbol");
+	return value.data.bits;
 }
 Expression::Value Expression::primary(unsigned depth)
 {
@@ -60,11 +67,21 @@ Expression::Value Expression::primary(unsigned depth)
 		cursor_.fail("module expression nesting exceeds limit");
 	Value result;
 	if (cursor_.take('-'))
-		result.bits = uint64_t(0) - integer(primary(depth + 1));
+	{
+		result = primary(depth + 1);
+		if (result.reg.bits != 0)
+			cursor_.fail("absolute expression cannot use a register as an integer");
+		result.data.bits = uint64_t(0) - result.data.bits;
+		std::swap(result.data.positive, result.data.negative);
+	}
 	else if (cursor_.take('~'))
-		result.bits = ~integer(primary(depth + 1));
+		result.data.bits = ~integer(primary(depth + 1));
 	else if (cursor_.take('+'))
-		result.bits = integer(primary(depth + 1));
+	{
+		result = primary(depth + 1);
+		if (result.reg.bits != 0)
+			cursor_.fail("absolute expression cannot use a register as an integer");
+	}
 	else if (cursor_.take('('))
 	{
 		result = binary(1, depth + 1);
@@ -80,9 +97,12 @@ Expression::Value Expression::primary(unsigned depth)
 	else
 	{
 		cursor_.space();
-		if (cursor_.symbol_use())
+		if (symbols_ != nullptr && (cursor_.symbol_use() != nullptr || !cursor_.numeric()))
+			result.data = symbols_->expression_symbol(cursor_);
+		else if (cursor_.symbol_use())
 			cursor_.fail("absolute expression cannot use a relocatable symbol");
-		result.bits = cursor_.number();
+		else
+			result.data.bits = cursor_.number();
 	}
 	return result;
 }
@@ -98,9 +118,39 @@ Expression::Value Expression::tail(Value result, unsigned minimum, unsigned dept
 		if (op.precedence < minimum)
 			return result;
 		cursor_.advance(static_cast<uint32_t>(std::strlen(op.text)));
-		result.bits = apply(op.text, result, binary(op.precedence + 1, depth + 1));
+		const Value right = binary(op.precedence + 1, depth + 1);
+		if (result.data.relocatable() || right.data.relocatable())
+		{
+			if ((op.text[0] != '+' && op.text[0] != '-') || result.reg.bits != 0 || right.reg.bits != 0)
+				cursor_.fail("non-additive operation on a relocatable symbol");
+			result.data = combine(result.data, right.data, op.text[0] == '-');
+		}
+		else
+			result.data.bits = apply(op.text, result, right);
 		result.reg = {};
 	}
+}
+ModuleValue Expression::combine(ModuleValue a, ModuleValue b, bool subtract)
+{
+	const uint32_t absent = asm_model::kNoId;
+	if (subtract)
+	{
+		std::swap(b.positive, b.negative);
+		b.bits = uint64_t(0) - b.bits;
+	}
+	if (a.positive == b.negative)
+		a.positive = b.negative = absent;
+	if (a.negative == b.positive)
+		a.negative = b.positive = absent;
+	if ((a.positive != absent && b.positive != absent) || (a.negative != absent && b.negative != absent))
+		cursor_.fail("module expression combines too many relocatable symbols");
+	a.bits += b.bits;
+	if (a.positive == absent)
+		a.positive = b.positive;
+	if (a.negative == absent)
+		a.negative = b.negative;
+	symbols_->fold_difference(a);
+	return a;
 }
 uint64_t Expression::apply(const std::string& op, Value left, Value right)
 {
@@ -114,7 +164,7 @@ uint64_t Expression::apply(const std::string& op, Value left, Value right)
 			left.reg.bits == right.reg.bits && left.reg.offset == right.reg.offset;
 		return equal == (op == "==") ? UINT64_MAX : 0;
 	}
-	const uint64_t a = left.bits, b = right.bits;
+	const uint64_t a = left.data.bits, b = right.data.bits;
 	if (op == "+")
 		return a + b;
 	if (op == "-")
@@ -165,6 +215,10 @@ uint64_t assembly_integer_expression(ModuleCursor& cursor)
 uint64_t assembly_integer_addend(ModuleCursor& cursor)
 {
 	return Expression(cursor).addend();
+}
+ModuleValue assembly_module_expression(ModuleCursor& cursor, ExpressionSymbols& symbols)
+{
+	return Expression(cursor, false, &symbols).relocatable();
 }
 uint64_t module_expression(const ModuleLine& line, uint32_t first)
 {

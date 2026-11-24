@@ -68,6 +68,13 @@ bool ModuleSymbols::interposable(const std::string& name) const
 	return (binding == bindings_.end() ? out_.symbols[found->second].binding : binding->second) !=
 		object::Binding::Local;
 }
+bool ModuleSymbols::absolute(uint32_t symbol, uint64_t& value) const
+{
+	if (symbol >= out_.symbols.size() || out_.symbols[symbol].section != object::kAbsoluteSection)
+		return false;
+	value = out_.symbols[symbol].value;
+	return true;
+}
 void remap_assembly_symbols(std::vector<assembly::SymbolUse>& uses, const std::vector<uint32_t>& symbols)
 {
 	for (assembly::SymbolUse& use : uses)
@@ -98,7 +105,8 @@ void ModuleSymbols::define(uint32_t symbol, uint32_t section, uint64_t offset)
 	entry.value = offset;
 	const auto binding = bindings_.find(symbol);
 	entry.binding = binding == bindings_.end() ? object::Binding::Local : binding->second;
-	if (entry.type == object::SymbolType::None && explicit_types_.find(symbol) == explicit_types_.end())
+	if (section != object::kAbsoluteSection && entry.type == object::SymbolType::None &&
+		explicit_types_.find(symbol) == explicit_types_.end())
 		entry.type = out_.sections[section].kind == object::SectionKind::Text ? object::SymbolType::Function
 																			  : object::SymbolType::Object;
 }
@@ -114,6 +122,14 @@ void ModuleSymbols::type(uint32_t symbol, object::SymbolType type)
 {
 	explicit_types_.insert(symbol);
 	out_.symbols[symbol].type = type;
+}
+void ModuleSymbols::define_absolute(uint32_t symbol, uint64_t value)
+{
+	object::Symbol& entry = out_.symbols[symbol];
+	if (entry.section == object::kAbsoluteSection)
+		entry.value = value;
+	else
+		define(symbol, object::kAbsoluteSection, value);
 }
 void ModuleSymbols::alias(uint32_t symbol, uint32_t target, int64_t addend)
 {
@@ -212,30 +228,42 @@ void ModuleSymbols::finish()
 	for (const auto& label : numeric_labels_)
 		if (label.second.pending != 0)
 			throw BackendError("undefined forward label " + label.first);
-	std::vector<bool> done(aliases_.size(), false);
-	for (size_t pass = 0; pass < aliases_.size(); ++pass)
+	std::map<uint32_t, size_t> pending;
+	for (size_t i = 0; i < aliases_.size(); ++i)
 	{
-		bool progress = false;
-		for (size_t i = 0; i < aliases_.size(); ++i)
+		const uint32_t symbol = aliases_[i].symbol;
+		if (out_.symbols[symbol].section != object::kUndefinedSection || !pending.emplace(symbol, i).second)
+			throw BackendError("duplicate module definition: " + std::string(out_.symbol_name(symbol)));
+	}
+	std::vector<bool> active(aliases_.size(), false);
+	std::vector<size_t> path;
+	for (size_t root = 0; root < aliases_.size(); ++root)
+	{
+		for (size_t i = root; out_.symbols[aliases_[i].symbol].section == object::kUndefinedSection;)
 		{
-			if (done[i])
-				continue;
+			if (active[i])
+				throw BackendError("cyclic or undefined module alias");
+			active[i] = true;
+			path.push_back(i);
+			const uint32_t target = aliases_[i].target;
+			if (out_.symbols[target].section != object::kUndefinedSection)
+				break;
+			const auto next = pending.find(target);
+			if (next == pending.end())
+				throw BackendError("cyclic or undefined module alias");
+			i = next->second;
+		}
+		while (!path.empty())
+		{
+			const size_t i = path.back();
+			path.pop_back();
 			const Alias alias = aliases_[i];
 			const object::Symbol target = out_.symbols[alias.target];
-			if (target.section == object::kUndefinedSection)
-				continue;
 			define(alias.symbol, target.section, target.value + alias.addend);
 			if (explicit_types_.find(alias.symbol) == explicit_types_.end())
 				out_.symbols[alias.symbol].type = target.type;
 			out_.symbols[alias.symbol].size = target.size;
-			done[i] = true;
-			progress = true;
 		}
-		if (!progress)
-			break;
 	}
-	for (bool complete : done)
-		if (!complete)
-			throw BackendError("cyclic or undefined module alias");
 }
 } // namespace native

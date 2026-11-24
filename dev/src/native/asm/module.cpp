@@ -120,6 +120,13 @@ void ModuleAssembler::append(const assembly::ModuleLine& line)
 	assembly::ModuleCursor cursor(line, uses);
 	const std::string name = cursor.word();
 	const bool label = cursor.take(':');
+	if (!label && cursor.take('='))
+	{
+		flush();
+		assign(symbols_.named(name), cursor);
+		cursor.finish();
+		return;
+	}
 	if (!label && name.compare(0, 5, ".cfi_") == 0)
 	{
 		if (out_.sections[section_].kind != object::SectionKind::Text)
@@ -137,7 +144,7 @@ void ModuleAssembler::append(const assembly::ModuleLine& line)
 		(name == ".p2align" || name == ".balign" || name == ".align" || name == ".zero" || name == ".space" ||
 			name == ".skip" ||
 			((name == ".byte" || name == ".short" || name == ".word" || name == ".long" || name == ".quad") &&
-				cursor.numeric() && cursor.symbol_use() == nullptr));
+				cursor.numeric() && cursor.current() != '(' && cursor.symbol_use() == nullptr));
 	if (name[0] == '.' && !label && !syntax && !code_data)
 	{
 		flush();

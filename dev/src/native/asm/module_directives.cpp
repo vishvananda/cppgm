@@ -22,58 +22,65 @@ void ModuleAssembler::reserve(uint64_t count, uint8_t fill)
 	else if (fill != 0)
 		throw BackendError("nonzero initialization in module bss section");
 }
-uint32_t ModuleAssembler::data_symbol(assembly::ModuleCursor& cursor, uint64_t& addend, bool subtract)
+assembly::ModuleValue ModuleAssembler::expression_symbol(assembly::ModuleCursor& cursor)
 {
 	cursor.space();
+	assembly::ModuleValue result;
 	if (const assembly::SymbolUse* use = cursor.symbol_use())
 	{
 		cursor.advance(use->count);
-		const uint64_t offset = static_cast<uint64_t>(use->reference.addend);
-		addend += subtract ? uint64_t(0) - offset : offset;
-		return use->reference.symbol;
+		result.positive = use->reference.symbol;
+		result.bits = static_cast<uint64_t>(use->reference.addend);
 	}
-	const std::string name = cursor.word();
-	// Symbol zero denotes this data field's position in its section.
-	return name == "." ? 0 : symbols_.named(name);
+	else
+	{
+		const std::string name = cursor.word();
+		result.positive = name == "." ? 0 : symbols_.named(name);
+	}
+	if (result.positive != 0 && out_.symbols[result.positive].section == object::kAbsoluteSection)
+	{
+		result.bits += out_.symbols[result.positive].value;
+		result.positive = lowir::kNoId;
+	}
+	return result;
+}
+void ModuleAssembler::fold_difference(assembly::ModuleValue& value) const
+{
+	if (value.positive == lowir::kNoId || value.negative == lowir::kNoId)
+		return;
+	const uint32_t plus_section = value.positive == 0 ? section_ : out_.symbols[value.positive].section;
+	const uint32_t minus_section = value.negative == 0 ? section_ : out_.symbols[value.negative].section;
+	if (plus_section != minus_section || plus_section == object::kUndefinedSection ||
+		plus_section == object::kCommonSection)
+		return;
+	const uint64_t plus = value.positive == 0 ? offset() : out_.symbols[value.positive].value;
+	const uint64_t minus = value.negative == 0 ? offset() : out_.symbols[value.negative].value;
+	value.bits += plus - minus;
+	value.positive = value.negative = lowir::kNoId;
 }
 void ModuleAssembler::data(assembly::ModuleCursor& cursor, unsigned bytes)
 {
 	do
 	{
-		uint64_t bits = 0;
-		uint32_t positive = lowir::kNoId, negative = lowir::kNoId;
-		if (cursor.numeric() && cursor.symbol_use() == nullptr)
-			bits = assembly::assembly_integer_expression(cursor);
-		else
-		{
-			positive = data_symbol(cursor, bits, false);
-			assembly::ModuleCursor next = cursor;
-			if (next.take('-') && (!next.numeric() || next.symbol_use() != nullptr) && !next.end())
-			{
-				cursor.take('-');
-				negative = data_symbol(cursor, bits, true);
-			}
-			cursor.space();
-			if (cursor.current() == '+' || cursor.current() == '-')
-				bits += assembly::assembly_integer_addend(cursor);
-		}
+		const assembly::ModuleValue value = assembly::assembly_module_expression(cursor, *this);
 		const uint64_t first = offset();
 		reserve(bytes, 0);
-		if (positive != lowir::kNoId)
+		if (value.relocatable())
 		{
-			if (out_.sections[section_].kind == SectionKind::Bss ||
-				(target_ != Target::Linux && (negative != lowir::kNoId || bytes != 8)))
+			if (value.positive == lowir::kNoId || out_.sections[section_].kind == SectionKind::Bss ||
+				(target_ != Target::Linux && (value.negative != lowir::kNoId || bytes != 8)))
 				cursor.fail("module symbol data expression is unavailable for this section or target");
-			data_relocations_.push_back(DataRelocation{ first, bits, section_, positive, negative, bytes });
+			data_relocations_.push_back(
+				DataRelocation{ first, value.bits, section_, value.positive, value.negative, bytes });
 		}
 		else if (out_.sections[section_].kind == SectionKind::Bss)
 		{
-			if (bits != 0)
+			if (value.bits != 0)
 				cursor.fail("nonzero module bss initializer");
 		}
 		else
 			for (unsigned i = 0; i < bytes; ++i)
-				out_.sections[section_].bytes[first + i] = static_cast<uint8_t>(bits >> (8 * i));
+				out_.sections[section_].bytes[first + i] = static_cast<uint8_t>(value.bits >> (8 * i));
 	} while (cursor.take(','));
 }
 
@@ -118,7 +125,18 @@ void ModuleAssembler::finish_data()
 			addend += word.offset;
 		}
 		const object::Symbol& positive = out_.symbols[symbol];
-		const bool relative = word.negative != lowir::kNoId;
+		const bool subtract_absolute = word.negative != 0 && word.negative != lowir::kNoId &&
+			out_.symbols[word.negative].section == object::kAbsoluteSection;
+		const bool relative = word.negative != lowir::kNoId && !subtract_absolute;
+		if (subtract_absolute)
+			addend -= out_.symbols[word.negative].value;
+		if (!relative && positive.section == object::kAbsoluteSection)
+		{
+			const uint64_t bits = positive.value + addend;
+			for (unsigned i = 0; i < word.bytes; ++i)
+				section.bytes[word.offset + i] = static_cast<uint8_t>(bits >> (8 * i));
+			continue;
+		}
 		if (relative)
 		{
 			const uint32_t minus_section = word.negative == 0 ? word.section : out_.symbols[word.negative].section;
@@ -213,17 +231,22 @@ void ModuleAssembler::size(assembly::ModuleCursor& cursor)
 	const uint32_t id = symbol(cursor);
 	if (!cursor.take(','))
 		cursor.fail("module size requires an expression");
-	uint64_t bytes = 0;
-	if (cursor.numeric())
-		bytes = assembly::assembly_integer_expression(cursor);
+	const assembly::ModuleValue bytes = assembly::assembly_module_expression(cursor, *this);
+	if (bytes.relocatable() || bytes.bits > INT64_MAX)
+		cursor.fail("module size requires a nonnegative absolute expression");
+	out_.symbols[id].size = bytes.bits;
+}
+void ModuleAssembler::assign(uint32_t id, assembly::ModuleCursor& cursor)
+{
+	const assembly::ModuleValue value = assembly::assembly_module_expression(cursor, *this);
+	if (value.negative != lowir::kNoId)
+		cursor.fail("module symbol assignment requires an absolute value or one address");
+	if (value.positive == lowir::kNoId)
+		symbols_.define_absolute(id, value.bits);
+	else if (value.positive == 0)
+		symbols_.define(id, section_, offset() + value.bits);
 	else
-	{
-		if (cursor.word() != "." || !cursor.take('-') || symbol(cursor) != id || out_.symbols[id].section != section_ ||
-			out_.symbols[id].value > offset())
-			cursor.fail("unsupported module size expression");
-		bytes = offset() - out_.symbols[id].value;
-	}
-	out_.symbols[id].size = bytes;
+		symbols_.alias(id, value.positive, static_cast<int64_t>(value.bits));
 }
 void ModuleAssembler::type(assembly::ModuleCursor& cursor)
 {
@@ -283,6 +306,20 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 		const uint8_t fill = cursor.take(',') ? static_cast<uint8_t>(assembly::assembly_integer_expression(cursor)) : 0;
 		reserve(bytes, fill);
 	}
+	else if (name == ".org")
+	{
+		assembly::ModuleValue end = assembly::assembly_module_expression(cursor, *this);
+		if (end.positive != lowir::kNoId && end.negative == lowir::kNoId)
+		{
+			end.negative = 0;
+			fold_difference(end);
+			end.bits += offset();
+		}
+		if (end.relocatable() || end.bits < offset())
+			cursor.fail("module origin must advance within its section");
+		const uint8_t fill = cursor.take(',') ? static_cast<uint8_t>(assembly::assembly_integer_expression(cursor)) : 0;
+		reserve(end.bits - offset(), fill);
+	}
 	else if (name == ".p2align" || name == ".balign" || name == ".align")
 		alignment(cursor, name == ".p2align" || (name == ".align" && target_ == Target::MacOS));
 	else if (name == ".code64" || name == ".subsections_via_symbols")
@@ -293,11 +330,7 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 		const uint32_t id = symbol(cursor);
 		if (!cursor.take(','))
 			cursor.fail("module alias requires its target");
-		const uint32_t target = symbol(cursor);
-		int64_t addend = 0;
-		if (cursor.current() == '+' || cursor.current() == '-')
-			addend = static_cast<int64_t>(assembly::assembly_integer_addend(cursor));
-		symbols_.alias(id, target, addend);
+		assign(id, cursor);
 	}
 	else if (name == ".previous")
 	{

@@ -16,11 +16,13 @@ public:
 	ModuleSymbols(object::ObjectFile& out, Target target);
 	bool lookup(const std::string& name, asm_model::SymbolReference& reference) override;
 	bool interposable(const std::string& name) const override;
+	bool absolute(uint32_t symbol, uint64_t& value) const override;
 	uint32_t named(const std::string& name);
 	uint32_t token(assembly::ModuleCursor& cursor);
 	void define(uint32_t symbol, uint32_t section, uint64_t offset);
 	void bind(uint32_t symbol, object::Binding binding);
 	void type(uint32_t symbol, object::SymbolType type);
+	void define_absolute(uint32_t symbol, uint64_t value);
 	void alias(uint32_t symbol, uint32_t target, int64_t addend);
 	std::vector<assembly::SymbolUse> numeric_uses(const assembly::ModuleLine& line);
 	void finish();

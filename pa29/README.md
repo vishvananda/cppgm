@@ -208,6 +208,11 @@ difference within one section and use a place-relative relocation when
 the subtracted address is in the data field's section.
 Numbered labels can be reused. Suffix `b` selects the preceding definition
 of that number and `f` the next one, even across section changes.
+`.set`, `.equ` and `symbol = expression` accept an absolute expression or
+a symbol address with an addend. A difference of defined labels in one
+section is absolute and can serve as a symbol's `.size`. Scalar data
+expressions can group symbol terms in parentheses. `.org` fills up to a
+fixed or already defined same-section position.
 
 In inline assembly, `.ascii` emits the bytes of its string operands.
 `.asciz` and `.string` append a zero byte to each operand. Adjacent

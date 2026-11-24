@@ -182,12 +182,22 @@ Operand Parser::intel_memory(uint16_t bits)
 		}
 		else if (symbol(bound))
 		{
-			if (minus || result.address.symbol.symbol != asm_model::kNoId)
-				fail("invalid assembly symbol expression");
-			result.address.symbol = bound.address.symbol;
-			result.address.local = bound.address.local;
-			result.address.relocation = bound.address.relocation;
-			displacement += bound.address.displacement;
+			if (bound.kind == OperandKind::Immediate)
+			{
+				const int64_t term = static_cast<int64_t>(bound.immediate);
+				if (term < INT32_MIN || term > INT32_MAX)
+					fail("assembly address displacement exceeds 32 bits");
+				displacement += minus ? -term : term;
+			}
+			else
+			{
+				if (minus || result.address.symbol.symbol != asm_model::kNoId)
+					fail("invalid assembly symbol expression");
+				result.address.symbol = bound.address.symbol;
+				result.address.local = bound.address.local;
+				result.address.relocation = bound.address.relocation;
+				displacement += bound.address.displacement;
+			}
 		}
 		else if (register_prefix_ ? current() == '%' : alpha(current()))
 		{
@@ -326,6 +336,8 @@ Operand Parser::unsegmented_operand()
 		}
 		else if (att_symbol(result))
 		{
+			if (result.kind == OperandKind::Immediate)
+				return att_memory(static_cast<int64_t>(result.immediate));
 			const Address binding = result.address;
 			result = att_memory(binding.displacement);
 			result.address.symbol = binding.symbol;
@@ -520,6 +532,8 @@ bool Parser::symbol(Operand& operand)
 	operand.kind = OperandKind::Symbol;
 	operand.address.symbol = reference;
 	int64_t displacement = reference.addend;
+	uint64_t bits = 0;
+	const bool absolute = lookup_ != nullptr && lookup_->absolute(reference.symbol, bits);
 	space();
 	if (take('@'))
 	{
@@ -542,10 +556,21 @@ bool Parser::symbol(Operand& operand)
 		{
 			const int64_t term = static_cast<int64_t>(
 				dialect_ == asm_model::Dialect::Att ? expression(true) : integer());
-			if (term < INT32_MIN || term > INT32_MAX)
+			if (!absolute && (term < INT32_MIN || term > INT32_MAX))
 				fail("assembly symbol displacement exceeds 32 bits");
-			displacement += term;
+			if (absolute)
+				bits += static_cast<uint64_t>(term);
+			else
+				displacement += term;
 		}
+	}
+	if (absolute)
+	{
+		if (operand.address.relocation != Relocation::Address)
+			fail("absolute assembly symbols have no relocation");
+		operand.kind = OperandKind::Immediate;
+		operand.immediate = bits + static_cast<uint64_t>(displacement);
+		return true;
 	}
 	if (displacement < INT32_MIN || displacement > INT32_MAX)
 		fail("assembly symbol displacement exceeds 32 bits");

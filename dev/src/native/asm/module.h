@@ -1,6 +1,6 @@
 #pragma once
 
-#include "asm/module_text.h"
+#include "asm/module_expression.h"
 #include "lowir/program.h"
 #include "native/asm/module_symbols.h"
 #include "native/asm/module_unwind.h"
@@ -9,7 +9,7 @@ namespace native {
 
 class AssemblyEnvironment;
 
-class ModuleAssembler
+class ModuleAssembler : private assembly::ExpressionSymbols
 {
 public:
 	ModuleAssembler(object::ObjectFile& out, Target target);
@@ -28,7 +28,9 @@ private:
 		const std::string& name, object::SectionKind kind, uint32_t merge_size = 0, bool merge_strings = false);
 	void data(assembly::ModuleCursor& cursor, unsigned bytes);
 	void finish_data();
-	uint32_t data_symbol(assembly::ModuleCursor& cursor, uint64_t& addend, bool subtract);
+	assembly::ModuleValue expression_symbol(assembly::ModuleCursor& cursor) override;
+	void fold_difference(assembly::ModuleValue& value) const override;
+	void assign(uint32_t id, assembly::ModuleCursor& cursor);
 	void strings(assembly::ModuleCursor& cursor, bool terminate);
 	void include_binary(assembly::ModuleCursor& cursor);
 	void alignment(assembly::ModuleCursor& cursor, bool power);

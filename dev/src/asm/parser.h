@@ -106,6 +106,7 @@ struct SymbolLookup
 	virtual ~SymbolLookup() {}
 	virtual bool lookup(const std::string& name, asm_model::SymbolReference& reference) = 0;
 	virtual bool interposable(const std::string&) const { return false; }
+	virtual bool absolute(uint32_t, uint64_t&) const { return false; }
 };
 
 struct Syntax
