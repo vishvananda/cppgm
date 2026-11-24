@@ -700,6 +700,20 @@ The first fixture set covers these parts of the C17 input profile:
   still requires a statement. Apply the C23 extension diagnostic policy
   to free labels in earlier C modes, and continue to reject jumps that
   enter the scope of a variably modified identifier.
+- In C23, accept `static`, `thread_local`, `register`, and `constexpr`
+  before the type of a compound literal. Give its lvalue the storage
+  duration and qualifiers of an object definition in the same scope.
+  At block scope, require `static` with `thread_local`. Diagnose
+  duplicate or incompatible specifiers and address-of a register
+  literal or its subobjects.
+- Apply the existing rules for exact initialization to `constexpr`
+  compound literals. Use their values and member selections in constant
+  expressions. A static literal has the same address across evaluations
+  of its occurrence. An automatic literal has the lifetime of the current
+  block. A thread-local literal has one instance per thread.
+- When `sizeof` is followed by a compound literal, apply the expression
+  form to the whole operand, including postfix operations. An operand
+  of fixed-size type is unevaluated.
 - Hosted C header declarations and their builtin operations through the
   existing hosted environment, including PA30's GNU startup-function attributes.
 - Support the reserved GNU spelling `__auto_type` in the C modes above.

@@ -477,7 +477,53 @@ bool Parser::at_compound_literal(const TypeId* type)
 			(declarator->pointers.empty() && declarator->nested == nullptr && declarator->suffixes.empty()));
 }
 
-Expr* Parser::compound_literal(const TypeId* type, uint32_t start)
+namespace {
+
+uint8_t CompoundStorage(const ParseToken& token)
+{
+	if (token.kind != ParseTokenKind::Simple)
+		return 0;
+	switch (token.simple)
+	{
+	case TokenKind::KW_STATIC:
+		return FunctionalCastExpr::Static;
+	case TokenKind::KW_THREAD_LOCAL:
+		return FunctionalCastExpr::ThreadLocal;
+	case TokenKind::KW_REGISTER:
+		return FunctionalCastExpr::Register;
+	case TokenKind::KW_CONSTEXPR:
+		return FunctionalCastExpr::Constexpr;
+	default:
+		return 0;
+	}
+}
+
+} // namespace
+
+Expr* Parser::parse_c_compound_literal(uint32_t start)
+{
+	next();
+	require_c_extension(tok(), CEdition::C23, "compound literal storage-class specifiers require C23");
+	uint8_t storage = 0;
+	while (const uint8_t specifier = CompoundStorage(tok()))
+	{
+		if ((storage & specifier) != 0)
+			throw ParseError(location(), "duplicate compound literal storage-class specifier");
+		storage |= specifier;
+		next();
+	}
+	const bool saved_angle = angle_;
+	angle_ = false;
+	TypeId* type = parse_type_id(DeclaratorMode::Abstract, true);
+	angle_ = saved_angle;
+	if (type == nullptr)
+		return nullptr;
+	if (!at(TokenKind::OP_RPAREN) || !at_compound_literal(type))
+		throw ParseError(start, "storage-class specifiers require a compound literal");
+	return parse_postfix_suffixes(compound_literal(type, start, storage));
+}
+
+Expr* Parser::compound_literal(const TypeId* type, uint32_t start, uint8_t storage)
 {
 	// `( T ) { list }`: GCC's C++ compound literal, a temporary as `T{list}`
 	// (5.2.3p3) is.
@@ -490,6 +536,7 @@ Expr* Parser::compound_literal(const TypeId* type, uint32_t start)
 	literal->type = type->specifiers;
 	if (c_source_)
 		literal->compound_type = type;
+	literal->compound_storage = storage;
 	literal->arguments = Slice<Expr*>{ nullptr, 0 };
 	literal->braced = parse_braced_init_list();
 	return literal->braced == nullptr ? nullptr : literal;
@@ -508,6 +555,8 @@ Expr* Parser::parse_parenthesized_or_cast()
 			return expr;
 		return parse_postfix_suffixes(expr);
 	}
+	if (c_source_ && CompoundStorage(tok(1)) != 0)
+		return parse_c_compound_literal(start);
 	if (at_type_specifier_start(1))
 	{
 		Tentative tentative(*this);
@@ -644,6 +693,13 @@ bool Parser::parse_sizeof_operand(TypeId*& type, Expr*& operand, bool& parenthes
 			TypeId* named = parse_type_id_from_name(name, info, name_start);
 			if (named != nullptr && at(TokenKind::OP_RPAREN) && (typeof_operand || !IsNamedFunctionType(named)))
 			{
+				if (c_source_ && !delimited && at_compound_literal(named))
+				{
+					tentative.commit();
+					angle_ = saved_angle;
+					operand = parse_postfix_suffixes(compound_literal(named, start));
+					return operand != nullptr;
+				}
 				next();
 				tentative.commit();
 				angle_ = saved_angle;
@@ -677,6 +733,12 @@ bool Parser::parse_sizeof_operand(TypeId*& type, Expr*& operand, bool& parenthes
 	}
 	if (at(TokenKind::OP_LPAREN))
 	{
+		const uint32_t start = location();
+		if (c_source_ && !delimited && CompoundStorage(tok(1)) != 0)
+		{
+			operand = parse_c_compound_literal(start);
+			return operand != nullptr;
+		}
 		if (at_type_specifier_start(1))
 		{
 			Tentative tentative(*this);
@@ -687,6 +749,12 @@ bool Parser::parse_sizeof_operand(TypeId*& type, Expr*& operand, bool& parenthes
 			angle_ = saved_angle;
 			if (parsed != nullptr && at(TokenKind::OP_RPAREN) && (delimited || !IsNamedFunctionType(parsed)))
 			{
+				if (c_source_ && !delimited && at_compound_literal(parsed))
+				{
+					tentative.commit();
+					operand = parse_postfix_suffixes(compound_literal(parsed, start));
+					return operand != nullptr;
+				}
 				next();
 				tentative.commit();
 				type = parsed;

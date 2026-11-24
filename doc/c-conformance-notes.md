@@ -3,6 +3,32 @@
 These notes record WG14 rules exercised by the course regressions and the
 initial upstream campaign. Clause numbers use the named edition or draft.
 
+## C23 storage-class specifiers on compound literals
+
+A compound literal can begin with `static`, `thread_local`,
+`register`, or `constexpr`. Apply the storage-class constraints of
+an object definition in its associated scope. At block scope,
+`thread_local` requires `static`. The address of a thread-local object
+is specific to an executing thread. An automatic literal keeps its
+block lifetime. Its initializer is evaluated at each evaluation of the
+literal unless it is `constexpr`.
+
+The `constexpr` specifier adds const qualification and requires
+exactly representable constant initializer values. The object's value
+and fields reached by member access can be constant operands. Its
+address can be an address constant when the object has static storage
+duration. Address-of cannot designate a register literal or one of
+its subobjects.
+
+The C23 definition form uses the same storage-class syntax as object
+definitions. WG14 N3871 spells out the permitted set as a constraint
+for the next edition. cppgm diagnoses spellings outside that set.
+Clang 21 does not parse those specifiers on compound literals. The
+pinned GCC suite provides the execution and diagnostic cases.
+[WG14 N3220 §§6.5.3.6, 6.6, 6.7.2 and 6.7.11](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
+[WG14 N3038](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm) ·
+[WG14 N3871](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3871.pdf)
+
 ## C23 labels in compound statements
 
 An identifier, case, or default label can precede a declaration or

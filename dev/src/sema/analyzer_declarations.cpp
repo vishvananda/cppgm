@@ -1556,7 +1556,8 @@ Binding* Analyzer::declare_variable(const Specifiers& specifiers, const Declarat
 		variable->c_tentative = initializer == nullptr;
 	variable->defined = variable->defined || definition;
 	if (c_inline_constraint_ != nullptr && definition)
-		note_c_inline_object(*variable, location);
+		note_c_inline_object(
+			variable->type, variable->owner, variable->is_static || variable->is_thread_local, location);
 	variable->is_constexpr = variable->is_constexpr || specifiers.is_constexpr;
 	variable->inline_member_definition = variable->inline_member_definition || inline_member;
 	// An out-of-class or namespace redeclaration may add explicit inline.
@@ -1769,12 +1770,10 @@ void Analyzer::note_c_inline_reference(const Binding& binding, uint32_t location
 	}
 }
 
-void Analyzer::note_c_inline_object(const VariableEntity& variable, uint32_t location)
+void Analyzer::note_c_inline_object(const Type* element, Scope* scope, bool persistent, uint32_t location)
 {
-	if (c_inline_constraint_->message != nullptr || variable.owner->kind != ScopeKind::Block ||
-		(!variable.is_static && !variable.is_thread_local))
+	if (c_inline_constraint_->message != nullptr || scope->kind != ScopeKind::Block || !persistent)
 		return;
-	const Type* element = variable.type;
 	while (element->kind == TypeKind::Array)
 		element = element->element;
 	if ((element->cv & kConst) == 0)

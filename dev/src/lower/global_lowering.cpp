@@ -1000,7 +1000,7 @@ bool ProgramLowering::same_string_object(
 	return true;
 }
 
-lowir::SymbolId ProgramLowering::static_temporary(const sema::Type* type)
+lowir::SymbolId ProgramLowering::static_temporary(const sema::Type* type, const StaticData* initialized)
 {
 	// Named after the variable whose initialization makes it (see
 	// begin_temporary_names): an object's std::initializer_list array, a
@@ -1013,7 +1013,14 @@ lowir::SymbolId ProgramLowering::static_temporary(const sema::Type* type)
 			"_" + std::to_string(temporary_names_.sequence);
 	const lowir::SymbolId temporary = new_symbol(spelling);
 	lowir::Global storage = lowir::Global();
-	if (type->unqualified->kind == sema::TypeKind::Class || type->kind == sema::TypeKind::Array)
+	if (initialized != nullptr)
+	{
+		storage.init = lowir::GlobalInit::Data;
+		storage.first_item = static_cast<uint32_t>(program_.data_items.size());
+		storage.item_count = static_cast<uint32_t>(initialized->items.size());
+		program_.data_items.insert(program_.data_items.end(), initialized->items.begin(), initialized->items.end());
+	}
+	else if (type->unqualified->kind == sema::TypeKind::Class || type->kind == sema::TypeKind::Array)
 	{
 		// A class object's (or an array's, 12.2p1) zero bytes (as their
 		// globals').

@@ -434,6 +434,18 @@ bool ConstantInterpreter::root_storage(
 		type = value->type;
 		return true;
 	}
+	case RootKind::CompoundLiteral:
+	{
+		const auto* literal = static_cast<const syntax::FunctionalCastExpr*>(place.entity);
+		if (write || !literal->compound_has(syntax::FunctionalCastExpr::Constexpr))
+			return fail(location, "a C compound literal is not usable in this constant expression");
+		const ConstValue* value = analyzer_.c_compound_constant(*literal);
+		if (value == nullptr)
+			return fail(location, "a C constexpr compound initializer cannot be evaluated");
+		storage = const_cast<ConstValue*>(value);
+		type = literal->facts->type;
+		return true;
+	}
 	case RootKind::Temporary:
 	{
 		// A const one only is read (as a const variable's object).
@@ -1770,6 +1782,8 @@ bool ConstantInterpreter::publishable(const ConstValue& value) const
 			const VariableEntity* variable = static_cast<const VariableEntity*>(value.address.entity);
 			return StaticStorage(variable) && !variable->is_thread_local;
 		}
+		if (value.root == RootKind::CompoundLiteral)
+			return static_cast<const syntax::FunctionalCastExpr*>(value.address.entity)->compound_static;
 		return true;
 	}
 	if (value.kind == ValueKind::MemberPointer && value.address.entity != nullptr &&
@@ -1859,6 +1873,31 @@ bool ConstantInterpreter::finish_allocations(uint32_t location)
 }
 
 // ------------------------------------------------------------- entry points
+
+const ConstValue* ConstantInterpreter::evaluate_c_compound_initializer(const syntax::BracedInitList& list)
+{
+	++analyzer_.graph_.constant_evaluations;
+	c_constant_expression_ = true;
+	c_constexpr_initializer_ = true;
+	const Type* type = list.facts->type;
+	ConstValue value;
+	if (type->kind == TypeKind::Array || ClassOf(type) != nullptr)
+	{
+		syntax::Initializer view = syntax::Initializer();
+		view.kind = syntax::InitializerKind::Braced;
+		view.expression = const_cast<syntax::BracedInitList*>(&list);
+		view.location = list.location;
+		ConstPlace object;
+		ConstValue* storage = nullptr;
+		if (!new_object(type, object, list.location, ObjectStorage::Prefix) ||
+			!construct(type, object, &view, nullptr, list.location) || !locate(object, false, storage, list.location))
+			return nullptr;
+		value = *storage;
+	}
+	else if (!rvalue(list, value))
+		return nullptr;
+	return complete(value) && !incomplete_class_ ? publish(value, list.location) : nullptr;
+}
 
 const ConstValue* ConstantInterpreter::evaluate_immediate_construction(
 	const Type* type, const syntax::Initializer* initializer, const FunctionEntity* constructor, uint32_t location)

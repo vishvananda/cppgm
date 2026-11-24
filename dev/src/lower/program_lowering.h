@@ -699,7 +699,7 @@ public:
 	lowir::SymbolId aggregate_helper(const sema::ClassEntity* entity, uint32_t count, unsigned cv = 0);
 	// An internal zero-initialized global holding a temporary of `type`
 	// bound to a reference of an object with static storage duration.
-	lowir::SymbolId static_temporary(const sema::Type* type);
+	lowir::SymbolId static_temporary(const sema::Type* type, const StaticData* initialized = nullptr);
 	// The static-storage variable (and its global) whose initialization is
 	// lowered between these calls: the temporaries its initializer makes
 	// (12.2p5) are named after it, in the order it makes them (a pre-order

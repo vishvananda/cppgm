@@ -226,8 +226,17 @@ struct CallExpr : Expr
 struct FunctionalCastExpr : Expr
 {
 	// C compound literals retain the full declarator and object lifetime.
+	enum CompoundStorage : uint8_t
+	{
+		Static = 1,
+		ThreadLocal = 2,
+		Register = 4,
+		Constexpr = 8
+	};
 	const TypeId* compound_type = nullptr;
 	mutable bool compound_static = false;
+	uint8_t compound_storage = 0;
+	bool compound_has(CompoundStorage storage) const { return (compound_storage & storage) != 0; }
 	Slice<DeclSpecifier> type;
 	Slice<Expr*> arguments;
 	BracedInitList* braced;

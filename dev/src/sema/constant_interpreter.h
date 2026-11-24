@@ -53,6 +53,7 @@ public:
 	const ConstValue* evaluate_c_initializer(const syntax::Expr& expr);
 	bool check_c_constexpr_initializer(
 		const syntax::Expr& expr, const Type* to, const DataMember* member, const ConstValue*& checked);
+	const ConstValue* evaluate_c_compound_initializer(const syntax::BracedInitList& list);
 	bool c_static_initializer_operands(const syntax::Expr& expr, bool legacy_initializer = false);
 	bool evaluate_designation(const syntax::Expr& expr, ConstValue& out);
 	// A C++20 immediate invocation, including object, reference and void results.

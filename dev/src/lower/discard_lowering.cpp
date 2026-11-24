@@ -227,7 +227,8 @@ void FunctionLowering::discard(const syntax::Expr& expr)
 		const syntax::FunctionalCastExpr& functional = static_cast<const syntax::FunctionalCastExpr&>(*e);
 		if (functional.compound_type != nullptr)
 		{
-			compound_literal(functional);
+			if (!functional.compound_has(syntax::FunctionalCastExpr::Constexpr))
+				compound_literal(functional);
 			return;
 		}
 		if (facts != nullptr && sema::IsVoid(facts->type) && functional.arguments.size == 1)

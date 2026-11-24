@@ -378,7 +378,7 @@ private:
 	bool defer_c_tentative_definition(VariableEntity* variable, uint32_t location);
 	void finish_c_tentative_definitions();
 	void note_c_inline_reference(const Binding& binding, uint32_t location);
-	void note_c_inline_object(const VariableEntity& variable, uint32_t location);
+	void note_c_inline_object(const Type* type, Scope* scope, bool persistent, uint32_t location);
 	void note_c_inline_declaration(
 		FunctionEntity* function, const Specifiers& specifiers, bool definition, uint32_t location);
 	void finish_c_function_constraints();
@@ -515,6 +515,9 @@ private:
 	void check_c_static_initializer(
 		const syntax::Expr& expr, const Type* constexpr_type = nullptr, const DataMember* member = nullptr);
 	void c_initialize_compound_literal(const syntax::FunctionalCastExpr& expr, const Type* type, Scope* scope);
+	void check_c_constexpr_type(const Type* type, uint32_t location);
+	const ConstValue* c_compound_constant(const syntax::FunctionalCastExpr& expr);
+	void record_c_static_value(const syntax::Expr& expr, const ConstValue* value);
 	bool c_integer_constant_operands(const syntax::Expr& expr, bool arithmetic = false) const;
 	void record_fixed_class_initializer(VariableEntity* variable, const syntax::Initializer* initializer, Scope* scope);
 	const Type* complete_array_from_initializer(const Type* type, const syntax::Initializer* initializer, bool typed);

@@ -165,25 +165,61 @@ const ConstValue* Analyzer::checked_c_static_value(const syntax::Expr& expr) con
 	return index == PointerMap::kMissing ? nullptr : c_static_values_[index];
 }
 
+void Analyzer::record_c_static_value(const syntax::Expr& expr, const ConstValue* value)
+{
+	c_static_value_index_.set(&expr, static_cast<uint32_t>(c_static_values_.size()));
+	c_static_values_.push_back(value);
+}
+
+const ConstValue* Analyzer::c_compound_constant(const syntax::FunctionalCastExpr& expr)
+{
+	if (const ConstValue* stored = checked_c_static_value(*expr.braced))
+		return stored;
+	ConstantInterpreter interpreter(*this);
+	const ConstValue* stored = interpreter.evaluate_c_compound_initializer(*expr.braced);
+	if (stored != nullptr)
+		record_c_static_value(*expr.braced, stored);
+	return stored;
+}
+
 void Analyzer::c_initialize_compound_literal(const syntax::FunctionalCastExpr& expr, const Type* type, Scope* scope)
 {
-	expr.compound_static = scope == graph_.global;
+	using Literal = syntax::FunctionalCastExpr;
+	const bool file_scope = scope == graph_.global;
+	const bool thread = expr.compound_has(Literal::ThreadLocal);
+	const bool constant = expr.compound_has(Literal::Constexpr);
+	const bool explicit_static = expr.compound_has(Literal::Static);
+	if (expr.compound_has(Literal::Register) && (file_scope || explicit_static || thread))
+		error(expr.location, "invalid register storage class for a compound literal");
+	if (thread && (constant || (!file_scope && !explicit_static)))
+		error(expr.location, "invalid thread storage class for a compound literal");
+	if (constant)
+	{
+		check_c_constexpr_type(type, expr.location);
+		type = types_.qualified(type, kConst);
+	}
+	expr.compound_static = !thread && (file_scope || explicit_static);
+	const bool persistent = expr.compound_static || thread;
+	if (c_inline_constraint_ != nullptr)
+		note_c_inline_object(type, scope, persistent, expr.location);
 	const bool saved_static = c_static_initializer_;
 	const bool saved_constexpr = c_constexpr_initializer_;
 	const CLegacyInitializer saved_legacy = c_legacy_initializer_;
-	c_static_initializer_ = expr.compound_static;
-	c_constexpr_initializer_ = false;
+	c_static_initializer_ = persistent;
+	c_constexpr_initializer_ = constant;
 	c_legacy_initializer_ = expr.compound_static && c_before_c99_ && c_pedantic_ && !expr.quiet_c_extensions
 		? CLegacyInitializer::Static
 		: CLegacyInitializer::None;
 	const ClassEntity* record = ClassOf(type);
-	if (expr.compound_static && hosted_ && record != nullptr &&
+	if (persistent && hosted_ && record != nullptr &&
 		(record->c_contains_flexible_array || record->c_contains_nested_flexible_array))
 		c_designated_list(*expr.braced, type, scope, true);
 	else
 		list_initialize(*expr.braced, type, scope);
-	if (expr.compound_static && !failed())
-		check_c_static_initializer(*expr.braced);
+	if ((persistent || constant) && !failed())
+		check_c_static_initializer(*expr.braced, constant ? type : nullptr);
+	if (constant && IsComplex(type) && !failed() && c_compound_constant(expr) == nullptr)
+		error(expr.location, "a C constexpr compound initializer cannot be evaluated");
 	c_static_initializer_ = saved_static;
 	c_constexpr_initializer_ = saved_constexpr;
 	c_legacy_initializer_ = saved_legacy;
@@ -213,10 +249,7 @@ void Analyzer::check_c_static_initializer(
 		if (!interpreter.check_c_constexpr_initializer(*value, constexpr_type, member, checked))
 			error(value->location, "a C constexpr initializer requires an exactly representable constant");
 		if (checked != nullptr)
-		{
-			c_static_value_index_.set(value, static_cast<uint32_t>(c_static_values_.size()));
-			c_static_values_.push_back(checked);
-		}
+			record_c_static_value(*value, checked);
 		return;
 	}
 	if (facts == nullptr || facts->type == nullptr || value->kind == syntax::ExprKind::Literal ||
@@ -225,7 +258,8 @@ void Analyzer::check_c_static_initializer(
 	if (value->kind == syntax::ExprKind::FunctionalCast)
 	{
 		const auto* literal = static_cast<const syntax::FunctionalCastExpr*>(value);
-		if (literal->compound_static && (facts->type->kind == TypeKind::Array || ClassOf(facts->type) != nullptr))
+		if ((literal->compound_static || literal->compound_has(syntax::FunctionalCastExpr::Constexpr)) &&
+			(facts->type->kind == TypeKind::Array || ClassOf(facts->type) != nullptr))
 			return; // Its own checked initializer supplies the aggregate's bytes.
 	}
 	if (checked_c_static_value(*value) != nullptr)
@@ -249,8 +283,7 @@ void Analyzer::check_c_static_initializer(
 	}
 	if (checked == nullptr)
 		error(value->location, "a C static initializer requires a constant expression");
-	c_static_value_index_.set(value, static_cast<uint32_t>(c_static_values_.size()));
-	c_static_values_.push_back(checked);
+	record_c_static_value(*value, checked);
 }
 
 const ConstValue* ConstantInterpreter::evaluate_c_initializer(const syntax::Expr& expr)

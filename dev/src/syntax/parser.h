@@ -461,7 +461,8 @@ private:
 	Expr* parse_generic_selection();
 	Expr* parse_parenthesized_or_cast();
 	bool at_compound_literal(const TypeId* type);
-	Expr* compound_literal(const TypeId* type, uint32_t start);
+	Expr* compound_literal(const TypeId* type, uint32_t start, uint8_t storage = 0);
+	Expr* parse_c_compound_literal(uint32_t start);
 	Expr* parse_id_expression_or_cast();
 	Expr* parse_keyword_functional_cast();
 	Expr* parse_sizeof();

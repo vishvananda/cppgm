@@ -113,6 +113,17 @@ C23_SOURCE_REJECTIONS = (
     ('c23.label-at-substatement-end', '300-c23-label-at-substatement-end-bad.t', 'compile'),
     ('c23.block-label-goto-vla', '300-c23-block-labels-goto-vla-bad.t', 'compile'),
     ('c23.block-label-case-vla', '300-c23-block-labels-case-vla-bad.t', 'compile'),
+    ('c23.compound-register-address', '300-c23-compound-register-address-bad.t', 'compile'),
+    ('c23.compound-register-file', '300-c23-compound-register-file-bad.t', 'compile'),
+    ('c23.compound-thread-without-static', '300-c23-compound-thread-without-static-bad.t', 'compile'),
+    ('c23.compound-constexpr-thread', '300-c23-compound-constexpr-thread-bad.t', 'compile'),
+    ('c23.compound-duplicate-storage', '300-c23-compound-duplicate-storage-bad.t', 'compile'),
+    ('c23.compound-static-runtime', '300-c23-compound-static-runtime-bad.t', 'compile'),
+    ('c23.compound-constexpr-narrowing', '300-c23-compound-constexpr-narrowing-bad.t', 'compile'),
+    ('c23.compound-constexpr-address', '300-c23-compound-constexpr-address-bad.t', 'compile'),
+    ('c23.compound-thread-address', '300-c23-compound-thread-address-bad.t', 'compile'),
+    ('c23.compound-inline-static', '300-c23-compound-inline-static-bad.t', 'compile'),
+    ('c23.compound-storage-in-cast', '300-c23-compound-storage-in-cast-bad.t', 'compile'),
 )
 C23_SOURCE_CASES = (
     ('c23.version', '100-c23-version.t', 'preprocess'),
@@ -151,6 +162,9 @@ C23_PROGRAMS = {
     'c23.vla-empty-typedef': (PA38_GENERAL / '300-c23-vla-empty-typedef.t', ()),
     'c23.block-labels': (PA38_GENERAL / '300-c23-block-labels.t', ()),
     'c23.block-labels-vla': (PA38_GENERAL / '300-c23-block-labels-vla.t', ()),
+    'c23.compound-storage': (PA38_GENERAL / '300-c23-compound-storage.t', ()),
+    'c23.compound-constexpr': (PA38_GENERAL / '300-c23-compound-constexpr.t', ()),
+    'c23.compound-thread-storage': (PA38_GENERAL / '300-c23-compound-thread-storage.t', ()),
 }
 FLEXIBLE_ARRAY = PA38_GENERAL / '300-c-flexible-array.t'
 RECORD_CONSTRAINTS = {

@@ -986,14 +986,16 @@ bool CConstexprObjectType(Analyzer& analyzer, const Type* type)
 
 } // namespace
 
+void Analyzer::check_c_constexpr_type(const Type* type, uint32_t location)
+{
+	if (!CConstexprObjectType(*this, type))
+		error(location, "invalid object or subobject type for a C constexpr definition");
+}
+
 void Analyzer::check_constexpr_variable(const VariableEntity* variable, uint32_t location)
 {
 	if (c_source_)
-	{
-		if (!CConstexprObjectType(*this, variable->type))
-			error(location, "invalid object or subobject type for a C constexpr definition");
-		return;
-	}
+		return check_c_constexpr_type(variable->type, location);
 	// 7.1.5p9: a constexpr object's type is a literal type.
 	if (variable->is_constexpr && !literal_type(variable->type))
 		error(location, "a constexpr variable of a type that is not a literal type");

@@ -31,7 +31,7 @@ bool CArithmetic(const Type* type)
 	return IsArithmetic(type) || IsComplex(type);
 }
 
-bool CNamedConstant(const syntax::Expr* expr)
+bool CObjectConstant(const syntax::Expr* expr)
 {
 	using syntax::ExprKind;
 	while (expr->kind == ExprKind::Member)
@@ -41,6 +41,9 @@ bool CNamedConstant(const syntax::Expr* expr)
 			return false;
 		expr = WithoutParentheses(member->base);
 	}
+	if (expr->kind == ExprKind::FunctionalCast)
+		return static_cast<const syntax::FunctionalCastExpr*>(expr)->compound_has(
+			syntax::FunctionalCastExpr::Constexpr);
 	if (expr->kind != ExprKind::Id || expr->facts->entity == nullptr)
 		return false;
 	const Entity* entity = expr->facts->entity;
@@ -123,7 +126,8 @@ bool Analyzer::c_integer_constant_operands(const syntax::Expr& root, bool arithm
 				break;
 			// Fall through.
 		case ExprKind::Member:
-			if (!CNamedConstant(expr))
+		case ExprKind::FunctionalCast:
+			if (!CObjectConstant(expr))
 				return false;
 			break;
 		case ExprKind::Generic:
@@ -133,7 +137,7 @@ bool Analyzer::c_integer_constant_operands(const syntax::Expr& root, bool arithm
 		{
 			const Expr* operand = WithoutParentheses(static_cast<const syntax::CastExpr*>(expr)->operand);
 			if (arithmetic || !CArithmetic(operand->facts->type) ||
-				(operand->kind != ExprKind::Literal && !CNamedConstant(operand)))
+				(operand->kind != ExprKind::Literal && !CObjectConstant(operand)))
 				pending.push_back(operand);
 			break;
 		}
@@ -207,7 +211,7 @@ bool ConstantInterpreter::check_c_constexpr_initializer(
 		return false;
 	if (pointer_target && IsIntegralOrUnscopedEnum(from) && !analyzer_.c_integer_constant_operands(expr))
 		return false;
-	if (!integer_target && !arithmetic_target && !pointer_target && !CNamedConstant(&expr))
+	if (!integer_target && !arithmetic_target && !pointer_target && !CObjectConstant(&expr))
 		return false;
 	++analyzer_.graph_.constant_evaluations;
 	c_constant_expression_ = true;

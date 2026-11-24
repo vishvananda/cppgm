@@ -1006,7 +1006,8 @@ bool ConstantInterpreter::glvalue(const syntax::Expr& expr, ConstPlace& out)
 	case syntax::ExprKind::FunctionalCast:
 	{
 		const syntax::FunctionalCastExpr& functional = static_cast<const syntax::FunctionalCastExpr&>(*e);
-		if (c_static_initializer_ && functional.compound_static)
+		if ((c_static_initializer_ && functional.compound_static) ||
+			functional.compound_has(syntax::FunctionalCastExpr::Constexpr))
 		{
 			out = ConstPlace();
 			out.root = RootKind::CompoundLiteral;

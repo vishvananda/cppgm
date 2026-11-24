@@ -12,6 +12,77 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "compound-literal-storage-runtime",
+      "path": "gcc/testsuite/gcc.dg/c23-complit-2.c",
+      "sha256": "ecf9f4bf2203d9ec0d545a1acfc191525eb1237cc01634872696f47231b69260",
+      "dialect": "c23",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors", "-O2"],
+      "upstream_flags": ["-pedantic-errors", "-O2"],
+      "obligation": "Static compound literals retain modifications across evaluations, while automatic literals reinitialize"
+    },
+    {
+      "id": "compound-literal-thread-storage",
+      "path": "gcc/testsuite/gcc.dg/c23-complit-3.c",
+      "sha256": "e2bcb79b90aa7c23b744404e7709d9979b9767801081b3439d9a7be176f21e82",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Accept file-scope thread storage and either spelling order of static and thread_local at block scope"
+    },
+    {
+      "id": "compound-literal-per-thread-runtime",
+      "path": "gcc/testsuite/gcc.dg/c23-complit-4.c",
+      "sha256": "c9a0f4a6ad93711535f45d4baa3a6b9c253dafba395cedef26483d02b43e7518",
+      "dialect": "gnu23",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": ["-pthread", "-pedantic-errors", "-O2"],
+      "upstream_flags": ["-pthread", "-pedantic-errors", "-O2"],
+      "link_flags": ["-lpthread"],
+      "obligation": "Each thread obtains its own initialized instance of a thread-local compound literal"
+    },
+    {
+      "id": "compound-literal-invalid-storage",
+      "path": "gcc/testsuite/gcc.dg/c23-complit-5.c",
+      "sha256": "74e613601b8912d24c57a543bcc636eedc23e7825e796955b18e4dce9c67ebe8",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Reject invalid storage, duplicate specifiers, and storage-class specifiers used as part of a cast"
+    },
+    {
+      "id": "compound-literal-inline-storage",
+      "path": "gcc/testsuite/gcc.dg/c23-complit-8.c",
+      "sha256": "5ebd0f0132baaac93b337f12525e9ef1b4a9bbd0747ae084f4b1eb3e84910692",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "diagnostic_contains": {
+        "cppgm": "an external C inline definition defines a modifiable object",
+        "upstream": "declared in inline function"
+      },
+      "obligation": "Apply the restriction on modifiable static or thread-local objects in external inline definitions"
+    },
+    {
+      "id": "constexpr-objects-and-compound-literals",
+      "path": "gcc/testsuite/gcc.dg/c23-constexpr-1.c",
+      "sha256": "a2ecee777ef73c7b10fc93601d0aa56f9e4e51562315283181c895b53e9fb7c9",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "C23 constexpr declarations, inference, literals, aggregate copies, and constant operands"
+    },
+    {
       "id": "free-labels-execution",
       "path": "gcc/testsuite/gcc.dg/c23-labels-1.c",
       "sha256": "811d1ee95c60a79f53eb0295bdb41b67e070f76d54d95a1589649b40cd155e4e",

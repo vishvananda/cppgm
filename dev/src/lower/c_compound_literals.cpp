@@ -11,7 +11,9 @@ Place FunctionLowering::compound_literal(const syntax::FunctionalCastExpr& expr)
 		evaluate_runtime_bounds(lowering_.graph().runtime_bounds(&expr), nullptr, expr.location);
 	Place object = Place();
 	const sema::Type* type = expr.facts->type;
-	if (expr.compound_static)
+	object.is_volatile = (type->cv & sema::kVolatile) != 0;
+	object.is_atomic = (type->cv & sema::kAtomic) != 0;
+	if (expr.compound_static || expr.compound_has(syntax::FunctionalCastExpr::ThreadLocal))
 	{
 		object.storage = lowir::Value::symbol(lowering_.compound_literal(expr));
 		return object;
@@ -26,9 +28,9 @@ Place FunctionLowering::compound_literal(const syntax::FunctionalCastExpr& expr)
 		compound_slots_.set(&expr, slot);
 	}
 	object.storage = lowir::Value::slot(slot);
-	object.is_volatile = (type->cv & sema::kVolatile) != 0;
-	object.is_atomic = (type->cv & sema::kAtomic) != 0;
-	if (type->kind == sema::TypeKind::Array)
+	if (expr.compound_has(syntax::FunctionalCastExpr::Constexpr))
+		copy_object(type, lowir::Value::symbol(lowering_.compound_literal(expr)), address_of(object), expr.location);
+	else if (type->kind == sema::TypeKind::Array)
 		aggregate_array_object(type, object, *expr.braced, nullptr, expr.location);
 	else if (sema::ClassOf(type) != nullptr)
 		aggregate_object(type, AddressPath{ AddressPath::Root::Storage, object.storage, path_steps_.size() },
@@ -51,16 +53,15 @@ lowir::SymbolId ProgramLowering::compound_literal(const syntax::FunctionalCastEx
 	if (found != PointerMap::kMissing)
 		return found;
 	StaticData data;
-	if (!static_element(expr.facts->type, *expr.braced, data))
-		throw LoweringError(expr.location, "file-scope C compound literal requires a constant initializer");
-	const lowir::SymbolId symbol = static_temporary(expr.facts->type);
+	const sema::Type* type = expr.facts->type;
+	if (!static_element(type, *expr.braced, data))
+		throw LoweringError(expr.location, "a C compound literal requires a constant initializer");
+	const lowir::SymbolId symbol = static_temporary(type, &data);
 	compound_globals_.set(&expr, symbol);
-	auto& global = program_.globals[program_.symbols[symbol].detail];
-	global.typed = false;
-	global.init = lowir::GlobalInit::Data;
-	global.first_item = static_cast<uint32_t>(program_.data_items.size());
-	global.item_count = static_cast<uint32_t>(data.items.size());
-	program_.data_items.insert(program_.data_items.end(), data.items.begin(), data.items.end());
+	if (expr.compound_has(syntax::FunctionalCastExpr::ThreadLocal))
+		program_.symbols[symbol].metadata.storage = ir_model::GSM_THREAD_LOCAL;
+	else if (expr.compound_storage != 0 && readonly_object(type))
+		program_.symbols[symbol].metadata.storage = ir_model::GSM_READONLY;
 	return symbol;
 }
 

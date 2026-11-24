@@ -1499,6 +1499,24 @@
       "cases": ["c23.block-labels", "c23.block-labels-vla", "c23.label-on-substatement-declaration", "c23.label-at-substatement-end", "c23.block-label-goto-vla", "c23.block-label-case-vla"]
     },
     {
+      "id": "c23.compound-storage-classes",
+      "clause": "6.5.3.6, 6.7.2, 6.7.11",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Apply static, thread, register, and constexpr storage rules to compound literal objects. Check scope, compatibility, addressability, initialization, and persistent or automatic object behavior.",
+      "cases": ["c23.compound-storage", "c23.compound-thread-storage", "c23.compound-register-address", "c23.compound-register-file", "c23.compound-thread-without-static", "c23.compound-constexpr-thread", "c23.compound-duplicate-storage", "c23.compound-static-runtime", "c23.compound-thread-address", "c23.compound-inline-static", "c23.compound-storage-in-cast"]
+    },
+    {
+      "id": "c23.constexpr-compound-literals",
+      "clause": "6.5.3.6, 6.6, 6.7.2",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Use constexpr compound literals and selected members as constant operands. Add const qualification, diagnose unrepresentable initializers, and withhold address constants for automatic objects.",
+      "cases": ["c23.compound-constexpr", "c23.compound-constexpr-narrowing", "c23.compound-constexpr-address"]
+    },
+    {
       "id": "c23.attribute-query",
       "clause": "6.10.2p9-p11, 6.7.13",
       "kind": "required",
