@@ -1047,10 +1047,17 @@ bool ProgramLowering::static_c_value(const sema::ConstValue& value, StaticValue&
 	switch (value.kind)
 	{
 	case sema::ValueKind::Integer:
+	{
 		out.kind = StaticValue::Kind::Integer;
 		out.bits = value.bits;
 		out.high = value.high;
+		// ConstValue uses the high half only for wide integers. StaticValue
+		// holds a sign-extended integer for conversion to any real format.
+		sema::IntegralKind kind;
+		if ((value.bits >> 63) != 0 && sema::IntegralKindOf(value.type, kind) && kind.bits <= 64 && kind.is_signed)
+			out.high = UINT64_MAX;
 		return true;
+	}
 	case sema::ValueKind::Floating:
 		out.kind = StaticValue::Kind::Floating;
 		out.floating = value.floating;
