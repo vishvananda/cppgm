@@ -18,6 +18,7 @@ struct LiteralExpr;
 namespace sema {
 
 struct DataMember;
+struct CInitializer;
 struct VariableEntity;
 struct FunctionEntity;
 
@@ -46,7 +47,9 @@ enum class ValueKind : uint8_t
 	// bases in declaration order, then its non-static data members by
 	// ordinal (a union's members, one of them active).
 	Array,
-	Class
+	Class,
+	// A C constexpr array backed by its checked sparse initializer.
+	CArrayInitializer
 };
 
 // The storage a pointer designates.
@@ -174,6 +177,7 @@ struct ConstValue
 		uint64_t bits;
 		long double floating;
 		ConstValue* elements;
+		const CInitializer* c_initializer;
 		struct
 		{
 			const void* entity;

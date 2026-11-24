@@ -157,6 +157,7 @@ C23_PROGRAMS = {
     'c23.bitint-atomics': (PA38_GENERAL / '500-c23-bit-precise-atomics.t', ()),
     'c23.constexpr-scalars': (PA38_GENERAL / '300-c23-constexpr-scalars.t', ()),
     'c23.constexpr-aggregates': (PA38_GENERAL / '300-c23-constexpr-aggregates.t', ()),
+    'c23.constexpr-sparse-records': (PA38_GENERAL / '300-c23-constexpr-sparse-records.t', ()),
     'c23.constexpr-complex': (PA38_GENERAL / '300-c23-constexpr-complex.t', ()),
     'c23.auto-inference': (PA38_GENERAL / '300-c23-auto-inference.t', ()),
     'c23.auto-qualified': (PA38_GENERAL / '300-c23-auto-qualified.t', ()),

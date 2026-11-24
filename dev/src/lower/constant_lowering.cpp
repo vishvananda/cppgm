@@ -628,6 +628,8 @@ bool ProgramLowering::constant_placements(const sema::Type* type, const sema::Co
 		return false;
 	if (type->kind == sema::TypeKind::Array)
 	{
+		if (value.kind == sema::ValueKind::CArrayInitializer)
+			return c_initializer_placements(*value.c_initializer, offset, out);
 		if (value.kind != sema::ValueKind::Array || value.count > type->bound ||
 			(value.count < type->bound &&
 				((value.flags & sema::kArrayPrefix) == 0 || (value.flags & sema::kArrayTailZero) == 0)))
@@ -829,6 +831,8 @@ bool ProgramLowering::scalar_array_data(
 		append_item(item, out);
 		return true;
 	}
+	if (value.kind == sema::ValueKind::CArrayInitializer)
+		return static_c_initializer(*value.c_initializer, out);
 	const bool prefix = (value.flags & sema::kArrayPrefix) != 0;
 	if (value.kind != sema::ValueKind::Array || value.count > type->bound ||
 		(value.count != type->bound && (!prefix || (value.flags & sema::kArrayTailZero) == 0)) || depth > 256)

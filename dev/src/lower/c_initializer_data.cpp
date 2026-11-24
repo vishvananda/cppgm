@@ -773,6 +773,14 @@ uint64_t ProgramLowering::c_initializer_size(const sema::CInitializer& plan)
 	return extent != 0 ? extent : size_of(plan.type, 0);
 }
 
+bool ProgramLowering::c_initializer_placements(
+	const sema::CInitializer& plan, uint64_t offset, std::vector<StaticPlacement>& out)
+{
+	StaticData data;
+	return static_c_initializer(plan, data) &&
+		CollectPlacements(data, offset, c_initializer_size(plan), program_.pointer_type().pointer_bytes(), out);
+}
+
 bool ProgramLowering::static_c_initializer(const sema::CInitializer& plan, StaticData& out)
 {
 	if (plan.projection != sema::CInitializerProjection::None)

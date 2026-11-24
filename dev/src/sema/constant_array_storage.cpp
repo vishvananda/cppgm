@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include "sema/aggregates.h"
+#include "sema/c_initializer.h"
 #include "sema/constant_storage.h"
 
 namespace sema {
@@ -23,6 +24,34 @@ ConstValue ConstantInterpreter::array_prefix(const Type* type)
 	value.type = type;
 	value.flags = kArrayPrefix;
 	return value;
+}
+
+ConstantInterpreter::StorageView ConstantInterpreter::descend_c_array(
+	const CInitializer& plan, int64_t offset, const Type* wanted, uint32_t depth)
+{
+	const Type* type = plan.type->element;
+	const uint64_t stride = size_of(type, 0);
+	if (offset < 0 || stride == 0)
+		return StorageView();
+	const uint64_t index = static_cast<uint64_t>(offset) / stride;
+	if (index >= plan.type->bound)
+		return StorageView();
+	const auto* end = plan.children.end();
+	const auto* child = std::lower_bound(plan.children.begin(), end, index,
+		[](const CInitializerChild& entry, uint64_t index) { return entry.limit <= index; });
+	ConstValue* value = nullptr;
+	if (child != end && child->index <= index)
+	{
+		ConstPlace object;
+		const bool saved = c_constexpr_initializer_;
+		c_constexpr_initializer_ = true;
+		const bool initialized = new_object(type, object, 0, ObjectStorage::Prefix) &&
+			c_initialize(*child->initializer, object, 0) && locate(object, false, value, 0);
+		c_constexpr_initializer_ = saved;
+		if (!initialized)
+			return StorageView();
+	}
+	return descend(value, type, static_cast<int64_t>(static_cast<uint64_t>(offset) % stride), wanted, false, depth + 1);
 }
 
 bool ConstantInterpreter::zero_array_tail(const Type* type, uint32_t depth)

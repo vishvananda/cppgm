@@ -211,6 +211,7 @@ private:
 	};
 	StorageView descend(
 		ConstValue* value, const Type* type, int64_t offset, const Type* wanted, bool write, uint32_t depth);
+	StorageView descend_c_array(const CInitializer& plan, int64_t offset, const Type* wanted, uint32_t depth);
 	StorageView select_variant(ConstValue* storage, const Type* type, const DataMember* member, int64_t offset,
 		const UnionSelection* outer, bool write, uint32_t location);
 	const ConstValue* literal_object(const syntax::LiteralExpr* literal, uint32_t location);

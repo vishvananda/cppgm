@@ -96,6 +96,13 @@ checks the named-member rule from §6.6. Clang's internal-linkage case is
 replayed for object generation, with symbol binding checked separately
 from the upstream LLVM IR assertions.
 
+A structure or union constant can have a sparsely initialized array
+member. Reading its scalar member requires the value of that member.
+The declared array extent still governs object size and the array's
+runtime storage. The same rules apply when another constexpr object is
+initialized from the aggregate value.
+[WG14 N3220 §§6.6, 6.7.11](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+
 ## C23 bit-precise integers
 
 The width includes the sign bit for a signed type. The minimum is two

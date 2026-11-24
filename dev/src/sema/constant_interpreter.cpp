@@ -551,7 +551,7 @@ bool OverlappingEmpty(const DataMember* member)
 // inactive union member's storage as its lifetime begins (3.8p1).
 void Indeterminate(ConstValue& value)
 {
-	if ((value.flags & kSharedElements) != 0)
+	if ((value.flags & kSharedElements) != 0 || value.kind == ValueKind::CArrayInitializer)
 	{
 		const Type* type = value.type;
 		value = ConstValue();
@@ -628,7 +628,9 @@ ConstantInterpreter::StorageView ConstantInterpreter::descend(
 		return descend(element, type->element, offset - static_cast<int64_t>(index * size), wanted, write, depth + 1);
 	}
 	if (value != nullptr && value->kind != ValueKind::Class)
-		return StorageView();
+		return !write && value->kind == ValueKind::CArrayInitializer
+			? descend_c_array(*value->c_initializer, offset, wanted, depth)
+			: StorageView();
 	const ClassEntity* cls = ClassOf(type);
 	if (cls == nullptr)
 		return StorageView();
@@ -1138,7 +1140,8 @@ bool ConstantInterpreter::write(const ConstPlace& place, const ConstValue& value
 		return false;
 	if (target->kind == ValueKind::OutsideLifetime)
 		return fail(location, "a write outside an object's lifetime");
-	if (target->kind == ValueKind::Array || target->kind == ValueKind::Class)
+	if (target->kind == ValueKind::Array || target->kind == ValueKind::Class ||
+		target->kind == ValueKind::CArrayInitializer)
 		copy_into(*target, value);
 	else
 	{
@@ -1593,11 +1596,13 @@ void ConstantInterpreter::copy_into(ConstValue& target, const ConstValue& source
 {
 	if (&target == &source)
 		return;
-	if ((source.flags & kSharedElements) != 0)
+	if ((source.flags & kSharedElements) != 0 || source.kind == ValueKind::CArrayInitializer)
 	{
 		target = source;
 		return;
 	}
+	if (target.kind == ValueKind::CArrayInitializer)
+		target = array_prefix(target.type);
 	writable_elements(target);
 	if (target.kind == ValueKind::Array && source.kind == ValueKind::Array &&
 		((target.flags | source.flags) & kArrayPrefix) != 0)
@@ -1634,7 +1639,7 @@ void ConstantInterpreter::copy_into(ConstValue& target, const ConstValue& source
 
 void ConstantInterpreter::zero_into(ConstValue& target)
 {
-	if ((target.flags & kSharedElements) != 0)
+	if ((target.flags & kSharedElements) != 0 || target.kind == ValueKind::CArrayInitializer)
 	{
 		target = prefix_value(target.type, 0, true);
 		return;
@@ -2014,7 +2019,8 @@ bool ConstantInterpreter::evaluate(const syntax::Expr& expr, bool converted, Con
 	++analyzer_.graph_.constant_evaluations;
 	if (!(converted ? operand(expr, out) : rvalue(expr, out)))
 		return false;
-	if (out.kind == ValueKind::Indeterminate || out.kind == ValueKind::Array || out.kind == ValueKind::Class)
+	if (out.kind == ValueKind::Indeterminate || out.kind == ValueKind::Array || out.kind == ValueKind::Class ||
+		out.kind == ValueKind::CArrayInitializer)
 		return fail(expr.location, "not a constant scalar value");
 	return (!analyzer_.cxx20_ || (end_full_expression(0) && valid_pointer(out, expr.location))) &&
 		finish_allocations(expr.location);
@@ -2043,7 +2049,8 @@ bool ConstantInterpreter::evaluate_after(const syntax::Expr& expr, const Convers
 	++analyzer_.graph_.constant_evaluations;
 	if (!converted(expr, conversion, out))
 		return false;
-	if (out.kind == ValueKind::Indeterminate || out.kind == ValueKind::Array || out.kind == ValueKind::Class)
+	if (out.kind == ValueKind::Indeterminate || out.kind == ValueKind::Array || out.kind == ValueKind::Class ||
+		out.kind == ValueKind::CArrayInitializer)
 		return fail(expr.location, "not a constant scalar value");
 	return (!analyzer_.cxx20_ || (end_full_expression(0) && valid_pointer(out, expr.location))) &&
 		finish_allocations(expr.location);
