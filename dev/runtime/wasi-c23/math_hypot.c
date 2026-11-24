@@ -39,19 +39,15 @@ float hypotf(float x, float y)
 	return result;
 }
 
-#define DEFINE_SQUARE(type, name, split) \
-	static type name(type x, type* low) \
-	{ \
-		const type scaled = x * split; \
-		const type high = (x - scaled) + scaled; \
-		const type tail = x - high; \
-		const type square = x * x; \
-		*low = ((high * high - square) + 2 * high * tail) + tail * tail; \
-		return square; \
-	}
-
-DEFINE_SQUARE(double, square_double, (0x1p27 + 1))
-DEFINE_SQUARE(long double, square_quad, (0x1p57L + 1))
+static double square_double(double x, double* low)
+{
+	const double scaled = x * (0x1p27 + 1);
+	const double high = (x - scaled) + scaled;
+	const double tail = x - high;
+	const double square = x * x;
+	*low = ((high * high - square) + 2 * high * tail) + tail * tail;
+	return square;
+}
 
 static double norm_double(double x, double y)
 {
@@ -102,6 +98,18 @@ union binary128
 	long double value;
 	uint64_t words[2];
 };
+
+static long double square_quad(long double x, long double* low)
+{
+	union binary128 leading = { .value = x };
+	// Retain the top 56 bits, so the square of this part is exact.
+	leading.words[0] &= UINT64_C(0xfe00000000000000);
+	const long double high = leading.value;
+	const long double tail = x - high;
+	const long double square = x * x;
+	*low = ((high * high - square) + 2.0L * high * tail) + tail * tail;
+	return square;
+}
 
 static long double norm_quad(long double x, long double y)
 {
