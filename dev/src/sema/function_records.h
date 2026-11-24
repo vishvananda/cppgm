@@ -451,6 +451,8 @@ struct FunctionEntity : Entity
 	// definition is never emitted on its own (see
 	// ProgramLowering::demand_entry).
 	bool always_inline : 1;
+	// A GNU assembly input must become immediate during substitution.
+	bool deferred_asm_input : 1;
 	bool unanalyzed_body : 1;
 	bool excluded_instantiation : 1;
 	bool gnu_inline : 1;

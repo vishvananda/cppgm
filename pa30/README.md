@@ -571,6 +571,8 @@ To complete PA30, implement hosted compatibility for:
   `__has_declspec_attribute`, answer no rather than failing
 - GNU `always_inline` direct calls in host objects substitute the available
   body at every optimization level, including constructors and destructors.
+  An assembly operand that needs a constant or symbol address can use
+  a parameter if substitution provides a valid operand for its constraint.
   A defaulted member of a class template still follows the rules for the
   location of its original `= default`. Instantiating a call preserves the
   special-member semantics of an in-class default.

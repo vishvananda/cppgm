@@ -1,0 +1,20 @@
+static int array[2];
+
+static inline __attribute__((always_inline)) const int* address(const int* object)
+{
+    const int* result;
+    asm("leaq %c1(%%rip), %0" : "=r"(result) : "i"(object));
+    return result;
+}
+
+static inline __attribute__((always_inline)) int literal(int value)
+{
+    int result;
+    asm("movl %1, %0" : "=r"(result) : "i"(value));
+    return result;
+}
+
+int main()
+{
+    return address(&array[1]) != &array[1] || literal(21) != 21;
+}

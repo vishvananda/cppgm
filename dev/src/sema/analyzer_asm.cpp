@@ -36,7 +36,7 @@ assembly::View<T> preserve(Arena& arena, const std::vector<T>& values)
 }
 
 const char* prepare_operands(Analyzer& analyzer, const syntax::AsmStmt& stmt, Scope* scope,
-	assembly::PacketBuilder& packet, std::vector<ConstValue>& addresses)
+	assembly::PacketBuilder& packet, std::vector<ConstValue>& addresses, FunctionEntity* function)
 {
 	using namespace asm_model;
 	packet.constants.resize(packet.operands.size());
@@ -99,8 +99,15 @@ const char* prepare_operands(Analyzer& analyzer, const syntax::AsmStmt& stmt, Sc
 		const bool scalar = IsScalar(type) || type->kind == TypeKind::Vector;
 		if (!scalar && !symbol && ((locations & AL_MEMORY) == 0 || !addressable))
 			return "assembly operand requires scalar/vector data or addressable memory";
+		// A required inline substitution can turn a parameter into a
+		// constant or a symbol. The native constraint solver checks the
+		// substituted operand when it encodes the caller.
 		if (!output && !constant.present && !symbol && !operand.input_storage && (locations & AL_REGISTER) == 0)
-			return "assembly operand requires an addressable memory object or compile-time constant";
+		{
+			if (function == nullptr || !function->always_inline || (locations & (AL_IMMEDIATE | AL_SYMBOL)) == 0)
+				return "assembly operand requires an addressable memory object or compile-time constant";
+			function->deferred_asm_input = true;
+		}
 		if ((locations & AL_MEMORY) != 0)
 		{
 			unsigned effect = static_cast<unsigned>(packet.definition.memory);
@@ -195,7 +202,7 @@ void Analyzer::asm_statement(const syntax::AsmStmt& stmt, Scope* scope)
 	try
 	{
 		built = assembly::gnu_packet(text, operands, clobbers, stmt.is_volatile || stmt.is_goto, !stmt.is_extended);
-		if (const char* message = prepare_operands(*this, stmt, scope, built, addresses))
+		if (const char* message = prepare_operands(*this, stmt, scope, built, addresses, body_->function))
 			error(stmt.location, message);
 	}
 	catch (const assembly::AssemblyError& failure)

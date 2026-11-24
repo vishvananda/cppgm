@@ -11,7 +11,7 @@ class SourceInlining
 {
 public:
 	explicit SourceInlining(lowir::Program& program) : program_(program) {}
-	void mark(lowir::SymbolId symbol, lowir::SymbolId target);
+	void mark(lowir::SymbolId symbol, lowir::SymbolId target, bool substitution_only);
 	bool defer(lowir::SymbolId symbol);
 	void run();
 	lowir::SymbolId immediate_guard(lowir::SymbolId symbol);
@@ -32,10 +32,12 @@ private:
 	bool direct_immediates(const lowir::FunctionBody& body) const;
 	void validate_immediates();
 	void remove_immediates(lowir::FunctionBody& body);
+	void drop_substitution_bodies();
 	lowir::Program& program_;
 	lowir::SymbolId immediate_guard_ = lowir::kNoId;
 	bool aliases_ = false;
 	FlatMap<lowir::SymbolId, lowir::SymbolId, Hash> required_;
+	FlatMap<lowir::SymbolId, bool, Hash> substitution_only_;
 	std::vector<lowir::SymbolId> annotated_;
 	std::vector<lowir::SymbolId> deferred_;
 	std::vector<std::pair<lowir::SymbolId, lowir::VectorOp>> vectors_;
