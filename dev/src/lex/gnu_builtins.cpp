@@ -33,6 +33,7 @@ const struct
 	{ "__builtin_bswap32", { GnuBuiltin::BitCount, 1, nullptr, 0 } },
 	{ "__builtin_bswap64", { GnuBuiltin::BitCount, 2, nullptr, 0 } },
 	{ "__builtin_bzero", { GnuBuiltin::Library, 0, "vv*z", 0 } },
+	{ "__builtin_c23_va_start", { GnuBuiltin::C23VaStart, 0, nullptr, 0 } },
 	{ "__builtin_classify_type", { GnuBuiltin::ClassifyType, 0, nullptr, 0 } },
 	{ "__builtin_clz", { GnuBuiltin::BitCount, 3, nullptr, 0 } },
 	{ "__builtin_clzg", { GnuBuiltin::GenericBitCount, 0, nullptr, 0 } },
@@ -970,7 +971,7 @@ const GnuC11Operation kGnuC11Operations[] = { { "init", 2, "pv", '-', 1, 0xff },
 	{ "is_lock_free", 25, "s", 'L', 0, 0xff } };
 const unsigned kGnuC11OperationCount = sizeof kGnuC11Operations / sizeof kGnuC11Operations[0];
 
-uint32_t ProvidedBuiltinVersion(const char* spelling, uint32_t length, bool wasm, bool cxx20, bool c_source)
+uint32_t ProvidedBuiltinVersion(const char* spelling, uint32_t length, bool wasm, bool cxx20, bool c_source, bool c23)
 {
 	// Clang's builtin templates, which the hosted builtin declarations
 	// declare (driver/host_environment.cpp).
@@ -991,6 +992,8 @@ uint32_t ProvidedBuiltinVersion(const char* spelling, uint32_t length, bool wasm
 	if (!cxx20 && IsCoroutineBuiltin(entry.builtin))
 		return 0;
 	if (!c_source && entry.builtin == GnuBuiltin::TypeGenericMath)
+		return 0;
+	if (!c23 && entry.builtin == GnuBuiltin::C23VaStart)
 		return 0;
 	return entry.builtin == GnuBuiltin::OperatorNew || entry.builtin == GnuBuiltin::OperatorDelete ? 201802 : 1;
 }

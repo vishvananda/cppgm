@@ -95,6 +95,7 @@ void Analyzer::set_source_language(const PreprocessorOptions& options)
 {
 	c_source_ = options.language == SourceLanguage::C;
 	c_before_c99_ = c_source_ && options.c_edition < CEdition::C99;
+	c23_ = c_source_ && options.c_edition >= CEdition::C23;
 	c_pedantic_ = c_source_ && options.extension_warnings != ExtensionWarnings::Disabled;
 	c_freestanding_ = options.c_freestanding;
 	c_language_ = c_source_;

@@ -1110,7 +1110,7 @@ const Conversion* Analyzer::convert(const syntax::Expr& expr, const Type* target
 	Conversion conversion = Conversion();
 	conversions_.set_arithmetic_operand(operand);
 	bool converts = !IsVoid(facts->type) && conversions_.implicit(operand_of(facts), target, direct, conversion);
-	if (!converts && c_source_ && IsPointer(target) && note_c_null_constant(expr))
+	if (!converts && c_source_ && (IsPointer(target) || IsNullptrType(target)) && note_c_null_constant(expr))
 		converts = conversions_.implicit(operand_of(facts), target, direct, conversion);
 	conversions_.set_arithmetic_operand(false);
 	if (!converts && (IsVoid(facts->type) || operand || !lanewise_result(facts, target, conversion)) &&
@@ -1805,10 +1805,13 @@ ExprFacts* Analyzer::comparison(const syntax::BinaryExpr& expr, ExprFacts* left,
 	// are none.
 	const Type* composite = composite_pointer(left, right, true);
 	if (composite == nullptr && c_source_ && equality &&
-		((IsPointer(lt) && note_c_null_constant(*expr.right)) || (IsPointer(rt) && note_c_null_constant(*expr.left))))
+		(((IsPointer(lt) || IsNullptrType(lt)) && note_c_null_constant(*expr.right)) ||
+			((IsPointer(rt) || IsNullptrType(rt)) && note_c_null_constant(*expr.left))))
 		composite = composite_pointer(left, right, true);
 	if (composite == nullptr || !(IsPointer(composite) || IsMemberPointer(composite) || IsNullptrType(composite)) ||
-		(!equality && (IsMemberPointer(composite) || IsNullptrType(composite))))
+		(!equality &&
+			(IsMemberPointer(composite) || IsNullptrType(composite) ||
+				(c_source_ && (IsNullptrType(lt) || IsNullptrType(rt))))))
 	{
 		substitution_error(expr.location, "invalid operands to a comparison");
 		return nullptr;
@@ -3275,6 +3278,8 @@ ExprFacts* Analyzer::explicit_conversion(
 		return facts;
 	}
 	const Type* from = source->type->kind == TypeKind::Class ? source->type : decayed(source);
+	if (c_source_ && IsNullptrType(goal) && !IsNullptrType(from))
+		note_c_null_constant(*operand);
 	if (IsMemberPointer(goal) && cast != TokenKind::KW_CONST_CAST && cast != TokenKind::KW_REINTERPET_CAST &&
 		(!c_style || static_member_pointer_cast(source, from, goal)))
 		return member_pointer_cast(expr, source, from, goal, c_style);
@@ -3358,8 +3363,7 @@ ExprFacts* Analyzer::explicit_conversion(
 			allowed = constness || !ConversionRules::casts_away_constness(from, goal);
 		else if (IsPointer(from) && IsIntegralType(goal) && width.bits >= types_.layout().pointer_bytes * 8u)
 			allowed = true;
-		else if (from->kind == TypeKind::Fundamental && from->fundamental == FundamentalType::NullptrT &&
-			IsIntegralType(goal))
+		else if (!c_source_ && IsNullptrType(from) && IsIntegralType(goal))
 			allowed = true;
 		else if (IsIntegralOrUnscopedEnum(from) && IsPointer(goal))
 			allowed = true;

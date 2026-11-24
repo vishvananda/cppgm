@@ -1040,15 +1040,19 @@ bool Analyzer::implicit_sequence(const syntax::Expr& argument, const Type* param
 	}
 	if (IsVoid(facts->type))
 		return false;
+	const auto admits_c_null = [&] {
+		return parameter->kind == TypeKind::Pointer ||
+			(c23_ && parameter->unqualified == types_.fundamental(FundamentalType::NullptrT));
+	};
 	if (c_overload)
 	{
-		if (parameter->kind == TypeKind::Pointer)
+		if (admits_c_null())
 			note_c_null_constant(argument);
 		return conversions_.c_overload(operand_of(facts), parameter, out);
 	}
 	if (conversions_.implicit(operand_of(facts), parameter, false, out))
 		return true;
-	if (c_source_ && parameter->kind == TypeKind::Pointer && note_c_null_constant(argument))
+	if (c_source_ && admits_c_null() && note_c_null_constant(argument))
 		return conversions_.implicit(operand_of(facts), parameter, false, out);
 	if (standard_only_)
 		return false;

@@ -592,8 +592,11 @@ ParameterClause* Parser::parse_parameter_clause(
 	bool parsed = true;
 	while (!at(TokenKind::OP_RPAREN))
 	{
-		if (accept(TokenKind::OP_DOTS))
+		if (at(TokenKind::OP_DOTS))
 		{
+			if (c_source_ && parameters.size() == 0)
+				require_c_extension(tok(), CEdition::C23, "a parameter list with only an ellipsis requires C23");
+			next();
 			clause->ellipsis = true;
 			break;
 		}

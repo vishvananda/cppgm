@@ -1355,6 +1355,51 @@
       "cases": ["c23.typeof-bitfield", "c23.typeof-unqual-bitfield"]
     },
     {
+      "id": "c23.nullptr-type",
+      "clause": "6.4.4.6, 7.21.2",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Reserve nullptr as a predefined constant of its own scalar type. Use pointer-compatible size, alignment and null representation, and use null for default and empty initialization.",
+      "cases": ["c23.nullptr-conversions", "c23.nullptr-reserved", "c23.nullptr-not-ice"]
+    },
+    {
+      "id": "c23.nullptr-conversion",
+      "clause": "6.3.2.4, 6.5.5, 6.5.17.2",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Allow nullptr_t values to be converted to void, bool and pointer types, and allow nullptr_t and null pointer constants to initialize or assign nullptr_t. Preserve operand effects.",
+      "cases": ["c23.nullptr-conversions", "c23.nullptr-cast-int", "c23.nullptr-from-pointer"]
+    },
+    {
+      "id": "c23.nullptr-operators",
+      "clause": "6.5.10, 6.5.13–6.5.16",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Apply the nullptr_t equality, logical and conditional operand rules. Preserve pointer type in a mixed conditional and reject ordered comparisons and integer null constant conditional arms.",
+      "cases": ["c23.nullptr-conversions", "c23.nullptr-conditional", "c23.nullptr-ordered"]
+    },
+    {
+      "id": "c23.alignment-keywords",
+      "clause": "6.5.4.4, 6.7.6",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Recognize alignas and alignof and apply the existing type and alignment rules to their operands.",
+      "cases": ["c23.nullptr-conversions"]
+    },
+    {
+      "id": "c23.ellipsis-only-functions",
+      "clause": "6.7.7.4, 7.16.1.1, 7.16.1.4",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Allow a variadic function type with no named parameters. Start traversal from its first argument without an anchor, and allow variadic nullptr_t values to be read as void or character pointers.",
+      "cases": ["c23.nullptr-variadic", "c23.va-start-context"]
+    },
+    {
       "id": "c23.attribute-query",
       "clause": "6.10.2p9-p11, 6.7.13",
       "kind": "required",

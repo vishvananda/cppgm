@@ -12,6 +12,21 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "c17-nullptr-1",
+      "path": "gcc/testsuite/gcc.dg/c17-nullptr-1.c",
+      "sha256": "cbe1fc97139f01493673b20792e4233126bbab8d9c96936e780ae8403f55f0ec",
+      "dialect": "c17",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Use nullptr as a source identifier in ISO C17"
+    },
+    {
       "id": "c17-ucn-low-values",
       "path": "gcc/testsuite/gcc.dg/cpp/c17-ucn-1.c",
       "sha256": "7a8878343ad52c230da80edec9ada3add80bbf9a6e426955bba269f93d0aa63c",

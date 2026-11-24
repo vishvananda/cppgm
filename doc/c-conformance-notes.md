@@ -1047,6 +1047,36 @@ omission in a macro defined and called in user source. GCC accepts
 the same omission for a system-header macro. cppgm follows that
 behavior and enables the diagnostic there with `-Wsystem-headers`.
 
+## C23 nullptr and variadic arguments
+
+C23 reserves `nullptr` as a predefined constant. Its type is distinct
+from pointer and arithmetic types and shares the object representation of
+a null `void *`. The target layout gives it the size and alignment of
+`char *`. The hosted SDK's `<stddef.h>` declares `nullptr_t`, as verified
+with GCC 15's header. Earlier C modes permit both spellings as identifiers.
+
+Apply the C23 conversion and operator rules before lowering. Equality
+with `nullptr_t` accepts an integer zero constant expression. In a
+conditional with a `nullptr_t` arm, an integer zero arm violates the
+operand constraint. A mixed conditional takes the pointer type in either
+order, including when that pointer is `(void *)0`. Preserve operand
+effects even when the converted value is always null or false. The
+published C23 rules and both tested compilers reject a direct cast from
+`nullptr_t` to `int`. WG14 issue 1053 remains open and discusses changing
+integer casts of null values.
+[WG14 N3220 §§6.3.2.4, 6.5.5, 6.5.10, 6.5.16, 7.21.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
+[WG14 N3042](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3042.htm) ·
+[WG14 issue 1053](https://www.open-std.org/jtc1/sc22/wg14/issues/c23/issue1053.html)
+
+C23 permits a variadic function to have zero named parameters. GCC 15
+and Clang 21 implement the C23 `<stdarg.h>` `va_start` macro using
+`__builtin_c23_va_start`. The first argument is the list. Additional
+compatibility arguments are unevaluated and can contain other balanced
+tokens. cppgm lowers the first argument through the existing variadic
+intrinsic. The target ABI lets the callee read a `nullptr_t` argument as
+`void *` or a character pointer.
+[WG14 N3220 §§6.7.7.4, 7.16.1.1, 7.16.1.4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+
 ## C23 typeof specifiers
 
 The lexer reserves `typeof` in C23 and the GNU C dialects, and

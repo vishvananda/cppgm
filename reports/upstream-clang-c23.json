@@ -12,6 +12,21 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "nullptr-conversion-codegen",
+      "path": "clang/test/CodeGen/nullptr.c",
+      "sha256": "b4e405cc20fdcbf86acdf103b11311ee84108c68310b6346b6052a0b06111e70",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Object generation for C23 null initialization, assignment, and parameter conversions"
+    },
+    {
       "id": "n2927-typeof",
       "path": "clang/test/C/C23/n2927.c",
       "sha256": "07b2b88c1cb9d609c8ab035eda7a5c1e73c15c6dbbae875e1e754f51a5c50450",

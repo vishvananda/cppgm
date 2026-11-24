@@ -647,8 +647,23 @@ const Type* Analyzer::composite_pointer(const ExprFacts* a, const ExprFacts* b, 
 	// result is qualified by both at the first level below the top.
 	const Type* ta = decayed(a);
 	const Type* tb = decayed(b);
-	const bool a_null = (a->flags & kNullLiteral) != 0 || IsNullptrType(ta);
-	const bool b_null = (b->flags & kNullLiteral) != 0 || IsNullptrType(tb);
+	const bool a_nullptr = IsNullptrType(ta);
+	const bool b_nullptr = IsNullptrType(tb);
+	const bool a_null_constant = (a->flags & kNullLiteral) != 0;
+	const bool b_null_constant = (b->flags & kNullLiteral) != 0;
+	if (c_source_ && (a_nullptr || b_nullptr))
+	{
+		// C23 6.5.10 and 6.5.16: both operations admit a pointer or
+		// another nullptr_t. Only equality admits an integer zero ICE.
+		const Type* other = a_nullptr ? tb : ta;
+		if (IsPointer(other))
+			return other;
+		return (a_nullptr && b_nullptr) || (comparison && (a_nullptr ? b_null_constant : a_null_constant))
+			? types_.fundamental(FundamentalType::NullptrT)
+			: nullptr;
+	}
+	const bool a_null = a_null_constant || a_nullptr;
+	const bool b_null = b_null_constant || b_nullptr;
 	if (a_null && b_null)
 	{
 		// C17 6.5.15p6: an integer null pointer constant adopts the

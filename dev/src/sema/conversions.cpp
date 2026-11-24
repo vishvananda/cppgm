@@ -641,7 +641,7 @@ bool ConversionRules::value_conversion(
 			out.second = ValueConversion::Boolean;
 			return true;
 		}
-		if (IsPointerLike(source) || (direct && IsNullptrT(source)))
+		if (IsPointerLike(source) || (IsNullptrT(source) && (direct || c_source_)))
 		{
 			out.second = ValueConversion::PointerBoolean;
 			return true;

@@ -113,7 +113,8 @@ FunctionEntity* Analyzer::builtin_function(const Identifier* name)
 	}
 	GnuBuiltinEntry entry;
 	const bool found = FindGnuBuiltin(name->spelling, name->length, entry) &&
-		(cxx20_ || !IsCoroutineBuiltin(entry.builtin)) && (c_source_ || entry.builtin != GnuBuiltin::TypeGenericMath);
+		(cxx20_ || !IsCoroutineBuiltin(entry.builtin)) && (c_source_ || entry.builtin != GnuBuiltin::TypeGenericMath) &&
+		(c23_ || entry.builtin != GnuBuiltin::C23VaStart);
 	builtin_names_[name->id] = found ? 2 : 1;
 	if (!found)
 		return nullptr;
@@ -626,19 +627,23 @@ ExprFacts* Analyzer::gnu_intrinsic(const syntax::CallExpr& expr, GnuBuiltin buil
 		facts->value = static_cast<uint64_t>(Intrinsic::Alloca) | (alignment << 8);
 		break;
 	}
+	case GnuBuiltin::C23VaStart:
 	case GnuBuiltin::VaList:
 	{
 		// The argument lists are lvalues of __builtin_va_list (an array of
 		// one __va_list_tag, read as its address); va_start's second
 		// operand names the last parameter (ignored, as GCC's x86-64
 		// expansion does). Only a variadic function's body starts one.
+		const bool c23 = builtin == GnuBuiltin::C23VaStart;
 		const Intrinsic kind = variant == 0 ? Intrinsic::VaStart : variant == 1 ? Intrinsic::VaEnd : Intrinsic::VaCopy;
-		if (count != (kind == Intrinsic::VaEnd ? 1u : 2u))
+		if (c23 ? count == 0 : count != (kind == Intrinsic::VaEnd ? 1u : 2u))
 			error(expr.location, "wrong number of arguments to a variadic argument builtin");
 		if (kind == Intrinsic::VaStart &&
 			(body_ == nullptr || body_->function == nullptr || !body_->function->type->canonical->variadic))
 			error(expr.location, "__builtin_va_start outside a variadic function");
-		for (uint32_t i = 0; i < count; ++i)
+		// C23 7.16.1.4: the first argument is the list. Any additional
+		// arguments are accepted for compatibility and are unevaluated.
+		for (uint32_t i = 0; i < (c23 ? 1u : count); ++i)
 		{
 			const ExprFacts* operand = typed_value(*expr.arguments[i], scope);
 			if (operand == nullptr)

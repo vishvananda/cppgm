@@ -55,6 +55,13 @@ C23_SOURCE_REJECTIONS = (
     ('c23.typeof-unqual-bitfield', '300-c23-typeof-unqual-bitfield-bad.t', 'compile'),
     ('c23.typeof-reserved', '100-c23-typeof-reserved-bad.t', 'compile'),
     ('c23.typeof-unqual-reserved', '100-c23-typeof-unqual-reserved-bad.t', 'compile'),
+    ('c23.nullptr-reserved', '100-c23-nullptr-reserved-bad.t', 'compile'),
+    ('c23.nullptr-cast-int', '300-c23-nullptr-cast-int-bad.t', 'compile'),
+    ('c23.nullptr-conditional', '300-c23-nullptr-conditional-bad.t', 'compile'),
+    ('c23.nullptr-from-pointer', '300-c23-nullptr-from-pointer-bad.t', 'compile'),
+    ('c23.nullptr-not-ice', '300-c23-nullptr-not-ice-bad.t', 'compile'),
+    ('c23.nullptr-ordered', '300-c23-nullptr-ordered-bad.t', 'compile'),
+    ('c23.va-start-context', '500-c23-va-start-outside-bad.t', 'compile'),
 )
 C23_SOURCE_CASES = (
     ('c23.version', '100-c23-version.t', 'preprocess'),
@@ -76,6 +83,8 @@ C23_PROGRAMS = {
     'c23.boolean-keywords': (PA38_GENERAL / '100-c23-bool-keywords.t', ()),
     'c23.typeof-qualifiers': (PA38_GENERAL / '300-c23-typeof-qualifiers.t', ()),
     'c23.typeof-vla': (PA38_GENERAL / '300-c23-typeof-vla.t', ()),
+    'c23.nullptr-conversions': (PA38_GENERAL / '300-c23-nullptr-conversions.t', ()),
+    'c23.nullptr-variadic': (PA38_GENERAL / '500-c23-nullptr-variadic.t', ()),
 }
 FLEXIBLE_ARRAY = PA38_GENERAL / '300-c-flexible-array.t'
 RECORD_CONSTRAINTS = {

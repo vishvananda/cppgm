@@ -626,6 +626,20 @@ The first fixture set covers these parts of the C17 input profile:
   expressions. In C23 preprocessing conditions, their values are 1 and
   0. In earlier C modes the spellings are ordinary identifiers and can
   be defined as macros by headers or by source.
+- In C23, recognize `nullptr`, `alignas`, and `alignof`. Give `nullptr`
+  its own scalar type with the size, alignment, and null representation
+  of a character pointer. `<stddef.h>` supplies the typedef `nullptr_t`.
+  Accept null pointer constants and values of that type when initializing
+  or assigning it. Convert a `nullptr_t` value to a pointer, `bool`, or
+  `void` while preserving operand effects. Support equality with a null
+  pointer constant or a pointer. A conditional with a `nullptr_t` arm
+  pairs it with a pointer or another `nullptr_t` value. Keep the pointer
+  type in the mixed case. Diagnose ordered comparisons with `nullptr_t`.
+- In C23, accept a parameter list consisting solely of `...`. Support the
+  `<stdarg.h>` `va_start(ap)` form in variadic functions. The optional
+  compatibility arguments have no execution effects. Use the existing
+  target variadic call convention. A variadic `nullptr_t` argument can be
+  read through `va_arg` as `void *` or a character pointer.
 - Hosted C header declarations and their builtin operations through the
   existing hosted environment, including PA30's GNU startup-function attributes.
 - Support the reserved GNU spelling `__auto_type` in the C modes above.

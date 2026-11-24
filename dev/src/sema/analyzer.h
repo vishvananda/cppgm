@@ -2268,6 +2268,7 @@ private:
 	// any linkage-specification (an explicit language linkage, 7.5p5).
 	bool c_source_;
 	bool c_before_c99_ = false;
+	bool c23_ = false;
 	bool c_pedantic_ = false;
 	bool c_freestanding_ = false;
 	bool c_language_;

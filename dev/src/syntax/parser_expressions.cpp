@@ -15,13 +15,13 @@ namespace {
 // A call's callee that is a reserved `__builtin_` name no registry holds: a
 // GNU inline wrapper of a builtin this compiler lacks may be left
 // unanalyzed while unused (see Analyzer::define_function).
-const Identifier* ReservedBuiltinCallee(const Name& name, bool cxx20, bool c_source)
+const Identifier* ReservedBuiltinCallee(const Name& name, bool cxx20, bool c_source, bool c23)
 {
 	if (name.components.size != 1 || name.components[0].kind != NameComponentKind::Identifier)
 		return nullptr;
 	const Identifier* identifier = name.components[0].identifier;
 	if (std::strncmp(identifier->spelling, "__builtin_", 10) == 0 &&
-		!ProvidedBuiltinVersion(identifier->spelling, identifier->length, false, cxx20, c_source))
+		!ProvidedBuiltinVersion(identifier->spelling, identifier->length, false, cxx20, c_source, c23))
 		return identifier;
 	return nullptr;
 }
@@ -1064,13 +1064,17 @@ Expr* Parser::parse_postfix_suffixes(Expr* expr)
 		const ParseToken token = tok();
 		if (token.is(TokenKind::OP_LPAREN))
 		{
-			if (hosted_ && reserved_call_ == nullptr && expr->kind == ExprKind::Id)
-				reserved_call_ = ReservedBuiltinCallee(*static_cast<const IdExpr*>(expr)->name, cxx20_, c_source_);
+			const Name* name = expr->kind == ExprKind::Id ? static_cast<const IdExpr*>(expr)->name : nullptr;
+			if (hosted_ && reserved_call_ == nullptr && name != nullptr)
+				reserved_call_ = ReservedBuiltinCallee(*name, cxx20_, c_source_, c23_va_start_ != nullptr);
+			const bool c23_va_start = c23_va_start_ != nullptr && name != nullptr && name->components.size == 1 &&
+				name->last().kind == NameComponentKind::Identifier && name->last().identifier == c23_va_start_;
 			CallExpr* call = make<CallExpr>(ExprKind::Call, expr->location);
 			call->callee = expr;
 			next();
 			ListFrame<Expr*> arguments(exprs_);
-			if (!parse_expression_list(arguments, TokenKind::OP_RPAREN))
+			if (!(c23_va_start ? parse_c23_va_start_arguments(arguments)
+							   : parse_expression_list(arguments, TokenKind::OP_RPAREN)))
 				return nullptr;
 			call->arguments = arguments.take(arena_);
 			expr = call;
@@ -1780,6 +1784,34 @@ Expr* Parser::parse_c_designated_initializer(Slice<CDesignator>& designators)
 	if (value != nullptr)
 		designators = { arena_.copy_array(path.data(), path.size()), static_cast<uint32_t>(path.size()) };
 	return value;
+}
+
+bool Parser::parse_c23_va_start_arguments(ListFrame<Expr*>& list)
+{
+	Expr* operand = parse_assignment_expression();
+	if (operand == nullptr)
+		return false;
+	list.push(operand);
+	if (!accept(TokenKind::OP_COMMA))
+		return expect(TokenKind::OP_RPAREN);
+	// C23 7.16.1.4: the extra macro arguments need balanced parentheses
+	// but can be arbitrary tokens. They need no AST nodes.
+	uint32_t depth = 0;
+	for (;;)
+	{
+		const ParseToken& token = tok();
+		if (token.is_end())
+			return fail();
+		if (token.is(TokenKind::OP_LPAREN))
+			++depth;
+		else if (token.is(TokenKind::OP_RPAREN))
+		{
+			if (depth == 0)
+				return expect(TokenKind::OP_RPAREN);
+			--depth;
+		}
+		next();
+	}
 }
 
 bool Parser::parse_expression_list(ListFrame<Expr*>& list, TokenKind close)

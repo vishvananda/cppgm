@@ -12,6 +12,179 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "c23-nullptr-1",
+      "path": "gcc/testsuite/gcc.dg/c23-nullptr-1.c",
+      "sha256": "54f44a40b66f789e629dbdd240ead75ac03154527529209b56044d5a1f85a94c",
+      "dialect": "c23",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Nullptr conversions, comparisons, atomic qualifiers, and variadic sentinel reads"
+    },
+    {
+      "id": "c23-nullptr-2",
+      "path": "gcc/testsuite/gcc.dg/c23-nullptr-2.c",
+      "sha256": "a13ad4e49f58180ed749396f979f10cb2c980f1cfc5cc8b5a08f762aa4895933",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Hosted stddef.h declaration and pointer-compatible size and alignment"
+    },
+    {
+      "id": "c23-nullptr-3",
+      "path": "gcc/testsuite/gcc.dg/c23-nullptr-3.c",
+      "sha256": "91c2e630644ad7dead38e9255fb918be11ff4e0ef575054287e127f54b1bd751",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "diagnostic_contains": {
+        "cppgm": "invalid operands to a comparison",
+        "upstream": "ordered comparison"
+      },
+      "obligation": "Reject ordered comparisons and invalid nullptr_t operands"
+    },
+    {
+      "id": "c23-nullptr-5",
+      "path": "gcc/testsuite/gcc.dg/c23-nullptr-5.c",
+      "sha256": "ae26e9452dfe14abd1e6549873adb0d681f3fff550df2b97b72a4ede9519a63f",
+      "dialect": "c23",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Preserve an operand call when converting its nullptr_t result"
+    },
+    {
+      "id": "c23-nullptr-7",
+      "path": "gcc/testsuite/gcc.dg/c23-nullptr-7.c",
+      "sha256": "6b5b36c278f3e626d8970cccff362584f310dd2fd00d1eb64761acab757c2124",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Treat nullptr_t as a normal identifier before including stddef.h"
+    },
+    {
+      "id": "c23-stdarg-1",
+      "path": "gcc/testsuite/gcc.dg/c23-stdarg-1.c",
+      "sha256": "d82cecddfbb24fc96c70a0339cdc3392a7c2b0fad1fe73bf23f9bff1de4aa33d",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Ellipsis-only declarations, definitions, and function-pointer types"
+    },
+    {
+      "id": "c23-stdarg-3",
+      "path": "gcc/testsuite/gcc.dg/c23-stdarg-3.c",
+      "sha256": "9bd3be2f26d348dde17788e54f7bad6a618bb954d9e855cd6003dcb9aaba7f5a",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "diagnostic_contains": {
+        "cppgm": "conflicting C function declarations",
+        "upstream": "conflicting types"
+      },
+      "obligation": "Diagnose incompatible C variadic redeclarations"
+    },
+    {
+      "id": "c23-stdarg-4",
+      "path": "gcc/testsuite/gcc.dg/c23-stdarg-4.c",
+      "sha256": "33b60989f1b74a0470ef02d768a0beb7fd1d9f0d8c418ebeb57cad4da55d5509",
+      "dialect": "c23",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Start varargs without an anchor and skip ignored argument tokens"
+    },
+    {
+      "id": "c23-stdarg-6",
+      "path": "gcc/testsuite/gcc.dg/c23-stdarg-6.c",
+      "sha256": "c7026e67e67b1aef948f213c2c71d44a3f64ed15be4bb8cddff80c26178d6b13",
+      "dialect": "c23",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Varargs type and value handling for named and ellipsis-only functions"
+    },
+    {
+      "id": "c23-stdarg-9",
+      "path": "gcc/testsuite/gcc.dg/c23-stdarg-9.c",
+      "sha256": "d718d5356e4b69eeb4abad86148027b3914e95658586208e91de8b9df8eebfc2",
+      "dialect": "c23",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Variadic arguments that span ABI register and stack locations"
+    },
+    {
+      "id": "c23-stdarg-11",
+      "path": "gcc/testsuite/gcc.dg/c23-stdarg-11.c",
+      "sha256": "0527fd9f14a255209c364e5ac82c71f7a394f7658c7c14101d95e81e3fcb1e43",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [
+        "-pedantic-errors"
+      ],
+      "upstream_flags": [
+        "-pedantic-errors"
+      ],
+      "obligation": "Diagnose va_start without a list argument"
+    },
+    {
       "id": "c23-typeof-1",
       "path": "gcc/testsuite/gcc.dg/c23-typeof-1.c",
       "sha256": "c31ad45531565289719faef44198b7b6b6fbdc9d382ac81061c1cc81b28b19b1",

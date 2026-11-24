@@ -30,7 +30,13 @@ public:
 	// The translation unit, or null after a syntax error.
 	TranslationUnit* parse_translation_unit();
 	void set_c_contract_default(bool enabled) { c_contract_by_default_ = enabled; }
-	void set_c_edition(CEdition edition) { c_before_c99_ = edition < CEdition::C99; }
+	void set_c_edition(CEdition edition)
+	{
+		c_before_c99_ = edition < CEdition::C99;
+		c23_va_start_ = edition >= CEdition::C23
+			? identifiers_.intern("__builtin_c23_va_start", sizeof("__builtin_c23_va_start") - 1)
+			: nullptr;
+	}
 	void set_source_positions(const SourcePositions& positions) { source_positions_ = &positions; }
 
 private:
@@ -47,6 +53,7 @@ private:
 	CFloatPragmas c_float_pragmas_;
 	bool c_contract_by_default_ = false;
 	bool c_before_c99_ = false;
+	const Identifier* c23_va_start_ = nullptr;
 	void consume_c_extensions();
 	const SourcePositions* source_positions_ = nullptr;
 	bool in_c_extension_ = false;
@@ -477,6 +484,7 @@ private:
 	BracedInitList* parse_braced_init_list();
 	Expr* parse_c_designated_initializer(Slice<CDesignator>& designators);
 	bool parse_expression_list(ListFrame<Expr*>& list, TokenKind close);
+	bool parse_c23_va_start_arguments(ListFrame<Expr*>& list);
 	bool at_cast_operand_start();
 	int binary_precedence(TokenKind& op, uint32_t& width);
 
