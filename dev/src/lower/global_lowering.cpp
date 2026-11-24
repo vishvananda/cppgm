@@ -639,10 +639,11 @@ void ProgramLowering::define_global(lowir::SymbolId symbol, const sema::Variable
 	// would be); a class template specialization's member's (a weak
 	// definition in every unit instantiating it) by the one unit that sets
 	// the guard they share (Itanium 2.8).
-	// An external thread-local variable initialized statically
-	// still defines its initialization entry (empty), which the wrappers of
-	// the units using it call.
-	if (variable->is_thread_local && !per_thread && !unit_local(variable))
+	// C uses the TLS descriptor directly. Provide the Darwin wrapper
+	// for C++ callers, whose ABI requires one even for C-linkage storage.
+	// Other C++ TLS accesses can also use an empty initialization entry.
+	if (variable->is_thread_local && !per_thread && (!analyzer_->c_source() || darwin_host_objects()) &&
+		!unit_local(variable))
 	{
 		const lowir::SymbolId entry = thread_local_init_entry(symbol, variable, true);
 		{

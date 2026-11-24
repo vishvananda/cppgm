@@ -1014,7 +1014,9 @@ Place FunctionLowering::variable_place(const sema::Entity* entity, const sema::T
 		// A thread-local object is reached through its address, computed
 		// for the executing thread (storage=thread_local); one initialized
 		// per thread through its wrapper.
-		if (variable->is_thread_local)
+		if (variable->is_thread_local && lowering_.analyzer_->c_source())
+			place.storage = address_of(place);
+		else if (variable->is_thread_local)
 		{
 			// A use before the unit's definition goes through the wrapper the
 			// definition will give a body (its initialization unknown yet).

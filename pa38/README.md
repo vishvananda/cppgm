@@ -541,6 +541,8 @@ The first fixture set covers these parts of the C17 input profile:
   settle whether its definition supplies the external symbol.
   Under `-pedantic-errors`, diagnose an external inline declaration that
   still has no definition at the end of its translation unit.
+- Access a C thread-local object through the target's C ABI, including an
+  object defined by another compiler in a separate translation unit.
 - Give a redeclared C object or function the composite of its compatible
   types. Combine bounds and prototypes through pointers, array elements,
   function parameters, and return types. A block declaration can refine
