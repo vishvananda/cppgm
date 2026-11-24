@@ -3536,3 +3536,35 @@ for SQLite. The table reports hardware instruction counts.
 | --- | ---: | ---: | ---: |
 | C++ `semantic_overload.cpp` at `-O3` | 0.00213% | +0.00087% | −0.00108% |
 | SQLite 3.50.4 in GNU17 at `-O2` | 0.00121% | +0.00469% | −0.00050% |
+
+## C23 enumeration redefinitions
+
+Compared immutable GCC 15 builds of `354563bd2` and `9e02d587e`
+on x86-64 Linux, pinning each run to CPU 71. The input defines
+`enum Values` with `item_i = i` for each member and initializes a
+global of that type to `item_0`. The eight-definition series alternates
+forward and reverse member order. Every observation used strict C23
+and `-O2 -c`. The one-definition control and all repeated definitions
+produce byte-identical objects at each size.
+
+| Members per definition | Baseline single definition, instructions | Candidate single definition, ABBA / BAAB change | Candidate eight definitions, instructions |
+| ---: | ---: | ---: | ---: |
+| 512 | 7,347,885 | +0.026% / +0.028% | 26,273,695 |
+| 2,048 | 16,654,686 | +0.048% / +0.049% | 90,401,605 |
+| 8,192 | 51,860,201 | +0.063% / +0.063% | 339,151,868 |
+
+The seven extra definitions add approximately 18.9, 73.7, and 287.3
+million instructions respectively. Each quadrupling of members costs
+about 3.9 times as many instructions. The analyzer uses a transient
+name set only for a repeated definition and retains the first set of
+bindings and enum representation.
+
+The frozen C++ and SQLite controls produced byte-identical objects.
+Retired instruction changes were below 0.004% in both paired blocks for
+each input. A/A cycle spreads of 42.91% for C++ and 5.11% for SQLite
+make the cycle measurements unsuitable for a timing conclusion.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.0018% | −0.0030% | −0.0011% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.0050% | +0.0013% | +0.0004% |

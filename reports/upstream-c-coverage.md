@@ -567,17 +567,48 @@ produce the same PA38 report as the direct audit. The student export
 verifies 26,880 portable reference outputs. The exported PA1 and PA38
 suites pass with the packaged reference binaries.
 
-Compatible same-scope tag definitions remain uncovered. The minimal
-reordered enum definition passes strict C23 in GCC and Clang and is
-diagnosed as a redefinition by cppgm. The pinned Clang N3037 corpus
-also reaches a compatible `struct` definition that cppgm rejects. A
-local repeat of a self-referential record definition confirms the gap.
-WG14 issue 1130 remains open for the transient type in a redeclared
-enumerator.
 [WG14 rules and issues](../doc/c-conformance-notes.md#c23-enumeration-members-and-fixed-bases) ·
 [PA38 member types](../pa38/tests/general/300-c23-enum-values.t) ·
 [PA38 fixed 128-bit enum](../pa38/tests/general/300-c23-enum-fixed-wide.t) ·
 [Compile measurements](../docs/performance/c-frontend-scaling.md#c23-enumeration-members)
+
+## C23 enumeration redefinitions
+
+Same-scope definitions of an enumeration now preserve the original tag,
+representation and member bindings. Compare the repeated list by member
+name and mathematical value. The first definition continues to supply
+each member's visible type during the repeated definition. Reject a
+nested same-tag definition in either an initializer or a `typeof`
+operand in the fixed base. Keep the earlier-edition diagnostic.
+
+Ten PA38 cases cover the positives, diagnostics, and the C17 boundary.
+The two runtime cases run at `-O0` and `-O2` on Linux x86-64, Linux
+AArch64 under QEMU, both Darwin targets under local Mach-O loaders,
+WASI, and bare Wasm. All direct and LowIR-replay objects are byte-identical
+at those settings. The fixed-base nesting probe reaches the intended
+diagnostic on all six targets.
+
+The existing GCC C23 CI lane now includes three additional pinned
+configurations and passes 64 in total. The Clang C23 lane passes all 21
+configurations in its current manifest. The local clause matrix passes
+1,186 probes. PA38 passes 657 native cases, 657 Wasm cases with optimized
+LowIR validation, 63 controls, and four ABI cases. The strict course
+report passes all 11,674 tests, and the debug-info and PA36 smoke suites
+pass. The compiler passes the PA35 self-host ladder through PA5 and
+inception reproduces it byte for byte. The architecture, file, and test
+harness checks pass. The placement audit scans 11,659 fixtures with
+zero placement or local hygiene findings. Its cached directory listings
+give the same PA38 results as the direct audit. The student export
+verifies 26,894 portable reference outputs. The exported PA1 and PA38
+suites pass with the packaged reference binaries.
+
+Compatible same-scope structure and union definitions and compatible
+tags across scopes remain open in cppgm. The pinned Clang N3037 tests
+include these cases. WG14 issue 1130 remains open for the transient type
+of a redeclared enumerator.
+[WG14 rules and issues](../doc/c-conformance-notes.md#c23-enumeration-tag-redefinitions) ·
+[PA38 redefinition case](../pa38/tests/general/300-c23-enum-redefinition.t) ·
+[Compile measurements](../docs/performance/c-frontend-scaling.md#c23-enumeration-redefinitions)
 
 ## C23 bit-precise integers
 
