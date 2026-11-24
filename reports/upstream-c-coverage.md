@@ -3994,3 +3994,41 @@ volatile base.
 [WASI SDK 34 scalar math member](https://github.com/WebAssembly/wasi-libc/blob/2e6fb9d8ee0cdf9e431fbcabe8af3115de000a13/libc-bottom-half/sources/math/math-builtins.c) ·
 [C23 N3096 §§7.12p20, 7.12.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
 [Wasm instruction measurements](../docs/performance/c-frontend-scaling.md#wasi-math-error-paths)
+
+### WASI exponential and scaling overflow
+
+The WASI supplement reports `ERANGE` at the finite overflow boundary
+for `exp`, `expm1`, `expm1f`, `exp10`, `exp10f`, and `exp2l`. Its
+`scalbn` variants also cover `ldexp` and `scalbln` through the SDK's existing
+calls. The binary128 regression includes an SDK `exp2l` input that rounded
+to zero even though the correct result is a nonzero subnormal. PA37 checks
+the C driver's `__wasip1__` macro by including `<wasi/api.h>` and verifying
+that the SDK's direct `errno` declaration and accessor identify the same
+object.
+
+The exponential corpus compares 131,072 values per function against MPFR.
+Both archive builds agree on every result. The five binary32 and binary64
+functions match SDK 34 bit for bit in the corpus. Their maximum observed
+errors are one ULP for `exp`, `expm1`, and `expm1f`, four for `exp10`, and
+three for `exp10f`. The binary128 `exp2l` results are exact for 130,512 inputs
+and within one ULP for the other 560. Both archive builds match an exact
+integer scaling oracle on 65,536 cases per precision, including the
+returned bits and `errno`.
+
+The supplemental errno probe passes all 16 mixes of archive builders,
+client compilers, and linkers at `-O0` and `-O2`. The extracted source-only
+archive passes nine math probes at `-Oz -flto`. The inherited SDK audit
+now records 46 of 76 expected outcomes, from 32 before this batch and six
+with stock SDK 34. Uncovered cases include domain errors in `acosh` and
+overflow in `hypot`. Hosted math error reporting remains uncovered under
+the SDK's advertised exception mode.
+
+The combined replay passes all 5,931 configurations at `15921ccd4`.
+Linux x86-64 and Linux AArch64 under QEMU each run 1,506, stock WASI
+runs 1,333, the WASI supplement runs 552, and bare Wasm runs 1,034.
+The supplement passes 213 tracked C23 requirements. Native macOS
+qualification remains open.
+
+[WASI SDK 34 `exp` kernel](https://github.com/WebAssembly/wasi-libc/blob/2e6fb9d8ee0cdf9e431fbcabe8af3115de000a13/libc-top-half/musl/src/math/exp.c) ·
+[WASI SDK 34 `exp2l` implementation](https://github.com/WebAssembly/wasi-libc/blob/2e6fb9d8ee0cdf9e431fbcabe8af3115de000a13/libc-top-half/musl/src/math/exp2l.c) ·
+[Wasm instruction measurements](../docs/performance/c-frontend-scaling.md#wasi-exponentials-and-scaling)

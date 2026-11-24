@@ -1753,6 +1753,15 @@ infinity and check that valid operations preserve the caller's
 advertised reporting mechanisms.
 [C23 N3096 §7.12p20, §7.12.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
 
+For the WASI C target, `__wasip1__` selects the SDK's Preview 1
+headers and its direct `errno` declaration. The exponential functions
+and the `scalbn` families report `ERANGE` for finite overflow. Scaling
+rounds subnormal results to nearest even and preserves `errno` on
+underflow. The binary128 `exp2l` implementation uses the supplement's
+shared exponential reduction and reconstruction.
+[WASI SDK 34 `errno.h`](https://github.com/WebAssembly/wasi-libc/blob/2e6fb9d8ee0cdf9e431fbcabe8af3115de000a13/libc-top-half/musl/include/errno.h) ·
+[C23 N3096 §§7.12.1, 7.12.6](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+
 The WASI binary32, binary64, and binary128 formats have canonical
 representations for all of their bit patterns. The `iscanonical` macro
 evaluates its operand and returns true. The other C23 classification

@@ -4259,3 +4259,39 @@ directly. Only values with a potential rounding or error condition
 enter the rest of the check. The stripped narrowing module grows
 from 39,394 to 41,376 bytes. The float power module grows from
 68,684 to 71,042 bytes.
+
+## WASI exponentials and scaling
+
+Each precompiled Wasmtime workload calls one operation 262,144 times on
+CPU 71. The client compiler, client object, and SDK linker are identical
+within each comparison. The control uses the SDK operation and the
+candidate uses the cppgm-built supplemental implementation. The scaling
+workloads use integer exponents from −32 through 31. All 12 runs per
+workload have identical checksums. The `exp2l` and `scalbnl` workloads
+convert results to double for that checksum. The separate accuracy
+checks compare the full binary128 representations.
+
+| Function | A/A instruction spread | SDK, millions | Supplement, millions | Change | Stripped module bytes |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `exp` | 1,742 | 24.637 | 24.085 | −2.24% | 35,149 → 35,726 |
+| `expm1` | 1,050 | 33.244 | 31.764 | −4.45% | 33,021 → 33,884 |
+| `expm1f` | 1,256 | 31.277 | 29.357 | −6.14% | 32,864 → 33,686 |
+| `exp10` | 636 | 48.425 | 40.798 | −15.75% | 41,521 → 41,904 |
+| `exp10f` | 2,206 | 42.058 | 34.848 | −17.14% | 36,227 → 36,618 |
+| `exp2l` | 1,012 | 2,110.822 | 1,909.930 | −9.52% | 37,462 → 42,746 |
+| `scalbn` | 2,438 | 14.217 | 15.527 | +9.22% | 32,298 → 32,740 |
+| `scalbnf` | 1,502 | 14.781 | 16.090 | +8.85% | 32,460 → 33,303 |
+| `scalbnl` | 718 | 204.901 | 139.761 | −31.79% | 33,286 → 34,996 |
+
+The first scalar scaling implementation decoded the significand on every
+call and increased the instruction count by more than 50%. The final path
+uses one Wasm multiply when the scaling factor is normal. With the SDK's
+Preview 1 `errno` declaration, the final binary32 and binary64 paths each
+add about five retired host instructions per call. Binary128 scales the
+normal case by updating the encoded exponent and rounds subnormals using
+the original significand.
+
+The driver macro adds 0.032% retired instructions when compiling the
+binary128 transcendental probe for WASI. The A/A spread is 592 out of
+22.49 million instructions. All 12 objects match byte for byte across
+the A/A, ABBA, and BAAB runs.
