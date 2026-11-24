@@ -4079,3 +4079,19 @@ functions. The extrema use the scalar min and max builtins for
 binary32 and binary64. SDK Clang emits `f32.min`, `f32.max`, `f64.min`,
 and `f64.max`. cppgm's current lowering emits comparisons and selects
 with explicit NaN and signed-zero handling.
+
+## Linux compiler probe changes
+
+The parent compiler and `fa445bca3` use GCC 15 host predefines. CPU 71
+runs A/A, ABBA, and BAAB blocks for C++ `semantic_overload.cpp` at `-O3`
+and the SQLite 3.50.4 amalgamation at `-O2`. Every observation for each
+input produces the same object bytes.
+
+| Input | A/A instruction spread | ABBA instructions | BAAB instructions | A/A wall-time spread |
+| --- | ---: | ---: | ---: | ---: |
+| C++ semantic overloads | 0.00193% | −0.01428% | −0.01788% | 18.01% |
+| SQLite | 0.00143% | −0.11560% | −0.11559% | 22.98% |
+
+Paired wall-time changes range from +3.13% to +4.32%, within the A/A
+variation. The GNU case-range ABI test covers over a billion values
+with one range and verifies both endpoints and neighboring cases.

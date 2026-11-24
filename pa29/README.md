@@ -187,6 +187,9 @@ Namespace asm uses the shared `assembly_global` boundary.
 For a standalone native `.S` file, run the preprocessor before passing the
 source to the same integrated module assembler. The driver also accepts
 `-x assembler-with-cpp` to select that input language explicitly.
+Use `-` as that input to read from standard input. `-fintegrated-as`
+explicitly selects the integrated assembler, and `-Wa,--version`
+reports its version.
 Keep module invocations ordered and preserve their symbol/section state. Emit
 code, scalar data, pointer relocations, BSS, strings and alignment directly.
 Support `.text`, `.data`, `.bss`, `.rodata`, `.section`, the section stack and

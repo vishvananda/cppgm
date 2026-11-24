@@ -3656,3 +3656,40 @@ families keep `<math.h>` and `<tgmath.h>` open.
 
 [C23 N3096 §§7.12.3, 7.12.6.10, 7.12.11, 7.12.12](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
 [Compile and Wasm instruction measurements](../docs/performance/c-frontend-scaling.md#hosted-wasi-partial-c23-mathematics-header)
+
+### Linux 7.3.6 x86-64 compiler probes
+
+Kbuild's compiler version probe reads the expanded text from `-E -P`.
+`cppgm -fintegrated-as` uses Kbuild's existing integrated assembler
+probe path. The driver accepts the assembler probe's stdin input,
+supports character devices as explicit inputs, and emits `-Wp,-MMD`
+dependency files. The compiler and linker-script preprocessing routes
+share the integrated preprocessor. Assembly objects use the integrated
+assembler.
+
+The upstream `x86_64_defconfig` target finishes with no source-tree
+changes. `prepare` first fails at `-mno-sse`, which the x86 backend
+currently rejects. It also needs native `-S` output for the device table,
+bounds, and architecture offset generators. The next backend work needs
+to preserve the kernel's no-SSE and no-x87 guarantees and support the
+inline assembly data directives used by those generators.
+
+Replays of GCC's recorded commands found a GNU `asm` keyword gap,
+case ranges, tag bindings inside anonymous aggregate members, and
+pointer-sized address round trips in static initializers. Those cases
+now have coverage in PA38. The assembly reducers cover juxtaposed GAS
+strings, `STT_OBJECT` spelling, and assembler-mode token pasting in PA29
+and PA30. The `lib/ctype.c` replay with unsupported codegen switches
+removed emits the same `.export_symbol` payload as GCC and retains the
+relocation to `_ctype`. The linker-script replay reaches the same GNU ld
+symbol-resolution diagnostic as GCC's script when fed an empty object.
+
+The integrated assembler still needs register comparisons in macro
+conditions and symbolic absolute expressions for the entry and boot
+assembly. The GNU C replay also reaches an immediate operand that
+depends on inlining. These partial checks leave `vmlinux` and the modules
+unbuilt, so there is no cppgm kernel compile timing.
+
+[GCC preprocessor invocation](https://gcc.gnu.org/onlinedocs/cpp/Invocation.html) ·
+[GCC code generation options](https://gcc.gnu.org/onlinedocs/gcc/Code-Gen-Options.html) ·
+[Compile measurements](../docs/performance/c-frontend-scaling.md#linux-compiler-probe-changes)
