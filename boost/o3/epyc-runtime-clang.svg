@@ -1,10 +1,10 @@
-<svg data-original-label="Boost runtime CPU vs clang" data-original-message="1.03×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="Boost runtime CPU vs clang; AMD EPYC 9V74 80-Core Processor; measured dbbd227db37c255596e3fc11a4d3df8700ea7be7; 8 commits behind main: 1.03×">
-  <title>Boost runtime CPU vs clang; AMD EPYC 9V74 80-Core Processor; measured dbbd227db37c255596e3fc11a4d3df8700ea7be7; 8 commits behind main: 1.03×</title>
+<svg data-original-label="Boost runtime CPU vs clang" data-original-message="1.02×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="Boost runtime CPU vs clang; AMD EPYC 9V74 80-Core Processor; measured 80079d548d66a02401ca1238a27cd7ff792c6d93; 0 commits behind main: 1.02×">
+  <title>Boost runtime CPU vs clang; AMD EPYC 9V74 80-Core Processor; measured 80079d548d66a02401ca1238a27cd7ff792c6d93; 0 commits behind main: 1.02×</title>
   <defs><clipPath id="badge"><rect width="120" height="24" rx="4"/></clipPath></defs>
   <g clip-path="url(#badge)">
     <rect width="64" height="24" fill="#555"/>
     <rect x="64" width="56" height="24" fill="#14532d"/>
   </g>
   <text x="32" y="16.5" fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="12" font-weight="700" textLength="31" lengthAdjust="spacingAndGlyphs">EPYC</text>
-  <text x="92" y="16.5" fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="12" font-weight="700" letter-spacing="1" textLength="39" lengthAdjust="spacingAndGlyphs">1.03×</text>
+  <text x="92" y="16.5" fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="12" font-weight="700" letter-spacing="1" textLength="39" lengthAdjust="spacingAndGlyphs">1.02×</text>
 </svg>
