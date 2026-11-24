@@ -1668,6 +1668,15 @@ quiet bit on NaNs. This preserves finite values, signed zeros, and the
 NaN sign and payload. The source and destination may be the same object.
 [C23 N3096 §§7.12.3, 7.12.11.7](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
 
+The C23 extrema families order negative zero below positive zero.
+The magnitude families use the corresponding numeric ordering to break
+ties. Ordinary extrema propagate NaNs, and the `_num` families select
+the numeric operand when precisely one operand is NaN. WASI uses
+WebAssembly scalar min and max for binary32 and binary64. Its binary128
+implementation compares the operands and applies the same zero and NaN
+rules.
+[C23 N3096 §§7.12.12.4–11](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+
 The C23 wide-character searches preserve const qualification on their
 result elements. Their concrete functions retain mutable result pointer
 types when the macros are suppressed. `<wchar.h>` supplies `WCHAR_WIDTH`

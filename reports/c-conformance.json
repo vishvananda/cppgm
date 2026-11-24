@@ -1909,6 +1909,16 @@
       "cases": ["library.c23-math-classification"]
     },
     {
+      "id": "library.c23-math-extrema",
+      "clause": "C23 7.12.12.4–11",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "math",
+      "requirement": "Check the numeric and magnitude minima and maxima at all three precisions, including ties, signed zero ordering, and quiet and signaling NaN behavior.",
+      "cases": ["library.c23-math-extrema"]
+    },
+    {
       "id": "library.c23-math-representation",
       "clause": "C23 7.12.6.10, 7.12.11.5–6",
       "kind": "required",
