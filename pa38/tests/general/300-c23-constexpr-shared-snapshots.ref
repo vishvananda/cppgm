@@ -98,12 +98,75 @@ global @branch [storage=readonly, linkage=c, binding=internal] = {
   u8 0
   zero 3
 }
+global @marked [storage=readonly, linkage=c, binding=internal] = {
+  u32 0
+  u8 0
+  zero 3
+  u32 0
+  u8 0
+  zero 3
+  u32 0
+  u8 9
+  zero 3
+  u32 0
+  u8 9
+  zero 3
+  u32 0
+  u8 0
+  zero 3
+  u32 0
+  u8 0
+  zero 3
+}
+global @erased [storage=readonly, linkage=c, binding=internal] = {
+  u32 0
+  u8 0
+  zero 3
+  u32 0
+  u8 0
+  zero 3
+  u32 0
+  u8 0
+  zero 3
+  u32 0
+  u8 0
+  zero 3
+  u32 0
+  u8 0
+  zero 3
+  u32 0
+  u8 0
+  zero 3
+}
+global @partly_erased [storage=readonly, linkage=c, binding=internal] = {
+  u32 0
+  u8 0
+  zero 3
+  u32 0
+  u8 0
+  zero 3
+  u32 0
+  u8 9
+  zero 3
+  u32 0
+  u8 0
+  zero 3
+  u32 0
+  u8 0
+  zero 3
+  u32 0
+  u8 0
+  zero 3
+}
 global @snapshots [linkage=c, binding=strong] = {
   ptr addr @branch
   ptr addr @unmarked
   ptr addr @point
   ptr addr @low_zero
   ptr addr @seed
+  ptr addr @erased
+  ptr addr @partly_erased
+  ptr addr @marked
 }
 
 function @main() -> i32 [role=entry, binding=strong, keep_alias=yes] {
@@ -131,6 +194,10 @@ function @main() -> i32 [role=entry, binding=strong, keep_alias=yes] {
   slot $lor__17 : i64
   slot $lor__18 : i64
   slot $lor__19 : i64
+  slot $lor__20 : i64
+  slot $lor__21 : i64
+  slot $lor__22 : i64
+  slot $lor__23 : i64
 
   block ^entry:
     %t1 = addr @snapshots
@@ -615,6 +682,106 @@ function @main() -> i32 [role=entry, binding=strong, keep_alias=yes] {
 
   block ^lor_end_57:
     %t268 = load typed i64 $lor__19
-    %t269 = convert trunc i32 i64 %t268
-    return i32 %t269
+    branch %t268, ^lor_short_59, ^lor_rhs_58
+
+  block ^lor_rhs_58:
+    %t269 = addr @snapshots
+    %t270 = index inbounds ptr [projection=array_element] %t269, 5
+    %t271 = load volatile ptr %t270
+    %t272 = index inbounds i8 [projection=field] %t271, 0
+    %t273 = index inbounds i8 [projection=field] %t272, 0
+    %t274 = binary mul i64 2, 8
+    %t275 = index inbounds i8 [projection=array_element] %t273, %t274
+    %t276 = index inbounds i8 [projection=field] %t275, 4
+    %t277 = load u8 %t276
+    %t278 = convert zext i32 u8 %t277
+    %t279 = cmp ne i32 %t278, 0
+    %t280 = convert trunc i32 i64 %t279
+    %t281 = cmp ne i32 %t280, 0
+    store typed i64 %t281, $lor__20
+    jump ^lor_end_60
+
+  block ^lor_short_59:
+    store typed i64 1, $lor__20
+    jump ^lor_end_60
+
+  block ^lor_end_60:
+    %t282 = load typed i64 $lor__20
+    branch %t282, ^lor_short_62, ^lor_rhs_61
+
+  block ^lor_rhs_61:
+    %t283 = addr @snapshots
+    %t284 = index inbounds ptr [projection=array_element] %t283, 6
+    %t285 = load volatile ptr %t284
+    %t286 = index inbounds i8 [projection=field] %t285, 0
+    %t287 = index inbounds i8 [projection=field] %t286, 0
+    %t288 = binary mul i64 2, 8
+    %t289 = index inbounds i8 [projection=array_element] %t287, %t288
+    %t290 = index inbounds i8 [projection=field] %t289, 4
+    %t291 = load u8 %t290
+    %t292 = convert zext i32 u8 %t291
+    %t293 = cmp ne i32 %t292, 9
+    %t294 = convert trunc i32 i64 %t293
+    %t295 = cmp ne i32 %t294, 0
+    store typed i64 %t295, $lor__21
+    jump ^lor_end_63
+
+  block ^lor_short_62:
+    store typed i64 1, $lor__21
+    jump ^lor_end_63
+
+  block ^lor_end_63:
+    %t296 = load typed i64 $lor__21
+    branch %t296, ^lor_short_65, ^lor_rhs_64
+
+  block ^lor_rhs_64:
+    %t297 = addr @snapshots
+    %t298 = index inbounds ptr [projection=array_element] %t297, 6
+    %t299 = load volatile ptr %t298
+    %t300 = index inbounds i8 [projection=field] %t299, 0
+    %t301 = index inbounds i8 [projection=field] %t300, 0
+    %t302 = binary mul i64 3, 8
+    %t303 = index inbounds i8 [projection=array_element] %t301, %t302
+    %t304 = index inbounds i8 [projection=field] %t303, 4
+    %t305 = load u8 %t304
+    %t306 = convert zext i32 u8 %t305
+    %t307 = cmp ne i32 %t306, 0
+    %t308 = convert trunc i32 i64 %t307
+    %t309 = cmp ne i32 %t308, 0
+    store typed i64 %t309, $lor__22
+    jump ^lor_end_66
+
+  block ^lor_short_65:
+    store typed i64 1, $lor__22
+    jump ^lor_end_66
+
+  block ^lor_end_66:
+    %t310 = load typed i64 $lor__22
+    branch %t310, ^lor_short_68, ^lor_rhs_67
+
+  block ^lor_rhs_67:
+    %t311 = addr @snapshots
+    %t312 = index inbounds ptr [projection=array_element] %t311, 7
+    %t313 = load volatile ptr %t312
+    %t314 = index inbounds i8 [projection=field] %t313, 0
+    %t315 = index inbounds i8 [projection=field] %t314, 0
+    %t316 = binary mul i64 3, 8
+    %t317 = index inbounds i8 [projection=array_element] %t315, %t316
+    %t318 = index inbounds i8 [projection=field] %t317, 4
+    %t319 = load u8 %t318
+    %t320 = convert zext i32 u8 %t319
+    %t321 = cmp ne i32 %t320, 9
+    %t322 = convert trunc i32 i64 %t321
+    %t323 = cmp ne i32 %t322, 0
+    store typed i64 %t323, $lor__23
+    jump ^lor_end_69
+
+  block ^lor_short_68:
+    store typed i64 1, $lor__23
+    jump ^lor_end_69
+
+  block ^lor_end_69:
+    %t324 = load typed i64 $lor__23
+    %t325 = convert trunc i32 i64 %t324
+    return i32 %t325
 }

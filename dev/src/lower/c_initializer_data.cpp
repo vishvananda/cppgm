@@ -403,15 +403,39 @@ class ProgramLowering::CArrayImages
 public:
 	struct History
 	{
+		struct Extent
+		{
+			uint64_t row, row_limit, column, column_limit;
+
+			void include(const Extent& other)
+			{
+				row = std::min(row, other.row);
+				row_limit = std::max(row_limit, other.row_limit);
+				column = std::min(column, other.column);
+				column_limit = std::max(column_limit, other.column_limit);
+			}
+
+			bool covered_by(const sema::CArrayRectangle& write) const
+			{
+				return write.row <= row && row_limit <= write.row_limit && write.column <= column &&
+					column_limit <= write.column_limit;
+			}
+		};
+
 		struct Block
 		{
 			std::vector<sema::CArrayRectangle> writes;
 			uint32_t before, layers;
+			Extent extent;
+
+			const sema::CArrayRectangle* single_write() const { return writes.size() == 1 ? writes.data() : nullptr; }
 		};
 
 		uint32_t append(const sema::CArrayConstant& layer, uint32_t before, std::vector<sema::CArrayRectangle> writes)
 		{
-			Block block{ std::move(writes), before, 1 };
+			Block block{ std::move(writes), before, 1, { UINT64_MAX, 0, UINT64_MAX, 0 } };
+			for (const auto& write : block.writes)
+				block.extent.include({ write.row, write.row_limit, write.column, write.column_limit });
 			// Keep power-of-two blocks of consecutive writes. Siblings
 			// share their preceding blocks even when emitted out of order.
 			// A zero write still masks data from any earlier block.
@@ -419,9 +443,14 @@ public:
 			while (block.before != PointerMap::kMissing && blocks[block.before].layers == block.layers)
 			{
 				const auto& older = blocks[block.before];
-				combined.assign(older.writes.begin(), older.writes.end());
-				combined.insert(combined.end(), block.writes.begin(), block.writes.end());
-				block.writes = sema::WinningInitializerRectangles(combined, kUnwrittenStaticLayer);
+				const auto* covering = block.single_write();
+				if (!older.writes.empty() && (covering == nullptr || !older.extent.covered_by(*covering)))
+				{
+					combined.assign(older.writes.begin(), older.writes.end());
+					combined.insert(combined.end(), block.writes.begin(), block.writes.end());
+					block.writes = sema::WinningInitializerRectangles(combined, kUnwrittenStaticLayer);
+					block.extent.include(older.extent);
+				}
 				block.before = older.before;
 				block.layers += older.layers;
 			}
@@ -434,9 +463,14 @@ public:
 		std::vector<sema::CArrayRectangle> visible(uint32_t index) const
 		{
 			SmallList<uint32_t, 32> order;
-			size_t count = 0;
-			for (; index != PointerMap::kMissing; index = blocks[index].before)
+			order.push_back(index);
+			size_t count = blocks[index].writes.size();
+			const auto* covering = blocks[index].single_write();
+			// A write can also cover an older block of a different size.
+			for (index = blocks[index].before; index != PointerMap::kMissing; index = blocks[index].before)
 			{
+				if (covering != nullptr && blocks[index].extent.covered_by(*covering))
+					continue;
 				order.push_back(index);
 				count += blocks[index].writes.size();
 			}
