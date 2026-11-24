@@ -147,7 +147,7 @@ void integer(Assembler& out, const assembly::Instruction& inst, const Form& form
 	}
 }
 
-void vector_insert(Assembler& out, const assembly::Instruction& inst, const Form& form)
+void vector_immediate(Assembler& out, const assembly::Instruction& inst, const Form& form)
 {
 	if (inst.prefix != 0 || inst.operands.size() != 3)
 		fail(inst, "expected a vector destination, scalar source and lane index");
@@ -156,12 +156,73 @@ void vector_insert(Assembler& out, const assembly::Instruction& inst, const Form
 	const auto& lane = inst.operands[2];
 	if (dst.kind != OperandKind::Register || dst.reg.bank != RegisterBank::Vector || dst.bits != 128 ||
 		(src.kind == OperandKind::Register
-				? src.reg.bank != RegisterBank::Gpr || src.bits != form.bits
+				? src.reg.bank != (form.bits == 128 ? RegisterBank::Vector : RegisterBank::Gpr) || src.bits != form.bits
 				: src.kind != OperandKind::Memory || (src.bits != 0 && src.bits != form.bits)) ||
 		lane.kind != OperandKind::Immediate || !fits_operation(static_cast<int64_t>(lane.immediate), 1))
-		fail(inst, "invalid scalar vector insert");
-	out.op(form.prefix, form.bits == 64, form.opcode, 3, physical(dst.reg, inst), rm(src, inst), false, 1);
+		fail(inst, "invalid immediate-control vector instruction");
+	out.op(form.prefix, form.bits == 64, form.opcode, form.opcode > UINT16_MAX ? 3 : 2, physical(dst.reg, inst),
+		rm(src, inst), false, 1);
 	out.byte(lane.immediate);
+}
+
+bool xmm(const Operand& operand)
+{
+	return operand.kind == OperandKind::Register && operand.reg.bank == RegisterBank::Vector && operand.bits == 128;
+}
+
+void packed_shift(Assembler& out, const assembly::Instruction& inst, const Form& form)
+{
+	if (inst.prefix != 0 || inst.operands.size() != 2 || !xmm(inst.operands[0]))
+		fail(inst, "packed shift requires an XMM destination and a count");
+	const auto& dst = inst.operands[0];
+	const auto& count = inst.operands[1];
+	if (count.kind == OperandKind::Immediate)
+	{
+		if (!fits_operation(static_cast<int64_t>(count.immediate), 1))
+			fail(inst, "packed shift count exceeds one byte");
+		out.op(form.prefix, false, 0x0f00 | (form.opcode >> 16), 2, form.opcode & 255, rm(dst, inst), false, 1);
+		out.byte(count.immediate);
+	}
+	else
+	{
+		if (!xmm(count) && (count.kind != OperandKind::Memory || (count.bits != 0 && count.bits != 128)))
+			fail(inst, "packed shift count requires an XMM register, memory or an immediate");
+		out.op(form.prefix, false, 0x0f00 | ((form.opcode >> 8) & 255), 2, physical(dst.reg, inst), rm(count, inst));
+	}
+}
+
+void scalar_vector_move(Assembler& out, const assembly::Instruction& inst, unsigned bits)
+{
+	if (inst.prefix != 0 || inst.operands.size() != 2 || (bits != 32 && bits != 64))
+		fail(inst, "invalid scalar/vector move");
+	const auto& dst = inst.operands[0];
+	const auto& src = inst.operands[1];
+	const bool to_vector = xmm(dst);
+	const auto& reg = to_vector ? dst : src;
+	const auto& other = to_vector ? src : dst;
+	if (!xmm(reg))
+		fail(inst, "scalar/vector move requires an XMM register");
+	unsigned prefix = 0x66;
+	unsigned opcode = to_vector ? 0x0f6e : 0x0f7e;
+	bool rex_w = bits == 64;
+	if (other.kind == OperandKind::Register && other.reg.bank == RegisterBank::Gpr)
+	{
+		if (other.bits != bits)
+			fail(inst, "scalar/vector register move has the wrong integer width");
+	}
+	else
+	{
+		if (!(other.kind == OperandKind::Memory && (other.bits == 0 || other.bits == bits)) &&
+			!(bits == 64 && xmm(other)))
+			fail(inst, "invalid source or destination for scalar/vector move");
+		if (bits == 64)
+		{
+			prefix = to_vector ? 0xf3 : 0x66;
+			opcode = to_vector ? 0x0f7e : 0x0fd6;
+			rex_w = false;
+		}
+	}
+	out.op(prefix, rex_w, opcode, 2, physical(reg.reg, inst), rm(other, inst));
 }
 
 void vector(Assembler& out, const assembly::Instruction& inst, const Form& form)
@@ -225,8 +286,14 @@ void encode_instruction(Assembler& out, const assembly::Instruction& inst)
 		encode_extend_form(out, inst, *form);
 		return;
 	}
-	if (form->encoding == Encoding::VectorInsert)
-		return vector_insert(out, inst, *form);
+	if (form->encoding == Encoding::VectorImmediate)
+		return vector_immediate(out, inst, *form);
+	if (form->encoding == Encoding::PackedShift)
+		return packed_shift(out, inst, *form);
+	if (form->encoding == Encoding::VectorScalarMove ||
+		(form->encoding == Encoding::Move && suffix == 64 && inst.operands.size() == 2 &&
+			(xmm(inst.operands[0]) || xmm(inst.operands[1]))))
+		return scalar_vector_move(out, inst, suffix != 0 ? suffix : form->bits);
 	if (form->encoding >= Encoding::ControlMemory)
 	{
 		encode_system_form(out, inst, *form, suffix);

@@ -53,7 +53,9 @@ enum class Encoding : std::uint8_t
 	NonTemporalStore,
 	SystemWord,
 	DescriptorQuery,
-	VectorInsert
+	VectorImmediate,
+	PackedShift,
+	VectorScalarMove
 };
 
 struct Form
@@ -278,8 +280,21 @@ inline const Form* forms(std::size_t& count)
 		{ "xsavec64", E::ControlMemory, 0x0fc704, 0, 64, true, 0 },
 		{ "movntdqa", E::VectorRM, 0x0f382a, 0x66, 128, true, 0 },
 		{ "punpcklqdq", E::VectorRM, 0x0f6c, 0x66, 128, false, 0 },
-		{ "pinsrd", E::VectorInsert, 0x0f3a22, 0x66, 32, false, 0 },
-		{ "pinsrq", E::VectorInsert, 0x0f3a22, 0x66, 64, false, 0 },
+		{ "punpckhqdq", E::VectorRM, 0x0f6d, 0x66, 128, false, 0 },
+		{ "movd", E::VectorScalarMove, 0, 0, 32, false, 0 },
+		{ "pshufd", E::VectorImmediate, 0x0f70, 0x66, 128, false, 0 },
+		{ "pclmulqdq", E::VectorImmediate, 0x0f3a44, 0x66, 128, false, 0 },
+		// Packed shifts carry the immediate opcode, variable opcode and group digit.
+		{ "psllw", E::PackedShift, 0x71f106, 0x66, 128, false, 0 },
+		{ "pslld", E::PackedShift, 0x72f206, 0x66, 128, false, 0 },
+		{ "psllq", E::PackedShift, 0x73f306, 0x66, 128, false, 0 },
+		{ "psrlw", E::PackedShift, 0x71d102, 0x66, 128, false, 0 },
+		{ "psrld", E::PackedShift, 0x72d202, 0x66, 128, false, 0 },
+		{ "psrlq", E::PackedShift, 0x73d302, 0x66, 128, false, 0 },
+		{ "psraw", E::PackedShift, 0x71e104, 0x66, 128, false, 0 },
+		{ "psrad", E::PackedShift, 0x72e204, 0x66, 128, false, 0 },
+		{ "pinsrd", E::VectorImmediate, 0x0f3a22, 0x66, 32, false, 0 },
+		{ "pinsrq", E::VectorImmediate, 0x0f3a22, 0x66, 64, false, 0 },
 		{ "wbinvd", E::Zero, 0x0f09, 0, 0, false, 0 },
 		{ "monitorx", E::Zero, 0x0f01fa, 0, 0, false, 0 },
 		{ "mwaitx", E::Zero, 0x0f01fb, 0, 0, false, 0 },
@@ -543,6 +558,7 @@ inline const VexForm* vex_forms(std::size_t& count)
 		{ "vshufps", L::NdsImm, 0xc6, 1, 0, 0, 3, 0, 0x00, 0 },
 		{ "vshufpd", L::NdsImm, 0xc6, 1, 1, 0, 3, 0, 0x00, 0 },
 		{ "vpshufd", L::UnaryImm, 0x70, 1, 1, 0, 3, 0, 0x00, 0 },
+		{ "vpclmulqdq", L::NdsImm, 0x44, 3, 1, 0, 3, 0, 0, 0 },
 		{ "vpshufhw", L::UnaryImm, 0x70, 1, 2, 0, 3, 0, 0x00, 0 },
 		{ "vpshuflw", L::UnaryImm, 0x70, 1, 3, 0, 3, 0, 0x00, 0 },
 		{ "vpalignr", L::NdsImm, 0x0f, 3, 1, 0, 3, 0, 0x00, 0 },
