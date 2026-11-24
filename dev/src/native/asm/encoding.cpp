@@ -185,6 +185,8 @@ void packed_shift(Assembler& out, const assembly::Instruction& inst, const Form&
 	}
 	else
 	{
+		if ((form.opcode & 0xff00) == 0)
+			fail(inst, "this packed shift requires an immediate count");
 		if (!xmm(count) && (count.kind != OperandKind::Memory || (count.bits != 0 && count.bits != 128)))
 			fail(inst, "packed shift count requires an XMM register, memory or an immediate");
 		out.op(form.prefix, false, 0x0f00 | ((form.opcode >> 8) & 255), 2, physical(dst.reg, inst), rm(count, inst));
@@ -292,7 +294,9 @@ void encode_instruction(Assembler& out, const assembly::Instruction& inst)
 			return;
 		fail(inst, "instruction form is not implemented");
 	}
-	if (inst.code_bits == 32 && (suffix == 64 || (form->encoding == Encoding::Zero && form->bits == 64)))
+	if (inst.code_bits == 32 &&
+		(suffix == 64 ||
+			(form->bits == 64 && (form->encoding == Encoding::Zero || form->encoding == Encoding::ControlMemory))))
 		fail(inst, "64-bit instruction in a 32-bit code sequence");
 	if (form->encoding == Encoding::FarBranch)
 		return encode_far_branch(out, inst, *form, suffix);
@@ -399,7 +403,7 @@ void encode_assembly(Assembler& out, const std::vector<assembly::Instruction>& i
 	{
 		const size_t index = &original - instructions.data();
 		assembly::Instruction inst = original;
-		uint8_t segment = 0;
+		uint8_t segment = inst.segment;
 		bool address32 = false;
 		for (auto& operand : inst.operands)
 		{
@@ -410,7 +414,11 @@ void encode_assembly(Assembler& out, const std::vector<assembly::Instruction>& i
 			if (operand.address.label != asm_model::kNoId)
 				operand.address.label = labels[operand.address.label];
 			if (operand.address.segment != 0)
+			{
+				if (segment != 0 && segment != operand.address.segment)
+					fail(inst, "conflicting assembly segment overrides");
 				segment = operand.address.segment;
+			}
 			address32 |= (operand.address.has_base && operand.address.base.bits == 32) ||
 				(operand.address.has_index && operand.address.index.bits == 32);
 		}

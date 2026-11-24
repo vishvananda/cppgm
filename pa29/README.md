@@ -248,7 +248,8 @@ A function designator, static array or string literal can supply a symbol addres
 immediate constraint. Check constraints against the operands that will be
 encoded, after any substitution or propagation.
 The GNU `%a` modifier uses a register or constant as a memory address.
-An x86 memory operand can carry an FS or GS segment override.
+An x86 memory operand can carry a segment override. An instruction can also
+use a GNU segment prefix such as `ds wrmsr`.
 Accept whitespace between the AT&T register prefix and name, including
 `% rip` after macro expansion. A symbol displacement and its constant
 addend can be grouped in parentheses before the addressing tuple.

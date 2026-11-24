@@ -47,7 +47,7 @@ struct Address
 	bool has_base = false;
 	bool has_index = false;
 	uint8_t scale = 1;
-	uint8_t segment = 0; // optional x86 FS or GS override
+	uint8_t segment = 0; // optional x86 segment override
 	int32_t displacement = 0;
 	bool rip = false;
 	asm_model::SymbolReference symbol;
@@ -83,6 +83,7 @@ struct Instruction
 	std::vector<uint8_t> bytes;
 	uint32_t symbol_definition = asm_model::kNoId; // typed module label, if present
 	uint8_t prefix = 0;
+	uint8_t segment = 0;
 	uint8_t code_bits = 64;
 	bool is_exit = false;
 	uint32_t exit_tag = 0;

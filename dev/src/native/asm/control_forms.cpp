@@ -165,11 +165,22 @@ void encode_system_form(
 	{
 		if (inst.operands.size() != 1 || inst.operands[0].kind != OperandKind::Register)
 			fail(inst, "system instruction requires a general register");
-		const unsigned bits = asm_detail::integer_width(inst, form.bits);
-		if (bits != 32 && bits != 64)
-			fail(inst, "system instruction requires a 32-bit or 64-bit register");
-		out.op(form.prefix, form.bits == 0 && bits == 64, form.opcode >> 8, 2, form.opcode & 255,
+		const unsigned bits = asm_detail::integer_width(inst, suffix != 0 ? suffix : form.bits);
+		if ((form.bits != 0 && bits != form.bits) || (bits != 32 && bits != 64 && (bits != 16 || form.prefix != 0)))
+			fail(inst, "invalid system instruction register width");
+		out.op(bits == 16 ? 0x66 : form.prefix, form.bits == 0 && bits == 64, form.opcode >> 8, 2, form.opcode & 255,
 			rm(inst.operands[0], inst));
+		return;
+	}
+	if (form.encoding == E::InvalidateContext)
+	{
+		if (inst.operands.size() != 2 || inst.operands[0].kind != OperandKind::Register ||
+			inst.operands[0].reg.bank != asm_model::RegisterBank::Gpr || inst.operands[0].bits != inst.code_bits ||
+			inst.operands[1].kind != OperandKind::Memory ||
+			(inst.operands[1].bits != 0 && inst.operands[1].bits != 128))
+			fail(inst, "context invalidation requires a mode-width general register and 128-bit memory");
+		out.op(form.prefix, false, form.opcode, 3, asm_detail::physical(inst.operands[0].reg, inst),
+			rm(inst.operands[1], inst));
 		return;
 	}
 	if (form.encoding == E::ControlMemory)

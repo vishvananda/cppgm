@@ -305,6 +305,29 @@ Operand Parser::att_memory(int64_t displacement)
 	return result;
 }
 
+uint8_t segment_prefix(char initial, char second)
+{
+	if ((second | 0x20) != 's')
+		return 0;
+	switch (initial | 0x20)
+	{
+	case 'e':
+		return 0x26;
+	case 'c':
+		return 0x2e;
+	case 's':
+		return 0x36;
+	case 'd':
+		return 0x3e;
+	case 'f':
+		return 0x64;
+	case 'g':
+		return 0x65;
+	default:
+		return 0;
+	}
+}
+
 uint8_t Parser::segment_override()
 {
 	size_t first = pos_;
@@ -316,10 +339,10 @@ uint8_t Parser::segment_override()
 		while (first < source_.size() && (source_[first] == ' ' || source_[first] == '\t'))
 			++first;
 	}
-	if (first + 2 >= source_.size() || (source_[first + 1] != 's' && source_[first + 1] != 'S'))
+	if (first + 2 >= source_.size())
 		return 0;
-	const char initial = static_cast<char>(source_[first] | 0x20);
-	if (initial != 'f' && initial != 'g')
+	const uint8_t prefix = segment_prefix(source_[first], source_[first + 1]);
+	if (prefix == 0)
 		return 0;
 	size_t colon = first + 2;
 	while (colon < source_.size() && (source_[colon] == ' ' || source_[colon] == '\t'))
@@ -328,7 +351,7 @@ uint8_t Parser::segment_override()
 		return 0;
 	while (pos_ <= colon)
 		step();
-	return initial == 'f' ? 0x64 : 0x65;
+	return prefix;
 }
 
 Operand Parser::operand()
@@ -876,6 +899,7 @@ std::vector<Instruction> Parser::run()
 {
 	std::vector<Instruction> result;
 	uint8_t pending_prefix = 0;
+	uint8_t pending_segment = 0;
 	while (pos_ < source_.size())
 	{
 		space();
@@ -900,7 +924,7 @@ std::vector<Instruction> Parser::run()
 		space();
 		if (take(':'))
 		{
-			if (pending_prefix != 0)
+			if (pending_prefix != 0 || pending_segment != 0)
 				fail("assembly prefix cannot precede a label");
 			inst.label = true;
 			if (lookup_ != nullptr)
@@ -918,7 +942,7 @@ std::vector<Instruction> Parser::run()
 				c = static_cast<char>(c + ('a' - 'A'));
 		if (syntax(inst.mnemonic))
 		{
-			if (pending_prefix != 0)
+			if (pending_prefix != 0 || pending_segment != 0)
 				fail("assembly prefix cannot precede a syntax directive");
 			continue;
 		}
@@ -933,11 +957,21 @@ std::vector<Instruction> Parser::run()
 			pending_prefix = prefix;
 			continue;
 		}
+		const uint8_t segment = inst.mnemonic.size() == 2 ? segment_prefix(inst.mnemonic[0], inst.mnemonic[1]) : 0;
+		if (segment != 0)
+		{
+			if (pending_segment != 0)
+				fail("conflicting assembly segment prefixes");
+			pending_segment = segment;
+			continue;
+		}
 		inst.prefix = pending_prefix;
+		inst.segment = pending_segment;
 		pending_prefix = 0;
+		pending_segment = 0;
 		if (directive(inst))
 		{
-			if (inst.prefix)
+			if (inst.prefix || inst.segment)
 				fail("assembly prefix cannot precede data or alignment");
 			space();
 			if (pos_ != source_.size() && current() != '\n' && current() != ';' && current() != '#')
@@ -967,7 +1001,7 @@ std::vector<Instruction> Parser::run()
 			std::reverse(inst.operands.begin(), inst.operands.end());
 		result.push_back(inst);
 	}
-	if (pending_prefix != 0)
+	if (pending_prefix != 0 || pending_segment != 0)
 		fail("assembly prefix has no instruction");
 	resolve_labels(result);
 	if (state_)

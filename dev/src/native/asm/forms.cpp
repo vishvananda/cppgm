@@ -47,7 +47,7 @@ const Form* assembly_form(const std::string& mnemonic, uint16_t& suffix, uint32_
 				(form->encoding == E::ControlMemory && (form->opcode >> 8) == 0x0f01 && suffix == 64) ||
 				form->encoding == E::Port || form->encoding == E::NonTemporalStore ||
 				form->encoding == E::DescriptorQuery || form->encoding == E::SystemWord ||
-				form->encoding == E::FarBranch ||
+				form->encoding == E::FarBranch || form->encoding == E::SystemRegister ||
 				(form->encoding >= E::ConditionMove && form->encoding <= E::DoubleShift))
 		? form
 		: nullptr;
