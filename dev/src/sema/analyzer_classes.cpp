@@ -1601,6 +1601,14 @@ Entity* Analyzer::qualified_enum_definition(
 	return entity;
 }
 
+static bool packed_enum(const syntax::EnumSpecifier& specifier)
+{
+	for (const syntax::Attribute* attribute = specifier.attributes; attribute != nullptr; attribute = attribute->next)
+		if (attribute->kind == syntax::AttributeKind::Packed)
+			return true;
+	return false;
+}
+
 void Analyzer::enumerators(EnumEntity* entity, const syntax::EnumSpecifier& specifier, const Binding* declaration,
 	Scope* print, Scope* lookup, Scope* values)
 {
@@ -1626,6 +1634,7 @@ void Analyzer::enumerators(EnumEntity* entity, const syntax::EnumSpecifier& spec
 	const bool dependent = entity->fixed && !IntegralKindOf(entity->underlying, fixed_kind);
 	const bool fixed = entity->fixed && !dependent;
 	const bool c_enum = c_source_ && !fixed;
+	const bool packed = !entity->fixed && packed_enum(specifier);
 	const Type* int_type = types_.fundamental(FundamentalType::Int);
 	bool wide_c_enum = false;
 	// Whether a template's enumerator holds only its position, its value
@@ -1689,6 +1698,8 @@ void Analyzer::enumerators(EnumEntity* entity, const syntax::EnumSpecifier& spec
 			if (!entity->negative && static_cast<int64_t>(value.bits) < 0)
 				entity->negative = value.type == int_type || IsSignedConstant(value);
 		}
+		if (!c_enum && packed && static_cast<int64_t>(value.bits) < 0 && IsSignedConstant(value))
+			entity->negative = true;
 		previous = value;
 		EnumeratorEntity* constant = new_entity<EnumeratorEntity>(
 			EntityKind::Enumerator, enumerator.name, lookup, entity->type);
@@ -1699,12 +1710,14 @@ void Analyzer::enumerators(EnumEntity* entity, const syntax::EnumSpecifier& spec
 	}
 	if (c_enum && !wide_c_enum)
 	{
-		entity->underlying = entity->negative ? int_type : types_.fundamental(FundamentalType::UnsignedInt);
+		entity->underlying = packed ? enumeration_underlying(base, entity->negative, true)
+			: entity->negative      ? int_type
+									: types_.fundamental(FundamentalType::UnsignedInt);
 	}
 	else
 	{
 		if (!entity->fixed)
-			entity->underlying = enumeration_underlying(base, entity->negative);
+			entity->underlying = enumeration_underlying(base, entity->negative, packed);
 		// C++ enumerators take the enum type. GNU C wide enum constants
 		// use the underlying integer type after the body.
 		const Type* constant_type = c_enum ? entity->underlying : entity->type;
@@ -1772,17 +1785,19 @@ struct CEnumRange
 		return CEnumFits(least, least != 0, kind) && CEnumFits(greatest, false, kind);
 	}
 
-	const Type* type(TypeTable& types, bool is_signed) const
+	const Type* type(TypeTable& types, bool is_signed, bool packed = false) const
 	{
 		// The ISO integer model's widest ordinary types are intmax_t and
 		// uintmax_t. __int128 is available for an explicit base.
-		static const FundamentalType signed_types[] = { FundamentalType::Int, FundamentalType::LongInt,
-			FundamentalType::LongLongInt };
-		static const FundamentalType unsigned_types[] = { FundamentalType::UnsignedInt,
-			FundamentalType::UnsignedLongInt, FundamentalType::UnsignedLongLongInt };
-		for (FundamentalType candidate : is_signed ? signed_types : unsigned_types)
+		static const FundamentalType signed_types[] = { FundamentalType::SignedChar, FundamentalType::ShortInt,
+			FundamentalType::Int, FundamentalType::LongInt, FundamentalType::LongLongInt };
+		static const FundamentalType unsigned_types[] = { FundamentalType::UnsignedChar,
+			FundamentalType::UnsignedShortInt, FundamentalType::UnsignedInt, FundamentalType::UnsignedLongInt,
+			FundamentalType::UnsignedLongLongInt };
+		const FundamentalType* candidates = is_signed ? signed_types : unsigned_types;
+		for (unsigned i = packed ? 0 : 2; i < sizeof signed_types / sizeof signed_types[0]; ++i)
 		{
-			const Type* type = types.fundamental(candidate);
+			const Type* type = types.fundamental(candidates[i]);
 			IntegralKind kind;
 			IntegralKindOf(type, kind);
 			if (fits(kind))
@@ -1903,11 +1918,14 @@ void Analyzer::c23_enumerators(
 	entity->negative = range.least != 0;
 	if (!entity->fixed)
 	{
+		const bool packed = packed_enum(specifier);
 		if (range.fits(int_kind))
-			entity->underlying = entity->negative ? int_type : types_.fundamental(FundamentalType::UnsignedInt);
+			entity->underlying = packed ? range.type(types_, entity->negative, true)
+				: entity->negative      ? int_type
+										: types_.fundamental(FundamentalType::UnsignedInt);
 		else
 		{
-			entity->underlying = range.type(types_, entity->negative);
+			entity->underlying = range.type(types_, entity->negative, packed);
 			if (entity->underlying == nullptr)
 				error(specifier.location, "no integer type can represent all enumeration values");
 			for (size_t i = base; i < enumerator_scratch_.size(); ++i)
@@ -1949,20 +1967,21 @@ Constant Analyzer::next_enumerator_value(
 	return Constant{ next, SmallestTypeFor(types_, next, negative) };
 }
 
-const Type* Analyzer::enumeration_underlying(size_t base, bool negative)
+const Type* Analyzer::enumeration_underlying(size_t base, bool negative, bool packed)
 {
 	// The first of int, unsigned int, long, unsigned long, long long and
 	// unsigned long long that represents every value. C uses an unsigned
 	// type for entirely nonnegative enumerations.
-	static const FundamentalType kCandidates[] = { FundamentalType::Int, FundamentalType::UnsignedInt,
-		FundamentalType::LongInt, FundamentalType::UnsignedLongInt, FundamentalType::LongLongInt,
-		FundamentalType::UnsignedLongLongInt };
-	for (FundamentalType candidate : kCandidates)
+	static const FundamentalType kCandidates[] = { FundamentalType::SignedChar, FundamentalType::UnsignedChar,
+		FundamentalType::ShortInt, FundamentalType::UnsignedShortInt, FundamentalType::Int,
+		FundamentalType::UnsignedInt, FundamentalType::LongInt, FundamentalType::UnsignedLongInt,
+		FundamentalType::LongLongInt, FundamentalType::UnsignedLongLongInt };
+	for (unsigned i = packed ? 0 : 4; i < sizeof kCandidates / sizeof kCandidates[0]; ++i)
 	{
-		const Type* type = types_.fundamental(candidate);
+		const Type* type = types_.fundamental(kCandidates[i]);
 		IntegralKind kind;
 		IntegralKindOf(type, kind);
-		if (c_source_ && kind.is_signed != negative)
+		if ((c_source_ || packed) && kind.is_signed != negative)
 			continue;
 		bool fits = true;
 		for (size_t i = base; fits && i < enumerator_scratch_.size(); ++i)

@@ -537,6 +537,9 @@ To complete PA30, implement hosted compatibility for:
   placement and its contribution to the record alignment, including when
   the alignment depends on a template argument.
   Keep reads and writes of a packed union bit-field within its storage.
+  An enumeration marked `packed` without a fixed base uses the smallest
+  integer type that can represent its members. Use a signed type if a
+  member is negative and an unsigned type otherwise.
   Directories added with `-iquote` are searched for quoted includes after
   the including file's directory and before `-I`. Angle-bracket lookups
   start at the ordinary include chain. `#include_next` continues from the

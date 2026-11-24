@@ -1478,7 +1478,7 @@ EnumSpecifier* Parser::parse_enum_specifier(TypeIdContext context)
 	for (Attribute* attribute = attributes; attribute != nullptr;)
 	{
 		Attribute* const following = attribute->next;
-		if (attribute->kind == AttributeKind::AbiTag ||
+		if (attribute->kind == AttributeKind::AbiTag || attribute->kind == AttributeKind::Packed ||
 			(attribute->kind == AttributeKind::Alignas && !attribute->gnu) ||
 			(attribute->kind == AttributeKind::NoReturn && attribute->standard))
 		{
@@ -1598,6 +1598,9 @@ EnumSpecifier* Parser::parse_enum_specifier(TypeIdContext context)
 	if (!expect(TokenKind::OP_RBRACE))
 		return nullptr;
 	specifier->enumerators = enumerators.take(arena_);
+	if (tok().is_identifier() && gnu_names_.kind(tok().identifier) == GnuNames::kAttribute &&
+		!collect_attributes(specifier->attributes, nullptr, CAlignment::EndAttributes))
+		return nullptr;
 	return specifier;
 }
 

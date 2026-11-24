@@ -622,7 +622,7 @@ private:
 	void instantiate_member_enum(EnumEntity* entity);
 	Constant next_enumerator_value(
 		const EnumEntity* entity, const Constant& previous, IntegralKind fixed_kind, uint32_t location);
-	const Type* enumeration_underlying(size_t base, bool negative = false);
+	const Type* enumeration_underlying(size_t base, bool negative, bool packed);
 	void finish_class_nesting(size_t first_deferred);
 	void define_implicit_default_constructor(ClassEntity* entity);
 
