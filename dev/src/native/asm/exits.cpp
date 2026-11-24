@@ -27,10 +27,10 @@ void label(std::vector<assembly::Instruction>& instructions)
 }
 } // namespace
 
-void append_assembly_exits(AssemblyPlan& plan, const lowir::AssemblyTemplate& definition)
+std::vector<uint32_t> append_assembly_exits(AssemblyPlan& plan, const lowir::AssemblyTemplate& definition)
 {
 	if (plan.exit_operand == lowir::kNoId)
-		return;
+		return {};
 	std::vector<assembly::Instruction>& instructions = plan.instructions;
 	std::vector<uint32_t> targets(definition.operand_count, lowir::kNoId), joins;
 	tag(instructions, 0);
@@ -58,5 +58,6 @@ void append_assembly_exits(AssemblyPlan& plan, const lowir::AssemblyTemplate& de
 				operand.label = targets[operand.label];
 				operand.external_label = false;
 			}
+	return targets;
 }
 } // namespace native

@@ -1423,8 +1423,17 @@ void FunctionEmitter::instruction(const Function& function, const Inst& inst, ui
 			asm_.nops((uint32_t(0) - asm_.size()) & (text.align - 1));
 			const uint32_t position = asm_.new_label();
 			asm_.bind(position);
-			inline_modules_.push_back(InlineModuleLocation{ plan.module, position });
+			const uint32_t start = asm_.size();
 			asm_.code().insert(asm_.code().end(), text.bytes.begin(), text.bytes.end());
+			InlineModuleLocation module{ plan.module, position, {} };
+			if (!plan.instructions.empty())
+			{
+				std::vector<uint32_t> offsets;
+				encode_assembly(asm_, plan.instructions, rm(b), &offsets);
+				for (uint32_t exit : plan.module_exit_targets)
+					module.exit_offsets.push_back(offsets[exit] - start);
+			}
+			inline_modules_.push_back(std::move(module));
 		}
 		else
 			encode_assembly(asm_, plan.instructions, inst.nops == 2 ? rm(b) : RM());

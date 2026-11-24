@@ -234,8 +234,8 @@ On x86-64 ELF, inline assembly can put data in other sections using the
 same section directives as module assembly. References to code labels
 within the template follow the final placement of the function. Preserve
 the section's data, alignment, and relocations, including symbol operands
-supplied by the C or C++ source. This form uses host object output and
-currently supports templates without outgoing `asm goto` labels.
+supplied by the C or C++ source. Outgoing `asm goto` operands can be used
+in branches and section metadata. This form uses host object output.
 For x86-64 ELF object output, a literal external name in an inline
 instruction can also name a linker symbol, including a direct
 `call symbol@PLT` or a RIP-relative memory operand. Resolve local labels

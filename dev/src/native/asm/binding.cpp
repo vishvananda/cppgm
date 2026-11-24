@@ -230,37 +230,39 @@ std::shared_ptr<const AssemblyPlan> bind_assembly(const lowir::AssemblyModule& m
 		{
 			if (target != Target::Linux)
 				unsupported("inline assembly sections require ELF");
-			if (!labels.empty())
-				unsupported("outgoing C labels in sectioned inline assembly");
 			plan->module = build_inline_module(lines, definition.dialect);
-			return plan;
 		}
-		assembly::ModuleLine expanded;
-		for (const auto& line : lines)
+		else
 		{
-			assembly::append_module_line(expanded, line);
-			expanded.text += '\n';
-		}
-		assembly::Syntax syntax;
-		syntax.dialect = definition.dialect;
-		syntax.register_prefix = definition.dialect == asm_model::Dialect::Att;
-		syntax.power_alignment = target == Target::MacOS;
-		syntax.named_externals = target == Target::Linux;
-		plan->instructions = assembly::parse(
-			expanded.text, definition.dialect, expanded.symbols, expanded.labels, nullptr, &syntax);
-		if (syntax.named_externals && inline_has_symbol_names(plan->instructions))
-		{
-			if (!labels.empty())
-				unsupported("literal symbols with outgoing C labels in inline assembly");
-			plan->module = build_inline_module(plan->instructions);
-			return plan;
+			assembly::ModuleLine expanded;
+			for (const auto& line : lines)
+			{
+				assembly::append_module_line(expanded, line);
+				expanded.text += '\n';
+			}
+			assembly::Syntax syntax;
+			syntax.dialect = definition.dialect;
+			syntax.register_prefix = definition.dialect == asm_model::Dialect::Att;
+			syntax.power_alignment = target == Target::MacOS;
+			syntax.named_externals = target == Target::Linux;
+			plan->instructions = assembly::parse(
+				expanded.text, definition.dialect, expanded.symbols, expanded.labels, nullptr, &syntax);
+			if (syntax.named_externals && inline_has_symbol_names(plan->instructions))
+				plan->module = build_inline_module(plan->instructions);
 		}
 	}
 	catch (const assembly::AssemblyError& error)
 	{
 		throw BackendError("assembly line " + std::to_string(error.line) + ": " + error.message);
 	}
-	append_assembly_exits(*plan, definition);
+	const std::vector<uint32_t> targets = append_assembly_exits(*plan, definition);
+	if (plan->module)
+		for (const auto& exit : plan->module->exits)
+		{
+			if (exit.operand >= targets.size() || targets[exit.operand] == lowir::kNoId)
+				throw BackendError("invalid outgoing assembly label reference");
+			plan->module_exit_targets.push_back(targets[exit.operand]);
+		}
 	return plan;
 }
 

@@ -14,6 +14,12 @@ struct InlineAssemblyModule
 	object::ObjectFile object;
 	// Per-object symbol IDs mapped to LowIR symbol IDs, or kNoId.
 	std::vector<uint32_t> inputs;
+	struct Exit
+	{
+		uint32_t symbol;
+		uint32_t operand;
+	};
+	std::vector<Exit> exits;
 	uint32_t text = 1;
 
 	const object::Section& main() const { return object.sections[text]; }
@@ -23,6 +29,7 @@ struct InlineModuleLocation
 {
 	std::shared_ptr<const InlineAssemblyModule> module;
 	uint32_t offset;
+	std::vector<uint32_t> exit_offsets;
 };
 
 bool inline_has_sections(const std::vector<assembly::ModuleLine>& lines);
@@ -36,7 +43,7 @@ class InlineModulePlacement
 public:
 	explicit InlineModulePlacement(object::ObjectFile& out);
 	void append(const InlineAssemblyModule& module, uint32_t code_section, uint64_t code_offset,
-		const std::vector<uint32_t>& symbols);
+		const std::vector<uint32_t>& symbols, const std::vector<uint32_t>& exit_offsets);
 
 private:
 	using Key = std::tuple<std::string, object::SectionKind, uint32_t, bool>;

@@ -45,6 +45,45 @@ private:
 	std::map<uint32_t, uint32_t> inputs_;
 };
 
+class InlineExits
+{
+public:
+	explicit InlineExits(InlineAssemblyModule& module) : module_(module) {}
+
+	uint32_t symbol(uint32_t operand)
+	{
+		const auto entry = indices_.emplace(operand, module_.object.symbols.size());
+		if (entry.second)
+		{
+			module_.object.add_symbol(object::Symbol{});
+			module_.exits.push_back(InlineAssemblyModule::Exit{ entry.first->second, operand });
+		}
+		return entry.first->second;
+	}
+
+	void remap(assembly::ModuleLine& line)
+	{
+		if (line.labels.empty())
+			return;
+		std::vector<assembly::SymbolUse> exits;
+		for (const assembly::LabelUse& label : line.labels)
+		{
+			asm_model::SymbolReference reference;
+			reference.symbol = symbol(label.operand);
+			exits.push_back(assembly::SymbolUse{ label.first, label.count, reference });
+		}
+		const std::size_t first = line.symbols.size();
+		line.symbols.insert(line.symbols.end(), exits.begin(), exits.end());
+		std::inplace_merge(line.symbols.begin(), line.symbols.begin() + first, line.symbols.end(),
+			[](const assembly::SymbolUse& a, const assembly::SymbolUse& b) { return a.first < b.first; });
+		line.labels.clear();
+	}
+
+private:
+	InlineAssemblyModule& module_;
+	std::map<uint32_t, uint32_t> indices_;
+};
+
 bool has_symbol_name(const assembly::Operand& operand)
 {
 	return operand.address.label == asm_model::kNoId && !operand.address.local.empty();
@@ -77,6 +116,9 @@ std::shared_ptr<const InlineAssemblyModule> build_inline_module(
 	for (auto& line : lines)
 		for (assembly::SymbolUse& use : line.symbols)
 			inputs.remap(use.reference);
+	InlineExits exits(*result);
+	for (auto& line : lines)
+		exits.remap(line);
 	ModuleAssembler assembler(result->object, Target::Linux);
 	assembler.begin(dialect);
 	for (const assembly::ModuleLine& line : lines)
@@ -103,6 +145,15 @@ std::shared_ptr<const InlineAssemblyModule> build_inline_module(std::vector<asse
 	for (auto& instruction : instructions)
 		for (auto& operand : instruction.operands)
 			inputs.remap(operand.address.symbol);
+	InlineExits exits(*result);
+	for (auto& instruction : instructions)
+		for (auto& operand : instruction.operands)
+			if (operand.external_label)
+			{
+				operand.kind = assembly::OperandKind::Symbol;
+				operand.address.symbol.symbol = exits.symbol(operand.label);
+				operand.external_label = false;
+			}
 	ModuleAssembler assembler(result->object, Target::Linux);
 	assembler.append(instructions);
 	assembler.finish();
@@ -147,7 +198,7 @@ uint32_t InlineModulePlacement::place_section(const object::ObjectFile& source, 
 }
 
 void InlineModulePlacement::append(const InlineAssemblyModule& module, uint32_t code_section, uint64_t code_offset,
-	const std::vector<uint32_t>& symbols)
+	const std::vector<uint32_t>& symbols, const std::vector<uint32_t>& exit_offsets)
 {
 	const object::ObjectFile& source = module.object;
 	std::vector<uint32_t> section_map(source.sections.size(), 0);
@@ -158,8 +209,17 @@ void InlineModulePlacement::append(const InlineAssemblyModule& module, uint32_t 
 		if (id != module.text)
 			section_map[id] = place_section(source, id, offsets[id]);
 	std::vector<uint32_t> moved(source.symbols.size(), 0);
+	for (size_t i = 0; i < module.exits.size(); ++i)
+	{
+		object::Symbol symbol;
+		symbol.section = code_section;
+		symbol.value = code_offset + exit_offsets[i];
+		moved[module.exits[i].symbol] = out_.add_symbol(symbol);
+	}
 	for (uint32_t id = 1; id < source.symbols.size(); ++id)
 	{
+		if (moved[id] != 0)
+			continue;
 		object::Symbol symbol = source.symbols[id];
 		if (id < module.inputs.size())
 		{

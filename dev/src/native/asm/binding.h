@@ -53,6 +53,7 @@ struct AssemblyPlan : AssemblyBinding
 	uint32_t writes = 0; // declared clobbers and operand setup destinations
 	std::vector<assembly::Instruction> instructions;
 	std::shared_ptr<const InlineAssemblyModule> module;
+	std::vector<uint32_t> module_exit_targets;
 };
 
 struct AssemblySites
@@ -64,7 +65,7 @@ std::shared_ptr<AssemblyPlan> prepare_assembly_source(const lowir::AssemblyModul
 	const lowir::FunctionBody& body, const std::vector<lowir::Value>& arguments, std::string& source,
 	std::vector<assembly::SymbolUse>& symbols, std::vector<assembly::LabelUse>& labels);
 
-void append_assembly_exits(AssemblyPlan& plan, const lowir::AssemblyTemplate& definition);
+std::vector<uint32_t> append_assembly_exits(AssemblyPlan& plan, const lowir::AssemblyTemplate& definition);
 
 std::shared_ptr<const AssemblyPlan> bind_assembly(const lowir::AssemblyModule& module, uint32_t definition,
 	const lowir::FunctionBody& body, const std::vector<lowir::Value>& arguments, AssemblyEnvironment& environment,

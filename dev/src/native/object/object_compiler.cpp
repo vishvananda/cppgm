@@ -783,7 +783,8 @@ void ObjectCompiler::place_inline_modules()
 		const InlineModuleLocation& site = module.site;
 		const CodeRange& range = ranges_[module.function];
 		if (!range.dropped)
-			placement.append(*site.module, range.section, range.base + site.offset - range.start, object_symbol_);
+			placement.append(
+				*site.module, range.section, range.base + site.offset - range.start, object_symbol_, site.exit_offsets);
 	}
 }
 
