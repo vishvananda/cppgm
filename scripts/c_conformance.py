@@ -311,6 +311,7 @@ C23_VERSIONED_PROGRAMS = {
     'library.c23-math-exp-log': (ROOT / 'scripts/tests/c_c23_math_exp_log.c', 'math'),
     'library.c23-math-extrema': (ROOT / 'scripts/tests/c_c23_math_extrema.c', 'math'),
     'library.c23-math-fromfp': (ROOT / 'scripts/tests/c_c23_math_fromfp.c', 'math'),
+    'library.c23-math-logp1': (ROOT / 'scripts/tests/c_c23_math_logp1.c', 'math'),
     'library.c23-math-pi': (ROOT / 'scripts/tests/c_c23_math_pi.c', 'math'),
     'library.c23-math-representation': (ROOT / 'scripts/tests/c_c23_math_representation.c', 'math'),
     'library.c23-math-roundeven': (ROOT / 'scripts/tests/c_c23_math_roundeven.c', 'math'),
@@ -333,7 +334,8 @@ WASI_C23_PROFILE = 'wasi-c23-hosted'
 WASI_C23_PARTIAL_CASES = {'library.c23-memalignment', 'library.c23-binary-conversion',
                          'library.c23-sized-deallocation', 'library.c23-qualified-bsearch',
                          'library.c23-math-classification', 'library.c23-math-exp-log',
-                         'library.c23-math-extrema', 'library.c23-math-fromfp', 'library.c23-math-pi',
+                         'library.c23-math-extrema', 'library.c23-math-fromfp',
+                         'library.c23-math-logp1', 'library.c23-math-pi',
                          'library.c23-math-representation', 'library.c23-math-roundeven',
                          'library.c23-math-rsqrt-long-double'}
 C23_LIBRARY_SOURCES = {

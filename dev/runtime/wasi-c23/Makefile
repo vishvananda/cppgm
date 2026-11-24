@@ -10,7 +10,7 @@ CORE_MATH := ../../../third_party/core-math
 SHARED_HEADERS := __cppgm_search_result.h float.h limits.h stdarg.h stdbit.h stddef.h stdlib.h string.h
 LOCAL_HEADERS := assert.h complex.h fenv.h inttypes.h math.h setjmp.h stdatomic.h stdint.h stdio.h time.h uchar.h wchar.h
 NOTICES := $(patsubst $(SHARED)/licenses/%,$(BUILD_DIR)/licenses/%,$(wildcard $(SHARED)/licenses/*.txt)) \
-	$(BUILD_DIR)/licenses/core-math.txt
+	$(BUILD_DIR)/licenses/core-math.txt $(BUILD_DIR)/licenses/freebsd-log1pl.txt
 HEADERS := $(addprefix $(BUILD_DIR)/include/,$(SHARED_HEADERS) $(LOCAL_HEADERS))
 STDIO_SOURCES := printf scanf wprintf wscanf scan_integer vfprintf vfwprintf vfscanf vfwscanf \
 	vsnprintf vswprintf vsscanf vswscanf
@@ -22,7 +22,7 @@ CORE_MATH_F128_OBJECTS := $(BUILD_DIR)/core-math/rsqrtl.o
 CORE_MATH_OBJECTS := $(CORE_MATH_F32_OBJECTS) $(CORE_MATH_F64_OBJECTS) $(CORE_MATH_F128_OBJECTS)
 OBJECTS := $(addprefix $(BUILD_DIR)/,stdbit.o memalignment.o memset_explicit.o timespec_getres.o utf8.o \
 	binary_conversion.o sized_free.o atomic_functions.o call_once.o strfrom.o fenv.o temporary_files.o \
-	math_representation.o math_classification.o math_extrema.o math_rounding.o) $(STDIO_OBJECTS) \
+	math_representation.o math_classification.o math_extrema.o math_rounding.o math_logp1.o) $(STDIO_OBJECTS) \
 	$(CORE_MATH_OBJECTS)
 RUNTIME_CFLAGS := --target=wasm32-wasip1 --sysroot="$(WASI_SYSROOT)" -resource-dir="$(RESOURCE_DIR)" \
 	-x c -std=c23 -pedantic-errors -isystem "$(BUILD_DIR)/include" -O2
@@ -46,8 +46,13 @@ $(BUILD_DIR)/licenses/core-math.txt: $(CORE_MATH)/NOTICE
 	mkdir -p "$(@D)"
 	cp "$<" "$@"
 
+$(BUILD_DIR)/licenses/freebsd-log1pl.txt: licenses/freebsd-log1pl.txt
+	mkdir -p "$(@D)"
+	cp "$<" "$@"
+
 # Build the callable operations and temporary-name counter with Wasm atomics.
 $(addprefix $(BUILD_DIR)/,atomic_functions.o temporary_files.o): RUNTIME_CFLAGS += -matomics
+$(BUILD_DIR)/math_logp1.o: RUNTIME_CFLAGS += -ffp-contract=off
 
 vpath %.c $(SHARED)
 $(BUILD_DIR)/%.o: %.c Makefile | $(HEADERS)
