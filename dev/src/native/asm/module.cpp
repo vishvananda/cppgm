@@ -89,6 +89,11 @@ bool has_symbol_name(const assembly::Operand& operand)
 	return operand.address.label == asm_model::kNoId && !operand.address.local.empty();
 }
 
+bool absolute_local_label(const assembly::Operand& operand)
+{
+	return operand.kind == assembly::OperandKind::Symbol && operand.address.label != asm_model::kNoId;
+}
+
 } // namespace
 
 bool inline_has_sections(const std::vector<assembly::ModuleLine>& lines)
@@ -133,7 +138,7 @@ bool inline_has_symbol_names(const std::vector<assembly::Instruction>& instructi
 {
 	for (const auto& instruction : instructions)
 		for (const auto& operand : instruction.operands)
-			if (has_symbol_name(operand))
+			if (has_symbol_name(operand) || absolute_local_label(operand))
 				return true;
 	return false;
 }
@@ -328,6 +333,16 @@ void ModuleAssembler::append(std::vector<assembly::Instruction>& instructions)
 		for (auto& operand : instruction.operands)
 			if (has_symbol_name(operand))
 				operand.address.symbol.symbol = symbols_.named(operand.address.local);
+			else if (absolute_local_label(operand))
+			{
+				uint32_t& symbol = instructions[operand.address.label].symbol_definition;
+				if (symbol == asm_model::kNoId)
+				{
+					symbol = out_.add_symbol(object::Symbol{});
+					symbols_.type(symbol, object::SymbolType::None);
+				}
+				operand.address.symbol.symbol = symbol;
+			}
 	emit_instructions(instructions);
 }
 

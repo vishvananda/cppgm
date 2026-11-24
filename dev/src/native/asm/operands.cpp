@@ -42,8 +42,8 @@ RM rm(const Operand& op, const assembly::Instruction& inst)
 	}
 	if (address.rip)
 	{
-		if (address.symbol.symbol == asm_model::kNoId || address.has_base || address.has_index)
-			fail(inst, "RIP-relative memory requires an unindexed address symbol");
+		if (address.has_base || address.has_index)
+			fail(inst, "RIP-relative memory cannot use a base or index register");
 		return RM::rip(address.symbol.symbol, address.displacement);
 	}
 	RM memory = RM::m(address.has_base ? physical(address.base, inst) : kNoReg, address.displacement,

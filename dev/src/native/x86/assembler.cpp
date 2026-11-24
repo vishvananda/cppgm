@@ -166,7 +166,7 @@ void Assembler::op(uint8_t prefix, bool rex_w, uint32_t opcode, unsigned opcode_
 		byte(static_cast<uint8_t>(0xc0 | r | (rm.reg & 7)));
 		return;
 	}
-	if ((rm.symbol != 0xffffffffu && !rm.absolute_symbol) || rm.label != 0xffffffffu)
+	if (rm.ip_relative || rm.label != kNoLabel)
 	{
 		byte(static_cast<uint8_t>(0x05 | r));
 		if (rm.symbol != 0xffffffffu)
@@ -181,7 +181,7 @@ void Assembler::op(uint8_t prefix, bool rex_w, uint32_t opcode, unsigned opcode_
 			fixups_.push_back(fixup);
 			imm(0, 4);
 		}
-		else
+		else if (rm.label != kNoLabel)
 		{
 			LabelRef ref;
 			ref.offset = size();
@@ -191,6 +191,8 @@ void Assembler::op(uint8_t prefix, bool rex_w, uint32_t opcode, unsigned opcode_
 			label_refs_.push_back(ref);
 			imm(rm.disp, 4);
 		}
+		else
+			imm(rm.disp, 4);
 		return;
 	}
 	if (rm.base == kNoReg)

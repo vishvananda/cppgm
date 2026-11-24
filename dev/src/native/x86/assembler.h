@@ -50,6 +50,7 @@ struct RM
 	uint8_t scale = 1;
 	bool absolute_symbol = false;
 	bool address32 = false;
+	bool ip_relative = false;
 	int32_t disp = 0;
 	uint32_t symbol = 0xffffffffu; // image symbol, normally RIP-relative
 	uint32_t label = 0xffffffffu;  // RIP-relative local label
@@ -75,6 +76,7 @@ struct RM
 		RM rm;
 		rm.is_reg = false;
 		rm.symbol = symbol;
+		rm.ip_relative = true;
 		rm.disp = addend;
 		return rm;
 	}

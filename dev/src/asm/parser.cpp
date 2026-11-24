@@ -679,13 +679,15 @@ void Parser::resolve_labels(std::vector<Instruction>& instructions)
 				}
 				continue;
 			}
-			if (!named_externals && operand.kind == OperandKind::Symbol && !operand.address.local.empty())
+			const bool local_name = !operand.address.local.empty();
+			const bool absolute = operand.kind == OperandKind::Symbol && local_name;
+			if (absolute && !named_externals)
 				throw AssemblyError{ "local code address requires RIP-relative memory", instructions[i].line,
 					instructions[i].column };
-			const bool memory = operand.kind == OperandKind::Memory && !operand.address.local.empty();
-			if ((!memory && operand.kind != OperandKind::Label) || operand.external_label)
+			const bool memory = operand.kind == OperandKind::Memory && local_name;
+			if ((!memory && !absolute && operand.kind != OperandKind::Label) || operand.external_label)
 				continue;
-			const std::string& name = memory ? operand.address.local : operand.target;
+			const std::string& name = memory || absolute ? operand.address.local : operand.target;
 			if (lookup_ != nullptr && lookup_->interposable(name) && lookup_->lookup(name, operand.address.symbol))
 			{
 				operand.kind = OperandKind::Symbol;
@@ -714,7 +716,8 @@ void Parser::resolve_labels(std::vector<Instruction>& instructions)
 			}
 			if (selected == UINT32_MAX && lookup_ != nullptr && lookup_->lookup(name, operand.address.symbol))
 			{
-				operand.kind = OperandKind::Symbol;
+				if (!memory)
+					operand.kind = OperandKind::Symbol;
 				continue;
 			}
 			if (selected == UINT32_MAX)
@@ -730,7 +733,7 @@ void Parser::resolve_labels(std::vector<Instruction>& instructions)
 				}
 				continue;
 			}
-			if (memory)
+			if (memory || absolute)
 				operand.address.label = selected;
 			else
 				operand.label = selected;

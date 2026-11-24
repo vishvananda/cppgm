@@ -58,7 +58,7 @@ identity. Overlapping pairs are invalid. GNU immediate constraints see the
 operand's machine-mode bits, including sign extension of narrow constants.
 GNU `i` accepts link-time symbol addresses; `n` requires a numeric constant.
 Transport symbol identities and byte addends through LowIR. Support
-RIP-relative symbol addresses/loads, GOT-relative addresses and direct symbol
+RIP-relative addresses with numeric or symbol displacements, GOT-relative addresses and direct symbol
 calls. Preserve declared stack effects and ABI alignment at assembly calls;
 the producer must declare all registers and machine state its call can change.
 Output places include scalar/vector lvalues and bit-fields. Capture each
@@ -216,7 +216,8 @@ ELF data fields can hold a symbol address or a symbol difference. Fold a
 difference within one section and use a place-relative relocation when
 the subtracted address is in the data field's section.
 Numbered labels can be reused. Suffix `b` selects the preceding definition
-of that number and `f` the next one, even across section changes.
+of that number and `f` the next one, even across section changes. ELF symbol
+immediates can refer to a local label in the same assembly block.
 `.set`, `.equ` and `symbol = expression` accept an absolute expression or
 a symbol address with an addend. A difference of defined labels in one
 section is absolute and can serve as a symbol's `.size`. Scalar data
