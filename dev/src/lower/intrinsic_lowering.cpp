@@ -367,10 +367,11 @@ RValue FunctionLowering::gnu_intrinsic(const syntax::CallExpr& expr, sema::Intri
 		return result;
 	}
 	case sema::Intrinsic::FrameAddress:
+	case sema::Intrinsic::ReturnAddress:
 	{
 		const lowir::Instruction inst = lowir::make_instruction(lowir::Opcode::FrameAddress, pointer);
 		RValue result = RValue{ emit_value(inst, pointer), pointer };
-		// x86-64's saved frame pointer is the first word of each frame.
+		// Native frame records start with the saved caller frame pointer.
 		// A nonzero level requires callers to retain their frame pointers,
 		// just as with GCC's builtin.
 		for (uint64_t level = expr.facts->value >> 8; level != 0; --level)
@@ -380,7 +381,14 @@ RValue FunctionLowering::gnu_intrinsic(const syntax::CallExpr& expr, sema::Intri
 			frame.untyped = true;
 			result = load(pointer, frame);
 		}
-		return result;
+		if (kind == sema::Intrinsic::FrameAddress)
+			return result;
+		Place slot = Place();
+		slot.storage = index(
+			pointer, ir_model::IPK_NONE, result.value, integer(lowir::Type::scalar(lowir::TypeKind::I64), 1))
+						   .value;
+		slot.untyped = true;
+		return load(pointer, slot);
 	}
 	case sema::Intrinsic::WasmFloatMinMax:
 		return wasm_float_minmax(expr);

@@ -730,6 +730,7 @@ const struct
 	{ "__builtin_reduce_mul", { GnuBuiltin::Reduce, 4, nullptr, 0 } },
 	{ "__builtin_reduce_or", { GnuBuiltin::Reduce, 1, nullptr, 0 } },
 	{ "__builtin_reduce_xor", { GnuBuiltin::Reduce, 2, nullptr, 0 } },
+	{ "__builtin_return_address", { GnuBuiltin::FrameAddress, 1, nullptr, 0 } },
 	{ "__builtin_rindex", { GnuBuiltin::Library, 0, "c*Cc*i", 0 } },
 	{ "__builtin_sadd_overflow", { GnuBuiltin::TypedOverflow, 0, nullptr, 0 } },
 	{ "__builtin_saddl_overflow", { GnuBuiltin::TypedOverflow, 1, nullptr, 0 } },
@@ -1020,6 +1021,8 @@ uint32_t ProvidedBuiltinVersion(const char* spelling, uint32_t length, bool wasm
 	if (!FindGnuBuiltin(spelling, length, entry))
 		return 0;
 	if ((entry.builtin == GnuBuiltin::WasmMemory || entry.builtin == GnuBuiltin::WasmMinMax) && !wasm)
+		return 0;
+	if (entry.builtin == GnuBuiltin::FrameAddress && entry.variant == 1 && wasm)
 		return 0;
 	if (!cxx20 && IsCoroutineBuiltin(entry.builtin))
 		return 0;

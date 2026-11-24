@@ -110,6 +110,10 @@ hosted headers depend on:
   callers that omit frame pointers cannot be traversed reliably. Inlining
   uses the containing activation's frame. The query is not a C++ constant
   expression, and `__has_builtin` advertises it through the builtin registry
+- `__builtin_return_address(level)` reads the return address for the
+  selected native activation. It uses the same constant level and frame
+  chain as `__builtin_frame_address`. Level zero reports the continuation
+  in the caller of the physical activation.
 - `__builtin_alloca_with_align(size, alignment)` allocates stack storage with
   the requested alignment. Evaluate `size` once. The alignment is a power of
   two in bits and must be an integral constant expression of at least eight.

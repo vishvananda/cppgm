@@ -162,6 +162,8 @@ enum class Intrinsic : uint8_t
 	// __builtin_frame_address(level): the physical activation's frame,
 	// followed by `level` saved frame pointers (facts bits 8 and above).
 	FrameAddress,
+	// The selected native activation's return address.
+	ReturnAddress,
 	// __builtin_va_start(list, last), __builtin_va_end(list) and
 	// __builtin_va_copy(to, from) of a variadic function's arguments.
 	VaStart,

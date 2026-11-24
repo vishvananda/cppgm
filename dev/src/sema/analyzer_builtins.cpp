@@ -1006,8 +1006,13 @@ ExprFacts* Analyzer::control_intrinsic(const syntax::CallExpr& expr, GnuBuiltin 
 	}
 	else if (builtin == GnuBuiltin::FrameAddress)
 	{
+		const bool return_address = variant != 0;
 		if (expr.arguments.size != 1)
-			error(expr.location, "__builtin_frame_address takes one argument");
+			error(expr.location,
+				return_address ? "__builtin_return_address takes one argument"
+							   : "__builtin_frame_address takes one argument");
+		if (return_address && target_model::is_wasm(types_.target()))
+			error(expr.location, "__builtin_return_address requires a native target");
 		const ExprFacts* argument = typed_value(*expr.arguments[0], scope);
 		if (argument == nullptr)
 			return nullptr;
@@ -1018,7 +1023,8 @@ ExprFacts* Analyzer::control_intrinsic(const syntax::CallExpr& expr, GnuBuiltin 
 			error(expr.arguments[0]->location, "a frame level must be a nonnegative constant unsigned integer");
 		convert(*expr.arguments[0], types_.fundamental(FundamentalType::UnsignedInt), false);
 		facts = new_facts(expr, types_.pointer(types_.fundamental(FundamentalType::Void)), ValueCategory::PRValue);
-		facts->value = static_cast<uint64_t>(Intrinsic::FrameAddress) | (level.bits << 8);
+		facts->value = static_cast<uint64_t>(return_address ? Intrinsic::ReturnAddress : Intrinsic::FrameAddress) |
+			(level.bits << 8);
 	}
 	else if (builtin == GnuBuiltin::FltRounds)
 	{
