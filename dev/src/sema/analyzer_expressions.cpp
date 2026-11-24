@@ -1164,16 +1164,6 @@ const Conversion* Analyzer::finish_conversion(const syntax::Expr& expr, Conversi
 	return record_conversion(facts, conversion);
 }
 
-void Analyzer::convert_to_bool(const syntax::Expr& expr)
-{
-	// 4p3: `bool t(e);` (direct-initialization, so std::nullptr_t too;
-	// never a scoped enumeration; a class object by a conversion function,
-	// explicit ones included, 12.3.2p2).
-	const Type* boolean = types_.fundamental(FundamentalType::Bool);
-	convert_to_scalar(expr, boolean, true);
-	convert(expr, boolean, true, true);
-}
-
 FunctionEntity* Analyzer::select_overloaded(
 	const ExprFacts* facts, const Type* target, uint32_t location, bool explicit_cast)
 {

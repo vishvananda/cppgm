@@ -866,6 +866,16 @@ ExprFacts* Analyzer::convert_class_operand(const syntax::Expr& expr, const Funct
 	return facts;
 }
 
+void Analyzer::convert_to_bool(const syntax::Expr& expr)
+{
+	// 4p3: `bool t(e);` (direct-initialization, so std::nullptr_t too;
+	// never a scoped enumeration; a class object by a conversion function,
+	// explicit ones included, 12.3.2p2).
+	const Type* boolean = types_.fundamental(FundamentalType::Bool);
+	convert_to_scalar(expr, boolean, true);
+	convert(expr, boolean, true, true);
+}
+
 bool Analyzer::folding_condition(const syntax::Expr& expr) const
 {
 	if (!hosted_)
