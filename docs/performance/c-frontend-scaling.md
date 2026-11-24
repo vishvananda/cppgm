@@ -4064,3 +4064,18 @@ The temporary-file object is 3,361 bytes. The Wasm linker keeps
 `tmpnam`'s path check and entropy imports when a program uses only
 the name function. A program using `tmpfile` includes the open,
 unlink, and directory-rights operations.
+
+## Hosted WASI partial C23 mathematics header
+
+An ordinary program includes `<math.h>` and uses `fabs` and `isfinite`.
+A single cppgm binary compiles it at `-O2` on CPU 71 against the parent
+and current SDK overlays. The A/A spread is 767 retired instructions.
+ABBA and BAAB add 714,364 and 713,017 instructions to the 8.62 million
+instruction control. All 12 compiled objects and the linked Wasm
+modules match byte for byte.
+
+The `nextup`, `nextdown`, and `llogb` wrappers call the existing SDK
+functions. The extrema use the scalar min and max builtins for
+binary32 and binary64. SDK Clang emits `f32.min`, `f32.max`, `f64.min`,
+and `f64.max`. cppgm's current lowering emits comparisons and selects
+with explicit NaN and signed-zero handling.

@@ -1671,10 +1671,12 @@ NaN sign and payload. The source and destination may be the same object.
 The C23 extrema families order negative zero below positive zero.
 The magnitude families use the corresponding numeric ordering to break
 ties. Ordinary extrema propagate NaNs, and the `_num` families select
-the numeric operand when precisely one operand is NaN. WASI uses
-WebAssembly scalar min and max for binary32 and binary64. Its binary128
-implementation compares the operands and applies the same zero and NaN
-rules.
+the numeric operand when precisely one operand is NaN. For binary32 and
+binary64, the supplement calls the WebAssembly scalar min and max
+builtins. SDK Clang emits those scalar instructions. cppgm expands the
+builtins into its existing comparisons and selects. The binary128
+implementation explicitly compares the operands and applies the same
+zero and NaN rules.
 [C23 N3096 §§7.12.12.4–11](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
 
 The C23 wide-character searches preserve const qualification on their

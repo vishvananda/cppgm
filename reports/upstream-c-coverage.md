@@ -3631,3 +3631,28 @@ warnings.
 [Temporary-file probe](../scripts/tests/c_stdio_temporary.c) ·
 [NaN output probe](../scripts/tests/c_c23_stdio_nan.c) ·
 [Compile measurements](../docs/performance/c-frontend-scaling.md#wasm-temporary-file-and-stdio-header-cost)
+
+### Hosted WASI C23 math representation and extrema
+
+The overlay adds 36 callable symbols from the SDK's 120 missing
+C23 math names. It provides adjacent representable values, integer
+exponents, canonicalization, and the numeric and magnitude extrema.
+The classification macros use the SDK and compiler primitives. The
+probes cover all three real types, including binary128 subnormals and
+NaN encodings, signed zeros, and the exact exponent sentinels.
+
+The three probes pass 48 mixed cppgm and SDK Clang compile and link
+configurations at `-O0` and `-O2`. All three pass on Linux x86-64 with
+cppgm, GCC 15, and Clang 22 at those levels. Linux AArch64 under QEMU
+passes all three at `-O0`, `-O2`, and `-Oz`. Both release source variants
+contain the expected files, and the archive built from the source-only
+package passes the three probes at `-Oz -flto`.
+
+The GCC host replay passes all 4,357 executed configurations. Linux
+x86-64 runs 1,464, stock WASI runs 1,333, the C23 supplement runs 526,
+and bare Wasm runs 1,034. The supplement passes 199 tracked C23 checks.
+The 84 remaining callable math symbols and the associated type-generic
+families keep `<math.h>` and `<tgmath.h>` open.
+
+[C23 N3096 §§7.12.3, 7.12.6.10, 7.12.11, 7.12.12](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
+[Compile and Wasm instruction measurements](../docs/performance/c-frontend-scaling.md#hosted-wasi-partial-c23-mathematics-header)
