@@ -4240,3 +4240,22 @@ integer-significand implementation reduces instructions from
 stripped module shrinks from 25,349 to 23,654 bytes. An initial
 implementation that reused `fmodl` and floating-point comparisons
 used 872.0 million instructions on this workload.
+
+## WASI math error paths
+
+The same precompiled Wasmtime workloads and runtime compiler were used
+before and after adding the error paths. Every output checksum agrees.
+The two interleaved orders on CPU 71 give the same instruction changes.
+
+| Workload | A/A instruction spread | Before | With error reporting | Change |
+| --- | ---: | ---: | ---: | ---: |
+| Five binary64-to-binary32 arithmetic functions, one million calls each | 734 | 297.0 million | 307.5 million | +3.54% |
+| Four float power functions, 65,536 calls each | 711 | 67.1 million | 70.7 million | +5.42% |
+
+The original result classification added about 118.0 million
+instructions to the narrowing test. The final version uses the
+binary64 exponent and midpoint checks to return normal results
+directly. Only values with a potential rounding or error condition
+enter the rest of the check. The stripped narrowing module grows
+from 39,394 to 41,376 bytes. The float power module grows from
+68,684 to 71,042 bytes.

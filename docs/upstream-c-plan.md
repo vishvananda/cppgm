@@ -543,8 +543,10 @@ chains independently.
   SDK-specific failures through the same runtime profiles. Close the hosted
   math error reporting requirement before qualifying that environment.
   The SDK advertises exception reporting without the corresponding flags.
-  Verify a reporting mechanism against domain and overflow calls before
-  changing the advertised mode.
+  The supplement records domain, pole, and overflow outcomes in
+  `errno` on covered paths. Extend these checks to the remaining
+  inherited operations and preserve reporting through both direct
+  and indirect calls at `-O2` before changing the advertised mode.
   [WASI math results](../reports/upstream-c-coverage.md#hosted-wasi-power-functions-and-binary128-range)
 - Qualify C11 atomics, threads, complex arithmetic, and VLAs separately.
   For atomics, cover ordinary lvalue conversions and assignment, valid

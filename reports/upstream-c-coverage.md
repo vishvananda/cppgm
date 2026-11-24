@@ -3956,3 +3956,41 @@ remains open.
 
 [C23 N3096 §§7.12.10.2–3, F.10.7.2–3](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
 [Wasm instruction measurements](../docs/performance/c-frontend-scaling.md#wasi-binary128-remainder)
+
+### WASI errno paths
+
+The supplement reports domain, pole, and overflow errors through
+`errno` in its math implementations. It uses the SDK's exceptional
+result helpers for inherited functions that already call them. The
+square-root entry points share an archive member with the other
+scalar math intrinsics, and the replacement supplies the full member.
+The C23 probe also checks that finite, exact infinite, and quiet NaN
+results preserve `errno` where the operation has no additional error.
+
+The probe passes all 16 mixes of cppgm and SDK Clang archive builders,
+client compilers, and linkers at `-O0` and `-O2`. It includes both
+sides of the binary32 overflow midpoint. The earlier MPFR-checked
+corpus matches bit for bit for narrowing and matches all numeric
+power outcomes, including signed zeros. The cppgm archive can
+produce a different NaN encoding for domain failures. The extracted
+source-only archive passes nine math probes at `-Oz -flto`.
+
+The combined replay passes 5,931 configurations. It covers 1,506
+each on Linux x86-64 and Linux AArch64 under QEMU, 1,333 on stock
+WASI, 552 on supplemented WASI, and 1,034 on bare Wasm. The supplement
+passes 213 tracked C23 requirements.
+
+Hosted math error reporting remains open. A separate 76-case audit
+of inherited SDK entry points reaches 32 expected errno outcomes
+with the supplement, up from six with stock SDK 34. Uncovered cases
+include `exp(710)`, the domain boundary of `acosh`, and overflow in
+`ldexp` and `hypot`. The header still reports the SDK's exception
+mode. Direct calls also need checking before qualifying the errno
+mode. On native Linux, cppgm, GCC 15, and Clang 22 all retain
+`ERANGE` for indirect `pow(DBL_MAX, 2.0)` at `-O2` and elide it
+for the corresponding direct call with a literal exponent and a
+volatile base.
+
+[WASI SDK 34 scalar math member](https://github.com/WebAssembly/wasi-libc/blob/2e6fb9d8ee0cdf9e431fbcabe8af3115de000a13/libc-bottom-half/sources/math/math-builtins.c) ·
+[C23 N3096 §§7.12p20, 7.12.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
+[Wasm instruction measurements](../docs/performance/c-frontend-scaling.md#wasi-math-error-paths)

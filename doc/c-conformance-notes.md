@@ -1746,7 +1746,10 @@ arithmetic.
 The selected WASI SDK advertises `MATH_ERREXCEPT` in `math_errhandling`
 and leaves `FE_INVALID`, `FE_DIVBYZERO`, and `FE_OVERFLOW` undefined.
 Both WASI profiles record the required hosted math reporting behavior
-as uncovered. Linux probes check domain and overflow through the
+as uncovered. The supplement supplies `errno` on the covered C23
+and SDK paths. Its probes distinguish finite overflow from exact
+infinity and check that valid operations preserve the caller's
+`errno`. Linux probes check domain and overflow through the
 advertised reporting mechanisms.
 [C23 N3096 §7.12p20, §7.12.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
 
