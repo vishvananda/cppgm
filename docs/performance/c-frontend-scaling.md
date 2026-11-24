@@ -3991,3 +3991,46 @@ observations. The `strfroml` path adds 1.526% and 1.525% retired user
 instructions in ABBA and BAAB, with an A/A spread of 1,947 instructions.
 It scans the caller's format once and constructs a fixed-size format on
 the stack.
+
+## SQLite 3.50.4 compile comparison
+
+Each compiler translates the same `sqlite3.c` amalgamation with
+`-x c -std=gnu17 -O2 -c` on CPU 71 of the Xeon E5-2696 v4 host.
+The cppgm build is from `b4e542603` with GCC 15 host predefines.
+Each compiler runs once to warm caches, then three times in rotated
+order. `perf stat` counts retired user-space instructions and GNU
+`time` records elapsed wall time. The timed step ends at object
+emission.
+
+The SHA-256 of `sqlite3.c` is
+`e3f5d6901e7492af4a1fc8c4d745cae84c264942524c3fbfc02b82a5ca8818c8`.
+
+| Compiler | Median instructions | Median wall time | Wall time range |
+| --- | ---: | ---: | ---: |
+| cppgm 0.10.3 | 16,515,129,733 | 4.93 s | 4.77–4.95 s |
+| GCC 15.2.0 | 123,844,867,042 | 38.24 s | 36.38–38.72 s |
+| Clang 22.1.2 | 83,185,418,501 | 29.52 s | 28.90–29.98 s |
+
+Within each compiler the four objects match byte for byte. A shared
+GCC 15 link driver links the three objects against the same driver
+program. Each resulting executable passes transaction, query, JSON,
+and database integrity checks.
+
+## GNU C selection frontend cost
+
+Clean GCC 15.2 builds of `c9430ce37` and `57eee1536` use the same GCC
+15 host predefines. CPU 71 runs A/A, ABBA, and BAAB blocks. Both frozen
+inputs produce byte-identical objects across the blocks. Host load
+varies across the measurements, so the table reports instruction counts.
+
+| Input | A/A instruction spread | ABBA | BAAB |
+| --- | ---: | ---: | ---: |
+| Frozen GNU17 SQLite (`-O2`) | 262,684 | +0.0038% | +0.0009% |
+| Frozen C++ overloads (`-O3`) | 317,989 | −0.0099% | −0.0103% |
+
+The syntax-only test compares functions returning `x ^ n` with
+functions returning `__builtin_choose_expr(1, x ^ n, missing(x))`.
+It adds about 14.27, 28.51, and 57.04 million instructions for 1,024,
+2,048, and 4,096 selections, respectively. Each selection adds about
+13,930 instructions for its source tokens, typed condition, and arms.
+The two forms produce identical `.text` disassembly at `-O2`.

@@ -3526,3 +3526,36 @@ predefines. Both the parent and candidate exhibit this distinction.
 
 [C23 library requirements](../doc/c-conformance-notes.md#c-library-calls-and-format-macros) ·
 [Compile and runtime measurements](../docs/performance/c-frontend-scaling.md#c23-char8_t-header-predefine-and-wasi-strfroml)
+
+### GNU constant expression selection
+
+The parser recognizes `__builtin_choose_expr` through its C builtin
+identifier table. Semantic analysis checks the condition as an integer
+constant, checks both arms, and records the selected expression and its
+type and value category. Constant evaluation and lowering consume that
+same selection fact as `_Generic`.
+
+GCC 15 and Clang 22 accept the ordinary PA38 fixture in pedantic C90,
+C99, C17, and C23. Both reject the runtime condition and the invalid
+unselected arm. The 128-bit condition tests above bit 63 and matches
+GCC 15. Clang 22 selects the false arm when only the high word is set.
+The two positive fixtures pass on Linux AArch64 under QEMU at `-O0`,
+`-O2`, and `-Oz` and emit Mach-O objects for both Darwin architectures.
+
+The C99 glibc `fpclassify` fixture with Clang host predefines now passes
+at `-O0`, `-O2`, and `-Oz`. The Clang host conformance replay at
+`57eee1536` passes all 4,307 executed cases. It covers Linux x86-64,
+stock WASI, the C23 WASI supplement, and bare Wasm. The supplement
+passes 189 tracked C23 checks and has five uncovered header entries.
+
+The GCC host strict report passes 11,677 tests. PA38 passes 712
+native cases, 712 Wasm cases, 63 controls, and four native ABI cases.
+The debug-info suite, PA35 self-host through PA5, PA36 smoke suite,
+and all 76 harness test files pass. The student export verifies 27,023
+regenerated reference output files and passes PA1 and the PA38
+native, Wasm, and ABI lanes using the packaged reference binaries.
+
+[GCC builtin semantics](https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html) ·
+[PA38 value and type fixture](../pa38/tests/general/500-builtin-choose-expr.t) ·
+[PA38 wide condition fixture](../pa38/tests/general/500-c23-builtin-choose-wide.t) ·
+[Compile measurements](../docs/performance/c-frontend-scaling.md#gnu-c-selection-frontend-cost)
