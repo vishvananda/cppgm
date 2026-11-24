@@ -1696,6 +1696,16 @@ keeps its direct return for inputs whose logarithm rounds back to the
 argument.
 [C23 N3096 §§7.12.6.13, 7.12.6.16](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
 
+The WASI binary128 compensated exponentials reduce the argument in its
+original base and retain a split natural-exponent remainder. This
+preserves precision at tiny nonzero inputs and throughout the range
+beyond binary64. The three forward pi-scaled functions reduce twice the
+argument using the binary128 significand. The two low integer bits
+select the quadrant and the fractional bits give the exact distance
+from it. The inverse functions use the SDK's binary128 kernels and
+return the exact C23 values at axes and endpoints.
+[C23 N3096 §§7.12.4.8–14, 7.12.6.3–6, F.10.1.8–14](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+
 The narrowing functions round addition, subtraction, multiplication,
 division, fused multiply-add and square root once to the result type.
 For most binary64 inputs the native arithmetic result is away from a

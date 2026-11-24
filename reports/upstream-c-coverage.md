@@ -3843,3 +3843,41 @@ power functions.
 [C23 N3096 §§7.12.6, 7.12.14, 7.27](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
 [Pinned SoftFloat sources](../third_party/softfloat/README.md) ·
 [Compile and Wasm instruction measurements](../docs/performance/c-frontend-scaling.md#wasi-c23-narrowing-and-type-generic-math)
+
+### Hosted WASI binary128 exponentials and pi-scaled angles
+
+The supplement supplies `exp2m1l` and `exp10m1l` and replaces the
+SDK's binary64-backed `expm1l`. The adapted FreeBSD kernel reduces each
+argument in its original base before converting the small remainder
+to a natural exponent. A 256-bit MPFR comparison covers 131,072
+deterministic cases per function with each archive compiler. All
+sampled outputs are within one binary128 ULP.
+
+The supplement supplies the seven binary128 pi-scaled trigonometric
+functions. The forward functions reduce the binary128 significand
+in bounded work and pass a split angle to the pinned SDK kernels.
+The inverse functions use the SDK's binary128 inverse trigonometric
+operations and handle the axes and endpoints explicitly. On 65,536
+deterministic tuples per function and archive compiler, MPFR comparisons
+are within one ULP for forward functions and two ULP for inverse
+functions. The separate runtime probe checks signed zeros, poles, and
+values with unit or half-unit spacing.
+
+The three updated probes pass all 48 mixed cppgm and SDK Clang compile
+and link configurations at `-O0` and `-O2`. The direct angle probe
+passes with GCC 15 and Clang 22 on Linux x86-64. All three probes pass
+with cppgm on Linux AArch64 under QEMU at `-O0`, `-O2`, and `-Oz`.
+Both source packages include the new files and the FreeBSD notice.
+The extracted source-only archive builds and passes those three probes
+and the narrowing arithmetic probe at `-Oz -flto`.
+
+The matrix passes all 4,389 configurations. Linux x86-64 runs 1,480,
+stock WASI runs 1,333, supplemented WASI runs 542, and bare Wasm runs
+1,034. The supplement passes 207 tracked C23 checks. It supplies 108 of
+the 120 missing math names. The three precisions of `compoundn`,
+`pown`, `powr`, and `rootn` remain open along with the two math
+header version macros.
+
+[C23 N3096 §§7.12.4.8–14, 7.12.6.3–6](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
+[FreeBSD exponential source](https://github.com/freebsd/freebsd-src/blob/72d7d152c2ff4708928ae1f94b940b5528ba5013/lib/msun/ld128/s_expl.c) ·
+[Wasm instruction measurements](../docs/performance/c-frontend-scaling.md#wasi-binary128-exponentials-and-pi-scaled-angles)

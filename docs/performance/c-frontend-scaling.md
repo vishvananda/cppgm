@@ -4184,3 +4184,22 @@ values and values near one in precompiled Wasmtime. Its checksum is
 adds 0.97% retired instructions to the natural logarithm. Keeping its
 tiny-input return in the public entry point reduces that to 0.48% in
 both paired blocks. The A/A spread is 2,029 retired instructions.
+
+## WASI binary128 exponentials and pi-scaled angles
+
+The compensated exponential workload calls the base-two and base-ten
+variants on 262,144 inputs each in precompiled Wasmtime on CPU 71.
+Selecting the table endpoint in the argument's base reduces the
+retired user instruction count from 5,468.2 million to 5,258.0 million
+in both ABBA and BAAB blocks, a 3.84% reduction. The A/A spread is 2,169
+instructions and the binary64-rounded checksum is identical in all 12
+observations. The stripped Wasm module grows from 39,960 to 40,887 bytes.
+
+The pi-scaled workload calls all seven long-double functions on 65,536
+tuples. The SDK Clang and cppgm runtime archives use the same pinned
+SDK, client, linker, and precompiled Wasmtime settings. All 12 runs
+produce the same checksum using both words of each result. The A/A
+spread is 812 instructions. The cppgm archive uses 0.02% fewer retired
+user instructions in both paired blocks, from 3,823.0 million to
+3,822.1 million. Stripped Wasm size is 47,485 bytes for SDK Clang and
+51,859 bytes for cppgm.
