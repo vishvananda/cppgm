@@ -168,9 +168,10 @@ bool Parser::gnu_attribute(const char* spelling, Attribute& attribute, bool& kep
 		attribute.expression = parse_primary_expression();
 		return attribute.expression != nullptr && expect(TokenKind::OP_RPAREN);
 	}
-	if (std::strcmp(spelling, "constructor") == 0 || std::strcmp(spelling, "__constructor__") == 0)
+	const bool constructor = std::strcmp(spelling, "constructor") == 0 || std::strcmp(spelling, "__constructor__") == 0;
+	if (constructor || std::strcmp(spelling, "destructor") == 0 || std::strcmp(spelling, "__destructor__") == 0)
 	{
-		attribute.kind = AttributeKind::Startup;
+		attribute.kind = constructor ? AttributeKind::Startup : AttributeKind::Shutdown;
 		kept = true;
 		if (!accept(TokenKind::OP_LPAREN))
 			return true;

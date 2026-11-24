@@ -4,19 +4,27 @@
 
 namespace lowir {
 
-bool startup_functions(const Program& program, std::vector<StartupFunction>& out, std::string& error)
+bool startup_functions(const Program& program, std::vector<StartupFunction>& out, std::string& error,
+	std::vector<StartupFunction>* finalizers)
 {
 	for (SymbolId id : program.order)
 	{
 		const Symbol& source = program.symbols[id];
 		uint32_t priority = 0;
-		if (source.kind != SymbolKind::GlobalDefinition || source.metadata.section == 0 ||
-			!initializer_section(program.spelling(source.metadata.section), priority))
+		if (source.kind != SymbolKind::GlobalDefinition || source.metadata.section == 0)
 			continue;
+		const char* name = program.spelling(source.metadata.section);
+		const bool init = initializer_section(name, priority);
+		if (!init && (finalizers == nullptr || !finalizer_section(name, priority)))
+			continue;
+		auto& functions = init ? out : *finalizers;
+		const char* invalid_table = init ? "an initialization section requires a function-address table"
+										 : "a finalization section requires a function-address table";
 		const auto add = [&](SymbolId function, int64_t addend) {
 			if (function >= program.symbols.size() || !is_function_kind(program.symbols[function].kind) || addend != 0)
 			{
-				error = "an initialization section requires function addresses without offsets";
+				error = init ? "an initialization section requires function addresses without offsets"
+							 : "a finalization section requires function addresses without offsets";
 				return false;
 			}
 			const SignatureId signature = program.functions[program.symbols[function].detail].signature;
@@ -24,10 +32,11 @@ bool startup_functions(const Program& program, std::vector<StartupFunction>& out
 				program.signatures[signature].parameter_count != 0 ||
 				program.signatures[signature].boundary.arity != ir_model::CAM_FIXED)
 			{
-				error = "an initialization function must have type void()";
+				error = init ? "an initialization function must have type void()"
+							 : "a finalization function must have type void()";
 				return false;
 			}
-			out.push_back(StartupFunction{ function, priority });
+			functions.push_back(StartupFunction{ function, priority });
 			return true;
 		};
 		const Global& global = program.globals[source.detail];
@@ -43,7 +52,7 @@ bool startup_functions(const Program& program, std::vector<StartupFunction>& out
 				const DataItem& item = program.data_items[global.first_item + i];
 				if (item.kind != DataItemKind::Address)
 				{
-					error = "an initialization section requires a function-address table";
+					error = invalid_table;
 					return false;
 				}
 				if (!add(item.address, item.amount))
@@ -52,12 +61,14 @@ bool startup_functions(const Program& program, std::vector<StartupFunction>& out
 		}
 		else
 		{
-			error = "an initialization section requires a function-address table";
+			error = invalid_table;
 			return false;
 		}
 	}
-	std::stable_sort(out.begin(), out.end(),
-		[](const StartupFunction& a, const StartupFunction& b) { return a.priority < b.priority; });
+	const auto by_priority = [](const StartupFunction& a, const StartupFunction& b) { return a.priority < b.priority; };
+	std::stable_sort(out.begin(), out.end(), by_priority);
+	if (finalizers != nullptr)
+		std::stable_sort(finalizers->begin(), finalizers->end(), by_priority);
 	return true;
 }
 

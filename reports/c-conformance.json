@@ -113,6 +113,15 @@
       "cases": ["expression.pointer-order-extension"]
     },
     {
+      "id": "function.gnu-shutdown-attributes",
+      "clause": "GNU C constructor and destructor attributes",
+      "kind": "gnu",
+      "editions": [90, 95, 99, 11, 17, 23],
+      "environment": "hosted",
+      "requirement": "Retain destructor attributes across declarations. Run the registered functions at normal exit in reverse priority order after callbacks registered by the program.",
+      "cases": ["function.gnu-shutdown"]
+    },
+    {
       "id": "limits.block-depth",
       "clause": "C90–C17 5.2.4.1p1, C23 5.3.5.2p1",
       "kind": "required",

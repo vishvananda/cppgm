@@ -2,6 +2,7 @@
 
 import argparse
 from collections import Counter
+import hashlib
 import json
 from pathlib import Path
 import platform
@@ -37,6 +38,12 @@ C_PORTABLE_PROGRAMS = {
     'function.ignored-fallthrough': DISCARDED_FALLTHROUGH,
     'expression.pointer-order': PA38_GENERAL / '300-c-pointer-order.t',
     'expression.pointer-order-extension': PA38_GENERAL / '300-c-pointer-order-extension.t',
+}
+HOSTED_OUTPUT_PROGRAMS = {
+    'function.gnu-shutdown': (
+        PA38_GENERAL / '500-gnu-shutdown-functions.t',
+        hashlib.sha256(b'main\ncallback\nfirst\nlast\n').hexdigest(),
+    ),
 }
 POINTER_ORDER_REJECTIONS = {
     'expression.pointer-order-array-void': 'array-void',
@@ -317,6 +324,7 @@ CASES = {
     **{case: (('compile',), ('O0', 'O2')) for case in vla.REJECTIONS},
     **{case: ((stage,), ('default',)) for case, _, stage in C23_SOURCE_CASES},
     **{case: (RUN_STAGES, ('O0', 'O2')) for case in C_PORTABLE_PROGRAMS},
+    **{case: (RUN_STAGES, ('O0', 'O2')) for case in HOSTED_OUTPUT_PROGRAMS},
     **{case: (('compile',), ('O0', 'O2')) for case in POINTER_ORDER_REJECTIONS},
     **{case: (RUN_STAGES, ('O0', 'O2')) for case in C23_PROGRAMS},
     'limits.combined': (RUN_STAGES, ('O0', 'O2')),
@@ -445,6 +453,8 @@ def evidence_key(row, profiles):
             raise ValueError(f'passing result lacks stage evidence: {key}')
         if profile == 'wasm-freestanding' and names[-1] == 'run' and row['stages'][-1].get('stdout') != '0\n':
             raise ValueError(f'passing result lacks bare Wasm return value: {key}')
+        if case in HOSTED_OUTPUT_PROGRAMS and row['stages'][-1].get('stdout_sha256') != HOSTED_OUTPUT_PROGRAMS[case][1]:
+            raise ValueError(f'passing result lacks the expected runtime output: {key}')
     return key
 
 
@@ -662,6 +672,8 @@ def probe_units(work, profile, case, units, link, runner, link_flags=()):
         if passed and bare_wasm:
             # Wasmtime's process succeeds even when the exported function returns nonzero.
             passed = last['stdout'] == '0\n'
+        if passed and case in HOSTED_OUTPUT_PROGRAMS:
+            passed = last['stdout_sha256'] == HOSTED_OUTPUT_PROGRAMS[case][1]
         yield variant, passed, stages
 
 
@@ -921,6 +933,9 @@ def probe_target(output, profile, compiler, setup, link, runner, sdk_headers, he
     if runner and (executable := which(runner[0])):
         runner = [str(Path(executable).absolute()), *runner[1:]]
     numeric = numeric_sources(profile, bare_sdk)
+    portable = [(case, source, (), ()) for case, source in C_PORTABLE_PROGRAMS.items()]
+    if profile['environment'] == 'hosted':
+        portable.extend((case, source, (), ()) for case, (source, _) in HOSTED_OUTPUT_PROGRAMS.items())
     wasi_libraries = wasi_libraries or {}
     expect_no_threads = int(profile['target'].endswith('-apple-darwin'))
     yield from probe_c23_source_cases(output, profile, compiler, setup)
@@ -938,7 +953,7 @@ def probe_target(output, profile, compiler, setup, link, runner, sdk_headers, he
         yield receipt('limits.combined', profile, 23, variant, passed, stages)
     yield from probe_c23_library(c23_work, profile, c23_flags, link, runner, bare_sdk, sdk_headers)
     c23_programs = [(case, source, flags, ()) for case, (source, flags) in C23_PROGRAMS.items()]
-    c23_programs.extend((case, source, (), ()) for case, source in C_PORTABLE_PROGRAMS.items())
+    c23_programs.extend(portable)
     c23_programs.extend(numeric)
     c23_programs.extend(c11_library_sources(profile, 23))
     for case, source, flags, link_flags in c23_programs:
@@ -963,7 +978,7 @@ def probe_target(output, profile, compiler, setup, link, runner, sdk_headers, he
                       stages[0]['classification'] == 'success', stages)
         limits_directory = 'legacy' if legacy else 'modern'
         sources = [('limits.combined', output / 'inputs' / limits_directory / 'combined.c', (), ())]
-        sources.extend((case, source, (), ()) for case, source in C_PORTABLE_PROGRAMS.items())
+        sources.extend(portable)
         if legacy:
             stages, _ = run_stages(work / 'version', [
                 ('preprocess', [*flags, '-E', str(LEGACY_VERSION_PROBES[edition]), '-o', '/dev/null']),
@@ -1077,6 +1092,7 @@ def probes(args, profiles, rules):
     inputs.extend(PA38_GENERAL / (stem + suffix) for stem in vla.PAIR_SOURCES.values() for suffix in ('.t', '.t.1'))
     inputs.extend(PA38_GENERAL / header for header in vla.HEADERS)
     inputs.extend(C_PORTABLE_PROGRAMS.values())
+    inputs.extend(source for source, _ in HOSTED_OUTPUT_PROGRAMS.values())
     inputs.extend(PA38_GENERAL / f'300-c-pointer-order-{suffix}-bad.t' for suffix in POINTER_ORDER_REJECTIONS.values())
     inputs.append(PA38_GENERAL / '300-c-pointer-order-extension.inc/system.h')
     inputs.append(Path(vla.__file__).resolve())

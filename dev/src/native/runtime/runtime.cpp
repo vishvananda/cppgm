@@ -414,13 +414,15 @@ uint32_t emit_runtime(
 		a.lea(RSI, RM::m(arguments, 8));
 	}
 	a.call_symbol(startup.entry);
-	if (startup.fini != lowir::kNoId || startup.atexit != lowir::kNoId)
+	if (startup.fini != lowir::kNoId || startup.atexit != lowir::kNoId || !startup.destructors.empty())
 	{
 		a.mov_rr(R12, RAX);
 		if (startup.atexit != lowir::kNoId)
 			emit_exit_drain(a, exit_state);
 		if (startup.fini != lowir::kNoId)
 			a.call_symbol(startup.fini);
+		for (lowir::SymbolId function : startup.destructors)
+			a.call_symbol(function);
 		emit_exit(a, R12, image.target);
 	}
 	else

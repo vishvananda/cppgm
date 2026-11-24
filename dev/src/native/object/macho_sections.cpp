@@ -93,7 +93,7 @@ bool Encoder::sections()
 		const bool standard = spelling.compare(0, 5, ".text") == 0 || spelling.compare(0, 5, ".data") == 0 ||
 			spelling.compare(0, 7, ".rodata") == 0 || spelling.compare(0, 4, ".bss") == 0 ||
 			spelling.compare(0, 6, ".tdata") == 0 || spelling.compare(0, 5, ".tbss") == 0 ||
-			source.kind == SectionKind::InitArray || spelling == ".fini_array" || spelling == ".eh_frame" ||
+			source.kind == SectionKind::InitArray || source.kind == SectionKind::FiniArray || spelling == ".eh_frame" ||
 			spelling == ".gcc_except_table" || spelling.compare(0, 7, ".debug_") == 0;
 		if (!standard && !spelling.empty())
 		{

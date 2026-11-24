@@ -37,6 +37,7 @@ void define_global(
 	uint32_t priority = 0;
 	const auto kind = tls                     ? (bss ? obj::SectionKind::TlsBss : obj::SectionKind::TlsData)
 		: initializer_section(name, priority) ? obj::SectionKind::InitArray
+		: finalizer_section(name, priority)   ? obj::SectionKind::FiniArray
 		: readonly && !relro                  ? obj::SectionKind::Rodata
 		: bss                                 ? obj::SectionKind::Bss
 											  : obj::SectionKind::Data;

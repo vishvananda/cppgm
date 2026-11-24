@@ -11,10 +11,6 @@
     "diagnostic": "a C static initializer requires a constant expression",
     "reason": "The GNU constant initializer takes a member address from a null base pointer."
   },
-  "ConstructorDestructorAttributes": {
-    "stdout": "Create!\n",
-    "reason": "One of the two functions declared with startup or shutdown attributes does not run in the linked program."
-  },
   "globalrefs": {
     "diagnostic": "invalid implicit conversion",
     "reason": "A global long pointer is initialized with an int pointer. The native controls permit this constraint violation as an extension."

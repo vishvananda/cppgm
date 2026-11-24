@@ -914,6 +914,26 @@ It differs from the separate hosted rule that falling off the end of
 [C23 text](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
 [PA38 fallthrough regression](../pa38/tests/general/300-c-nonvoid-discarded-fallthrough.t)
 
+## GNU shutdown functions
+
+A GNU `destructor` attribute retains a function for normal termination.
+The attribute can be written on an earlier declaration. It may coexist
+with `constructor` on the same function. The implementation uses the
+existing constructor priority range and defaults an omitted priority
+to 65535. Larger destructor priorities run first. The usual library
+callbacks registered during execution run before these earlier
+callbacks. Abrupt termination with `_Exit` skips the hooks.
+
+ELF carries each hook in a prioritized finalization array. Darwin host
+objects register the callback with the image's DSO handle. Wasm uses
+the existing C exit callback facility, so a freestanding module needs
+to supply a runtime that calls its registered functions.
+
+[GCC attribute documentation](https://gcc.gnu.org/onlinedocs/gcc-16.1.0/gcc/Common-Attributes.html) ·
+[Clang attribute documentation](https://clang.llvm.org/docs/AttributeReference.html#constructor-destructor) ·
+[PA30 host runtime case](../pa30/tests/run/800-gnu-shutdown-functions.t) ·
+[PA38 C runtime case](../pa38/tests/general/500-gnu-shutdown-functions.t)
+
 ## Evaluated type names and GNU `typeof`
 
 The evaluation of a VLA size expression can be observable even when a cast's

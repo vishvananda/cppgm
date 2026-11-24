@@ -1357,6 +1357,9 @@ private:
 	void prepare_source_object_aliases(const syntax::TranslationUnit& unit);
 	void emit_source_object_aliases();
 	void startup_functions();
+	void emit_lifetime_functions(const sema::SemanticGraph::LifetimeFunctions& functions, bool shutdown);
+	lowir::SymbolId shutdown_registration(lowir::SymbolId callback);
+	lowir::SymbolId cxa_atexit_function();
 
 	// Polymorphic classes (lower/vtable_lowering.cpp).
 	void define_typeinfo(const sema::ClassEntity* entity, lowir::SymbolId symbol);
@@ -2033,6 +2036,7 @@ private:
 	PointerMap local_static_index_;
 	std::vector<LocalStatic> local_statics_;
 	lowir::SymbolId atexit_ = lowir::kNoId;
+	lowir::SymbolId cxa_atexit_ = lowir::kNoId;
 	lowir::SymbolId thread_atexit_ = lowir::kNoId;
 	lowir::SymbolId fegetround_ = lowir::kNoId;
 	lowir::SymbolId trap_ = lowir::kNoId;

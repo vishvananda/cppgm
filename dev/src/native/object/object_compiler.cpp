@@ -315,8 +315,11 @@ uint32_t ObjectCompiler::shared_unlikely_section()
 uint32_t ObjectCompiler::named_section(lowir::NameId name, SectionKind kind)
 {
 	uint32_t priority = 0;
-	if (lowir::initializer_section(program_.spelling(name), priority))
+	const char* spelling = program_.spelling(name);
+	if (lowir::initializer_section(spelling, priority))
 		kind = SectionKind::InitArray;
+	else if (lowir::finalizer_section(spelling, priority))
+		kind = SectionKind::FiniArray;
 	// pa27 README 9: a global's section= name is its ELF section, shared
 	// by every global naming it (writable if any of them is), PROGBITS
 	// even for zero bytes, as GNU as makes an unknown-named section.

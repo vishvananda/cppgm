@@ -49,7 +49,13 @@ hosted headers depend on:
   Priorities range from 0 through 65535, with smaller values running first;
   the omitted priority is 65535. Preserve the priority through ordinary LowIR
   function-address tables and object startup records. Reject conflicting
-  priorities and unsupported function signatures
+  priorities and unsupported function signatures.
+- GNU `destructor` and `destructor(priority)` attributes retain a
+  namespace-scope `void()` function for normal program termination.
+  Larger priorities run first and the omitted priority is 65535.
+  Preserve attributes on an earlier declaration, merge repeated
+  declarations with the same priority, and diagnose conflicting
+  priorities. A function can carry both attributes.
 - hosted source-file comments may contain opaque legacy 8-bit bytes; line
   splicing, trigraphs and comment delimiters retain their usual behavior.
   This does not relax UTF-8 diagnostics for tokens or literals, or the strict

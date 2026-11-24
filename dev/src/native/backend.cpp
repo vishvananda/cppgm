@@ -144,11 +144,13 @@ bool compile_program(
 	}
 	const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 	Startup startup = find_startup(program);
-	std::vector<lowir::StartupFunction> constructors;
-	if (!lowir::startup_functions(program, constructors, error))
+	std::vector<lowir::StartupFunction> constructors, destructors;
+	if (!lowir::startup_functions(program, constructors, error, &destructors))
 		return false;
 	for (const auto& function : constructors)
 		startup.constructors.push_back(function.symbol);
+	for (auto function = destructors.rbegin(); function != destructors.rend(); ++function)
+		startup.destructors.push_back(function->symbol);
 	if (!options.output.empty() && startup.entry == lowir::kNoId)
 	{
 		error = "no entry function for an executable";

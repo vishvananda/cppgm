@@ -239,6 +239,7 @@ inline bool in_aligned_region(const Function& function, int32_t disp)
 struct Startup
 {
 	std::vector<lowir::SymbolId> constructors;
+	std::vector<lowir::SymbolId> destructors;
 	lowir::SymbolId init = lowir::kNoId;
 	lowir::SymbolId entry = lowir::kNoId;
 	lowir::SymbolId fini = lowir::kNoId;

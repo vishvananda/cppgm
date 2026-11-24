@@ -811,7 +811,9 @@ The first fixture set covers these parts of the C17 input profile:
   form to the whole operand, including postfix operations. An operand
   of fixed-size type is unevaluated.
 - Hosted C header declarations and their builtin operations through the
-  existing hosted environment, including PA30's GNU startup-function attributes.
+  existing hosted environment, including PA30's GNU startup and shutdown
+  function attributes. Apply them to C function declarations and retain
+  them on a later definition.
 - Support the reserved GNU spelling `__auto_type` in the C modes above.
   It declares one object with a plain identifier and an expression
   initializer. Bind the identifier after the initializer. Apply array and

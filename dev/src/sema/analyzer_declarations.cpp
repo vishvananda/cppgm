@@ -539,7 +539,7 @@ void Analyzer::symbol_attributes(Entity* entity, const syntax::Attribute* leadin
 				object_alias_attribute(entity, *attribute);
 				continue;
 			}
-			if (attribute->kind == syntax::AttributeKind::Startup)
+			if (attribute->kind == syntax::AttributeKind::Startup || attribute->kind == syntax::AttributeKind::Shutdown)
 			{
 				startup_attribute(entity, *attribute);
 				continue;

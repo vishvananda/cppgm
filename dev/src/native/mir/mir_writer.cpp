@@ -493,7 +493,7 @@ void MirWriter::header(const Startup& startup, Target target)
 	symbol(startup.entry);
 	text_ += startup.entry_params >= 2 ? " [args=(rsi,rdi)]\n"
 									   : (startup.entry_params == 1 ? " [args=(rdi)]\n" : " [args=()]\n");
-	if (startup.fini != lowir::kNoId || startup.atexit != lowir::kNoId)
+	if (startup.fini != lowir::kNoId || startup.atexit != lowir::kNoId || !startup.destructors.empty())
 	{
 		text_ += "    mov r12, rax\n";
 		if (startup.atexit != lowir::kNoId)
@@ -502,6 +502,12 @@ void MirWriter::header(const Startup& startup, Target target)
 		{
 			text_ += "    call ";
 			symbol(startup.fini);
+			text_ += " [args=()]\n";
+		}
+		for (lowir::SymbolId function : startup.destructors)
+		{
+			text_ += "    call ";
+			symbol(function);
 			text_ += " [args=()]\n";
 		}
 		text_ += "    mov rdi, r12\n    exit\n";

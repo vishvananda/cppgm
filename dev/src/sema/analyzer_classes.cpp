@@ -456,6 +456,7 @@ uint64_t Analyzer::attribute_alignment(
 		case syntax::AttributeKind::Cold:
 		case syntax::AttributeKind::Naked:
 		case syntax::AttributeKind::Startup:
+		case syntax::AttributeKind::Shutdown:
 		case syntax::AttributeKind::WasmImportModule:
 		case syntax::AttributeKind::WasmImportName:
 		case syntax::AttributeKind::WasmExportName:

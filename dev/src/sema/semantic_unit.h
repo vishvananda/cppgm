@@ -235,14 +235,19 @@ struct SemanticGraph
 	};
 	PointerMap object_alias_index;
 	std::vector<ObjectAlias> object_aliases;
-	// GNU startup functions are rare; ordinary function records do not grow.
-	struct StartupFunction
+	// GNU lifetime hooks are rare; ordinary function records do not grow.
+	struct LifetimeFunction
 	{
 		const FunctionEntity* function;
 		uint32_t priority;
 	};
-	PointerMap startup_index;
-	std::vector<StartupFunction> startup_functions;
+	struct LifetimeFunctions
+	{
+		PointerMap index;
+		std::vector<LifetimeFunction> entries;
+	};
+	LifetimeFunctions startup_functions;
+	LifetimeFunctions shutdown_functions;
 	// Sparse target function bindings; ordinary function records stay small.
 	struct WasmBinding
 	{

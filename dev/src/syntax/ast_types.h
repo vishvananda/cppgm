@@ -127,7 +127,9 @@ enum class AttributeKind : uint8_t
 	// GNU alias("object_name"): another linking identity for a definition.
 	ObjectAlias,
 	// GNU constructor[(priority)]: run the function before program entry.
-	Startup
+	Startup,
+	// GNU destructor[(priority)]: run the function at normal termination.
+	Shutdown
 };
 
 struct TypeId;
