@@ -1,0 +1,8 @@
+pushf
+popf
+rdmsr
+wrmsr
+clac
+stac
+swapgs
+iretq

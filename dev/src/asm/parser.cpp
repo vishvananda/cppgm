@@ -56,7 +56,8 @@ private:
 	std::string word(bool fold = true);
 	Operand target();
 	bool symbol(Operand& operand);
-	void rip_register(Address& address);
+	bool rip_register(Address& address);
+	bool att_symbol(Operand& operand);
 	void resolve_labels(std::vector<Instruction>& instructions);
 	uint64_t integer();
 	uint64_t expression(bool addend = false);
@@ -173,7 +174,12 @@ Operand Parser::intel_memory(uint16_t bits)
 		}
 		space();
 		Operand bound;
-		if (symbol(bound))
+		if (rip_register(result.address))
+		{
+			if (minus)
+				fail("an assembly address cannot subtract RIP");
+		}
+		else if (symbol(bound))
 		{
 			if (minus || result.address.symbol.symbol != asm_model::kNoId)
 				fail("invalid assembly symbol expression");
@@ -181,14 +187,6 @@ Operand Parser::intel_memory(uint16_t bits)
 			result.address.local = bound.address.local;
 			result.address.relocation = bound.address.relocation;
 			displacement += bound.address.displacement;
-		}
-		else if (source_.compare(pos_, register_prefix_ ? 4 : 3, register_prefix_ ? "%rip" : "rip") == 0)
-		{
-			if (minus)
-				fail("an assembly address cannot subtract RIP");
-			if (register_prefix_)
-				step();
-			rip_register(result.address);
 		}
 		else if (register_prefix_ ? current() == '%' : alpha(current()))
 		{
@@ -247,20 +245,11 @@ Operand Parser::att_memory(int64_t displacement)
 	if (!take('('))
 		return result;
 	space();
-	if (register_prefix_ ? current() == '%' : alpha(current()))
+	if (!rip_register(result.address) && (register_prefix_ ? current() == '%' : alpha(current())))
 	{
-		if (source_.compare(pos_, register_prefix_ ? 4 : 3, register_prefix_ ? "%rip" : "rip") == 0)
-		{
-			if (register_prefix_)
-				step();
-			rip_register(result.address);
-		}
-		else
-		{
-			result.address.base = reg();
-			address_register(result.address.base);
-			result.address.has_base = true;
-		}
+		result.address.base = reg();
+		address_register(result.address.base);
+		result.address.has_base = true;
 	}
 	if (take(','))
 	{
@@ -291,6 +280,8 @@ uint8_t Parser::segment_override()
 		if (current() != '%')
 			return 0;
 		++first;
+		while (first < source_.size() && (source_[first] == ' ' || source_[first] == '\t'))
+			++first;
 	}
 	if (first + 2 >= source_.size() || (source_[first + 1] != 's' && source_[first + 1] != 'S'))
 		return 0;
@@ -329,10 +320,10 @@ Operand Parser::unsegmented_operand()
 	{
 		if (take('$'))
 		{
-			if (!symbol(result))
+			if (!att_symbol(result))
 				result.immediate = expression();
 		}
-		else if (symbol(result))
+		else if (att_symbol(result))
 		{
 			const Address binding = result.address;
 			result = att_memory(binding.displacement);
@@ -425,11 +416,48 @@ void Parser::decorators(Operand& operand)
 	}
 }
 
-void Parser::rip_register(Address& address)
+bool Parser::rip_register(Address& address)
 {
-	if (word() != "rip" || address.rip)
+	size_t first = pos_;
+	if (register_prefix_)
+	{
+		if (current() != '%')
+			return false;
+		++first;
+		while (first < source_.size() && (source_[first] == ' ' || source_[first] == '\t'))
+			++first;
+	}
+	if (source_.size() - first < 3 || (source_[first] | 0x20) != 'r' || (source_[first + 1] | 0x20) != 'i' ||
+		(source_[first + 2] | 0x20) != 'p')
+		return false;
+	const size_t end = first + 3;
+	const char following = end < source_.size() ? source_[end] : '\0';
+	if (alpha(following) || (following >= '0' && following <= '9'))
+		return false;
+	if (address.rip)
 		fail("invalid RIP-relative assembly address");
+	while (pos_ < end)
+		step();
 	address.rip = true;
+	return true;
+}
+
+bool Parser::att_symbol(Operand& operand)
+{
+	space();
+	if (current() != '(' || att_address_tuple())
+		return symbol(operand);
+	const size_t saved_position = pos_;
+	const uint32_t saved_column = column_;
+	step();
+	if (symbol(operand))
+	{
+		expect(')');
+		return true;
+	}
+	pos_ = saved_position;
+	column_ = saved_column;
+	return false;
 }
 
 bool Parser::symbol(Operand& operand)

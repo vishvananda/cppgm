@@ -217,6 +217,9 @@ immediate constraint. Check constraints against the operands that will be
 encoded, after any substitution or propagation.
 The GNU `%a` modifier uses a register or constant as a memory address.
 An x86 memory operand can carry an FS or GS segment override.
+Accept whitespace between the AT&T register prefix and name, including
+`% rip` after macro expansion. A symbol displacement and its constant
+addend can be grouped in parentheses before the addressing tuple.
 C records with a size of one, two, four, or eight bytes can use an
 integer register constraint. Preserve their complete representation.
 
