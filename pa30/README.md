@@ -504,6 +504,8 @@ To complete PA30, implement hosted compatibility for:
   array bound. A C++20 argument that designates a named member includes
   the member's name in the string.
 - predefined macro import, `__COUNTER__`, the GNU comma paste, `_Pragma`,
+  and `__BASE_FILE__`. The latter expands to the primary input file
+  name from both the primary file and its includes, regardless of `#line`.
   `__has_*`, `#include_next`, `#warning`, ignored unknown pragmas, and hosted
   hex-float preprocessing forms such as `0x1p+4`. Hosted preprocessing also
   executes conditional and macro-definition directives encountered while

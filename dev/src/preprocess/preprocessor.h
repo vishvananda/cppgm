@@ -289,6 +289,7 @@ private:
 	// ExpansionEnvironment.
 	uint64_t presumed_line(uint32_t location) override;
 	TokenSpelling presumed_file_literal(uint32_t location) override;
+	TokenSpelling base_file_literal() override;
 	bool can_include(const std::string& name, bool angle, bool next) override;
 	unsigned has_embed(const std::vector<PPToken>& operand, uint32_t location) override;
 	void check_variadic_omission(const PPToken& invocation, uint32_t definition) const override;
@@ -373,6 +374,7 @@ private:
 	MacroDefinitionParser definition_parser_;
 	PPLexer::MacroSpellingScratch macro_spelling_;
 	SourceFile* predefined_;
+	TokenSpelling base_file_literal_ = {};
 	// The location ranges of the command-line definitions and of the host
 	// compiler's predefined macros (hosted mode), which later definitions
 	// replace.

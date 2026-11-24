@@ -42,6 +42,7 @@ public:
 	// __FILE__ at a location: the presumed file name as the spelling of a
 	// character string literal.
 	virtual TokenSpelling presumed_file_literal(uint32_t location) = 0;
+	virtual TokenSpelling base_file_literal() = 0;
 	// Whether `#include` (`#include_next` with `next`) of the name would
 	// find a file (the hosted __has_include operators).
 	virtual bool can_include(const std::string& name, bool angle, bool next) = 0;

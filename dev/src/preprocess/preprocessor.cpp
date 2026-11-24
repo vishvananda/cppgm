@@ -352,6 +352,9 @@ void Preprocessor::define_builtin_macros()
 	}
 	if (!hosted_)
 		return;
+	constexpr char base_file[] = "__BASE_FILE__";
+	Identifier* name = identifiers_.intern(base_file, sizeof(base_file) - 1);
+	name->macro = MakeBuiltinMacro(arena_, name, BuiltinMacro::BaseFile);
 	static const struct
 	{
 		const char* spelling;
@@ -660,6 +663,19 @@ TokenSpelling Preprocessor::presumed_file_literal(uint32_t location)
 		inclusion.file_literal_length = static_cast<uint32_t>(literal.size());
 	}
 	return TokenSpelling{ inclusion.file_literal, inclusion.file_literal_length };
+}
+
+TokenSpelling Preprocessor::base_file_literal()
+{
+	if (base_file_literal_.text == nullptr)
+	{
+		// The first inclusion is the primary input, even while a forced
+		// include is being read. Its physical name is untouched by #line.
+		const std::string literal = FileLiteral(files_.inclusion(0).file->path());
+		base_file_literal_ = TokenSpelling{ arena_.copy_string(literal.data(), literal.size()),
+			static_cast<uint32_t>(literal.size()) };
+	}
+	return base_file_literal_;
 }
 
 bool Preprocessor::has_feature(const char* spelling, uint32_t length, bool extension)

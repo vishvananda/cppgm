@@ -1256,8 +1256,11 @@ void MacroExpander::replace_builtin(const MacroDefinition& macro)
 		return;
 	}
 	case BuiltinMacro::File:
+	case BuiltinMacro::BaseFile:
 	{
-		const TokenSpelling literal = environment_.presumed_file_literal(current_.begin);
+		const TokenSpelling literal = macro.builtin == BuiltinMacro::File
+			? environment_.presumed_file_literal(current_.begin)
+			: environment_.base_file_literal();
 		current_.kind = PPTokenKind::StringLiteral;
 		current_.identifier = nullptr;
 		current_.spelling = literal.text;

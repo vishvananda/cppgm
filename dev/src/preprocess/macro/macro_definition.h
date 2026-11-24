@@ -21,6 +21,7 @@ enum class BuiltinMacro : uint8_t
 {
 	None,
 	File,
+	BaseFile,
 	Line,
 	Counter,
 	HasCppAttribute,
