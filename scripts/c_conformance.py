@@ -1044,6 +1044,7 @@ def probes(args, profiles, rules):
     inputs.extend(PA38_GENERAL / (stem + '.t') for stem, *_ in (
         *vla.PROGRAMS.values(), *vla.GNU_PROGRAMS.values(), *vla.REJECTIONS.values()))
     inputs.extend(PA38_GENERAL / (stem + suffix) for stem in vla.PAIR_SOURCES.values() for suffix in ('.t', '.t.1'))
+    inputs.extend(PA38_GENERAL / header for header in vla.HEADERS)
     inputs.append(Path(vla.__file__).resolve())
     receipt_path = output / 'receipts.json'
     write_json(receipt_path, dict(schema=1, revision=revision, compiler_sha256=sha256(Path(compiler)),

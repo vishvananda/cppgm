@@ -61,11 +61,12 @@ public:
 		: types_(types), visit_(0), completer_(nullptr), arithmetic_(false), c_source_(false)
 	{}
 
-	void set_c_source(bool on, bool extensions, bool before_c99)
+	void set_c_source(bool on, bool extensions, bool before_c99, bool c23)
 	{
 		c_source_ = on;
 		c_extensions_ = on && extensions;
 		c_before_c99_ = before_c99;
+		c23_ = c23;
 	}
 	void set_c23_tag_lookup(const NameLookup* names, const PointerMap* alignments)
 	{
@@ -106,6 +107,8 @@ public:
 	bool function_conversion(const Type* source, const Type* target);
 	bool c_function_compatible(const Type* source, const Type* target);
 	bool c_type_compatible(const Type* source, const Type* target, bool ignore_cv = false);
+	bool c_compatible_array_pointees(const Type* source, const Type* target);
+	const Type* c_array_pointer_composite(const Type* first, const Type* second);
 	// The composite of types already checked for C compatibility.
 	const Type* c_composite_type(const Type* prior, const Type* declared);
 	// Pointee types accepted by C's implicit function/void-pointer and
@@ -129,6 +132,7 @@ private:
 	bool standard(const Operand& from, const Type* target, bool direct, Conversion& out);
 	bool reference(const Operand& from, const Type* target, Conversion& out);
 	bool value_conversion(const Type* source, uint16_t flags, const Type* target, bool direct, Conversion& out);
+	bool c_array_pointer_conversion(const Type* from, const Type* to, Conversion& out);
 	const Type* c_composite_function(const Type* prior, const Type* declared);
 	bool c_tag_compatible(const Type* source, const Type* target, bool anonymous_member = false);
 	struct CTagPair
@@ -155,6 +159,7 @@ private:
 	bool c_source_;
 	bool c_extensions_ = false;
 	bool c_before_c99_ = false;
+	bool c23_ = false;
 	const NameLookup* c23_names_ = nullptr;
 	const PointerMap* c23_alignments_ = nullptr;
 	CTagComparison* c_tag_comparison_ = nullptr;

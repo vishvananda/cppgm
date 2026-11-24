@@ -26,13 +26,17 @@ PROGRAMS = {
     'vla.type-compatibility': ('500-types-compatible-vla', C11_AND_LATER),
     'vla.legacy-definition': ('300-array-declarator-constant-and-vla', PRE_C23),
     'vla.restrict-array-parameter': ('300-restrict-kr-array', PRE_C23),
+    'vla.pre-c23-array-to-void': ('300-c17-array-pointer-to-void', PRE_C23),
+    'vla.pre-c23-array-extension': ('300-c17-array-pointer-extension', PRE_C23),
     'vla.c23-qualified-pointer': ('300-c23-qualified-vla-pointer', (23,)),
+    'vla.c23-qualified-composite': ('300-c23-qualified-array-pointer-composite', (23,)),
     'vla.c23-restrict-array': ('300-restrict-typedef-array-gnu', (23,)),
 }
 
 GNU_PROGRAMS = {
     'vla.gnu-typeof': ('300-variable-array-typeof', (17, 23)),
     'vla.gnu-restrict-array': ('300-restrict-typedef-array-gnu', (17,)),
+    'vla.gnu-qualify-array-pointer': ('300-c23-qualified-vla-pointer', (17,)),
 }
 
 PAIR_SOURCES = {
@@ -41,10 +45,13 @@ PAIR_SOURCES = {
 }
 ABI_SOURCE = PAIR_SOURCES['vla.parameter-abi']
 MIXED_CASES = ('vla.cppgm-caller', 'vla.cppgm-callee')
+HEADERS = ('300-c17-array-pointer-extension.inc/system.h',)
 
 STAR_SCOPE = '[*] is allowed only in C function prototype scope'
 AUTOMATIC = 'a variable-length array requires automatic storage'
 JUMP = "bypasses a variable's initialization"
+ARRAY_QUALIFICATION = 'array pointer qualification conversion requires C23'
+IMPLICIT_CONVERSION = 'invalid implicit conversion'
 REJECTIONS = {
     'vla.before-c99': ('300-c90-variable-array-bad', (90, 95), 'variable-length arrays require C99'),
     'vla.incomplete-element': ('300-array-vla-element-incomplete-bad', MODERN, 'incomplete element type'),
@@ -74,4 +81,13 @@ REJECTIONS = {
     'vla.weaker-alignment': ('300-c11-alignas-vla-weaker-bad', C11_AND_LATER, 'alignment-specifier weaker'),
     'vla.atomic-array': ('300-variable-array-atomic-direct-bad', C11_AND_LATER, '_Atomic of an array'),
     'vla.restrict-array-before-c23': ('300-restrict-typedef-array-c17-bad', PRE_C23, 'is a C23 extension'),
+    'vla.pre-c23-qualifier-addition': ('300-c17-array-pointer-add-qualifier-bad', PRE_C23, ARRAY_QUALIFICATION),
+    'vla.pre-c23-qualified-void': ('300-c17-array-pointer-from-const-void-bad', PRE_C23, ARRAY_QUALIFICATION),
+    'vla.pre-c23-qualified-difference': ('300-c17-array-pointer-subtraction-bad', PRE_C23, ARRAY_QUALIFICATION),
+    'vla.pre-c23-qualified-conditional': ('300-c17-array-pointer-conditional-bad', PRE_C23, ARRAY_QUALIFICATION),
+    'vla.pre-c23-operand-extension': ('300-c17-array-pointer-operand-extension-bad', PRE_C23, ARRAY_QUALIFICATION),
+    'vla.c23-qualified-void': ('300-c23-array-pointer-to-unqualified-void-bad', (23,), IMPLICIT_CONVERSION),
+    'vla.c23-atomic-mismatch': ('300-c23-array-pointer-atomic-mismatch-bad', (23,), IMPLICIT_CONVERSION),
+    'vla.c23-fixed-bounds-mismatch': ('300-c23-array-pointer-incompatible-bounds-bad', (23,), IMPLICIT_CONVERSION),
+    'vla.c23-nested-qualifiers': ('300-c23-array-pointer-nested-qualifier-bad', (23,), IMPLICIT_CONVERSION),
 }

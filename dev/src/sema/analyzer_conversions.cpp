@@ -12,6 +12,30 @@
 // common type (5.16) are here too.
 namespace sema {
 
+ExprFacts* Analyzer::typed_c_extension(const syntax::Expr& expr, Scope* scope)
+{
+	const bool saved = quiet_c_array_extensions_;
+	quiet_c_array_extensions_ = true;
+	ExprFacts* facts = typed_form(expr, scope);
+	quiet_c_array_extensions_ = saved;
+	return facts;
+}
+
+bool Analyzer::check_c_array_pointer_extension(CArrayPointerExtension extension, uint32_t location)
+{
+	if (quiet_c_array_extensions_)
+		return true;
+	const bool new_qualification = extension == CArrayPointerExtension::C23Qualification;
+	const char* message = new_qualification ? "array pointer qualification conversion requires C23"
+											: "implicit conversion discards qualifiers of a pointed-to array";
+	if (positions_ == nullptr ||
+		(new_qualification ? positions_->allow_c_extension(location, CEdition::C23, message)
+						   : positions_->allow_gnu_c_extension(location, message)))
+		return true;
+	substitution_error(location, message);
+	return false;
+}
+
 namespace {
 
 const syntax::Expr* WithoutParentheses(const syntax::Expr* expr)

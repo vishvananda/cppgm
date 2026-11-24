@@ -349,6 +349,7 @@ array parameter adjustment and function compatibility. The tests distinguish
 the C23 array-typedef rule from its extension behavior in earlier editions.
 Keep these cases in the VLA qualification run and include qualified pointer
 types in the C23 array-compatibility audit.
+[Array pointer qualification references](../doc/c-conformance-notes.md#array-pointer-qualification)
 
 Audit `_Generic` compatibility before optimizing duplicate checks. Two
 distinct pointers to complete array types can both be compatible with a

@@ -94,6 +94,13 @@ enum class ConversionForm : uint8_t
 	Ellipsis
 };
 
+enum class CArrayPointerExtension : uint8_t
+{
+	None,
+	C23Qualification,
+	DiscardedQualifiers
+};
+
 // An implicit conversion sequence (13.3.3.1) from an expression to the type
 // its context needs: an initialized object or reference, a parameter, an
 // operand.
@@ -124,6 +131,8 @@ struct Conversion
 	// 13.3.3.1p10: viable for ranking, ill-formed if selected. Kept
 	// independently of form so array/list wrappers preserve the fact.
 	bool ambiguous;
+	// Diagnose only when a C array-pointer conversion is selected.
+	CArrayPointerExtension c_array_extension;
 	// The type converted to (the reference type for a binding).
 	const Type* target;
 	// The type the standard conversion yields (for a binding, the referenced

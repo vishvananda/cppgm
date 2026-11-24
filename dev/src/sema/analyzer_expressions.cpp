@@ -269,7 +269,7 @@ ExprFacts* Analyzer::typed(const syntax::Expr& expr, Scope* scope)
 	// 14.6.4.2).
 	const uint64_t uses = names_.dependent_uses();
 	const uint64_t values = names_.value_parameter_uses();
-	ExprFacts* facts = typed_form(expr, scope);
+	ExprFacts* facts = expr.explicit_c_extension ? typed_c_extension(expr, scope) : typed_form(expr, scope);
 	switch (expr.kind)
 	{
 	case syntax::ExprKind::Sizeof:
@@ -1143,6 +1143,12 @@ bool Analyzer::lanewise_result(const ExprFacts* facts, const Type* target, Conve
 const Conversion* Analyzer::finish_conversion(const syntax::Expr& expr, Conversion& conversion, bool operand)
 {
 	ExprFacts* facts = facts_of(expr);
+	if (conversion.c_array_extension != CArrayPointerExtension::None)
+	{
+		if (!check_c_array_pointer_extension(conversion.c_array_extension, expr.location))
+			return nullptr;
+		conversion.c_array_extension = CArrayPointerExtension::None;
+	}
 	conversion.initialization = !operand;
 	// 8.5.3p5: only a const (non-volatile) lvalue reference binds a
 	// bit-field, to a temporary copy of its value.
@@ -1433,8 +1439,11 @@ ExprFacts* Analyzer::arithmetic(const syntax::BinaryExpr& expr, ExprFacts* left,
 					(left_element != right_element &&
 						!(c_source_ && conversions_.c_type_compatible(left_element, right_element))))
 				{
-					substitution_error(expr.location, "subtraction of pointers to different types");
-					return nullptr;
+					if (!c_source_ || !conversions_.c_compatible_array_pointees(left_element, right_element))
+						return substitution_error(expr.location, "subtraction of pointers to different types"), nullptr;
+					if (!c23_ &&
+						!check_c_array_pointer_extension(CArrayPointerExtension::C23Qualification, expr.location))
+						return nullptr;
 				}
 				convert_operand(*expr.left, lt);
 				convert_operand(*expr.right, rt);
@@ -3267,6 +3276,7 @@ ExprFacts* Analyzer::explicit_conversion(
 		// 5.4p4: a C-style cast may convert to an inaccessible base (not
 		// to an ambiguous one).
 		expression_scope_ = scope;
+		conversion.c_array_extension = CArrayPointerExtension::None;
 		check_conversion_access(source, conversion, expr.location, !c_style);
 		record_conversion(source, conversion);
 		return new_facts(expr, goal, ValueCategory::PRValue);

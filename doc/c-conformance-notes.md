@@ -861,6 +861,31 @@ discussed in DR 423.
 [WG14 N2607](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2607.pdf) ·
 [PA38 parameter and conversion case](../pa38/tests/general/300-restrict-parameters.t)
 
+## Array pointer qualification
+
+Through C17, the qualifications of array elements do not qualify the
+array itself. Under C11 6.7.3p9 and 6.5.16.1p1, a pointer to a row
+with const elements can therefore initialize a plain void pointer.
+Adding const to elements through an implicit row-pointer conversion
+requires a diagnostic in that edition. Treat the C23 conversion as an
+extension where the diagnostic policy permits it.
+
+C23 6.2.5 gives an array the ordinary qualifications of its elements.
+An array of atomic elements remains an array type, so atomic
+qualification still participates in element compatibility. Apply the
+new qualification at the immediate pointed-to type. Preserve
+qualification below a further pointer. Section 6.7.7.3 requires equal
+values for constant bounds when both are present and permits compatible
+types with a fixed and a runtime bound. Section 6.5.16 combines the
+pointed-to qualifiers and uses the composite pointed-to type. The
+same notion of qualification applies to the constraints for assignment,
+argument passing, pointer comparisons, and pointer subtraction.
+
+[C11 draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) ·
+[C23 text](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
+[WG14 N2607](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2607.pdf) ·
+[PA38 C23 composite case](../pa38/tests/general/300-c23-qualified-array-pointer-composite.t)
+
 ## Evaluated type names and GNU `typeof`
 
 The evaluation of a VLA size expression can be observable even when a cast's

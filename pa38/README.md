@@ -649,6 +649,14 @@ The first fixture set covers these parts of the C17 input profile:
   on pointed-to types and diagnose an implicit conversion that discards them
   in pedantic mode. Treat a `restrict` qualifier on an array typedef of
   pointers as a C23 extension in earlier editions.
+- Starting in C23, an array and its element type share ordinary qualifiers.
+  Apply this rule to conversions to and from void pointers and to operators
+  on pointers to arrays. Combine qualifiers on compatible array types,
+  including when one bound is fixed and the other is evaluated at runtime.
+  Preserve atomic element types and qualification behind another pointer
+  level. Through C17, an array itself is unqualified, so a pointer to an
+  array of const elements can convert to plain `void *`. Apply the
+  pedantic policy when an earlier mode uses the C23 qualification conversion.
 - Evaluate the runtime bounds needed by a `sizeof` type name. A bound in a
   pointer type whose value cannot change the result may be elided.
   `_Alignof` and a type-name `_Alignas` use the element alignment of a

@@ -57,6 +57,7 @@ struct Expr
 	// A dependent call in a template signature can begin with empty ordinary lookup.
 	mutable bool adl_only = false;
 	bool quiet_c_extensions = false;
+	bool explicit_c_extension = false;
 	uint32_t location;
 	// Set once by semantic analysis (in semantics mode): what the
 	// expression means. The tree is otherwise immutable (but see

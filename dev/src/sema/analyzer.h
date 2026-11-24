@@ -677,6 +677,7 @@ private:
 	}
 	// Types an expression and its operands, attaching facts; returns them.
 	ExprFacts* typed(const syntax::Expr& expr, Scope* scope);
+	ExprFacts* typed_c_extension(const syntax::Expr& expr, Scope* scope);
 	ExprFacts* typed_form(const syntax::Expr& expr, Scope* scope);
 	ExprFacts* typed_value(const syntax::Expr& expr, Scope* scope);
 	ExprFacts* id_expression(const syntax::IdExpr& expr, Scope* scope);
@@ -828,6 +829,7 @@ private:
 	// (of pointers to members, 5.10p2's common type when `comparison`,
 	// else 5.16p6's).
 	const Type* composite_pointer(const ExprFacts* a, const ExprFacts* b, bool comparison = false);
+	bool check_c_array_pointer_extension(CArrayPointerExtension extension, uint32_t location);
 	const Type* cv_combined(const Type* a, const Type* b);
 	bool modifiable_lvalue(const ExprFacts* facts) const;
 	// Converts an analyzed expression to `target` (copy- or direct-
@@ -2271,6 +2273,7 @@ private:
 	bool c_before_c99_ = false;
 	bool c23_ = false;
 	bool c_pedantic_ = false;
+	bool quiet_c_array_extensions_ = false;
 	bool c_freestanding_ = false;
 	bool c_language_;
 	bool linkage_extern_;

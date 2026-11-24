@@ -2009,7 +2009,7 @@
       "editions": [23],
       "environment": "all",
       "requirement": "Apply array-pointer qualification to conversions, comparisons, subtraction and conditional expressions involving compatible fixed and runtime bounds.",
-      "cases": []
+      "cases": ["vla.c23-qualified-composite", "vla.c23-qualified-void", "vla.c23-atomic-mismatch", "vla.c23-fixed-bounds-mismatch", "vla.c23-nested-qualifiers"]
     },
     {
       "id": "vla.qualified-pointer-edition",
@@ -2018,7 +2018,7 @@
       "editions": [99, 11, 17],
       "environment": "all",
       "requirement": "Apply earlier-edition qualification rules to implicit conversions between pointers to arrays and between such pointers and void pointers.",
-      "cases": []
+      "cases": ["vla.pre-c23-array-to-void", "vla.pre-c23-qualifier-addition", "vla.pre-c23-qualified-void", "vla.pre-c23-qualified-difference", "vla.pre-c23-qualified-conditional", "vla.pre-c23-operand-extension", "vla.pre-c23-array-extension"]
     },
     {
       "id": "vla.restrict-array-edition",

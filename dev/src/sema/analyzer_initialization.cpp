@@ -370,7 +370,10 @@ void Analyzer::initialize_variable(
 		flexible_list_ = static_cast<const syntax::BracedInitList*>(initializer->expression);
 		flexible_class_ = ClassOf(type);
 	}
+	const bool saved_extensions = quiet_c_array_extensions_;
+	quiet_c_array_extensions_ |= initializer->explicit_c_extension;
 	variable->constructor = initialize_object(type, *initializer, scope, location);
+	quiet_c_array_extensions_ = saved_extensions;
 	if ((c_constexpr_initializer_ || c_static_initializer_ ||
 			c_legacy_initializer_ == CLegacyInitializer::AutomaticAggregate) &&
 		!failed() && initializer->expression != nullptr)

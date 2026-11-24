@@ -1535,7 +1535,16 @@ void Analyzer::convert_arguments(
 			if (chosen != nullptr && (argument.facts->flags & kOverloadSet) == 0)
 			{
 				Conversion conversion = argument_scratch_[first + i];
-				if (conversion.rank == ConversionRank::CIncompatiblePointer)
+				if (conversion.c_array_extension != CArrayPointerExtension::None)
+				{
+					if (!check_c_array_pointer_extension(conversion.c_array_extension, argument.location))
+					{
+						argument_scratch_.resize(first);
+						return;
+					}
+					conversion.c_array_extension = CArrayPointerExtension::None;
+				}
+				else if (conversion.rank == ConversionRank::CIncompatiblePointer)
 				{
 					const Type* from = decayed(facts_of(argument))->element;
 					const Type* to = parameter->element;

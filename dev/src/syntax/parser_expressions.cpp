@@ -319,7 +319,10 @@ Expr* Parser::parse_cast_expression()
 	{
 		consume_c_extensions();
 		const CExtensionScope extension(in_c_extension_);
-		return parse_cast_expression();
+		Expr* expr = parse_cast_expression();
+		if (expr != nullptr)
+			expr->explicit_c_extension = true;
+		return expr;
 	}
 	if (at(TokenKind::OP_LPAREN))
 		return parse_parenthesized_or_cast();

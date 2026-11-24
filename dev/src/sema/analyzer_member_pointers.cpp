@@ -711,6 +711,8 @@ const Type* Analyzer::composite_pointer(const ExprFacts* a, const ExprFacts* b, 
 		return nullptr;
 	const Type* pa = ta->element;
 	const Type* pb = tb->element;
+	if (c_source_ && (pa->kind == TypeKind::Array || pb->kind == TypeKind::Array))
+		return conversions_.c_array_pointer_composite(pa, pb);
 	const uint8_t cv = pa->cv | pb->cv;
 	if (c_source_ && conversions_.c_type_compatible(pa->unqualified, pb->unqualified))
 	{
@@ -731,8 +733,10 @@ const Type* Analyzer::composite_pointer(const ExprFacts* a, const ExprFacts* b, 
 	}
 	if (pa->unqualified == pb->unqualified)
 		return types_.pointer(types_.qualified(pa->unqualified, cv));
-	if (c_source_ && ConversionRules::c_pointer_extension(pa, pb))
-		return types_.pointer(types_.qualified(types_.fundamental(FundamentalType::Void), cv));
+	if (c_source_)
+		return ConversionRules::c_pointer_extension(pa, pb)
+			? types_.pointer(types_.qualified(types_.fundamental(FundamentalType::Void), cv))
+			: nullptr;
 	if (ConversionRules::qualification_convertible(ta, tb))
 		return tb;
 	if (ConversionRules::qualification_convertible(tb, ta))

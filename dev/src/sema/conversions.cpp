@@ -91,6 +91,13 @@ uint8_t CvOf(const Type* type)
 	return type->cv;
 }
 
+// C23 arrays inherit ordinary qualifiers from their elements. An array
+// of atomic elements is not itself atomic.
+uint8_t CArrayPointerQualifiers(const Type* pointee, bool c23)
+{
+	return c23 && pointee->kind == TypeKind::Array ? CvOf(pointee) & ~kAtomic : pointee->cv;
+}
+
 // The class of a (possibly cv-qualified) class type.
 const ClassEntity* ClassEntityOf(const Type* type)
 {
@@ -756,6 +763,52 @@ const Type* ConversionRules::c_composite_type(const Type* prior, const Type* dec
 	}
 }
 
+bool ConversionRules::c_compatible_array_pointees(const Type* source, const Type* target)
+{
+	return source->kind == TypeKind::Array && target->kind == TypeKind::Array &&
+		c_type_compatible(source, target, true);
+}
+
+const Type* ConversionRules::c_array_pointer_composite(const Type* first, const Type* second)
+{
+	if (IsVoid(first) || IsVoid(second))
+	{
+		const uint8_t cv = CArrayPointerQualifiers(first, c23_) | CArrayPointerQualifiers(second, c23_);
+		return types_.pointer(types_.qualified(types_.fundamental(FundamentalType::Void), cv));
+	}
+	if (c_type_compatible(first, second))
+		return types_.pointer(c_composite_type(first, second));
+	if (!c_compatible_array_pointees(first, second))
+		return nullptr;
+	const uint8_t cv = CArrayPointerQualifiers(first, true) | CArrayPointerQualifiers(second, true);
+	const Type* composite = c_composite_type(types_.c_typeof_unqualified(first), types_.c_typeof_unqualified(second));
+	return types_.pointer(types_.qualified(composite, cv));
+}
+
+bool ConversionRules::c_array_pointer_conversion(const Type* from, const Type* to, Conversion& out)
+{
+	const bool through_void = IsVoid(from) || IsVoid(to);
+	if (!through_void && !c_compatible_array_pointees(from, to))
+		return false;
+	const uint8_t source_cv = CArrayPointerQualifiers(from, c23_ || !through_void);
+	const uint8_t target_cv = CArrayPointerQualifiers(to, c23_ || !through_void);
+	if ((source_cv & ~target_cv) == 0)
+	{
+		if (!c23_ && !through_void && source_cv != target_cv)
+			out.c_array_extension = CArrayPointerExtension::C23Qualification;
+		return true;
+	}
+	if (!c23_ && through_void && (source_cv & ~CArrayPointerQualifiers(to, true)) == 0)
+	{
+		out.c_array_extension = CArrayPointerExtension::C23Qualification;
+		return true;
+	}
+	if (!c_extensions_ || (!c23_ && !through_void))
+		return false;
+	out.c_array_extension = CArrayPointerExtension::DiscardedQualifiers;
+	return true;
+}
+
 const Type* ConversionRules::c_composite_function(const Type* prior, const Type* declared)
 {
 	const Type* result = c_composite_type(prior->element, declared->element);
@@ -895,6 +948,16 @@ bool ConversionRules::c_overload(const Operand& from, const Type* target, Conver
 		if (pointee == nullptr || (valid && out.rank == ConversionRank::Exact))
 			return valid;
 		const Type* to = target->element;
+		if (pointee->kind == TypeKind::Array || to->kind == TypeKind::Array)
+		{
+			const bool compatible = valid && out.c_array_extension != CArrayPointerExtension::DiscardedQualifiers;
+			if (compatible && IsVoid(to))
+				return true;
+			out.second = ValueConversion::CPointer;
+			out.result = target;
+			out.rank = compatible ? ConversionRank::CCompatible : ConversionRank::CIncompatiblePointer;
+			return true;
+		}
 		if (valid && IsVoid(to) && !IsVoid(pointee) && (pointee->cv & ~to->cv) == 0)
 			return true;
 		const bool qualified = (pointee->cv & ~to->cv) == 0 && ((pointee->cv ^ to->cv) & kAtomic) == 0;
@@ -998,8 +1061,9 @@ bool ConversionRules::value_conversion(
 		out.result = goal;
 		return true;
 	}
-	// A qualification adjustment alone (4.4).
-	if (IsPointerLike(source) && IsPointerLike(goal) && qualification_convertible(source, goal))
+	// C++ can change qualification at multiple levels. C checks only
+	// the immediately pointed-to type, including array qualification in C23.
+	if (IsPointerLike(source) && IsPointerLike(goal) && !c_source_ && qualification_convertible(source, goal))
 	{
 		out.qualification = true;
 		out.result = goal;
@@ -1122,8 +1186,19 @@ bool ConversionRules::value_conversion(
 	if (c_source_)
 	{
 		const Type* destination = goal->element;
+		if (pointee->kind == TypeKind::Array || destination->kind == TypeKind::Array)
+		{
+			out.second = ValueConversion::CPointer;
+			return c_array_pointer_conversion(pointee, destination, out);
+		}
 		const bool qualified = (pointee->cv & ~destination->cv) == 0 &&
 			((pointee->cv ^ destination->cv) & kAtomic) == 0;
+		if (qualified && pointee->unqualified == destination->unqualified)
+		{
+			out.rank = ConversionRank::Exact;
+			out.qualification = true;
+			return true;
+		}
 		const bool relaxed = c_extensions_ && ((pointee->cv | destination->cv) & kAtomic) == 0;
 		if (c_pointer_extension(pointee, destination) ||
 			((qualified || relaxed) && c_type_compatible(pointee->unqualified, destination->unqualified)) ||
