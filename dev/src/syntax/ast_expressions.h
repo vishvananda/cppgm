@@ -253,6 +253,8 @@ struct FunctionalCastExpr : Expr
 	};
 	const TypeId* compound_type = nullptr;
 	mutable bool compound_static = false;
+	// A GNU C static aggregate copies this literal's checked initializers.
+	mutable bool compound_static_copy = false;
 	uint8_t compound_storage = 0;
 	bool compound_has(CompoundStorage storage) const { return (compound_storage & storage) != 0; }
 	Slice<DeclSpecifier> type;

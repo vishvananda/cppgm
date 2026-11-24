@@ -1,5 +1,6 @@
 #include "sema/analyzer.h"
 
+#include "preprocess/preprocessor.h"
 #include "sema/c_initializer.h"
 #include "sema/constant_interpreter.h"
 #include "support/small_list.h"
@@ -279,6 +280,7 @@ ExprFacts* Analyzer::c_compound_literal(const syntax::FunctionalCastExpr& expr, 
 		type = types_.qualified(type, kConst);
 	}
 	expr.compound_static = !thread && (file_scope || explicit_static);
+	expr.compound_static_copy = false;
 	const bool persistent = expr.compound_static || thread;
 	if (c_inline_constraint_ != nullptr)
 		note_c_inline_object(type, scope, persistent, expr.location);
@@ -315,7 +317,7 @@ ExprFacts* Analyzer::c_compound_literal(const syntax::FunctionalCastExpr& expr, 
 }
 
 void Analyzer::check_c_static_initializer(
-	const syntax::Expr& expr, const Type* constexpr_type, const DataMember* member)
+	const syntax::Expr& expr, const Type* constexpr_type, const DataMember* member, bool unchecked_designators)
 {
 	if (!semantic())
 		return;
@@ -325,9 +327,9 @@ void Analyzer::check_c_static_initializer(
 		const auto* list = static_cast<const syntax::BracedInitList*>(value);
 		// The designated initializer builder checked the written values,
 		// including those a later initializer overrides.
-		if (CInitializerOf(list) == nullptr)
+		if (unchecked_designators || CInitializerOf(list) == nullptr)
 			for (const syntax::Expr* element : list->elements)
-				check_c_static_initializer(*element, constexpr_type, member);
+				check_c_static_initializer(*element, constexpr_type, member, unchecked_designators);
 		return;
 	}
 	const ExprFacts* facts = value->facts;
@@ -350,6 +352,21 @@ void Analyzer::check_c_static_initializer(
 		if ((literal->compound_static || literal->compound_has(syntax::FunctionalCastExpr::Constexpr)) &&
 			(facts->type->kind == TypeKind::Array || ClassOf(facts->type) != nullptr))
 			return; // Its own checked initializer supplies the aggregate's bytes.
+		if (c_static_initializer_ && ClassOf(facts->type) != nullptr && literal->compound_type != nullptr &&
+			!literal->compound_has(syntax::FunctionalCastExpr::ThreadLocal) && !literal->compound_static_copy)
+		{
+			const char* message = "a block-scope compound literal initializing static storage is a GNU C extension";
+			if (!literal->quiet_c_extensions && positions_ != nullptr &&
+				!positions_->allow_gnu_c_extension(value->location, message))
+				error(value->location, message);
+			// Type analysis retained the literal's own automatic lifetime.
+			// Copying its fields needs constant values, not its address.
+			check_c_static_initializer(*literal->braced, nullptr, nullptr, true);
+			literal->compound_static_copy = true;
+			return;
+		}
+		if (literal->compound_static_copy)
+			return;
 	}
 	if (checked_c_static_value(*value) != nullptr)
 		return;
@@ -401,7 +418,7 @@ const ConstValue* ConstantInterpreter::evaluate_c_initializer(const syntax::Expr
 	if (expr.kind == syntax::ExprKind::FunctionalCast && (expr.facts->flags & kRuntimeTypeEvaluation) == 0)
 	{
 		const auto& literal = static_cast<const syntax::FunctionalCastExpr&>(expr);
-		if (literal.compound_static)
+		if (literal.compound_static || literal.compound_static_copy)
 			value = literal.braced;
 	}
 	ConstValue result;

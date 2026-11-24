@@ -145,7 +145,7 @@ inline const syntax::BracedInitList* StaticCompoundInitializer(const syntax::Exp
 	if (expr->kind != syntax::ExprKind::FunctionalCast)
 		return nullptr;
 	const auto& literal = static_cast<const syntax::FunctionalCastExpr&>(*expr);
-	return literal.compound_static ? literal.braced : nullptr;
+	return literal.compound_static || literal.compound_static_copy ? literal.braced : nullptr;
 }
 
 inline const CInitializer* CInitializerOf(const syntax::BracedInitList* list)

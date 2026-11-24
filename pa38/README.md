@@ -650,6 +650,10 @@ The first fixture set covers these parts of the C17 input profile:
   array-bound deduction and designators. Each occurrence denotes an lvalue;
   block-scope objects survive the full expression and file-scope objects have
   static storage with constant initialization.
+  GNU C permits a record compound literal to initialize static storage inside
+  a block. Check each written initializer for a constant value and use the
+  initializer directly for the destination's storage. The literal itself
+  retains its usual lifetime.
 - Block-scope variable-length arrays with automatic or register storage can
   mix fixed and runtime dimensions. Evaluate each written runtime bound once
   at its declaration. A typedef captures its extent when execution reaches

@@ -1551,13 +1551,8 @@ bool ProgramLowering::static_object(const sema::Type* type, const syntax::Initia
 	if (initializer->array_copy || initializer->kind == syntax::InitializerKind::Parenthesized)
 		return false;
 	const syntax::Expr* expr = initializer->expression;
-	const syntax::Expr* written = WithoutParentheses(expr);
-	if (written->kind == syntax::ExprKind::FunctionalCast)
-	{
-		const auto& literal = static_cast<const syntax::FunctionalCastExpr&>(*written);
-		if (literal.compound_type != nullptr && literal.compound_static)
-			return static_element(type, *literal.braced, out);
-	}
+	if (const auto* literal = sema::StaticCompoundInitializer(expr))
+		return static_element(type, *literal, out);
 	if (expr->kind != syntax::ExprKind::BracedInit)
 		return static_string(type, *expr, out);
 	return static_element(type, *expr, out);
@@ -1568,13 +1563,8 @@ bool ProgramLowering::static_element(const sema::Type* type, const syntax::Expr&
 	if (element.kind == syntax::ExprKind::BracedInit)
 		if (const sema::CInitializer* plan = sema::CInitializerOf(static_cast<const syntax::BracedInitList*>(&element)))
 			return static_c_initializer(*plan, out);
-	const syntax::Expr* written = WithoutParentheses(&element);
-	if (written->kind == syntax::ExprKind::FunctionalCast)
-	{
-		const auto& literal = static_cast<const syntax::FunctionalCastExpr&>(*written);
-		if (literal.compound_type != nullptr && literal.compound_static)
-			return static_element(type, *literal.braced, out);
-	}
+	if (const auto* literal = sema::StaticCompoundInitializer(&element))
+		return static_element(type, *literal, out);
 	if (element.kind == syntax::ExprKind::BracedInit &&
 		static_cast<const syntax::BracedInitList&>(element).result_source != nullptr)
 		return static_element(type, *static_cast<const syntax::BracedInitList&>(element).result_source, out);

@@ -667,23 +667,19 @@ private:
 		const syntax::Expr* value = sema::CInitializerOperand(&expr);
 		const auto* record = sema::ClassOf(type);
 		const size_t start = out.items.size();
-		if (record != nullptr && record->key != TokenKind::KW_UNION && value->kind == syntax::ExprKind::FunctionalCast)
+		const auto* literal = sema::StaticCompoundInitializer(value);
+		if (record != nullptr && record->key != TokenKind::KW_UNION && literal != nullptr)
 		{
-			const auto& literal = static_cast<const syntax::FunctionalCastExpr&>(*value);
-			if (literal.compound_static)
+			const auto* source = sema::CInitializerOf(literal);
+			if (source == nullptr)
 			{
-				const auto* source = sema::CInitializerOf(literal.braced);
-				if (source == nullptr)
-				{
-					uint32_t next = 0;
-					if (lowering_.static_aggregate(type, literal.braced, next, out, nullptr, true))
-						return true;
-				}
-				else if (CStaticData(lowering_).record_members(
-							 *source, {}, lowering_.c_initializer_size(*source), false, out))
+				uint32_t next = 0;
+				if (lowering_.static_aggregate(type, literal, next, out, nullptr, true))
 					return true;
-				out.items.resize(start);
 			}
+			else if (CStaticData(lowering_).record_members(
+						 *source, {}, lowering_.c_initializer_size(*source), false, out))
+				return true;
 		}
 		else if (lowering_.static_element(type, *value, out))
 			return true;
