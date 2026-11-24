@@ -792,10 +792,9 @@ The follow-up covers [projected GNU ranges](#gnu-c23-projected-constant-ranges).
 
 The constant evaluator keeps checked field intervals and rectangular
 ranges sparse when an aggregate exceeds the dense storage budget.
-Copy-and-update initializers share the source value. An ordinary point
-update evaluates one row and adds it to the existing patch tree. The
-static writer combines whole-element replacements, field and cell
-updates, and zero masks before emitting visible data.
+Copy-and-update initializers share the source value. The static writer
+combines whole-element replacements, field and cell updates, and zero
+masks before emitting visible data.
 
 PA38 checks overlapping writes to different fields, two ranged array
 dimensions, preserved values across successive copies, whole-element
@@ -813,9 +812,9 @@ adds 0.04% retired instructions to the syntax-only field probe. Increasing
 the rectangular extent from about one million to 2.5 billion cells adds
 0.10%. For each frozen input, baseline and candidate emit identical
 object files. The measured instruction differences are within the A/A
-spread for both C++ and SQLite. Interleaved point updates on long copy
-chains still revisit preceding range updates, with quadratic compile
-work in that scaling probe.
+spread for both C++ and SQLite. The initial implementation replayed
+earlier ranges for interleaved point updates. The follow-up retains
+[the typed point updates](#gnu-c23-point-updates-after-range-writes).
 
 All 11,674 strict course tests, 1,117 local C matrix probes, and 58 pinned
 GCC C23 configurations pass. PA38 passes 632 native, 632 Wasm, 63 control,
@@ -827,6 +826,43 @@ and PA38 pass with the packaged reference binaries.
 [PA38 field ranges](../pa38/tests/general/300-c23-constexpr-projected-fields.t) ·
 [PA38 rectangular ranges](../pa38/tests/general/300-c23-constexpr-projected-rectangles.t) ·
 [Compile measurements](../docs/performance/c-frontend-scaling.md#gnu-c23-projected-constant-ranges)
+
+## GNU C23 point updates after range writes
+
+Retain the checked subobject writes of a point initializer over a sparse
+copied aggregate. Syntax-only evaluation records each eligible point
+update from its own typed initializer. During static emission, the writer
+composes the updates by their typed offsets. A change within a repeated
+cell clips the boundary cells and keeps the interior repeated.
+
+The PA38 fixtures cover nested records, arrays and bit-fields, whole
+element and cell replacements, and zero overwrites while preserving
+earlier snapshots. They pass at `-O0` and `-O2` on Linux x86-64, Linux
+AArch64 under QEMU, both Mach-O targets with local loaders, and WASI and
+bare Wasm. A pointwise oracle checks 32 generated sequences of rectangular
+ranges and cell updates at both optimization levels.
+
+The syntax-only probes grow approximately linearly. At 1,024 field-range
+and point pairs, retired instructions fall from 1.97 billion to 136
+million. At 512 rectangular pairs they fall from 3.10 billion to 97
+million and peak RSS falls from 163 MiB to 17 MiB. The LowIR emission probe
+still emits every intermediate global, and the writer revisits the
+shared history for every emitted copy. The smallest native object probe
+also emits all 33 snapshots, including those used only during constant
+evaluation. Partial writes that require eager union active-member checks
+still use the prior evaluator path.
+
+All 11,674 strict course tests, 1,117 local C matrix probes, and 58 pinned
+GCC C23 configurations pass. PA38 passes 634 native, 634 Wasm, 63 control
+and three ABI cases. The PA38 placement audit finds no required moves.
+Debug-info, PA36 smoke, and self-host through PA5 pass, and the two
+self-hosted compiler generations match byte for byte. The student
+export verifies 26,853 portable reference outputs. PA1 and PA38 pass
+with the packaged reference binaries.
+
+[PA38 member point updates](../pa38/tests/general/300-c23-constexpr-projected-member-points.t) ·
+[PA38 cell point updates](../pa38/tests/general/300-c23-constexpr-projected-cell-points.t) ·
+[Compile measurements](../docs/performance/c-frontend-scaling.md#gnu-c23-point-updates-after-range-writes)
 
 ## Named register objects
 

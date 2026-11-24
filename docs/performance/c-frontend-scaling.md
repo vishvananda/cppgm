@@ -3302,8 +3302,9 @@ input from 4,096 to 8,192 writes adds about 16,800 instructions per write.
 A second syntax-only probe copies the previous value and writes two
 overlapping field ranges at each step. The paired input inserts a
 single-field update to a fresh element after each ranged update. Those
-point updates revisit the projected history, which still causes
-quadratic work as the number of copies grows.
+point updates revisited the projected history in the first implementation.
+The [follow-up measurements](#gnu-c23-point-updates-after-range-writes)
+cover the retained point updates.
 
 | Ranged copy steps | Range updates only | With a point update after each range update |
 | ---: | ---: | ---: |
@@ -3312,3 +3313,58 @@ quadratic work as the number of copies grows.
 | 256 | 23,212,465 | 153,757,481 |
 | 512 | 42,402,429 | 531,489,240 |
 | 1,024 | 80,807,397 | 1,968,907,967 |
+
+## GNU C23 point updates after range writes
+
+Compared immutable GCC 15 builds of `81b966aad` and `0fc9d0107` on CPU
+71. Every frozen-input observation emitted byte-identical object files.
+The SQLite task-clock deltas varied between blocks, from +1.91% to
++23.19%. The table reports retired instructions.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.00444% | −0.00100% | −0.00090% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.00120% | −0.00090% | +0.00060% |
+
+A separate SQLite run with fresh A/A, ABBA and BAAB blocks measured
+task-clock changes of −0.48% and −0.27% with an A/A spread of 4.76%.
+Its instruction deltas were +0.00312% and −0.00077%, and all object
+files matched byte for byte.
+
+The syntax-only field probe repeats a copied pair of overlapping ranges
+followed by one point update. The rectangular probe repeats two
+overlapping rectangles followed by a bit-field update within one cell.
+Each new point is in a fresh row. The evaluator retains each typed write
+and reuses the shared earlier image. Each table cell is the median of
+three observations. The field probe uses CPU 73 and the rectangular
+probe uses CPU 75.
+
+| Copy and point pairs | Field baseline instructions | Field candidate instructions | Rectangular baseline instructions | Rectangular candidate instructions |
+| ---: | ---: | ---: | ---: | ---: |
+| 64 | 19,858,992 | 12,142,692 | 64,954,101 | 15,562,960 |
+| 128 | 50,212,897 | 20,351,423 | 219,080,181 | 27,136,173 |
+| 256 | 153,757,481 | 36,866,144 | 807,320,323 | 50,594,018 |
+| 512 | 531,489,240 | 69,802,322 | 3,101,579,418 | 97,036,513 |
+| 1,024 | 1,968,907,967 | 136,103,966 | | |
+
+At 512 rectangular pairs, the baseline peaks at 167,008 KiB and the
+candidate at 17,404 KiB. The 1,024-pair field candidate peaks at 17,408 KiB.
+The 1,024-step range-only control retires 80,807,397 instructions in the
+baseline and 80,805,456 in the candidate.
+
+A LowIR emission control holds the covered extent small and exports one
+function returning the address of the last snapshot. The current
+pipeline emits every file-scope snapshot at `-O0`. Baseline and candidate
+emit byte-identical LowIR at all four sizes. The median of three runs on
+CPU 76 shows the remaining repeated history traversal during lowering.
+
+| Copy and point pairs | Emitted globals | LowIR bytes | Baseline instructions | Candidate instructions |
+| ---: | ---: | ---: | ---: | ---: |
+| 16 | 33 | 91,317 | 19,065,803 | 17,953,573 |
+| 32 | 65 | 182,341 | 41,508,087 | 37,045,720 |
+| 64 | 129 | 364,389 | 108,883,721 | 91,047,059 |
+| 128 | 257 | 728,544 | 333,333,452 | 262,582,252 |
+
+Native `-O0 -c` runs on the two smallest emission inputs also produced
+byte-identical objects. The 16-pair case emits 33 local read-only symbols
+in 33,002,128 bytes. The 32-pair case emits 65 in 65,003,232 bytes.
