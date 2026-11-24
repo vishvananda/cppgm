@@ -22,6 +22,32 @@ int canonicalize(double*, const double*);
 int canonicalizef(float*, const float*);
 int canonicalizel(long double*, const long double*);
 
+double acospi(double);
+float acospif(float);
+double asinpi(double);
+float asinpif(float);
+double atanpi(double);
+float atanpif(float);
+double atan2pi(double, double);
+float atan2pif(float, float);
+double cospi(double);
+float cospif(float);
+double sinpi(double);
+float sinpif(float);
+double tanpi(double);
+float tanpif(float);
+
+double exp10m1(double);
+float exp10m1f(float);
+double exp2m1(double);
+float exp2m1f(float);
+double log10p1(double);
+float log10p1f(float);
+double log2p1(double);
+float log2p1f(float);
+double rsqrt(double);
+float rsqrtf(float);
+
 double nextup(double);
 float nextupf(float);
 long double nextupl(long double);

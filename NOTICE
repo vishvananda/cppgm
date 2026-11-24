@@ -28,6 +28,9 @@ dev/runtime/wasm-freestanding/licenses and installed beside the archive.
 The hosted WASI C23 stdio supplement adapts the formatting engines and
 stream adapters from the same wasi-libc revision. Its build installs the
 same license texts and copyright notice.
+The hosted WASI C23 math supplement also incorporates CORE-MATH sources
+under the MIT license. The individual copyright notices and license text
+are retained in third_party/core-math and installed with the runtime archive.
 
 The plain-text CWG issue references and WG21 papers under doc/cwg/ retain
 their source, contributor, revision and adoption information. They are

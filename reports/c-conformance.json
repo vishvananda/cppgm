@@ -1919,6 +1919,16 @@
       "cases": ["library.c23-math-extrema"]
     },
     {
+      "id": "library.c23-math-exp-log",
+      "clause": "C23 7.12.6.3, 7.12.6.5, 7.12.6.13, 7.12.6.16, 7.12.7.9",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "math",
+      "requirement": "Check the float and double base-two and base-ten compensated exponentials and logarithms, and reciprocal square roots, at exact results, signed zeros, subnormals and domain errors.",
+      "cases": ["library.c23-math-exp-log"]
+    },
+    {
       "id": "library.c23-math-fromfp",
       "clause": "C23 7.12.9.10–11, F.10.6.10–11",
       "kind": "required",
@@ -1927,6 +1937,16 @@
       "header": "math",
       "requirement": "Round values in all five directions and return the original real type. Enforce signed and unsigned widths, including widths larger than the floating format's exponent range, and report domain and inexact conditions according to the runtime's supported error handling.",
       "cases": ["library.c23-math-fromfp"]
+    },
+    {
+      "id": "library.c23-math-pi",
+      "clause": "C23 7.12.4.8–14",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "math",
+      "requirement": "Check the float and double half-revolution trigonometric functions at their quadrant and domain boundaries, including signed zeros.",
+      "cases": ["library.c23-math-pi"]
     },
     {
       "id": "library.c23-math-representation",
