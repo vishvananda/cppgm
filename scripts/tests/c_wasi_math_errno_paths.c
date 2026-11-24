@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <float.h>
+#include <limits.h>
 #include <math.h>
 
 #define CHECK(fn, args, error, predicate) \
@@ -27,6 +28,51 @@ int main(void)
 	CHECK(log, (NAN), EILSEQ, isnan(result));
 	CHECK(exp, (DBL_MAX), ERANGE, result == INFINITY);
 	CHECK(expf, (FLT_MAX), ERANGE, result == INFINITY);
+
+	// Adjacent inputs on opposite sides of the nearest-even overflow threshold.
+	CHECK(exp, (0x1.62e42fefa39efp+9), EILSEQ, isfinite(result));
+	CHECK(exp, (0x1.62e42fefa39f0p+9), ERANGE, result == INFINITY);
+	CHECK(exp, (710.0), ERANGE, result == INFINITY);
+	CHECK(exp, (INFINITY), EILSEQ, result == INFINITY);
+	CHECK(exp, (-INFINITY), EILSEQ, result == 0 && !signbit(result));
+	CHECK(exp, (NAN), EILSEQ, isnan(result));
+	CHECK(expm1, (0x1.62e42fefa39efp+9), EILSEQ, isfinite(result));
+	CHECK(expm1, (0x1.62e42fefa39f0p+9), ERANGE, result == INFINITY);
+	CHECK(expm1, (INFINITY), EILSEQ, result == INFINITY);
+	CHECK(expm1, (-INFINITY), EILSEQ, result == -1.0);
+	CHECK(expm1f, (0x1.62e42ep+6f), EILSEQ, isfinite(result));
+	CHECK(expm1f, (0x1.62e430p+6f), ERANGE, result == INFINITY);
+	CHECK(expm1f, (INFINITY), EILSEQ, result == INFINITY);
+	CHECK(expm1f, (-0.0f), EILSEQ, result == 0 && signbit(result));
+	CHECK(exp10, (0x1.34413509f79fep+8), EILSEQ, isfinite(result));
+	CHECK(exp10, (0x1.34413509f79ffp+8), ERANGE, result == INFINITY);
+	CHECK(exp10, (INFINITY), EILSEQ, result == INFINITY);
+	CHECK(exp10, (NAN), EILSEQ, isnan(result));
+	CHECK(exp10f, (0x1.344134p+5f), EILSEQ, isfinite(result));
+	CHECK(exp10f, (0x1.344136p+5f), ERANGE, result == INFINITY);
+	CHECK(exp10f, (-INFINITY), EILSEQ, result == 0 && !signbit(result));
+	CHECK(exp2l, (0x1.ffffffffffffffffffffffffffffp+13L), EILSEQ, isfinite(result));
+	CHECK(exp2l, (LDBL_MAX_EXP), ERANGE, result == INFINITY);
+	CHECK(exp2l, (-0x1.00fc5aep+14L), EILSEQ, result == 0x0.0000000000000000785d125292bcp-16382L);
+	CHECK(exp2l, (-16494.0L), EILSEQ, result == LDBL_TRUE_MIN);
+	CHECK(exp2l, (-16495.0L), EILSEQ, result == 0 && !signbit(result));
+	CHECK(exp2l, (INFINITY), EILSEQ, result == INFINITY);
+
+	CHECK(scalbn, (DBL_MAX, 1), ERANGE, result == INFINITY);
+	CHECK(scalbnf, (-FLT_MAX, 1), ERANGE, result == -INFINITY);
+	CHECK(scalbnl, (LDBL_MAX, 1), ERANGE, result == INFINITY);
+	CHECK(scalbln, (DBL_MAX, LONG_MAX), ERANGE, result == INFINITY);
+	CHECK(ldexpf, (FLT_MAX, 1), ERANGE, result == INFINITY);
+	CHECK(ldexpl, (-LDBL_MAX, INT_MAX), ERANGE, result == -INFINITY);
+	CHECK(scalbn, (-INFINITY, INT_MAX), EILSEQ, result == -INFINITY);
+	CHECK(scalbnl, (NAN, 1), EILSEQ, isnan(result));
+	CHECK(scalbnf, (1.0f, -150), EILSEQ, result == 0.0f);
+	CHECK(scalbnf, (0x1.000002p0f, -150), EILSEQ, result == FLT_TRUE_MIN);
+	CHECK(scalbn, (-1.0, INT_MIN), EILSEQ, result == 0.0 && signbit(result));
+	CHECK(scalbn, (DBL_TRUE_MIN, 1074), EILSEQ, result == 1.0);
+	CHECK(scalbn, (0x1.fffffffffffffp0, -1023), EILSEQ, result == DBL_MIN);
+	CHECK(scalbnl, (LDBL_TRUE_MIN, 16494), EILSEQ, result == 1.0L);
+	CHECK(scalblnl, (-0.0L, LONG_MAX), EILSEQ, result == 0.0L && signbit(result));
 
 	CHECK(logl, (0.0L), ERANGE, result == -INFINITY);
 	CHECK(log10l, (-2.0L), EDOM, isnan(result));

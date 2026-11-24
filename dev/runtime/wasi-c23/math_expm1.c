@@ -369,6 +369,12 @@ static inline long double exponential_correction(long double r1, long double r2)
 	return r2 + r * r * (A2 + r * (A3 + r * (A4 + r * (A5 + r * (A6 + dr * (A7 + dr * (A8 + dr * (A9 + dr * A10))))))));
 }
 
+static inline struct math_split reduce_base_two(long double x, double step)
+{
+	const long double remainder = x - step * 0x1p-7;
+	return (struct math_split){ remainder * LN2_HIGH, remainder * LN2_LOW };
+}
+
 static inline struct math_split reduce_base_ten(long double x, double step)
 {
 	// log10(2)/128, split so the product with the integer step is exact.
@@ -428,9 +434,9 @@ static long double exponential_minus_one(long double x, const struct exponential
 	long double r2;
 	if (scale == &base_two)
 	{
-		const long double remainder = x - step * 0x1p-7;
-		r1 = remainder * LN2_HIGH;
-		r2 = remainder * LN2_LOW;
+		const struct math_split remainder = reduce_base_two(x, step);
+		r1 = remainder.high;
+		r2 = remainder.low;
 	}
 	else if (scale == &base_ten)
 	{
@@ -524,6 +530,29 @@ long double expl(long double x)
 	if (!isfinite(x))
 		return x < 0 ? 0.0L : x + x;
 	return __cppgm_wasi_exp_split(x, 0.0L);
+}
+
+long double exp2l(long double x)
+{
+	const union binary128 input = { .value = x };
+	const unsigned encoded = input.words[1] >> 48;
+	const unsigned exponent = encoded & 0x7fff;
+	if (__builtin_expect(exponent >= BIAS + 14, 0))
+	{
+		if (exponent == 0x7fff)
+			return x < 0 ? 0.0L : x + x;
+		if ((encoded >> 15) == 0)
+			return math_range_error();
+		if (x <= LDBL_MIN_EXP - LDBL_MANT_DIG - 1)
+			return 0.0L;
+	}
+
+	const double step = __builtin_nearbyint((double)x * INTERVALS);
+	const int n = (int)step;
+	const unsigned index = (unsigned)n % INTERVALS;
+	const int k = (n - (int)index) / INTERVALS;
+	const struct math_split remainder = reduce_base_two(x, step);
+	return reconstruct_exponential(index, k, remainder.high, remainder.low);
 }
 
 long double exp10l(long double x)
