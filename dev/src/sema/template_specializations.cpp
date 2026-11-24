@@ -530,6 +530,16 @@ bool Analyzer::Excluded(const FunctionEntity* function)
 	return function->excluded_instantiation || (pattern != nullptr && pattern->excluded_instantiation);
 }
 
+const std::vector<const ClassEntity*>& Analyzer::explicit_class_instantiations() const
+{
+	return explicit_class_instantiations_;
+}
+
+uint32_t Analyzer::definition_point() const
+{
+	return names_.limit() != NameLookup::kNoLimit ? names_.limit() : graph_.bindings;
+}
+
 bool Analyzer::InstantiationSuppressed(const FunctionEntity* function)
 {
 	// 14.7.2p10: a specialization, or a member of a class template

@@ -87,6 +87,7 @@ struct PreprocessorOptions
 	// from the explicitly signed and unsigned character types.
 	bool plain_char_unsigned = false;
 	bool short_wchar = false;
+	bool ms_anonymous_structs = false;
 	bool sse = true;
 	bool sse2 = true;
 	bool popcnt = false;   // explicit -mpopcnt target capability

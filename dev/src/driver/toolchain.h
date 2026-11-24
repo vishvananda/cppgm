@@ -67,6 +67,7 @@ enum class CEnvironment : uint8_t
 	Freestanding
 };
 bool c_environment_option(const std::string& option, CEnvironment& environment);
+bool ms_anonymous_structs_option(const std::string& option, bool& enabled);
 void configure_c_environment(PreprocessorOptions& options, target_model::Target target, CEnvironment environment);
 void configure_source_language(const std::string& language, const std::string& standard, SourceExceptions exceptions,
 	PreprocessorOptions& options);

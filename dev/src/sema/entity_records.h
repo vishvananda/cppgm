@@ -450,6 +450,8 @@ struct VariableEntity : Entity
 	bool init_capture : 1;
 	// C++20's canonical const object denoted by a class-valued parameter.
 	bool template_parameter_object : 1;
+	// An injected name of a GNU C named anonymous member.
+	bool c_anonymous_field : 1;
 	// The alignment a member's alignment-specifiers request (7.6.2).
 	uint32_t alignment_request;
 	Constant value;
@@ -469,6 +471,17 @@ struct VariableEntity : Entity
 	// otherwise; sema/template_records.h).
 	VariableTemplateFacts* templ;
 };
+
+struct CAnonymousField : VariableEntity
+{
+	const VariableEntity* object;
+	const VariableEntity* field;
+};
+
+inline const CAnonymousField* AnonymousFieldOf(const VariableEntity* member)
+{
+	return member->c_anonymous_field ? static_cast<const CAnonymousField*>(member) : nullptr;
+}
 
 struct TemplateParameterObject : VariableEntity
 {

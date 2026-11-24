@@ -97,6 +97,7 @@ void Analyzer::set_source_language(const PreprocessorOptions& options)
 	c_before_c99_ = c_source_ && options.c_edition < CEdition::C99;
 	c23_ = c_source_ && options.c_edition >= CEdition::C23;
 	c_pedantic_ = c_source_ && options.extension_warnings != ExtensionWarnings::Disabled;
+	c_ms_anonymous_structs_ = c_source_ && options.ms_anonymous_structs;
 	c_freestanding_ = options.c_freestanding;
 	short_wchar_ = options.short_wchar;
 	c_language_ = c_source_;
@@ -286,6 +287,7 @@ template NamespaceAliasEntity* Analyzer::new_entity<NamespaceAliasEntity>(
 template ClassEntity* Analyzer::new_entity<ClassEntity>(EntityKind, const Identifier*, Scope*, const Type*);
 template EnumEntity* Analyzer::new_entity<EnumEntity>(EntityKind, const Identifier*, Scope*, const Type*);
 template VariableEntity* Analyzer::new_entity<VariableEntity>(EntityKind, const Identifier*, Scope*, const Type*);
+template CAnonymousField* Analyzer::new_entity<CAnonymousField>(EntityKind, const Identifier*, Scope*, const Type*);
 template TemplateParameterObject* Analyzer::new_entity<TemplateParameterObject>(
 	EntityKind, const Identifier*, Scope*, const Type*);
 template PredefinedNameEntity* Analyzer::new_entity<PredefinedNameEntity>(

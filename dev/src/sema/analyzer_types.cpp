@@ -410,11 +410,14 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 			named = out.declared->type;
 			break;
 		case syntax::DeclSpecKind::Elaborated:
+		{
 			out.type_specifier = &specifier;
 			out.elaborated = true;
-			out.declared = elaborated_class(specifier, scope, lone_declaration, out.is_friend, out.declared_binding);
+			const bool tag_only = lone_declaration && !(c_ms_anonymous_structs_ && scope->kind == ScopeKind::Class);
+			out.declared = elaborated_class(specifier, scope, tag_only, out.is_friend, out.declared_binding);
 			named = out.declared != nullptr ? out.declared->type : nullptr;
 			break;
+		}
 		case syntax::DeclSpecKind::Enum:
 			out.type_specifier = &specifier;
 			out.defines = specifier.enum_specifier->has_body;

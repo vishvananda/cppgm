@@ -352,6 +352,13 @@ The first fixture set covers these parts of the C17 input profile:
   For a nonzero-width field whose explicit alignment exceeds
   `#pragma pack`, Linux caps the position alignment at the pack limit.
   Darwin and Wasm use ordinary packed placement for that field.
+- With `-fms-anonymous-structs` or `-fms-extensions`, a record member
+  declaration without a declarator can use a complete named struct or
+  union, including through a typedef. Give each declaration its own
+  anonymous subobject of that type. Make its fields visible in the
+  enclosing record for member access, designators, and `offsetof`.
+  A duplicate visible member name or an incomplete member type is an
+  error.
 - In pedantic modes, check an explicit definition against every declaration
   of the same linked object in the translation unit. If a declaration's
   strongest standard alignment request exceeds the type's alignment, the

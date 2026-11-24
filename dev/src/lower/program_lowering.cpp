@@ -1704,6 +1704,9 @@ const sema::ClassEntity* ProgramLowering::member_holder(
 {
 	offset = 0;
 	const sema::ClassEntity* home = sema::ClassOf(member->owner->entity->type);
+	if (const sema::CAnonymousField* alias = sema::AnonymousFieldOf(member))
+		sema::VisitAnonymousField(
+			*alias, [&](const sema::VariableEntity* storage) { offset += member_offset(storage, location); });
 	while (home != within && home->anonymous && home->storage != nullptr &&
 		home->storage->entity->owner->kind == sema::ScopeKind::Class)
 	{

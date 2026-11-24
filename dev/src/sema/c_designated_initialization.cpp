@@ -255,22 +255,25 @@ private:
 		const LookupResult found = analyzer_.names_.own(record->scope, name, LookupFilter::Ordinary);
 		if (found.binding == nullptr || found.binding->kind != BindingKind::Variable)
 			analyzer_.error(location, "a C designator names no record member");
-		const auto* variable = static_cast<const VariableEntity*>(found.binding->entity);
+		const auto* current = static_cast<const VariableEntity*>(found.binding->entity);
+		const VariableEntity* variable = current;
 		SmallList<const DataMember*, 4> path;
-		while (variable->owner != record->scope)
+		if (const CAnonymousField* alias = AnonymousFieldOf(current))
+			variable = VisitAnonymousField(
+				*alias, [&](const VariableEntity* object) { path.push_back(object->data_member); });
+		while (current->owner != record->scope)
 		{
-			const auto* anonymous = static_cast<const ClassEntity*>(variable->owner->entity);
-			if (variable->data_member == nullptr || !anonymous->anonymous || anonymous->storage == nullptr)
+			const auto* anonymous = static_cast<const ClassEntity*>(current->owner->entity);
+			if (current->data_member == nullptr || !anonymous->anonymous || anonymous->storage == nullptr)
 				analyzer_.error(location, "a C designator names no record member");
-			path.push_back(variable->data_member);
-			variable = static_cast<const VariableEntity*>(anonymous->storage->entity);
+			current = static_cast<const VariableEntity*>(anonymous->storage->entity);
+			path.push_back(current->data_member);
 		}
 		if (variable->data_member == nullptr)
 			analyzer_.error(location, "a C designator names no record member");
-		parent = member_child(parent, variable->data_member);
 		for (size_t i = path.size(); i != 0; --i)
 			parent = member_child(parent, path[i - 1]);
-		return parent;
+		return member_child(parent, variable->data_member);
 	}
 
 	uint64_t array_limit(uint32_t node)

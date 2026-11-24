@@ -101,6 +101,17 @@ bool c_environment_option(const std::string& option, CEnvironment& environment)
 	return true;
 }
 
+bool ms_anonymous_structs_option(const std::string& option, bool& enabled)
+{
+	if (option == "-fms-anonymous-structs" || option == "-fms-extensions")
+		enabled = true;
+	else if (option == "-fno-ms-anonymous-structs" || option == "-fno-ms-extensions")
+		enabled = false;
+	else
+		return false;
+	return true;
+}
+
 void configure_c_environment(PreprocessorOptions& options, target_model::Target target, CEnvironment environment)
 {
 	if (options.language != SourceLanguage::C)
@@ -867,6 +878,7 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 			invocation.preprocessor.plain_char_unsigned = arg == "-funsigned-char" || arg == "-fno-signed-char";
 		}
 		else if (c_environment_option(arg, invocation.c_environment) ||
+			ms_anonymous_structs_option(arg, invocation.preprocessor.ms_anonymous_structs) ||
 			source_lex_option(arg, invocation.preprocessor.source_lex) ||
 			diagnostic_option(arg, invocation.preprocessor.extension_warnings,
 				invocation.preprocessor.warn_system_headers, &invocation.ignore_narrowing))

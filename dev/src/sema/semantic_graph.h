@@ -211,6 +211,26 @@ struct Scope
 	uint32_t initialized_at_entry;
 };
 
+// The anonymous objects between an injected name and its actual field,
+// innermost first. Only the containing record owns an injected name.
+template<typename Visitor>
+const VariableEntity* VisitAnonymousField(const CAnonymousField& member, const Visitor& visit)
+{
+	const VariableEntity* field = member.field;
+	const CAnonymousField* alias = AnonymousFieldOf(field);
+	const VariableEntity* leaf = alias == nullptr ? field : VisitAnonymousField(*alias, visit);
+	const auto* type = static_cast<const ClassEntity*>(member.object->type->unqualified->entity);
+	for (const Scope* owner = field->owner; owner != type->scope;)
+	{
+		const auto* record = static_cast<const ClassEntity*>(owner->entity);
+		const auto* object = static_cast<const VariableEntity*>(record->storage->entity);
+		visit(object);
+		owner = object->owner;
+	}
+	visit(member.object);
+	return leaf;
+}
+
 // The template levels enclosing a scope that instances stand for (its
 // enclosing classes instantiated from templates): a bound pack's and a
 // member template's parameters' depths counted from the outermost

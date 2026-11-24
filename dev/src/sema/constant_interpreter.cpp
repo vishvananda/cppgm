@@ -1391,6 +1391,8 @@ bool ConstantInterpreter::member_slot(
 	const ClassEntity* home = static_cast<const ClassEntity*>(member->owner->entity);
 	const ClassEntity* designated = ClassOf(object.type);
 	SmallList<const VariableEntity*, 4> chain;
+	if (const CAnonymousField* alias = AnonymousFieldOf(member))
+		member = VisitAnonymousField(*alias, [&](const VariableEntity* storage) { chain.push_back(storage); });
 	while (home != designated && home->anonymous && home->storage != nullptr &&
 		home->storage->entity->owner->kind == ScopeKind::Class)
 	{

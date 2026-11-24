@@ -127,6 +127,11 @@ void AnalyzerClassCompleter::finish_c_composite_record(
 		}
 		else if (ClassEntity* child = const_cast<ClassEntity*>(ClassOf(type)))
 		{
+			if (!child->anonymous)
+			{
+				analyzer->c_anonymous_field_bindings(variable, scope, 0);
+				continue;
+			}
 			if (child->storage == nullptr)
 			{
 				child->storage = analyzer->new_binding(BindingKind::Variable, nullptr, variable, type);
@@ -1046,6 +1051,49 @@ void Analyzer::name_unnamed_type(Specifiers& specifiers, const Identifier* name,
 	char buffer[40];
 	const int length = std::snprintf(buffer, sizeof buffer, "__anonymous_enum%u", ++anonymous_enums_);
 	entity->label = copy_label(buffer, static_cast<size_t>(length));
+}
+
+void Analyzer::c_named_anonymous_member(
+	const Type* type, Scope* scope, uint32_t location, uint64_t alignment, const syntax::Attribute* alignment_specifier)
+{
+	if (!ClassOf(type)->complete)
+		error(location, "anonymous member has an incomplete record type");
+	Scope* where = declaration_scope(scope);
+	auto* storage = new_entity<VariableEntity>(EntityKind::Variable, nullptr, where, type);
+	storage->member = true;
+	if (alignment_specifier != nullptr)
+		request_alignment(storage, alignment, alignment_specifier);
+	add_data_member(static_cast<ClassEntity*>(where->entity), storage, 0, false, location);
+	c_anonymous_field_bindings(storage, scope, location);
+}
+
+void Analyzer::c_anonymous_field_bindings(const VariableEntity* object, Scope* scope, uint32_t location)
+{
+	Scope* where = declaration_scope(scope);
+	for (const Binding* member = ClassOf(object->type)->scope->bindings; member != nullptr; member = member->next)
+	{
+		if (member->hidden || member->kind != BindingKind::Variable)
+			continue;
+		const NameEntry* entry = names_.find(where, member->name);
+		if (entry != nullptr && entry->value != nullptr)
+			error(location, "anonymous member conflicts with a declaration in the enclosing record");
+		const auto* field = static_cast<const VariableEntity*>(member->entity);
+		auto* alias = new_entity<CAnonymousField>(EntityKind::Variable, field->name, where, field->type);
+		*static_cast<VariableEntity*>(alias) = *field;
+		alias->owner = where;
+		alias->c_anonymous_field = true;
+		alias->field = field;
+		alias->object = object;
+		const uint32_t alignment = aligned_variables_.find(field);
+		if (alignment != PointerMap::kMissing)
+			aligned_variables_.set(alias, alignment);
+		const uint32_t pointee = aligned_variables_.find(reinterpret_cast<const char*>(field) + 1);
+		if (pointee != PointerMap::kMissing)
+			aligned_variables_.set(reinterpret_cast<const char*>(alias) + 1, pointee);
+		Binding* injected = new_binding(BindingKind::Variable, alias->name, alias, alias->type);
+		print_in(scope, injected);
+		declare_in(where, injected);
+	}
 }
 
 LookupResult Analyzer::earlier_class(Scope* scope, const Identifier* name)

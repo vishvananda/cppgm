@@ -953,18 +953,21 @@ void FunctionLowering::mark_untyped(lowir::Value address)
 
 bool FunctionLowering::union_member(const sema::VariableEntity* member)
 {
-	const sema::ClassEntity* cls = sema::ClassOf(member->owner->entity->type);
-	while (cls->anonymous && cls->storage != nullptr && cls->storage->entity->owner->kind == sema::ScopeKind::Class)
-	{
-		if (cls->key == TokenKind::KW_UNION || cls->may_alias)
-			return true;
-		cls = sema::ClassOf(cls->storage->entity->owner->entity->type);
-	}
-	return cls->key == TokenKind::KW_UNION || cls->may_alias;
+	return through_union(member, nullptr);
 }
 
 bool FunctionLowering::through_union(const sema::VariableEntity* member, const sema::ClassEntity* holder)
 {
+	if (const sema::CAnonymousField* alias = sema::AnonymousFieldOf(member))
+	{
+		bool union_path = false;
+		sema::VisitAnonymousField(*alias, [&](const sema::VariableEntity* storage) {
+			const sema::ClassEntity* type = sema::ClassOf(storage->type);
+			union_path |= type->key == TokenKind::KW_UNION || type->may_alias;
+		});
+		if (union_path)
+			return true;
+	}
 	for (const sema::ClassEntity* cls = sema::ClassOf(member->owner->entity->type); cls != nullptr;)
 	{
 		if (cls->key == TokenKind::KW_UNION || cls->may_alias)

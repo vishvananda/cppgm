@@ -237,10 +237,7 @@ public:
 	// The class template specializations (and their member classes)
 	// explicit instantiation definitions name: their units hold their
 	// table groups, VTTs and type information (Itanium 5.2.3).
-	const std::vector<const ClassEntity*>& explicit_class_instantiations() const
-	{
-		return explicit_class_instantiations_;
-	}
+	const std::vector<const ClassEntity*>& explicit_class_instantiations() const;
 	// Whether an instantiated function's implicit instantiation is
 	// suppressed by an explicit instantiation declaration (14.7.2p10): the
 	// unit refers to it without defining it.
@@ -603,6 +600,9 @@ private:
 	void distinct_direct_bases(const ClassEntity* entity, uint32_t location);
 	void anonymous_union(ClassEntity* entity, const Specifiers& specifiers, Scope* scope, uint32_t location,
 		uint64_t alignment, const syntax::Attribute* alignment_specifier);
+	void c_named_anonymous_member(const Type* type, Scope* scope, uint32_t location, uint64_t alignment,
+		const syntax::Attribute* alignment_specifier);
+	void c_anonymous_field_bindings(const VariableEntity* object, Scope* scope, uint32_t location);
 	void name_unnamed_type(Specifiers& specifiers, const Identifier* name, Scope* scope);
 	LookupResult earlier_class(Scope* scope, const Identifier* name);
 	Entity* elaborated_class(
@@ -931,10 +931,7 @@ private:
 	static const TemplateHead* SoleTemplateHead(const FunctionList* functions);
 	// Where a definition being made is, in declaration order: the context
 	// limit of the instantiation making it, else the unit's point so far.
-	uint32_t definition_point() const
-	{
-		return names_.limit() != NameLookup::kNoLimit ? names_.limit() : graph_.bindings;
-	}
+	uint32_t definition_point() const;
 	static bool TemplatedClassScope(const Scope* scope);
 	bool type_dependent(const syntax::Expr* expr, Scope* scope);
 	bool fixed_expression(const syntax::Expr& operand, Scope* scope);
@@ -2274,6 +2271,7 @@ private:
 	bool c_before_c99_ = false;
 	bool c23_ = false;
 	bool c_pedantic_ = false;
+	bool c_ms_anonymous_structs_ = false;
 	bool c_explicit_extension_ = false;
 	bool c_freestanding_ = false, short_wchar_ = false;
 	bool c_language_;

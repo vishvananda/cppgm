@@ -821,6 +821,17 @@ bool Analyzer::member_offset(ClassEntity* cls, const Entity* member, uint64_t& b
 	uint64_t size = 0, alignment = 0;
 	if (!type_size(cls->type, size, alignment, location))
 		return false;
+	const auto* variable = static_cast<const VariableEntity*>(member);
+	if (const CAnonymousField* alias = AnonymousFieldOf(variable); alias != nullptr && variable->owner == cls->scope)
+	{
+		if (variable->bit_field)
+			return substitution_error(location, "offsetof of a bit-field");
+		uint64_t offset = 0;
+		const VariableEntity* field = VisitAnonymousField(
+			*alias, [&](const VariableEntity* storage) { offset += storage->data_member->offset / 8; });
+		bytes = offset + field->data_member->offset / 8;
+		return true;
+	}
 	for (const DataMember* data = cls->members; data != nullptr; data = data->next)
 	{
 		if (data->variable == member)

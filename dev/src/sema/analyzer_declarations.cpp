@@ -334,7 +334,12 @@ void Analyzer::simple_declaration(const syntax::SimpleDecl& decl, Scope* scope)
 		// No declarator: the declaration must declare a class or
 		// enumeration, or be an anonymous union (7p3, 9.5p5), without a
 		// function-specifier (7.1.2p1).
-		if (specifiers.declared == nullptr)
+		const ClassEntity* record = c_ms_anonymous_structs_ && scope->kind == ScopeKind::Class &&
+				specifiers.type != nullptr
+			? ClassOf(specifiers.type)
+			: nullptr;
+		const bool named_anonymous = record != nullptr && !(specifiers.defines && record->anonymous);
+		if (specifiers.declared == nullptr && !named_anonymous)
 			error(decl.location, "declaration does not declare anything");
 		if (specifiers.is_virtual)
 			error(decl.location, "virtual in a declaration that declares no function");
@@ -350,7 +355,9 @@ void Analyzer::simple_declaration(const syntax::SimpleDecl& decl, Scope* scope)
 			bool packed = false, no_inline = false;
 			alignment = attribute_alignment(decl.attributes, scope, packed, no_inline);
 		}
-		if (specifiers.declared->kind == EntityKind::Class && specifiers.defines &&
+		if (named_anonymous)
+			c_named_anonymous_member(specifiers.type, scope, decl.location, alignment, alignment_specifier);
+		else if (specifiers.declared->kind == EntityKind::Class && specifiers.defines &&
 			static_cast<ClassEntity*>(specifiers.declared)->anonymous)
 			anonymous_union(static_cast<ClassEntity*>(specifiers.declared), specifiers, scope, decl.location, alignment,
 				alignment_specifier);

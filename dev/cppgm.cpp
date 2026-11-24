@@ -222,6 +222,7 @@ struct SourceOutputInvocation
 	ExtensionWarnings extension_warnings = ExtensionWarnings::Disabled;
 	bool warn_system_headers = false;
 	SourceLexOptions source_lex;
+	bool ms_anonymous_structs = false;
 	driver::SourceExceptions exceptions = driver::SourceExceptions::Default;
 	driver::CEnvironment c_environment = driver::CEnvironment::TargetDefault;
 	bool rtti = true;
@@ -326,7 +327,8 @@ SourceOutputInvocation parse_source_output_invocation(const vector<string>& args
 		if (driver::diagnostic_option(args[i], invocation.extension_warnings, invocation.warn_system_headers) ||
 			driver::source_lex_option(args[i], invocation.source_lex))
 			continue;
-		if (driver::c_environment_option(args[i], invocation.c_environment))
+		if (driver::c_environment_option(args[i], invocation.c_environment) ||
+			driver::ms_anonymous_structs_option(args[i], invocation.ms_anonymous_structs))
 			continue;
 		if (args[i] == "-matomics" || args[i] == "-mno-atomics")
 		{
@@ -807,6 +809,7 @@ PreprocessorOptions source_preprocessor_options(const SourceOutputInvocation& in
 	options.extension_warnings = invocation.extension_warnings;
 	options.warn_system_headers = invocation.warn_system_headers;
 	options.source_lex = invocation.source_lex;
+	options.ms_anonymous_structs = invocation.ms_anonymous_structs;
 	options.c_contract_by_default = invocation.float_contract == driver::FloatContract::Scoped;
 	driver::configure_source_language(invocation.language, invocation.standard, invocation.exceptions, options);
 	driver::configure_c_environment(options, invocation.target, invocation.c_environment);
