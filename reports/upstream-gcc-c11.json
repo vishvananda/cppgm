@@ -12,6 +12,52 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "gnu-stdbit-runtime-o0",
+      "path": "gcc/testsuite/gcc.dg/builtin-stdc-bit-1.c",
+      "sha256": "1d30e7e9bddd4c486b639c04c1753696107e825b80f342de656a6b7bbab8504f",
+      "dialect": "c11",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": ["-O0"],
+      "upstream_flags": ["-O0"],
+      "obligation": "Check all C bit utility builtins, builtin queries, result types and evaluation at O0"
+    },
+    {
+      "id": "gnu-stdbit-runtime-o2",
+      "path": "gcc/testsuite/gcc.dg/builtin-stdc-bit-1.c",
+      "sha256": "1d30e7e9bddd4c486b639c04c1753696107e825b80f342de656a6b7bbab8504f",
+      "dialect": "c11",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": ["-O2"],
+      "upstream_flags": ["-O2"],
+      "obligation": "Check all C bit utility builtins with optimization"
+    },
+    {
+      "id": "gnu-stdbit-operand-constraints",
+      "path": "gcc/testsuite/gcc.dg/builtin-stdc-bit-2.c",
+      "sha256": "b3d626cdfec2381c94ea3dd4efa7c491978ed9af695858ff073379572b3c6135",
+      "dialect": "c11",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": [],
+      "upstream_flags": [],
+      "diagnostic_contains": {"cppgm": "no unsigned integer type", "upstream": "operand not an integral type"},
+      "obligation": "Diagnose unsupported bit builtin operands"
+    },
+    {
+      "id": "gnu-stdbit-plain-char",
+      "path": "gcc/testsuite/gcc.dg/builtin-stdc-bit-3.c",
+      "sha256": "f56569725fa834aed60ed6bbc316b00263d0dae962d10126ef152dd7db3114b6",
+      "dialect": "c11",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": ["-funsigned-char"],
+      "upstream_flags": ["-funsigned-char"],
+      "diagnostic_contains": {"cppgm": "no unsigned integer type", "upstream": "has 'char' type"},
+      "obligation": "Keep plain char distinct from unsigned char for C bit builtins"
+    },
+    {
       "id": "bitint-24",
       "path": "gcc/testsuite/gcc.dg/bitint-24.c",
       "sha256": "6839775143df71e05c97e2c180211eef9e826d2d3505d611c4380e54e05a156c",

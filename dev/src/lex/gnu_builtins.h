@@ -53,6 +53,7 @@ enum class GnuBuiltin : uint8_t
 	BitCount,
 	BitReverse, // 8/16/32/64-bit unsigned argument and result, variants 0..3
 	GenericBitCount,
+	StdcBit,
 	Alloca,
 	FrameAddress,
 	CoroDestroy,
@@ -142,6 +143,29 @@ inline bool IsCoroutineBuiltin(GnuBuiltin builtin)
 {
 	return builtin >= GnuBuiltin::CoroDestroy && builtin <= GnuBuiltin::CoroResume;
 }
+
+inline bool IsCOnlyBuiltin(GnuBuiltin builtin)
+{
+	return builtin == GnuBuiltin::TypeGenericMath || builtin == GnuBuiltin::StdcBit;
+}
+
+enum class StdcBitOp : uint8_t
+{
+	BitCeil,
+	BitFloor,
+	BitWidth,
+	CountOnes,
+	CountZeros,
+	FirstLeadingOne,
+	FirstLeadingZero,
+	FirstTrailingOne,
+	FirstTrailingZero,
+	HasSingleBit,
+	LeadingOnes,
+	LeadingZeros,
+	TrailingOnes,
+	TrailingZeros
+};
 
 // A VectorLanewise builtin's operation. Its signature is the result and then
 // the operands, one letter each: F, D, G __v4sf, __v2df, __v2sf; B, H, W, Q

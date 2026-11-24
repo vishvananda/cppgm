@@ -12,6 +12,17 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "checked-integer-header-runtime",
+      "path": "gcc/testsuite/gcc.dg/stdckdint-1.c",
+      "sha256": "461caf9993ccdbf38fee5dba35ddccab21e4ca795c3c36b1845723b09b2ddf57",
+      "dialect": "c23",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": ["-O0"],
+      "upstream_flags": ["-O0"],
+      "obligation": "Exercise the standard checked arithmetic macros and results through the installed compiler header"
+    },
+    {
       "id": "n3037-cross-scope-tag-aliasing",
       "path": "gcc/testsuite/gcc.dg/c23-tag-alias-1.c",
       "sha256": "edd988da4030c019f97f854e8100aa5b4536d2dd131240eb45978059859fe64a",

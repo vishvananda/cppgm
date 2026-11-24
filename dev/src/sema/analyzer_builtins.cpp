@@ -113,7 +113,7 @@ FunctionEntity* Analyzer::builtin_function(const Identifier* name)
 	}
 	GnuBuiltinEntry entry;
 	const bool found = FindGnuBuiltin(name->spelling, name->length, entry) &&
-		(cxx20_ || !IsCoroutineBuiltin(entry.builtin)) && (c_source_ || entry.builtin != GnuBuiltin::TypeGenericMath) &&
+		(cxx20_ || !IsCoroutineBuiltin(entry.builtin)) && (c_source_ || !IsCOnlyBuiltin(entry.builtin)) &&
 		(c23_ || entry.builtin != GnuBuiltin::C23VaStart);
 	builtin_names_[name->id] = found ? 2 : 1;
 	if (!found)
@@ -549,8 +549,10 @@ ExprFacts* Analyzer::gnu_intrinsic(const syntax::CallExpr& expr, GnuBuiltin buil
 		break;
 	}
 	case GnuBuiltin::GenericBitCount:
+	case GnuBuiltin::StdcBit:
 	{
-		if (variant >= 3)
+		const bool stdc = builtin == GnuBuiltin::StdcBit;
+		if (!stdc && variant >= 3)
 		{
 			// x86's lzcnt and tzcnt of a 16-, 32- or 64-bit unsigned operand:
 			// the count of its type, the width for 0.
@@ -572,7 +574,7 @@ ExprFacts* Analyzer::gnu_intrinsic(const syntax::CallExpr& expr, GnuBuiltin buil
 		// unsigned integer type (no bool or character type), the count an
 		// int; clzg and ctzg take the int they give for 0 second (an int
 		// after promotion, both host compilers).
-		const bool fallback = variant != 2 && count == 2;
+		const bool fallback = !stdc && variant != 2 && count == 2;
 		if (count != 1 && !fallback)
 			error(expr.location, "wrong number of arguments to a generic bit builtin");
 		const ExprFacts* operand = typed_value(*expr.arguments[0], scope);
@@ -581,15 +583,37 @@ ExprFacts* Analyzer::gnu_intrinsic(const syntax::CallExpr& expr, GnuBuiltin buil
 		const Type* type = operand->type->unqualified;
 		IntegralKind kind;
 		const FundamentalType fundamental = type->kind == TypeKind::Fundamental ? type->fundamental
-																				: FundamentalType::Bool;
+																				: FundamentalType::Void;
 		if (!IsIntegralType(type) || !IntegralKindOf(type, kind) || kind.is_signed ||
 			fundamental == FundamentalType::Bool || fundamental == FundamentalType::Char8T ||
 			fundamental == FundamentalType::Char16T || fundamental == FundamentalType::Char32T ||
-			fundamental == FundamentalType::WcharT)
+			fundamental == FundamentalType::WcharT || (stdc && fundamental == FundamentalType::Char))
 			return substitution_error(
 					   expr.location, "a generic bit builtin of a type that is no unsigned integer type"),
 				   nullptr;
 		convert_operand(*expr.arguments[0], type);
+		if (stdc)
+		{
+			const auto operation = static_cast<StdcBitOp>(variant);
+			unsigned width = kind.bits;
+			if ((operand->flags & kBitField) != 0 && operand->entity != nullptr &&
+				operand->entity->kind == EntityKind::Variable)
+			{
+				const DataMember* field = static_cast<const VariableEntity*>(operand->entity)->data_member;
+				if (field != nullptr && field->width < width)
+					width = static_cast<unsigned>(field->width);
+			}
+			const Type* result;
+			if (operation == StdcBitOp::BitCeil || operation == StdcBitOp::BitFloor)
+				result = kind.is_bit_precise && width != kind.bits ? types_.bit_int(width, true) : type;
+			else
+				result = types_.fundamental(
+					operation == StdcBitOp::HasSingleBit ? FundamentalType::Bool : FundamentalType::UnsignedInt);
+			facts = new_facts(expr, result, ValueCategory::PRValue);
+			facts->value = static_cast<uint64_t>(Intrinsic::StdcBit) | (uint64_t(variant) << 8) |
+				(uint64_t(width) << 16);
+			break;
+		}
 		if (fallback)
 		{
 			const ExprFacts* zero = typed_value(*expr.arguments[1], scope);

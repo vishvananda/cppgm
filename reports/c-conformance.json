@@ -1499,6 +1499,60 @@
       "cases": ["c23.bitint-calls", "c23.bitint-atomics", "c23.bitint-duplicate-case"]
     },
     {
+      "id": "c23.bitint-gnu-bit-builtins",
+      "clause": "6.2.5, GNU bit operation builtins",
+      "kind": "gnu",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Apply type-generic bit counts and bit utilities using the operand's precision at compile time and at runtime.",
+      "cases": ["c23.bitint-bit-builtins"]
+    },
+    {
+      "id": "library.c23-variadics",
+      "clause": "7.16.1",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Use the selected stdarg.h to initialize a variadic list without a named parameter and copy and consume the list.",
+      "cases": ["library.c23-variadics"]
+    },
+    {
+      "id": "library.c23-stdarg-version",
+      "clause": "7.16",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Define the C23 stdarg.h version macro from the selected header.",
+      "cases": ["library.c23-stdarg-version"]
+    },
+    {
+      "id": "library.c23-checked-arithmetic",
+      "clause": "7.20",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "requirement": "Use the checked arithmetic header version and its macros to produce mathematical results, overflow flags and wrapped stores for mixed types.",
+      "cases": ["library.c23-checked-arithmetic"]
+    },
+    {
+      "id": "library.c23-bit-utilities",
+      "clause": "7.18",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "requirement": "Supply the C23 bit utilities header version, work on all five standard unsigned widths and link a typed function from the runtime.",
+      "cases": ["library.c23-bit-utilities"]
+    },
+    {
+      "id": "library.c23-bit-utilities-extended",
+      "clause": "7.18.3–7.18.16",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "requirement": "Accept extended unsigned integers and bit-precise unsigned integers with a standard width in bit utility macros.",
+      "cases": ["library.c23-bit-utilities-extended"]
+    },
+    {
       "id": "c23.constexpr-objects",
       "clause": "6.2.2, 6.7.2",
       "kind": "required",

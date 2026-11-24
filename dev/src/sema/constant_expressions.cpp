@@ -2045,7 +2045,7 @@ bool ConstantInterpreter::intrinsic_value(const syntax::CallExpr& call_expr, Con
 		return true;
 	}
 	if ((which >= Intrinsic::BitReverse && which <= Intrinsic::FindFirstSet) ||
-		(which >= Intrinsic::GenericCountLeadingZeros && which <= Intrinsic::GenericPopCount))
+		(which >= Intrinsic::GenericCountLeadingZeros && which <= Intrinsic::StdcBit))
 		return bit_builtin(call_expr, out);
 	if (which >= Intrinsic::AddOverflow && which <= Intrinsic::MulOverflow)
 		return overflow_builtin(call_expr, out);
@@ -2169,21 +2169,93 @@ bool ConstantInterpreter::intrinsic_value(const syntax::CallExpr& call_expr, Con
 	return true;
 }
 
+namespace {
+
+unsigned LeadingZeros(WideBits value, unsigned width)
+{
+	if (value == 0)
+		return width;
+	const uint64_t high = static_cast<uint64_t>(value >> 64);
+	return high != 0 ? __builtin_clzll(high) - (128 - width)
+					 : __builtin_clzll(static_cast<uint64_t>(value)) + width - 64;
+}
+
+unsigned TrailingZeros(WideBits value, unsigned width)
+{
+	if (value == 0)
+		return width;
+	const uint64_t low = static_cast<uint64_t>(value);
+	return low != 0 ? __builtin_ctzll(low) : 64 + __builtin_ctzll(static_cast<uint64_t>(value >> 64));
+}
+
+unsigned CountOnes(WideBits value)
+{
+	return __builtin_popcountll(static_cast<uint64_t>(value >> 64)) +
+		__builtin_popcountll(static_cast<uint64_t>(value));
+}
+
+WideBits StdcBitValue(StdcBitOp op, WideBits value, unsigned width)
+{
+	const WideBits mask = ~WideBits(0) >> (128 - width);
+	value &= mask;
+	const WideBits inverted = mask ^ value;
+	switch (op)
+	{
+	case StdcBitOp::BitCeil:
+		return value <= 1 ? 1 : (WideBits(2) << (width - 1 - LeadingZeros(value - 1, width))) & mask;
+	case StdcBitOp::BitFloor:
+		return value == 0 ? 0 : WideBits(1) << (width - 1 - LeadingZeros(value, width));
+	case StdcBitOp::BitWidth:
+		return width - LeadingZeros(value, width);
+	case StdcBitOp::CountOnes:
+		return CountOnes(value);
+	case StdcBitOp::CountZeros:
+		return width - CountOnes(value);
+	case StdcBitOp::FirstLeadingOne:
+		return value == 0 ? 0 : 1 + LeadingZeros(value, width);
+	case StdcBitOp::FirstLeadingZero:
+		return inverted == 0 ? 0 : 1 + LeadingZeros(inverted, width);
+	case StdcBitOp::FirstTrailingOne:
+		return value == 0 ? 0 : 1 + TrailingZeros(value, width);
+	case StdcBitOp::FirstTrailingZero:
+		return inverted == 0 ? 0 : 1 + TrailingZeros(inverted, width);
+	case StdcBitOp::HasSingleBit:
+		return value != 0 && (value & (value - 1)) == 0;
+	case StdcBitOp::LeadingOnes:
+		return LeadingZeros(inverted, width);
+	case StdcBitOp::LeadingZeros:
+		return LeadingZeros(value, width);
+	case StdcBitOp::TrailingOnes:
+		return TrailingZeros(inverted, width);
+	case StdcBitOp::TrailingZeros:
+		return TrailingZeros(value, width);
+	}
+	return 0;
+}
+
+} // namespace
+
 bool ConstantInterpreter::bit_builtin(const syntax::CallExpr& expr, ConstValue& out)
 {
-	// The operand converted to the builtin's unsigned type (16, 32 or 64
-	// bits); a byte swap is of that type, a count an int. GCC leaves clz
-	// and ctz of 0 undefined: no constant.
+	// Fixed-width operands have their conversions recorded by analysis.
+	// GNU generic counts use the operand's precision, and one-argument
+	// clzg and ctzg do not produce a constant for zero.
 	Intrinsic which = static_cast<Intrinsic>(expr.facts->value & 0xff);
 	ConstValue x;
 	if (!operand(*expr.arguments[0], x) || x.kind != ValueKind::Integer)
 		return false;
-	const unsigned width = KindOf(x.type).bits;
-	if (width == 128)
+	if (which == Intrinsic::StdcBit)
 	{
-		// A generic count of an unsigned __int128: its halves'.
+		const WideBits result = StdcBitValue(
+			static_cast<StdcBitOp>(expr.facts->value >> 8), WideOf(x), static_cast<unsigned>(expr.facts->value >> 16));
+		out = WideValue(expr.facts->type->unqualified, result);
+		return true;
+	}
+	const unsigned width = KindOf(x.type).bits;
+	if (width > 64)
+	{
+		// Generic counts wider than one word use both halves.
 		const WideBits wide = WideOf(x);
-		const uint64_t high = static_cast<uint64_t>(wide >> 64), low = static_cast<uint64_t>(wide);
 		uint64_t result = 0;
 		if (wide == 0 && which != Intrinsic::GenericPopCount)
 		{
@@ -2195,11 +2267,11 @@ bool ConstantInterpreter::bit_builtin(const syntax::CallExpr& expr, ConstValue& 
 			result = zero.bits;
 		}
 		else if (which == Intrinsic::GenericPopCount)
-			result = static_cast<uint64_t>(__builtin_popcountll(high) + __builtin_popcountll(low));
+			result = CountOnes(wide);
 		else if (which == Intrinsic::GenericCountLeadingZeros)
-			result = static_cast<uint64_t>(high != 0 ? __builtin_clzll(high) : 64 + __builtin_clzll(low));
+			result = LeadingZeros(wide, width);
 		else
-			result = static_cast<uint64_t>(low != 0 ? __builtin_ctzll(low) : 64 + __builtin_ctzll(high));
+			result = TrailingZeros(wide, width);
 		out = IntegerValue(analyzer_.types_.fundamental(FundamentalType::Int), result);
 		return true;
 	}

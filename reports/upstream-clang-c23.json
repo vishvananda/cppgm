@@ -12,6 +12,17 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "checked-integer-header-compile",
+      "path": "clang/test/Headers/stdckdint.c",
+      "sha256": "3ad69a353f5f1adf893231f0155415b5a236f46cb1d958790537f3ed0f00c3a4",
+      "dialect": "c23",
+      "action": "compile",
+      "expect": "accept",
+      "candidate_flags": [],
+      "upstream_flags": [],
+      "obligation": "Compile C23 checked arithmetic invocations through the installed resource header"
+    },
+    {
       "id": "auto-incompatible-record-redefinition",
       "path": "clang/test/C/C23/n3006.c",
       "sha256": "65d0ff55cd474af4bc2303b21b9192a6a8691f60d4cc0234b8f8e6cae784b331",

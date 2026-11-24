@@ -1379,3 +1379,23 @@ Quick_Check and canonical combining classes to identify the small
 segments that need decomposition and recomposition.
 [Unicode 15.1.0 UCD archive](https://www.unicode.org/Public/zipped/15.1.0/UCD.zip) ·
 [Unicode Normalization Forms](https://www.unicode.org/reports/tr15/)
+
+
+## C23 bit utilities and checked integer arithmetic
+
+The C23 bit utility macros preserve operand precision for the five standard
+unsigned integer types, extended unsigned integers, and unsigned
+bit-precise integers with the width of a standard or extended unsigned
+type. A GNU header can select the `__builtin_stdc_*` family for these
+operations. GCC also accepts other unsigned bit-precise widths in its
+builtins. The argument is evaluated once, with its type determining which
+bits participate. C23 leaves an unrepresentable bit ceiling undefined.
+GCC's builtin returns the wrapped unsigned value.
+
+The C23 checked arithmetic macros report whether the mathematical result
+fits the pointed-to type and store the conversion of that result in either
+case. The SDK probes check mixed signs, narrowing, and the version macro.
+The C23 variadic probes exercise the installed header's single-argument
+`va_start` and independent copies of the argument-list cursor.
+[C23 N3220 §§7.16, 7.18, 7.20](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
+[GCC bit builtins](https://gcc.gnu.org/onlinedocs/gcc-15.2.0/gcc/Bit-Operation-Builtins.html)

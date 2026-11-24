@@ -707,6 +707,15 @@ The first fixture set covers these parts of the C17 input profile:
   bits across storage and call boundaries. A switch can compare both
   words of a wide case value, including during duplicate-label checks.
   The compiler supplies the width limit through `__BITINT_MAXWIDTH__`.
+- Support the GNU `__builtin_stdc_*` bit utilities that C library headers
+  select with `__has_builtin`. Count across the operand's precision before
+  any promotions, and evaluate the argument once. Counts and positions have
+  type `unsigned int`, the single-bit predicate has type `bool`, and floor
+  and ceiling have a result in the operand's type. Use the bit-field width
+  for field operands. A missing first bit gives zero. A count across an
+  all-matching operand gives its width. The C++ input mode does not expose
+  these C-only names. Generic `__builtin_clzg`, `__builtin_ctzg`, and
+  `__builtin_popcountg` also accept bit-precise unsigned integers in C.
 - In C23, accept `constexpr` object definitions with initializers and add
   `const` to their declared type. Give file-scope definitions internal
   linkage. Preserve automatic storage and distinct addresses for

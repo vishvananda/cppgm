@@ -192,6 +192,7 @@ C23_PROGRAMS = {
     'c23.bitint-literals': (PA38_GENERAL / '200-c23-bit-precise-literals.t', ()),
     'c23.bitint-integers': (PA38_GENERAL / '300-c23-bit-precise-integers.t', ()),
     'c23.bitint-calls': (PA38_GENERAL / '500-c23-bit-precise-calls.t', ()),
+    'c23.bitint-bit-builtins': (PA38_GENERAL / '500-c23-bit-precise-builtins.t', ()),
     'c23.bitint-atomics': (PA38_GENERAL / '500-c23-bit-precise-atomics.t', ()),
     'c23.constexpr-scalars': (PA38_GENERAL / '300-c23-constexpr-scalars.t', ()),
     'c23.constexpr-aggregates': (PA38_GENERAL / '300-c23-constexpr-aggregates.t', ()),
@@ -251,6 +252,13 @@ C11_LIBRARY_SOURCES = {
     'library.c11-atomics': ROOT / 'scripts/tests/c_c11_atomics.c',
     'library.c11-threads': ROOT / 'scripts/tests/c_c11_threads.c',
 }
+C23_SDK_HEADERS = ROOT / 'scripts/tests/c_c23_sdk_headers.c'
+C23_LIBRARY_SOURCES = {
+    'library.c23-variadics': ('stdarg.h', ROOT / 'scripts/tests/c_c23_variadics.c'),
+    'library.c23-checked-arithmetic': ('stdckdint.h', ROOT / 'scripts/tests/c_c23_checked_arithmetic.c'),
+    'library.c23-bit-utilities': ('stdbit.h', ROOT / 'scripts/tests/c_c23_bit_utilities.c'),
+    'library.c23-bit-utilities-extended': ('stdbit.h', ROOT / 'scripts/tests/c_c23_bit_utilities_extended.c'),
+}
 CASES = {
     **{case: ((stage,), ('default',)) for case, _, stage in C23_SOURCE_CASES},
     **{case: (RUN_STAGES, ('O0', 'O2')) for case in C23_PROGRAMS},
@@ -279,6 +287,8 @@ CASES = {
     'environment.thread-predefine': (('preprocess',), ('default',)),
     'environment.c-version': (('preprocess',), ('default',)),
     **{case: (RUN_STAGES, ('O0', 'O2')) for case in C11_LIBRARY_SOURCES},
+    **{case: (RUN_STAGES, ('O0', 'O2')) for case in C23_LIBRARY_SOURCES},
+    'library.c23-stdarg-version': (('preprocess',), ('default',)),
     **{case: (('compile',), ('default',)) for case in RECORD_CONSTRAINTS},
     **{case: (('compile',), ('default',)) for case in REGISTER_CONSTRAINTS},
     'storage.register-use': (RUN_STAGES, ('O0', 'O2')),
@@ -570,7 +580,40 @@ def probe_registers(work, profile, edition, flags, link, runner):
         yield receipt(case, profile, edition, 'default', rejected and diagnostic in text, stages)
 
 
-def probe_target(output, profile, compiler, setup, link, runner, bare_sdk=()):
+def probe_c23_library(work, profile, flags, link, runner, bare_sdk, sdk_headers):
+    if profile['id'] == 'wasm-freestanding' and not bare_sdk:
+        return
+    include_flags = []
+    link_flags = []
+    if bare_sdk:
+        include, builtins = bare_sdk
+        include_flags = ['-isystem', str(include)]
+        link_flags = [str(builtins)]
+    flags = [*flags, *include_flags]
+    availability = work / 'sdk-headers' / 'available.txt'
+    stages, diagnostic = run_stages(availability.parent, [
+        ('preprocess', [*flags, '-E', str(C23_SDK_HEADERS), '-o', str(availability)]),
+    ])
+    if stages[0]['classification'] != 'success':
+        raise RuntimeError(f"cannot identify C23 SDK headers for {profile['id']}: {diagnostic.strip()}")
+    markers = {line.removeprefix('identifier ') for line in availability.read_text().splitlines()
+               if line.startswith('identifier CPP_GM_')}
+    if 'CPP_GM_SDK_HEADERS' not in markers:
+        raise ValueError(f"unexpected C23 SDK header probe output for {profile['id']}")
+    headers = {'stdarg.h': 'CPP_GM_STDARG', 'stdckdint.h': 'CPP_GM_STDCKDINT', 'stdbit.h': 'CPP_GM_STDBIT'}
+    available = {header: marker in markers for header, marker in headers.items()}
+    has_stdarg_version = 'CPP_GM_STDARG_VERSION' in markers
+    sdk_headers[profile['id']] = dict(available, stdarg_version_macro=has_stdarg_version)
+    if has_stdarg_version:
+        yield receipt('library.c23-stdarg-version', profile, 23, 'default',
+                      'CPP_GM_STDARG_VERSION_CURRENT' in markers, stages)
+    for case, (header, source) in C23_LIBRARY_SOURCES.items():
+        if available[header]:
+            for variant, passed, stages in probe_program(work, profile, case, source, flags, link, runner, link_flags):
+                yield receipt(case, profile, 23, variant, passed, stages)
+
+
+def probe_target(output, profile, compiler, setup, link, runner, sdk_headers, bare_sdk=()):
     bare_wasm = profile['id'] == 'wasm-freestanding'
     if runner and (executable := which(runner[0])):
         runner = [str(Path(executable).absolute()), *runner[1:]]
@@ -578,9 +621,11 @@ def probe_target(output, profile, compiler, setup, link, runner, bare_sdk=()):
     expect_no_threads = int(profile['target'].endswith('-apple-darwin'))
     yield from probe_c23_source_cases(output, profile, compiler, setup)
     c23_flags = [compiler, '--target=' + profile['target'], *setup, '-x', 'c', '-std=c23', '-pedantic-errors']
-    yield from probe_registers(output / profile['id'] / 'c23', profile, 23, c23_flags, link, runner)
+    c23_work = output / profile['id'] / 'c23'
+    yield from probe_registers(c23_work, profile, 23, c23_flags, link, runner)
+    yield from probe_c23_library(c23_work, profile, c23_flags, link, runner, bare_sdk, sdk_headers)
     for case, (source, flags) in C23_PROGRAMS.items():
-        for variant, passed, stages in probe_program(output / profile['id'] / 'c23', profile, case, source,
+        for variant, passed, stages in probe_program(c23_work, profile, case, source,
                                                       [*c23_flags, *flags], link, runner):
             yield receipt(case, profile, 23, variant, passed, stages)
     for edition in (*LEGACY_STANDARDS, *PILOT_EDITIONS):
@@ -653,7 +698,8 @@ def probes(args, profiles, rules):
             subprocess.run([sys.executable, str(ROOT / 'scripts/generate_c_translation_limits.py'),
                             '--edition', str(edition), str(directory)], stdout=file, check=True)
     compiler = str(args.candidate.resolve())
-    results = list(probe_target(output, profiles[native], compiler, [], [args.cc], []))
+    sdk_headers = {}
+    results = list(probe_target(output, profiles[native], compiler, [], [args.cc], [], sdk_headers))
     if args.wasi_sysroot:
         wasi = profiles['wasi-hosted']
         if args.wasi_resource_dir is None:
@@ -661,7 +707,7 @@ def probes(args, profiles, rules):
         sysroot = '--sysroot=' + str(args.wasi_sysroot)
         setup = [sysroot, '-resource-dir=' + str(args.wasi_resource_dir)]
         link = [compiler, '--target=' + wasi['target'], *setup]
-        results.extend(probe_target(output, wasi, compiler, setup, link, [args.wasmtime, 'run', '--dir=.']))
+        results.extend(probe_target(output, wasi, compiler, setup, link, [args.wasmtime, 'run', '--dir=.'], sdk_headers))
     numeric_sdk_inputs = []
     if args.bare_wasm:
         bare = profiles['wasm-freestanding']
@@ -674,7 +720,7 @@ def probes(args, profiles, rules):
             numeric_sdk_inputs = [include_dir / 'float.h', include_dir / '__float_float.h', include_dir / 'limits.h', builtins]
         link = [compiler, '--target=' + bare['target'], '-nostdlib', '--export', 'main']
         runner = [args.wasmtime, 'run', '--invoke', 'main']
-        results.extend(probe_target(output, bare, compiler, ['-ffreestanding', '-nostdinc'], link, runner, bare_sdk))
+        results.extend(probe_target(output, bare, compiler, ['-ffreestanding', '-nostdinc'], link, runner, sdk_headers, bare_sdk))
     revision = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
     inputs = sorted([*work.glob('*/*'), ERROR_SOURCE, INCLUDE_SOURCE, STRING_SOURCE, INCLUDE_QUERY, THREAD_PREDEFINE,
                      C95_WIDE_HEADERS, *LEGACY_VERSION_PROBES.values(),
@@ -689,9 +735,10 @@ def probes(args, profiles, rules):
                      *numeric_sdk_inputs, *C11_LIBRARY_SOURCES.values(),
                      INCLUDE_QUERY.parent / 'c-header  spaces.h',
                      INCLUDE_SOURCE.parent / 'c-include-physical.h', INCLUDE_SOURCE.parent / 'c-include-local.h'])
+    inputs.extend([C23_SDK_HEADERS, *(source for _, source in C23_LIBRARY_SOURCES.values())])
     receipt_path = output / 'receipts.json'
     write_json(receipt_path, dict(schema=1, revision=revision, compiler_sha256=sha256(Path(compiler)),
-                                  inputs={str(source): sha256(source) for source in inputs}, results=results))
+                                  inputs={str(source): sha256(source) for source in inputs}, sdk_headers=sdk_headers, results=results))
     report_status = report([receipt_path], output / 'matrix.json', profiles, rules) if args.report else 0
     return report_status or int(any(row['status'] == 'failed' for row in results))
 

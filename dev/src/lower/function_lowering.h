@@ -1411,6 +1411,8 @@ private:
 	RValue gnu_intrinsic(const syntax::CallExpr& expr, sema::Intrinsic kind);
 	RValue coroutine_handle(const syntax::CallExpr& expr, sema::Intrinsic kind);
 	RValue bit_count(sema::Intrinsic kind, RValue x);
+	RValue bit_count(sema::Intrinsic kind, RValue x, unsigned precision);
+	RValue stdc_bit_builtin(const syntax::CallExpr& expr);
 	RValue overflow_intrinsic(const syntax::CallExpr& expr, sema::Intrinsic kind);
 	RValue carry_intrinsic(const syntax::CallExpr& expr, bool subtract);
 	// Clear only the sign bit of an f32/f64 builtin argument.

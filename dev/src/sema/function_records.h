@@ -155,6 +155,8 @@ enum class Intrinsic : uint8_t
 	GenericCountLeadingZeros,
 	GenericCountTrailingZeros,
 	GenericPopCount,
+	// __builtin_stdc_* from C headers, followed by the StdcBitOp and its operand precision.
+	StdcBit,
 	// Stack allocation. Bits 8 and above record the required byte alignment.
 	Alloca,
 	// __builtin_frame_address(level): the physical activation's frame,

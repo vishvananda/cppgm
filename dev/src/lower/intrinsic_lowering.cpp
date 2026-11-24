@@ -8,6 +8,7 @@
 #include <limits>
 #include <cstring>
 
+#include "lex/gnu_builtins.h"
 #include "lex/identifier_table.h"
 
 #include "lowir/literals.h"
@@ -565,55 +566,23 @@ RValue FunctionLowering::gnu_intrinsic(const syntax::CallExpr& expr, sema::Intri
 	case sema::Intrinsic::AddCarry:
 	case sema::Intrinsic::SubBorrow:
 		return carry_intrinsic(expr, kind == sema::Intrinsic::SubBorrow);
+	case sema::Intrinsic::StdcBit:
+		return stdc_bit_builtin(expr);
 	case sema::Intrinsic::GenericCountLeadingZeros:
 	case sema::Intrinsic::GenericCountTrailingZeros:
 	case sema::Intrinsic::GenericPopCount:
 	{
-		// Counted in the operand's width, a narrower one widened to 32
-		// bits (its leading zeros less the widening's); clzg and ctzg give
-		// their second operand for 0, chosen by a `select` (lowir.md
-		// "Unary and Binary Operations").
-		RValue x = operand(*expr.arguments[0], ConversionContext::Argument);
-		const RValue given = x;
+		const RValue given = operand(*expr.arguments[0], ConversionContext::Argument);
 		// lzcnt's and tzcnt's operand converts to their result's type.
 		const bool width_for_zero = (expr.facts->value >> 8 & 1) != 0;
-		const uint32_t bits = static_cast<uint32_t>(
-			lowering_.size_of(width_for_zero ? expr.facts->type : expr.arguments[0]->facts->type, expr.location) * 8);
+		sema::IntegralKind integer_kind;
+		sema::IntegralKindOf(width_for_zero ? expr.facts->type : expr.arguments[0]->facts->type, integer_kind);
+		const unsigned bits = integer_kind.bits;
 		const sema::Intrinsic base = static_cast<sema::Intrinsic>(static_cast<uint8_t>(kind) -
 			static_cast<uint8_t>(sema::Intrinsic::GenericCountLeadingZeros) +
 			static_cast<uint8_t>(sema::Intrinsic::CountLeadingZeros));
-		if (bits < 32)
-			x = convert_op(lowir::ConvertOp::ZExt, lowir::Type::scalar(lowir::TypeKind::U32), x);
 		const lowir::Type i32 = lowir::Type::scalar(lowir::TypeKind::I32);
-		RValue count;
-		if (bits == 128)
-		{
-			// By 64-bit halves: the population's sum; the leading (trailing)
-			// zeros of the high (low) half, or 64 and the other half's when
-			// it is 0.
-			const lowir::Type i64 = lowir::Type::scalar(lowir::TypeKind::I64);
-			const RValue low = convert_op(lowir::ConvertOp::Trunc, i64, x);
-			const RValue high = convert_op(lowir::ConvertOp::Trunc, i64,
-				binary(lowir::BinaryOp::UShr, x.type, x, integer(x.type, lowir::Literal{ 64, 0 })));
-			const RValue low_count = bit_count(base, low), high_count = bit_count(base, high);
-			if (base == sema::Intrinsic::PopCount)
-				count = binary(lowir::BinaryOp::Add, i32, low_count, high_count);
-			else
-			{
-				const bool leading = base == sema::Intrinsic::CountLeadingZeros;
-				const RValue first = leading ? high_count : low_count;
-				const RValue second = binary(
-					lowir::BinaryOp::Add, i32, integer(i32, 64), leading ? low_count : high_count);
-				const RValue empty = truth_i32(
-					compare(lowir::ComparePredicate::Eq, i64, leading ? high : low, integer(i64, 0)));
-				count = binary(lowir::BinaryOp::Add, i32, first,
-					binary(lowir::BinaryOp::Mul, i32, empty, binary(lowir::BinaryOp::Sub, i32, second, first)));
-			}
-		}
-		else
-			count = bit_count(base, x);
-		if (base == sema::Intrinsic::CountLeadingZeros && bits < 32)
-			count = binary(lowir::BinaryOp::Sub, i32, count, integer(i32, 32 - bits));
+		RValue count = bit_count(base, given, bits);
 		if (expr.arguments.size == 2)
 		{
 			const RValue nonzero = compare(lowir::ComparePredicate::Ne, given.type, given, integer(given.type, 0));
@@ -734,6 +703,111 @@ RValue FunctionLowering::bit_count(sema::Intrinsic kind, RValue x)
 	if (width != 32)
 		return convert_op(lowir::ConvertOp::Trunc, i32, count);
 	return count.type == i32 || lowering_.object_mode() ? count : copy(i32, count);
+}
+
+RValue FunctionLowering::bit_count(sema::Intrinsic kind, RValue x, unsigned precision)
+{
+	const lowir::Type i32 = lowir::Type::scalar(lowir::TypeKind::I32);
+	unsigned width = lowir::integer_bits(x.type.kind());
+	if (width < 32)
+	{
+		width = 32;
+		x = convert_op(lowir::ConvertOp::ZExt, lowir::Type::scalar(lowir::TypeKind::U32), x);
+	}
+
+	const bool leading = kind == sema::Intrinsic::CountLeadingZeros;
+	RValue count;
+	if (width == 128)
+	{
+		const lowir::Type i64 = lowir::Type::scalar(lowir::TypeKind::I64);
+		const RValue low = convert_op(lowir::ConvertOp::Trunc, i64, x);
+		const RValue high = convert_op(lowir::ConvertOp::Trunc, i64,
+			binary(lowir::BinaryOp::UShr, x.type, x, integer(x.type, lowir::Literal{ 64, 0 })));
+		const RValue low_count = bit_count(kind, low), high_count = bit_count(kind, high);
+		if (kind == sema::Intrinsic::PopCount)
+			return binary(lowir::BinaryOp::Add, i32, low_count, high_count);
+		const RValue first = leading ? high_count : low_count;
+		const RValue second = binary(lowir::BinaryOp::Add, i32, integer(i32, 64), leading ? low_count : high_count);
+		// Select masks the undefined scan result of the unused half.
+		const RValue nonzero = compare(lowir::ComparePredicate::Ne, i64, leading ? high : low, integer(i64, 0));
+		count = select_value(nonzero, first, second);
+	}
+	else
+		count = bit_count(kind, x);
+	if (leading && precision != width)
+		count = binary(lowir::BinaryOp::Sub, i32, count, integer(i32, width - precision));
+	return count;
+}
+
+RValue FunctionLowering::stdc_bit_builtin(const syntax::CallExpr& expr)
+{
+	using lowir::BinaryOp;
+	using lowir::ComparePredicate;
+	using sema::Intrinsic;
+	const auto op = static_cast<StdcBitOp>(expr.facts->value >> 8);
+	const RValue x = operand(*expr.arguments[0], ConversionContext::Argument);
+	const lowir::Type i32 = lowir::Type::scalar(lowir::TypeKind::I32);
+	const lowir::Type type = x.type;
+	const unsigned width = static_cast<unsigned>(expr.facts->value >> 16);
+	const RValue zero = integer(type, 0);
+	const auto count_result = [&](const RValue& count) {
+		const lowir::Type result = lowering_.storage_type(expr.facts->type);
+		return count.type == result ? count : copy(result, count);
+	};
+
+	if (op == StdcBitOp::CountOnes || op == StdcBitOp::CountZeros || op == StdcBitOp::HasSingleBit)
+	{
+		const RValue count = bit_count(Intrinsic::PopCount, x, width);
+		if (op == StdcBitOp::HasSingleBit)
+			return compare(ComparePredicate::Eq, i32, count, integer(i32, 1));
+		return count_result(
+			op == StdcBitOp::CountOnes ? count : binary(BinaryOp::Sub, i32, integer(i32, width), count));
+	}
+	if (op == StdcBitOp::BitCeil || op == StdcBitOp::BitFloor)
+	{
+		const bool ceil = op == StdcBitOp::BitCeil;
+		const RValue one = integer(type, 1);
+		RValue value = x;
+		if (ceil)
+			value = normalize_bit_int(binary(BinaryOp::Sub, type, x, one), width, false);
+		// Setting the least significant bit does not affect a nonzero
+		// operand's leading count and makes the shift valid for every input.
+		value = binary(BinaryOp::Or, type, value, one);
+		const RValue count = bit_count(Intrinsic::CountLeadingZeros, value, width);
+		RValue index = binary(BinaryOp::Sub, i32, integer(i32, width - 1), count);
+		const RValue active = compare(ComparePredicate::Ugt, type, x, ceil ? one : zero);
+		const unsigned storage_width = lowir::integer_bits(type.kind());
+		RValue base = integer(type, ceil ? 2 : 1);
+		if (storage_width == 128)
+		{
+			// Choose the small base before widening so the selection operates on one word.
+			const RValue chosen = select_value(active, integer(i32, ceil ? 2 : 1), integer(i32, ceil ? 1 : 0));
+			base = convert_op(lowir::ConvertOp::ZExt, type, chosen);
+			if (ceil)
+				index = select_value(active, index, integer(i32, 0));
+		}
+		const RValue shift = storage_width == 32
+			? index
+			: convert_op(storage_width < 32 ? lowir::ConvertOp::Trunc : lowir::ConvertOp::ZExt, type, index);
+		const RValue power = normalize_bit_int(binary(BinaryOp::Shl, type, base, shift), width, false);
+		const RValue result = storage_width == 128 ? power : select_value(active, power, ceil ? one : zero);
+		return convert(result, expr.arguments[0]->facts->type, expr.facts->type, ConversionContext::Cast);
+	}
+	const bool trailing = op == StdcBitOp::TrailingZeros || op == StdcBitOp::TrailingOnes ||
+		op == StdcBitOp::FirstTrailingZero || op == StdcBitOp::FirstTrailingOne;
+	const bool complement = op == StdcBitOp::LeadingOnes || op == StdcBitOp::TrailingOnes ||
+		op == StdcBitOp::FirstLeadingZero || op == StdcBitOp::FirstTrailingZero;
+	const bool first = op == StdcBitOp::FirstLeadingZero || op == StdcBitOp::FirstTrailingZero ||
+		op == StdcBitOp::FirstLeadingOne || op == StdcBitOp::FirstTrailingOne;
+	const RValue value = complement ? normalize_bit_int(unary(lowir::UnaryOp::BitNot, x), width, false) : x;
+	const RValue nonzero = compare(ComparePredicate::Ne, type, value, zero);
+	RValue count = bit_count(trailing ? Intrinsic::CountTrailingZeros : Intrinsic::CountLeadingZeros, value, width);
+	if (first)
+		count = binary(BinaryOp::Add, i32, count, integer(i32, 1));
+	else if (op == StdcBitOp::BitWidth)
+		count = binary(BinaryOp::Sub, i32, integer(i32, width), count);
+	const unsigned empty = first || op == StdcBitOp::BitWidth ? 0 : width;
+	return count_result(select_value(nonzero, count, integer(i32, empty)));
 }
 
 lowir::MemoryOrder FunctionLowering::memory_order(const syntax::Expr& order, RValue* value)

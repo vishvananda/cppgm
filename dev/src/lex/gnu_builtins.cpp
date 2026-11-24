@@ -739,6 +739,29 @@ const struct
 	{ "__builtin_ssub_overflow", { GnuBuiltin::TypedOverflow, 6, nullptr, 0 } },
 	{ "__builtin_ssubl_overflow", { GnuBuiltin::TypedOverflow, 7, nullptr, 0 } },
 	{ "__builtin_ssubll_overflow", { GnuBuiltin::TypedOverflow, 8, nullptr, 0 } },
+	{ "__builtin_stdc_bit_ceil", { GnuBuiltin::StdcBit, static_cast<uint8_t>(StdcBitOp::BitCeil), nullptr, 0 } },
+	{ "__builtin_stdc_bit_floor", { GnuBuiltin::StdcBit, static_cast<uint8_t>(StdcBitOp::BitFloor), nullptr, 0 } },
+	{ "__builtin_stdc_bit_width", { GnuBuiltin::StdcBit, static_cast<uint8_t>(StdcBitOp::BitWidth), nullptr, 0 } },
+	{ "__builtin_stdc_count_ones", { GnuBuiltin::StdcBit, static_cast<uint8_t>(StdcBitOp::CountOnes), nullptr, 0 } },
+	{ "__builtin_stdc_count_zeros", { GnuBuiltin::StdcBit, static_cast<uint8_t>(StdcBitOp::CountZeros), nullptr, 0 } },
+	{ "__builtin_stdc_first_leading_one",
+		{ GnuBuiltin::StdcBit, static_cast<uint8_t>(StdcBitOp::FirstLeadingOne), nullptr, 0 } },
+	{ "__builtin_stdc_first_leading_zero",
+		{ GnuBuiltin::StdcBit, static_cast<uint8_t>(StdcBitOp::FirstLeadingZero), nullptr, 0 } },
+	{ "__builtin_stdc_first_trailing_one",
+		{ GnuBuiltin::StdcBit, static_cast<uint8_t>(StdcBitOp::FirstTrailingOne), nullptr, 0 } },
+	{ "__builtin_stdc_first_trailing_zero",
+		{ GnuBuiltin::StdcBit, static_cast<uint8_t>(StdcBitOp::FirstTrailingZero), nullptr, 0 } },
+	{ "__builtin_stdc_has_single_bit",
+		{ GnuBuiltin::StdcBit, static_cast<uint8_t>(StdcBitOp::HasSingleBit), nullptr, 0 } },
+	{ "__builtin_stdc_leading_ones",
+		{ GnuBuiltin::StdcBit, static_cast<uint8_t>(StdcBitOp::LeadingOnes), nullptr, 0 } },
+	{ "__builtin_stdc_leading_zeros",
+		{ GnuBuiltin::StdcBit, static_cast<uint8_t>(StdcBitOp::LeadingZeros), nullptr, 0 } },
+	{ "__builtin_stdc_trailing_ones",
+		{ GnuBuiltin::StdcBit, static_cast<uint8_t>(StdcBitOp::TrailingOnes), nullptr, 0 } },
+	{ "__builtin_stdc_trailing_zeros",
+		{ GnuBuiltin::StdcBit, static_cast<uint8_t>(StdcBitOp::TrailingZeros), nullptr, 0 } },
 	{ "__builtin_strchr", { GnuBuiltin::Library, 0, "c*Cc*i", 0 } },
 	{ "__builtin_strcmp", { GnuBuiltin::Library, 0, "iCc*Cc*", 0 } },
 	{ "__builtin_strcpy", { GnuBuiltin::Library, 0, "c*c*Cc*", 0 } },
@@ -991,7 +1014,7 @@ uint32_t ProvidedBuiltinVersion(const char* spelling, uint32_t length, bool wasm
 		return 0;
 	if (!cxx20 && IsCoroutineBuiltin(entry.builtin))
 		return 0;
-	if (!c_source && entry.builtin == GnuBuiltin::TypeGenericMath)
+	if (!c_source && IsCOnlyBuiltin(entry.builtin))
 		return 0;
 	if (!c23 && entry.builtin == GnuBuiltin::C23VaStart)
 		return 0;
