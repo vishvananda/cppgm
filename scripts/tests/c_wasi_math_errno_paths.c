@@ -73,6 +73,8 @@ int main(void)
 	CHECK(remainderl, (INFINITY, 1.0L), EDOM, isnan(result));
 	CHECK(remainderl, (1.0L, INFINITY), EILSEQ, result == 1.0L);
 	CHECK(fadd, (FLT_MAX, FLT_MAX), ERANGE, result == INFINITY);
+	CHECK(fadd, (0x1.ffffffp127, 0.0), ERANGE, result == INFINITY);
+	CHECK(fadd, (0x1.ffffffp127, -0x1p74), EILSEQ, result == FLT_MAX);
 	CHECK(fsub, (INFINITY, INFINITY), EDOM, isnan(result));
 	CHECK(fmul, (0.0, INFINITY), EDOM, isnan(result));
 	CHECK(fdiv, (0.0, 0.0), EDOM, isnan(result));

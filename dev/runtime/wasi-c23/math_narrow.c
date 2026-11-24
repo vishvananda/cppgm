@@ -42,23 +42,42 @@ static long double as_long_double(float128_t bits)
 	return x;
 }
 
+// These are binary64 exponents. Exclude the last normal binary32
+// exponent from the direct path because rounding up can overflow there.
+enum
+{
+	float_first_normal = DBL_MAX_EXP - 2 + FLT_MIN_EXP,
+	float_exponent_span = FLT_MAX_EXP - FLT_MIN_EXP,
+	float_zero_midpoint = float_first_normal - FLT_MANT_DIG
+};
+
+static inline unsigned wide_exponent(uint64_t bits)
+{
+	return (bits >> 52) & 0x7ff;
+}
+
+static inline bool is_normal_float_midpoint(uint64_t bits)
+{
+	const uint64_t half = UINT64_C(1) << (DBL_MANT_DIG - FLT_MANT_DIG - 1);
+	return (bits & (2 * half - 1)) == half;
+}
+
+static inline bool direct_float_result(uint64_t bits)
+{
+	return wide_exponent(bits) - float_first_normal < float_exponent_span && !is_normal_float_midpoint(bits);
+}
+
 /* A rounded binary64 result can double-round only at a binary32
    midpoint. Subnormal binary32 spacing is fixed at 2^-149. */
-static bool is_float_midpoint(double x)
+static inline bool is_float_midpoint(uint64_t bits)
 {
-	const uint64_t bits = binary64(x).v;
-	const unsigned exponent = (bits >> 52) & 0x7ff;
-	const unsigned first_normal = DBL_MAX_EXP - 2 + FLT_MIN_EXP;
-	const unsigned zero_midpoint = first_normal - FLT_MANT_DIG;
-	if (exponent - first_normal <= FLT_MAX_EXP - FLT_MIN_EXP)
-	{
-		const uint64_t half = UINT64_C(1) << (DBL_MANT_DIG - FLT_MANT_DIG - 1);
-		return (bits & (2 * half - 1)) == half;
-	}
-	if (exponent - zero_midpoint < FLT_MANT_DIG)
+	const unsigned exponent = wide_exponent(bits);
+	if (exponent - float_first_normal <= float_exponent_span)
+		return is_normal_float_midpoint(bits);
+	if (exponent - float_zero_midpoint < FLT_MANT_DIG)
 	{
 		const uint64_t leading = UINT64_C(1) << (DBL_MANT_DIG - 1);
-		const uint64_t half = leading >> (exponent - zero_midpoint);
+		const uint64_t half = leading >> (exponent - float_zero_midpoint);
 		return ((bits | leading) & (2 * half - 1)) == half;
 	}
 	return false;
@@ -93,8 +112,12 @@ DEFINE_RESULT_CHECK(double, dl, long double)
 	float f##name(double x, double y) \
 	{ \
 		const double wide = x native_op y; \
-		const float result = is_float_midpoint(wide) ? (float)as_double(f64_##op(binary64(x), binary64(y))) \
-													 : (float)wide; \
+		const uint64_t bits = binary64(wide).v; \
+		if (direct_float_result(bits)) \
+			return (float)wide; \
+		float result = (float)wide; \
+		if (is_float_midpoint(bits)) \
+			result = (float)as_double(f64_##op(binary64(x), binary64(y))); \
 		return check_f(result, x, y, 0.0); \
 	} \
 	float f##name##l(long double x, long double y) \
@@ -134,7 +157,12 @@ double dfmal(long double x, long double y, long double z)
 float fsqrt(double x)
 {
 	const double wide = __builtin_sqrt(x);
-	const float result = is_float_midpoint(wide) ? (float)as_double(f64_sqrt(binary64(x))) : (float)wide;
+	const uint64_t bits = binary64(wide).v;
+	if (direct_float_result(bits))
+		return (float)wide;
+	float result = (float)wide;
+	if (is_float_midpoint(bits))
+		result = (float)as_double(f64_sqrt(binary64(x)));
 	return check_f(result, x, 0.0, 0.0);
 }
 

@@ -1,3 +1,4 @@
+#include <float.h>
 #include <limits.h>
 #include <math.h>
 
@@ -89,7 +90,7 @@ long double powrl(long double x, long double y)
 static double checked_double_power(double x, double y)
 {
 	const double result = pow(x, y);
-	if (isinf(result) && isfinite(x) && isfinite(y))
+	if (__builtin_fabs(result) > DBL_MAX && isfinite(x) && isfinite(y))
 		errno = ERANGE;
 	return result;
 }
@@ -97,7 +98,7 @@ static double checked_double_power(double x, double y)
 static float narrow_float_power(double value)
 {
 	const float result = (float)value;
-	if (isinf(result) && isfinite(value))
+	if (__builtin_fabsf(result) > FLT_MAX && isfinite(value))
 		errno = ERANGE;
 	return result;
 }
@@ -105,7 +106,7 @@ static float narrow_float_power(double value)
 static double narrow_double_power(long double value)
 {
 	const double result = (double)value;
-	if (isinf(result) && isfinite(value))
+	if (__builtin_fabs(result) > DBL_MAX && isfinite(value))
 		errno = ERANGE;
 	return result;
 }
@@ -197,7 +198,7 @@ float compoundnf(float x, long long n)
 		return narrow_float_power(n == 2 ? square : square * base);
 	}
 	const float result = (float)exp(log1p((double)x) * (double)n);
-	if (isinf(result) && isfinite(x))
+	if (__builtin_fabsf(result) > FLT_MAX && isfinite(x))
 		errno = ERANGE;
 	return result;
 }
@@ -236,7 +237,7 @@ double rootn(double x, long long n)
 	if (n == -1)
 	{
 		const double result = 1.0 / x;
-		if (isinf(result) && isfinite(x))
+		if (__builtin_fabs(result) > DBL_MAX && isfinite(x))
 			errno = ERANGE;
 		return result;
 	}
