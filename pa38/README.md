@@ -482,6 +482,8 @@ The first fixture set covers these parts of the C17 input profile:
   Check operand forms in conditional branches that evaluation skips. A
   foldable array bound can still declare a variable-length array. Use C's
   integer constant expressions of value zero for null pointer conversions.
+  A pointer-sized integer with static storage can hold a symbol address
+  and a constant byte addend carried by a relocation.
   GNU folding can supply the value of a conditional in a required constant
   context, such as a case label or array designator. It can also fold casts
   from null or integer-derived pointer values back to integers. Diagnose

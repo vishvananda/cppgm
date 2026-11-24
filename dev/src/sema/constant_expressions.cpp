@@ -767,12 +767,17 @@ bool ConstantInterpreter::convert_scalar(ConstValue& value, const Type* to, uint
 			value = IntegerValue(to, ConvertIntegral(bits, kind));
 			return true;
 		}
-		if (c_fold_address_constants_ && value.kind == ValueKind::Pointer &&
-			(value.root == RootKind::Null || value.root == RootKind::AbsoluteAddress))
+		if ((c_static_initializer_ || c_fold_address_constants_) && value.kind == ValueKind::Pointer && !kind.is_bool)
 		{
-			const uint64_t bits = value.root == RootKind::Null ? 0 : static_cast<uint64_t>(value.address.offset);
-			value = kind.bits > 64 ? WideValue(to, bits) : IntegerValue(to, ConvertIntegral(bits, kind));
-			return true;
+			if (value.root == RootKind::Null || value.root == RootKind::AbsoluteAddress)
+			{
+				const uint64_t bits = value.root == RootKind::Null ? 0 : static_cast<uint64_t>(value.address.offset);
+				value = kind.bits > 64 ? WideValue(to, bits) : IntegerValue(to, ConvertIntegral(bits, kind));
+				return true;
+			}
+			if (c_static_initializer_ &&
+				kind.bits >= target_model::data_layout(analyzer_.types_.target()).pointer_bytes * 8)
+				return true; // Preserve the relocation in an integer initialized from an address.
 		}
 		return fail(location, "a pointer converted to an integer in a constant expression");
 	}
@@ -1406,15 +1411,28 @@ bool ConstantInterpreter::arithmetic(const syntax::BinaryExpr& expr, const Const
 	// 5.6-5.8, 5.11-5.13 on the operands converted as recorded (the usual
 	// arithmetic conversions; a shift's promotions, each its own).
 	const ExprFacts* right_facts = WithoutParentheses(expr.right)->facts;
-	const bool pointer_right = (expr.op == TokenKind::OP_PLUS || expr.op == TokenKind::OP_MINUS) &&
-		IsPointer(Decayed(analyzer_.types_, right_facts->type));
-	if (left_value.kind == ValueKind::Pointer || pointer_right)
+	const bool additive = expr.op == TokenKind::OP_PLUS || expr.op == TokenKind::OP_MINUS;
+	const bool pointer_right = additive && IsPointer(Decayed(analyzer_.types_, right_facts->type));
+	const bool relocation = c_static_initializer_ && additive && IsIntegralOrUnscopedEnum(expr.facts->type);
+	if ((left_value.kind == ValueKind::Pointer && !relocation) || pointer_right)
 		return fail(expr.location, "pointer arithmetic outside constant evaluation");
 	ConstValue left = left_value, right;
 	if (!apply_standard(*expr.left, WithoutParentheses(expr.left)->facts->conversion, left) ||
 		!operand(*expr.right, right))
 		return false;
 	const Type* type = expr.facts->type->unqualified;
+	if (relocation && (left.kind == ValueKind::Pointer || right.kind == ValueKind::Pointer))
+	{
+		const bool left_address = left.kind == ValueKind::Pointer;
+		const bool subtract = expr.op == TokenKind::OP_MINUS;
+		const ConstValue& addend = left_address ? right : left;
+		if (addend.kind != ValueKind::Integer || (subtract && !left_address) || IsWideIntegral(addend.type))
+			return fail(expr.location, "an integer address initializer requires one symbol and a numeric addend");
+		out = left_address ? left : right;
+		const uint64_t base = static_cast<uint64_t>(out.address.offset);
+		out.address.offset = static_cast<int64_t>(subtract ? base - addend.bits : base + addend.bits);
+		return true;
+	}
 	if (IsComplex(type))
 		return complex_operation(expr.op, type, left, right, out, expr.location);
 	if (IsFloating(type))

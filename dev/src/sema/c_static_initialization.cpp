@@ -398,23 +398,6 @@ const ConstValue* ConstantInterpreter::evaluate_c_initializer(const syntax::Expr
 	c_constant_expression_ = true;
 	c_static_initializer_ = true;
 	const syntax::Expr* value = &expr;
-	const Type* address_integer = nullptr;
-	if (expr.kind == syntax::ExprKind::Cast && (expr.facts->flags & kRuntimeTypeEvaluation) == 0)
-	{
-		const auto& cast = static_cast<const syntax::CastExpr&>(expr);
-		const Type* source = cast.operand->facts->type;
-		IntegralKind kind;
-		// Preserve relocations for the supported address-to-integer
-		// initializer extension. The destination integer must hold the
-		// target pointer, except for a known absolute address.
-		if ((source->kind == TypeKind::Array || source->kind == TypeKind::Function ||
-				source->kind == TypeKind::Pointer) &&
-			IntegralKindOf(expr.facts->type, kind) && !kind.is_bool)
-		{
-			value = cast.operand;
-			address_integer = expr.facts->type->unqualified;
-		}
-	}
 	if (expr.kind == syntax::ExprKind::FunctionalCast && (expr.facts->flags & kRuntimeTypeEvaluation) == 0)
 	{
 		const auto& literal = static_cast<const syntax::FunctionalCastExpr&>(expr);
@@ -424,26 +407,6 @@ const ConstValue* ConstantInterpreter::evaluate_c_initializer(const syntax::Expr
 	ConstValue result;
 	if (!rvalue(*value, result) || !complete(result) || incomplete_class_)
 		return nullptr;
-	if (address_integer != nullptr)
-	{
-		if (result.kind != ValueKind::Pointer)
-			return nullptr;
-		const unsigned pointer_bits = target_model::data_layout(analyzer_.types_.target()).pointer_bytes * 8;
-		if (result.root == RootKind::Null || result.root == RootKind::AbsoluteAddress)
-		{
-			const auto word = pointer_bits == 32 ? FundamentalType::UnsignedInt : FundamentalType::UnsignedLongLongInt;
-			result = IntegerValue(analyzer_.types_.fundamental(word), static_cast<uint64_t>(result.address.offset));
-			if (!convert_scalar(result, address_integer, expr.location))
-				return nullptr;
-		}
-		else
-		{
-			IntegralKind kind;
-			IntegralKindOf(address_integer, kind);
-			if (kind.bits < pointer_bits)
-				return nullptr;
-		}
-	}
 	return publish(result, expr.location);
 }
 
