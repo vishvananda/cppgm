@@ -134,7 +134,9 @@ void integer(Assembler& out, const assembly::Instruction& inst, const Form& form
 		if (src.kind == OperandKind::Immediate)
 		{
 			const int64_t value = static_cast<int64_t>(src.immediate);
-			if (!fits_operation(value, bytes))
+			const bool bitwise = digit == 1 || digit == 4 || digit == 6;
+			const bool extended_mask = bits < 64 && bitwise && (src.immediate >> bits) == (UINT64_MAX >> bits);
+			if (!fits_operation(value, bytes) && !extended_mask)
 				fail(inst, "ALU immediate exceeds the instruction encoding");
 			const bool small = bits != 8 && fits_i8(value);
 			const unsigned immediate = small || bits == 8 ? 1 : bits == 64 ? 4 : bytes;

@@ -16,7 +16,11 @@ public:
 	{}
 	uint64_t run() { return integer(binary(1, 0)); }
 	uint64_t addend() { return integer(tail({}, 1, 0)); }
-	ModuleValue relocatable() { return binary(1, 0).data; }
+	ModuleValue relocatable(bool fold = true)
+	{
+		fold_difference_ = fold;
+		return binary(1, 0).data;
+	}
 	ModuleValue instruction_addend(ModuleValue initial)
 	{
 		fold_difference_ = false;
@@ -275,6 +279,10 @@ ModuleValue assembly_module_expression(ModuleCursor& cursor, ExpressionSymbols& 
 ModuleValue assembly_instruction_addend(ModuleCursor& cursor, ExpressionSymbols& symbols, ModuleValue initial)
 {
 	return Expression(cursor, false, &symbols).instruction_addend(initial);
+}
+ModuleValue assembly_instruction_expression(ModuleCursor& cursor, ExpressionSymbols& symbols)
+{
+	return Expression(cursor, false, &symbols).relocatable(false);
 }
 ModuleExpression parse_module_expression(ModuleCursor& cursor, ExpressionSymbols& symbols)
 {

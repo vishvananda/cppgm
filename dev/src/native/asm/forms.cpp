@@ -44,7 +44,7 @@ const Form* assembly_form(const std::string& mnemonic, uint16_t& suffix, uint32_
 	return form != nullptr && form->encoding >= E::Move &&
 			(form->encoding <= E::Alu || (form->encoding >= E::Unary && form->encoding <= E::Atomic) ||
 				form->encoding == E::Control ||
-				(form->encoding == E::ControlMemory && (form->opcode >> 8) == 0x0f01 && suffix == 64) ||
+				(form->encoding == E::ControlMemory && form->opcode >= 0x0f0100 && form->opcode <= 0x0f0103) ||
 				form->encoding == E::Port || form->encoding == E::NonTemporalStore ||
 				form->encoding == E::DescriptorQuery || form->encoding == E::SystemWord ||
 				form->encoding == E::FarBranch || form->encoding == E::SystemRegister ||

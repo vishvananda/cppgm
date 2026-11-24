@@ -56,6 +56,8 @@ private:
 	std::string word(bool fold = true);
 	Operand target();
 	bool symbol(Operand& operand);
+	void module_operand_value(Operand& operand, const ModuleValue& value);
+	ModuleValue module_expression_value();
 	void module_symbol_addend(Operand& operand, bool absolute, uint64_t bits);
 	const SymbolUse* symbol_at(size_t position) const;
 	bool rip_register(Address& address);
@@ -121,6 +123,13 @@ uint64_t Parser::integer()
 
 uint64_t Parser::expression(bool addend)
 {
+	if (!addend && expressions_ != nullptr && dialect_ == asm_model::Dialect::Att)
+	{
+		const ModuleValue value = module_expression_value();
+		if (value.relocatable())
+			fail("assembly directive requires an absolute expression");
+		return value.bits;
+	}
 	ModuleCursor cursor(source_, static_cast<uint32_t>(pos_), line_, column_);
 	const uint64_t result = addend ? assembly_integer_addend(cursor) : assembly_integer_expression(cursor);
 	column_ += cursor.position() - pos_;
@@ -379,28 +388,38 @@ Operand Parser::unsegmented_operand()
 		if (take('$'))
 		{
 			if (!att_symbol(result))
-				result.immediate = expression();
+			{
+				if (expressions_ != nullptr)
+					module_operand_value(result, module_expression_value());
+				else
+					result.immediate = expression();
+			}
+			return result;
 		}
-		else if (att_symbol(result))
+		if (!att_symbol(result))
 		{
-			if (result.kind == OperandKind::Immediate)
-				return att_memory(static_cast<int64_t>(result.immediate));
-			const Address binding = result.address;
-			result = att_memory(0);
-			result.address.displacement = binding.displacement;
-			result.address.symbol = binding.symbol;
-			result.address.subtrahend = binding.subtrahend;
-			result.address.local = binding.local;
-			result.address.relocation = binding.relocation;
+			if (register_start(pos_))
+			{
+				result.kind = OperandKind::Register;
+				result.reg = reg();
+				result.bits = result.reg.bits;
+				return result;
+			}
+			if (att_address_tuple())
+				return att_memory(0);
+			if (expressions_ == nullptr)
+				return att_memory(static_cast<int64_t>(expression()));
+			module_operand_value(result, module_expression_value());
 		}
-		else if (register_start(pos_))
-		{
-			result.kind = OperandKind::Register;
-			result.reg = reg();
-			result.bits = result.reg.bits;
-		}
-		else
-			return att_memory(att_address_tuple() ? 0 : static_cast<int64_t>(expression()));
+		if (result.kind == OperandKind::Immediate)
+			return att_memory(static_cast<int64_t>(result.immediate));
+		const Address binding = result.address;
+		result = att_memory(0);
+		result.address.displacement = binding.displacement;
+		result.address.symbol = binding.symbol;
+		result.address.subtrahend = binding.subtrahend;
+		result.address.local = binding.local;
+		result.address.relocation = binding.relocation;
 		return result;
 	}
 	if (register_prefix_ && current() == '%')
@@ -531,6 +550,15 @@ const SymbolUse* Parser::symbol_at(size_t position) const
 	return found != symbols_.end() && found->first == position ? &*found : nullptr;
 }
 
+ModuleValue Parser::module_expression_value()
+{
+	ModuleCursor cursor(source_, static_cast<uint32_t>(pos_), line_, column_, &symbols_);
+	const ModuleValue value = assembly_instruction_expression(cursor, *expressions_);
+	column_ += cursor.position() - pos_;
+	pos_ = cursor.position();
+	return value;
+}
+
 void Parser::module_symbol_addend(Operand& operand, bool absolute, uint64_t bits)
 {
 	Address& address = operand.address;
@@ -541,6 +569,12 @@ void Parser::module_symbol_addend(Operand& operand, bool absolute, uint64_t bits
 	const ModuleValue value = assembly_instruction_addend(cursor, *expressions_, initial);
 	column_ += cursor.position() - pos_;
 	pos_ = cursor.position();
+	module_operand_value(operand, value);
+}
+
+void Parser::module_operand_value(Operand& operand, const ModuleValue& value)
+{
+	Address& address = operand.address;
 	if (!value.relocatable())
 	{
 		if (address.relocation != Relocation::Address)
@@ -552,6 +586,7 @@ void Parser::module_symbol_addend(Operand& operand, bool absolute, uint64_t bits
 	if (value.positive == asm_model::kNoId ||
 		(value.negative != asm_model::kNoId && address.relocation != Relocation::Address))
 		fail("assembly instruction expression cannot use this symbol difference");
+	operand.kind = OperandKind::Symbol;
 	address.symbol.symbol = value.positive;
 	address.subtrahend = value.negative;
 	address.displacement = static_cast<int64_t>(value.bits);

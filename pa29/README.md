@@ -213,6 +213,10 @@ string terminator is emitted. For ELF symbol types, also accept `STT_FUNC`,
 `STT_NOTYPE`. Preserve ELF merge flags `M` and `MS`
 and their entry sizes, with or without allocation. `.incbin` reads
 bytes from a named file, with optional byte offset and count.
+`.fill repeat, size, value` emits a repeated little-endian pattern. A
+byte-sized pattern can use the same deferred repeat count as `.space`.
+Each element is at most eight bytes and only its low four bytes come from
+`value`.
 On ELF, `@note` selects a note section. Instructions can supply byte
 sequences in a file-backed data section while preserving its section flags.
 When an ELF `.section` omits flags, keep an existing section's attributes.
@@ -225,6 +229,8 @@ the subtracted address is in the data field's section.
 AT&T absolute instruction immediates and base-index displacements on ELF
 can also use symbol differences. Resolve them after section layout, using
 the instruction address for `.` and preserving full ELF relocation addends.
+These expressions can use absolute symbols defined by assembly assignments,
+and accept C integer suffixes retained after preprocessing.
 Numbered labels can be reused. Suffix `b` selects the preceding definition
 of that number and `f` the next one, even across section changes. ELF symbol
 immediates can refer to a local label in the same assembly block.

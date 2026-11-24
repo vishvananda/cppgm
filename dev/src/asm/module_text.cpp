@@ -224,6 +224,20 @@ UInt ModuleCursor::number_as()
 	}
 	if (!seen)
 		fail("expected module integer");
+	// Macro-expanded assembler sources can retain C integer suffixes.
+	bool unsigned_suffix = false;
+	unsigned long_suffixes = 0;
+	while (position_ < source_.size())
+	{
+		const char suffix = static_cast<char>(source_[position_] | 0x20);
+		if (suffix == 'u' && !unsigned_suffix)
+			unsigned_suffix = true;
+		else if (suffix == 'l' && long_suffixes < 2)
+			++long_suffixes;
+		else
+			break;
+		++position_;
+	}
 	return negative ? UInt(0) - value : value;
 }
 uint64_t ModuleCursor::number()

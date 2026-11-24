@@ -187,7 +187,12 @@ void encode_system_form(
 	{
 		if (inst.operands.size() != 1 || inst.operands[0].kind != OperandKind::Memory)
 			fail(inst, "expected one memory operand");
-		out.op(form.prefix, form.bits == 64, form.opcode >> 8, 2, form.opcode & 255, rm(inst.operands[0], inst));
+		const bool short_descriptor = suffix == 16 && inst.code_bits == 32;
+		if (suffix != 0 && suffix != inst.code_bits && !short_descriptor)
+			fail(inst, "descriptor operand width is unavailable in this code mode");
+		const uint32_t opcode = form.opcode >> 8;
+		out.op(short_descriptor ? 0x66 : form.prefix, form.bits == 64, opcode, opcode <= 255 ? 1 : 2, form.opcode & 255,
+			rm(inst.operands[0], inst));
 		return;
 	}
 	if (form.encoding == E::NonTemporalStore)

@@ -7,4 +7,7 @@ asm(".section .text.extended_system\n"
     "rep insb; rep insl; rep outsb; rep outsl\n"
     "pshufb %xmm3, %xmm4; pmovzxdq (%rax), %xmm5; punpckldq %xmm1, %xmm2\n"
     "pslldq $8, %xmm1; psrldq $4, %xmm2\n"
-    "ds wrmsr; ds clflush (%rax); movl %ds:(%rbp), %eax\n");
+    "ds wrmsr; ds clflush (%rax); movl %ds:(%rbp), %eax\n"
+    "frstor (%rax); fnsave (%rdx); fwait\n"
+    ".code32\nsgdtl (%eax); lgdtw (%ecx)\n.code64\n"
+    "andl $(~0xff000000), %ecx\n");

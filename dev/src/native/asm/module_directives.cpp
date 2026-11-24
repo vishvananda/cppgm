@@ -152,6 +152,41 @@ void ModuleAssembler::wide_data(assembly::ModuleCursor& cursor)
 	} while (cursor.take(','));
 }
 
+void ModuleAssembler::repeat_fill(assembly::ModuleCursor& cursor)
+{
+	auto expression = assembly::parse_module_expression(cursor, *this);
+	const uint64_t size = cursor.take(',') ? assembly::assembly_integer_expression(cursor) : 1;
+	const uint64_t value = cursor.take(',') ? assembly::assembly_integer_expression(cursor) : 0;
+	if (static_cast<int64_t>(size) <= 0)
+		return;
+	if (expression.has_symbols)
+	{
+		if (size != 1)
+			cursor.fail("a deferred .fill requires byte-sized elements");
+		stage({ offset(), ModuleLayout::Kind::Space, static_cast<uint8_t>(value), std::move(expression) });
+		return;
+	}
+	const uint64_t repetitions = assembly::evaluate_module_expression(expression, *this).bits;
+	if (static_cast<int64_t>(repetitions) <= 0)
+		return;
+	const unsigned width = size > 8 ? 8 : static_cast<unsigned>(size);
+	const uint32_t bits = static_cast<uint32_t>(value) & (UINT32_MAX >> (8 * (4 - std::min(width, 4u))));
+	if (repetitions > kModuleByteLimit / width)
+		cursor.fail("module .fill exceeds the byte limit");
+	const uint64_t count = repetitions * width;
+	if (bits == 0 || width == 1)
+		return reserve(count, static_cast<uint8_t>(bits));
+	if (out_.sections[section_].kind == SectionKind::Bss)
+		cursor.fail("nonzero module bss initializer");
+	const uint64_t first = offset();
+	reserve(count, 0);
+	auto& bytes = out_.sections[section_].bytes;
+	const unsigned encoded = std::min(width, 4u);
+	for (uint64_t i = first; i < first + count; i += width)
+		for (unsigned j = 0; j < encoded; ++j)
+			bytes[i + j] = static_cast<uint8_t>(bits >> (8 * j));
+}
+
 namespace {
 
 uint32_t data_relocation_type(unsigned bytes, bool relative)
@@ -407,6 +442,8 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 		strings(cursor, name != ".ascii");
 	else if (name == ".incbin")
 		include_binary(cursor);
+	else if (name == ".fill")
+		repeat_fill(cursor);
 	else if (name == ".zero" || name == ".space" || name == ".skip")
 	{
 		auto expression = assembly::parse_module_expression(cursor, *this);

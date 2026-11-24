@@ -39,6 +39,7 @@ private:
 	void assign(uint32_t id, assembly::ModuleCursor& cursor);
 	void strings(assembly::ModuleCursor& cursor, bool terminate);
 	void include_binary(assembly::ModuleCursor& cursor);
+	void repeat_fill(assembly::ModuleCursor& cursor);
 	void alignment(assembly::ModuleCursor& cursor, bool power);
 	void size(assembly::ModuleCursor& cursor);
 	void type(assembly::ModuleCursor& cursor);

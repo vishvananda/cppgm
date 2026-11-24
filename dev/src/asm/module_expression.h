@@ -39,6 +39,7 @@ uint64_t assembly_integer_expression(ModuleCursor& cursor);
 uint64_t assembly_integer_addend(ModuleCursor& cursor);
 ModuleValue assembly_module_expression(ModuleCursor& cursor, ExpressionSymbols& symbols);
 ModuleValue assembly_instruction_addend(ModuleCursor& cursor, ExpressionSymbols& symbols, ModuleValue initial);
+ModuleValue assembly_instruction_expression(ModuleCursor& cursor, ExpressionSymbols& symbols);
 ModuleExpression parse_module_expression(ModuleCursor& cursor, ExpressionSymbols& symbols);
 ModuleValue evaluate_module_expression(const ModuleExpression& plan, ExpressionSymbols& symbols);
 
