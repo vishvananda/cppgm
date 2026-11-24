@@ -206,6 +206,39 @@ carrier width.
 | 65 | 69.96M | 268.20M | 1,059.67M |
 | 128 | 50.99M | 191.94M | 756.64M |
 
+## C23 constexpr objects
+
+Compared immutable GCC 15 builds of `36de5db9d` and `2a9076103` on CPU 71.
+Every frozen build emitted a byte-identical object. A/A task-clock spreads
+of 13.78% for C++ and 26.63% for SQLite leave the wall-time deltas unresolved.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.00134% | +0.01346% | +0.01452% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.00205% | +0.00097% | +0.00014% |
+
+The C23 syntax-only scaling probe pairs each scalar definition with
+an enumeration that uses it as an integer constant expression. Each
+cell is the median of three observations on CPU 73. The typed scalar
+value is available directly on the named entity. The compiler checks
+the initializer once per definition and ordinary constant-expression
+consumers reuse the recorded value.
+
+| Scalar definitions | Retired instructions | Peak RSS (KiB) |
+| ---: | ---: | ---: |
+| 1,000 | 29,220,767 | 17,420 |
+| 2,000 | 58,779,858 | 17,296 |
+| 4,000 | 117,542,810 | 17,324 |
+| 8,000 | 232,518,708 | 22,692 |
+| 16,000 | 459,824,713 | 37,720 |
+
+A sparse array probe writes only its first and last elements and
+includes a runtime read of the last. Syntax-only translation retires
+3.99 million instructions and uses about 17 MiB of peak RSS at one,
+ten, and one hundred million elements. The resolved initializer
+plan is proportional to the written elements. A large array inside
+a named record still uses the aggregate interpreter's storage budget.
+
 ## Volatile assignment code generation
 
 The same source functions returning and discarding a volatile record

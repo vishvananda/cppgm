@@ -568,6 +568,44 @@ linker at both optimization levels.
 
 [Frozen-input and width scaling measurements](../docs/performance/c-frontend-scaling.md#c23-bit-precise-integers)
 
+## C23 constexpr objects
+
+PA38 covers file-scope and automatic definitions, named scalar and
+aggregate constants, member and union selection, and exact initialization
+before conversion. The scalar fixture evaluates a named constant as a
+`_BitInt` width and checks distinct addresses in recursive invocations.
+The aggregate fixture covers designated initialization, copies, and
+sparse arrays. The complex fixture checks exact initializer conversions
+and copies of a named complex constant. Rejection cases include complex
+to real initialization and signaling NaN conversion. The C17 control
+uses `constexpr` as an identifier.
+
+The pinned C23 manifests pass 46 GCC and 15 Clang configurations.
+The object emitted for Clang's linkage case has local read-only symbols
+for the three addressed constants. The clause matrix passes 736 probes,
+including 285 C23 probes, on Linux x86-64, WASI and bare Wasm.
+PA38 passes 565 native, 565 Wasm, 63 controls and three ABI cases.
+The strict course report passes all 11,674 tests. Debug-info, self-host
+through PA5, the architecture checks, and the placement audit also pass.
+The student export verifies 26,742 portable reference outputs and passes
+PA1 and the native, Wasm, control, and ABI lanes of PA38 using the packaged
+reference binaries.
+
+The three positive fixtures pass at `-O0` and `-O2` on x86-64 Linux,
+AArch64 Linux under QEMU, both Mach-O targets through the local
+execution harness, bare Wasm and WASI. These runs use freestanding
+startup for the cross targets. The following C23 gaps remain open
+in this area.
+
+- Declaring an object with inferred `auto`, including `constexpr auto`.
+- Storage classes on compound literals and their use as constant operands.
+- Named record constants with very large sparse array members.
+  A record containing a ten-million-element array still reaches the
+  interpreter's storage budget when only a scalar member is needed.
+
+[C23 constexpr rules](../doc/c-conformance-notes.md#c23-constexpr-objects) ·
+[Frozen-input and constexpr scaling measurements](../docs/performance/c-frontend-scaling.md#c23-constexpr-objects)
+
 ## Additional editions
 
 The driver baseline at `39e13e127` rejects `c90`, `c89`,
