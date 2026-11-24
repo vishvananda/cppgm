@@ -1269,10 +1269,12 @@ void MacroExpander::replace_builtin(const MacroDefinition& macro)
 		return;
 	}
 	case BuiltinMacro::HasCppAttribute:
-	case BuiltinMacro::HasAttribute:
 		// An operator of controlling expressions; elsewhere an identifier.
 		if (controlling_expression_)
 			replace_has_attribute(macro.builtin);
+		return;
+	case BuiltinMacro::HasAttribute:
+		replace_has_attribute(macro.builtin);
 		return;
 	case BuiltinMacro::HasCAttribute:
 		if (!controlling_expression_)
@@ -1351,7 +1353,9 @@ void MacroExpander::replace_has_attribute(BuiltinMacro probe)
 	read(token);
 	if (!IsPunctuatorToken(token, TokenKind::OP_LPAREN))
 		throw PreprocessError(operator_token.begin,
-			c ? "expected `(` after __has_c_attribute" : "expected `(` after __has_cpp_attribute");
+			c         ? "expected `(` after __has_c_attribute"
+				: gnu ? "expected `(` after __has_attribute"
+					  : "expected `(` after __has_cpp_attribute");
 	const auto next_operand = [&] {
 		read(token);
 		if (c)
