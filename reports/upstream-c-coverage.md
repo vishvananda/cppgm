@@ -3559,3 +3559,44 @@ native, Wasm, and ABI lanes using the packaged reference binaries.
 [PA38 value and type fixture](../pa38/tests/general/500-builtin-choose-expr.t) ·
 [PA38 wide condition fixture](../pa38/tests/general/500-c23-builtin-choose-wide.t) ·
 [Compile measurements](../docs/performance/c-frontend-scaling.md#gnu-c-selection-frontend-cost)
+
+### Hosted WASI complex and floating-point environment interfaces
+
+The overlay supplies both C23 header version macros. Its complex
+constructors use `__builtin_complex` in C11 and later. The SDK Clang
+control previously rejected the SDK constructor's component initializer
+under `-pedantic-errors`. The new probes call all 22 complex function
+families at each standard precision, check a binary128 static initializer,
+preserve signed zero, and exercise thread storage and single evaluation.
+
+The four C23 floating-point environment calls use the pinned SDK's
+round-to-nearest control mode and empty exception mask. Linux also tests
+nonempty saved flags, a single-flag subset, and mode changes independent
+of exception flags. Its probes link with `-lm`.
+
+All 32 mixed cppgm and SDK Clang builds pass at `-O0` and `-O2` with
+both linkers. The two probes also pass on Linux x86-64 with cppgm, GCC 15,
+and Clang 22 at both levels, and on Linux AArch64 under QEMU at `-O0`,
+`-O2`, and `-Oz`. Twelve strict WASI C99, C11, and C17 controls verify
+the edition boundaries. Both release archive variants contain the runtime
+sources, and the source-only package builds the archive and runs the two
+probes at `-Oz -flto`.
+
+The GCC host replay passes all 4,326 executed configurations. Linux
+x86-64 runs 1,444, stock WASI runs 1,333, the hosted supplement runs 515,
+and bare Wasm runs 1,034. The supplement passes 193 tracked C23 checks.
+Its three uncovered header entries are `<math.h>`, `<stdio.h>`, and
+`<tgmath.h>`. The 76 harness test files pass. The file audit retains its
+15 existing warnings.
+
+The pinned WASI archive lacks 120 callable binary-math names from the
+C23 draft's `<math.h>` inventory. The `<tgmath.h>` additions use those
+families. For temporary files, an SDK experiment verified exclusive
+creation, unlinking an open update stream, and clean failure without
+a writable preopen. The `mkstemp` SDK declaration remains unresolved at
+link time. The scoped C23 `FENV_ROUND` compiler probe remains open.
+
+[C23 N3096 §§7.3, 7.6, 7.12, 7.23.4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
+[Complex probe](../scripts/tests/c_c23_complex_interfaces.c) ·
+[Floating-point environment probe](../scripts/tests/c_c23_fenv_interfaces.c) ·
+[Compile and runtime measurements](../docs/performance/c-frontend-scaling.md#wasi-c23-complex-and-floating-point-environment-headers)

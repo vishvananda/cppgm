@@ -4034,3 +4034,20 @@ It adds about 14.27, 28.51, and 57.04 million instructions for 1,024,
 2,048, and 4,096 selections, respectively. Each selection adds about
 13,930 instructions for its source tokens, typed condition, and arms.
 The two forms produce identical `.text` disassembly at `-O2`.
+
+## WASI C23 complex and floating-point environment headers
+
+An `-O2` translation unit includes `<complex.h>` and `<fenv.h>`,
+constructs a static complex value, and calls `fegetround`. A single
+cppgm binary compiles it against the previous and current overlays on
+CPU 71. All 12 objects match byte for byte. The A/A spread is 1,763
+retired instructions. ABBA and BAAB add 177,993 and 178,010 instructions
+to the roughly 6.00 million instruction control through the extra
+header text and declarations.
+
+At `-O2`, `fetestexceptflag` and `fesetmode` each return zero without
+memory access. `fegetmode` writes one word. `fesetexcept` checks whether
+its mask is empty. The cppgm-built relocatable object is 368 bytes and
+its four functions make no calls. An existing C23 UTF-8 program that
+uses the supplement produces identical objects and linked Wasm modules
+with both versions of the archive.

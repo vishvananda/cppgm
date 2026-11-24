@@ -945,6 +945,9 @@ def library_sources(profile, edition, checked, checked_c23, wasi_libraries):
         link_flags = ()
         if case == 'library.c23-atomic-interfaces' and profile['target'].endswith('-linux-gnu'):
             link_flags = ('-latomic',)
+        elif (case in ('library.c23-complex-interfaces', 'library.c23-fenv-interfaces')
+              and not profile['target'].startswith('wasm')):
+            link_flags = ('-lm',)
         yield case, source, (), link_flags
 
 
