@@ -784,13 +784,49 @@ compiler generations match byte for byte.
 The placement audit reports no findings across 11,622 fixtures. The
 student export verifies 26,830 portable reference output files.
 
-GNU projections through fields or across array dimensions can still
-require dense evaluator storage. A 500,001-element record array reaches
-that budget both with independent overlapping field ranges and with a
-field range applied after a copy. The corresponding static initializer
-passes its Linux runtime check through the existing static data path.
+The follow-up covers [projected GNU ranges](#gnu-c23-projected-constant-ranges).
 [WG14 DR 413](https://open-std.org/JTC1/SC22/WG14/issues/c11c17/issue0413.html) ·
 [Frozen-input and copy scaling measurements](../docs/performance/c-frontend-scaling.md#c23-updates-after-sparse-record-copies)
+
+## GNU C23 projected constant ranges
+
+The constant evaluator keeps checked field intervals and rectangular
+ranges sparse when an aggregate exceeds the dense storage budget.
+Copy-and-update initializers share the source value. An ordinary point
+update evaluates one row and adds it to the existing patch tree. The
+static writer combines whole-element replacements, field and cell
+updates, and zero masks before emitting visible data.
+
+PA38 checks overlapping writes to different fields, two ranged array
+dimensions, preserved values across successive copies, whole-element
+zero replacement, and point updates after a projection. The fixtures
+pass at `-O0` and `-O2` on Linux x86-64, Linux AArch64 under QEMU, both
+Mach-O targets with local loaders, WASI, and bare Wasm. A separate
+pointwise oracle checks 32 generated sequences at both optimization
+levels on Linux x86-64. A copied union projection that must validate
+its inherited active member still uses the dense evaluator. A probe
+with 128 union elements passes and the 500,001-element case reaches
+the storage budget.
+
+Increasing the represented extent from 500,001 to 500,000,001 records
+adds 0.04% retired instructions to the syntax-only field probe. Increasing
+the rectangular extent from about one million to 2.5 billion cells adds
+0.10%. For each frozen input, baseline and candidate emit identical
+object files. The measured instruction differences are within the A/A
+spread for both C++ and SQLite. Interleaved point updates on long copy
+chains still revisit preceding range updates, with quadratic compile
+work in that scaling probe.
+
+All 11,674 strict course tests, 1,117 local C matrix probes, and 58 pinned
+GCC C23 configurations pass. PA38 passes 632 native, 632 Wasm, 63 control,
+and three ABI cases. Debug-info, PA36 smoke, and self-host through PA5
+also pass. The two self-hosted compiler generations match byte for byte.
+The student export verifies 26,847 portable reference outputs, and PA1
+and PA38 pass with the packaged reference binaries.
+
+[PA38 field ranges](../pa38/tests/general/300-c23-constexpr-projected-fields.t) ·
+[PA38 rectangular ranges](../pa38/tests/general/300-c23-constexpr-projected-rectangles.t) ·
+[Compile measurements](../docs/performance/c-frontend-scaling.md#gnu-c23-projected-constant-ranges)
 
 ## Named register objects
 

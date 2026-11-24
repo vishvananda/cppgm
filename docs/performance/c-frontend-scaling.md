@@ -3259,3 +3259,56 @@ instructions on 338 million, and work scales with the number of functions.
 | 512 | 24,532,823 | 24,556,164 | +0.095% |
 | 2,048 | 86,721,988 | 86,827,362 | +0.122% |
 | 8,192 | 337,602,607 | 338,052,351 | +0.133% |
+
+## GNU C23 projected constant ranges
+
+Compared immutable GCC 15 builds of `fc39ae562` and `b7859c456` on CPU
+71. Every observation emitted byte-identical objects. Task-clock A/A
+spreads were 10.2% and 15.1%, so the table compares retired instructions.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.00340% | +0.00200% | +0.00212% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.00192% | +0.00080% | −0.00084% |
+
+Each GNU23 syntax-only input defines a constant using two overlapping
+writes, copies it with two overlapping updates, then copies that value
+and changes one field or cell. The final update reads the selected row.
+The projected initializer retains written intervals and a reference to
+the prior value. Point updates reuse the interval tree for whole-element
+patches. Object emission composes the layers before repeating visible
+rows. The table reports medians of three observations on CPU 73.
+
+| Projection | Declared extent | Retired instructions | Peak RSS (KiB) |
+| --- | ---: | ---: | ---: |
+| Fields | 500,001 records | 4,140,250 | 17,304 |
+| Fields | 50,000,001 records | 4,141,120 | 17,332 |
+| Fields | 500,000,001 records | 4,141,695 | 17,492 |
+| Rectangles | 1,024 × 1,024 cells | 4,150,965 | 18,028 |
+| Rectangles | 10,240 × 10,240 cells | 4,154,140 | 17,320 |
+| Rectangles | 50,000 × 50,000 cells | 4,155,115 | 17,260 |
+
+At fixed extent, alternating nested intervals over two fields tests
+overlap resolution as the written work grows. Doubling the largest
+input from 4,096 to 8,192 writes adds about 16,800 instructions per write.
+
+| Written ranges | Retired instructions |
+| ---: | ---: |
+| 16 | 4,214,281 |
+| 256 | 8,145,174 |
+| 4,096 | 72,161,854 |
+| 8,192 | 141,128,691 |
+
+A second syntax-only probe copies the previous value and writes two
+overlapping field ranges at each step. The paired input inserts a
+single-field update to a fresh element after each ranged update. Those
+point updates revisit the projected history, which still causes
+quadratic work as the number of copies grows.
+
+| Ranged copy steps | Range updates only | With a point update after each range update |
+| ---: | ---: | ---: |
+| 64 | 8,806,552 | 19,858,992 |
+| 128 | 13,654,752 | 50,212,897 |
+| 256 | 23,212,465 | 153,757,481 |
+| 512 | 42,402,429 | 531,489,240 |
+| 1,024 | 80,807,397 | 1,968,907,967 |
