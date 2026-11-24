@@ -45,8 +45,11 @@ resolution, UTF-8 conversion, binary integer conversion, and sized
 deallocation. It also supplies const-preserving searches, callable atomic
 fences and flag operations, `call_once`, and `strfromd`, `strfromf`, and
 `strfroml`. Narrow and wide formatted I/O support C23 binary conversions.
-The tested configuration includes the SDK's signal emulation and
-long-double stdio libraries.
+The supplement also supplies the complex constructors and floating-point
+environment interfaces. Temporary files use the guest working directory.
+For applications that create them under Wasmtime, preopen that directory
+with `wasmtime run --dir=. example.wasm`. The tested configuration includes
+the SDK's signal emulation and long-double stdio libraries.
 
 ```sh
 sdk=/path/to/wasi-sdk

@@ -14,7 +14,7 @@ STDIO_SOURCES := printf scanf wprintf wscanf scan_integer vfprintf vfwprintf vfs
 	vsnprintf vswprintf vsscanf vswscanf
 STDIO_OBJECTS := $(addprefix $(BUILD_DIR)/stdio/,$(addsuffix .o,$(STDIO_SOURCES)))
 OBJECTS := $(addprefix $(BUILD_DIR)/,stdbit.o memalignment.o memset_explicit.o timespec_getres.o utf8.o \
-	binary_conversion.o sized_free.o atomic_functions.o call_once.o strfrom.o fenv.o) $(STDIO_OBJECTS)
+	binary_conversion.o sized_free.o atomic_functions.o call_once.o strfrom.o fenv.o temporary_files.o) $(STDIO_OBJECTS)
 RUNTIME_CFLAGS := --target=wasm32-wasip1 --sysroot="$(WASI_SYSROOT)" -resource-dir="$(RESOURCE_DIR)" \
 	-x c -std=c23 -pedantic-errors -isystem "$(BUILD_DIR)/include" -O2
 
@@ -33,8 +33,8 @@ $(BUILD_DIR)/licenses/%.txt: $(SHARED)/licenses/%.txt
 	mkdir -p "$(@D)"
 	cp "$<" "$@"
 
-# Build the callable operations with Wasm atomics under either compiler.
-$(BUILD_DIR)/atomic_functions.o: RUNTIME_CFLAGS += -matomics
+# Build the callable operations and temporary-name counter with Wasm atomics.
+$(addprefix $(BUILD_DIR)/,atomic_functions.o temporary_files.o): RUNTIME_CFLAGS += -matomics
 
 vpath %.c $(SHARED)
 $(BUILD_DIR)/%.o: %.c Makefile | $(HEADERS)

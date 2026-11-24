@@ -292,6 +292,7 @@ LIBRARY_PROGRAMS = {
     'library.stdio-formats': (90, ROOT / 'scripts/tests/c_stdio_formats.c', 'stdarg stdio string'),
     'library.stdio-long-double': (90, ROOT / 'scripts/tests/c_stdio_long_double.c', 'stdarg stdio string'),
     'library.stdio-streams': (90, ROOT / 'scripts/tests/c_stdio_streams.c', 'stdio string'),
+    'library.stdio-temporary': (90, ROOT / 'scripts/tests/c_stdio_temporary.c', 'stdio string'),
     'library.stdlib-allocation': (90, ROOT / 'scripts/tests/c_stdlib_allocation.c', 'stdlib'),
     'library.stdlib-conversion': (90, ROOT / 'scripts/tests/c_stdlib_conversion.c', 'errno limits stdlib'),
     'library.stdlib-search': (90, ROOT / 'scripts/tests/c_stdlib_search.c', 'stdlib'),
@@ -313,6 +314,7 @@ C23_VERSIONED_PROGRAMS = {
     'library.c23-time-resolution': (ROOT / 'scripts/tests/c_c23_time_resolution.c', 'time'),
     'library.c23-uchar-utf8': (ROOT / 'scripts/tests/c_c23_uchar_utf8.c', 'uchar'),
     'library.c23-sized-deallocation': (ROOT / 'scripts/tests/c_c23_sized_deallocation.c', 'stdlib'),
+    'library.c23-stdio-nan': (ROOT / 'scripts/tests/c_c23_stdio_nan.c', 'stdio'),
     'library.c23-qualified-bsearch': (ROOT / 'scripts/tests/c_c23_qualified_bsearch.c', 'stdlib'),
     'library.c23-stdlib-interfaces': (ROOT / 'scripts/tests/c_c23_stdlib_interfaces.c', 'stdlib'),
     'library.c23-wide-searches': (ROOT / 'scripts/tests/c_c23_wide_searches.c', 'wchar'),
@@ -321,7 +323,7 @@ WASI_SIGNAL = 'wasi-emulated-signal'
 WASI_LONG_DOUBLE_STDIO = 'c-printscan-long-double'
 WASI_C23_PROFILE = 'wasi-c23-hosted'
 WASI_C23_PARTIAL_CASES = {'library.c23-memalignment', 'library.c23-binary-conversion',
-                         'library.c23-sized-deallocation', 'library.c23-qualified-bsearch', 'library.c23-binary-stdio'}
+                         'library.c23-sized-deallocation', 'library.c23-qualified-bsearch'}
 C23_LIBRARY_SOURCES = {
     'library.c23-integer-widths': ('limits_width_macros', ROOT / 'scripts/tests/c_c23_integer_widths.c'),
     'library.c23-wchar-width': ('wchar_width_macro', ROOT / 'scripts/tests/c_c23_wchar_width.c'),
@@ -506,6 +508,8 @@ def read_evidence(paths, profiles, header_checks=None):
 def missing_library_reason(case, profile, checked_c23):
     if case == 'library.stdio-long-double' and profile == 'wasi-hosted':
         return f'The selected WASI SDK requires -l{WASI_LONG_DOUBLE_STDIO}'
+    if case == 'library.stdio-temporary' and profile == 'wasi-hosted':
+        return 'The selected WASI SDK omits the temporary-file functions'
     if case in C23_VERSIONED_PROGRAMS and checked_c23:
         _, required = C23_VERSIONED_PROGRAMS[case]
         missing = [f'<{name}.h>' for name in required.split()
@@ -907,6 +911,8 @@ def library_sources(profile, edition, checked, checked_c23, wasi_libraries):
         if position < C_EDITIONS.index(introduced) or not usable(required):
             continue
         if not hosted and case not in ('library.stddef-layout', 'library.string-functions'):
+            continue
+        if case == 'library.stdio-temporary' and profile['id'] == 'wasi-hosted':
             continue
         if case == 'library.stdio-long-double' and profile['id'] == 'wasi-hosted':
             if WASI_LONG_DOUBLE_STDIO in wasi_libraries:

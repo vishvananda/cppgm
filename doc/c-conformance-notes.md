@@ -1610,6 +1610,17 @@ The WASI supplement selects separate formatted I/O symbols in C23 so
 that earlier-mode `%i` callers retain their original prefix behavior.
 [C23 N3220 §§7.8.1, 7.23.6.1–2, 7.31.2.1–2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
 
+`tmpfile` returns a temporary binary update stream. The WASI supplement
+checks the guest working directory's creation and unlink rights, creates
+the file exclusively, and removes its name before handing the stream to
+the caller. `tmpnam` checks that each name is unused, including checking
+for symlinks, and supports both a caller buffer and internal storage.
+The names combine entropy and a monotonic ticket. C23's
+`_PRINTF_NAN_LEN_MAX` is 4 for the overlay's optional sign and three
+letters. Both temporary-file APIs are available in every C edition
+using the overlay.
+[C23 N3096 §§7.23.1, 7.23.4.3–4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+
 C23 adds `atomic_char8_t` and `ATOMIC_CHAR8_T_LOCK_FREE`. GCC and Clang
 make `__CHAR8_TYPE__` available as `unsigned char` in C23. cppgm uses
 the same edition boundary. The GCC resource header uses that predefine

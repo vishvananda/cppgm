@@ -1869,6 +1869,16 @@
       "cases": ["library.c17-binary-stdio-control"]
     },
     {
+      "id": "library.stdio-temporary",
+      "clause": "C23 7.23.4.3–4 and earlier editions",
+      "kind": "required",
+      "editions": [90, 95, 99, 11, 17, 23],
+      "environment": "hosted",
+      "header": "stdio",
+      "requirement": "Create independent temporary binary update streams. Generate distinct available names with both caller storage and internal storage, with at least 25 possible names.",
+      "cases": ["library.stdio-temporary"]
+    },
+    {
       "id": "library.c23-binary-stdio",
       "clause": "C23 7.8.1, 7.23.6.1–2, 7.31.2.1–2",
       "kind": "required",
@@ -1877,6 +1887,16 @@
       "header": "stdio",
       "requirement": "Format and scan binary integers with b, wN and wfN. Check field widths, precision, padding, assignment suppression and the number of consumed characters. Use the inttypes binary format macros and recognize a binary prefix in an i input conversion on narrow and wide streams.",
       "cases": ["library.c23-binary-stdio"]
+    },
+    {
+      "id": "library.c23-stdio-nan",
+      "clause": "C23 7.23.1",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "stdio",
+      "requirement": "Provide the maximum NaN output length as an integer constant expression valid in preprocessing and within the specified range.",
+      "cases": ["library.c23-stdio-nan"]
     },
     {
       "id": "library.c23-complex-interfaces",
