@@ -1580,6 +1580,17 @@ bool ConstantInterpreter::scalar_comparison(
 			out = IntegerValue(boolean, (op == TokenKind::OP_EQ) == equal ? 1 : 0);
 			return true;
 		}
+		// GNU C static initializers can compare addresses obtained from
+		// integer constants. Their address bits are already in target width.
+		if (c_static_initializer_ && analyzer_.hosted_ &&
+			(left.root == RootKind::AbsoluteAddress || left.root == RootKind::Null) &&
+			(right.root == RootKind::AbsoluteAddress || right.root == RootKind::Null))
+		{
+			out = IntegerValue(boolean,
+				IntegralCompare(op, false, static_cast<uint64_t>(left.address.offset),
+					static_cast<uint64_t>(right.address.offset)));
+			return true;
+		}
 		// 5.9p2: an order only within one complete object, between elements
 		// of one array or members of one access control.
 		const Type* root = nullptr;

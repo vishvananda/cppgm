@@ -1418,6 +1418,14 @@ const Type* Analyzer::complete_array_from_initializer(
 	if (expr->kind == syntax::ExprKind::BracedInit)
 	{
 		const syntax::BracedInitList* list = static_cast<const syntax::BracedInitList*>(expr);
+		if (c_source_ && hosted_ && list->elements.empty())
+		{
+			const char* message = "deducing a zero-length array from an empty initializer is a GNU C extension";
+			if (!c_explicit_extension_ && positions_ != nullptr &&
+				!positions_->allow_gnu_c_extension(list->location, message))
+				error(list->location, message);
+			return types_.array(type->element, 0, nullptr, nullptr, true);
+		}
 		bound = typed ? 0 : list->elements.size;
 		const syntax::Expr* single = list->elements.size == 1 ? list->elements[0] : nullptr;
 		while (single != nullptr && single->kind == syntax::ExprKind::Paren)

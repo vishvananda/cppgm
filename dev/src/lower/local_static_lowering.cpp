@@ -77,6 +77,11 @@ lowir::SymbolId ProgramLowering::local_static(const sema::VariableEntity* variab
 		spelling += name;
 	}
 	const lowir::SymbolId symbol = new_symbol(spelling);
+	// Publish the storage identity before lowering initializers that can
+	// refer to this object, such as a list head linked to itself.
+	const uint32_t index = static_cast<uint32_t>(local_statics_.size());
+	local_static_index_.set(variable, index);
+	local_statics_.push_back(LocalStatic{ symbol, lowir::kNoId });
 	lowir::SymbolMetadata metadata = lowir::SymbolMetadata();
 	metadata.binding = owner_binding == ir_model::SBM_WEAK ? ir_model::SBM_WEAK : ir_model::SBM_INTERNAL;
 	if (variable->is_thread_local)
@@ -142,8 +147,7 @@ lowir::SymbolId ProgramLowering::local_static(const sema::VariableEntity* variab
 		}
 		++counters_.globals;
 	}
-	local_static_index_.set(variable, static_cast<uint32_t>(local_statics_.size()));
-	local_statics_.push_back(LocalStatic{ symbol, guard });
+	local_statics_[index].guard = guard;
 	return symbol;
 }
 

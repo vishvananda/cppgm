@@ -613,7 +613,8 @@ The first fixture set covers these parts of the C17 input profile:
   including implicit zeros. Check overwritten expressions for valid names,
   types, and the constant-expression requirements for static storage.
   Infer the size of an incomplete array from its highest initialized index
-  and keep implicit zero ranges compact.
+  and keep implicit zero ranges compact. When GNU C extensions are allowed,
+  an empty initializer may deduce a complete array of length zero.
 - Under the GNU extension policy, allow `[first ... last]` to initialize
   whole array elements, including elements of record or array type.
   A member or subscript after a range selects a subobject of each element.
@@ -639,6 +640,9 @@ The first fixture set covers these parts of the C17 input profile:
 - GNU C records with empty bodies have size zero. A member of empty record
   type consumes no bytes in its enclosing record. Diagnose empty record
   declarations under the pedantic policy.
+- Resolve the address of a local static object in its own initializer.
+  For GNU C static data, order pointers converted from integer constants
+  by their unsigned widths on the selected target.
 - Check the initializer of an object with static or thread storage duration
   during analysis. Apply the same rules to scalar values, braced leaves,
   and file-scope compound literals. An address constant may name a static
