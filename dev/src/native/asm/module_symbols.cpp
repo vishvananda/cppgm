@@ -117,10 +117,6 @@ void ModuleSymbols::define(uint32_t symbol, uint32_t section, uint64_t offset)
 	entry.value = offset;
 	const auto binding = bindings_.find(symbol);
 	entry.binding = binding == bindings_.end() ? object::Binding::Local : binding->second;
-	if (section != object::kAbsoluteSection && entry.type == object::SymbolType::None &&
-		explicit_types_.find(symbol) == explicit_types_.end())
-		entry.type = out_.sections[section].kind == object::SectionKind::Text ? object::SymbolType::Function
-																			  : object::SymbolType::Object;
 }
 void ModuleSymbols::bind(uint32_t symbol, object::Binding binding)
 {

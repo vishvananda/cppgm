@@ -28,7 +28,7 @@ private:
 	void emit_instructions(std::vector<assembly::Instruction>& instructions);
 	bool directive(const std::string& name, assembly::ModuleCursor& cursor);
 	void section(const std::string& name, object::SectionKind kind, uint32_t merge_size = 0, bool merge_strings = false,
-		bool note = false);
+		bool note = false, bool inherit = false);
 	void data(assembly::ModuleCursor& cursor, unsigned bytes);
 	void wide_data(assembly::ModuleCursor& cursor);
 	void finish_data();

@@ -209,11 +209,16 @@ alignment and section spelling differences. Accept `.2byte`, `.4byte` and
 Adjacent quoted pieces in one string operand concatenate before an optional
 string terminator is emitted. For ELF symbol types, also accept `STT_FUNC`,
 `STT_OBJECT`, and `STT_NOTYPE`, including the space-separated
-`.type symbol STT_FUNC` form. Preserve ELF merge flags `M` and `MS`
+`.type symbol STT_FUNC` form. An assembly label without `.type` has ELF type
+`STT_NOTYPE`. Preserve ELF merge flags `M` and `MS`
 and their entry sizes, with or without allocation. `.incbin` reads
 bytes from a named file, with optional byte offset and count.
 On ELF, `@note` selects a note section. Instructions can supply byte
 sequences in a file-backed data section while preserving its section flags.
+When an ELF `.section` omits flags, keep an existing section's attributes.
+New `.text.*`, `.data.*`, `.rodata.*` and `.bss.*` sections take the matching
+standard section attributes. Other names without standard attributes start
+as nonloaded data.
 ELF data fields can hold a symbol address or a symbol difference. Fold a
 difference within one section and use a place-relative relocation when
 the subtracted address is in the data field's section.

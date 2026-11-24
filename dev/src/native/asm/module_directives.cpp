@@ -21,6 +21,19 @@ unsigned scalar_data_width(const std::string& name)
 		return 2;
 	return name == ".byte" ? 1 : 0;
 }
+
+SectionKind elf_section_default(const std::string& name)
+{
+	if (name == ".text" || name.compare(0, 6, ".text.") == 0 || name == ".init" || name == ".fini")
+		return SectionKind::Text;
+	if (name == ".data" || name.compare(0, 6, ".data.") == 0)
+		return SectionKind::Data;
+	if (name == ".bss" || name.compare(0, 5, ".bss.") == 0)
+		return SectionKind::Bss;
+	if (name == ".rodata" || name.compare(0, 8, ".rodata.") == 0)
+		return SectionKind::Rodata;
+	return SectionKind::Metadata;
+}
 }
 void ModuleAssembler::reserve(uint64_t count, uint8_t fill)
 {
@@ -457,11 +470,13 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 			section_name += "-" + cursor.word();
 		if (section_name.empty())
 			cursor.fail("module section name cannot be empty");
-		SectionKind kind = SectionKind::Data;
+		const bool attributes = cursor.take(',');
+		const bool inherit = target_ == Target::Linux && !attributes;
+		SectionKind kind = inherit ? elf_section_default(section_name) : SectionKind::Data;
 		uint32_t merge_size = 0;
 		bool merge_strings = false;
 		bool note = false;
-		if (cursor.take(','))
+		if (attributes)
 		{
 			if (target_ == Target::MacOS && section_name.compare(0, 2, "__") == 0)
 			{
@@ -523,7 +538,7 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 			kind = SectionKind::Bss;
 		if (note && kind == SectionKind::Bss)
 			cursor.fail("a note section requires file contents");
-		section(section_name, kind, merge_size, merge_strings, note);
+		section(section_name, kind, merge_size, merge_strings, note, inherit);
 	}
 	else
 		return false;
