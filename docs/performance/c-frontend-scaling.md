@@ -3887,3 +3887,17 @@ user instructions for one function, and 4,856,346 and 4,860,157 for
 null-pointer operand removed about 460,000 instructions from the
 256-function macro case compared with the initial compound-literal
 operand.
+
+## Hosted WASI C23 headers
+
+CPU 71 ran A/A, ABBA and BAAB blocks on the C23 string allocation
+probe at `-O2 -c`. Both variants use the same compiler and WASI SDK 34.
+The control obtains `strdup` and `strndup` declarations with
+`_POSIX_C_SOURCE=200809L`. The strict C23 variant uses the supplemental
+headers. Every object is byte-identical.
+
+The supplemental include path adds 60,834 and 61,478.5 retired user
+instructions in ABBA and BAAB, or about 0.57% for this probe. A/A
+spread is 2,855 instructions. The 9,294-byte runtime archive
+contains four cppgm objects. The existing SDK string routines remain
+the callees of both variants.

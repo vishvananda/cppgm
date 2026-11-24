@@ -3302,3 +3302,47 @@ implementations that a hosted C23 header can expose.
 [C23 string requirements](../doc/c-conformance-notes.md#c-library-calls-and-format-macros) ·
 [WASI SDK input](https://github.com/WebAssembly/wasi-sdk/releases/tag/wasi-sdk-34) ·
 [Compile and link measurements](../docs/performance/c-frontend-scaling.md#bare-wasm-string-library)
+
+## Hosted WASI C23 supplement
+
+The `wasi-c23-hosted` profile uses WASI SDK 34 with the supplemental
+headers and archive, signal emulation, and the long-double stdio
+archive. The conformance runner also replays the stock SDK as
+`wasi-hosted`. Both use the same compiler, sysroot, runtime engine,
+and C23 probes. Stock observations through C17 still use their
+original configurations.
+
+The hosted archive reuses the bare runtime implementations of
+`<stdbit.h>`, `memalignment`, and `memset_explicit`. The hosted string
+header forwards the SDK declarations, exposes `strdup`, `strndup` and
+`memccpy` in strict C23, and supplies the const-preserving searches.
+The SDK exports the existing string symbols. The supplemental assertion
+retains NDEBUG reinclusion and accepts the C23 variadic argument.
+
+The integer header tests the SDK's exact, least, and fast type widths.
+Its fast 16-bit types use the SDK's 32-bit typedefs. The pointer-width
+limits preserve the SDK's long and unsigned long expression types.
+The clock wrapper reuses `clock_getres` and tests a null destination
+and an unsupported base. The same probe exercises reentrant calendar
+conversion. SDK resource headers supply the remaining common
+definitions and variadic support. With the opt-in libraries, the
+combined headers, signal handling and long-double I/O pass.
+
+The supplemented profile passes 173 C23 inventory entries and
+leaves 13 uncovered, compared with 38 uncovered for stock WASI.
+The remaining entries concern binary integer conversion, binary I/O,
+UTF-8 multibyte conversion, and C23 interfaces and version macros in
+ten headers. The source-only release builds the archive and executes
+the time test through the documented driver invocation. At `-O0`
+and `-O2`, 11 focused programs pass 88 mixed cppgm and Clang runs
+with both linkers.
+
+The combined replay at `f19c38bee` passes all 5,637 configurations.
+This includes 1,412 each on Linux x86-64 and Linux AArch64 under QEMU,
+1,315 on stock WASI, 480 on the hosted supplement, and 1,018 on bare
+Wasm. All 76 harness test files and the format audit pass. The file
+audit reports its 13 existing warnings.
+
+[Build and link commands](../BUILDING.md#hosted-wasi-c23-library-supplement) ·
+[C23 library requirements](../doc/c-conformance-notes.md#c-library-calls-and-format-macros) ·
+[Compile measurements](../docs/performance/c-frontend-scaling.md#hosted-wasi-c23-headers)

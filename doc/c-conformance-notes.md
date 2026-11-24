@@ -1556,6 +1556,16 @@ return unqualified pointers. The macros evaluate each argument once.
 stores even if subsequent code stops using the object.
 [C23 N3220 §§7.26.5, 7.26.6.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
 
+`timespec_getres` returns the selected time base on success and zero
+on failure. A null destination can query whether the resolution is
+available. The WASI SDK maps `TIME_UTC` to `CLOCK_REALTIME`. The
+supplement passes a local destination to `clock_getres` for a null
+query because the Wasip1 implementation stores the successful result
+through its pointer. C23 also exposes the SDK's `gmtime_r`,
+`localtime_r`, and `timegm` in the time header.
+[C23 N3220 §7.29](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
+[Pinned WASI clock implementation](https://github.com/WebAssembly/wasi-libc/blob/2e6fb9d8ee0c/libc-bottom-half/cloudlibc/src/libc/time/clock_getres.c)
+
 `assert` is a macro with its own reinclusion rules. Reincluding its
 header uses the current definition of `NDEBUG`.
 C23 uses a variadic macro, so a scalar compound-literal expression can

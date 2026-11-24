@@ -228,7 +228,7 @@ On x86, QEMU can check the Arm executables and count guest instructions.
 
 - The [required C++11/14/17 profile](LANGUAGE_PROFILE.md) covers selected features. It is not full conformance to each edition.
 - The language profile lists the supported C++20 features.
-- PA38 provides experimental C support from C90 through C23, including selected GNU extensions. Library coverage depends on the target SDK. [PA38](pa38/README.md) · [Bare Wasm library](BUILDING.md#bare-wasm-c23-library-supplement) · [Coverage inventory](reports/upstream-c-coverage.md)
+- PA38 provides experimental C support from C90 through C23, including selected GNU extensions. Library coverage depends on the target SDK. [PA38](pa38/README.md) · [Bare Wasm library](BUILDING.md#bare-wasm-c23-library-supplement) · [Hosted WASI library](BUILDING.md#hosted-wasi-c23-library-supplement) · [Coverage inventory](reports/upstream-c-coverage.md)
 - The x86-64 backend targets Linux and Intel macOS. PA37 targets `wasm32-unknown-unknown` and `wasm32-wasip1`. **AArch64 support is experimental** on Linux (ELF) and Apple Silicon macOS (Mach-O) in PA39. [PA37](pa37/README.md) · [PA39](pa39/README.md)
 - `-Oz` and the LTO flags are experimental. `-Oz` optimizes for size.
   `-flto=full` optimizes consecutive source inputs together on Wasm, Linux
