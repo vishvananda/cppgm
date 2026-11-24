@@ -17,6 +17,11 @@ public:
 	uint64_t run() { return integer(binary(1, 0)); }
 	uint64_t addend() { return integer(tail({}, 1, 0)); }
 	ModuleValue relocatable() { return binary(1, 0).data; }
+	ModuleValue instruction_addend(ModuleValue initial)
+	{
+		fold_difference_ = false;
+		return tail(Value(initial), 1, 0).data;
+	}
 	ModuleValue evaluate(const ModuleExpression& plan);
 
 private:
@@ -45,6 +50,7 @@ private:
 	ExpressionSymbols* symbols_;
 	ModuleExpression* plan_;
 	bool registers_;
+	bool fold_difference_ = true;
 };
 Expression::Operator Expression::operation()
 {
@@ -194,7 +200,8 @@ ModuleValue Expression::combine(ModuleValue a, ModuleValue b, bool subtract)
 		a.positive = b.positive;
 	if (a.negative == absent)
 		a.negative = b.negative;
-	symbols_->fold_difference(a);
+	if (fold_difference_)
+		symbols_->fold_difference(a);
 	return a;
 }
 uint64_t Expression::apply(const std::string& op, Value left, Value right)
@@ -264,6 +271,10 @@ uint64_t assembly_integer_addend(ModuleCursor& cursor)
 ModuleValue assembly_module_expression(ModuleCursor& cursor, ExpressionSymbols& symbols)
 {
 	return Expression(cursor, false, &symbols).relocatable();
+}
+ModuleValue assembly_instruction_addend(ModuleCursor& cursor, ExpressionSymbols& symbols, ModuleValue initial)
+{
+	return Expression(cursor, false, &symbols).instruction_addend(initial);
 }
 ModuleExpression parse_module_expression(ModuleCursor& cursor, ExpressionSymbols& symbols)
 {

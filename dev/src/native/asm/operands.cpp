@@ -44,6 +44,8 @@ RM rm(const Operand& op, const assembly::Instruction& inst)
 	{
 		if (address.has_base || address.has_index)
 			fail(inst, "RIP-relative memory cannot use a base or index register");
+		if (address.subtrahend != asm_model::kNoId)
+			fail(inst, "RIP-relative memory does not support an unresolved symbol difference");
 		return RM::rip(address.symbol.symbol, address.displacement);
 	}
 	RM memory = RM::m(address.has_base ? physical(address.base, inst) : kNoReg, address.displacement,
@@ -53,6 +55,7 @@ RM rm(const Operand& op, const assembly::Instruction& inst)
 		if (address.relocation != assembly::Relocation::Address)
 			fail(inst, "this assembly relocation requires RIP-relative memory");
 		memory.symbol = address.symbol.symbol;
+		memory.subtrahend = address.subtrahend;
 		memory.absolute_symbol = true;
 		memory.address32 = inst.code_bits == 32 || (address.has_base && address.base.bits == 32) ||
 			(address.has_index && address.index.bits == 32);

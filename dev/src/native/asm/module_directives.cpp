@@ -121,7 +121,7 @@ void ModuleAssembler::data(assembly::ModuleCursor& cursor, unsigned bytes)
 				(target_ != Target::Linux && (value.negative != lowir::kNoId || bytes != 8)))
 				cursor.fail("module symbol data expression is unavailable for this section or target");
 			data_relocations_.push_back(
-				DataRelocation{ first, value.bits, section_, value.positive, value.negative, bytes });
+				DataRelocation{ first, first, value.bits, section_, value.positive, value.negative, bytes, 0 });
 		}
 		else if (out_.sections[section_].kind == SectionKind::Bss)
 		{
@@ -174,6 +174,8 @@ void ModuleAssembler::finish_data()
 	for (DataRelocation& word : data_relocations_)
 	{
 		word.offset = layout_.position(word.section, word.offset);
+		if (word.positive == 0 || word.negative == 0)
+			word.anchor = layout_.position(word.section, word.anchor);
 		object::Section& section = out_.sections[word.section];
 		uint64_t addend = word.addend;
 		uint32_t symbol = word.positive;
@@ -188,7 +190,7 @@ void ModuleAssembler::finish_data()
 				cached = out_.add_symbol(entry);
 			}
 			symbol = cached;
-			addend += word.offset;
+			addend += word.anchor;
 		}
 		const object::Symbol& positive = out_.symbols[symbol];
 		const bool subtract_absolute = word.negative != 0 && word.negative != lowir::kNoId &&
@@ -206,11 +208,14 @@ void ModuleAssembler::finish_data()
 		if (relative)
 		{
 			const uint32_t minus_section = word.negative == 0 ? word.section : out_.symbols[word.negative].section;
-			const uint64_t minus_value = word.negative == 0 ? word.offset : out_.symbols[word.negative].value;
+			const uint64_t minus_value = word.negative == 0 ? word.anchor : out_.symbols[word.negative].value;
 			if (positive.section == minus_section && minus_section != object::kUndefinedSection &&
 				minus_section != object::kCommonSection)
 			{
 				const uint64_t bits = positive.value - minus_value + addend;
+				if (word.absolute_type == object::R_X86_64_32S &&
+					static_cast<int64_t>(bits) != static_cast<int32_t>(bits))
+					throw BackendError("assembly instruction symbol difference exceeds a signed 32-bit field");
 				for (unsigned i = 0; i < word.bytes; ++i)
 					section.bytes[word.offset + i] = static_cast<uint8_t>(bits >> (8 * i));
 				continue;
@@ -219,8 +224,9 @@ void ModuleAssembler::finish_data()
 				throw BackendError("module symbol difference has no relocation for its subtrahend");
 			addend += word.offset - minus_value;
 		}
-		section.relocations.push_back(object::Relocation{
-			word.offset, data_relocation_type(word.bytes, relative), symbol, static_cast<int64_t>(addend) });
+		const uint32_t type = relative || word.absolute_type == 0 ? data_relocation_type(word.bytes, relative)
+																  : word.absolute_type;
+		section.relocations.push_back(object::Relocation{ word.offset, type, symbol, static_cast<int64_t>(addend) });
 	}
 }
 

@@ -222,6 +222,9 @@ as nonloaded data.
 ELF data fields can hold a symbol address or a symbol difference. Fold a
 difference within one section and use a place-relative relocation when
 the subtracted address is in the data field's section.
+AT&T absolute instruction immediates and base-index displacements on ELF
+can also use symbol differences. Resolve them after section layout, using
+the instruction address for `.` and preserving full ELF relocation addends.
 Numbered labels can be reused. Suffix `b` selects the preceding definition
 of that number and `f` the next one, even across section changes. ELF symbol
 immediates can refer to a local label in the same assembly block.

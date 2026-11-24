@@ -317,7 +317,8 @@ void ModuleAssembler::flush()
 	std::vector<assembly::Instruction> instructions;
 	try
 	{
-		instructions = assembly::parse(code_, syntax_.dialect, uses_, {}, &symbols_, &syntax_);
+		instructions = assembly::parse(
+			code_, syntax_.dialect, uses_, {}, &symbols_, &syntax_, target_ == Target::Linux ? this : nullptr);
 	}
 	catch (const assembly::AssemblyError& error)
 	{
@@ -382,12 +383,25 @@ void ModuleAssembler::emit_instructions(std::vector<assembly::Instruction>& inst
 					? instructions[i].symbol_definition
 					: symbols_.named(instructions[i].mnemonic),
 				section_, positions[i]);
+	size_t instruction = 0;
 	for (const CodeFixup& fixup : assembler.fixups())
 	{
+		if (fixup.subtrahend != asm_model::kNoId || fixup.target == 0)
+		{
+			if (!fixup.absolute)
+				throw BackendError("a place-relative instruction cannot also encode an unresolved symbol difference");
+			while (instruction + 1 < positions.size() && positions[instruction + 1] <= fixup.offset)
+				++instruction;
+			const uint32_t type = object::x86_absolute_relocation(fixup.end, fixup.kind == FixupKind::SignedAddress);
+			data_relocations_.push_back({ fixup.offset, positions[instruction], static_cast<uint64_t>(fixup.addend),
+				section_, fixup.target, fixup.subtrahend, fixup.end, type });
+			continue;
+		}
 		object::Relocation relocation;
 		relocation.offset = fixup.offset;
 		relocation.symbol = fixup.target;
-		relocation.addend = fixup.addend - (fixup.absolute ? 0 : fixup.end);
+		relocation.addend = static_cast<int64_t>(
+			static_cast<uint64_t>(fixup.addend) - (fixup.absolute ? 0 : fixup.end));
 		relocation.type = fixup.absolute
 			? object::x86_absolute_relocation(fixup.end, fixup.kind == FixupKind::SignedAddress)
 			: fixup.kind == FixupKind::Got      ? object::R_X86_64_GOTPCREL

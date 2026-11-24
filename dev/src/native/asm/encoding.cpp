@@ -51,7 +51,8 @@ void symbol_immediate(Assembler& out, const assembly::Instruction& inst, const F
 		const uint8_t opcode = (move ? 0xc6 : 0x80) + (bits != 8);
 		out.op(prefix, wide, opcode, 1, move ? 0 : form.opcode, rm(dst, inst), byte_regs, bytes);
 	}
-	out.symbol_immediate(src.address.symbol.symbol, src.address.displacement, bytes, wide && bytes == 4);
+	out.symbol_immediate(
+		src.address.symbol.symbol, src.address.displacement, bytes, wide && bytes == 4, src.address.subtrahend);
 }
 
 void integer(Assembler& out, const assembly::Instruction& inst, const Form& form, uint16_t suffix)

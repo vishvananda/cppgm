@@ -25,7 +25,8 @@ void bit_test(Assembler& out, const assembly::Instruction& inst, const Form& for
 	if (index.kind == OperandKind::Symbol && index.address.relocation == assembly::Relocation::Address)
 	{
 		out.op(bits == 16 ? 0x66 : 0, bits == 64, 0x0fba, 2, form.opcode, rm(target, inst), false, 1);
-		out.symbol_immediate(index.address.symbol.symbol, index.address.displacement, 1, false);
+		out.symbol_immediate(
+			index.address.symbol.symbol, index.address.displacement, 1, false, index.address.subtrahend);
 	}
 	else if (index.kind == OperandKind::Immediate)
 	{

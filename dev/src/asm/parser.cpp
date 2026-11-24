@@ -14,10 +14,10 @@ class Parser
 {
 public:
 	Parser(const std::string& source, asm_model::Dialect dialect, const std::vector<SymbolUse>& symbols,
-		const std::vector<LabelUse>& labels, SymbolLookup* lookup, Syntax* state)
+		const std::vector<LabelUse>& labels, SymbolLookup* lookup, Syntax* state, ExpressionSymbols* expressions)
 		: source_(source), symbols_(symbols), labels_(labels), dialect_(state ? state->dialect : dialect),
 		  register_prefix_(state ? state->register_prefix : dialect == asm_model::Dialect::Att), lookup_(lookup),
-		  state_(state)
+		  state_(state), expressions_(expressions)
 	{}
 	std::vector<Instruction> run();
 
@@ -56,6 +56,7 @@ private:
 	std::string word(bool fold = true);
 	Operand target();
 	bool symbol(Operand& operand);
+	void module_symbol_addend(Operand& operand, bool absolute, uint64_t bits);
 	const SymbolUse* symbol_at(size_t position) const;
 	bool rip_register(Address& address);
 	bool att_symbol(Operand& operand);
@@ -83,6 +84,7 @@ private:
 	bool register_prefix_;
 	SymbolLookup* lookup_;
 	Syntax* state_;
+	ExpressionSymbols* expressions_;
 	std::size_t pos_ = 0;
 	uint32_t line_ = 1;
 	uint32_t column_ = 1;
@@ -384,8 +386,10 @@ Operand Parser::unsegmented_operand()
 			if (result.kind == OperandKind::Immediate)
 				return att_memory(static_cast<int64_t>(result.immediate));
 			const Address binding = result.address;
-			result = att_memory(binding.displacement);
+			result = att_memory(0);
+			result.address.displacement = binding.displacement;
 			result.address.symbol = binding.symbol;
+			result.address.subtrahend = binding.subtrahend;
 			result.address.local = binding.local;
 			result.address.relocation = binding.relocation;
 		}
@@ -527,6 +531,32 @@ const SymbolUse* Parser::symbol_at(size_t position) const
 	return found != symbols_.end() && found->first == position ? &*found : nullptr;
 }
 
+void Parser::module_symbol_addend(Operand& operand, bool absolute, uint64_t bits)
+{
+	Address& address = operand.address;
+	ModuleValue initial(bits + static_cast<uint64_t>(address.symbol.addend));
+	if (!absolute)
+		initial.positive = address.symbol.symbol;
+	ModuleCursor cursor(source_, static_cast<uint32_t>(pos_), line_, column_, &symbols_);
+	const ModuleValue value = assembly_instruction_addend(cursor, *expressions_, initial);
+	column_ += cursor.position() - pos_;
+	pos_ = cursor.position();
+	if (!value.relocatable())
+	{
+		if (address.relocation != Relocation::Address)
+			fail("absolute assembly symbols have no relocation");
+		operand.kind = OperandKind::Immediate;
+		operand.immediate = value.bits;
+		return;
+	}
+	if (value.positive == asm_model::kNoId ||
+		(value.negative != asm_model::kNoId && address.relocation != Relocation::Address))
+		fail("assembly instruction expression cannot use this symbol difference");
+	address.symbol.symbol = value.positive;
+	address.subtrahend = value.negative;
+	address.displacement = static_cast<int64_t>(value.bits);
+}
+
 bool Parser::symbol(Operand& operand)
 {
 	space();
@@ -569,7 +599,9 @@ bool Parser::symbol(Operand& operand)
 			return false;
 		if (lookup_ != nullptr && !numeric)
 		{
-			if (!lookup_->lookup(name, reference))
+			if (name == "." && expressions_ != nullptr && dialect_ == asm_model::Dialect::Att)
+				reference.symbol = 0;
+			else if (!lookup_->lookup(name, reference))
 				return false;
 		}
 		else
@@ -595,6 +627,11 @@ bool Parser::symbol(Operand& operand)
 			fail("unsupported assembly symbol relocation");
 	}
 	space();
+	if (expressions_ != nullptr && reference.symbol != asm_model::kNoId && dialect_ == asm_model::Dialect::Att)
+	{
+		module_symbol_addend(operand, absolute, bits);
+		return true;
+	}
 	if (current() == '+' || current() == '-')
 	{
 		size_t next = pos_ + 1;
@@ -646,7 +683,7 @@ Operand Parser::target()
 		const bool numeric = current() >= '0' && current() <= '9';
 		symbol(result);
 		result.numeric_branch = numeric && result.address.displacement == 0 &&
-			result.address.relocation == Relocation::Address;
+			result.address.relocation == Relocation::Address && result.address.subtrahend == asm_model::kNoId;
 		return result;
 	}
 	result.kind = OperandKind::Label;
@@ -1015,9 +1052,10 @@ std::vector<Instruction> Parser::run()
 } // namespace
 
 std::vector<Instruction> parse(const std::string& source, asm_model::Dialect dialect,
-	const std::vector<SymbolUse>& symbols, const std::vector<LabelUse>& labels, SymbolLookup* lookup, Syntax* state)
+	const std::vector<SymbolUse>& symbols, const std::vector<LabelUse>& labels, SymbolLookup* lookup, Syntax* state,
+	ExpressionSymbols* expressions)
 {
-	return Parser(source, dialect, symbols, labels, lookup, state).run();
+	return Parser(source, dialect, symbols, labels, lookup, state, expressions).run();
 }
 
 } // namespace assembly

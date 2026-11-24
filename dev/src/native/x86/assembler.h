@@ -31,7 +31,8 @@ struct CodeFixup
 {
 	uint32_t offset;
 	uint32_t target; // image symbol
-	int32_t addend;
+	int64_t addend;
+	uint32_t subtrahend = 0xffffffffu; // symbolic difference, when present
 	uint8_t end; // bytes from the PC-relative field to the instruction end, or the absolute field width
 	bool absolute;
 	bool branch; // a call's or jump's target (else an address or operand)
@@ -51,9 +52,10 @@ struct RM
 	bool absolute_symbol = false;
 	bool address32 = false;
 	bool ip_relative = false;
-	int32_t disp = 0;
+	int64_t disp = 0;
 	uint32_t symbol = 0xffffffffu; // image symbol, normally RIP-relative
-	uint32_t label = 0xffffffffu;  // RIP-relative local label
+	uint32_t subtrahend = 0xffffffffu;
+	uint32_t label = 0xffffffffu; // RIP-relative local label
 
 	static RM r(Reg reg)
 	{
@@ -61,7 +63,7 @@ struct RM
 		rm.reg = reg;
 		return rm;
 	}
-	static RM m(Reg base, int32_t disp, Reg index = kNoReg, uint8_t scale = 1)
+	static RM m(Reg base, int64_t disp, Reg index = kNoReg, uint8_t scale = 1)
 	{
 		RM rm;
 		rm.is_reg = false;
@@ -71,7 +73,7 @@ struct RM
 		rm.disp = disp;
 		return rm;
 	}
-	static RM rip(uint32_t symbol, int32_t addend)
+	static RM rip(uint32_t symbol, int64_t addend)
 	{
 		RM rm;
 		rm.is_reg = false;
@@ -130,7 +132,8 @@ public:
 		bool byte_regs = false, unsigned imm_bytes = 0);
 	// [REX] opcode+reg (for B8+r, C8+r, ...).
 	void op_plus(uint8_t prefix, bool rex_w, uint8_t opcode, Reg reg);
-	void symbol_immediate(uint32_t target, int32_t addend, uint8_t bytes, bool sign_extended);
+	void symbol_immediate(
+		uint32_t target, int64_t addend, uint8_t bytes, bool sign_extended, uint32_t subtrahend = 0xffffffffu);
 
 	// Common forms.
 	void mov_rr(Reg dst, Reg src);                                    // 64-bit

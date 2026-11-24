@@ -8,6 +8,8 @@
 
 namespace assembly {
 
+struct ExpressionSymbols;
+
 enum class OperandKind : uint8_t
 {
 	Register,
@@ -48,9 +50,10 @@ struct Address
 	bool has_index = false;
 	uint8_t scale = 1;
 	uint8_t segment = 0; // optional x86 segment override
-	int32_t displacement = 0;
+	int64_t displacement = 0;
 	bool rip = false;
 	asm_model::SymbolReference symbol;
+	uint32_t subtrahend = asm_model::kNoId;
 	Relocation relocation = Relocation::Address;
 	std::string local;
 	uint32_t label = asm_model::kNoId;
@@ -127,6 +130,6 @@ struct Syntax
 // An optional state carries dialect/prefix switches across module buffers.
 std::vector<Instruction> parse(const std::string& source, asm_model::Dialect dialect,
 	const std::vector<SymbolUse>& symbols = {}, const std::vector<LabelUse>& labels = {},
-	SymbolLookup* lookup = nullptr, Syntax* state = nullptr);
+	SymbolLookup* lookup = nullptr, Syntax* state = nullptr, ExpressionSymbols* expressions = nullptr);
 
 } // namespace assembly

@@ -28,8 +28,9 @@ public:
 	ModuleCursor(const ModuleLine& line, const std::vector<SymbolUse>& symbols)
 		: source_(line.text), symbols_(&symbols), line_(line.line)
 	{}
-	ModuleCursor(const std::string& source, uint32_t first, uint32_t line, uint32_t column)
-		: source_(source), line_(line), first_(first), column_(column), position_(first)
+	ModuleCursor(const std::string& source, uint32_t first, uint32_t line, uint32_t column,
+		const std::vector<SymbolUse>* symbols = nullptr)
+		: source_(source), symbols_(symbols), line_(line), first_(first), column_(column), position_(first)
 	{}
 	char current() const { return position_ < source_.size() ? source_[position_] : '\0'; }
 	bool starts_with(const char* text, size_t size) const { return source_.compare(position_, size, text, size) == 0; }

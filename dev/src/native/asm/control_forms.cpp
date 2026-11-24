@@ -54,8 +54,8 @@ void encode_control_form(
 		if (prefix != 0)
 			out.byte(prefix);
 		out.byte(0x68);
-		out.symbol_immediate(
-			operand.address.symbol.symbol, operand.address.displacement, bits == 16 ? 2 : 4, bits == 64);
+		out.symbol_immediate(operand.address.symbol.symbol, operand.address.displacement, bits == 16 ? 2 : 4,
+			bits == 64, operand.address.subtrahend);
 	}
 	else if (operand.kind == OperandKind::Register)
 	{
@@ -243,7 +243,8 @@ void encode_far_branch(Assembler& out, const assembly::Instruction& inst, const 
 		out.byte(0x66);
 	out.byte(form.opcode);
 	if (address.kind == OperandKind::Symbol && address.address.relocation == assembly::Relocation::Address)
-		out.symbol_immediate(address.address.symbol.symbol, address.address.displacement, bits / 8, false);
+		out.symbol_immediate(
+			address.address.symbol.symbol, address.address.displacement, bits / 8, false, address.address.subtrahend);
 	else if (address.kind == OperandKind::Immediate &&
 		fits_operation(static_cast<int64_t>(address.immediate), bits / 8))
 		out.imm(address.immediate, bits / 8);
@@ -278,6 +279,8 @@ bool encode_assembly_branch(Assembler& out, const assembly::Instruction& inst, c
 		(target.address.relocation == assembly::Relocation::Address ||
 			target.address.relocation == assembly::Relocation::Plt))
 	{
+		if (target.address.subtrahend != asm_model::kNoId)
+			fail(inst, "direct branch does not support a symbol difference");
 		if (condition >= 0)
 			out.jcc_symbol(static_cast<Cond>(condition), target.address.symbol.symbol);
 		else if (call)

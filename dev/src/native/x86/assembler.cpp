@@ -103,12 +103,14 @@ void Assembler::imm(int64_t value, unsigned bytes)
 		code_.push_back(static_cast<uint8_t>(static_cast<uint64_t>(value) >> (8 * k)));
 }
 
-void Assembler::symbol_immediate(uint32_t target, int32_t addend, uint8_t bytes, bool sign_extended)
+void Assembler::symbol_immediate(
+	uint32_t target, int64_t addend, uint8_t bytes, bool sign_extended, uint32_t subtrahend)
 {
 	CodeFixup fixup;
 	fixup.offset = size();
 	fixup.target = target;
 	fixup.addend = addend;
+	fixup.subtrahend = subtrahend;
 	fixup.end = bytes;
 	fixup.absolute = true;
 	fixup.branch = false;
@@ -120,7 +122,7 @@ void Assembler::symbol_immediate(uint32_t target, int32_t addend, uint8_t bytes,
 void Assembler::displacement32(const RM& rm)
 {
 	if (rm.absolute_symbol)
-		symbol_immediate(rm.symbol, rm.disp, 4, !rm.address32);
+		symbol_immediate(rm.symbol, rm.disp, 4, !rm.address32, rm.subtrahend);
 	else
 		imm(rm.disp, 4);
 }

@@ -58,11 +58,13 @@ private:
 	struct DataRelocation
 	{
 		uint64_t offset;
+		uint64_t anchor;
 		uint64_t addend;
 		uint32_t section;
 		uint32_t positive;
 		uint32_t negative;
 		unsigned bytes;
+		uint32_t absolute_type;
 	};
 	std::vector<DataRelocation> data_relocations_;
 	struct DeferredSymbolValue
