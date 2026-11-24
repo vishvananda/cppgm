@@ -977,9 +977,9 @@ void FunctionLowering::materialize_prvalue(const syntax::Expr& expr, lowir::Valu
 	// A class prvalue initializes the object it is materialized in (12.2,
 	// 12.8p31): `T(args)`, `T{...}` and `T()` construct there.
 	const syntax::Expr* e = WithoutParentheses(&expr);
-	if (e->kind == syntax::ExprKind::Generic)
+	if (e->kind == syntax::ExprKind::Selection)
 	{
-		materialize_prvalue(*static_cast<const syntax::GenericExpr&>(*e).selected, object, location);
+		materialize_prvalue(*static_cast<const syntax::SelectionExpr&>(*e).selected, object, location);
 		return;
 	}
 	if (e->kind == syntax::ExprKind::Coroutine)
@@ -1268,8 +1268,8 @@ lowir::Value FunctionLowering::temporary_object(const syntax::Expr& expr, bool p
 			}
 		return temporary_object(*e->facts->replacement, persistent, kind);
 	}
-	if (e->kind == syntax::ExprKind::Generic)
-		return temporary_object(*static_cast<const syntax::GenericExpr&>(*e).selected, persistent, kind);
+	if (e->kind == syntax::ExprKind::Selection)
+		return temporary_object(*static_cast<const syntax::SelectionExpr&>(*e).selected, persistent, kind);
 	if (e->kind == syntax::ExprKind::Binary && static_cast<const syntax::BinaryExpr*>(e)->op == TokenKind::OP_COMMA &&
 		(e->facts->flags & sema::kOperatorCall) == 0)
 	{

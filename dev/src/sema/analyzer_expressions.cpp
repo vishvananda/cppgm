@@ -350,7 +350,9 @@ ExprFacts* Analyzer::typed_form(const syntax::Expr& expr, Scope* scope)
 		expr.facts = inner;
 		return inner;
 	}
-	case syntax::ExprKind::Generic:
+	case syntax::ExprKind::Selection:
+		if (static_cast<const syntax::SelectionExpr&>(expr).selection == syntax::SelectionKind::Choose)
+			return choose_expression(static_cast<const syntax::ChooseExpr&>(expr), scope);
 		return generic_selection(static_cast<const syntax::GenericExpr&>(expr), scope);
 	case syntax::ExprKind::Requires:
 		return requires_expression(static_cast<const syntax::RequiresExpr&>(expr), scope);

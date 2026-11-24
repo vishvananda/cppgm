@@ -1254,8 +1254,18 @@ Expr* SyntaxCloner::expr(const Expr* expr)
 		if (collecting_ != nullptr)
 			return result;
 		break;
-	case ExprKind::Generic:
+	case ExprKind::Selection:
 	{
+		if (static_cast<const SelectionExpr*>(expr)->selection == SelectionKind::Choose)
+		{
+			ChooseExpr* choice = copy(static_cast<const ChooseExpr*>(expr));
+			choice->control = this->expr(choice->control);
+			choice->then_expr = this->expr(choice->then_expr);
+			choice->else_expr = this->expr(choice->else_expr);
+			choice->selected = nullptr;
+			result = choice;
+			break;
+		}
 		GenericExpr* generic = copy(static_cast<const GenericExpr*>(expr));
 		generic->control = this->expr(generic->control);
 		generic->selected = nullptr;

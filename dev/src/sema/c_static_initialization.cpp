@@ -75,8 +75,8 @@ bool ConstantInterpreter::c_static_initializer_operands(const syntax::Expr& expr
 				if (const syntax::Expr* operand = static_cast<const syntax::SizeofExpr*>(bound)->operand)
 					pending.push_back(operand);
 			break;
-		case ExprKind::Generic:
-			pending.push_back(static_cast<const syntax::GenericExpr*>(bound)->selected);
+		case ExprKind::Selection:
+			pending.push_back(static_cast<const syntax::SelectionExpr*>(bound)->selected);
 			break;
 		case ExprKind::Cast:
 			AppendBounds(analyzer_.graph_.runtime_bounds(bound), pending);
@@ -199,8 +199,8 @@ static RegisterObject CRegisterObject(const syntax::Expr* expr)
 		case ExprKind::Paren:
 			expr = static_cast<const syntax::ParenExpr*>(expr)->inner;
 			break;
-		case ExprKind::Generic:
-			expr = static_cast<const syntax::GenericExpr*>(expr)->selected;
+		case ExprKind::Selection:
+			expr = static_cast<const syntax::SelectionExpr*>(expr)->selected;
 			break;
 		case ExprKind::Member:
 		{

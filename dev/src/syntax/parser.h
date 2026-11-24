@@ -459,6 +459,7 @@ private:
 	Decl* parse_concept_definition();
 	bool parse_requirement(Requirement& requirement);
 	Expr* parse_generic_selection();
+	Expr* parse_choose_expression();
 	Expr* parse_parenthesized_or_cast();
 	bool at_compound_literal(const TypeId* type);
 	Expr* compound_literal(const TypeId* type, uint32_t start, uint8_t storage = 0);

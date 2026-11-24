@@ -380,6 +380,10 @@ The first fixture set covers these parts of the C17 input profile:
   category. The control and unselected associations are not evaluated.
   Diagnose compatible types in the same association list and a controlling
   type compatible with more than one association.
+- GNU `__builtin_choose_expr` takes an integer constant condition and two
+  expressions. Check both expressions for validity. Evaluate only the selected
+  expression and preserve its type and value category, including array,
+  function, and bit-field properties.
 - In C, accept GNU `__builtin_tgmath`. The first function's prototype gives
   the number of trailing call arguments, and at least two candidates are
   required. Validate the signatures as one type-generic family and select

@@ -2332,8 +2332,8 @@ const sema::VariableEntity* FunctionLowering::designated_bit_field(const syntax:
 const syntax::MemberExpr* FunctionLowering::bit_field_access(const syntax::Expr& expr, bool& found)
 {
 	const syntax::Expr* e = WithoutParentheses(&expr);
-	if (e->kind == syntax::ExprKind::Generic)
-		return bit_field_access(*static_cast<const syntax::GenericExpr&>(*e).selected, found);
+	if (e->kind == syntax::ExprKind::Selection)
+		return bit_field_access(*static_cast<const syntax::SelectionExpr&>(*e).selected, found);
 	found = false;
 	const sema::ExprFacts* facts = e->facts;
 	if (facts == nullptr || facts->entity == nullptr || facts->entity->kind != sema::EntityKind::Variable)
@@ -2359,8 +2359,8 @@ RValue FunctionLowering::bit_field_value(const syntax::Expr& expr)
 {
 	// The value of a glvalue designating a bit-field.
 	const syntax::Expr* e = WithoutParentheses(&expr);
-	if (e->kind == syntax::ExprKind::Generic)
-		return bit_field_value(*static_cast<const syntax::GenericExpr&>(*e).selected);
+	if (e->kind == syntax::ExprKind::Selection)
+		return bit_field_value(*static_cast<const syntax::SelectionExpr&>(*e).selected);
 	switch (e->kind)
 	{
 	case syntax::ExprKind::Assign:
@@ -2571,8 +2571,8 @@ RValue FunctionLowering::update_bit_field(const syntax::Expr& target, BitFieldUp
 bool FunctionLowering::resolve_bit_field(const syntax::Expr& target, BitField& field, Place& unit)
 {
 	const syntax::Expr* e = WithoutParentheses(&target);
-	if (e->kind == syntax::ExprKind::Generic)
-		return resolve_bit_field(*static_cast<const syntax::GenericExpr&>(*e).selected, field, unit);
+	if (e->kind == syntax::ExprKind::Selection)
+		return resolve_bit_field(*static_cast<const syntax::SelectionExpr&>(*e).selected, field, unit);
 	switch (e->kind)
 	{
 	case syntax::ExprKind::Binary:

@@ -9,6 +9,8 @@
 // and the type traits and transforms (__is_class ...). Hosted headers ask
 // `__has_builtin` before using an optional one; it answers from these
 // registries, which the parser and analyzer read the names from.
+constexpr char kGnuChooseExpr[] = "__builtin_choose_expr";
+
 uint32_t ProvidedBuiltinVersion(const char* spelling, uint32_t length, bool wasm = false, bool cxx20 = false,
 	bool c_source = false, bool c23 = false);
 

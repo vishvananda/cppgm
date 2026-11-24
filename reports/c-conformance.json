@@ -119,6 +119,24 @@
       "cases": ["expression.pointer-order-extension"]
     },
     {
+      "id": "expression.gnu-choose",
+      "clause": "GNU C __builtin_choose_expr",
+      "kind": "gnu",
+      "editions": [90, 95, 99, 11, 17, 23],
+      "environment": "all",
+      "requirement": "Evaluate only the arm selected by an integer constant condition and preserve its type and value category.",
+      "cases": ["expression.choose"]
+    },
+    {
+      "id": "expression.gnu-choose-constraints",
+      "clause": "GNU C __builtin_choose_expr",
+      "kind": "gnu",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Reject a nonconstant condition or an invalid unselected expression. Test the condition at its full integer precision.",
+      "cases": ["expression.choose-runtime-condition", "expression.choose-invalid-arm", "c23.choose-wide-condition"]
+    },
+    {
       "id": "function.gnu-shutdown-attributes",
       "clause": "GNU C constructor and destructor attributes",
       "kind": "gnu",

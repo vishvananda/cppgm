@@ -310,8 +310,8 @@ RValue FunctionLowering::rvalue(const syntax::Expr& expr)
 	// (4.1) or decayed (4.2, 4.3), a prvalue computed.
 	const syntax::Expr* e = WithoutParentheses(&expr);
 	check_stack(e->location);
-	if (e->kind == syntax::ExprKind::Generic)
-		return rvalue(*static_cast<const syntax::GenericExpr&>(*e).selected);
+	if (e->kind == syntax::ExprKind::Selection)
+		return rvalue(*static_cast<const syntax::SelectionExpr&>(*e).selected);
 	const DebugScope debug(*this, e->location);
 	const sema::ExprFacts* facts = e->facts;
 	if (facts == nullptr || facts->type == nullptr)
@@ -752,8 +752,8 @@ Place FunctionLowering::glvalue(const syntax::Expr& expr)
 		discard(*binary.left);
 		return glvalue(*binary.right);
 	}
-	case syntax::ExprKind::Generic:
-		return glvalue(*static_cast<const syntax::GenericExpr&>(*e).selected);
+	case syntax::ExprKind::Selection:
+		return glvalue(*static_cast<const syntax::SelectionExpr&>(*e).selected);
 	case syntax::ExprKind::Subscript:
 		return subscript(static_cast<const syntax::SubscriptExpr&>(*e));
 	case syntax::ExprKind::Member:

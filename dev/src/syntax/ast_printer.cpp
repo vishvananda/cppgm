@@ -1180,8 +1180,18 @@ void AstDumper::operand(const Expr& expr)
 		close();
 		break;
 	}
-	case ExprKind::Generic:
+	case ExprKind::Selection:
 	{
+		if (static_cast<const SelectionExpr&>(expr).selection == SelectionKind::Choose)
+		{
+			const auto& choice = static_cast<const ChooseExpr&>(expr);
+			open("choose-expression");
+			expression(*choice.control);
+			expression(*choice.then_expr);
+			expression(*choice.else_expr);
+			close();
+			break;
+		}
 		const GenericExpr& generic = static_cast<const GenericExpr&>(expr);
 		open("generic-selection");
 		expression(*generic.control);

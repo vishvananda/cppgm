@@ -601,8 +601,20 @@ void SyntaxRenderer::operand(const Expr& expr)
 		text("}");
 		break;
 	}
-	case ExprKind::Generic:
+	case ExprKind::Selection:
 	{
+		if (static_cast<const SelectionExpr&>(expr).selection == SelectionKind::Choose)
+		{
+			const auto& choice = static_cast<const ChooseExpr&>(expr);
+			text("__builtin_choose_expr(");
+			expression(*choice.control);
+			text(",");
+			expression(*choice.then_expr);
+			text(",");
+			expression(*choice.else_expr);
+			text(")");
+			break;
+		}
 		const GenericExpr& generic = static_cast<const GenericExpr&>(expr);
 		text("_Generic(");
 		expression(*generic.control);

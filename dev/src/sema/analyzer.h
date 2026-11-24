@@ -729,6 +729,7 @@ private:
 	ExprFacts* cast_expression(const syntax::CastExpr& expr, Scope* scope);
 	ExprFacts* functional_cast(const syntax::FunctionalCastExpr& expr, Scope* scope);
 	ExprFacts* generic_selection(const syntax::GenericExpr& expr, Scope* scope);
+	ExprFacts* choose_expression(const syntax::ChooseExpr& expr, Scope* scope);
 	ExprFacts* requires_expression(const syntax::RequiresExpr& expr, Scope* scope);
 	void concept_declaration(const syntax::ConceptDecl& decl, Scope* scope);
 	ExprFacts* concept_reference(const syntax::IdExpr& expr, Scope* scope);

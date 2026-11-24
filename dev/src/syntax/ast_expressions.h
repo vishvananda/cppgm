@@ -43,8 +43,8 @@ enum class ExprKind : uint8_t
 	BuiltinTrait,
 	// C++17's fold-expression (a hosted-header extension in C++11 mode).
 	Fold,
-	// C11 generic selection; its controlling expression is unevaluated.
-	Generic,
+	// C11 generic selection or GNU C selection by an integer constant.
+	Selection,
 	Requires,
 	// A concept-id has IdExpr's written name and a boolean satisfaction fact.
 	Concept,
@@ -154,11 +154,28 @@ struct GenericAssociation
 	Expr* expression;
 };
 
-struct GenericExpr : Expr
+enum class SelectionKind : uint8_t
+{
+	Generic,
+	Choose
+};
+
+struct SelectionExpr : Expr
 {
 	Expr* control;
-	Slice<GenericAssociation> associations;
 	mutable const Expr* selected = nullptr;
+	SelectionKind selection;
+};
+
+struct GenericExpr : SelectionExpr
+{
+	Slice<GenericAssociation> associations;
+};
+
+struct ChooseExpr : SelectionExpr
+{
+	Expr* then_expr;
+	Expr* else_expr;
 };
 
 enum class RequirementKind : uint8_t

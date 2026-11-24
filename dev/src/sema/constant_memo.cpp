@@ -105,8 +105,8 @@ bool ConstantMemo::expression(const syntax::Expr* expr, const FunctionEntity* fu
 			expr->facts->entity->owner == function->scope;
 	case syntax::ExprKind::Paren:
 		return pure(static_cast<const syntax::ParenExpr*>(expr)->inner);
-	case syntax::ExprKind::Generic:
-		return pure(static_cast<const syntax::GenericExpr*>(expr)->selected);
+	case syntax::ExprKind::Selection:
+		return pure(static_cast<const syntax::SelectionExpr*>(expr)->selected);
 	case syntax::ExprKind::Binary:
 	{
 		const auto* binary = static_cast<const syntax::BinaryExpr*>(expr);

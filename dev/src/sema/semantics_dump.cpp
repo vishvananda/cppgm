@@ -1178,10 +1178,13 @@ void Printer::node(const Item& item, std::vector<Item>& stack)
 		header("requires-expression", category, type);
 		end();
 		return;
-	case syntax::ExprKind::Generic:
-		header("generic-selection", category, type);
+	case syntax::ExprKind::Selection:
+		header(static_cast<const syntax::SelectionExpr&>(*expr).selection == syntax::SelectionKind::Generic
+				? "generic-selection"
+				: "choose-expression",
+			category, type);
 		end();
-		push(stack, static_cast<const syntax::GenericExpr&>(*expr).selected, depth + 1);
+		push(stack, static_cast<const syntax::SelectionExpr&>(*expr).selected, depth + 1);
 		return;
 	case syntax::ExprKind::Conditional:
 	{

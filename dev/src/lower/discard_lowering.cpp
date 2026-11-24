@@ -124,9 +124,9 @@ void FunctionLowering::discard(const syntax::Expr& expr)
 	// volatile lvalue in one of read_when_discarded's forms is also read
 	// (the lvalue-to-rvalue conversion is applied).
 	const syntax::Expr* e = WithoutParentheses(&expr);
-	if (e->kind == syntax::ExprKind::Generic)
+	if (e->kind == syntax::ExprKind::Selection)
 	{
-		discard(*static_cast<const syntax::GenericExpr&>(*e).selected);
+		discard(*static_cast<const syntax::SelectionExpr&>(*e).selected);
 		return;
 	}
 	check_stack(e->location);

@@ -35,6 +35,7 @@ C95_WIDE_HEADERS = ROOT / 'scripts/tests/c_c95_wide_headers.c'
 PA38_GENERAL = ROOT / 'pa38/tests/general'
 DISCARDED_FALLTHROUGH = PA38_GENERAL / '300-c-nonvoid-discarded-fallthrough.t'
 C_PORTABLE_PROGRAMS = {
+    'expression.choose': PA38_GENERAL / '500-builtin-choose-expr.t',
     'function.ignored-fallthrough': DISCARDED_FALLTHROUGH,
     'expression.pointer-order': PA38_GENERAL / '300-c-pointer-order.t',
     'expression.pointer-order-extension': PA38_GENERAL / '300-c-pointer-order-extension.t',
@@ -58,6 +59,8 @@ LEGACY_VERSION_PROBES = {
     95: PA38_GENERAL / '100-c95-digraphs.t',
 }
 C23_SOURCE_REJECTIONS = (
+    ('expression.choose-runtime-condition', '500-builtin-choose-condition-bad.t', 'compile'),
+    ('expression.choose-invalid-arm', '500-builtin-choose-unselected-bad.t', 'compile'),
     ('c23.trigraph-default', '100-c23-trigraphs-bad.t', 'compile'),
     ('c23.attribute-probe-context', '100-c23-attribute-probe-context-bad.t', 'compile'),
     ('c23.attribute-probe-operand', '100-c23-attribute-probe-operand-bad.t', 'compile'),
@@ -186,6 +189,7 @@ C23_EMBED_SOURCE = PA38_GENERAL / '100-c23-embed.t'
 C23_EMBED_FIXTURES = C23_EMBED_SOURCE.with_suffix('.inc')
 SIZEOF_COMPOUND = PA38_GENERAL / '300-c99-sizeof-compound-literal.t'
 C23_PROGRAMS = {
+    'c23.choose-wide-condition': (PA38_GENERAL / '500-c23-builtin-choose-wide.t', ()),
     'compound.sizeof': (SIZEOF_COMPOUND, ()),
     'include.query': (INCLUDE_QUERY, ('-I' + str(INCLUDE_QUERY.parent),)),
     'c23.attribute-probe': (PA38_GENERAL / '100-c23-attribute-probe.t', ()),

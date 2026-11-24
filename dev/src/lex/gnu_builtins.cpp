@@ -1004,6 +1004,8 @@ uint32_t ProvidedBuiltinVersion(const char* spelling, uint32_t length, bool wasm
 		if (Compare(name, spelling, length) == 0)
 			return true;
 	}
+	if (c_source && Compare(kGnuChooseExpr, spelling, length) == 0)
+		return 1;
 	GnuTrait trait;
 	GnuBuiltinEntry entry;
 	if (FindGnuTrait(spelling, length, trait))

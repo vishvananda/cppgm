@@ -130,8 +130,8 @@ bool Analyzer::c_integer_constant_operands(const syntax::Expr& root, bool arithm
 			if (!CObjectConstant(expr))
 				return false;
 			break;
-		case ExprKind::Generic:
-			pending.push_back(static_cast<const syntax::GenericExpr*>(expr)->selected);
+		case ExprKind::Selection:
+			pending.push_back(static_cast<const syntax::SelectionExpr*>(expr)->selected);
 			break;
 		case ExprKind::Cast:
 		{

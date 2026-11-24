@@ -1269,8 +1269,14 @@ Expr* Parser::parse_primary_expression()
 	}
 	if (token.is_identifier())
 	{
-		if (c_source_ && gnu_names_.kind(token.identifier) == GnuNames::kCGeneric)
-			return parse_generic_selection();
+		if (c_source_)
+		{
+			const uint8_t kind = gnu_names_.kind(token.identifier);
+			if (kind == GnuNames::kCGeneric)
+				return parse_generic_selection();
+			if (kind == GnuNames::kChooseExpr)
+				return parse_choose_expression();
+		}
 		GnuTrait trait;
 		if (at_trait(trait) && !IsGnuTypeTransform(trait))
 		{

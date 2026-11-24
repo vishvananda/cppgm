@@ -84,8 +84,8 @@ void InvocationOperands(const syntax::Expr& expr, Expressions& pending)
 		pending.push_back(static_cast<const syntax::FoldExpr&>(expr).pattern);
 		pending.push_back(static_cast<const syntax::FoldExpr&>(expr).init);
 		break;
-	case syntax::ExprKind::Generic:
-		pending.push_back(static_cast<const syntax::GenericExpr&>(expr).selected);
+	case syntax::ExprKind::Selection:
+		pending.push_back(static_cast<const syntax::SelectionExpr&>(expr).selected);
 		break;
 	case syntax::ExprKind::BuiltinTrait:
 		pending.push_back(static_cast<const syntax::BuiltinTraitExpr&>(expr).operand);

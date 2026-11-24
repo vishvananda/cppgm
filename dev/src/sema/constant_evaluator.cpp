@@ -207,12 +207,12 @@ bool ConstantEvaluator::eval(const syntax::Expr& expr, Constant& value)
 		value = boolean(facts->value != 0);
 		return true;
 	}
-	case syntax::ExprKind::Generic:
+	case syntax::ExprKind::Selection:
 	{
-		const auto& generic = static_cast<const syntax::GenericExpr&>(expr);
-		if (generic.selected == nullptr && analyzer_.typed(expr, scope_) == nullptr)
+		const auto& selection = static_cast<const syntax::SelectionExpr&>(expr);
+		if (selection.selected == nullptr && analyzer_.typed(expr, scope_) == nullptr)
 			return false;
-		return eval(*generic.selected, value);
+		return eval(*selection.selected, value);
 	}
 	case syntax::ExprKind::Id:
 		return identifier(static_cast<const syntax::IdExpr&>(expr), value);

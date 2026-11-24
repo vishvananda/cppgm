@@ -80,8 +80,8 @@ bool ConstantInterpreter::temporary(const syntax::Expr& expr, ConstPlace& out)
 	// [class.temporary]: queue the materialized object after construction,
 	// so its destruction precedes the argument temporaries it used.
 	const syntax::Expr* e = WithoutParentheses(&expr);
-	if (e->kind == syntax::ExprKind::Generic)
-		return temporary(*static_cast<const syntax::GenericExpr&>(*e).selected, out);
+	if (e->kind == syntax::ExprKind::Selection)
+		return temporary(*static_cast<const syntax::SelectionExpr&>(*e).selected, out);
 	const Type* type = e->facts->type;
 	const bool array = type->kind == TypeKind::Array;
 	const bool prefix = array || ClassOf(type) != nullptr;

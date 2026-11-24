@@ -28,7 +28,8 @@ public:
 	static const uint8_t kCNoReturn = 0xf9;
 	static const uint8_t kCGeneric = 0xf8;
 	static const uint8_t kCAutoType = 0xf7;
-	static const uint8_t kFirstSpecial = kCAutoType;
+	static const uint8_t kChooseExpr = 0xf6;
+	static const uint8_t kFirstSpecial = kChooseExpr;
 
 	explicit GnuNames(IdentifierTable& identifiers)
 	{
@@ -55,6 +56,7 @@ public:
 			mark(identifiers, "_Noreturn", kCNoReturn);
 			mark(identifiers, "_Generic", kCGeneric);
 			mark(identifiers, "__auto_type", kCAutoType);
+			mark(identifiers, kGnuChooseExpr, kChooseExpr);
 		}
 	}
 
