@@ -104,17 +104,55 @@ bool encode_system_register_move(Assembler& out, const assembly::Instruction& in
 	return true;
 }
 
+namespace {
+
+void segment_selector(Assembler& out, const assembly::Instruction& inst, const asm_detail::Form& form, unsigned suffix)
+{
+	using asm_model::RegisterBank;
+	using x86_asm_model::Encoding;
+	const bool query = form.encoding == Encoding::DescriptorQuery;
+	if (inst.operands.size() != (query ? 2u : 1u))
+		fail(inst, "incorrect selector operand count");
+	const assembly::Operand& source = inst.operands.back();
+	const unsigned source_bits = source.bits;
+	if (source.kind == OperandKind::Register
+			? source.reg.bank != RegisterBank::Gpr || (source_bits != 16 && source_bits != 32 && source_bits != 64)
+			: source.kind != OperandKind::Memory || (source_bits != 0 && source_bits != 16))
+		fail(inst, "invalid selector register or memory width");
+	const auto& first = inst.operands[0];
+	const unsigned bits = suffix != 0 ? suffix : first.bits != 0 ? first.bits : 16;
+	if (bits != 16 && bits != 32 && bits != 64)
+		fail(inst, "invalid selector instruction width");
+	if (query)
+	{
+		if (first.kind != OperandKind::Register || first.reg.bank != RegisterBank::Gpr || first.bits != bits)
+			fail(inst, "selector query requires a general register destination");
+		out.op(bits == 16 ? 0x66 : 0, false, form.opcode, 2, asm_detail::physical(first.reg, inst), rm(source, inst));
+	}
+	else
+	{
+		if ((form.bits != 0 && bits != form.bits) || (source_bits != 0 && source_bits != bits))
+			fail(inst, "invalid selector instruction width");
+		const unsigned prefix = form.bits == 0 && source.kind == OperandKind::Register && bits == 16 ? 0x66 : 0;
+		out.op(prefix, false, form.opcode >> 8, 2, form.opcode & 255, rm(source, inst));
+	}
+}
+
+} // namespace
+
 void encode_system_form(
 	Assembler& out, const assembly::Instruction& inst, const asm_detail::Form& form, unsigned suffix)
 {
 	using E = asm_detail::Encoding;
 	if (inst.prefix != 0)
 		fail(inst, "invalid system instruction prefix");
+	if (form.encoding == E::SystemWord || form.encoding == E::DescriptorQuery)
+		return segment_selector(out, inst, form, suffix);
 	if (form.encoding == E::ControlMemory)
 	{
 		if (inst.operands.size() != 1 || inst.operands[0].kind != OperandKind::Memory)
 			fail(inst, "expected one memory operand");
-		out.op(0, false, form.opcode >> 8, 2, form.opcode & 255, rm(inst.operands[0], inst));
+		out.op(0, form.bits == 64, form.opcode >> 8, 2, form.opcode & 255, rm(inst.operands[0], inst));
 		return;
 	}
 	if (form.encoding == E::NonTemporalStore)

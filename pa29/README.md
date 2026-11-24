@@ -102,7 +102,7 @@ repeat prefixes against string instructions. Implicit register operands and
 their clobbers remain the producer's responsibility.
 Use the width of the address registers to select 32-bit or 64-bit addressing.
 Support explicit control, debug and segment register transfers, descriptor-table
-operations, port I/O and non-temporal integer stores. Inspect privileged
+operations, port I/O, state save/restore and non-temporal memory forms. Inspect privileged
 instructions in the object; execute only the user-mode paths in test drivers.
 The VEX form tables in `x86_asm_model.h` add XMM/YMM moves, packed and scalar
 arithmetic, comparisons, shuffles, variable/immediate shifts, lane

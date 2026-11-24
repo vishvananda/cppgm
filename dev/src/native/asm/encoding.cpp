@@ -147,6 +147,23 @@ void integer(Assembler& out, const assembly::Instruction& inst, const Form& form
 	}
 }
 
+void vector_insert(Assembler& out, const assembly::Instruction& inst, const Form& form)
+{
+	if (inst.prefix != 0 || inst.operands.size() != 3)
+		fail(inst, "expected a vector destination, scalar source and lane index");
+	const auto& dst = inst.operands[0];
+	const auto& src = inst.operands[1];
+	const auto& lane = inst.operands[2];
+	if (dst.kind != OperandKind::Register || dst.reg.bank != RegisterBank::Vector || dst.bits != 128 ||
+		(src.kind == OperandKind::Register
+				? src.reg.bank != RegisterBank::Gpr || src.bits != form.bits
+				: src.kind != OperandKind::Memory || (src.bits != 0 && src.bits != form.bits)) ||
+		lane.kind != OperandKind::Immediate || !fits_operation(static_cast<int64_t>(lane.immediate), 1))
+		fail(inst, "invalid scalar vector insert");
+	out.op(form.prefix, form.bits == 64, form.opcode, 3, physical(dst.reg, inst), rm(src, inst), false, 1);
+	out.byte(lane.immediate);
+}
+
 void vector(Assembler& out, const assembly::Instruction& inst, const Form& form)
 {
 	if (inst.operands.size() != 2)
@@ -167,7 +184,7 @@ void vector(Assembler& out, const assembly::Instruction& inst, const Form& form)
 		(other.kind == OperandKind::Register && (other.reg.bank != RegisterBank::Vector || other.bits != 128)) ||
 		(other.kind == OperandKind::Memory && other.bits != 0 && other.bits != form.bits))
 		fail(inst, "invalid vector register or memory form");
-	out.op(form.prefix, false, opcode, 2, physical(reg.reg, inst), rm(other, inst));
+	out.op(form.prefix, false, opcode, opcode > UINT16_MAX ? 3 : 2, physical(reg.reg, inst), rm(other, inst));
 }
 
 } // namespace
@@ -208,6 +225,8 @@ void encode_instruction(Assembler& out, const assembly::Instruction& inst)
 		encode_extend_form(out, inst, *form);
 		return;
 	}
+	if (form->encoding == Encoding::VectorInsert)
+		return vector_insert(out, inst, *form);
 	if (form->encoding >= Encoding::ControlMemory)
 	{
 		encode_system_form(out, inst, *form, suffix);

@@ -47,6 +47,45 @@ system_instructions:
     outl %eax,%dx
     movntiq %rax,(%rbx)
     movntil %ecx,12(%rdx)
+    verw %ax
+    verw 2(%rax)
+    sldt %ax
+    sldt %r8d
+    sldt %r9
+    sldt 12(%rax)
+    prefetcht0 8(%rax)
+    prefetcht1 16(%rax)
+    prefetcht2 24(%rax)
+    prefetchnta 32(%rax)
+    prefetchw 40(%rax)
+    lar %ax,%cx
+    lar %eax,%ecx
+    lar %rax,%rcx
+    larq (%rax),%r8
+    movntdqa 16(%rdi),%xmm0
+    punpcklqdq %xmm5,%xmm8
+    pinsrd $3,%r8d,%xmm0
+    pinsrq $1,%r8,%xmm11
+    xsaves64 (%rdi)
+    xsaves (%rdi)
+    xrstors64 (%rdi)
+    xrstors (%rdi)
+    xsave64 (%rdi)
+    xsave (%rdi)
+    xrstor64 (%rdi)
+    xrstor (%rdi)
+    xsaveopt (%rdi)
+    xsaveopt64 (%rdi)
+    xsavec (%rdi)
+    xsavec64 (%rdi)
+    wbinvd
+    monitorx
+    mwaitx
+    monitor
+    mwait
+    fninit
+    movq %db0,%rax
+    movq %r9,%db7
     iretq
 
 .data

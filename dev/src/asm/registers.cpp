@@ -28,7 +28,7 @@ struct Family
 const Family kFamilies[] = { { "xmm", RegisterBank::Vector, 32, 128 }, { "ymm", RegisterBank::Vector, 32, 256 },
 	{ "zmm", RegisterBank::Vector, 32, 512 }, { "mm", RegisterBank::Mmx, 8, 64 }, { "k", RegisterBank::Mask, 8, 64 },
 	{ "tmm", RegisterBank::Tile, 8, 8192 }, { "cr", RegisterBank::Control, 16, 64 },
-	{ "dr", RegisterBank::Debug, 16, 64 } };
+	{ "dr", RegisterBank::Debug, 16, 64 }, { "db", RegisterBank::Debug, 8, 64 } };
 
 bool number(const char* text, unsigned& value)
 {

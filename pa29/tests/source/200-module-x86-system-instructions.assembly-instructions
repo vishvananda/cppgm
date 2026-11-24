@@ -18,3 +18,16 @@ invlpg
 in
 out
 movnti
+verw
+sldt
+prefetcht0
+lar
+movntdqa
+punpcklqdq
+pinsrd
+xsaves64
+xrstors64
+wbinvd
+monitorx
+mwaitx
+fninit
