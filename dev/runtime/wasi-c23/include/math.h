@@ -47,6 +47,7 @@ double log2p1(double);
 float log2p1f(float);
 double rsqrt(double);
 float rsqrtf(float);
+long double rsqrtl(long double);
 
 double nextup(double);
 float nextupf(float);

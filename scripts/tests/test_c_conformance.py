@@ -108,6 +108,7 @@ class CoverageTests(unittest.TestCase):
         self.assertEqual(selected(self.native, 23)['library.c23-math-pi'], ('-lm',))
         self.assertEqual(selected(self.native, 23)['library.c23-math-representation'], ('-lm',))
         self.assertEqual(selected(self.native, 23)['library.c23-math-roundeven'], ('-lm',))
+        self.assertEqual(selected(self.native, 23)['library.c23-math-rsqrt-long-double'], ('-lm',))
         self.assertEqual(selected(self.native, 23)['library.c23-atomic-interfaces'], ('-latomic',))
         self.assertIn('library.c23-stdlib-interfaces', selected(self.native, 23))
         self.assertIn('library.c23-wide-searches', selected(self.native, 23))
@@ -134,6 +135,7 @@ class CoverageTests(unittest.TestCase):
         self.assertEqual(supplemented['library.c23-math-pi'], ())
         self.assertEqual(supplemented['library.c23-math-representation'], ())
         self.assertEqual(supplemented['library.c23-math-roundeven'], ())
+        self.assertEqual(supplemented['library.c23-math-rsqrt-long-double'], ())
         self.assertNotIn('library.c23-binary-stdio', supplemented)
         stdio_versions = {**checked, 'stdio': versions['stdio'], 'inttypes': versions['inttypes']}
         stdio_current = selected('wasi-c23-hosted', 23, c23=stdio_versions)

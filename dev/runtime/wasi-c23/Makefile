@@ -18,10 +18,12 @@ STDIO_OBJECTS := $(addprefix $(BUILD_DIR)/stdio/,$(addsuffix .o,$(STDIO_SOURCES)
 CORE_MATH_NAMES := acospi asinpi atan2pi atanpi cospi exp10m1 exp2m1 log10p1 log2p1 rsqrt sinpi tanpi
 CORE_MATH_F32_OBJECTS := $(addprefix $(BUILD_DIR)/core-math/,$(addsuffix f.o,$(CORE_MATH_NAMES)))
 CORE_MATH_F64_OBJECTS := $(addprefix $(BUILD_DIR)/core-math/,$(addsuffix .o,$(CORE_MATH_NAMES)))
+CORE_MATH_F128_OBJECTS := $(BUILD_DIR)/core-math/rsqrtl.o
+CORE_MATH_OBJECTS := $(CORE_MATH_F32_OBJECTS) $(CORE_MATH_F64_OBJECTS) $(CORE_MATH_F128_OBJECTS)
 OBJECTS := $(addprefix $(BUILD_DIR)/,stdbit.o memalignment.o memset_explicit.o timespec_getres.o utf8.o \
 	binary_conversion.o sized_free.o atomic_functions.o call_once.o strfrom.o fenv.o temporary_files.o \
 	math_representation.o math_classification.o math_extrema.o math_rounding.o) $(STDIO_OBJECTS) \
-	$(CORE_MATH_F32_OBJECTS) $(CORE_MATH_F64_OBJECTS)
+	$(CORE_MATH_OBJECTS)
 RUNTIME_CFLAGS := --target=wasm32-wasip1 --sysroot="$(WASI_SYSROOT)" -resource-dir="$(RESOURCE_DIR)" \
 	-x c -std=c23 -pedantic-errors -isystem "$(BUILD_DIR)/include" -O2
 
@@ -59,9 +61,10 @@ $(STDIO_OBJECTS): $(BUILD_DIR)/stdio/%.o: stdio/%.c Makefile | $(HEADERS)
 
 $(CORE_MATH_F32_OBJECTS): CORE_MATH_FORMAT := binary32
 $(CORE_MATH_F64_OBJECTS): CORE_MATH_FORMAT := binary64
+$(CORE_MATH_F128_OBJECTS): CORE_MATH_FORMAT := binary128
 
 .SECONDEXPANSION:
-$(CORE_MATH_F32_OBJECTS) $(CORE_MATH_F64_OBJECTS): $(BUILD_DIR)/core-math/%.o: $(CORE_MATH)/$$(CORE_MATH_FORMAT)/%.c core_math_wasi.h Makefile | $(HEADERS)
+$(CORE_MATH_OBJECTS): $(BUILD_DIR)/core-math/%.o: $(CORE_MATH)/$$(CORE_MATH_FORMAT)/%.c core_math_wasi.h Makefile | $(HEADERS)
 	mkdir -p "$(@D)"
 	$(CC) $(filter-out -std=c23 -pedantic-errors,$(RUNTIME_CFLAGS)) -std=gnu23 -ffp-contract=off \
 		-include "$(abspath core_math_wasi.h)" -Dcr_$*=$* $(CPPFLAGS) $(CFLAGS) \

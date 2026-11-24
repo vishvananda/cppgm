@@ -26,7 +26,8 @@ class SourceRelease(unittest.TestCase):
                  'dev/runtime/wasi-c23/utf8.c', 'dev/runtime/wasi-c23/include/wchar.h',
                  'dev/runtime/wasi-c23/binary_conversion.c', 'dev/runtime/wasi-c23/sized_free.c',
                  'dev/runtime/wasi-c23/core_math_wasi.h', 'third_party/core-math/NOTICE',
-                 'third_party/core-math/binary32/sinpif.c', 'third_party/core-math/binary64/sinpi.c'}
+                 'third_party/core-math/binary32/sinpif.c', 'third_party/core-math/binary64/sinpi.c',
+                 'third_party/core-math/binary128/rsqrtl.c'}
         extras = {'dev/cppgm-scaffold.cpp', 'pa1/tests/case.t', 'pa1/tests/case.ref',
                   'pa1/scripts/run_all_tests.pl', 'benchmarks/input.cpp', 'README.md'}
         with tempfile.TemporaryDirectory() as directory:
