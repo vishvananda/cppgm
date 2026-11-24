@@ -29,6 +29,7 @@ RUN_STAGES = ('compile', 'link', 'run')
 THREAD_PREDEFINE = ROOT / 'scripts/tests/c_thread_predefine.c'
 C95_WIDE_HEADERS = ROOT / 'scripts/tests/c_c95_wide_headers.c'
 PA38_GENERAL = ROOT / 'pa38/tests/general'
+INCLUDE_QUERY = PA38_GENERAL / '100-c-has-include-header-operands.t'
 LEGACY_VERSION_PROBES = {
     90: PA38_GENERAL / '100-c90-version.t',
     95: PA38_GENERAL / '100-c95-digraphs.t',
@@ -137,6 +138,7 @@ C23_EMBED_FIXTURES = C23_EMBED_SOURCE.with_suffix('.inc')
 SIZEOF_COMPOUND = PA38_GENERAL / '300-c99-sizeof-compound-literal.t'
 C23_PROGRAMS = {
     'compound.sizeof': (SIZEOF_COMPOUND, ()),
+    'include.query': (INCLUDE_QUERY, ('-I' + str(INCLUDE_QUERY.parent),)),
     'c23.attribute-probe': (PA38_GENERAL / '100-c23-attribute-probe.t', ()),
     'c23.embed': (C23_EMBED_SOURCE, ('--embed-dir=' + str(C23_EMBED_FIXTURES / 'resources'),
                                     '-I' + str(C23_EMBED_FIXTURES / 'headers'))),
@@ -250,7 +252,6 @@ LONG_DOUBLE_PRECISION = {
 }
 INCLUDE_SOURCE = ROOT / 'pa38/tests/general/100-c-include-physical.t'
 STRING_SOURCE = ROOT / 'pa38/tests/general/500-c-string-code-units.t'
-INCLUDE_QUERY = ROOT / 'pa38/tests/general/100-c-has-include-header-operands.t'
 ERROR_SOURCE = ROOT / 'pa4/tests/directives/150-error-message.t'
 ERROR_MESSAGE = '#error DETAIL: physical message "payload"'
 
