@@ -265,6 +265,13 @@ ExprFacts* Analyzer::c_compound_literal(const syntax::FunctionalCastExpr& expr, 
 		error(expr.location, "a C compound literal cannot have variable length array type");
 	if (IsVoid(type) || type->kind == TypeKind::Function)
 		error(expr.location, "C compound literal requires an object type");
+	if (type->kind == TypeKind::Array && !type->has_array_bound() && expr.braced->elements.empty())
+	{
+		syntax::Initializer view{};
+		view.kind = syntax::InitializerKind::Braced;
+		view.expression = expr.braced;
+		type = complete_array_from_initializer(type, &view, true);
+	}
 	using Literal = syntax::FunctionalCastExpr;
 	const bool file_scope = scope == graph_.global;
 	const bool thread = expr.compound_has(Literal::ThreadLocal);

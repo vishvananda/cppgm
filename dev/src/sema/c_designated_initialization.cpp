@@ -399,7 +399,8 @@ private:
 				nodes_[destination].count = value.facts->type->bound;
 			return destination;
 		}
-		if (analyzer_.typed(value, scope_) == nullptr)
+		ExprFacts* facts = analyzer_.typed(value, scope_);
+		if (facts == nullptr)
 			return destination;
 		const Type* type = nodes_[destination].type;
 		while (IsSubaggregate(type) && !InitializesSubaggregate(type, value))
@@ -409,14 +410,14 @@ private:
 				analyzer_.error(value.location, "brace elision of an aggregate with no elements");
 			type = nodes_[destination].type;
 		}
-		syntax::Initializer view = syntax::Initializer();
-		view.kind = syntax::InitializerKind::Assign;
-		view.expression = const_cast<syntax::Expr*>(&value);
-		view.location = value.location;
-		analyzer_.initialize_object(type, view, scope_, value.location);
+		analyzer_.expression_scope_ = scope_;
+		if (type->kind == TypeKind::Array)
+			analyzer_.check_character_array(type, value, facts, value.location);
+		else
+			analyzer_.convert(value, type, false);
 		retain(destination, value, before);
 		if (type->kind == TypeKind::Array && !type->has_array_bound())
-			nodes_[destination].count = value.facts->type->bound;
+			nodes_[destination].count = facts->type->bound;
 		return destination;
 	}
 

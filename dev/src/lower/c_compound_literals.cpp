@@ -56,6 +56,8 @@ lowir::SymbolId ProgramLowering::compound_literal(const syntax::FunctionalCastEx
 	const sema::Type* type = expr.facts->type;
 	if (!static_element(type, *expr.braced, data))
 		throw LoweringError(expr.location, "a C compound literal requires a constant initializer");
+	if (type->zero_length_array())
+		append_zero(alignment_of(type, expr.location), data);
 	const lowir::SymbolId symbol = static_temporary(type, &data);
 	compound_globals_.set(&expr, symbol);
 	if (expr.compound_has(syntax::FunctionalCastExpr::ThreadLocal))

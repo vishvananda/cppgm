@@ -1564,7 +1564,11 @@ bool ProgramLowering::static_element(const sema::Type* type, const syntax::Expr&
 		if (const sema::CInitializer* plan = sema::CInitializerOf(sema::CInitializerOperand(&element)))
 			return static_c_initializer(*plan, out);
 	if (const auto* literal = sema::StaticCompoundInitializer(&element))
-		return static_element(type, *literal, out);
+	{
+		const sema::Conversion* conversion = element.facts != nullptr ? element.facts->conversion : nullptr;
+		if (conversion == nullptr || conversion->first != sema::LvalueTransform::ArrayToPointer)
+			return static_element(type, *literal, out);
+	}
 	if (element.kind == syntax::ExprKind::BracedInit &&
 		static_cast<const syntax::BracedInitList&>(element).result_source != nullptr)
 		return static_element(type, *static_cast<const syntax::BracedInitList&>(element).result_source, out);

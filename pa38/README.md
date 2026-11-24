@@ -491,6 +491,9 @@ The first fixture set covers these parts of the C17 input profile:
   GNU static initializers can form the byte offset of a member by taking its
   address relative to a null pointer to a record. Reuse the record layout
   facts for this expression.
+  An empty GNU compound literal of array type completes an omitted bound
+  as zero. Its address still designates its own static storage when used in
+  a static initializer through array-to-pointer conversion.
   GNU folding can supply the value of a conditional in a required constant
   context, such as a case label or array designator. It can also fold casts
   from null or integer-derived pointer values back to integers. Diagnose
