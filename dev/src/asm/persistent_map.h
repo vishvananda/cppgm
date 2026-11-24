@@ -88,17 +88,22 @@ class PersistentMap
 	Link root_;
 
 public:
-	Value find(const std::string& key) const
+	const Value* lookup(const std::string& key) const
 	{
-		Link current = root_;
-		while (current)
+		const Node* current = root_.get();
+		while (current != nullptr)
 		{
 			const int order = key.compare(*current->key);
 			if (order == 0)
-				return current->value;
-			current = order < 0 ? current->left : current->right;
+				return &current->value;
+			current = (order < 0 ? current->left : current->right).get();
 		}
-		return {};
+		return nullptr;
+	}
+	Value find(const std::string& key) const
+	{
+		const Value* value = lookup(key);
+		return value != nullptr ? *value : Value{};
 	}
 	void set(const std::string& key, const Value& value)
 	{
@@ -106,7 +111,7 @@ public:
 	}
 	bool erase(const std::string& key)
 	{
-		if (!find(key))
+		if (lookup(key) == nullptr)
 			return false;
 		root_ = remove(root_, key);
 		return true;

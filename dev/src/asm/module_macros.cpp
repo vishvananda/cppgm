@@ -138,7 +138,7 @@ void ModuleExpander::repeat(const std::string& kind, const ModuleLine& declarati
 	std::vector<ModuleLine> values;
 	if (kind == ".rept")
 	{
-		count = module_expression(declaration, cursor.position());
+		count = expression(declaration, cursor.position());
 		if (static_cast<int64_t>(count) < 0)
 			count = 0;
 	}

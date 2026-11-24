@@ -698,6 +698,9 @@ uint32_t parse_wasm_stack_size(const std::string& size)
 
 void configure_compile_output(Invocation& invocation, bool assembly_output)
 {
+	if (invocation.preprocessor.keep_comments && !invocation.preprocess_only &&
+		invocation.dependencies.mode != MakeDependencies::Mode::Only)
+		throw InvocationError("-C requires preprocessing output");
 	if (invocation.emit_lowir && !assembly_output)
 		throw InvocationError("-emit-lowir requires -S");
 	invocation.compile_only = invocation.compile_only || assembly_output;
@@ -986,9 +989,6 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 	input_language(invocation);
 	if (invocation.inputs.empty())
 		throw InvocationError("no input files");
-	if (invocation.preprocessor.keep_comments && !invocation.preprocess_only &&
-		invocation.dependencies.mode != MakeDependencies::Mode::Only)
-		throw InvocationError("-C requires preprocessing output");
 	configure_compile_output(invocation, assembly_output);
 	// GCC's -pthread defines _REENTRANT ahead of every -D and -U wherever
 	// it is written (the host link adds the thread library; link mode's

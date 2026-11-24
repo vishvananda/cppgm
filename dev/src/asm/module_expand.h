@@ -7,6 +7,8 @@
 
 namespace assembly {
 
+struct ExpressionSymbols;
+
 struct ExpansionBudget
 {
 	uint64_t unique = 0;
@@ -50,13 +52,17 @@ private:
 		std::vector<ModuleLine>& output, unsigned depth);
 	void account(uint64_t bytes, const ModuleLine& line);
 	void emit(const ModuleLine& line, std::vector<ModuleLine>& output);
+	void assignment(const std::string& name, ModuleCursor& cursor, ModuleLine& line);
+	uint64_t expression(const ModuleLine& line, uint32_t first) const;
 	PersistentMap<std::shared_ptr<Macro>> macros_;
+	PersistentMap<uint64_t> constants_;
 	std::shared_ptr<ExpansionBudget> budget_;
 };
 
 std::string module_macro_name(std::string name);
 size_t module_block_end(const std::vector<ModuleLine>& input, size_t first, size_t last);
-bool module_condition(const std::string& kind, ModuleCursor& cursor, const ModuleLine& line);
+bool module_condition(
+	const std::string& kind, ModuleCursor& cursor, const ModuleLine& line, ExpressionSymbols& symbols);
 
 std::vector<ModuleLine> module_arguments(
 	const ModuleLine& line, uint32_t first, std::vector<uint32_t>* starts = nullptr);

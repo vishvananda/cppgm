@@ -4,6 +4,26 @@
 
 namespace assembly {
 namespace {
+class ExpansionConstants final : public ExpressionSymbols
+{
+public:
+	explicit ExpansionConstants(const PersistentMap<uint64_t>& values) : values_(values) {}
+	ModuleValue expression_symbol(ModuleCursor& cursor) override
+	{
+		if (const SymbolUse* typed = cursor.symbol_use())
+			cursor.advance(typed->count);
+		else if (const uint64_t* found = values_.lookup(cursor.word()))
+			return ModuleValue(*found);
+		ModuleValue unknown;
+		unknown.positive = 0;
+		return unknown;
+	}
+	void fold_difference(ModuleValue&) const override {}
+
+private:
+	const PersistentMap<uint64_t>& values_;
+};
+
 bool loop(const std::string& name)
 {
 	return name == ".rept" || name == ".irp" || name == ".irpc";
@@ -68,6 +88,25 @@ void ModuleExpander::emit(const ModuleLine& line, std::vector<ModuleLine>& outpu
 	account(line.text.size() + 1, line);
 	output.push_back(line);
 }
+uint64_t ModuleExpander::expression(const ModuleLine& line, uint32_t first) const
+{
+	ExpansionConstants constants(constants_);
+	return module_expression(line, first, &constants);
+}
+void ModuleExpander::assignment(const std::string& name, ModuleCursor& cursor, ModuleLine& line)
+{
+	ExpansionConstants constants(constants_);
+	const ModuleExpression plan = parse_module_expression(cursor, constants);
+	cursor.finish();
+	if (plan.has_symbols)
+	{
+		constants_.erase(name);
+		return;
+	}
+	line.absolute_assignment = true;
+	line.assignment = evaluate_module_expression(plan, constants).bits;
+	constants_.set(name, line.assignment);
+}
 bool ModuleExpander::range(
 	const std::vector<ModuleLine>& input, size_t first, size_t last, std::vector<ModuleLine>& output, unsigned depth)
 {
@@ -93,7 +132,8 @@ bool ModuleExpander::range(
 		else if (name.compare(0, 3, ".if") == 0)
 		{
 			bool taken = false, after_else = false;
-			bool enabled = module_condition(name, cursor, line);
+			ExpansionConstants constants(constants_);
+			bool enabled = module_condition(name, cursor, line, constants);
 			size_t begin = i + 1;
 			unsigned nested = 0;
 			bool closed = false;
@@ -140,7 +180,7 @@ bool ModuleExpander::range(
 						enabled = true;
 					}
 					else
-						enabled = !taken && module_condition(".if", branch, input[j]);
+						enabled = !taken && module_condition(".if", branch, input[j], constants);
 					begin = j + 1;
 				}
 			}
@@ -160,13 +200,25 @@ bool ModuleExpander::range(
 				cursor.fail("cannot purge an undefined macro");
 			cursor.finish();
 		}
+		else if (name == ".error")
+			cursor.fail(cursor.quoted());
 		else
 		{
 			const auto macro = macros_.find(module_macro_name(name));
 			if (macro && !cursor.take(':'))
 				invoke(line, cursor.position(), macro, output, depth + 1);
 			else
+			{
 				emit(line, output);
+				if (name == ".set" || name == ".equ")
+				{
+					const std::string symbol = cursor.word();
+					if (cursor.take(','))
+						assignment(symbol, cursor, output.back());
+				}
+				else if (cursor.take('='))
+					assignment(name, cursor, output.back());
+			}
 		}
 	}
 	return false;

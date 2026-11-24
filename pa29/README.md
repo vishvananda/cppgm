@@ -282,6 +282,8 @@ Expansion must have bounded
 nesting, work and output size; malformed blocks and runaway recursion fail.
 
 Namespace macro definitions are available to later inline and naked assembly.
+An absolute symbol assignment can supply a macro conditional or repetition
+count. A keyword argument can contain an unquoted arithmetic expression.
 Capture the source environment at each statement: subsequent redefinition or
 purging must not change earlier code, including deferred members, template
 instances and inlined copies. Preserve typed operands and outgoing labels

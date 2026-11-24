@@ -10,6 +10,8 @@ struct ModuleLine
 	std::vector<SymbolUse> symbols;
 	std::vector<LabelUse> labels;
 	uint32_t line = 1;
+	bool absolute_assignment = false;
+	uint64_t assignment = 0;
 };
 
 // Retain source bytes and typed placeholder spans while splitting statements.
@@ -34,6 +36,7 @@ public:
 	bool take(char c);
 	bool end();
 	bool numeric();
+	bool numbered_label();
 	bool quoted_start();
 	std::string word();
 	std::string quoted();

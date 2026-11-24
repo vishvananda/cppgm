@@ -1,6 +1,7 @@
 #include "asm/module_expand.h"
 
 #include <cctype>
+#include <cstring>
 
 namespace assembly {
 namespace {
@@ -95,8 +96,9 @@ std::vector<ModuleLine> module_arguments(const ModuleLine& line, uint32_t first,
 					++next;
 				while (previous > begin && std::isspace(static_cast<unsigned char>(line.text[previous - 1])))
 					--previous;
-				if ((next < line.text.size() && (line.text[next] == '=' || line.text[next] == ':')) ||
-					(previous > begin && (line.text[previous - 1] == '=' || line.text[previous - 1] == ':')))
+				const char* const continuation = "=:|&^";
+				if ((next < line.text.size() && std::strchr(continuation, line.text[next]) != nullptr) ||
+					(previous > begin && std::strchr(continuation, line.text[previous - 1]) != nullptr))
 					continue;
 			}
 			const bool present = line.text.substr(begin, i - begin).find_first_not_of(" \t\r") != std::string::npos;

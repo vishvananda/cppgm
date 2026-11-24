@@ -97,7 +97,7 @@ Expression::Value Expression::primary(unsigned depth)
 	else
 	{
 		cursor_.space();
-		if (symbols_ != nullptr && (cursor_.symbol_use() != nullptr || !cursor_.numeric()))
+		if (symbols_ != nullptr && (cursor_.symbol_use() != nullptr || !cursor_.numeric() || cursor_.numbered_label()))
 			result.data = symbols_->expression_symbol(cursor_);
 		else if (cursor_.symbol_use())
 			cursor_.fail("absolute expression cannot use a relocatable symbol");
@@ -279,11 +279,11 @@ ModuleValue evaluate_module_expression(const ModuleExpression& plan, ExpressionS
 	ModuleCursor cursor(empty, 0, plan.line, plan.column);
 	return Expression(cursor, false, &symbols).evaluate(plan);
 }
-uint64_t module_expression(const ModuleLine& line, uint32_t first)
+uint64_t module_expression(const ModuleLine& line, uint32_t first, ExpressionSymbols* symbols)
 {
 	ModuleCursor cursor(line);
 	cursor.advance(first);
-	const uint64_t result = Expression(cursor, true).run();
+	const uint64_t result = Expression(cursor, true, symbols).run();
 	cursor.finish();
 	return result;
 }

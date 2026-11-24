@@ -166,6 +166,17 @@ bool ModuleCursor::numeric()
 		(std::isdigit(static_cast<unsigned char>(source_[position_])) || source_[position_] == '-' ||
 			source_[position_] == '+' || source_[position_] == '(' || source_[position_] == '~');
 }
+bool ModuleCursor::numbered_label()
+{
+	space();
+	size_t end = position_;
+	while (end < source_.size() && source_[end] >= '0' && source_[end] <= '9')
+		++end;
+	if (end == position_ || end == source_.size() || (source_[end] != 'f' && source_[end] != 'b'))
+		return false;
+	const char next = ++end == source_.size() ? '\0' : source_[end];
+	return !std::isalnum(static_cast<unsigned char>(next)) && next != '_' && next != '.' && next != '$';
+}
 bool ModuleCursor::quoted_start()
 {
 	space();

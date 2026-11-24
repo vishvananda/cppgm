@@ -56,7 +56,7 @@ bool strings(const std::string& kind, ModuleCursor& cursor)
 	return (a == b) == (kind == ".ifc" || kind == ".ifeqs");
 }
 }
-bool module_condition(const std::string& kind, ModuleCursor& cursor, const ModuleLine& line)
+bool module_condition(const std::string& kind, ModuleCursor& cursor, const ModuleLine& line, ExpressionSymbols& symbols)
 {
 	if (kind == ".ifb" || kind == ".ifnb")
 	{
@@ -73,7 +73,7 @@ bool module_condition(const std::string& kind, ModuleCursor& cursor, const Modul
 	if (kind != ".if" && kind != ".ifne" && kind != ".ifeq" && kind != ".ifge" && kind != ".ifgt" && kind != ".ifle" &&
 		kind != ".iflt")
 		cursor.fail("module conditional is not implemented: " + kind);
-	const int64_t value = static_cast<int64_t>(module_expression(line, cursor.position()));
+	const int64_t value = static_cast<int64_t>(module_expression(line, cursor.position(), &symbols));
 	return kind == ".ifeq" ? value == 0
 		: kind == ".ifge"  ? value >= 0
 		: kind == ".ifgt"  ? value > 0

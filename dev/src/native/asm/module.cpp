@@ -416,8 +416,19 @@ void ModuleAssembler::append(const assembly::ModuleLine& line)
 	if (!label && cursor.take('='))
 	{
 		flush();
-		assign(symbols_.named(name), cursor);
-		cursor.finish();
+		const uint32_t id = symbols_.named(name);
+		if (line.absolute_assignment)
+			symbols_.define_absolute(id, line.assignment);
+		else
+			assign(id, cursor);
+		if (!line.absolute_assignment)
+			cursor.finish();
+		return;
+	}
+	if (!label && line.absolute_assignment && (name == ".set" || name == ".equ"))
+	{
+		flush();
+		symbols_.define_absolute(symbol(cursor), line.assignment);
 		return;
 	}
 	if (!label && name.compare(0, 5, ".cfi_") == 0)
