@@ -1919,6 +1919,16 @@
       "cases": ["library.c23-math-extrema"]
     },
     {
+      "id": "library.c23-math-fromfp",
+      "clause": "C23 7.12.9.10–11, F.10.6.10–11",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "math",
+      "requirement": "Round values in all five directions and return the original real type. Enforce signed and unsigned widths, including widths larger than the floating format's exponent range, and report domain and inexact conditions according to the runtime's supported error handling.",
+      "cases": ["library.c23-math-fromfp"]
+    },
+    {
       "id": "library.c23-math-representation",
       "clause": "C23 7.12.6.10, 7.12.11.5–6",
       "kind": "required",
@@ -1927,6 +1937,16 @@
       "header": "math",
       "requirement": "Select the next representable value and extract the floating exponent as long in all three standard real types. Check signed zeros, subnormals, finite format boundaries, infinities, and NaNs.",
       "cases": ["library.c23-math-representation"]
+    },
+    {
+      "id": "library.c23-math-roundeven",
+      "clause": "C23 7.12.9.8, F.10.6.8",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "math",
+      "requirement": "Round to nearest with ties to even in all three standard real types. Preserve signed zeros and infinities, and verify independence from the current rounding direction when the runtime allows changing it.",
+      "cases": ["library.c23-math-roundeven"]
     },
     {
       "id": "library.c23-complex-interfaces",

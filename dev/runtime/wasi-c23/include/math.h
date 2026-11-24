@@ -7,6 +7,12 @@
 #define FP_LLOGB0 (FP_ILOGB0 + 0L)
 #define FP_LLOGBNAN (FP_ILOGBNAN + 0L)
 
+#define FP_INT_UPWARD 0
+#define FP_INT_DOWNWARD 1
+#define FP_INT_TOWARDZERO 2
+#define FP_INT_TONEARESTFROMZERO 3
+#define FP_INT_TONEAREST 4
+
 #define iscanonical(value) ((void)(value), 1)
 #define issignaling(value) ((int)__builtin_issignaling(value))
 #define issubnormal(value) (fpclassify(value) == FP_SUBNORMAL)
@@ -26,6 +32,23 @@ long double nextdownl(long double);
 long llogb(double);
 long llogbf(float);
 long llogbl(long double);
+
+double roundeven(double);
+float roundevenf(float);
+long double roundevenl(long double);
+
+double fromfp(double, int, unsigned);
+float fromfpf(float, int, unsigned);
+long double fromfpl(long double, int, unsigned);
+double ufromfp(double, int, unsigned);
+float ufromfpf(float, int, unsigned);
+long double ufromfpl(long double, int, unsigned);
+double fromfpx(double, int, unsigned);
+float fromfpxf(float, int, unsigned);
+long double fromfpxl(long double, int, unsigned);
+double ufromfpx(double, int, unsigned);
+float ufromfpxf(float, int, unsigned);
+long double ufromfpxl(long double, int, unsigned);
 
 double fmaximum(double, double);
 float fmaximumf(float, float);

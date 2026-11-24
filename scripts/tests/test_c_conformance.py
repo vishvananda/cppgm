@@ -103,7 +103,9 @@ class CoverageTests(unittest.TestCase):
         self.assertEqual(selected(self.native, 23)['library.c23-fenv-interfaces'], ('-lm',))
         self.assertEqual(selected(self.native, 23)['library.c23-math-classification'], ('-lm',))
         self.assertEqual(selected(self.native, 23)['library.c23-math-extrema'], ('-lm',))
+        self.assertEqual(selected(self.native, 23)['library.c23-math-fromfp'], ('-lm',))
         self.assertEqual(selected(self.native, 23)['library.c23-math-representation'], ('-lm',))
+        self.assertEqual(selected(self.native, 23)['library.c23-math-roundeven'], ('-lm',))
         self.assertEqual(selected(self.native, 23)['library.c23-atomic-interfaces'], ('-latomic',))
         self.assertIn('library.c23-stdlib-interfaces', selected(self.native, 23))
         self.assertIn('library.c23-wide-searches', selected(self.native, 23))
@@ -125,7 +127,9 @@ class CoverageTests(unittest.TestCase):
         self.assertIn('library.c23-binary-conversion', supplemented)
         self.assertEqual(supplemented['library.c23-math-classification'], ())
         self.assertEqual(supplemented['library.c23-math-extrema'], ())
+        self.assertEqual(supplemented['library.c23-math-fromfp'], ())
         self.assertEqual(supplemented['library.c23-math-representation'], ())
+        self.assertEqual(supplemented['library.c23-math-roundeven'], ())
         self.assertNotIn('library.c23-binary-stdio', supplemented)
         stdio_versions = {**checked, 'stdio': versions['stdio'], 'inttypes': versions['inttypes']}
         stdio_current = selected('wasi-c23-hosted', 23, c23=stdio_versions)
@@ -139,7 +143,9 @@ class CoverageTests(unittest.TestCase):
         self.assertNotIn('library.c23-memalignment', selected('wasi-hosted', 23, c23=checked))
         self.assertNotIn('library.c23-math-classification', selected('wasi-hosted', 23, c23=checked))
         self.assertNotIn('library.c23-math-extrema', selected('wasi-hosted', 23, c23=checked))
+        self.assertNotIn('library.c23-math-fromfp', selected('wasi-hosted', 23, c23=checked))
         self.assertNotIn('library.c23-math-representation', selected('wasi-hosted', 23, c23=checked))
+        self.assertNotIn('library.c23-math-roundeven', selected('wasi-hosted', 23, c23=checked))
 
     def test_wasi_supplement_has_only_c23_receipts(self):
         profile = 'wasi-c23-hosted'
