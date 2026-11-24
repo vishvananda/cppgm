@@ -3729,3 +3729,24 @@ in fixed setup. The combined input adds roughly 265,000 instructions.
 The native instruction changes fall within calibration spread.
 Task-clock A/A spreads ranged from 1.58% to 183% during concurrent
 validation. Those observations leave wall-time changes unresolved.
+
+## VLA capability predefine
+
+Advertising VLA support removes a predefine from C translation-unit
+setup. The qualification-only C tests exercise VLA code generation
+already present in the compiler.
+
+The previous compiler and `d9860f3a5` ran on CPU 71 in A/A, ABBA and
+BAAB blocks. Every observation produced byte-identical object output.
+
+| Input | A/A instruction spread | ABBA retired instructions | BAAB retired instructions |
+| --- | ---: | ---: | ---: |
+| WASI C23, one function | 0.00200% | −0.06340% | −0.06256% |
+| WASI C23, combined translation limits | 0.01720% | +0.00960% | +0.00362% |
+| x86-64 SQLite 3.50.4 | 0.00192% | +0.00089% | +0.00196% |
+| x86-64 C++ semantic overloads | 0.00349% | −0.00253% | −0.00521% |
+
+The one-function input saves roughly 2,100 retired instructions.
+The other inputs vary by hundredths of a percent or less. A/A
+task-clock spread ranged from 1.52% to 34.92% during validation, which
+leaves timing changes unresolved.

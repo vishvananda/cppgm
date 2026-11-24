@@ -1931,8 +1931,8 @@ native and Wasm lanes.
 
 ## Variably modified type requirements
 
-C99 requires variable-length arrays. cppgm defines `__STDC_NO_VLA__` in
-C11 and C17 while qualification continues. The seven portable probes
+C99 requires variable-length arrays. Initial qualification retained
+`__STDC_NO_VLA__` in C11 and C17. The seven portable probes
 for mixed dimensions, typedefs, pointers, parameters and `sizeof` type
 names pass. GCC 15 and Clang 21 accept the corresponding PA38 cases in
 pedantic C17. The type-name checks now also cover casts, compound literals,
@@ -1952,7 +1952,7 @@ Wasm under Wasmtime, and cross-links for both Darwin architectures.
 Preprocessing defaults `__STDC_HOSTED__` to zero on bare Wasm and one
 on WASI and the native targets. The
 [execution environment checks](#execution-environment-selection) cover
-explicit mode selection. These VLA checks leave `__STDC_NO_VLA__` defined.
+explicit mode selection. This initial replay used the original predefine.
 
 | C11 clause | Requirement | Current evidence |
 | --- | --- | --- |
@@ -2996,3 +2996,66 @@ local test hygiene findings.
 [Library clause references](../doc/c-conformance-notes.md#c-library-calls-and-format-macros) ·
 [PA38 format regression](../pa38/tests/general/500-c-integer-format-headers.t) ·
 [Compile measurements](../docs/performance/c-frontend-scaling.md#wasm-integer-format-predefines)
+
+## VLA capability gate
+
+The clause runner now covers variable-length declarations and pointers,
+typedef extents, prototype-scope stars, evaluated and unevaluated bounds,
+alignment, atomic and function-pointer types, and scope exits. It runs
+the selected C99, C11, C17, and C23 programs at `-O0` and `-O2`, and
+checks the ISO diagnostics and GNU controls in their own modes. Pedantic
+C90 and C95 still diagnose runtime array bounds.
+
+The six-profile replay passes 2,208 configurations. It includes 96
+mixed-compiler ABI calls, pairing cppgm with GCC 15, Clang 22, or the
+pinned WASI Clang in both caller and callee directions. The paired
+callee uses a multidimensional array parameter with an adjusted outer
+bound and a runtime inner stride. Separate object inspection verifies
+1,236 relocatable files across ELF, Mach-O and Wasm before considering
+the link and execution evidence. Linux AArch64 runs under QEMU. The
+Intel and Arm Darwin results use the SDK-free local Mach-O loaders,
+and native macOS CI still needs to qualify the real SDK and runtime.
+
+The baseline passed the same language and ABI checks. The 36 capability
+checks then failed at preprocessing because the compiler advertised
+`__STDC_NO_VLA__`. The rebuilt compiler leaves that macro undefined and
+passes the capability checks in C11, C17, and C23. The pinned Clang
+`n1460` test passes in both C11 and C17. The runner retains the standard's
+distinction between the C23 requirement for variably modified types and
+the conditional automatic VLA feature.
+
+A C23 regression exercises implicit qualification of a pointer to a
+runtime-sized array. The earlier-edition qualification boundary remains
+open. In the local C17 comparison, cppgm accepts the pointer-to-array
+qualification conversion and rejects the conversion from a pointer to a
+const-element array to plain `void *`. GCC 15 gives the reverse C17
+outcomes. For compatible fixed and runtime bounds in C23, cppgm rejects
+assignments, equality comparisons and pointer subtraction that GCC 15
+and Clang 22 accept. GCC 15 also accepts the conditional with a
+const-element VLA and a volatile-element fixed array, following the C23
+composite type and qualifier rule. The inventory leaves both the
+earlier-edition boundary and the C23 composites open.
+
+The full clause probe runner passes all 4,492 executed configurations
+across Linux x86-64, Linux AArch64 under QEMU, WASI and bare Wasm. This
+count includes the VLA subset on these four profiles. The hosted Darwin
+matrix still requires native SDK receipts. The two qualification rules
+above account for all four uncovered edition-and-rule entries on each
+Linux target in the current inventory. The WASI and bare Wasm matrices
+have 61 and 21 uncovered entries, respectively, across all editions.
+The pinned GCC GNU17 torture sample matches 113 of 128 configurations
+and reproduces all 15 reviewed gaps. The pinned Csmith run matches GCC
+and Clang on 30 configurations.
+
+The strict report passes 11,674 tests. Debug info, PA38 native, Wasm,
+ABI and driver checks, PA35 through PA5, inception and PA36 smoke also
+pass. The architecture and harness audits pass with 13 existing file
+audit warnings. Placement scans 11,689 fixtures with no placement or
+test hygiene findings. The student export verifies 26,952 portable
+reference outputs and passes its PA1 and PA38 native, Wasm and ABI
+tests with the bundled compiler tools.
+
+[Language references](../doc/c-conformance-notes.md#vla-capability-by-edition) ·
+[PA38 capability regression](../pa38/tests/general/300-c-vla-capability.t) ·
+[PA38 ABI pair](../pa38/tests/general/300-vla-parameter-abi.t) ·
+[Compile measurements](../docs/performance/c-frontend-scaling.md#vla-capability-predefine)

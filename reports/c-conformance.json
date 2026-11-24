@@ -2003,6 +2003,15 @@
       "cases": ["vla.c23-qualified-pointer", "vla.c23-restrict-array"]
     },
     {
+      "id": "vla.c23-qualified-composites",
+      "clause": "C23 6.2.5, 6.2.7, 6.5.10 and 6.5.16",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Apply array-pointer qualification to conversions, comparisons, subtraction and conditional expressions involving compatible fixed and runtime bounds.",
+      "cases": []
+    },
+    {
       "id": "vla.qualified-pointer-edition",
       "clause": "C99\u2013C17 6.3.2.3 and 6.5.16.1, WG14 N2607",
       "kind": "required",

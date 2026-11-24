@@ -341,6 +341,7 @@ for variably modified types and automatic-storage VLA objects. Emit each
 optional feature macro from the resolved edition and target configuration before
 preprocessing starts, and exercise that configuration through object
 emission and runtime before changing what it advertises.
+[VLA capability and ABI results](../reports/upstream-c-coverage.md#vla-capability-gate)
 
 The restrict qualifier is retained on the canonical type that owns it.
 GCC's `c99-arraydecl-3` and PA38 exercise pointer conversions, typedefs,
