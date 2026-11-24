@@ -86,7 +86,7 @@ class CoverageTests(unittest.TestCase):
 
     def test_library_runtime_applicability(self):
         names = ('stdarg', 'stddef', 'stdio', 'string', 'stdlib', 'inttypes', 'wchar', 'stdatomic', 'uchar',
-                 'complex', 'fenv', 'math')
+                 'complex', 'fenv', 'math', 'tgmath')
         checked = {name: {'include': 'usable'} for name in names}
         versions = {name: dict(status, version='current') for name, status in checked.items()}
 
@@ -111,6 +111,7 @@ class CoverageTests(unittest.TestCase):
         self.assertEqual(selected(self.native, 23)['library.c23-math-representation'], ('-lm',))
         self.assertEqual(selected(self.native, 23)['library.c23-math-roundeven'], ('-lm',))
         self.assertEqual(selected(self.native, 23)['library.c23-math-rsqrt-long-double'], ('-lm',))
+        self.assertEqual(selected(self.native, 23)['library.c23-tgmath-supplement'], ('-lm',))
         self.assertEqual(selected(self.native, 23)['library.c23-atomic-interfaces'], ('-latomic',))
         self.assertIn('library.c23-stdlib-interfaces', selected(self.native, 23))
         self.assertIn('library.c23-wide-searches', selected(self.native, 23))
@@ -140,6 +141,7 @@ class CoverageTests(unittest.TestCase):
         self.assertEqual(supplemented['library.c23-math-representation'], ())
         self.assertEqual(supplemented['library.c23-math-roundeven'], ())
         self.assertEqual(supplemented['library.c23-math-rsqrt-long-double'], ())
+        self.assertEqual(supplemented['library.c23-tgmath-supplement'], ())
         self.assertNotIn('library.c23-binary-stdio', supplemented)
         stdio_versions = {**checked, 'stdio': versions['stdio'], 'inttypes': versions['inttypes']}
         stdio_current = selected('wasi-c23-hosted', 23, c23=stdio_versions)

@@ -325,6 +325,7 @@ C23_VERSIONED_PROGRAMS = {
     'library.c23-uchar-utf8': (ROOT / 'scripts/tests/c_c23_uchar_utf8.c', 'uchar'),
     'library.c23-sized-deallocation': (ROOT / 'scripts/tests/c_c23_sized_deallocation.c', 'stdlib'),
     'library.c23-stdio-nan': (ROOT / 'scripts/tests/c_c23_stdio_nan.c', 'stdio'),
+    'library.c23-tgmath-supplement': (ROOT / 'scripts/tests/c_c23_tgmath_supplement.c', 'tgmath'),
     'library.c23-qualified-bsearch': (ROOT / 'scripts/tests/c_c23_qualified_bsearch.c', 'stdlib'),
     'library.c23-stdlib-interfaces': (ROOT / 'scripts/tests/c_c23_stdlib_interfaces.c', 'stdlib'),
     'library.c23-wide-searches': (ROOT / 'scripts/tests/c_c23_wide_searches.c', 'wchar'),
@@ -338,7 +339,7 @@ WASI_C23_PARTIAL_CASES = {'library.c23-memalignment', 'library.c23-binary-conver
                          'library.c23-math-extrema', 'library.c23-math-fromfp',
                          'library.c23-math-logp1', 'library.c23-math-narrow', 'library.c23-math-pi',
                          'library.c23-math-representation', 'library.c23-math-roundeven',
-                         'library.c23-math-rsqrt-long-double'}
+                         'library.c23-math-rsqrt-long-double', 'library.c23-tgmath-supplement'}
 C23_LIBRARY_SOURCES = {
     'library.c23-integer-widths': ('limits_width_macros', ROOT / 'scripts/tests/c_c23_integer_widths.c'),
     'library.c23-wchar-width': ('wchar_width_macro', ROOT / 'scripts/tests/c_c23_wchar_width.c'),
@@ -966,7 +967,7 @@ def library_sources(profile, edition, checked, checked_c23, wasi_libraries):
         link_flags = ()
         if case == 'library.c23-atomic-interfaces' and profile['target'].endswith('-linux-gnu'):
             link_flags = ('-latomic',)
-        elif required in ('complex', 'fenv', 'math') and not profile['target'].startswith('wasm'):
+        elif required in ('complex', 'fenv', 'math', 'tgmath') and not profile['target'].startswith('wasm'):
             link_flags = ('-lm',)
         yield case, source, (), link_flags
 

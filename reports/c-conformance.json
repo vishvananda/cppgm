@@ -1959,6 +1959,16 @@
       "cases": ["library.c23-math-narrow"]
     },
     {
+      "id": "library.c23-tgmath-supplement",
+      "clause": "C23 7.27",
+      "kind": "required",
+      "editions": [23],
+      "environment": "hosted",
+      "header": "tgmath",
+      "requirement": "Select the type-generic narrowing, rounding, extrema, adjacency, logp1, and reciprocal-square-root functions by their generic parameters. Preserve the return type and argument evaluation count.",
+      "cases": ["library.c23-tgmath-supplement"]
+    },
+    {
       "id": "library.c23-math-pi",
       "clause": "C23 7.12.4.8–14",
       "kind": "required",
