@@ -3684,11 +3684,13 @@ removed emits the same `.export_symbol` payload as GCC and retains the
 relocation to `_ctype`. The linker-script replay reaches the same GNU ld
 symbol-resolution diagnostic as GCC's script when fed an empty object.
 
-The integrated assembler still needs register comparisons in macro
-conditions and symbolic absolute expressions for the entry and boot
-assembly. The GNU C replay also reaches an immediate operand that
-depends on inlining. These partial checks leave `vmlinux` and the modules
-unbuilt, so there is no cppgm kernel compile timing.
+All 71 recorded assembly invocations from GCC's `defconfig` build expose
+remaining gaps. The first diagnostics include 21 integer-expression
+errors, nine allocated mergeable string sections, and 14 uses of the
+16-bit or 32-bit driver modes. The entry assembly also needs register
+comparisons in macro conditions. The GNU C replay reaches an immediate
+operand that depends on inlining. These partial checks leave `vmlinux`
+and the modules unbuilt, so there is no cppgm kernel compile timing.
 
 [GCC preprocessor invocation](https://gcc.gnu.org/onlinedocs/cpp/Invocation.html) ·
 [GCC code generation options](https://gcc.gnu.org/onlinedocs/gcc/Code-Gen-Options.html) ·
