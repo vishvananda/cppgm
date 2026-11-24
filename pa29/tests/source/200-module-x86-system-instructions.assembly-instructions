@@ -10,3 +10,11 @@ cli
 sti
 hlt
 leave
+lgdt
+lidt
+sgdt
+sidt
+invlpg
+in
+out
+movnti

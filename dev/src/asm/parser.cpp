@@ -73,7 +73,7 @@ private:
 	void decorators(Operand& operand);
 	Operand intel_memory(uint16_t bits);
 	Operand att_memory(int64_t displacement);
-	void address_register(const asm_model::Register& reg) const;
+	void address_register(const Address& address, const asm_model::Register& reg) const;
 
 	const std::string& source_;
 	const std::vector<SymbolUse>& symbols_;
@@ -150,10 +150,13 @@ asm_model::Register Parser::reg()
 	return result;
 }
 
-void Parser::address_register(const asm_model::Register& reg) const
+void Parser::address_register(const Address& address, const asm_model::Register& reg) const
 {
-	if (reg.bank != asm_model::RegisterBank::Gpr || reg.bits != 64 || reg.offset != 0)
-		fail("this assembly address requires a 64-bit general register");
+	if (reg.bank != asm_model::RegisterBank::Gpr || (reg.bits != 32 && reg.bits != 64) || reg.offset != 0)
+		fail("assembly address requires a 32-bit or 64-bit general register");
+	if (address.rip || (address.has_base && address.base.bits != reg.bits) ||
+		(address.has_index && address.index.bits != reg.bits))
+		fail("assembly address registers must have the same width and cannot index RIP");
 }
 
 Operand Parser::intel_memory(uint16_t bits)
@@ -204,7 +207,7 @@ Operand Parser::intel_memory(uint16_t bits)
 			if (minus)
 				fail("an assembly address cannot subtract a register");
 			const asm_model::Register value = reg();
-			address_register(value);
+			address_register(result.address, value);
 			const bool scaled = take('*');
 			uint64_t scale = scaled ? integer() : 1;
 			if (scale != 1 && scale != 2 && scale != 4 && scale != 8)
@@ -259,13 +262,13 @@ Operand Parser::att_memory(int64_t displacement)
 	if (!rip_register(result.address) && (register_prefix_ ? current() == '%' : alpha(current())))
 	{
 		result.address.base = reg();
-		address_register(result.address.base);
+		address_register(result.address, result.address.base);
 		result.address.has_base = true;
 	}
 	if (take(','))
 	{
 		result.address.index = reg();
-		address_register(result.address.index);
+		address_register(result.address, result.address.index);
 		if (result.address.index.number == 4)
 			fail("rsp cannot be an assembly address index");
 		result.address.has_index = true;
@@ -447,7 +450,7 @@ bool Parser::rip_register(Address& address)
 	const char following = end < source_.size() ? source_[end] : '\0';
 	if (alpha(following) || (following >= '0' && following <= '9'))
 		return false;
-	if (address.rip)
+	if (address.rip || address.has_base || address.has_index)
 		fail("invalid RIP-relative assembly address");
 	while (pos_ < end)
 		step();

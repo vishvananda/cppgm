@@ -32,6 +32,8 @@ void integer(Assembler& out, const assembly::Instruction& inst, const Form& form
 		fail(inst, "expected two operands");
 	const Operand& dst = inst.operands[0];
 	const Operand& src = inst.operands[1];
+	if (form.encoding == Encoding::Move && encode_system_register_move(out, inst, suffix))
+		return;
 	const unsigned bits = integer_width(inst, suffix);
 	if (form.bits != 0 &&
 		(bits != form.bits || dst.kind != OperandKind::Register ||
@@ -193,6 +195,11 @@ void encode_instruction(Assembler& out, const assembly::Instruction& inst)
 		encode_extend_form(out, inst, *form);
 		return;
 	}
+	if (form->encoding >= Encoding::ControlMemory)
+	{
+		encode_system_form(out, inst, *form, suffix);
+		return;
+	}
 	if (form->encoding >= Encoding::ConditionMove)
 	{
 		encode_bit_form(out, inst, *form, suffix);
@@ -242,6 +249,7 @@ void encode_assembly(Assembler& out, const std::vector<assembly::Instruction>& i
 		const size_t index = &original - instructions.data();
 		assembly::Instruction inst = original;
 		uint8_t segment = 0;
+		bool address32 = false;
 		for (auto& operand : inst.operands)
 		{
 			if (operand.kind != OperandKind::Memory)
@@ -250,6 +258,8 @@ void encode_assembly(Assembler& out, const std::vector<assembly::Instruction>& i
 				operand.address.label = labels[operand.address.label];
 			if (operand.address.segment != 0)
 				segment = operand.address.segment;
+			address32 |= (operand.address.has_base && operand.address.base.bits == 32) ||
+				(operand.address.has_index && operand.address.index.bits == 32);
 		}
 		if (positions != nullptr)
 			positions->push_back(out.size());
@@ -290,6 +300,8 @@ void encode_assembly(Assembler& out, const std::vector<assembly::Instruction>& i
 					fail(inst, "decorator requires an EVEX instruction form");
 		if (segment != 0)
 			out.byte(segment);
+		if (address32)
+			out.byte(0x67);
 		if (!encode_assembly_branch(out, inst, labels))
 		{
 			const size_t first = out.fixups().size();

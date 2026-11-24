@@ -47,7 +47,10 @@ enum class Encoding : std::uint8_t
 	DoubleShift,
 	WideAtomic,
 	ExtendMove,
-	Interrupt
+	Interrupt,
+	ControlMemory,
+	Port,
+	NonTemporalStore
 };
 
 struct Form
@@ -240,6 +243,14 @@ inline const Form* forms(std::size_t& count)
 		{ "xgetbv", E::Zero, 0x0f01d0, 0, 0, false, 0 },
 		{ "rdtsc", E::Zero, 0x0f31, 0, 0, false, 0 },
 		{ "rdtscp", E::Zero, 0x0f01f9, 0, 0, false, 0 },
+		{ "sgdt", E::ControlMemory, 0x0f0100, 0, 0, true, 0 },
+		{ "sidt", E::ControlMemory, 0x0f0101, 0, 0, true, 0 },
+		{ "lgdt", E::ControlMemory, 0x0f0102, 0, 0, true, 0 },
+		{ "lidt", E::ControlMemory, 0x0f0103, 0, 0, true, 0 },
+		{ "invlpg", E::ControlMemory, 0x0f0107, 0, 0, true, 0 },
+		{ "in", E::Port, 0xe4, 0, 0, false, 0 },
+		{ "out", E::Port, 0xe6, 0, 0, false, 0 },
+		{ "movnti", E::NonTemporalStore, 0x0fc3, 0, 0, true, 0 },
 		{ "rdmsr", E::Zero, 0x0f32, 0, 0, false, 0 },
 		{ "wrmsr", E::Zero, 0x0f30, 0, 0, false, 0 },
 		{ "clac", E::Zero, 0x0f01ca, 0, 0, false, 0 },

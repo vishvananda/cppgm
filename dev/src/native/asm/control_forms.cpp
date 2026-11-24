@@ -58,6 +58,90 @@ void encode_control_form(
 		fail(inst, "invalid push/pop operand");
 }
 
+bool encode_system_register_move(Assembler& out, const assembly::Instruction& inst, unsigned suffix)
+{
+	using asm_model::RegisterBank;
+	const auto system = [](const assembly::Operand& operand) {
+		return operand.kind == OperandKind::Register &&
+			(operand.reg.bank == RegisterBank::Segment || operand.reg.bank == RegisterBank::Control ||
+				operand.reg.bank == RegisterBank::Debug);
+	};
+	const auto& dst = inst.operands[0];
+	const auto& src = inst.operands[1];
+	const bool write = system(dst);
+	if (!write && !system(src))
+		return false;
+	const auto& special = write ? dst : src;
+	const auto& ordinary = write ? src : dst;
+	if (inst.prefix != 0 || system(ordinary))
+		fail(inst, "invalid system-register move");
+	if (special.reg.bank == RegisterBank::Segment)
+	{
+		const bool gp = ordinary.kind == OperandKind::Register && ordinary.reg.bank == RegisterBank::Gpr &&
+			(ordinary.reg.bits == 16 || ordinary.reg.bits == 32 || ordinary.reg.bits == 64);
+		const bool memory = ordinary.kind == OperandKind::Memory && (suffix == 0 || suffix == 16);
+		if ((!gp && !memory) || (gp && suffix != 0 && suffix != ordinary.reg.bits) ||
+			(write && special.reg.number == 1))
+			fail(inst, "invalid segment-register move");
+		const unsigned prefix = !write && gp && ordinary.reg.bits == 16 ? 0x66 : 0;
+		out.op(prefix, false, write ? 0x8e : 0x8c, 1, special.reg.number, rm(ordinary, inst));
+		return true;
+	}
+	if (ordinary.kind != OperandKind::Register || ordinary.reg.bank != RegisterBank::Gpr || ordinary.reg.bits != 64 ||
+		(suffix != 0 && suffix != 64))
+		fail(inst, "control and debug registers require a 64-bit general register");
+	const uint32_t opcode = 0x0f20 + (special.reg.bank == RegisterBank::Debug ? 1 : 0) + (write ? 2 : 0);
+	out.op(0, false, opcode, 2, special.reg.number, rm(ordinary, inst));
+	return true;
+}
+
+void encode_system_form(
+	Assembler& out, const assembly::Instruction& inst, const asm_detail::Form& form, unsigned suffix)
+{
+	using E = asm_detail::Encoding;
+	if (inst.prefix != 0)
+		fail(inst, "invalid system instruction prefix");
+	if (form.encoding == E::ControlMemory)
+	{
+		if (inst.operands.size() != 1 || inst.operands[0].kind != OperandKind::Memory)
+			fail(inst, "expected one memory operand");
+		out.op(0, false, form.opcode >> 8, 2, form.opcode & 255, rm(inst.operands[0], inst));
+		return;
+	}
+	if (form.encoding == E::NonTemporalStore)
+	{
+		if (inst.operands.size() != 2 || inst.operands[0].kind != OperandKind::Memory ||
+			inst.operands[1].kind != OperandKind::Register)
+			fail(inst, "non-temporal integer store requires a register and a memory operand");
+		const unsigned bits = asm_detail::integer_width(inst, suffix);
+		if (bits != 32 && bits != 64)
+			fail(inst, "non-temporal integer store requires a 32-bit or 64-bit operand");
+		out.op(0, bits == 64, form.opcode, 2, asm_detail::physical(inst.operands[1].reg, inst),
+			rm(inst.operands[0], inst));
+		return;
+	}
+	if (inst.operands.size() != 2)
+		fail(inst, "port I/O requires an accumulator and a port");
+	const bool write = form.opcode == 0xe6;
+	const auto& accumulator = inst.operands[write ? 1 : 0];
+	const auto& port = inst.operands[write ? 0 : 1];
+	const unsigned bits = suffix != 0 ? suffix : accumulator.reg.bits;
+	if (accumulator.kind != OperandKind::Register || accumulator.reg.bank != asm_model::RegisterBank::Gpr ||
+		accumulator.reg.number != 0 || accumulator.reg.offset != 0 || accumulator.reg.bits != bits ||
+		(bits != 8 && bits != 16 && bits != 32))
+		fail(inst, "port I/O requires AL, AX or EAX");
+	const bool immediate = port.kind == OperandKind::Immediate && port.immediate <= 255;
+	if (!immediate &&
+		(port.kind != OperandKind::Register || port.reg.bank != asm_model::RegisterBank::Gpr || port.reg.number != 2 ||
+			port.reg.bits != 16 || port.reg.offset != 0))
+		fail(inst, "port I/O requires DX or an unsigned byte port");
+	if (bits == 16)
+		out.byte(0x66);
+	out.byte(form.opcode + (immediate ? 0 : 8) + (bits != 8));
+	if (immediate)
+		out.byte(port.immediate);
+}
+
 bool encode_assembly_branch(Assembler& out, const assembly::Instruction& inst, const std::vector<uint32_t>& labels)
 {
 	const int condition = asm_detail::branch_condition(inst.mnemonic);
