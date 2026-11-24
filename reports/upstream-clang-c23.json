@@ -12,6 +12,21 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "empty-unknown-array-bound",
+      "path": "clang/test/C/C23/n2900_n3011.c",
+      "sha256": "305abdc941f9c5b5b564ee8db263a2257651469e75085951d189d638e8972e77",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors", "-Wno-comment"],
+      "diagnostic_contains": {
+        "cppgm": "variable of incomplete type",
+        "upstream": "zero size arrays are an extension"
+      },
+      "obligation": "Diagnose empty initialization of an array whose bound is omitted"
+    },
+    {
       "id": "auto-record-member-diagnostic",
       "path": "clang/test/Parser/c2x-auto.c",
       "sha256": "06d5b6ce8434c0d09137e1f2849f21f47f60e58ba98e6d8d25b2108e22e0b3ca",

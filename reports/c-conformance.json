@@ -1481,6 +1481,15 @@
       "cases": ["c23.auto-thread-local"]
     },
     {
+      "id": "c23.empty-vla-initialization",
+      "clause": "6.5.3.6, 6.7.11",
+      "kind": "required",
+      "editions": [23],
+      "environment": "all",
+      "requirement": "Permit empty initialization of an automatic variable-length array and default-initialize its entire captured extent. Diagnose nonempty VLA initializers, VLA compound literals, and empty initializers for arrays of unknown bound.",
+      "cases": ["c23.vla-empty", "c23.vla-empty-typedef", "c23.vla-nonempty", "c23.vla-static-empty", "c23.vla-compound-empty", "c23.array-unknown-bound-empty"]
+    },
+    {
       "id": "c23.attribute-query",
       "clause": "6.10.2p9-p11, 6.7.13",
       "kind": "required",

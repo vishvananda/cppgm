@@ -791,8 +791,8 @@ private:
 	void local_variable(const syntax::InitDeclarator& init);
 	void local_object_variable(const sema::VariableEntity* variable, const syntax::InitDeclarator& init);
 	RValue dynamic_stack_allocate(RValue bytes, uint64_t alignment);
-	void local_runtime_array(
-		const sema::VariableEntity* variable, const sema::RuntimeTypeEvaluation* bounds, uint32_t location);
+	void local_runtime_array(const sema::VariableEntity* variable, const sema::RuntimeTypeEvaluation* bounds,
+		bool zero_initialize, uint32_t location);
 	RValue evaluate_runtime_bounds(
 		const sema::RuntimeTypeEvaluation* bounds, const sema::Type* result, uint32_t location);
 	void initialize_repeated_type(const sema::RepeatedTypeEvaluation& evaluation);

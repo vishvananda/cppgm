@@ -105,6 +105,10 @@ C23_SOURCE_REJECTIONS = (
     ('c23.auto-return-type', '300-c23-auto-return-type-bad.t', 'compile'),
     ('c23.auto-type-name', '300-c23-auto-type-name-bad.t', 'compile'),
     ('c23.auto-typedef', '300-c23-auto-typedef-bad.t', 'compile'),
+    ('c23.vla-nonempty', '300-c23-vla-nonempty-bad.t', 'compile'),
+    ('c23.vla-static-empty', '300-c23-vla-static-empty-bad.t', 'compile'),
+    ('c23.vla-compound-empty', '300-c23-vla-compound-empty-bad.t', 'compile'),
+    ('c23.array-unknown-bound-empty', '300-c23-array-unknown-bound-empty-bad.t', 'compile'),
 )
 C23_SOURCE_CASES = (
     ('c23.version', '100-c23-version.t', 'preprocess'),
@@ -139,6 +143,8 @@ C23_PROGRAMS = {
     'c23.auto-qualified': (PA38_GENERAL / '300-c23-auto-qualified.t', ()),
     'c23.auto-vla': (PA38_GENERAL / '300-c23-auto-vla.t', ()),
     'c23.auto-thread-local': (PA38_GENERAL / '300-c23-auto-thread-local.t', ()),
+    'c23.vla-empty': (PA38_GENERAL / '300-c23-vla-empty.t', ()),
+    'c23.vla-empty-typedef': (PA38_GENERAL / '300-c23-vla-empty-typedef.t', ()),
 }
 FLEXIBLE_ARRAY = PA38_GENERAL / '300-c-flexible-array.t'
 RECORD_CONSTRAINTS = {

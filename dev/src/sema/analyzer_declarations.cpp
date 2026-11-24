@@ -1912,19 +1912,35 @@ void Analyzer::finish_c_tentative_definitions()
 	}
 }
 
+static const syntax::BracedInitList* WrittenInitializerList(const syntax::Initializer* initializer)
+{
+	if (initializer == nullptr ||
+		(initializer->kind != syntax::InitializerKind::Assign && initializer->kind != syntax::InitializerKind::Braced))
+		return nullptr;
+	const syntax::Expr* expression = initializer->expression;
+	return expression->kind == syntax::ExprKind::BracedInit ? static_cast<const syntax::BracedInitList*>(expression)
+															: nullptr;
+}
+
 bool Analyzer::check_variable_object(const Specifiers& specifiers, const Type* type, Scope* where,
 	const syntax::Initializer* initializer, bool member, bool definition, bool typed_initialization, uint32_t location)
 {
 	// A braced list's initialization completes an omitted bound (8.5.1p4).
-	const bool bound_from_list = typed_initialization && type->kind == TypeKind::Array && !type->has_array_bound() &&
-		initializer != nullptr &&
-		(initializer->kind == syntax::InitializerKind::Assign ||
-			initializer->kind == syntax::InitializerKind::Braced) &&
-		initializer->expression->kind == syntax::ExprKind::BracedInit;
-	if (type->runtime_array() &&
-		(where->kind != ScopeKind::Block || specifiers.is_static || specifiers.is_extern ||
-			specifiers.is_thread_local || initializer != nullptr))
-		error(location, "a variable-length array requires automatic storage and no initializer");
+	const bool runtime_array = type->runtime_array();
+	const bool bound_from_list = typed_initialization && type->kind == TypeKind::Array && !runtime_array &&
+		!type->has_array_bound() && WrittenInitializerList(initializer) != nullptr;
+	if (runtime_array)
+	{
+		if (where->kind != ScopeKind::Block || specifiers.is_static || specifiers.is_extern ||
+			specifiers.is_thread_local)
+			error(location, "a variable-length array requires automatic storage");
+		if (initializer != nullptr)
+		{
+			const syntax::BracedInitList* list = WrittenInitializerList(initializer);
+			if (!c23_ || list == nullptr || !list->elements.empty())
+				error(initializer->location, "a variable-length array initializer must be empty and requires C23");
+		}
+	}
 	if (type->c_variably_modified && (where->kind != ScopeKind::Block || specifiers.is_extern || member))
 		error(location, "a variably modified object must be declared without linkage at block scope");
 	if (member || definition)

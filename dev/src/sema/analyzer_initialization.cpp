@@ -443,6 +443,13 @@ void Analyzer::list_initialize(const syntax::BracedInitList& list, const Type* t
 {
 	if (c_source_)
 	{
+		if (type->runtime_array())
+		{
+			// The declaration admitted an empty initializer. Its type and
+			// captured extent describe the whole implicit initialization.
+			new_facts(list, type, ValueCategory::LValue);
+			return;
+		}
 		const bool static_flexible = &list == flexible_list_;
 		const ClassEntity* element = c_static_initializer_ && type->kind == TypeKind::Array ? ObjectClassOf(type)
 																							: nullptr;

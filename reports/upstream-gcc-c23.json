@@ -12,6 +12,28 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "empty-initialization-execution",
+      "path": "gcc/testsuite/gcc.dg/c23-empty-init-1.c",
+      "sha256": "828f824ba8541ca828ca2a68b4ebfa49706e3d8e8de6e179c5590632d8d799",
+      "dialect": "c23",
+      "action": "run",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors", "-O2"],
+      "upstream_flags": ["-pedantic-errors", "-O2"],
+      "obligation": "Default initialization of scalar, record, union, array, VLA and compound literal objects"
+    },
+    {
+      "id": "empty-unknown-array-bound",
+      "path": "gcc/testsuite/gcc.dg/c23-empty-init-2.c",
+      "sha256": "2005f598c5159f88cece26fd9c6ca92652fdae1e99883d3a958bdf6c401e6737",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Reject an empty initializer that cannot determine an unknown array bound"
+    },
+    {
       "id": "auto-object-types",
       "path": "gcc/testsuite/gcc.dg/c23-auto-1.c",
       "sha256": "fe845d8cd410b695645b603bc1b4d073525157ad6e33605cebeaa4cbfcc77617",

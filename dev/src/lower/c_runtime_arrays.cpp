@@ -132,8 +132,8 @@ RValue FunctionLowering::evaluate_runtime_bounds(
 	return computed || result == nullptr ? result_bytes : runtime_array_size(result, location);
 }
 
-void FunctionLowering::local_runtime_array(
-	const sema::VariableEntity* variable, const sema::RuntimeTypeEvaluation* bounds, uint32_t location)
+void FunctionLowering::local_runtime_array(const sema::VariableEntity* variable,
+	const sema::RuntimeTypeEvaluation* bounds, bool zero_initialize, uint32_t location)
 {
 	const sema::Type* type = variable->type;
 	const RValue bytes = evaluate_runtime_bounds(bounds, type, location);
@@ -146,6 +146,10 @@ void FunctionLowering::local_runtime_array(
 	lowir::Instruction save = lowir::make_instruction(lowir::Opcode::StackSave, pointer);
 	const lowir::Value mark = emit_value(save, pointer);
 	const RValue address = dynamic_stack_allocate(bytes, alignment);
+	// On the supported C targets, zeroed storage gives the prescribed
+	// scalar values and clears padding for C23 default initialization.
+	if (zero_initialize)
+		zero_bytes(address, bytes);
 	Cleanup cleanup = Cleanup();
 	cleanup.storage = mark;
 	cleanup.type = type;

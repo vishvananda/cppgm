@@ -3,6 +3,17 @@
 These notes record WG14 rules exercised by the course regressions and the
 initial upstream campaign. Clause numbers use the named edition or draft.
 
+## C23 empty initialization of variable-length arrays
+
+An automatic VLA accepts an empty initializer. Its elements are
+default-initialized, recursively including the first member of any
+union and the padding of aggregate types. Compute the bounds at the
+same point as for an uninitialized VLA and use the captured extent for
+initialization. A typedef retains its earlier extent. A nonempty
+initializer for a VLA, an empty initializer for an array of unknown
+size, and a VLA compound literal require diagnostics.
+[WG14 N3220 §§6.5.3.6, 6.7.11](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+
 ## C23 auto inference
 
 An object definition with `auto` and no written type obtains its type

@@ -553,6 +553,11 @@ The first fixture set covers these parts of the C17 input profile:
   the storage on every scope exit and preserve alignment requests. Diagnose
   jumps and switch labels that enter the scope of a variably modified
   identifier past its declaration.
+- In C23, accept `= {}` on a variable-length array with automatic
+  storage. Default-initialize each element and clear aggregate padding
+  using the complete captured extent. An empty initializer supplies no
+  size for an array of unknown bound. Diagnose a nonempty VLA
+  initializer and a compound literal of VLA type.
 - Require a complete element type when forming an array type. Parse an array
   bound as an assignment expression. A comma expression can appear in
   parentheses within the bound.

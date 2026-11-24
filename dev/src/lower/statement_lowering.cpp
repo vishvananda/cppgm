@@ -634,7 +634,7 @@ void FunctionLowering::local_object_variable(const sema::VariableEntity* variabl
 		if (variable->type->runtime_array())
 		{
 			if (!unreachable_storage_)
-				local_runtime_array(variable, bounds, location);
+				local_runtime_array(variable, bounds, init.initializer != nullptr, location);
 			return;
 		}
 		if (!unreachable_storage_)
