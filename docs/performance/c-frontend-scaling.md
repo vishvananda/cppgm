@@ -150,6 +150,36 @@ Peak RSS in the inquiry trials stays between 16.9 and 17.6 MiB.
 | 512 | 18.11 million | 18.03 million |
 | 2,048 | 59.55 million | 59.18 million |
 
+## C23 nullptr and variadic calls
+
+The frozen C++ and GNU17 builds produce byte-identical objects for the
+previous compiler and the candidate in every A/A, ABBA, and BAAB trial.
+The A/A task-clock ranges are 4.0% for C++ and 51.1% for SQLite on the
+shared host.
+
+| Input | A/A instruction range | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` | 0.0033% | +0.0006% | +0.0016% |
+| SQLite `sqlite3.c` | 0.0018% | +0.0009% | +0.0002% |
+
+The synthetic pointer workload assigns the null sentinel and compares a
+pointer with it in each function. The two treatments choose `nullptr`
+and `(void *)0` through a macro. Their objects match byte-for-byte.
+
+| Functions | `(void *)0` instructions | `nullptr` instructions |
+| ---: | ---: | ---: |
+| 128 | 24.80 million | 23.81 million |
+| 512 | 86.98 million | 83.01 million |
+| 2,048 | 335.22 million | 319.34 million |
+
+The variadic workload adds a parenthesized compatibility operand to
+`va_start` with 256, 1,024, or 4,096 terms. All builds produce one
+byte-identical object, including the one-argument control. The compiler
+uses 4.90, 6.91, and 14.94 million instructions for the compatibility
+operand builds. Each increment scales with the added tokens. The
+parser consumes those tokens without building expression nodes, and
+the candidate's peak RSS stays below 17.6 MiB at all three sizes.
+
 ## Volatile assignment code generation
 
 The same source functions returning and discarding a volatile record

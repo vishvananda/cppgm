@@ -493,6 +493,39 @@ ABI lanes. The earlier C upstream manifests retain their reviewed outcomes.
 
 [Frozen-input and array qualification measurements](../docs/performance/c-frontend-scaling.md#c23-type-inquiry-and-boolean-keywords)
 
+## C23 nullptr and variadic calls
+
+PA38 covers `nullptr_t` as a distinct scalar type, including static and
+empty initialization, pointer and boolean conversions, atomic qualifiers,
+comparison constraints and preservation of operand effects. The C17
+controls check ordinary identifier use and the earlier ellipsis-only
+diagnostic. C23 `<stdarg.h>` can use `__builtin_c23_va_start` without a
+named argument. The revised operation uses the existing variadic ABI.
+[WG14 N3220 §§6.3.2.4, 7.16.1.4, 7.21.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+
+The pinned C23 manifests pass 38 GCC and 13 Clang configurations. The
+GCC cases exercise the `<stddef.h>` typedef and `<stdarg.h>` macro, plus
+variadic reads from registers and the stack. The additional pinned C17
+case passes. The clause matrix passes 613 probes, including 162 C23
+probes, on Linux x86-64, WASI, and bare Wasm.
+
+The three positive PA38 fixtures run at `-O0` and `-O2` on both Linux
+targets, both Mach-O targets, WASI, and bare Wasm. A separate two-object
+replay passes both compiler directions on all six targets at both
+optimization levels. It checks calls with a `nullptr_t` parameter and
+return plus an ellipsis-only call that carries a null sentinel alongside
+integer and floating arguments. Linux AArch64 runs under QEMU and
+Mach-O runs under the local loaders.
+
+The strict course report passes all 11,674 tests, and the student export
+verifies 26,689 portable reference files. The exported PA1 and PA38
+suites pass using the self-built reference tools. After moving the
+contextual boolean conversion helper to meet the source size limit,
+the PA38 native, Wasm and ABI suites, debug-info tests, inception,
+and self-host through PA5 pass again.
+
+[Frozen-input and feature scaling measurements](../docs/performance/c-frontend-scaling.md#c23-nullptr-and-variadic-calls)
+
 ## Additional editions
 
 The driver baseline at `39e13e127` rejects `c90`, `c89`,
