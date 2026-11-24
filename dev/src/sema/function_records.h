@@ -452,8 +452,6 @@ struct FunctionEntity : Entity
 	// (see Analyzer::InstantiationSuppressed); GNU gnu_inline selects
 	// inline-only linkage in C++ and GNU89 semantics in C.
 	bool always_inline : 1;
-	// A GNU assembly input must become immediate during substitution.
-	bool deferred_asm_input : 1;
 	bool unanalyzed_body : 1;
 	bool excluded_instantiation : 1;
 	bool gnu_inline : 1;

@@ -100,8 +100,9 @@ void SourceInlining::drop_substitution_bodies()
 {
 	if (substitution_only_.size() == 0)
 		return;
-	// Direct calls have received their substituted operands. These private
-	// copies have no callable ABI with the incoming parameter still variable.
+	// These bodies exist only to substitute direct calls. Keeping them
+	// would compile nested immediate-only operations with incoming parameters
+	// still variable. An address-taken function has its own callable symbol.
 	const auto discard = [&](lowir::SymbolId symbol) { return substitution_only_.find(symbol) != nullptr; };
 	program_.order.erase(std::remove_if(program_.order.begin(), program_.order.end(), discard), program_.order.end());
 	const auto first = std::remove_if(deferred_.begin(), deferred_.end(), [&](lowir::SymbolId symbol) {
@@ -325,7 +326,7 @@ void ProgramLowering::mark_source_inline(const sema::FunctionEntity* function, l
 	if (function->destructor && !function->is_virtual && base_symbols_.find(function) == symbol &&
 		!HiddenBaseParameters(function, EntryVariant::Base))
 		target = function_symbol(function);
-	source_inlining_->mark(symbol, target, function->deferred_asm_input && inline_copies_.find(function) == symbol);
+	source_inlining_->mark(symbol, target, inline_copies_.find(function) == symbol);
 }
 
 void ProgramLowering::finish_source_inlining()

@@ -14,7 +14,17 @@ static inline __attribute__((always_inline)) int literal(int value)
     return result;
 }
 
+static inline __attribute__((always_inline)) const int* address_wrapper(const int* object)
+{
+    return address(object);
+}
+
+static inline __attribute__((always_inline)) int literal_wrapper(int value)
+{
+    return literal(value) + 1;
+}
+
 int main()
 {
-    return address(&array[1]) != &array[1] || literal(21) != 21;
+    return address_wrapper(&array[1]) != &array[1] || literal_wrapper(21) != 22;
 }
