@@ -1426,8 +1426,8 @@ including when prefixed by unary plus or minus.
 ## Standard library headers and C23 versions
 
 C23 adds `<stdbit.h>` and `<stdckdint.h>`. The published freestanding
-requirements include `<stdbit.h>`, the locale-independent subset of
-`<string.h>`, and `memalignment` from `<stdlib.h>`. WG14 issue 1040
+requirements include `<stdbit.h>`, the specified subset of `<string.h>`,
+and `memalignment` from `<stdlib.h>`. WG14 issue 1040
 tracks the omission of `<stdckdint.h>` from that list. WG14 issue 1074
 tracks the interaction of freestanding and conditional features,
 including the separate Annex F requirements.

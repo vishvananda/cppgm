@@ -3683,3 +3683,25 @@ The finite initializer case measures the decoder's busiest path in
 this batch. Task-clock spread was at least 1.68% for each A/A block
 during concurrent validation. The observations leave timing changes
 unresolved.
+
+## WASI C exception-handling predefine
+
+The driver adds one macro to the existing WASI C target table during
+translation-unit setup. This enables the SDK's `<setjmp.h>` for the
+exception-tag nonlocal jumps already emitted by the Wasm backend.
+
+Both binaries produced byte-identical objects for every observation on
+CPU 71. The A/A calibration and two paired blocks measured retired user
+instructions with identical inputs, SDK and flags.
+
+| Input | A/A instruction spread | ABBA retired instructions | BAAB retired instructions |
+| --- | ---: | ---: | ---: |
+| WASI C23, one function | 0.0032% | +0.0792% | +0.0778% |
+| WASI C23, combined translation limits | 0.0089% | +0.0094% | +0.0035% |
+| x86-64 SQLite 3.50.4 | 0.0040% | −0.0002% | +0.0012% |
+| x86-64 C++ semantic overloads | 0.0026% | −0.0017% | −0.0003% |
+
+The one-function WASI input measures roughly 2,600 extra retired
+instructions in fixed compilation setup. The A/A task-clock spreads
+ranged from 1.68% to 153% during concurrent validation. The task-clock
+observations leave timing changes unresolved.

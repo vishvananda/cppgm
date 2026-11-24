@@ -992,7 +992,11 @@
       ],
       "environment": "all",
       "requirement": "Qualify the minimum ranges and numeric limits macros on the selected target.",
-      "cases": []
+      "cases": [
+        "limits.integer",
+        "limits.float",
+        "limits.rounding-default"
+      ]
     },
     {
       "id": "record.flexible-member-placement",

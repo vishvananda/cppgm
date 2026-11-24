@@ -2893,3 +2893,48 @@ the PA39 data-model check pass against the packaged tools.
 [WG14 clauses and open issue](../doc/c-conformance-notes.md#c23-translation-and-numerical-limits) ·
 [PA38 signaling NaN case](../pa38/tests/general/500-c-static-signaling-nan.t) ·
 [Compile measurements](../docs/performance/c-frontend-scaling.md#c23-translation-limits-and-floating-constant-decoding)
+
+
+## Standard library header qualification
+
+The edition checklist covers the 15 C90 headers and cumulative additions
+from C95 through C23. Each probe tests two inclusions of one header and
+compiles the available headers together. The combined rule requires all
+applicable headers. The receipts retain a reason for an absent header,
+a conditional feature that the compiler disables, or a header that requires
+an SDK opt-in. The C23 version probes check the spelling or constant
+expression required for each of the 21 version macros.
+
+Linux x86-64 with GCC 15 and Linux AArch64 with the GCC 14 sysroot pass
+all 146 edition-by-header checks, all six combined header checks, and all
+21 C23 version macros. The AArch64 object files link against the selected
+glibc and run under QEMU. `setjmp` and `signal` pass at `-O0` and `-O2`
+in each edition. The matrix also associates the existing integer, floating
+and default-rounding probes with its overall C99–C17 numeric limits rule.
+
+WASI C supplies the exception-handling predefine consumed by the SDK's
+`<setjmp.h>`. A jump across a call executes at both optimization levels
+in every edition. The SDK's signal emulation also executes in every
+edition with `-D_WASI_EMULATED_SIGNAL` and `-lwasi-emulated-signal`. The
+default hosted signal rules remain uncovered. The installed WASI SDK
+lacks `<stdbit.h>`, and 19 of the C23 version macros are absent from the
+headers tested. The bare Wasm profile's Clang resource directory supplies
+nine C23 headers. It lacks `<stdbit.h>`, `<string.h>` and `<stdlib.h>`.
+
+The local run passes 2,498 probe configurations across
+Linux x86-64, AArch64 under QEMU, WASI and bare Wasm. The existing
+native CI jobs provide the path for the real macOS SDKs. These results
+qualify the tested header, macro and library behavior. The remaining
+library interfaces and runtime configurations are tracked in the plan.
+
+The 11,674-test strict report, debug-info tests, PA35 through PA5,
+exact inception and PA36 smoke pass. PA38 passes 683 native and 683
+Wasm tests, 63 controls and four mixed-toolchain ABI tests. The student
+export verifies 26,940 portable reference files and passes PA1 and
+the same PA38 lanes with the bundled tools. The architecture audits
+pass with 13 existing file audit warnings. Placement scans 11,685
+fixtures with zero placement or local hygiene findings.
+
+[Standard references](../doc/c-conformance-notes.md#standard-library-headers-and-c23-versions) ·
+[PA38 WASI regression](../pa38/tests/general/500-c-hosted-nonlocal-jump.t) ·
+[Compile measurements](../docs/performance/c-frontend-scaling.md#wasi-c-exception-handling-predefine)
