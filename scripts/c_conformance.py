@@ -35,6 +35,8 @@ LEGACY_VERSION_PROBES = {
 }
 C23_PREPROCESSOR_REJECTIONS = (
     ('c23.trigraph-default', '100-c23-trigraphs-bad.t', 'compile'),
+    ('c23.attribute-probe-context', '100-c23-attribute-probe-context-bad.t', 'compile'),
+    ('c23.attribute-probe-operand', '100-c23-attribute-probe-operand-bad.t', 'compile'),
     ('c23.embed-missing', '100-c23-embed-missing-bad.t', 'compile'),
     ('c23.embed-unsupported', '100-c23-embed-unsupported-bad.t', 'compile'),
     ('c23.embed-duplicate', '100-c23-embed-duplicate-bad.t', 'compile'),
@@ -60,6 +62,7 @@ C23_PREPROCESSOR_CASES = (
 C23_EMBED_SOURCE = PA38_GENERAL / '100-c23-embed.t'
 C23_EMBED_FIXTURES = C23_EMBED_SOURCE.with_suffix('.inc')
 C23_PROGRAMS = {
+    'c23.attribute-probe': (PA38_GENERAL / '100-c23-attribute-probe.t', ()),
     'c23.embed': (C23_EMBED_SOURCE, ('--embed-dir=' + str(C23_EMBED_FIXTURES / 'resources'),
                                     '-I' + str(C23_EMBED_FIXTURES / 'headers'))),
     'c23.number-spellings': (PA38_GENERAL / '100-c23-number-spellings.t', ()),

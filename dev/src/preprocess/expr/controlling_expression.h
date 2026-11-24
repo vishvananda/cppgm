@@ -7,6 +7,8 @@
 #include "preprocess/expr/pp_arithmetic.h"
 #include "preprocess/tokens/pp_token_cursor.h"
 
+class SourcePositions;
+
 // Answers `defined identifier` ([cpp.cond] 16.1p1) for the evaluator: PA3's
 // mock, then the macro table of the preprocessor. `spelling` is borrowed for
 // the duration of the call.
@@ -61,6 +63,7 @@ public:
 
 	void set_conditional_escapes(bool on) { conditional_escapes_ = on; }
 	void set_cxx_edition(uint8_t edition) { cxx_edition_ = edition; }
+	void set_binary_literal_diagnostics(const SourcePositions& positions) { binary_literal_diagnostics_ = &positions; }
 
 	// Evaluates the pp-tokens from `tokens` up to and including the next
 	// new-line or end-of-file. Propagates the cursor's exceptions.
@@ -130,6 +133,7 @@ private:
 	void fail_unless_unevaluated();
 
 	const MacroDefinitionQuery& macros_;
+	const SourcePositions* binary_literal_diagnostics_ = nullptr;
 	NumberDialect literals_;
 	bool conditional_escapes_ = false;
 	bool allow_defined_ = true;

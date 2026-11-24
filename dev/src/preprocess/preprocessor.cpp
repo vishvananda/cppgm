@@ -229,6 +229,8 @@ Preprocessor::Preprocessor(const PreprocessorOptions& options, const std::string
 	expander_.set_digraphs(digraphs);
 	evaluator_.set_conditional_escapes(options.gnu_c());
 	evaluator_.set_cxx_edition(options.cxx_edition);
+	if (options.diagnose_pre_c23_binary_literals())
+		evaluator_.set_binary_literal_diagnostics(*this);
 	const bool separators = HasNumberSyntax(options.literals, number_syntax::Separators);
 	const bool exponents = HasNumberSyntax(options.literals, number_syntax::HexFloat) && !options.iso_c_before_c99();
 	source_.set_number_syntax(separators, exponents);
@@ -329,11 +331,16 @@ void Preprocessor::define_builtin_macros()
 	names_.counter->macro = MakeBuiltinMacro(arena_, names_.counter, BuiltinMacro::Counter);
 	names_.has_cpp_attribute->macro = MakeBuiltinMacro(arena_, names_.has_cpp_attribute, BuiltinMacro::HasCppAttribute);
 	names_.has_attribute->macro = MakeBuiltinMacro(arena_, names_.has_attribute, BuiltinMacro::HasAttribute);
-	if (modes_.language == 0 && modes_.c_edition >= CEdition::C23)
+	if (modes_.language == 0)
 	{
-		Identifier* name = identifiers_.intern("__has_embed", 11);
-		name->role = static_cast<uint8_t>(IdentifierRole::ReservedMacroName);
-		name->macro = MakeBuiltinMacro(arena_, name, BuiltinMacro::HasEmbed);
+		const auto define_c_probe = [this](const char* spelling, uint32_t length, BuiltinMacro probe) {
+			Identifier* name = identifiers_.intern(spelling, length);
+			name->role = static_cast<uint8_t>(IdentifierRole::ReservedMacroName);
+			name->macro = MakeBuiltinMacro(arena_, name, probe);
+		};
+		define_c_probe("__has_c_attribute", sizeof("__has_c_attribute") - 1, BuiltinMacro::HasCAttribute);
+		if (modes_.c_edition >= CEdition::C23)
+			define_c_probe("__has_embed", sizeof("__has_embed") - 1, BuiltinMacro::HasEmbed);
 	}
 	if (!hosted_)
 		return;
@@ -568,6 +575,13 @@ void Preprocessor::diagnose_c90_hex_float(uint32_t location) const
 	const char* message = "hexadecimal floating constants require C99";
 	if (!allow_c_extension(location, CEdition::C99, message))
 		throw PreprocessError(location, message);
+}
+
+void Preprocessor::diagnose_c23_binary_literal(const PPToken& token) const
+{
+	const char* message = "binary integer constants require C23";
+	if ((token.flags & kQuietSystemMacro) == 0 && !allow_c_extension(token.begin, CEdition::C23, message))
+		throw PreprocessError(token.begin, message);
 }
 
 void Preprocessor::LineTokens::check_va_opt(uint32_t location) const

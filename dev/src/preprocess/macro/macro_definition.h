@@ -24,6 +24,7 @@ enum class BuiltinMacro : uint8_t
 	Line,
 	Counter,
 	HasCppAttribute,
+	HasCAttribute,
 	HasAttribute,
 	HasInclude,
 	HasIncludeNext,

@@ -70,7 +70,7 @@ void language_standard(const std::string& standard, PreprocessorOptions& options
 			options.cxx_edition = 0;
 			options.c_edition = mode.edition;
 			options.strict = mode.strict;
-			options.literals = NumberDialect::GnuC;
+			options.literals = mode.edition >= CEdition::C23 ? NumberDialect::GnuC : NumberDialect::GnuCBeforeC23;
 			return;
 		}
 	options.language = SourceLanguage::Cxx;

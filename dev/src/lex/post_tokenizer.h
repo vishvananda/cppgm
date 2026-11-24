@@ -38,10 +38,12 @@ public:
 
 	// Syntax uses the classified component and converts its value on demand.
 	void defer_imaginary_values() { defer_imaginary_values_ = true; }
-	void set_source_positions(const SourcePositions& positions, bool iso_c_before_c99)
+	void set_source_positions(
+		const SourcePositions& positions, bool iso_c_before_c99, bool diagnose_binary_literals = false)
 	{
 		positions_ = &positions;
 		iso_c_before_c99_ = iso_c_before_c99;
+		diagnose_binary_literals_ = diagnose_binary_literals;
 	}
 
 private:
@@ -79,6 +81,7 @@ private:
 	bool after_operator_;
 	bool defer_imaginary_values_ = false;
 	bool iso_c_before_c99_ = false;
+	bool diagnose_binary_literals_ = false;
 	// Scalar literal values; 16 bytes hold a long double.
 	unsigned char scalar_[16];
 	std::string floating_text_;

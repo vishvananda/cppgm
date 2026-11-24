@@ -1047,6 +1047,29 @@ omission in a macro defined and called in user source. GCC accepts
 the same omission for a system-header macro. cppgm follows that
 behavior and enables the diagnostic there with `-Wsystem-headers`.
 
+## C23 attribute inquiries
+
+`__has_c_attribute` is defined in C preprocessing conditions, including
+the earlier C modes for GCC and Clang compatibility. Rescan its operand
+to form a single attribute token with an optional namespace. Report
+`202311L` for `noreturn` and `_Noreturn`, including the reserved spellings.
+GCC 15 uses the same revision. Clang 21 reports `202202L` for `noreturn`.
+Qualified GNU and target attributes use the existing capability queries.
+Unsupported attributes return zero.
+[WG14 N3220 §§6.7.13.7, 6.10.2](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf) ·
+[GCC attribute inquiry](https://gcc.gnu.org/onlinedocs/cpp/_005f_005fhas_005fc_005fattribute.html) ·
+[Clang attribute inquiry](https://clang.llvm.org/docs/LanguageExtensions.html#has-c-attribute)
+
+## C23 binary integers and digit separators
+
+GCC and Clang accept binary integers before C23 as an extension and
+diagnose them under the pedantic policy. This applies to integer
+constants in ordinary tokens and preprocessing conditions, including
+tokens formed by macro pasting. Digit separators are part of the C23
+token grammar. Through C17 the apostrophe has its earlier lexical
+meaning in both ISO and GNU C modes.
+[WG14 N3220 §§6.4.4.2–6.4.4.3, 6.4.8](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3220.pdf)
+
 ## C23 Unicode identifiers
 
 C23 uses XID_Start and XID_Continue for Unicode identifiers and

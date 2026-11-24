@@ -12,6 +12,72 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "c23-attr-noreturn-1",
+      "path": "gcc/testsuite/gcc.dg/c23-attr-noreturn-1.c",
+      "sha256": "4eed02b8886e4c8c26117fe9cf68fc2cd0d78ed487914e3ad3913c7b341997a6",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Noreturn spellings, redeclarations and function pointer compatibility"
+    },
+    {
+      "id": "c23-attr-noreturn-2",
+      "path": "gcc/testsuite/gcc.dg/c23-attr-noreturn-2.c",
+      "sha256": "41b9fe6956fd16ed73946c33f82f19dd697fe0839e8307edb20ebd8fb84009c6",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Reject noreturn on declarations that do not declare a function"
+    },
+    {
+      "id": "c23-attr-noreturn-3",
+      "path": "gcc/testsuite/gcc.dg/c23-attr-noreturn-3.c",
+      "sha256": "c32410e6139abe571dd0f55b706ea9f19e28ef4e1568696cddd36a677a5df60f",
+      "dialect": "c23",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Reject argument clauses on noreturn"
+    },
+    {
+      "id": "c23-has-c-attribute-1",
+      "path": "gcc/testsuite/gcc.dg/c23-has-c-attribute-1.c",
+      "sha256": "60be5b53ebd32f9397e27e39041762d1fd0a4280937e782fe40b1005efe586c0",
+      "dialect": "c23",
+      "action": "preprocess",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Attribute inquiry definedness and unsupported attribute results"
+    },
+    {
+      "id": "c23-has-c-attribute-3",
+      "path": "gcc/testsuite/gcc.dg/c23-has-c-attribute-3.c",
+      "sha256": "e9b6c14b0e7c725c1c5910387ce5d71606e56a1d7abd7c99d4778919b9a20b24",
+      "dialect": "c23",
+      "action": "preprocess",
+      "expect": "accept",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "GNU attribute namespaces and their reserved spellings"
+    },
+    {
+      "id": "c23-has-c-attribute-4",
+      "path": "gcc/testsuite/gcc.dg/c23-has-c-attribute-4.c",
+      "sha256": "5b5f88f1f4b57927b513748cfd0e4af4f8214931ba2b9e78349aa46b7089f0c5",
+      "dialect": "c23",
+      "action": "preprocess",
+      "expect": "reject",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Diagnose malformed attribute inquiry operands"
+    },
+    {
       "id": "c23-elifdef-1",
       "path": "gcc/testsuite/gcc.dg/cpp/c23-elifdef-1.c",
       "sha256": "c480f9e891ada56626a27c2b0e1030fb70eec6465f9dd82f1603670236903f8f",

@@ -401,9 +401,12 @@ bool Parser::collect_attribute_specifiers(Attribute*& list, bool* standard, CAli
 				}
 				else if (!token.scoped && token.name != nullptr &&
 					(std::strcmp(token.name->spelling, "noreturn") == 0 ||
-						std::strcmp(token.name->spelling, "__noreturn__") == 0))
+						std::strcmp(token.name->spelling, "__noreturn__") == 0 ||
+						(c_source_ &&
+							(std::strcmp(token.name->spelling, "_Noreturn") == 0 ||
+								std::strcmp(token.name->spelling, "___Noreturn__") == 0))))
 				{
-					// 7.6.3p1: no attribute-argument-clause shall be present.
+					// C++ 7.6.3p1 and C23 6.7.13.7: no attribute arguments.
 					if (at(TokenKind::OP_LPAREN))
 						return fail();
 					attribute.kind = AttributeKind::NoReturn;

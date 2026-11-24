@@ -5,6 +5,7 @@
 #include "lex/number_literal.h"
 #include "lex/text_literal.h"
 #include "lex/token_kind.h"
+#include "preprocess/preprocessor.h"
 
 namespace {
 
@@ -236,6 +237,8 @@ void ControllingExpressionEvaluator::classify_number(const PPToken& pp)
 	const NumberLiteral number = ClassifyNumber(pp.spelling, pp.length, literals_);
 	if (number.kind != NumberLiteralKind::Integer)
 		return;
+	if (number.binary && binary_literal_diagnostics_ != nullptr)
+		binary_literal_diagnostics_->diagnose_c23_binary_literal(pp);
 	token_.kind = TokenClass::Operand;
 	token_.value = PPValue{ number.integer, IsUnsignedLiteralType(number.type) };
 }

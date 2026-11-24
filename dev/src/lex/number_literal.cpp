@@ -192,7 +192,7 @@ uint32_t DigitsEnd(const char* text, uint32_t length, uint32_t begin, unsigned r
 NumberLiteral ClassifyInteger(const char* text, uint32_t length, uint32_t digits_begin, uint32_t digits_end,
 	unsigned radix, NumberDialect dialect, target_model::Target target)
 {
-	NumberLiteral result = { NumberLiteralKind::Invalid, FundamentalType::Int, length, 0 };
+	NumberLiteral result = { NumberLiteralKind::Invalid, FundamentalType::Int, false, length, 0 };
 	IntegerSuffix suffix;
 	NumberLiteralKind kind = NumberLiteralKind::Integer;
 	if (!ParseIntegerSuffix(text + digits_end, length - digits_end, suffix))
@@ -239,8 +239,10 @@ NumberLiteral ClassifyBinary(const char* text, uint32_t length, NumberDialect di
 {
 	const uint32_t end = DigitsEnd(text, length, 2, 2, dialect);
 	if (end == 2)
-		return NumberLiteral{ NumberLiteralKind::Invalid, FundamentalType::Int, length, 0 };
-	return ClassifyInteger(text, length, 2, end, 2, dialect, target);
+		return NumberLiteral{ NumberLiteralKind::Invalid, FundamentalType::Int, false, length, 0 };
+	NumberLiteral result = ClassifyInteger(text, length, 2, end, 2, dialect, target);
+	result.binary = true;
+	return result;
 }
 
 NumberLiteral ClassifyFloating(const char* text, uint32_t length, uint32_t value_end, NumberDialect dialect);
@@ -272,7 +274,7 @@ NumberLiteral ClassifyHexadecimal(const char* text, uint32_t length, NumberDiale
 			return ClassifyFloating(text, length, exponent, dialect);
 	}
 	if (point || integer_digits == 0)
-		return NumberLiteral{ NumberLiteralKind::Invalid, FundamentalType::Int, length, 0 };
+		return NumberLiteral{ NumberLiteralKind::Invalid, FundamentalType::Int, false, length, 0 };
 	return ClassifyInteger(text, length, 2, end, 16, dialect, target);
 }
 
@@ -335,7 +337,7 @@ bool ParseFloatingSuffix(const char* suffix, uint32_t length, NumberDialect dial
 // A floating literal whose value text ends at `value_end`.
 NumberLiteral ClassifyFloating(const char* text, uint32_t length, uint32_t value_end, NumberDialect dialect)
 {
-	NumberLiteral result = { NumberLiteralKind::Invalid, FundamentalType::Double, value_end, 0 };
+	NumberLiteral result = { NumberLiteralKind::Invalid, FundamentalType::Double, false, value_end, 0 };
 	const char* suffix = text + value_end;
 	const uint32_t suffix_length = length - value_end;
 	if (ParseFloatingSuffix(suffix, suffix_length, dialect, result.type))
@@ -372,7 +374,7 @@ NumberLiteral ClassifyNumber(const char* text, uint32_t length, NumberDialect di
 		fraction_digits = pos - begin;
 	}
 	if (integer_digits + fraction_digits == 0)
-		return NumberLiteral{ NumberLiteralKind::Invalid, FundamentalType::Int, length, 0 };
+		return NumberLiteral{ NumberLiteralKind::Invalid, FundamentalType::Int, false, length, 0 };
 
 	const uint32_t exponent_end = ExponentEnd(text, length, pos, dialect);
 	if (floating || exponent_end != pos)
@@ -384,7 +386,7 @@ NumberLiteral ClassifyNumber(const char* text, uint32_t length, NumberDialect di
 	for (uint32_t i = 1; i < integer_digits; ++i)
 	{
 		if (text[i] != '\'' && !IsOctalDigit(text[i]))
-			return NumberLiteral{ NumberLiteralKind::Invalid, FundamentalType::Int, length, 0 };
+			return NumberLiteral{ NumberLiteralKind::Invalid, FundamentalType::Int, false, length, 0 };
 	}
 	return ClassifyInteger(text, length, 0, integer_digits, 8, dialect, target);
 }

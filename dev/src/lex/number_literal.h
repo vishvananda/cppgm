@@ -23,6 +23,7 @@ struct NumberLiteral
 	NumberLiteralKind kind;
 	// Integer and Floating: the literal's type. Imaginary: the component type.
 	FundamentalType type;
+	bool binary; // A base-two integer spelling, including imaginary integers.
 	// UserDefined*: where the ud-suffix begins. Floating: where the
 	// floating-suffix begins, that is, the end of the text of the value.
 	uint32_t suffix_begin;
@@ -61,6 +62,7 @@ enum class NumberDialect : uint8_t
 	Cxx17 = static_cast<uint8_t>(Cxx14) | number_syntax::HexFloat,
 	Gnu = static_cast<uint8_t>(Cxx17) | number_syntax::Hosted,
 	GnuC = static_cast<uint8_t>(Gnu) | number_syntax::Imaginary,
+	GnuCBeforeC23 = static_cast<uint8_t>(GnuC) & ~number_syntax::Separators,
 	GnuStream = static_cast<uint8_t>(Gnu) & ~number_syntax::ReservedSuffix,
 	HostedCxx11 = static_cast<uint8_t>(Gnu) & ~number_syntax::Separators,
 	StrictHostedCxx11 = number_syntax::Hosted,

@@ -1309,7 +1309,11 @@
       ],
       "environment": "all",
       "requirement": "Treat __has_c_attribute as defined in conditional directives, and report the supported revision for a known standard attribute and zero for unsupported attributes.",
-      "cases": []
+      "cases": [
+        "c23.attribute-probe",
+        "c23.attribute-probe-context",
+        "c23.attribute-probe-operand"
+      ]
     },
     {
       "id": "c23.variadic-macro-omission",

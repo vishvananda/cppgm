@@ -56,6 +56,18 @@ produces a diagnostic with the unexpanded message and normally allows
 translation to continue. In C23, recognize binary numbers and digit
 separators in integer and floating constants, preprocessing tokens,
 and decimal `#line` operands.
+In earlier C modes, accept binary integers as an extension in both
+source and preprocessing conditions. Apply the pedantic diagnostic
+policy to that extension. Recognize digit separators only in C23 and
+later C modes.
+
+In a preprocessing condition, treat `__has_c_attribute` as defined
+and expand macros in its operand before reading an attribute name or
+a namespace-qualified name. Report `202311L` for the standard
+`noreturn` attribute and its alternate spellings. Use the existing
+target attribute capabilities for qualified extension names, and return
+zero for unsupported names. Provide the query in earlier C modes as
+an extension.
 
 In C23, use `#embed "name"` or `#embed <name>` to read a binary
 resource as a comma-separated sequence of unsigned byte values.

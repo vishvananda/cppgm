@@ -1258,7 +1258,12 @@ void MacroExpander::replace_builtin(const MacroDefinition& macro)
 	case BuiltinMacro::HasAttribute:
 		// An operator of controlling expressions; elsewhere an identifier.
 		if (controlling_expression_)
-			replace_has_cpp_attribute(macro.builtin == BuiltinMacro::HasAttribute);
+			replace_has_attribute(macro.builtin);
+		return;
+	case BuiltinMacro::HasCAttribute:
+		if (!controlling_expression_)
+			throw PreprocessError(current_.begin, "__has_c_attribute is only allowed in a preprocessing condition");
+		replace_has_attribute(macro.builtin);
 		return;
 	case BuiltinMacro::HasInclude:
 	case BuiltinMacro::HasIncludeNext:
@@ -1321,40 +1326,56 @@ void MacroExpander::replace_defined()
 	set_number(is_defined ? "1" : "0", 1);
 }
 
-void MacroExpander::replace_has_cpp_attribute(bool gnu)
+void MacroExpander::replace_has_attribute(BuiltinMacro probe)
 {
-	// `__has_cpp_attribute ( attribute-token )` (or `__has_attribute`),
-	// where the attribute-token is an identifier or `identifier ::
-	// identifier`, read without replacement as the course reference does.
+	// C23 forms the attribute token after rescanning its operand. The
+	// course C++ and GNU queries read the operand as written.
+	const bool c = probe == BuiltinMacro::HasCAttribute;
+	const bool gnu = probe == BuiltinMacro::HasAttribute;
 	const PPToken operator_token = current_;
 	PPToken token;
 	read(token);
 	if (!IsPunctuatorToken(token, TokenKind::OP_LPAREN))
-		throw PreprocessError(operator_token.begin, "expected `(` after __has_cpp_attribute");
-	read(token);
+		throw PreprocessError(operator_token.begin,
+			c ? "expected `(` after __has_c_attribute" : "expected `(` after __has_cpp_attribute");
+	const auto next_operand = [&] {
+		read(token);
+		if (c)
+			token = expand_probe_token(token);
+	};
+	next_operand();
 	if (token.kind != PPTokenKind::Identifier && !IsIdentifierLikeOperator(token))
 		throw PreprocessError(operator_token.begin, "expected an attribute name");
-	bool reported = IsReportedAttribute(token.spelling, token.length, gnu) ||
-		(gnu && environment_.has_target_attribute(token.spelling, token.length));
-	const bool gnu_namespace = (token.length == 3 && std::memcmp(token.spelling, "gnu", 3) == 0) ||
-		(token.length == 7 && std::memcmp(token.spelling, "__gnu__", 7) == 0);
-	const bool clang_namespace = token.length == 5 && std::memcmp(token.spelling, "clang", 5) == 0;
-	const bool no_unique = reported && !gnu &&
-		((token.length == 17 && std::memcmp(token.spelling, "no_unique_address", 17) == 0) ||
-			(token.length == 21 && std::memcmp(token.spelling, "__no_unique_address__", 21) == 0));
-	const char* answer = !reported ? "0" : gnu ? "1" : no_unique ? "201803" : "200809";
-	read(token);
+	const auto name_is = [&](const char* spelling) {
+		return token.length == std::strlen(spelling) && std::memcmp(token.spelling, spelling, token.length) == 0;
+	};
+	const bool gnu_namespace = name_is("gnu") || name_is("__gnu__");
+	const bool clang_namespace = name_is("clang");
+	const char* answer = "0";
+	// C23's supported standard attribute is noreturn (6.7.13.7).
+	if (c)
+	{
+		if (name_is("noreturn") || name_is("__noreturn__") || name_is("_Noreturn") || name_is("___Noreturn__"))
+			answer = "202311L";
+	}
+	else if (IsReportedAttribute(token.spelling, token.length, gnu) ||
+		(gnu && environment_.has_target_attribute(token.spelling, token.length)))
+	{
+		const bool no_unique = name_is("no_unique_address") || name_is("__no_unique_address__");
+		answer = gnu ? "1" : no_unique ? "201803" : "200809";
+	}
+	next_operand();
 	if (IsPunctuatorToken(token, TokenKind::OP_COLON2))
 	{
-		read(token);
+		next_operand();
 		if (token.kind != PPTokenKind::Identifier && !IsIdentifierLikeOperator(token))
 			throw PreprocessError(operator_token.begin, "expected an attribute name");
-		reported = !gnu &&
+		const bool reported = !gnu &&
 			((gnu_namespace && IsReportedAttribute(token.spelling, token.length, true)) ||
 				((gnu_namespace || clang_namespace) &&
 					environment_.has_target_attribute(token.spelling, token.length)));
 		answer = reported ? "1" : "0";
-		read(token);
+		next_operand();
 	}
 	if (!IsPunctuatorToken(token, TokenKind::OP_RPAREN))
 		throw PreprocessError(operator_token.begin, "expected `)` after the attribute name");
@@ -1382,7 +1403,7 @@ void MacroExpander::replace_has_include(bool next)
 		? token.kind != PPTokenKind::HeaderName
 		: token.kind != PPTokenKind::StringLiteral && !IsPunctuatorToken(token, TokenKind::OP_LT);
 	if (expand)
-		token = expand_include_token(token);
+		token = expand_probe_token(token);
 	std::string name;
 	bool angle = false;
 	TextLiteralParts parts;
@@ -1403,7 +1424,7 @@ void MacroExpander::replace_has_include(bool next)
 		for (read(token);; read(token), first = false)
 		{
 			if (expand)
-				token = expand_include_token(token);
+				token = expand_probe_token(token);
 			if (IsPunctuatorToken(token, TokenKind::OP_GT))
 				break;
 			if (token.kind == PPTokenKind::EndOfFile || token.kind == PPTokenKind::NewLine)
@@ -1423,7 +1444,7 @@ void MacroExpander::replace_has_include(bool next)
 		throw PreprocessError(operator_token.begin, "empty header name in __has_include");
 	read(token);
 	if (c_source || expand)
-		token = expand_include_token(token);
+		token = expand_probe_token(token);
 	if (!IsPunctuatorToken(token, TokenKind::OP_RPAREN))
 		throw PreprocessError(operator_token.begin, "expected `)` after the header name");
 	const bool found = environment_.can_include(name, angle, next);
@@ -1445,7 +1466,7 @@ void MacroExpander::replace_has_embed()
 	bool angle_name = false;
 	for (;;)
 	{
-		token = expand_include_token(token);
+		token = expand_probe_token(token);
 		if (token.kind == PPTokenKind::EndOfFile || token.kind == PPTokenKind::NewLine)
 			throw PreprocessError(query.begin, "expected `)` after the __has_embed operand");
 		if (angle_name)
@@ -1475,7 +1496,7 @@ void MacroExpander::replace_has_embed()
 	set_number(answer == 2 ? "2" : answer == 1 ? "1" : "0", 1);
 }
 
-PPToken MacroExpander::expand_include_token(PPToken token)
+PPToken MacroExpander::expand_probe_token(PPToken token)
 {
 	const std::size_t depth = invocations_.size();
 	for (;;)

@@ -150,6 +150,8 @@ void PostTokenizer::convert_number(const PPToken& pp)
 	switch (number.kind)
 	{
 	case NumberLiteralKind::Integer:
+		if (number.binary && diagnose_binary_literals_)
+			positions_->diagnose_c23_binary_literal(pp);
 		set_scalar(LiteralForm::Integer, number.type, number.integer);
 		return;
 	case NumberLiteralKind::Floating:
@@ -174,6 +176,10 @@ void PostTokenizer::convert_number(const PPToken& pp)
 		set_ud_suffix(number.suffix_begin);
 		return;
 	case NumberLiteralKind::ImaginaryInteger:
+		if (number.binary && diagnose_binary_literals_)
+			positions_->diagnose_c23_binary_literal(pp);
+		convert_imaginary(pp, number);
+		return;
 	case NumberLiteralKind::ImaginaryFloating:
 		convert_imaginary(pp, number);
 		return;

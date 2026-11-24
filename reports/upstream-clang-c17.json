@@ -12,6 +12,28 @@
   "exclusions": [],
   "cases": [
     {
+      "id": "n2549-extension",
+      "path": "clang/test/C/C23/n2549.c",
+      "sha256": "be1b4471f9ab1d69d4ac60b56f5369b2745a56c34c24b8eb777119b3982854e6",
+      "dialect": "c17",
+      "action": "syntax",
+      "expect": "accept",
+      "candidate_flags": [],
+      "upstream_flags": [],
+      "obligation": "Binary integers as an extension in pre-C23 source"
+    },
+    {
+      "id": "n2549-pedantic",
+      "path": "clang/test/C/C23/n2549.c",
+      "sha256": "be1b4471f9ab1d69d4ac60b56f5369b2745a56c34c24b8eb777119b3982854e6",
+      "dialect": "c17",
+      "action": "syntax",
+      "expect": "reject",
+      "candidate_flags": ["-pedantic-errors"],
+      "upstream_flags": ["-pedantic-errors"],
+      "obligation": "Pedantic diagnostic for binary integers before C23"
+    },
+    {
       "id": "tgmath-header-types",
       "path": "clang/test/Headers/tgmath.c",
       "sha256": "ce8189397447121966bb80ca7a801bcab1b4d63483c7c448c0aa17bb1ea44021",
