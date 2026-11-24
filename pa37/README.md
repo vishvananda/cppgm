@@ -29,6 +29,9 @@ lowir2native --target=wasm32-wasip1 -O2 \
   --dump-machine-ir program.mir -o program.wasm source.lowir
 ```
 
+Define `__wasi__` to `1` for the WASI Preview 1 target. In C mode, also
+define `__wasip1__` to `1` so the SDK selects its Preview 1 declarations.
+
 The object that `-c` compiles from a source's object LowIR is byte-identical
 to the object that `-c` compiles from the source at the same level. This also
 holds after `lowiropt -O0` reads and writes that text. The object LowIR is
