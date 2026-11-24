@@ -308,6 +308,7 @@ C23_VERSIONED_PROGRAMS = {
 }
 WASI_SIGNAL = 'wasi-emulated-signal'
 WASI_LONG_DOUBLE_STDIO = 'c-printscan-long-double'
+WASI_C23_PROFILE = 'wasi-c23-hosted'
 C23_LIBRARY_SOURCES = {
     'library.c23-integer-widths': ('limits_width_macros', ROOT / 'scripts/tests/c_c23_integer_widths.c'),
     'library.c23-stdint-widths': ('stdint_width_macros', ROOT / 'scripts/tests/c_c23_stdint_widths.c'),
@@ -419,6 +420,9 @@ def inventory(path):
     for name, profile in profiles.items():
         if profile['environment'] not in {'hosted', 'freestanding'} or not profile['target']:
             raise ValueError(f'invalid environment or target for {name}')
+        editions = profile.get('editions', C_EDITIONS)
+        if 23 not in editions or len(set(editions)) != len(editions) or set(editions) - set(C_EDITIONS):
+            raise ValueError(f'invalid profile editions on {name}')
     for name, rule in rules.items():
         editions, cases = rule['editions'], rule['cases']
         if not editions or len(set(editions)) != len(editions) or set(editions) - set(C_EDITIONS):
@@ -441,6 +445,8 @@ def evidence_key(row, profiles):
     case, profile, edition, variant = key = tuple(row[name] for name in ('case', 'profile', 'edition', 'variant'))
     if case not in CASES or profile not in profiles or edition not in C_EDITIONS or variant not in CASES[case][1]:
         raise ValueError(f'unknown case or configuration: {key}')
+    if edition not in profiles[profile].get('editions', C_EDITIONS):
+        raise ValueError(f'edition outside the profile: {key}')
     if any(row[name] != profiles[profile][name] for name in ('target', 'environment')):
         raise ValueError(f'target or environment mismatch: {key}')
     stages, _ = CASES[case]
@@ -499,6 +505,8 @@ def coverage(profiles, rules, receipts, header_checks=None):
     for rule in rules.values():
         for edition in rule['editions']:
             for profile, info in profiles.items():
+                if edition not in info.get('editions', C_EDITIONS):
+                    continue
                 keys = [(case, profile, edition, variant)
                         for case in rule['cases'] for variant in CASES[case][1]]
                 outside_profile = None
@@ -909,9 +917,9 @@ def library_sources(profile, edition, checked, checked_c23, wasi_libraries):
             continue
         if not usable(required):
             continue
-        # Freestanding C23 requires memalignment even though the rest of
-        # stdlib.h, including its version macro, is outside that profile.
-        use_version = hosted or case != 'library.c23-memalignment'
+        # Both supplemental libraries supply memalignment independently of
+        # the rest of stdlib.h.
+        use_version = case != 'library.c23-memalignment' or (hosted and profile['id'] != WASI_C23_PROFILE)
         if use_version and any(checked_c23.get(name, {}).get('version') != 'current'
                                for name in required.split()):
             continue
@@ -963,6 +971,8 @@ def probe_target(output, profile, compiler, setup, link, runner, sdk_headers, he
                                                       [*c23_flags, *flags], link, runner, link_flags):
             yield receipt(case, profile, 23, variant, passed, stages)
     for edition in (*LEGACY_STANDARDS, *PILOT_EDITIONS):
+        if edition not in profile.get('editions', C_EDITIONS):
+            continue
         legacy = edition in LEGACY_STANDARDS
         standard = LEGACY_STANDARDS.get(edition, f'c{edition}')
         flags = [compiler, '--target=' + profile['target'], *setup, '-x', 'c', f'-std={standard}', '-pedantic-errors']
@@ -1026,6 +1036,13 @@ def probes(args, profiles, rules):
     native = NATIVE_PROFILES.get(host)
     if native is None:
         raise ValueError(f'no C probe profile for {host[0]} {host[1]}')
+    wasi_runtime = args.wasi_c23_runtime.resolve() if args.wasi_c23_runtime else None
+    if wasi_runtime:
+        if not (args.wasi_sysroot and args.wasi_resource_dir):
+            raise ValueError('--wasi-c23-runtime requires --wasi-sysroot and --wasi-resource-dir')
+        wasi_c23_archive = wasi_runtime / 'libcppgm-wasi-c23.a'
+        if not wasi_c23_archive.is_file() or not (wasi_runtime / 'include').is_dir():
+            raise ValueError(f'expected an include directory and {wasi_c23_archive.name} in {wasi_runtime}')
     runtime = args.bare_runtime.resolve() if args.bare_runtime else None
     if runtime:
         if not (args.bare_wasm and args.wasi_resource_dir):
@@ -1063,6 +1080,15 @@ def probes(args, profiles, rules):
         reference = [wasm_reference, '--target=' + wasi['target'], *setup] if wasm_reference else ()
         results.extend(probe_target(output, wasi, compiler, setup, link, [args.wasmtime, 'run', '--dir=.'],
                                     sdk_headers, header_checks, wasi_libraries=wasi_libraries, reference=reference))
+        if wasi_runtime:
+            setup = [*setup, '-isystem', str(wasi_runtime / 'include'), '-D_WASI_EMULATED_SIGNAL']
+            link = [compiler, '--target=' + wasi['target'], *setup, str(wasi_c23_archive),
+                    '-l' + WASI_LONG_DOUBLE_STDIO, '-l' + WASI_SIGNAL]
+            sdk_inputs.extend([wasi_c23_archive, *sorted((wasi_runtime / 'include').rglob('*.h'))])
+            reference = [wasm_reference, '--target=' + wasi['target'], *setup] if wasm_reference else ()
+            results.extend(probe_target(output, profiles[WASI_C23_PROFILE], compiler, setup, link,
+                                        [args.wasmtime, 'run', '--dir=.'], sdk_headers, header_checks,
+                                        reference=reference))
     if args.bare_wasm:
         bare = profiles['wasm-freestanding']
         setup = ['-ffreestanding', '-nostdinc']
@@ -1128,6 +1154,7 @@ def main():
     run.add_argument('--cc', default='cc')
     run.add_argument('--wasi-sysroot', type=Path)
     run.add_argument('--wasi-resource-dir', type=Path)
+    run.add_argument('--wasi-c23-runtime', type=Path, help='directory with the hosted WASI C23 headers and archive')
     run.add_argument('--wasmtime', default='wasmtime')
     run.add_argument('--bare-wasm', action='store_true')
     run.add_argument('--bare-runtime', type=Path, help='directory with the bare Wasm headers and runtime archive')

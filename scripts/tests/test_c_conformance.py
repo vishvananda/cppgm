@@ -107,6 +107,20 @@ class CoverageTests(unittest.TestCase):
         wasi = selected('wasi-hosted', 23, wasi_libraries={'c-printscan-long-double': '/sdk/lib/archive.a'})
         self.assertNotIn('library.stdio-long-double', wasi)
         self.assertEqual(wasi['library.wasi-stdio-long-double'], ('-lc-printscan-long-double',))
+        supplemented = selected('wasi-c23-hosted', 23, c23=checked)
+        self.assertIn('library.stdio-long-double', supplemented)
+        self.assertIn('library.c23-memalignment', supplemented)
+        self.assertNotIn('library.c23-binary-conversion', supplemented)
+        self.assertNotIn('library.c23-memalignment', selected('wasi-hosted', 23, c23=checked))
+
+    def test_wasi_supplement_has_only_c23_receipts(self):
+        profile = 'wasi-c23-hosted'
+        rows = [row for row in coverage(self.profiles, self.rules, {})
+                if row['profile'] == profile]
+        self.assertEqual({row['edition'] for row in rows}, {23})
+        with self.assertRaisesRegex(ValueError, 'edition outside the profile'):
+            evidence_key(dict(self.valid_runtime(), profile=profile, target='wasm32-wasip1', edition=17),
+                         self.profiles)
 
     def test_incomplete_or_failing_variant_never_passes(self):
         key = ('limits.combined', self.native, 99, 'O0')

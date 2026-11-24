@@ -37,6 +37,26 @@ dev/cppgm --target=wasm32-unknown-unknown -std=c23 -ffreestanding \
   example.c "$runtime/libcppgm-freestanding.a" -o example.wasm
 ```
 
+## Hosted WASI C23 library supplement
+
+The hosted supplement builds against the same WASI SDK 34. It supplies
+C23 assertions, bit utilities, string functions, alignment and clock
+resolution. It also exposes additional C23 format and integer macros.
+The tested configuration includes the SDK's signal emulation and
+long-double stdio libraries.
+
+```sh
+sdk=/path/to/wasi-sdk
+resource="$("$sdk/bin/clang" -print-resource-dir)"
+sysroot="$sdk/share/wasi-sysroot"
+make -C dev/runtime/wasi-c23 WASI_SYSROOT="$sysroot" RESOURCE_DIR="$resource" AR="$sdk/bin/llvm-ar"
+
+runtime=obj/dev/runtime/wasi-c23
+dev/cppgm --target=wasm32-wasip1 -std=c23 --sysroot="$sysroot" -resource-dir="$resource" \
+  -isystem "$runtime/include" -D_WASI_EMULATED_SIGNAL example.c \
+  "$runtime/libcppgm-wasi-c23.a" -lc-printscan-long-double -lwasi-emulated-signal -o example.wasm
+```
+
 ## Assignment tests
 
 For the assignment suites, download `cppgm-<tag>-source-with-tests.tar.gz`.

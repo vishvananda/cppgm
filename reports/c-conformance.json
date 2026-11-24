@@ -27,6 +27,12 @@
       "environment": "hosted"
     },
     {
+      "id": "wasi-c23-hosted",
+      "target": "wasm32-wasip1",
+      "environment": "hosted",
+      "editions": [23]
+    },
+    {
       "id": "wasm-freestanding",
       "target": "wasm32-unknown-unknown",
       "environment": "freestanding"
@@ -1871,7 +1877,7 @@
       "editions": [23],
       "environment": "hosted",
       "header": "time",
-      "requirement": "Get the TIME_UTC resolution with and without a destination and obtain the same normalized result from repeated calls.",
+      "requirement": "Get the TIME_UTC resolution with and without a destination, check an invalid base, and exercise reentrant calendar conversion.",
       "cases": ["library.c23-time-resolution"]
     },
     {

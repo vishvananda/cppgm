@@ -1,7 +1,11 @@
 #ifndef __CPPGM_FREESTANDING_STRING_H
 #define __CPPGM_FREESTANDING_STRING_H
 
+#ifdef __wasi__
+#include_next <string.h>
+#else
 #include <stddef.h>
+#endif
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
 #define __STDC_VERSION_STRING_H__ 202311L
@@ -11,6 +15,7 @@
 extern "C" {
 #endif
 
+#if !defined(__wasi__)
 void* memccpy(void* __restrict, const void* __restrict, int, size_t);
 void* memchr(const void*, int, size_t);
 int memcmp(const void*, const void*, size_t);
@@ -31,6 +36,12 @@ char* strpbrk(const char*, const char*);
 char* strrchr(const char*, int);
 size_t strspn(const char*, const char*);
 char* strstr(const char*, const char*);
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
+void* memccpy(void* __restrict, const void* __restrict, int, size_t);
+void* memset_explicit(void*, int, size_t);
+char* strdup(const char*);
+char* strndup(const char*, size_t);
+#endif
 
 #ifdef __cplusplus
 }
