@@ -26,6 +26,11 @@ bool BuiltinIntegerConstantCandidate(const ExprFacts& facts)
 		static_cast<const FunctionEntity*>(facts.entity)->builtin != BuiltinFunction::None;
 }
 
+bool CArithmetic(const Type* type)
+{
+	return IsArithmetic(type) || IsComplex(type);
+}
+
 bool CNamedConstant(const syntax::Expr* expr)
 {
 	using syntax::ExprKind;
@@ -101,7 +106,7 @@ bool Analyzer::c_integer_constant_operands(const syntax::Expr& root, bool arithm
 		pending.pop_back();
 		const ExprFacts* facts = expr->facts;
 		if (facts == nullptr || facts->type == nullptr ||
-			(!IsIntegralOrUnscopedEnum(facts->type) && !(arithmetic && IsArithmetic(facts->type))))
+			(!IsIntegralOrUnscopedEnum(facts->type) && !(arithmetic && CArithmetic(facts->type))))
 			return false;
 		switch (expr->kind)
 		{
@@ -127,7 +132,7 @@ bool Analyzer::c_integer_constant_operands(const syntax::Expr& root, bool arithm
 		case ExprKind::Cast:
 		{
 			const Expr* operand = WithoutParentheses(static_cast<const syntax::CastExpr*>(expr)->operand);
-			if (arithmetic || !IsArithmetic(operand->facts->type) ||
+			if (arithmetic || !CArithmetic(operand->facts->type) ||
 				(operand->kind != ExprKind::Literal && !CNamedConstant(operand)))
 				pending.push_back(operand);
 			break;
@@ -194,7 +199,7 @@ bool ConstantInterpreter::check_c_constexpr_initializer(
 	}
 	const bool pointer_target = to->kind == TypeKind::Pointer ||
 		(to->kind == TypeKind::Fundamental && to->fundamental == FundamentalType::NullptrT);
-	const bool arithmetic_target = !integer_target && IsArithmetic(to);
+	const bool arithmetic_target = !integer_target && CArithmetic(to);
 	if (integer_target && !analyzer_.c_integer_constant_operands(expr))
 		return false;
 	if (arithmetic_target &&

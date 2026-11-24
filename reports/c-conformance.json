@@ -1450,8 +1450,8 @@
       "kind": "required",
       "editions": [23],
       "environment": "all",
-      "requirement": "Require exactly representable written initializer values and null pointer values. Check integer expression form, bit-field widths, overwritten designators and UTF-8 code units.",
-      "cases": ["c23.constexpr-scalars", "c23.constexpr-integer-narrowing", "c23.constexpr-floating-narrowing", "c23.constexpr-bitfield-narrowing", "c23.constexpr-string-narrowing", "c23.constexpr-pointer-nonnull", "c23.constexpr-overridden", "c23.constexpr-fractional-integer"]
+      "requirement": "Require exactly representable written initializer values and null pointer values. Check integer expression form, real and complex domains, signaling NaNs, bit-field widths, overwritten designators and UTF-8 code units.",
+      "cases": ["c23.constexpr-scalars", "c23.constexpr-complex", "c23.constexpr-integer-narrowing", "c23.constexpr-floating-narrowing", "c23.constexpr-bitfield-narrowing", "c23.constexpr-string-narrowing", "c23.constexpr-pointer-nonnull", "c23.constexpr-overridden", "c23.constexpr-fractional-integer", "c23.constexpr-complex-to-real", "c23.constexpr-signaling-narrowing"]
     },
     {
       "id": "c23.attribute-query",

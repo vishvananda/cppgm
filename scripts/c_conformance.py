@@ -87,6 +87,8 @@ C23_SOURCE_REJECTIONS = (
     ('c23.constexpr-pointer-nonnull', '300-c23-constexpr-pointer-nonnull-bad.t', 'compile'),
     ('c23.constexpr-overridden', '300-c23-constexpr-overridden-bad.t', 'compile'),
     ('c23.constexpr-fractional-integer', '300-c23-constexpr-fractional-integer-bad.t', 'compile'),
+    ('c23.constexpr-complex-to-real', '300-c23-constexpr-complex-to-real-bad.t', 'compile'),
+    ('c23.constexpr-signaling-narrowing', '300-c23-constexpr-signaling-narrowing-bad.t', 'compile'),
 )
 C23_SOURCE_CASES = (
     ('c23.version', '100-c23-version.t', 'preprocess'),
@@ -116,6 +118,7 @@ C23_PROGRAMS = {
     'c23.bitint-atomics': (PA38_GENERAL / '500-c23-bit-precise-atomics.t', ()),
     'c23.constexpr-scalars': (PA38_GENERAL / '300-c23-constexpr-scalars.t', ()),
     'c23.constexpr-aggregates': (PA38_GENERAL / '300-c23-constexpr-aggregates.t', ()),
+    'c23.constexpr-complex': (PA38_GENERAL / '300-c23-constexpr-complex.t', ()),
 }
 FLEXIBLE_ARRAY = PA38_GENERAL / '300-c-flexible-array.t'
 RECORD_CONSTRAINTS = {

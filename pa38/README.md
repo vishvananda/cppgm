@@ -670,7 +670,9 @@ The first fixture set covers these parts of the C17 input profile:
 - Check the written initializer values of a C23 `constexpr` object against
   their destination types and bit-field widths before conversion. Require
   integer and arithmetic constant expressions for the matching
-  destinations, and require null for pointers. Check earlier writes even
+  destinations, and require null for pointers. Require a real floating
+  or integer expression for a real floating destination. Keep a signaling
+  NaN in its compatible real format. Check earlier writes even
   when a later designator overrides them. C23 UTF-8 character and string
   literals use `unsigned char` for their code units.
 - Hosted C header declarations and their builtin operations through the
