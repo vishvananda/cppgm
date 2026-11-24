@@ -3414,3 +3414,38 @@ wider interval recomputes the relevant boundaries.
 | 256 | 21,182,240 | 6,173,120,392 | 70,854,069 |
 | 512 | 38,523,474 | | |
 | 1,024 | 73,057,070 | | |
+
+## C23 file-scope constant object demand
+
+Compared immutable GCC 15 builds of `a4e8879d5` and `1472623b0` on CPU
+71. Every observation for each frozen input emitted identical objects.
+The A/A task-clock spreads were 5.47% for C++ and 41.56% for SQLite.
+The table reports retired instructions.
+
+| Frozen input | A/A instruction spread | ABBA instruction change | BAAB instruction change |
+| --- | ---: | ---: | ---: |
+| C++ `semantic_overload.cpp` at `-O3` | 0.00221% | +0.00179% | −0.00080% |
+| SQLite 3.50.4 in GNU17 at `-O2` | 0.00260% | +0.00035% | +0.00047% |
+
+The x86-64 Linux GNU23 probe copies a 500,001-element record and alternates
+overlapping range updates with point updates. One function returns the
+last copy's address. The direct `-O0 -c` build now produces only that
+image. Its checked initializer still depends on earlier typed values.
+Each row is a median of three runs on CPU 73. Every object links against
+a host-built observation function that checks the written region and
+the zero tail at runtime.
+
+| Copy and point pairs | Baseline instructions | Candidate instructions | Baseline object bytes | Candidate object bytes |
+| ---: | ---: | ---: | ---: | ---: |
+| 16 | 38,120,949 | 6,606,633 | 33,002,128 | 1,001,048 |
+| 32 | 77,507,014 | 8,892,800 | 65,003,232 | 1,001,048 |
+| 64 | 172,078,981 | 13,464,319 | 129,005,440 | 1,001,048 |
+| 128 | 424,904,341 | 22,660,238 | 257,009,920 | 1,001,048 |
+
+At 128 pairs, peak RSS falls from 519,708 KiB to 18,020 KiB. A separate
+control adds an address table containing every snapshot. At 128 pairs it
+emits 258 globals, including the table. Driver LowIR emission at `-O0`
+retires 265,345,707 instructions at that size and 18,308,189 at 16 pairs.
+LowIR output grows from 92,024 to 733,678 bytes across those inputs.
+The median of three runs on CPU 76 captures the remaining repeated
+traversal when all snapshots need storage.

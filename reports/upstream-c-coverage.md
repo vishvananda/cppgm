@@ -846,9 +846,9 @@ and point pairs, retired instructions fall from 1.97 billion to 136
 million. At 512 rectangular pairs they fall from 3.10 billion to 97
 million and peak RSS falls from 163 MiB to 17 MiB. The LowIR emission probe
 still emits every intermediate global, and the writer revisits the
-shared history for every emitted copy. The smallest native object probe
-also emits all 33 snapshots, including those used only during constant
-evaluation.
+shared history for every emitted copy. The original native object probe
+also emitted all 33 snapshots in its smallest case. A follow-up makes
+[object storage demand-driven](#c23-file-scope-constant-object-demand).
 
 All 11,674 strict course tests, 1,117 local C matrix probes, and 58 pinned
 GCC C23 configurations pass. PA38 passes 634 native, 634 Wasm, 63 control
@@ -899,6 +899,46 @@ outputs. PA1 and PA38 pass with the packaged reference binaries.
 [PA38 preserved union member](../pa38/tests/general/300-c23-constexpr-projected-union.t) ·
 [PA38 mixed active members](../pa38/tests/general/300-c23-constexpr-projected-union-inactive-bad.t) ·
 [Compile measurements](../docs/performance/c-frontend-scaling.md#gnu-c23-sparse-union-active-member-checks)
+
+## C23 file-scope constant object demand
+
+Native and Wasm object lowering materializes checked file-scope constants
+when code or data first needs their storage. A constant used to initialize
+another can supply its evaluated value without acquiring a symbol. A
+per-unit queue follows references reached during constant data emission.
+The declaration's typed attributes keep objects with `used`, a requested
+section, or an explicit assembler name. Debug builds and units that
+contain source assembly emit their file-scope constants eagerly.
+[GCC variable attributes](https://gcc.gnu.org/onlinedocs/gcc/Common-Variable-Attributes.html)
+
+The PA38 ABI test checks a static-address relocation, a function returning
+a different constant's address, and retained objects. The program
+verifies distinct addresses and the contents of both images. The fixture
+passes at `-O0` and `-O2` on both Linux architectures, both Mach-O targets
+with local loaders, WASI, and bare Wasm. Driver LowIR and direct object
+builds produce byte-identical objects on all six targets. Full source
+LTO also passes a two-unit test with same-named constants on x86-64 Linux
+and bare Wasm at both optimization levels.
+
+The 128-copy native probe reduces the object from 257,009,920 to
+1,001,048 bytes and retired instructions from 424.90 million to 22.66
+million. Every measured program returns the expected final image. When
+code or data requires every intermediate address, the static data writer
+still walks the shared history for each emitted image.
+
+All 11,674 strict course tests, 1,117 local C clause probes, and 58 pinned
+GCC C23 configurations pass. PA38 passes 636 native cases, 636 Wasm
+cases with the optional optimized LowIR check, 63 controls, and four
+ABI cases. Debug-info tests, self-host through PA5 with an identical
+rebuild, PA36 smoke tests, and the architecture and file audits pass.
+The placement audit scanned 11,638 fixtures with zero placement or local
+hygiene findings. It reused directory listings, and its PA38 report
+matches the direct audit byte for byte. The student export verified
+26,861 portable reference outputs. PA1 and PA38 native, Wasm, control,
+and ABI tests pass with the packaged reference binaries.
+
+[PA38 constant object demand](../pa38/tests/abi/300-c23-constexpr-object-demand.t) ·
+[Compile measurements](../docs/performance/c-frontend-scaling.md#c23-file-scope-constant-object-demand)
 
 ## Named register objects
 
