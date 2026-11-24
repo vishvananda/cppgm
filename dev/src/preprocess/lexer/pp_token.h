@@ -25,7 +25,8 @@ enum class PPTokenKind : uint8_t
 	Placemarker,
 	// Private to MacroExpander's buffers. Expanded before an ordinary
 	// preprocessing-token consumer sees it.
-	SharedExpansion
+	SharedExpansion,
+	Comment // only in comment-preserving text preprocessing
 };
 
 // PPToken::flags. The lexer leaves them clear and reports white space as

@@ -22,6 +22,17 @@ PPLexer::PPLexer(const SourceBuffer& source, const PPLexerOptions& options)
 
 const PPToken& PPLexer::next()
 {
+	return next_token<false>();
+}
+
+const PPToken& PPLexer::next_retaining_comments()
+{
+	return next_token<true>();
+}
+
+template<bool KeepComments>
+const PPToken& PPLexer::next_token()
+{
 	start_token();
 	const int32_t c = cur_.code_point;
 	if (c == kEndOfSource)
@@ -31,8 +42,10 @@ const PPToken& PPLexer::next()
 		skip(cur_);
 		return finish_empty(PPTokenKind::NewLine);
 	}
-	if ((IsHorizontalWhitespace(c) || c == '/') && skip_whitespace_sequence())
+	if ((IsHorizontalWhitespace(c) || c == '/') && skip_whitespace_sequence<KeepComments>())
 	{
+		if (KeepComments && clean_end_ != token_begin_)
+			return finish(PPTokenKind::Comment);
 		return finish_empty(PPTokenKind::WhitespaceSequence);
 	}
 	if (__builtin_expect(context_ == DirectiveContext::AfterInclude, 0) && (c == '<' || c == '"') &&
@@ -216,6 +229,7 @@ const uint32_t kNoOffset = ~0u;
 
 } // namespace
 
+template<bool KeepComments>
 bool PPLexer::skip_whitespace_sequence()
 {
 	// A maximal run of non-new-line whitespace and comments.
@@ -235,20 +249,26 @@ bool PPLexer::skip_whitespace_sequence()
 		if (cur_.code_point != '/')
 			return token_end_ != token_begin_;
 		const SourceChar second = peek_after(cur_);
-		if (second.code_point == '/' && line_comments_)
+		const bool line_comment = second.code_point == '/' && line_comments_;
+		if (!line_comment && second.code_point != '*')
+			return token_end_ != token_begin_;
+		if (KeepComments && token_end_ != token_begin_)
+			return true;
+		if (line_comment)
 		{
 			skip_comment(second);
 			while (cur_.code_point != '\n' && cur_.code_point != kEndOfSource)
 				skip_comment_bytes(false);
 		}
-		else if (second.code_point == '*')
+		else
 		{
 			skip_comment(second);
 			skip_block_comment();
 		}
-		else
+		if (KeepComments)
 		{
-			return token_end_ != token_begin_;
+			clean_end_ = token_end_;
+			return true;
 		}
 	}
 }
@@ -337,7 +357,7 @@ uint8_t PPLexer::skip_space()
 		if (!IsHorizontalWhitespace(c) && c != '/')
 			break;
 		start_token();
-		if (!skip_whitespace_sequence())
+		if (!skip_whitespace_sequence<false>())
 			break;
 		flags |= kLeadingSpace;
 	}

@@ -80,6 +80,7 @@ struct PreprocessorOptions
 	bool hosted = false;
 	// GNU assembler-with-cpp: unknown hash directives are assembly comments.
 	bool assembler = false;
+	bool keep_comments = false;
 	// The literal forms read (see ClassifyNumber): the compiler's GCC
 	// dialect, or C++11's alone (the standalone PA2-PA4 tools).
 	NumberDialect literals = NumberDialect::Cxx11;

@@ -118,6 +118,7 @@ public:
 	// Hosted lexical extensions (hexadecimal pp-numbers and opaque comment
 	// bytes) in the files entered from now on.
 	void set_hosted(bool enabled) { hosted_ = enabled; }
+	void set_keep_comments(bool enabled) { keep_comments_ = enabled; }
 	void set_assembler(bool enabled) { assembler_ = enabled; }
 	void set_report_splices(bool on) { report_splices_ = on; }
 	void set_conditional_escapes(bool on) { conditional_escapes_ = on; }
@@ -171,6 +172,7 @@ private:
 	bool allow_va_args_;
 	bool hosted_;
 	bool assembler_ = false;
+	bool keep_comments_ = false;
 	bool report_splices_ = false;
 	bool conditional_escapes_ = false;
 	bool unicode_literal_prefixes_ = true;

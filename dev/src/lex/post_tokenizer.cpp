@@ -86,6 +86,7 @@ void PostTokenizer::convert(const PPToken& pp)
 	case PPTokenKind::NewLine:
 	case PPTokenKind::Placemarker:
 	case PPTokenKind::SharedExpansion:
+	case PPTokenKind::Comment:
 		return;
 	}
 }

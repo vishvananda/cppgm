@@ -623,6 +623,11 @@ bool preprocess_option(const std::string& arg, Invocation& invocation)
 		invocation.preprocess_only = true;
 	else if (arg == "-P")
 		invocation.preprocess_text = true;
+	else if (arg == "-C")
+	{
+		invocation.preprocess_text = true;
+		invocation.preprocessor.keep_comments = true;
+	}
 	else if (arg == "-dM")
 		invocation.dump_macros = true;
 	else if (arg == "-H")
@@ -981,6 +986,9 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 	input_language(invocation);
 	if (invocation.inputs.empty())
 		throw InvocationError("no input files");
+	if (invocation.preprocessor.keep_comments && !invocation.preprocess_only &&
+		invocation.dependencies.mode != MakeDependencies::Mode::Only)
+		throw InvocationError("-C requires preprocessing output");
 	configure_compile_output(invocation, assembly_output);
 	// GCC's -pthread defines _REENTRANT ahead of every -D and -U wherever
 	// it is written (the host link adds the thread library; link mode's

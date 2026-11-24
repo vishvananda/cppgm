@@ -152,11 +152,11 @@ void SourceStack::lex_text(PPToken& token)
 	for (;;)
 	{
 		// (The white space before the token, passed over at once.)
-		const uint8_t space = frame->lexer->skip_space();
+		const uint8_t space = keep_comments_ ? 0 : frame->lexer->skip_space();
 		flags |= space;
 		if ((space & kStartOfLine) != 0)
 			frame->at_line_start = true;
-		const PPToken& lexed = frame->lexer->next();
+		const PPToken& lexed = keep_comments_ ? frame->lexer->next_retaining_comments() : frame->lexer->next();
 		switch (lexed.kind)
 		{
 		case PPTokenKind::WhitespaceSequence:

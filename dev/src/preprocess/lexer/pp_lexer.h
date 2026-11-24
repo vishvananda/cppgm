@@ -70,6 +70,7 @@ public:
 	// Lexes the next token. Once EndOfFile is returned, every later call
 	// returns EndOfFile again. Throws SourceError for ill-formed input.
 	const PPToken& next() override;
+	const PPToken& next_retaining_comments();
 
 	// The next token that is not white space may be a header-name
 	// (header_names_on_request mode).
@@ -170,6 +171,9 @@ private:
 	void update_directive_context(PPTokenKind kind);
 
 	// Whitespace, identifiers and numbers (pp_lexer.cpp).
+	template<bool KeepComments>
+	const PPToken& next_token();
+	template<bool KeepComments>
 	bool skip_whitespace_sequence();
 	void skip_block_comment();
 	bool read_universal_character_name(const SourceChar& backslash, UniversalCharacterName& ucn) const;

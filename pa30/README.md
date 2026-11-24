@@ -503,6 +503,9 @@ To complete PA30, implement hosted compatibility for:
   specialization's arguments, including when the result determines an
   array bound. A C++20 argument that designates a named member includes
   the member's name in the string.
+- `-E -C` retains active-source comments in preprocessed text. Comments
+  in directives and skipped groups remain absent. Use the retained comments
+  as tokens when determining whether a directive or a function-like macro starts.
 - predefined macro import, `__COUNTER__`, the GNU comma paste, `_Pragma`,
   and `__BASE_FILE__`. The latter expands to the primary input file
   name from both the primary file and its includes, regardless of `#line`.

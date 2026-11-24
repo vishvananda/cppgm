@@ -729,7 +729,7 @@ DriverInvocation parse_driver_invocation(const vector<string>& args)
 		{
 			continue;
 		}
-		if (args[i] == "-dM" || args[i] == "-H" || args[i] == "-P")
+		if (args[i] == "-dM" || args[i] == "-H" || args[i] == "-P" || args[i] == "-C")
 			continue;
 		if (args[i] == "-E")
 		{
