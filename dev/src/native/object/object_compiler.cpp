@@ -258,7 +258,7 @@ ObjectCompiler::ObjectCompiler(lowir::Program& program, ObjectStats& stats, EhMo
 	for (unsigned k = 0; k < kHostBuiltinCount; ++k)
 		host_builtins_[k] = std::make_pair(0u, 0u);
 	declare_symbols();
-	if (code_options.external_indirect_thunks)
+	if (code_options.indirect_branch == IndirectBranch::ExternalThunk)
 	{
 		const char* const thunks[] = { "__x86_indirect_thunk_rax", "__x86_indirect_thunk_rcx",
 			"__x86_indirect_thunk_rdx", "__x86_indirect_thunk_rbx", "__x86_indirect_thunk_rsp",

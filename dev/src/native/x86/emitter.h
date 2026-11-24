@@ -68,9 +68,10 @@ struct UnwindFacts
 	std::vector<Save> saves;
 	struct Epilogue
 	{
-		uint32_t leave_end;   // after its `leave` (frameless: after the stack is released)
-		uint32_t ret_end;     // after its `ret`
-		uint32_t pop_end[13]; // frameless: after each pop, in pop order
+		uint32_t leave_end;         // after its `leave` (frameless: after the stack is released)
+		uint32_t ret_end;           // after its `ret`
+		uint32_t thunk_capture = 0; // the tail thunk's temporary return address is on the stack
+		uint32_t pop_end[13];       // frameless: after each pop, in pop order
 	};
 	uint32_t leave_end = 0;        // after the shared epilogue's `leave`
 	uint32_t ret_end = 0;          // after its `ret`, or 0 when no shared epilogue is emitted
@@ -113,13 +114,20 @@ struct EmitStats
 
 // Policies for compiler-generated x86 instructions. Explicit user assembly
 // encodes under its own instruction and control-flow contracts.
+enum class IndirectBranch : uint8_t
+{
+	Keep,
+	ExternalThunk,
+	InlineThunk
+};
+
 struct X86CodeOptions
 {
 	bool sse2 = true; // the compiler's XMM path uses the SSE2 instruction set
 	bool x87 = true;
 	bool x87_return = true;
 	bool jump_tables = true;
-	bool external_indirect_thunks = false;
+	IndirectBranch indirect_branch = IndirectBranch::Keep;
 	bool indirect_register_only = false;
 	bool indirect_thunk_cs_prefix = false;
 	bool assembly_text = false;
@@ -206,7 +214,8 @@ private:
 	void va_copy_bytes(const RM& home, int32_t source, uint32_t offset, uint32_t bytes);
 	void eh(const Inst& inst);
 	void call(const Inst& inst);
-	void indirect_transfer(const RM& target, bool call);
+	uint32_t indirect_transfer(const RM& target, bool call, bool tail = false);
+	uint32_t inline_thunk(Reg reg, bool call, bool tail);
 	void loop_barrier();
 	void bit_test(const Inst& inst);
 	uint32_t strlen_prefix();

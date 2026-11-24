@@ -492,10 +492,14 @@ bool x86_code_option(const std::string& arg, Invocation& invocation)
 		invocation.red_zone = arg == "-mred-zone";
 	else if (arg == "-fjump-tables" || arg == "-fno-jump-tables")
 		invocation.x86_code.jump_tables = arg == "-fjump-tables";
-	else if (arg == "-mindirect-branch=keep" || arg == "-mindirect-branch=thunk-extern")
+	else if (arg == "-mindirect-branch=keep" || arg == "-mindirect-branch=thunk-extern" ||
+		arg == "-mindirect-branch=thunk-inline")
 	{
 		invocation.x86_code_explicit = true;
-		invocation.x86_code.external_indirect_thunks = arg == "-mindirect-branch=thunk-extern";
+		invocation.x86_code.indirect_branch = arg == "-mindirect-branch=thunk-extern"
+			? native::IndirectBranch::ExternalThunk
+			: arg == "-mindirect-branch=thunk-inline" ? native::IndirectBranch::InlineThunk
+													  : native::IndirectBranch::Keep;
 	}
 	else if (arg == "-mindirect-branch-register" || arg == "-mno-indirect-branch-register")
 	{
@@ -518,7 +522,8 @@ void configure_x86_code_options(Invocation& invocation)
 		return;
 	if (target_model::describe(invocation.target).architecture != target_model::Architecture::X86_64)
 		throw InvocationError("x86 machine options require an x86-64 target");
-	if (invocation.x86_code.external_indirect_thunks && invocation.target != native::Target::Linux)
+	if (invocation.x86_code.indirect_branch == native::IndirectBranch::ExternalThunk &&
+		invocation.target != native::Target::Linux)
 		throw InvocationError("external x86 indirect-branch thunks require an ELF target");
 	PreprocessorOptions& preprocessor = invocation.preprocessor;
 	invocation.x86_code.sse2 = preprocessor.sse2;

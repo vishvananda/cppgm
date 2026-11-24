@@ -200,6 +200,9 @@ transfer. With `-mindirect-branch-cs-prefix`, prefix transfers through
 `r8` to `r15` with the CS prefix. With `-mindirect-branch-register`,
 use a register target even for ordinary indirect transfers.
 `-fno-jump-tables` suppresses switch jump tables.
+`-mindirect-branch=thunk-inline` emits the thunk in the calling function.
+Preserve the original call or jump's stack behavior and describe the thunk's
+temporary stack changes in unwind information.
 
 The checked-in PA27 tests cover:
 

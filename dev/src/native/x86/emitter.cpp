@@ -1245,7 +1245,7 @@ void FunctionEmitter::tail_jump(const Function& function, const Inst& inst)
 	if (target.kind == OperandKind::Symbol)
 		asm_.jmp_symbol(target.symbol);
 	else
-		indirect_transfer(RM::r(R11), false);
+		ret.thunk_capture = indirect_transfer(RM::r(R11), false, true);
 	ret.ret_end = asm_.size() - static_cast<uint32_t>(base_);
 	unwind_.returns.push_back(ret);
 	if (!relax_pass_)
@@ -1258,12 +1258,53 @@ void FunctionEmitter::loop_barrier()
 		loop_barriers_.push_back(static_cast<int32_t>(asm_.size()));
 }
 
-void FunctionEmitter::indirect_transfer(const RM& target, bool call)
+uint32_t FunctionEmitter::inline_thunk(Reg reg, bool call, bool tail)
 {
-	if (!code_options_.external_indirect_thunks && !code_options_.indirect_register_only)
+	const auto record_stack = [this, tail](uint32_t bytes) {
+		if (omit_fp_ && !tail)
+			unwind_.adjusts.push_back(
+				{ asm_.size() - static_cast<uint32_t>(base_), static_cast<uint32_t>(rsp_shift_) + bytes });
+	};
+	const uint32_t invoke = call ? asm_.new_label() : kNoLabel;
+	const uint32_t thunk = call ? asm_.new_label() : kNoLabel;
+	if (call)
+	{
+		asm_.jmp_short(invoke);
+		asm_.bind(thunk);
+		record_stack(8);
+	}
+	const uint32_t target = asm_.new_label();
+	asm_.call_label(target);
+	const uint32_t capture = asm_.size() - static_cast<uint32_t>(base_);
+	record_stack(call ? 16 : 8);
+	const uint32_t stall = asm_.new_label();
+	asm_.bind(stall);
+	asm_.byte(0xf3);
+	asm_.byte(0x90); // pause
+	asm_.byte(0x0f);
+	asm_.byte(0xae);
+	asm_.byte(0xe8); // lfence
+	asm_.jmp_short(stall);
+	asm_.bind(target);
+	asm_.mov_store(RM::m(RSP, 0), reg, 8);
+	asm_.ret();
+	if (call)
+	{
+		asm_.bind(invoke);
+		record_stack(0);
+		asm_.call_label(thunk);
+	}
+	else
+		record_stack(0);
+	return tail ? capture : 0;
+}
+
+uint32_t FunctionEmitter::indirect_transfer(const RM& target, bool call, bool tail)
+{
+	if (code_options_.indirect_branch == IndirectBranch::Keep && !code_options_.indirect_register_only)
 	{
 		call ? asm_.call_rm(target) : asm_.jmp_rm(target);
-		return;
+		return 0;
 	}
 	// The explicit load uses the same reserved scratch as a tail jump.
 	// A call changes RSP before its thunk could read it.
@@ -1272,7 +1313,9 @@ void FunctionEmitter::indirect_transfer(const RM& target, bool call)
 		asm_.mov_load(reg, target, 8, false);
 	else if (reg != target.reg)
 		asm_.mov_rr(reg, target.reg);
-	if (code_options_.external_indirect_thunks)
+	if (code_options_.indirect_branch == IndirectBranch::InlineThunk)
+		return inline_thunk(reg, call, tail);
+	if (code_options_.indirect_branch == IndirectBranch::ExternalThunk)
 	{
 		if (code_options_.indirect_thunk_cs_prefix && reg >= R8)
 			asm_.byte(0x2e);
@@ -1281,6 +1324,7 @@ void FunctionEmitter::indirect_transfer(const RM& target, bool call)
 	}
 	else
 		call ? asm_.call_rm(RM::r(reg)) : asm_.jmp_rm(RM::r(reg));
+	return 0;
 }
 
 void FunctionEmitter::call(const Inst& inst)

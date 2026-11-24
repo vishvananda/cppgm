@@ -256,8 +256,9 @@ void encode_frameless_instructions(const UnwindFacts& facts, bool lsda, std::vec
 	size_t next_prologue = 1;
 	// The body's rules hold up to each epilogue (the previous one's code
 	// ends with its restore): they are remembered where the cursor is.
-	auto epilogue = [&](const uint32_t* pop_end, uint32_t released_end, uint32_t ret_end, bool more) {
-		if (body == 8)
+	auto epilogue = [&](const uint32_t* pop_end, uint32_t released_end, uint32_t ret_end, uint32_t thunk_capture,
+						bool more) {
+		if (body == 8 && thunk_capture == 0)
 			return;
 		if (more)
 			out.push_back(DW_CFA_remember_state);
@@ -277,6 +278,12 @@ void encode_frameless_instructions(const UnwindFacts& facts, bool lsda, std::vec
 			out.push_back(DW_CFA_def_cfa_offset);
 			put_uleb(out, at);
 			out.push_back(static_cast<uint8_t>(DW_CFA_restore | kDwarfRegs[facts.saves[k].reg]));
+		}
+		if (thunk_capture != 0)
+		{
+			cursor.advance(thunk_capture);
+			out.push_back(DW_CFA_def_cfa_offset);
+			put_uleb(out, 16);
 		}
 		if (more)
 		{
@@ -335,7 +342,7 @@ void encode_frameless_instructions(const UnwindFacts& facts, bool lsda, std::vec
 		const uint32_t released_end = shared ? facts.leave_end : facts.returns[r].leave_end;
 		body_events(facts.reserve != 0 || facts.saves.empty() ? released_end : pop_end[0]);
 		const uint32_t end = shared ? facts.ret_end : facts.returns[r].ret_end;
-		epilogue(pop_end, released_end, end, facts.size > end);
+		epilogue(pop_end, released_end, end, shared ? 0u : facts.returns[r].thunk_capture, facts.size > end);
 	}
 	// Without a shared epilogue, calls and argument areas can continue
 	// after the last duplicated return (for example in a cleanup landing).
@@ -371,7 +378,7 @@ void encode_frame_instructions(const UnwindFacts& facts, bool lsda, std::vector<
 	// Each epilogue: after its `leave` the CFA is RSP + 8 and the saved
 	// registers hold their callers' values; code after its `ret` (another
 	// block, the resume terminal) has the body's rules again.
-	auto epilogue = [&](uint32_t leave_end, uint32_t ret_end, bool more) {
+	auto epilogue = [&](uint32_t leave_end, uint32_t ret_end, uint32_t thunk_capture, bool more) {
 		cursor.advance(leave_end);
 		if (more)
 			out.push_back(DW_CFA_remember_state);
@@ -381,6 +388,12 @@ void encode_frame_instructions(const UnwindFacts& facts, bool lsda, std::vector<
 		out.push_back(DW_CFA_restore | kDwarfRbp);
 		for (const UnwindFacts::Save& save : facts.saves)
 			out.push_back(static_cast<uint8_t>(DW_CFA_restore | kDwarfRegs[save.reg]));
+		if (thunk_capture != 0)
+		{
+			cursor.advance(thunk_capture);
+			out.push_back(DW_CFA_def_cfa_offset);
+			put_uleb(out, 16);
+		}
 		if (more)
 		{
 			cursor.advance(ret_end);
@@ -396,7 +409,7 @@ void encode_frame_instructions(const UnwindFacts& facts, bool lsda, std::vector<
 		while (next_return < facts.returns.size() && facts.returns[next_return].leave_end <= call.begin)
 		{
 			epilogue(facts.returns[next_return].leave_end, facts.returns[next_return].ret_end,
-				facts.size > facts.returns[next_return].ret_end);
+				facts.returns[next_return].thunk_capture, facts.size > facts.returns[next_return].ret_end);
 			++next_return;
 		}
 		if (!lsda || call.landing == 0 || call.args == args || (facts.ret_end != 0 && call.begin >= facts.ret_end))
@@ -408,9 +421,9 @@ void encode_frame_instructions(const UnwindFacts& facts, bool lsda, std::vector<
 	}
 	for (; next_return < facts.returns.size(); ++next_return)
 		epilogue(facts.returns[next_return].leave_end, facts.returns[next_return].ret_end,
-			facts.size > facts.returns[next_return].ret_end);
+			facts.returns[next_return].thunk_capture, facts.size > facts.returns[next_return].ret_end);
 	if (facts.ret_end != 0)
-		epilogue(facts.leave_end, facts.ret_end, facts.size > facts.ret_end);
+		epilogue(facts.leave_end, facts.ret_end, 0, facts.size > facts.ret_end);
 }
 
 unsigned unwind_pointer_bytes(uint8_t encoding)

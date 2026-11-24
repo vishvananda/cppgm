@@ -1,0 +1,1 @@
+-O2 -mindirect-branch=thunk-inline -mindirect-branch-register
