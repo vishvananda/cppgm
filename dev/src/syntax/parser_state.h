@@ -386,9 +386,9 @@ protected:
 	uint32_t pack_mentions_;
 	uint32_t parameter_mentions_;
 	uint8_t function_body_syntax_ = 0;
+	bool has_inline_assembly_ = false;
 	// Number of namespace assembly fragments preceding the current statement.
 	uint32_t assembly_environment_ = 0;
-	bool has_inline_assembly_ = false;
 	// Names of template parameters parsed so far: a base-specifier naming
 	// one is a dependent base.
 	uint32_t template_parameter_mentions_;
