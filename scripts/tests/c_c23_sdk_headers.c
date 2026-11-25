@@ -35,7 +35,8 @@ CPP_GM_STDINT_WIDTHS
 
 #if __has_include(<float.h>)
 #include <float.h>
-#if defined(FLT_NORM_MAX) || defined(__STDC_VERSION_FLOAT_H__)
+/* Clang 21 defines the normalized maximum but omits signaling NaNs. */
+#if (defined(FLT_NORM_MAX) || defined(__STDC_VERSION_FLOAT_H__)) && defined(FLT_SNAN)
 CPP_GM_FLOAT_CONSTANTS
 #endif
 #if defined(FLT_IS_IEC_60559) || defined(__STDC_VERSION_FLOAT_H__)

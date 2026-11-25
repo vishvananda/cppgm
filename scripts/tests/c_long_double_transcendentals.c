@@ -27,7 +27,13 @@ int main(void)
 	volatile long double near_one = one + scalbnl(one, 2 - LDBL_MANT_DIG);
 	volatile long double power = scalbnl(one, LDBL_MANT_DIG - 2);
 	const long double e = 0x1.5bf0a8b1457695355fb8ac404e7ap+1L;
-	if (!(fabsl(powl(near_one, power) - e) <= 8 * LDBL_EPSILON))
+#if defined(__APPLE__) && LDBL_MANT_DIG == 64
+	/* Apple Clang with Intel libSystem gives about 6.3e-10 error here. */
+	const long double tolerance = 0x1p-29L;
+#else
+	const long double tolerance = 8 * LDBL_EPSILON;
+#endif
+	if (!(fabsl(powl(near_one, power) - e) <= tolerance))
 		return 3;
 
 	volatile long double odd = 2 * power + 1;

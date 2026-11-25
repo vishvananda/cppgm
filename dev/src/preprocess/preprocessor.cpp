@@ -75,7 +75,8 @@ std::string PredefinedText(const PreprocessorOptions& options, const FeatureMode
 		text += "#define __ASSEMBLER__ 1\n";
 	if (options.language == SourceLanguage::C)
 	{
-		text += "#define __STDC__ 1\n";
+		// C23 5.2.4.2.1 fixes the boolean width at one value bit.
+		text += "#define __STDC__ 1\n#define __BOOL_WIDTH__ 1\n";
 		text += "#define __BITINT_MAXWIDTH__ " + std::to_string(target_model::bit_int_max_width) + '\n';
 		if (const char* version = CVersionMacro(options.c_edition))
 		{
