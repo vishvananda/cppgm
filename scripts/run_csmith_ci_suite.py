@@ -12,7 +12,8 @@ from upstream_dg_proxy import sha256, write_json
 
 
 REVISION = '30dccd73b78652c4719f36572994778a5b233a4e'
-SEEDS = range(1, 16)
+SEEDS = (2, 3, 5, 6, 7, 10, 13, 14, 15, 17, 18, 19, 20, 21, 23)
+INCOMPATIBLE_POINTER_SEEDS = (1, 4, 8, 9, 11, 12, 16, 22)
 GENERATOR_FLAGS = ['--max-funcs', '3', '--max-block-depth', '3']
 
 
@@ -29,7 +30,8 @@ def build_cases(generator, runtime, root):
         for opt in ('0', '2'):
             flags = ['-O' + opt]
             cases.append(dict(id=f'seed-{seed}-O{opt}', seed=seed, **entry(source, root), dialect='c17',
-                              action='run', expect='accept', candidate_flags=flags, upstream_flags=flags,
+                              action='run', expect='accept', candidate_flags=flags,
+                              upstream_flags=[*flags, '-Werror=compare-distinct-pointer-types'],
                               include_directories=['include'], input_files=headers))
     return cases
 
@@ -79,7 +81,8 @@ def main():
     cases = build_cases(tools['generator']['path'], args.runtime_headers, root)
     manifest = dict(schema=1, suite='csmith', language='c', edition=17, revision=REVISION, cases=cases,
                     generator_flags=GENERATOR_FLAGS, exclusions=[
-                        dict(seed=16, reason='GCC and Clang both timed out at -O0 and -O2 during qualification')
+                        dict(seed=seed, reason='GCC and Clang reject comparisons of incompatible pointer types')
+                        for seed in INCOMPATIBLE_POINTER_SEEDS
                     ])
     validate_manifest(manifest, root)
     write_json(output / 'manifest.json', manifest)
