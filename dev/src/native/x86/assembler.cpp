@@ -167,8 +167,14 @@ void Assembler::memory16(unsigned reg_field, const RM& rm)
 void Assembler::op(uint8_t prefix, bool rex_w, uint32_t opcode, unsigned opcode_bytes, unsigned reg, const RM& rm,
 	bool byte_regs, unsigned imm_bytes)
 {
-	if (word_mode_ == 64)
-		return op_bytes(prefix, rex_w, opcode, opcode_bytes, reg, rm, byte_regs, imm_bytes);
+	if (word_mode_ != 64)
+		return op_legacy(prefix, opcode, opcode_bytes, reg, rm, byte_regs, imm_bytes);
+	op_bytes(prefix, rex_w, opcode, opcode_bytes, reg, rm, byte_regs, imm_bytes);
+}
+
+void Assembler::op_legacy(uint8_t prefix, uint32_t opcode, unsigned opcode_bytes, unsigned reg, const RM& rm,
+	bool byte_regs, unsigned imm_bytes)
+{
 	RM address = rm;
 	if (reg >= 8 || (rm.is_reg && rm.reg >= 8) ||
 		(!rm.is_reg && ((rm.base != kNoReg && rm.base >= 8) || (rm.index != kNoReg && rm.index >= 8))))
@@ -269,8 +275,8 @@ void Assembler::byte_operation(
 	}
 }
 
-void Assembler::op_bytes(uint8_t prefix, bool rex_w, uint32_t opcode, unsigned opcode_bytes, unsigned reg, const RM& rm,
-	bool byte_regs, unsigned imm_bytes)
+__attribute__((always_inline)) inline void Assembler::op_bytes(uint8_t prefix, bool rex_w, uint32_t opcode,
+	unsigned opcode_bytes, unsigned reg, const RM& rm, bool byte_regs, unsigned imm_bytes)
 {
 	if (prefix != 0)
 		byte(prefix);

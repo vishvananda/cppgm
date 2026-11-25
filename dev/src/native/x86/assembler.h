@@ -223,6 +223,8 @@ private:
 	unsigned word_width(unsigned bytes) const { return word_mode_ < 64 && bytes == 8 ? 4 : bytes; }
 	void op_bytes(uint8_t prefix, bool rex_w, uint32_t opcode, unsigned opcode_bytes, unsigned reg, const RM& rm,
 		bool byte_regs, unsigned imm_bytes);
+	void op_legacy(uint8_t prefix, uint32_t opcode, unsigned opcode_bytes, unsigned reg, const RM& rm, bool byte_regs,
+		unsigned imm_bytes);
 	void memory16(unsigned reg_field, const RM& rm);
 	void displacement32(const RM& rm);
 	struct LabelRef

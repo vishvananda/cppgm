@@ -17,7 +17,8 @@ bool frame_operand(const Operand& op)
 }
 
 // The bytes an instruction's memory operand covers (at least its first).
-uint32_t access_bytes(const Inst& inst, uint8_t word_bytes)
+template<unsigned WordBytes>
+uint32_t access_bytes(const Inst& inst)
 {
 	if ((inst.op == Op::CopyBytes || inst.op == Op::ZeroBytes) && !(inst.flags & MF_COPY_DYNAMIC))
 		return inst.aux;
@@ -31,7 +32,7 @@ uint32_t access_bytes(const Inst& inst, uint8_t word_bytes)
 	// including the upper eight bytes of a vector or binary128 value.
 	if (inst.op == Op::FMov && (inst.type == lowir::TypeKind::I128 || inst.type == lowir::TypeKind::V128))
 		return 16;
-	if (word_bytes == 4 && (inst.type == lowir::TypeKind::Ptr || inst.type == lowir::TypeKind::I64))
+	if (WordBytes == 4 && (inst.type == lowir::TypeKind::Ptr || inst.type == lowir::TypeKind::I64))
 		return 4;
 	return register_bytes(inst.type);
 }
@@ -55,15 +56,6 @@ void add_successors(const Function& f, const Inst& inst, std::vector<uint32_t>& 
 	else if (inst.op == Op::JumpTable)
 		for (uint32_t k = inst.aux; k < inst.aux + inst.aux2; ++k)
 			out.push_back(f.jump_targets[k]);
-}
-
-// A block's successors.
-void successors(const Function& f, uint32_t b, std::vector<uint32_t>& out)
-{
-	out.clear();
-	const Block& block = f.blocks[b];
-	for (uint32_t i = block.first; i < block.first + block.count; ++i)
-		add_successors(f, f.insts[i], out);
 }
 
 } // namespace
@@ -94,7 +86,8 @@ uint32_t FrameObjectIndex::find(int32_t disp) const
 	return static_cast<int64_t>(disp) < static_cast<int64_t>(o.offset) + o.bytes ? by_offset_[lo - 1] : lowir::kNoId;
 }
 
-std::vector<uint8_t> tracked_frame_objects(const Function& f, const FrameObjectIndex& index)
+template<unsigned WordBytes>
+static std::vector<uint8_t> tracked_frame_objects_at_width(const Function& f, const FrameObjectIndex& index)
 {
 	const std::vector<FrameObject>& objects = index.objects();
 	std::vector<uint8_t> tracked(objects.size(), 1);
@@ -133,7 +126,7 @@ std::vector<uint8_t> tracked_frame_objects(const Function& f, const FrameObjectI
 			}
 			const uint32_t o = index.find(op.disp);
 			if (o == lowir::kNoId || !direct || !plain ||
-				static_cast<int64_t>(op.disp) + access_bytes(inst, f.word_bytes) >
+				static_cast<int64_t>(op.disp) + access_bytes<WordBytes>(inst) >
 					static_cast<int64_t>(objects[o].offset) + objects[o].bytes)
 			{
 				untrack(op.disp);
@@ -147,7 +140,14 @@ std::vector<uint8_t> tracked_frame_objects(const Function& f, const FrameObjectI
 	return tracked;
 }
 
-uint32_t drop_dead_frame_stores(Function& f, const std::vector<FrameObject>& objects)
+std::vector<uint8_t> tracked_frame_objects(const Function& f, const FrameObjectIndex& index)
+{
+	return f.word_bytes == 4 ? tracked_frame_objects_at_width<4>(f, index)
+							 : tracked_frame_objects_at_width<8>(f, index);
+}
+
+template<unsigned WordBytes>
+static uint32_t drop_dead_frame_stores_at_width(Function& f, const std::vector<FrameObject>& objects)
 {
 	if (objects.empty() || f.stack_size == 0 || f.variadic || f.eh_records_pushed)
 		return 0;
@@ -157,7 +157,7 @@ uint32_t drop_dead_frame_stores(Function& f, const std::vector<FrameObject>& obj
 	// Tracked objects: every access a direct load, store, compare, test or
 	// bulk copy of known bytes (no address taken, no index, no implicit
 	// use by the emitter).
-	const std::vector<uint8_t> tracked = tracked_frame_objects(f, index);
+	const std::vector<uint8_t> tracked = tracked_frame_objects_at_width<WordBytes>(f, index);
 	// Byte indexes of the tracked objects.
 	std::vector<uint32_t> base(n, 0);
 	uint32_t bytes = 0;
@@ -177,7 +177,7 @@ uint32_t drop_dead_frame_stores(Function& f, const std::vector<FrameObject>& obj
 	for (const Inst& inst : f.insts)
 		if (inst.eh != 0 && (inst.eh > f.eh.landings.size() || f.eh.landings[inst.eh - 1].pad >= blocks))
 			return 0;
-	std::vector<std::vector<uint64_t>> live_in(blocks, std::vector<uint64_t>(words, 0));
+	std::vector<uint64_t> live_in(static_cast<size_t>(blocks) * words);
 	auto range = [&](const Operand& op, uint32_t count, uint32_t& first, uint32_t& past) {
 		if (!frame_operand(op))
 			return false;
@@ -213,14 +213,14 @@ uint32_t drop_dead_frame_stores(Function& f, const std::vector<FrameObject>& obj
 		// a later overwrite on the normal path must not kill them.
 		if (inst.eh != 0)
 		{
-			const uint32_t pad = f.eh.landings[inst.eh - 1].pad;
+			const size_t pad = static_cast<size_t>(f.eh.landings[inst.eh - 1].pad) * words;
 			for (uint32_t w = 0; w < words; ++w)
-				live[w] |= live_in[pad][w];
+				live[w] |= live_in[pad + w];
 		}
 		uint32_t first = 0, past = 0;
 		const bool writes = inst.nops > 0 && frame_operand(inst.ops[0]) &&
 			(inst.op == Op::Store || inst.op == Op::CopyBytes || inst.op == Op::ZeroBytes || inst.op == Op::FMov);
-		if (writes && range(inst.ops[0], access_bytes(inst, f.word_bytes), first, past))
+		if (writes && range(inst.ops[0], access_bytes<WordBytes>(inst), first, past))
 		{
 			if (!(inst.flags & MF_VOLATILE) && !any(live, first, past))
 			{
@@ -237,10 +237,32 @@ uint32_t drop_dead_frame_stores(Function& f, const std::vector<FrameObject>& obj
 		const bool stores = inst.nops > 0 && inst.ops[0].kind == OperandKind::Mem &&
 			(inst.op == Op::Store || inst.op == Op::CopyBytes || inst.op == Op::ZeroBytes || inst.op == Op::FMov);
 		for (unsigned k = stores ? 1 : 0; k < inst.nops; ++k)
-			if (frame_operand(inst.ops[k]) && range(inst.ops[k], access_bytes(inst, f.word_bytes), first, past))
+			if (frame_operand(inst.ops[k]) && range(inst.ops[k], access_bytes<WordBytes>(inst), first, past))
 				set(live, first, past, true);
 	};
-	std::vector<uint32_t> succ;
+	// The fixed-point sweeps only change liveness. Collect successor
+	// ranges once and reuse the same live-out buffer for each block.
+	std::vector<uint32_t> next, next_first(blocks + 1);
+	for (uint32_t b = 0; b < blocks; ++b)
+	{
+		next_first[b] = static_cast<uint32_t>(next.size());
+		const Block& block = f.blocks[b];
+		for (uint32_t i = block.first; i < block.first + block.count; ++i)
+			add_successors(f, f.insts[i], next);
+	}
+	next_first[blocks] = static_cast<uint32_t>(next.size());
+	std::vector<uint64_t> live(words);
+	auto live_out = [&](uint32_t b) {
+		std::fill(live.begin(), live.end(), 0);
+		for (uint32_t k = next_first[b]; k < next_first[b + 1]; ++k)
+		{
+			if (next[k] >= blocks)
+				continue;
+			const size_t start = static_cast<size_t>(next[k]) * words;
+			for (uint32_t w = 0; w < words; ++w)
+				live[w] |= live_in[start + w];
+		}
+	};
 	uint32_t dropped = 0;
 	uint64_t work = 0;
 	const uint64_t budget = 64ull * (f.insts.size() + blocks + bytes);
@@ -249,41 +271,38 @@ uint32_t drop_dead_frame_stores(Function& f, const std::vector<FrameObject>& obj
 		changed = false;
 		for (uint32_t b = blocks; b-- > 0;)
 		{
-			std::vector<uint64_t> live(words, 0);
-			successors(f, b, succ);
-			work += static_cast<uint64_t>(words) * (3 + succ.size()) + f.blocks[b].count;
+			work += static_cast<uint64_t>(words) * (3 + next_first[b + 1] - next_first[b]) + f.blocks[b].count;
 			if (work > budget)
 				return 0;
-			for (uint32_t s : succ)
-				if (s < blocks)
-					for (uint32_t w = 0; w < words; ++w)
-						live[w] |= live_in[s][w];
+			live_out(b);
 			const Block& block = f.blocks[b];
 			for (uint32_t i = block.first + block.count; i-- > block.first;)
 			{
 				work += f.insts[i].eh != 0 ? words : 0;
 				step(f.insts[i], live, false, dropped);
 			}
-			if (live != live_in[b])
+			const auto start = live_in.begin() + static_cast<size_t>(b) * words;
+			if (!std::equal(live.begin(), live.end(), start))
 			{
-				live_in[b] = live;
+				std::copy(live.begin(), live.end(), start);
 				changed = true;
 			}
 		}
 	}
 	for (uint32_t b = 0; b < blocks; ++b)
 	{
-		std::vector<uint64_t> live(words, 0);
-		successors(f, b, succ);
-		for (uint32_t s : succ)
-			if (s < blocks)
-				for (uint32_t w = 0; w < words; ++w)
-					live[w] |= live_in[s][w];
+		live_out(b);
 		const Block& block = f.blocks[b];
 		for (uint32_t i = block.first + block.count; i-- > block.first;)
 			step(f.insts[i], live, true, dropped);
 	}
 	return dropped;
+}
+
+uint32_t drop_dead_frame_stores(Function& f, const std::vector<FrameObject>& objects)
+{
+	return f.word_bytes == 4 ? drop_dead_frame_stores_at_width<4>(f, objects)
+							 : drop_dead_frame_stores_at_width<8>(f, objects);
 }
 
 namespace {
@@ -323,6 +342,7 @@ struct FrameScan
 	std::vector<FrameAccess> accesses;
 };
 
+template<unsigned WordBytes>
 bool scan_frame(const Function& f, const FrameObjectIndex& index, FrameScan& scan)
 {
 	const std::vector<FrameObject>& objects = index.objects();
@@ -365,7 +385,7 @@ bool scan_frame(const Function& f, const FrameObjectIndex& index, FrameScan& sca
 					continue;
 				const bool direct = op.index == kNoReg && op.reg == kFrame;
 				const uint32_t o = index.find(op.disp);
-				const uint32_t bytes = access_bytes(inst, f.word_bytes);
+				const uint32_t bytes = access_bytes<WordBytes>(inst);
 				if (o == lowir::kNoId || !direct || !plain)
 				{
 					leave(op.disp);
@@ -423,7 +443,7 @@ uint32_t share_frame_objects(Function& f, std::vector<FrameObject>& objects)
 	scan.extent.assign(n, 0);
 	scan.first.assign(blocks + 1, 0);
 	scan.next_first.assign(blocks + 1, 0);
-	if (!scan_frame(f, index, scan))
+	if (!(f.word_bytes == 4 ? scan_frame<4>(f, index, scan) : scan_frame<8>(f, index, scan)))
 		return 0;
 	std::vector<FrameAccess>& accesses = scan.accesses;
 	std::vector<uint32_t>& first = scan.first;
@@ -570,7 +590,8 @@ uint32_t share_frame_objects(Function& f, std::vector<FrameObject>& objects)
 	return shared;
 }
 
-bool order_frame(Function& f, const std::vector<FrameObject>& objects, bool fewer)
+template<unsigned WordBytes>
+static bool order_frame_at_width(Function& f, const std::vector<FrameObject>& objects, bool fewer)
 {
 	if (objects.size() < (fewer ? 1 : 2) || f.stack_size == 0 || f.variadic || f.eh_records_pushed)
 		return false;
@@ -632,7 +653,7 @@ bool order_frame(Function& f, const std::vector<FrameObject>& objects, bool fewe
 				// An access running past its object (a merged store) keeps
 				// the objects it covers as they are.
 				for (uint32_t r = rank[o]; op.index == kNoReg &&
-					static_cast<int64_t>(op.disp) + access_bytes(inst, f.word_bytes) > end_of(by_offset[r]);
+					static_cast<int64_t>(op.disp) + access_bytes<WordBytes>(inst) > end_of(by_offset[r]);
 					++r)
 				{
 					if (r + 1 == n || objects[by_offset[r + 1]].offset != end_of(by_offset[r]))
@@ -695,7 +716,7 @@ bool order_frame(Function& f, const std::vector<FrameObject>& objects, bool fewe
 	// The preserve area stays below the objects (finish_frame's rule).
 	const uint32_t saved = static_cast<uint32_t>(__builtin_popcount(f.preserve_mask));
 	if (saved != 0)
-		size = align_up(size + f.word_bytes * saved, 16);
+		size = align_up(size + WordBytes * saved, 16);
 	// (A frame some objects left is smaller, though none of the rest moves.)
 	if (!changed && align_up(size, 16) == f.stack_size)
 		return false;
@@ -722,6 +743,11 @@ bool order_frame(Function& f, const std::vector<FrameObject>& objects, bool fewe
 		f.preserve_offset = -static_cast<int32_t>(size);
 	f.stack_size = align_up(size, 16);
 	return true;
+}
+
+bool order_frame(Function& f, const std::vector<FrameObject>& objects, bool fewer)
+{
+	return f.word_bytes == 4 ? order_frame_at_width<4>(f, objects, fewer) : order_frame_at_width<8>(f, objects, fewer);
 }
 
 } // namespace native
