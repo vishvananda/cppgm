@@ -135,6 +135,7 @@ struct Symbol
 	Binding binding = Binding::Local;
 	SymbolType type = SymbolType::None;
 	Visibility visibility = Visibility::Default;
+	bool alternate_entry = false;
 	uint32_t section = kUndefinedSection; // section index, or a k*Section value
 	uint64_t value = 0;                   // offset in its section; a common symbol's alignment
 	uint64_t size = 0;

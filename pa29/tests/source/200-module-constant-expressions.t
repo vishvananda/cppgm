@@ -1,14 +1,16 @@
 #if defined(__APPLE__)
 #define SYM(name) "_" name
+#define SHIFT_EXPRESSION "1 + (2 << 3)"
 #else
 #define SYM(name) name
+#define SHIFT_EXPRESSION "1 + 2 << 3"
 #endif
 
 asm(".data\n"
     ".globl " SYM("expression_data") "\n"
     SYM("expression_data") ":\n"
     ".if %Rsp == %rsp && %rsp != %esp\n"
-    ".long 1 + 2 << 3, 010 + 0b11\n"
+    ".long " SHIFT_EXPRESSION ", 010 + 0b11\n"
     ".else\n"
     ".long 0, 0\n"
     ".endif\n"

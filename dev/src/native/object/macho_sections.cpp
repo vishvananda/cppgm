@@ -191,11 +191,27 @@ bool Encoder::symbols()
 {
 	symbol_index_.resize(input_.symbols.size(), 0);
 	symbol("Lcppgm_absolute_zero", 2, 0, 0, 0);
+	std::vector<uint8_t> referenced;
 	for (uint32_t i = 1; i < input_.symbols.size(); ++i)
 	{
 		const object::Symbol& source = input_.symbols[i];
 		if (source.type == SymbolType::File)
 			continue;
+		if (source.alternate_entry)
+		{
+			// Branch labels resolved by the assembler need no Mach-O symbol.
+			// A symbol can give the linker an extra unwind-table entry.
+			if (referenced.empty())
+			{
+				referenced.resize(input_.symbols.size());
+				for (const object::Section& section : input_.sections)
+					for (const Relocation& relocation : section.relocations)
+						if (relocation.symbol < referenced.size())
+							referenced[relocation.symbol] = 1;
+			}
+			if (!referenced[i])
+				continue;
+		}
 		const bool defined = source.section != kUndefinedSection;
 		const bool external = source.binding != Binding::Local;
 		const bool section_symbol = source.type == SymbolType::Section;
@@ -230,6 +246,8 @@ bool Encoder::symbols()
 				return fail("invalid symbol section");
 			const Placement placement = placements_[source.section];
 			target.type |= 0x0e;
+			if (source.alternate_entry && source.value != 0)
+				target.desc |= 0x0200; // N_ALT_ENTRY keeps an interior label in its atom.
 			target.section = static_cast<uint8_t>(placement.section + 1);
 			target.value += placement.base;
 			if (source.type == SymbolType::Tls)

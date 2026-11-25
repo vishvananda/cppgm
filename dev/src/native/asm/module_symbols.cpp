@@ -150,7 +150,10 @@ void ModuleSymbols::alias(uint32_t symbol, uint32_t target, int64_t addend)
 }
 uint32_t ModuleSymbols::numeric_symbol()
 {
-	const uint32_t symbol = out_.add_symbol(object::Symbol{});
+	object::Symbol entry;
+	// A numbered label can name a position inside a function's unwind range.
+	entry.alternate_entry = target_ == Target::MacOS;
+	const uint32_t symbol = out_.add_symbol(entry);
 	type(symbol, object::SymbolType::None);
 	return symbol;
 }
