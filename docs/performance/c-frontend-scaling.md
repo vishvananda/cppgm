@@ -4505,3 +4505,42 @@ pressure queries, split planning, and live ranges.
 | 256 | 21.14 | 164.81 |
 | 512 | 37.97 | 330.70 |
 | 1,024 | 71.64 | 667.16 |
+
+## WASI exponent queries and gamma
+
+The exponent-query workloads make 262,144 calls with a fixed SDK Clang
+client on CPU 74. The normal inputs span the exponent field, and the
+subnormal inputs cover every leading significand bit. All checksums
+match over the returned exponents from the SDK, the cppgm-built
+archive, and the SDK Clang-built archive. A leading-bit instruction
+replaces the scalar shift loop and the binary128 floating-point
+normalization.
+
+| Workload | Control, millions | Candidate, millions | ABBA | BAAB |
+| --- | ---: | ---: | ---: | ---: |
+| `ilogbf`, normal | 20.361 | 20.098 | −1.29% | −1.29% |
+| `ilogbf`, subnormal | 31.085 | 19.836 | −36.19% | −36.19% |
+| `ilogb`, normal | 22.196 | 21.933 | −1.18% | −1.18% |
+| `ilogb`, subnormal | 46.565 | 20.097 | −56.84% | −56.84% |
+| `ilogbl`, normal | 37.377 | 33.421 | −10.58% | −10.58% |
+| `ilogbl`, subnormal | 146.250 | 33.570 | −77.05% | −77.05% |
+
+The scalar gamma workloads make 262,144 calls on inputs in `[1, 2)`.
+The control uses SDK 34's gamma functions with the previous
+supplement. The final cppgm-built archive is from `158312a46`.
+All twelve runs per workload on CPU 59 have the same result checksum.
+
+| Workload | Control, millions | Candidate, millions | ABBA | BAAB |
+| --- | ---: | ---: | ---: | ---: |
+| `tgamma` | 112.207 | 113.517 | +1.17% | +1.17% |
+| `tgammaf` | 116.672 | 121.389 | +4.04% | +4.04% |
+| `lgamma` | 40.889 | 43.246 | +5.76% | +5.77% |
+| `lgammaf` | 39.303 | 41.662 | +6.00% | +6.01% |
+
+Using the floor instruction, sharing the double kernel, and testing
+for the infinities that each path can produce reduces the initial
+scalar overhead from 6–12%. The full-range `tgammal` is within
+0.02% of the upstream Arm binary128 implementation on 8,192-call
+workloads in `[1, 2)` and `[8, 136)`, with matching result bits.
+Both builds use cppgm, the same WASI math support and the same
+precompiled Wasmtime runner.

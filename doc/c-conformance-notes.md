@@ -1773,15 +1773,27 @@ retain the SDK's reductions and report `ERANGE` for signed zero poles
 and computed overflow near the finite range limit.
 [C23 N3096 §§7.12.1, 7.12.7.5](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
 
-The selected WASI SDK advertises `MATH_ERREXCEPT` in `math_errhandling`
+The stock WASI SDK advertises `MATH_ERREXCEPT` in `math_errhandling`
 and leaves `FE_INVALID`, `FE_DIVBYZERO`, and `FE_OVERFLOW` undefined.
-Both WASI profiles record the required hosted math reporting behavior
-as uncovered. The supplement supplies `errno` on the covered C23
-and SDK paths. Its probes distinguish finite overflow from exact
-infinity and check that valid operations preserve the caller's
-`errno`. Linux probes check domain and overflow through the
-advertised reporting mechanisms.
+The hosted WASI C23 supplement advertises `MATH_ERRNO`. Its probes
+exercise the advertised mechanism, distinguish finite overflow from
+exact infinity, and check that valid operations preserve the caller's
+`errno`. Linux probes use the mechanisms advertised by their own headers.
 [C23 N3096 §7.12p20, §7.12.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+
+`logb` reports the pole at zero and preserves `errno` for exact
+infinite inputs. The integer exponent functions report `EDOM` for
+zero, infinities, and NaNs and return their prescribed sentinel
+values. Exponent extraction uses the encoded exponent and a leading
+bit calculation for subnormals.
+[C23 N3096 §§7.12.6.8, 7.12.6.10, 7.12.6.17](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+
+`tgamma` reports `EDOM` at negative integers and `ERANGE` for
+zero poles and finite overflow. `lgamma` reports `ERANGE` at its
+poles and on finite overflow. The binary128 implementations use
+binary128 approximations and reflection, including inputs too
+large or too small to pass through binary64.
+[C23 N3096 §§7.12.8.3–4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
 
 For the WASI C target, `__wasip1__` selects the SDK's Preview 1
 headers and its direct `errno` declaration. The exponential functions

@@ -4255,10 +4255,54 @@ archive includes the new PA33 fixture. The strict suite passes all
 11,683 tests, and the exported PA33 fixture passes using its
 packaged reference compiler.
 
-Hosted WASI math reporting remains open. The SDK-derived gamma functions
-leave `errno` unchanged for finite overflow. The inherited binary128
-functions also return infinity for inputs with finite binary128 results,
-including `tgammal(200.0L)` and `lgammal(0x1p4000L)`. Special exponent
-queries return their prescribed encodings. Whether they report errors for
-zero, infinities, and NaNs needs an explicit policy for the paired runtime.
+The SDK-derived gamma functions at that checkpoint leave `errno` unchanged
+for finite overflow. The inherited binary128 functions return infinity for
+inputs with finite binary128 results, including `tgammal(200.0L)` and
+`lgammal(0x1p4000L)`. The SDK exponent queries produce the required sentinel
+values and leave `errno` unchanged. These cases are covered in the following
+replay.
 [C23 N3096 §§7.12.6.8, 7.12.6.10, 7.12.8.3–4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+
+### Hosted WASI C23 math error reporting
+
+The exponent query families report their range or domain errors in all
+three precisions. A leading-bit calculation computes subnormal exponents
+directly. The gamma functions report finite overflow and poles, and
+`tgamma` reports domain errors for negative integers. The scalar gamma
+functions keep the SDK reductions. The binary128 functions use the Arm
+Optimized Routines and FreeBSD msun reductions, preserving finite results
+beyond the binary64 input and output ranges.
+[Arm binary128 true gamma](https://github.com/ARM-software/optimized-routines/blob/9a0d5027ec6c3c529642f2d81391125935d99321/math/tgamma128.c) ·
+[FreeBSD binary128 log gamma](https://github.com/freebsd/freebsd-src/blob/08330304e8c435bdec0e72bb51b64a24c858ff75/lib/msun/ld128/e_lgammal_r.c)
+
+Both archive builders produce matching results on 11,328 binary128
+inputs after normalizing NaNs. Compared with a 384-bit MPFR oracle,
+`tgammal` is within five ULPs, including the overflow boundary, and
+`lgammal` is within two ULPs on the positive inputs. Cancellation near
+negative roots of `lgammal` raises the sampled error to 151 ULPs. The
+sampled absolute error for cases above 16 ULPs stays below
+1.5 × 10⁻³⁴. The comparisons include subnormals, exact poles,
+large powers of two, and both sides of the signed underflow range.
+
+An indirect sweep of 261 domain, pole, overflow, and exact-special
+cases passes with both archive builders. The corresponding direct CPPGM
+calls pass at `-O0`, `-O2`, `-O3`, and `-Oz`. The maintained probe
+passes all 16 combinations of archive builder, client compiler, linker,
+and optimization level. The supplement advertises `MATH_ERRNO`, and
+the standard reporting probe passes at both optimization levels in the
+conformance runner.
+[Standard reporting probe](../scripts/tests/c_math_error_reporting.c) ·
+[Supplemental error-path probe](../scripts/tests/c_wasi_math_errno_paths.c)
+
+The conformance replay at `94c6e454c` passes all 5,933 executed
+configurations with matching compiler and generated input hashes.
+The supplemented C23 profile passes all 214 applicable tracked
+requirements, including hosted math error reporting. Its remaining
+seven entries are inapplicable to the profile. The separate stock
+SDK profile has 63 uncovered C23 entries. The final scalar gamma
+optimization at `158312a46` passes the same 554 supplemented WASI
+configurations. The extracted source-only package builds at
+`-Oz -flto` and passes all ten math probes with the new notices
+installed beside the archive.
+[C23 N3096 §§7.12p20, 7.12.1, 7.12.6, 7.12.8](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
+[Instruction measurements](../docs/performance/c-frontend-scaling.md#wasi-exponent-queries-and-gamma)

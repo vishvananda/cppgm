@@ -540,14 +540,12 @@ chains independently.
 - Keep the WASI supplement paired with the pinned, unmodified SDK. The
   supplement now supplies the C23 math symbols and generic macros. Test
   inherited binary128 operations across the target's full range and record
-  SDK-specific failures through the same runtime profiles. Close the hosted
-  math error reporting requirement before qualifying that environment.
-  The SDK advertises exception reporting without the corresponding flags.
-  The supplement records domain, pole, and overflow outcomes in
-  `errno` on covered paths. Extend these checks to the remaining
-  inherited operations and preserve reporting through both direct
-  and indirect calls at `-O2` before changing the advertised mode.
-  [WASI math results](../reports/upstream-c-coverage.md#hosted-wasi-power-functions-and-binary128-range)
+  SDK-specific failures through the same runtime profiles. The stock SDK
+  advertises exception reporting without the corresponding flags. The
+  supplement advertises `MATH_ERRNO` and qualifies domain, pole, and overflow
+  reporting on inherited and C23 operations. Retain direct and indirect
+  `-O2` checks when changing math rewrites or updating the pairing.
+  [WASI math results](../reports/upstream-c-coverage.md#hosted-wasi-c23-math-error-reporting)
 - Qualify C11 atomics, threads, complex arithmetic, and VLAs separately.
   For atomics, cover ordinary lvalue conversions and assignment, valid
   and invalid explicit memory orders, both outcomes of compare-exchange,
