@@ -64,7 +64,7 @@ const std::shared_ptr<const AssemblyPlan>& FunctionSelector::assembly_plan(const
 		for (uint32_t i = 0; i < inst.extra_count; ++i)
 			arguments[i] = resolve(body_->operands[inst.extra_first + i]);
 		plan = bind_assembly(*program_.assembly, static_cast<uint32_t>(inst.immediate), *body_, arguments,
-			assembly_environment(), assembly_target_);
+			assembly_environment(), assembly_target_, kernel_model_ ? &program_ : nullptr);
 	}
 	return plan;
 }
@@ -130,7 +130,7 @@ void FunctionSelector::emit_assembly(const lowir::Instruction& inst)
 		const lowir::AssemblyOperand& source_operand = module.operands[definition.first_operand + plan->sources[i]];
 		const bool memory = plan->locations[i] == AL_MEMORY;
 		const bool immediate = (plan->locations[i] & (AL_IMMEDIATE | AL_SYMBOL | AL_LABEL)) != 0;
-		if (!immediate && (operand.input != lowir::kNoId || memory))
+		if (!immediate && plan->registers[i] != kNoReg && (operand.input != lowir::kNoId || memory))
 		{
 			const uint32_t input = memory && !source_operand.input_storage ? operand.output : source_operand.input;
 			const lowir::Value value = resolve(body_->operands[inst.extra_first + input]);

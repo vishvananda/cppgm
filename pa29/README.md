@@ -72,6 +72,9 @@ effects through the [documented LowIR records](assembly.md).
 Evaluate each memory address once. A register alternative may load from that
 captured address; a memory alternative names its storage directly. Do not add an
 unrequested read of an output-only memory operand.
+With the x86-64 kernel code model, spell a memory operand for a fixed static
+address as a RIP-relative reference to its symbol with the byte addend. This
+keeps the instruction width stable for code that records it in assembly.
 
 The C++ adapter accepts GNU `vector_size` payload types and `target` annotations
 needed by the supplied assembly operands, plus `naked` and its incompatible

@@ -48,6 +48,7 @@ struct AssemblyBinding
 };
 
 AssemblyBinding assign_assembly_operands(const lowir::AssemblyModule& module, const lowir::AssemblyTemplate& definition,
-	uint64_t clobbers, const lowir::FunctionBody& body, const std::vector<lowir::Value>& arguments);
+	uint64_t clobbers, const lowir::FunctionBody& body, const std::vector<lowir::Value>& arguments,
+	const lowir::Program* kernel_memory);
 
 } // namespace native

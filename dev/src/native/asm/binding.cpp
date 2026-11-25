@@ -42,6 +42,21 @@ unsigned width(lowir::Type type)
 	return std::max(8u, lowir::integer_bits(type.kind()));
 }
 
+void expand_symbol(std::string& source, std::vector<assembly::SymbolUse>& symbols, SymbolReference reference,
+	Dialect dialect, bool immediate, bool memory)
+{
+	if (immediate && dialect == Dialect::Att)
+		source += '$';
+	if (memory && dialect == Dialect::Intel)
+		source += "[rip + ";
+	const std::string marker = "__cppgm_symbol";
+	symbols.push_back(
+		assembly::SymbolUse{ static_cast<uint32_t>(source.size()), static_cast<uint32_t>(marker.size()), reference });
+	source += marker;
+	if (memory)
+		source += dialect == Dialect::Att ? "(%rip)" : "]";
+}
+
 void expand(std::string& source, const lowir::AssemblyModule& module, const lowir::AssemblyTemplate& definition,
 	const AssemblyPlan& plan, std::vector<assembly::SymbolUse>& symbols, std::vector<assembly::LabelUse>& labels)
 {
@@ -93,16 +108,8 @@ void expand(std::string& source, const lowir::AssemblyModule& module, const lowi
 		{
 			if (piece.format != Format::Default && piece.format != Format::Bare && piece.format != Format::Address)
 				unsupported("this symbol formatting modifier");
-			if (definition.dialect == Dialect::Att && piece.format == Format::Default)
-				source += '$';
-			if (piece.format == Format::Address && definition.dialect == Dialect::Intel)
-				source += "[rip + ";
-			const std::string marker = "__cppgm_symbol";
-			symbols.push_back(assembly::SymbolUse{ static_cast<uint32_t>(source.size()),
-				static_cast<uint32_t>(marker.size()), plan.symbols[piece.operand] });
-			source += marker;
-			if (piece.format == Format::Address)
-				source += definition.dialect == Dialect::Att ? "(%rip)" : "]";
+			expand_symbol(source, symbols, plan.symbols[piece.operand], definition.dialect,
+				piece.format == Format::Default, piece.format == Format::Address);
 			continue;
 		}
 		if (plan.locations[piece.operand] == AL_IMMEDIATE)
@@ -133,9 +140,14 @@ void expand(std::string& source, const lowir::AssemblyModule& module, const lowi
 		{
 			if (piece.format != Format::Default)
 				unsupported("this memory formatting modifier");
-			const Register address{ RegisterBank::Gpr, r, 64, 0 };
-			const std::string name = assembly::register_name(address);
-			source += definition.dialect == Dialect::Att ? "(%" + name + ")" : "[" + name + "]";
+			if (r == kNoReg)
+				expand_symbol(source, symbols, plan.symbols[piece.operand], definition.dialect, false, true);
+			else
+			{
+				const Register address{ RegisterBank::Gpr, r, 64, 0 };
+				const std::string name = assembly::register_name(address);
+				source += definition.dialect == Dialect::Att ? "(%" + name + ")" : "[" + name + "]";
+			}
 			continue;
 		}
 		if (piece.format == Format::Address)
@@ -174,7 +186,8 @@ void expand(std::string& source, const lowir::AssemblyModule& module, const lowi
 
 std::shared_ptr<AssemblyPlan> prepare_assembly_source(const lowir::AssemblyModule& module, uint32_t id,
 	const lowir::FunctionBody& body, const std::vector<lowir::Value>& arguments, std::string& source,
-	std::vector<assembly::SymbolUse>& symbols, std::vector<assembly::LabelUse>& labels)
+	std::vector<assembly::SymbolUse>& symbols, std::vector<assembly::LabelUse>& labels,
+	const lowir::Program* kernel_memory)
 {
 	const lowir::AssemblyTemplate& definition = module.templates[id];
 	std::shared_ptr<AssemblyPlan> plan(new AssemblyPlan());
@@ -195,7 +208,8 @@ std::shared_ptr<AssemblyPlan> prepare_assembly_source(const lowir::AssemblyModul
 			unsupported("stack or frame register clobbers");
 		clobbers |= assembly_register_bit(reg);
 	}
-	static_cast<AssemblyBinding&>(*plan) = assign_assembly_operands(module, definition, clobbers, body, arguments);
+	static_cast<AssemblyBinding&>(*plan) = assign_assembly_operands(
+		module, definition, clobbers, body, arguments, kernel_memory);
 	plan->writes = static_cast<uint32_t>(clobbers);
 	for (uint32_t i = 0; i < definition.operand_count; ++i)
 	{
@@ -213,12 +227,13 @@ std::shared_ptr<AssemblyPlan> prepare_assembly_source(const lowir::AssemblyModul
 
 std::shared_ptr<const AssemblyPlan> bind_assembly(const lowir::AssemblyModule& module, uint32_t id,
 	const lowir::FunctionBody& body, const std::vector<lowir::Value>& arguments, AssemblyEnvironment& environment,
-	Target target)
+	Target target, const lowir::Program* kernel_memory)
 {
 	std::string source;
 	std::vector<assembly::SymbolUse> symbols;
 	std::vector<assembly::LabelUse> labels;
-	std::shared_ptr<AssemblyPlan> plan = prepare_assembly_source(module, id, body, arguments, source, symbols, labels);
+	std::shared_ptr<AssemblyPlan> plan = prepare_assembly_source(
+		module, id, body, arguments, source, symbols, labels, kernel_memory);
 	const lowir::AssemblyTemplate& definition = module.templates[id];
 	if ((definition.properties & AP_UNWIND) != 0)
 		unsupported("unwinding inline assembly");

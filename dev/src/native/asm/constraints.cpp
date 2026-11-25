@@ -4,6 +4,7 @@
 
 #include "native/backend_error.h"
 #include "native/asm/binding.h"
+#include "native/select/selector.h"
 
 namespace native {
 namespace {
@@ -123,6 +124,7 @@ struct Group
 	bool early = false;
 	bool immediate = false;
 	bool symbol = false;
+	bool symbol_memory = false;
 	bool label = false;
 	uint8_t location = 0;
 	Reg assigned = kNoReg;
@@ -200,7 +202,7 @@ bool search(std::vector<Group>& groups, uint32_t left, uint32_t& work)
 
 bool column(const lowir::AssemblyModule& module, const lowir::AssemblyTemplate& definition, uint32_t column,
 	uint64_t clobbers, const lowir::FunctionBody& body, const std::vector<lowir::Value>& arguments,
-	AssemblyBinding& result, const std::vector<uint32_t>& sources, uint32_t& work)
+	const lowir::Program* kernel_memory, AssemblyBinding& result, const std::vector<uint32_t>& sources, uint32_t& work)
 {
 	std::vector<uint32_t> roots(definition.operand_count), vertices(definition.operand_count, asm_model::kNoId);
 	std::vector<uint8_t> matched(definition.operand_count, 0);
@@ -254,7 +256,20 @@ bool column(const lowir::AssemblyModule& module, const lowir::AssemblyTemplate& 
 			const bool address = (source.input_storage && source.input != asm_model::kNoId && shared_storage) ||
 				((op.flags & AO_READ) == 0 && op.output != asm_model::kNoId);
 			if ((alt.locations & AL_MEMORY) != 0 && (op.flags & AO_NO_MEMORY) == 0 && address)
+			{
 				group.addresses = 0xffcfu & ~clobbers;
+				if (kernel_memory != nullptr)
+				{
+					const uint32_t input = source.input_storage ? source.input : op.output;
+					SymbolReference ref;
+					if (symbol_value(body, arguments[input], ref) &&
+						host_symbol_access(*kernel_memory, ref.symbol, false, true) == SymbolAccess::Direct)
+					{
+						result.symbols[i] = ref;
+						group.symbol_memory = true;
+					}
+				}
+			}
 			if ((op.flags & (AO_READ | AO_WRITE)) == AO_READ && !source.input_storage)
 			{
 				group.immediate = immediate_domain(module, alt, body, arguments[source.input], result.constants[i]);
@@ -267,6 +282,8 @@ bool column(const lowir::AssemblyModule& module, const lowir::AssemblyTemplate& 
 	for (Group& group : groups)
 		if (group.immediate || group.symbol || group.label)
 			group.location = group.label ? AL_LABEL : group.symbol ? AL_SYMBOL : AL_IMMEDIATE;
+		else if (group.symbol_memory)
+			group.location = AL_MEMORY;
 		else
 			++pending;
 	if (!search(groups, pending, work))
@@ -287,7 +304,8 @@ bool column(const lowir::AssemblyModule& module, const lowir::AssemblyTemplate& 
 } // namespace
 
 AssemblyBinding assign_assembly_operands(const lowir::AssemblyModule& module, const lowir::AssemblyTemplate& definition,
-	uint64_t clobbers, const lowir::FunctionBody& body, const std::vector<lowir::Value>& arguments)
+	uint64_t clobbers, const lowir::FunctionBody& body, const std::vector<lowir::Value>& arguments,
+	const lowir::Program* kernel_memory)
 {
 	uint32_t columns = 1;
 	for (uint32_t i = 0; i < definition.operand_count; ++i)
@@ -317,7 +335,7 @@ AssemblyBinding assign_assembly_operands(const lowir::AssemblyModule& module, co
 		{
 			if (++work > 100000)
 				throw BackendError("assembly constraint search exceeded its work limit");
-			if (column(module, definition, c, clobbers, body, arguments, result, sources, work))
+			if (column(module, definition, c, clobbers, body, arguments, kernel_memory, result, sources, work))
 				return result;
 		}
 		size_t pair = 0;
