@@ -32,7 +32,8 @@ const PunctuatorSpelling* PunctuatorCandidates(int32_t first, bool cxx20, bool d
 		{ nullptr, 0 } };
 	static const PunctuatorSpelling kColon[] = { CPPGM_PUNCTUATOR("::", OP_COLON2), CPPGM_PUNCTUATOR(":>", OP_RSQUARE),
 		CPPGM_PUNCTUATOR(":", OP_COLON), { nullptr, 0 } };
-	static const PunctuatorSpelling kC90Colon[] = { CPPGM_PUNCTUATOR(":", OP_COLON), { nullptr, 0 } };
+	static const PunctuatorSpelling kC90Colon[] = { CPPGM_PUNCTUATOR("::", OP_COLON2), CPPGM_PUNCTUATOR(":", OP_COLON),
+		{ nullptr, 0 } };
 	static const PunctuatorSpelling kDot[] = { CPPGM_PUNCTUATOR("...", OP_DOTS), CPPGM_PUNCTUATOR(".*", OP_DOTSTAR),
 		CPPGM_PUNCTUATOR(".", OP_DOT), { nullptr, 0 } };
 	static const PunctuatorSpelling kPlus[] = { CPPGM_PUNCTUATOR("++", OP_INC), CPPGM_PUNCTUATOR("+=", OP_PLUSASS),
