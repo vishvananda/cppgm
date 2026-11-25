@@ -107,8 +107,8 @@ const syntax::Name* DeclaratorId(const syntax::Declarator* declarator)
 	return nullptr;
 }
 
-bool SpecifiersNeedParameterScope(
-	const syntax::Slice<syntax::DeclSpecifier>& specifiers, uint32_t level, bool c_source = false);
+template<bool CSource = false>
+bool SpecifiersNeedParameterScope(const syntax::Slice<syntax::DeclSpecifier>& specifiers, uint32_t level);
 
 // A name whose template arguments hold an expression (an unevaluated
 // operand in it may name an earlier parameter, 3.3.4p1), or a type-id
@@ -131,14 +131,15 @@ bool NameHoldsValues(const syntax::Name& name, uint32_t level)
 	return false;
 }
 
-bool SpecifiersNeedParameterScope(const syntax::Slice<syntax::DeclSpecifier>& specifiers, uint32_t level, bool c_source)
+template<bool CSource>
+bool SpecifiersNeedParameterScope(const syntax::Slice<syntax::DeclSpecifier>& specifiers, uint32_t level)
 {
 	for (const syntax::DeclSpecifier& specifier : specifiers)
 	{
 		if (specifier.kind == syntax::DeclSpecKind::Decltype ||
 			(specifier.kind == syntax::DeclSpecKind::Name && NameHoldsValues(*specifier.name, level)))
 			return true;
-		if (c_source &&
+		if (CSource &&
 			(specifier.kind == syntax::DeclSpecKind::Class || specifier.kind == syntax::DeclSpecKind::Elaborated ||
 				specifier.kind == syntax::DeclSpecKind::Enum))
 			return true;
@@ -163,7 +164,9 @@ bool NeedsParameterScope(const syntax::ParameterDeclaration& parameter, bool c_s
 				return true;
 		}
 	}
-	return SpecifiersNeedParameterScope(parameter.specifiers, 0, c_source);
+	if (c_source)
+		return SpecifiersNeedParameterScope<true>(parameter.specifiers, 0);
+	return SpecifiersNeedParameterScope(parameter.specifiers, 0);
 }
 
 // A class template's name found other than as its injected-class-name
@@ -190,6 +193,29 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 	out.location = list.empty() ? 0 : list[0].location;
 	out.quiet_c_extensions = c_source_ && !list.empty() && list[0].quiet_c_extensions;
 	out.uses = names_.dependent_uses();
+	const auto named_with_alignment = [&](const syntax::Name& name) {
+		const Type* named = named_type(name, scope);
+		if (named_binding_->aligned_alias)
+			out.alias_alignment = declared_alignment(named_binding_, 0);
+		return named;
+	};
+	// A single type specifier has no storage, qualifier or combination
+	// rules to collect. Resolve it with the same routines as a longer list.
+	if (list.size == 1)
+	{
+		const syntax::DeclSpecifier& only = list[0];
+		if (only.kind == syntax::DeclSpecKind::Keyword && IsTypeKeyword(only.keyword))
+		{
+			out.type = keyword_type(list, out.location);
+			return;
+		}
+		if (only.kind == syntax::DeclSpecKind::Name && !deducing_class && !IsBareName(*only.name, complex_keys_, 3))
+		{
+			const Type* named = named_with_alignment(*only.name);
+			out.type = failed() ? nullptr : named;
+			return;
+		}
+	}
 	for (const syntax::DeclSpecifier& specifier : list)
 	{
 		if (specifier.kind == syntax::DeclSpecKind::AtomicQualifier)
@@ -341,9 +367,7 @@ void Analyzer::specifiers(const syntax::Slice<syntax::DeclSpecifier>& list, Scop
 				out.type_specifier = &specifier;
 				break;
 			}
-			named = named_type(*specifier.name, scope);
-			if (named_binding_->aligned_alias)
-				out.alias_alignment = declared_alignment(named_binding_, 0);
+			named = named_with_alignment(*specifier.name);
 			if (keywords && !int128 && named == types_.fundamental(FundamentalType::Int128) &&
 				IsBareName(*specifier.name, &int128_key_, 1))
 			{

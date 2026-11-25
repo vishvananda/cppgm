@@ -128,14 +128,23 @@ public:
 	// Tokens are returned by value: a later peek may grow (reallocate) the
 	// window and advance() may compact it, so no reference into it may be
 	// held.
-	ParseToken peek(uint32_t ahead = 0)
+	ParseToken peek(uint32_t ahead = 0) { return buffered_token(ahead); }
+
+	// Immediate predicates read the needed fields while the buffer is
+	// stable. Callers that retain a token still obtain a value from peek().
+	bool at(TokenKind kind, uint32_t ahead) { return buffered_token(ahead).is(kind); }
+	bool at_identifier(uint32_t ahead) { return buffered_token(ahead).is_identifier(); }
+	bool at_name(const Identifier* identifier)
 	{
-		if (!replays_.empty())
-			return peek_replay(ahead);
-		if (position_ + ahead >= window_.size())
-			fill(position_ + ahead + 1);
-		return window_[position_ + ahead];
+		const ParseToken& token = buffered_token(0);
+		return token.is_identifier() && token.identifier == identifier;
 	}
+	bool at_kind_with_flag(TokenKind kind, uint8_t flag)
+	{
+		const ParseToken& token = buffered_token(0);
+		return token.is(kind) && (token.flags & flag) != 0;
+	}
+	uint32_t location() { return buffered_token(0).location; }
 
 	void advance();
 
@@ -200,6 +209,15 @@ public:
 	}
 
 private:
+	const ParseToken& buffered_token(uint32_t ahead)
+	{
+		if (!replays_.empty())
+			return peek_replay(ahead);
+		const uint32_t index = position_ + ahead;
+		if (index >= window_.size())
+			fill(index + 1);
+		return window_[index];
+	}
 	struct Replay
 	{
 		TokenRun run;

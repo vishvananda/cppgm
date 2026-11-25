@@ -121,15 +121,15 @@ protected:
 
 	// ------------------------------------------------------------ tokens
 	ParseToken tok(uint32_t ahead = 0) { return tokens_.peek(ahead); }
-	bool at(TokenKind kind, uint32_t ahead = 0) { return tokens_.peek(ahead).is(kind); }
-	bool at_identifier(uint32_t ahead = 0) { return tokens_.peek(ahead).is_identifier(); }
-	bool at_identifier(const Identifier* identifier) { return tok().is_identifier() && tok().identifier == identifier; }
+	bool at(TokenKind kind, uint32_t ahead = 0) { return tokens_.at(kind, ahead); }
+	bool at_identifier(uint32_t ahead = 0) { return tokens_.at_identifier(ahead); }
+	bool at_identifier(const Identifier* identifier) { return tokens_.at_name(identifier); }
 	void next() { tokens_.advance(); }
 	bool accept(TokenKind kind);
 	bool expect(TokenKind kind);
 	bool at_close_angle() { return at(TokenKind::OP_GT); }
-	bool at_shift_right() { return at(TokenKind::OP_GT) && (tok().flags & kFirstShiftHalf) != 0; }
-	uint32_t location() { return tok().location; }
+	bool at_shift_right() { return tokens_.at_kind_with_flag(TokenKind::OP_GT, kFirstShiftHalf); }
+	uint32_t location() { return tokens_.location(); }
 	bool fail();
 	bool skip_balanced();
 	bool skip_attributes();
