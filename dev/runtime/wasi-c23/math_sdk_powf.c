@@ -41,7 +41,6 @@ relerr_exp2: 1.69 * 2^-34 (Relative error of exp2(ylogx).)
 
 #define N (1 << POWF_LOG2_TABLE_BITS)
 #define T __powf_log2_data.tab
-#define A __powf_log2_data.poly
 #define OFF 0x3f330000
 
 /* Subnormal input is normalized so ix has a negative biased exponent.  */
@@ -67,12 +66,13 @@ static inline double_t log2_inline(uint32_t ix)
 	r = z * invc - 1;
 	y0 = logc + (double_t)k;
 
-	/* Pipelined polynomial evaluation to approximate log1p(r)/ln2.  */
+	/* The pinned SDK's coefficients for log1p(r)/ln2. Keep them constant
+	   at the point of use to avoid loads from the external table.  */
 	r2 = r * r;
-	y = A[0] * r + A[1];
-	p = A[2] * r + A[3];
+	y = 0x1.27616c9496e0bp-2 * r + (-0x1.71969a075c67ap-2);
+	p = 0x1.ec70a6ca7baddp-2 * r + (-0x1.7154748bef6c8p-1);
 	r4 = r2 * r2;
-	q = A[4] * r + y0;
+	q = 0x1.71547652ab82bp0 * r + y0;
 	q = p * r2 + q;
 	y = y * r4 + q;
 	return y;
@@ -90,12 +90,11 @@ static inline float exp2_inline(double_t xd, uint32_t sign_bias)
 	uint64_t ki, ski, t;
 	double_t kd, z, r, r2, y, s;
 
-#define C __exp2f_data.poly
-#define SHIFT __exp2f_data.shift_scaled
 	/* x = k/N + r with r in [-1/(2N), 1/(2N)] */
-	kd = (double)(xd + SHIFT);
+	const double_t shift = 0x1.8p+52 / N;
+	kd = (double)(xd + shift);
 	ki = asuint64(kd);
-	kd -= SHIFT; /* k/N */
+	kd -= shift; /* k/N */
 	r = xd - kd;
 
 	/* exp2(x) = 2^(k/N) * 2^r ~= s * (C0*r^3 + C1*r^2 + C2*r + 1) */
@@ -103,9 +102,10 @@ static inline float exp2_inline(double_t xd, uint32_t sign_bias)
 	ski = ki + sign_bias;
 	t += ski << (52 - EXP2F_TABLE_BITS);
 	s = asdouble(t);
-	z = C[0] * r + C[1];
+	/* The pinned SDK's coefficients for 2^r.  */
+	z = 0x1.c6af84b912394p-5 * r + 0x1.ebfce50fac4f3p-3;
 	r2 = r * r;
-	y = C[2] * r + 1;
+	y = 0x1.62e42ff0c52d6p-1 * r + 1;
 	y = z * r2 + y;
 	y = y * s;
 	return (float)(y);
@@ -130,6 +130,19 @@ static inline int checkint(uint32_t iy)
 static inline int zeroinfnan(uint32_t ix)
 {
 	return 2 * ix - 1 >= 2u * 0x7f800000 - 1;
+}
+
+static __attribute__((cold, noinline)) float powf_extreme(double ylogx, uint32_t sign_bias)
+{
+	/* |y*log(x)| >= 126.  */
+	if (ylogx > 0x1.fffffffd1d571p+6)
+		return __math_oflowf(sign_bias);
+	if (ylogx <= -150.0)
+		return __math_uflowf(sign_bias);
+	const float result = exp2_inline(ylogx, sign_bias);
+	if (isinf(result))
+		errno = ERANGE;
+	return result;
 }
 
 float powf(float x, float y)
@@ -186,17 +199,7 @@ float powf(float x, float y)
 	}
 	double_t logx = log2_inline(ix);
 	double_t ylogx = y * logx; /* cannot overflow, y is single prec.  */
-	if (predict_false((asuint64(ylogx) >> 47 & 0xffff) >= asuint64(126.0) >> 47))
-	{
-		/* |y*log(x)| >= 126.  */
-		if (ylogx > 0x1.fffffffd1d571p+6)
-			return __math_oflowf(sign_bias);
-		if (ylogx <= -150.0)
-			return __math_uflowf(sign_bias);
-		const float result = exp2_inline(ylogx, sign_bias);
-		if (isinf(result))
-			errno = ERANGE;
-		return result;
-	}
+	if (predict_false((asuint64(ylogx) & UINT64_C(0x7fffffffffffffff)) >= asuint64(126.0)))
+		return powf_extreme(ylogx, sign_bias);
 	return exp2_inline(ylogx, sign_bias);
 }
