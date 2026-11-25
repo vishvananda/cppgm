@@ -789,6 +789,7 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 	bool pthread = false;
 	bool default_lto = false;
 	bool optimize_size = false, popcnt_explicit = false, char_signedness_explicit = false;
+	bool asynchronous_unwind_tables = true, unwind_tables = false;
 	unsigned pic_level = 0, pie_level = 0;
 	bool assembly_output = false;
 	const size_t base_defines = invocation.preprocessor.command_line.size();
@@ -879,6 +880,10 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 		}
 		else if (arg == "-fno-exceptions" || arg == "-fexceptions")
 			invocation.exceptions = arg == "-fexceptions" ? SourceExceptions::Enabled : SourceExceptions::Disabled;
+		else if (arg == "-fasynchronous-unwind-tables" || arg == "-fno-asynchronous-unwind-tables")
+			asynchronous_unwind_tables = arg == "-fasynchronous-unwind-tables";
+		else if (arg == "-funwind-tables" || arg == "-fno-unwind-tables")
+			unwind_tables = arg == "-funwind-tables";
 		else if (visibility_option(arg, invocation))
 			continue;
 		else if (arg == "-fno-strict-aliasing" || arg == "-fstrict-aliasing")
@@ -1022,6 +1027,9 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 	if (invocation.debug_optimization && invocation.debug_types)
 		invocation.optimizer.level = 0;
 	configure_preprocessor(invocation, includes, gcc_install_dir);
+	if (invocation.target == native::Target::Linux)
+		invocation.x86_code.unwind_tables = asynchronous_unwind_tables || unwind_tables ||
+			invocation.preprocessor.modes.exceptions;
 	return invocation;
 }
 

@@ -155,6 +155,10 @@ token must reach the LowIR as `section=` and the object as a section of that
 name, and an unsafe or conflicting section attribute must be rejected.
 `make check TEST=tests/controls/<name>.t` runs one.
 
+For x86-64 ELF, honor `-fno-asynchronous-unwind-tables` when neither
+exception support nor `-funwind-tables` needs the compiler's `.eh_frame`.
+An explicit assembly unwind directive still belongs to the assembly input.
+
 ### Symbol visibility
 
 Keep visibility independent of linkage and weak binding. The GNU

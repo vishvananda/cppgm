@@ -201,6 +201,7 @@ private:
 	EhModel eh_model_;
 	bool position_independent_;
 	bool kernel_model_;
+	bool unwind_tables_;
 	bool function_sections_; // -ffunction-sections (ELF): no function shares its section
 	bool cold_sections_;     // O1+ (ELF): cold functions (cold=yes) go to .text.unlikely
 	std::vector<UnwindEntry> unwind_;
@@ -244,7 +245,7 @@ ObjectCompiler::ObjectCompiler(lowir::Program& program, ObjectStats& stats, EhMo
 	: program_(program), stats_(stats), selector_(program), emitter_(image_, runtime_, stats.emit),
 	  assembly_text_(code_options.assembly_text), share_entries_(optimization_level >= 1), eh_model_(eh_model),
 	  position_independent_(position_independent), kernel_model_(code_options.kernel_model),
-	  function_sections_(function_sections && target == Target::Linux),
+	  unwind_tables_(code_options.unwind_tables), function_sections_(function_sections && target == Target::Linux),
 	  cold_sections_(optimization_level >= 1 && target == Target::Linux)
 {
 	image_.target = target;
@@ -522,6 +523,8 @@ void ObjectCompiler::function(lowir::SymbolId symbol)
 // leaf the CIE's rule describes) gets its FDE instructions and LSDA.
 void ObjectCompiler::record_unwind(uint32_t range, bool encoded, const UnwindFacts* generated)
 {
+	if (!unwind_tables_)
+		return;
 	UnwindEntry entry = UnwindEntry();
 	entry.range = range;
 	entry.code_bytes = static_cast<uint32_t>(ranges_[range].end - ranges_[range].start);

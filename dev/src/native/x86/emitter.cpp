@@ -978,7 +978,7 @@ void FunctionEmitter::encode(const Function& function)
 		epilogue(function);
 	if (terminal_used_)
 		resume_terminal(function);
-	if (eh_model_ == EhModel::Host)
+	if (eh_model_ == EhModel::Host && code_options_.unwind_tables)
 	{
 		unwind_.size = asm_.size() - static_cast<uint32_t>(base_);
 		for (const EhLanding& landing : function.eh.landings)
@@ -1098,7 +1098,7 @@ void FunctionEmitter::prologue(const Function& function)
 		asm_.push(order[k]);
 		offset -= 8;
 		at.save_end[pushed++] = asm_.size() - base;
-		if (eh_model_ == EhModel::Host && first)
+		if (eh_model_ == EhModel::Host && code_options_.unwind_tables && first)
 			unwind_.saves.push_back(UnwindFacts::Save{ asm_.size() - base, order[k], offset });
 	}
 	if (omit_fp_)
@@ -1348,7 +1348,7 @@ void FunctionEmitter::call(const Inst& inst)
 	if (done != 0xffffffffu)
 		asm_.bind(done);
 	// Host EH: a potentially throwing call's LSDA range.
-	if (eh_model_ == EhModel::Host && (inst.eh != 0 || !(inst.flags & MF_UNWIND_NO)))
+	if (eh_model_ == EhModel::Host && code_options_.unwind_tables && (inst.eh != 0 || !(inst.flags & MF_UNWIND_NO)))
 		unwind_.calls.push_back(UnwindFacts::CallSite{
 			begin, asm_.size() - static_cast<uint32_t>(base_), inst.eh, (inst.aux2 + 15) & ~15u });
 }
