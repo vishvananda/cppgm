@@ -421,6 +421,11 @@ In constant expressions, support the GNU builtins `__builtin_fmaf`,
 product and sum with one rounding to the result type. An overflow or an
 inexact underflow cannot produce a constant expression.
 
+Fold `__builtin_strcmp` and `__builtin_strncmp` when both strings and any
+length argument are literals. Compare unsigned bytes through the first
+terminator or the length bound. A folded result supplies the sign of the
+comparison and needs no library call.
+
 Support `__builtin_sinf`, `__builtin_sin`, and `__builtin_sinl` in constant
 expressions for finite operands. Compute the sine in the target floating-point
 format when the host math library supplies the needed precision. Preserve a

@@ -1,0 +1,14 @@
+extern int invalid_operator();
+
+int main()
+{
+    if (__builtin_strcmp("<", "<") != 0)
+        return invalid_operator();
+    if (__builtin_strcmp("\xff", "z") <= 0)
+        return invalid_operator();
+    if (__builtin_strncmp("a\0x", "a\0y", 3) != 0)
+        return invalid_operator();
+    if (__builtin_strncmp("<=", "<", 1) != 0)
+        return invalid_operator();
+    return 0;
+}

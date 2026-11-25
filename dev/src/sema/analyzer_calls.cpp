@@ -4,6 +4,7 @@
 
 #include "lex/identifier_table.h"
 #include "preprocess/preprocessor.h"
+#include "sema/constant_interpreter.h"
 
 // Function calls (5.2.2) and overload resolution (13.3) for the procedural
 // slice: candidates are the functions a name's lookup found; each viable
@@ -987,6 +988,23 @@ ExprFacts* Analyzer::resolved_call(const syntax::CallExpr& expr, const FunctionL
 	ExprFacts* facts = new_facts(expr, result, category);
 	facts->entity = selected;
 	facts->flags |= kDirectCall;
+	if (selected->builtin == BuiltinFunction::Library && selected->builtin_variant == kGnuLibraryStringCompare &&
+		expr.arguments.size >= 2)
+	{
+		const auto* left = WithoutParentheses(expr.arguments[0]);
+		const auto* right = WithoutParentheses(expr.arguments[1]);
+		if (left->kind == syntax::ExprKind::Literal && right->kind == syntax::ExprKind::Literal &&
+			left->facts->type->kind == TypeKind::Array && right->facts->type->kind == TypeKind::Array &&
+			(expr.arguments.size == 2 || WithoutParentheses(expr.arguments[2])->kind == syntax::ExprKind::Literal))
+		{
+			ConstValue folded;
+			if (ConstantInterpreter(*this).evaluate(expr, false, folded) && folded.kind == ValueKind::Integer)
+			{
+				facts->flags |= kFolded;
+				facts->value = folded.bits;
+			}
+		}
+	}
 	// A class object's operator() is its member's call, never qualified.
 	if (selected->is_virtual && (operator_object || !QualifiedCallee(*expr.callee)))
 		facts->flags |= kVirtualCall;
