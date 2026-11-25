@@ -6,9 +6,13 @@ int main()
         return invalid_operator();
     if (__builtin_strcmp("\xff", "z") <= 0)
         return invalid_operator();
+    if (__builtin_strcmp("z", "\xff") >= 0)
+        return invalid_operator();
     if (__builtin_strncmp("a\0x", "a\0y", 3) != 0)
         return invalid_operator();
     if (__builtin_strncmp("<=", "<", 1) != 0)
+        return invalid_operator();
+    if (__builtin_strncmp("a", "z", 0) != 0)
         return invalid_operator();
     return 0;
 }

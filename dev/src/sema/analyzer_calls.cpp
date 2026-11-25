@@ -1,10 +1,11 @@
 #include "sema/analyzer.h"
 
+#include <algorithm>
 #include <cstring>
 
 #include "lex/identifier_table.h"
 #include "preprocess/preprocessor.h"
-#include "sema/constant_interpreter.h"
+#include "sema/string_literals.h"
 
 // Function calls (5.2.2) and overload resolution (13.3) for the procedural
 // slice: candidates are the functions a name's lookup found; each viable
@@ -36,6 +37,56 @@ const syntax::Expr* WithoutParentheses(const syntax::Expr* expr)
 	while (expr->kind == syntax::ExprKind::Paren)
 		expr = static_cast<const syntax::ParenExpr*>(expr)->inner;
 	return expr;
+}
+
+const syntax::LiteralExpr* StringArgument(const syntax::Expr* expr)
+{
+	expr = WithoutParentheses(expr);
+	IntegralKind kind;
+	return expr->kind == syntax::ExprKind::Literal && expr->facts->type->kind == TypeKind::Array &&
+			(expr->facts->flags & kUserLiteral) == 0 && IntegralKindOf(expr->facts->type->element, kind) &&
+			kind.bits == 8
+		? static_cast<const syntax::LiteralExpr*>(expr)
+		: nullptr;
+}
+
+void FoldStringComparison(const syntax::CallExpr& expr, const Type* function, ExprFacts& result)
+{
+	const auto* left = StringArgument(expr.arguments[0]);
+	const auto* right = StringArgument(expr.arguments[1]);
+	if (left == nullptr || right == nullptr)
+		return;
+	uint64_t limit = UINT64_MAX;
+	if (expr.arguments.size == 3)
+	{
+		const auto* bound = WithoutParentheses(expr.arguments[2]);
+		IntegralKind kind;
+		if (bound->kind != syntax::ExprKind::Literal || !IsIntegralType(bound->facts->type) ||
+			!IntegralKindOf(function->params[2], kind))
+			return;
+		limit = ConvertIntegral(bound->facts->value, kind);
+	}
+
+	// Use the token converter's compact code units instead of building an
+	// interpreter value for every byte of the literal's array.
+	std::vector<uint64_t> left_scratch, right_scratch;
+	const auto a = ReadStringCodeUnits(*left, left_scratch);
+	const auto b = ReadStringCodeUnits(*right, right_scratch);
+	if (!a || !b)
+		return;
+	const uint64_t count = std::min(limit, static_cast<uint64_t>(std::min(a.size(), b.size())));
+	int sign = 0;
+	for (uint64_t i = 0; i < count; ++i)
+	{
+		const uint8_t x = static_cast<uint8_t>(a[i]), y = static_cast<uint8_t>(b[i]);
+		if (x != y || x == 0)
+		{
+			sign = x < y ? -1 : x > y ? 1 : 0;
+			break;
+		}
+	}
+	result.flags |= kFolded;
+	result.value = static_cast<uint64_t>(sign);
 }
 
 // 5.2.2p1, 10.3p15: a member function named by a qualified-id is called
@@ -990,21 +1041,7 @@ ExprFacts* Analyzer::resolved_call(const syntax::CallExpr& expr, const FunctionL
 	facts->flags |= kDirectCall;
 	if (selected->builtin == BuiltinFunction::Library && selected->builtin_variant == kGnuLibraryStringCompare &&
 		expr.arguments.size >= 2)
-	{
-		const auto* left = WithoutParentheses(expr.arguments[0]);
-		const auto* right = WithoutParentheses(expr.arguments[1]);
-		if (left->kind == syntax::ExprKind::Literal && right->kind == syntax::ExprKind::Literal &&
-			left->facts->type->kind == TypeKind::Array && right->facts->type->kind == TypeKind::Array &&
-			(expr.arguments.size == 2 || WithoutParentheses(expr.arguments[2])->kind == syntax::ExprKind::Literal))
-		{
-			ConstValue folded;
-			if (ConstantInterpreter(*this).evaluate(expr, false, folded) && folded.kind == ValueKind::Integer)
-			{
-				facts->flags |= kFolded;
-				facts->value = folded.bits;
-			}
-		}
-	}
+		FoldStringComparison(expr, type, *facts);
 	// A class object's operator() is its member's call, never qualified.
 	if (selected->is_virtual && (operator_object || !QualifiedCallee(*expr.callee)))
 		facts->flags |= kVirtualCall;
