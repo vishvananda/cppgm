@@ -860,9 +860,8 @@ void Parser::parse_symbol_value(MetadataKey key, MetadataContext context, Symbol
 	switch (key)
 	{
 	case MetadataKey::Storage:
-	case MetadataKey::Section:
 		if (!on_global)
-			fail(key == MetadataKey::Storage ? "storage metadata on non-global" : "section metadata requires a global");
+			fail("storage metadata on non-global");
 		break;
 	case MetadataKey::TlsFor:
 	case MetadataKey::ForceInline:
@@ -910,7 +909,7 @@ void Parser::parse_symbol_value(MetadataKey key, MetadataContext context, Symbol
 		for (uint32_t i = 0; i < value.length; ++i)
 		{
 			if (!is_section_char(value.text[i]))
-				fail("invalid global section name");
+				fail("invalid section name");
 		}
 		symbol.section = value.name;
 		break;

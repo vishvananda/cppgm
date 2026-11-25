@@ -555,12 +555,9 @@ void Analyzer::symbol_attributes(Entity* entity, const syntax::Attribute* leadin
 	// GNU weak and section (or their [[gnu::...]] forms), before the
 	// declaration, after its declarator-id or (GNU ones) after a function
 	// declarator's parameter clause. weak: a function or variable with
-	// external linkage (GCC: a weak declaration must be public). section:
-	// an object of static storage duration, one token-safe name across its
-	// declarations (pa27 README 9); a typedef's is an error (GCC, Clang).
-	// Function sections are outside PA27 and ignored (the reference, like
-	// the stage base, accepts them), as GCC ignores a typedef's weak and an
-	// attribute-specifier appertaining to a type (7.1p1, 8.3.5p1).
+	// external linkage (GCC: a weak declaration must be public). A section
+	// places a static-duration object or an ELF function, using one safe
+	// name across its declarations (PA27).
 	const auto apply = [&](const syntax::Attribute* list) {
 		for (const syntax::Attribute* attribute = list; attribute != nullptr; attribute = attribute->next)
 		{
@@ -599,7 +596,8 @@ void Analyzer::symbol_attributes(Entity* entity, const syntax::Attribute* leadin
 					error(attribute->location, "a section attribute on a declaration of no object");
 				continue;
 			}
-			if (!variable && attribute->kind == syntax::AttributeKind::Section)
+			if (!variable && attribute->kind == syntax::AttributeKind::Section &&
+				target_model::describe(types_.target()).object_format != target_model::ObjectFormat::Elf)
 				continue;
 			const VariableEntity* object = variable ? static_cast<const VariableEntity*>(entity) : nullptr;
 			const bool internal = variable ? object->internal_linkage
@@ -618,7 +616,7 @@ void Analyzer::symbol_attributes(Entity* entity, const syntax::Attribute* leadin
 			}
 			if (!static_storage)
 				error(attribute->location, "a section attribute on a variable without static storage duration");
-			if (object->is_thread_local)
+			if (variable && object->is_thread_local)
 				error(attribute->location, "a section attribute on a thread-local variable is not supported");
 			std::string name;
 			if (!TokenSafeSection(static_cast<const syntax::LiteralExpr*>(attribute->expression)->spelling, name))

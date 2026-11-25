@@ -191,10 +191,11 @@ void compile_object(Program& program, obj::ObjectFile& object, int level, bool p
 		const bool comdat = !darwin && src.metadata.binding == ir_model::SBM_WEAK &&
 			(src.metadata.flags & SF_REPLACEABLE) == 0;
 		const uint32_t first_section = object.sections.size();
-		sym.section = function_sections
-			? object.add_section((std::string(".text.") + name).c_str(), obj::SectionKind::Text, 4)
-			: comdat ? object.add_section(".text", obj::SectionKind::Text, 4)
-					 : code;
+		sym.section = src.metadata.section != 0 && !darwin
+			? object.add_section(program.spelling(src.metadata.section), obj::SectionKind::Text, 4)
+			: function_sections ? object.add_section((std::string(".text.") + name).c_str(), obj::SectionKind::Text, 4)
+			: comdat            ? object.add_section(".text", obj::SectionKind::Text, 4)
+								: code;
 		auto& section = object.sections[sym.section];
 		if (level >= 2 && !darwin && !minimize_size)
 			place_short_loops(function, section);

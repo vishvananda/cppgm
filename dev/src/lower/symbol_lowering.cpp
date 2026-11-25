@@ -2775,6 +2775,8 @@ lowir::SymbolMetadata ProgramLowering::function_metadata(const sema::FunctionEnt
 	if (metadata.binding != ir_model::SBM_INTERNAL)
 		metadata.visibility = function_visibility(function);
 	const sema::SemanticGraph::SymbolAttributes* attributes = graph_->symbol_attributes(function);
+	if (attributes != nullptr && attributes->section != nullptr)
+		metadata.section = intern(attributes->section, static_cast<uint32_t>(std::strlen(attributes->section)));
 	if (attributes != nullptr && attributes->weak && metadata.binding != ir_model::SBM_INTERNAL)
 	{
 		metadata.binding = ir_model::SBM_WEAK;

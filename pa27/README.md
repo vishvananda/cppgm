@@ -230,7 +230,9 @@ The checked-in PA27 tests cover:
 - host linking against static archives and shared libraries
 - import/export of host-built `thread_local` variables in the tested subset
 - GNU `section` attributes on global objects whose nonempty ELF section name
-  contains only ASCII letters, digits, `_`, and `.`
+  contains only ASCII letters, digits, `_`, and `.`. For ELF functions the
+  same attribute places the definition in an executable section and takes
+  precedence over compiler-selected text sections.
 - explicit GNU weak function/global declarations remain weak undefined ELF
   references: absent definitions have a null address, while host definitions
   satisfy the same references. Ordinary vague-linkage declarations still

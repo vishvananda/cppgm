@@ -348,9 +348,9 @@ uint32_t ObjectCompiler::named_section(lowir::NameId name, SectionKind kind)
 {
 	uint32_t priority = 0;
 	const char* spelling = program_.spelling(name);
-	if (lowir::initializer_section(spelling, priority))
+	if (kind != SectionKind::Text && lowir::initializer_section(spelling, priority))
 		kind = SectionKind::InitArray;
-	else if (lowir::finalizer_section(spelling, priority))
+	else if (kind != SectionKind::Text && lowir::finalizer_section(spelling, priority))
 		kind = SectionKind::FiniArray;
 	// pa27 README 9: a global's section= name is its ELF section, shared
 	// by every global naming it (writable if any of them is), PROGBITS
@@ -361,10 +361,11 @@ uint32_t ObjectCompiler::named_section(lowir::NameId name, SectionKind kind)
 	if (index == 0)
 		index = out_->add_section(program_.spelling(name), kind, 1);
 	else if (kind != out_->sections[index].kind &&
-		(kind == SectionKind::Metadata || kind == SectionKind::MetadataStrings ||
+		(kind == SectionKind::Text || out_->sections[index].kind == SectionKind::Text ||
+			kind == SectionKind::Metadata || kind == SectionKind::MetadataStrings ||
 			out_->sections[index].kind == SectionKind::Metadata ||
 			out_->sections[index].kind == SectionKind::MetadataStrings))
-		throw BackendError("incompatible properties for a named data section");
+		throw BackendError("incompatible properties for a named section");
 	else if (kind == SectionKind::Data)
 		out_->sections[index].kind = SectionKind::Data;
 	return index;
@@ -433,6 +434,7 @@ const lowir::JumpThunk* ObjectCompiler::equivalent_entry(lowir::SymbolId symbol)
 			if (source.kind == lowir::SymbolKind::FunctionDefinition &&
 				target.kind == lowir::SymbolKind::FunctionDefinition &&
 				source.metadata.binding == target.metadata.binding &&
+				source.metadata.section == target.metadata.section &&
 				(source.metadata.binding == ir_model::SBM_STRONG || source.metadata.binding == ir_model::SBM_WEAK) &&
 				((source.metadata.flags | target.metadata.flags) & lowir::SF_REPLACEABLE) == 0 &&
 				(image_.target != Target::MacOS ||
@@ -709,16 +711,28 @@ void ObjectCompiler::place_text()
 		if (range.dropped)
 			continue;
 		const bool comdat = range.symbol < program_.symbols.size() && comdat_definition(range.symbol);
-		// A cold function goes to .text.unlikely, where GCC and Clang place
-		// one, so that linkers gather the cold code apart from the rest.
-		const bool cold = cold_sections_ && range.symbol < program_.symbols.size() &&
-			(program_.symbols[range.symbol].metadata.flags & lowir::SF_COLD) != 0;
-		const char* name = cold ? ".text.unlikely" : ".text";
-		uint32_t& spelling = cold ? unlikely_name_ : section_names_[static_cast<unsigned>(SectionKind::Text)];
-		range.section = comdat   ? own_section(name, range.symbol, SectionKind::Text, spelling)
-			: function_sections_ ? separate_section(name, SectionKind::Text, spelling)
-			: cold               ? shared_unlikely_section()
-								 : shared_section(".text", SectionKind::Text);
+		const lowir::NameId explicit_section = range.symbol < program_.symbols.size()
+			? program_.symbols[range.symbol].metadata.section
+			: 0;
+		if (explicit_section != 0)
+		{
+			uint32_t spelling = 0;
+			range.section = comdat
+				? own_section(program_.spelling(explicit_section), range.symbol, SectionKind::Text, spelling)
+				: named_section(explicit_section, SectionKind::Text);
+		}
+		else
+		{
+			// Keep unannotated cold code apart from the rest.
+			const bool cold = cold_sections_ && range.symbol < program_.symbols.size() &&
+				(program_.symbols[range.symbol].metadata.flags & lowir::SF_COLD) != 0;
+			const char* name = cold ? ".text.unlikely" : ".text";
+			uint32_t& spelling = cold ? unlikely_name_ : section_names_[static_cast<unsigned>(SectionKind::Text)];
+			range.section = comdat   ? own_section(name, range.symbol, SectionKind::Text, spelling)
+				: function_sections_ ? separate_section(name, SectionKind::Text, spelling)
+				: cold               ? shared_unlikely_section()
+									 : shared_section(".text", SectionKind::Text);
+		}
 		object::Section& section = out_->sections[range.section];
 		const ImageSymbol& symbol = image_.symbol(range.symbol);
 		const uint32_t align = symbol.code_align;

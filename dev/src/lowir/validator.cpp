@@ -416,8 +416,11 @@ bool Validator::check_symbols()
 			if (metadata.role == ir_model::SR_XSTATE_QUERY && !cpu_query_declaration(program_, symbol))
 				return fail("xstate_query role requires an effectful i64 (i32) declaration", symbol.name);
 		}
-		if (function && (metadata.storage != ir_model::GSM_DEFAULT || metadata.section != 0))
+		if (function && metadata.storage != ir_model::GSM_DEFAULT)
 			return fail("storage metadata on non-global", symbol.name);
+		if (function && metadata.section != 0 &&
+			target_model::describe(program_.target).object_format != target_model::ObjectFormat::Elf)
+			return fail("function section metadata requires an ELF target", symbol.name);
 		if (metadata.tls_for != kNoId)
 		{
 			const Symbol& target = program_.symbols[metadata.tls_for];

@@ -282,7 +282,7 @@ function @boot() -> void [role=init, binding=strong] {
 The currently defined top-level metadata keys are `role`, `linkage`, `binding`, `object`,
 `tls_for` (functions only), `keep_alias`, `prefer_local`, `object_root`, `force_inline`
 (functions only), `inline_hint` (functions only), `no_inline` (functions only), `cold`
-(functions only), `no_builtin` (functions only), and `storage` and `section` (globals only).
+(functions only), `no_builtin` (functions only), `storage` (globals only), and `section`.
 
 `no_builtin=yes` keeps a function's linkage and type while disabling any
 special library behavior inferred from its name. Calls still use explicit
@@ -317,12 +317,10 @@ describe a function or global's object visibility. The default is omitted.
 Visibility is independent of symbol binding. An ELF writer encodes it in
 the symbol's `st_other` field.
 
-`section=<name>` places a declared or defined global in a named ELF section.
-The first public form is intentionally token-safe: `<name>` must be nonempty
-and contain only ASCII letters, digits, `_`, and `.`. It does not accept a
-quoted name, whitespace, commas, hyphens, target segment syntax, or function
-placement. A declaration and definition of the same source object must agree
-on the section name before LowIR is produced.
+`section=<name>` names the ELF section for a function or global. An emitted
+function uses an executable section. `<name>` must be nonempty and contain
+only ASCII letters, digits, `_`, and `.`. All annotated declarations of the
+same symbol must agree on the section name before LowIR is produced.
 
 `storage=thread_local` is semantic TLS storage intent. Backend-specific descriptor
 sections and relocation forms are lower-layer object-format details. When a thread-local
