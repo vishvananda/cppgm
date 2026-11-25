@@ -131,6 +131,10 @@ void Selector::unary(const lowir::Instruction& inst)
 	case UnaryOp::CountOnes:
 		out_.emit(wide ? Op::I64Popcnt : Op::I32Popcnt);
 		break;
+	case UnaryOp::IsConstant:
+		out_.emit(Op::Drop);
+		constant(Literal{ inst.ops[0].is(ValueKind::Integer) ? 1u : 0u, 0 }, inst.type);
+		break;
 	case UnaryOp::Sqrt:
 		out_.emit(type == ValueType::F32 ? Op::F32Sqrt : Op::F64Sqrt);
 		break;

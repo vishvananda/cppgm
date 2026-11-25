@@ -951,6 +951,44 @@ void scalar_rounds(FunctionContext& context)
 	verify(context, "restore_definition_order");
 }
 
+bool finish_constant_probes(Program& program, OptimizerStats& stats, const OptimizerOptions& options)
+{
+	bool changed = false;
+	for (SymbolId symbol : program.order)
+	{
+		if (program.symbols[symbol].kind != SymbolKind::FunctionDefinition)
+			continue;
+		FunctionBody* body = program.functions[program.symbols[symbol].detail].body.get();
+		if (body == nullptr)
+			continue;
+		bool found = false;
+		for (BlockId b : body->layout)
+			for (InstId i = body->blocks[b].first; i != kNoId; i = body->instructions[i].next)
+			{
+				Instruction& inst = body->instructions[i];
+				if (inst.op != Opcode::Unary || inst.sub != static_cast<uint8_t>(UnaryOp::IsConstant))
+					continue;
+				inst.op = Opcode::Const;
+				inst.sub = 0;
+				inst.ops[0] = literal_value(*body, ValueKind::Integer, TypeKind::Void,
+					Literal{ inst.ops[0].is(ValueKind::Integer) ? 1u : 0u, 0 });
+				found = true;
+			}
+		if (!found)
+			continue;
+		FunctionContext context(program, symbol, stats, options.level);
+		const PooledContext pooled(context, context_pool());
+		enable_verify(context, options);
+		if (body->code_labels.empty())
+			scalar_rounds(context);
+		else
+			RUN_PASS(remove_dead_code);
+		compact_body(program, *body);
+		changed = true;
+	}
+	return changed;
+}
+
 } // namespace
 
 void materialize_call_arguments(Program& program, FunctionBody& body, BlockId b, InstId& prev, InstId call_id)
@@ -1220,7 +1258,11 @@ void optimize_program(Program& program, const OptimizerOptions& options, Optimiz
 				if (changed)
 					compact_body(program, context.body);
 			}
-	if (options.prune_private_c_data && options.level >= 1 && prune_private_constant_data(program))
+	const bool probes_resolved = program.deferred_constant_probes && options.level >= 1 &&
+		finish_constant_probes(program, stats, options);
+	const bool globals_pruned = options.prune_private_c_data && options.level >= 1 &&
+		prune_private_constant_data(program);
+	if (probes_resolved || globals_pruned)
 		prune_unreachable(program, stats);
 	count_program(program, stats.instructions_out, stats.blocks_out);
 	stats.optimize_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();

@@ -330,6 +330,9 @@ RValue FunctionLowering::rvalue(const syntax::Expr& expr)
 	// null for a member pointer and a floating zero for a floating type.
 	if ((facts->flags & sema::kFolded) != 0)
 	{
+		RValue probe;
+		if (defer_constant_probe(*e, probe))
+			return probe;
 		if ((facts->flags & sema::kWideFolded) != 0)
 			return integer(lowering_.storage_type(facts->type),
 				lowir::Literal{ facts->value, static_cast<const sema::WideEnumeratorEntity*>(facts->entity)->high });

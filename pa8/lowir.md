@@ -1562,6 +1562,13 @@ select it with `-mpopcnt`. The reference native form requires POPCNT, like the
 explicit ISA requirements of vector operations; a behavior-equivalent sequence
 is also valid. This extension is not part of PA8's required unary operators.
 
+The optional optimizer spelling `unary isconstant` takes an `i32`, `u32`, or
+`i64` value and returns 0 or 1 in the same type. A literal operand gives 1.
+An optimizer may also replace the query with 1 when it proves the operand's
+value constant. An unresolved query gives 0 at object emission. Source
+lowering can use this spelling for a GNU constant probe and discard any
+unused operand computation before writing the final LowIR.
+
 `unary sqrt` is the IEEE square root of an `f32` or `f64`, correctly rounded.
 It has no other effect: unlike the C library's `sqrt`, it does not set `errno`.
 The C++ lowering does not emit it. An optimizer may replace a library call

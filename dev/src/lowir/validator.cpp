@@ -1014,6 +1014,8 @@ bool Validator::check_instruction(InstId id, const Instruction& inst, BlockId bl
 	case Opcode::Phi:
 		return check_phi(inst, block);
 	case Opcode::Unary:
+		if (static_cast<UnaryOp>(inst.sub) == UnaryOp::IsConstant && !is_bit_scan_type(inst.type))
+			return fail("invalid isconstant type");
 		if (static_cast<UnaryOp>(inst.sub) == UnaryOp::ByteSwap && !is_bswap_type(inst.type))
 			return fail("invalid bswap type");
 		if ((static_cast<UnaryOp>(inst.sub) == UnaryOp::CountTrailingZeros ||

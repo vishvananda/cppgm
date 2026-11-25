@@ -951,6 +951,9 @@ void Selector::integer_unary(const lowir::Instruction& inst)
 		out_.emit(Op::Addv8B, 16, 16);
 		out_.emit(Op::UmovB, dst, 16);
 		break;
+	case UnaryOp::IsConstant:
+		constant(dst, inst.ops[0].is(ValueKind::Integer));
+		break;
 	case UnaryOp::Sqrt:
 		break; // Handled by float_instruction.
 	}

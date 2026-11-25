@@ -22,6 +22,89 @@
 
 namespace lower {
 
+namespace {
+
+// These unevaluated expressions can be offered to integer constant propagation
+// without emitting side effects, accessing arbitrary memory, or introducing
+// trapping arithmetic. A query whose input remains unknown becomes zero.
+bool ProbeOperand(const syntax::Expr* expr, unsigned depth)
+{
+	const syntax::Expr* e = expr;
+	while (e->kind == syntax::ExprKind::Paren)
+		e = static_cast<const syntax::ParenExpr*>(e)->inner;
+	const sema::ExprFacts* facts = e->facts;
+	if (depth >= 64 || facts == nullptr || facts->type == nullptr || !sema::IsIntegralOrUnscopedEnum(facts->type) ||
+		sema::IsWideIntegral(facts->type) || (facts->type->cv & (sema::kVolatile | sema::kAtomic)) != 0)
+		return false;
+	switch (e->kind)
+	{
+	case syntax::ExprKind::Literal:
+		return true;
+	case syntax::ExprKind::Id:
+	{
+		const sema::Entity* entity = facts->entity;
+		if (entity == nullptr)
+			return false;
+		if (entity->kind == sema::EntityKind::Variable)
+		{
+			const auto* variable = static_cast<const sema::VariableEntity*>(entity);
+			return entity->owner->kind == sema::ScopeKind::Block && !variable->is_static && !variable->is_extern &&
+				!variable->is_thread_local && !variable->c_stack_pointer;
+		}
+		return entity->kind == sema::EntityKind::Parameter || (facts->flags & sema::kFolded) != 0;
+	}
+	case syntax::ExprKind::Cast:
+		return ProbeOperand(static_cast<const syntax::CastExpr*>(e)->operand, depth + 1);
+	case syntax::ExprKind::Unary:
+	{
+		const auto& unary = static_cast<const syntax::UnaryExpr&>(*e);
+		return (unary.op == TokenKind::OP_PLUS || unary.op == TokenKind::OP_LNOT || unary.op == TokenKind::OP_COMPL) &&
+			ProbeOperand(unary.operand, depth + 1);
+	}
+	case syntax::ExprKind::Binary:
+	{
+		const auto& binary = static_cast<const syntax::BinaryExpr&>(*e);
+		switch (binary.op)
+		{
+		case TokenKind::OP_EQ:
+		case TokenKind::OP_NE:
+		case TokenKind::OP_LT:
+		case TokenKind::OP_LE:
+		case TokenKind::OP_GT:
+		case TokenKind::OP_GE:
+		case TokenKind::OP_AMP:
+		case TokenKind::OP_BOR:
+		case TokenKind::OP_XOR:
+			return ProbeOperand(binary.left, depth + 1) && ProbeOperand(binary.right, depth + 1);
+		default:
+			return false;
+		}
+	}
+	default:
+		return false;
+	}
+}
+
+} // namespace
+
+bool FunctionLowering::defer_constant_probe(const syntax::Expr& expr, RValue& result)
+{
+	const sema::ExprFacts& facts = *expr.facts;
+	if (!lowering_.defer_constant_probes_ || expr.kind != syntax::ExprKind::Call || facts.value != 0 ||
+		facts.entity == nullptr || facts.entity->kind != sema::EntityKind::Function ||
+		static_cast<const sema::FunctionEntity*>(facts.entity)->gnu_builtin != GnuBuiltin::ConstantP)
+		return false;
+	const syntax::Expr& operand = *static_cast<const syntax::CallExpr&>(expr).arguments[0];
+	if (!ProbeOperand(&operand, 0))
+		return false;
+	RValue value = rvalue(operand);
+	if (lowir::storage_bytes(value.type) < 4)
+		value = convert_op(lowir::ConvertOp::ZExt, lowir::Type::scalar(lowir::TypeKind::I32), value);
+	result = fit(unary(lowir::UnaryOp::IsConstant, value), facts.type);
+	program_.deferred_constant_probes = true;
+	return true;
+}
+
 bool FunctionLowering::wasm_float_builtin(
 	const syntax::CallExpr& expr, const sema::FunctionEntity* function, RValue& result)
 {

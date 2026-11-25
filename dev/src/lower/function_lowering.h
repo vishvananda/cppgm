@@ -760,6 +760,7 @@ private:
 	RValue compare(lowir::ComparePredicate predicate, lowir::Type type, const RValue& left, const RValue& right,
 		bool signaling = false);
 	RValue unary(lowir::UnaryOp op, const RValue& operand);
+	bool defer_constant_probe(const syntax::Expr& expr, RValue& result);
 	RValue convert_op(lowir::ConvertOp op, lowir::Type to, const RValue& value);
 	RValue copy(lowir::Type to, const RValue& value);
 	// An i128 argument to `...` and __builtin_va_arg's read of one: an

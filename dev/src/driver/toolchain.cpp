@@ -1131,6 +1131,8 @@ void write_side_dependencies(
 bool lower_source(const std::string& path, const Invocation& invocation, lower::ProgramLowering& lowering,
 	UnitWork& work, double& front_ms, std::chrono::steady_clock::time_point start)
 {
+	lowering.set_defer_constant_probes(invocation.preprocessor.language == SourceLanguage::C &&
+		invocation.optimizer.level != 0 && invocation.lowir_passes);
 	{
 		syntax::SyntaxUnit unit(invocation.preprocessor, path);
 		if (!unit.parse())

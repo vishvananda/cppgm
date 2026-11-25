@@ -345,10 +345,11 @@ enum class UnaryOp : std::uint8_t
 	CountTrailingZeros,
 	CountLeadingZeros,
 	Sqrt,
-	CountOnes
+	CountOnes,
+	IsConstant
 };
 
-const unsigned kUnaryOpCount = static_cast<unsigned>(UnaryOp::CountOnes) + 1;
+const unsigned kUnaryOpCount = static_cast<unsigned>(UnaryOp::IsConstant) + 1;
 
 enum class BinaryOp : std::uint8_t
 {
@@ -803,7 +804,7 @@ inline Type vector_result_type(VectorOp op)
 inline const char* spelling(UnaryOp op)
 {
 	static const char* const kUnaryOps[kUnaryOpCount] = { "neg", "not", "bitnot", "bswap", "ctz", "clz", "sqrt",
-		"popcount" };
+		"popcount", "isconstant" };
 	return kUnaryOps[static_cast<unsigned>(op)];
 }
 

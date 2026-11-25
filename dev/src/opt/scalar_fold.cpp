@@ -271,6 +271,11 @@ bool fold_sqrt(Type type, const Constant& a, Constant& out)
 
 bool fold_unary(UnaryOp op, Type type, const Constant& a, Constant& out)
 {
+	if (op == UnaryOp::IsConstant && type.is_integer())
+	{
+		out = integer_constant(type, Literal{ 1, 0 });
+		return true;
+	}
 	if (type.is_float())
 	{
 		if (a.kind != ValueKind::Float || a.float_kind != type.kind())

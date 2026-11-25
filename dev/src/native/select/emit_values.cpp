@@ -740,6 +740,13 @@ void FunctionSelector::emit_unary(const Instruction& inst)
 {
 	const TypeKind kind = inst.type.kind();
 	const UnaryOp op = static_cast<UnaryOp>(inst.sub);
+	if (op == UnaryOp::IsConstant)
+	{
+		const Reg d = result_reg(inst);
+		load_into(d, Operand::make_imm(inst.ops[0].is(ValueKind::Integer)), kind);
+		finish_result(inst, d);
+		return;
+	}
 	if (kind == TypeKind::I128)
 	{
 		emit_wide(inst);

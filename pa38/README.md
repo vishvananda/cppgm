@@ -443,6 +443,12 @@ The first fixture set covers these parts of the C17 input profile:
   expressions. Check both expressions for validity. Evaluate only the selected
   expression and preserve its type and value category, including array,
   function, and bit-field properties.
+- GNU `__builtin_constant_p` yields an integer without evaluating its
+  operand. At `-O2`, include constants proved by propagation through local
+  integer variables, casts, and comparisons. A volatile read or an increment
+  in the probe supplies no new constant and has no effect. Resolve queries
+  used in integer constant expressions during semantic analysis, before
+  optimizing the function body.
 - In C, accept GNU `__builtin_tgmath`. The first function's prototype gives
   the number of trailing call arguments, and at least two candidates are
   required. Validate the signatures as one type-generic family and select

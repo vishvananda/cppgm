@@ -303,6 +303,7 @@ struct Program
 	~Program();
 	target_model::Target target = target_model::Target::Linux;
 	bool explicit_target = false;
+	bool deferred_constant_probes = false;
 	ExceptionAbi exception_abi = ExceptionAbi::Opaque;
 	Type pointer_type() const { return Type::pointer(target_model::data_layout(target).pointer_bytes); }
 
