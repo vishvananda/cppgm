@@ -970,7 +970,7 @@ bool Validator::check_assembly(const Instruction& inst)
 	for (uint32_t i = 0; i < definition.operand_count; ++i)
 	{
 		const AssemblyOperand& operand = module.operands[definition.first_operand + i];
-		auto argument = [&](uint32_t index, Type expected) {
+		auto argument = [&](uint32_t index, Type expected, bool pointer_value) {
 			if (index == kNoId)
 				return true;
 			const Value value = body_->operands[inst.extra_first + index];
@@ -978,13 +978,14 @@ bool Validator::check_assembly(const Instruction& inst)
 			if (value_type(value, actual))
 				return actual == expected;
 			if (value.kind == ValueKind::Integer)
-				return expected.is_integer() ||
+				return expected.is_integer() || (pointer_value && expected.is_pointer()) ||
 					(expected.is_vector() && body_->literals[value.index].low == 0 &&
 						body_->literals[value.index].high == 0);
 			return value.kind == ValueKind::Float && value.float_kind == expected.kind();
 		};
-		if (!argument(operand.input, operand.input_storage ? program_.pointer_type() : operand.type) ||
-			!argument(operand.output, program_.pointer_type()))
+		if (!argument(operand.input, operand.input_storage ? program_.pointer_type() : operand.type,
+				!operand.input_storage) ||
+			!argument(operand.output, program_.pointer_type(), false))
 			return fail("assembly invocation argument type mismatch");
 		if (operand.alternative_count != 0 &&
 			module.alternatives[operand.first_alternative].locations == asm_model::AL_LABEL)
