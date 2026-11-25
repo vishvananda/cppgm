@@ -722,6 +722,32 @@ bool names_symbol(const FunctionBody& body, const std::vector<uint8_t>& marked)
 	return false;
 }
 
+bool form_late_selects(FunctionContext& context)
+{
+	const size_t first_new = context.body.instructions.size();
+	bool changed = false;
+	for (unsigned round = 0; round < kSelectRounds && RUN_PASS(form_selects); ++round)
+	{
+		RUN_PASS(cleanup_cfg);
+		changed = true;
+	}
+	// A new choice between known integers can prove later bit tests and
+	// bounds constant. Scan just the instructions added by this round.
+	const auto& instructions = context.body.instructions;
+	if (changed &&
+		std::any_of(instructions.begin() + first_new, instructions.end(),
+			[](const Instruction& inst) {
+				return inst.op == Opcode::Select && inst.type.is_integer() && inst.ops[1].is(ValueKind::Integer) &&
+					(inst.ops[2].is(ValueKind::Integer) || inst.ops[2] == inst.ops[0]);
+			}) &&
+		RUN_PASS(simplify_values))
+	{
+		RUN_PASS(cleanup_cfg);
+		RUN_PASS(remove_dead_code);
+	}
+	return changed;
+}
+
 void finish_function(Program& program, SymbolId symbol, OptimizerStats& stats, const OptimizerOptions& options,
 	std::vector<uint8_t>& nounwind, std::vector<uint8_t>& unwritten, const std::vector<uint8_t>& sealed,
 	const std::vector<uint8_t>* moved, BitTablePool& bit_tables, uint32_t& return_table_names)
@@ -767,12 +793,7 @@ void finish_function(Program& program, SymbolId symbol, OptimizerStats& stats, c
 		scalar_rounds(context);
 		changed = true;
 	}
-	bool selected = false;
-	for (unsigned round = 0; round < kSelectRounds && RUN_PASS(form_selects); ++round)
-	{
-		RUN_PASS(cleanup_cfg);
-		selected = true;
-	}
+	changed = form_late_selects(context) || changed;
 	// A magnitude just formed is never below zero: the tests that ask go.
 	if (context.magnitude_formed)
 	{
@@ -798,21 +819,9 @@ void finish_function(Program& program, SymbolId symbol, OptimizerStats& stats, c
 	{
 		// A load the loop passes took out of an arm leaves the arm to compute
 		// only: the branch to it may now be a choice of values.
-		for (unsigned round = 0; round < kSelectRounds && RUN_PASS(form_selects); ++round)
-		{
-			RUN_PASS(cleanup_cfg);
-			selected = true;
-		}
+		form_late_selects(context);
 		changed = true;
 	}
-	// A new select can bound later integer operations and make tests
-	// constant before the backend sees those branches.
-	if (selected && RUN_PASS(simplify_values))
-	{
-		RUN_PASS(cleanup_cfg);
-		RUN_PASS(remove_dead_code);
-	}
-	changed = selected || changed;
 	// Some fixed fields were split before unrolling. Give their remaining
 	// conditional updates the same register budget as newly split fields.
 	if (had_loops && options.level >= 3 && RUN_PASS(promote_late_float_fields))

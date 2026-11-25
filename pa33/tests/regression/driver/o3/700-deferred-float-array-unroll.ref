@@ -315,6 +315,6 @@ function @main() -> i32 [role=entry, binding=strong, keep_alias=yes] {
     store typed f64 2, %t26
     %t27 = call i32 @pixels(%t1, 4)
     %t28 = cmp eq i32 %t27, 0
-    %t29 = select i32 %t28, 0, 2
+    %t29 = select i32 %t28, %t27, 2
     return i32 %t29
 }
