@@ -1366,8 +1366,17 @@ private:
 	void define_typeinfo(const sema::ClassEntity* entity, lowir::SymbolId symbol);
 	lowir::SymbolId typeinfo_name(const sema::ClassEntity* entity);
 	lowir::SymbolId rtti_vtable(TypeInfoKind kind);
+	void maybe_define_fundamental_rtti(
+		const sema::ClassEntity* entity, lowir::SymbolId vtable, ir_model::SymbolVisibility visibility);
+	lowir::SymbolId define_fundamental_rtti(abi_mangle::AbiNode type, lowir::SymbolId vtable, lowir::SymbolId pointee,
+		uint32_t flags, ir_model::SymbolVisibility visibility);
+	void declare_runtime_rtti(lowir::SymbolId symbol);
+	void define_rtti_data(lowir::SymbolId symbol, lowir::SymbolId vtable, lowir::SymbolId name, lowir::SymbolId pointee,
+		uint32_t flags, lowir::SymbolId owner, lowir::SymbolMetadata metadata);
 	lowir::SymbolId type_name_object(const sema::Type* type, const std::string& label, bool internal);
+	void define_type_name_data(lowir::SymbolId symbol, const std::string& name, lowir::SymbolMetadata metadata);
 	std::string type_object(const sema::Type* type, abi_mangle::AbiTargetKind kind);
+	std::string type_object(abi_mangle::AbiNode type, abi_mangle::AbiTargetKind kind);
 	lowir::SymbolId pure_virtual_symbol();
 	lowir::SignatureId argument_signature(const sema::FunctionEntity* function);
 	lowir::SymbolId class_global(

@@ -2,6 +2,7 @@
 
 #include <cstring>
 
+#include "lex/identifier_table.h"
 #include "sema/conversions.h"
 #include "types/fundamental_type.h"
 
@@ -9,13 +10,24 @@
 // classes' (vtable_lowering.cpp), and the C++ runtime's functions the
 // lowering calls (typeid's and dynamic_cast's failures and search, the
 // exception runtime). An object is the runtime kind's vtable address past
-// its header, the type's name and the kind's own fields; each is weak, its
-// ABI name shared by every unit (a type of internal or no linkage: the
-// unit's own), except `void`'s, which the runtime defines (the course's
-// form). A runtime function is declared once per program with its role.
+// its header, the type's name and the kind's own fields. Its definition
+// can be local to the unit, weak, or supplied by the C++ runtime. A
+// runtime function is declared once per program with its role.
 namespace lower {
 
 namespace {
+
+bool IsFundamentalRttiClass(const sema::ClassEntity* entity)
+{
+	constexpr char kClass[] = "__fundamental_type_info";
+	if (entity->name == nullptr || entity->name->length != sizeof(kClass) - 1 || entity->templ != nullptr)
+		return false;
+	const sema::Scope* scope = entity->owner;
+	return scope->kind == sema::ScopeKind::Namespace && scope->parent != nullptr && scope->parent->parent == nullptr &&
+		scope->entity != nullptr && scope->entity->name != nullptr &&
+		std::strcmp(scope->entity->name->spelling, "__cxxabiv1") == 0 &&
+		std::strcmp(entity->name->spelling, kClass) == 0;
+}
 
 // The course's presentation of a fundamental type's name in its symbols:
 // its simple-type-specifiers joined by `_`.
@@ -134,16 +146,8 @@ lowir::SymbolId ProgramLowering::type_information(const sema::Type* type)
 	{
 		if (void_information_ == lowir::kNoId)
 		{
-			void_information_ = new_symbol("__external_rtti__void");
-			lowir::Global global = lowir::Global();
-			global.typed = false;
-			global.init = lowir::GlobalInit::None;
-			program_.declare_global(void_information_, lowir::SymbolKind::GlobalDeclaration, global);
-			lowir::SymbolMetadata& metadata = program_.symbols[void_information_].metadata;
-			metadata.role = ir_model::SR_RTTI_DATA;
-			metadata.binding = ir_model::SBM_STRONG;
-			metadata.object = intern("_ZTIv", 5);
-			++counters_.declarations;
+			void_information_ = external_symbol("_ZTIv", "__external_rtti__void");
+			declare_runtime_rtti(void_information_);
 		}
 		type_informations_.set(type, void_information_);
 		return void_information_;
@@ -206,20 +210,75 @@ lowir::SymbolId ProgramLowering::type_information(const sema::Type* type)
 		pointee = defined_type_information(type->element->canonical->unqualified);
 	const lowir::SymbolId vtable = rtti_vtable(kind);
 	const lowir::SymbolId name = type_name_object(type, fundamental ? "_" + label : label, internal);
+	uint32_t flags = 0;
+	if (pointee != lowir::kNoId)
+	{
+		const sema::ClassEntity* holder = owner != lowir::kNoId ? sema::ClassOf(type->owner) : nullptr;
+		flags = PointeeFlags(type->element) | (holder != nullptr && !holder->complete ? 0x10 : 0);
+	}
+	lowir::SymbolMetadata metadata;
+	metadata.binding = internal || local_type_information(type) ? ir_model::SBM_INTERNAL : ir_model::SBM_WEAK;
+	define_rtti_data(symbol, vtable, name, pointee, flags, owner, metadata);
+	return symbol;
+}
+
+void ProgramLowering::define_rtti_data(lowir::SymbolId symbol, lowir::SymbolId vtable, lowir::SymbolId name,
+	lowir::SymbolId pointee, uint32_t flags, lowir::SymbolId owner, lowir::SymbolMetadata metadata)
+{
 	const uint32_t first = data_item(AddressItem(program_, vtable, AbiTableHeaderBytes(program_.target)));
 	data_item(AddressItem(program_, name, 0));
 	if (pointee != lowir::kNoId)
 	{
-		const sema::ClassEntity* holder = owner != lowir::kNoId ? sema::ClassOf(type->owner) : nullptr;
-		data_item(ScalarItem(
-			lowir::TypeKind::I32, PointeeFlags(type->element) | (holder != nullptr && !holder->complete ? 0x10 : 0)));
+		data_item(ScalarItem(lowir::TypeKind::I32, flags));
 		data_item(AddressItem(program_, pointee, 0));
 	}
 	if (owner != lowir::kNoId)
 		data_item(AddressItem(program_, owner, 0));
-	lowir::SymbolMetadata metadata;
-	metadata.binding = internal || local_type_information(type) ? ir_model::SBM_INTERNAL : ir_model::SBM_WEAK;
 	define_data(symbol, first, metadata);
+}
+
+void ProgramLowering::maybe_define_fundamental_rtti(
+	const sema::ClassEntity* entity, lowir::SymbolId vtable, ir_model::SymbolVisibility visibility)
+{
+	if ((!object_mode_ && !target_model::is_wasm(program_.target)) || !IsFundamentalRttiClass(entity))
+		return;
+	// The runtime's __fundamental_type_info vtable owns the ABI's shared
+	// RTTI for T, T* and const T*. Build Clang's libc++abi set in the ABI
+	// graph because some of these types are unavailable in source.
+	using namespace abi_mangle;
+	static constexpr AbiBuiltinTypeKind kTypes[] = { ABI_BUILTIN_TYPE_VOID, ABI_BUILTIN_TYPE_NULLPTR,
+		ABI_BUILTIN_TYPE_BOOL, ABI_BUILTIN_TYPE_WCHAR, ABI_BUILTIN_TYPE_CHAR, ABI_BUILTIN_TYPE_UNSIGNED_CHAR,
+		ABI_BUILTIN_TYPE_SIGNED_CHAR, ABI_BUILTIN_TYPE_SHORT, ABI_BUILTIN_TYPE_UNSIGNED_SHORT, ABI_BUILTIN_TYPE_INT,
+		ABI_BUILTIN_TYPE_UNSIGNED_INT, ABI_BUILTIN_TYPE_LONG, ABI_BUILTIN_TYPE_UNSIGNED_LONG,
+		ABI_BUILTIN_TYPE_LONG_LONG, ABI_BUILTIN_TYPE_UNSIGNED_LONG_LONG, ABI_BUILTIN_TYPE_INT128,
+		ABI_BUILTIN_TYPE_UINT128, ABI_BUILTIN_TYPE_HALF, ABI_BUILTIN_TYPE_FLOAT, ABI_BUILTIN_TYPE_DOUBLE,
+		ABI_BUILTIN_TYPE_LONG_DOUBLE, ABI_BUILTIN_TYPE_FLOAT128, ABI_BUILTIN_TYPE_CHAR8, ABI_BUILTIN_TYPE_CHAR16,
+		ABI_BUILTIN_TYPE_CHAR32 };
+	const lowir::SymbolId pointer_vtable = rtti_vtable(TypeInfoKind::Pointer);
+	for (const AbiBuiltinTypeKind fundamental : kTypes)
+	{
+		const AbiNode type = abi_graph_.builtin(fundamental);
+		const AbiNode constant = abi_graph_.qualified(type, ABI_QUALIFIER_CONST);
+		const lowir::SymbolId pointee = define_fundamental_rtti(type, vtable, lowir::kNoId, 0, visibility);
+		define_fundamental_rtti(abi_graph_.pointer(type), pointer_vtable, pointee, 0, visibility);
+		define_fundamental_rtti(abi_graph_.pointer(constant), pointer_vtable, pointee, 1, visibility);
+	}
+}
+
+lowir::SymbolId ProgramLowering::define_fundamental_rtti(abi_mangle::AbiNode type, lowir::SymbolId vtable,
+	lowir::SymbolId pointee, uint32_t flags, ir_model::SymbolVisibility visibility)
+{
+	const std::string encoding = type_object(type, abi_mangle::ABI_TARGET_TYPE);
+	const lowir::SymbolId symbol = external_symbol(
+		abi_mangle::abi_target_prefix(abi_mangle::ABI_TARGET_TYPEINFO) + encoding, "__rtti_type_" + encoding);
+	const lowir::SymbolId name = external_symbol(
+		abi_mangle::abi_target_prefix(abi_mangle::ABI_TARGET_TYPEINFO_NAME) + encoding,
+		"__typeinfo_name_type_" + encoding);
+	lowir::SymbolMetadata metadata;
+	metadata.binding = ir_model::SBM_STRONG;
+	metadata.visibility = visibility;
+	define_type_name_data(name, encoding, metadata);
+	define_rtti_data(symbol, vtable, name, pointee, flags, lowir::kNoId, metadata);
 	return symbol;
 }
 
@@ -253,20 +312,24 @@ lowir::SymbolId ProgramLowering::exception_type_information(const sema::Type* ty
 		spelling += (base->cv & sema::kConst) != 0 ? "pointer_to_const_" : "pointer_to_";
 	spelling += FundamentalSpelling(base->fundamental);
 	const lowir::SymbolId symbol = external_symbol(type_object(type, abi_mangle::ABI_TARGET_TYPEINFO), spelling);
-	if (program_.symbols[symbol].kind == lowir::SymbolKind::Unresolved)
-	{
-		lowir::Global global = lowir::Global();
-		global.typed = false;
-		global.init = lowir::GlobalInit::None;
-		program_.declare_global(symbol, lowir::SymbolKind::GlobalDeclaration, global);
-		lowir::SymbolMetadata& metadata = program_.symbols[symbol].metadata;
-		metadata.role = ir_model::SR_RTTI_DATA;
-		metadata.binding = ir_model::SBM_STRONG;
-		metadata.object = symbol_objects_[symbol];
-		++counters_.declarations;
-	}
+	declare_runtime_rtti(symbol);
 	exception_informations_.set(type, symbol);
 	return symbol;
+}
+
+void ProgramLowering::declare_runtime_rtti(lowir::SymbolId symbol)
+{
+	if (program_.symbols[symbol].kind != lowir::SymbolKind::Unresolved)
+		return;
+	lowir::Global global = lowir::Global();
+	global.typed = false;
+	global.init = lowir::GlobalInit::None;
+	program_.declare_global(symbol, lowir::SymbolKind::GlobalDeclaration, global);
+	lowir::SymbolMetadata& metadata = program_.symbols[symbol].metadata;
+	metadata.role = ir_model::SR_RTTI_DATA;
+	metadata.binding = ir_model::SBM_STRONG;
+	metadata.object = symbol_objects_[symbol];
+	++counters_.declarations;
 }
 
 void ProgramLowering::thrown_type(const sema::Type* type)
@@ -328,16 +391,9 @@ lowir::SymbolId ProgramLowering::defined_type_information(const sema::Type* type
 	defined_informations_.set(type, symbol);
 	const lowir::SymbolId vtable = rtti_vtable(pointer ? TypeInfoKind::Pointer : TypeInfoKind::Fundamental);
 	const lowir::SymbolId name = type_name_object(type, pointer ? label : "_" + label, false);
-	const uint32_t first = data_item(AddressItem(program_, vtable, AbiTableHeaderBytes(program_.target)));
-	data_item(AddressItem(program_, name, 0));
-	if (pointer)
-	{
-		data_item(ScalarItem(lowir::TypeKind::I32, PointeeFlags(type->element)));
-		data_item(AddressItem(program_, pointee, 0));
-	}
 	lowir::SymbolMetadata metadata;
 	metadata.binding = ir_model::SBM_INTERNAL;
-	define_data(symbol, first, metadata);
+	define_rtti_data(symbol, vtable, name, pointee, pointer ? PointeeFlags(type->element) : 0, lowir::kNoId, metadata);
 	return symbol;
 }
 
@@ -377,21 +433,32 @@ lowir::SymbolId ProgramLowering::type_name_object(const sema::Type* type, const 
 		return symbol;
 	const std::string name = (object_mode_ && internal && private_type_name(type) ? "*" : "") +
 		type_object(type, abi_mangle::ABI_TARGET_TYPE);
+	lowir::SymbolMetadata metadata;
+	metadata.binding = internal ? ir_model::SBM_INTERNAL : ir_model::SBM_WEAK;
+	define_type_name_data(symbol, name, metadata);
+	return symbol;
+}
+
+void ProgramLowering::define_type_name_data(
+	lowir::SymbolId symbol, const std::string& name, lowir::SymbolMetadata metadata)
+{
 	const uint32_t first = static_cast<uint32_t>(program_.data_items.size());
 	for (const char c : name)
 		data_item(ScalarItem(lowir::TypeKind::I8, static_cast<uint8_t>(c)));
 	data_item(ScalarItem(lowir::TypeKind::I8, 0));
-	lowir::SymbolMetadata metadata;
-	metadata.binding = internal ? ir_model::SBM_INTERNAL : ir_model::SBM_WEAK;
 	define_data(symbol, first, metadata);
-	return symbol;
 }
 
 std::string ProgramLowering::type_object(const sema::Type* type, abi_mangle::AbiTargetKind kind)
 {
+	return type_object(abi_type(type), kind);
+}
+
+std::string ProgramLowering::type_object(abi_mangle::AbiNode type, abi_mangle::AbiTargetKind kind)
+{
 	abi_mangle::AbiTarget target;
 	target.kind = kind;
-	target.node = abi_type(type);
+	target.node = type;
 	std::string out;
 	encoder_->encode(target, out);
 	++counters_.mangled_names;

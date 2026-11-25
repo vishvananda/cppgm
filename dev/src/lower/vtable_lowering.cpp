@@ -291,6 +291,7 @@ void ProgramLowering::define_vtable(const sema::ClassEntity* entity)
 		if (entity->virtuals->group != nullptr)
 			define_views(entity, metadata.binding);
 	}
+	maybe_define_fundamental_rtti(entity, symbol, metadata.visibility);
 	if (VirtualBaseCount(entity) != 0)
 		vtt_symbol(entity);
 	// The course defines a table group's dynamic bases' tables with it
@@ -1208,12 +1209,21 @@ void ProgramLowering::define_data(lowir::SymbolId symbol, uint32_t first, lowir:
 	global.init = lowir::GlobalInit::Data;
 	global.first_item = first;
 	global.item_count = static_cast<uint32_t>(program_.data_items.size() - first);
-	program_.declare_global(symbol, lowir::SymbolKind::GlobalDefinition, global);
+	lowir::Symbol& entry = program_.symbols[symbol];
+	// Keep the order slot when the ABI runtime replaces provisional RTTI.
+	if (entry.kind != lowir::SymbolKind::GlobalDefinition)
+		++counters_.globals;
+	if (lowir::is_global_kind(entry.kind))
+	{
+		program_.globals[entry.detail] = global;
+		entry.kind = lowir::SymbolKind::GlobalDefinition;
+	}
+	else
+		program_.declare_global(symbol, lowir::SymbolKind::GlobalDefinition, global);
 	metadata.storage = ir_model::GSM_READONLY;
 	if (symbol_objects_[symbol] != 0)
 		metadata.object = symbol_objects_[symbol];
 	program_.symbols[symbol].metadata = metadata;
-	++counters_.globals;
 }
 
 } // namespace lower
