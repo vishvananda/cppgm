@@ -1187,11 +1187,10 @@ int run_emit_lowir_mode(vector<string> args)
 	// Both are LowIR that lowir and lowiropt read, and state the
 	// instruction facts the lowering proved (lowir.md "Instruction Facts"),
 	// which the object compile reads.
+	// Select host headers before applying target-specific predefines, as -c
+	// does. The target can mark the resulting environment hosted on its own.
+	invocation.hosted = true;
 	PreprocessorOptions options = source_preprocessor_options(invocation);
-	// The LowIR view preprocesses in the host environment -c uses (PA33: a
-	// source the driver lanes compile includes host headers).
-	if (!options.hosted)
-		add_host_environment(options, invocation);
 	lowir::Program program;
 	lower::ProgramLowering lowering(program);
 	// Definitions are written as they complete and their bodies released,
