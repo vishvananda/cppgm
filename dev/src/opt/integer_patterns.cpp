@@ -941,6 +941,68 @@ bool simplify_integer_compare(
 		patterns.top_range_compare(instruction) || patterns.offset_equality(instruction);
 }
 
+// An exact quotient (`div exact`, `udiv exact`, `shr exact`, `ushr exact`
+// by a literal: no set bit or remainder lost) is zero exactly when its
+// dividend is, and two by one divisor are equal exactly when their
+// dividends are: equality compares the dividends (a vector's `size() != 0`
+// tests its end against its begin, not their scaled distance).
+bool simplify_exact_compare(FunctionBody& body, Instruction& inst)
+{
+	if (!inst.type.is_integer() || inst.type.kind() == TypeKind::I128)
+		return false;
+	const ComparePredicate pred = static_cast<ComparePredicate>(inst.sub);
+	if (pred != ComparePredicate::Eq && pred != ComparePredicate::Ne)
+		return false;
+	auto quotient = [&](Value v) -> const Instruction* {
+		if (!v.is(ValueKind::Temp) || v.index < body.parameter_count || body.temps[v.index].def == kNoId)
+			return nullptr;
+		const Instruction* q = &body.instructions[body.temps[v.index].def];
+		if (q->op != Opcode::Binary || (q->flags & IF_EXACT) == 0 || q->type != inst.type ||
+			!q->ops[0].is(ValueKind::Temp) || !q->ops[1].is(ValueKind::Integer))
+			return nullptr;
+		const BinaryOp op = static_cast<BinaryOp>(q->sub);
+		if (op != BinaryOp::Div && op != BinaryOp::UDiv && op != BinaryOp::Shr && op != BinaryOp::UShr)
+			return nullptr;
+		const Literal k = body.literals[q->ops[1].index];
+		return k.low != 0 || k.high != 0 ? q : nullptr;
+	};
+	// The dividend's type: the quotient's, or a pointer (a pointer
+	// difference's operands) compared as a pointer.
+	auto dividend_type = [&](const Instruction& q, Type& out) {
+		const Type t = body.temps[q.ops[0].index].type;
+		if (t == inst.type || (t.is_pointer() && storage_bytes(inst.type) == 8))
+		{
+			out = t;
+			return true;
+		}
+		return false;
+	};
+	const Instruction* a = quotient(inst.ops[0]);
+	Type type;
+	if (a != nullptr && inst.ops[1].is(ValueKind::Integer))
+	{
+		const Literal zero = normalize_integer(inst.type, body.literals[inst.ops[1].index]);
+		if (zero.low != 0 || zero.high != 0 || !dividend_type(*a, type))
+			return false;
+		inst.ops[0] = a->ops[0];
+		inst.ops[1] = integer_value(body, Literal{ 0, 0 });
+		inst.type = type;
+		return true;
+	}
+	const Instruction* b = quotient(inst.ops[1]);
+	Type other;
+	if (a == nullptr || b == nullptr || a->sub != b->sub ||
+		!(a->ops[1] == b->ops[1] ||
+			(body.literals[a->ops[1].index].low == body.literals[b->ops[1].index].low &&
+				body.literals[a->ops[1].index].high == body.literals[b->ops[1].index].high)) ||
+		!dividend_type(*a, type) || !dividend_type(*b, other) || type != other)
+		return false;
+	inst.ops[0] = a->ops[0];
+	inst.ops[1] = b->ops[0];
+	inst.type = type;
+	return true;
+}
+
 bool simplify_integer_conversion(
 	FunctionBody& body, const std::vector<uint32_t>& uses, IntegerPatternFacts& facts, Instruction& instruction)
 {

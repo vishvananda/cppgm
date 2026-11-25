@@ -24,6 +24,8 @@ bool simplify_integer_conversion(lowir::FunctionBody& body, const std::vector<ui
 // type's greatest value (`x - a < n`), rewritten in place to compare x or n.
 bool simplify_integer_compare(lowir::FunctionBody& body, const std::vector<uint32_t>& uses, IntegerPatternFacts& facts,
 	lowir::Instruction& instruction);
+// Compare exact quotients through their dividends. The caller has a compare.
+bool simplify_exact_compare(lowir::FunctionBody& body, lowir::Instruction& instruction);
 // An `or` that writes a bit-field at its storage unit's top back, stepped by
 // a literal, over the unit's other bits: the unit plus the step at the
 // field's place.

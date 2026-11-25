@@ -137,7 +137,6 @@ private:
 	bool even_product_halved(Instruction& inst);
 	void canonicalize(Instruction& inst);
 	bool narrow_compare(Instruction& inst);
-	bool exact_compare(Instruction& inst);
 	bool in_slot(Value a, int64_t n) const;
 	bool bulk_call(Instruction& inst);
 	ExprKey expression_key(const Instruction& inst);
@@ -2441,66 +2440,6 @@ bool Simplifier::narrow_compare(Instruction& inst)
 	return true;
 }
 
-// An exact quotient (`div exact`, `udiv exact`, `shr exact`, `ushr exact`
-// by a literal: no set bit or remainder lost) is zero exactly when its
-// dividend is, and two by one divisor are equal exactly when their
-// dividends are: equality compares the dividends (a vector's `size() != 0`
-// tests its end against its begin, not their scaled distance).
-bool Simplifier::exact_compare(Instruction& inst)
-{
-	if (inst.op != Opcode::Compare || !inst.type.is_integer() || inst.type.kind() == TypeKind::I128)
-		return false;
-	const ComparePredicate pred = static_cast<ComparePredicate>(inst.sub);
-	if (pred != ComparePredicate::Eq && pred != ComparePredicate::Ne)
-		return false;
-	auto quotient = [&](Value v) -> const Instruction* {
-		const Instruction* q = producer(v);
-		if (q == nullptr || q->op != Opcode::Binary || (q->flags & IF_EXACT) == 0 || q->type != inst.type ||
-			!q->ops[0].is(ValueKind::Temp) || !q->ops[1].is(ValueKind::Integer))
-			return nullptr;
-		const BinaryOp op = static_cast<BinaryOp>(q->sub);
-		if (op != BinaryOp::Div && op != BinaryOp::UDiv && op != BinaryOp::Shr && op != BinaryOp::UShr)
-			return nullptr;
-		const Literal k = body_.literals[q->ops[1].index];
-		return k.low != 0 || k.high != 0 ? q : nullptr;
-	};
-	// The dividend's type: the quotient's, or a pointer (a pointer
-	// difference's operands) compared as a pointer.
-	auto dividend_type = [&](const Instruction& q, Type& out) {
-		const Type t = body_.temps[q.ops[0].index].type;
-		if (t == inst.type || (t.is_pointer() && storage_bytes(inst.type) == 8))
-		{
-			out = t;
-			return true;
-		}
-		return false;
-	};
-	const Instruction* a = quotient(inst.ops[0]);
-	Type type;
-	if (a != nullptr && inst.ops[1].is(ValueKind::Integer))
-	{
-		const Literal zero = normalize_integer(inst.type, body_.literals[inst.ops[1].index]);
-		if (zero.low != 0 || zero.high != 0 || !dividend_type(*a, type))
-			return false;
-		inst.ops[0] = a->ops[0];
-		inst.ops[1] = integer_value(body_, Literal{ 0, 0 });
-		inst.type = type;
-		return true;
-	}
-	const Instruction* b = quotient(inst.ops[1]);
-	Type other;
-	if (a == nullptr || b == nullptr || a->sub != b->sub ||
-		!(a->ops[1] == b->ops[1] ||
-			(body_.literals[a->ops[1].index].low == body_.literals[b->ops[1].index].low &&
-				body_.literals[a->ops[1].index].high == body_.literals[b->ops[1].index].high)) ||
-		!dividend_type(*a, type) || !dividend_type(*b, other) || type != other)
-		return false;
-	inst.ops[0] = a->ops[0];
-	inst.ops[1] = b->ops[0];
-	inst.type = type;
-	return true;
-}
-
 // memset(p, 0, n) and memcpy(d, s, n) of a literal n up to kBulkCallBytes:
 // zeroinit and copyobj (the back end stores directly); the result is the
 // destination. memmove(d, s, n) too when its two ranges cannot overlap.
@@ -3164,8 +3103,8 @@ void Simplifier::process_block(BlockId block)
 		if ((inst.op == Opcode::Binary && (reassociate(inst) || merge_divisions(body_, inst))) ||
 			narrow_truncation(inst) || mask_or(inst) || packed_part(inst) || unsigned_division(inst) ||
 			even_product_halved(inst) || cheaper_float_arithmetic(body_, uses_, inst) || merge_index(inst) ||
-			narrow_compare(inst) || exact_compare(inst) || bulk_call(inst) ||
-			(inst.op == Opcode::Load && readonly_table_address(inst)))
+			narrow_compare(inst) || (inst.op == Opcode::Compare && simplify_exact_compare(body_, inst)) ||
+			bulk_call(inst) || (inst.op == Opcode::Load && readonly_table_address(inst)))
 			changed_ = true;
 		Value value;
 		if (inst.result != kNoId && (fold(inst, value) || identity(inst, value)))
