@@ -497,7 +497,7 @@ public:
 	// (FunctionLowering::speculative_call), and a small class moves member
 	// by member (FunctionLowering::copy_members).
 	void set_optimizing(bool on) { optimizing_ = on; }
-	void set_defer_constant_probes(bool on) { defer_constant_probes_ = on; }
+	void set_optimized_c_source(bool on) { optimized_c_source_ = on; }
 	bool optimizing() const { return optimizing_; }
 	// Whether a function type has a class parameter its caller destroys
 	// (unit-scoped: function type -> 0 or 1, see
@@ -2124,7 +2124,7 @@ private:
 	bool host_objects_ = false;
 	bool macho_objects_ = false;
 	bool optimizing_ = false;
-	bool defer_constant_probes_ = false;
+	bool optimized_c_source_ = false;
 	bool strict_aliasing_ = true;
 	ir_model::SymbolVisibility default_visibility_ = ir_model::SV_DEFAULT;
 	bool visibility_inlines_hidden_ = false;

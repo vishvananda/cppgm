@@ -360,8 +360,8 @@ ExprFacts* Analyzer::object_size_call(const syntax::CallExpr& expr, Scope* scope
 	// __builtin_dynamic_object_size: a size_t, the bytes from ptr to the
 	// end of the object it points to (type 0 or 1: at most, 2 or 3: at
 	// least), which GCC documents as (size_t)-1 for types 0 and 1 and 0 for
-	// types 2 and 3 when the object is not determined. This compiler never
-	// determines it; ptr is not evaluated, type is an integral constant
+	// types 2 and 3 when the object is not determined. The lowering can
+	// find fixed subobject bounds. Ptr is not evaluated, type is an integral constant
 	// expression from 0 to 3, and the call is no constant expression
 	// (Intrinsic::ObjectSize). Libstdc++'s operator>>(istream&, char*) asks
 	// it under __OPTIMIZE__.
@@ -385,7 +385,7 @@ ExprFacts* Analyzer::object_size_call(const syntax::CallExpr& expr, Scope* scope
 			"the second argument of __builtin_object_size is no integral constant expression");
 	ExprFacts* facts = new_facts(expr, types_.fundamental(FundamentalType::UnsignedLongInt), ValueCategory::PRValue);
 	facts->flags |= kIntrinsic;
-	facts->value = static_cast<uint64_t>(Intrinsic::ObjectSize) | ((kind.bits & 2) != 0 ? 1u << 8 : 0u);
+	facts->value = static_cast<uint64_t>(Intrinsic::ObjectSize) | (kind.bits << 8);
 	return facts;
 }
 

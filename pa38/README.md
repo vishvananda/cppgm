@@ -449,6 +449,10 @@ The first fixture set covers these parts of the C17 input profile:
   in the probe supplies no new constant and has no effect. Resolve queries
   used in integer constant expressions during semantic analysis, before
   optimizing the function body.
+- In optimized C code, `__builtin_object_size` modes 1 and 3 can determine
+  the extent of an interior fixed-size array member through a pointer
+  parameter. Give unknown subobject bounds their mode-specific result.
+  The static query does not evaluate the pointer expression.
 - In C, accept GNU `__builtin_tgmath`. The first function's prototype gives
   the number of trailing call arguments, and at least two candidates are
   required. Validate the signatures as one type-generic family and select

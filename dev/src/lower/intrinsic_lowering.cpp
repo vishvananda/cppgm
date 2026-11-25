@@ -14,6 +14,7 @@
 #include "lowir/literals.h"
 #include "sema/analyzer.h"
 #include "sema/constant_values.h"
+#include "sema/conversions.h"
 #include "sema/expression_facts.h"
 #include "sema/integral_arithmetic.h"
 #include "sema/pretty_function.h"
@@ -90,7 +91,7 @@ bool ProbeOperand(const syntax::Expr* expr, unsigned depth)
 bool FunctionLowering::defer_constant_probe(const syntax::Expr& expr, RValue& result)
 {
 	const sema::ExprFacts& facts = *expr.facts;
-	if (!lowering_.defer_constant_probes_ || expr.kind != syntax::ExprKind::Call || facts.value != 0 ||
+	if (!lowering_.optimized_c_source_ || expr.kind != syntax::ExprKind::Call || facts.value != 0 ||
 		facts.entity == nullptr || facts.entity->kind != sema::EntityKind::Function ||
 		static_cast<const sema::FunctionEntity*>(facts.entity)->gnu_builtin != GnuBuiltin::ConstantP)
 		return false;
@@ -103,6 +104,30 @@ bool FunctionLowering::defer_constant_probe(const syntax::Expr& expr, RValue& re
 	result = fit(unary(lowir::UnaryOp::IsConstant, value), facts.type);
 	program_.deferred_constant_probes = true;
 	return true;
+}
+
+RValue FunctionLowering::object_size(const syntax::CallExpr& expr)
+{
+	const unsigned mode = static_cast<unsigned>(expr.facts->value >> 8);
+	// A non-trailing fixed array member is a known subobject even when the
+	// containing record's address is unavailable at compile time.
+	const syntax::Expr* arg = expr.arguments[0];
+	while (arg->kind == syntax::ExprKind::Paren)
+		arg = static_cast<const syntax::ParenExpr*>(arg)->inner;
+	if (lowering_.optimized_c_source_ && (mode & 1) != 0 && arg->kind == syntax::ExprKind::Member)
+	{
+		const auto& member = static_cast<const syntax::MemberExpr&>(*arg);
+		const sema::Type* type = arg->facts->type;
+		const sema::Type* base = member.base->facts->type->unqualified;
+		if (member.op == TokenKind::OP_ARROW && base->kind == sema::TypeKind::Pointer)
+			base = base->element;
+		const sema::ClassEntity* record = sema::ClassOf(base);
+		if (type->kind == sema::TypeKind::Array && type->bound != 0 && !type->runtime_array() && record != nullptr &&
+			record->key != TokenKind::KW_UNION && record->last_member != nullptr &&
+			record->last_member->variable != arg->facts->entity && side_effect_free(arg, false, 0))
+			return integer(expr.facts->type, lowering_.size_of(type, arg->location));
+	}
+	return integer(expr.facts->type, (mode & 2) != 0 ? 0 : ~uint64_t(0));
 }
 
 bool FunctionLowering::wasm_float_builtin(
@@ -587,8 +612,7 @@ RValue FunctionLowering::gnu_intrinsic(const syntax::CallExpr& expr, sema::Intri
 	case sema::Intrinsic::FltRounds:
 		return flt_rounds();
 	case sema::Intrinsic::ObjectSize:
-		// Its operands are not evaluated.
-		return integer(lowir::Type::scalar(lowir::TypeKind::I64), (expr.facts->value >> 8 & 1) != 0 ? 0 : ~uint64_t(0));
+		return object_size(expr);
 	case sema::Intrinsic::MakeComplex:
 		return make_complex(expr);
 	case sema::Intrinsic::ReduceAnd:
