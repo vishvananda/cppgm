@@ -9,18 +9,15 @@ import signal
 import sys
 
 
-def main():
-    if len(sys.argv) < 4 or sys.argv[2] != "--":
-        raise ValueError("usage: run_resource_limited.py LIMITS -- COMMAND [ARG ...]")
-    limits = json.loads(Path(sys.argv[1]).read_text())
-    resources = {
-        "cpu_seconds": resource.RLIMIT_CPU,
-        "address_space_bytes": resource.RLIMIT_AS,
-        "file_bytes": resource.RLIMIT_FSIZE,
-    }
-    if not isinstance(limits, dict) or set(limits) != set(resources):
-        raise ValueError("limits must state cpu_seconds, address_space_bytes and file_bytes")
-    for name, number in resources.items():
+LIMIT_RESOURCES = {
+    "cpu_seconds": resource.RLIMIT_CPU,
+    "address_space_bytes": resource.RLIMIT_AS,
+    "file_bytes": resource.RLIMIT_FSIZE,
+}
+
+
+def apply_limits(limits):
+    for name, number in LIMIT_RESOURCES.items():
         value = limits[name]
         if type(value) is not int or value <= 0:
             raise ValueError(f"{name} must be a positive integer")
@@ -31,6 +28,15 @@ def main():
             continue
         resource.setrlimit(number, (value, value + 1 if name == "cpu_seconds" else value))
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+
+
+def main():
+    if len(sys.argv) < 4 or sys.argv[2] != "--":
+        raise ValueError("usage: run_resource_limited.py LIMITS -- COMMAND [ARG ...]")
+    limits = json.loads(Path(sys.argv[1]).read_text())
+    if not isinstance(limits, dict) or set(limits) != LIMIT_RESOURCES.keys():
+        raise ValueError("limits must state cpu_seconds, address_space_bytes and file_bytes")
+    apply_limits(limits)
     # Python ignores SIGPIPE and SIGXFSZ. Restore the dispositions a frontend
     # normally inherits from the Perl runner before replacing this process.
     for number in (signal.SIGPIPE, signal.SIGXFSZ, signal.SIGXCPU):

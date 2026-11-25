@@ -21,7 +21,8 @@ CPP_GM_STDBIT
 
 #if __has_include(<limits.h>)
 #include <limits.h>
-#if defined(BOOL_WIDTH) || defined(__STDC_VERSION_LIMITS_H__)
+/* GCC 13 supplies the integer widths but predates _BitInt. */
+#if defined(BOOL_WIDTH) && defined(BITINT_MAXWIDTH)
 CPP_GM_LIMITS_WIDTHS
 #endif
 #endif

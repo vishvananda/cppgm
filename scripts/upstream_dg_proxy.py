@@ -5,17 +5,19 @@ This is a maintainer tool. Native dg owns expectations; this process records
 compiler outcomes independently so an expected error cannot hide a crash.
 """
 import argparse
+from functools import partial
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
-import resource
 import signal
 import subprocess
 import sys
 import time
 import uuid
+
+from run_resource_limited import apply_limits
 
 
 PRESENTATION = {"-fdiagnostics-plain-output", "-fmessage-length=0",
@@ -116,13 +118,6 @@ def translate(args, config):
 
 def execute(command, prefix, config, *, cwd=None):
     """Bound the subprocess, retain raw streams and kill its entire process group."""
-    def limits():
-        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
-        for name, number in (("cpu_seconds", resource.RLIMIT_CPU),
-                             ("address_space_bytes", resource.RLIMIT_AS),
-                             ("file_bytes", resource.RLIMIT_FSIZE)):
-            value = config[name]
-            resource.setrlimit(number, (value, value + 1 if name == "cpu_seconds" else value))
     start = time.monotonic()
     result = {"command": command, "classification": "started"}
     if cwd is not None:
@@ -131,7 +126,7 @@ def execute(command, prefix, config, *, cwd=None):
     with stdout_path.open("wb") as out, stderr_path.open("wb") as err:
         process = subprocess.Popen(command, stdout=out,
                                    stderr=subprocess.STDOUT if config.get("combine_output") else err,
-                                   cwd=cwd, start_new_session=True, preexec_fn=limits)
+                                   cwd=cwd, start_new_session=True, preexec_fn=partial(apply_limits, config))
         try:
             try:
                 process.wait(timeout=config["timeout_seconds"])
