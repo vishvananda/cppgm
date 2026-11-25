@@ -106,8 +106,8 @@ void FunctionSelector::emit_vector_from_scalar(const Instruction& inst)
 {
 	const VectorOp op = static_cast<VectorOp>(inst.sub);
 	const TypeKind kind = lowir::vector_scalar_kind(op);
-	const Operand src = Type::scalar(kind).is_float() ? rm_operand(inst.ops[0], Type::scalar(kind), kSelectScratch)
-													  : reg_operand(inst.ops[0], Type::scalar(kind), kSelectScratch);
+	const Operand src = Type::scalar(kind).is_float() ? rm_operand(inst.ops[0], Type::scalar(kind), select_scratch_)
+													  : reg_operand(inst.ops[0], Type::scalar(kind), select_scratch_);
 	const Reg d = result_reg(inst, dying_reg(inst.ops[0]));
 	// A load or a literal already clears the other lanes.
 	if (src.kind == OperandKind::Reg && !(level_ >= 1 && low_lane_only(inst)))

@@ -736,10 +736,10 @@ void FunctionSelector::assign_registers()
 	auto split_registers = [&](uint32_t c) {
 		if (temps_[ra_candidates_[c]].cls != VClass::Gpr)
 			return kAllocatableXmms;
-		uint32_t allowed = (kAllocatableGprs | (rbp_free_ ? 1u << RBP : 0u)) & ~reserved_gprs(*out_);
+		uint32_t allowed = (allocatable_gprs_ | (rbp_free_ ? 1u << RBP : 0u)) & ~reserved_gprs(*out_);
 		if (ra_freq_[c] < (ra_looped_[c] ? kOpenWeight : kOpenWeightStraight) &&
-			(used_callee_saved_ & (kCalleeSavedGprs | (1u << RBP))) != 0)
-			allowed &= ~((kCalleeSavedGprs | (1u << RBP)) & ~used_callee_saved_);
+			(used_callee_saved_ & (callee_saved_gprs_ | (1u << RBP))) != 0)
+			allowed &= ~((callee_saved_gprs_ | (1u << RBP)) & ~used_callee_saved_);
 		return allowed;
 	};
 	auto commit = [&](uint32_t c, Reg reg, uint32_t first, uint32_t past) {
@@ -753,7 +753,7 @@ void FunctionSelector::assign_registers()
 		global_temps_.push_back(temp);
 		if (group_reg[webs.root(c)] == kNoReg)
 			group_reg[webs.root(c)] = reg;
-		if ((kCalleeSavedGprs | (1u << RBP)) & (1u << reg))
+		if ((callee_saved_gprs_ | (1u << RBP)) & (1u << reg))
 			used_callee_saved_ |= 1u << reg;
 		++stats_.global_registers;
 	};
@@ -764,7 +764,7 @@ void FunctionSelector::assign_registers()
 	// as members considered, so a large spilled web cannot cause quadratic work.
 	// Whether every register of the class is clobbered somewhere in c's ranges.
 	auto crosses_clobbers = [&](uint32_t c) {
-		const uint32_t all = temps_[ra_candidates_[c]].cls == VClass::Gpr ? kAllocatableGprs : kAllocatableXmms;
+		const uint32_t all = temps_[ra_candidates_[c]].cls == VClass::Gpr ? allocatable_gprs_ : kAllocatableXmms;
 		uint32_t clobbered = 0;
 		for (uint32_t r = ra_range_first_[c]; r < ra_range_first_[c + 1]; ++r)
 			clobbered |= ra_clobber_.query(ra_ranges_[r].first + 1, ra_ranges_[r].second - 1);
@@ -944,7 +944,8 @@ void FunctionSelector::assign_registers()
 		const uint32_t temp = ra_candidates_[c];
 		const int32_t capacity = temps_[temp].cls != VClass::Gpr
 			? kXmmCapacity
-			: kGprCapacity + (rbp_free_ ? 1 : 0) - (reserved_gprs(*out_) != 0 ? 1 : 0);
+			: (i386_ ? __builtin_popcount(allocatable_gprs_) : kGprCapacity) + (rbp_free_ ? 1 : 0) -
+				(reserved_gprs(*out_) != 0 ? 1 : 0);
 		std::vector<uint32_t> conflicts;
 		bool homes = false;
 		bool planned = body_->code_labels.empty() && reg == kNoReg && loop_splitter_.candidates(*this, c) &&
@@ -1064,7 +1065,9 @@ Reg FunctionSelector::choose_register(uint32_t c, uint32_t first, uint32_t past,
 		forbid |= ra_clobber_.query(s + 1, e - 1) | ra_early_.query(s + 1, e);
 		const PressureTree& tree = gpr ? ra_gpr_pressure_ : ra_xmm_pressure_;
 		if (tree.max(static_cast<uint32_t>(s), static_cast<uint32_t>(e)) + 1 >
-			(gpr ? kGprCapacity + (rbp_free_ ? 1 : 0) - (reserved_gprs(*out_) != 0 ? 1 : 0) : kXmmCapacity))
+			(gpr ? (i386_ ? __builtin_popcount(allocatable_gprs_) : kGprCapacity) + (rbp_free_ ? 1 : 0) -
+						(reserved_gprs(*out_) != 0 ? 1 : 0)
+				 : kXmmCapacity))
 			return kNoReg;
 		// The registers an assigned range overlapping this one holds.
 		forbid |= tree.regs(static_cast<uint32_t>(s), static_cast<uint32_t>(e));
@@ -1081,13 +1084,13 @@ Reg FunctionSelector::choose_register(uint32_t c, uint32_t first, uint32_t past,
 			forbid |= early_[def];
 	}
 	uint32_t allowed =
-		(gpr ? (kAllocatableGprs | (rbp_free_ ? 1u << RBP : 0u)) & ~reserved_gprs(*out_) : kAllocatableXmms) & ~forbid;
+		(gpr ? (allocatable_gprs_ | (rbp_free_ ? 1u << RBP : 0u)) & ~reserved_gprs(*out_) : kAllocatableXmms) & ~forbid;
 	// Each callee-saved register past the first costs a push and a pop per
 	// call: a value worth fewer reloads than that (kOpenWeight) takes only
 	// those already saved.
 	if (gpr && ra_freq_[c] < (ra_looped_[c] ? kOpenWeight : kOpenWeightStraight) &&
-		(used_callee_saved_ & (kCalleeSavedGprs | (1u << RBP))) != 0)
-		allowed &= ~((kCalleeSavedGprs | (1u << RBP)) & ~used_callee_saved_);
+		(used_callee_saved_ & (callee_saved_gprs_ | (1u << RBP))) != 0)
+		allowed &= ~((callee_saved_gprs_ | (1u << RBP)) & ~used_callee_saved_);
 	if (allowed == 0)
 		return kNoReg;
 	// A call's result is where the call returns it.

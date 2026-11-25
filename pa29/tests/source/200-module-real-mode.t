@@ -14,6 +14,9 @@ real_mode_code:
 .code16gcc
     push $7
     ret # use the code16gcc stack operand size
+    ds; ds; ds; int $0x80
+.code32
+    rdpid %eax
 .code64
 .globl real_mode_code_end
 END(real_mode_code_end)

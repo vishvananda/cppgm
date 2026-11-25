@@ -102,4 +102,9 @@ using machine::call_argument_types;
 void classify_call(const lowir::Type* params, const uint8_t* classes, uint32_t count, lowir::Type result,
 	uint8_t result_classes, CallLayout& layout);
 
+// The i386 ABI puts scalar words on the stack unless regparm assigns them to
+// EAX, EDX and ECX. Variadic callers and callees pass all words on the stack.
+void classify_i386_call(
+	const lowir::Type* params, uint32_t count, lowir::Type result, uint8_t regparm, CallLayout& layout);
+
 } // namespace native

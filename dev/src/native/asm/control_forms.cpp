@@ -225,8 +225,9 @@ void encode_system_form(
 	{
 		if (inst.operands.size() != 1 || inst.operands[0].kind != OperandKind::Register)
 			fail(inst, "system instruction requires a general register");
-		const unsigned bits = asm_detail::integer_width(inst, suffix != 0 ? suffix : form.bits);
-		if ((form.bits != 0 && bits != form.bits) || (bits != 32 && bits != 64 && (bits != 16 || form.prefix != 0)))
+		const unsigned required = form.bits == 64 && inst.code_bits != 64 ? 32 : form.bits;
+		const unsigned bits = asm_detail::integer_width(inst, suffix != 0 ? suffix : required);
+		if ((required != 0 && bits != required) || (bits != 32 && bits != 64 && (bits != 16 || form.prefix != 0)))
 			fail(inst, "invalid system instruction register width");
 		out.op(bits == 16 ? 0x66 : form.prefix, form.bits == 0 && bits == 64, form.opcode >> 8, 2, form.opcode & 255,
 			rm(inst.operands[0], inst));

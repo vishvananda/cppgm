@@ -22,7 +22,11 @@ namespace {
 class WideIntegers
 {
 public:
-	explicit WideIntegers(FunctionContext& context) : c_(context), body_(context.body) {}
+	explicit WideIntegers(FunctionContext& context, unsigned bits = 64)
+		: c_(context), body_(context.body), bits_(bits),
+		  half_(Type::scalar(bits == 32 ? TypeKind::I32 : TypeKind::I64)),
+		  whole_(Type::scalar(bits == 32 ? TypeKind::I64 : TypeKind::I128))
+	{}
 
 	bool run();
 
@@ -31,12 +35,21 @@ private:
 	{
 		Value lo, hi;
 	};
-	bool wide(Value v) const { return v.is(ValueKind::Temp) && body_.temps[v.index].type.kind() == TypeKind::I128; }
+	bool wide(Value v) const;
+	uint64_t limb_mask() const { return bits_ == 32 ? UINT32_MAX : UINT64_MAX; }
+	Value multiply_high(Value a, Value b);
+	Value pair_slot();
+	Value compose_words(Pair pair);
+	Pair split_words(Value wide);
 	bool touches(const Instruction& inst) const;
 	bool expandable(const Instruction& inst) const;
 	Pair pair(Value v);
 	Value emit(Instruction inst, Type result);
-	Value literal(uint64_t bits) { return integer_value(body_, integer_literal(static_cast<int64_t>(bits))); }
+	Value literal(uint64_t bits)
+	{
+		return integer_value(
+			body_, integer_literal(bits_ == 32 ? static_cast<int32_t>(bits) : static_cast<int64_t>(bits)));
+	}
 	bool literal_bits(Value v, uint64_t& bits) const;
 	Value binary(BinaryOp op, Value a, Value b);
 	Value compare(ComparePredicate pred, Value a, Value b);
@@ -54,6 +67,9 @@ private:
 
 	FunctionContext& c_;
 	FunctionBody& body_;
+	unsigned bits_;
+	Type half_;
+	Type whole_;
 	std::vector<Pair> halves_;    // per temporary
 	std::vector<uint8_t> kept_;   // per temporary: its i128 definition stays
 	std::vector<SlotId> slot_lo_; // per slot: its low half's slot (kNoId: whole)
@@ -62,13 +78,20 @@ private:
 	uint32_t location_ = 0;
 };
 
-const Type kI64 = Type::scalar(TypeKind::I64);
-const Type kI128 = Type::scalar(TypeKind::I128);
+bool WideIntegers::wide(Value v) const
+{
+	if (!v.is(ValueKind::Temp) || body_.temps[v.index].type != whole_)
+		return false;
+	const InstId def = body_.temps[v.index].def;
+	if (bits_ == 64 || def == kNoId)
+		return true;
+	const Opcode op = body_.instructions[def].op;
+	return !is_compare(op) && op != Opcode::AtomicCompareExchange;
+}
 
 bool WideIntegers::touches(const Instruction& inst) const
 {
-	if (inst.type.kind() == TypeKind::I128 ||
-		(inst.result != kNoId && body_.temps[inst.result].type.kind() == TypeKind::I128))
+	if (inst.type.kind() == whole_.kind() || (inst.result != kNoId && wide(Value::temp(inst.result))))
 		return true;
 	bool any = false;
 	for_each_operand(body_, const_cast<Instruction&>(inst), [&](Value& v) { any = any || wide(v); });
@@ -77,12 +100,14 @@ bool WideIntegers::touches(const Instruction& inst) const
 
 bool WideIntegers::expandable(const Instruction& inst) const
 {
-	const bool i128 = inst.type.kind() == TypeKind::I128;
+	const bool i128 = inst.type.kind() == whole_.kind();
 	switch (inst.op)
 	{
 	case Opcode::Phi:
 	case Opcode::Copy:
 		return i128;
+	case Opcode::Const:
+		return bits_ == 32 && i128;
 	case Opcode::Binary:
 		switch (static_cast<BinaryOp>(inst.sub))
 		{
@@ -95,6 +120,8 @@ bool WideIntegers::expandable(const Instruction& inst) const
 		case BinaryOp::Shr:
 		case BinaryOp::UShr:
 			return i128;
+		case BinaryOp::Mul:
+			return bits_ == 32 && i128;
 		default:
 			return false;
 		}
@@ -107,17 +134,17 @@ bool WideIntegers::expandable(const Instruction& inst) const
 		const Type from = convert_source_type(inst);
 		if (i128)
 			return (op == ConvertOp::ZExt || op == ConvertOp::SExt) && from.is_integer() &&
-				from.kind() != TypeKind::I128;
-		return op == ConvertOp::Trunc && from.kind() == TypeKind::I128 && inst.type.is_integer();
+				from.kind() != whole_.kind();
+		return op == ConvertOp::Trunc && from.kind() == whole_.kind() && inst.type.is_integer();
 	}
 	case Opcode::Compare:
 		return i128;
 	case Opcode::Select:
 		return i128 && !wide(inst.ops[0]);
 	case Opcode::Load:
-		return i128 && (inst.flags & IF_VOLATILE) == 0;
+		return i128 && ((inst.flags & IF_VOLATILE) == 0 || bits_ == 32);
 	case Opcode::Store:
-		return i128 && (inst.flags & IF_VOLATILE) == 0;
+		return i128 && ((inst.flags & IF_VOLATILE) == 0 || bits_ == 32);
 	default:
 		return false;
 	}
@@ -127,7 +154,7 @@ bool WideIntegers::literal_bits(Value v, uint64_t& bits) const
 {
 	if (!v.is(ValueKind::Integer))
 		return false;
-	bits = body_.literals[v.index].low;
+	bits = body_.literals[v.index].low & limb_mask();
 	return true;
 }
 
@@ -136,8 +163,10 @@ WideIntegers::Pair WideIntegers::pair(Value v)
 	if (v.is(ValueKind::Integer))
 	{
 		const Literal bits = body_.literals[v.index];
-		return Pair{ literal(bits.low), literal(bits.high) };
+		return Pair{ literal(bits.low), literal(bits_ == 32 ? bits.low >> 32 : bits.high) };
 	}
+	if (bits_ == 32 && !wide(v))
+		return Pair{ v, literal(0) };
 	return halves_[v.index];
 }
 
@@ -172,21 +201,25 @@ Value WideIntegers::binary(BinaryOp op, Value a, Value b)
 			return literal(x + y);
 		case BinaryOp::Sub:
 			return literal(x - y);
+		case BinaryOp::Mul:
+			return literal(x * y);
 		case BinaryOp::Shl:
-			return literal(y < 64 ? x << y : 0);
+			return literal(y < bits_ ? x << y : 0);
 		case BinaryOp::UShr:
-			return literal(y < 64 ? x >> y : 0);
+			return literal(y < bits_ ? x >> y : 0);
 		case BinaryOp::Shr:
-			return literal(static_cast<uint64_t>(static_cast<int64_t>(x) >> (y < 64 ? y : 63)));
+			return literal(static_cast<uint64_t>(
+				(bits_ == 32 ? static_cast<int64_t>(static_cast<int32_t>(x)) : static_cast<int64_t>(x)) >>
+				(y < bits_ ? y : bits_ - 1)));
 		default:
 			break;
 		}
 	}
 	if (op == BinaryOp::And && ((ka && x == 0) || (kb && y == 0)))
 		return literal(0);
-	if (op == BinaryOp::And && kb && y == ~0ull)
+	if (op == BinaryOp::And && kb && y == limb_mask())
 		return a;
-	if (op == BinaryOp::And && ka && x == ~0ull)
+	if (op == BinaryOp::And && ka && x == limb_mask())
 		return b;
 	if ((op == BinaryOp::Or || op == BinaryOp::Xor || op == BinaryOp::Add) && ka && x == 0)
 		return b;
@@ -194,33 +227,35 @@ Value WideIntegers::binary(BinaryOp op, Value a, Value b)
 			op == BinaryOp::Shl || op == BinaryOp::Shr || op == BinaryOp::UShr) &&
 		kb && y == 0)
 		return a;
+	if (op == BinaryOp::Mul && ((ka && x == 0) || (kb && y == 0)))
+		return literal(0);
 	if ((op == BinaryOp::Shl || op == BinaryOp::UShr || op == BinaryOp::Shr) && ka && x == 0)
 		return literal(0);
-	Instruction inst = make_instruction(Opcode::Binary, kI64);
+	Instruction inst = make_instruction(Opcode::Binary, half_);
 	inst.sub = static_cast<uint8_t>(op);
 	inst.ops[0] = a;
 	inst.ops[1] = b;
-	return emit(inst, kI64);
+	return emit(inst, half_);
 }
 
 Value WideIntegers::compare(ComparePredicate pred, Value a, Value b)
 {
-	Instruction inst = make_instruction(Opcode::Compare, kI64);
+	Instruction inst = make_instruction(Opcode::Compare, half_);
 	inst.sub = static_cast<uint8_t>(pred);
 	inst.ops[0] = a;
 	inst.ops[1] = b;
-	return emit(inst, kI64);
+	return emit(inst, Type::scalar(TypeKind::I64));
 }
 
 Value WideIntegers::select(Value cond, Value a, Value b)
 {
 	if (a == b)
 		return a;
-	Instruction inst = make_instruction(Opcode::Select, kI64);
+	Instruction inst = make_instruction(Opcode::Select, half_);
 	inst.ops[0] = cond;
 	inst.ops[1] = a;
 	inst.ops[2] = b;
-	return emit(inst, kI64);
+	return emit(inst, half_);
 }
 
 Value WideIntegers::convert(ConvertOp op, Type to, Type from, Value v)
@@ -247,29 +282,56 @@ Value WideIntegers::address_plus(Value base, int64_t offset)
 	return emit(index, body_.pointer_type());
 }
 
+// High word of a 32-by-32 unsigned multiply. Each partial product and
+// carry fits in one word, including when both words are all ones.
+Value WideIntegers::multiply_high(Value a, Value b)
+{
+	uint64_t constant = 0;
+	if ((literal_bits(a, constant) || literal_bits(b, constant)) && constant < 2)
+		return literal(0);
+	const Value mask = literal(0xffff), shift = literal(16);
+	const Value al = binary(BinaryOp::And, a, mask);
+	const Value ah = binary(BinaryOp::UShr, a, shift);
+	const Value bl = binary(BinaryOp::And, b, mask);
+	const Value bh = binary(BinaryOp::UShr, b, shift);
+	const Value low = binary(BinaryOp::Mul, al, bl);
+	const Value low_carry = binary(BinaryOp::UShr, low, shift);
+	const Value left = binary(BinaryOp::Mul, ah, bl);
+	const Value left_sum = binary(BinaryOp::Add, left, low_carry);
+	const Value left_carry = binary(BinaryOp::UShr, left_sum, shift);
+	const Value left_low = binary(BinaryOp::And, left_sum, mask);
+	const Value right = binary(BinaryOp::Mul, al, bh);
+	const Value right_sum = binary(BinaryOp::Add, right, left_low);
+	const Value right_carry = binary(BinaryOp::UShr, right_sum, shift);
+	const Value carry = binary(BinaryOp::Add, left_carry, right_carry);
+	const Value high = binary(BinaryOp::Mul, ah, bh);
+	return binary(BinaryOp::Add, high, carry);
+}
+
 // A shift of a pair by a constant or by the low half of a count below 128.
 WideIntegers::Pair WideIntegers::shift(BinaryOp op, Pair a, Value count)
 {
 	uint64_t k = 0;
 	if (literal_bits(count, k))
 	{
-		k &= 127;
+		k &= 2 * bits_ - 1;
 		if (k == 0)
 			return a;
 		// (Each emission sequenced: an argument list's evaluation order is
 		// the host compiler's, and the instructions' order must not be.)
-		const Value zero = literal(0), by = literal(k), back = literal(64 - k), over = literal(k >= 64 ? k - 64 : 0);
+		const Value zero = literal(0), by = literal(k), back = literal(bits_ - k),
+					over = literal(k >= bits_ ? k - bits_ : 0);
 		if (op == BinaryOp::Shl)
 		{
-			if (k >= 64)
+			if (k >= bits_)
 				return Pair{ zero, binary(BinaryOp::Shl, a.lo, over) };
 			const Value lo = binary(BinaryOp::Shl, a.lo, by);
 			const Value up = binary(BinaryOp::Shl, a.hi, by);
 			const Value crossed = binary(BinaryOp::UShr, a.lo, back);
 			return Pair{ lo, binary(BinaryOp::Or, up, crossed) };
 		}
-		const Value fill = op == BinaryOp::Shr ? binary(BinaryOp::Shr, a.hi, literal(63)) : zero;
-		if (k >= 64)
+		const Value fill = op == BinaryOp::Shr ? binary(BinaryOp::Shr, a.hi, literal(bits_ - 1)) : zero;
+		if (k >= bits_)
 			return Pair{ binary(op, a.hi, over), fill };
 		const Value down = binary(BinaryOp::UShr, a.lo, by);
 		const Value crossed = binary(BinaryOp::Shl, a.hi, back);
@@ -279,7 +341,7 @@ WideIntegers::Pair WideIntegers::shift(BinaryOp op, Pair a, Value count)
 	// A variable count: the pair shifted by count & 63 (the half crossing
 	// over by a further shift of 63 - (count & 63) after one of 1, so no
 	// shift reaches 64), then the halves chosen by count & 64.
-	const Value six = literal(63), sixty_four = literal(64), zero = literal(0), one = literal(1);
+	const Value six = literal(bits_ - 1), sixty_four = literal(bits_), zero = literal(0), one = literal(1);
 	const Value low = binary(BinaryOp::And, count, six);
 	const Value rest = binary(BinaryOp::Xor, low, six);
 	const Value half = binary(BinaryOp::And, count, sixty_four);
@@ -313,13 +375,14 @@ void WideIntegers::expand(InstId id, const Instruction& inst, std::vector<PhiHal
 	{
 	case Opcode::Phi:
 	{
-		Instruction phi = make_instruction(Opcode::Phi, kI64);
-		r.lo = emit(phi, kI64);
+		Instruction phi = make_instruction(Opcode::Phi, half_);
+		r.lo = emit(phi, half_);
 		const InstId lo_id = prev_;
-		r.hi = emit(phi, kI64);
+		r.hi = emit(phi, half_);
 		phis.push_back(PhiHalves{ id, lo_id, prev_ });
 		break;
 	}
+	case Opcode::Const:
 	case Opcode::Copy:
 		r = pair(inst.ops[0]);
 		break;
@@ -333,6 +396,16 @@ void WideIntegers::expand(InstId id, const Instruction& inst, std::vector<PhiHal
 			break;
 		}
 		const Pair b = pair(inst.ops[1]);
+		if (op == BinaryOp::Mul)
+		{
+			r.lo = binary(op, a.lo, b.lo);
+			const Value left = binary(op, a.lo, b.hi);
+			const Value right = binary(op, a.hi, b.lo);
+			const Value cross = binary(BinaryOp::Add, left, right);
+			const Value high = multiply_high(a.lo, b.lo);
+			r.hi = binary(BinaryOp::Add, cross, high);
+			break;
+		}
 		if (op == BinaryOp::Add || op == BinaryOp::Sub)
 		{
 			r.lo = binary(op, a.lo, b.lo);
@@ -375,12 +448,12 @@ void WideIntegers::expand(InstId id, const Instruction& inst, std::vector<PhiHal
 		{
 			const Value lo = pair(inst.ops[0]).lo;
 			Instruction keep = make_instruction(
-				inst.type.kind() == TypeKind::I64 ? Opcode::Copy : Opcode::Convert, inst.type);
+				inst.type.kind() == half_.kind() ? Opcode::Copy : Opcode::Convert, inst.type);
 			keep.ops[0] = lo;
 			if (keep.op == Opcode::Convert)
 			{
 				keep.sub = static_cast<uint8_t>(ConvertOp::Trunc);
-				set_convert_source_type(keep, kI64);
+				set_convert_source_type(keep, half_);
 			}
 			keep.result = inst.result;
 			keep.next = inst.next;
@@ -405,8 +478,8 @@ void WideIntegers::expand(InstId id, const Instruction& inst, std::vector<PhiHal
 			r.hi = literal(op == ConvertOp::SExt && static_cast<int64_t>(bits) < 0 ? ~0ull : 0);
 			break;
 		}
-		r.lo = from.kind() == TypeKind::I64 ? v : convert(op, kI64, from, v);
-		r.hi = op == ConvertOp::SExt ? binary(BinaryOp::Shr, r.lo, literal(63)) : literal(0);
+		r.lo = integer_bits(from.kind()) == bits_ ? v : convert(op, half_, from, v);
+		r.hi = op == ConvertOp::SExt ? binary(BinaryOp::Shr, r.lo, literal(bits_ - 1)) : literal(0);
 		break;
 	}
 	case Opcode::Compare:
@@ -454,7 +527,9 @@ void WideIntegers::expand(InstId id, const Instruction& inst, std::vector<PhiHal
 			const Value lower = compare(low, a.lo, b.lo);
 			result = select(same, lower, high);
 		}
-		Instruction copy = make_instruction(Opcode::Copy, body_.temps[inst.result].type);
+		const Type result_type = bits_ == 32 ? half_ : body_.temps[inst.result].type;
+		Instruction copy = make_instruction(Opcode::Copy, result_type);
+		body_.temps[inst.result].type = result_type;
 		copy.ops[0] = result;
 		copy.result = inst.result;
 		copy.next = inst.next;
@@ -472,26 +547,28 @@ void WideIntegers::expand(InstId id, const Instruction& inst, std::vector<PhiHal
 	case Opcode::Load:
 	{
 		const Value at = inst.ops[0];
-		Instruction load = make_instruction(Opcode::Load, kI64);
+		Instruction load = make_instruction(Opcode::Load, half_);
+		if (bits_ == 32)
+			load.flags = inst.flags;
 		if (at.is(ValueKind::Slot) && slot_lo_[at.index] != kNoId)
 		{
 			load.ops[0] = Value::slot(slot_lo_[at.index]);
-			r.lo = emit(load, kI64);
+			r.lo = emit(load, half_);
 			load.ops[0] = Value::slot(slot_lo_[at.index] + 1);
-			r.hi = emit(load, kI64);
+			r.hi = emit(load, half_);
 			break;
 		}
 		load.ops[0] = at;
-		r.lo = emit(load, kI64);
-		load.ops[0] = address_plus(at, 8);
-		r.hi = emit(load, kI64);
+		r.lo = emit(load, half_);
+		load.ops[0] = address_plus(at, bits_ / 8);
+		r.hi = emit(load, half_);
 		break;
 	}
 	case Opcode::Store:
 	{
 		const Pair v = pair(inst.ops[0]);
 		const Value at = inst.ops[1];
-		Instruction store = make_instruction(Opcode::Store, kI64);
+		Instruction store = make_instruction(Opcode::Store, half_);
 		store.flags = inst.flags;
 		if (at.is(ValueKind::Slot) && slot_lo_[at.index] != kNoId)
 		{
@@ -508,7 +585,7 @@ void WideIntegers::expand(InstId id, const Instruction& inst, std::vector<PhiHal
 			store.ops[1] = at;
 			emit(store, Type::scalar(TypeKind::Void));
 			store.ops[0] = v.hi;
-			store.ops[1] = address_plus(at, 8);
+			store.ops[1] = address_plus(at, bits_ / 8);
 			emit(store, Type::scalar(TypeKind::Void));
 		}
 		break;
@@ -520,7 +597,47 @@ void WideIntegers::expand(InstId id, const Instruction& inst, std::vector<PhiHal
 		halves_[inst.result] = r;
 }
 
-// An instruction that keeps its i128 operands and result: each wide
+// Boundary values keep their wide type and travel in a single typed
+// storage location until the ABI assigns the two physical words.
+Value WideIntegers::pair_slot()
+{
+	const uint32_t slot = static_cast<uint32_t>(body_.slots.size());
+	body_.slots.push_back(Slot{ 0, SlotKind::Wide, 0, 0, Type::object(8, 2) });
+	return Value::slot(slot);
+}
+
+Value WideIntegers::compose_words(Pair pair)
+{
+	const Value at = pair_slot();
+	Instruction store = make_instruction(Opcode::Store, half_);
+	store.ops[0] = pair.lo;
+	store.ops[1] = address_plus(at, 0);
+	const Value base = store.ops[1];
+	emit(store, Type::scalar(TypeKind::Void));
+	store.ops[0] = pair.hi;
+	store.ops[1] = address_plus(base, 4);
+	emit(store, Type::scalar(TypeKind::Void));
+	Instruction load = make_instruction(Opcode::Load, whole_);
+	load.ops[0] = base;
+	return emit(load, whole_);
+}
+
+WideIntegers::Pair WideIntegers::split_words(Value wide)
+{
+	const Value at = pair_slot();
+	const Value base = address_plus(at, 0);
+	Instruction store = make_instruction(Opcode::Store, whole_);
+	store.ops[0] = wide;
+	store.ops[1] = base;
+	emit(store, Type::scalar(TypeKind::Void));
+	Instruction load = make_instruction(Opcode::Load, half_);
+	load.ops[0] = base;
+	const Value low = emit(load, half_);
+	load.ops[0] = address_plus(base, 4);
+	return Pair{ low, emit(load, half_) };
+}
+
+// An instruction that keeps its wide operands and result: each wide
 // operand put together before it (after `prev_`), its result taken apart
 // after it (true: `prev_` is the last of those).
 bool WideIntegers::bridge(InstId id)
@@ -529,37 +646,53 @@ bool WideIntegers::bridge(InstId id)
 		if (!wide(v) || kept_[v.index])
 			return;
 		const Pair p = halves_[v.index];
+		if (bits_ == 32)
+		{
+			v = compose_words(p);
+			return;
+		}
 		// An extended i64 is its extension again (a high half of 0, or of
 		// the low half's sign).
 		if (p.hi.is(ValueKind::Integer) && body_.literals[p.hi.index].low == 0 && body_.literals[p.hi.index].high == 0)
 		{
-			v = convert(ConvertOp::ZExt, kI128, kI64, p.lo);
+			v = convert(ConvertOp::ZExt, whole_, half_, p.lo);
 			return;
 		}
 		if (p.hi.is(ValueKind::Temp) && body_.temps[p.hi.index].def != kNoId)
 		{
 			const Instruction& sign = body_.instructions[body_.temps[p.hi.index].def];
 			if (sign.op == Opcode::Binary && static_cast<BinaryOp>(sign.sub) == BinaryOp::Shr && sign.ops[0] == p.lo &&
-				sign.ops[1].is(ValueKind::Integer) && body_.literals[sign.ops[1].index].low == 63)
+				sign.ops[1].is(ValueKind::Integer) && body_.literals[sign.ops[1].index].low == bits_ - 1)
 			{
-				v = convert(ConvertOp::SExt, kI128, kI64, p.lo);
+				v = convert(ConvertOp::SExt, whole_, half_, p.lo);
 				return;
 			}
 		}
-		const Value lo = convert(ConvertOp::ZExt, kI128, kI64, p.lo);
-		const Value hi = convert(ConvertOp::ZExt, kI128, kI64, p.hi);
-		Instruction up = make_instruction(Opcode::Binary, kI128);
+		const Value lo = convert(ConvertOp::ZExt, whole_, half_, p.lo);
+		const Value hi = convert(ConvertOp::ZExt, whole_, half_, p.hi);
+		Instruction up = make_instruction(Opcode::Binary, whole_);
 		up.sub = static_cast<uint8_t>(BinaryOp::Shl);
 		up.ops[0] = hi;
-		up.ops[1] = literal(64);
-		Instruction join = make_instruction(Opcode::Binary, kI128);
+		up.ops[1] = literal(bits_);
+		Instruction join = make_instruction(Opcode::Binary, whole_);
 		join.sub = static_cast<uint8_t>(BinaryOp::Or);
-		join.ops[0] = emit(up, kI128);
+		join.ops[0] = emit(up, whole_);
 		join.ops[1] = lo;
-		v = emit(join, kI128);
+		v = emit(join, whole_);
 	};
 	// (On a copy: composing appends instructions, which may move them.)
 	Instruction rewritten = body_.instructions[id];
+	if (bits_ == 32)
+	{
+		if (rewritten.op == Opcode::Index && wide(rewritten.ops[1]))
+			rewritten.ops[1] = pair(rewritten.ops[1]).lo;
+		if ((rewritten.op == Opcode::Branch || rewritten.op == Opcode::Select) && wide(rewritten.ops[0]))
+		{
+			const Pair value = pair(rewritten.ops[0]);
+			const Value combined = binary(BinaryOp::Or, value.lo, value.hi);
+			rewritten.ops[0] = compare(ComparePredicate::Ne, combined, literal(0));
+		}
+	}
 	for_each_operand(body_, rewritten, compose);
 	body_.instructions[id] = rewritten;
 	const Instruction& inst = body_.instructions[id];
@@ -568,13 +701,18 @@ bool WideIntegers::bridge(InstId id)
 	const Value r = Value::temp(inst.result);
 	kept_[inst.result] = 1;
 	prev_ = id;
+	if (bits_ == 32)
+	{
+		halves_[r.index] = split_words(r);
+		return true;
+	}
 	Pair p;
-	p.lo = convert(ConvertOp::Trunc, kI64, kI128, r);
-	Instruction down = make_instruction(Opcode::Binary, kI128);
+	p.lo = convert(ConvertOp::Trunc, half_, whole_, r);
+	Instruction down = make_instruction(Opcode::Binary, whole_);
 	down.sub = static_cast<uint8_t>(BinaryOp::UShr);
 	down.ops[0] = r;
-	down.ops[1] = literal(64);
-	p.hi = convert(ConvertOp::Trunc, kI64, kI128, emit(down, kI128));
+	down.ops[1] = literal(bits_);
+	p.hi = convert(ConvertOp::Trunc, half_, whole_, emit(down, whole_));
 	halves_[r.index] = p;
 	return true;
 }
@@ -586,7 +724,7 @@ void WideIntegers::split_slots()
 	const uint32_t slots = static_cast<uint32_t>(body_.slots.size());
 	std::vector<uint8_t> whole(slots, 0);
 	for (SlotId s = 0; s < slots; ++s)
-		whole[s] = body_.slots[s].type.kind() == TypeKind::I128 ? 1 : 0;
+		whole[s] = body_.slots[s].type.kind() == whole_.kind() ? 1 : 0;
 	for (BlockId b : body_.layout)
 		for (InstId i = body_.blocks[b].first; i != kNoId; i = body_.instructions[i].next)
 		{
@@ -597,7 +735,7 @@ void WideIntegers::split_slots()
 				if (!v.is(ValueKind::Slot))
 					return;
 				const bool access = ((inst.op == Opcode::Load && at == 0) || (inst.op == Opcode::Store && at == 1)) &&
-					inst.type.kind() == TypeKind::I128 && (inst.flags & IF_VOLATILE) == 0;
+					inst.type.kind() == whole_.kind() && (inst.flags & IF_VOLATILE) == 0;
 				if (!access)
 					whole[v.index] = 0;
 			});
@@ -607,16 +745,16 @@ void WideIntegers::split_slots()
 		if (whole[s])
 		{
 			slot_lo_[s] = static_cast<SlotId>(body_.slots.size());
-			body_.slots.push_back(Slot{ 0, SlotKind::Wide, 0, 0, kI64 });
-			body_.slots.push_back(Slot{ 0, SlotKind::Wide, 0, 0, kI64 });
+			body_.slots.push_back(Slot{ 0, SlotKind::Wide, 0, 0, half_ });
+			body_.slots.push_back(Slot{ 0, SlotKind::Wide, 0, 0, half_ });
 		}
 }
 
 bool WideIntegers::run()
 {
 	bool any = false;
-	for (const Temp& t : body_.temps)
-		any = any || t.type.kind() == TypeKind::I128;
+	for (TempId t = 0; t < body_.temps.size() && !any; ++t)
+		any = wide(Value::temp(t));
 	if (!any)
 		return false;
 	const Cfg& cfg = c_.ensure_cfg_light();
@@ -632,17 +770,22 @@ bool WideIntegers::run()
 	block_ = entry;
 	prev_ = kNoId;
 	for (TempId t = 0; t < temps; ++t)
-		if (body_.temps[t].type.kind() == TypeKind::I128 && (t < body_.parameter_count || body_.temps[t].def == kNoId))
+		if (wide(Value::temp(t)) && (t < body_.parameter_count || body_.temps[t].def == kNoId))
 		{
 			const Value r = Value::temp(t);
 			kept_[t] = 1;
+			if (bits_ == 32)
+			{
+				halves_[t] = split_words(r);
+				continue;
+			}
 			Pair p;
-			p.lo = convert(ConvertOp::Trunc, kI64, kI128, r);
-			Instruction down = make_instruction(Opcode::Binary, kI128);
+			p.lo = convert(ConvertOp::Trunc, half_, whole_, r);
+			Instruction down = make_instruction(Opcode::Binary, whole_);
 			down.sub = static_cast<uint8_t>(BinaryOp::UShr);
 			down.ops[0] = r;
-			down.ops[1] = literal(64);
-			p.hi = convert(ConvertOp::Trunc, kI64, kI128, emit(down, kI128));
+			down.ops[1] = literal(bits_);
+			p.hi = convert(ConvertOp::Trunc, half_, whole_, emit(down, whole_));
 			halves_[t] = p;
 		}
 	std::vector<PhiHalves> phis;
@@ -720,6 +863,15 @@ bool expand_wide_integers(FunctionContext& context)
 		return false;
 	WideIntegers pass(context);
 	return pass.run();
+}
+
+void legalize_i386_word_pairs(Program& program, SymbolId symbol)
+{
+	OptimizerStats stats;
+	FunctionContext context(program, symbol, stats, 0);
+	WideIntegers pass(context, 32);
+	if (pass.run())
+		compact_body(program, symbol, context.body);
 }
 
 } // namespace opt

@@ -55,7 +55,7 @@ void FunctionSelector::emit_int_convert(const Instruction& inst)
 	const ConvertOp op = static_cast<ConvertOp>(inst.sub);
 	const TypeKind st = lowir::convert_source_type(inst).kind();
 	const TypeKind dt = inst.type.kind();
-	const Operand src = rm_operand(inst.ops[0], lowir::convert_source_type(inst), kSelectScratch);
+	const Operand src = rm_operand(inst.ops[0], lowir::convert_source_type(inst), select_scratch_);
 	const Reg d = result_reg(inst, dying_reg(inst.ops[0]));
 	if (src.kind == OperandKind::Mem && op == ConvertOp::Trunc)
 	{
@@ -120,12 +120,12 @@ void FunctionSelector::emit_high_product(const Instruction& inst)
 			return Operand::make_imm(static_cast<int64_t>(literal(v).low));
 		return rm_operand(v, i64, scratch);
 	};
-	const Operand a = factor(product.ops[0], kSelectScratch);
-	Operand b = factor(product.ops[1], kEmitScratch);
+	const Operand a = factor(product.ops[0], select_scratch_);
+	Operand b = factor(product.ops[1], emit_scratch_);
 	if (b.kind != OperandKind::Reg && b.kind != OperandKind::Mem)
 	{
-		load_into(kEmitScratch, b, TypeKind::I64);
-		b = Operand::make_reg(kEmitScratch);
+		load_into(emit_scratch_, b, TypeKind::I64);
+		b = Operand::make_reg(emit_scratch_);
 	}
 	if (a.kind == OperandKind::Mem)
 		emit2(Op::Load, TypeKind::I64, Operand::make_reg(RAX), a);
@@ -152,12 +152,12 @@ void FunctionSelector::emit_convert(const Instruction& inst)
 	{
 		if (dt == TypeKind::I128)
 		{
-			Operand src = reg_operand(inst.ops[0], source, kEmitScratch);
+			Operand src = reg_operand(inst.ops[0], source, emit_scratch_);
 			if ((op == ConvertOp::ZExt && signed_narrow(st)) || (op == ConvertOp::SExt && unsigned_narrow(st)))
 			{
-				load_into(kEmitScratch, src, TypeKind::I64);
-				normalize(kEmitScratch, flip_sign(st));
-				src = Operand::make_reg(kEmitScratch);
+				load_into(emit_scratch_, src, TypeKind::I64);
+				normalize(emit_scratch_, flip_sign(st));
+				src = Operand::make_reg(emit_scratch_);
 			}
 			Inst& mir = emit2(Op::Wide, TypeKind::I128, memory_result(inst), src);
 			mir.sub = static_cast<uint8_t>(op == ConvertOp::ZExt || st == TypeKind::I1 ? WideOp::ZExt : WideOp::SExt);
@@ -165,7 +165,7 @@ void FunctionSelector::emit_convert(const Instruction& inst)
 		}
 		if (st == TypeKind::I128)
 		{
-			const Operand src = rm_operand(inst.ops[0], source, kSelectScratch);
+			const Operand src = rm_operand(inst.ops[0], source, select_scratch_);
 			const Reg d = result_reg(inst);
 			if (src.kind == OperandKind::Mem)
 			{
@@ -194,7 +194,7 @@ void FunctionSelector::emit_convert(const Instruction& inst)
 	{
 		if (st == TypeKind::I128)
 		{
-			const Operand wide = rm_operand(inst.ops[0], source, kSelectScratch);
+			const Operand wide = rm_operand(inst.ops[0], source, select_scratch_);
 			kind = op == ConvertOp::UIToFP ? ConvKind::UIToFP : ConvKind::SIToFP;
 			if (dt == TypeKind::F80)
 			{
@@ -210,18 +210,18 @@ void FunctionSelector::emit_convert(const Instruction& inst)
 			finish_result(inst, d);
 			return;
 		}
-		Operand src = rm_operand(inst.ops[0], source, kEmitScratch);
+		Operand src = rm_operand(inst.ops[0], source, emit_scratch_);
 		const bool adjust = (op == ConvertOp::SIToFP && unsigned_narrow(st)) ||
 			(op == ConvertOp::UIToFP && signed_narrow(st));
 		if (src.kind != OperandKind::Reg || adjust)
 		{
 			if (src.kind == OperandKind::Mem)
-				emit2(Op::Load, st == TypeKind::Ptr ? TypeKind::Ptr : st, Operand::make_reg(kEmitScratch), src);
+				emit2(Op::Load, st == TypeKind::Ptr ? TypeKind::Ptr : st, Operand::make_reg(emit_scratch_), src);
 			else
-				load_into(kEmitScratch, src, TypeKind::I64);
+				load_into(emit_scratch_, src, TypeKind::I64);
 			if (adjust)
-				normalize(kEmitScratch, flip_sign(st));
-			src = Operand::make_reg(kEmitScratch);
+				normalize(emit_scratch_, flip_sign(st));
+			src = Operand::make_reg(emit_scratch_);
 		}
 		kind = op == ConvertOp::UIToFP && bits_of(st) == 64 ? ConvKind::UIToFP : ConvKind::SIToFP;
 		if (dt == TypeKind::F80)
@@ -241,7 +241,7 @@ void FunctionSelector::emit_convert(const Instruction& inst)
 	case ConvertOp::FPToSI:
 	case ConvertOp::FPToUI:
 	{
-		const Operand src = rm_operand(inst.ops[0], source, kSelectScratch);
+		const Operand src = rm_operand(inst.ops[0], source, select_scratch_);
 		if (dt == TypeKind::I128)
 		{
 			Inst& mir = emit2(Op::Convert, st, memory_result(inst), src);
@@ -261,7 +261,7 @@ void FunctionSelector::emit_convert(const Instruction& inst)
 	case ConvertOp::FPExt:
 	case ConvertOp::FPTrunc:
 	{
-		const Operand src = rm_operand(inst.ops[0], source, kSelectScratch);
+		const Operand src = rm_operand(inst.ops[0], source, select_scratch_);
 		kind = op == ConvertOp::FPExt ? ConvKind::FPExt : ConvKind::FPTrunc;
 		if (dt == TypeKind::F80)
 		{

@@ -50,10 +50,11 @@ bool returns_twice(const lowir::Program& program, Value callee)
 void FunctionSelector::select(lowir::SymbolId symbol, Function& out, uint32_t extra_preserved_gprs)
 {
 	reset(symbol, out);
+	out.word_bytes = static_cast<uint8_t>(stack_word());
 	used_callee_saved_ |= extra_preserved_gprs;
-	out.wide_bulk = level_ >= 1;
+	out.wide_bulk = !i386_ && level_ >= 1;
 	out.cold = (program_.symbols[symbol].metadata.flags & lowir::SF_COLD) != 0;
-	out.align_loops = level_ >= 2 && !out.cold;
+	out.align_loops = level_ >= 2 && !out.cold && !code16gcc_;
 	classify_signature(*signature_, entry_layout_);
 	excluded_ = 0;
 	build_cfg();
@@ -91,8 +92,8 @@ void FunctionSelector::select(lowir::SymbolId symbol, Function& out, uint32_t ex
 			out.aligned_base = value_align(type);
 	}
 	excluded_ |= reserved_gprs(out);
-	rbp_free_ = level_ >= 1 && eh_model_ == EhModel::Host && signature_->boundary.arity != ir_model::CAM_VARIADIC &&
-		out.aligned_base == 0 && !frame_addressed_;
+	rbp_free_ = !i386_ && level_ >= 1 && eh_model_ == EhModel::Host &&
+		signature_->boundary.arity != ir_model::CAM_VARIADIC && out.aligned_base == 0 && !frame_addressed_;
 	// (Neither question arises at O0.)
 	if (level_ >= 1)
 		for_each_inst([&](uint32_t id, uint32_t) {
@@ -149,10 +150,12 @@ void FunctionSelector::select(lowir::SymbolId symbol, Function& out, uint32_t ex
 		// privacy in such a frame.
 		if (!frame_pinned_)
 		{
-			forward_frame_copies(out, frame_objects_);
+			if (!i386_)
+				forward_frame_copies(out, frame_objects_);
 			stats_.dead_frame_stores += drop_dead_frame_stores(out, frame_objects_);
 		}
-		drop_unused_frame(out);
+		if (!i386_)
+			drop_unused_frame(out);
 		if (!frame_pinned_)
 		{
 			const uint32_t shared = returns_twice_ ? 0 : share_frame_objects(out, frame_objects_);
@@ -177,11 +180,12 @@ void FunctionSelector::select(lowir::SymbolId symbol, Function& out, uint32_t ex
 		// nearest the frame register here too.
 		if (!frame_pinned_)
 		{
-			forward_frame_copies(out, frame_objects_);
+			if (!i386_)
+				forward_frame_copies(out, frame_objects_);
 			stats_.ordered_frames += order_frame(out, frame_objects_, false) ? 1 : 0;
 		}
 	}
-	if (level_ >= 2)
+	if (level_ >= 2 && !i386_)
 		narrow_variable_divides(out);
 	const uint32_t mir_instructions = level_ >= 1 ? layout_branches() : static_cast<uint32_t>(out.insts.size());
 	if (level_ >= 1)
@@ -736,7 +740,7 @@ void FunctionSelector::emit_terminator(uint32_t id)
 		const bool folded = target.kind == ValueKind::Temp && (temps_[target.index].flags & TF_FOLDED) != 0;
 		const Type pointer = Type::scalar(TypeKind::Ptr);
 		Inst& jump = emit1(Op::IndirectJump, TypeKind::Ptr,
-			folded ? rm_operand(target, pointer, kSelectScratch) : reg_operand(target, pointer, kSelectScratch));
+			folded ? rm_operand(target, pointer, select_scratch_) : reg_operand(target, pointer, select_scratch_));
 		jump.aux = static_cast<uint32_t>(out_->jump_targets.size());
 		jump.aux2 = inst.extra_count;
 		for (uint32_t k = 0; k < inst.extra_count; ++k)
@@ -806,7 +810,7 @@ void FunctionSelector::emit_terminator(uint32_t id)
 		const Type type = inst.type;
 		if (!(type.is_integer() || type.is_pointer()) || type.kind() == TypeKind::I128)
 			throw BackendError("throw of a non-integer payload is not supported");
-		emit1(Op::Throw, type.kind(), rm_operand(inst.ops[0], type, kSelectScratch));
+		emit1(Op::Throw, type.kind(), rm_operand(inst.ops[0], type, select_scratch_));
 		break;
 	}
 	case Opcode::Resume:
@@ -855,7 +859,7 @@ void FunctionSelector::emit_branch(const Instruction& inst)
 	}
 	// (At the value's own type: a truncation may stand for a wider source.)
 	const Type type = type_of(inst.ops[0].kind == ValueKind::Temp ? inst.ops[0] : cond);
-	Operand c = rm_operand(cond, type, kSelectScratch);
+	Operand c = rm_operand(cond, type, select_scratch_);
 	if (c.kind == OperandKind::Symbol)
 	{
 		emit1(Op::Jmp, TypeKind::Void, Operand::make_label(on_true));
@@ -922,38 +926,38 @@ Cond FunctionSelector::emit_and_test(const Instruction& conj, bool set)
 	{
 		// bt x, k: the bit number in a register or an immediate, x in a register.
 		const Instruction& bit = body_->instructions[body_->temps[y.index].def];
-		const Operand k = rm_operand(bit.ops[1], body_->temps[y.index].type, kEmitScratch);
-		Operand a = rm_operand(x, type, kSelectScratch);
+		const Operand k = rm_operand(bit.ops[1], body_->temps[y.index].type, emit_scratch_);
+		Operand a = rm_operand(x, type, select_scratch_);
 		if (a.kind != OperandKind::Reg)
 		{
-			load_into(kSelectScratch, a, kind);
-			a = Operand::make_reg(kSelectScratch);
+			load_into(select_scratch_, a, kind);
+			a = Operand::make_reg(select_scratch_);
 		}
 		Operand b = k;
 		if (b.kind == OperandKind::Mem)
 		{
-			load_into(kEmitScratch, b, kind);
-			b = Operand::make_reg(kEmitScratch);
+			load_into(emit_scratch_, b, kind);
+			b = Operand::make_reg(emit_scratch_);
 		}
 		emit2(Op::Bt, kind, a, b);
 		cond = set ? CC_B : CC_AE;
 	}
 	else
 	{
-		Operand a = rm_operand(x, test_type, kSelectScratch);
-		Operand b = rm_operand(y, test_type, kEmitScratch);
+		Operand a = rm_operand(x, test_type, select_scratch_);
+		Operand b = rm_operand(y, test_type, emit_scratch_);
 		if (a.kind == OperandKind::Imm || (a.kind != OperandKind::Reg && b.kind == OperandKind::Reg))
 			std::swap(a, b);
 		if (a.kind == OperandKind::Imm || a.kind == OperandKind::Symbol)
 		{
-			load_into(kSelectScratch, a, kind);
-			a = Operand::make_reg(kSelectScratch);
+			load_into(select_scratch_, a, kind);
+			a = Operand::make_reg(select_scratch_);
 		}
 		if (b.kind == OperandKind::Mem || b.kind == OperandKind::Symbol)
 		{
 			// A widened memory operand can become the first operand after the
 			// swap above. Preserve its scratch register when loading the other.
-			const Reg scratch = a.kind == OperandKind::Reg && a.reg == kEmitScratch ? kSelectScratch : kEmitScratch;
+			const Reg scratch = a.kind == OperandKind::Reg && a.reg == emit_scratch_ ? select_scratch_ : emit_scratch_;
 			load_into(scratch, b, kind);
 			b = Operand::make_reg(scratch);
 		}
@@ -1055,8 +1059,8 @@ void FunctionSelector::emit_compare_jump(const Instruction& compare, uint32_t on
 		return;
 	}
 	const ComparePredicate pred = static_cast<ComparePredicate>(compare.sub);
-	Operand a = rm_operand(compare.ops[0], type, kSelectScratch);
-	Operand b = rm_operand(compare.ops[1], type, kEmitScratch);
+	Operand a = rm_operand(compare.ops[0], type, select_scratch_);
+	Operand b = rm_operand(compare.ops[1], type, emit_scratch_);
 	if (kind == TypeKind::I128)
 	{
 		Inst& mir = emit3(Op::WideCmpBranch, kind, a, b, t);
@@ -1130,11 +1134,11 @@ Cond FunctionSelector::compare_flags(const Instruction& compare)
 	const TypeKind kind = type.is_pointer() ? TypeKind::Ptr : type.kind();
 	const bool logical_not = compare.op == Opcode::Unary;
 	ComparePredicate pred = logical_not ? ComparePredicate::Eq : static_cast<ComparePredicate>(compare.sub);
-	Operand a = rm_operand(compare.ops[0], type, kSelectScratch);
+	Operand a = rm_operand(compare.ops[0], type, select_scratch_);
 	if (type.is_float())
 	{
 		// As float_setcc: the same swaps, and the same conditions.
-		Operand right = rm_operand(compare.ops[1], type, kEmitScratch);
+		Operand right = rm_operand(compare.ops[1], type, emit_scratch_);
 		const bool swap = pred == ComparePredicate::Lt || pred == ComparePredicate::Le ||
 			pred == ComparePredicate::Ugt || pred == ComparePredicate::Uge;
 		if (swap)
@@ -1155,16 +1159,16 @@ Cond FunctionSelector::compare_flags(const Instruction& compare)
 			return CC_BE;
 		}
 	}
-	Operand b = logical_not ? Operand::make_imm(0) : rm_operand(compare.ops[1], type, kEmitScratch);
+	Operand b = logical_not ? Operand::make_imm(0) : rm_operand(compare.ops[1], type, emit_scratch_);
 	if (b.kind == OperandKind::Symbol)
 	{
-		load_into(kEmitScratch, b, TypeKind::Ptr);
-		b = Operand::make_reg(kEmitScratch);
+		load_into(emit_scratch_, b, TypeKind::Ptr);
+		b = Operand::make_reg(emit_scratch_);
 	}
 	if (a.kind == OperandKind::Symbol)
 	{
-		load_into(kSelectScratch, a, TypeKind::Ptr);
-		a = Operand::make_reg(kSelectScratch);
+		load_into(select_scratch_, a, TypeKind::Ptr);
+		a = Operand::make_reg(select_scratch_);
 	}
 	if (a.kind == OperandKind::Imm && b.kind != OperandKind::Imm)
 	{
@@ -1173,8 +1177,8 @@ Cond FunctionSelector::compare_flags(const Instruction& compare)
 	}
 	if (a.kind == OperandKind::Imm || (a.kind == OperandKind::Mem && b.kind == OperandKind::Mem))
 	{
-		load_into(kSelectScratch, a, kind);
-		a = Operand::make_reg(kSelectScratch);
+		load_into(select_scratch_, a, kind);
+		a = Operand::make_reg(select_scratch_);
 	}
 	const TypeKind width = logical_not ? kind : compare_width(compare, a);
 	// Prefer the register/memory compare form; reverse its predicate too.
@@ -1203,28 +1207,28 @@ void FunctionSelector::emit_switch(const Instruction& inst)
 	{
 		// An i128 selector (in memory) compared with each case's value: the
 		// equality in the emitter scratch, then a branch on it.
-		const Operand wide = rm_operand(sel, type, kSelectScratch);
+		const Operand wide = rm_operand(sel, type, select_scratch_);
 		for (uint32_t k = 0; k + 1 < inst.extra_count; k += 2)
 		{
 			const Value value = resolve(body.operands[inst.extra_first + k]);
 			const uint32_t target = edge_target(body.operands[inst.extra_first + k + 1].index);
-			Inst& equal = emit3(Op::WideSetcc, TypeKind::I128, Operand::make_reg(kEmitScratch), wide,
-				rm_operand(value, type, kEmitScratch));
+			Inst& equal = emit3(Op::WideSetcc, TypeKind::I128, Operand::make_reg(emit_scratch_), wide,
+				rm_operand(value, type, emit_scratch_));
 			equal.sub = static_cast<uint8_t>(ComparePredicate::Eq);
-			emit2(Op::Cmp, TypeKind::I64, Operand::make_reg(kEmitScratch), Operand::make_imm(0));
+			emit2(Op::Cmp, TypeKind::I64, Operand::make_reg(emit_scratch_), Operand::make_imm(0));
 			Inst& j = emit1(Op::Jcc, TypeKind::Void, Operand::make_label(target));
 			j.sub = CC_NE;
 		}
 		emit1(Op::Jmp, TypeKind::Void, Operand::make_label(fallback));
 		return;
 	}
-	Operand s = rm_operand(sel, type, kSelectScratch);
+	Operand s = rm_operand(sel, type, select_scratch_);
 	if (emit_clustered_switch(inst, s, kind, fallback))
 		return;
 	if (s.kind != OperandKind::Reg)
 	{
-		load_into(kSelectScratch, s, kind == TypeKind::Ptr ? TypeKind::Ptr : kind);
-		s = Operand::make_reg(kSelectScratch);
+		load_into(select_scratch_, s, kind == TypeKind::Ptr ? TypeKind::Ptr : kind);
+		s = Operand::make_reg(select_scratch_);
 	}
 	else if (eh_model_ == EhModel::Host && sel.kind == ValueKind::Temp && sel.index < body.parameter_count &&
 		sel.index < narrow_observed_.size() && !narrow_observed_[sel.index] &&
@@ -1234,18 +1238,18 @@ void FunctionSelector::emit_switch(const Instruction& inst)
 		// as the caller passed it (narrow_params_observed): extended here,
 		// for the compares and the 64-bit index arithmetic below.
 		const TypeKind from = body.temps[sel.index].type.kind();
-		emit2(signed_integer(from) ? Op::Sext : Op::Zext, from, Operand::make_reg(kSelectScratch), s);
-		s = Operand::make_reg(kSelectScratch);
+		emit2(signed_integer(from) ? Op::Sext : Op::Zext, from, Operand::make_reg(select_scratch_), s);
+		s = Operand::make_reg(select_scratch_);
 	}
 	for (uint32_t k = 0; k + 1 < inst.extra_count; k += 2)
 	{
 		const Value value = resolve(body.operands[inst.extra_first + k]);
 		const uint32_t target = edge_target(body.operands[inst.extra_first + k + 1].index);
-		Operand c = rm_operand(value, Type::scalar(kind), kEmitScratch);
+		Operand c = rm_operand(value, Type::scalar(kind), emit_scratch_);
 		if (c.kind == OperandKind::Symbol)
 		{
-			load_into(kEmitScratch, c, TypeKind::Ptr);
-			c = Operand::make_reg(kEmitScratch);
+			load_into(emit_scratch_, c, TypeKind::Ptr);
+			c = Operand::make_reg(emit_scratch_);
 		}
 		emit2(Op::Cmp, kind, s, c);
 		Inst& j = emit1(Op::Jcc, TypeKind::Void, Operand::make_label(target));
@@ -1340,15 +1344,15 @@ bool FunctionSelector::emit_clustered_switch(
 	auto canonicalize = [&](bool word) {
 		if (selector.kind != OperandKind::Reg)
 		{
-			load_into(kSelectScratch, selector, word ? TypeKind::U32 : kind);
-			selector = Operand::make_reg(kSelectScratch);
+			load_into(select_scratch_, selector, word ? TypeKind::U32 : kind);
+			selector = Operand::make_reg(select_scratch_);
 			return;
 		}
 		if (!word && unextended())
 		{
 			const TypeKind from = body.temps[resolve(inst.ops[0]).index].type.kind();
-			emit2(signed_integer(from) ? Op::Sext : Op::Zext, from, Operand::make_reg(kSelectScratch), selector);
-			selector = Operand::make_reg(kSelectScratch);
+			emit2(signed_integer(from) ? Op::Sext : Op::Zext, from, Operand::make_reg(select_scratch_), selector);
+			selector = Operand::make_reg(select_scratch_);
 		}
 	};
 	// Only the impossible continuation itself is dispensable. A call
@@ -1402,8 +1406,8 @@ bool FunctionSelector::emit_clustered_switch(
 		Operand table_index = selector;
 		if (low != 0)
 		{
-			table_index = Operand::make_reg(kSelectScratch);
-			if (selector.reg == kSelectScratch)
+			table_index = Operand::make_reg(select_scratch_);
+			if (selector.reg == select_scratch_)
 				emit2(Op::Sub, TypeKind::I64, table_index, Operand::make_imm(low, low < 0 ? -1 : 0));
 			else if (low != INT32_MIN)
 				emit2(Op::Lea, TypeKind::I64, table_index, Operand::make_mem(selector.reg, static_cast<int32_t>(-low)));
@@ -1526,8 +1530,8 @@ bool FunctionSelector::emit_clustered_switch(
 	for (size_t i = 1; i < tree.tests.size(); ++i)
 		gaps += tree.tests[i].lo > tree.tests[i - 1].hi + 1 ? 1 : 0;
 	tree.tree = level_ >= 1 && tree.tests.size() >= machine::kNativeSearchRuns && gaps >= machine::kNativeSearchGaps &&
-		selector.kind == OperandKind::Reg && selector.reg < 16 && selector.reg != kSelectScratch &&
-		selector.reg != kEmitScratch;
+		selector.kind == OperandKind::Reg && selector.reg < 16 && selector.reg != select_scratch_ &&
+		selector.reg != emit_scratch_;
 	// A window covering more values than the runs outside it goes first
 	// (taken as the likelier, with no profile), the runs in a deferred
 	// block its bounds check jumps to: a selector the window takes skips
@@ -1536,8 +1540,8 @@ bool FunctionSelector::emit_clustered_switch(
 	for (const SwitchTest& c : tree.tests)
 		outside += c.window ? 0 : c.hi - c.lo + 1;
 	tree.window_first = !tree.tree && wfirst < wpast && outside != 0 && best_cover > outside &&
-		selector.kind == OperandKind::Reg && selector.reg < 16 && selector.reg != kSelectScratch &&
-		selector.reg != kEmitScratch;
+		selector.kind == OperandKind::Reg && selector.reg < 16 && selector.reg != select_scratch_ &&
+		selector.reg != emit_scratch_;
 	switches_.trees.push_back(tree);
 	emit_switch_tests(
 		static_cast<uint32_t>(switches_.trees.size() - 1), 0, static_cast<uint32_t>(tree.tests.size()), tmin, tmax);
@@ -1566,7 +1570,7 @@ void FunctionSelector::emit_switch_tests(
 	auto offset = [&](int64_t v, bool last) {
 		if (v == 0)
 			return t.selector;
-		const Reg r = t.selector != kSelectScratch || last ? kSelectScratch : kEmitScratch;
+		const Reg r = t.selector != select_scratch_ || last ? select_scratch_ : emit_scratch_;
 		if (t.selector != r)
 			emit2(Op::Mov, index_kind, Operand::make_reg(r), selector);
 		emit2(Op::Sub, index_kind, Operand::make_reg(r), imm(v));
@@ -1601,9 +1605,9 @@ void FunctionSelector::emit_switch_tests(
 		jump(CC_A, node.mir);
 		for (const std::pair<uint64_t, uint32_t>& m : t.masks)
 		{
-			emit2(Op::Mov, TypeKind::I64, Operand::make_reg(kEmitScratch),
+			emit2(Op::Mov, TypeKind::I64, Operand::make_reg(emit_scratch_),
 				Operand::make_imm(static_cast<int64_t>(m.first), static_cast<int64_t>(m.first) < 0 ? -1 : 0));
-			emit2(Op::Bt, TypeKind::I64, Operand::make_reg(kEmitScratch), Operand::make_reg(r));
+			emit2(Op::Bt, TypeKind::I64, Operand::make_reg(emit_scratch_), Operand::make_reg(r));
 			jump(CC_B, m.second);
 		}
 		emit1(Op::Jmp, TypeKind::Void, Operand::make_label(t.fallback));
@@ -1666,9 +1670,9 @@ void FunctionSelector::emit_switch_tests(
 		}
 		for (const std::pair<uint64_t, uint32_t>& m : t.masks)
 		{
-			emit2(Op::Mov, TypeKind::I64, Operand::make_reg(kEmitScratch),
+			emit2(Op::Mov, TypeKind::I64, Operand::make_reg(emit_scratch_),
 				Operand::make_imm(static_cast<int64_t>(m.first), static_cast<int64_t>(m.first) < 0 ? -1 : 0));
-			emit2(Op::Bt, TypeKind::I64, Operand::make_reg(kEmitScratch), Operand::make_reg(r));
+			emit2(Op::Bt, TypeKind::I64, Operand::make_reg(emit_scratch_), Operand::make_reg(r));
 			jump(CC_B, m.second);
 		}
 	}

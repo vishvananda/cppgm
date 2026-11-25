@@ -511,6 +511,18 @@ bool x86_code_option(const std::string& arg, Invocation& invocation)
 		invocation.unwind_tables = arg == "-funwind-tables";
 	else if (arg == "-fjump-tables" || arg == "-fno-jump-tables")
 		invocation.x86_code.jump_tables = arg == "-fjump-tables";
+	else if (starts_with(arg, "-mregparm="))
+	{
+		if (arg.size() != 11 || arg.back() < '0' || arg.back() > '3')
+			throw InvocationError("-mregparm requires a count between 0 and 3");
+		invocation.x86_code.regparm = static_cast<uint8_t>(arg.back() - '0');
+	}
+	else if (starts_with(arg, "-mpreferred-stack-boundary="))
+	{
+		if (arg.size() != 28 || arg.back() < '2' || arg.back() > '4')
+			return true; // larger alignments do not change the legacy code mode
+		invocation.x86_code.stack_alignment = static_cast<uint8_t>(1 << (arg.back() - '0'));
+	}
 	else if (arg == "-mcmodel=kernel" || arg == "-mcmodel=small")
 	{
 		invocation.x86_code_explicit = true;
@@ -822,7 +834,8 @@ void configure_preprocessor(Invocation& invocation, StandardIncludes includes, c
 		invocation.library_paths.push_back(invocation.sysroot + "/lib/wasm32-wasip1");
 }
 
-void configure_x86_target(Invocation& invocation, unsigned mode, bool default_lto)
+void configure_x86_target(
+	Invocation& invocation, unsigned mode, bool default_lto, bool optimize_size, bool inline_explicit)
 {
 	if (mode == 16 || mode == 32)
 	{
@@ -830,6 +843,12 @@ void configure_x86_target(Invocation& invocation, unsigned mode, bool default_lt
 			throw InvocationError("legacy x86 modes require a Linux x86 target");
 		invocation.target = native::Target::I386Linux;
 		invocation.x86_code.code16gcc = mode == 16;
+		if (invocation.x86_code.code16gcc && optimize_size)
+		{
+			invocation.optimizer.minimize_size = true;
+			if (!inline_explicit)
+				invocation.optimizer.optional_inlining = false;
+		}
 	}
 	if (default_lto && target_model::is_aarch64(invocation.target))
 		invocation.whole_source_lto = true;
@@ -849,7 +868,7 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 	bool pthread = false;
 	bool default_lto = false;
 	unsigned x86_mode = 0;
-	bool optimize_size = false, popcnt_explicit = false, char_signedness_explicit = false;
+	bool optimize_size = false, popcnt_explicit = false, char_signedness_explicit = false, inline_explicit = false;
 	unsigned pic_level = 0, pie_level = 0;
 	bool assembly_output = false;
 	const size_t base_defines = invocation.preprocessor.command_line.size();
@@ -993,7 +1012,10 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 			invocation.whole_source_lto = arg == "-flto=full";
 		}
 		else if (arg == "-fno-inline" || arg == "-finline")
+		{
+			inline_explicit = true;
 			invocation.optimizer.optional_inlining = arg == "-finline";
+		}
 		else if (arg == "--inline-limit")
 		{
 			if (i + 1 >= args.size() || !opt::parse_inline_limit(args[++i], invocation.optimizer.limits))
@@ -1060,7 +1082,7 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 		else
 			invocation.inputs.push_back(source_input(arg));
 	}
-	configure_x86_target(invocation, x86_mode, default_lto);
+	configure_x86_target(invocation, x86_mode, default_lto, optimize_size, inline_explicit);
 	if (invocation.inputs.empty())
 		throw InvocationError("no input files");
 	configure_compile_output(invocation, assembly_output);

@@ -37,6 +37,11 @@ void Selector::set_target(Target target)
 	state_->set_target(target);
 }
 
+void Selector::set_i386_abi(uint8_t regparm, uint8_t stack_alignment, bool code16gcc)
+{
+	state_->set_i386_abi(regparm, stack_alignment, code16gcc);
+}
+
 void Selector::set_sse2(bool enabled)
 {
 	state_->set_sse2(enabled);

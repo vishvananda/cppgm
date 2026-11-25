@@ -1509,7 +1509,12 @@ void FunctionSelector::place_uses()
 	{
 		TempInfo& t = temps_[i];
 		const Type type = body.temps[i].type;
-		if (type.is_object() || type.kind() == TypeKind::F80 || type.kind() == TypeKind::I128)
+		const lowir::InstId def = body.temps[i].def;
+		const bool pair = i386_pair(type) &&
+			(def == kNoId ||
+				(!lowir::is_compare(body.instructions[def].op) &&
+					body.instructions[def].op != Opcode::AtomicCompareExchange));
+		if (type.is_object() || type.kind() == TypeKind::F80 || type.kind() == TypeKind::I128 || pair)
 			t.cls = VClass::Memory;
 		else if (type.is_float() || type.is_vector())
 			t.cls = VClass::Xmm;

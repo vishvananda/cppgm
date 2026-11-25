@@ -114,7 +114,7 @@ bool inline_has_sections(const std::vector<assembly::ModuleLine>& lines)
 }
 
 std::shared_ptr<const InlineAssemblyModule> build_inline_module(
-	std::vector<assembly::ModuleLine>& lines, asm_model::Dialect dialect)
+	std::vector<assembly::ModuleLine>& lines, asm_model::Dialect dialect, Target target, bool code16gcc)
 {
 	auto result = std::make_shared<InlineAssemblyModule>();
 	InlineInputs inputs(*result);
@@ -124,7 +124,7 @@ std::shared_ptr<const InlineAssemblyModule> build_inline_module(
 	InlineExits exits(*result);
 	for (auto& line : lines)
 		exits.remap(line);
-	ModuleAssembler assembler(result->object, Target::Linux);
+	ModuleAssembler assembler(result->object, target, code16gcc);
 	assembler.begin(dialect);
 	for (const assembly::ModuleLine& line : lines)
 		assembler.declare(line);
@@ -143,7 +143,8 @@ bool inline_has_symbol_names(const std::vector<assembly::Instruction>& instructi
 	return false;
 }
 
-std::shared_ptr<const InlineAssemblyModule> build_inline_module(std::vector<assembly::Instruction>& instructions)
+std::shared_ptr<const InlineAssemblyModule> build_inline_module(
+	std::vector<assembly::Instruction>& instructions, Target target)
 {
 	auto result = std::make_shared<InlineAssemblyModule>();
 	InlineInputs inputs(*result);
@@ -159,7 +160,7 @@ std::shared_ptr<const InlineAssemblyModule> build_inline_module(std::vector<asse
 				operand.address.symbol.symbol = exits.symbol(operand.label);
 				operand.external_label = false;
 			}
-	ModuleAssembler assembler(result->object, Target::Linux);
+	ModuleAssembler assembler(result->object, target);
 	assembler.append(instructions);
 	assembler.finish();
 	instructions.clear();

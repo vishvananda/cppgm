@@ -1,5 +1,6 @@
 #include "native/object/host_builtins.h"
 #include "native/object/object_compiler.h"
+#include "opt/optimizer.h"
 
 #include "lowir/assembly.h"
 #include "lowir/startup_sections.h"
@@ -112,6 +113,7 @@ public:
 
 	// Selects and encodes one function definition.
 	void function(lowir::SymbolId symbol);
+	void check_i386_function(lowir::SymbolId symbol) const;
 	void finish(ObjectFile& out);
 
 private:
@@ -246,24 +248,32 @@ ObjectCompiler::ObjectCompiler(lowir::Program& program, ObjectStats& stats, EhMo
 	: program_(program), stats_(stats), selector_(program), emitter_(image_, runtime_, stats.emit),
 	  assembly_text_(code_options.assembly_text), code16gcc_(code_options.code16gcc),
 	  share_entries_(optimization_level >= 1), eh_model_(eh_model), position_independent_(position_independent),
-	  kernel_model_(code_options.kernel_model), unwind_tables_(code_options.unwind_tables),
+	  kernel_model_(code_options.kernel_model),
+	  unwind_tables_(code_options.unwind_tables && !target_model::is_i386(target)),
 	  function_sections_(function_sections && target == Target::Linux),
 	  cold_sections_(optimization_level >= 1 && target == Target::Linux)
 {
 	image_.target = target;
 	selector_.set_target(target);
+	if (target_model::is_i386(target))
+		selector_.set_i386_abi(code_options.regparm, code_options.stack_alignment, code_options.code16gcc);
 	selector_.set_eh_model(eh_model);
 	selector_.set_position_independent(position_independent);
 	selector_.set_optimization_level(optimization_level);
 	emitter_.set_eh_model(eh_model);
 	emitter_.set_red_zone(red_zone);
 	emitter_.set_code_options(code_options);
-	selector_.set_sse2(code_options.sse2);
-	selector_.set_jump_tables(code_options.jump_tables);
+	selector_.set_sse2(code_options.sse2 && !target_model::is_i386(target));
+	selector_.set_jump_tables(code_options.jump_tables && !target_model::is_i386(target));
 	selector_.set_kernel_model(code_options.kernel_model);
 	for (unsigned k = 0; k < kHostBuiltinCount; ++k)
 		host_builtins_[k] = std::make_pair(0u, 0u);
 	declare_symbols();
+	if (target_model::is_i386(target) && position_independent)
+	{
+		runtime_.i386_got = image_.add_symbol();
+		runtime_names_.push_back("_GLOBAL_OFFSET_TABLE_");
+	}
 	if (code_options.indirect_branch == IndirectBranch::ExternalThunk)
 	{
 		const char* const thunks[] = { "__x86_indirect_thunk_rax", "__x86_indirect_thunk_rcx",
@@ -454,10 +464,41 @@ const lowir::JumpThunk* ObjectCompiler::equivalent_entry(lowir::SymbolId symbol)
 	return &shared_entry_;
 }
 
+void ObjectCompiler::check_i386_function(lowir::SymbolId symbol) const
+{
+	const lowir::Function& function = program_.functions[program_.symbols[symbol].detail];
+	const lowir::Signature& signature = program_.signatures[function.signature];
+	auto scalar = [](lowir::Type type) {
+		return type.is_void() || type.is_pointer() || (type.is_integer() && lowir::integer_bits(type.kind()) <= 32);
+	};
+	if (!scalar(signature.result) && signature.result.kind() != lowir::TypeKind::I64)
+		throw BackendError("unsupported i386 return type");
+	const lowir::FunctionBody& body = *function.body;
+	for (lowir::BlockId block : body.layout)
+		for (lowir::InstId id = body.blocks[block].first; id != lowir::kNoId; id = body.instructions[id].next)
+		{
+			const lowir::Instruction& inst = body.instructions[id];
+			const bool pair = inst.type.kind() == lowir::TypeKind::I64 &&
+				(inst.op == lowir::Opcode::Call || inst.op == lowir::Opcode::Return || inst.op == lowir::Opcode::Load ||
+					inst.op == lowir::Opcode::Store || inst.op == lowir::Opcode::Copy ||
+					inst.op == lowir::Opcode::VaArg);
+			if (!scalar(inst.type) && !pair && !inst.type.is_object() && inst.op != lowir::Opcode::Index)
+				throw BackendError(std::string("unsupported i386 operation type: ") +
+					lowir::spelling(inst.type.kind()) + " in " + program_.spelling(program_.symbols[symbol].name) +
+					" at opcode " + std::to_string(static_cast<unsigned>(inst.op)));
+			if (inst.op == lowir::Opcode::Throw || inst.op == lowir::Opcode::Resume ||
+				(inst.op >= lowir::Opcode::EhTry && inst.op <= lowir::Opcode::EhEnd))
+				throw BackendError("i386 C exception handling is not implemented");
+		}
+}
+
 void ObjectCompiler::function(lowir::SymbolId symbol)
 {
 	if (target_model::is_i386(image_.target))
-		throw BackendError("i386 function code generation is not implemented");
+	{
+		opt::legalize_i386_word_pairs(program_, symbol);
+		check_i386_function(symbol);
+	}
 	// Darwin's C++ TLS wrappers preserve every GPR except RAX and RDI.
 	// The body may call arbitrary initializers, so save these at entry.
 	const uint32_t extra_preserved = image_.target == Target::MacOS && eh_model_ == EhModel::Host &&
@@ -510,7 +551,7 @@ void ObjectCompiler::function(lowir::SymbolId symbol)
 	ranges_.push_back(CodeRange{ symbol, image_.symbol(symbol).offset, image_.text().size(), 0, 0, false });
 	for (const lowir::CodeLabel& label : mir_.code_labels)
 		code_labels_.push_back(std::make_pair(label.symbol, symbol));
-	if (!emitter_.locations().empty())
+	if (!target_model::is_i386(image_.target) && !emitter_.locations().empty())
 	{
 		if (!debug_)
 			debug_.reset(new DwarfLines());
@@ -1325,7 +1366,28 @@ void ObjectCompiler::add_relocations()
 		object::Relocation relocation;
 		relocation.offset = range.base + (fixup.offset - range.start);
 		relocation.symbol = object_symbol(fixup.target);
-		if (fixup.absolute)
+		if (target_model::is_i386(image_.target))
+		{
+			switch (fixup.kind)
+			{
+			case FixupKind::I386Got:
+				relocation.type = object::R_I386_GOT;
+				break;
+			case FixupKind::I386GotPc:
+				relocation.type = object::R_I386_GOTPC;
+				break;
+			case FixupKind::Address:
+			case FixupKind::SignedAddress:
+				relocation.type = fixup.absolute ? object::x86_absolute_relocation(fixup.end)
+					: fixup.branch               ? object::R_X86_64_PLT32
+												 : object::R_X86_64_PC32;
+				break;
+			default:
+				throw BackendError("unsupported i386 code relocation");
+			}
+			relocation.addend = fixup.absolute ? fixup.addend : fixup.addend - fixup.end;
+		}
+		else if (fixup.absolute)
 		{
 			relocation.type = object::x86_absolute_relocation(fixup.end, fixup.kind == FixupKind::SignedAddress);
 			relocation.addend = fixup.addend;

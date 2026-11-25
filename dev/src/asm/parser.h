@@ -87,6 +87,7 @@ struct Instruction
 	uint32_t symbol_definition = asm_model::kNoId; // typed module label, if present
 	uint8_t prefix = 0;
 	uint8_t segment = 0;
+	uint8_t segment_count = 0;
 	uint8_t code_bits = 64;
 	bool code16gcc = false;
 	asm_model::Dialect dialect = asm_model::Dialect::Att;

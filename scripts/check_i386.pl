@@ -42,6 +42,11 @@ for my $source ($test, fixture_units($test, $expect))
 	run(0, $compiler, '--target=i386-linux-gnu', @{$expect->{flags} // []}, @language, '-c', $source, '-o', $object);
 	push @objects, $object;
 }
+if ($expect->{shared_link})
+{
+	run(0, $linker, '-m', 'elf_i386', '-shared', '--no-undefined', '-z', 'text',
+		'-o', "$directory/shared.so", @objects);
+}
 my $program = "$directory/program";
 run(0, $linker, '-m', 'elf_i386', '-static', '-o', $program, @objects);
 for my $command (@{$expect->{commands}})

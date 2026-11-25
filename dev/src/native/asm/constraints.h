@@ -41,6 +41,11 @@ inline uint32_t ordinary_assembly_mask(mir_model::Reg reg)
 struct AssemblyBinding
 {
 	std::vector<mir_model::Reg> registers;
+	std::vector<mir_model::Reg> second_registers; // populated only for a register pair
+	mir_model::Reg second(uint32_t operand) const
+	{
+		return second_registers.empty() ? mir_model::kNoReg : second_registers[operand];
+	}
 	std::vector<uint8_t> locations;
 	std::vector<lowir::Literal> constants;
 	std::vector<asm_model::SymbolReference> symbols;

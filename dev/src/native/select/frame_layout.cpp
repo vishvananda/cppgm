@@ -17,7 +17,7 @@ bool frame_operand(const Operand& op)
 }
 
 // The bytes an instruction's memory operand covers (at least its first).
-uint32_t access_bytes(const Inst& inst)
+uint32_t access_bytes(const Inst& inst, uint8_t word_bytes)
 {
 	if ((inst.op == Op::CopyBytes || inst.op == Op::ZeroBytes) && !(inst.flags & MF_COPY_DYNAMIC))
 		return inst.aux;
@@ -31,6 +31,8 @@ uint32_t access_bytes(const Inst& inst)
 	// including the upper eight bytes of a vector or binary128 value.
 	if (inst.op == Op::FMov && (inst.type == lowir::TypeKind::I128 || inst.type == lowir::TypeKind::V128))
 		return 16;
+	if (word_bytes == 4 && (inst.type == lowir::TypeKind::Ptr || inst.type == lowir::TypeKind::I64))
+		return 4;
 	return register_bytes(inst.type);
 }
 
@@ -131,7 +133,7 @@ std::vector<uint8_t> tracked_frame_objects(const Function& f, const FrameObjectI
 			}
 			const uint32_t o = index.find(op.disp);
 			if (o == lowir::kNoId || !direct || !plain ||
-				static_cast<int64_t>(op.disp) + access_bytes(inst) >
+				static_cast<int64_t>(op.disp) + access_bytes(inst, f.word_bytes) >
 					static_cast<int64_t>(objects[o].offset) + objects[o].bytes)
 			{
 				untrack(op.disp);
@@ -218,7 +220,7 @@ uint32_t drop_dead_frame_stores(Function& f, const std::vector<FrameObject>& obj
 		uint32_t first = 0, past = 0;
 		const bool writes = inst.nops > 0 && frame_operand(inst.ops[0]) &&
 			(inst.op == Op::Store || inst.op == Op::CopyBytes || inst.op == Op::ZeroBytes || inst.op == Op::FMov);
-		if (writes && range(inst.ops[0], access_bytes(inst), first, past))
+		if (writes && range(inst.ops[0], access_bytes(inst, f.word_bytes), first, past))
 		{
 			if (!(inst.flags & MF_VOLATILE) && !any(live, first, past))
 			{
@@ -235,7 +237,7 @@ uint32_t drop_dead_frame_stores(Function& f, const std::vector<FrameObject>& obj
 		const bool stores = inst.nops > 0 && inst.ops[0].kind == OperandKind::Mem &&
 			(inst.op == Op::Store || inst.op == Op::CopyBytes || inst.op == Op::ZeroBytes || inst.op == Op::FMov);
 		for (unsigned k = stores ? 1 : 0; k < inst.nops; ++k)
-			if (frame_operand(inst.ops[k]) && range(inst.ops[k], access_bytes(inst), first, past))
+			if (frame_operand(inst.ops[k]) && range(inst.ops[k], access_bytes(inst, f.word_bytes), first, past))
 				set(live, first, past, true);
 	};
 	std::vector<uint32_t> succ;
@@ -363,7 +365,7 @@ bool scan_frame(const Function& f, const FrameObjectIndex& index, FrameScan& sca
 					continue;
 				const bool direct = op.index == kNoReg && op.reg == kFrame;
 				const uint32_t o = index.find(op.disp);
-				const uint32_t bytes = access_bytes(inst);
+				const uint32_t bytes = access_bytes(inst, f.word_bytes);
 				if (o == lowir::kNoId || !direct || !plain)
 				{
 					leave(op.disp);
@@ -629,8 +631,8 @@ bool order_frame(Function& f, const std::vector<FrameObject>& objects, bool fewe
 					return false;
 				// An access running past its object (a merged store) keeps
 				// the objects it covers as they are.
-				for (uint32_t r = rank[o];
-					op.index == kNoReg && static_cast<int64_t>(op.disp) + access_bytes(inst) > end_of(by_offset[r]);
+				for (uint32_t r = rank[o]; op.index == kNoReg &&
+					static_cast<int64_t>(op.disp) + access_bytes(inst, f.word_bytes) > end_of(by_offset[r]);
 					++r)
 				{
 					if (r + 1 == n || objects[by_offset[r + 1]].offset != end_of(by_offset[r]))
@@ -693,7 +695,7 @@ bool order_frame(Function& f, const std::vector<FrameObject>& objects, bool fewe
 	// The preserve area stays below the objects (finish_frame's rule).
 	const uint32_t saved = static_cast<uint32_t>(__builtin_popcount(f.preserve_mask));
 	if (saved != 0)
-		size = align_up(size + 8 * saved, 16);
+		size = align_up(size + f.word_bytes * saved, 16);
 	// (A frame some objects left is smaller, though none of the rest moves.)
 	if (!changed && align_up(size, 16) == f.stack_size)
 		return false;

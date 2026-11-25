@@ -305,7 +305,7 @@ void FunctionSelector::inst_clobbers(uint32_t id, uint32_t& clobber, uint32_t& e
 		// scratch registers, without a call or ABI argument staging.
 		if (unused_fixed_memcpy_bytes(inst) != kNoId)
 			break;
-		clobber = kCallerSavedGprs | kAllXmms;
+		clobber = caller_saved_gprs_ | kAllXmms;
 		const lowir::Signature* sig = program_.call_boundary(inst);
 		if (sig != nullptr)
 		{
@@ -343,7 +343,7 @@ void FunctionSelector::inst_clobbers(uint32_t id, uint32_t& clobber, uint32_t& e
 				clobber = (1u << RAX) | (1u << RDX);
 			else if (op == lowir::BinaryOp::Div || op == lowir::BinaryOp::Mod || op == lowir::BinaryOp::UDiv ||
 				op == lowir::BinaryOp::UMod)
-				clobber = kCallerSavedGprs | kAllXmms;
+				clobber = caller_saved_gprs_ | kAllXmms;
 			else if ((op == lowir::BinaryOp::Shl || op == lowir::BinaryOp::Shr || op == lowir::BinaryOp::UShr) &&
 				resolve(inst.ops[1]).kind != ValueKind::Integer)
 				clobber = early = 1u << RCX;
@@ -377,10 +377,10 @@ void FunctionSelector::inst_clobbers(uint32_t id, uint32_t& clobber, uint32_t& e
 		// An i128/floating conversion calls the runtime's routine.
 		if ((inst.type.kind() == TypeKind::I128 && lowir::convert_source_type(inst).is_float()) ||
 			(inst.type.is_float() && lowir::convert_source_type(inst).kind() == TypeKind::I128))
-			clobber = kCallerSavedGprs | kAllXmms;
+			clobber = caller_saved_gprs_ | kAllXmms;
 		break;
 	case Opcode::CopyObject:
-		if (!direct_copy(static_cast<uint64_t>(inst.immediate), 1u << inst.sub, level_ >= 1))
+		if (!direct_copy(static_cast<uint64_t>(inst.immediate), 1u << inst.sub, !i386_ && level_ >= 1))
 			clobber = early = (1u << RDI) | (1u << RSI) | (1u << RCX);
 		break;
 	case Opcode::Load:
@@ -389,11 +389,11 @@ void FunctionSelector::inst_clobbers(uint32_t id, uint32_t& clobber, uint32_t& e
 		// An object-typed load, store or copy is a copy_bytes of the type's
 		// size and alignment (a same-type copy is an alias: no code).
 		if (inst.type.is_object() && !(inst.op == Opcode::Copy && (temps_[inst.result].flags & TF_ALIAS)) &&
-			!direct_copy(value_bytes(inst.type), value_align(inst.type), level_ >= 1))
+			!direct_copy(value_bytes(inst.type), value_align(inst.type), !i386_ && level_ >= 1))
 			clobber = early = (1u << RDI) | (1u << RSI) | (1u << RCX);
 		break;
 	case Opcode::ZeroInit:
-		if (!always_direct_zero(static_cast<uint64_t>(inst.immediate), level_ >= 1))
+		if (!always_direct_zero(static_cast<uint64_t>(inst.immediate), !i386_ && level_ >= 1))
 			clobber = early = (1u << RDI) | (1u << RCX) | (1u << RAX);
 		break;
 	case Opcode::AtomicCompareExchange:
@@ -408,14 +408,14 @@ void FunctionSelector::inst_clobbers(uint32_t id, uint32_t& clobber, uint32_t& e
 		break;
 	case Opcode::Throw:
 	case Opcode::Resume:
-		clobber = kCallerSavedGprs | kAllXmms;
+		clobber = caller_saved_gprs_ | kAllXmms;
 		break;
 	// A catch clause calls the course runtime's matcher (host clauses are
 	// LSDA facts).
 	case Opcode::EhCatch:
 	case Opcode::EhCatchAll:
 		if (eh_model_ == EhModel::Course)
-			clobber = kCallerSavedGprs | kAllXmms;
+			clobber = caller_saved_gprs_ | kAllXmms;
 		break;
 	default:
 		break;
@@ -817,12 +817,15 @@ int32_t FunctionSelector::home_of(uint32_t temp)
 	if (t.home != 0)
 		return t.home;
 	const Type type = body_->temps[temp].type;
-	uint64_t bytes = (static_cast<uint64_t>(value_bytes(type)) + 7) & ~7ull;
+	const uint32_t word = stack_word();
+	uint64_t bytes = (static_cast<uint64_t>(value_bytes(type)) + word - 1) & ~uint64_t(word - 1);
 	if (bytes == 0)
-		bytes = 8;
+		bytes = word;
 	uint32_t align = value_align(type);
-	if (align < 8)
-		align = 8;
+	if (i386_ && type.kind() == TypeKind::I64)
+		align = word;
+	if (align < word)
+		align = word;
 	t.home = frame_alloc(bytes, align);
 	++stats_.homes;
 	add_binding(temp < body_->parameter_count ? BindingKind::ParamSlot : BindingKind::Temp,
@@ -834,7 +837,7 @@ Reg FunctionSelector::allocate(uint32_t temp, uint32_t exclude, Reg prefer0, Reg
 {
 	const TempInfo& t = temps_[temp];
 	const uint32_t pool = t.cls == VClass::Xmm ? kAllocatableXmms
-		: t.cls == VClass::Gpr                 ? kAllocatableGprs | (rbp_free_ ? 1u << RBP : 0u)
+		: t.cls == VClass::Gpr                 ? allocatable_gprs_ | (rbp_free_ ? 1u << RBP : 0u)
 											   : 0;
 	const uint32_t allowed = pool & ~t.forbid & ~occupied_ & ~pinned_ & ~exclude & ~excluded_;
 	if (allowed == 0)
@@ -865,7 +868,7 @@ Reg FunctionSelector::allocate(uint32_t temp, uint32_t exclude, Reg prefer0, Reg
 				return r;
 		return kNoReg;
 	}
-	const bool callee_first = (t.forbid & kCallerSavedGprs) == (kCallerSavedGprs & kAllocatableGprs);
+	const bool callee_first = (t.forbid & caller_saved_gprs_) == (caller_saved_gprs_ & allocatable_gprs_);
 	const Reg* order = level_ >= 1 ? (callee_first ? kCompactCalleeFirstOrder : kCompactGprOrder)
 		: callee_first             ? kCalleeFirstOrder
 								   : kGprOrder;
@@ -884,7 +887,7 @@ void FunctionSelector::bind(uint32_t temp, Reg reg)
 	++stats_.register_grants;
 	temps_[temp].reg = reg;
 	temps_[temp].flags &= ~TF_HOMED;
-	if ((kCalleeSavedGprs | (1u << RBP)) & (1u << reg))
+	if ((callee_saved_gprs_ | (1u << RBP)) & (1u << reg))
 		used_callee_saved_ |= 1u << reg;
 	// A parameter bound to its own incoming register leaves it intact.
 	if (temp >= body_->parameter_count || incoming_reg(temp) != reg)
@@ -1022,8 +1025,51 @@ void FunctionSelector::retire_dying()
 	dying_.clear();
 }
 
+uint32_t FunctionSelector::i386_frame_saves() const
+{
+	uint32_t used = 0;
+	for (const Inst& inst : out_->insts)
+	{
+		for (unsigned i = 0; i < inst.nops; ++i)
+		{
+			const Operand& op = inst.ops[i];
+			if (op.is_reg() && op.reg < 8)
+				used |= 1u << op.reg;
+			else if (op.is_mem())
+			{
+				if (op.reg < 8)
+					used |= 1u << op.reg;
+				if (op.index < 8)
+					used |= 1u << op.index;
+			}
+		}
+		switch (inst.op)
+		{
+		case Op::CopyBytes:
+			used |= (1u << RDI) | (1u << RSI) | (1u << RBX);
+			break;
+		case Op::ZeroBytes:
+			used |= 1u << RDI;
+			break;
+		case Op::VaArg:
+			used |= (1u << RBX) | (1u << RDI);
+			break;
+		case Op::Call:
+		case Op::TailJump:
+		case Op::IndirectJump:
+			used |= (1u << RBX) | (1u << RDI);
+			break;
+		default:
+			break;
+		}
+	}
+	return used & callee_saved_gprs_;
+}
+
 void FunctionSelector::finish_frame()
 {
+	if (i386_)
+		used_callee_saved_ |= i386_frame_saves();
 	// R12 holds the over-aligned objects' base (Function::aligned_base).
 	used_callee_saved_ |= reserved_gprs(*out_);
 	uint32_t count = __builtin_popcount(used_callee_saved_);
@@ -1037,16 +1083,17 @@ void FunctionSelector::finish_frame()
 	// above them).
 	if (count != 0)
 	{
-		frame_size_ = (frame_size_ + 8 * count + 15) & ~15u;
+		frame_size_ = (frame_size_ + stack_word() * count + 15) & ~15u;
 		out_->preserve_offset = -static_cast<int32_t>(frame_size_);
 	}
 	out_->preserve_mask = used_callee_saved_;
 	out_->stack_size = (frame_size_ + 15) & ~15u;
-	out_->duplicate_epilogues = level_ >= 1;
+	out_->duplicate_epilogues = level_ >= 1 && !code16gcc_;
 	// A fixed host frame has the same ABI and unwind requirements at every
 	// level. Baseline user assembly retains its explicit frame environment.
-	out_->omit_frame_pointer = (level_ >= 1 || !out_->assembly) && eh_model_ == EhModel::Host && !out_->variadic &&
-		!out_->eh_records_pushed && !frame_addressed_ && out_->aligned_base == 0 && fixed_stack(*out_);
+	out_->omit_frame_pointer = !i386_ && (level_ >= 1 || !out_->assembly) && eh_model_ == EhModel::Host &&
+		!out_->variadic && !out_->eh_records_pushed && !frame_addressed_ && out_->aligned_base == 0 &&
+		fixed_stack(*out_);
 	if ((used_callee_saved_ & (1u << RBP)) && !out_->omit_frame_pointer)
 		throw InternalError(std::string("RBP allocated in a function that keeps its frame pointer: ") +
 			program_.spelling(program_.symbols[symbol_].name));

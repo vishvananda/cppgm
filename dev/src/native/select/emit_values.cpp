@@ -99,7 +99,7 @@ Reg FunctionSelector::evict_for(const Instruction& inst, uint32_t exclude)
 	if (level_ < 1 || (t.flags & TF_GLOBAL) || t.block != block_ || t.last <= t.def)
 		return kNoReg;
 	const uint32_t pool = t.cls == VClass::Xmm ? kAllocatableXmms
-		: t.cls == VClass::Gpr                 ? kAllocatableGprs | (rbp_free_ ? 1u << RBP : 0u)
+		: t.cls == VClass::Gpr                 ? allocatable_gprs_ | (rbp_free_ ? 1u << RBP : 0u)
 											   : 0;
 	uint32_t open = pool & occupied_ & ~t.forbid & ~pinned_ & ~exclude & ~excluded_ & ~read_registers(inst, 3);
 	Reg victim = kNoReg;
@@ -165,7 +165,7 @@ Reg FunctionSelector::result_reg(const Instruction& inst, Reg prefer0, Reg prefe
 		// operand the instruction still reads (`exclude`) occupies r10.
 		if (t.cls == VClass::Xmm)
 			return static_cast<Reg>(XMM0 + 14);
-		return exclude & (1u << kSelectScratch) ? kEmitScratch : kSelectScratch;
+		return exclude & (1u << select_scratch_) ? emit_scratch_ : select_scratch_;
 	}
 	if (t.flags & TF_GLOBAL)
 		++stats_.defined_other_register;
@@ -259,10 +259,29 @@ Operand FunctionSelector::memory_result(const Instruction& inst)
 	return frame_home_operand(home_of(inst.result));
 }
 
+void FunctionSelector::copy_i386_pair(const Operand& to, const Operand& from)
+{
+	if (from.is_imm() || from.is_reg())
+	{
+		const Operand low = from.is_reg() ? from : Operand::make_imm(static_cast<int32_t>(from.imm));
+		const uint64_t high = from.is_reg() ? 0 : static_cast<uint64_t>(from.imm) >> 32;
+		emit2(Op::Store, TypeKind::I32, to, low);
+		emit2(Op::Store, TypeKind::I32, to.displaced(4), Operand::make_imm(static_cast<int32_t>(high)));
+	}
+	else if (!(to == from))
+	{
+		Inst& copy = emit2(Op::CopyBytes, TypeKind::Void, to, from);
+		copy.aux = 8;
+		copy.aux2 = 4;
+	}
+}
+
 void FunctionSelector::store_result_memory(const Instruction& inst, const Operand& src, TypeKind type)
 {
 	const Operand home = memory_result(inst);
-	if (type == TypeKind::F80)
+	if (i386_ && type == TypeKind::I64)
+		copy_i386_pair(home, src);
+	else if (type == TypeKind::F80)
 		emit2(Op::FMov, TypeKind::F80, home, src);
 	else if (type == TypeKind::I128)
 	{
@@ -365,7 +384,12 @@ void FunctionSelector::emit_inst(uint32_t id)
 		break;
 	case Opcode::VaArg:
 	{
-		const Operand list = address_operand(inst.ops[0], kSelectScratch);
+		const Operand list = address_operand(inst.ops[0], select_scratch_);
+		if (i386_pair(inst.type))
+		{
+			emit2(Op::VaArg, inst.type.kind(), memory_result(inst), list);
+			break;
+		}
 		if (temps_[inst.result].cls == VClass::Memory)
 		{
 			// A host object's binary16 or binary128 argument, its SSE class
@@ -398,7 +422,7 @@ void FunctionSelector::emit_inst(uint32_t id)
 		const Operand home = Operand::make_frame(frame_alloc(4, 4));
 		if (inst.op == Opcode::WriteMxcsr)
 		{
-			const Operand value = reg_operand(inst.ops[0], Type::scalar(TypeKind::U32), kSelectScratch);
+			const Operand value = reg_operand(inst.ops[0], Type::scalar(TypeKind::U32), select_scratch_);
 			emit2(Op::Store, TypeKind::U32, home, value);
 			emit1(Op::WriteMxcsr, TypeKind::U32, home);
 		}
@@ -427,24 +451,24 @@ void FunctionSelector::emit_inst(uint32_t id)
 	}
 	case Opcode::StackRestore:
 	{
-		const Operand mark = reg_operand(inst.ops[0], Type::scalar(TypeKind::Ptr), kSelectScratch);
+		const Operand mark = reg_operand(inst.ops[0], Type::scalar(TypeKind::Ptr), select_scratch_);
 		emit1(Op::StackRestore, TypeKind::Void, mark);
 		break;
 	}
 	case Opcode::StackAlloc:
 	{
-		Operand size = rm_operand(inst.ops[0], Type::scalar(TypeKind::I64), kSelectScratch);
+		Operand size = rm_operand(inst.ops[0], Type::scalar(TypeKind::I64), select_scratch_);
 		if (size.kind == OperandKind::Imm && (size.imm < 0 || size.imm > 0x7ffffff0ll))
 			throw BackendError("constant stack_alloc size exceeds the native stack "
 							   "adjustment range");
 		if (size.kind != OperandKind::Imm && size.kind != OperandKind::Reg)
 		{
-			load_into(kSelectScratch, size, TypeKind::I64);
-			size = Operand::make_reg(kSelectScratch);
+			load_into(select_scratch_, size, TypeKind::I64);
+			size = Operand::make_reg(select_scratch_);
 		}
 		// stack_alloc reads its size before writing the result: they may
 		// share a scratch register.
-		const Reg d = result_reg(inst, kNoReg, kNoReg, mem_regs(size) & kAllocatableGprs);
+		const Reg d = result_reg(inst, kNoReg, kNoReg, mem_regs(size) & allocatable_gprs_);
 		emit2(Op::StackAlloc, TypeKind::Void, Operand::make_reg(d), size);
 		finish_result(inst, d);
 		break;
@@ -505,7 +529,7 @@ void FunctionSelector::emit_copy(const Instruction& inst)
 		store_result_memory(inst, from, kind);
 		return;
 	}
-	const Operand src = rm_operand(inst.ops[0], type_of(inst.ops[0]), kSelectScratch);
+	const Operand src = rm_operand(inst.ops[0], type_of(inst.ops[0]), select_scratch_);
 	if (t.cls == VClass::Xmm)
 	{
 		if (src.kind == OperandKind::Symbol)
@@ -514,8 +538,8 @@ void FunctionSelector::emit_copy(const Instruction& inst)
 		if (src.kind == OperandKind::Imm && !inst.type.is_vector())
 		{
 			// An integer carrier is copied by representation, not converted.
-			load_into(kSelectScratch, src, TypeKind::I64);
-			emit2(Op::FMov, kind, Operand::make_reg(d), Operand::make_reg(kSelectScratch));
+			load_into(select_scratch_, src, TypeKind::I64);
+			emit2(Op::FMov, kind, Operand::make_reg(d), Operand::make_reg(select_scratch_));
 		}
 		else if (t.flags & TF_MAGNITUDE)
 			emit2(Op::FAbs, kind, Operand::make_reg(d), src);
@@ -573,8 +597,8 @@ void FunctionSelector::emit_index(const Instruction& inst)
 	// base + offset * size with a size outside {1,2,4,8} or a symbol base
 	// and register offset.
 	const uint32_t size = value_bytes(inst.type);
-	const Operand base = rm_operand(inst.ops[0], Type::scalar(TypeKind::Ptr), kSelectScratch);
-	const Operand off = rm_operand(inst.ops[1], type_of(inst.ops[1]), kEmitScratch);
+	const Operand base = rm_operand(inst.ops[0], Type::scalar(TypeKind::Ptr), select_scratch_);
+	const Operand off = rm_operand(inst.ops[1], type_of(inst.ops[1]), emit_scratch_);
 	const Reg d = result_reg(inst, dying_reg(inst.ops[1]), kNoReg, mem_regs(base));
 	// A homed offset is read at its own type, extending.
 	const Value offset = resolve(inst.ops[1]);
@@ -590,7 +614,7 @@ void FunctionSelector::emit_index(const Instruction& inst)
 	{
 		// The symbol's address forms in the scratch register the result
 		// (spilled to r10) does not occupy.
-		const Reg s = d == kSelectScratch ? kEmitScratch : kSelectScratch;
+		const Reg s = d == select_scratch_ ? emit_scratch_ : select_scratch_;
 		emit2(Op::Mov, TypeKind::Void, Operand::make_reg(s), base);
 		emit2(Op::Add, TypeKind::I64, Operand::make_reg(d), Operand::make_reg(s));
 	}
@@ -603,9 +627,22 @@ void FunctionSelector::emit_load(const Instruction& inst)
 {
 	const TempInfo& t = temps_[inst.result];
 	const TypeKind kind = inst.type.kind();
-	const Operand mem = address_operand(inst.ops[0], kSelectScratch);
+	const Operand mem = address_operand(inst.ops[0], select_scratch_);
 	if (t.cls == VClass::Memory)
 	{
+		if (i386_pair(inst.type) && mem.reg == kFrame && mem.index == kNoReg)
+		{
+			const Value address = resolve(inst.ops[0]);
+			const uint32_t id = address.is(ValueKind::Temp) ? temps_[address.index].addr : kNoId;
+			if (id != kNoId && addrs_[id].kind == AddrExpr::Frame &&
+				body_->slots[addrs_[id].base].kind == lowir::SlotKind::Wide)
+			{
+				// A composed pair owns its fresh slot. The load can
+				// retain those two words where the legalizer put them.
+				temps_[inst.result].home = mem.disp;
+				return;
+			}
+		}
 		store_result_memory(inst, mem, kind);
 		return;
 	}
@@ -631,7 +668,7 @@ void FunctionSelector::emit_store(const Instruction& inst)
 		// A floating store of another floating width converts implicitly.
 		const TypeKind from = body_->temps[value.index].type.kind();
 		const Operand src = temp_location(value.index);
-		const Operand mem = address_operand(inst.ops[1], kSelectScratch);
+		const Operand mem = address_operand(inst.ops[1], select_scratch_);
 		const ConvKind conv = lowir::float_rank(kind) > lowir::float_rank(from) ? ConvKind::FPExt : ConvKind::FPTrunc;
 		needs_scratch_area_ = true;
 		if (kind == TypeKind::F80)
@@ -648,6 +685,13 @@ void FunctionSelector::emit_store(const Instruction& inst)
 		emit2(Op::FMov, kind, mem, Operand::make_reg(x));
 		return;
 	}
+	if (i386_pair(type))
+	{
+		const Operand src = memory_value_operand(value, type);
+		const Operand mem = address_operand(inst.ops[1], select_scratch_);
+		copy_i386_pair(mem, src);
+		return;
+	}
 	if (kind == TypeKind::I128 && store_wide_parts(inst))
 		return;
 	if (kind == TypeKind::F80 || kind == TypeKind::I128 || type.is_object())
@@ -655,7 +699,7 @@ void FunctionSelector::emit_store(const Instruction& inst)
 		const Operand src = memory_value_operand(value, type);
 		if (type.is_object() && src.kind != OperandKind::Mem && src.kind != OperandKind::Reg)
 			throw BackendError("object store requires a storage operand");
-		const Operand mem = address_operand(inst.ops[1], kSelectScratch);
+		const Operand mem = address_operand(inst.ops[1], select_scratch_);
 		if (kind == TypeKind::F80)
 			emit2(Op::FMov, kind, mem, src);
 		else if (kind == TypeKind::I128)
@@ -679,7 +723,7 @@ void FunctionSelector::emit_store(const Instruction& inst)
 		if (def->op == Opcode::Convert)
 			def = &body_->instructions[body_->temps[resolve(def->ops[0]).index].def];
 		const Instruction& op = *def;
-		const Operand mem = address_operand(inst.ops[1], kSelectScratch);
+		const Operand mem = address_operand(inst.ops[1], select_scratch_);
 		Op mop = Op::Add;
 		Operand x;
 		if (op.op == Opcode::Index)
@@ -693,26 +737,26 @@ void FunctionSelector::emit_store(const Instruction& inst)
 			const Value other = a.kind == ValueKind::Temp && (temps_[a.index].flags & (TF_FOLDED | TF_RMW))
 				? resolve(op.ops[1])
 				: a;
-			x = rm_operand(other, type, kEmitScratch);
+			x = rm_operand(other, type, emit_scratch_);
 			if (x.kind == OperandKind::Mem || x.kind == OperandKind::Symbol)
 			{
-				load_into(kEmitScratch, x, kind == TypeKind::Ptr ? TypeKind::Ptr : kind);
-				x = Operand::make_reg(kEmitScratch);
+				load_into(emit_scratch_, x, kind == TypeKind::Ptr ? TypeKind::Ptr : kind);
+				x = Operand::make_reg(emit_scratch_);
 			}
 		}
 		emit2(mop, kind, mem, x);
 		return;
 	}
-	Operand src = rm_operand(inst.ops[0], type, kEmitScratch);
-	const Operand mem = address_operand(inst.ops[1], kSelectScratch);
+	Operand src = rm_operand(inst.ops[0], type, emit_scratch_);
+	const Operand mem = address_operand(inst.ops[1], select_scratch_);
 	// i1 has a byte carrier but only one value bit. An ordinary byte
 	// reader of the storage must see 0/1 even when the stored value's
 	// producer is wider. Immediates were normalized by imm_for already.
 	if (kind == TypeKind::I1 && value.kind == ValueKind::Temp && body_->temps[value.index].type.kind() != TypeKind::I1)
 	{
-		load_into(kEmitScratch, src, TypeKind::I64);
-		normalize(kEmitScratch, TypeKind::I1);
-		src = Operand::make_reg(kEmitScratch);
+		load_into(emit_scratch_, src, TypeKind::I64);
+		normalize(emit_scratch_, TypeKind::I1);
+		src = Operand::make_reg(emit_scratch_);
 	}
 	if (type.is_vector())
 		src = vector_register(inst.ops[0], static_cast<Reg>(XMM0 + 15));
@@ -725,8 +769,8 @@ void FunctionSelector::emit_store(const Instruction& inst)
 	}
 	if (src.kind == OperandKind::Mem || src.kind == OperandKind::Symbol)
 	{
-		load_into(kEmitScratch, src, kind == TypeKind::Ptr ? TypeKind::Ptr : kind);
-		src = Operand::make_reg(kEmitScratch);
+		load_into(emit_scratch_, src, kind == TypeKind::Ptr ? TypeKind::Ptr : kind);
+		src = Operand::make_reg(emit_scratch_);
 	}
 	Inst& mir = emit2(Op::Store, kind, mem, src);
 	if (inst.flags & lowir::IF_VOLATILE)
@@ -752,7 +796,7 @@ void FunctionSelector::emit_unary(const Instruction& inst)
 		emit_wide(inst);
 		return;
 	}
-	const Operand a = rm_operand(inst.ops[0], inst.type, kSelectScratch);
+	const Operand a = rm_operand(inst.ops[0], inst.type, select_scratch_);
 	if (inst.type.is_float())
 	{
 		if (op == UnaryOp::Sqrt)
@@ -787,8 +831,8 @@ void FunctionSelector::emit_unary(const Instruction& inst)
 		Operand lhs = a;
 		if (lhs.kind == OperandKind::Imm)
 		{
-			load_into(kSelectScratch, lhs, TypeKind::I64);
-			lhs = Operand::make_reg(kSelectScratch);
+			load_into(select_scratch_, lhs, TypeKind::I64);
+			lhs = Operand::make_reg(select_scratch_);
 		}
 		const Reg d = result_reg(inst);
 		emit2(Op::Cmp, kind, lhs, Operand::make_imm(0));
@@ -804,8 +848,8 @@ void FunctionSelector::emit_unary(const Instruction& inst)
 		Operand src = a;
 		if (src.kind == OperandKind::Imm)
 		{
-			load_into(kSelectScratch, src, kind);
-			src = Operand::make_reg(kSelectScratch);
+			load_into(select_scratch_, src, kind);
+			src = Operand::make_reg(select_scratch_);
 		}
 		emit2(Op::Popcnt, kind, Operand::make_reg(d), src);
 		finish_result(inst, d);
@@ -819,8 +863,8 @@ void FunctionSelector::emit_unary(const Instruction& inst)
 		Operand src = a;
 		if (src.kind == OperandKind::Imm)
 		{
-			load_into(kSelectScratch, src, kind);
-			src = Operand::make_reg(kSelectScratch);
+			load_into(select_scratch_, src, kind);
+			src = Operand::make_reg(select_scratch_);
 		}
 		emit2(op == UnaryOp::CountTrailingZeros ? Op::Bsf : Op::Bsr, kind, Operand::make_reg(d), src);
 		if (op == UnaryOp::CountLeadingZeros)
@@ -882,8 +926,8 @@ void FunctionSelector::emit_binary(const Instruction& inst)
 			const Instruction& second = body_->instructions[body_->temps[resolve(inst.ops[1]).index].def];
 			const Instruction& shift = (static_cast<BinaryOp>(first.sub) == BinaryOp::Shl) == rol ? first : second;
 			const Value x = resolve(shift.ops[0]);
-			const Operand a = rm_operand(x, inst.type, kSelectScratch);
-			const Operand c = rm_operand(shift.ops[1], type_of(shift.ops[1]), kEmitScratch);
+			const Operand a = rm_operand(x, inst.type, select_scratch_);
+			const Operand c = rm_operand(shift.ops[1], type_of(shift.ops[1]), emit_scratch_);
 			load_into(RCX, c, TypeKind::I64);
 			const Reg d = result_reg(inst, dying_reg(x), kNoReg, 1u << RCX);
 			if (a.kind == OperandKind::Mem)
@@ -900,7 +944,7 @@ void FunctionSelector::emit_binary(const Instruction& inst)
 		const unsigned width = static_cast<unsigned>(value_bytes(inst.type) * 8);
 		const unsigned left = rotate_[inst.result];
 		const Value x = resolve(body_->instructions[body_->temps[resolve(inst.ops[0]).index].def].ops[0]);
-		const Operand a = rm_operand(x, inst.type, kSelectScratch);
+		const Operand a = rm_operand(x, inst.type, select_scratch_);
 		const Reg d = result_reg(inst, dying_reg(x));
 		if (a.kind == OperandKind::Mem)
 			emit2(Op::Load, kind, Operand::make_reg(d), a);
@@ -941,7 +985,7 @@ void FunctionSelector::emit_binary(const Instruction& inst)
 				register_bytes(load.type.kind()) >= bytes && temps_[source.index].uses == 1 &&
 				(temps_[source.index].flags & TF_FOLDED))
 			{
-				const Operand address = address_operand(load.ops[0], kSelectScratch);
+				const Operand address = address_operand(load.ops[0], select_scratch_);
 				const Reg d = result_reg(inst, kNoReg, kNoReg, mem_regs(address));
 				emit2(Op::Load,
 					bytes == 1       ? TypeKind::U8
@@ -956,8 +1000,8 @@ void FunctionSelector::emit_binary(const Instruction& inst)
 	const bool commutative = op != BinaryOp::Sub;
 	const bool wide_mem = kind == TypeKind::I64 || kind == TypeKind::Ptr || kind == TypeKind::I32 ||
 		kind == TypeKind::U32;
-	Operand a = rm_operand(inst.ops[0], inst.type, kSelectScratch);
-	Operand b = rm_operand(inst.ops[1], inst.type, kEmitScratch);
+	Operand a = rm_operand(inst.ops[0], inst.type, select_scratch_);
+	Operand b = rm_operand(inst.ops[1], inst.type, emit_scratch_);
 	// A scaled byte offset holds x * K / scale (find_scaled_offsets).
 	if (op == BinaryOp::Mul && level_ >= 1 && scale_of_[inst.result] != 0)
 	{
@@ -967,13 +1011,13 @@ void FunctionSelector::emit_binary(const Instruction& inst)
 	}
 	if (b.kind == OperandKind::Symbol)
 	{
-		load_into(kEmitScratch, b, TypeKind::Ptr);
-		b = Operand::make_reg(kEmitScratch);
+		load_into(emit_scratch_, b, TypeKind::Ptr);
+		b = Operand::make_reg(emit_scratch_);
 	}
 	if (a.kind == OperandKind::Symbol)
 	{
-		load_into(kSelectScratch, a, TypeKind::Ptr);
-		a = Operand::make_reg(kSelectScratch);
+		load_into(select_scratch_, a, TypeKind::Ptr);
+		a = Operand::make_reg(select_scratch_);
 	}
 	// Put an imm64 directly in the product's register when its other
 	// operand is memory. Keep the address intact until IMUL reads it.
@@ -1007,7 +1051,7 @@ void FunctionSelector::emit_binary(const Instruction& inst)
 			(op == BinaryOp::Mul && b.kind == OperandKind::Imm && !fits_imm32(b));
 		if (!load)
 			return;
-		const Reg s = a.uses_reg(kEmitScratch) ? kSelectScratch : kEmitScratch;
+		const Reg s = a.uses_reg(emit_scratch_) ? select_scratch_ : emit_scratch_;
 		load_into(s, b, b.kind == OperandKind::Mem ? kind : TypeKind::I64);
 		b = Operand::make_reg(s);
 	};
@@ -1103,8 +1147,8 @@ void FunctionSelector::emit_float_binary(const Instruction& inst)
 	const unsigned sub = inst.sub;
 	if (sub > static_cast<unsigned>(BinaryOp::Div))
 		throw BackendError("unsupported floating binary operation");
-	const Operand a = rm_operand(inst.ops[0], inst.type, kSelectScratch);
-	const Operand b = rm_operand(inst.ops[1], inst.type, kEmitScratch);
+	const Operand a = rm_operand(inst.ops[0], inst.type, select_scratch_);
+	const Operand b = rm_operand(inst.ops[1], inst.type, emit_scratch_);
 	if (kind == TypeKind::F80)
 	{
 		emit3(ops[sub], kind, memory_result(inst), a, b);
@@ -1140,7 +1184,7 @@ void FunctionSelector::emit_shift(const Instruction& inst)
 {
 	const TypeKind kind = inst.type.kind();
 	const BinaryOp op = static_cast<BinaryOp>(inst.sub);
-	const Operand a = rm_operand(inst.ops[0], inst.type, kSelectScratch);
+	const Operand a = rm_operand(inst.ops[0], inst.type, select_scratch_);
 	const Value cv = resolve(inst.ops[1]);
 	Operand count;
 	if (cv.kind == ValueKind::Integer)
@@ -1152,7 +1196,7 @@ void FunctionSelector::emit_shift(const Instruction& inst)
 	}
 	else
 	{
-		const Operand c = rm_operand(inst.ops[1], type_of(inst.ops[1]), kEmitScratch);
+		const Operand c = rm_operand(inst.ops[1], type_of(inst.ops[1]), emit_scratch_);
 		load_into(RCX, c, TypeKind::I64);
 		count = Operand::make_reg(RCX);
 	}
@@ -1214,8 +1258,8 @@ void FunctionSelector::emit_compare(const Instruction& inst)
 	// flags and the result takes its condition.
 	const Value conj = resolve(inst.ops[0]);
 	const bool tested = conj.kind == ValueKind::Temp && (temps_[conj.index].flags & TF_TESTED) != 0;
-	Operand a = tested ? Operand::make_reg(kSelectScratch) : rm_operand(inst.ops[0], type, kSelectScratch);
-	Operand b = tested ? Operand::make_imm(0) : rm_operand(inst.ops[1], type, kEmitScratch);
+	Operand a = tested ? Operand::make_reg(select_scratch_) : rm_operand(inst.ops[0], type, select_scratch_);
+	Operand b = tested ? Operand::make_imm(0) : rm_operand(inst.ops[1], type, emit_scratch_);
 	if (kind == TypeKind::I128)
 	{
 		const Reg d = result_reg(inst);
@@ -1236,13 +1280,13 @@ void FunctionSelector::emit_compare(const Instruction& inst)
 	}
 	if (b.kind == OperandKind::Symbol)
 	{
-		load_into(kEmitScratch, b, TypeKind::Ptr);
-		b = Operand::make_reg(kEmitScratch);
+		load_into(emit_scratch_, b, TypeKind::Ptr);
+		b = Operand::make_reg(emit_scratch_);
 	}
 	if (a.kind == OperandKind::Symbol)
 	{
-		load_into(kSelectScratch, a, TypeKind::Ptr);
-		a = Operand::make_reg(kSelectScratch);
+		load_into(select_scratch_, a, TypeKind::Ptr);
+		a = Operand::make_reg(select_scratch_);
 	}
 	if (a.kind == OperandKind::Imm && b.kind != OperandKind::Imm)
 	{
@@ -1251,8 +1295,8 @@ void FunctionSelector::emit_compare(const Instruction& inst)
 	}
 	if (a.kind == OperandKind::Imm || (a.kind == OperandKind::Mem && b.kind == OperandKind::Mem))
 	{
-		load_into(kSelectScratch, a, kind == TypeKind::Ptr ? TypeKind::Ptr : kind);
-		a = Operand::make_reg(kSelectScratch);
+		load_into(select_scratch_, a, kind == TypeKind::Ptr ? TypeKind::Ptr : kind);
+		a = Operand::make_reg(select_scratch_);
 	}
 	const TempInfo& t = temps_[inst.result];
 	const Instruction* user = t.uses == 1 && t.user != kNoId ? &body_->instructions[t.user] : nullptr;
@@ -1273,11 +1317,11 @@ void FunctionSelector::emit_compare(const Instruction& inst)
 	const bool byte_stored = level_ >= 1 && user != nullptr && user->op == Opcode::Store &&
 		register_bytes(user->type.kind()) == 1 && resolve(user->ops[0]) == Value::temp(inst.result) &&
 		!(resolve(user->ops[1]) == Value::temp(inst.result)) && !(t.flags & (TF_GLOBAL | TF_HOMED)) &&
-		d != kSelectScratch && d != kEmitScratch;
+		d != select_scratch_ && d != emit_scratch_;
 	// SETcc defines every bit of the Boolean byte an ABI return observes.
 	// A spilled or shared carrier retains the usual full-register value.
-	const bool returned = byte_return && !(t.flags & (TF_GLOBAL | TF_HOMED)) && d != kSelectScratch &&
-		d != kEmitScratch;
+	const bool returned = byte_return && !(t.flags & (TF_GLOBAL | TF_HOMED)) && d != select_scratch_ &&
+		d != emit_scratch_;
 	if (!returned && !byte_stored && !(level_ >= 1 && byte_only_[inst.result]))
 		emit2(Op::Movzx, TypeKind::Void, Operand::make_reg(d), Operand::make_reg(d));
 	finish_result(inst, d);
@@ -1324,8 +1368,8 @@ void FunctionSelector::emit_count(const Instruction& inst, Cond cc)
 		emit2(step > 0 ? Op::Sbb : Op::Adc, kind, Operand::make_reg(d), Operand::make_imm(-1, -1));
 	else
 	{
-		emit2(Op::Lea, kind, Operand::make_reg(kEmitScratch), Operand::make_mem(d, step));
-		Inst& mov = emit2(Op::Cmov, TypeKind::Void, Operand::make_reg(d), Operand::make_reg(kEmitScratch));
+		emit2(Op::Lea, kind, Operand::make_reg(emit_scratch_), Operand::make_mem(d, step));
+		Inst& mov = emit2(Op::Cmov, TypeKind::Void, Operand::make_reg(d), Operand::make_reg(emit_scratch_));
 		mov.sub = when;
 	}
 	normalize_result(inst, d, kind);
@@ -1349,7 +1393,7 @@ Cond FunctionSelector::select_condition(Value cond, bool& known, bool& taken)
 		const Type type = type_of(cond);
 		if (!(type.is_integer() || type.is_pointer()) || type.kind() == TypeKind::I128)
 			throw BackendError("unsupported select condition");
-		const Operand c = rm_operand(cond, type, kSelectScratch);
+		const Operand c = rm_operand(cond, type, select_scratch_);
 		known = c.kind != OperandKind::Reg && c.kind != OperandKind::Mem;
 		taken = c.kind == OperandKind::Symbol || (c.kind == OperandKind::Imm && (c.imm | c.imm_high) != 0);
 		const TypeKind width = cond.kind == ValueKind::Temp && known_boolean(cond.index) ? TypeKind::U8
@@ -1390,11 +1434,12 @@ void FunctionSelector::emit_float_select(const Instruction& inst)
 			wide ? lowir::VectorOp::Toi64 : lowir::VectorOp::Toi32);
 	};
 	const auto choose = [&](Cond cc) {
-		Inst& mov = emit2(Op::Cmov, TypeKind::Void, Operand::make_reg(kEmitScratch), Operand::make_reg(kSelectScratch));
+		Inst& mov = emit2(
+			Op::Cmov, TypeKind::Void, Operand::make_reg(emit_scratch_), Operand::make_reg(select_scratch_));
 		mov.sub = cc;
 	};
 	const auto finish_bits = [&](Reg d) {
-		emit2(Op::Vector, TypeKind::V128, Operand::make_reg(d), Operand::make_reg(kEmitScratch)).sub =
+		emit2(Op::Vector, TypeKind::V128, Operand::make_reg(d), Operand::make_reg(emit_scratch_)).sub =
 			static_cast<uint8_t>(wide ? lowir::VectorOp::Fromi64 : lowir::VectorOp::Fromi32);
 		finish_result(inst, d);
 	};
@@ -1443,8 +1488,8 @@ void FunctionSelector::emit_float_select(const Instruction& inst)
 		}
 	if (code != 0)
 	{
-		load_into(kMaskLanes, rm_operand(test->ops[swap ? 1 : 0], inst.type, kSelectScratch), kind);
-		Operand y = rm_operand(test->ops[swap ? 0 : 1], inst.type, kSelectScratch);
+		load_into(kMaskLanes, rm_operand(test->ops[swap ? 1 : 0], inst.type, select_scratch_), kind);
+		Operand y = rm_operand(test->ops[swap ? 0 : 1], inst.type, select_scratch_);
 		if (y.kind != OperandKind::Reg)
 		{
 			load_into(kOtherLanes, y, kind);
@@ -1453,7 +1498,7 @@ void FunctionSelector::emit_float_select(const Instruction& inst)
 		Inst& mask = emit3(Op::Vector, TypeKind::V128, Operand::make_reg(kMaskLanes), Operand::make_reg(kMaskLanes), y);
 		mask.sub = static_cast<uint8_t>(wide ? lowir::VectorOp::Cmppd : lowir::VectorOp::Cmpps);
 		mask.aux = code;
-		Operand other = rm_operand(f, inst.type, kSelectScratch);
+		Operand other = rm_operand(f, inst.type, select_scratch_);
 		if (other.kind != OperandKind::Reg)
 		{
 			load_into(kOtherLanes, other, kind);
@@ -1465,17 +1510,17 @@ void FunctionSelector::emit_float_select(const Instruction& inst)
 			// An assigned result or the spill scratch may overlap the
 			// false operand. Test the mask and select the scalar bits
 			// before writing the overlapping register.
-			const Operand scratch = Operand::make_reg(kSelectScratch);
+			const Operand scratch = Operand::make_reg(select_scratch_);
 			emit2(Op::Vector, TypeKind::V128, scratch, Operand::make_reg(kMaskLanes)).sub = static_cast<uint8_t>(
 				lowir::VectorOp::Toi32);
 			emit2(Op::Test, TypeKind::U32, scratch, scratch);
-			bits(other, kEmitScratch, kMaskLanes);
-			bits(rm_operand(t, inst.type, kSelectScratch), kSelectScratch, kOtherLanes);
+			bits(other, emit_scratch_, kMaskLanes);
+			bits(rm_operand(t, inst.type, select_scratch_), select_scratch_, kOtherLanes);
 			choose(CC_NE);
 			finish_bits(d);
 			return;
 		}
-		load_into(d, rm_operand(t, inst.type, kSelectScratch), kind);
+		load_into(d, rm_operand(t, inst.type, select_scratch_), kind);
 		const auto lanes = [&](lowir::VectorOp op, const Operand& with) {
 			emit3(Op::Vector, TypeKind::V128, Operand::make_reg(d), Operand::make_reg(d), with).sub =
 				static_cast<uint8_t>(op);
@@ -1493,14 +1538,14 @@ void FunctionSelector::emit_float_select(const Instruction& inst)
 	if (t == f)
 	{
 		const Reg d = result_reg(inst, dying_reg(t));
-		load_into(d, rm_operand(t, inst.type, kSelectScratch), kind);
+		load_into(d, rm_operand(t, inst.type, select_scratch_), kind);
 		finish_result(inst, d);
 		return;
 	}
 	// A literal's lanes are loaded through the first scratch register.
 	// Move the other value's bits into that register last.
-	bits(rm_operand(f, inst.type, kEmitScratch), kEmitScratch, kMaskLanes);
-	bits(rm_operand(t, inst.type, kSelectScratch), kSelectScratch, kOtherLanes);
+	bits(rm_operand(f, inst.type, emit_scratch_), emit_scratch_, kMaskLanes);
+	bits(rm_operand(t, inst.type, select_scratch_), select_scratch_, kOtherLanes);
 	choose(cc);
 	finish_bits(result_reg(inst));
 }
@@ -1541,18 +1586,18 @@ void FunctionSelector::emit_select(const Instruction& inst)
 	}
 	// Into a register for cmov's source: its own, or r11.
 	auto source = [&](Value v) {
-		const Operand from = rm_operand(v, inst.type, kEmitScratch);
+		const Operand from = rm_operand(v, inst.type, emit_scratch_);
 		if (from.kind == OperandKind::Reg)
 			return from;
 		if (from.kind == OperandKind::Mem)
-			emit2(Op::Load, kind, Operand::make_reg(kEmitScratch), from);
+			emit2(Op::Load, kind, Operand::make_reg(emit_scratch_), from);
 		else
-			load_into(kEmitScratch, from, TypeKind::I64);
-		return Operand::make_reg(kEmitScratch);
+			load_into(emit_scratch_, from, TypeKind::I64);
+		return Operand::make_reg(emit_scratch_);
 	};
 	const Operand ts = t == f ? Operand::make_imm(0) : source(t);
-	const Reg own_t = ts.kind == OperandKind::Reg && ts.reg != kEmitScratch ? ts.reg : kNoReg;
-	uint32_t exclude = ts.kind == OperandKind::Reg && ts.reg == kEmitScratch ? 1u << kEmitScratch : 0;
+	const Reg own_t = ts.kind == OperandKind::Reg && ts.reg != emit_scratch_ ? ts.reg : kNoReg;
+	uint32_t exclude = ts.kind == OperandKind::Reg && ts.reg == emit_scratch_ ? 1u << emit_scratch_ : 0;
 
 	const Reg d = result_reg(inst, dying_reg(f), dying_reg(t), exclude);
 	if (!(t == f) && d == own_t)

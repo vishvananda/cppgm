@@ -343,7 +343,7 @@ void FunctionSelector::allocate_globals()
 		const bool gpr = t.cls == VClass::Gpr;
 		if (gpr && active_gprs >= kMaxGlobalGprs)
 			continue;
-		const uint32_t allowed = (gpr ? kAllocatableGprs & ~reserved_gprs(*out_) : kAllocatableXmms) & ~forbid &
+		const uint32_t allowed = (gpr ? allocatable_gprs_ & ~reserved_gprs(*out_) : kAllocatableXmms) & ~forbid &
 			~active_mask;
 		if (allowed == 0)
 			continue;
@@ -361,7 +361,7 @@ void FunctionSelector::allocate_globals()
 		}
 		if (chosen == kNoReg && !gpr)
 			chosen = static_cast<Reg>(__builtin_ctz(allowed));
-		const bool crosses_call = (forbid & kCallerSavedGprs & kAllocatableGprs) != 0;
+		const bool crosses_call = (forbid & caller_saved_gprs_ & allocatable_gprs_) != 0;
 		for (unsigned k = 0; k < 5 && chosen == kNoReg && crosses_call; ++k)
 			if (allowed & (1u << kCalleeOrder[k]))
 				chosen = kCalleeOrder[k];
@@ -379,7 +379,7 @@ void FunctionSelector::allocate_globals()
 		active_mask |= 1u << chosen;
 		if (gpr)
 			++active_gprs;
-		if (kCalleeSavedGprs & (1u << chosen))
+		if (callee_saved_gprs_ & (1u << chosen))
 			used_callee_saved_ |= 1u << chosen;
 		++stats_.global_registers;
 		// The blocks the hull overlaps: at most the active hulls cover a

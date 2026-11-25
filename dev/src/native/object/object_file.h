@@ -88,6 +88,9 @@ enum RelocationType : uint32_t
 	R_X86_64_GOTPC64 = 29,
 	R_X86_64_GOTPCRELX = 41,
 	R_X86_64_REX_GOTPCRELX = 42,
+	// Typed i386 PIC fixups; the ELF32 writer assigns their ABI numbers.
+	R_I386_GOT = 0x10001,
+	R_I386_GOTPC = 0x10002,
 	// A Darwin thread-local descriptor, resolved by __tlv_bootstrap.
 	R_MACHO_TLV = 0x10000
 };

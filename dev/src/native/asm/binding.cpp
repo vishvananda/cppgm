@@ -38,27 +38,30 @@ unsigned width(lowir::Type type)
 	if (type.kind() == lowir::TypeKind::F64)
 		return 64;
 	if (type.is_pointer())
-		return 64;
+		return 8 * type.pointer_bytes();
 	return std::max(8u, lowir::integer_bits(type.kind()));
 }
 
 void expand_symbol(std::string& source, std::vector<assembly::SymbolUse>& symbols, SymbolReference reference,
-	Dialect dialect, bool immediate, bool memory)
+	Dialect dialect, bool immediate, bool memory, unsigned address_bits)
 {
 	if (immediate && dialect == Dialect::Att)
 		source += '$';
 	if (memory && dialect == Dialect::Intel)
-		source += "[rip + ";
+		source += address_bits == 64 ? "[rip + " : "[";
 	const std::string marker = "__cppgm_symbol";
 	symbols.push_back(
 		assembly::SymbolUse{ static_cast<uint32_t>(source.size()), static_cast<uint32_t>(marker.size()), reference });
 	source += marker;
-	if (memory)
-		source += dialect == Dialect::Att ? "(%rip)" : "]";
+	if (memory && dialect == Dialect::Intel)
+		source += ']';
+	else if (memory && address_bits == 64)
+		source += "(%rip)";
 }
 
 void expand(std::string& source, const lowir::AssemblyModule& module, const lowir::AssemblyTemplate& definition,
-	const AssemblyPlan& plan, std::vector<assembly::SymbolUse>& symbols, std::vector<assembly::LabelUse>& labels)
+	const AssemblyPlan& plan, std::vector<assembly::SymbolUse>& symbols, std::vector<assembly::LabelUse>& labels,
+	unsigned address_bits)
 {
 	for (uint32_t i = 0; i < definition.piece_count; ++i)
 	{
@@ -109,7 +112,7 @@ void expand(std::string& source, const lowir::AssemblyModule& module, const lowi
 			if (piece.format != Format::Default && piece.format != Format::Bare && piece.format != Format::Address)
 				unsupported("this symbol formatting modifier");
 			expand_symbol(source, symbols, plan.symbols[piece.operand], definition.dialect,
-				piece.format == Format::Default, piece.format == Format::Address);
+				piece.format == Format::Default, piece.format == Format::Address, address_bits);
 			continue;
 		}
 		if (plan.locations[piece.operand] == AL_IMMEDIATE)
@@ -141,10 +144,11 @@ void expand(std::string& source, const lowir::AssemblyModule& module, const lowi
 			if (piece.format != Format::Default)
 				unsupported("this memory formatting modifier");
 			if (r == kNoReg)
-				expand_symbol(source, symbols, plan.symbols[piece.operand], definition.dialect, false, true);
+				expand_symbol(
+					source, symbols, plan.symbols[piece.operand], definition.dialect, false, true, address_bits);
 			else
 			{
-				const Register address{ RegisterBank::Gpr, r, 64, 0 };
+				const Register address{ RegisterBank::Gpr, r, static_cast<uint16_t>(address_bits), 0 };
 				const std::string name = assembly::register_name(address);
 				source += definition.dialect == Dialect::Att ? "(%" + name + ")" : "[" + name + "]";
 			}
@@ -154,7 +158,8 @@ void expand(std::string& source, const lowir::AssemblyModule& module, const lowi
 		{
 			if (!is_gpr(r))
 				unsupported("noninteger register address");
-			const std::string name = assembly::register_name(Register{ RegisterBank::Gpr, r, 64, 0 });
+			const std::string name = assembly::register_name(
+				Register{ RegisterBank::Gpr, r, static_cast<uint16_t>(address_bits), 0 });
 			source += definition.dialect == Dialect::Att ? "(%" + name + ")" : "[" + name + "]";
 			continue;
 		}
@@ -216,18 +221,18 @@ std::shared_ptr<AssemblyPlan> prepare_assembly_source(const lowir::AssemblyModul
 		const lowir::AssemblyOperand& operand = module.operands[definition.first_operand + i];
 		if (plan->registers[i] == kNoReg)
 			continue;
-		const uint32_t bit = ordinary_assembly_mask(plan->registers[i]);
+		const uint32_t bit = ordinary_assembly_mask(plan->registers[i]) | ordinary_assembly_mask(plan->second(i));
 		plan->writes |= bit; // input setup also overwrites its selected register
 		if ((operand.flags & AO_READ) != 0 || plan->locations[i] == AL_MEMORY)
 			plan->reads |= bit;
 	}
-	expand(source, module, definition, *plan, symbols, labels);
+	expand(source, module, definition, *plan, symbols, labels, 8 * body.pointer_bytes);
 	return plan;
 }
 
 std::shared_ptr<const AssemblyPlan> bind_assembly(const lowir::AssemblyModule& module, uint32_t id,
 	const lowir::FunctionBody& body, const std::vector<lowir::Value>& arguments, AssemblyEnvironment& environment,
-	Target target, const lowir::Program* kernel_memory)
+	Target target, const lowir::Program* kernel_memory, bool code16gcc)
 {
 	std::string source;
 	std::vector<assembly::SymbolUse> symbols;
@@ -243,9 +248,9 @@ std::shared_ptr<const AssemblyPlan> bind_assembly(const lowir::AssemblyModule& m
 		auto lines = expander.expand(assembly::module_lines(source, symbols, labels));
 		if (inline_has_sections(lines))
 		{
-			if (target != Target::Linux)
+			if (target != Target::Linux && !target_model::is_i386(target))
 				unsupported("inline assembly sections require ELF");
-			plan->module = build_inline_module(lines, definition.dialect);
+			plan->module = build_inline_module(lines, definition.dialect, target, code16gcc);
 		}
 		else
 		{
@@ -259,11 +264,14 @@ std::shared_ptr<const AssemblyPlan> bind_assembly(const lowir::AssemblyModule& m
 			syntax.dialect = definition.dialect;
 			syntax.register_prefix = definition.dialect == asm_model::Dialect::Att;
 			syntax.power_alignment = target == Target::MacOS;
-			syntax.named_externals = target == Target::Linux;
+			syntax.named_externals = target == Target::Linux || target_model::is_i386(target);
+			if (target_model::is_i386(target))
+				syntax.code_bits = code16gcc ? 16 : 32;
+			syntax.code16gcc = code16gcc;
 			plan->instructions = assembly::parse(
 				expanded.text, definition.dialect, expanded.symbols, expanded.labels, nullptr, &syntax);
 			if (syntax.named_externals && inline_has_symbol_names(plan->instructions))
-				plan->module = build_inline_module(plan->instructions);
+				plan->module = build_inline_module(plan->instructions, target);
 		}
 	}
 	catch (const assembly::AssemblyError& error)

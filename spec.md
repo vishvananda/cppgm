@@ -5,8 +5,9 @@
 This specification defines the production architecture for a self-contained
 C++ compiler implementing the required C++11/14/17 profile on x86-64 Linux,
 Intel macOS and PA37's wasm32 targets. Experimental PA39 applies the same
-pipeline to AArch64 Linux and Apple Silicon. This specification governs
-implementation reviews and architecture audits.
+pipeline to AArch64 Linux and Apple Silicon. Experimental PA40 extends
+the x86 pipeline to i386 ELF objects and x86 real-mode boot code. This
+specification governs implementation reviews and architecture audits.
 
 Compile-time performance is a property of semantic design, not a mode that may
 skip required language or ABI behavior. Every required result must be produced

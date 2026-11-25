@@ -490,7 +490,8 @@ void encode_assembly(Assembler& out, const std::vector<assembly::Instruction>& i
 				if (operand.mask || operand.zero || operand.broadcast)
 					fail(inst, "decorator requires an EVEX instruction form");
 		if (segment != 0)
-			out.byte(segment);
+			for (uint8_t prefix = 0; prefix < std::max<uint8_t>(1, inst.segment_count); ++prefix)
+				out.byte(segment);
 		if (address_override)
 			out.byte(0x67);
 		if (!encode_assembly_branch(out, inst, labels))

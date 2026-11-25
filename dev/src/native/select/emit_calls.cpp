@@ -25,11 +25,6 @@ using lowir::ValueKind;
 
 namespace {
 
-uint32_t align16(uint32_t value)
-{
-	return (value + 15) & ~15u;
-}
-
 TypeKind move_type(Type type)
 {
 	if (type.is_pointer())
@@ -57,8 +52,12 @@ void FunctionSelector::classify_signature(const lowir::Signature& sig, CallLayou
 		arg_types_.push_back(params[i].type);
 		arg_classes_.push_back(params[i].classes);
 	}
-	classify_call(
-		arg_types_.data(), arg_classes_.data(), sig.parameter_count, sig.result, result_classes(&sig), layout);
+	if (i386_)
+		classify_i386_call(arg_types_.data(), sig.parameter_count, sig.result,
+			sig.boundary.arity == ir_model::CAM_VARIADIC ? 0 : regparm_, layout);
+	else
+		classify_call(
+			arg_types_.data(), arg_classes_.data(), sig.parameter_count, sig.result, result_classes(&sig), layout);
 }
 
 // Every boundary follows the classes (psABI 3.2.3, lowir.md "Object ABI
@@ -88,8 +87,12 @@ void FunctionSelector::classify_arguments(uint32_t inst, const lowir::Signature*
 		arg_classes_[a] = arg_types_[a].is_object() || arg_types_[a].kind() == TypeKind::I128
 			? argument_classes(inst, a, sig)
 			: 0;
-	classify_call(
-		arg_types_.data(), arg_classes_.data(), count, body_->instructions[inst].type, result_classes(sig), layout);
+	const Type result = body_->instructions[inst].type;
+	if (i386_)
+		classify_i386_call(arg_types_.data(), count, result,
+			sig != nullptr && sig->boundary.arity == ir_model::CAM_FIXED ? regparm_ : 0, layout);
+	else
+		classify_call(arg_types_.data(), arg_classes_.data(), count, result, result_classes(sig), layout);
 }
 
 // The layout of call `inst` (boundary `sig`) for its emission-time
@@ -355,7 +358,7 @@ void FunctionSelector::emit_entry()
 			const ArgPart& part = layout.parts[arg.first_part + k];
 			AbiPart abi;
 			abi.reg = part.reg;
-			abi.stack = part.reg == kNoReg ? 16 + part.stack : 0;
+			abi.stack = part.reg == kNoReg ? static_cast<int32_t>(2 * stack_word()) + part.stack : 0;
 			abi.type = arg.part_count > 1 || params[p].type.is_object() ? part_type(part) : params[p].type.kind();
 			out_->parts.push_back(abi);
 		}
@@ -367,6 +370,8 @@ void FunctionSelector::emit_entry()
 		emit2(Op::Store, TypeKind::Ptr, Operand::make_frame(sret_home_), Operand::make_reg(RDI));
 	}
 	if (out_->variadic)
+		named_stack_ = layout.stack_bytes;
+	if (out_->variadic && !i386_)
 	{
 		const uint32_t save_bytes = sse2_ ? 176 : 48;
 		const uint32_t save_align = sse2_ ? 4 : 3;
@@ -390,7 +395,6 @@ void FunctionSelector::emit_entry()
 					Operand::make_reg(static_cast<Reg>(XMM0 + k)));
 		named_gprs_ = layout.gprs;
 		named_xmms_ = sse2_ ? layout.xmms : 8;
-		named_stack_ = layout.stack_bytes;
 	}
 	if (eh_model_ == EhModel::Host)
 		narrow_params_observed(narrow_observed_);
@@ -458,7 +462,7 @@ void FunctionSelector::emit_entry()
 			// Passed in memory: loaded once into a hull register; a scalar is
 			// otherwise copied through rax to its parameter slot (the
 			// reference frame layout); other values keep the incoming area.
-			const int32_t incoming = 16 + layout.parts[arg.first_part].stack;
+			const int32_t incoming = static_cast<int32_t>(2 * stack_word()) + layout.parts[arg.first_part].stack;
 			if (t.greg != kNoReg)
 			{
 				Move load;
@@ -471,8 +475,10 @@ void FunctionSelector::emit_entry()
 			else if (t.cls == VClass::Gpr)
 			{
 				const int32_t home = home_of(p);
-				emit2(Op::Load, move_type(type), Operand::make_reg(RAX), Operand::make_frame(incoming));
-				emit2(Op::Store, move_type(type), frame_home_operand(home), Operand::make_reg(RAX));
+				emit2(Op::Load, move_type(type), Operand::make_reg(i386_ ? select_scratch_ : RAX),
+					Operand::make_frame(incoming));
+				emit2(Op::Store, move_type(type), frame_home_operand(home),
+					Operand::make_reg(i386_ ? select_scratch_ : RAX));
 				t.flags |= TF_HOMED;
 				continue;
 			}
@@ -606,7 +612,8 @@ void FunctionSelector::stage_call_arguments(const Instruction& inst, const lowir
 		const Value v = resolve(body.operands[inst.extra_first + a]);
 		if (type.kind() == TypeKind::I128 && stage_wide_parts(v, layout, arg, arg_mask, late, late_mask))
 			continue;
-		const bool memory_value = type.is_object() || type.kind() == TypeKind::F80 || type.kind() == TypeKind::I128;
+		const bool memory_value = type.is_object() || type.kind() == TypeKind::F80 || type.kind() == TypeKind::I128 ||
+			i386_pair(type);
 		Operand src;
 		bool address = false;
 		const TypeKind value_type = move_type(type);
@@ -682,7 +689,7 @@ void FunctionSelector::stage_call_arguments(const Instruction& inst, const lowir
 				arg_mask |= 1u << reg;
 				continue;
 			}
-			src = lazy_operand(expr, arg.cls == ArgClass::Memory ? kSelectScratch : kNoReg);
+			src = lazy_operand(expr, arg.cls == ArgClass::Memory ? select_scratch_ : kNoReg);
 			address = true;
 		}
 		else if (v.kind == ValueKind::Temp)
@@ -695,12 +702,14 @@ void FunctionSelector::stage_call_arguments(const Instruction& inst, const lowir
 				src_type = move_type(body.temps[v.index].type);
 		}
 		else
-			src = rm_operand(v, type, kSelectScratch);
+			src = rm_operand(v, type, select_scratch_);
 		if (arg.cls == ArgClass::Memory)
 		{
 			const ArgPart& part = layout.parts[arg.first_part];
 			const Operand slot = Operand::make_mem(RSP, part.stack);
-			if (type.is_object())
+			if (i386_pair(type))
+				copy_i386_pair(slot, src);
+			else if (type.is_object())
 			{
 				Inst& mir = emit2(Op::CopyBytes, TypeKind::Void, slot, src);
 				mir.aux = part.size;
@@ -741,7 +750,10 @@ void FunctionSelector::stage_call_arguments(const Instruction& inst, const lowir
 			move.address = address;
 			if (memory_value && src.kind == OperandKind::Imm)
 			{
-				const int64_t bits = part.offset == 0 ? src.imm : src.imm_high;
+				const int64_t bits = i386_pair(type)
+					? static_cast<int32_t>(static_cast<uint64_t>(src.imm) >> (8 * part.offset))
+					: part.offset == 0 ? src.imm
+									   : src.imm_high;
 				move.src = Operand::make_imm(bits);
 				if (is_xmm(part.reg))
 				{
@@ -750,6 +762,8 @@ void FunctionSelector::stage_call_arguments(const Instruction& inst, const lowir
 					move.src = Operand::make_fimm(move.type, literal);
 				}
 			}
+			else if (i386_pair(type) && src.is_reg())
+				move.src = part.offset == 0 ? src : Operand::make_imm(0);
 			else if (memory_value)
 			{
 				move.src = src.displaced(static_cast<int32_t>(part.offset));
@@ -787,7 +801,7 @@ void FunctionSelector::stage_call_arguments(const Instruction& inst, const lowir
 		arg_mask |= 1u << RDI;
 		moves_.push_back(move);
 	}
-	if (sig->boundary.arity == ir_model::CAM_VARIADIC)
+	if (!i386_ && sig->boundary.arity == ir_model::CAM_VARIADIC)
 	{
 		Move move;
 		move.dst = Operand::make_reg(RAX);
@@ -835,8 +849,8 @@ void FunctionSelector::finish_call_arguments(bool scratch_target)
 	for (size_t k = 0; k < stack_constants_.size() && !scratch_target; ++k)
 	{
 		const Move& move = stack_constants_[k];
-		emit2(Op::Mov, TypeKind::Void, Operand::make_reg(kEmitScratch), move.src);
-		emit2(Op::Store, move.type, move.dst, Operand::make_reg(kEmitScratch));
+		emit2(Op::Mov, TypeKind::Void, Operand::make_reg(emit_scratch_), move.src);
+		emit2(Op::Store, move.type, move.dst, Operand::make_reg(emit_scratch_));
 	}
 }
 
@@ -860,7 +874,7 @@ void FunctionSelector::emit_call(uint32_t id)
 	// memory, 16-aligned).
 	call_argument_types(body, inst, *sig, params, arg_types_);
 	const CallLayout& layout = emission_layout(id, sig, true);
-	const uint32_t stack_bytes = align16(layout.stack_bytes);
+	const uint32_t stack_bytes = (layout.stack_bytes + stack_alignment_ - 1) & ~(stack_alignment_ - 1u);
 	const Operand rsp = Operand::make_reg(RSP);
 	// psABI 3.2.3: the argument area of an argument aligned beyond 16 bytes
 	// is aligned as it is (a callee's va_arg rounds the overflow area's
@@ -906,10 +920,10 @@ void FunctionSelector::emit_call(uint32_t id)
 		// An imported cell's address forms in the encoder scratch with the
 		// register arguments (the parallel moves keep it).
 		Move move;
-		move.dst = Operand::make_reg(kEmitScratch);
+		move.dst = Operand::make_reg(emit_scratch_);
 		move.src = symbol_operand(cell, cell_offset);
 		moves_.push_back(move);
-		target = Operand::make_mem(kEmitScratch, 0);
+		target = Operand::make_mem(emit_scratch_, 0);
 	}
 	else if (cell != kNoId)
 		target = Operand::make_symbol_mem(cell, cell_offset);
@@ -917,7 +931,7 @@ void FunctionSelector::emit_call(uint32_t id)
 		target = Operand::make_symbol(callee.index);
 	else
 	{
-		target = rm_operand(callee, Type::scalar(TypeKind::Ptr), kSelectScratch);
+		target = rm_operand(callee, Type::scalar(TypeKind::Ptr), select_scratch_);
 		bool overwritten = false;
 		for (size_t m = 0; m < moves_.size(); ++m)
 			if (target.uses_reg(moves_[m].dst.reg))
@@ -928,13 +942,13 @@ void FunctionSelector::emit_call(uint32_t id)
 		if (target.kind == OperandKind::Imm || target.kind == OperandKind::Symbol || overwritten)
 		{
 			Move move;
-			move.dst = Operand::make_reg(kEmitScratch);
+			move.dst = Operand::make_reg(emit_scratch_);
 			move.src = target;
 			moves_.push_back(move);
-			target = Operand::make_reg(kEmitScratch);
+			target = Operand::make_reg(emit_scratch_);
 		}
 	}
-	const bool scratch_target = target.uses_reg(kEmitScratch);
+	const bool scratch_target = target.uses_reg(emit_scratch_);
 	for (size_t k = 0; k < stack_constants_.size() && scratch_target; ++k)
 		emit_move(stack_constants_[k]);
 	parallel_moves(moves_);
@@ -1037,7 +1051,7 @@ void FunctionSelector::emit_call(uint32_t id)
 			// a retained parameter may now need its saved frame home.
 			release_dying(position_);
 			retire_dying();
-			const Operand dst = address_operand(copy->ops[1], kSelectScratch);
+			const Operand dst = address_operand(copy->ops[1], select_scratch_);
 			if (dst.kind == OperandKind::Mem)
 			{
 				for (uint32_t k = 0; k < layout.result_parts; ++k)
@@ -1084,7 +1098,7 @@ void FunctionSelector::emit_call(uint32_t id)
 	// A block-local result feeding one two-address operation goes to its home when
 	// the call's arguments occupy every general caller-saved register.
 	const uint32_t general = ((1u << R8) | (1u << R9) | (1u << RDI) | (1u << RSI)) & ~excluded_;
-	const uint32_t caller_saved = kCallerSavedGprs & kAllocatableGprs;
+	const uint32_t caller_saved = caller_saved_gprs_ & allocatable_gprs_;
 	if (t.greg == kNoReg && !(t.flags & TF_GLOBAL) && (t.forbid & caller_saved) != caller_saved &&
 		(general & ~arg_mask) == 0 && t.uses == 1 && t.user != kNoId && body.instructions[t.user].op == Opcode::Binary)
 	{
@@ -1108,7 +1122,7 @@ void FunctionSelector::emit_call(uint32_t id)
 	load_into(d, Operand::make_reg(RAX), TypeKind::I64);
 	bool byte_tested = false;
 	if (register_bytes(kind) == 1 && t.uses == 1 && t.user != kNoId && !(t.flags & (TF_GLOBAL | TF_HOMED)) &&
-		d != kSelectScratch && d != kEmitScratch)
+		d != select_scratch_ && d != emit_scratch_)
 	{
 		const Instruction& user = body.instructions[t.user];
 		// A widened alias can resolve to this result while its branch still
@@ -1273,7 +1287,25 @@ void FunctionSelector::emit_return(const Instruction& inst)
 	}
 	if (kind == TypeKind::F80)
 	{
-		emit1(Op::FRet, kind, rm_operand(v, type, kSelectScratch));
+		emit1(Op::FRet, kind, rm_operand(v, type, select_scratch_));
+		return;
+	}
+	if (i386_pair(type))
+	{
+		const Operand src = memory_value_operand(v, type);
+		const Operand low = Operand::make_reg(RAX), high = Operand::make_reg(RDX);
+		if (src.is_mem())
+		{
+			emit2(Op::Load, TypeKind::I32, low, src);
+			emit2(Op::Load, TypeKind::I32, high, src.displaced(4));
+		}
+		else
+		{
+			load_into(RAX, src, TypeKind::I32);
+			const uint64_t upper = src.is_imm() ? static_cast<uint64_t>(src.imm) >> 32 : 0;
+			load_into(RDX, Operand::make_imm(static_cast<int32_t>(upper)), TypeKind::I32);
+		}
+		emit(Op::Ret);
 		return;
 	}
 	if (kind == TypeKind::I128 && return_wide_parts(v))
@@ -1412,7 +1444,7 @@ void FunctionSelector::emit_return(const Instruction& inst)
 		emit(Op::Ret);
 		return;
 	}
-	const Operand src = rm_operand(v, type, kSelectScratch);
+	const Operand src = rm_operand(v, type, select_scratch_);
 	if (type.is_float() || type.is_vector())
 	{
 		if (src.kind == OperandKind::Reg)
@@ -1451,9 +1483,16 @@ void FunctionSelector::emit_return(const Instruction& inst)
 
 void FunctionSelector::emit_va_start(const Instruction& inst)
 {
-	if (va_save_area_ == 0)
+	if (!out_->variadic)
 		throw InternalError("va_start outside a variadic function");
-	const Operand list = address_operand(inst.ops[0], kSelectScratch);
+	const Operand list = address_operand(inst.ops[0], select_scratch_);
+	if (i386_)
+	{
+		const Operand cursor = Operand::make_reg(emit_scratch_);
+		emit2(Op::Lea, TypeKind::Ptr, cursor, Operand::make_frame(static_cast<int32_t>(8 + named_stack_)));
+		emit2(Op::Store, TypeKind::Ptr, list, cursor);
+		return;
+	}
 	Inst& mir = emit2(Op::VaStart, TypeKind::Void, list, Operand::make_frame(va_save_area_));
 	mir.aux = (8 * named_gprs_) | ((48 + 16 * named_xmms_) << 16);
 	mir.aux2 = 16 + named_stack_;
@@ -1592,7 +1631,7 @@ Move FunctionSelector::wide_word_move(Value value, Operand dst)
 		const TempInfo& t = temps_[value.index];
 		if ((t.flags & TF_LAZY) && t.addr != kNoId)
 		{
-			move.src = lazy_operand(addrs_[t.addr], dst.kind == OperandKind::Mem ? kEmitScratch : kNoReg);
+			move.src = lazy_operand(addrs_[t.addr], dst.kind == OperandKind::Mem ? emit_scratch_ : kNoReg);
 			move.address = true;
 		}
 		else
@@ -1694,7 +1733,7 @@ bool FunctionSelector::store_wide_parts(const Instruction& inst)
 	const WordPair* parts = wide_parts(inst.ops[0]);
 	if (parts == nullptr)
 		return false;
-	const Operand dst = address_operand(inst.ops[1], kSelectScratch);
+	const Operand dst = address_operand(inst.ops[1], select_scratch_);
 	emit_move(wide_word_move(parts->lo, dst));
 	emit_move(wide_word_move(parts->hi, dst.displaced(8)));
 	return true;

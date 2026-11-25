@@ -1011,7 +1011,7 @@ std::vector<Instruction> Parser::run()
 {
 	std::vector<Instruction> result;
 	uint8_t pending_prefix = 0;
-	uint8_t pending_segment = 0;
+	uint8_t pending_segment = 0, segment_count = 0;
 	while (pos_ < source_.size())
 	{
 		space();
@@ -1074,13 +1074,17 @@ std::vector<Instruction> Parser::run()
 		const uint8_t segment = inst.mnemonic.size() == 2 ? segment_prefix(inst.mnemonic[0], inst.mnemonic[1]) : 0;
 		if (segment != 0)
 		{
-			if (pending_segment != 0)
+			if (pending_segment != 0 && pending_segment != segment)
 				fail("conflicting assembly segment prefixes");
+			if (++segment_count == 15)
+				fail("too many assembly segment prefixes");
 			pending_segment = segment;
 			continue;
 		}
 		inst.prefix = pending_prefix;
 		inst.segment = pending_segment;
+		inst.segment_count = segment_count;
+		segment_count = 0;
 		pending_prefix = 0;
 		pending_segment = 0;
 		if (directive(inst))

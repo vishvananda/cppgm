@@ -24,7 +24,9 @@ enum class FixupKind : uint8_t
 	Got,
 	TpOff,
 	GotTpOff,
-	Tlv
+	Tlv,
+	I386Got,
+	I386GotPc
 };
 
 struct CodeFixup
@@ -112,6 +114,15 @@ public:
 	explicit Assembler(std::vector<uint8_t>& code) : code_(code) {}
 
 	std::vector<uint8_t>& code() { return code_; }
+	// Generated integer instructions use the target's natural word.
+	// The module assembler supplies its widths and prefixes explicitly.
+	void set_word_mode(unsigned bits) { word_mode_ = static_cast<uint8_t>(bits); }
+	unsigned word_mode() const { return word_mode_; }
+	void word_prefix()
+	{
+		if (word_mode_ == 16)
+			byte(0x66);
+	}
 	uint32_t size() const { return static_cast<uint32_t>(code_.size()); }
 	std::vector<CodeFixup>& fixups() { return fixups_; }
 	void record_strings(bool enabled) { record_strings_ = enabled; }
@@ -153,6 +164,8 @@ public:
 	// mov dst, [rip + symbol@GOTPCREL]: the address of the symbol's GOT
 	// entry's value (R_X86_64_REX_GOTPCRELX, psABI 4.4.1).
 	void mov_got(Reg dst, uint32_t symbol);
+	void i386_got(Reg dst, uint32_t table);
+	void i386_address(Reg dst, uint32_t symbol, int32_t addend, uint32_t table = kNoLabel);
 	// A thread-local object's address for the executing thread: local
 	// exec (mov dst, fs:0; add dst, symbol@tpoff + addend) for one the
 	// executable defines, initial exec (mov dst, [rip + symbol@gottpoff];
@@ -164,7 +177,8 @@ public:
 	void alu_rr(unsigned digit, Reg dst, const RM& src, unsigned bytes);       // dst op= src
 	void alu_mr(unsigned digit, const RM& dst, Reg src, unsigned bytes);       // [dst] op= src
 	void alu_ri(unsigned digit, const RM& dst, int64_t value, unsigned bytes); // value fits imm32
-	void test_ri(const RM& dst, int64_t value, unsigned bytes);                // value fits imm32
+	void test_rr(const RM& dst, Reg src, unsigned bytes);
+	void test_ri(const RM& dst, int64_t value, unsigned bytes); // value fits imm32
 	void shift_ri(unsigned digit, const RM& dst, unsigned count, unsigned bytes);
 	void shift_cl(unsigned digit, const RM& dst, unsigned bytes);
 	void unary(unsigned digit, const RM& dst, unsigned bytes); // F7 /digit
@@ -190,7 +204,11 @@ public:
 	void label_offset32(uint32_t label, uint32_t base);
 	void push(Reg reg);
 	void pop(Reg reg);
-	void ret() { byte(0xc3); }
+	void ret()
+	{
+		word_prefix();
+		byte(0xc3);
+	}
 	void bswap(Reg reg, bool wide);
 	// SSE scalar: prefix F3 (ss) or F2 (sd), 0F op.
 	void sse(uint8_t prefix, uint8_t opcode, Reg dst, const RM& src, bool rex_w = false);
@@ -199,6 +217,12 @@ public:
 	void x87(uint8_t opcode, unsigned digit, const RM& mem);
 
 private:
+	void exchange_word(Reg a, Reg b);
+	void byte_operation(uint8_t opcode, unsigned reg, RM operand, bool register_field, int64_t immediate = 0,
+		unsigned imm_bytes = 0, bool uses_cl = false);
+	unsigned word_width(unsigned bytes) const { return word_mode_ < 64 && bytes == 8 ? 4 : bytes; }
+	void op_bytes(uint8_t prefix, bool rex_w, uint32_t opcode, unsigned opcode_bytes, unsigned reg, const RM& rm,
+		bool byte_regs, unsigned imm_bytes);
 	void memory16(unsigned reg_field, const RM& rm);
 	void displacement32(const RM& rm);
 	struct LabelRef
@@ -216,6 +240,7 @@ private:
 	std::vector<LabelRef> label_refs_;
 	std::vector<CodeString> strings_;
 	bool record_strings_ = false;
+	uint8_t word_mode_ = 64;
 };
 
 inline bool fits_i8(int64_t v)

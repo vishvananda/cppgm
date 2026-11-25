@@ -47,6 +47,21 @@ FunctionEmitter::FunctionEmitter(Image& image, const RuntimeSymbols& runtime, Em
 	: image_(image), runtime_(runtime), stats_(stats), asm_(image.text())
 {}
 
+unsigned FunctionEmitter::operand_bytes(TypeKind kind) const
+{
+	return i386() && (kind == TypeKind::Ptr || kind == TypeKind::I64 || kind == TypeKind::Void) ? 4
+																								: register_bytes(kind);
+}
+
+void FunctionEmitter::generated_assembly(
+	const AssemblyPlan& plan, const RM& exit_frame, std::vector<uint32_t>* positions)
+{
+	const unsigned mode = asm_.word_mode();
+	asm_.set_word_mode(64);
+	encode_assembly(asm_, plan.instructions, exit_frame, positions);
+	asm_.set_word_mode(mode);
+}
+
 RM FunctionEmitter::rm(const Operand& op) const
 {
 	switch (op.kind)
@@ -101,7 +116,7 @@ int32_t FunctionEmitter::frame_base() const
 
 Reg FunctionEmitter::scratch(const Inst& inst, Reg avoid) const
 {
-	const Reg candidates[2] = { R11, R10 };
+	const Reg candidates[2] = { emit_scratch(), select_scratch() };
 	for (unsigned c = 0; c < 2; ++c)
 	{
 		bool used = candidates[c] == avoid;
@@ -260,7 +275,8 @@ bool FunctionEmitter::measure_short_loops(const Function& function)
 {
 	code_window_ = 1;
 	for (size_t i = 0; i < short_.size(); ++i)
-		relax_saved_[i + 1] = relax_saved_[i] + (short_[i] ? (branch_conditional_[i] ? 4 : 3) : 0);
+		relax_saved_[i + 1] = relax_saved_[i] +
+			(short_[i] ? (3 + branch_conditional_[i] + (asm_.word_mode() == 16)) : 0);
 	loop_bytes_.assign(loop_heads_.size(), 0);
 	bool any = false;
 	for (size_t k = 0; k < loop_heads_.size(); ++k)
@@ -286,7 +302,7 @@ bool FunctionEmitter::measure_short_loops(const Function& function)
 			const auto barrier = std::lower_bound(loop_barriers_.begin(), loop_barriers_.end(), loop_heads_[k]);
 			if (!loop_counted_[k] && barrier != loop_barriers_.end() && *barrier <= branch_offset_[last])
 				return 0;
-			const int32_t length = short_[last] ? 2 : (branch_conditional_[last] ? 6 : 5);
+			const int32_t length = short_[last] ? 2 : (5 + branch_conditional_[last] + (asm_.word_mode() == 16));
 			const int64_t bytes = branch_offset_[last] + length - relax_saved_[last] -
 				(loop_heads_[k] - relax_saved_[before]);
 			return bytes <= loop_limit_[k] ? static_cast<int32_t>(bytes) : 0;
@@ -449,7 +465,7 @@ void FunctionEmitter::emit(const Function& function)
 				for (const auto& inst : plan->instructions)
 					assembly_alignment = std::max(assembly_alignment, inst.alignment);
 		}
-	const uint32_t code_alignment = std::max(16u, assembly_alignment);
+	const uint32_t code_alignment = std::max(asm_.word_mode() == 16 ? 1u : 16u, assembly_alignment);
 	while (text.size() % code_alignment != 0)
 		text.push_back(0xcc);
 	base_ = text.size();
@@ -746,9 +762,9 @@ void FunctionEmitter::track_carries(const Function& function, uint32_t index, ui
 	const Reg source = inst.ops[1].reg;
 	drop_carries(kNoReg, offset);
 	bool source_written = false;
-	bool scratch_used = source == R11;
+	bool scratch_used = source == emit_scratch();
 	for (size_t k = 0; k < carries_.size(); ++k)
-		scratch_used = scratch_used || carries_[k].reg == R11;
+		scratch_used = scratch_used || carries_[k].reg == emit_scratch();
 	const uint32_t limit = index + kCarryWindow < end ? index + kCarryWindow : end;
 	for (uint32_t j = index + 1; j < limit; ++j)
 	{
@@ -762,7 +778,7 @@ void FunctionEmitter::track_carries(const Function& function, uint32_t index, ui
 			{
 				if (scratch_used)
 					return;
-				carry.reg = R11;
+				carry.reg = emit_scratch();
 				pending_copy_ = source;
 			}
 			carries_.push_back(carry);
@@ -774,7 +790,7 @@ void FunctionEmitter::track_carries(const Function& function, uint32_t index, ui
 		if (written_gpr(next) == source)
 			source_written = true;
 		for (unsigned k = 0; k < next.nops; ++k)
-			scratch_used = scratch_used || next.ops[k].uses_reg(R11);
+			scratch_used = scratch_used || next.ops[k].uses_reg(emit_scratch());
 	}
 }
 
@@ -966,7 +982,7 @@ void FunctionEmitter::encode(const Function& function)
 			instruction(function, inst, index, next == blocks && i + 1 == block.count);
 			if (pending_copy_ != kNoReg)
 			{
-				asm_.mov_rr(R11, pending_copy_);
+				asm_.mov_rr(emit_scratch(), pending_copy_);
 				pending_copy_ = kNoReg;
 			}
 		}
@@ -1007,7 +1023,7 @@ void FunctionEmitter::jump_table(const Inst& inst)
 	// The target forms in the index's own register when that is a scratch
 	// register, in the other scratch register otherwise (the index's
 	// register keeps its value).
-	const Reg target = idx == R10 || idx == R11 ? idx : scratch(inst, table);
+	const Reg target = idx == select_scratch() || idx == emit_scratch() ? idx : scratch(inst, table);
 	asm_.lea(table, at);
 	asm_.mov_load(target, RM::m(table, 0, idx, 4), 4, true);
 	asm_.alu_rr(0, target, RM::r(table), 8);
@@ -1064,11 +1080,20 @@ void FunctionEmitter::frame_reserve(const Function& function)
 	frame_top_ = static_cast<int32_t>(8 + 8 * saved + unwind_.reserve);
 }
 
+unsigned FunctionEmitter::i386_call_padding() const
+{
+	const unsigned alignment = code_options_.stack_alignment;
+	return i386() ? (alignment - 8u) & (alignment - 1u) : 0;
+}
+
 void FunctionEmitter::prologue(const Function& function)
 {
 	const uint32_t base = static_cast<uint32_t>(base_);
 	const Reg order[13] = { RBX, R12, R13, R14, R15, RBP, RCX, RDX, RSI, R8, R9, R10, R11 };
-	const unsigned registers = (function.preserve_mask & kCallerSavedGprs) != 0 ? 13 : 6;
+	const Reg legacy_order[] = { RBX, RSI, RDI };
+	const Reg* save_order = i386() ? legacy_order : order;
+	const uint32_t word = i386() ? 4 : 8;
+	const unsigned registers = i386() ? 3 : (function.preserve_mask & kCallerSavedGprs) != 0 ? 13 : 6;
 	const uint32_t saved = static_cast<uint32_t>(__builtin_popcount(function.preserve_mask));
 	// A shrink-wrapped function's later prologues record only where they
 	// are (the saves' registers and offsets are the first's).
@@ -1084,22 +1109,25 @@ void FunctionEmitter::prologue(const Function& function)
 		// The callee-saved registers fill the frame's bottom
 		// (preserve_offset = -stack_size, rbx lowest): the rest is reserved,
 		// then they are pushed from the highest (r15) down.
-		if (function.stack_size != 8 * saved)
-			asm_.alu_ri(5, RM::r(RSP), function.stack_size - 8 * saved, 8);
+		const uint32_t storage = function.stack_size + i386_call_padding() - word * saved;
+		if (storage != 0)
+			asm_.alu_ri(5, RM::r(RSP), storage, word);
 	}
 	// Without a frame pointer they are pushed first, from [virtual rbp]
 	// (CFA - 16) down, and the rest is reserved below them.
-	int32_t offset = omit_fp_ ? 8 : function.preserve_offset + static_cast<int32_t>(8 * saved);
+	int32_t offset = omit_fp_
+		? 8
+		: function.preserve_offset + static_cast<int32_t>(word * saved) - static_cast<int32_t>(i386_call_padding());
 	unsigned pushed = 0;
 	for (unsigned k = registers; k-- > 0;)
 	{
-		if (!(function.preserve_mask & (1u << order[k])))
+		if (!(function.preserve_mask & (1u << save_order[k])))
 			continue;
-		asm_.push(order[k]);
-		offset -= 8;
+		asm_.push(save_order[k]);
+		offset -= word;
 		at.save_end[pushed++] = asm_.size() - base;
 		if (eh_model_ == EhModel::Host && code_options_.unwind_tables && first)
-			unwind_.saves.push_back(UnwindFacts::Save{ asm_.size() - base, order[k], offset });
+			unwind_.saves.push_back(UnwindFacts::Save{ asm_.size() - base, save_order[k], offset });
 	}
 	if (omit_fp_)
 	{
@@ -1129,27 +1157,33 @@ void FunctionEmitter::prologue(const Function& function)
 uint32_t FunctionEmitter::epilogue_body(const Function& function, uint32_t* pop_end)
 {
 	const Reg order[13] = { RBX, R12, R13, R14, R15, RBP, RCX, RDX, RSI, R8, R9, R10, R11 };
-	const unsigned registers = (function.preserve_mask & kCallerSavedGprs) != 0 ? 13 : 6;
+	const Reg legacy_order[] = { RBX, RSI, RDI };
+	const Reg* save_order = i386() ? legacy_order : order;
+	const unsigned registers = i386() ? 3 : (function.preserve_mask & kCallerSavedGprs) != 0 ? 13 : 6;
 	if (function.preserve_mask != 0 && dynamic_stack_)
-		asm_.lea(RSP, RM::m(RBP, function.preserve_offset));
+		asm_.lea(RSP, RM::m(RBP, function.preserve_offset - static_cast<int32_t>(i386_call_padding())));
 	if (omit_fp_ && unwind_.reserve != 0)
 		asm_.alu_ri(0, RM::r(RSP), unwind_.reserve, 8);
 	uint32_t released = asm_.size() - static_cast<uint32_t>(base_);
 	unsigned pops = 0;
 	for (unsigned k = 0; k < registers; ++k)
-		if (function.preserve_mask & (1u << order[k]))
+		if (function.preserve_mask & (1u << save_order[k]))
 		{
-			asm_.pop(order[k]);
+			asm_.pop(save_order[k]);
 			pop_end[pops++] = asm_.size() - static_cast<uint32_t>(base_);
 		}
 	if (!omit_fp_)
 	{
 		// No storage or saves were reserved, so RSP already points at the
 		// saved RBP. Keep leave for dynamic stacks and user assembly.
-		if (function.stack_size == 0 && function.preserve_mask == 0 && !dynamic_stack_ && !function.assembly)
+		if (function.stack_size == 0 && function.preserve_mask == 0 && !dynamic_stack_ && !function.assembly &&
+			i386_call_padding() == 0)
 			asm_.pop(RBP);
 		else
+		{
+			asm_.word_prefix();
 			asm_.byte(0xc9); // leave
+		}
 		released = asm_.size() - static_cast<uint32_t>(base_);
 	}
 	return released;
@@ -1245,15 +1279,15 @@ void FunctionEmitter::tail_jump(const Function& function, const Inst& inst)
 {
 	const Operand& target = inst.ops[0];
 	if (target.kind == OperandKind::Reg)
-		asm_.mov_rr(R11, target.reg);
+		asm_.mov_rr(emit_scratch(), target.reg);
 	else if (target.kind == OperandKind::Mem)
-		asm_.mov_load(R11, rm(target), 8, false);
+		asm_.mov_load(emit_scratch(), rm(target), 8, false);
 	UnwindFacts::Epilogue ret;
 	ret.leave_end = epilogue_body(function, ret.pop_end);
 	if (target.kind == OperandKind::Symbol)
 		asm_.jmp_symbol(target.symbol);
 	else
-		ret.thunk_capture = indirect_transfer(RM::r(R11), false, true);
+		ret.thunk_capture = indirect_transfer(RM::r(emit_scratch()), false, true);
 	ret.ret_end = asm_.size() - static_cast<uint32_t>(base_);
 	unwind_.returns.push_back(ret);
 	if (!relax_pass_)
@@ -1316,7 +1350,7 @@ uint32_t FunctionEmitter::indirect_transfer(const RM& target, bool call, bool ta
 	}
 	// The explicit load uses the same reserved scratch as a tail jump.
 	// A call changes RSP before its thunk could read it.
-	const Reg reg = target.is_reg && target.reg != RSP ? target.reg : R11;
+	const Reg reg = target.is_reg && target.reg != RSP ? target.reg : emit_scratch();
 	if (!target.is_reg)
 		asm_.mov_load(reg, target, 8, false);
 	else if (reg != target.reg)
@@ -1342,7 +1376,11 @@ void FunctionEmitter::call(const Inst& inst)
 	const uint32_t begin = asm_.size() - static_cast<uint32_t>(base_);
 	const Operand& target = inst.ops[0];
 	if (target.kind == OperandKind::Symbol)
+	{
+		if (runtime_.i386_got != kNoLabel)
+			asm_.i386_got(RBX, runtime_.i386_got);
 		asm_.call_symbol(target.symbol);
+	}
 	else
 		indirect_transfer(rm(target), true);
 	if (done != 0xffffffffu)
@@ -1423,6 +1461,10 @@ void FunctionEmitter::mov(const Operand& a, const Operand& b, bool keep_flags)
 		move_imm(a.reg, b.imm, keep_flags);
 	else if (b.kind != OperandKind::Symbol)
 		throw InternalError("unsupported mov form");
+	else if (b.access == SymbolAccess::PcRelative)
+		asm_.i386_address(a.reg, b.symbol, b.disp);
+	else if (i386() && b.access == SymbolAccess::Got)
+		asm_.i386_address(a.reg, b.symbol, b.disp, runtime_.i386_got);
 	else if (b.access == SymbolAccess::Direct)
 		asm_.lea(a.reg, RM::rip(b.symbol, b.disp));
 	else if (image_.target == Target::MacOS &&
@@ -1481,21 +1523,21 @@ void FunctionEmitter::instruction(const Function& function, const Inst& inst, ui
 			if (!plan.instructions.empty())
 			{
 				std::vector<uint32_t> offsets;
-				encode_assembly(asm_, plan.instructions, rm(b), &offsets);
+				generated_assembly(plan, rm(b), &offsets);
 				for (uint32_t exit : plan.module_exit_targets)
 					module.exit_offsets.push_back(offsets[exit] - start);
 			}
 			inline_modules_.push_back(std::move(module));
 		}
 		else
-			encode_assembly(asm_, plan.instructions, inst.nops == 2 ? rm(b) : RM());
+			generated_assembly(plan, inst.nops == 2 ? rm(b) : RM());
 		break;
 	}
 	case Op::Mov:
 		mov(a, b, flags_read_after(function, index));
 		break;
 	case Op::Load:
-		asm_.mov_load(a.reg, rm(b), register_bytes(inst.type), signed_load(inst.type));
+		asm_.mov_load(a.reg, rm(b), operand_bytes(inst.type), signed_load(inst.type));
 		break;
 	case Op::Store:
 		store(inst);
@@ -1527,8 +1569,7 @@ void FunctionEmitter::instruction(const Function& function, const Inst& inst, ui
 		// One more or less is inc or dec, a byte shorter, where nothing reads
 		// the flags (those two leave the carry as it was).
 		if (b.kind == OperandKind::Imm && (b.imm == 1 || b.imm == -1) && !flags_read_after(function, index))
-			asm_.step(rm(a), (inst.op == Op::Sub) == (b.imm == 1),
-				inst.type == TypeKind::Void || inst.type == TypeKind::Ptr ? 8 : register_bytes(inst.type));
+			asm_.step(rm(a), (inst.op == Op::Sub) == (b.imm == 1), operand_bytes(inst.type));
 		else
 			alu(inst.op == Op::Add ? 0 : 5, inst);
 		argument_area(inst);
@@ -1564,23 +1605,23 @@ void FunctionEmitter::instruction(const Function& function, const Inst& inst, ui
 		asm_.unary(inst.op == Op::Neg ? 3 : 2, rm(a), inst.type == TypeKind::I32 || inst.type == TypeKind::U32 ? 4 : 8);
 		break;
 	case Op::Bswap:
-		if (register_bytes(inst.type) == 2)
+		if (operand_bytes(inst.type) == 2)
 			asm_.shift_ri(0, rm(a), 8, 2); // rol r16, 8
 		else
-			asm_.bswap(a.reg, register_bytes(inst.type) == 8);
+			asm_.bswap(a.reg, operand_bytes(inst.type) == 8);
 		break;
 	case Op::Popcnt:
-		asm_.op(0xf3, register_bytes(inst.type) == 8, 0x0fb8, 2, a.reg, rm(b));
+		asm_.op(0xf3, operand_bytes(inst.type) == 8, 0x0fb8, 2, a.reg, rm(b));
 		break;
 	case Op::Bsf:
 		// Count-trailing-zero lowering does not observe flags and permits
 		// any result for zero. REP BSF uses TZCNT where available, with
 		// the same nonzero result on older CPUs that ignore the prefix.
-		asm_.op(0xf3, register_bytes(inst.type) == 8, 0x0fbc, 2, a.reg, rm(b));
+		asm_.op(0xf3, operand_bytes(inst.type) == 8, 0x0fbc, 2, a.reg, rm(b));
 		break;
 	case Op::Bsr:
 	case Op::Cmov:
-		asm_.op(0, inst.op == Op::Cmov || register_bytes(inst.type) == 8,
+		asm_.op(0, inst.op == Op::Cmov || operand_bytes(inst.type) == 8,
 			inst.op == Op::Bsr ? 0x0fbd : 0x0f40u + (inst.sub & 15u), 2, a.reg, rm(b));
 		break;
 	case Op::Shl:
@@ -1597,16 +1638,18 @@ void FunctionEmitter::instruction(const Function& function, const Inst& inst, ui
 		asm_.movzx_rr8(a.reg, b.reg);
 		break;
 	case Op::Sext:
-		asm_.mov_load(a.reg, RM::r(inst.nops == 2 ? b.reg : a.reg), register_bytes(inst.type), true);
+		asm_.mov_load(a.reg, RM::r(inst.nops == 2 ? b.reg : a.reg), operand_bytes(inst.type), true);
 		break;
 	case Op::Zext:
 		if (inst.type == TypeKind::I1)
 			asm_.alu_ri(4, RM::r(a.reg), 1, 4);
 		else
-			asm_.mov_load(a.reg, RM::r(inst.nops == 2 ? b.reg : a.reg), register_bytes(inst.type), false);
+			asm_.mov_load(a.reg, RM::r(inst.nops == 2 ? b.reg : a.reg), operand_bytes(inst.type), false);
 		break;
 	case Op::Cqo:
-		if (inst.type != TypeKind::I32)
+		if (i386())
+			asm_.word_prefix();
+		else if (inst.type != TypeKind::I32)
 			asm_.byte(0x48);
 		asm_.byte(0x99);
 		break;
@@ -1698,7 +1741,7 @@ void FunctionEmitter::instruction(const Function& function, const Inst& inst, ui
 	case Op::Xchg:
 	case Op::LockCmpxchg:
 	{
-		const unsigned w = register_bytes(inst.type);
+		const unsigned w = operand_bytes(inst.type);
 		if (inst.op != Op::Xchg)
 			asm_.byte(0xf0);
 		const uint32_t opcode = inst.op == Op::Xchg
@@ -1713,11 +1756,11 @@ void FunctionEmitter::instruction(const Function& function, const Inst& inst, ui
 	case Op::LockAdd:
 		// (The selector passes a register or an immediate the instruction
 		// holds: nothing may come between the prefix and the add.)
-		if (b.kind == OperandKind::Imm && register_bytes(inst.type) == 8 && !fits_i32(b.imm))
+		if (b.kind == OperandKind::Imm && operand_bytes(inst.type) == 8 && !fits_i32(b.imm))
 			throw InternalError("lock_add immediate needs a register");
 		asm_.byte(0xf0);
 		if (b.kind == OperandKind::Imm && (b.imm == 1 || b.imm == -1))
-			asm_.step(rm(a), b.imm == -1, register_bytes(inst.type));
+			asm_.step(rm(a), b.imm == -1, operand_bytes(inst.type));
 		else
 			alu(0, inst);
 		break;
@@ -1791,7 +1834,7 @@ void FunctionEmitter::store(const Inst& inst)
 {
 	const Operand& dst = inst.ops[0];
 	const Operand& src = inst.ops[1];
-	const unsigned w = register_bytes(inst.type);
+	const unsigned w = operand_bytes(inst.type);
 	if (src.kind == OperandKind::Reg)
 	{
 		asm_.mov_store(rm(dst), src.reg, w);
@@ -1811,7 +1854,7 @@ void FunctionEmitter::alu(unsigned digit, const Inst& inst)
 {
 	const Operand& dst = inst.ops[0];
 	const Operand& src = inst.ops[1];
-	const unsigned w = (inst.type == TypeKind::Void || inst.type == TypeKind::Ptr) ? 8 : register_bytes(inst.type);
+	const unsigned w = operand_bytes(inst.type);
 	if (src.kind == OperandKind::Imm)
 	{
 		// An i64 AND whose mask clears the upper half is the 32-bit form.
@@ -1847,7 +1890,7 @@ void FunctionEmitter::bit_test(const Inst& inst)
 	const Operand& b = inst.ops[1];
 	// A 64-bit test of a mask below bit 31 sets the flags of its 32-bit form.
 	const bool low_mask = inst.op == Op::Test && b.kind == OperandKind::Imm && b.imm >= 0 && b.imm <= 0x7fffffffll;
-	const unsigned w = low_mask && register_bytes(inst.type) == 8 ? 4 : register_bytes(inst.type);
+	const unsigned w = low_mask && operand_bytes(inst.type) == 8 ? 4 : operand_bytes(inst.type);
 	const uint8_t prefix = w == 2 ? 0x66 : 0;
 	if (inst.op == Op::Bt)
 	{
@@ -1862,7 +1905,7 @@ void FunctionEmitter::bit_test(const Inst& inst)
 	}
 	if (b.kind == OperandKind::Reg)
 	{
-		asm_.op(prefix, w == 8, w == 1 ? 0x84 : 0x85, 1, b.reg, rm(a), w == 1);
+		asm_.test_rr(rm(a), b.reg, w);
 		return;
 	}
 	if (w < 8 || fits_i32(b.imm))
@@ -1879,12 +1922,12 @@ void FunctionEmitter::compare(const Inst& inst)
 {
 	const Operand& a = inst.ops[0];
 	const Operand& b = inst.ops[1];
-	const unsigned w = register_bytes(inst.type);
+	const unsigned w = operand_bytes(inst.type);
 	if (b.kind == OperandKind::Imm)
 	{
 		if (b.imm == 0 && a.kind == OperandKind::Reg)
 		{
-			asm_.op(w == 2 ? 0x66 : 0, w == 8, w == 1 ? 0x84 : 0x85, 1, a.reg, RM::r(a.reg), w == 1);
+			asm_.test_rr(RM::r(a.reg), a.reg, w);
 			return;
 		}
 		if (w < 8 || fits_i32(b.imm))
@@ -1910,7 +1953,7 @@ void FunctionEmitter::multiply(const Inst& inst)
 {
 	const Reg dst = inst.ops[0].reg;
 	const Operand& src = inst.ops[1];
-	const unsigned w = (inst.type == TypeKind::Void || inst.type == TypeKind::Ptr) ? 8 : register_bytes(inst.type);
+	const unsigned w = operand_bytes(inst.type);
 	if (inst.nops == 3)
 	{
 		asm_.imul_rri(dst, rm(src), static_cast<int32_t>(narrowed(inst.ops[2].imm, w)), w);

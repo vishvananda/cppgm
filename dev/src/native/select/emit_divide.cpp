@@ -155,7 +155,7 @@ void FunctionSelector::emit_divide_unsigned_shift(const Instruction& inst, uint6
 {
 	const TypeKind kind = inst.type.kind();
 	const bool remainder = is_remainder(static_cast<BinaryOp>(inst.sub));
-	const Operand a = rm_operand(inst.ops[0], inst.type, kSelectScratch);
+	const Operand a = rm_operand(inst.ops[0], inst.type, select_scratch_);
 	const Reg d = result_reg(inst, dying_reg(inst.ops[0]));
 	load_into(d, a, kind == TypeKind::Ptr ? TypeKind::Ptr : kind);
 	if (signed_integer(kind) && kind != TypeKind::I64)
@@ -189,17 +189,17 @@ void FunctionSelector::emit_divide_hardware(const Instruction& inst)
 	const bool unsigned_op = is_unsigned_op(op);
 	const bool remainder = is_remainder(op);
 	const bool word = word_divide_hardware(inst);
-	const Operand a = rm_operand(inst.ops[0], inst.type, kSelectScratch);
-	Operand b = rm_operand(inst.ops[1], inst.type, kEmitScratch);
+	const Operand a = rm_operand(inst.ops[0], inst.type, select_scratch_);
+	Operand b = rm_operand(inst.ops[1], inst.type, emit_scratch_);
 	const bool convert_a = !word && narrow_integer(kind) && (unsigned_op == signed_integer(kind));
 	if (b.kind == OperandKind::Imm || b.kind == OperandKind::Symbol ||
 		(b.kind == OperandKind::Mem && !word && (narrow_integer(kind) || convert_a)) ||
 		(convert_a && b.kind == OperandKind::Reg))
 	{
-		load_into(kEmitScratch, b, kind == TypeKind::Ptr ? TypeKind::Ptr : kind);
-		b = reg(kEmitScratch);
+		load_into(emit_scratch_, b, kind == TypeKind::Ptr ? TypeKind::Ptr : kind);
+		b = reg(emit_scratch_);
 		if (convert_a)
-			normalize(kEmitScratch, unsigned_op ? unsigned_of(kind) : signed_of(kind));
+			normalize(emit_scratch_, unsigned_op ? unsigned_of(kind) : signed_of(kind));
 	}
 	const Operand rax = reg(RAX);
 	if (a.kind == OperandKind::Mem)
@@ -235,13 +235,13 @@ Reg FunctionSelector::divide_dividend(const Instruction& inst)
 	const TypeKind kind = inst.type.kind();
 	const bool unsigned_op = is_unsigned_op(static_cast<BinaryOp>(inst.sub));
 	const bool convert = narrow_integer(kind) && (unsigned_op == signed_integer(kind));
-	const Operand a = rm_operand(inst.ops[0], inst.type, kSelectScratch);
+	const Operand a = rm_operand(inst.ops[0], inst.type, select_scratch_);
 	if (a.kind == OperandKind::Reg && !convert)
 		return a.reg;
-	load_into(kSelectScratch, a, kind == TypeKind::Ptr ? TypeKind::Ptr : kind);
+	load_into(select_scratch_, a, kind == TypeKind::Ptr ? TypeKind::Ptr : kind);
 	if (convert)
-		normalize(kSelectScratch, unsigned_op ? unsigned_of(kind) : signed_of(kind));
-	return kSelectScratch;
+		normalize(select_scratch_, unsigned_op ? unsigned_of(kind) : signed_of(kind));
+	return select_scratch_;
 }
 
 void FunctionSelector::emit_divide_constant(const Instruction& inst, DivideForm form, int64_t divisor)
@@ -253,7 +253,7 @@ void FunctionSelector::emit_divide_constant(const Instruction& inst, DivideForm 
 	Reg d = kNoReg;
 	if (form == DivideForm::SignedShift || form == DivideForm::Exact)
 	{
-		d = result_reg(inst, dying_reg(inst.ops[0]), kNoReg, x == kSelectScratch ? 1u << kSelectScratch : 0);
+		d = result_reg(inst, dying_reg(inst.ops[0]), kNoReg, x == select_scratch_ ? 1u << select_scratch_ : 0);
 		if (form == DivideForm::SignedShift)
 			emit_signed_shift_divide(x, d, divisor, is_remainder(op));
 		else
@@ -261,7 +261,8 @@ void FunctionSelector::emit_divide_constant(const Instruction& inst, DivideForm 
 	}
 	else
 	{
-		const bool word = narrow_integer(kind) && divisor > -(int64_t(1) << 31) && divisor < (int64_t(1) << 31);
+		const bool word = !i386_ && narrow_integer(kind) && divisor > -(int64_t(1) << 31) &&
+			divisor < (int64_t(1) << 31);
 		Reg from = kNoReg;
 		if (word)
 			from = emit_word_magic_divide(x, divisor, is_remainder(op), form == DivideForm::UnsignedMagic);
@@ -283,14 +284,15 @@ void FunctionSelector::emit_signed_shift_divide(Reg x, Reg d, int64_t divisor, b
 {
 	const uint64_t magnitude = divisor < 0 ? 0 - static_cast<uint64_t>(divisor) : static_cast<uint64_t>(divisor);
 	const unsigned k = log2_of(magnitude);
-	const Reg t = d != x ? d : (x == kEmitScratch ? kSelectScratch : kEmitScratch);
+	const unsigned bits = stack_word() * 8;
+	const Reg t = d != x ? d : (x == emit_scratch_ ? select_scratch_ : emit_scratch_);
 	emit2(Op::Mov, TypeKind::Void, reg(t), reg(x));
 	if (k == 1)
-		emit2(Op::Shr, TypeKind::I64, reg(t), imm(63));
+		emit2(Op::Shr, TypeKind::I64, reg(t), imm(bits - 1));
 	else
 	{
-		emit2(Op::Sar, TypeKind::I64, reg(t), imm(63));
-		emit2(Op::Shr, TypeKind::I64, reg(t), imm(64 - k));
+		emit2(Op::Sar, TypeKind::I64, reg(t), imm(bits - 1));
+		emit2(Op::Shr, TypeKind::I64, reg(t), imm(bits - k));
 	}
 	if (!remainder)
 	{
@@ -337,7 +339,7 @@ void FunctionSelector::emit_exact_divide(Reg x, Reg d, int64_t divisor)
 			emit2(Op::Imul, TypeKind::I64, reg(d), imm(inverse));
 		else
 		{
-			const Reg t = d == kEmitScratch ? kSelectScratch : kEmitScratch;
+			const Reg t = d == emit_scratch_ ? select_scratch_ : emit_scratch_;
 			emit2(Op::Mov, TypeKind::Void, reg(t), imm(inverse));
 			emit2(Op::Imul, TypeKind::I64, reg(d), reg(t));
 		}
@@ -354,8 +356,8 @@ Reg FunctionSelector::emit_magic_remainder(Reg x, Reg q, int64_t divisor)
 		emit2(Op::Imul, TypeKind::I64, reg(q), imm(divisor));
 	else
 	{
-		emit2(Op::Mov, TypeKind::Void, reg(kEmitScratch), imm(divisor));
-		emit2(Op::Imul, TypeKind::I64, reg(q), reg(kEmitScratch));
+		emit2(Op::Mov, TypeKind::Void, reg(emit_scratch_), imm(divisor));
+		emit2(Op::Imul, TypeKind::I64, reg(q), reg(emit_scratch_));
 	}
 	const Reg r = q == RDX ? RAX : RDX;
 	emit2(Op::Mov, TypeKind::Void, reg(r), reg(x));
@@ -367,18 +369,19 @@ Reg FunctionSelector::emit_magic_remainder(Reg x, Reg q, int64_t divisor)
 // remainder's) register, rax or rdx. x is in neither.
 Reg FunctionSelector::emit_unsigned_magic_divide(Reg x, int64_t divisor, bool remainder)
 {
-	machine::UnsignedMagic magic = machine::unsigned_magic(static_cast<uint64_t>(divisor));
+	const uint64_t d = static_cast<uint64_t>(divisor);
+	machine::UnsignedMagic magic = i386_ ? machine::unsigned_magic<32>(d) : machine::unsigned_magic(d);
 	emit2(Op::Mov, TypeKind::Void, reg(RAX), reg(x));
 	// An even divisor needing the 65-bit multiplier: the dividend's low zeros
 	// shifted out first leave a shorter dividend, which one fits.
-	const unsigned zeros = trailing_zeros(static_cast<uint64_t>(divisor));
-	if (magic.add && zeros != 0)
+	const unsigned zeros = trailing_zeros(d);
+	if (!i386_ && magic.add && zeros != 0)
 	{
-		magic = machine::narrow_unsigned_magic(static_cast<uint64_t>(divisor) >> zeros, 64 - zeros);
+		magic = machine::narrow_unsigned_magic(d >> zeros, 64 - zeros);
 		emit2(Op::Shr, TypeKind::I64, reg(RAX), imm(zeros));
 	}
-	emit2(Op::Mov, TypeKind::Void, reg(kEmitScratch), imm(static_cast<int64_t>(magic.multiplier)));
-	emit1(Op::MulWide, TypeKind::I64, reg(kEmitScratch));
+	emit2(Op::Mov, TypeKind::Void, reg(emit_scratch_), imm(static_cast<int64_t>(magic.multiplier)));
+	emit1(Op::MulWide, TypeKind::I64, reg(emit_scratch_));
 	Reg q = RDX;
 	if (!magic.add)
 	{
@@ -413,9 +416,9 @@ Reg FunctionSelector::emit_word_magic_divide(Reg x, int64_t divisor, bool remain
 		emit3(Op::Imul, TypeKind::I64, reg(RAX), reg(x), imm(static_cast<int64_t>(magic.multiplier)));
 	else
 	{
-		emit2(Op::Mov, TypeKind::Void, reg(kEmitScratch), imm(static_cast<int64_t>(magic.multiplier)));
+		emit2(Op::Mov, TypeKind::Void, reg(emit_scratch_), imm(static_cast<int64_t>(magic.multiplier)));
 		emit2(Op::Mov, TypeKind::Void, reg(RAX), reg(x));
-		emit2(Op::Imul, TypeKind::I64, reg(RAX), reg(kEmitScratch));
+		emit2(Op::Imul, TypeKind::I64, reg(RAX), reg(emit_scratch_));
 	}
 	Reg q = RAX;
 	if (unsigned_op)
@@ -436,10 +439,10 @@ Reg FunctionSelector::emit_word_magic_divide(Reg x, int64_t divisor, bool remain
 // Signed x / d (or x % d) by the magic multiplier: rax or rdx.
 Reg FunctionSelector::emit_signed_magic_divide(Reg x, int64_t divisor, bool remainder)
 {
-	const machine::SignedMagic magic = machine::signed_magic(divisor);
+	const machine::SignedMagic magic = i386_ ? machine::signed_magic<32>(divisor) : machine::signed_magic(divisor);
 	emit2(Op::Mov, TypeKind::Void, reg(RAX), reg(x));
-	emit2(Op::Mov, TypeKind::Void, reg(kEmitScratch), imm(magic.multiplier));
-	emit1(Op::ImulWide, TypeKind::I64, reg(kEmitScratch));
+	emit2(Op::Mov, TypeKind::Void, reg(emit_scratch_), imm(magic.multiplier));
+	emit1(Op::ImulWide, TypeKind::I64, reg(emit_scratch_));
 	if (divisor > 0 && magic.multiplier < 0)
 		emit2(Op::Add, TypeKind::I64, reg(RDX), reg(x));
 	else if (divisor < 0 && magic.multiplier > 0)
@@ -448,7 +451,7 @@ Reg FunctionSelector::emit_signed_magic_divide(Reg x, int64_t divisor, bool rema
 		emit2(Op::Sar, TypeKind::I64, reg(RDX), imm(magic.shift));
 	// Add one to a negative quotient (truncation toward zero).
 	emit2(Op::Mov, TypeKind::Void, reg(RAX), reg(RDX));
-	emit2(Op::Shr, TypeKind::I64, reg(RAX), imm(63));
+	emit2(Op::Shr, TypeKind::I64, reg(RAX), imm(stack_word() * 8 - 1));
 	emit2(Op::Add, TypeKind::I64, reg(RDX), reg(RAX));
 	return remainder ? emit_magic_remainder(x, RDX, divisor) : RDX;
 }

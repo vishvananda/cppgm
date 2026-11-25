@@ -70,6 +70,6 @@ std::vector<uint32_t> append_assembly_exits(AssemblyPlan& plan, const lowir::Ass
 
 std::shared_ptr<const AssemblyPlan> bind_assembly(const lowir::AssemblyModule& module, uint32_t definition,
 	const lowir::FunctionBody& body, const std::vector<lowir::Value>& arguments, AssemblyEnvironment& environment,
-	Target target, const lowir::Program* kernel_memory);
+	Target target, const lowir::Program* kernel_memory, bool code16gcc = false);
 
 } // namespace native

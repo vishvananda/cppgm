@@ -1,8 +1,9 @@
 # CPPGM Programming Assignment 40 — i386 Linux backend (experimental)
 
 Add the 32-bit x86 Linux target after PA29, PA33, PA34, and PA38. The
-target uses little-endian ELF32 and the i386 System V ABI. Select the
-target with `--target=i386-linux-gnu` or `-m32`. Use the same data
+target uses little-endian ELF32 and the i386 System V ABI. The
+assignment covers the freestanding integer C and assembly needed by Linux's
+32-bit compatibility vDSO and real-mode boot code. Select the target with `--target=i386-linux-gnu` or `-m32`. Use the same data
 layout for type checking, LowIR, and object emission. Pointers, `int`,
 and `long` are four bytes. `long long` and `double` are eight bytes
 with four-byte scalar alignment. `long double` stores an 80-bit x87
@@ -24,10 +25,10 @@ value in 12 bytes with four-byte alignment.
    Variadic calls use stack arguments. Use the same classifier to assign
    arguments at a call site and at function entry. Check the stack boundary
    independently of the number of bytes used for an argument.
-3. Add position-independent addressing and ELF32 unwind tables.
-   Compile the Linux compat vDSO with `-m32` and link it with the kernel's
-   linker script. Keep the shared LowIR optimization passes and use the
-   existing x86 analyses for liveness and placement.
+3. Emit position-independent ELF32 calls and data references. Link the
+   Linux compat vDSO with its own linker script and check for text and
+   dynamic relocations. Keep the shared LowIR optimization passes and
+   use the existing x86 analyses for liveness and placement.
 4. Add the `-m16` code mode for kernel boot. C keeps the i386 data model
    and uses 32-bit stack operations and calls with real-mode instruction
    prefixes. The boot setup build uses `-mregparm=3` and
@@ -36,6 +37,7 @@ value in 12 bytes with four-byte alignment.
    assembly representation for `.code16`, `.code32`, and `.code64`
    transitions. Link the setup code and real-mode
    objects with the same ELF32 writer and linker used for `-m32`.
+   Compile the setup code with `-Os` so it fits the kernel's 32 KiB limit.
 
 ### Run the checks
 
@@ -52,4 +54,6 @@ For the full build, use a Linux x86-64 configuration with
 directory with `CC='cppgm -fintegrated-as'` for every target object.
 Host build tools and the external ELF linker can come from the platform
 toolchain. Boot the resulting `bzImage` into userspace under QEMU and
-verify a 32-bit program can use the compat vDSO.
+verify a 32-bit program can use the compat vDSO. Compare
+`__vdso_clock_gettime64` with the clock system call and check that
+`__vdso_gettimeofday` returns a microsecond field below one million.

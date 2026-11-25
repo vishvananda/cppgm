@@ -107,6 +107,7 @@ bool parse_inline_limit(const std::string& text, InlineLimits& limits);
 
 // Optimizes a valid program in place at options.level.
 void optimize_program(lowir::Program& program, const OptimizerOptions& options, OptimizerStats* stats);
+void legalize_i386_word_pairs(lowir::Program& program, lowir::SymbolId symbol);
 
 // One `pa33_opt_stats` line of the counters.
 std::string describe_stats(const OptimizerStats& stats);

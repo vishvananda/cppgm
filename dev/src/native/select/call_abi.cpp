@@ -295,4 +295,48 @@ void classify_call(
 		classify_one(params[i], classes != nullptr ? classes[i] : 0, layout);
 }
 
+void classify_i386_call(const Type* params, uint32_t count, Type result, uint8_t regparm, CallLayout& layout)
+{
+	layout.sret = false;
+	layout.args.clear();
+	layout.parts.clear();
+	layout.stack_bytes = 0;
+	layout.stack_align = 4;
+	layout.gprs = 0;
+	layout.xmms = 0;
+	layout.result_parts = 0;
+	layout.result = result.is_void() ? ArgClass::None : ArgClass::Gpr;
+	if (!result.is_void())
+	{
+		layout.result_parts = value_bytes(result) > 4 ? 2 : 1;
+		layout.result_part[0] = ArgPart{ RAX, 0, 0, 4 };
+		layout.result_part[1] = ArgPart{ RDX, 0, 4, 4 };
+	}
+	const Reg registers[] = { RAX, RDX, RCX };
+	for (uint32_t i = 0; i < count; ++i)
+	{
+		const Type param = params[i];
+		const uint32_t bytes = param.kind() == TypeKind::F80 ? 12 : value_bytes(param);
+		ArgLayout arg = { ArgClass::Memory, static_cast<uint32_t>(layout.parts.size()), 1 };
+		const uint32_t words = align_up(bytes, 4) / 4;
+		if ((param.is_integer() || param.is_pointer()) && words <= regparm - layout.gprs)
+		{
+			arg.cls = ArgClass::Gpr;
+			arg.part_count = words;
+			for (uint32_t word = 0; word < words; ++word)
+				add_part(layout, registers[layout.gprs++], 0, word * 4, bytes < 4 ? bytes : 4);
+		}
+		else
+		{
+			// Each word that would straddle the register/stack boundary
+			// goes entirely on the stack. Later arguments also use it.
+			if (param.is_integer() || param.is_pointer())
+				regparm = static_cast<uint8_t>(layout.gprs);
+			add_part(layout, kNoReg, static_cast<int32_t>(layout.stack_bytes), 0, bytes);
+			layout.stack_bytes += words * 4;
+		}
+		layout.args.push_back(arg);
+	}
+}
+
 } // namespace native

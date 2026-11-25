@@ -86,6 +86,7 @@ public:
 	void set_eh_model(EhModel model);
 	void set_position_independent(bool enabled);
 	void set_target(Target target);
+	void set_i386_abi(uint8_t regparm, uint8_t stack_alignment, bool code16gcc);
 	void set_sse2(bool enabled);
 	void set_jump_tables(bool enabled);
 	void set_kernel_model(bool enabled);

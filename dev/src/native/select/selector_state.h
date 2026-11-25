@@ -27,6 +27,15 @@ struct WordKeyHash
 
 struct SelectorState
 {
+	bool i386_ = false;
+	bool code16gcc_ = false;
+	uint8_t regparm_ = 0;
+	uint8_t stack_alignment_ = 16;
+	Reg select_scratch_ = kSelectScratch;
+	Reg emit_scratch_ = kEmitScratch;
+	uint32_t allocatable_gprs_ = kAllocatableGprs;
+	uint32_t callee_saved_gprs_ = kCalleeSavedGprs;
+	uint32_t caller_saved_gprs_ = kCallerSavedGprs;
 	const lowir::FunctionBody* body_ = nullptr;
 	const lowir::Signature* signature_ = nullptr;
 	lowir::SymbolId symbol_ = lowir::kNoId;

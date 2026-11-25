@@ -18,14 +18,15 @@ unsigned width(lowir::Type type, RegisterBank bank)
 		return wide_assembly_operand(type) ? type.bytes * 8 : 128;
 	if (type.is_object())
 		return type.bytes * 8;
-	return type.is_vector()                                        ? 128
-		: type.kind() == lowir::TypeKind::F32                      ? 32
-		: type.kind() == lowir::TypeKind::F64 || type.is_pointer() ? 64
-																   : std::max(8u, lowir::integer_bits(type.kind()));
+	return type.is_vector()                   ? 128
+		: type.kind() == lowir::TypeKind::F32 ? 32
+		: type.is_pointer()                   ? 8 * type.pointer_bytes()
+		: type.kind() == lowir::TypeKind::F64 ? 64
+											  : std::max(8u, lowir::integer_bits(type.kind()));
 }
 
-uint64_t register_domain(
-	const lowir::AssemblyModule& module, const lowir::AssemblyOperand& operand, const Alternative& alt)
+uint64_t register_domain(const lowir::AssemblyModule& module, const lowir::AssemblyOperand& operand,
+	const Alternative& alt, bool i386, uint64_t clobbers, Reg& primary, Reg& secondary)
 {
 	const bool integer_object = integer_assembly_object(operand.type) != lowir::TypeKind::Void;
 	if ((operand.type.is_object() && !wide_assembly_operand(operand.type) && !integer_object) ||
@@ -45,13 +46,27 @@ uint64_t register_domain(
 	for (uint32_t i = 0; i < alt.group_count; ++i)
 	{
 		const RegisterGroup& group = module.groups[alt.first_group + i];
+		if (i386 && group.register_count == 2 && operand.type.kind() == lowir::TypeKind::I64)
+		{
+			const Reg low = assembly_register_key(module.registers[group.first_register]);
+			const Reg high = assembly_register_key(module.registers[group.first_register + 1]);
+			if (low < 8 && high < 8 && low != high && low != RSP && high != RSP && low != RBP && high != RBP &&
+				(clobbers & (assembly_register_bit(low) | assembly_register_bit(high))) == 0)
+			{
+				primary = low;
+				secondary = high;
+				mask |= assembly_register_bit(low);
+			}
+			continue;
+		}
 		if (group.register_count != 1)
 			continue;
 		const Register& reg = module.registers[group.first_register];
 		const Reg r = assembly_register_key(reg);
 		if (reg.offset != 0 || r == kNoReg ||
 			(reg.bank == RegisterBank::Gpr &&
-				(operand.type.is_vector() || (operand.type.is_object() && !integer_object))) ||
+				(operand.type.is_vector() || (i386 && operand.type.kind() == lowir::TypeKind::I64) ||
+					(operand.type.is_object() && !integer_object))) ||
 			(reg.bank != RegisterBank::Gpr && integer_object) ||
 			(reg.bank == RegisterBank::Mask && !operand.type.is_integer()) ||
 			(reg.bits != 0 && reg.bits != width(operand.type, reg.bank)))
@@ -128,7 +143,17 @@ struct Group
 	bool label = false;
 	uint8_t location = 0;
 	Reg assigned = kNoReg;
+	Reg pair_low = kNoReg;
+	Reg pair_high = kNoReg;
 };
+
+uint64_t assigned_units(const Group& group)
+{
+	uint64_t units = assembly_register_bit(group.assigned);
+	if (group.location == AL_REGISTER && group.assigned == group.pair_low)
+		units |= assembly_register_bit(group.pair_high);
+	return units;
+}
 
 uint8_t access(const Group& group)
 {
@@ -144,9 +169,15 @@ bool conflict(const Group& a, const Group& b)
 
 uint64_t available(const std::vector<Group>& groups, uint32_t index, uint64_t mask)
 {
+	const Group& candidate = groups[index];
+	uint64_t used = 0;
 	for (uint32_t j = 0; j < groups.size(); ++j)
-		if (groups[j].assigned != kNoReg && conflict(groups[index], groups[j]))
-			mask &= ~assembly_register_bit(groups[j].assigned);
+		if (groups[j].assigned != kNoReg && conflict(candidate, groups[j]))
+			used |= assigned_units(groups[j]);
+	mask &= ~used;
+	if (candidate.location == AL_REGISTER && candidate.pair_high != kNoReg &&
+		(used & assembly_register_bit(candidate.pair_high)) != 0)
+		mask &= ~assembly_register_bit(candidate.pair_low);
 	return mask;
 }
 
@@ -204,6 +235,7 @@ bool column(const lowir::AssemblyModule& module, const lowir::AssemblyTemplate& 
 	uint64_t clobbers, const lowir::FunctionBody& body, const std::vector<lowir::Value>& arguments,
 	const lowir::Program* kernel_memory, AssemblyBinding& result, const std::vector<uint32_t>& sources, uint32_t& work)
 {
+	const uint64_t usable = body.pointer_bytes == 4 ? (uint64_t(0xff) << XMM0) | 0xcfu : ~uint64_t(0);
 	std::vector<uint32_t> roots(definition.operand_count), vertices(definition.operand_count, asm_model::kNoId);
 	std::vector<uint8_t> matched(definition.operand_count, 0);
 	result.constants.assign(definition.operand_count, lowir::Literal{});
@@ -245,7 +277,9 @@ bool column(const lowir::AssemblyModule& module, const lowir::AssemblyTemplate& 
 			group.label = true;
 			continue;
 		}
-		group.registers &= register_domain(module, op, alt) & ~clobbers;
+		group.registers &= register_domain(
+							   module, op, alt, body.pointer_bytes == 4, clobbers, group.pair_low, group.pair_high) &
+			usable & ~clobbers;
 		group.access |= op.flags & (AO_READ | AO_WRITE);
 		group.early |= alt.early_write;
 		if (!matched[root])
@@ -257,7 +291,7 @@ bool column(const lowir::AssemblyModule& module, const lowir::AssemblyTemplate& 
 				((op.flags & AO_READ) == 0 && op.output != asm_model::kNoId);
 			if ((alt.locations & AL_MEMORY) != 0 && (op.flags & AO_NO_MEMORY) == 0 && address)
 			{
-				group.addresses = 0xffcfu & ~clobbers;
+				group.addresses = 0xffcfu & usable & ~clobbers;
 				if (kernel_memory != nullptr)
 				{
 					const uint32_t input = source.input_storage ? source.input : op.output;
@@ -289,6 +323,7 @@ bool column(const lowir::AssemblyModule& module, const lowir::AssemblyTemplate& 
 	if (!search(groups, pending, work))
 		return false;
 	result.registers.assign(definition.operand_count, kNoReg);
+	result.second_registers.clear();
 	result.locations.assign(definition.operand_count, 0);
 	for (uint32_t i = 0; i < definition.operand_count; ++i)
 		if (vertices[roots[i]] != asm_model::kNoId)
@@ -296,6 +331,12 @@ bool column(const lowir::AssemblyModule& module, const lowir::AssemblyTemplate& 
 			const Group& group = groups[vertices[roots[i]]];
 			result.registers[i] = group.assigned;
 			result.locations[i] = group.location;
+			if (group.location == AL_REGISTER && group.pair_high != kNoReg && group.assigned == group.pair_low)
+			{
+				if (result.second_registers.empty())
+					result.second_registers.assign(definition.operand_count, kNoReg);
+				result.second_registers[i] = group.pair_high;
+			}
 		}
 	result.sources = sources;
 	return true;

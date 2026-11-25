@@ -39,8 +39,8 @@ Operand FunctionSelector::wide_assembly_input(const lowir::AssemblyOperand& oper
 		value, operand.input_storage ? lowir::Type::scalar(TypeKind::Ptr) : operand.type);
 	if (operand.input_storage)
 	{
-		load_into(R10, source, TypeKind::Ptr);
-		source = Operand::make_mem(R10, 0);
+		load_into(select_scratch_, source, TypeKind::Ptr);
+		source = Operand::make_mem(select_scratch_, 0);
 	}
 	if (source.kind != OperandKind::Mem)
 		throw BackendError("wide assembly input requires stored bytes");

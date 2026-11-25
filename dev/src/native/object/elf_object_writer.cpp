@@ -129,6 +129,10 @@ I386Relocation i386_relocation(uint32_t type)
 		return { 2, 4 }; // R_386_PC32
 	case R_X86_64_PLT32:
 		return { 4, 4 }; // R_386_PLT32
+	case R_I386_GOT:
+		return { 3, 4 }; // R_386_GOT32
+	case R_I386_GOTPC:
+		return { 10, 4 }; // R_386_GOTPC
 	case R_X86_64_16:
 		return { 20, 2 }; // R_386_16
 	case R_X86_64_PC16:

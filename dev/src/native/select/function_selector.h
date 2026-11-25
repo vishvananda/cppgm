@@ -40,6 +40,21 @@ public:
 	void set_eh_model(EhModel model) { eh_model_ = model; }
 	void set_position_independent(bool enabled) { position_independent_ = enabled; }
 	void set_target(Target target) { assembly_target_ = target; }
+	void set_i386_abi(uint8_t regparm, uint8_t stack_alignment, bool code16gcc)
+	{
+		i386_ = true;
+		code16gcc_ = code16gcc;
+		regparm_ = regparm;
+		stack_alignment_ = stack_alignment;
+		select_scratch_ = RBX;
+		emit_scratch_ = RDI;
+		caller_saved_gprs_ = (1u << RAX) | (1u << RCX) | (1u << RDX);
+		allocatable_gprs_ = caller_saved_gprs_ | (1u << RSI);
+		callee_saved_gprs_ = (1u << RBX) | (1u << RSI) | (1u << RDI);
+	}
+	uint32_t stack_word() const { return i386_ ? 4 : 8; }
+	bool i386_pair(lowir::Type type) const { return i386_ && type.kind() == lowir::TypeKind::I64; }
+	void copy_i386_pair(const Operand& to, const Operand& from);
 	void set_sse2(bool enabled) { sse2_ = enabled; }
 	void set_jump_tables(bool enabled) { jump_tables_ = enabled; }
 	void set_kernel_model(bool enabled) { kernel_model_ = enabled; }
@@ -90,6 +105,9 @@ public:
 
 	const std::shared_ptr<const AssemblyPlan>& assembly_plan(const lowir::Instruction& inst) const;
 	void emit_assembly(const lowir::Instruction& inst);
+	void emit_assembly_effect(const std::shared_ptr<const AssemblyPlan>& plan, int32_t exit);
+	bool direct_assembly(const lowir::Instruction& inst, const std::shared_ptr<const AssemblyPlan>& plan);
+	Operand fixed_assembly_address(lowir::Value value) const;
 	Operand assembly_input(const lowir::AssemblyOperand& operand, lowir::Value value, Reg reg, bool memory);
 	Operand wide_assembly_input(const lowir::AssemblyOperand& operand, lowir::Value value);
 	void assembly_transfer(Reg reg, const Operand& memory, bool store, unsigned bytes);
@@ -203,6 +221,7 @@ public:
 	bool hull_ends(uint32_t temp, int32_t pos) const;
 	void note_hull_last_uses(uint32_t block);
 	void finish_frame();
+	uint32_t i386_frame_saves() const;
 
 	// ---- operands.cpp
 	SymbolAccess symbol_access(uint32_t symbol) const;
@@ -214,7 +233,8 @@ public:
 	Operand lazy_operand(const AddrExpr& expr, Reg scratch, Reg spare = kNoReg);
 	Operand frame_home_operand(int32_t home, int64_t displacement = 0) const;
 	Reg temp_reg_or_load(uint32_t temp, Reg scratch);
-	Operand temp_location(uint32_t temp, Reg scratch = kSelectScratch);
+	Operand temp_location(uint32_t temp, Reg scratch);
+	Operand temp_location(uint32_t temp) { return temp_location(temp, select_scratch_); }
 	Operand imm_for(lowir::Value value, lowir::Type type) const;
 	Operand memory_value_operand(lowir::Value value, lowir::Type type);
 	bool fits_imm32(const Operand& op) const;

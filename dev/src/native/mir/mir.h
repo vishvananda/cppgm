@@ -123,6 +123,7 @@ struct Function
 	lowir::Type return_type;
 	AbiPart return_parts[2];
 	uint8_t return_part_count = 0;
+	uint8_t word_bytes = 8;
 	uint32_t stack_size = 0;
 	uint32_t scratch_bytes = 0;
 	int32_t scratch_offset = 0;
@@ -191,6 +192,7 @@ struct Function
 		params.clear();
 		parts.clear();
 		return_part_count = 0;
+		word_bytes = 8;
 		stack_size = scratch_bytes = 0;
 		scratch_offset = 0;
 		preserve_mask = 0;

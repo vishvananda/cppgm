@@ -3,6 +3,7 @@
 #include <stdexcept>
 
 #include "native/mir/type_kinds.h"
+#include "native/backend_error.h"
 #include "native/runtime/eh_record.h"
 #include "native/select/bulk_policy.h"
 
@@ -160,6 +161,8 @@ void FunctionEmitter::copy_bytes(const Inst& inst)
 	if (inst.flags & MF_COPY_DYNAMIC)
 	{
 		asm_.mov_rr(RCX, RDX);
+		if (asm_.word_mode() == 16)
+			asm_.byte(0x67);
 		asm_.byte(0xf3); // rep movsb
 		asm_.byte(0xa4);
 		return;
@@ -174,7 +177,10 @@ void FunctionEmitter::copy_bytes(const Inst& inst)
 		RM to = location(dst);
 		RM from = location(src);
 		uint32_t offset = 0;
-		const unsigned limit = !code_options_.sse2 ? 8 : function_->wide_bulk ? copy_chunk_limit(src, bytes) : 16;
+		const unsigned limit = i386() ? 4
+			: !code_options_.sse2     ? 8
+			: function_->wide_bulk    ? copy_chunk_limit(src, bytes)
+									  : 16;
 		const Reg x = limit >= 16 ? bulk_register() : kNoReg;
 		while (limit >= 16 && bytes - offset >= 16)
 		{
@@ -186,7 +192,7 @@ void FunctionEmitter::copy_bytes(const Inst& inst)
 		if (offset == bytes)
 			return;
 		Reg s = kNoReg;
-		const Reg candidates[2] = { R11, R10 };
+		const Reg candidates[2] = { emit_scratch(), select_scratch() };
 		for (unsigned c = 0; c < 2 && s == kNoReg; ++c)
 			if (!to.uses(candidates[c]) && !from.uses(candidates[c]))
 				s = candidates[c];
@@ -203,9 +209,9 @@ void FunctionEmitter::copy_bytes(const Inst& inst)
 					s = spares[c];
 			asm_.push(s);
 			if (to.base == RSP)
-				to.disp += 8;
+				to.disp += i386() ? 4 : 8;
 			if (from.base == RSP)
-				from.disp += 8;
+				from.disp += i386() ? 4 : 8;
 		}
 		const unsigned widths[4] = { 8, 4, 2, 1 };
 		for (unsigned k = 0; k < 4; ++k)
@@ -241,6 +247,8 @@ void FunctionEmitter::copy_bytes(const Inst& inst)
 		asm_.mov_rr(RDI, RCX);
 	}
 	asm_.mov_ri(RCX, bytes);
+	if (asm_.word_mode() == 16)
+		asm_.byte(0x67);
 	asm_.byte(0xf3);
 	asm_.byte(0xa4);
 }
@@ -250,7 +258,7 @@ void FunctionEmitter::zero_bytes(const Inst& inst)
 	const uint32_t bytes = inst.aux;
 	const Operand& dst = inst.ops[0];
 	const RM to = dst.kind == OperandKind::Reg ? RM::m(dst.reg, 0) : rm(dst);
-	if ((bytes == 16 || (function_->wide_bulk && bytes > 16 && bytes <= 256)) && code_options_.sse2)
+	if (!i386() && (bytes == 16 || (function_->wide_bulk && bytes > 16 && bytes <= 256)) && code_options_.sse2)
 	{
 		// 16-byte chunks of a cleared XMM register, then scalar stores.
 		const Reg x = bulk_register();
@@ -271,7 +279,7 @@ void FunctionEmitter::zero_bytes(const Inst& inst)
 		uint32_t offset = 0;
 		const unsigned widths[4] = { 8, 4, 2, 1 };
 		for (unsigned k = 0; k < 4; ++k)
-			while (bytes - offset >= widths[k] && direct <= setup)
+			while (bytes - offset >= widths[k] && direct <= setup && widths[k] <= (i386() ? 4u : 8u))
 			{
 				// Once direct stores exceed the string-operation setup, no
 				// remaining store can change the choice. Bound this estimate
@@ -285,7 +293,7 @@ void FunctionEmitter::zero_bytes(const Inst& inst)
 		uint32_t offset = 0;
 		const unsigned widths[4] = { 8, 4, 2, 1 };
 		for (unsigned k = 0; k < 4; ++k)
-			while (bytes - offset >= widths[k])
+			while (bytes - offset >= widths[k] && widths[k] <= (i386() ? 4u : 8u))
 			{
 				asm_.mov_store_imm(to.displaced(static_cast<int32_t>(offset)), 0, widths[k]);
 				offset += widths[k];
@@ -295,6 +303,8 @@ void FunctionEmitter::zero_bytes(const Inst& inst)
 	address_into(RDI, dst);
 	asm_.op(0, false, 0x33, 1, RAX, RM::r(RAX)); // xor eax, eax
 	asm_.mov_ri(RCX, bytes);
+	if (asm_.word_mode() == 16)
+		asm_.byte(0x67);
 	asm_.byte(0xf3);
 	asm_.byte(0xaa);
 }
@@ -619,6 +629,31 @@ void FunctionEmitter::cmpxchg16b(const Inst& inst)
 
 void FunctionEmitter::variadic_argument(const Inst& inst)
 {
+	if (i386())
+	{
+		const RM list = rm(inst.ops[1]);
+		const Reg cursor = list.uses(select_scratch()) ? emit_scratch() : select_scratch();
+		if (list.uses(cursor))
+			throw BackendError("unsupported i386 variadic argument storage");
+		const bool pair = inst.type == TypeKind::I64;
+		const unsigned bytes = pair ? 8 : operand_bytes(inst.type);
+		asm_.mov_load(cursor, list, 4, false);
+		asm_.alu_ri(0, list, (bytes + 3) & ~3u, 4);
+		if (pair)
+		{
+			Inst copy;
+			copy.op = Op::CopyBytes;
+			copy.nops = 2;
+			copy.aux = 8;
+			copy.aux2 = 4;
+			copy.ops[0] = inst.ops[0];
+			copy.ops[1] = Operand::make_reg(cursor);
+			copy_bytes(copy);
+		}
+		else
+			asm_.mov_load(inst.ops[0].reg, RM::m(cursor, 0), bytes, signed_integer(inst.type));
+		return;
+	}
 	if (inst.type == TypeKind::Obj)
 	{
 		va_arg_object(inst);

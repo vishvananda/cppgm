@@ -18,6 +18,8 @@
 // that encodes every branch whose rel8 form provably fits.
 namespace native {
 
+struct AssemblyPlan;
+
 // Image symbols of the runtime the emitted code refers to.
 struct RuntimeSymbols
 {
@@ -31,6 +33,7 @@ struct RuntimeSymbols
 	uint32_t eh_catch = 0;
 	// The host model's _Unwind_Resume.
 	uint32_t unwind_resume = 0;
+	uint32_t i386_got = kNoLabel;
 	// One external __x86_indirect_thunk_* symbol for each GPR, in order.
 	uint32_t indirect_thunk_base = 0;
 	// Darwin TLV lookup with a private ABI: r11 in/out, all other state preserved.
@@ -133,6 +136,8 @@ struct X86CodeOptions
 	bool indirect_register_only = false;
 	bool indirect_thunk_cs_prefix = false;
 	bool assembly_text = false;
+	uint8_t regparm = 0;
+	uint8_t stack_alignment = 16;
 	bool code16gcc = false; // i386 ABI in a 16-bit code segment
 };
 
@@ -152,6 +157,8 @@ public:
 	{
 		code_options_ = options;
 		asm_.record_strings(options.assembly_text);
+		if (target_model::is_i386(image_.target))
+			asm_.set_word_mode(options.code16gcc ? 16 : 32);
 	}
 	const std::vector<CodeString>& assembly_strings() const { return asm_.strings(); }
 	const std::vector<InlineModuleLocation>& inline_modules() const { return inline_modules_; }
@@ -162,10 +169,16 @@ public:
 	int32_t frame_base() const;
 
 private:
+	bool i386() const { return asm_.word_mode() < 64; }
+	Reg select_scratch() const { return i386() ? RBX : R10; }
+	Reg emit_scratch() const { return i386() ? RDI : R11; }
+	unsigned operand_bytes(lowir::TypeKind kind) const;
+	void generated_assembly(const AssemblyPlan& plan, const RM& exit_frame, std::vector<uint32_t>* positions = nullptr);
 	std::vector<CodeLocation> locations_;
 	std::vector<InlineModuleLocation> inline_modules_;
 	void code_location(const Function& function, const Inst& inst);
 	void encode(const Function& function);
+	unsigned i386_call_padding() const;
 	void prologue(const Function& function);
 	void frame_reserve(const Function& function);
 	void epilogue(const Function& function);

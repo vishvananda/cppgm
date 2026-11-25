@@ -198,7 +198,7 @@ Operand FunctionSelector::temp_location(uint32_t temp, Reg scratch)
 	if (t.flags & TF_FOLDED)
 	{
 		const Instruction& load = body_->instructions[body_->temps[temp].def];
-		return address_operand(load.ops[0], scratch == kNoReg ? kSelectScratch : scratch);
+		return address_operand(load.ops[0], scratch == kNoReg ? select_scratch_ : scratch);
 	}
 	if (t.home != 0)
 		return frame_home_operand(t.home);
@@ -266,7 +266,18 @@ SymbolAccess FunctionSelector::symbol_access(uint32_t symbol) const
 	// Course objects and executables address every symbol directly.
 	if (eh_model_ != EhModel::Host)
 		return SymbolAccess::Direct;
-	return host_symbol_access(program_, symbol, position_independent_, kernel_model_);
+	const SymbolAccess host = host_symbol_access(program_, symbol, position_independent_, kernel_model_);
+	if (!i386_ || host == SymbolAccess::TlsLocal || host == SymbolAccess::TlsInitial)
+		return host;
+	if (!position_independent_)
+		return SymbolAccess::Direct;
+	if (host == SymbolAccess::Got)
+		return host;
+	const auto& target = program_.symbols[symbol];
+	if (lowir::is_function_kind(target.kind) && target.metadata.binding != ir_model::SBM_INTERNAL &&
+		!program_.has_local_elf_visibility(symbol))
+		return SymbolAccess::Got;
+	return SymbolAccess::PcRelative;
 }
 
 SymbolAccess host_symbol_access(
@@ -317,7 +328,7 @@ Operand FunctionSelector::symbol_operand(uint32_t symbol, int32_t addend) const
 	// Object emission can turn a zero-addend function LEA into a GOT load
 	// without changing instruction width. An offset needs the GOT load
 	// before its separate address adjustment, using the existing MOV path.
-	if (addend != 0 && eh_model_ == EhModel::Host && op.access == SymbolAccess::Direct && !kernel_model_ &&
+	if (!i386_ && addend != 0 && eh_model_ == EhModel::Host && op.access == SymbolAccess::Direct && !kernel_model_ &&
 		!program_.has_local_elf_visibility(symbol))
 	{
 		const lowir::Symbol& target = program_.symbols[symbol];
@@ -498,10 +509,10 @@ void FunctionSelector::materialize_address(Reg dst, const AddrExpr& expr, bool e
 	// allocatable dst may already be another component's (dying) register.
 	// Only an instruction forming no other operand (`exclusive`) may use
 	// both.
-	const bool scratch_dst = dst == kSelectScratch || dst == kEmitScratch;
-	const Reg work = scratch_dst ? dst : kSelectScratch;
+	const bool scratch_dst = dst == select_scratch_ || dst == emit_scratch_;
+	const Reg work = scratch_dst ? dst : select_scratch_;
 	const Operand mem = lazy_operand(
-		expr, work, !exclusive ? kNoReg : (work == kSelectScratch ? kEmitScratch : kSelectScratch));
+		expr, work, !exclusive ? kNoReg : (work == select_scratch_ ? emit_scratch_ : select_scratch_));
 	if (mem.reg == dst && mem.index == kNoReg && mem.disp == 0)
 		return;
 	if (mem.index == kNoReg && mem.disp == 0 && mem.reg < 32 && mem.symbol == kNoId)
@@ -556,7 +567,7 @@ void FunctionSelector::emit_move(const Move& move)
 	const Operand& src = move.src;
 	if (move.extend_register && src.kind == OperandKind::Reg)
 	{
-		const Reg reg = dst.kind == OperandKind::Reg ? dst.reg : kEmitScratch;
+		const Reg reg = dst.kind == OperandKind::Reg ? dst.reg : emit_scratch_;
 		if (move.src_type == TypeKind::I1)
 		{
 			load_into(reg, src, TypeKind::I64);
@@ -583,8 +594,8 @@ void FunctionSelector::emit_move(const Move& move)
 	const TypeKind int_type = float_type ? (move.type == TypeKind::F32 ? TypeKind::I32 : TypeKind::I64) : move.type;
 	if (move.address)
 	{
-		emit2(Op::Lea, TypeKind::Void, Operand::make_reg(kEmitScratch), src);
-		emit2(Op::Store, TypeKind::Ptr, dst, Operand::make_reg(kEmitScratch));
+		emit2(Op::Lea, TypeKind::Void, Operand::make_reg(emit_scratch_), src);
+		emit2(Op::Store, TypeKind::Ptr, dst, Operand::make_reg(emit_scratch_));
 		return;
 	}
 	switch (src.kind)
@@ -618,13 +629,13 @@ void FunctionSelector::emit_move(const Move& move)
 			emit2(Op::FMov, move.type, dst, x15);
 			break;
 		}
-		emit2(
-			Op::Load, move.src_type == TypeKind::Void ? int_type : move.src_type, Operand::make_reg(kEmitScratch), src);
-		emit2(Op::Store, int_type, dst, Operand::make_reg(kEmitScratch));
+		emit2(Op::Load, move.src_type == TypeKind::Void ? int_type : move.src_type, Operand::make_reg(emit_scratch_),
+			src);
+		emit2(Op::Store, int_type, dst, Operand::make_reg(emit_scratch_));
 		break;
 	case OperandKind::Symbol:
-		emit2(Op::Mov, TypeKind::Void, Operand::make_reg(kEmitScratch), src);
-		emit2(Op::Store, TypeKind::Ptr, dst, Operand::make_reg(kEmitScratch));
+		emit2(Op::Mov, TypeKind::Void, Operand::make_reg(emit_scratch_), src);
+		emit2(Op::Store, TypeKind::Ptr, dst, Operand::make_reg(emit_scratch_));
 		break;
 	default:
 		throw InternalError("unsupported move");
@@ -640,7 +651,7 @@ bool FunctionSelector::small_register_moves(std::vector<Move>& moves)
 	{
 		const auto& m = moves[i];
 		if (m.address || m.extend_register || m.dst.kind != OperandKind::Reg || m.src.kind != OperandKind::Reg ||
-			!is_gpr(m.dst.reg) || !is_gpr(m.src.reg) || m.dst.reg == kSelectScratch || m.src.reg == kSelectScratch ||
+			!is_gpr(m.dst.reg) || !is_gpr(m.src.reg) || m.dst.reg == select_scratch_ || m.src.reg == select_scratch_ ||
 			m.type == TypeKind::F32 || m.type == TypeKind::F64 || m.type == TypeKind::V128)
 			return false;
 		transfers[i] = { m.dst.reg, m.src.reg };
@@ -649,14 +660,14 @@ bool FunctionSelector::small_register_moves(std::vector<Move>& moves)
 		transfers, moves.size(),
 		[&](unsigned i) {
 			Move saving;
-			saving.dst = Operand::make_reg(kSelectScratch);
+			saving.dst = Operand::make_reg(select_scratch_);
 			saving.src = moves[i].dst;
 			saving.type = moves[i].type;
 			emit_move(saving);
 		},
 		[&](unsigned i, uint32_t source) {
 			if (source == machine::kTransferSaved)
-				moves[i].src.reg = kSelectScratch;
+				moves[i].src.reg = select_scratch_;
 			emit_move(moves[i]);
 		});
 }
@@ -839,7 +850,7 @@ void FunctionSelector::parallel_moves(std::vector<Move>& moves)
 		const Operand dst = moves[m0].dst;
 		const bool xmm = (dst.kind == OperandKind::Reg && is_xmm(dst.reg)) || moves[m0].type == TypeKind::F32 ||
 			moves[m0].type == TypeKind::F64 || moves[m0].type == TypeKind::V128;
-		const Reg save = xmm ? static_cast<Reg>(XMM0 + 14) : kSelectScratch;
+		const Reg save = xmm ? static_cast<Reg>(XMM0 + 14) : select_scratch_;
 		Move saving;
 		saving.dst = Operand::make_reg(save);
 		saving.src = dst;

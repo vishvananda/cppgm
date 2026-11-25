@@ -65,7 +65,7 @@ void FunctionSelector::emit_atomic(const Instruction& inst)
 	{
 		// i128 (the others are ordinary loads).
 		needs_scratch_area_ = true;
-		const Operand mem = address_operand(inst.ops[0], kSelectScratch);
+		const Operand mem = address_operand(inst.ops[0], select_scratch_);
 		Inst& mir = emit2(Op::Wide, TypeKind::I128, memory_result(inst), mem);
 		mir.sub = static_cast<uint8_t>(WideOp::Move);
 		mir.flags |= MF_VOLATILE;
@@ -75,12 +75,12 @@ void FunctionSelector::emit_atomic(const Instruction& inst)
 	{
 		if (kind == TypeKind::I128)
 			throw BackendError("atomic i128 store is not supported");
-		const Operand mem = address_operand(inst.ops[1], kSelectScratch);
-		Operand value = rm_operand(inst.ops[0], inst.type, kEmitScratch);
+		const Operand mem = address_operand(inst.ops[1], select_scratch_);
+		Operand value = rm_operand(inst.ops[0], inst.type, emit_scratch_);
 		if (inst.order == MemoryOrder::SeqCst || value.kind == OperandKind::Mem || value.kind == OperandKind::Symbol)
 		{
-			load_into(kEmitScratch, value, kind == TypeKind::Ptr ? TypeKind::Ptr : kind);
-			value = Operand::make_reg(kEmitScratch);
+			load_into(emit_scratch_, value, kind == TypeKind::Ptr ? TypeKind::Ptr : kind);
+			value = Operand::make_reg(emit_scratch_);
 		}
 		// Even a relaxed atomic store must remain a distinct access: MIR
 		// memory cleanup must not combine it with an adjacent field store.
@@ -90,12 +90,12 @@ void FunctionSelector::emit_atomic(const Instruction& inst)
 	case Opcode::AtomicAddFetch:
 	case Opcode::AtomicExchange:
 	{
-		const Operand mem = address_operand(inst.ops[0], kSelectScratch);
-		Operand value = rm_operand(inst.ops[1], inst.type, kEmitScratch);
+		const Operand mem = address_operand(inst.ops[0], select_scratch_);
+		Operand value = rm_operand(inst.ops[1], inst.type, emit_scratch_);
 		if (value.kind == OperandKind::Mem || value.kind == OperandKind::Symbol)
 		{
-			load_into(kEmitScratch, value, kind == TypeKind::Ptr ? TypeKind::Ptr : kind);
-			value = Operand::make_reg(kEmitScratch);
+			load_into(emit_scratch_, value, kind == TypeKind::Ptr ? TypeKind::Ptr : kind);
+			value = Operand::make_reg(emit_scratch_);
 		}
 		// A sum nothing reads, or only the block's branch compares with zero
 		// (fuse_atomic): the add in memory, whose flags are the sum's.
@@ -104,8 +104,8 @@ void FunctionSelector::emit_atomic(const Instruction& inst)
 			if (value.kind == OperandKind::Imm && register_bytes(kind) == 8 &&
 				value.imm != static_cast<int32_t>(value.imm))
 			{
-				load_into(kEmitScratch, value, kind);
-				value = Operand::make_reg(kEmitScratch);
+				load_into(emit_scratch_, value, kind);
+				value = Operand::make_reg(emit_scratch_);
 			}
 			emit2(Op::LockAdd, kind, mem, value);
 			return;
@@ -128,7 +128,7 @@ void FunctionSelector::emit_atomic(const Instruction& inst)
 				// A spilled result took the delta's scratch copy (the address
 				// holding the other scratch): the address is dead after the
 				// exchange, so the delta forms again in its scratch.
-				const Reg s = d == kEmitScratch ? kSelectScratch : kEmitScratch;
+				const Reg s = d == emit_scratch_ ? select_scratch_ : emit_scratch_;
 				delta = rm_operand(inst.ops[1], inst.type, s);
 				if (delta.kind == OperandKind::Mem || delta.kind == OperandKind::Symbol)
 				{
@@ -144,12 +144,12 @@ void FunctionSelector::emit_atomic(const Instruction& inst)
 	}
 	case Opcode::AtomicCompareExchange:
 	{
-		const Operand target = address_operand(inst.ops[0], kSelectScratch);
-		const Operand expected = address_operand(inst.ops[1], kEmitScratch);
+		const Operand target = address_operand(inst.ops[0], select_scratch_);
+		const Operand expected = address_operand(inst.ops[1], emit_scratch_);
 		if (kind == TypeKind::I128)
 		{
 			needs_scratch_area_ = true;
-			const Operand desired = rm_operand(inst.ops[2], inst.type, kSelectScratch);
+			const Operand desired = rm_operand(inst.ops[2], inst.type, select_scratch_);
 			const Reg d = result_reg(inst);
 			Inst& mir = emit3(Op::LockCmpxchg16b, kind, target, expected, desired);
 			mir.aux = d;
@@ -167,17 +167,17 @@ void FunctionSelector::emit_atomic(const Instruction& inst)
 			// Neither scratch is free: borrow an unoccupied register.
 			const uint32_t busy = occupied_ | pinned_ | operand_regs(target) | operand_regs(expected) | (1u << RAX) |
 				reserved_gprs(*out_);
-			uint32_t free = kAllocatableGprs & ~busy;
+			uint32_t free = allocatable_gprs_ & ~busy;
 			// When every allocatable register holds a value, a reserved
 			// scratch register the two addresses leave free stages it.
 			if (free == 0)
-				free = ((1u << kSelectScratch) | (1u << kEmitScratch)) & ~busy;
+				free = ((1u << select_scratch_) | (1u << emit_scratch_)) & ~busy;
 			// When the two addresses hold both scratch registers too, a
 			// register they do not use is saved in a frame word around the
 			// exchange.
 			if (free == 0)
 			{
-				const uint32_t spare = kAllocatableGprs &
+				const uint32_t spare = allocatable_gprs_ &
 					~(operand_regs(target) | operand_regs(expected) | (1u << RAX) | reserved_gprs(*out_));
 				if (spare == 0)
 					throw InternalError("no register for atomic compare-exchange");
@@ -187,7 +187,7 @@ void FunctionSelector::emit_atomic(const Instruction& inst)
 				free = 1u << borrowed;
 			}
 			const Reg r = static_cast<Reg>(__builtin_ctz(free));
-			if (kCalleeSavedGprs & (1u << r))
+			if (callee_saved_gprs_ & (1u << r))
 				used_callee_saved_ |= 1u << r;
 			written_ |= 1u << r;
 			if (slot_address)
@@ -287,7 +287,7 @@ void FunctionSelector::emit_bulk(const Instruction& inst)
 	const uint32_t align = 1u << inst.sub;
 	if (inst.op == Opcode::ZeroInit)
 	{
-		const Operand dst = bulk_address(address_operand(inst.ops[0], kSelectScratch));
+		const Operand dst = bulk_address(address_operand(inst.ops[0], select_scratch_));
 		Inst& mir = emit1(Op::ZeroBytes, TypeKind::Void, dst);
 		mir.aux = bytes;
 		mir.aux2 = align;
@@ -301,8 +301,8 @@ void FunctionSelector::emit_bulk(const Instruction& inst)
 	if (src_value.kind == ValueKind::Temp && temps_[src_value.index].cls == VClass::Memory)
 		src = temp_location(src_value.index);
 	else
-		src = bulk_address(address_operand(inst.ops[0], kEmitScratch));
-	const Operand dst = bulk_address(address_operand(inst.ops[1], kSelectScratch));
+		src = bulk_address(address_operand(inst.ops[0], emit_scratch_));
+	const Operand dst = bulk_address(address_operand(inst.ops[1], select_scratch_));
 	// An object parameter whose home is this slot (layout_slots).
 	if (src.kind == OperandKind::Mem && src.index == kNoReg &&
 		(src.reg == kFrame || (src.reg == R12 && out_->aligned_base != 0)) && src == dst)
@@ -349,8 +349,8 @@ bool FunctionSelector::emit_unused_fixed_memcpy(const Instruction& inst)
 	// nor a call-preserved pointer needs ABI argument staging.
 	if (bytes != 0)
 	{
-		const Operand src = address_operand(body_->operands[inst.extra_first + 1], kEmitScratch);
-		const Operand dst = address_operand(body_->operands[inst.extra_first], kSelectScratch);
+		const Operand src = address_operand(body_->operands[inst.extra_first + 1], emit_scratch_);
+		const Operand dst = address_operand(body_->operands[inst.extra_first], select_scratch_);
 		Inst& copy = emit2(Op::CopyBytes, TypeKind::Void, dst, src);
 		copy.aux = bytes;
 		copy.aux2 = 1;
@@ -439,7 +439,7 @@ void FunctionSelector::emit_wide(const Instruction& inst)
 			throw InternalError("unsupported i128 binary operation");
 		}
 	}
-	const Operand a = rm_operand(inst.ops[0], inst.type, kSelectScratch);
+	const Operand a = rm_operand(inst.ops[0], inst.type, select_scratch_);
 	Operand b;
 	if (inst.op == Opcode::Binary)
 	{
@@ -451,13 +451,13 @@ void FunctionSelector::emit_wide(const Instruction& inst)
 			else
 			{
 				const Type ct = type_of(inst.ops[1]);
-				const Operand c = rm_operand(inst.ops[1], ct, kEmitScratch);
+				const Operand c = rm_operand(inst.ops[1], ct, emit_scratch_);
 				load_into(RCX, c, ct.kind() == TypeKind::I128 ? TypeKind::I64 : ct.kind());
 				b = Operand::make_reg(RCX);
 			}
 		}
 		else
-			b = rm_operand(inst.ops[1], inst.type, kEmitScratch);
+			b = rm_operand(inst.ops[1], inst.type, emit_scratch_);
 	}
 	Inst& mir = emit3(Op::Wide, TypeKind::I128, memory_result(inst), a, b);
 	mir.sub = static_cast<uint8_t>(op);

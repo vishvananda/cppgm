@@ -46,48 +46,50 @@ struct SignedMagic
 	unsigned shift;
 };
 
-// Hacker's Delight 10-10 (magicu2) at 64 bits: the multiplier and shift
-// for an unsigned divisor d >= 2 that is not a power of two.
+// Hacker's Delight 10-10 (magicu2): the multiplier and shift for an
+// unsigned divisor d >= 2 that is not a power of two.
+template<unsigned Bits = 64>
 inline UnsignedMagic unsigned_magic(uint64_t d)
 {
-	const uint64_t two63 = uint64_t(1) << 63;
+	const uint64_t top = uint64_t(1) << (Bits - 1);
+	const uint64_t mask = (top - 1) | top;
 	UnsignedMagic magic = { 0, 0, false };
-	const uint64_t nc = ~uint64_t(0) - (0 - d) % d;
-	unsigned p = 63;
-	uint64_t q1 = two63 / nc, r1 = two63 - q1 * nc;
-	uint64_t q2 = (two63 - 1) / d, r2 = (two63 - 1) - q2 * d;
+	const uint64_t nc = mask - ((0 - d) & mask) % d;
+	unsigned p = Bits - 1;
+	uint64_t q1 = top / nc, r1 = top - q1 * nc;
+	uint64_t q2 = (top - 1) / d, r2 = (top - 1) - q2 * d;
 	uint64_t delta = 0;
 	do
 	{
 		++p;
 		if (r1 >= nc - r1)
 		{
-			q1 = 2 * q1 + 1;
+			q1 = (2 * q1 + 1) & mask;
 			r1 = 2 * r1 - nc;
 		}
 		else
 		{
-			q1 = 2 * q1;
+			q1 = (2 * q1) & mask;
 			r1 = 2 * r1;
 		}
 		if (r2 + 1 >= d - r2)
 		{
-			if (q2 >= two63 - 1)
+			if (q2 >= top - 1)
 				magic.add = true;
-			q2 = 2 * q2 + 1;
+			q2 = (2 * q2 + 1) & mask;
 			r2 = 2 * r2 + 1 - d;
 		}
 		else
 		{
-			if (q2 >= two63)
+			if (q2 >= top)
 				magic.add = true;
-			q2 = 2 * q2;
+			q2 = (2 * q2) & mask;
 			r2 = 2 * r2 + 1;
 		}
 		delta = d - 1 - r2;
-	} while (p < 128 && (q1 < delta || (q1 == delta && r1 == 0)));
-	magic.multiplier = q2 + 1;
-	magic.shift = p - 64;
+	} while (p < 2 * Bits && (q1 < delta || (q1 == delta && r1 == 0)));
+	magic.multiplier = (q2 + 1) & mask;
+	magic.shift = p - Bits;
 	return magic;
 }
 
@@ -111,17 +113,18 @@ inline UnsignedMagic narrow_unsigned_magic(uint64_t d, unsigned bits)
 	return magic;
 }
 
-// Hacker's Delight 10-1 (magic) at 64 bits: for a signed divisor with
-// |d| >= 2 that is not a power of two.
+// Hacker's Delight 10-1 (magic): for a signed divisor with |d| >= 2
+// that is not a power of two.
+template<unsigned Bits = 64>
 inline SignedMagic signed_magic(int64_t d)
 {
-	const uint64_t two63 = uint64_t(1) << 63;
+	const uint64_t top = uint64_t(1) << (Bits - 1);
 	const uint64_t ad = d < 0 ? 0 - static_cast<uint64_t>(d) : static_cast<uint64_t>(d);
-	const uint64_t t = two63 + (static_cast<uint64_t>(d) >> 63);
+	const uint64_t t = top + (d < 0);
 	const uint64_t anc = t - 1 - t % ad;
-	unsigned p = 63;
-	uint64_t q1 = two63 / anc, r1 = two63 - q1 * anc;
-	uint64_t q2 = two63 / ad, r2 = two63 - q2 * ad;
+	unsigned p = Bits - 1;
+	uint64_t q1 = top / anc, r1 = top - q1 * anc;
+	uint64_t q2 = top / ad, r2 = top - q2 * ad;
 	uint64_t delta = 0;
 	do
 	{
@@ -142,12 +145,9 @@ inline SignedMagic signed_magic(int64_t d)
 		}
 		delta = ad - r2;
 	} while (q1 < delta || (q1 == delta && r1 == 0));
-	SignedMagic magic;
-	magic.multiplier = static_cast<int64_t>(q2 + 1);
-	if (d < 0)
-		magic.multiplier = static_cast<int64_t>(0 - static_cast<uint64_t>(magic.multiplier));
-	magic.shift = p - 64;
-	return magic;
+	const uint64_t raw = d < 0 ? 0 - (q2 + 1) : q2 + 1;
+	const int64_t multiplier = Bits == 32 ? static_cast<int32_t>(raw) : static_cast<int64_t>(raw);
+	return { multiplier, p - Bits };
 }
 
 } // namespace machine
