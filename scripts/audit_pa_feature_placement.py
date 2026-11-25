@@ -307,6 +307,12 @@ def rx(pattern: str) -> re.Pattern[str]:
     return re.compile(pattern, re.MULTILINE | re.DOTALL)
 
 
+PREPROCESSOR_PROBE_NAMES = (
+    "__has_feature", "__has_extension", "__has_attribute", "__has_cpp_attribute",
+    "__has_builtin", "__is_identifier", "__building_module", "__has_include",
+    "__has_include_next",
+)
+
 DYNAMIC_CLASS_STATIC_RE = rx(
     r"\bstatic\b[^;{}]*[A-Z][A-Za-z0-9_:<>]*[^;{}]*=\s*\{"
     r"[^{}]*[A-Z][A-Za-z0-9_:<>]*\s*\("
@@ -515,8 +521,7 @@ RULES: tuple[FeatureRule, ...] = (
                     r"cpp_exceptions|cpp_ref_qualifiers|cpp_rvalue_references|cpp_static_assert|cpp_rtti|"
                     r"apple_build_version|CHAR_BIT)__|_GNU_SOURCE|_WIN32)\b"),)),
     FeatureRule("support.preprocessor_probe",
-                (rx(r"\b__(?:has_feature|has_extension|has_attribute|has_cpp_attribute|has_builtin|"
-                    r"is_identifier|building_module|has_include|has_include_next)\b"),)),
+                (rx(r"\b(?:" + "|".join(PREPROCESSOR_PROBE_NAMES) + r")\b"),)),
     FeatureRule("template.pack", (rx(r"\btemplate\s*<[^>]*\.\.\."),)),
     FeatureRule("template.template_parameter", (rx(r"\btemplate\s*<[^>]*template\s*<"),)),
     FeatureRule("template.member_template",
@@ -826,7 +831,7 @@ def match_builtin_trait_patterns(patterns: tuple[re.Pattern[str], ...],
         for match in pattern.finditer(haystack):
             evidence = " ".join(match.group(0).split())
             name = re.match(r"(__[A-Za-z_][A-Za-z0-9_]*)", evidence)
-            if name and name.group(1) in declared_intrinsics:
+            if name and (name[1] in declared_intrinsics or name[1] in PREPROCESSOR_PROBE_NAMES):
                 continue
             item = f"source:{evidence[:120]}"
             if item not in matched:

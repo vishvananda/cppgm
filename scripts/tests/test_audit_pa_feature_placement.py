@@ -487,6 +487,15 @@ function @main() -> i32 {
         self.assertEqual(audit.placement_for(feature, "pa28", 200)[0], "ok")
         mixed = audit.detect_features("__attribute__((pure)) int f();\n__attribute__((nodebug)) int g();\n")
         self.assertIn("support.attribute", mixed)
+        probe = audit.detect_features('static_assert(__has_attribute(returns_nonnull), "");')
+        self.assertIn(feature.feature_id, probe)
+        self.assertNotIn("template.builtin_traits", probe)
+        mixed_probe = audit.detect_features(
+            'static_assert(__has_attribute(fallthrough), "");\n'
+            'static_assert(!__is_class(int), "");'
+        )
+        self.assertIn("support.preprocessor_probe", mixed_probe)
+        self.assertEqual(mixed_probe["template.builtin_traits"].evidence, ["source:__is_class"])
 
     def test_debug_preservation_lane_keeps_hygiene_without_source_ownership(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
