@@ -283,9 +283,8 @@ ContextPool& context_pool()
 	return pool;
 }
 
-// GNU cold: a cold function is optimized for size, without the loop
-// transforms that copy its code (unrolling, versioning, rotation,
-// unswitching, vectorization).
+// GNU cold: a cold function is optimized for size. Only unrolling that
+// exposes a constant reduction can copy its code.
 bool copies_code(const FunctionContext& context)
 {
 	return (context.program.symbols[context.symbol].metadata.flags & SF_COLD) == 0;
@@ -377,8 +376,7 @@ void simplify_function(Program& program, SymbolId symbol, OptimizerStats& stats,
 	// Each run unrolls one level of a nest; the copies fold before the next.
 	const uint64_t rolled = instruction_count(context.body);
 	bool unrolling = false;
-	for (unsigned nest = 0;
-		nest < kUnrollNest && !options.minimize_size && copies_code(context) && RUN_PASS(unroll_loops); ++nest)
+	for (unsigned nest = 0; nest < kUnrollNest && !options.minimize_size && RUN_PASS(unroll_loops); ++nest)
 	{
 		again = unrolling = true;
 		if (nest + 1 == kUnrollNest)
@@ -1281,10 +1279,12 @@ void optimize_program(Program& program, const OptimizerOptions& options, Optimiz
 			}
 	const bool probes_resolved = program.deferred_constant_probes && options.level >= 1 &&
 		finish_constant_probes(program, stats, options);
-	const bool globals_pruned = options.prune_private_c_data && options.level >= 1 &&
+	const bool c_reachability = options.prune_private_c_data && options.level >= 1 &&
+		program.target == target_model::Target::AArch64Linux;
+	const bool globals_pruned = !c_reachability && options.prune_private_c_data && options.level >= 1 &&
 		prune_private_constant_data(program);
-	if (probes_resolved || globals_pruned)
-		prune_unreachable(program, stats);
+	if (probes_resolved || globals_pruned || c_reachability)
+		prune_unreachable(program, stats, c_reachability);
 	count_program(program, stats.instructions_out, stats.blocks_out);
 	stats.optimize_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
 }

@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "asm_model.h"
+#include "target_model.h"
 
 namespace assembly {
 
@@ -66,6 +67,6 @@ struct GnuOperand
 // Source-level placeholder/constraint parsing. No C++ AST or LowIR types,
 // and no attempt to parse instructions before physical operands are bound.
 PacketBuilder gnu_packet(const std::string& source, const std::vector<GnuOperand>& operands,
-	const std::vector<std::string>& clobbers, bool is_volatile, bool basic, bool i386);
+	const std::vector<std::string>& clobbers, bool is_volatile, bool basic, target_model::Architecture architecture);
 
 } // namespace assembly

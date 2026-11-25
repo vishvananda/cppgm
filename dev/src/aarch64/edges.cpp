@@ -733,6 +733,29 @@ void Selector::flush_deferred_edges()
 	deferred_edges_.clear();
 }
 
+void Selector::indirect_jump(const lowir::Instruction& inst, BlockId from)
+{
+	value(9, inst.ops[0], program_.pointer_type());
+	// Most computed jumps dispatch directly. A destination with phi moves
+	// needs an edge-specific transfer before entering its addressed block.
+	for (uint32_t i = 0; i < inst.extra_count; ++i)
+	{
+		const BlockId to = body_.operands[inst.extra_first + i].index;
+		const InstId first = body_.blocks[to].first;
+		if (first == kNoId || body_.instructions[first].op != Opcode::Phi ||
+			(!entry_moves_.empty() && entry_moves_[to] != kNoId))
+			continue;
+		out_.reference(Op::Adr, Fixup::Block, to, 10);
+		out_.emit(Op::Subs, 31, 9, 10);
+		const BlockId next = out_.labels.size();
+		out_.labels.push_back(kNoId);
+		out_.reference(Op::BCond, Fixup::Block, next, 1);
+		edge(from, to, false);
+		out_.bind(next);
+	}
+	out_.emit(Op::Br, 0, 9);
+}
+
 void Selector::edge(BlockId from, BlockId to, bool last)
 {
 	if ((entry_moves_.empty() || entry_moves_[to] == kNoId) && exit_done_ != from)

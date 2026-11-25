@@ -1858,8 +1858,8 @@ private:
 
 	// ------------------------------------------------ constants
 	bool constant_value(const syntax::Expr& expr, Scope* scope, Constant& value, bool required);
-	bool integer_constant_expression(
-		const syntax::Expr& expr, Scope* scope, Constant& value, bool required, uint64_t* high = nullptr);
+	bool integer_constant_expression(const syntax::Expr& expr, Scope* scope, Constant& value, bool required,
+		uint64_t* high = nullptr, bool fold_const_objects = false);
 	bool note_c_null_constant(const syntax::Expr& expr);
 	bool converted_constant(const syntax::Expr& expr, Constant& value, bool required);
 	void constant_operand(const syntax::Expr& expr, Scope* scope, bool resolved = true);

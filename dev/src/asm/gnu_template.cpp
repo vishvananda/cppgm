@@ -5,7 +5,8 @@
 
 namespace assembly {
 
-void gnu_constraints(PacketBuilder& packet, const std::vector<GnuOperand>& operands, bool i386);
+void gnu_constraints(
+	PacketBuilder& packet, const std::vector<GnuOperand>& operands, target_model::Architecture architecture);
 
 namespace {
 
@@ -69,6 +70,37 @@ uint32_t reference(const std::string& source, std::size_t& pos, const std::vecto
 	return static_cast<uint32_t>(index);
 }
 
+bool aarch64_modifier(Piece& piece, char code)
+{
+	switch (code)
+	{
+	case 'w':
+	case 's':
+		piece.bits = 32;
+		return true;
+	case 'x':
+	case 'd':
+		piece.bits = 64;
+		return true;
+	case 'q':
+		piece.bits = 128;
+		return true;
+	case 'b':
+		piece.bits = 8;
+		return true;
+	case 'h':
+		piece.bits = 16;
+		return true;
+	case 'c':
+	case 'a':
+	case 'n':
+	case 'l':
+		return false;
+	default:
+		fail(std::string("AArch64 assembly operand modifier is not implemented yet: ") + code);
+	}
+}
+
 void pieces(PacketBuilder& packet, const std::string& source, const std::vector<GnuOperand>& operands, bool basic)
 {
 	std::string literal;
@@ -78,7 +110,7 @@ void pieces(PacketBuilder& packet, const std::string& source, const std::vector<
 	{
 		const char c = source[pos++];
 		// Source GNU packets use AT&T, the first dialect alternative.
-		if (!basic && c == '{')
+		if (!basic && packet.definition.dialect != Dialect::AArch64 && c == '{')
 		{
 			if (alternatives)
 				fail("nested assembly dialect alternatives");
@@ -125,57 +157,58 @@ void pieces(PacketBuilder& packet, const std::string& source, const std::vector<
 			if ((next >= 'a' && next <= 'z') || (next >= 'A' && next <= 'Z'))
 			{
 				++pos;
-				switch (next)
-				{
-				case 'b':
-					piece.bits = 8;
-					break;
-				case 'h':
-					piece.bits = 8;
-					piece.offset = 8;
-					break;
-				case 'w':
-					piece.bits = 16;
-					break;
-				case 'k':
-					piece.bits = 32;
-					break;
-				case 'q':
-					piece.bits = 64;
-					break;
-				case 'x':
-					piece.bits = 128;
-					break;
-				case 't':
-					piece.bits = 256;
-					break;
-				case 'g':
-					piece.bits = 512;
-					break;
-				case 'P':
-				case 'X': // Raw spelling without a PIC suffix.
-				case 'c':
-					piece.format = Format::Bare;
-					break;
-				case 'a':
-					piece.format = Format::Address;
-					break;
-				case 'n':
-					piece.format = Format::Negated;
-					break;
-				case 'l':
-					piece.format = Format::Label;
-					break;
-				case 'z':
-					piece.format = Format::Suffix;
-					break;
-				case 'V':
-					piece.format = Format::Bare;
-					piece.bits = 64;
-					break;
-				default:
-					fail(std::string("assembly operand modifier is not implemented yet: ") + next);
-				}
+				if (packet.definition.dialect != Dialect::AArch64 || !aarch64_modifier(piece, next))
+					switch (next)
+					{
+					case 'b':
+						piece.bits = 8;
+						break;
+					case 'h':
+						piece.bits = 8;
+						piece.offset = 8;
+						break;
+					case 'w':
+						piece.bits = 16;
+						break;
+					case 'k':
+						piece.bits = 32;
+						break;
+					case 'q':
+						piece.bits = 64;
+						break;
+					case 'x':
+						piece.bits = 128;
+						break;
+					case 't':
+						piece.bits = 256;
+						break;
+					case 'g':
+						piece.bits = 512;
+						break;
+					case 'P':
+					case 'X': // Raw spelling without a PIC suffix.
+					case 'c':
+						piece.format = Format::Bare;
+						break;
+					case 'a':
+						piece.format = Format::Address;
+						break;
+					case 'n':
+						piece.format = Format::Negated;
+						break;
+					case 'l':
+						piece.format = Format::Label;
+						break;
+					case 'z':
+						piece.format = Format::Suffix;
+						break;
+					case 'V':
+						piece.format = Format::Bare;
+						piece.bits = 64;
+						break;
+					default:
+						fail(std::string("assembly operand modifier is not implemented yet: ") + next);
+					}
 			}
 			piece.operand = reference(source, pos, operands, piece.format == Format::Label);
 			if (operands[piece.operand].label != (piece.format == Format::Label))
@@ -191,18 +224,19 @@ void pieces(PacketBuilder& packet, const std::string& source, const std::vector<
 } // namespace
 
 PacketBuilder gnu_packet(const std::string& source, const std::vector<GnuOperand>& operands,
-	const std::vector<std::string>& clobbers, bool is_volatile, bool basic, bool i386)
+	const std::vector<std::string>& clobbers, bool is_volatile, bool basic, target_model::Architecture architecture)
 {
 	PacketBuilder packet;
-	packet.definition.dialect = Dialect::Att;
+	const bool arm = architecture == target_model::Architecture::AArch64;
+	packet.definition.dialect = arm ? Dialect::AArch64 : Dialect::Att;
 	packet.definition.memory = basic ? Memory::ReadWrite : Memory::None;
 	bool outputs = false;
 	for (const GnuOperand& operand : operands)
 		outputs = outputs || operand.output;
 	packet.definition.properties = AP_STACK | AP_RED_ZONE |
 		(is_volatile || basic || !outputs ? AP_SIDE_EFFECT : AP_DUPLICABLE);
-	packet.definition.state_write = AS_CONDITION_FLAGS | AS_X87_STATUS | AS_MXCSR_STATUS;
-	gnu_constraints(packet, operands, i386);
+	packet.definition.state_write = AS_CONDITION_FLAGS | (arm ? 0u : AS_X87_STATUS | AS_MXCSR_STATUS);
+	gnu_constraints(packet, operands, architecture);
 	uint32_t columns = 0;
 	for (uint32_t i = 0; i < packet.operands.size(); ++i)
 	{
@@ -231,9 +265,12 @@ PacketBuilder gnu_packet(const std::string& source, const std::vector<GnuOperand
 		else
 		{
 			Register reg;
-			if (!parse_register(name.data(), name.size(), reg))
+			const bool valid = arm ? parse_aarch64_register(name.data(), name.size(), reg)
+								   : parse_register(name.data(), name.size(), reg);
+			if (!valid)
 				fail("unknown assembly clobber register: " + name);
-			if (reg.bank == RegisterBank::Gpr && (reg.number == 4 || reg.number == 5))
+			if (reg.bank == RegisterBank::Gpr &&
+				(arm ? (reg.number == 29 || reg.number == 31) : (reg.number == 4 || reg.number == 5)))
 				fail("assembly cannot clobber the stack or frame register");
 			packet.clobbers.push_back(reg);
 		}

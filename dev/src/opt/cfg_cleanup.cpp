@@ -31,6 +31,7 @@ public:
 private:
 	bool truncate_noreturn();
 	bool fold_terminators();
+	bool fold_exhaustive_bit_switch(BlockId pred, Instruction& term);
 	bool drop_impossible_switch_cases(BlockId pred, Instruction& term, std::vector<BlockId>& retained);
 	bool remove_unreachable();
 	bool preserve_definitions(const std::vector<uint8_t>& dead);
@@ -126,6 +127,40 @@ bool CfgCleanup::drop_impossible_switch_cases(BlockId pred, Instruction& term, s
 	return true;
 }
 
+// A switch over one masked bit has only its zero and set cases.
+bool CfgCleanup::fold_exhaustive_bit_switch(BlockId pred, Instruction& term)
+{
+	const Value selector = term.ops[0];
+	if (term.extra_count != 4 || !selector.is(ValueKind::Temp) || !term.type.is_integer() ||
+		lowir::integer_bits(term.type.kind()) > 64)
+		return false;
+	const InstId def = body_.temps[selector.index].def;
+	if (def == kNoId)
+		return false;
+	const Instruction& value = body_.instructions[def];
+	Constant bit, zero, set;
+	if (value.op != Opcode::Binary || static_cast<BinaryOp>(value.sub) != BinaryOp::And ||
+		!literal_constant(body_, value.ops[1], bit) || bit.kind != ValueKind::Integer)
+		return false;
+	const Literal mask = normalize_integer(term.type, bit.bits);
+	const auto first = term.extra_first;
+	if (mask.low == 0 || (mask.low & (mask.low - 1)) != 0 || !literal_constant(body_, body_.operands[first], zero) ||
+		!is_integer(term.type, zero, 0) || !literal_constant(body_, body_.operands[first + 2], set) ||
+		!same_constant(term.type, bit, set))
+		return false;
+	const BlockId otherwise = term.ops[1].index;
+	term.op = Opcode::Branch;
+	term.type = Type::scalar(TypeKind::Void);
+	term.sub = term.flags = 0;
+	term.ops[1] = body_.operands[first + 3];
+	term.ops[2] = body_.operands[first + 1];
+	term.extra_count = 0;
+	if (otherwise != term.ops[1].index && otherwise != term.ops[2].index)
+		remove_phi_incoming(body_, otherwise, pred);
+	++c_.stats.branches_folded;
+	return true;
+}
+
 // Branches and switches whose outcome is known (a literal selector or a
 // single distinct target) become jumps; the dropped edges leave their
 // targets' phis.
@@ -150,6 +185,11 @@ bool CfgCleanup::fold_terminators()
 		}
 		else if (term.op == Opcode::Switch)
 		{
+			if (fold_exhaustive_bit_switch(b, term))
+			{
+				changed = true;
+				continue;
+			}
 			changed = drop_impossible_switch_cases(b, term, retained) || changed;
 			bool single = true;
 			for (uint32_t k = 1; k < term.extra_count; k += 2)

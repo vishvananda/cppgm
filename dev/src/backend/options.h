@@ -41,6 +41,7 @@ struct Options
 	bool no_standard_libraries = false;
 	bool no_startfiles = false;
 	uint32_t wasm_stack_size = 1024 * 1024;
+	bool general_regs_only = false;
 	bool wasm_atomics = true;
 	WasmLinkOptions wasm_link;
 	const opt::OptimizerOptions* optimizer = nullptr;

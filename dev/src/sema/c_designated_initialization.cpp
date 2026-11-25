@@ -629,7 +629,7 @@ private:
 		if (IsSubaggregate(node.type->element) && !independent_spans(writes, spans, inherited))
 		{
 			if (node.type->element->kind == TypeKind::Array)
-				return freeze_rectangular_spans(node, writes, first, live, inherited, rectangles);
+				return freeze_rectangular_spans(node, writes, first, live, inherited, rectangles, fields, nested);
 			fields = freeze_field_spans(node, writes, spans, first, live, inherited, nested);
 		}
 		return freeze_interval_values(spans, first, live, inherited, node.type->element);
@@ -682,7 +682,7 @@ private:
 		return plan;
 	}
 
-	void rectangle_writes(const Node& node, std::vector<CArrayWrite>& writes, std::vector<CArrayWrite>& whole,
+	bool rectangle_writes(const Node& node, std::vector<CArrayWrite>& writes, std::vector<CArrayWrite>& whole,
 		std::vector<CArrayRectangle>& input)
 	{
 		const Type* row = node.type->element;
@@ -707,20 +707,22 @@ private:
 				const uint32_t id = columns.back();
 				columns.pop_back();
 				if (!nodes_[id].starts_value)
-					analyzer_.error(
-						location_, "a partial overwrite below two ranged array dimensions is not yet supported");
+					return false;
 				input.push_back({ write.first, write.limit, nodes_[id].index, array_limit(id), id });
 			}
 		}
+		return true;
 	}
 
 	syntax::Slice<const CInitializerChild> freeze_rectangular_spans(const Node& node, std::vector<CArrayWrite>& writes,
 		size_t first, std::vector<uint8_t>& live, bool inherited,
-		syntax::Slice<const CInitializerRectangle>& rectangles)
+		syntax::Slice<const CInitializerRectangle>& rectangles, syntax::Slice<const CInitializerFieldSpans>& fields,
+		bool& nested)
 	{
 		std::vector<CArrayWrite> whole;
 		std::vector<CArrayRectangle> input;
-		rectangle_writes(node, writes, whole, input);
+		if (!rectangle_writes(node, writes, whole, input))
+			return freeze_array_patches(node, writes, first, live, inherited, fields, nested);
 		const auto regions = WinningInitializerRectangles(input, kNone);
 		auto* entries = analyzer_.arena_.allocate_array<CInitializerRectangle>(regions.size());
 		FlatMap<uint32_t, const CInitializer*, std::hash<uint32_t>> frozen;
@@ -740,6 +742,27 @@ private:
 							[&](const CArrayWrite& span) { return nodes_[span.value].value == nullptr; }),
 				spans.end());
 		return freeze_interval_values(spans, first, live, inherited, node.type->element, true);
+	}
+
+	// Keep a whole repeated row as one value and describe deeper point
+	// overrides by byte offset. Neither the gaps nor the covered columns need
+	// expansion, even when a row contains its own range initializers.
+	syntax::Slice<const CInitializerChild> freeze_array_patches(const Node& node,
+		const std::vector<CArrayWrite>& writes, size_t first, std::vector<uint8_t>& live, bool inherited,
+		syntax::Slice<const CInitializerFieldSpans>& fields, bool& nested)
+	{
+		if (!analyzer_.c_static_initializer_)
+			analyzer_.error(location_, "a partial overwrite below two ranged array dimensions requires static storage");
+		const Type* element = node.type->element;
+		std::vector<CArrayWrite> bases;
+		std::vector<CInitializerFieldSpans> lanes;
+		freeze_nested_fields(writes, bases, element, first, live, inherited, lanes, nested);
+		auto* entries = analyzer_.arena_.allocate_array<CInitializerFieldSpans>(lanes.size());
+		if (!lanes.empty())
+			std::copy(lanes.begin(), lanes.end(), entries);
+		fields = { entries, static_cast<uint32_t>(lanes.size()) };
+		nested |= !bases.empty() && !lanes.empty();
+		return freeze_interval_values(bases, first, live, inherited, element);
 	}
 
 	bool qualified_container(const Node& node)

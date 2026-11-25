@@ -48,12 +48,13 @@ public:
 	explicit LoopPass(FunctionContext& context) : c_(context), body_(context.body), cfg_(context.cfg) {}
 
 	bool run(bool fresh);
-	bool unroll(bool vector_loops_only);
+	bool unroll(bool vector_loops_only, bool constant_loops_only = false);
 	bool hoist_loads();
 	bool version_fills();
 
 private:
-	bool try_unroll(uint32_t loop);
+	bool try_unroll(uint32_t loop, bool constant_loops_only);
+	bool constant_reduction(const Loop& loop, int64_t trips) const;
 	bool try_unroll_search(uint32_t loop);
 	CountedUnrollGuard unroll_guard(uint32_t loop) const;
 	int64_t unroll_bound(uint32_t loop, BlockId tested, TempId& iv_temp) const;
@@ -63,6 +64,7 @@ private:
 	bool invariant(uint32_t loop, Value v) const;
 	bool induction(uint32_t loop, InstId phi, Induction& out, bool several = false) const;
 	void add_narrow_accumulators(uint32_t loop, std::vector<Induction>& ivs) const;
+	const Instruction* induction_extension(Type type, Value value) const;
 	bool exit_test(uint32_t loop, ExitTest& out, std::vector<Induction>& ivs, bool fixed_bounds = false) const;
 	bool effect_free(uint32_t loop) const;
 	bool fill_pattern(uint32_t loop, const Induction& iv, InstId& store, InstId& load) const;
@@ -234,6 +236,38 @@ static bool fixed_address(const FunctionBody& body, Value v)
 	return at.known && (at.root.is(ValueKind::Slot) || at.root.is(ValueKind::Symbol));
 }
 
+// A C comparison with an array length can extend a narrow induction
+// before testing it. Only counted unrolling uses this widened comparison.
+const Instruction* LoopPass::induction_extension(Type type, Value value) const
+{
+	if (!value.is(ValueKind::Temp) || !type.is_integer() || body_.temps[value.index].def == kNoId)
+		return nullptr;
+	const auto& inst = body_.instructions[body_.temps[value.index].def];
+	if (inst.op != Opcode::Convert || inst.type != type || !inst.ops[0].is(ValueKind::Temp) ||
+		(inst.sub != static_cast<uint8_t>(ConvertOp::SExt) && inst.sub != static_cast<uint8_t>(ConvertOp::ZExt)))
+		return nullptr;
+	const Type from = convert_source_type(inst);
+	return from.is_integer() && integer_bits(from.kind()) < integer_bits(type.kind()) && integer_bits(type.kind()) <= 64
+		? &inst
+		: nullptr;
+}
+
+bool extended_trips(const FunctionBody& body, const Instruction& extend, ComparePredicate pred, bool continuation,
+	Value init, Value bound, int64_t step, bool next, int64_t& trips, __int128& last)
+{
+	const unsigned width = integer_bits(convert_source_type(extend).kind());
+	const bool sign = extend.sub == static_cast<uint8_t>(ConvertOp::SExt);
+	const __int128 full = static_cast<__int128>(1) << width;
+	const int64_t low = sign ? static_cast<int64_t>(-full / 2) : 0;
+	const int64_t high = static_cast<int64_t>(sign ? full / 2 - 1 : full - 1);
+	int64_t start = body.literals[init.index].low & uint64_t(full - 1);
+	if (sign && start > high)
+		start = static_cast<int64_t>(start - full);
+	const int64_t limit = static_cast<int64_t>(normalize_integer(extend.type, body.literals[bound.index]).low);
+	return counted_trips(extend.type, pred, continuation, start, step, limit, next, trips, last) && last >= low &&
+		last <= high;
+}
+
 // One exit edge, branching on `cmp ne|eq` of an induction value against
 // an invariant. A pointer induction may step by any constant (it moves
 // within its object until it meets the bound); an integer one steps by
@@ -273,7 +307,13 @@ bool LoopPass::exit_test(uint32_t loop, ExitTest& out, std::vector<Induction>& i
 	for (const Induction& iv : ivs)
 		for (unsigned side = 0; side < 2; ++side)
 		{
-			const Value v = cmp.ops[side], other = cmp.ops[1 - side];
+			Value v = cmp.ops[side];
+			const Value other = cmp.ops[1 - side];
+			const Instruction* extension = fixed_bounds && other.is(ValueKind::Integer)
+				? induction_extension(cmp.type, v)
+				: nullptr;
+			if (extension != nullptr)
+				v = extension->ops[0];
 			if (!v.is(ValueKind::Temp) || (v.index != iv.value && v.index != iv.next))
 				continue;
 			if (!invariant(loop, other) && !(fixed_bounds && iv.pointer && fixed_address(body_, other)))
@@ -301,9 +341,12 @@ bool LoopPass::exit_test(uint32_t loop, ExitTest& out, std::vector<Induction>& i
 				const Literal b = normalize_integer(cmp.type, body_.literals[other.index]);
 				__int128 last;
 				int64_t trips;
-				if (counted_trips(cmp.type, pred, !leave_on_true, static_cast<__int128>(static_cast<int64_t>(a.low)),
-						iv.step_bytes, static_cast<__int128>(static_cast<int64_t>(b.low)), v.index == iv.next, trips,
-						last))
+				const bool counted = extension != nullptr
+					? extended_trips(body_, *extension, pred, !leave_on_true, iv.init, other, iv.step_bytes,
+						  v.index == iv.next, trips, last)
+					: counted_trips(cmp.type, pred, !leave_on_true, static_cast<int64_t>(a.low), iv.step_bytes,
+						  static_cast<int64_t>(b.low), v.index == iv.next, trips, last);
+				if (counted)
 				{
 					out.trips = trips;
 					const Literal bits = { static_cast<uint64_t>(last), static_cast<uint64_t>(last >> 64) };
@@ -311,6 +354,8 @@ bool LoopPass::exit_test(uint32_t loop, ExitTest& out, std::vector<Induction>& i
 					return true;
 				}
 			}
+			if (extension != nullptr)
+				continue;
 			// Otherwise an equality exit the induction must meet: a pointer
 			// (moving within its object) or an integer stepping by one.
 			const bool equality = (pred == ComparePredicate::Ne && !leave_on_true) ||
@@ -1763,6 +1808,53 @@ bool LoopPass::fill_available() const
 	return builtin_available("__cppgm_builtin_memset", "cppgm_builtin_memset");
 }
 
+// A short, side-effect-free sum over readonly data folds even in cold
+// functions, where increasing text size for speed is undesirable.
+bool LoopPass::constant_reduction(const Loop& loop, int64_t trips) const
+{
+	if (loop.blocks.size() != 2 || trips > 8)
+		return false;
+	bool loads = false;
+	unsigned size = 0;
+	for (BlockId block : loop.blocks)
+		for (InstId id = body_.blocks[block].first; id != kNoId; id = body_.instructions[id].next)
+		{
+			const auto& inst = body_.instructions[id];
+			if (++size > 20)
+				return false;
+			switch (inst.op)
+			{
+			case Opcode::Load:
+			{
+				if ((inst.flags & IF_VOLATILE) || !inst.type.is_integer() || !inst.ops[0].is(ValueKind::Temp))
+					return false;
+				const auto def = body_.temps[inst.ops[0].index].def;
+				if (def == kNoId || body_.instructions[def].op != Opcode::Index)
+					return false;
+				const Located base = locate(body_, body_.instructions[def].ops[0]);
+				if (!base.known || !base.root.is(ValueKind::Symbol) ||
+					!constant_contents(c_.program, base.root.index, c_.unwritten))
+					return false;
+				loads = true;
+				break;
+			}
+			case Opcode::Phi:
+			case Opcode::Addr:
+			case Opcode::Index:
+			case Opcode::Copy:
+			case Opcode::Convert:
+			case Opcode::Compare:
+			case Opcode::Binary:
+			case Opcode::Branch:
+			case Opcode::Jump:
+				break;
+			default:
+				return false;
+			}
+		}
+	return loads;
+}
+
 // O3 full unrolling, within the budgets below: a counted loop tested at its
 // header that leaves after at most kUnrollTrips passes through a
 // straight-line body (a chain of jump-ended blocks back to the header)
@@ -1779,7 +1871,7 @@ const int64_t kUnrollCallFreeTrips = 8;
 const uint32_t kUnrollCallFreeBody = 512;
 const int64_t kNestedReductionTrips = 32;
 
-bool LoopPass::try_unroll(uint32_t loop)
+bool LoopPass::try_unroll(uint32_t loop, bool constant_loops_only)
 {
 	const Loop& l = forest_.loops[loop];
 	if (l.latches.size() != 1)
@@ -1828,6 +1920,8 @@ bool LoopPass::try_unroll(uint32_t loop)
 	if (test.trips > (calls ? kUnrollTrips : call_free_trips) ||
 		static_cast<uint64_t>(size) * static_cast<uint64_t>(test.trips) + header_size >
 			(calls ? kUnrollBody : kUnrollCallFreeBody))
+		return false;
+	if (constant_loops_only && !constant_reduction(l, test.trips))
 		return false;
 	// A loop entered from a branching block gets its preheader first (the
 	// caller finds the loops again and comes back).
@@ -2391,7 +2485,7 @@ bool LoopPass::try_unroll_search(uint32_t loop)
 	return true;
 }
 
-bool LoopPass::unroll(bool vector_loops_only)
+bool LoopPass::unroll(bool vector_loops_only, bool constant_loops_only)
 {
 	c_.ensure_cfg();
 	find_loops(body_, cfg_, forest_);
@@ -2415,7 +2509,7 @@ bool LoopPass::unroll(bool vector_loops_only)
 			if (copies || (vector_loops_only && !loop_uses_vectors(body_, loop)) ||
 				(defer_array_unroll && has_contiguous_float_work(body_, loop)))
 				continue;
-			one = try_unroll(k) || try_unroll_search(k);
+			one = try_unroll(k, constant_loops_only) || (!constant_loops_only && try_unroll_search(k));
 		}
 		if (!one)
 			break;
@@ -3259,7 +3353,8 @@ bool unroll_loops(FunctionContext& context)
 	// At most kUnrollRounds loops, one at a time, each found again after
 	// the previous change (LoopPass::unroll).
 	LoopPass pass(context);
-	const bool changed = pass.unroll(false);
+	const bool cold = (context.program.symbols[context.symbol].metadata.flags & SF_COLD) != 0;
+	const bool changed = pass.unroll(false, cold);
 	if (changed)
 		context.invalidate_cfg();
 	return changed;

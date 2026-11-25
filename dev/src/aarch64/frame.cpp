@@ -4,6 +4,7 @@
 #include <algorithm>
 #include "lowir/literals.h"
 #include "machine/frame_lifetimes.h"
+#include "native/asm/constraints.h"
 #include "opt/function_ir.h"
 #include "aarch64/error.h"
 
@@ -12,12 +13,13 @@ namespace aarch64 {
 using namespace lowir;
 
 Selector::Selector(const Program& program, SymbolId symbol, Function& out, int level, bool pic,
-	const std::vector<uint32_t>& leaf_registers, bool minimize_size, bool contract_float, bool fixed_x18)
+	const std::vector<uint32_t>& leaf_registers, bool minimize_size, bool contract_float, bool fixed_x18,
+	bool general_regs_only)
 	: program_(program), symbol_(symbol), body_(*program.functions[program.symbols[symbol].detail].body),
 	  signature_(program.signatures[program.functions[program.symbols[symbol].detail].signature]), out_(out),
 	  level_(level), pic_(pic), minimize_size_(minimize_size), contract_float_(contract_float),
-	  free_x18_(!fixed_x18 && !target_model::is_darwin(program.target)), leaf_registers_(leaf_registers),
-	  named_(target_model::is_darwin(program.target))
+	  free_x18_(!fixed_x18 && !target_model::is_darwin(program.target)), general_regs_only_(general_regs_only),
+	  leaf_registers_(leaf_registers), named_(target_model::is_darwin(program.target))
 {}
 
 uint32_t Selector::reserve(uint64_t size, uint32_t alignment)
@@ -66,6 +68,7 @@ void Selector::plan()
 	bool tail_safe = level_ >= 2 && signature_.boundary.arity != ir_model::CAM_VARIADIC &&
 		program_.symbols[symbol_].metadata.tls_for == kNoId;
 	bool has_tail = false;
+	uint64_t asm_clobbers = 0;
 	for (BlockId block : body_.layout)
 	{
 		for (InstId i = body_.blocks[block].first; i != kNoId; i = body_.instructions[i].next)
@@ -74,6 +77,11 @@ void Selector::plan()
 			if (named_.darwin && !calls)
 				for (const auto operand : inst.ops)
 					calls |= tls_access(operand);
+			if (inst.op == Opcode::Asm)
+			{
+				asm_clobbers |= assembly_clobbers(inst, true);
+				assembly_unavailable_ = native::kAArch64BindingRegisters;
+			}
 			tail_safe &= inst.op != Opcode::Asm && !(inst.op == Opcode::Addr && !inst.ops[0].is(ValueKind::Symbol));
 			dynamic_stack_ |= inst.op == Opcode::StackSave || inst.op == Opcode::StackAlloc ||
 				inst.op == Opcode::StackRestore;
@@ -109,6 +117,12 @@ void Selector::plan()
 			}
 		}
 	}
+	assembly_unavailable_ |= asm_clobbers;
+	calls |= (asm_clobbers & (uint64_t(1) << 30)) != 0;
+	if (frame_pointer_ != kNoId && (asm_clobbers & (uint64_t(1) << 29)))
+		throw AArch64Error("assembly clobbers the frame pointer");
+	if (dynamic_stack_ && (asm_clobbers & (uint64_t(1) << 28)))
+		throw AArch64Error("assembly clobbers the dynamic frame base");
 	if (has_tail && tail_safe && !body_.slots.empty())
 	{
 		const auto escaped = opt::escaped_slots(body_, true);
@@ -126,10 +140,10 @@ void Selector::plan()
 	if (eh)
 		prepare_exceptions();
 	if (starts_variadic && !named_.darwin)
-		variadic_area_ = reserve(64 + 128, 16);
+		variadic_area_ = reserve(general_regs_only_ ? 64 : 64 + 128, 16);
 	if (result_.indirect)
 	{
-		if (!level_ || calls)
+		if (!level_ || calls || assembly_unavailable_)
 			result_pointer_ = reserve(8, 8);
 		if (level_ && !eh && !body_.slots.empty())
 		{
@@ -147,6 +161,12 @@ void Selector::plan()
 		}
 		preserved_.push_back({ 30, reserve(8, 8) });
 	}
+	for (unsigned reg = 19; reg <= 29; ++reg)
+		if (asm_clobbers & (uint64_t(1) << reg))
+			preserved_.push_back({ reg, reserve(8, 8) });
+	for (unsigned reg = 8; reg <= 15; ++reg)
+		if (asm_clobbers & (uint64_t(1) << (32 + reg)))
+			preserved_fp_.push_back({ reg, reserve(8, 8) });
 	allocate();
 	// The existing result-pointer home can save a spare nonvolatile register.
 	// The pointer then survives calls without a reload at each output access.
@@ -450,7 +470,9 @@ void Selector::address(unsigned reg, Value operand)
 		// page-relative reference can instead resolve to the instruction's page.
 		const bool weak_import = !named_.darwin && symbol.metadata.binding == ir_model::SBM_WEAK &&
 			(symbol.kind == SymbolKind::FunctionDeclaration || symbol.kind == SymbolKind::GlobalDeclaration);
-		const bool got = weak_import || (pic_ && symbol.metadata.binding != ir_model::SBM_INTERNAL);
+		const bool got = weak_import ||
+			(pic_ && symbol.metadata.binding != ir_model::SBM_INTERNAL &&
+				!program_.has_local_elf_visibility(operand.index));
 		out_.reference(Op::Adrp, got ? Fixup::GotPage : Fixup::Page, operand.index, reg);
 		out_.reference(got ? Op::LdrX : Op::AddI, got ? Fixup::GotLoad : Fixup::PageOffset, operand.index, reg, reg);
 	}

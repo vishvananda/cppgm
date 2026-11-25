@@ -35,6 +35,16 @@ assembly::View<T> preserve(Arena& arena, const std::vector<T>& values)
 	return view;
 }
 
+bool writable_array_operand(const ExprFacts& facts)
+{
+	const Type* type = facts.type;
+	if (facts.category != ValueCategory::LValue || type->kind != TypeKind::Array)
+		return false;
+	while (type->kind == TypeKind::Array)
+		type = type->element;
+	return (type->cv & kConst) == 0;
+}
+
 const char* prepare_operands(Analyzer& analyzer, const syntax::AsmStmt& stmt, Scope* scope,
 	const std::vector<assembly::GnuOperand>& source_operands, assembly::PacketBuilder& packet,
 	std::vector<ConstValue>& addresses)
@@ -59,6 +69,8 @@ const char* prepare_operands(Analyzer& analyzer, const syntax::AsmStmt& stmt, Sc
 				locations |= AL_REGISTER;
 		}
 		const bool output = (operand.flags & AO_WRITE) != 0;
+		if (output && expr.facts->type->kind == TypeKind::Array && locations != AL_MEMORY)
+			return "assembly array output requires a memory constraint";
 		if (output && ((expr.facts->flags & kBitField) != 0 || (captured_outputs && (locations & AL_REGISTER) != 0)))
 			operand.flags |= AO_NO_MEMORY;
 		assembly::InputConstant& constant = packet.constants[i];
@@ -104,8 +116,9 @@ const char* prepare_operands(Analyzer& analyzer, const syntax::AsmStmt& stmt, Sc
 		const unsigned bits = source_operands[i].bits;
 		const bool integer_sized_record = analyzer.c_source() && type->kind == TypeKind::Class && bits >= 8 &&
 			bits <= 64 && (bits & (bits - 1)) == 0;
+		const bool array_address = !output && type->kind == TypeKind::Array && !operand.input_storage;
 		const bool scalar = IsScalar(type) || type->kind == TypeKind::Vector || type->kind == TypeKind::Function ||
-			integer_sized_record;
+			integer_sized_record || array_address;
 		if (!scalar && !symbol && ((locations & AL_MEMORY) == 0 || !addressable))
 			return "assembly operand requires scalar/vector data or addressable memory";
 		// Substitution and propagation can expose a constant or symbol.
@@ -152,8 +165,8 @@ void Analyzer::asm_statement(const syntax::AsmStmt& stmt, Scope* scope)
 	if (!LiteralText(stmt.text, text))
 		error(stmt.location, "assembly template requires an ordinary string literal");
 	std::vector<assembly::GnuOperand> operands;
-	const VariableEntity* register_outputs[16] = {};
-	uint32_t register_output_indices[16];
+	const VariableEntity* register_outputs[32] = {};
+	uint32_t register_output_indices[32];
 	const uint32_t count = stmt.outputs.size + stmt.inputs.size;
 	for (uint32_t i = 0; i < count; ++i)
 	{
@@ -171,7 +184,7 @@ void Analyzer::asm_statement(const syntax::AsmStmt& stmt, Scope* scope)
 		const ExprFacts* facts = typed(*source.expression, scope);
 		if (facts == nullptr)
 			return;
-		if (output && (!modifiable_lvalue(facts) || facts->category != ValueCategory::LValue))
+		if (output && !modifiable_lvalue(facts) && !writable_array_operand(*facts))
 			error(source.location, "assembly output requires a modifiable lvalue");
 		const Type* type = facts->type->unqualified;
 		if (!output && type->kind == TypeKind::Function)
@@ -187,7 +200,7 @@ void Analyzer::asm_statement(const syntax::AsmStmt& stmt, Scope* scope)
 		if (facts->entity != nullptr && facts->entity->kind == EntityKind::Variable)
 		{
 			const auto* variable = static_cast<const VariableEntity*>(facts->entity);
-			operand.fixed_gpr = variable->x86_asm_gpr;
+			operand.fixed_gpr = variable->asm_gpr;
 			if (operand.fixed_gpr != 0)
 			{
 				const unsigned reg = operand.fixed_gpr - 1;
@@ -227,7 +240,7 @@ void Analyzer::asm_statement(const syntax::AsmStmt& stmt, Scope* scope)
 	try
 	{
 		built = assembly::gnu_packet(text, operands, clobbers, stmt.is_volatile || stmt.is_goto, !stmt.is_extended,
-			target_model::is_i386(types_.target()));
+			target_model::describe(types_.target()).architecture);
 		if (const char* message = prepare_operands(*this, stmt, scope, operands, built, addresses))
 			error(stmt.location, message);
 	}

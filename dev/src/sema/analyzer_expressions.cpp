@@ -3341,7 +3341,9 @@ ExprFacts* Analyzer::explicit_conversion(
 			(IsMemberPointer(from) && IsMemberPointer(goal) &&
 				(from->element->kind == TypeKind::Function) == (goal->element->kind == TypeKind::Function)))
 			allowed = constness || !ConversionRules::casts_away_constness(from, goal);
-		else if (IsPointer(from) && IsIntegralType(goal) && width.bits >= types_.layout().pointer_bytes * 8u)
+		else if (IsPointer(from) &&
+			(c_source_ ? IsIntegralOrUnscopedEnum(goal)
+					   : IsIntegralType(goal) && width.bits >= types_.layout().pointer_bytes * 8u))
 			allowed = true;
 		else if (!c_source_ && IsNullptrType(from) && IsIntegralType(goal))
 			allowed = true;

@@ -34,6 +34,8 @@ bool compile_program(lowir::Program& program, const Options& options, std::strin
 				if (options.optimizer)
 					optimization = *options.optimizer;
 				optimization.level = options.optimization_level;
+				if (options.general_regs_only)
+					optimization.vectorize = false;
 				opt::optimize_program(program, optimization, nullptr);
 			}
 			std::vector<native::object::ObjectFile> objects(1);
@@ -42,7 +44,8 @@ bool compile_program(lowir::Program& program, const Options& options, std::strin
 				dump = "machine_ir aarch64 1\n";
 			const bool darwin = target_model::is_darwin(options.target);
 			aarch64::compile_object(program, objects.front(), options.optimization_level, darwin,
-				dump.empty() ? nullptr : &dump, false, darwin, options.optimizer && options.optimizer->minimize_size);
+				dump.empty() ? nullptr : &dump, false, darwin, options.optimizer && options.optimizer->minimize_size,
+				false, false, options.general_regs_only);
 			if (!dump.empty())
 			{
 				FileHandle file(std::fopen(options.machine_ir.c_str(), "wb"));

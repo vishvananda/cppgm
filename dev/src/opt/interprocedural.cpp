@@ -682,6 +682,11 @@ bool CalleeCopier::scan(SymbolId g, bool make)
 					v = body->instructions[body->temps[v.index].def].ops[0];
 				if ((called[f] & (uint64_t(1) << k)) == 0 || !v.is(ValueKind::Symbol) || body_of(v.index) == nullptr)
 					continue;
+				// Replacing the indirect call here could give code in
+				// another section a direct reference to discardable text.
+				const NameId section = program.symbols[v.index].metadata.section;
+				if (section && section != program.symbols[f].metadata.section)
+					continue;
 				SymbolId copy = kNoId;
 				for (const CalleeCopy& c : copies)
 					if (c.function == f && c.parameter == k && c.argument == v.index)

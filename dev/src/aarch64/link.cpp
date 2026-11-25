@@ -35,6 +35,16 @@ bool apply_relocation(uint32_t type, uint8_t* field, uint64_t room, uint64_t val
 		fits = !(delta & 3) && delta >= -(1ll << 27) && delta < (1ll << 27);
 		word = (word & 0xfc000000u) | ((uint64_t(delta) >> 2) & 0x03ffffff);
 		break;
+	case TestBranch14:
+	case CondBranch19:
+	{
+		const unsigned bits = type == TestBranch14 ? 14 : 19;
+		const int64_t limit = int64_t(1) << (bits + 1);
+		const uint32_t mask = (1u << bits) - 1;
+		fits = !(delta & 3) && delta >= -limit && delta < limit;
+		word = (word & ~(mask << 5)) | (((uint64_t(delta) >> 2) & mask) << 5);
+		break;
+	}
 	case AdrPrelLo21:
 	case AdrPrelPage21:
 	case GotPage:

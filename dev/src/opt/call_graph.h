@@ -52,7 +52,7 @@ bool this_adjusting_thunk(const lowir::Program& program, lowir::SymbolId symbol)
 // Removes discardable definitions unreachable from the program's roots
 // (other definitions, roles, object roots, globals' data and aliases)
 // through call and address operands. Returns the number removed.
-uint32_t prune_unreachable(lowir::Program& program, OptimizerStats& stats);
+uint32_t prune_unreachable(lowir::Program& program, OptimizerStats& stats, bool include_private_data = false);
 bool prune_private_constant_data(lowir::Program& program);
 
 } // namespace opt

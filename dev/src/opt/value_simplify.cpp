@@ -6,6 +6,7 @@
 #include "opt/loops.h"
 #include "opt/passes.h"
 #include "opt/scalar_fold.h"
+#include "opt/known_integer.h"
 #include "opt/vector_lanes.h"
 #include "support/flat_map.h"
 
@@ -1066,6 +1067,14 @@ bool Simplifier::binary_identity(Instruction& inst, Value& out)
 				out = literal(integer_constant(type, none));
 				return true;
 			}
+			const Instruction* value = producer(x);
+			Literal known;
+			if (value != nullptr && value->op == Opcode::Binary && static_cast<BinaryOp>(value->sub) == BinaryOp::Add &&
+				known_integer(body_, Value::temp(inst.result), type, known))
+			{
+				out = literal(integer_constant(type, known));
+				return true;
+			}
 		}
 		// A value below the divisor is the remainder, and the quotient zero.
 		if ((op == BinaryOp::Div || op == BinaryOp::UDiv || op == BinaryOp::Mod || op == BinaryOp::UMod) && integral &&
@@ -1416,6 +1425,15 @@ bool Simplifier::compare_identity(Instruction& inst, Value& out)
 	}
 	if (type.is_integer())
 	{
+		// A zero sign bit proves an ordered comparison with zero even if
+		// the operand's value varies. GNU constant queries can use the proof.
+		const unsigned width = lowir::integer_bits(type.kind());
+		if (width <= 64 && (pred == ComparePredicate::Lt || pred == ComparePredicate::Ge) && constant(y, type, right) &&
+			is_integer(type, right, 0) && (possible_bits(x, type) & (uint64_t(1) << (width - 1))) == 0)
+		{
+			out = literal(truth_constant(pred == ComparePredicate::Ge));
+			return true;
+		}
 		// A positive literal at or above every value x can have.
 		Literal limit;
 		const bool inclusive = pred == ComparePredicate::Ugt || pred == ComparePredicate::Ule;
@@ -1488,6 +1506,22 @@ bool Simplifier::compare_identity(Instruction& inst, Value& out)
 	{
 		out = literal(truth_constant(pred == ComparePredicate::Uge || pred == ComparePredicate::Ule));
 		return true;
+	}
+	if (ly && (pred == ComparePredicate::Eq || pred == ComparePredicate::Ne))
+	{
+		const Instruction* masked = producer(x);
+		if (masked != nullptr && masked->op == Opcode::Binary && masked->sub == static_cast<uint8_t>(BinaryOp::And) &&
+			masked->ops[1].is(ValueKind::Integer))
+		{
+			const Instruction* arithmetic = producer(masked->ops[0]);
+			if (arithmetic != nullptr && arithmetic->op == Opcode::Binary &&
+				arithmetic->sub == static_cast<uint8_t>(BinaryOp::Add) &&
+				known_integer_differs(body_, x, type, cy.bits))
+			{
+				out = literal(truth_constant(pred == ComparePredicate::Ne));
+				return true;
+			}
+		}
 	}
 	// Truth values compared with 0 or 1.
 	if (!ly || !(pred == ComparePredicate::Eq || pred == ComparePredicate::Ne) || !boolean(x))
@@ -1838,6 +1872,15 @@ uint64_t Simplifier::possible_bits(Value v, Type type, unsigned depth)
 	if (def->op != Opcode::Binary)
 		return all;
 	const BinaryOp op = static_cast<BinaryOp>(def->sub);
+	if (op == BinaryOp::Add)
+	{
+		const uint64_t a = possible_bits(def->ops[0], type, depth + 1);
+		const uint64_t b = possible_bits(def->ops[1], type, depth + 1);
+		if (b > all - a)
+			return all;
+		const uint64_t limit = a + b;
+		return limit == 0 ? 0 : UINT64_MAX >> __builtin_clzll(limit);
+	}
 	if (op == BinaryOp::And)
 		return possible_bits(def->ops[0], type, depth + 1) & possible_bits(def->ops[1], type, depth + 1);
 	if (op == BinaryOp::Or || op == BinaryOp::Xor)

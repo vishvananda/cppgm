@@ -272,7 +272,7 @@ bool ConstantInterpreter::check_c_constexpr_initializer(
 }
 
 bool Analyzer::integer_constant_expression(
-	const syntax::Expr& expr, Scope* scope, Constant& value, bool required, uint64_t* high)
+	const syntax::Expr& expr, Scope* scope, Constant& value, bool required, uint64_t* high, bool fold_const_objects)
 {
 	if (!c_source_ || !semantic())
 	{
@@ -311,11 +311,12 @@ bool Analyzer::integer_constant_expression(
 	}
 	bool gnu_foldable = false;
 	const bool standard_operands = c_integer_constant_operands(expr, false, required ? &gnu_foldable : nullptr);
-	if (standard_operands || gnu_foldable)
+	if (standard_operands || gnu_foldable || fold_const_objects)
 	{
 		ConstantInterpreter interpreter(*this);
 		ConstValue result;
-		if (interpreter.evaluate_c_constant(expr, false, result, !standard_operands) &&
+		if (interpreter.evaluate_c_constant(
+				expr, false, result, gnu_foldable && !standard_operands, fold_const_objects && !standard_operands) &&
 			result.kind == ValueKind::Integer && (high != nullptr || HeldAsConstant(result)))
 		{
 			if (!standard_operands && positions_ != nullptr &&

@@ -887,6 +887,8 @@ void Analyzer::effect_attributes(
 				function->excluded_instantiation = true;
 			if (attribute->kind == syntax::AttributeKind::AlwaysInline)
 				function->always_inline = true;
+			if (attribute->kind == syntax::AttributeKind::NoInline)
+				function->no_inline = true;
 			if (attribute->kind == syntax::AttributeKind::Unavailable)
 				function->unavailable = true;
 			if (attribute->kind == syntax::AttributeKind::GnuInline)
@@ -2193,17 +2195,26 @@ VariableEntity* Analyzer::new_variable(const Specifiers& specifiers, const char*
 		? new_entity<BindingEntity>(EntityKind::Variable, name.key, where, type)
 		: new_entity<VariableEntity>(EntityKind::Variable, name.key, owner, type);
 	variable->structured_binding = structured_binding;
-	if (asm_label != nullptr && specifiers.is_register && where->kind == ScopeKind::Block &&
-		target_model::describe(types_.target()).architecture == target_model::Architecture::X86_64)
+	if (asm_label != nullptr)
 	{
-		asm_model::Register reg;
-		if (!assembly::parse_register(asm_label, std::strlen(asm_label), reg) ||
-			reg.bank != asm_model::RegisterBank::Gpr || reg.number >= 16 || reg.offset != 0)
-			error(location, "invalid x86-64 general register for a local assembly operand");
-		variable->x86_asm_gpr = reg.number + 1;
+		const auto architecture = target_model::describe(types_.target()).architecture;
+		const bool arm = architecture == target_model::Architecture::AArch64;
+		if (specifiers.is_register && where->kind == ScopeKind::Block &&
+			(architecture == target_model::Architecture::X86_64 || arm))
+		{
+			asm_model::Register reg;
+			const bool valid = arm ? assembly::parse_aarch64_register(asm_label, std::strlen(asm_label), reg)
+								   : assembly::parse_register(asm_label, std::strlen(asm_label), reg);
+			if (!valid || reg.bank != asm_model::RegisterBank::Gpr ||
+				(arm ? reg.number == 29 || reg.number > 30 : reg.number >= 16) || reg.offset != 0)
+				error(location,
+					arm ? "invalid AArch64 general register for a local assembly operand"
+						: "invalid x86-64 general register for a local assembly operand");
+			variable->asm_gpr = reg.number + 1;
+		}
+		else
+			graph_.set_asm_label(variable, asm_label);
 	}
-	else if (asm_label != nullptr)
-		graph_.set_asm_label(variable, asm_label);
 	variable->is_extern = is_extern;
 	variable->is_static = specifiers.is_static;
 	variable->c_register_storage = c_source_ && specifiers.is_register;

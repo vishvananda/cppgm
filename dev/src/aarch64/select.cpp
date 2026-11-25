@@ -269,6 +269,9 @@ void Selector::select(const lowir::Instruction& inst, BlockId block)
 	case Opcode::Resume:
 		resume(site(inst));
 		return;
+	case Opcode::IndirectJump:
+		indirect_jump(inst, block);
+		return;
 	case Opcode::Jump:
 		if (site(inst))
 			resume(site(inst));
@@ -288,6 +291,9 @@ void Selector::select(const lowir::Instruction& inst, BlockId block)
 	case Opcode::StackRestore:
 		value(left, inst.ops[0], program_.pointer_type());
 		out_.emit(Op::AddI, 31, left);
+		return;
+	case Opcode::Asm:
+		inline_assembly(inst);
 		return;
 	case Opcode::FrameAddress:
 		move(result_reg, 29);
@@ -469,7 +475,7 @@ void Selector::run()
 	plan();
 	find_loose_values();
 	find_chosen_increments();
-	const BlockId slow_entry = minimize_size_ ? kNoId : early_return();
+	const BlockId slow_entry = minimize_size_ || assembly_unavailable_ ? kNoId : early_return();
 	stack_adjust(true);
 	if (tls_vectors_ != kNoId)
 	{
@@ -663,11 +669,11 @@ void Selector::run()
 	}
 	flush_deferred_edges();
 	bind_forwarded();
-	if (level_ && body_.code_labels.empty())
+	if (level_ && body_.code_labels.empty() && !assembly_unavailable_)
 		forward_reloads(out_, frame_code_.prologue_end, frame_base(), spill_homes_, bit_tests_, named_.darwin);
-	if (level_ && !named_.darwin && body_.code_labels.empty())
+	if (level_ && !named_.darwin && body_.code_labels.empty() && !assembly_unavailable_)
 		pair_accesses(out_, frame_code_.prologue_end, bit_tests_, orders_memory(body_));
-	if (level_ && !dynamic_stack_ && body_.code_labels.empty())
+	if (level_ && !dynamic_stack_ && body_.code_labels.empty() && !assembly_unavailable_)
 		share_edge_moves(out_, bit_tests_);
 	// Tail sharing may redirect a branch. Check the final target before
 	// choosing the shorter reach of TBZ or TBNZ.
@@ -677,7 +683,7 @@ void Selector::run()
 	// Darwin's compact unwind keep the prologue at the entry.
 	if (level_ && !minimize_size_ && frame_ && slow_entry == kNoId && !named_.darwin && !out_.exceptions &&
 		!dynamic_stack_ && frame_pointer_ == kNoId && variadic_area_ == kNoId && tls_vectors_ == kNoId &&
-		body_.code_labels.empty() && program_.symbols[symbol_].metadata.tls_for == kNoId)
+		!assembly_unavailable_ && body_.code_labels.empty() && program_.symbols[symbol_].metadata.tls_for == kNoId)
 		shrink_wrap(out_, frame_code_);
 	if (level_ >= 2 && !dynamic_stack_ && body_.code_labels.empty())
 	{

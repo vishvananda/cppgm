@@ -75,7 +75,8 @@ void Parser::parse_assembly_alternative()
 		{
 			advance();
 			AssemblyImmediate immediate;
-			immediate.kind = static_cast<asm_model::ImmediateKind>(assembly_number(2, "assembly immediate kind"));
+			immediate.kind = static_cast<asm_model::ImmediateKind>(assembly_number(
+				static_cast<unsigned>(asm_model::ImmediateKind::ArmLogical64), "assembly immediate kind"));
 			immediate.is_signed = assembly_number(1, "assembly immediate signed flag") != 0;
 			auto bits = [&]() {
 				if (!at(TokenKind::Number))

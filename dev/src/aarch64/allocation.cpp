@@ -1301,17 +1301,21 @@ void Selector::allocate()
 		ranges.begin(), ranges.end(), [](const LiveRange& a, const LiveRange& b) { return a.first < b.first; });
 	// x9-x11, x15-x17 and v16-v17 are selector scratch; see free_x18_ for x18.
 	bool free_x8 = !named_.darwin && !result_.indirect && !out_.exceptions;
+	const uint32_t general_available = ~static_cast<uint32_t>(assembly_unavailable_);
+	const uint32_t simd_available = ~static_cast<uint32_t>(assembly_unavailable_ >> 32);
+	const uint32_t preserved_simd = kPreservedSimd & simd_available;
+	const uint32_t preserved_general = ((dynamic_stack_ ? 0x1ffu : 0x3ffu) << 19) & general_available;
 	const auto incoming = incoming_registers(program_, signature_, body_, named_.darwin, free_x8);
 	const uint32_t slots = 2 * (body_.instructions.size() + body_.layout.size()) + 3;
 	const auto outgoing = call_registers();
 	std::vector<uint64_t> weight;
 	// x0-x7, x12-x14, x8 when free, x18 when free and the preserved registers.
-	const unsigned preserved_count = dynamic_stack_ ? 9 : 10;
+	const unsigned preserved_count = __builtin_popcount(preserved_general);
 	const unsigned assignable = preserved_count + 11 + (free_x8 ? 1 : 0) + (free_x18_ ? 1 : 0);
 	const auto order = allocation_order(program_, body_, cfg, aliases_, block_weights_, ranges, segments, calls, webs,
 		slots, level_, preserved_count, assignable, weight);
 	const bool split_calls = level_ >= 2 && !named_.darwin && !dynamic_stack_ && body_.code_labels.empty() &&
-		calls.size() <= 64;
+		calls.size() <= 64 && !assembly_unavailable_;
 	if (split_calls && calls.size() > 1 && block_weights_.empty() && !cfg.succ_first.empty())
 		block_frequencies(program_, body_, cfg, block_weights_);
 	const bool single = split_calls && calls.size() == 1 && guarded_call(body_, cfg, calls_.front().block);
@@ -1323,10 +1327,10 @@ void Selector::allocate()
 	GroupRegisters groups(body_, aliases_, ranges, segments, facts.copies, calls);
 	// The entry's frameless region, found when a group first asks.
 	bool frameless_known = minimize_size_ || named_.darwin || out_.exceptions || dynamic_stack_ ||
-		!body_.code_labels.empty() || calls.empty();
+		!body_.code_labels.empty() || calls.empty() || assembly_unavailable_;
 	std::vector<uint32_t> frameless_blocks;
 	// An explicit fma can need three scratch registers when all operands spill.
-	const uint32_t high_caller_simd = has_fused_multiply_add_ ? 0xfff80000 : 0xfffc0000;
+	const uint32_t high_caller_simd = (has_fused_multiply_add_ ? 0xfff80000 : 0xfffc0000) & simd_available;
 	RegisterBank general(segments, slots, (1u << 19) - 1), simd(segments, slots, ~kPreservedSimd);
 	std::vector<uint32_t> simd_web_regs;
 	uint32_t saved_fp = 0;
@@ -1339,7 +1343,7 @@ void Selector::allocate()
 		return !live_into(range, segments, facts.landings) && cold_crossings(range, segments, calls, cold_budget);
 	};
 	const auto first_choice = [&](TempId group) {
-		const uint32_t all = (dynamic_stack_ ? 0x1ffu : 0x3ffu) << 19;
+		const uint32_t all = preserved_general;
 		if (!frameless_known)
 		{
 			frameless_blocks = frameless_spans(body_, cfg);
@@ -1384,7 +1388,7 @@ void Selector::allocate()
 		{
 			// Both Arm ABIs preserve the low 64 bits of v8 through v15.
 			const auto preferred = range.affinity == kNoId ? kNoId : vectors_[range.affinity];
-			uint32_t allowed = across_call ? kPreservedSimd : arguments | high_caller_simd;
+			uint32_t allowed = across_call ? preserved_simd : (arguments & simd_available) | high_caller_simd;
 			// Try a register from the phi web when the direct preference
 			// is unavailable, as in the general register bank.
 			const auto root = range.affinity == kNoId ? kNoId : webs.root(range.id);
@@ -1395,7 +1399,7 @@ void Selector::allocate()
 				allowed |= saved_fp & ((preferred < 32 ? 1u << preferred : 0) | (alternate < 32 ? 1u << alternate : 0));
 			auto reg = groups.choose_simd(simd, range, allowed, preferred, alternate, across_call);
 			if (reg == kNoId && !across_call)
-				reg = groups.choose_simd(simd, range, kPreservedSimd, preferred, alternate, across_call);
+				reg = groups.choose_simd(simd, range, preserved_simd, preferred, alternate, across_call);
 			// Keep scalar arithmetic in its register bank. With only rare
 			// calls to cross, save the live scalar lanes on those paths.
 			if (reg == kNoId && across_call && cold_calls && !live_into(range, segments, facts.landings))
@@ -1428,10 +1432,10 @@ void Selector::allocate()
 			if (type.kind() == TypeKind::V128 && !range.vector_address && !across_call)
 			{
 				const auto preferred = range.affinity == kNoId ? kNoId : vectors_[range.affinity];
-				auto reg = simd.assign(range, arguments | high_caller_simd, preferred);
+				auto reg = simd.assign(range, (arguments & simd_available) | high_caller_simd, preferred);
 				if (reg == kNoId)
 				{
-					reg = simd.assign(range, kPreservedSimd, preferred);
+					reg = simd.assign(range, preserved_simd, preferred);
 					if (reg != kNoId)
 						saved_fp |= 1u << reg;
 				}
@@ -1464,7 +1468,7 @@ void Selector::allocate()
 			crossing |= outgoing[range.id].allowed & 0xffu;
 		if (crossed)
 			caller |= crossing;
-		const uint32_t preserved = (dynamic_stack_ ? 0x1ffu : 0x3ffu) << 19;
+		caller &= general_available;
 		unsigned preferred = range.affinity == kNoId ? kNoId : registers_[range.affinity];
 		if (preferred == kNoId && at_call && !across_call && outgoing[range.id].preferred < 8)
 			preferred = outgoing[range.id].preferred;
@@ -1472,7 +1476,7 @@ void Selector::allocate()
 		const unsigned alternate = root == kNoId ? kNoId : web_regs[root];
 		const bool parameter = range.id < body_.parameter_count;
 		auto reg = groups.choose(
-			general, range, caller | preserved, first_choice, preferred, alternate, across_call, parameter);
+			general, range, caller | preserved_general, first_choice, preferred, alternate, across_call, parameter);
 		// Out of registers, saving a caller register around the calls the
 		// range crosses can still cost less than its spills and reloads.
 		if (reg == kNoId && across_call && !crossed && cold_calls && !weight.empty() &&
@@ -1500,7 +1504,7 @@ void Selector::allocate()
 		if (root != kNoId && reg != kNoId && (web_regs[root] == kNoId || (reg >= 19 && web_regs[root] < 19)))
 			web_regs[root] = reg;
 	}
-	if (level_ >= 3 && !segments.empty() && body_.code_labels.empty())
+	if (level_ >= 3 && !segments.empty() && body_.code_labels.empty() && !assembly_unavailable_)
 		hold_division_constants(body_, cfg, general,
 			0xffu | (7u << 12) | (free_x8 ? 1u << 8 : 0) | (free_x18_ ? 1u << 18 : 0),
 			saved & ((dynamic_stack_ ? 0x1ffu : 0x3ffu) << 19), held_constants_, held_divisions_);

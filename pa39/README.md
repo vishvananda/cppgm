@@ -70,6 +70,27 @@ cppgm --target=aarch64-linux-gnu -S -emit-lowir -O2 main.cpp -o main.lowir
 lowir2native --target=aarch64-linux-gnu main.lowir -o main
 ```
 
+### AArch64 Linux assembly listings
+
+Implement `cppgm --target=aarch64-linux-gnu -S` with ELF labels, section
+directives and relocations that an independent assembler can resolve.
+For PA29 assembly, select register and memory operands from the typed packet,
+honor local register bindings and declared clobbers, and preserve each
+`asm goto` destination. Assembly directives can use integer operands whose
+value follows from a mask. Computed goto and static tables of label addresses
+also work in ordinary `-c` output.
+
+```sh
+cppgm --target=aarch64-linux-gnu -O2 -S control.cpp -o control.s
+clang --target=aarch64-linux-gnu -c control.s -o control.o
+make -C pa39 check TEST=tests/control/300-inline-assembly-listing.t
+make -C pa39 check TEST=tests/control/300-computed-goto.t
+```
+
+Freestanding C code can use `-mgeneral-regs-only` to suppress vectorization and
+keep compiler-generated aggregate copies in general registers. Explicit SIMD
+translation units use the regular AArch64 profile.
+
 ### Size optimization and source LTO
 
 Both Arm targets support the experimental `-Oz` size profile and full source LTO.

@@ -307,6 +307,7 @@ struct Invocation
 	bool disable_mmx = false;
 	FloatContract float_contract = FloatContract::Off;
 	bool fixed_x18 = false;
+	bool general_regs_only = false;
 	// -ffunction-sections: each function in a section of its own.
 	bool function_sections = false;
 	bool preprocess_only = false;
@@ -353,6 +354,16 @@ struct Invocation
 		return c_preprocessor && input.inferred_c ? *c_preprocessor : preprocessor;
 	}
 };
+
+bool machine_code_option(const std::string& option, Invocation& invocation)
+{
+	if (option != "-mgeneral-regs-only")
+		return float_contract_option(option, invocation.float_contract) ||
+			fixed_x18_option(option, &invocation.fixed_x18);
+	invocation.general_regs_only = true;
+	invocation.optimizer.vectorize = false;
+	return true;
+}
 
 double milliseconds_since(std::chrono::steady_clock::time_point start)
 {
@@ -604,6 +615,8 @@ bool refused_flag(const std::string& arg)
 		(arg != "-mharden-sls=none" && starts_with(arg, "-mharden-sls=")) ||
 		(arg != "-mfunction-return=keep" && starts_with(arg, "-mfunction-return=")) ||
 		starts_with(arg, "-mindirect-branch=") ||
+		(arg != "-mbranch-protection=none" && starts_with(arg, "-mbranch-protection=")) ||
+		(arg != "-msign-return-address=none" && starts_with(arg, "-msign-return-address=")) ||
 		(arg != "-fzero-call-used-regs=skip" && starts_with(arg, "-fzero-call-used-regs="));
 }
 
@@ -742,8 +755,9 @@ void configure_compile_output(Invocation& invocation, bool assembly_output)
 		throw InvocationError("-emit-lowir requires -S");
 	invocation.compile_only = invocation.compile_only || assembly_output;
 	invocation.x86_code.assembly_text = assembly_output && !invocation.emit_lowir;
-	if (invocation.x86_code.assembly_text && invocation.target != native::Target::Linux)
-		throw InvocationError("native -S requires an ELF x86-64 target");
+	if (invocation.x86_code.assembly_text && invocation.target != native::Target::Linux &&
+		invocation.target != native::Target::AArch64Linux)
+		throw InvocationError("native -S requires an ELF x86-64 or AArch64 target");
 }
 
 const char* compile_output_suffix(const Invocation& invocation)
@@ -883,7 +897,7 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 			invocation.emit_lowir = true;
 		else if (arg == "-flowir-passes" || arg == "-fno-lowir-passes")
 			invocation.lowir_passes = arg == "-flowir-passes";
-		else if (float_contract_option(arg, invocation.float_contract) || fixed_x18_option(arg, &invocation.fixed_x18))
+		else if (machine_code_option(arg, invocation))
 			continue;
 		else if (arg == "-fPIC" || arg == "-fpic" || arg == "-fPIE" || arg == "-fpie")
 		{
@@ -1350,11 +1364,12 @@ bool compile_native_sources(SourceInputs sources, const Invocation& invocation, 
 		if (lowir_output != nullptr)
 			return write_unit_lowir(program, streaming ? &definitions : nullptr, *lowir_output);
 		object.path = sources.begin->name;
+		object.assembly_text = invocation.x86_code.assembly_text;
 		if (arm)
 			aarch64::compile_object(program, object, invocation.optimizer.level, invocation.position_independent,
 				nullptr, invocation.function_sections, eh_model == native::EhModel::Host,
 				invocation.optimizer.minimize_size, invocation.float_contract == FloatContract::Fast,
-				invocation.fixed_x18);
+				invocation.fixed_x18, invocation.general_regs_only, native_unwind_tables(invocation, options));
 		else
 			builder->finish(object);
 	}
@@ -1417,6 +1432,7 @@ bool compile_lowir_unit(const std::string& path, const Invocation& invocation, n
 	stats.clocks = invocation.stats;
 	stats.census = invocation.function_census;
 	object.path = path;
+	object.assembly_text = invocation.x86_code.assembly_text;
 	if (target_model::is_aarch64(invocation.target))
 	{
 		try
@@ -1424,7 +1440,8 @@ bool compile_lowir_unit(const std::string& path, const Invocation& invocation, n
 			aarch64::compile_object(program, object, invocation.optimizer.level, invocation.position_independent,
 				nullptr, invocation.function_sections, eh_model == native::EhModel::Host,
 				invocation.optimizer.minimize_size, invocation.float_contract == FloatContract::Fast,
-				invocation.fixed_x18);
+				invocation.fixed_x18, invocation.general_regs_only,
+				native_unwind_tables(invocation, invocation.preprocessor));
 		}
 		catch (const native::BackendError& e)
 		{

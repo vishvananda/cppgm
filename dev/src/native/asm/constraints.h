@@ -38,6 +38,10 @@ inline uint32_t ordinary_assembly_mask(mir_model::Reg reg)
 	return reg < 32 ? mir_model::reg_bit(reg) : 0;
 }
 
+// Volatile register units available to AArch64 constraints. Include fixed LR
+// and keep the selector's ordinary staging temporaries out of the domain.
+constexpr uint64_t kAArch64BindingRegisters = 0xffff00ff4000f1ffull;
+
 struct AssemblyBinding
 {
 	std::vector<mir_model::Reg> registers;

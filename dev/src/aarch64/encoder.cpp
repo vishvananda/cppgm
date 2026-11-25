@@ -202,7 +202,7 @@ void share_edge_moves(Function& f, std::vector<BitTest>& tests)
 static void mark_tables(const Function& f, std::vector<uint8_t>& table)
 {
 	for (const auto& inst : f.code)
-		if (inst.op == Op::Adr && inst.fixup == Fixup::Block)
+		if (inst.op == Op::Adr && inst.fixup == Fixup::Block && inst.addend != 0)
 		{
 			if (table.empty())
 				table.resize(f.code.size());
@@ -916,14 +916,17 @@ void pack_tables(Function& f)
 // that addresses them (its addend counts them), are words: each
 // destination's byte distance from the table, which the dispatch loads and
 // adds to the table's address; or halfword pairs (pack_tables).
-void encode(
-	const Function& function, const std::vector<uint32_t>& symbols, native::object::Section& text, uint32_t resume)
+void encode(const Function& function, const std::vector<uint32_t>& symbols, native::object::ObjectFile& object,
+	uint32_t section, uint32_t resume)
 {
+	namespace obj = native::object;
+	obj::Section& text = object.sections[section];
+	const uint64_t start = text.bytes.size();
 	const uint32_t n = static_cast<uint32_t>(function.code.size());
 	std::vector<uint32_t> table_at;
 	std::vector<uint8_t> halves;
 	for (const auto& ins : function.code)
-		if (ins.op == Op::Adr && ins.fixup == Fixup::Block)
+		if (ins.op == Op::Adr && ins.fixup == Fixup::Block && ins.addend != 0)
 		{
 			if (table_at.empty())
 				table_at.assign(n, kNoLabel);
@@ -941,6 +944,13 @@ void encode(
 					halves[i] = 1;
 			}
 		}
+	std::vector<uint32_t> labels;
+	if (!function.assembly.empty())
+	{
+		if (!table_at.empty())
+			throw AArch64Error("AArch64 source assembly with a generated jump table is unsupported");
+		labels.assign(function.labels.size(), kNoLabel);
+	}
 	for (uint32_t i = 0; i < n; ++i)
 	{
 		const Instruction& ins = function.code[i];
@@ -958,6 +968,24 @@ void encode(
 					throw AArch64Error("AArch64 jump table entry out of range");
 				word = uint32_t(uint16_t(first)) | uint32_t(uint16_t(second)) << 16;
 			}
+		}
+		else if (ins.fixup == Fixup::Assembly)
+			object.assembly_fragments.push_back({ section, text.bytes.size(), function.assembly.at(ins.target) });
+		else if (ins.fixup == Fixup::Block && !labels.empty())
+		{
+			uint32_t& target = labels.at(ins.target);
+			if (target == kNoLabel)
+			{
+				obj::Symbol symbol;
+				symbol.section = section;
+				symbol.value = start + uint64_t(function.labels.at(ins.target)) * 4;
+				target = object.add_symbol(symbol);
+			}
+			const uint32_t type = ins.op == Op::B         ? Jump26
+				: ins.op == Op::Adr                       ? AdrPrelLo21
+				: ins.op == Op::Tbz || ins.op == Op::Tbnz ? TestBranch14
+														  : CondBranch19;
+			text.relocations.push_back(obj::Relocation{ text.bytes.size(), type, target, 0 });
 		}
 		else if (ins.fixup == Fixup::Block)
 		{

@@ -12,7 +12,7 @@ void Selector::copy_piece(unsigned dst, unsigned src, unsigned offset, unsigned 
 {
 	if (!bytes)
 		return;
-	if (level_ && bytes == 32 && offset % 16 == 0)
+	if (!general_regs_only_ && level_ && bytes == 32 && offset % 16 == 0)
 	{
 		const auto pair = (offset / 16) << 15;
 		if (src != 31)
@@ -20,7 +20,7 @@ void Selector::copy_piece(unsigned dst, unsigned src, unsigned offset, unsigned 
 		out_.emit(Op::StpQ, 16, dst, 0, pair | ((src == 31 ? 16u : 17u) << 10));
 		return;
 	}
-	const unsigned index = std::min(4, 31 - __builtin_clz(bytes));
+	const unsigned index = std::min(general_regs_only_ ? 3 : 4, 31 - __builtin_clz(bytes));
 	const unsigned step = 1u << index;
 	const Op loads[] = { Op::LdurB, Op::LdurH, Op::LdurW, Op::LdurX, Op::LdurQ };
 	const Op stores[] = { Op::SturB, Op::SturH, Op::SturW, Op::SturX, Op::SturQ };
@@ -38,8 +38,54 @@ void Selector::copy_piece(unsigned dst, unsigned src, unsigned offset, unsigned 
 		out_.emit(stores[index], src == 31 ? zero : second, dst, 0, end << 12);
 }
 
+void Selector::copy_integer_run(unsigned dst, unsigned src, uint64_t bytes, bool backward)
+{
+	const unsigned tail = bytes % 8;
+	if (bytes <= 64)
+	{
+		const unsigned words = static_cast<unsigned>(bytes / 8);
+		for (unsigned i = 0; i < words; ++i)
+			copy_piece(dst, src, (backward ? words - 1 - i : i) * 8 + (backward ? tail : 0), 8);
+		copy_piece(dst, src, backward ? 0 : words * 8, tail);
+		return;
+	}
+	if (backward)
+	{
+		constant(9, bytes);
+		out_.emit(Op::Add, 16, dst, 9);
+		out_.emit(Op::Add, 17, src, 9);
+	}
+	else
+	{
+		move(16, dst);
+		if (src != 31)
+			move(17, src);
+	}
+	constant(9, bytes / 8);
+	const uint32_t loop = out_.labels.size();
+	out_.labels.push_back(kNoId);
+	out_.bind(loop);
+	const auto advance = [&]() {
+		out_.emit(backward ? Op::SubI : Op::AddI, 16, 16, 0, 8 << 10);
+		if (src != 31)
+			out_.emit(backward ? Op::SubI : Op::AddI, 17, 17, 0, 8 << 10);
+	};
+	if (backward)
+		advance();
+	if (src != 31)
+		access(false, 15, 17, 0, 8);
+	access(true, src == 31 ? 31 : 15, 16, 0, 8);
+	if (!backward)
+		advance();
+	out_.emit(Op::SubI, 9, 9, 0, 1 << 10);
+	out_.reference(Op::Cbnz, Fixup::Block, loop, 9);
+	copy_piece(backward ? dst : 16, backward || src == 31 ? src : 17, 0, tail);
+}
+
 void Selector::copy_run(unsigned dst, unsigned src, uint64_t bytes, bool backward)
 {
+	if (general_regs_only_)
+		return copy_integer_run(dst, src, bytes, backward);
 	const unsigned tail = bytes % 32;
 	if (bytes <= 128)
 	{
@@ -116,9 +162,9 @@ void Selector::copy_bytes(unsigned dst, unsigned src, uint64_t size)
 			out_.emit(Op::StpX, 31, dst, 0, (2u << 15) | (31u << 10));
 		return;
 	}
-	if (src == 31 && size >= 16)
+	if (!general_regs_only_ && src == 31 && size >= 16)
 		out_.emit(Op::VEor, 16, 16, 16);
-	if (size <= 32)
+	if (size <= (general_regs_only_ ? 16 : 32))
 	{
 		copy_piece(dst, src, 0, size);
 		return;
@@ -128,7 +174,7 @@ void Selector::copy_bytes(unsigned dst, unsigned src, uint64_t size)
 		copy_run(dst, src, size, false);
 		return;
 	}
-	if (level_ && size <= 64)
+	if (!general_regs_only_ && level_ && size <= 64)
 	{
 		copy_staged(dst, src, static_cast<unsigned>(size));
 		return;

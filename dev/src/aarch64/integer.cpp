@@ -1144,7 +1144,12 @@ void Selector::switch_edges(const lowir::Instruction& inst, BlockId from)
 	// A table entry is a word: its destination's distance from the table
 	// (encode). A sparse table adds an indirect branch and a load where a
 	// search takes conditional branches.
-	if (level_ && (masks || (span < 4 * cases.size() && machine::native_table(cases, clusters.size(), targets.size()))))
+	// A listing with source assembly needs symbolic branch targets. The
+	// encoder cannot lay out table entries before the assembler runs.
+	if (level_ &&
+		(masks ||
+			(!assembly_unavailable_ && span < 4 * cases.size() &&
+				machine::native_table(cases, clusters.size(), targets.size()))))
 	{
 		// Several entries may share the same phi transfer. Give each
 		// nonempty edge one stub, including the out-of-range default.

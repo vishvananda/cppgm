@@ -508,6 +508,8 @@ bool ConstantInterpreter::invoke(const FunctionEntity* function, const ConstPlac
 		return allocator_operation(function, arguments, count, result, location);
 	if (function->builtin != BuiltinFunction::None)
 		return builtin(function, arguments, count, result, location);
+	if (c_static_initializer_ && function->c_linkage && !function->defined && hosted_strlen(function))
+		return library_strlen(function->type->canonical->element->unqualified, arguments, count, result, location);
 	if (function->c_linkage && !function->defined && hosted_sine(function))
 		return library_sine(function->type->canonical->element->unqualified, arguments, count, result, location);
 	if (function->conversion && function->is_constexpr && function->owner->kind == ScopeKind::Class)
@@ -660,26 +662,7 @@ bool ConstantInterpreter::builtin(
 		return true;
 	}
 	case BuiltinFunction::Strlen:
-	{
-		ConstValue pointer;
-		if (count != 1 || !converted(*arguments[0].expr, arguments[0].conversion, pointer) ||
-			pointer.kind != ValueKind::Pointer)
-			return false;
-		uint64_t length = 0;
-		for (;;)
-		{
-			ConstValue unit;
-			if (!step(location) || !read(PlaceOf(pointer, pointer.type->element), unit, location))
-				return false;
-			if (unit.bits == 0)
-				break;
-			++length;
-			if (!advance(pointer, 1, location))
-				return false;
-		}
-		result.value = IntegerValue(type->element->unqualified, length);
-		return true;
-	}
+		return library_strlen(type->element->unqualified, arguments, count, result, location);
 	case BuiltinFunction::Library:
 	{
 		const char* name = function->label;
@@ -815,6 +798,45 @@ bool ConstantInterpreter::library_floating(
 		: maximum                      ? std::fmax(x.floating, y.floating)
 									   : std::fmin(x.floating, y.floating);
 	result.value = FloatingValue(function->type->canonical->element->unqualified, value);
+	return true;
+}
+
+bool ConstantInterpreter::hosted_strlen(const FunctionEntity* function) const
+{
+	if (!analyzer_.hosted() || function->owner != analyzer_.graph_.global || function->label == nullptr ||
+		std::strcmp(function->label, "strlen") != 0)
+		return false;
+	const Type* signature = function->type->canonical;
+	if (signature->param_count != 1 || signature->variadic || !IsIntegralType(signature->element) ||
+		signature->params[0]->kind != TypeKind::Pointer)
+		return false;
+	IntegralKind result;
+	IntegralKindOf(signature->element, result);
+	const Type* element = signature->params[0]->element;
+	return result.bits == analyzer_.types_.layout().pointer_bytes * 8u && !result.is_signed && element->cv == kConst &&
+		element->kind == TypeKind::Fundamental && element->fundamental == FundamentalType::Char;
+}
+
+bool ConstantInterpreter::library_strlen(
+	const Type* result_type, const Argument* arguments, uint32_t count, Result& result, uint32_t location)
+{
+	ConstValue pointer;
+	if (count != 1 || !converted(*arguments[0].expr, arguments[0].conversion, pointer) ||
+		pointer.kind != ValueKind::Pointer)
+		return false;
+	uint64_t length = 0;
+	for (;;)
+	{
+		ConstValue unit;
+		if (!step(location) || !read(PlaceOf(pointer, pointer.type->element), unit, location))
+			return false;
+		if (unit.bits == 0)
+			break;
+		++length;
+		if (!advance(pointer, 1, location))
+			return false;
+	}
+	result.value = IntegerValue(result_type, length);
 	return true;
 }
 

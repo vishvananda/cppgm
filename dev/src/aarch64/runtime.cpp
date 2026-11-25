@@ -91,7 +91,7 @@ void add_startup(std::vector<obj::ObjectFile>& objects, bool darwin)
 		f.emit(Op::MovZ, 8, 0, 0, 94 << 5); // Linux exit_group
 		f.emit(Op::Svc);
 	}
-	encode(f, symbols, object.sections[sec]);
+	encode(f, symbols, object, sec);
 	obj::Symbol s;
 	s.name = object.add_string(native::kEntrySymbol);
 	s.binding = obj::Binding::Global;

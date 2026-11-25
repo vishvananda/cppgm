@@ -61,8 +61,11 @@ void FunctionLowering::asm_statement(const syntax::AsmStmt& stmt)
 		const syntax::Expr& expr = *expressions[i];
 		const asm_model::Operand& argument = packet.operands.data[i];
 		const sema::Type* source_type = expr.facts->type->unqualified;
-		const lowir::Type type = source_type->kind == sema::TypeKind::Function ? program_.pointer_type()
-																			   : lowering_.storage_type(source_type);
+		const bool array_address = source_type->kind == sema::TypeKind::Array && argument.output == asm_model::kNoId &&
+			!argument.input_storage;
+		const lowir::Type type = source_type->kind == sema::TypeKind::Function || array_address
+			? program_.pointer_type()
+			: lowering_.storage_type(source_type);
 		types.push_back(type);
 		// An input that repeats a local register's read/write operand uses
 		// the same evaluated argument and shares that operand's register.
@@ -130,6 +133,8 @@ void FunctionLowering::asm_statement(const syntax::AsmStmt& stmt)
 			place.is_volatile = (expr.facts->type->cv & sema::kVolatile) != 0;
 			values[argument.input] = load(type, place).value;
 		}
+		else if (array_address)
+			values[argument.input] = address(expr);
 		else
 			values[argument.input] = operand(expr, ConversionContext::Argument).value;
 	}

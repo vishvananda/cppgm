@@ -1,4 +1,5 @@
 #include "sema/constant_interpreter.h"
+#include "preprocess/preprocessor.h"
 
 #include <algorithm>
 #include <cstring>
@@ -1093,7 +1094,16 @@ bool ConstantInterpreter::read(const ConstPlace& place, ConstValue& out, uint32_
 	const bool c_named_constant = analyzer_.c23_ && place.root == RootKind::Variable &&
 		static_cast<const VariableEntity*>(place.entity)->is_constexpr;
 	if (analyzer_.c_source_ && place.root == RootKind::Variable && !c_named_constant)
-		return fail(location, "a C object's stored value is not a constant expression");
+	{
+		const auto* variable = static_cast<const VariableEntity*>(place.entity);
+		const auto* positions = analyzer_.source_positions();
+		const bool can_fold = (c_static_initializer_ || c_fold_const_objects_) &&
+			variable->constant == ConstantState::Value && (variable->type->cv & kConst) != 0 &&
+			(positions == nullptr ||
+				positions->allow_gnu_c_extension(location, "reading this const object is a GNU C extension"));
+		if (!can_fold)
+			return fail(location, "a C object's stored value is not a constant expression");
+	}
 	const bool aggregate = place.type->kind == TypeKind::Array || place.type->unqualified->kind == TypeKind::Class;
 	if (!c_named_constant && ((place.flags & kMutableSubobject) != 0 || aggregate) &&
 		(!analyzer_.cxx14_ ||
@@ -2039,10 +2049,11 @@ bool ConstantInterpreter::evaluate(const syntax::Expr& expr, bool converted, Con
 }
 
 bool ConstantInterpreter::evaluate_c_constant(
-	const syntax::Expr& expr, bool converted, ConstValue& out, bool fold_address)
+	const syntax::Expr& expr, bool converted, ConstValue& out, bool fold_address, bool fold_const_objects)
 {
 	c_constant_expression_ = true;
 	c_fold_address_constants_ = fold_address;
+	c_fold_const_objects_ = fold_const_objects;
 	return evaluate(expr, converted, out);
 }
 
@@ -2116,6 +2127,7 @@ bool ConstantInterpreter::initialize(const VariableEntity* variable, const synta
 	++analyzer_.graph_.constant_evaluations;
 	c_constexpr_initializer_ = analyzer_.c_source_ && variable->is_constexpr;
 	c_constant_expression_ = c_constexpr_initializer_;
+	c_fold_const_objects_ = analyzer_.c_source_ && !c_constexpr_initializer_;
 	const Type* type = variable->type;
 	const uint32_t location = initializer != nullptr ? initializer->location : 0;
 	if (type->is_reference())

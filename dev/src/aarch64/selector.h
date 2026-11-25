@@ -5,6 +5,10 @@
 #include "aarch64/shrink_wrap.h"
 #include "machine/phi_inputs.h"
 
+namespace native {
+struct AssemblyBinding;
+}
+
 namespace opt {
 struct Cfg;
 }
@@ -35,11 +39,17 @@ class Selector
 {
 public:
 	Selector(const lowir::Program& program, lowir::SymbolId symbol, Function& out, int level, bool pic,
-		const std::vector<uint32_t>& leaf_registers, bool minimize_size, bool contract_float, bool fixed_x18);
+		const std::vector<uint32_t>& leaf_registers, bool minimize_size, bool contract_float, bool fixed_x18,
+		bool general_regs_only = false);
 	void run();
 
 private:
 	void plan();
+	uint64_t assembly_clobbers(const lowir::Instruction& inst, bool include_fixed = false) const;
+	void indirect_jump(const lowir::Instruction& inst, lowir::BlockId from);
+	void stage_assembly_inputs(const lowir::Instruction& inst, const native::AssemblyBinding& binding);
+	void store_assembly_outputs(const lowir::Instruction& inst, const native::AssemblyBinding& binding);
+	void inline_assembly(const lowir::Instruction& inst);
 	struct EntryGuard
 	{
 		unsigned reg = lowir::kNoId, bytes = 0, offset = 0, bits = 0, literal = 0;
@@ -130,6 +140,7 @@ private:
 	void copy_piece(unsigned dst, unsigned src, unsigned offset, unsigned bytes);
 	void copy_staged(unsigned dst, unsigned src, unsigned bytes);
 	void copy_run(unsigned dst, unsigned src, uint64_t bytes, bool backward);
+	void copy_integer_run(unsigned dst, unsigned src, uint64_t bytes, bool backward);
 	void copy_bytes(unsigned dst, unsigned src, uint64_t size);
 	void copy_value(unsigned dst, lowir::Value src, lowir::Type type);
 	struct CallLayout
@@ -287,8 +298,9 @@ private:
 	int level_;
 	// Linux leaves x18 to the program as a temporary unless -ffixed-x18
 	// reserves it; Darwin reserves it as the platform register.
-	bool pic_, minimize_size_, contract_float_, free_x18_;
+	bool pic_, minimize_size_, contract_float_, free_x18_, general_regs_only_;
 	bool has_fused_multiply_add_ = false;
+	uint64_t assembly_unavailable_ = 0;
 	const std::vector<uint32_t>& leaf_registers_;
 	bool dynamic_stack_ = false, stack_pair_ = false;
 	lowir::BlockId fallthrough_ = lowir::kNoId;

@@ -170,8 +170,9 @@ bool Parser::parse_ptr_operator(ListFrame<PtrOperator>& pointers, Attribute** de
 		{
 			Attribute* current = attributes;
 			attributes = current->next;
-			if (current->kind == AttributeKind::AlwaysInline || current->kind == AttributeKind::GnuInline ||
-				current->kind == AttributeKind::Weak || current->kind == AttributeKind::Section)
+			if (current->kind == AttributeKind::AlwaysInline || current->kind == AttributeKind::NoInline ||
+				current->kind == AttributeKind::GnuInline || current->kind == AttributeKind::Weak ||
+				current->kind == AttributeKind::Section)
 			{
 				current->next = *declaration_attributes;
 				*declaration_attributes = current;

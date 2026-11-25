@@ -41,22 +41,29 @@ bool private_constant_data(const Symbol& symbol)
 		m.section == 0 && m.object == 0 && (m.flags & (SF_OBJECT_ROOT | SF_REPLACEABLE)) == 0;
 }
 
+bool private_c_data(const Symbol& symbol)
+{
+	const SymbolMetadata& m = symbol.metadata;
+	return symbol.kind == SymbolKind::GlobalDefinition && m.binding == ir_model::SBM_INTERNAL &&
+		m.linkage == ir_model::LLM_C && (m.storage == ir_model::GSM_DEFAULT || m.storage == ir_model::GSM_READONLY) &&
+		m.role == ir_model::SR_NONE && m.section == 0 && m.object == 0 &&
+		(m.flags & (SF_OBJECT_ROOT | SF_REPLACEABLE)) == 0;
+}
+
 // Marks opaque symbol references outside ordinary optimized bodies.
 template<typename Mark>
-void mark_data_references(const Program& program, Mark mark, const std::vector<SymbolId>& targets)
+void mark_data_references(
+	const Program& program, Mark mark, const std::vector<SymbolId>& targets, bool follow_all_initializers = true)
 {
 	// Code addresses retain their containing function and its ABI. Static
 	// dispatch tables can keep it alive without an ordinary call edge.
 	for (SymbolId s : program.order)
 		if (is_definition(program, s) && !program.functions[program.symbols[s].detail].body->code_labels.empty())
 			mark(s);
-	for (SymbolId s = 0; s < program.symbols.size(); ++s)
-	{
-		const Symbol& symbol = program.symbols[s];
-		if (symbol.kind != SymbolKind::GlobalDefinition)
-			continue;
-		mark_initializer(program, symbol, mark);
-	}
+	if (follow_all_initializers)
+		for (const Symbol& symbol : program.symbols)
+			if (symbol.kind == SymbolKind::GlobalDefinition)
+				mark_initializer(program, symbol, mark);
 	// Raw bodies are not analyzed for calls or argument/return facts. A typed
 	// symbol input nevertheless observes its target's identity and full ABI.
 	if (program.assembly)
@@ -314,7 +321,7 @@ bool prune_private_constant_data(Program& program)
 	return kept != old_size;
 }
 
-uint32_t prune_unreachable(Program& program, OptimizerStats& stats)
+uint32_t prune_unreachable(Program& program, OptimizerStats& stats, bool include_private_data)
 {
 	std::vector<uint8_t> live(program.symbols.size(), 0);
 	std::vector<SymbolId> work;
@@ -326,7 +333,8 @@ uint32_t prune_unreachable(Program& program, OptimizerStats& stats)
 		while (s < live.size() && !live[s])
 		{
 			live[s] = 1;
-			if (is_definition(program, s))
+			if (is_definition(program, s) ||
+				(include_private_data && program.symbols[s].kind == SymbolKind::GlobalDefinition))
 				work.push_back(s);
 			if (aliases.empty() || aliases[s] == kNoId)
 				break;
@@ -334,14 +342,26 @@ uint32_t prune_unreachable(Program& program, OptimizerStats& stats)
 		}
 	};
 	for (SymbolId s : program.order)
-		if (is_definition(program, s) && !discardable(program, s))
+		if ((is_definition(program, s) && !discardable(program, s)) ||
+			(include_private_data && program.symbols[s].kind == SymbolKind::GlobalDefinition &&
+				!private_c_data(program.symbols[s])))
 			mark(s);
-	mark_data_references(program, mark, aliases);
+	mark_data_references(program, mark, aliases, !include_private_data);
+	if (include_private_data)
+		for (const auto& alias : program.aliases)
+			if (program.symbols[alias.target].kind == SymbolKind::GlobalDefinition)
+				mark(alias.target);
 	while (!work.empty())
 	{
 		const SymbolId s = work.back();
 		work.pop_back();
-		const FunctionBody& body = *program.functions[program.symbols[s].detail].body;
+		const Symbol& symbol = program.symbols[s];
+		if (symbol.kind == SymbolKind::GlobalDefinition)
+		{
+			mark_initializer(program, symbol, mark);
+			continue;
+		}
+		const FunctionBody& body = *program.functions[symbol.detail].body;
 		for (BlockId b : body.layout)
 			for (InstId i = body.blocks[b].first; i != kNoId; i = body.instructions[i].next)
 				for_each_operand(body, body.instructions[i], [&](const Value& v) {
@@ -370,6 +390,13 @@ uint32_t prune_unreachable(Program& program, OptimizerStats& stats)
 	std::vector<SymbolId> order;
 	for (SymbolId s : program.order)
 	{
+		if (include_private_data && !live[s] && private_c_data(program.symbols[s]))
+		{
+			Symbol& symbol = program.symbols[s];
+			program.globals[symbol.detail].init = GlobalInit::Zero;
+			symbol.kind = SymbolKind::GlobalDeclaration;
+			continue;
+		}
 		if (is_definition(program, s) && !live[s])
 		{
 			// The definition goes; nothing names the symbol any more.

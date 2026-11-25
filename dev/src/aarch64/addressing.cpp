@@ -113,7 +113,8 @@ bool Selector::page_offset(Value pointer, int64_t displacement, unsigned bytes) 
 	const bool declared = symbol.kind == SymbolKind::GlobalDeclaration;
 	if ((!declared && symbol.kind != SymbolKind::GlobalDefinition) ||
 		symbol.metadata.storage == ir_model::GSM_THREAD_LOCAL || symbol.metadata.binding == ir_model::SBM_WEAK ||
-		(pic_ && symbol.metadata.binding != ir_model::SBM_INTERNAL))
+		(pic_ && symbol.metadata.binding != ir_model::SBM_INTERNAL &&
+			!program_.has_local_elf_visibility(pointer.index)))
 		return false;
 	const Global& global = program_.globals[symbol.detail];
 	uint32_t align = 0;

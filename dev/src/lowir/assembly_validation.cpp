@@ -104,7 +104,7 @@ bool tables(const AssemblyModule& module, const char*& error)
 			return invalid("invalid assembly register group", error);
 	for (const Immediate& value : module.immediates)
 	{
-		if (static_cast<unsigned>(value.kind) > static_cast<unsigned>(ImmediateKind::Relocatable))
+		if (static_cast<unsigned>(value.kind) > static_cast<unsigned>(ImmediateKind::ArmLogical64))
 			return invalid("invalid assembly immediate domain", error);
 		if (value.kind == ImmediateKind::IntegerRange && !integer_range(value))
 			return invalid("reversed assembly immediate range", error);
@@ -213,7 +213,7 @@ bool template_packet(const AssemblyModule& module, const AssemblyTemplate& site,
 		AP_INLINE_COST_SMALL;
 	const unsigned states = AS_CONDITION_FLAGS | AS_X87_STATUS | AS_MXCSR_STATUS | AS_X87_CONTROL | AS_MXCSR_CONTROL |
 		AS_DIRECTION_FLAG;
-	if (static_cast<unsigned>(site.dialect) > static_cast<unsigned>(Dialect::Intel) ||
+	if (static_cast<unsigned>(site.dialect) >= kDialectCount ||
 		static_cast<unsigned>(site.memory) > static_cast<unsigned>(Memory::ReadWrite) ||
 		site.environment > module.globals.size() || (site.properties & ~properties) != 0 ||
 		((site.state_read | site.state_write) & ~states) != 0 ||

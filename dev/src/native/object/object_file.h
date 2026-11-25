@@ -132,6 +132,15 @@ struct AssemblyString
 	uint32_t size;
 };
 
+// Source assembly interleaved with generated instruction bytes in a -S view.
+// The encoder reserves one word as an anchor; the writer prints the source instead.
+struct AssemblyFragment
+{
+	uint32_t section;
+	uint64_t offset;
+	std::string text;
+};
+
 struct Symbol
 {
 	uint32_t name = 0; // offset in ObjectFile::strings
@@ -185,6 +194,9 @@ struct ObjectFile
 	// original bytes already present in its section.
 	bool assembly_text = false;
 	std::vector<AssemblyString> assembly_strings;
+	std::vector<AssemblyFragment> assembly_fragments;
+	// Typed symbols named by an assembly fragment; the text writer supplies their ELF attributes.
+	std::vector<uint32_t> assembly_symbols;
 };
 
 } // namespace object

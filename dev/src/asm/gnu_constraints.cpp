@@ -18,16 +18,16 @@ using namespace asm_model;
 
 void registers(PacketBuilder& packet, Alternative& alt, RegisterBank bank, unsigned mask)
 {
-	for (unsigned r = 0; r < (bank == RegisterBank::Vector ? 32u : 16u); ++r)
-		if (((mask >> r) & 1u) != 0)
-		{
-			RegisterGroup group;
-			group.first_register = static_cast<uint32_t>(packet.registers.size());
-			group.register_count = 1;
-			packet.registers.push_back(Register{ bank, static_cast<uint8_t>(r), 0, 0 });
-			packet.groups.push_back(group);
-			++alt.group_count;
-		}
+	for (; mask; mask &= mask - 1)
+	{
+		const unsigned r = static_cast<unsigned>(__builtin_ctz(mask));
+		RegisterGroup group;
+		group.first_register = static_cast<uint32_t>(packet.registers.size());
+		group.register_count = 1;
+		packet.registers.push_back(Register{ bank, static_cast<uint8_t>(r), 0, 0 });
+		packet.groups.push_back(group);
+		++alt.group_count;
+	}
 	alt.locations |= AL_REGISTER;
 }
 
@@ -145,8 +145,62 @@ void discard_unavailable_columns(PacketBuilder& packet)
 	packet.alternatives.resize(next);
 }
 
-void constraints(PacketBuilder& packet, const std::vector<GnuOperand>& source, bool i386)
+bool aarch64_constraint(PacketBuilder& packet, Alternative& alt, char code, bool link_register)
 {
+	switch (code)
+	{
+	case 'r':
+	case 'p':
+		registers(packet, alt, RegisterBank::Gpr, link_register ? 1u << 30 : 0x1fffffffu);
+		return true;
+	case 'w':
+	case 'x':
+	case 'y':
+		registers(packet, alt, RegisterBank::Vector, code == 'y' ? 0xffffu : code == 'x' ? 0xffu : ~0u);
+		return true;
+	case 'm':
+	case 'o':
+	case 'Q':
+		alt.locations |= AL_MEMORY;
+		return true;
+	case 'S':
+		alt.locations |= AL_SYMBOL;
+		return true;
+	case 'Z':
+		range(packet, alt, 0, 0);
+		return true;
+	case 'I':
+	case 'J':
+	case 'K':
+	case 'L':
+	{
+		Immediate domain;
+		domain.kind = code == 'I' ? ImmediateKind::ArmAdd
+			: code == 'J'         ? ImmediateKind::ArmSub
+			: code == 'K'         ? ImmediateKind::ArmLogical32
+								  : ImmediateKind::ArmLogical64;
+		packet.immediates.push_back(domain);
+		++alt.immediate_count;
+		alt.locations |= AL_IMMEDIATE;
+		return true;
+	}
+	case 'g':
+	case 'X':
+		registers(packet, alt, RegisterBank::Gpr, link_register ? 1u << 30 : 0x1fffffffu);
+		alt.locations |= AL_MEMORY;
+		return immediate(packet, alt, code);
+	case 'i':
+	case 'n':
+		return immediate(packet, alt, code);
+	default:
+		return false;
+	}
+}
+
+void constraints(PacketBuilder& packet, const std::vector<GnuOperand>& source, target_model::Architecture architecture)
+{
+	const bool i386 = architecture == target_model::Architecture::I386;
+	const bool arm = architecture == target_model::Architecture::AArch64;
 	bool unavailable = false;
 	for (uint32_t index = 0; index < source.size(); ++index)
 	{
@@ -272,6 +326,14 @@ void constraints(PacketBuilder& packet, const std::vector<GnuOperand>& source, b
 					alternative.matching = static_cast<uint32_t>(matching);
 					continue;
 				}
+				if (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '!' || c == '?')
+					continue;
+				if (arm)
+				{
+					if (!aarch64_constraint(packet, alternative, c, input.fixed_gpr == 31))
+						fail(std::string("AArch64 GNU assembly constraint is not implemented yet: ") + c);
+					continue;
+				}
 				const char* fixed = c == 'a' ? "rax"
 					: c == 'b'               ? "rbx"
 					: c == 'c'               ? "rcx"
@@ -318,8 +380,6 @@ void constraints(PacketBuilder& packet, const std::vector<GnuOperand>& source, b
 				}
 				else if (immediate(packet, alternative, c))
 					continue;
-				else if (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '!' || c == '?')
-					continue;
 				else
 					fail(std::string("GNU assembly constraint is not implemented yet: ") + c);
 			}
@@ -354,9 +414,10 @@ void constraints(PacketBuilder& packet, const std::vector<GnuOperand>& source, b
 
 } // namespace
 
-void gnu_constraints(PacketBuilder& packet, const std::vector<GnuOperand>& operands, bool i386)
+void gnu_constraints(
+	PacketBuilder& packet, const std::vector<GnuOperand>& operands, target_model::Architecture architecture)
 {
-	constraints(packet, operands, i386);
+	constraints(packet, operands, architecture);
 	// Commutation would move an expression away from its declared register.
 	for (uint32_t i = 1; i < operands.size(); ++i)
 		if (operands[i - 1].fixed_gpr != 0 || operands[i].fixed_gpr != 0)

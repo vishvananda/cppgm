@@ -51,6 +51,43 @@ Register view(RegisterBank bank, unsigned number, unsigned bits, unsigned offset
 
 } // namespace
 
+bool parse_aarch64_register(const char* name, std::size_t size, Register& reg)
+{
+	if (size == 2)
+	{
+		if (std::memcmp(name, "sp", 2) == 0)
+		{
+			reg = view(RegisterBank::Gpr, 31, 64);
+			return true;
+		}
+		if (std::memcmp(name, "lr", 2) == 0 || std::memcmp(name, "fp", 2) == 0)
+		{
+			reg = view(RegisterBank::Gpr, name[0] == 'l' ? 30 : 29, 64);
+			return true;
+		}
+	}
+	if (size < 2 || size > 3)
+		return false;
+	char digits[3] = {};
+	std::memcpy(digits, name + 1, size - 1);
+	unsigned n;
+	if (!number(digits, n))
+		return false;
+	if (name[0] == 'x' || name[0] == 'w' || name[0] == 'r')
+	{
+		if (n > 30)
+			return false;
+		reg = view(RegisterBank::Gpr, n, name[0] == 'w' ? 32 : 64);
+		return true;
+	}
+	if (name[0] == 'v' || name[0] == 'q' || name[0] == 'd' || name[0] == 's' || name[0] == 'h' || name[0] == 'b')
+	{
+		reg = view(RegisterBank::Vector, n, 128);
+		return true;
+	}
+	return false;
+}
+
 bool parse_register(const char* name, std::size_t size, Register& reg)
 {
 	if (size != 0 && name[0] == '%')

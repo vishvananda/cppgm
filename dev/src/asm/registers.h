@@ -12,5 +12,6 @@ namespace assembly {
 // whether a known architectural view is legal in a particular operand role.
 bool parse_register(const char* name, std::size_t size, asm_model::Register& reg);
 std::string register_name(const asm_model::Register& reg);
+bool parse_aarch64_register(const char* name, std::size_t size, asm_model::Register& reg);
 
 } // namespace assembly

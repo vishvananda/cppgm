@@ -1147,7 +1147,7 @@ void Analyzer::case_label(const syntax::CaseStmt& stmt, Scope* scope)
 		Constant value;
 		uint64_t value_high = 0;
 		const bool c_wide = c_source_ && (kind.bits > 64 || IsWideIntegral(facts_of(expression)->type));
-		integer_constant_expression(expression, scope, value, true, c_wide ? &value_high : nullptr);
+		integer_constant_expression(expression, scope, value, true, c_wide ? &value_high : nullptr, c_source_);
 		convert_operand(expression, type);
 		if (c_wide && kind.bits > 64)
 		{

@@ -41,6 +41,7 @@ struct LowIR2NativeInvocation
 	string resource_directory;
 	bool no_standard_libraries = false;
 	bool no_startfiles = false;
+	bool general_regs_only = false;
 	bool wasm_atomics = true;
 	bool wasm_atomics_explicit = false;
 	backend::WasmLinkOptions wasm_link;
@@ -129,6 +130,11 @@ LowIR2NativeInvocation parse_lowir2native_invocation(const vector<string>& args)
 			if (!telemetry::kEnabled)
 				throw InvocationError(telemetry::kUnavailable);
 			invocation.stats = true;
+			continue;
+		}
+		if (args[i] == "-mgeneral-regs-only")
+		{
+			invocation.general_regs_only = true;
 			continue;
 		}
 		if (args[i] == "-matomics" || args[i] == "-mno-atomics")
@@ -292,6 +298,9 @@ int run_lowir2native_mode(const vector<string>& args)
 	options.resource_directory = invocation.resource_directory;
 	options.no_standard_libraries = invocation.no_standard_libraries;
 	options.no_startfiles = invocation.no_startfiles;
+	options.general_regs_only = invocation.general_regs_only;
+	if (options.general_regs_only && !target_model::is_aarch64(options.target))
+		throw InvocationError("-mgeneral-regs-only requires an AArch64 target");
 	options.wasm_atomics = invocation.wasm_atomics;
 	options.wasm_link = invocation.wasm_link;
 	options.output = invocation.outfile;

@@ -8,6 +8,7 @@
 #include <limits>
 #include <unordered_set>
 
+#include "aarch64/link.h"
 #include "native/object/elf_format.h"
 #include "native/backend_error.h"
 #include "support/flat_map.h"
@@ -580,6 +581,40 @@ void assembly_quote(std::ostream& out, const std::string& text)
 	assembly_quote(out, text.data(), text.size());
 }
 
+const char* aarch64_assembly_relocation(uint32_t type)
+{
+#define RELOCATION(type, name) \
+	case aarch64::type: \
+		return "R_AARCH64_" #name
+	switch (type)
+	{
+		RELOCATION(Abs64, ABS64);
+		RELOCATION(Abs32, ABS32);
+		RELOCATION(Prel32, PREL32);
+		RELOCATION(AdrPrelLo21, ADR_PREL_LO21);
+		RELOCATION(AdrPrelPage21, ADR_PREL_PG_HI21);
+		RELOCATION(AddLo12, ADD_ABS_LO12_NC);
+		RELOCATION(Ldst8Lo12, LDST8_ABS_LO12_NC);
+		RELOCATION(TestBranch14, TSTBR14);
+		RELOCATION(CondBranch19, CONDBR19);
+		RELOCATION(Jump26, JUMP26);
+		RELOCATION(Call26, CALL26);
+		RELOCATION(Ldst16Lo12, LDST16_ABS_LO12_NC);
+		RELOCATION(Ldst32Lo12, LDST32_ABS_LO12_NC);
+		RELOCATION(Ldst64Lo12, LDST64_ABS_LO12_NC);
+		RELOCATION(Ldst128Lo12, LDST128_ABS_LO12_NC);
+		RELOCATION(GotPage, ADR_GOT_PAGE);
+		RELOCATION(GotLo12, LD64_GOT_LO12_NC);
+		RELOCATION(TlsGotPage, TLSIE_ADR_GOTTPREL_PAGE21);
+		RELOCATION(TlsGotLo12, TLSIE_LD64_GOTTPREL_LO12_NC);
+		RELOCATION(TlsAddHi12, TLSLE_ADD_TPREL_HI12);
+		RELOCATION(TlsAddLo12, TLSLE_ADD_TPREL_LO12_NC);
+	default:
+		return nullptr;
+	}
+#undef RELOCATION
+}
+
 const char* assembly_relocation(uint32_t type)
 {
 #define RELOCATION(name) \
@@ -623,6 +658,7 @@ private:
 	void select_section(uint32_t index);
 	void bytes(const Section& section, uint64_t first, uint64_t last);
 	void contents(uint32_t index);
+	std::string anchor(uint32_t section, uint64_t offset) const;
 	bool relocations(uint32_t index, std::string& error);
 
 	const ObjectFile& object_;
@@ -630,11 +666,14 @@ private:
 	std::vector<std::string> symbols_, sections_;
 	std::vector<std::vector<uint32_t>> definitions_;
 	std::vector<std::vector<AssemblyString>> strings_;
+	std::vector<std::vector<const AssemblyFragment*>> fragments_;
+	std::vector<std::vector<uint64_t>> anchors_;
 };
 
 AssemblyWriter::AssemblyWriter(const ObjectFile& object, std::ostream& out)
 	: object_(object), out_(out), symbols_(object.symbols.size()), sections_(object.sections.size()),
-	  definitions_(object.sections.size()), strings_(object.sections.size())
+	  definitions_(object.sections.size()), strings_(object.sections.size()), fragments_(object.sections.size()),
+	  anchors_(object.sections.size())
 {
 	std::unordered_set<std::string> used;
 	for (uint32_t i = 1; i < object.symbols.size(); ++i)
@@ -665,6 +704,24 @@ AssemblyWriter::AssemblyWriter(const ObjectFile& object, std::ostream& out)
 			symbols_[i] = local_name();
 	for (const AssemblyString& span : object.assembly_strings)
 		strings_[span.section].push_back(span);
+	for (const AssemblyFragment& fragment : object.assembly_fragments)
+		fragments_[fragment.section].push_back(&fragment);
+	for (uint32_t section = 1; section < sections_.size(); ++section)
+	{
+		if (fragments_[section].empty())
+			continue;
+		auto& offsets = anchors_[section];
+		for (const Relocation& relocation : object.sections[section].relocations)
+			offsets.push_back(relocation.offset);
+		for (uint32_t id : definitions_[section])
+		{
+			const Symbol& symbol = object.symbols[id];
+			if (symbol.size && symbol.value + symbol.size <= object.sections[section].size)
+				offsets.push_back(symbol.value + symbol.size);
+		}
+		std::sort(offsets.begin(), offsets.end());
+		offsets.erase(std::unique(offsets.begin(), offsets.end()), offsets.end());
+	}
 }
 
 void AssemblyWriter::symbol(uint32_t index)
@@ -722,7 +779,15 @@ void AssemblyWriter::symbol(uint32_t index)
 	{
 		out_ << "\t.size ";
 		assembly_quote(out_, name);
-		out_ << ", " << symbol.size << '\n';
+		out_ << ", ";
+		if (!fragments_[symbol.section].empty() && symbol.value + symbol.size <= object_.sections[symbol.section].size)
+		{
+			out_ << anchor(symbol.section, symbol.value + symbol.size) << '-';
+			assembly_quote(out_, name);
+		}
+		else
+			out_ << symbol.size;
+		out_ << '\n';
 	}
 }
 
@@ -770,6 +835,14 @@ void AssemblyWriter::bytes(const Section& section, uint64_t first, uint64_t last
 		out_ << "\t.zero " << last - first << '\n';
 		return;
 	}
+	while (object_.architecture == target_model::Architecture::AArch64 && section.kind == SectionKind::Text &&
+		(first & 3) == 0 && first + 4 <= last)
+	{
+		const uint32_t word = uint32_t(section.bytes[first]) | (uint32_t(section.bytes[first + 1]) << 8) |
+			(uint32_t(section.bytes[first + 2]) << 16) | (uint32_t(section.bytes[first + 3]) << 24);
+		out_ << "\t.inst 0x" << std::hex << word << std::dec << '\n';
+		first += 4;
+	}
 	while (first < last)
 	{
 		out_ << "\t.byte " << unsigned(section.bytes[first++]);
@@ -784,24 +857,41 @@ void AssemblyWriter::contents(uint32_t index)
 	const Section& section = object_.sections[index];
 	const auto& definitions = definitions_[index];
 	const auto& strings = strings_[index];
-	size_t d = 0, s = 0;
+	const auto& fragments = fragments_[index];
+	const auto& offsets = anchors_[index];
+	size_t d = 0, s = 0, f = 0, a = 0;
 	uint64_t at = 0;
-	while (d < definitions.size() || s < strings.size())
+	while (d < definitions.size() || s < strings.size() || f < fragments.size() || a < offsets.size())
 	{
 		const uint64_t definition = d < definitions.size() ? object_.symbols[definitions[d]].value : UINT64_MAX;
 		const uint64_t string = s < strings.size() ? std::max(at, strings[s].offset) : UINT64_MAX;
-		if (definition <= string)
+		const uint64_t fragment = f < fragments.size() ? fragments[f]->offset : UINT64_MAX;
+		const uint64_t label = a < offsets.size() ? offsets[a] : UINT64_MAX;
+		if (a < offsets.size() && label <= definition && label <= string && label <= fragment)
+		{
+			bytes(section, at, label);
+			out_ << anchor(index, label) << ":\n";
+			at = label;
+			++a;
+		}
+		else if (definition <= string && definition <= fragment)
 		{
 			const uint64_t next = std::min(definition, section.size);
 			bytes(section, at, next);
 			at = next;
 			symbol(definitions[d++]);
 		}
+		else if (fragment <= string)
+		{
+			bytes(section, at, fragment);
+			out_ << fragments[f++]->text << '\n';
+			at = fragment + 4;
+		}
 		else
 		{
 			bytes(section, at, string);
 			const uint64_t end = strings[s].offset + strings[s].size;
-			at = std::min(definition, end);
+			at = std::min(std::min(definition, end), std::min(fragment, label));
 			s += at == end;
 			out_ << "\t.ascii ";
 			assembly_quote(out_, reinterpret_cast<const char*>(section.bytes.data() + string), at - string);
@@ -811,17 +901,29 @@ void AssemblyWriter::contents(uint32_t index)
 	bytes(section, at, section.size);
 }
 
+std::string AssemblyWriter::anchor(uint32_t section, uint64_t offset) const
+{
+	return sections_[section] + ".offset." + std::to_string(offset);
+}
+
 bool AssemblyWriter::relocations(uint32_t index, std::string& error)
 {
 	for (const Relocation& relocation : object_.sections[index].relocations)
 	{
-		const char* name = assembly_relocation(relocation.type);
+		const char* name = object_.architecture == target_model::Architecture::AArch64
+			? aarch64_assembly_relocation(relocation.type)
+			: assembly_relocation(relocation.type);
 		if (name == nullptr)
 		{
-			error = "relocation has no x86 assembly spelling";
+			error = "relocation has no assembly spelling";
 			return false;
 		}
-		out_ << "\t.reloc " << sections_[index] << '+' << relocation.offset << ", " << name;
+		out_ << "\t.reloc ";
+		if (fragments_[index].empty())
+			out_ << sections_[index] << '+' << relocation.offset;
+		else
+			out_ << anchor(index, relocation.offset);
+		out_ << ", " << name;
 		if (relocation.symbol != 0)
 		{
 			out_ << ", ";
@@ -837,8 +939,21 @@ bool AssemblyWriter::relocations(uint32_t index, std::string& error)
 
 bool AssemblyWriter::write(std::string& error)
 {
+	std::vector<uint8_t> named;
+	if (object_.architecture == target_model::Architecture::AArch64)
+	{
+		// Assembler directives can create undefined symbols even where no
+		// relocation uses them. Emit the declarations that this listing names.
+		named.resize(object_.symbols.size());
+		for (const Section& section : object_.sections)
+			for (const Relocation& relocation : section.relocations)
+				named[relocation.symbol] = 1;
+		for (uint32_t symbol : object_.assembly_symbols)
+			named[symbol] = 1;
+	}
 	for (uint32_t i = 1; i < object_.symbols.size(); ++i)
-		if (object_.symbols[i].section == kUndefinedSection || object_.symbols[i].section >= kAbsoluteSection)
+		if ((object_.symbols[i].section == kUndefinedSection && (named.empty() || named[i])) ||
+			object_.symbols[i].section >= kAbsoluteSection)
 			symbol(i);
 	for (uint32_t i = 1; i < object_.sections.size(); ++i)
 	{

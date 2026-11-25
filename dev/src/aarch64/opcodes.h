@@ -2,6 +2,7 @@
 
 // A64 instruction names and base encodings. Operand fields are supplied by the selector.
 #define CPPGM_AARCH64_OPCODES(M) \
+	M(Nop, 0xd503201f) \
 	M(Add, 0x8b000000) \
 	M(ExtrW, 0x13800000) \
 	M(Extr, 0x93c00000) \

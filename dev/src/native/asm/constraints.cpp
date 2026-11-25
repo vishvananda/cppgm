@@ -2,9 +2,11 @@
 
 #include <algorithm>
 
+#include "aarch64/logical_immediate.h"
 #include "native/backend_error.h"
 #include "native/asm/binding.h"
 #include "native/select/selector.h"
+#include "opt/known_integer.h"
 
 namespace native {
 namespace {
@@ -26,7 +28,7 @@ unsigned width(lowir::Type type, RegisterBank bank)
 }
 
 uint64_t register_domain(const lowir::AssemblyModule& module, const lowir::AssemblyOperand& operand,
-	const Alternative& alt, bool i386, uint64_t clobbers, Reg& primary, Reg& secondary)
+	const Alternative& alt, bool i386, bool arm, uint64_t clobbers, Reg& primary, Reg& secondary)
 {
 	const bool integer_object = integer_assembly_object(operand.type) != lowir::TypeKind::Void;
 	if ((operand.type.is_object() && !wide_assembly_operand(operand.type) && !integer_object) ||
@@ -35,6 +37,8 @@ uint64_t register_domain(const lowir::AssemblyModule& module, const lowir::Assem
 		return 0;
 	if (alt.matching != asm_model::kNoId && alt.group_count == 0)
 	{
+		if (arm)
+			return ~uint64_t(0);
 		if (integer_object)
 			return 0xffcfu;
 		return (uint64_t(0xffffffffu) << 16) | (operand.type.is_integer() ? (uint64_t(0xff) << 48) : 0) |
@@ -62,6 +66,14 @@ uint64_t register_domain(const lowir::AssemblyModule& module, const lowir::Assem
 		if (group.register_count != 1)
 			continue;
 		const Register& reg = module.registers[group.first_register];
+		if (arm)
+		{
+			if (reg.bank == RegisterBank::Gpr)
+				mask |= uint64_t(1) << reg.number;
+			else if (reg.bank == RegisterBank::Vector)
+				mask |= uint64_t(1) << (32 + reg.number);
+			continue;
+		}
 		const Reg r = assembly_register_key(reg);
 		if (reg.offset != 0 || r == kNoReg ||
 			(reg.bank == RegisterBank::Gpr &&
@@ -84,11 +96,14 @@ bool less_equal(const lowir::Literal& a, const Bits& b, bool is_signed)
 }
 
 bool immediate_domain(const lowir::AssemblyModule& module, const Alternative& alt, const lowir::FunctionBody& body,
-	lowir::Value value, lowir::Literal& bits)
+	lowir::Value value, lowir::Type type, bool arm, lowir::Literal& bits)
 {
-	if ((alt.locations & AL_IMMEDIATE) == 0 || !value.is(lowir::ValueKind::Integer))
+	if ((alt.locations & AL_IMMEDIATE) == 0)
 		return false;
-	bits = body.literals[value.index];
+	if (value.is(lowir::ValueKind::Integer))
+		bits = body.literals[value.index];
+	else if (!arm || !opt::known_integer(body, value, type, bits))
+		return false;
 	if (alt.immediate_count == 0)
 		return true;
 	for (uint32_t i = 0; i < alt.immediate_count; ++i)
@@ -99,6 +114,20 @@ bool immediate_domain(const lowir::AssemblyModule& module, const Alternative& al
 			less_equal(low, Bits{ bits.low, bits.high }, domain.is_signed) &&
 			less_equal(bits, domain.high, domain.is_signed))
 			return true;
+		if (domain.kind == ImmediateKind::ArmAdd || domain.kind == ImmediateKind::ArmSub)
+		{
+			const bool negative = domain.kind == ImmediateKind::ArmSub && bits.low != 0;
+			const uint64_t magnitude = negative ? 0 - bits.low : bits.low;
+			if (bits.high == (negative ? ~uint64_t(0) : 0) &&
+				(magnitude <= 4095 || ((magnitude & 4095) == 0 && magnitude >> 12 <= 4095)))
+				return true;
+		}
+		if (domain.kind == ImmediateKind::ArmLogical32 || domain.kind == ImmediateKind::ArmLogical64)
+		{
+			uint32_t field;
+			if (aarch64::logical_immediate(bits.low, domain.kind == ImmediateKind::ArmLogical32 ? 32 : 64, field))
+				return true;
+		}
 	}
 	return false;
 }
@@ -187,7 +216,7 @@ const Reg kPreference[] = { R10, R11, XMM14, XMM15, RAX, RCX, RDX, RSI, RDI, R8,
 
 // Location and physical register are one joint choice. Memory operands retain
 // their address registers for the effect; an immediate uses no register unit.
-bool search(std::vector<Group>& groups, uint32_t left, uint32_t& work)
+bool search(std::vector<Group>& groups, uint32_t left, uint32_t& work, bool arm)
 {
 	if (left == 0)
 		return true;
@@ -218,14 +247,16 @@ bool search(std::vector<Group>& groups, uint32_t left, uint32_t& work)
 	{
 		group.location = location;
 		const uint64_t mask = available(groups, selected, location == AL_REGISTER ? group.registers : group.addresses);
-		for (Reg r : kPreference)
-			if ((mask & assembly_register_bit(r)) != 0)
-			{
-				group.assigned = r;
-				if (search(groups, left - 1, work))
-					return true;
-				group.assigned = kNoReg;
-			}
+		for (unsigned i = 0; i < (arm ? 64 : sizeof kPreference / sizeof kPreference[0]); ++i)
+		{
+			const Reg r = arm ? static_cast<Reg>(i) : kPreference[i];
+			if ((mask & assembly_register_bit(r)) == 0)
+				continue;
+			group.assigned = r;
+			if (search(groups, left - 1, work, arm))
+				return true;
+			group.assigned = kNoReg;
+		}
 	}
 	group.location = 0;
 	return false;
@@ -235,7 +266,12 @@ bool column(const lowir::AssemblyModule& module, const lowir::AssemblyTemplate& 
 	uint64_t clobbers, const lowir::FunctionBody& body, const std::vector<lowir::Value>& arguments,
 	const lowir::Program* kernel_memory, AssemblyBinding& result, const std::vector<uint32_t>& sources, uint32_t& work)
 {
-	const uint64_t usable = body.pointer_bytes == 4 ? (uint64_t(0xff) << XMM0) | 0xcfu : ~uint64_t(0);
+	const bool arm = definition.dialect == Dialect::AArch64;
+	// A64 input staging and frame addresses use x9-x11 and x16-x17.
+	// The remaining volatile GPRs and SIMD registers can bind operands.
+	const uint64_t usable = arm   ? kAArch64BindingRegisters
+		: body.pointer_bytes == 4 ? (uint64_t(0xff) << XMM0) | 0xcfu
+								  : ~uint64_t(0);
 	std::vector<uint32_t> roots(definition.operand_count), vertices(definition.operand_count, asm_model::kNoId);
 	std::vector<uint8_t> matched(definition.operand_count, 0);
 	result.constants.assign(definition.operand_count, lowir::Literal{});
@@ -277,8 +313,8 @@ bool column(const lowir::AssemblyModule& module, const lowir::AssemblyTemplate& 
 			group.label = true;
 			continue;
 		}
-		group.registers &= register_domain(
-							   module, op, alt, body.pointer_bytes == 4, clobbers, group.pair_low, group.pair_high) &
+		group.registers &= register_domain(module, op, alt, body.pointer_bytes == 4, arm, clobbers, group.pair_low,
+							   group.pair_high) &
 			usable & ~clobbers;
 		group.access |= op.flags & (AO_READ | AO_WRITE);
 		group.early |= alt.early_write;
@@ -291,7 +327,7 @@ bool column(const lowir::AssemblyModule& module, const lowir::AssemblyTemplate& 
 				((op.flags & AO_READ) == 0 && op.output != asm_model::kNoId);
 			if ((alt.locations & AL_MEMORY) != 0 && (op.flags & AO_NO_MEMORY) == 0 && address)
 			{
-				group.addresses = 0xffcfu & usable & ~clobbers;
+				group.addresses = (arm ? 0x1fffffffu : 0xffcfu) & usable & ~clobbers;
 				if (kernel_memory != nullptr)
 				{
 					const uint32_t input = source.input_storage ? source.input : op.output;
@@ -306,7 +342,8 @@ bool column(const lowir::AssemblyModule& module, const lowir::AssemblyTemplate& 
 			}
 			if ((op.flags & (AO_READ | AO_WRITE)) == AO_READ && !source.input_storage)
 			{
-				group.immediate = immediate_domain(module, alt, body, arguments[source.input], result.constants[i]);
+				group.immediate = immediate_domain(
+					module, alt, body, arguments[source.input], source.type, arm, result.constants[i]);
 				group.symbol = (alt.locations & AL_SYMBOL) != 0 &&
 					symbol_value(body, arguments[source.input], result.symbols[i]);
 			}
@@ -320,7 +357,7 @@ bool column(const lowir::AssemblyModule& module, const lowir::AssemblyTemplate& 
 			group.location = AL_MEMORY;
 		else
 			++pending;
-	if (!search(groups, pending, work))
+	if (!search(groups, pending, work, arm))
 		return false;
 	result.registers.assign(definition.operand_count, kNoReg);
 	result.second_registers.clear();

@@ -13,6 +13,8 @@ enum Relocation : uint32_t
 	AdrPrelPage21 = 275,
 	AddLo12 = 277,
 	Ldst8Lo12 = 278,
+	TestBranch14 = 279,
+	CondBranch19 = 280,
 	Jump26 = 282,
 	Call26 = 283,
 	Ldst16Lo12 = 284,

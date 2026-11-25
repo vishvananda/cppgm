@@ -22,6 +22,7 @@ enum class Fixup : uint16_t
 	None,
 	Block,
 	Resume,
+	Assembly,
 	Call = Call26,
 	Jump = Jump26,
 	Page = AdrPrelPage21,
@@ -79,6 +80,8 @@ struct Function
 	bool needs_resume = false;
 	void frame_rule(FrameRule rule, unsigned reg = 0, unsigned offset = 0);
 	std::vector<Instruction> code;
+	std::vector<std::string> assembly;
+	std::vector<lowir::SymbolId> assembly_symbols;
 	std::vector<uint32_t> labels;
 	uint32_t last_bound = ~0u; // the code size at the latest bind
 	void emit(Op op, unsigned rd = 0, unsigned rn = 0, unsigned rm = 0, uint32_t field = 0);
@@ -86,6 +89,8 @@ struct Function
 	void bind(uint32_t label);
 };
 
+void emit_file_assembly(
+	const lowir::Program& program, const std::vector<uint32_t>& symbols, native::object::ObjectFile& object);
 void emit_unwind(const Function& function, uint32_t symbol, uint32_t shared_code_symbol, uint32_t shared_section,
 	const std::vector<uint32_t>& symbols, native::object::ObjectFile& object, bool darwin);
 uint32_t external_symbol(native::object::ObjectFile& object, const char* name);
@@ -137,7 +142,7 @@ inline unsigned nzcv_satisfying(unsigned condition)
 }
 
 void place_short_loops(const Function& function, native::object::Section& text);
-void encode(const Function& function, const std::vector<uint32_t>& symbols, native::object::Section& text,
-	uint32_t resume = lowir::kNoId);
+void encode(const Function& function, const std::vector<uint32_t>& symbols, native::object::ObjectFile& object,
+	uint32_t section, uint32_t resume = lowir::kNoId);
 
 } // namespace aarch64

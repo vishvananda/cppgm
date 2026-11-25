@@ -1,5 +1,7 @@
 #include "aarch64/selector.h"
 
+#include "aarch64/error.h"
+
 #include "machine/call_arguments.h"
 
 namespace aarch64 {
@@ -14,7 +16,8 @@ void Selector::save_variadic_registers()
 	for (unsigned i = 0; i < 8; ++i)
 	{
 		access(true, i, 10, i * 8, 8);
-		out_.emit(Op::StrQ, i, 10, 0, (4 + i) << 10);
+		if (!general_regs_only_)
+			out_.emit(Op::StrQ, i, 10, 0, (4 + i) << 10);
 	}
 }
 
@@ -27,12 +30,22 @@ void Selector::emit_va_start(const lowir::Instruction& inst)
 		return;
 	frame_address(10, variadic_area_ + 64);
 	access(true, 10, 15, 8, 8);
-	frame_address(10, variadic_area_ + 192);
-	access(true, 10, 15, 16, 8);
 	constant(10, uint32_t((named_.general - 8) * 8));
 	access(true, 10, 15, 24, 4);
-	constant(10, uint32_t((named_.simd - 8) * 16));
-	access(true, 10, 15, 28, 4);
+	if (general_regs_only_)
+	{
+		// Offsets of zero route FP access to the stack. There is no FP
+		// register save area in the general-register variadic convention.
+		access(true, 31, 15, 16, 8);
+		access(true, 31, 15, 28, 4);
+	}
+	else
+	{
+		frame_address(10, variadic_area_ + 192);
+		access(true, 10, 15, 16, 8);
+		constant(10, uint32_t((named_.simd - 8) * 16));
+		access(true, 10, 15, 28, 4);
+	}
 }
 
 // x11 addresses the register save area or incoming stack slot.
@@ -85,6 +98,8 @@ void Selector::emit_va_arg(const lowir::Instruction& inst)
 {
 	const auto arg = classify(inst.type, machine::argument_shape(body_, inst, 0));
 	const bool simd = arg.bank == Bank::Simd;
+	if (general_regs_only_ && simd)
+		throw AArch64Error("-mgeneral-regs-only cannot read a SIMD variadic argument");
 	const unsigned offs = simd ? 28 : 24;
 	const bool aligned = !arg.indirect && data_alignment(inst.type) > 8;
 	value(15, inst.ops[0], program_.pointer_type());
