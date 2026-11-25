@@ -2915,6 +2915,16 @@ using lowir::AC_SSEUP;
 using lowir::AC_X87;
 using lowir::AC_X87UP;
 
+namespace {
+
+// Intel Darwin follows Clang in treating unnamed bit-fields as ABI padding.
+bool BitFieldArgumentBits(const sema::DataMember& member, target_model::Target target)
+{
+	return member.width != 0 && (target != target_model::Target::MacOS || member.variable->name != nullptr);
+}
+
+} // namespace
+
 void ProgramLowering::classify_eightbytes(const sema::Type* type, uint64_t offset, uint8_t* classes)
 {
 	// The scalar fields of an object of `type` at byte `offset` of an
@@ -3043,8 +3053,7 @@ void ProgramLowering::classify_eightbytes(const sema::Type* type, uint64_t offse
 				classify_eightbytes(member->variable->type, offset + member->offset / 8, classes);
 				continue;
 			}
-			// A bit-field's bits (an unnamed zero-width one has none).
-			if (member->width == 0)
+			if (!BitFieldArgumentBits(*member, program_.target))
 				continue;
 			const uint64_t first = offset * 8 + member->offset;
 			for (uint64_t eightbyte = first / 64; eightbyte <= (first + member->width - 1) / 64; ++eightbyte)
@@ -3229,7 +3238,8 @@ uint32_t ProgramLowering::course_class_quarters(const sema::ClassEntity* entity)
 			continue;
 		}
 		uint64_t unit = 0, unit_alignment = 0;
-		if (member->width == 0 || !analyzer_->object_layout(member->variable->type, unit, unit_alignment) || unit == 0)
+		if (!BitFieldArgumentBits(*member, program_.target) ||
+			!analyzer_->object_layout(member->variable->type, unit, unit_alignment) || unit == 0)
 			continue;
 		const uint64_t first = member->offset / (8 * unit) * unit;
 		MergeQuarters(quarters, first, first + unit, 1);
