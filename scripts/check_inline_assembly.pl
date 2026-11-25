@@ -82,7 +82,7 @@ sub fixture_link_options
 	my $mode = read_file($test);
 	$mode =~ s/\s+\z//;
 	die "$test: unknown assembly link mode '$mode'\n" if $mode ne 'no-pie';
-	return $^O eq 'darwin' ? ('-Wl,-no_pie') : ('-no-pie');
+	return $^O eq 'darwin' ? ('-Wl,-no_pie') : ('-fno-pie', '-no-pie');
 }
 
 sub requested_instructions

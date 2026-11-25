@@ -1,4 +1,5 @@
 global @empty : obj<4x4> [linkage=c, binding=internal] = {
+  zero 1
 }
 
 function @main() -> i32 [role=entry, binding=strong, keep_alias=yes] {

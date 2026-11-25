@@ -245,6 +245,10 @@ ProgramLowering::StaticOutcome ProgramLowering::static_global(lowir::SymbolId sy
 		// Null pointers to data members are -1 (8.5p5, Itanium 2.3).
 		null_member_pointers(type, data);
 		PreserveStaticOffsets(data, program_.pointer_type().pointer_bytes());
+		// Spell out the minimum backing storage for a zero-sized aggregate
+		// so the global can round-trip through LowIR text.
+		if (data.items.empty())
+			append_zero(1, data);
 		global.typed = false;
 		global.init = lowir::GlobalInit::Data;
 		global.first_item = static_cast<uint32_t>(program_.data_items.size());

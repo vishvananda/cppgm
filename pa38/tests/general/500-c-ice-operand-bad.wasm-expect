@@ -1,1 +1,1 @@
-{"source":true,"flags":["-x","c","-std=c17"],"reject":true}
+{"source":true,"flags":["-x","c","-std=c17","-pedantic-errors"],"reject":true}

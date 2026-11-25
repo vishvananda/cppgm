@@ -102,7 +102,7 @@
       "candidate_flags": ["-pedantic-errors"],
       "upstream_flags": ["-pedantic-errors", "-Wno-comment"],
       "diagnostic_contains": {
-        "cppgm": "variable of incomplete type",
+        "cppgm": "deducing a zero-length array from an empty initializer",
         "upstream": "zero size arrays are an extension"
       },
       "obligation": "Diagnose empty initialization of an array whose bound is omitted"
