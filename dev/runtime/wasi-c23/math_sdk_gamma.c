@@ -47,7 +47,7 @@ static double gamma_sinpi(double x)
 	/* argument reduction: x = |x| mod 2 */
 	/* spurious inexact when x is odd int */
 	x = x * 0.5;
-	x = 2 * (x - floor(x));
+	x = 2 * (x - __builtin_floor(x));
 
 	/* reduce x into [-.25,.25] */
 	n = 4 * x;
@@ -70,7 +70,6 @@ static double gamma_sinpi(double x)
 }
 
 #define N 12
-//static const double g = 6.024680040776729583740234375;
 static const double gmhalf = 5.524680040776729583740234375;
 static const double Snum[N + 1] = {
 	23531376880.410759688572007674451636754734846804940,
@@ -151,7 +150,8 @@ static double S(double x)
 	return num / den;
 }
 
-double tgamma(double x)
+// Let the float wrapper share the complete double kernel.
+__attribute__((noinline)) double tgamma(double x)
 {
 	union
 	{
@@ -180,7 +180,7 @@ double tgamma(double x)
 
 	/* integer arguments */
 	/* raise inexact when non-integer */
-	if (x == floor(x))
+	if (x == __builtin_floor(x))
 	{
 		if (sign)
 			return math_domain_error();
@@ -194,7 +194,7 @@ double tgamma(double x)
 	{ /* |x| >= 184 */
 		if (sign)
 		{
-			if (floor(x) * 0.5 == floor(x * 0.5))
+			if (__builtin_floor(x) * 0.5 == __builtin_floor(x * 0.5))
 				return 0;
 			return -0.0;
 		}
@@ -229,7 +229,8 @@ double tgamma(double x)
 	r += dy * (gmhalf + 0.5) * r / y;
 	z = pow(y, 0.5 * z);
 	y = r * z * z;
-	if (isinf(y))
+	// Signed overflow in the tiny reciprocal path is handled above.
+	if (y == INFINITY)
 		errno = ERANGE;
 	return y;
 }
@@ -237,7 +238,12 @@ double tgamma(double x)
 float tgammaf(float x)
 {
 	const float result = (float)tgamma(x);
-	if (isinf(result) && isfinite(x))
+	const uint32_t result_bits = (union {
+		float value;
+		uint32_t bits;
+	}){ .value = result }
+									 .bits;
+	if ((result_bits << 1) == UINT32_C(0xff000000) && isfinite(x))
 		errno = ERANGE;
 	return result;
 }
@@ -245,7 +251,7 @@ float tgammaf(float x)
 double lgamma_r(double x, int* sign)
 {
 	const double result = __lgamma_r(x, sign);
-	if (isinf(result) && isfinite(x))
+	if (result == INFINITY && isfinite(x))
 		errno = ERANGE;
 	return result;
 }
@@ -253,7 +259,7 @@ double lgamma_r(double x, int* sign)
 float lgammaf_r(float x, int* sign)
 {
 	const float result = __lgammaf_r(x, sign);
-	if (isinf(result) && isfinite(x))
+	if (result == INFINITY && isfinite(x))
 		errno = ERANGE;
 	return result;
 }
