@@ -1,6 +1,6 @@
 # x86-64 backend performance
 
-Measured `80079d548d66a02401ca1238a27cd7ff792c6d93` on Intel(R) Xeon(R) 6975P-C. [CI run and raw observations](https://github.com/vishvananda/cppgm/actions/runs/45272062060)
+Measured `7584274b4d275fb41f7c5d064e751e5918e8e421` on Intel(R) Xeon(R) 6975P-C. [CI run and raw observations](https://github.com/vishvananda/cppgm/actions/runs/45617981312)
 
 ### Portable public benchmarks on x86_64-linux-gnu
 
