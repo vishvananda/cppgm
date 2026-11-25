@@ -1,6 +1,6 @@
 # simdjson benchmarks
 
-Compiler: `7584274b4d275fb41f7c5d064e751e5918e8e421` · CPU: Intel(R) Xeon(R) 6975P-C
+Compiler: `bf2f830a479c21887e7ef6e44787b48dac78bf6d` · CPU: Intel(R) Xeon(R) 6975P-C
 
 Unmodified simdjson v5.1.1 (`40a686ab89dc5ee58ec10d0514dd5c99abbc472b`), C++17 `-O3 -g0 -DNDEBUG`. Each backend is compiled separately; the SSE profile enables `-mpopcnt` for all three compilers. Compile times cover `src/simdjson.cpp` to an object; runtime covers repeated DOM parsing of hot input with a reused parser. One GCC-built driver per backend isolates library code generation. All three libraries produce identical canonical JSON for both inputs.
 
@@ -8,14 +8,14 @@ Ratios are reference time / cppgm time: **higher is better**. Medians of paired 
 
 | Backend | Measurement | vs GCC CPU | vs Clang CPU | vs GCC wall | vs Clang wall |
 |---|---|---:|---:|---:|---:|
-| scalar | Compile | 6.522× | 3.044× | 6.324× | 2.962× |
-| scalar | twitter.json | 1.026× | 0.925× | 1.026× | 0.925× |
-| scalar | citm_catalog.json | 1.076× | 1.057× | 1.076× | 1.057× |
-| sse | Compile | 6.417× | 3.095× | 6.267× | 3.026× |
-| sse | twitter.json | 1.015× | 0.992× | 1.015× | 0.992× |
-| sse | citm_catalog.json | 0.994× | 1.025× | 0.994× | 1.025× |
+| scalar | Compile | 6.574× | 3.051× | 6.322× | 2.928× |
+| scalar | twitter.json | 1.031× | 0.928× | 1.031× | 0.928× |
+| scalar | citm_catalog.json | 1.071× | 1.054× | 1.071× | 1.054× |
+| sse | Compile | 6.485× | 3.112× | 6.351× | 3.024× |
+| sse | twitter.json | 1.012× | 0.993× | 1.012× | 0.993× |
+| sse | citm_catalog.json | 0.992× | 1.028× | 0.992× | 1.028× |
 
-Calibration variation above 2%: scalar Compile clang wall A/A before: 0.977×. No observations are dropped.
+Calibration variation above 2%: none. No observations are dropped.
 
 ## Toolchains
 
@@ -25,4 +25,4 @@ Calibration variation above 2%: scalar Compile clang wall A/A before: 0.977×. N
 
 [Results and per-block ratios](results.json) · [Provenance and header hashes](metadata.json) · [Compile observations](compile-observations.jsonl) · [Runtime observations](runtime-observations.jsonl)
 
-[CI run and complete artifacts](https://github.com/vishvananda/cppgm/actions/runs/45617981312)
+[CI run and complete artifacts](https://github.com/vishvananda/cppgm/actions/runs/45651777895)
