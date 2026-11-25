@@ -767,10 +767,11 @@ void finish_function(Program& program, SymbolId symbol, OptimizerStats& stats, c
 		scalar_rounds(context);
 		changed = true;
 	}
+	bool selected = false;
 	for (unsigned round = 0; round < kSelectRounds && RUN_PASS(form_selects); ++round)
 	{
 		RUN_PASS(cleanup_cfg);
-		changed = true;
+		selected = true;
 	}
 	// A magnitude just formed is never below zero: the tests that ask go.
 	if (context.magnitude_formed)
@@ -798,9 +799,20 @@ void finish_function(Program& program, SymbolId symbol, OptimizerStats& stats, c
 		// A load the loop passes took out of an arm leaves the arm to compute
 		// only: the branch to it may now be a choice of values.
 		for (unsigned round = 0; round < kSelectRounds && RUN_PASS(form_selects); ++round)
+		{
 			RUN_PASS(cleanup_cfg);
+			selected = true;
+		}
 		changed = true;
 	}
+	// A new select can bound later integer operations and make tests
+	// constant before the backend sees those branches.
+	if (selected && RUN_PASS(simplify_values))
+	{
+		RUN_PASS(cleanup_cfg);
+		RUN_PASS(remove_dead_code);
+	}
+	changed = selected || changed;
 	// Some fixed fields were split before unrolling. Give their remaining
 	// conditional updates the same register budget as newly split fields.
 	if (had_loops && options.level >= 3 && RUN_PASS(promote_late_float_fields))

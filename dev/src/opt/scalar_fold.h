@@ -37,6 +37,7 @@ lowir::Constant integer_constant(lowir::Type type, lowir::Literal bits);
 lowir::Constant truth_constant(bool value);
 
 bool fold_unary(lowir::UnaryOp op, lowir::Type type, const lowir::Constant& a, lowir::Constant& out);
+bool fold_numeric_index(const lowir::FunctionBody& body, const lowir::Instruction& inst, lowir::Constant& out);
 bool fold_binary(
 	lowir::BinaryOp op, lowir::Type type, const lowir::Constant& a, const lowir::Constant& b, lowir::Constant& out);
 bool fold_compare(lowir::ComparePredicate pred, lowir::Type type, const lowir::Constant& a, const lowir::Constant& b,

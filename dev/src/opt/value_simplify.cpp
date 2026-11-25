@@ -755,16 +755,19 @@ bool Simplifier::identity(Instruction& inst, Value& out)
 	}
 	case Opcode::Index:
 	{
+		const Type word = Type::scalar(TypeKind::I64);
 		Constant offset;
 		// A zero-element step through a pointer temporary.
 		if (inst.ops[0].is(ValueKind::Temp) && body_.temps[inst.ops[0].index].type.is_pointer() &&
-			constant(inst.ops[1], Type::scalar(TypeKind::I64), offset) &&
-			is_integer(Type::scalar(TypeKind::I64), offset, 0))
+			constant(inst.ops[1], word, offset) && is_integer(word, offset, 0))
 		{
 			out = inst.ops[0];
 			return true;
 		}
-		return false;
+		if (!inst.ops[0].is(ValueKind::Integer) || !fold_numeric_index(body_, inst, offset))
+			return false;
+		out = literal(offset);
+		return true;
 	}
 	case Opcode::Load:
 		return readonly_load(inst, out);
@@ -1404,20 +1407,21 @@ bool Simplifier::compare_identity(Instruction& inst, Value& out)
 	}
 	// A value proved nonzero: x != 0, x == 0, and x - 1 against x
 	// (unsigned: it cannot wrap below zero).
-	Constant compared_zero;
-	if ((type.is_integer() || type.is_pointer()) && known_nonzero(x) && constant(y, type, compared_zero) &&
-		is_integer(type, compared_zero, 0) && (pred == ComparePredicate::Ne || pred == ComparePredicate::Eq))
+	Constant right;
+	if ((type.is_integer() || type.is_pointer()) && known_nonzero(x) && constant(y, type, right) &&
+		is_integer(type, right, 0) && (pred == ComparePredicate::Ne || pred == ComparePredicate::Eq))
 	{
 		out = literal(truth_constant(pred == ComparePredicate::Ne));
 		return true;
 	}
 	if (type.is_integer())
 	{
-		Constant cy;
-		// A positive literal above every value x can have.
+		// A positive literal at or above every value x can have.
 		Literal limit;
-		if (type.kind() != TypeKind::I128 && constant(y, type, cy) && integer_bits(type, cy, limit) &&
-			limit.high == 0 && (limit.low >> (8 * storage_bytes(type) - 1)) == 0 && possible_bits(x, type) < limit.low)
+		const bool inclusive = pred == ComparePredicate::Ugt || pred == ComparePredicate::Ule;
+		if (type.kind() != TypeKind::I128 && constant(y, type, right) && integer_bits(type, right, limit) &&
+			limit.high == 0 && (limit.low >> (8 * storage_bytes(type) - 1)) == 0 &&
+			possible_bits(x, type) < limit.low + inclusive)
 		{
 			out = literal(truth_constant(pred == ComparePredicate::Ne || pred == ComparePredicate::Lt ||
 				pred == ComparePredicate::Le || pred == ComparePredicate::Ult || pred == ComparePredicate::Ule));
@@ -1779,7 +1783,7 @@ bool Simplifier::function_address(Value v) const
 }
 
 // The bits of integer value v that may be set: a literal's; a zero
-// extension's, its source's; and/or/xor and constant shifts of those;
+// extension's, its source's; choices, bitwise operations and constant shifts;
 // every bit of the type otherwise (types up to 64 bits).
 uint64_t Simplifier::possible_bits(Value v, Type type, unsigned depth)
 {
@@ -1798,6 +1802,10 @@ uint64_t Simplifier::possible_bits(Value v, Type type, unsigned depth)
 		return 1;
 	if (def->type != type)
 		return all;
+	// The false arm knows the condition itself is zero.
+	if (def->op == Opcode::Select)
+		return possible_bits(def->ops[1], type, depth + 1) |
+			(def->ops[0] == def->ops[2] ? 0 : possible_bits(def->ops[2], type, depth + 1));
 	if (def->op == Opcode::Copy && def->ops[0].is(ValueKind::Temp))
 	{
 		const Type from = body_.temps[def->ops[0].index].type;

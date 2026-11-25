@@ -603,6 +603,18 @@ bool fold_copy(Type type, const Constant& a, Constant& out)
 	return false;
 }
 
+bool fold_numeric_index(const FunctionBody& body, const Instruction& inst, Constant& out)
+{
+	Constant offset;
+	if (!literal_constant(body, inst.ops[1], offset) || offset.kind != ValueKind::Integer)
+		return false;
+	// A numeric pointer origin carries no object identity. Scale its
+	// displacement and normalize at the target pointer width.
+	const uint64_t bits = body.literals[inst.ops[0].index].low + offset.bits.low * storage_bytes(inst.type);
+	out = integer_constant(body.pointer_type(), Literal{ bits, 0 });
+	return true;
+}
+
 bool fold_identical_phi(const FunctionBody& body, const Instruction& phi, Value& out)
 {
 	Value same = Value::none();
