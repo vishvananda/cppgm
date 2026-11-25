@@ -152,6 +152,8 @@ void Analyzer::asm_statement(const syntax::AsmStmt& stmt, Scope* scope)
 	if (!LiteralText(stmt.text, text))
 		error(stmt.location, "assembly template requires an ordinary string literal");
 	std::vector<assembly::GnuOperand> operands;
+	const VariableEntity* register_outputs[16] = {};
+	uint32_t register_output_indices[16];
 	const uint32_t count = stmt.outputs.size + stmt.inputs.size;
 	for (uint32_t i = 0; i < count; ++i)
 	{
@@ -183,7 +185,21 @@ void Analyzer::asm_statement(const syntax::AsmStmt& stmt, Scope* scope)
 		operand.bits = bytes <= UINT16_MAX / 8 ? static_cast<unsigned>(bytes * 8) : 0;
 		operand.is_volatile = (facts->type->cv & kVolatile) != 0;
 		if (facts->entity != nullptr && facts->entity->kind == EntityKind::Variable)
-			operand.fixed_gpr = static_cast<const VariableEntity*>(facts->entity)->x86_asm_gpr;
+		{
+			const auto* variable = static_cast<const VariableEntity*>(facts->entity);
+			operand.fixed_gpr = variable->x86_asm_gpr;
+			if (operand.fixed_gpr != 0)
+			{
+				const unsigned reg = operand.fixed_gpr - 1;
+				if (output)
+				{
+					register_outputs[reg] = variable;
+					register_output_indices[reg] = i;
+				}
+				else if (register_outputs[reg] == variable)
+					operand.fixed_output = register_output_indices[reg];
+			}
+		}
 		if (!output && (IsScalar(type) || type->kind == TypeKind::Vector))
 			convert_operand(*source.expression, type);
 		operands.push_back(operand);

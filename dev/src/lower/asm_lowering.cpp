@@ -64,6 +64,11 @@ void FunctionLowering::asm_statement(const syntax::AsmStmt& stmt)
 		const lowir::Type type = source_type->kind == sema::TypeKind::Function ? program_.pointer_type()
 																			   : lowering_.storage_type(source_type);
 		types.push_back(type);
+		// An input that repeats a local register's read/write operand uses
+		// the same evaluated argument and shares that operand's register.
+		if (argument.output == asm_model::kNoId && argument.input != asm_model::kNoId &&
+			values[argument.input].kind != lowir::ValueKind::None)
+			continue;
 		if (stack_pointer_operand(expr))
 		{
 			if (references_operand(packet, i) || argument.input_storage || argument.output == asm_model::kNoId ||

@@ -19,3 +19,9 @@ extern "C" unsigned long named_register_alternatives(unsigned long input) {
     asm ("leaq 3(%%r12), %%rax" : "=a,r" (result) : "c,r" (source));
     return result;
 }
+
+extern "C" unsigned long repeated_named_register(unsigned long input) {
+    register unsigned long value asm("r11") = input;
+    asm ("leaq 5(%[before]), %0" : "+r" (value) : [before] "r" (value));
+    return value;
+}

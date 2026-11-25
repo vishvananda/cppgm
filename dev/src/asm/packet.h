@@ -56,6 +56,7 @@ struct GnuOperand
 	std::string name;
 	std::string constraint;
 	unsigned bits = 0;
+	uint32_t fixed_output = asm_model::kNoId;
 	uint8_t fixed_gpr = 0; // one-based register selected by a local declaration
 	bool output = false;
 	bool label = false;

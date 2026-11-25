@@ -169,7 +169,12 @@ void constraints(PacketBuilder& packet, const std::vector<GnuOperand>& source)
 			++pos;
 		}
 		if ((operand.flags & AO_READ) != 0)
-			operand.input = packet.definition.argument_count++;
+		{
+			if (input.fixed_output != kNoId)
+				operand.input = packet.operands[input.fixed_output].input;
+			if (operand.input == kNoId)
+				operand.input = packet.definition.argument_count++;
+		}
 		if ((operand.flags & AO_WRITE) != 0)
 			operand.output = packet.definition.argument_count++;
 		operand.first_alternative = static_cast<uint32_t>(packet.alternatives.size());
@@ -306,6 +311,8 @@ void constraints(PacketBuilder& packet, const std::vector<GnuOperand>& source)
 			{
 				restrict_register(packet, alternative, first_register, input.fixed_gpr - 1);
 				unavailable = unavailable || alternative.locations == 0;
+				if (alternative.locations != 0 && alternative.matching == kNoId)
+					alternative.matching = input.fixed_output;
 			}
 			packet.alternatives.push_back(alternative);
 			++operand.alternative_count;
