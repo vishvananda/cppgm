@@ -282,7 +282,7 @@ private:
 		DeclaratorMode mode, bool type_only = false, const ParameterDeclaration* parameter = nullptr);
 	bool parse_declarator_into(
 		DeclaratorMode mode, Declarator* declarator, bool type_only, const ParameterDeclaration* parameter = nullptr);
-	bool parse_ptr_operator(ListFrame<PtrOperator>& pointers, Attribute** inline_attributes);
+	bool parse_ptr_operator(ListFrame<PtrOperator>& pointers, Attribute** declaration_attributes);
 	struct CParameterPrefix
 	{
 		uint32_t opening;

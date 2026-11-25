@@ -401,7 +401,9 @@ The first fixture set covers these parts of the C17 input profile:
   declarator following a comma. An attribute before a parameter's
   type still belongs to that parameter. Follow GCC's type rules for
   `vector_size` and `mode` in a nested declarator by applying the modifier to
-  the base type before forming derived types.
+  the base type before forming derived types. A GNU `weak` attribute after
+  the pointer's `*` applies to the declared symbol, including a function
+  returning a pointer.
 - Implicit conversions between object pointers and qualified `void*`, without
   discarding pointee qualifiers; integral initialization of enumeration objects.
 - GNU C arithmetic on `void*` and function pointers uses a one-byte stride.

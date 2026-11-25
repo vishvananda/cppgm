@@ -139,7 +139,7 @@ bool Parser::ptr_operator_ahead(uint32_t ahead)
 	return false;
 }
 
-bool Parser::parse_ptr_operator(ListFrame<PtrOperator>& pointers, Attribute** inline_attributes)
+bool Parser::parse_ptr_operator(ListFrame<PtrOperator>& pointers, Attribute** declaration_attributes)
 {
 	if (c_source_ && (at(TokenKind::OP_AMP) || at(TokenKind::OP_LAND) || member_pointer_ahead(0)))
 		return fail();
@@ -159,9 +159,9 @@ bool Parser::parse_ptr_operator(ListFrame<PtrOperator>& pointers, Attribute** in
 		if (pointer.class_name == nullptr || !expect(TokenKind::OP_COLON2) || !expect(TokenKind::OP_STAR))
 			return false;
 	}
-	// GNU function inline attributes can follow a return pointer's star.
+	// GNU declaration attributes can follow a C pointer's star.
 	const auto parse_attributes = [&]() {
-		if (inline_attributes == nullptr)
+		if (declaration_attributes == nullptr)
 			return skip_attributes();
 		Attribute* attributes = nullptr;
 		if (!collect_attributes(attributes))
@@ -170,10 +170,11 @@ bool Parser::parse_ptr_operator(ListFrame<PtrOperator>& pointers, Attribute** in
 		{
 			Attribute* current = attributes;
 			attributes = current->next;
-			if (current->kind == AttributeKind::AlwaysInline || current->kind == AttributeKind::GnuInline)
+			if (current->kind == AttributeKind::AlwaysInline || current->kind == AttributeKind::GnuInline ||
+				current->kind == AttributeKind::Weak)
 			{
-				current->next = *inline_attributes;
-				*inline_attributes = current;
+				current->next = *declaration_attributes;
+				*declaration_attributes = current;
 			}
 		}
 		return true;
