@@ -1284,9 +1284,10 @@ DeclaratorInfo Analyzer::declarator(const syntax::Declarator* declarator, const 
 		if (type->kind != TypeKind::Array || array != c_parameter_array)
 			error(location, "C array qualifiers require the outermost parameter array");
 		static_assert(kConst == static_cast<uint8_t>(syntax::DeclaratorSuffix::kArrayConst) &&
-			kVolatile == static_cast<uint8_t>(syntax::DeclaratorSuffix::kArrayVolatile) &&
-			kAtomic == static_cast<uint8_t>(syntax::DeclaratorSuffix::kArrayAtomic) &&
-			kRestrict == static_cast<uint8_t>(syntax::DeclaratorSuffix::kArrayRestrict));
+				kVolatile == static_cast<uint8_t>(syntax::DeclaratorSuffix::kArrayVolatile) &&
+				kAtomic == static_cast<uint8_t>(syntax::DeclaratorSuffix::kArrayAtomic) &&
+				kRestrict == static_cast<uint8_t>(syntax::DeclaratorSuffix::kArrayRestrict),
+			"array qualifier bits must agree with the parsed declarator");
 		type = types_.qualified(types_.pointer(type->element), c_parameter_array->array_cv);
 	}
 	info.type = type;

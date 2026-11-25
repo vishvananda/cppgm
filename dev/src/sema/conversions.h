@@ -133,7 +133,6 @@ private:
 	bool reference(const Operand& from, const Type* target, Conversion& out);
 	bool value_conversion(const Type* source, uint16_t flags, const Type* target, bool direct, Conversion& out);
 	bool c_array_pointer_conversion(const Type* from, const Type* to, Conversion& out);
-	const Type* c_composite_function(const Type* prior, const Type* declared);
 	bool c_tag_compatible(const Type* source, const Type* target, bool anonymous_member = false);
 	struct CTagPair
 	{
@@ -148,7 +147,9 @@ private:
 	};
 	struct CTagComparison;
 	struct CTagComposite;
-	const Type* c_composite_record(const Type* prior, const Type* declared);
+	const Type* c_composite_type(const Type* prior, const Type* declared, CTagComposite* planned);
+	const Type* c_composite_record(const Type* prior, const Type* declared, CTagComposite* planned);
+	const Type* c_composite_function(const Type* prior, const Type* declared, CTagComposite* planned);
 
 	TypeTable& types_;
 	// Scratch of is_base_of, reused across queries, and its visit mark.
@@ -164,7 +165,6 @@ private:
 	const PointerMap* c23_alignments_ = nullptr;
 	CTagComparison* c_tag_comparison_ = nullptr;
 	FlatMap<CTagPair, bool, CTagPairHash> compatible_tags_;
-	CTagComposite* c_tag_composite_ = nullptr;
 	FlatMap<CTagPair, const Type*, CTagPairHash> composite_tags_;
 };
 

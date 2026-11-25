@@ -552,13 +552,9 @@ struct ConversionRules::CTagComposite
 		uint32_t next;
 	};
 
-	CTagComposite*& active;
 	FlatMap<CTagPair, uint32_t, CTagPairHash> indices;
 	std::vector<Record> records;
 	std::vector<ParentEdge> parents;
-
-	explicit CTagComposite(CTagComposite*& current) : active(current) { active = this; }
-	~CTagComposite() { active = nullptr; }
 
 	uint32_t add_record(const CTagPair& pair)
 	{
@@ -673,14 +669,14 @@ struct ConversionRules::CTagComposite
 	}
 };
 
-const Type* ConversionRules::c_composite_record(const Type* prior, const Type* declared)
+const Type* ConversionRules::c_composite_record(const Type* prior, const Type* declared, CTagComposite* planned)
 {
 	const CTagPair pair{ prior->entity, declared->entity };
-	if (c_tag_composite_ != nullptr)
-		return types_.qualified(c_tag_composite_->records[*c_tag_composite_->indices.find(pair)].type, declared->cv);
+	if (planned != nullptr)
+		return types_.qualified(planned->records[*planned->indices.find(pair)].type, declared->cv);
 	if (const Type* const* saved = composite_tags_.find(pair.symmetric_key()))
 		return types_.qualified(*saved, declared->cv);
-	CTagComposite composite(c_tag_composite_);
+	CTagComposite composite;
 	composite.plan(pair);
 	for (CTagComposite::Record& item : composite.records)
 	{
@@ -713,7 +709,7 @@ const Type* ConversionRules::c_composite_record(const Type* prior, const Type* d
 		members.clear();
 		for (const DataMember* a = static_cast<const ClassEntity*>(item->pair.first)->members; a != nullptr;
 			a = a->next, b = b->next)
-			members.push_back(c_composite_type(a->variable->type, b->variable->type));
+			members.push_back(c_composite_type(a->variable->type, b->variable->type, &composite));
 		completer_->finish_c_composite_record(*item->created, target, members.data());
 	}
 	for (const CTagComposite::Record& item : composite.records)
@@ -727,6 +723,11 @@ const Type* ConversionRules::c_composite_record(const Type* prior, const Type* d
 
 const Type* ConversionRules::c_composite_type(const Type* prior, const Type* declared)
 {
+	return c_composite_type(prior, declared, nullptr);
+}
+
+const Type* ConversionRules::c_composite_type(const Type* prior, const Type* declared, CTagComposite* planned)
+{
 	if (prior->canonical == declared->canonical)
 		return declared;
 	// 6.2.7p3: preserve the stronger bounds and prototypes through each
@@ -734,10 +735,10 @@ const Type* ConversionRules::c_composite_type(const Type* prior, const Type* dec
 	switch (declared->kind)
 	{
 	case TypeKind::Class:
-		return c_composite_record(prior, declared);
+		return c_composite_record(prior, declared, planned);
 	case TypeKind::Pointer:
 	{
-		const Type* element = c_composite_type(prior->element, declared->element);
+		const Type* element = c_composite_type(prior->element, declared->element, planned);
 		return element == declared->element ? declared
 			: element == prior->element     ? prior
 											: types_.qualified(types_.pointer(element), declared->cv);
@@ -749,7 +750,7 @@ const Type* ConversionRules::c_composite_type(const Type* prior, const Type* dec
 			(prior->constant_array_bound() ||
 				(declared->runtime_bound == nullptr && (prior->runtime_bound != nullptr || prior->c_array_star()))))
 			bounds = prior;
-		const Type* element = c_composite_type(prior->element, declared->element);
+		const Type* element = c_composite_type(prior->element, declared->element, planned);
 		if (element == bounds->element)
 			return bounds;
 		if (bounds->c_array_star())
@@ -757,7 +758,7 @@ const Type* ConversionRules::c_composite_type(const Type* prior, const Type* dec
 		return types_.array(element, bounds->bound, nullptr, bounds->runtime_bound, bounds->zero_length_array());
 	}
 	case TypeKind::Function:
-		return c_composite_function(prior, declared);
+		return c_composite_function(prior, declared, planned);
 	default:
 		return declared;
 	}
@@ -809,9 +810,9 @@ bool ConversionRules::c_array_pointer_conversion(const Type* from, const Type* t
 	return true;
 }
 
-const Type* ConversionRules::c_composite_function(const Type* prior, const Type* declared)
+const Type* ConversionRules::c_composite_function(const Type* prior, const Type* declared, CTagComposite* planned)
 {
-	const Type* result = c_composite_type(prior->element, declared->element);
+	const Type* result = c_composite_type(prior->element, declared->element, planned);
 	const Type* shape = declared;
 	if (declared->c_unprototyped() && (!prior->c_unprototyped() || prior->param_count > declared->param_count))
 		shape = prior;
@@ -821,7 +822,8 @@ const Type* ConversionRules::c_composite_function(const Type* prior, const Type*
 	{
 		for (uint32_t i = 0; i < declared->param_count; ++i)
 		{
-			const Type* type = c_composite_type(prior->params[i]->unqualified, declared->params[i]->unqualified);
+			const Type* type = c_composite_type(
+				prior->params[i]->unqualified, declared->params[i]->unqualified, planned);
 			if (combined.empty())
 			{
 				if (type == declared->params[i]->unqualified)

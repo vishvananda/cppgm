@@ -18,8 +18,10 @@ void AppendSpan(std::vector<CArrayWrite>& spans, const CArrayWrite& write)
 
 std::vector<CArrayWrite> WinningInitializerSpans(std::vector<CArrayWrite>& writes)
 {
-	if (writes.size() < 2)
-		return writes;
+	if (writes.empty())
+		return {};
+	if (writes.size() == 1)
+		return { writes.front() };
 	std::sort(
 		writes.begin(), writes.end(), [](const CArrayWrite& a, const CArrayWrite& b) { return a.first < b.first; });
 	const auto earlier = [](const CArrayWrite& a, const CArrayWrite& b) { return a.rank < b.rank; };

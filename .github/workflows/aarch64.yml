@@ -117,6 +117,7 @@ jobs:
       - name: Record native C clause evidence
         run: |
           set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           work="$RUNNER_TEMP/c-conformance"
           python3 scripts/c_conformance.py probe --output "$work" --report \
             | tee -a "$GITHUB_STEP_SUMMARY"
