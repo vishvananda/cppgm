@@ -62,7 +62,8 @@ enum class Encoding : std::uint8_t
 	Crc32,
 	FarBranch,
 	InvalidateContext,
-	X87StackPop
+	X87StackPop,
+	Count
 };
 
 struct Form
