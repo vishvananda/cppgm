@@ -174,7 +174,7 @@ client [`scripts/tests/lowir_library_records.c`](../scripts/tests/lowir_library_
 ## ABI version 5 and target selection
 
 Choose a target for each module at creation. Version 5 adds Wasm and
-experimental AArch64 objects. Versions 2–4 still accept the original x86-64
+AArch64 objects. Versions 2–4 still accept the original x86-64
 target constants and use the same record layouts and functions.
 
 | C target constant | CLI target | Relocatable object |

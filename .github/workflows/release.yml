@@ -13,6 +13,7 @@ on:
       - 'scripts/package_release.py'
       - 'scripts/check_release_package.py'
       - 'dev/lowir_library.mk'
+      - 'dev/src/support/version.h'
       - 'pa35/Makefile'
       - 'scripts/export_release_source.py'
       - 'scripts/tests/test_package_release.py'

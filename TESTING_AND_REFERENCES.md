@@ -107,7 +107,7 @@ compiler artifact from Tests. An early approval or an individual suite dispatche
 manually can use the existing compiler cache. Pull requests retain their results
 as artifacts. Only measurements from a push to `main` publish badges.
 
-The **Experimental AArch64 backend** workflow runs the PA39 executables on Linux
+The **AArch64 backend** workflow runs the PA39 executables on Linux
 Arm64 and the Mach-O interoperability suite on Apple Silicon. On Linux Arm64 it
 also runs PA37's eight scalar/SIMD workloads at O0 and O3 against the same
 independent checksums as Wasm, checks the optimized NEON instructions, and uses

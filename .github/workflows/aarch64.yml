@@ -1,4 +1,4 @@
-name: Experimental AArch64 backend
+name: AArch64 backend
 
 on:
   push:

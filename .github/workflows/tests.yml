@@ -231,7 +231,7 @@ jobs:
     uses: ./.github/workflows/boost-language.yml
 
   c-assignment:
-    name: optional C frontend assignment
+    name: optional C and i386 assignments
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -240,7 +240,7 @@ jobs:
       - name: Install host dependencies and pinned Wasm tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends build-essential curl xz-utils
+          sudo apt-get install -y --no-install-recommends build-essential curl xz-utils qemu-user
           perl scripts/install_wasm_tools.pl --prefix "$RUNNER_TEMP/wasm-tools"
           echo "$RUNNER_TEMP/wasm-tools/bin" >> "$GITHUB_PATH"
       - uses: actions/download-artifact@v7
@@ -253,6 +253,8 @@ jobs:
         run: make -C pa38 test CPPGM_SKIP_DEV_REBUILD=1
       - name: Check C interoperability with GCC objects
         run: make -C pa38 test-native-abi CPPGM_HOST_CC=gcc CPPGM_SKIP_DEV_REBUILD=1
+      - name: Check i386 and real-mode objects
+        run: make -C pa40 test CPPGM_SKIP_DEV_REBUILD=1 CPPGM_I386_RUNNER=qemu-i386
       - name: Check the same C fixtures on Wasm
         run: make -C pa38 test-wasm CPPGM_SKIP_DEV_REBUILD=1
       - name: Record C clause evidence on Linux, WASI, and bare Wasm

@@ -1,4 +1,4 @@
-name: Upstream C++11 correctness
+name: Upstream C and C++ correctness
 
 on:
   workflow_call:
