@@ -113,6 +113,9 @@ hosted headers depend on:
   two in bits and must be an integral constant expression of at least eight.
   The allocated object is usable within the block that calls the builtin.
   [GCC stack allocation builtins](https://gcc.gnu.org/onlinedocs/gcc-15.2.0/gcc/Stack-Allocation.html)
+- Accept the fortified memory and formatted-output builtins used by hosted
+  headers. Use their typed signatures and forward the buffer size and flags
+  to the corresponding checked libc functions.
 - Expose `__builtin_source_location()` through `__has_builtin`. Read
   the four named fields of the record in the
   [builtin contract](https://clang.llvm.org/docs/LanguageExtensions.html#source-location-builtins). Honor `#line`

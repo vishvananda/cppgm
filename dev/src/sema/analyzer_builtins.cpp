@@ -165,7 +165,8 @@ const Type* Analyzer::builtin_signature(const char* signature, char floating)
 	// parameters; null when a type it names is not declared (the hosted
 	// __builtin_va_list).
 	SmallList<const Type*, 6> types;
-	for (const char* c = signature; *c != '\0';)
+	const char* c = signature;
+	for (; *c != '\0' && *c != '.';)
 	{
 		const uint8_t cv = *c == 'C' ? kConst : 0;
 		if (cv != 0)
@@ -226,7 +227,7 @@ const Type* Analyzer::builtin_signature(const char* signature, char floating)
 		types.push_back(type);
 	}
 	return types_.function(
-		types[0], types.data() + 1, static_cast<uint32_t>(types.size() - 1), false, 0, RefQualifier::None);
+		types[0], types.data() + 1, static_cast<uint32_t>(types.size() - 1), *c == '.', 0, RefQualifier::None);
 }
 
 ExprFacts* Analyzer::builtin_operation(const syntax::CallExpr& expr, const FunctionEntity* builtin, Scope* scope)

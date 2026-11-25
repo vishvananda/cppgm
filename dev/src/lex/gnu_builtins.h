@@ -311,7 +311,7 @@ struct GnuBuiltinEntry
 	// long, z size_t (unsigned long), f float, d double, e long double, V
 	// __builtin_va_list, T the libm family's floating type, Z its complex
 	// type -- `C` before a letter making it const and `*` after it a
-	// pointer to it.
+	// pointer to it. A trailing period marks a variadic signature.
 	const char* signature;
 	// The libm family's floating type letter for `T` (d, f or e).
 	char floating;
