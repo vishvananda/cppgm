@@ -294,6 +294,8 @@ struct Invocation
 	bool red_zone = true;
 	native::X86CodeOptions x86_code;
 	bool x86_code_explicit = false;
+	bool asynchronous_unwind_tables = true;
+	bool unwind_tables = false;
 	bool disable_sse2 = false;
 	bool disable_mmx = false;
 	FloatContract float_contract = FloatContract::Off;
@@ -490,6 +492,10 @@ bool x86_code_option(const std::string& arg, Invocation& invocation)
 {
 	if (arg == "-mred-zone" || arg == "-mno-red-zone")
 		invocation.red_zone = arg == "-mred-zone";
+	else if (arg == "-fasynchronous-unwind-tables" || arg == "-fno-asynchronous-unwind-tables")
+		invocation.asynchronous_unwind_tables = arg == "-fasynchronous-unwind-tables";
+	else if (arg == "-funwind-tables" || arg == "-fno-unwind-tables")
+		invocation.unwind_tables = arg == "-funwind-tables";
 	else if (arg == "-fjump-tables" || arg == "-fno-jump-tables")
 		invocation.x86_code.jump_tables = arg == "-fjump-tables";
 	else if (arg == "-mcmodel=kernel" || arg == "-mcmodel=small")
@@ -767,6 +773,9 @@ void configure_preprocessor(Invocation& invocation, StandardIncludes includes, c
 	}
 	configure_source_language(
 		invocation.source_language, invocation.standard, invocation.exceptions, invocation.preprocessor);
+	if (invocation.target == native::Target::Linux)
+		invocation.x86_code.unwind_tables = invocation.asynchronous_unwind_tables || invocation.unwind_tables ||
+			invocation.preprocessor.modes.exceptions;
 	configure_c_environment(invocation.preprocessor, invocation.target, invocation.c_environment);
 	invocation.preprocessor.c_contract_by_default = invocation.float_contract == FloatContract::Scoped;
 	std::string host_error;
@@ -789,7 +798,6 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 	bool pthread = false;
 	bool default_lto = false;
 	bool optimize_size = false, popcnt_explicit = false, char_signedness_explicit = false;
-	bool asynchronous_unwind_tables = true, unwind_tables = false;
 	unsigned pic_level = 0, pie_level = 0;
 	bool assembly_output = false;
 	const size_t base_defines = invocation.preprocessor.command_line.size();
@@ -880,10 +888,6 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 		}
 		else if (arg == "-fno-exceptions" || arg == "-fexceptions")
 			invocation.exceptions = arg == "-fexceptions" ? SourceExceptions::Enabled : SourceExceptions::Disabled;
-		else if (arg == "-fasynchronous-unwind-tables" || arg == "-fno-asynchronous-unwind-tables")
-			asynchronous_unwind_tables = arg == "-fasynchronous-unwind-tables";
-		else if (arg == "-funwind-tables" || arg == "-fno-unwind-tables")
-			unwind_tables = arg == "-funwind-tables";
 		else if (visibility_option(arg, invocation))
 			continue;
 		else if (arg == "-fno-strict-aliasing" || arg == "-fstrict-aliasing")
@@ -1027,9 +1031,6 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 	if (invocation.debug_optimization && invocation.debug_types)
 		invocation.optimizer.level = 0;
 	configure_preprocessor(invocation, includes, gcc_install_dir);
-	if (invocation.target == native::Target::Linux)
-		invocation.x86_code.unwind_tables = asynchronous_unwind_tables || unwind_tables ||
-			invocation.preprocessor.modes.exceptions;
 	return invocation;
 }
 
