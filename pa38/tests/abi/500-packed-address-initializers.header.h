@@ -1,5 +1,5 @@
-#if defined(__APPLE__) && defined(__aarch64__)
-/* Chained fixups on Arm Mach-O require four-byte alignment. The pointer
+#if defined(__APPLE__)
+/* Mach-O chained fixups require four-byte alignment. The pointer
    fields lie at offsets of four bytes in the packed records. */
 typedef unsigned int descriptor_size;
 typedef unsigned int slot_marker;
