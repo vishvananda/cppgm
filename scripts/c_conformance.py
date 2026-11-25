@@ -1126,8 +1126,11 @@ def probes(args, profiles, rules):
     sdk_headers = {}
     header_checks = {}
     sdk_inputs = []
-    results = list(probe_target(output, profiles[native], compiler, [], [args.cc], [], sdk_headers, header_checks,
-                                reference=[args.cc]))
+    # Native Linux Arm host drivers can link PIEs by default. External
+    # function addresses in those executables must use GOT relocations.
+    native_setup = ['-fPIC'] if native == 'linux-aarch64-hosted' else []
+    results = list(probe_target(output, profiles[native], compiler, native_setup, [args.cc], [],
+                                sdk_headers, header_checks, reference=[args.cc]))
     wasm_reference = which('wasm-ref-clang++')
     if args.wasi_sysroot:
         wasi = profiles['wasi-hosted']
