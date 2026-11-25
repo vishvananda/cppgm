@@ -17,6 +17,9 @@ const unsigned kCfgRounds = 8;
 // copies its phis' input lists; past the bound the empty block stays,
 // as the edge copies of a wide merge need one anyway).
 const uint32_t kBypassPreds = 32;
+// A selector may be used in more than one switch. Bound the number of phi
+// inputs read per switch independently of the number of its cases.
+const uint32_t kSwitchRangeInputs = 32;
 
 class CfgCleanup
 {
@@ -28,6 +31,7 @@ public:
 private:
 	bool truncate_noreturn();
 	bool fold_terminators();
+	bool drop_impossible_switch_cases(BlockId pred, Instruction& term, std::vector<BlockId>& retained);
 	bool remove_unreachable();
 	bool preserve_definitions(const std::vector<uint8_t>& dead);
 	bool drop_unreachable_edges();
@@ -59,12 +63,76 @@ void CfgCleanup::make_jump(InstId term, BlockId target)
 	inst.extra_count = 0;
 }
 
+// The constant inputs of a small phi bound the selector on every incoming
+// edge. A self input keeps the previous value and does not grow the range.
+bool CfgCleanup::drop_impossible_switch_cases(BlockId pred, Instruction& term, std::vector<BlockId>& retained)
+{
+	const Value selector = term.ops[0];
+	if (!selector.is(ValueKind::Temp) || !term.type.is_integer() || term.type.kind() == TypeKind::I128)
+		return false;
+	const InstId def = body_.temps[selector.index].def;
+	if (def == kNoId)
+		return false;
+	const Instruction& phi = body_.instructions[def];
+	if (phi.op != Opcode::Phi || phi.type != term.type || phi.extra_count / 2 > kSwitchRangeInputs)
+		return false;
+	uint64_t low = UINT64_MAX, high = 0;
+	for (uint32_t k = 1; k < phi.extra_count; k += 2)
+	{
+		const Value v = body_.operands[phi.extra_first + k];
+		if (v == selector)
+			continue;
+		if (!v.is(ValueKind::Integer))
+			return false;
+		const uint64_t bits = normalize_integer(term.type, body_.literals[v.index]).low;
+		low = std::min(low, bits);
+		high = std::max(high, bits);
+	}
+	if (low > high)
+		return false;
+	std::vector<BlockId> removed;
+	uint32_t kept = 0;
+	for (uint32_t k = 0; k < term.extra_count; k += 2)
+	{
+		const Value key = body_.operands[term.extra_first + k];
+		const Value target = body_.operands[term.extra_first + k + 1];
+		const uint64_t bits = key.is(ValueKind::Integer) ? normalize_integer(term.type, body_.literals[key.index]).low
+														 : low;
+		if (bits < low || bits > high)
+			removed.push_back(target.index);
+		else
+		{
+			if (kept != k)
+			{
+				body_.operands[term.extra_first + kept] = key;
+				body_.operands[term.extra_first + kept + 1] = target;
+			}
+			kept += 2;
+		}
+	}
+	if (removed.empty())
+		return false;
+	term.extra_count = kept;
+	if (retained.empty())
+		retained.assign(body_.blocks.size(), kNoId);
+	for_each_successor(body_, term, [&](BlockId target) { retained[target] = pred; });
+	for (BlockId target : removed)
+		if (retained[target] != pred)
+		{
+			remove_phi_incoming(body_, target, pred);
+			retained[target] = pred;
+		}
+	++c_.stats.branches_folded;
+	return true;
+}
+
 // Branches and switches whose outcome is known (a literal selector or a
 // single distinct target) become jumps; the dropped edges leave their
 // targets' phis.
 bool CfgCleanup::fold_terminators()
 {
 	bool changed = false;
+	std::vector<BlockId> retained;
 	for (BlockId b : body_.layout)
 	{
 		const InstId id = body_.blocks[b].last;
@@ -82,6 +150,7 @@ bool CfgCleanup::fold_terminators()
 		}
 		else if (term.op == Opcode::Switch)
 		{
+			changed = drop_impossible_switch_cases(b, term, retained) || changed;
 			bool single = true;
 			for (uint32_t k = 1; k < term.extra_count; k += 2)
 				single = single && body_.operands[term.extra_first + k].index == term.ops[1].index;
