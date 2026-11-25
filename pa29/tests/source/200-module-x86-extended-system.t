@@ -9,5 +9,6 @@ asm(".section .text.extended_system\n"
     "pslldq $8, %xmm1; psrldq $4, %xmm2\n"
     "ds wrmsr; ds clflush (%rax); movl %ds:(%rbp), %eax\n"
     "frstor (%rax); fnsave (%rdx); fwait\n"
+    "fnstsw %ax; fnstsw 2(%r9); fnstcw (%r8); fstsw %ax; fstcw 4(%rdi)\n"
     ".code32\nsgdtl (%eax); lgdtw (%ecx)\n.code64\n"
     "andl $(~0xff000000), %ecx\n");

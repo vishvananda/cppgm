@@ -32,6 +32,27 @@ void return_form(Assembler& out, const assembly::Instruction& inst, unsigned opc
 	else
 		fail(inst, "ret expects no operand or an unsigned 16-bit immediate");
 }
+void x87_word(Assembler& out, const assembly::Instruction& inst, const asm_detail::Form& form)
+{
+	if (inst.operands.size() != 1)
+		fail(inst, "x87 word store requires one operand");
+	const auto& dst = inst.operands[0];
+	const bool memory = dst.kind == OperandKind::Memory && (dst.bits == 0 || dst.bits == 16);
+	const bool accumulator = !form.memory_only && dst.kind == OperandKind::Register &&
+		dst.reg.bank == asm_model::RegisterBank::Gpr && dst.reg.number == 0 && dst.bits == 16;
+	if (!memory && !accumulator)
+		fail(inst, "x87 word store requires 16-bit memory or an allowed AX destination");
+	if (form.prefix != 0)
+		out.byte(form.prefix);
+	if (memory)
+		out.op(0, false, form.opcode, 1, 7, rm(dst, inst));
+	else
+	{
+		out.byte(0xdf);
+		out.byte(0xe0);
+	}
+}
+
 } // namespace
 
 void encode_control_form(
@@ -161,6 +182,8 @@ void encode_system_form(
 		fail(inst, "invalid system instruction prefix");
 	if (form.encoding == E::SystemWord || form.encoding == E::DescriptorQuery)
 		return segment_selector(out, inst, form, suffix);
+	if (form.encoding == E::X87Word)
+		return x87_word(out, inst, form);
 	if (form.encoding == E::X87StackPop)
 	{
 		const auto& operands = inst.operands;

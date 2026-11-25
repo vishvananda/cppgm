@@ -63,6 +63,7 @@ enum class Encoding : std::uint8_t
 	FarBranch,
 	InvalidateContext,
 	X87StackPop,
+	X87Word,
 	Count
 };
 
@@ -375,6 +376,10 @@ inline const Form* forms(std::size_t& count)
 		{ "monitor", E::Zero, 0x0f01c8, 0, 0, false, 0 },
 		{ "mwait", E::Zero, 0x0f01c9, 0, 0, false, 0 },
 		{ "fninit", E::Zero, 0xdbe3, 0, 0, false, 0 },
+		{ "fnstsw", E::X87Word, 0xdd, 0, 16, false, 0 },
+		{ "fstsw", E::X87Word, 0xdd, 0x9b, 16, false, 0 },
+		{ "fnstcw", E::X87Word, 0xd9, 0, 16, true, 0 },
+		{ "fstcw", E::X87Word, 0xd9, 0x9b, 16, true, 0 },
 		{ "fwait", E::Zero, 0x9b, 0, 0, false, 0 },
 		{ "wait", E::Zero, 0x9b, 0, 0, false, 0 },
 		{ "frstor", E::ControlMemory, 0xdd04, 0, 0, true, 0 },
