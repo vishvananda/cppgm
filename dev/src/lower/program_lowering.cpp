@@ -825,7 +825,9 @@ bool ProgramLowering::emitted_at_definition(const sema::FunctionEntity* function
 	// compiler lacks); every other definition is emitted.
 	// A template pattern has no emitted body; its specializations are
 	// demanded independently, including templates written with auto parameters.
-	const bool used_c_definition = function->c_linkage && function->internal_linkage && function->used;
+	const bool used_c_definition = function->c_linkage && function->internal_linkage && function->used &&
+		graph_->startup_functions.index.find(function) == PointerMap::kMissing &&
+		graph_->shutdown_functions.index.find(function) == PointerMap::kMissing;
 	return !function->templated &&
 		(used_c_definition ||
 			(!function->is_inline &&
