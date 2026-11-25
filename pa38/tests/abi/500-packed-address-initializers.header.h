@@ -1,9 +1,8 @@
 #if defined(__APPLE__)
-/* Mach-O chained fixups require four-byte alignment. The pointer
-   fields lie at offsets of four bytes in the packed records. */
-typedef unsigned int descriptor_size;
-typedef unsigned int slot_marker;
-#define PACKED_RECORD __attribute__((packed, aligned(4)))
+/* Keep address fixups naturally aligned for the Apple linker. */
+typedef unsigned long descriptor_size;
+typedef unsigned long slot_marker;
+#define PACKED_RECORD __attribute__((packed, aligned(8)))
 #else
 typedef unsigned short descriptor_size;
 typedef unsigned char slot_marker;
