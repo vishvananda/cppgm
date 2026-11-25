@@ -347,6 +347,42 @@ int main(void)
 	CHECK(llogb, (NAN), EDOM, result == FP_LLOGBNAN);
 	CHECK(llogbl, (-LDBL_TRUE_MIN), EILSEQ, result == LDBL_MIN_EXP - LDBL_MANT_DIG);
 
+	CHECK(tgamma, (DBL_MAX), ERANGE, result == INFINITY);
+	CHECK(tgammaf, (36.0f), ERANGE, result == INFINITY);
+	CHECK(tgammal, (LDBL_MAX), ERANGE, result == INFINITY);
+	CHECK(tgamma, (-DBL_TRUE_MIN), ERANGE, result == -INFINITY);
+	CHECK(tgammaf, (FLT_TRUE_MIN), ERANGE, result == INFINITY);
+	CHECK(tgammal, (LDBL_TRUE_MIN), ERANGE, result == INFINITY);
+	CHECK(tgamma, (-0.0), ERANGE, result == -INFINITY);
+	CHECK(tgammaf, (0.0f), ERANGE, result == INFINITY);
+	CHECK(tgammal, (-0.0L), ERANGE, result == -INFINITY);
+	CHECK(tgamma, (-2.0), EDOM, isnan(result));
+	CHECK(tgammaf, (-INFINITY), EDOM, isnan(result));
+	CHECK(tgammal, (-0x1p4000L), EDOM, isnan(result));
+	CHECK(tgamma, (NAN), EILSEQ, isnan(result));
+	CHECK(tgammal, (INFINITY), EILSEQ, result == INFINITY);
+	CHECK(tgammal, (-2048.5L), EILSEQ, result == 0.0L && signbit(result));
+
+	// These MPFR reference values also exercise the range beyond binary64.
+	const long double gamma_200 = 0x1.aa92d76671760de7dfd12738e862p+1237L;
+	const long double gamma_negative = 0x1.149200acaee93e761aa11c11e63bp-2L;
+	const long double log_gamma_large = 0x1.5a72d6d005c939a38650bac4e7b7p+4011L;
+	const long double log_gamma_small = 0x1.5a92d6d005c939a38650bac4e7b7p+10L;
+	CHECK(tgammal, (200.0L), EILSEQ, fabsl(result - gamma_200) <= 0x1p-109L * gamma_200);
+	CHECK(tgammal, (-3.5L), EILSEQ, fabsl(result - gamma_negative) <= 0x1p-109L * gamma_negative);
+	CHECK(tgammal, (-0x1p-2000L), EILSEQ, result == -0x1p2000L);
+	CHECK(lgammal, (0x1p4000L), EILSEQ, fabsl(result - log_gamma_large) <= 0x1p-109L * log_gamma_large);
+	CHECK(lgammal, (0x1p-2000L), EILSEQ, fabsl(result - log_gamma_small) <= 0x1p-109L * log_gamma_small);
+	CHECK(lgamma, (DBL_MAX), ERANGE, result == INFINITY);
+	CHECK(lgammaf, (FLT_MAX), ERANGE, result == INFINITY);
+	CHECK(lgammal, (LDBL_MAX), ERANGE, result == INFINITY);
+	CHECK(lgamma, (-2.0), ERANGE, result == INFINITY);
+	CHECK(lgammaf, (0.0f), ERANGE, result == INFINITY);
+	CHECK(lgammal, (-0.0L), ERANGE, result == INFINITY);
+	CHECK(lgammal, (-0x1p4000L), ERANGE, result == INFINITY);
+	CHECK(lgammal, (-INFINITY), EILSEQ, result == INFINITY);
+	CHECK(lgammaf, (NAN), EILSEQ, isnan(result));
+
 	volatile float large_float = FLT_MAX;
 	errno = EILSEQ;
 	if (fmaf(large_float, 3.0f, -large_float) != INFINITY || errno != ERANGE)
@@ -383,6 +419,12 @@ int main(void)
 		return FAILURE;
 	errno = EILSEQ;
 	if (logb(negative_zero) != -INFINITY || errno != ERANGE)
+		return FAILURE;
+	errno = EILSEQ;
+	if (tgamma(negative_zero) != -INFINITY || errno != ERANGE)
+		return FAILURE;
+	errno = EILSEQ;
+	if (lgammal(large_quad) != INFINITY || errno != ERANGE)
 		return FAILURE;
 	return 0;
 }

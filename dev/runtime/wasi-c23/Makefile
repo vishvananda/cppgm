@@ -12,7 +12,8 @@ SHARED_HEADERS := __cppgm_search_result.h float.h limits.h stdarg.h stdbit.h std
 LOCAL_HEADERS := assert.h complex.h fenv.h inttypes.h math.h setjmp.h stdatomic.h stdint.h stdio.h tgmath.h time.h uchar.h wchar.h
 NOTICES := $(patsubst $(SHARED)/licenses/%,$(BUILD_DIR)/licenses/%,$(wildcard $(SHARED)/licenses/*.txt)) \
 	$(BUILD_DIR)/licenses/core-math.txt $(BUILD_DIR)/licenses/freebsd-log1pl.txt \
-	$(BUILD_DIR)/licenses/freebsd-expm1l.txt $(BUILD_DIR)/licenses/softfloat.txt
+	$(BUILD_DIR)/licenses/freebsd-expm1l.txt $(BUILD_DIR)/licenses/softfloat.txt \
+	$(BUILD_DIR)/licenses/arm-tgamma128.txt $(BUILD_DIR)/licenses/freebsd-lgammal.txt
 HEADERS := $(addprefix $(BUILD_DIR)/include/,$(SHARED_HEADERS) $(LOCAL_HEADERS))
 STDIO_SOURCES := printf scanf wprintf wscanf scan_integer vfprintf vfwprintf vfscanf vfwscanf \
 	vsnprintf vswprintf vsscanf vswscanf
@@ -29,7 +30,7 @@ OBJECTS := $(addprefix $(BUILD_DIR)/,stdbit.o memalignment.o memset_explicit.o t
 	math_expm1.o math_pi.o math_power.o math_remainder.o math_sdk_errors.o math_sdk_builtins.o \
 	math_sdk_exp.o math_sdk_exp10.o math_sdk_expm1.o math_sdk_expm1f.o math_scale.o \
 	math_sdk_log.o math_sdk_logf.o math_hyperbolic.o math_sdk_trig.o math_sdk_trigf.o math_sdk_trigl.o \
-	math_hypot.o math_fmaf.o math_sdk_pow.o math_sdk_powf.o) \
+	math_hypot.o math_fmaf.o math_sdk_pow.o math_sdk_powf.o math_sdk_gamma.o math_tgamma128.o math_lgamma128.o) \
 	$(STDIO_OBJECTS) $(CORE_MATH_OBJECTS) $(SOFTFLOAT_OBJECTS)
 RUNTIME_CFLAGS := --target=wasm32-wasip1 --sysroot="$(WASI_SYSROOT)" -resource-dir="$(RESOURCE_DIR)" \
 	-x c -std=c23 -pedantic-errors -isystem "$(BUILD_DIR)/include" -O2
@@ -53,7 +54,7 @@ $(BUILD_DIR)/licenses/core-math.txt: $(CORE_MATH)/NOTICE
 	mkdir -p "$(@D)"
 	cp "$<" "$@"
 
-$(addprefix $(BUILD_DIR)/licenses/,freebsd-log1pl.txt freebsd-expm1l.txt): $(BUILD_DIR)/licenses/%.txt: licenses/%.txt
+$(addprefix $(BUILD_DIR)/licenses/,freebsd-log1pl.txt freebsd-expm1l.txt arm-tgamma128.txt freebsd-lgammal.txt): $(BUILD_DIR)/licenses/%.txt: licenses/%.txt
 	mkdir -p "$(@D)"
 	cp "$<" "$@"
 
@@ -65,7 +66,8 @@ $(BUILD_DIR)/licenses/softfloat.txt: $(SOFTFLOAT)/COPYING.txt
 $(addprefix $(BUILD_DIR)/,atomic_functions.o temporary_files.o): RUNTIME_CFLAGS += -matomics
 $(addprefix $(BUILD_DIR)/,math_logp1.o math_expm1.o math_pi.o math_power.o \
 	math_sdk_exp.o math_sdk_exp10.o math_sdk_expm1.o math_sdk_expm1f.o \
-	math_sdk_log.o math_sdk_logf.o math_hyperbolic.o math_sdk_trig.o math_sdk_trigf.o math_sdk_trigl.o math_hypot.o math_fmaf.o math_sdk_pow.o math_sdk_powf.o): RUNTIME_CFLAGS += -ffp-contract=off
+	math_sdk_log.o math_sdk_logf.o math_hyperbolic.o math_sdk_trig.o math_sdk_trigf.o math_sdk_trigl.o \
+	math_hypot.o math_fmaf.o math_sdk_pow.o math_sdk_powf.o math_sdk_gamma.o math_tgamma128.o math_lgamma128.o): RUNTIME_CFLAGS += -ffp-contract=off
 $(SOFTFLOAT_OBJECTS) $(BUILD_DIR)/math_narrow.o: RUNTIME_CFLAGS := $(filter-out -std=c23 -pedantic-errors,$(RUNTIME_CFLAGS)) -std=gnu23 -I "$(SOFTFLOAT)"
 
 vpath %.c $(SHARED)

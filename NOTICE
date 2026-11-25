@@ -43,6 +43,10 @@ The installed wasi-libc and musl notices cover those reductions.
 The scalar WASI power functions adapt the Arm Limited implementations
 from the same wasi-libc source under the MIT License. The source and
 installed notices retain the original attribution.
+The binary128 gamma routines adapt Arm's Optimized Routines true-gamma
+implementation under the MIT License and FreeBSD msun's SunSoft
+log-gamma implementation. Their original notices are retained in the
+source and installed beside the runtime archive.
 The WASI C23 narrowing operations incorporate Berkeley SoftFloat under the
 BSD 3-Clause License. Its notices are retained in third_party/softfloat and
 installed with the runtime archive.

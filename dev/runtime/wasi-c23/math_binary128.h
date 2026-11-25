@@ -1,6 +1,14 @@
 #ifndef CPPGM_WASI_MATH_BINARY128_H
 #define CPPGM_WASI_MATH_BINARY128_H
 
+#include <stdint.h>
+
+union math_binary128
+{
+	long double value;
+	uint64_t words[2];
+};
+
 struct math_split
 {
 	long double high;
