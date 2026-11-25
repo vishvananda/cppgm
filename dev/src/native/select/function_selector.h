@@ -42,6 +42,7 @@ public:
 	void set_target(Target target) { assembly_target_ = target; }
 	void set_sse2(bool enabled) { sse2_ = enabled; }
 	void set_jump_tables(bool enabled) { jump_tables_ = enabled; }
+	void set_kernel_model(bool enabled) { kernel_model_ = enabled; }
 	void set_optimization_level(int level) { level_ = level; }
 
 	// ---- analysis.cpp

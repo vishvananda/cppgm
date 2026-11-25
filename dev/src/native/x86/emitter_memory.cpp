@@ -23,8 +23,10 @@ unsigned rm_extra(const RM& rm)
 {
 	if (rm.is_reg)
 		return 0;
-	if (rm.symbol != 0xffffffffu || rm.label != 0xffffffffu || rm.base == kNoReg)
-		return rm.base == kNoReg && rm.symbol == 0xffffffffu && rm.label == 0xffffffffu ? 5 : 4;
+	if (rm.ip_relative || rm.label != kNoLabel)
+		return 4;
+	if (rm.base == kNoReg)
+		return 5;
 	unsigned extra = (rm.index != kNoReg || (rm.base & 7) == 4) ? 1 : 0;
 	if (rm.disp == 0 && (rm.base & 7) != 5)
 		return extra;

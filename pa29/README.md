@@ -181,6 +181,12 @@ observe dispatch and lifetime behavior; they do not prescribe register choices
 or instruction sequences.
 
 Dataflow optimizations must include every declared indirect destination.
+
+For non-PIC x86-64 ELF output, `-mcmodel=kernel` allows signed 32-bit
+absolute displacements for directly addressed static data. Use the section
+symbol and byte addend for such references to a local dispatch table so an
+object reader can identify the table and follow its label targets. Keep the
+default model's RIP-relative references for position-independent output.
 A value available on one incoming path need not be available at an addressed
 entry reached from another path.
 Addressed entries need not prevent ordinary value and storage optimizations.

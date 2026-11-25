@@ -25,9 +25,9 @@ const Reg kEmitScratch = R11;
 const uint32_t kAllocatableGprs = (kCallerSavedGprs | kCalleeSavedGprs) & ~((1u << R10) | (1u << R11));
 const uint32_t kAllocatableXmms = 0x3fff0000u; // xmm0-xmm13 (xmm14 and xmm15 are the emission scratch)
 
-// A memory operand. With `symbol` set the address is PC-relative to that
-// symbol (base and index absent); otherwise base is a GPR (RBP for frame
-// locations, RSP for outgoing arguments) or absent with an index.
+// A memory operand with `symbol` set has no base. Without an index its
+// address is PC-relative. With an index it uses an absolute displacement.
+// Other addresses can use a GPR base, a frame base or just an index.
 struct Operand
 {
 	OperandKind kind = OperandKind::None;

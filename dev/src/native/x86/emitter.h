@@ -127,6 +127,7 @@ struct X86CodeOptions
 	bool x87 = true;
 	bool x87_return = true;
 	bool jump_tables = true;
+	bool kernel_model = false;
 	IndirectBranch indirect_branch = IndirectBranch::Keep;
 	bool indirect_register_only = false;
 	bool indirect_thunk_cs_prefix = false;

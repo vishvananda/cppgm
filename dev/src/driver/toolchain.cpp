@@ -492,6 +492,11 @@ bool x86_code_option(const std::string& arg, Invocation& invocation)
 		invocation.red_zone = arg == "-mred-zone";
 	else if (arg == "-fjump-tables" || arg == "-fno-jump-tables")
 		invocation.x86_code.jump_tables = arg == "-fjump-tables";
+	else if (arg == "-mcmodel=kernel" || arg == "-mcmodel=small")
+	{
+		invocation.x86_code_explicit = true;
+		invocation.x86_code.kernel_model = arg == "-mcmodel=kernel";
+	}
 	else if (arg == "-mindirect-branch=keep" || arg == "-mindirect-branch=thunk-extern" ||
 		arg == "-mindirect-branch=thunk-inline")
 	{
@@ -525,10 +530,15 @@ void configure_x86_code_options(Invocation& invocation)
 	if (invocation.x86_code.indirect_branch == native::IndirectBranch::ExternalThunk &&
 		invocation.target != native::Target::Linux)
 		throw InvocationError("external x86 indirect-branch thunks require an ELF target");
+	if (invocation.x86_code.kernel_model &&
+		(invocation.target != native::Target::Linux || invocation.position_independent))
+		throw InvocationError("the x86 kernel code model requires non-PIC ELF output");
 	PreprocessorOptions& preprocessor = invocation.preprocessor;
 	invocation.x86_code.sse2 = preprocessor.sse2;
 	invocation.optimizer.vectorize = preprocessor.sse2;
 	std::string macros;
+	if (invocation.x86_code.kernel_model)
+		macros += "#define __code_model_kernel__ 1\n";
 	if (!invocation.x86_code.x87)
 		macros += "#define _SOFT_FLOAT 1\n";
 	if (!preprocessor.sse2)

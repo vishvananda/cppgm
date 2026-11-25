@@ -1600,7 +1600,12 @@ bool FunctionSelector::address_expr(uint32_t id, AddrExpr& expr) const
 	}
 	if (off.kind != ValueKind::Temp)
 		return false;
-	if (expr.index != kNoId || expr.kind == AddrExpr::Symbol || !(size == 1 || size == 2 || size == 4 || size == 8))
+	// The x86 kernel model keeps static data within signed disp32 range.
+	// A direct symbol plus an index can use one SIB operand there.
+	if (expr.index != kNoId || !(size == 1 || size == 2 || size == 4 || size == 8) ||
+		(expr.kind == AddrExpr::Symbol &&
+			(!kernel_model_ || !lowir::is_global_kind(program_.symbols[expr.base].kind) ||
+				symbol_access(expr.base) != SymbolAccess::Direct)))
 		return false;
 	// A base and an index both reloaded from homes combine by adding the
 	// base from its home (operands.cpp): a register base is full width.

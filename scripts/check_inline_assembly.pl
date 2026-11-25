@@ -14,7 +14,7 @@ use Text::ParseWords qw(shellwords);
 use lib $FindBin::Bin;
 
 use CppgmBatchWorker qw(collect_tests run_command_capture ensure_test_app_available
-	get_timeout_from_env note_progress_state clear_progress_state);
+	get_timeout_from_env note_progress_state clear_progress_state read_word_list);
 
 sub read_file
 {
@@ -125,6 +125,8 @@ sub observe
 for my $test (@tests)
 {
 	my $source = abs_path($test);
+	(my $flags = $source) =~ s/\.t$/.flags/;
+	my @flags = read_word_list($flags);
 	@fixture_link = fixture_link_options($test);
 	my $profile = read_file(profile_path($test));
 	$profile =~ s/\s+\z//;
@@ -154,17 +156,18 @@ for my $test (@tests)
 	{
 		for my $level (@levels)
 		{
-			command($directory, "$level.compile", $app, "-$level", '-c', $source, '-o', "$directory/$level.o");
+			command($directory, "$level.compile", $app, "-$level", @flags, '-c', $source, '-o', "$directory/$level.o");
 			(my $expect = $source) =~ s/\.t$/.inspect.expect/;
 			if (-f $expect)
 			{
 				command($directory, "$level.inspect", $^X, "$FindBin::Bin/check_object_expectations.pl", $expect, "$directory/$level.o");
 			}
 			my $lowered = "$directory/$level.lowir";
-			command($directory, "$level.lower", $app, '--emit-lowir', "-$level", '-o', $lowered, $source);
+			my @emit = @flags ? ('-S', '-emit-lowir', @flags) : ('--emit-lowir');
+			command($directory, "$level.lower", $app, @emit, "-$level", '-o', $lowered, $source);
 			for my $input (canonical_inputs($directory, $lowered))
 			{
-				command($directory, "$level.roundtrip", $app, "-$level", '-c', $input, '-o', "$directory/roundtrip.o");
+				command($directory, "$level.roundtrip", $app, "-$level", @flags, '-c', $input, '-o', "$directory/roundtrip.o");
 				command($directory, "$level.roundtrip-inspect", $^X, "$FindBin::Bin/check_object_expectations.pl", $expect, "$directory/roundtrip.o") if -f $expect;
 			}
 		}

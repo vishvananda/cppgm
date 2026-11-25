@@ -55,7 +55,14 @@ RM FunctionEmitter::rm(const Operand& op) const
 		return RM::r(op.reg);
 	case OperandKind::Mem:
 		if (op.symbol != lowir::kNoId)
-			return RM::rip(op.symbol, op.disp);
+		{
+			if (op.index == kNoReg)
+				return RM::rip(op.symbol, op.disp);
+			RM address = RM::m(kNoReg, op.disp, op.index, op.scale);
+			address.symbol = op.symbol;
+			address.absolute_symbol = true;
+			return address;
+		}
 		if (op.reg == kFrame)
 			return omit_fp_ ? RM::m(RSP, rsp_disp(op.disp), op.index, op.scale)
 							: RM::m(RBP, op.disp, op.index, op.scale);

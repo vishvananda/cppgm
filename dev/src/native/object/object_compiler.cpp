@@ -200,6 +200,7 @@ private:
 	// members of COMDAT groups (image symbol, section).
 	EhModel eh_model_;
 	bool position_independent_;
+	bool kernel_model_;
 	bool function_sections_; // -ffunction-sections (ELF): no function shares its section
 	bool cold_sections_;     // O1+ (ELF): cold functions (cold=yes) go to .text.unlikely
 	std::vector<UnwindEntry> unwind_;
@@ -242,7 +243,8 @@ ObjectCompiler::ObjectCompiler(lowir::Program& program, ObjectStats& stats, EhMo
 	bool position_independent, Target target, bool red_zone, bool function_sections, X86CodeOptions code_options)
 	: program_(program), stats_(stats), selector_(program), emitter_(image_, runtime_, stats.emit),
 	  assembly_text_(code_options.assembly_text), share_entries_(optimization_level >= 1), eh_model_(eh_model),
-	  position_independent_(position_independent), function_sections_(function_sections && target == Target::Linux),
+	  position_independent_(position_independent), kernel_model_(code_options.kernel_model),
+	  function_sections_(function_sections && target == Target::Linux),
 	  cold_sections_(optimization_level >= 1 && target == Target::Linux)
 {
 	image_.target = target;
@@ -255,6 +257,7 @@ ObjectCompiler::ObjectCompiler(lowir::Program& program, ObjectStats& stats, EhMo
 	emitter_.set_code_options(code_options);
 	selector_.set_sse2(code_options.sse2);
 	selector_.set_jump_tables(code_options.jump_tables);
+	selector_.set_kernel_model(code_options.kernel_model);
 	for (unsigned k = 0; k < kHostBuiltinCount; ++k)
 		host_builtins_[k] = std::make_pair(0u, 0u);
 	declare_symbols();
@@ -1287,6 +1290,16 @@ void ObjectCompiler::add_relocations()
 		{
 			relocation.type = object::x86_absolute_relocation(fixup.end, fixup.kind == FixupKind::SignedAddress);
 			relocation.addend = fixup.addend;
+			const object::Symbol& target = out_->symbols[relocation.symbol];
+			if (kernel_model_ && relocation.type == object::R_X86_64_32S && target.binding == Binding::Local &&
+				target.type == SymbolType::Object && target.section > 0 && target.section < out_->sections.size() &&
+				out_->sections[target.section].merge_size == 0 && !out_->sections[target.section].merge_strings)
+			{
+				// Keep the section and offset visible to object readers that
+				// recognize a load from a statically addressed table.
+				relocation.addend += static_cast<int64_t>(target.value);
+				relocation.symbol = section_symbol(target.section);
+			}
 		}
 		else if (fixup.kind == FixupKind::Got)
 		{

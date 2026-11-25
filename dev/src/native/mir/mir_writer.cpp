@@ -244,7 +244,7 @@ void MirWriter::operand(const Function* function, const Operand& op)
 			label(*function, op.symbol);
 		break;
 	case OperandKind::Mem:
-		if (op.symbol != lowir::kNoId)
+		if (op.symbol != lowir::kNoId && op.index == kNoReg)
 		{
 			symbol(op.symbol);
 			if (op.disp != 0)
@@ -255,11 +255,13 @@ void MirWriter::operand(const Function* function, const Operand& op)
 			break;
 		}
 		text_ += '[';
-		if (op.reg != kNoReg)
+		if (op.symbol != lowir::kNoId)
+			symbol(op.symbol);
+		else if (op.reg != kNoReg)
 			reg(op.reg);
 		if (op.index != kNoReg)
 		{
-			if (op.reg != kNoReg)
+			if (op.reg != kNoReg || op.symbol != lowir::kNoId)
 				text_ += '+';
 			reg(op.index);
 			if (op.scale != 1)

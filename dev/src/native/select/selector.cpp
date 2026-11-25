@@ -47,6 +47,11 @@ void Selector::set_jump_tables(bool enabled)
 	state_->set_jump_tables(enabled);
 }
 
+void Selector::set_kernel_model(bool enabled)
+{
+	state_->set_kernel_model(enabled);
+}
+
 void Selector::set_optimization_level(int level)
 {
 	state_->set_optimization_level(level);
