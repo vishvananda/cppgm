@@ -34,6 +34,7 @@ class SourceRelease(unittest.TestCase):
                  'dev/runtime/wasi-c23/licenses/freebsd-expm1l.txt', 'dev/runtime/wasi-c23/math_pi.c',
                  'dev/runtime/wasi-c23/math_binary128.h', 'dev/runtime/wasi-c23/math_power.c',
                  'dev/runtime/wasi-c23/math_remainder.c', 'dev/runtime/wasi-c23/math_error.h',
+                 'dev/runtime/wasi-c23/math_exponent.c',
                  'dev/runtime/wasi-c23/math_sdk_builtins.c', 'dev/runtime/wasi-c23/math_sdk_errors.c',
                  'dev/runtime/wasi-c23/math_sdk_exp.c', 'dev/runtime/wasi-c23/math_sdk_exp10.c',
                  'dev/runtime/wasi-c23/math_sdk_expm1.c', 'dev/runtime/wasi-c23/math_sdk_expm1f.c',

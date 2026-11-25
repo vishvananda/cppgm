@@ -328,6 +328,25 @@ int main(void)
 	CHECK(powf, (-0.0f, 3.0f), EILSEQ, result == 0.0f && signbit(result));
 	CHECK(pow, (0x1p-520, 2.0), EILSEQ, result == 0x1p-1040);
 
+	CHECK(logb, (-0.0), ERANGE, result == -INFINITY);
+	CHECK(logbf, (0.0f), ERANGE, result == -INFINITY);
+	CHECK(logbl, (-0.0L), ERANGE, result == -INFINITY);
+	CHECK(logb, (-INFINITY), EILSEQ, result == INFINITY);
+	CHECK(logbf, (NAN), EILSEQ, isnan(result));
+	CHECK(logbl, (-0x1p4000L), EILSEQ, result == 4000);
+	CHECK(logb, (-DBL_TRUE_MIN), EILSEQ, result == DBL_MIN_EXP - DBL_MANT_DIG);
+	CHECK(logbf, (3 * FLT_TRUE_MIN), EILSEQ, result == FLT_MIN_EXP - FLT_MANT_DIG + 1);
+	CHECK(logbl, (LDBL_TRUE_MIN), EILSEQ, result == LDBL_MIN_EXP - LDBL_MANT_DIG);
+	CHECK(ilogb, (-0.0), EDOM, result == FP_ILOGB0);
+	CHECK(ilogbf, (-INFINITY), EDOM, result == INT_MAX);
+	CHECK(ilogbl, (NAN), EDOM, result == FP_ILOGBNAN);
+	CHECK(ilogbf, (-0x1p-127f), EILSEQ, result == -127);
+	CHECK(ilogbl, (-0x1p-16492L), EILSEQ, result == -16492);
+	CHECK(llogbf, (-0.0f), EDOM, result == FP_LLOGB0);
+	CHECK(llogbl, (-INFINITY), EDOM, result == LONG_MAX);
+	CHECK(llogb, (NAN), EDOM, result == FP_LLOGBNAN);
+	CHECK(llogbl, (-LDBL_TRUE_MIN), EILSEQ, result == LDBL_MIN_EXP - LDBL_MANT_DIG);
+
 	volatile float large_float = FLT_MAX;
 	errno = EILSEQ;
 	if (fmaf(large_float, 3.0f, -large_float) != INFINITY || errno != ERANGE)
@@ -358,6 +377,12 @@ int main(void)
 	volatile double negative_zero = -0.0;
 	errno = EILSEQ;
 	if (pow(negative_zero, negative_power) != -INFINITY || errno != ERANGE)
+		return FAILURE;
+	errno = EILSEQ;
+	if (ilogb(negative_zero) != FP_ILOGB0 || errno != EDOM)
+		return FAILURE;
+	errno = EILSEQ;
+	if (logb(negative_zero) != -INFINITY || errno != ERANGE)
 		return FAILURE;
 	return 0;
 }

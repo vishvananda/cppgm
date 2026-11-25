@@ -25,7 +25,7 @@ CORE_MATH_OBJECTS := $(CORE_MATH_F32_OBJECTS) $(CORE_MATH_F64_OBJECTS) $(CORE_MA
 SOFTFLOAT_OBJECTS := $(patsubst $(SOFTFLOAT)/%.c,$(BUILD_DIR)/softfloat/%.o,$(wildcard $(SOFTFLOAT)/*.c))
 OBJECTS := $(addprefix $(BUILD_DIR)/,stdbit.o memalignment.o memset_explicit.o timespec_getres.o utf8.o \
 	binary_conversion.o sized_free.o atomic_functions.o call_once.o strfrom.o fenv.o temporary_files.o \
-	math_representation.o math_classification.o math_extrema.o math_rounding.o math_logp1.o math_narrow.o \
+	math_representation.o math_classification.o math_extrema.o math_exponent.o math_rounding.o math_logp1.o math_narrow.o \
 	math_expm1.o math_pi.o math_power.o math_remainder.o math_sdk_errors.o math_sdk_builtins.o \
 	math_sdk_exp.o math_sdk_exp10.o math_sdk_expm1.o math_sdk_expm1f.o math_scale.o \
 	math_sdk_log.o math_sdk_logf.o math_hyperbolic.o math_sdk_trig.o math_sdk_trigf.o math_sdk_trigl.o \

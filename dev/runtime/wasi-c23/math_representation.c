@@ -106,20 +106,3 @@ long double nexttowardl(long double x, long double y)
 {
 	return nextafterl(x, y);
 }
-
-static_assert(INT_MAX == LONG_MAX && INT_MIN == LONG_MIN);
-
-long llogb(double value)
-{
-	return ilogb(value);
-}
-
-long llogbf(float value)
-{
-	return ilogbf(value);
-}
-
-long llogbl(long double value)
-{
-	return ilogbl(value);
-}
