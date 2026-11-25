@@ -98,6 +98,14 @@ Operand FunctionSelector::assembly_input(
 	capture.src = source;
 	capture.type = transfer;
 	capture.src_type = memory || operand.input_storage || operand.type.is_object() ? transfer : operand.type.kind();
+	// An elided integer extension can use a narrower temporary in its
+	// normalized register form. Its spilled home still has its own width.
+	if (source.kind == OperandKind::Mem && (memory || !operand.input_storage) && value.kind == lowir::ValueKind::Temp)
+	{
+		const lowir::Type stored = body_->temps[value.index].type;
+		if (stored.is_integer() && register_bytes(stored.kind()) < register_bytes(capture.src_type))
+			capture.src_type = stored.kind();
+	}
 	emit_move(capture);
 	return saved;
 }
