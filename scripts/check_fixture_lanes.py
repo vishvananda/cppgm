@@ -4,7 +4,7 @@
 A fixture that no lane runs still ships to students, but nothing grades it.
 For each paN/tests this check reports
 
-  - an input (`x.t`, a `.cpp` control or program, a `.lowir` input, an
+  - an input (`x.t`, a `.c` or `.cpp` control or program, a `.lowir` input, an
     `.audit` record) that no `test*` lane of paN's Makefile selects, saying
     so when a `ref-test*` lane regenerates its references all the same;
   - a file that is neither an input, nor a companion of one (a file or
@@ -41,7 +41,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 GRADING_TARGET = re.compile(r"^test(?:-[a-z0-9-]+)?$")
 REGENERATING_TARGET = re.compile(r"^ref-test(?:-[a-z0-9-]+)?$")
-INPUT_SUFFIXES = (".t", ".cpp", ".lowir", ".audit")
+INPUT_SUFFIXES = (".t", ".c", ".cpp", ".lowir", ".audit")
 
 # Scripts a lane recipe runs on fixture paths without running the fixtures.
 NON_RUNNERS = {

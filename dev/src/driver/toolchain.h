@@ -69,8 +69,9 @@ enum class CEnvironment : uint8_t
 bool c_environment_option(const std::string& option, CEnvironment& environment);
 bool ms_anonymous_structs_option(const std::string& option, bool& enabled);
 void configure_c_environment(PreprocessorOptions& options, target_model::Target target, CEnvironment environment);
+bool c_source_filename(const std::string& path);
 void configure_source_language(const std::string& language, const std::string& standard, SourceExceptions exceptions,
-	PreprocessorOptions& options);
+	PreprocessorOptions& options, bool inferred_c = false);
 
 // Select how to report C++ language extension diagnostics.
 bool diagnostic_option(

@@ -7,6 +7,7 @@
 #include <fstream>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <sys/stat.h>
 #include <utility>
 #include <vector>
@@ -126,8 +127,13 @@ void configure_c_environment(PreprocessorOptions& options, target_model::Target 
 	options.c_freestanding = bare_wasm || environment == CEnvironment::Freestanding;
 }
 
-void configure_source_language(
-	const std::string& language, const std::string& standard, SourceExceptions exceptions, PreprocessorOptions& options)
+bool c_source_filename(const std::string& path)
+{
+	return path.size() >= 2 && path.compare(path.size() - 2, 2, ".c") == 0;
+}
+
+void configure_source_language(const std::string& language, const std::string& standard, SourceExceptions exceptions,
+	PreprocessorOptions& options, bool inferred_c)
 {
 	if (language == "assembler-with-cpp")
 	{
@@ -139,7 +145,7 @@ void configure_source_language(
 
 	if (!standard.empty())
 		language_standard(standard, options);
-	else if (language == "c")
+	else if (language == "c" || (language.empty() && inferred_c))
 		language_standard("gnu17", options);
 	if (!language.empty() && language != "c" && language != "c++")
 		throw InvocationError("unsupported language: " + language);
@@ -272,6 +278,7 @@ struct Input
 
 	Kind kind;
 	std::string name;
+	bool inferred_c;
 };
 
 struct Invocation
@@ -339,6 +346,12 @@ struct Invocation
 	std::vector<std::string> library_paths;
 	std::vector<std::string> exports;
 	PreprocessorOptions preprocessor;
+	std::unique_ptr<PreprocessorOptions> c_preprocessor;
+
+	const PreprocessorOptions& source_preprocessor(const Input& input) const
+	{
+		return c_preprocessor && input.inferred_c ? *c_preprocessor : preprocessor;
+	}
 };
 
 double milliseconds_since(std::chrono::steady_clock::time_point start)
@@ -661,24 +674,14 @@ bool preprocess_option(const std::string& arg, Invocation& invocation)
 	return true;
 }
 
-void configure_target_runtime(Invocation& invocation, StandardIncludes includes)
+void configure_target_headers(const Invocation& invocation, PreprocessorOptions& options, StandardIncludes includes)
 {
-	configure_target_environment(invocation.preprocessor, invocation.target, invocation.wasm_atomics);
-	invocation.optimizer.has_gnu_sincos = target_model::has_gnu_sincos(invocation.target);
-	// Darwin objects are position independent even without an explicit -fPIC.
-	if (target_model::is_darwin(invocation.target))
-		invocation.position_independent = true;
+	configure_target_environment(options, invocation.target, invocation.wasm_atomics);
 	if (target_model::is_wasm(invocation.target))
-	{
-		add_wasm_headers(invocation.preprocessor, invocation.sysroot, invocation.resource_directory, includes);
-		if (!invocation.sysroot.empty())
-			invocation.library_paths.push_back(invocation.sysroot + "/lib/wasm32-wasip1");
-	}
+		add_wasm_headers(options, invocation.sysroot, invocation.resource_directory, includes);
 	else if (target_model::is_aarch64(invocation.target) && !invocation.wasm_link.requested() &&
 		invocation.wasm_stack_size == 0 && !invocation.wasm_atomics_explicit)
-	{
-		add_aarch64_headers(invocation.preprocessor, invocation.sysroot, invocation.resource_directory, includes);
-	}
+		add_aarch64_headers(options, invocation.sysroot, invocation.resource_directory, includes);
 	else if (!invocation.sysroot.empty() || !invocation.resource_directory.empty() || invocation.wasm_stack_size != 0 ||
 		(invocation.wasm_atomics_explicit && invocation.wasm_atomics) || invocation.wasm_link.requested())
 		throw InvocationError("target runtime directory/options currently require a Wasm target");
@@ -690,7 +693,7 @@ Input source_input(const std::string& name)
 		: ends_with(name, ".S")                ? Input::Kind::Assembly
 		: ends_with(name, ".lowir")            ? Input::Kind::LowIR
 											   : Input::Kind::Source;
-	return Input{ kind, name };
+	return Input{ kind, name, false };
 }
 
 void input_language(Invocation& invocation)
@@ -755,6 +758,27 @@ void configure_mode_macros(Invocation& invocation, bool optimize_size, unsigned 
 	invocation.preprocessor.command_line.insert(0, mode_macros);
 }
 
+void configure_source_preprocessor(const Invocation& invocation, PreprocessorOptions& options, bool inferred_c,
+	StandardIncludes includes, const std::string& gcc_install_dir, bool preprocess_only)
+{
+	configure_source_language(
+		invocation.source_language, invocation.standard, invocation.exceptions, options, inferred_c);
+	configure_c_environment(options, invocation.target, invocation.c_environment);
+	options.c_contract_by_default = invocation.float_contract == FloatContract::Scoped;
+	std::string host_error;
+	if (!add_host_environment(options, invocation.target, includes, gcc_install_dir, host_error))
+		throw InvocationError(host_error);
+	configure_target_headers(invocation, options, includes);
+	prune_include_paths(options);
+	if (preprocess_only)
+		options.builtin_declarations.clear();
+}
+
+bool native_unwind_tables(const Invocation& invocation, const PreprocessorOptions& options)
+{
+	return invocation.asynchronous_unwind_tables || invocation.unwind_tables || options.modes.exceptions;
+}
+
 void configure_preprocessor(Invocation& invocation, StandardIncludes includes, const std::string& gcc_install_dir)
 {
 	const MakeDependencies& dependencies = invocation.dependencies;
@@ -764,27 +788,37 @@ void configure_preprocessor(Invocation& invocation, StandardIncludes includes, c
 	const bool preprocess_only = invocation.preprocess_only || dependencies.mode == MakeDependencies::Mode::Only;
 	if (!preprocess_only && (invocation.dump_macros || invocation.trace_includes))
 		throw InvocationError("-dM and -H require -E");
-	for (const Input& input : invocation.inputs)
+	const bool infer_language = invocation.source_language.empty() && invocation.standard.empty();
+	bool has_c_source = false;
+	bool needs_default_language = false;
+	for (Input& input : invocation.inputs)
 	{
 		if (input.name == "-" && !preprocess_only && input.kind != Input::Kind::Assembly)
 			throw InvocationError("standard input requires -E or -x assembler-with-cpp");
 		if (input.kind == Input::Kind::Assembly)
 			invocation.preprocess_text = true;
+		if (infer_language && input.kind != Input::Kind::Object && input.kind != Input::Kind::Library)
+		{
+			input.inferred_c = input.kind == Input::Kind::Source && c_source_filename(input.name);
+			has_c_source |= input.inferred_c;
+			needs_default_language |= !input.inferred_c;
+		}
 	}
-	configure_source_language(
-		invocation.source_language, invocation.standard, invocation.exceptions, invocation.preprocessor);
+	if (has_c_source && needs_default_language)
+		invocation.c_preprocessor.reset(new PreprocessorOptions(invocation.preprocessor));
+	configure_source_preprocessor(invocation, invocation.preprocessor, has_c_source && !needs_default_language,
+		includes, gcc_install_dir, preprocess_only);
+	if (invocation.c_preprocessor)
+		configure_source_preprocessor(
+			invocation, *invocation.c_preprocessor, true, includes, gcc_install_dir, preprocess_only);
 	if (invocation.target == native::Target::Linux)
-		invocation.x86_code.unwind_tables = invocation.asynchronous_unwind_tables || invocation.unwind_tables ||
-			invocation.preprocessor.modes.exceptions;
-	configure_c_environment(invocation.preprocessor, invocation.target, invocation.c_environment);
-	invocation.preprocessor.c_contract_by_default = invocation.float_contract == FloatContract::Scoped;
-	std::string host_error;
-	if (!add_host_environment(invocation.preprocessor, invocation.target, includes, gcc_install_dir, host_error))
-		throw InvocationError(host_error);
-	configure_target_runtime(invocation, includes);
-	prune_include_paths(invocation.preprocessor);
-	if (preprocess_only)
-		invocation.preprocessor.builtin_declarations.clear();
+		invocation.x86_code.unwind_tables = native_unwind_tables(invocation, invocation.preprocessor);
+	invocation.optimizer.has_gnu_sincos = target_model::has_gnu_sincos(invocation.target);
+	// Darwin objects are position independent even without an explicit -fPIC.
+	if (target_model::is_darwin(invocation.target))
+		invocation.position_independent = true;
+	if (target_model::is_wasm(invocation.target) && !invocation.sysroot.empty())
+		invocation.library_paths.push_back(invocation.sysroot + "/lib/wasm32-wasip1");
 }
 
 Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions& base)
@@ -994,7 +1028,7 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 		else if (option_value(args, i, "-L", value))
 			invocation.library_paths.push_back(value);
 		else if (option_value(args, i, "-l", value))
-			invocation.inputs.push_back(Input{ Input::Kind::Library, value });
+			invocation.inputs.push_back(Input{ Input::Kind::Library, value, false });
 		else if (parse_dependency_option(args, i, invocation.dependencies))
 			continue;
 		else if (refused_flag(arg))
@@ -1039,6 +1073,14 @@ struct SourceInputs
 	const Input* begin;
 	const Input* end;
 };
+
+const PreprocessorOptions& source_group_preprocessor(SourceInputs sources, const Invocation& invocation)
+{
+	if (invocation.c_preprocessor &&
+		std::all_of(sources.begin, sources.end, [](const Input& input) { return input.inferred_c; }))
+		return *invocation.c_preprocessor;
+	return invocation.preprocessor;
+}
 
 SourceInputs source_lto_inputs(const Invocation& invocation)
 {
@@ -1112,13 +1154,14 @@ void report_census(const native::ObjectStats& stats)
 // (native::recover_jump_thunks), so a thunk whose target was inlined into
 // it is encoded as written, and a host object is the one compiled from
 // the optimized text (lowiropt and --emit-lowir keep thunks as lowered).
-void optimize_unit(lowir::Program& program, const Invocation& invocation, native::EhModel eh_model)
+void optimize_unit(
+	lowir::Program& program, const Invocation& invocation, native::EhModel eh_model, SourceLanguage language)
 {
 	if (invocation.optimizer.level == 0 || !invocation.lowir_passes)
 		return;
 	opt::OptimizerOptions options = invocation.optimizer;
 	options.inline_thunk_targets = eh_model == native::EhModel::Course;
-	options.prune_private_c_data = invocation.preprocessor.language == SourceLanguage::C;
+	options.prune_private_c_data = language == SourceLanguage::C;
 	opt::optimize_program(program, options, nullptr);
 	program.jump_thunks.clear();
 	if (!target_model::is_aarch64(invocation.target))
@@ -1128,30 +1171,32 @@ void optimize_unit(lowir::Program& program, const Invocation& invocation, native
 void write_side_dependencies(
 	const Invocation& invocation, const std::string& path, const std::vector<std::string>& headers);
 
-bool lower_source(const std::string& path, const Invocation& invocation, lower::ProgramLowering& lowering,
-	UnitWork& work, double& front_ms, std::chrono::steady_clock::time_point start)
+bool lower_source(const Input& input, const Invocation& invocation, lower::ProgramLowering& lowering, UnitWork& work,
+	double& front_ms, std::chrono::steady_clock::time_point start)
 {
-	lowering.set_optimized_c_source(invocation.preprocessor.language == SourceLanguage::C &&
-		invocation.optimizer.level != 0 && invocation.lowir_passes);
+	const std::string& path = input.name;
+	const PreprocessorOptions& options = invocation.source_preprocessor(input);
+	lowering.set_optimized_c_source(
+		options.language == SourceLanguage::C && invocation.optimizer.level != 0 && invocation.lowir_passes);
+	lowering.set_exceptions(options.modes.exceptions);
 	{
-		syntax::SyntaxUnit unit(invocation.preprocessor, path);
+		syntax::SyntaxUnit unit(options, path);
 		if (!unit.parse())
 		{
 			std::cerr << "ERROR: " << unit.error() << std::endl;
 			return false;
 		}
-		sema::SemanticGraph graph(invocation.preprocessor.plain_char_unsigned, invocation.target);
+		sema::SemanticGraph graph(options.plain_char_unsigned, invocation.target);
 		graph.names.reserve(unit.counters().bindings);
 		sema::Analyzer analyzer(graph, unit.identifiers(), sema::AnalysisMode::Semantics);
-		analyzer.set_source_language(invocation.preprocessor);
-		analyzer.set_atomics_enabled(invocation.preprocessor.atomics_enabled);
-		if (invocation.preprocessor.language == SourceLanguage::Cxx)
-			analyzer.set_number_dialect(invocation.preprocessor.literals);
-		analyzer.set_hosted(invocation.preprocessor.hosted);
+		analyzer.set_source_language(options);
+		analyzer.set_atomics_enabled(options.atomics_enabled);
+		if (options.language == SourceLanguage::Cxx)
+			analyzer.set_number_dialect(options.literals);
+		analyzer.set_hosted(options.hosted);
 		analyzer.set_host_objects(lowering.host_objects());
-		analyzer.set_cxx_edition(
-			invocation.preprocessor.cxx_edition, invocation.preprocessor.diagnose_cxx_extensions());
-		analyzer.set_exceptions(invocation.preprocessor.modes.exceptions);
+		analyzer.set_cxx_edition(options.cxx_edition, options.diagnose_cxx_extensions());
+		analyzer.set_exceptions(options.modes.exceptions);
 		analyzer.set_constexpr_step_limit(invocation.constexpr_step_limit);
 		analyzer.set_ignore_narrowing(invocation.ignore_narrowing);
 		analyzer.set_source_positions(&unit.positions());
@@ -1215,11 +1260,17 @@ bool compile_native_sources(SourceInputs sources, const Invocation& invocation, 
 	stats.clocks = invocation.stats;
 	stats.census = invocation.function_census;
 	const bool arm = target_model::is_aarch64(invocation.target);
+	const PreprocessorOptions& options = source_group_preprocessor(sources, invocation);
 	std::unique_ptr<native::ObjectBuilder> builder;
 	if (!arm)
+	{
+		native::X86CodeOptions code = invocation.x86_code;
+		if (invocation.c_preprocessor && invocation.target == native::Target::Linux)
+			code.unwind_tables = native_unwind_tables(invocation, options);
 		builder.reset(new native::ObjectBuilder(program, stats, eh_model, invocation.optimizer.level,
 			invocation.position_independent, invocation.target, invocation.red_zone, invocation.function_sections,
-			invocation.x86_code));
+			code));
+	}
 	// At -O0 each definition is encoded (or written) as the lowering
 	// completes it; an optimizing level keeps the program until the
 	// optimizer has run.
@@ -1237,8 +1288,7 @@ bool compile_native_sources(SourceInputs sources, const Invocation& invocation, 
 	lowering.set_optimizing(true);
 	lowering.set_strict_aliasing(invocation.strict_aliasing);
 	lowering.set_symbol_visibility(invocation.visibility, invocation.visibility_inlines_hidden);
-	lowering.set_popcnt(invocation.preprocessor.popcnt);
-	lowering.set_exceptions(invocation.preprocessor.modes.exceptions);
+	lowering.set_popcnt(options.popcnt);
 	if (invocation.whole_source_lto)
 		lowering.merge_inline_variables();
 	double front_ms = 0;
@@ -1250,7 +1300,7 @@ bool compile_native_sources(SourceInputs sources, const Invocation& invocation, 
 		for (const Input* source = sources.begin; source != sources.end; ++source)
 		{
 			input = source;
-			if (!lower_source(input->name, invocation, lowering, work, front_ms, unit_start))
+			if (!lower_source(*input, invocation, lowering, work, front_ms, unit_start))
 				return false;
 			if (source + 1 != sources.end)
 				unit_start = std::chrono::steady_clock::now();
@@ -1258,7 +1308,7 @@ bool compile_native_sources(SourceInputs sources, const Invocation& invocation, 
 		if (invocation.syntax_only)
 			return true;
 		lowering.finish();
-		optimize_unit(program, invocation, eh_model);
+		optimize_unit(program, invocation, eh_model, options.language);
 		if (lowir_output != nullptr)
 			return write_unit_lowir(program, streaming ? &definitions : nullptr, *lowir_output);
 		object.path = sources.begin->name;
@@ -1322,7 +1372,7 @@ bool compile_lowir_unit(const std::string& path, const Invocation& invocation, n
 	program.target = invocation.target;
 	if (!target_model::is_aarch64(invocation.target))
 		native::recover_jump_thunks(program, eh_model);
-	optimize_unit(program, invocation, eh_model);
+	optimize_unit(program, invocation, eh_model, invocation.preprocessor.language);
 	if (lowir_output != nullptr)
 		return write_unit_lowir(program, nullptr, *lowir_output);
 	native::ObjectStats stats;
@@ -1660,7 +1710,6 @@ void configure_wasm_lowering(lower::ProgramLowering& lowering, const Invocation&
 	// An object's LowIR before optimization is the same at every level.
 	lowering.set_c_constant_demand(!invocation.debug_info);
 	lowering.set_optimizing(true);
-	lowering.set_exceptions(invocation.preprocessor.modes.exceptions);
 	lowering.set_strict_aliasing(invocation.strict_aliasing);
 	lowering.set_symbol_visibility(invocation.visibility, invocation.visibility_inlines_hidden);
 }
@@ -1671,7 +1720,7 @@ bool lower_wasm_source(
 	UnitWork work;
 	double front_ms = 0;
 	const auto start = std::chrono::steady_clock::now();
-	if (!lower_source(input.name, invocation, lowering, work, front_ms, start))
+	if (!lower_source(input, invocation, lowering, work, front_ms, start))
 		return false;
 	if (final_source)
 		lowering.finish();
@@ -1837,15 +1886,14 @@ int wasm_mode(const Invocation& invocation)
 }
 
 bool preprocess_tokens(
-	Preprocessor& preprocessor, const std::string& path, const Invocation& invocation, PostTokenWriter& output)
+	Preprocessor& preprocessor, const std::string& path, const PreprocessorOptions& options, PostTokenWriter& output)
 {
 	// The stream types literals as the course's preprocessor does.
-	PostTokenizer tokens(preprocessor, nullptr, NumberStreamDialect(invocation.preprocessor.literals),
-		invocation.target, invocation.preprocessor.gnu_c(), invocation.preprocessor.cxx_edition);
-	tokens.set_short_wchar(invocation.preprocessor.short_wchar);
-	tokens.set_c23(
-		invocation.preprocessor.language == SourceLanguage::C && invocation.preprocessor.c_edition >= CEdition::C23);
-	tokens.set_source_positions(preprocessor, invocation.preprocessor.iso_c_before_c99());
+	PostTokenizer tokens(preprocessor, nullptr, NumberStreamDialect(options.literals), options.target, options.gnu_c(),
+		options.cxx_edition);
+	tokens.set_short_wchar(options.short_wchar);
+	tokens.set_c23(options.language == SourceLanguage::C && options.c_edition >= CEdition::C23);
+	tokens.set_source_positions(preprocessor, options.iso_c_before_c99());
 	for (;;)
 	{
 		const PostToken& token = tokens.next();
@@ -1890,11 +1938,11 @@ bool preprocess_unit(const Input& source, const Invocation& invocation, std::ost
 	try
 	{
 		const bool assembly = source.kind == Input::Kind::Assembly;
+		const PreprocessorOptions& options = invocation.source_preprocessor(source);
 		PreprocessorOptions assembly_options;
 		if (assembly)
-			assembly_options = assembly_preprocessor_options(invocation.preprocessor);
-		Preprocessor preprocessor(
-			assembly ? assembly_options : invocation.preprocessor, path, input == "-" ? &std::cin : nullptr);
+			assembly_options = assembly_preprocessor_options(options);
+		Preprocessor preprocessor(assembly ? assembly_options : options, path, input == "-" ? &std::cin : nullptr);
 		try
 		{
 			if (only_dependencies || invocation.dump_macros)
@@ -1912,7 +1960,7 @@ bool preprocess_unit(const Input& source, const Invocation& invocation, std::ost
 				out << assembly_source(preprocessor) << '\n';
 			else if (invocation.preprocess_text)
 				preprocess_source(preprocessor, out);
-			else if (!preprocess_tokens(preprocessor, path, invocation, output))
+			else if (!preprocess_tokens(preprocessor, path, options, output))
 				return false;
 			if (invocation.trace_includes)
 				preprocessor.trace_includes(std::cerr);

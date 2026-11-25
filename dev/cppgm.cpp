@@ -27,6 +27,7 @@
 #endif
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -798,9 +799,10 @@ void add_host_environment(PreprocessorOptions& options, const SourceOutputInvoca
 		throw InvocationError(error);
 }
 
-PreprocessorOptions source_preprocessor_options(const SourceOutputInvocation& invocation)
+PreprocessorOptions source_preprocessor_options(
+	const SourceOutputInvocation& invocation, const PreprocessorOptions& base, bool inferred_c)
 {
-	PreprocessorOptions options = source_preprocessor_options();
+	PreprocessorOptions options = base;
 	options.include_paths = invocation.include_paths;
 	options.quote_include_paths = invocation.quote_include_paths;
 	options.embed_paths = invocation.embed_paths;
@@ -811,7 +813,8 @@ PreprocessorOptions source_preprocessor_options(const SourceOutputInvocation& in
 	options.source_lex = invocation.source_lex;
 	options.ms_anonymous_structs = invocation.ms_anonymous_structs;
 	options.c_contract_by_default = invocation.float_contract == driver::FloatContract::Scoped;
-	driver::configure_source_language(invocation.language, invocation.standard, invocation.exceptions, options);
+	driver::configure_source_language(
+		invocation.language, invocation.standard, invocation.exceptions, options, inferred_c);
 	driver::configure_c_environment(options, invocation.target, invocation.c_environment);
 	options.plain_char_unsigned = invocation.plain_char_unsigned < 0 ? invocation.target == native::Target::AArch64Linux
 																	 : invocation.plain_char_unsigned != 0;
@@ -838,6 +841,34 @@ PreprocessorOptions source_preprocessor_options(const SourceOutputInvocation& in
 		driver::prune_include_paths(options);
 	return options;
 }
+
+class SourcePreprocessors
+{
+public:
+	explicit SourcePreprocessors(const SourceOutputInvocation& invocation)
+		: invocation_(invocation), infer_language_(invocation.language.empty() && invocation.standard.empty()),
+		  first_c_(infer_language_ && driver::c_source_filename(invocation.inputs.front())),
+		  base_(source_preprocessor_options()), first_(source_preprocessor_options(invocation, base_, first_c_))
+	{}
+
+	const PreprocessorOptions& for_input(const string& path)
+	{
+		const bool inferred_c = infer_language_ && driver::c_source_filename(path);
+		if (inferred_c == first_c_)
+			return first_;
+		if (!alternate_)
+			alternate_.reset(new PreprocessorOptions(source_preprocessor_options(invocation_, base_, inferred_c)));
+		return *alternate_;
+	}
+
+private:
+	const SourceOutputInvocation& invocation_;
+	bool infer_language_;
+	bool first_c_;
+	PreprocessorOptions base_;
+	PreprocessorOptions first_;
+	unique_ptr<PreprocessorOptions> alternate_;
+};
 
 double milliseconds_since(chrono::steady_clock::time_point start)
 {
@@ -883,7 +914,7 @@ int run_emit_ast_mode(vector<string> args)
 		}
 	}
 	const SourceOutputInvocation invocation = parse_source_output_invocation(args, false);
-	const PreprocessorOptions options = source_preprocessor_options(invocation);
+	SourcePreprocessors preprocessors(invocation);
 	// The output file's contents are unspecified after a failure.
 	ofstream out(invocation.outfile, ios::binary);
 	out << invocation.inputs.size() << " translation units\n";
@@ -892,7 +923,8 @@ int run_emit_ast_mode(vector<string> args)
 		try
 		{
 			const chrono::steady_clock::time_point parse_start = chrono::steady_clock::now();
-			syntax::SyntaxUnit unit(options, invocation.inputs[i], true);
+			const string& path = invocation.inputs[i];
+			syntax::SyntaxUnit unit(preprocessors.for_input(path), path, true);
 			if (!unit.parse())
 			{
 				cerr << "ERROR: " << unit.error() << endl;
@@ -962,7 +994,7 @@ int run_emit_types_mode(vector<string> args)
 {
 	const bool stats = consume_stats_flag(args);
 	const SourceOutputInvocation invocation = parse_source_output_invocation(args, false);
-	const PreprocessorOptions options = source_preprocessor_options(invocation);
+	SourcePreprocessors preprocessors(invocation);
 	// The output file's contents are unspecified after a failure.
 	ofstream out(invocation.outfile, ios::binary);
 	out << invocation.inputs.size() << " translation units\n";
@@ -971,6 +1003,7 @@ int run_emit_types_mode(vector<string> args)
 		try
 		{
 			const chrono::steady_clock::time_point parse_start = chrono::steady_clock::now();
+			const PreprocessorOptions& options = preprocessors.for_input(invocation.inputs[i]);
 			syntax::SyntaxUnit unit(options, invocation.inputs[i]);
 			if (!unit.parse())
 			{
@@ -1047,7 +1080,7 @@ int run_emit_semantics_mode(vector<string> args)
 {
 	const bool stats = consume_stats_flag(args);
 	const SourceOutputInvocation invocation = parse_source_output_invocation(args, false);
-	const PreprocessorOptions options = source_preprocessor_options(invocation);
+	SourcePreprocessors preprocessors(invocation);
 	// The output file's contents are unspecified after a failure.
 	ofstream out(invocation.outfile, ios::binary);
 	out << invocation.inputs.size() << " translation units\n";
@@ -1056,6 +1089,7 @@ int run_emit_semantics_mode(vector<string> args)
 		try
 		{
 			const chrono::steady_clock::time_point parse_start = chrono::steady_clock::now();
+			const PreprocessorOptions& options = preprocessors.for_input(invocation.inputs[i]);
 			syntax::SyntaxUnit unit(options, invocation.inputs[i]);
 			if (!unit.parse())
 			{
@@ -1193,7 +1227,7 @@ int run_emit_lowir_mode(vector<string> args)
 	// Select host headers before applying target-specific predefines, as -c
 	// does. The target can mark the resulting environment hosted on its own.
 	invocation.hosted = true;
-	PreprocessorOptions options = source_preprocessor_options(invocation);
+	SourcePreprocessors preprocessors(invocation);
 	lowir::Program program;
 	lower::ProgramLowering lowering(program);
 	// Definitions are written as they complete and their bodies released,
@@ -1205,8 +1239,7 @@ int run_emit_lowir_mode(vector<string> args)
 	lowering.set_macho_objects(target_model::is_darwin(invocation.target));
 	lowering.set_optimizing(invocation.optimizer.level >= 2);
 	lowering.set_strict_aliasing(invocation.strict_aliasing);
-	lowering.set_popcnt(options.popcnt);
-	lowering.set_exceptions(options.modes.exceptions);
+	lowering.set_popcnt(invocation.popcnt);
 	// The LowIR view carries the source's debug locations when debug
 	// information is asked for.
 	lowering.set_debug_locations(invocation.debug_info);
@@ -1217,6 +1250,8 @@ int run_emit_lowir_mode(vector<string> args)
 		try
 		{
 			const chrono::steady_clock::time_point front_start = chrono::steady_clock::now();
+			const PreprocessorOptions& options = preprocessors.for_input(invocation.inputs[i]);
+			lowering.set_exceptions(options.modes.exceptions);
 			syntax::SyntaxUnit unit(options, invocation.inputs[i]);
 			if (!unit.parse())
 			{
