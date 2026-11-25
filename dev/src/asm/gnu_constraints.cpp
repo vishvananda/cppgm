@@ -69,8 +69,66 @@ bool immediate(PacketBuilder& packet, Alternative& alt, char code)
 	return found;
 }
 
+void restrict_register(PacketBuilder& packet, Alternative& alt, uint32_t first_register, uint8_t reg)
+{
+	bool allowed = alt.matching != kNoId;
+	for (uint32_t i = 0; i < alt.group_count; ++i)
+	{
+		const Register& candidate = packet.registers[packet.groups[alt.first_group + i].first_register];
+		allowed = allowed || (candidate.bank == RegisterBank::Gpr && candidate.number == reg);
+	}
+	packet.registers.resize(first_register);
+	packet.groups.resize(alt.first_group);
+	packet.immediates.resize(alt.first_immediate);
+	alt.group_count = 0;
+	alt.immediate_count = 0;
+	alt.locations = 0;
+	if (allowed)
+		registers(packet, alt, RegisterBank::Gpr, 1u << reg);
+}
+
+void discard_unavailable_columns(PacketBuilder& packet)
+{
+	uint32_t columns = 0;
+	for (const asm_model::Operand& op : packet.operands)
+		if (op.alternative_count != 0)
+		{
+			columns = op.alternative_count;
+			break;
+		}
+	std::vector<uint8_t> available(columns, 1);
+	for (const asm_model::Operand& op : packet.operands)
+	{
+		if (op.alternative_count == 0)
+			continue;
+		if (op.alternative_count != columns)
+			fail("assembly alternative columns disagree");
+		for (uint32_t i = 0; i < columns; ++i)
+		{
+			const Alternative& candidate = packet.alternatives[op.first_alternative + i];
+			available[i] &= candidate.locations != 0 || candidate.matching != kNoId;
+		}
+	}
+	uint32_t next = 0;
+	for (asm_model::Operand& op : packet.operands)
+	{
+		if (op.alternative_count == 0)
+			continue;
+		const uint32_t old = op.first_alternative;
+		op.first_alternative = next;
+		for (uint32_t i = 0; i < columns; ++i)
+			if (available[i])
+				packet.alternatives[next++] = packet.alternatives[old + i];
+		op.alternative_count = static_cast<uint16_t>(next - op.first_alternative);
+	}
+	if (next == 0)
+		fail("local assembly register has no compatible constraint column");
+	packet.alternatives.resize(next);
+}
+
 void constraints(PacketBuilder& packet, const std::vector<GnuOperand>& source)
 {
+	bool unavailable = false;
 	for (uint32_t index = 0; index < source.size(); ++index)
 	{
 		const GnuOperand& input = source[index];
@@ -139,6 +197,7 @@ void constraints(PacketBuilder& packet, const std::vector<GnuOperand>& source)
 		{
 			bool early = false;
 			Alternative alternative;
+			const uint32_t first_register = static_cast<uint32_t>(packet.registers.size());
 			alternative.first_group = static_cast<uint32_t>(packet.groups.size());
 			alternative.first_immediate = static_cast<uint32_t>(packet.immediates.size());
 			for (; pos < constraint.size() && constraint[pos] != ','; ++pos)
@@ -243,6 +302,11 @@ void constraints(PacketBuilder& packet, const std::vector<GnuOperand>& source)
 			}
 			if (alternative.locations == 0 && alternative.matching == kNoId)
 				fail("empty assembly constraint alternative");
+			if (input.fixed_gpr != 0)
+			{
+				restrict_register(packet, alternative, first_register, input.fixed_gpr - 1);
+				unavailable = unavailable || alternative.locations == 0;
+			}
 			packet.alternatives.push_back(alternative);
 			++operand.alternative_count;
 			if (pos == constraint.size())
@@ -251,6 +315,8 @@ void constraints(PacketBuilder& packet, const std::vector<GnuOperand>& source)
 		}
 		packet.operands.push_back(operand);
 	}
+	if (unavailable)
+		discard_unavailable_columns(packet);
 }
 
 } // namespace
@@ -258,6 +324,10 @@ void constraints(PacketBuilder& packet, const std::vector<GnuOperand>& source)
 void gnu_constraints(PacketBuilder& packet, const std::vector<GnuOperand>& operands)
 {
 	constraints(packet, operands);
+	// Commutation would move an expression away from its declared register.
+	for (uint32_t i = 1; i < operands.size(); ++i)
+		if (operands[i - 1].fixed_gpr != 0 || operands[i].fixed_gpr != 0)
+			packet.operands[i - 1].flags &= ~AO_COMMUTATIVE;
 	bool labels = false;
 	for (const GnuOperand& operand : operands)
 		labels = labels || operand.label;

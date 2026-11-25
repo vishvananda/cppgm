@@ -75,6 +75,10 @@ unrequested read of an output-only memory operand.
 With the x86-64 kernel code model, spell a memory operand for a fixed static
 address as a RIP-relative reference to its symbol with the byte addend. This
 keeps the instruction width stable for code that records it in assembly.
+An x86-64 local `register` declaration with an `asm` register name binds
+that variable's extended-assembly operand to the named general register.
+Select a compatible constraint column and preserve matching operands.
+Normal code may allocate the variable's value in any storage.
 
 The C++ adapter accepts GNU `vector_size` payload types and `target` annotations
 needed by the supplied assembly operands, plus `naked` and its incompatible

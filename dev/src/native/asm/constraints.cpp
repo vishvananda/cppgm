@@ -32,7 +32,7 @@ uint64_t register_domain(
 		operand.type.is_void() || operand.type.kind() == lowir::TypeKind::I128 ||
 		operand.type.kind() == lowir::TypeKind::F80)
 		return 0;
-	if (alt.matching != asm_model::kNoId)
+	if (alt.matching != asm_model::kNoId && alt.group_count == 0)
 	{
 		if (integer_object)
 			return 0xffcfu;

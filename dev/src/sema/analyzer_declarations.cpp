@@ -6,6 +6,7 @@
 #include <cstring>
 #include <string>
 
+#include "asm/registers.h"
 #include "lex/identifier_table.h"
 #include "preprocess/preprocessor.h"
 #include "sema/string_literals.h"
@@ -2192,7 +2193,16 @@ VariableEntity* Analyzer::new_variable(const Specifiers& specifiers, const char*
 		? new_entity<BindingEntity>(EntityKind::Variable, name.key, where, type)
 		: new_entity<VariableEntity>(EntityKind::Variable, name.key, owner, type);
 	variable->structured_binding = structured_binding;
-	if (asm_label != nullptr)
+	if (asm_label != nullptr && specifiers.is_register && where->kind == ScopeKind::Block &&
+		target_model::describe(types_.target()).architecture == target_model::Architecture::X86_64)
+	{
+		asm_model::Register reg;
+		if (!assembly::parse_register(asm_label, std::strlen(asm_label), reg) ||
+			reg.bank != asm_model::RegisterBank::Gpr || reg.number >= 16 || reg.offset != 0)
+			error(location, "invalid x86-64 general register for a local assembly operand");
+		variable->x86_asm_gpr = reg.number + 1;
+	}
+	else if (asm_label != nullptr)
 		graph_.set_asm_label(variable, asm_label);
 	variable->is_extern = is_extern;
 	variable->is_static = specifiers.is_static;

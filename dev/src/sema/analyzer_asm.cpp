@@ -182,6 +182,8 @@ void Analyzer::asm_statement(const syntax::AsmStmt& stmt, Scope* scope)
 			error(source.location, "assembly operand has incomplete or unsupported size");
 		operand.bits = bytes <= UINT16_MAX / 8 ? static_cast<unsigned>(bytes * 8) : 0;
 		operand.is_volatile = (facts->type->cv & kVolatile) != 0;
+		if (facts->entity != nullptr && facts->entity->kind == EntityKind::Variable)
+			operand.fixed_gpr = static_cast<const VariableEntity*>(facts->entity)->x86_asm_gpr;
 		if (!output && (IsScalar(type) || type->kind == TypeKind::Vector))
 			convert_operand(*source.expression, type);
 		operands.push_back(operand);
