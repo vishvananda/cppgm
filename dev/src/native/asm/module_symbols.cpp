@@ -1,6 +1,7 @@
 #include "native/asm/module_symbols.h"
 
 #include <algorithm>
+#include <iterator>
 
 #include "native/backend_error.h"
 #include "support/internal_error.h"
