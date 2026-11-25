@@ -1118,6 +1118,7 @@ void optimize_unit(lowir::Program& program, const Invocation& invocation, native
 		return;
 	opt::OptimizerOptions options = invocation.optimizer;
 	options.inline_thunk_targets = eh_model == native::EhModel::Course;
+	options.prune_private_c_data = invocation.preprocessor.language == SourceLanguage::C;
 	opt::optimize_program(program, options, nullptr);
 	program.jump_thunks.clear();
 	if (!target_model::is_aarch64(invocation.target))

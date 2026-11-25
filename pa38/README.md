@@ -404,6 +404,9 @@ The first fixture set covers these parts of the C17 input profile:
   the base type before forming derived types. A GNU `weak` attribute after
   the pointer's `*` applies to the declared symbol, including a function
   returning a pointer.
+- With optimization enabled, discard a private constant object when no live
+  code, retained initializer or explicit assembly operand needs it. Preserve
+  a definition marked `used` or assigned an explicit section.
 - Implicit conversions between object pointers and qualified `void*`, without
   discarding pointee qualifiers; integral initialization of enumeration objects.
 - GNU C arithmetic on `void*` and function pointers uses a one-byte stride.

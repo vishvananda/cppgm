@@ -1220,6 +1220,8 @@ void optimize_program(Program& program, const OptimizerOptions& options, Optimiz
 				if (changed)
 					compact_body(program, context.body);
 			}
+	if (options.prune_private_c_data && options.level >= 1 && prune_private_constant_data(program))
+		prune_unreachable(program, stats);
 	count_program(program, stats.instructions_out, stats.blocks_out);
 	stats.optimize_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
 }

@@ -36,6 +36,8 @@ struct OptimizerOptions
 	bool optional_inlining = true;
 	// The target may forbid compiler-introduced SIMD operations.
 	bool vectorize = true;
+	// C source hides unreferenced, unit-local constant objects.
+	bool prune_private_c_data = false;
 	// Audit mode (lowiropt --verify-passes): the whole program is
 	// validated after every pass of every function, and the first pass
 	// leaving it invalid is named on standard error (exit status 3). With

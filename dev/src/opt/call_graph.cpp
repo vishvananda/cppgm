@@ -18,6 +18,29 @@ bool is_definition(const Program& program, SymbolId s)
 	return symbol.kind == SymbolKind::FunctionDefinition && program.functions[symbol.detail].body != nullptr;
 }
 
+template<typename Mark>
+void mark_initializer(const Program& program, const Symbol& symbol, const Mark& mark)
+{
+	const Global& global = program.globals[symbol.detail];
+	if (global.init == GlobalInit::Address)
+		mark(global.address);
+	if (global.init == GlobalInit::Data)
+		for (uint32_t k = 0; k < global.item_count; ++k)
+		{
+			const DataItem& item = program.data_items[global.first_item + k];
+			if (item.kind == DataItemKind::Address)
+				mark(item.address);
+		}
+}
+
+bool private_constant_data(const Symbol& symbol)
+{
+	const SymbolMetadata& m = symbol.metadata;
+	return symbol.kind == SymbolKind::GlobalDefinition && m.binding == ir_model::SBM_INTERNAL &&
+		m.linkage == ir_model::LLM_C && m.storage == ir_model::GSM_READONLY && m.role == ir_model::SR_NONE &&
+		m.section == 0 && m.object == 0 && (m.flags & (SF_OBJECT_ROOT | SF_REPLACEABLE)) == 0;
+}
+
 // Marks opaque symbol references outside ordinary optimized bodies.
 template<typename Mark>
 void mark_data_references(const Program& program, Mark mark, const std::vector<SymbolId>& targets)
@@ -32,16 +55,7 @@ void mark_data_references(const Program& program, Mark mark, const std::vector<S
 		const Symbol& symbol = program.symbols[s];
 		if (symbol.kind != SymbolKind::GlobalDefinition)
 			continue;
-		const Global& global = program.globals[symbol.detail];
-		if (global.init == GlobalInit::Address)
-			mark(global.address);
-		if (global.init == GlobalInit::Data)
-			for (uint32_t k = 0; k < global.item_count; ++k)
-			{
-				const DataItem& item = program.data_items[global.first_item + k];
-				if (item.kind == DataItemKind::Address)
-					mark(item.address);
-			}
+		mark_initializer(program, symbol, mark);
 	}
 	// Raw bodies are not analyzed for calls or argument/return facts. A typed
 	// symbol input nevertheless observes its target's identity and full ABI.
@@ -230,6 +244,71 @@ bool this_adjusting_thunk(const Program& program, SymbolId symbol)
 		return false;
 	const char* spelling = program.spelling(object);
 	return std::strncmp(spelling, "_ZTh", 4) == 0 || std::strncmp(spelling, "_ZTv", 4) == 0;
+}
+
+bool prune_private_constant_data(Program& program)
+{
+	if (program.debug || std::none_of(program.order.begin(), program.order.end(), [&](SymbolId id) {
+			return private_constant_data(program.symbols[id]);
+		}))
+		return false;
+	std::vector<uint8_t> live(program.symbols.size(), 0);
+	std::vector<SymbolId> work;
+	const auto mark = [&](SymbolId id) {
+		if (id < live.size() && !live[id] && program.symbols[id].kind == SymbolKind::GlobalDefinition)
+		{
+			live[id] = 1;
+			work.push_back(id);
+		}
+	};
+	const auto operand = [&](const Value& value) {
+		if (value.kind == ValueKind::Symbol)
+			mark(value.index);
+	};
+	for (SymbolId id : program.order)
+	{
+		const Symbol& symbol = program.symbols[id];
+		if (symbol.kind == SymbolKind::GlobalDefinition && !private_constant_data(symbol))
+			mark(id);
+		if (!is_definition(program, id))
+			continue;
+		const FunctionBody& body = *program.functions[symbol.detail].body;
+		for (BlockId b : body.layout)
+			for (InstId i = body.blocks[b].first; i != kNoId; i = body.instructions[i].next)
+				for_each_operand(body, body.instructions[i], operand);
+	}
+	for (const ObjectAlias& alias : program.aliases)
+		mark(alias.target);
+	if (program.assembly)
+	{
+		for (const auto& global : program.assembly->globals)
+			for (const auto& argument : global.arguments)
+				operand(argument);
+		for (const auto& function : program.assembly->functions)
+			for (const auto& argument : function.body->operands)
+				operand(argument);
+	}
+	while (!work.empty())
+	{
+		const SymbolId id = work.back();
+		work.pop_back();
+		mark_initializer(program, program.symbols[id], mark);
+	}
+	const size_t old_size = program.order.size();
+	size_t kept = 0;
+	for (SymbolId id : program.order)
+	{
+		Symbol& symbol = program.symbols[id];
+		if (!live[id] && private_constant_data(symbol))
+		{
+			program.globals[symbol.detail].init = GlobalInit::Zero;
+			symbol.kind = SymbolKind::GlobalDeclaration;
+		}
+		else
+			program.order[kept++] = id;
+	}
+	program.order.resize(kept);
+	return kept != old_size;
 }
 
 uint32_t prune_unreachable(Program& program, OptimizerStats& stats)
