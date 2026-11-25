@@ -1,5 +1,7 @@
 #include "native/object/macho_encoder.h"
 
+#include "lowir/startup_sections.h"
+
 #include <algorithm>
 #include <cstring>
 
@@ -36,8 +38,7 @@ bool Encoder::sections()
 		if (symbol.binding == Binding::Weak && symbol.section < input_.sections.size() &&
 			input_.sections[symbol.section].kind == SectionKind::Bss)
 			weak_data[symbol.section] = 1;
-	for (uint32_t s = 1; s < input_.sections.size(); ++s)
-	{
+	const auto append = [&](uint32_t s) {
 		const object::Section& source = input_.sections[s];
 		const std::string spelling = input_.string(source.name);
 		const char* segment = "__DATA";
@@ -128,7 +129,31 @@ bool Encoder::sections()
 			output.bytes.resize(base, 0);
 			output.bytes.insert(output.bytes.end(), source.bytes.begin(), source.bytes.end());
 		}
+		return true;
+	};
+
+	// Mach-O folds numbered startup sections into one table per kind. Keep
+	// priorities within the object before the host linker joins those tables.
+	std::vector<std::pair<uint32_t, uint32_t>> lifetime_sections;
+	for (uint32_t s = 1; s < input_.sections.size(); ++s)
+	{
+		const object::Section& source = input_.sections[s];
+		if (source.kind != SectionKind::InitArray && source.kind != SectionKind::FiniArray)
+		{
+			if (!append(s))
+				return false;
+			continue;
+		}
+		const char* name = input_.string(source.name);
+		uint32_t priority = 0;
+		const bool numbered = source.kind == SectionKind::InitArray ? lowir::initializer_section(name, priority)
+																	: lowir::finalizer_section(name, priority);
+		lifetime_sections.emplace_back(numbered ? priority : 65535, s);
 	}
+	std::sort(lifetime_sections.begin(), lifetime_sections.end());
+	for (const auto& entry : lifetime_sections)
+		if (!append(entry.second))
+			return false;
 	return sections_.size() <= 255 || fail("more than 255 sections");
 }
 

@@ -48,8 +48,10 @@ hosted headers depend on:
   namespace-scope `void()` function and run it once before program entry.
   Priorities range from 0 through 65535, with smaller values running first;
   the omitted priority is 65535. Preserve the priority through ordinary LowIR
-  function-address tables and object startup records. Reject conflicting
-  priorities and unsupported function signatures.
+  function-address tables and object startup records. For host-linked
+  Mach-O, preserve priority within each object and use the linker's order
+  between objects. Reject conflicting priorities and unsupported function
+  signatures.
 - GNU `destructor` and `destructor(priority)` attributes retain a
   namespace-scope `void()` function for normal program termination.
   Larger priorities run first and the omitted priority is 65535.
