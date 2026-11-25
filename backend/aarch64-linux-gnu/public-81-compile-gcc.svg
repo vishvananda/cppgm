@@ -1,10 +1,10 @@
-<svg data-original-label="Public programs compile vs gcc" data-original-message="5.55×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="Public programs compile vs gcc; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured 7584274b4d275fb41f7c5d064e751e5918e8e421; 12 commits behind main: 5.55×*">
-  <title>Public programs compile vs gcc; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured 7584274b4d275fb41f7c5d064e751e5918e8e421; 12 commits behind main: 5.55×*</title>
+<svg data-original-label="Public programs compile vs gcc" data-original-message="5.54×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="Public programs compile vs gcc; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured bf2f830a479c21887e7ef6e44787b48dac78bf6d; 11 commits behind main: 5.54×*">
+  <title>Public programs compile vs gcc; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured bf2f830a479c21887e7ef6e44787b48dac78bf6d; 11 commits behind main: 5.54×*</title>
   <defs><clipPath id="badge"><rect width="120" height="24" rx="4"/></clipPath></defs>
   <g clip-path="url(#badge)">
     <rect width="64" height="24" fill="#555"/>
     <rect x="64" width="56" height="24" fill="#14532d"/>
   </g>
   <text x="32" y="16.5" fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="12" font-weight="700" textLength="39" lengthAdjust="spacingAndGlyphs">Arm64</text>
-  <text x="92" y="16.5" fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="12" font-weight="700" letter-spacing="1" textLength="44" lengthAdjust="spacingAndGlyphs">5.55×*</text>
+  <text x="92" y="16.5" fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="12" font-weight="700" letter-spacing="1" textLength="44" lengthAdjust="spacingAndGlyphs">5.54×*</text>
 </svg>
