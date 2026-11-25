@@ -579,7 +579,7 @@ void ModuleAssembler::bind_c_symbols(const lowir::Program& program, const std::v
 }
 
 void emit_assembly_items(object::ObjectFile& out, const lowir::Program& program, Target target,
-	const std::vector<uint32_t>& mapping, AssemblyEnvironment& environment)
+	const std::vector<uint32_t>& mapping, AssemblyEnvironment& environment, bool code16gcc)
 {
 	if (!program.assembly || (program.assembly->globals.empty() && program.assembly->functions.empty()))
 		return;
@@ -589,8 +589,8 @@ void emit_assembly_items(object::ObjectFile& out, const lowir::Program& program,
 		for (auto& source : sources)
 			for (auto& line : source)
 				remap_assembly_symbols(line.symbols, mapping);
-		ModuleAssembler assembler(out, target);
-		if (target == Target::Linux)
+		ModuleAssembler assembler(out, target, code16gcc);
+		if (target == Target::Linux || target_model::is_i386(target))
 			assembler.bind_c_symbols(program, mapping);
 		for (const std::vector<assembly::ModuleLine>& source : sources)
 			for (const assembly::ModuleLine& line : source)

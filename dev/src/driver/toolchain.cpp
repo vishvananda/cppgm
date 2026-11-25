@@ -299,7 +299,6 @@ struct Invocation
 	bool lowir_passes = true;
 	bool position_independent = false;
 	bool red_zone = true;
-	bool code16gcc = false;
 	native::X86CodeOptions x86_code;
 	bool x86_code_explicit = false;
 	bool asynchronous_unwind_tables = true;
@@ -830,7 +829,7 @@ void configure_x86_target(Invocation& invocation, unsigned mode, bool default_lt
 		if (invocation.target != native::Target::Linux && !target_model::is_i386(invocation.target))
 			throw InvocationError("legacy x86 modes require a Linux x86 target");
 		invocation.target = native::Target::I386Linux;
-		invocation.code16gcc = mode == 16;
+		invocation.x86_code.code16gcc = mode == 16;
 	}
 	if (default_lto && target_model::is_aarch64(invocation.target))
 		invocation.whole_source_lto = true;
@@ -1429,12 +1428,12 @@ bool compile_input(const Input& input, const Invocation& invocation, native::EhM
 	{
 		if (target_model::is_aarch64(invocation.target))
 			throw InvocationError(
-				"the integrated module assembler supports x86-64 assembly; pass an assembled AArch64 object");
+				"the integrated module assembler supports x86 assembly; pass an assembled AArch64 object");
 		const MakeDependencies& dependencies = invocation.dependencies;
 		const bool side_file = dependencies.mode == MakeDependencies::Mode::SideFile;
 		std::vector<std::string> headers;
 		if (!compile_native_assembly(input.name, invocation.preprocessor, invocation.target, object,
-				side_file ? &headers : nullptr, dependencies.include_system, invocation.code16gcc))
+				side_file ? &headers : nullptr, dependencies.include_system, invocation.x86_code.code16gcc))
 			return false;
 		if (side_file)
 			write_side_dependencies(invocation, input.name, headers);

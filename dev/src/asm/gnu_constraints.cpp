@@ -286,7 +286,8 @@ void constraints(PacketBuilder& packet, const std::vector<GnuOperand>& source, b
 					registers(packet, alternative, RegisterBank::Gpr, 1u << reg.number);
 				}
 				else if (c == 'r' || c == 'q')
-					registers(packet, alternative, RegisterBank::Gpr, 0xffefu); // exclude RSP
+					registers(packet, alternative, RegisterBank::Gpr,
+						i386 ? (c == 'q' || input.bits == 8 ? 0xfu : 0xefu) : 0xffefu);
 				else if (c == 'Q')
 					registers(packet, alternative, RegisterBank::Gpr, 0xf);
 				else if (c == 'R')
@@ -294,7 +295,10 @@ void constraints(PacketBuilder& packet, const std::vector<GnuOperand>& source, b
 				else if (c == 'A' && i386)
 					accumulator_pair(packet, alternative, input.bits);
 				else if (c == 'x' || c == 'v')
-					registers(packet, alternative, RegisterBank::Vector, c == 'v' ? 0xffffffffu : 0xffffu);
+					registers(packet, alternative, RegisterBank::Vector,
+						i386           ? 0xffu
+							: c == 'v' ? 0xffffffffu
+									   : 0xffffu);
 				else if (c == 'k')
 					registers(packet, alternative, RegisterBank::Mask, 0xffu);
 				else if (c == 'Y' && pos + 1 < constraint.size() && constraint[pos + 1] == 'k')
@@ -306,7 +310,8 @@ void constraints(PacketBuilder& packet, const std::vector<GnuOperand>& source, b
 					alternative.locations |= AL_MEMORY;
 				else if (c == 'g' || c == 'X')
 				{
-					registers(packet, alternative, RegisterBank::Gpr, 0xffefu);
+					registers(
+						packet, alternative, RegisterBank::Gpr, i386 ? (input.bits == 8 ? 0xfu : 0xefu) : 0xffefu);
 					alternative.locations |= AL_MEMORY;
 					if (!input.output)
 						immediate(packet, alternative, c);

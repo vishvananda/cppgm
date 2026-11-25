@@ -100,6 +100,6 @@ private:
 };
 
 void emit_assembly_items(object::ObjectFile& out, const lowir::Program& program, Target target,
-	const std::vector<uint32_t>& symbols, AssemblyEnvironment& environment);
+	const std::vector<uint32_t>& symbols, AssemblyEnvironment& environment, bool code16gcc);
 
 } // namespace native

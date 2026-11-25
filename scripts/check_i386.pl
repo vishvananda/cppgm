@@ -39,7 +39,7 @@ for my $source ($test, fixture_units($test, $expect))
 {
 	my $object = "$directory/" . scalar(@objects) . ".o";
 	my @language = $source =~ /\.c\z/ ? () : ('-x', 'assembler-with-cpp');
-	run(0, $compiler, '-m32', @language, '-c', $source, '-o', $object);
+	run(0, $compiler, '--target=i386-linux-gnu', @{$expect->{flags} // []}, @language, '-c', $source, '-o', $object);
 	push @objects, $object;
 }
 my $program = "$directory/program";

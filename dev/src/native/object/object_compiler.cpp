@@ -169,6 +169,7 @@ private:
 	FunctionEmitter emitter_;
 	Function mir_;
 	bool assembly_text_;
+	bool code16gcc_;
 	std::vector<CodeString> assembly_strings_;
 	struct InlineFunctionModule
 	{
@@ -243,9 +244,10 @@ private:
 ObjectCompiler::ObjectCompiler(lowir::Program& program, ObjectStats& stats, EhModel eh_model, int optimization_level,
 	bool position_independent, Target target, bool red_zone, bool function_sections, X86CodeOptions code_options)
 	: program_(program), stats_(stats), selector_(program), emitter_(image_, runtime_, stats.emit),
-	  assembly_text_(code_options.assembly_text), share_entries_(optimization_level >= 1), eh_model_(eh_model),
-	  position_independent_(position_independent), kernel_model_(code_options.kernel_model),
-	  unwind_tables_(code_options.unwind_tables), function_sections_(function_sections && target == Target::Linux),
+	  assembly_text_(code_options.assembly_text), code16gcc_(code_options.code16gcc),
+	  share_entries_(optimization_level >= 1), eh_model_(eh_model), position_independent_(position_independent),
+	  kernel_model_(code_options.kernel_model), unwind_tables_(code_options.unwind_tables),
+	  function_sections_(function_sections && target == Target::Linux),
 	  cold_sections_(optimization_level >= 1 && target == Target::Linux)
 {
 	image_.target = target;
@@ -1517,7 +1519,7 @@ void ObjectCompiler::finish(ObjectFile& out)
 	add_groups();
 	place_debug();
 	if (program_.assembly && (!program_.assembly->globals.empty() || !program_.assembly->functions.empty()))
-		emit_assembly_items(out, program_, image_.target, object_symbol_, selector_.assembly_environment());
+		emit_assembly_items(out, program_, image_.target, object_symbol_, selector_.assembly_environment(), code16gcc_);
 	if (program_.assembly && !program_.assembly->functions.empty())
 		add_aliases();
 	place_inline_modules();

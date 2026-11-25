@@ -133,6 +133,7 @@ struct X86CodeOptions
 	bool indirect_register_only = false;
 	bool indirect_thunk_cs_prefix = false;
 	bool assembly_text = false;
+	bool code16gcc = false; // i386 ABI in a 16-bit code segment
 };
 
 class FunctionEmitter
