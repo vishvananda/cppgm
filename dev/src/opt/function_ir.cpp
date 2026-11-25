@@ -1379,6 +1379,44 @@ void find_sealed_globals(const Program& program, std::vector<uint8_t>& sealed)
 		sealed.clear();
 }
 
+static uint64_t data_item_start(uint64_t cursor, uint64_t bytes)
+{
+	const uint64_t align = bytes >= 16 ? 16 : bytes == 0 ? 1 : bytes;
+	return (cursor + align - 1) & ~(align - 1);
+}
+
+static uint32_t seek_data_item(const Program& program, const Global& global, uint64_t want, uint64_t& at)
+{
+	const uint32_t stride = 64;
+	at = 0;
+	if (global.item_count <= 4096)
+		return 0;
+	const uint64_t key = static_cast<uint64_t>(global.first_item) << 32 | global.item_count;
+	auto& offsets = program.data_item_offsets[key];
+	if (offsets.empty())
+	{
+		offsets.reserve((global.item_count - 1) / stride + 1);
+		uint64_t cursor = 0;
+		for (uint32_t i = 0; i < global.item_count; ++i)
+		{
+			if (i % stride == 0)
+				offsets.push_back(cursor);
+			const DataItem& item = program.data_items[global.first_item + i];
+			if (item.kind == DataItemKind::Zero)
+				cursor += static_cast<uint64_t>(item.amount);
+			else
+			{
+				const uint64_t bytes = storage_bytes(
+					item.kind == DataItemKind::Address ? program.pointer_type() : item.type);
+				cursor = data_item_start(cursor, bytes) + bytes;
+			}
+		}
+	}
+	const auto found = std::upper_bound(offsets.begin(), offsets.end(), want) - 1;
+	at = *found;
+	return static_cast<uint32_t>(found - offsets.begin()) * stride;
+}
+
 bool read_readonly_address(const Program& program, SymbolId symbol, int64_t offset,
 	const std::vector<uint8_t>* unwritten, SymbolId& target, int64_t* addend)
 {
@@ -1395,11 +1433,11 @@ bool read_readonly_address(const Program& program, SymbolId symbol, int64_t offs
 			*addend = g.addend;
 		return true;
 	}
-	if (g.init != GlobalInit::Data || g.item_count > 4096)
+	if (g.init != GlobalInit::Data)
 		return false;
 	const uint64_t want = static_cast<uint64_t>(offset);
 	uint64_t at = 0;
-	for (uint32_t i = 0; i < g.item_count && at <= want; ++i)
+	for (uint32_t i = seek_data_item(program, g, want, at); i < g.item_count && at <= want; ++i)
 	{
 		const DataItem& item = program.data_items[g.first_item + i];
 		if (item.kind == DataItemKind::Zero)
@@ -1409,8 +1447,7 @@ bool read_readonly_address(const Program& program, SymbolId symbol, int64_t offs
 		}
 		const Type t = item.kind == DataItemKind::Address ? program.pointer_type() : item.type;
 		const uint64_t bytes = storage_bytes(t);
-		const uint64_t align = bytes >= 16 ? 16 : bytes == 0 ? 1 : bytes;
-		at = (at + align - 1) & ~(align - 1);
+		at = data_item_start(at, bytes);
 		if (want == at)
 		{
 			if (item.kind != DataItemKind::Address || (item.amount != 0 && addend == nullptr) ||
@@ -1460,14 +1497,14 @@ bool read_readonly_scalar(const Program& program, SymbolId symbol, int64_t offse
 		out.bits = g.constant.bits;
 		return true;
 	}
-	if (g.init != GlobalInit::Data || g.item_count > 4096 || size == 0 || size > 16)
+	if (g.init != GlobalInit::Data || size == 0 || size > 16)
 		return false;
 	// The bytes of [want, want + size): every one inside an integer item
 	// (little-endian) or a zero run.
 	uint8_t bytes_of[16] = {};
 	uint32_t covered = 0;
 	uint64_t at = 0;
-	for (uint32_t i = 0; i < g.item_count && at < want + size; ++i)
+	for (uint32_t i = seek_data_item(program, g, want, at); i < g.item_count && at < want + size; ++i)
 	{
 		const DataItem& item = program.data_items[g.first_item + i];
 		if (item.kind == DataItemKind::Zero)
@@ -1480,8 +1517,7 @@ bool read_readonly_scalar(const Program& program, SymbolId symbol, int64_t offse
 		}
 		const Type t = item.kind == DataItemKind::Address ? program.pointer_type() : item.type;
 		const uint64_t bytes = storage_bytes(t);
-		const uint64_t align = bytes >= 16 ? 16 : bytes == 0 ? 1 : bytes;
-		at = (at + align - 1) & ~(align - 1);
+		at = data_item_start(at, bytes);
 		if (want < at + bytes && want + size > at)
 		{
 			if (!item_bytes_known(item) || t.is_pointer())

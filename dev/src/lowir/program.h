@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
 #include "ir_symbol_model.h"
@@ -411,6 +412,9 @@ struct Program
 	std::vector<SymbolId> order;
 	std::vector<Global> globals;
 	std::vector<DataItem> data_items;
+	// Sparse byte positions for large immutable initializer spans, keyed by
+	// first item and item count. Built only when the optimizer reads a span.
+	mutable std::unordered_map<uint64_t, std::vector<uint64_t>> data_item_offsets;
 	std::vector<Function> functions;
 	std::vector<Signature> signatures;
 	std::vector<Parameter> parameters;
