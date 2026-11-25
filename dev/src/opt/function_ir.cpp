@@ -942,9 +942,21 @@ void unique_names(std::vector<Entity>& entities, uint32_t fixed, FlatMap<NameId,
 	}
 }
 
+void remap_debug_slots(DebugFunction& debug, const std::vector<uint32_t>& slot_map)
+{
+	auto out = debug.locals.begin();
+	for (DebugLocal local : debug.locals)
+	{
+		local.slot = slot_map[local.slot];
+		if (local.slot != kNoId)
+			*out++ = local;
+	}
+	debug.locals.erase(out, debug.locals.end());
+}
+
 } // namespace
 
-void compact_body(Program& program, FunctionBody& body)
+void compact_body(Program& program, SymbolId symbol, FunctionBody& body)
 {
 	const uint32_t parameters = body.parameter_count;
 	std::vector<InstId> inst_map(body.instructions.size(), kNoId);
@@ -1057,6 +1069,8 @@ void compact_body(Program& program, FunctionBody& body)
 		kept.begin(), kept.end(), [](const ArgumentFacts& a, const ArgumentFacts& b) { return a.call < b.call; });
 	out.argument_facts.swap(kept);
 	// Slots nothing names any more are dropped; their storage was unused.
+	if (program.debug && symbol < program.debug->functions.size())
+		remap_debug_slots(program.debug->functions[symbol], slot_map);
 	FlatMap<NameId, uint8_t, NameHash> marks;
 	unique_names(out.temps, parameters, marks);
 	unique_names(out.slots, 0, marks);

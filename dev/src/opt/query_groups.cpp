@@ -288,7 +288,7 @@ bool share_query_misses(Program& program, const std::function<void(SymbolId)>& s
 		FunctionBody& body = *program.functions[name.detail].body;
 		if (group_queries(program, body, symbol))
 		{
-			compact_body(program, body);
+			compact_body(program, symbol, body);
 			simplify(symbol);
 			changed = true;
 		}

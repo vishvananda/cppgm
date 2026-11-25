@@ -330,7 +330,7 @@ void simplify_function(Program& program, SymbolId symbol, OptimizerStats& stats,
 			if (!changed)
 				break;
 		}
-		compact_body(program, context.body);
+		compact_body(program, symbol, context.body);
 		return;
 	}
 
@@ -415,7 +415,7 @@ void simplify_function(Program& program, SymbolId symbol, OptimizerStats& stats,
 		scalar_rounds(context);
 	if (RUN_PASS(form_return_tables))
 		scalar_rounds(context);
-	compact_body(program, context.body);
+	compact_body(program, symbol, context.body);
 }
 
 // O2+, after all inlining (a select is smaller than the branches it
@@ -903,7 +903,7 @@ void finish_function(Program& program, SymbolId symbol, OptimizerStats& stats, c
 	if (!changed)
 		return;
 	RUN_PASS(split_branch_compares);
-	compact_body(program, context.body);
+	compact_body(program, symbol, context.body);
 }
 
 // Fields through their own bytes, and what the narrower values simplify to.
@@ -1004,7 +1004,7 @@ bool finish_constant_probes(Program& program, OptimizerStats& stats, const Optim
 			scalar_rounds(context);
 		else
 			RUN_PASS(remove_dead_code);
-		compact_body(program, *body);
+		compact_body(program, symbol, *body);
 		changed = true;
 	}
 	return changed;
@@ -1151,7 +1151,7 @@ static void finish_exception_effects(Program& program, OptimizerStats& stats, co
 		{
 			RUN_PASS(cleanup_cfg);
 			RUN_PASS(remove_dead_code);
-			compact_body(program, context.body);
+			compact_body(program, id, context.body);
 		}
 		nounwind[id] = proves_nounwind(context, true);
 	}
@@ -1277,7 +1277,7 @@ void optimize_program(Program& program, const OptimizerOptions& options, Optimiz
 				changed = (has_loop(context) && RUN_PASS(sink_counter_steps)) || changed;
 				changed = narrow_fields(context) || changed;
 				if (changed)
-					compact_body(program, context.body);
+					compact_body(program, symbol, context.body);
 			}
 	const bool probes_resolved = program.deferred_constant_probes && options.level >= 1 &&
 		finish_constant_probes(program, stats, options);

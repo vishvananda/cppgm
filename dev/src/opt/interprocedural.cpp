@@ -190,8 +190,8 @@ void Specializer::remove_parameters(uint32_t f, const std::vector<uint8_t>& remo
 					v.index = map[v.index];
 			});
 		}
-	compact_body(program, body);
 	const SymbolId symbol = graph.functions[f];
+	compact_body(program, symbol, body);
 	for (const Site& site : sites[f])
 	{
 		if (site.generation != generation[site.caller])

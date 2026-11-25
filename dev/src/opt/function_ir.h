@@ -482,7 +482,7 @@ void replace_all_uses(lowir::FunctionBody& body, lowir::TempId from, lowir::Valu
 // instruction, operand, literal and location storage dense, and keeps the
 // explicit names of temporaries, slots and blocks distinct (the writer
 // gives the others names that print uniquely: lowir/local_names.h).
-void compact_body(lowir::Program& program, lowir::FunctionBody& body);
+void compact_body(lowir::Program& program, lowir::SymbolId symbol, lowir::FunctionBody& body);
 
 // Instructions in placed blocks.
 uint64_t instruction_count(const lowir::FunctionBody& body);
