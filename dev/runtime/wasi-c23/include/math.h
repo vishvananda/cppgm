@@ -6,6 +6,10 @@
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
 #define __STDC_VERSION_MATH_H__ 202311L
 
+// WASI's floating-point environment does not expose exception flags.
+#undef math_errhandling
+#define math_errhandling MATH_ERRNO
+
 #define FP_LLOGB0 (FP_ILOGB0 + 0L)
 #define FP_LLOGBNAN (FP_ILOGBNAN + 0L)
 

@@ -531,7 +531,7 @@ def missing_library_reason(case, profile, checked_c23):
             return 'The selected WASI SDK narrows these binary128 functions to binary64'
         if case == 'library.long-double-remainders':
             return 'The selected WASI SDK miscalculates some binary128 remainders and quotient bits'
-    if case == 'library.math-error-reporting' and profile in {'wasi-hosted', WASI_C23_PROFILE}:
+    if case == 'library.math-error-reporting' and profile == 'wasi-hosted':
         return 'WASI advertises MATH_ERREXCEPT without the required exception flags'
     if case in C23_VERSIONED_PROGRAMS and checked_c23:
         _, required = C23_VERSIONED_PROGRAMS[case]
@@ -940,8 +940,8 @@ def library_sources(profile, edition, checked, checked_c23, wasi_libraries):
                 yield case, source, (), () if profile['target'].startswith('wasm') else ('-lm',)
             continue
         if case == 'library.math-error-reporting':
-            if profile['id'] not in {'wasi-hosted', WASI_C23_PROFILE}:
-                yield case, source, (), ('-lm',)
+            if profile['id'] != 'wasi-hosted':
+                yield case, source, (), () if profile['target'].startswith('wasm') else ('-lm',)
             continue
         if case == 'library.stdio-temporary' and profile['id'] == 'wasi-hosted':
             continue

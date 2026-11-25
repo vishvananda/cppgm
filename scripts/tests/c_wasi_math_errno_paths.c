@@ -3,6 +3,8 @@
 #include <limits.h>
 #include <math.h>
 
+static_assert(math_errhandling == MATH_ERRNO);
+
 // Keep every failure status nonzero when WASI returns an 8-bit exit status.
 #define FAILURE (((__LINE__ - 1) % 255) + 1)
 
