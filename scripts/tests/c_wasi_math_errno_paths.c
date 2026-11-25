@@ -318,6 +318,16 @@ int main(void)
 	CHECK(remquof, (INFINITY, 1.0f, &quotient), EDOM, isnan(result));
 	CHECK(remquol, (1.0L, 0.0L, &quotient), EDOM, isnan(result));
 
+	CHECK(pow, (-0.0, -1.0), ERANGE, result == -INFINITY);
+	CHECK(powf, (-0.0f, -3.0f), ERANGE, result == -INFINITY);
+	CHECK(pow, (-0.0, -2.0), ERANGE, result == INFINITY);
+	CHECK(powf, (-0.0f, -0.5f), ERANGE, result == INFINITY);
+	CHECK(pow, (DBL_TRUE_MIN, -1.0), ERANGE, result == INFINITY);
+	CHECK(powf, (FLT_TRUE_MIN, -1.0f), ERANGE, result == INFINITY);
+	CHECK(pow, (-INFINITY, -1.0), EILSEQ, result == 0.0 && signbit(result));
+	CHECK(powf, (-0.0f, 3.0f), EILSEQ, result == 0.0f && signbit(result));
+	CHECK(pow, (0x1p-520, 2.0), EILSEQ, result == 0x1p-1040);
+
 	volatile float large_float = FLT_MAX;
 	errno = EILSEQ;
 	if (fmaf(large_float, 3.0f, -large_float) != INFINITY || errno != ERANGE)
@@ -343,6 +353,11 @@ int main(void)
 		return FAILURE;
 	errno = EILSEQ;
 	if (!isnan(remquo(finite, zero, &quotient)) || errno != EDOM)
+		return FAILURE;
+	volatile double negative_power = -1.0;
+	volatile double negative_zero = -0.0;
+	errno = EILSEQ;
+	if (pow(negative_zero, negative_power) != -INFINITY || errno != ERANGE)
 		return FAILURE;
 	return 0;
 }

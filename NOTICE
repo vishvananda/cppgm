@@ -40,6 +40,9 @@ Sun Microsystems' copyright and redistribution permission, including
 work developed at SunPro and SunSoft.
 The scaled binary64 and binary128 hypotenuse reductions also adapt musl.
 The installed wasi-libc and musl notices cover those reductions.
+The scalar WASI power functions adapt the Arm Limited implementations
+from the same wasi-libc source under the MIT License. The source and
+installed notices retain the original attribution.
 The WASI C23 narrowing operations incorporate Berkeley SoftFloat under the
 BSD 3-Clause License. Its notices are retained in third_party/softfloat and
 installed with the runtime archive.

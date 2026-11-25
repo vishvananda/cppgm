@@ -9,28 +9,16 @@
 #include <stdint.h>
 
 #include "math_error.h"
+#include "math_sdk_exp_data.h"
 
 static_assert(FLT_EVAL_METHOD == 0 && DBL_MANT_DIG == 53 && DBL_MAX_EXP == 1024);
 
 enum
 {
 	exponent_bits = 52,
-	table_bits = 7,
+	table_bits = EXP_TABLE_BITS,
 	table_size = 1 << table_bits
 };
-
-// Keep the type compatible with the declaration in the SDK's exp_data.h.
-extern __attribute__((visibility("hidden"))) const struct exp_data
-{
-	double invln2N;
-	double shift;
-	double negln2hiN;
-	double negln2loN;
-	double poly[4];
-	double exp2_shift;
-	double exp2_poly[5];
-	uint64_t tab[2 * table_size];
-} __exp_data;
 
 union binary64
 {
