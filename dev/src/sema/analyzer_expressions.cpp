@@ -402,8 +402,7 @@ ExprFacts* Analyzer::typed_form(const syntax::Expr& expr, Scope* scope)
 		uint64_t count = 0;
 		if (!pack_size(static_cast<const syntax::SizeofPackExpr&>(expr).pack, scope, count))
 			error(expr.location, "sizeof... of a name that is no parameter pack");
-		ExprFacts* facts = new_facts(
-			expr, types_.fundamental(FundamentalType::UnsignedLongInt), ValueCategory::PRValue);
+		ExprFacts* facts = new_facts(expr, types_.size_type(), ValueCategory::PRValue);
 		facts->value = count;
 		return facts;
 	}
@@ -3438,8 +3437,7 @@ ExprFacts* Analyzer::size_of(const syntax::SizeofExpr& expr, Scope* scope)
 	uint64_t size = 0, alignment = 0;
 	if (type->runtime_array())
 	{
-		ExprFacts* facts = new_facts(
-			expr, types_.fundamental(FundamentalType::UnsignedLongInt), ValueCategory::PRValue);
+		ExprFacts* facts = new_facts(expr, types_.size_type(), ValueCategory::PRValue);
 		facts->flags |= kRuntimeSize;
 		if (expression_operand)
 			facts->flags |= kRuntimeSizeOperand;
@@ -3463,7 +3461,7 @@ ExprFacts* Analyzer::size_of(const syntax::SizeofExpr& expr, Scope* scope)
 		substitution_error(expr.location, "sizeof of an incomplete or function type", ClassOf(type) != nullptr);
 		return nullptr;
 	}
-	ExprFacts* facts = new_facts(expr, types_.fundamental(FundamentalType::UnsignedLongInt), ValueCategory::PRValue);
+	ExprFacts* facts = new_facts(expr, types_.size_type(), ValueCategory::PRValue);
 	facts->value = size;
 	if (specialization_type(type))
 		facts->flags |= kSpecializationQuery;

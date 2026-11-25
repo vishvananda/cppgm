@@ -50,6 +50,10 @@ RM rm(const Operand& op, const assembly::Instruction& inst)
 	}
 	RM memory = RM::m(address.has_base ? physical(address.base, inst) : kNoReg, address.displacement,
 		address.has_index ? physical(address.index, inst) : kNoReg, address.scale);
+	const unsigned address_bits = address.has_base ? address.base.bits
+		: address.has_index                        ? address.index.bits
+												   : inst.code_bits;
+	memory.address16 = address_bits == 16;
 	if (address.symbol.symbol != asm_model::kNoId)
 	{
 		if (address.relocation != assembly::Relocation::Address)
@@ -57,8 +61,7 @@ RM rm(const Operand& op, const assembly::Instruction& inst)
 		memory.symbol = address.symbol.symbol;
 		memory.subtrahend = address.subtrahend;
 		memory.absolute_symbol = true;
-		memory.address32 = inst.code_bits == 32 || (address.has_base && address.base.bits == 32) ||
-			(address.has_index && address.index.bits == 32);
+		memory.address32 = address_bits == 32;
 	}
 	return memory;
 }

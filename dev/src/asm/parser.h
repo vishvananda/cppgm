@@ -88,6 +88,7 @@ struct Instruction
 	uint8_t prefix = 0;
 	uint8_t segment = 0;
 	uint8_t code_bits = 64;
+	bool code16gcc = false;
 	asm_model::Dialect dialect = asm_model::Dialect::Att;
 	bool is_exit = false;
 	uint32_t exit_tag = 0;
@@ -124,6 +125,7 @@ struct Syntax
 	bool named_externals = false; // literal names can become object imports
 	bool register_aliases = false;
 	uint8_t code_bits = 64;
+	bool code16gcc = false;
 };
 
 // The input is user assembly after its frontend's placeholder expansion.

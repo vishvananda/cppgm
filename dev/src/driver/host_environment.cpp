@@ -170,6 +170,12 @@ void configure_target_environment(PreprocessorOptions& options, native::Target t
 			? "#undef __linux__\n#undef __linux\n#undef __gnu_linux__\n#undef __ELF__\n#define __APPLE__ 1\n#define "
 			  "__MACH__ 1\n"
 			: "#undef __APPLE__\n#undef __MACH__\n#define __linux__ 1\n#define __linux 1\n#define __ELF__ 1\n");
+	if (target_model::is_i386(target))
+		options.command_line.insert(0,
+			"#undef __x86_64\n#undef __x86_64__\n#undef __amd64\n#undef __amd64__\n"
+			"#undef __LP64__\n#undef _LP64\n#define __ILP32__ 1\n"
+			"#define __i386 1\n#define __i386__ 1\n"
+			"#undef __SIZEOF_LONG_DOUBLE__\n#define __SIZEOF_LONG_DOUBLE__ 12\n");
 }
 
 namespace {
@@ -586,7 +592,9 @@ bool add_host_environment(PreprocessorOptions& options, native::Target target, S
 		(target != native::Target::AArch64MacOS || target == host))
 	{
 		options.host_predefines = HostMacroText(options.modes, options.strict);
-		if (options.language == SourceLanguage::C)
+		if (target_model::is_i386(target))
+			options.builtin_declarations = "typedef char* __builtin_va_list;\n";
+		else if (options.language == SourceLanguage::C)
 			options.builtin_declarations =
 				"struct __va_list_tag { unsigned int gp_offset; unsigned int fp_offset; "
 				"void* overflow_arg_area; void* reg_save_area; }; typedef struct __va_list_tag __builtin_va_list[1];\n";

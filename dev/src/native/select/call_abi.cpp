@@ -27,8 +27,9 @@ uint32_t value_bytes(Type type)
 		return 4;
 	case TypeKind::I64:
 	case TypeKind::F64:
-	case TypeKind::Ptr:
 		return 8;
+	case TypeKind::Ptr:
+		return type.pointer_bytes();
 	case TypeKind::I128:
 	case TypeKind::F80:
 	case TypeKind::V128:

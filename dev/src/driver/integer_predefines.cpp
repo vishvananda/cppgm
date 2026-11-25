@@ -119,18 +119,18 @@ std::string integer_predefines(target_model::Target target)
 	integer_constant(text, "INTMAX", intmax);
 	integer_constant(text, "UINTMAX", uintmax);
 
-	// long is the pointer-sized integer on the supported LP64 and wasm32 ABIs.
-	formatted_integer_role(text, "INTPTR", kLong, target);
-	formatted_integer_role(text, "UINTPTR", kUnsignedLong, target);
-	formatted_integer_role(text, "PTRDIFF", kLong, target);
-	formatted_integer_role(text, "SIZE", kUnsignedLong, target);
+	const bool i386 = target_model::is_i386(target);
+	formatted_integer_role(text, "INTPTR", i386 ? kInt : kLong, target);
+	formatted_integer_role(text, "UINTPTR", i386 ? kUnsignedInt : kUnsignedLong, target);
+	formatted_integer_role(text, "PTRDIFF", i386 ? kInt : kLong, target);
+	formatted_integer_role(text, "SIZE", i386 ? kUnsignedInt : kUnsignedLong, target);
 	const std::string pointer_bytes = std::to_string(layout.pointer_bytes);
 	define(text, "__SIZEOF_POINTER__", pointer_bytes);
 	define(text, "__SIZEOF_SIZE_T__", pointer_bytes);
 	define(text, "__SIZEOF_PTRDIFF_T__", pointer_bytes);
 
 	wide_character(text, "WCHAR", target == target_model::Target::AArch64Linux ? kUnsignedInt : kInt, target);
-	const bool linux_target = target == target_model::Target::Linux || target == target_model::Target::AArch64Linux;
+	const bool linux_target = target_model::describe(target).environment == target_model::Environment::Linux;
 	wide_character(text, "WINT", linux_target ? kUnsignedInt : kInt, target);
 	define(text, "__CHAR16_TYPE__", FundamentalTypeName(kUnsignedShort.type));
 	define(text, "__CHAR32_TYPE__", FundamentalTypeName(kUnsignedInt.type));
@@ -162,6 +162,11 @@ std::string integer_predefines(target_model::Target target)
 
 const std::string& target_integer_predefines(target_model::Target target)
 {
+	if (target_model::is_i386(target))
+	{
+		static const std::string i386 = integer_predefines(target_model::Target::I386Linux);
+		return i386;
+	}
 	if (target_model::is_wasm(target))
 	{
 		static const std::string wasm = integer_predefines(target_model::Target::Wasm32);

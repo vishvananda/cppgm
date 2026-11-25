@@ -6,7 +6,7 @@
 
 #include "native/object/object_file.h"
 
-// The ELF64 x86-64 relocatable (ET_REL) encoding of an ObjectFile.
+// The relocatable ELF (ET_REL) encoding of an ObjectFile.
 namespace native {
 namespace object {
 

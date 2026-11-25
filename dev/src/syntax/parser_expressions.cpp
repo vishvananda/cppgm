@@ -288,6 +288,8 @@ bool Parser::at_cast_operand_start()
 		return false;
 	switch (token.simple)
 	{
+	case TokenKind::OP_LAND:
+		return c_source_;
 	case TokenKind::OP_LPAREN:
 	case TokenKind::OP_COLON2:
 	case TokenKind::OP_COMPL:

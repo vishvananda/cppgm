@@ -44,8 +44,8 @@ void encode_extend_form(Assembler& out, const assembly::Instruction& inst, const
 		fail(inst, "high-byte source cannot be encoded with a REX destination");
 	const bool byte_rex = source.kind == OperandKind::Register && source_bits == 8 && !high && source.reg.number >= 4 &&
 		source.reg.number < 8;
-	out.op(bits == 16 ? 0x66 : 0, bits == 64, opcode, opcode > 0xff ? 2 : 1, physical(destination.reg, inst),
-		rm(source, inst), byte_rex);
+	out.op(asm_detail::operand_size_prefix(inst, bits), bits == 64, opcode, opcode > 0xff ? 2 : 1,
+		physical(destination.reg, inst), rm(source, inst), byte_rex);
 }
 
 } // namespace native

@@ -45,5 +45,6 @@ ModuleValue evaluate_module_expression(const ModuleExpression& plan, ExpressionS
 
 // A complete expression, including register comparisons in macro conditions.
 uint64_t module_expression(const ModuleLine& line, uint32_t first = 0, ExpressionSymbols* symbols = nullptr);
+uint64_t module_expression(ModuleCursor& cursor, ExpressionSymbols* symbols = nullptr);
 
 } // namespace assembly

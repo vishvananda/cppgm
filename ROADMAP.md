@@ -25,6 +25,7 @@ under `dev/` and `dev/src/`.
 | PA37 | wasm32 backend, reusable machine representations, target layout, ABI and module interoperability |
 | PA38 (optional) | C frontend using the existing typed LowIR boundary |
 | PA39 (optional) | Optimized AArch64 backends and multi-object linking for Linux ELF and Apple Silicon Mach-O |
+| PA40 (optional) | Experimental i386 backend and x86 real-mode objects for Linux |
 
 ## PA9 ABI Boundary
 

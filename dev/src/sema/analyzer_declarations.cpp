@@ -2213,6 +2213,7 @@ VariableEntity* Analyzer::new_variable(const Specifiers& specifiers, const char*
 		const char* reg = asm_label != nullptr && asm_label[0] == '%' ? asm_label + 1 : asm_label;
 		const bool stack = reg != nullptr &&
 			((architecture == target_model::Architecture::X86_64 && std::strcmp(reg, "rsp") == 0) ||
+				(architecture == target_model::Architecture::I386 && std::strcmp(reg, "esp") == 0) ||
 				(architecture == target_model::Architecture::AArch64 && std::strcmp(reg, "sp") == 0));
 		IntegralKind kind;
 		if (!stack || initialized || (type->cv & kAtomic) != 0 ||

@@ -31,6 +31,25 @@ void registers(PacketBuilder& packet, Alternative& alt, RegisterBank bank, unsig
 	alt.locations |= AL_REGISTER;
 }
 
+void accumulator_pair(PacketBuilder& packet, Alternative& alternative, unsigned bits)
+{
+	if (bits <= 32)
+	{
+		registers(packet, alternative, RegisterBank::Gpr, 0x5);
+		return;
+	}
+	if (bits != 64)
+		fail("i386 A constraint requires an integer no wider than EDX:EAX");
+	RegisterGroup group;
+	group.first_register = static_cast<uint32_t>(packet.registers.size());
+	group.register_count = 2;
+	packet.registers.push_back(Register{ RegisterBank::Gpr, 0, 32, 0 });
+	packet.registers.push_back(Register{ RegisterBank::Gpr, 2, 32, 0 });
+	packet.groups.push_back(group);
+	++alternative.group_count;
+	alternative.locations |= AL_REGISTER;
+}
+
 void range(PacketBuilder& packet, Alternative& alt, int64_t low, int64_t high)
 {
 	Immediate value;
@@ -126,7 +145,7 @@ void discard_unavailable_columns(PacketBuilder& packet)
 	packet.alternatives.resize(next);
 }
 
-void constraints(PacketBuilder& packet, const std::vector<GnuOperand>& source)
+void constraints(PacketBuilder& packet, const std::vector<GnuOperand>& source, bool i386)
 {
 	bool unavailable = false;
 	for (uint32_t index = 0; index < source.size(); ++index)
@@ -272,6 +291,8 @@ void constraints(PacketBuilder& packet, const std::vector<GnuOperand>& source)
 					registers(packet, alternative, RegisterBank::Gpr, 0xf);
 				else if (c == 'R')
 					registers(packet, alternative, RegisterBank::Gpr, 0xef);
+				else if (c == 'A' && i386)
+					accumulator_pair(packet, alternative, input.bits);
 				else if (c == 'x' || c == 'v')
 					registers(packet, alternative, RegisterBank::Vector, c == 'v' ? 0xffffffffu : 0xffffu);
 				else if (c == 'k')
@@ -328,9 +349,9 @@ void constraints(PacketBuilder& packet, const std::vector<GnuOperand>& source)
 
 } // namespace
 
-void gnu_constraints(PacketBuilder& packet, const std::vector<GnuOperand>& operands)
+void gnu_constraints(PacketBuilder& packet, const std::vector<GnuOperand>& operands, bool i386)
 {
-	constraints(packet, operands);
+	constraints(packet, operands, i386);
 	// Commutation would move an expression away from its declared register.
 	for (uint32_t i = 1; i < operands.size(); ++i)
 		if (operands[i - 1].fixed_gpr != 0 || operands[i].fixed_gpr != 0)

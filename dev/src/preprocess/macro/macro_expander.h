@@ -250,7 +250,7 @@ private:
 		Arguments arguments;
 		uint32_t argument;
 		uint32_t replacement;
-		bool pending_space;
+		uint8_t pending_spacing;
 	};
 
 	// find_open_context looks at this many contexts below the top before
@@ -357,7 +357,7 @@ private:
 	uint8_t cxx_edition_ = 11;
 	// An expansion that produced nothing had white space before its name;
 	// the next token read inherits it.
-	bool pending_space_;
+	uint8_t pending_spacing_;
 	// The expansion being built: its name token, serial and chain.
 	PPToken building_head_;
 	uint32_t building_serial_;

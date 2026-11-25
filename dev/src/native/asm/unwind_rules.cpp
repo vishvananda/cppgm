@@ -17,15 +17,17 @@ int64_t difference(const AssemblyCfiEvent& event, int64_t a, int64_t b)
 		bad(event, "CFI offset arithmetic exceeds 64 bits");
 	return a - b;
 }
-int64_t factor(const AssemblyCfiEvent& event, int64_t offset)
+int64_t factor(const AssemblyCfiEvent& event, int64_t offset, int64_t word_bytes)
 {
-	if (offset % 8 != 0)
-		bad(event, "CFI saved offset must be a multiple of eight");
-	return offset / -8;
+	if (offset % word_bytes != 0)
+		bad(event, "CFI saved offset must be a multiple of the machine word");
+	return offset / -word_bytes;
 }
 } // namespace
-AssemblyCfiRules::AssemblyCfiRules(bool simple)
+AssemblyCfiRules::AssemblyCfiRules(bool simple, bool i386) : word_bytes_(i386 ? 4 : 8)
 {
+	state_.reg = i386 ? 4 : 7;
+	state_.offset = word_bytes_;
 	state_.offset_known = !simple;
 }
 void AssemblyCfiRules::advance(uint32_t pc)
@@ -99,7 +101,7 @@ void AssemblyCfiRules::cfa(const AssemblyCfiEvent& event)
 		out.fixed(complete ? 0x12 : 0x13, 1);
 		if (complete)
 			out.uleb(state_.reg);
-		out.sleb(factor(event, state_.offset));
+		out.sleb(factor(event, state_.offset, word_bytes_));
 	}
 }
 void AssemblyCfiRules::saved(const AssemblyCfiEvent& event)
@@ -111,7 +113,7 @@ void AssemblyCfiRules::saved(const AssemblyCfiEvent& event)
 			bad(event, "relative saved register has no known CFA offset");
 		offset = difference(event, offset, state_.offset);
 	}
-	const int64_t units = factor(event, offset);
+	const int64_t units = factor(event, offset, word_bytes_);
 	DwarfBytes out(bytes_);
 	const bool value = event.op == AssemblyCfiOp::ValOffset;
 	if (units >= 0)

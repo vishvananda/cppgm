@@ -85,7 +85,7 @@ MacroExpander::MacroExpander(Arena& arena, IdentifierTable& identifiers, const P
 	ExpansionEnvironment& environment, MacroExpansionState& state)
 	: arena_(arena), identifiers_(identifiers), names_(names), environment_(environment), input_(nullptr),
 	  controlling_expression_(false), binary_exponents_(false), digit_separators_(false), hosted_recursion_(false),
-	  pending_space_(false), building_head_(EndToken()), building_serial_(0), building_chain_(0), read_serial_(0),
+	  pending_spacing_(0), building_head_(EndToken()), building_serial_(0), building_chain_(0), read_serial_(0),
 	  read_chain_(0), read_root_(0), read_disabled_(0), current_(EndToken()), state_(state)
 {}
 
@@ -249,10 +249,10 @@ bool MacroExpander::read(PPToken& token, bool keep_shared)
 		}
 		pop_context();
 	}
-	if (pending_space_)
+	if (pending_spacing_)
 	{
-		token.flags |= kLeadingSpace;
-		pending_space_ = false;
+		token.flags |= pending_spacing_;
+		pending_spacing_ = 0;
 	}
 	return true;
 }
@@ -418,7 +418,7 @@ void MacroExpander::begin_invocation(
 	check_argument_count(macro, head, arguments);
 	invocations_.push_back(
 		Invocation{ &macro, head, nesting, passes_disabled(head, nesting.parent) ? context_disabled : 0,
-			passes_disabled(head, nesting.parent) ? inherited : 0, arguments, 0, 0, pending_space_ });
+			passes_disabled(head, nesting.parent) ? inherited : 0, arguments, 0, 0, pending_spacing_ });
 	telemetry::note_peak(state_.counters.peak_invocations, invocations_.size());
 	if (macro.has_va_opt)
 	{
@@ -589,7 +589,7 @@ void MacroExpander::advance_arguments()
 			const uint32_t begin = argument_bounds_[arguments.bounds + 2 * i];
 			const uint32_t end = argument_bounds_[arguments.bounds + 2 * i + 1];
 			push_barrier(arguments, begin, end);
-			pending_space_ = false;
+			pending_spacing_ = 0;
 			return;
 		}
 		expanded_bounds_.push_back(0);
@@ -610,7 +610,7 @@ bool MacroExpander::request_argument(Invocation& invocation, uint32_t parameter)
 	++state_.counters.argument_expansions;
 	const uint32_t raw = arguments.bounds + 2u * parameter;
 	push_barrier(arguments, argument_bounds_[raw], argument_bounds_[raw + 1]);
-	pending_space_ = false;
+	pending_spacing_ = 0;
 	return true;
 }
 
@@ -686,7 +686,7 @@ void MacroExpander::complete_invocation()
 	// The expansion is pushed while the invocation's record still holds its
 	// arguments; the record goes after.
 	const Invocation& invocation = invocations_.back();
-	pending_space_ = invocation.pending_space;
+	pending_spacing_ = invocation.pending_spacing;
 	push_expansion(*invocation.macro, invocation.head, invocation.nesting, invocation.list_disabled,
 		invocation.inherited, &invocation.arguments);
 	const Arguments& arguments = invocation.arguments;
@@ -707,7 +707,7 @@ void MacroExpander::push_expansion(MacroDefinition& macro, const PPToken& head, 
 	// No context or hide set can be observed when the replacement is empty.
 	if (macro.body_size == 0)
 	{
-		pending_space_ = pending_space_ || (head.flags & kLeadingSpace) != 0;
+		pending_spacing_ |= head.flags & (kLeadingSpace | kStartOfLine);
 		return;
 	}
 	const uint32_t begin = static_cast<uint32_t>(context_tokens_.size());
@@ -747,8 +747,7 @@ void MacroExpander::push_expansion(MacroDefinition& macro, const PPToken& head, 
 			}
 	if (begin == end)
 	{
-		if ((head.flags & kLeadingSpace) != 0)
-			pending_space_ = true;
+		pending_spacing_ |= head.flags & (kLeadingSpace | kStartOfLine);
 		return;
 	}
 	// The expansion takes the place of the macro name, and its white space:

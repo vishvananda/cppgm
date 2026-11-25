@@ -226,7 +226,8 @@ void Analyzer::asm_statement(const syntax::AsmStmt& stmt, Scope* scope)
 	std::vector<ConstValue> addresses;
 	try
 	{
-		built = assembly::gnu_packet(text, operands, clobbers, stmt.is_volatile || stmt.is_goto, !stmt.is_extended);
+		built = assembly::gnu_packet(text, operands, clobbers, stmt.is_volatile || stmt.is_goto, !stmt.is_extended,
+			target_model::is_i386(types_.target()));
 		if (const char* message = prepare_operands(*this, stmt, scope, operands, built, addresses))
 			error(stmt.location, message);
 	}

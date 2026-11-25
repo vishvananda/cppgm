@@ -5,9 +5,11 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <unordered_set>
 
 #include "native/object/elf_format.h"
+#include "native/backend_error.h"
 #include "support/flat_map.h"
 
 namespace native {
@@ -108,9 +110,42 @@ struct WordHash
 	size_t operator()(uint64_t key) const { return static_cast<size_t>(key); }
 };
 
+struct I386Relocation
+{
+	uint8_t type;
+	uint8_t width;
+};
+
+// The x86 producers use the same relocation records for both ELF classes.
+// I386 stores the addend in the relocated field and uses its own type numbers.
+I386Relocation i386_relocation(uint32_t type)
+{
+	switch (type)
+	{
+	case R_X86_64_32:
+	case R_X86_64_32S:
+		return { 1, 4 }; // R_386_32
+	case R_X86_64_PC32:
+		return { 2, 4 }; // R_386_PC32
+	case R_X86_64_PLT32:
+		return { 4, 4 }; // R_386_PLT32
+	case R_X86_64_16:
+		return { 20, 2 }; // R_386_16
+	case R_X86_64_PC16:
+		return { 21, 2 }; // R_386_PC16
+	case R_X86_64_8:
+		return { 22, 1 }; // R_386_8
+	case R_X86_64_PC8:
+		return { 23, 1 }; // R_386_PC8
+	default:
+		throw BackendError("unsupported i386 relocation");
+	}
+}
+
 // One encoding: the section order is null, the groups, the object's
-// sections, their RELA tables, .symtab, .strtab, .symtab_shndx (extended
+// sections, their relocation tables, .symtab, .strtab, .symtab_shndx (extended
 // numbering only), .shstrtab and .note.GNU-stack.
+template<bool Elf32>
 class Encoder
 {
 public:
@@ -125,6 +160,8 @@ private:
 	void add_relocations();
 	void add_symbols();
 	void write(std::vector<uint8_t>& out);
+	void write_rel_addends(std::vector<uint8_t>& out) const;
+	static void put_word(std::vector<uint8_t>& out, uint64_t word);
 	uint32_t name(const char* prefix, const char* text);
 	uint32_t section_name(bool rela, uint32_t name);
 
@@ -146,18 +183,20 @@ private:
 	bool has_stack_note_ = false;
 };
 
-uint32_t Encoder::section_name(bool rela, uint32_t name)
+template<bool Elf32>
+uint32_t Encoder<Elf32>::section_name(bool rela, uint32_t name)
 {
 	// Sections sharing a name share its .shstrtab entry.
 	const uint64_t key = (static_cast<uint64_t>(rela) << 32) | name;
 	if (const uint32_t* known = section_names_.find(key))
 		return *known;
-	const uint32_t offset = this->name(rela ? ".rela" : "", object_.string(name));
+	const uint32_t offset = this->name(rela ? (Elf32 ? ".rel" : ".rela") : "", object_.string(name));
 	section_names_.insert(key, offset);
 	return offset;
 }
 
-uint32_t Encoder::name(const char* prefix, const char* text)
+template<bool Elf32>
+uint32_t Encoder<Elf32>::name(const char* prefix, const char* text)
 {
 	const uint32_t offset = static_cast<uint32_t>(names_.size());
 	names_.insert(names_.end(), prefix, prefix + std::strlen(prefix));
@@ -166,7 +205,8 @@ uint32_t Encoder::name(const char* prefix, const char* text)
 	return offset;
 }
 
-void Encoder::number()
+template<bool Elf32>
+void Encoder<Elf32>::number()
 {
 	content_index_.assign(object_.sections.size(), 0);
 	rela_index_.assign(object_.sections.size(), 0);
@@ -201,7 +241,8 @@ void Encoder::number()
 	}
 }
 
-void Encoder::add_groups()
+template<bool Elf32>
+void Encoder<Elf32>::add_groups()
 {
 	for (const Group& group : object_.groups)
 	{
@@ -226,7 +267,8 @@ void Encoder::add_groups()
 	}
 }
 
-void Encoder::add_contents()
+template<bool Elf32>
+void Encoder<Elf32>::add_contents()
 {
 	for (size_t s = 1; s < object_.sections.size(); ++s)
 	{
@@ -240,7 +282,9 @@ void Encoder::add_contents()
 		const bool nobits = from.kind == SectionKind::Bss || from.kind == SectionKind::TlsBss;
 		section.size = nobits ? from.size : from.bytes.size();
 		section.align = from.align;
-		section.entry_size = from.kind == SectionKind::InitArray || from.kind == SectionKind::FiniArray ? 8 : 0;
+		section.entry_size = from.kind == SectionKind::InitArray || from.kind == SectionKind::FiniArray
+			? (Elf32 ? 4 : 8)
+			: 0;
 		if ((section.flags & kShfMerge) != 0)
 			section.entry_size = merge_entry_size(from);
 		section.bytes = nobits ? nullptr : &from.bytes;
@@ -248,7 +292,8 @@ void Encoder::add_contents()
 	}
 }
 
-void Encoder::add_relocations()
+template<bool Elf32>
+void Encoder<Elf32>::add_relocations()
 {
 	for (size_t s = 1; s < object_.sections.size(); ++s)
 	{
@@ -257,38 +302,49 @@ void Encoder::add_relocations()
 			continue;
 		OutputSection section = OutputSection();
 		section.name = section_name(true, from.name);
-		section.type = kShtRela;
+		section.type = Elf32 ? kShtRel : kShtRela;
 		section.flags = kShfInfoLink | (from.group != kNoGroup ? kShfGroup : 0);
 		section.link = symtab_;
 		section.info = content_index_[s];
-		section.align = 8;
-		section.entry_size = 24;
-		section.built.reserve(from.relocations.size() * 24);
+		section.align = Elf32 ? 4 : 8;
+		section.entry_size = Elf32 ? 8 : kRelaBytes;
+		section.built.reserve(from.relocations.size() * section.entry_size);
 		for (const Relocation& relocation : from.relocations)
 		{
-			put64(section.built, relocation.offset);
-			put64(section.built, (static_cast<uint64_t>(symbol_index_[relocation.symbol]) << 32) | relocation.type);
-			put64(section.built, static_cast<uint64_t>(relocation.addend));
+			const uint32_t index = symbol_index_[relocation.symbol];
+			put_word(section.built, relocation.offset);
+			if (Elf32)
+			{
+				if (index > 0xffffff)
+					throw BackendError("i386 relocation symbol index exceeds 24 bits");
+				put32(section.built, (index << 8) | i386_relocation(relocation.type).type);
+			}
+			else
+			{
+				put64(section.built, (static_cast<uint64_t>(index) << 32) | relocation.type);
+				put64(section.built, static_cast<uint64_t>(relocation.addend));
+			}
 		}
 		sections_.push_back(std::move(section));
 	}
 }
 
-void Encoder::add_symbols()
+template<bool Elf32>
+void Encoder<Elf32>::add_symbols()
 {
 	OutputSection table = OutputSection();
 	table.name = name(".symtab", "");
 	table.type = kShtSymtab;
 	table.link = strtab_;
 	table.info = first_global_;
-	table.align = 8;
-	table.entry_size = 24;
+	table.align = Elf32 ? 4 : 8;
+	table.entry_size = Elf32 ? 16 : kSymbolBytes;
 	OutputSection indexes = OutputSection();
 	std::vector<uint32_t> order(symbol_count_, 0);
 	for (size_t i = 1; i < object_.symbols.size(); ++i)
 		order[symbol_index_[i]] = static_cast<uint32_t>(i);
-	table.built.reserve(24 * symbol_count_);
-	table.built.resize(24, 0);
+	table.built.reserve(table.entry_size * symbol_count_);
+	table.built.resize(table.entry_size, 0);
 	if (extended_)
 		put32(indexes.built, 0);
 	for (uint32_t k = 1; k < symbol_count_; ++k)
@@ -304,11 +360,20 @@ void Encoder::add_symbols()
 			escaped = index >= kShnLoreserve;
 		}
 		put32(table.built, symbol.name);
+		if (Elf32)
+		{
+			// SHN_ABS can represent a signed assembler constant.
+			put_word(table.built, index == kShnAbs ? static_cast<uint32_t>(symbol.value) : symbol.value);
+			put_word(table.built, symbol.size);
+		}
 		table.built.push_back(static_cast<uint8_t>((binding_code(symbol.binding) << 4) | type_code(symbol.type)));
 		table.built.push_back(static_cast<uint8_t>(symbol.visibility));
 		put16(table.built, escaped ? kShnXindex : index);
-		put64(table.built, symbol.value);
-		put64(table.built, symbol.size);
+		if (!Elf32)
+		{
+			put64(table.built, symbol.value);
+			put64(table.built, symbol.size);
+		}
 		if (extended_)
 			put32(indexes.built, escaped ? index : 0);
 	}
@@ -330,7 +395,8 @@ void Encoder::add_symbols()
 	}
 }
 
-void Encoder::encode(std::vector<uint8_t>& out)
+template<bool Elf32>
+void Encoder<Elf32>::encode(std::vector<uint8_t>& out)
 {
 	number();
 	sections_.push_back(OutputSection());
@@ -354,10 +420,46 @@ void Encoder::encode(std::vector<uint8_t>& out)
 	write(out);
 }
 
-void Encoder::write(std::vector<uint8_t>& out)
+template<bool Elf32>
+void Encoder<Elf32>::put_word(std::vector<uint8_t>& out, uint64_t word)
+{
+	if (Elf32)
+	{
+		if (word > std::numeric_limits<uint32_t>::max())
+			throw BackendError("ELF32 field exceeds 32 bits");
+		put32(out, word);
+	}
+	else
+		put64(out, word);
+}
+
+template<bool Elf32>
+void Encoder<Elf32>::write_rel_addends(std::vector<uint8_t>& out) const
+{
+	for (size_t s = 1; s < object_.sections.size(); ++s)
+	{
+		const Section& section = object_.sections[s];
+		for (const Relocation& relocation : section.relocations)
+		{
+			const uint8_t width = i386_relocation(relocation.type).width;
+			if (relocation.offset > section.bytes.size() || width > section.bytes.size() - relocation.offset)
+				throw BackendError("i386 relocation field lies outside section contents");
+			const uint64_t offset = sections_[content_index_[s]].offset + relocation.offset;
+			const uint64_t addend = static_cast<uint64_t>(relocation.addend);
+			for (unsigned byte = 0; byte < width; ++byte)
+				out[offset + byte] = static_cast<uint8_t>(addend >> (8 * byte));
+		}
+	}
+}
+
+template<bool Elf32>
+void Encoder<Elf32>::write(std::vector<uint8_t>& out)
 {
 	// The header, each section's contents, then the section header table.
-	uint64_t position = kElfHeaderBytes;
+	const unsigned header_size = Elf32 ? 52 : kElfHeaderBytes;
+	const unsigned section_header_size = Elf32 ? 40 : kSectionHeaderBytes;
+	const uint64_t header_align = Elf32 ? 4 : 8;
+	uint64_t position = header_size;
 	for (size_t s = 1; s < sections_.size(); ++s)
 	{
 		OutputSection& section = sections_[s];
@@ -369,26 +471,29 @@ void Encoder::write(std::vector<uint8_t>& out)
 		if (section.type != kShtNobits)
 			position += section.size;
 	}
-	const uint64_t header_table = (position + 7) & ~static_cast<uint64_t>(7);
+	const uint64_t header_table = (position + header_align - 1) & ~(header_align - 1);
 	const uint32_t count = static_cast<uint32_t>(sections_.size());
 	if (count >= kShnLoreserve)
 		sections_[0].size = count;
 	if (shstrtab_ >= kShnLoreserve)
 		sections_[0].link = shstrtab_;
 	out.clear();
-	out.reserve(header_table + kSectionHeaderBytes * count);
-	put_elf_ident(out);
+	const uint64_t image_size = header_table + uint64_t(section_header_size) * count;
+	if (Elf32 && image_size > std::numeric_limits<uint32_t>::max())
+		throw BackendError("ELF32 object exceeds the file size limit");
+	out.reserve(image_size);
+	put_elf_ident(out, Elf32 ? 1 : 2);
 	put16(out, kEtRel);
-	put16(out, object_.architecture == target_model::Architecture::AArch64 ? kEmAArch64 : kEmX86_64);
+	put16(out, Elf32 ? kEm386 : object_.architecture == target_model::Architecture::AArch64 ? kEmAArch64 : kEmX86_64);
 	put32(out, 1);
-	put64(out, 0);
-	put64(out, 0);
-	put64(out, header_table);
+	put_word(out, 0);
+	put_word(out, 0);
+	put_word(out, header_table);
 	put32(out, 0);
-	put16(out, kElfHeaderBytes);
+	put16(out, header_size);
 	put16(out, 0);
 	put16(out, 0);
-	put16(out, kSectionHeaderBytes);
+	put16(out, section_header_size);
 	put16(out, count >= kShnLoreserve ? 0 : count);
 	put16(out, shstrtab_ >= kShnLoreserve ? kShnXindex : shstrtab_);
 	for (size_t s = 1; s < sections_.size(); ++s)
@@ -400,19 +505,21 @@ void Encoder::write(std::vector<uint8_t>& out)
 		const std::vector<uint8_t>& bytes = section.bytes != nullptr ? *section.bytes : section.built;
 		out.insert(out.end(), bytes.begin(), bytes.end());
 	}
+	if (Elf32)
+		write_rel_addends(out);
 	out.resize(header_table, 0);
 	for (const OutputSection& section : sections_)
 	{
 		put32(out, section.name);
 		put32(out, section.type);
-		put64(out, section.flags);
-		put64(out, 0);
-		put64(out, section.offset);
-		put64(out, section.size);
+		put_word(out, section.flags);
+		put_word(out, 0);
+		put_word(out, section.offset);
+		put_word(out, section.size);
 		put32(out, section.link);
 		put32(out, section.info);
-		put64(out, section.align);
-		put64(out, section.entry_size);
+		put_word(out, section.align);
+		put_word(out, section.entry_size);
 	}
 }
 
@@ -420,8 +527,10 @@ void Encoder::write(std::vector<uint8_t>& out)
 
 void encode_elf_object(const ObjectFile& object, std::vector<uint8_t>& out)
 {
-	Encoder encoder(object);
-	encoder.encode(out);
+	if (object.architecture == target_model::Architecture::I386)
+		Encoder<true>(object).encode(out);
+	else
+		Encoder<false>(object).encode(out);
 }
 
 bool write_elf_object(const ObjectFile& object, const std::string& path, std::string& error)

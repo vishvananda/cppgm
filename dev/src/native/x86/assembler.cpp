@@ -1,5 +1,9 @@
 #include "native/x86/assembler.h"
 
+#include <utility>
+
+#include "native/backend_error.h"
+
 namespace native {
 
 namespace {
@@ -81,17 +85,10 @@ bool Assembler::resolve_labels()
 			return false;
 		const int64_t value = static_cast<int64_t>(label_pos_[ref.label]) -
 			(ref.base != kNoLabel ? label_pos_[ref.base] : static_cast<int64_t>(ref.offset) + ref.end);
-		if (ref.size == 1)
-		{
-			if (!fits_i8(value))
-				return false;
-			code_[ref.offset] = static_cast<uint8_t>(value);
-		}
-		else
-		{
-			for (unsigned k = 0; k < 4; ++k)
-				code_[ref.offset + k] = static_cast<uint8_t>(static_cast<uint64_t>(value) >> (8 * k));
-		}
+		if ((ref.size == 1 && !fits_i8(value)) || (ref.size == 2 && value != static_cast<int16_t>(value)))
+			return false;
+		for (unsigned k = 0; k < ref.size; ++k)
+			code_[ref.offset + k] = static_cast<uint8_t>(static_cast<uint64_t>(value) >> (8 * k));
 	}
 	label_refs_.clear();
 	return true;
@@ -139,6 +136,34 @@ void Assembler::displacement32(const RM& rm)
 		imm(rm.disp, 4);
 }
 
+void Assembler::memory16(unsigned reg_field, const RM& rm)
+{
+	unsigned base = rm.base;
+	unsigned index = rm.index;
+	if (base == RSI || base == RDI)
+		std::swap(base, index);
+	const bool absolute = base == kNoReg && index == kNoReg;
+	unsigned field = 6;
+	if ((base == RBX || base == RBP) && (index == RSI || index == RDI))
+		field = (base == RBP ? 2 : 0) + (index == RDI);
+	else if (base == kNoReg && (index == RSI || index == RDI))
+		field = index == RSI ? 4 : 5;
+	else if (base == RBX && index == kNoReg)
+		field = 7;
+	else if (!absolute && (base != RBP || index != kNoReg))
+		throw BackendError("unsupported 16-bit address register combination");
+	if (rm.scale != 1 || rm.ip_relative || rm.label != kNoLabel)
+		throw BackendError("unsupported 16-bit memory operand");
+	const unsigned mod = absolute || (!rm.absolute_symbol && rm.disp == 0 && field != 6) ? 0
+		: !rm.absolute_symbol && fits_i8(rm.disp)                                        ? 1
+																						 : 2;
+	byte(static_cast<uint8_t>((mod << 6) | reg_field | field));
+	if (rm.absolute_symbol)
+		symbol_immediate(rm.symbol, rm.disp, 2, false, rm.subtrahend);
+	else if (mod || absolute)
+		imm(rm.disp, mod == 1 ? 1 : 2);
+}
+
 void Assembler::op(uint8_t prefix, bool rex_w, uint32_t opcode, unsigned opcode_bytes, unsigned reg, const RM& rm,
 	bool byte_regs, unsigned imm_bytes)
 {
@@ -178,6 +203,11 @@ void Assembler::op(uint8_t prefix, bool rex_w, uint32_t opcode, unsigned opcode_
 	if (rm.is_reg)
 	{
 		byte(static_cast<uint8_t>(0xc0 | r | (rm.reg & 7)));
+		return;
+	}
+	if (rm.address16)
+	{
+		memory16(r, rm);
 		return;
 	}
 	if (rm.ip_relative || rm.label != kNoLabel)
@@ -528,25 +558,13 @@ void Assembler::jcc(Cond cond, uint32_t label)
 {
 	byte(0x0f);
 	byte(static_cast<uint8_t>(0x80 + cond));
-	LabelRef ref;
-	ref.offset = size();
-	ref.label = label;
-	ref.size = 4;
-	ref.end = 4;
-	label_refs_.push_back(ref);
-	imm(0, 4);
+	relative_label(label, 4);
 }
 
 void Assembler::jmp(uint32_t label)
 {
 	byte(0xe9);
-	LabelRef ref;
-	ref.offset = size();
-	ref.label = label;
-	ref.size = 4;
-	ref.end = 4;
-	label_refs_.push_back(ref);
-	imm(0, 4);
+	relative_label(label, 4);
 }
 
 void Assembler::jmp_short(uint32_t label)
@@ -562,68 +580,56 @@ void Assembler::jcc_short(Cond cond, uint32_t label)
 void Assembler::branch_short(uint8_t opcode, uint32_t label)
 {
 	byte(opcode);
-	LabelRef ref;
-	ref.offset = size();
-	ref.label = label;
-	ref.size = 1;
-	ref.end = 1;
-	label_refs_.push_back(ref);
-	byte(0);
+	relative_label(label, 1);
 }
 
 void Assembler::call_label(uint32_t label)
 {
 	byte(0xe8);
+	relative_label(label, 4);
+}
+
+void Assembler::relative_label(uint32_t label, uint8_t bytes)
+{
 	LabelRef ref;
 	ref.offset = size();
 	ref.label = label;
-	ref.size = 4;
-	ref.end = 4;
+	ref.size = bytes;
+	ref.end = bytes;
 	label_refs_.push_back(ref);
-	imm(0, 4);
+	imm(0, bytes);
 }
 
 void Assembler::call_symbol(uint32_t symbol)
 {
 	byte(0xe8);
+	relative_symbol(symbol, 4);
+}
+
+void Assembler::relative_symbol(uint32_t symbol, uint8_t bytes)
+{
 	CodeFixup fixup;
 	fixup.offset = size();
 	fixup.target = symbol;
 	fixup.addend = 0;
-	fixup.end = 4;
+	fixup.end = bytes;
 	fixup.absolute = false;
 	fixup.branch = true;
 	fixups_.push_back(fixup);
-	imm(0, 4);
+	imm(0, bytes);
 }
 
 void Assembler::jcc_symbol(Cond condition, uint32_t symbol)
 {
 	byte(0x0f);
 	byte(static_cast<uint8_t>(0x80 + condition));
-	CodeFixup fixup;
-	fixup.offset = size();
-	fixup.target = symbol;
-	fixup.addend = 0;
-	fixup.end = 4;
-	fixup.absolute = false;
-	fixup.branch = true;
-	fixups_.push_back(fixup);
-	imm(0, 4);
+	relative_symbol(symbol, 4);
 }
 
 void Assembler::jmp_symbol(uint32_t symbol)
 {
 	byte(0xe9);
-	CodeFixup fixup;
-	fixup.offset = size();
-	fixup.target = symbol;
-	fixup.addend = 0;
-	fixup.end = 4;
-	fixup.absolute = false;
-	fixup.branch = true;
-	fixups_.push_back(fixup);
-	imm(0, 4);
+	relative_symbol(symbol, 4);
 }
 
 void Assembler::call_rm(const RM& target)

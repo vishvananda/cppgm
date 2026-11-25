@@ -291,6 +291,8 @@ bool Analyzer::type_size(const Type* type, uint64_t& size, uint64_t& alignment, 
 			error(location, "size of void");
 		size = FundamentalTypeSize(type->fundamental, type->target);
 		alignment = type->binary128 ? target_model::data_layout(type->target).long_double_alignment : size;
+		if (target_model::is_i386(type->target) && size <= 12)
+			alignment = std::min<uint64_t>(alignment, 4);
 		return true;
 	case TypeKind::BitInt:
 		size = target_model::bit_int_bytes(static_cast<unsigned>(type->bound));

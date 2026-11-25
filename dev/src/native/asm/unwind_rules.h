@@ -48,12 +48,12 @@ struct AssemblyCfiEvent
 	std::vector<uint8_t> bytes;
 };
 AssemblyCfiEvent parse_assembly_cfi(
-	const assembly::ModuleLine& line, uint32_t anchor, assembly::SymbolLookup* symbols = nullptr);
+	const assembly::ModuleLine& line, uint32_t anchor, assembly::SymbolLookup* symbols, bool i386);
 
 class AssemblyCfiRules
 {
 public:
-	explicit AssemblyCfiRules(bool simple);
+	AssemblyCfiRules(bool simple, bool i386);
 	void apply(const AssemblyCfiEvent& event, uint32_t pc);
 	const std::vector<uint8_t>& bytes() const { return bytes_; }
 
@@ -68,6 +68,7 @@ private:
 	void cfa(const AssemblyCfiEvent& event);
 	void saved(const AssemblyCfiEvent& event);
 	State state_;
+	int64_t word_bytes_;
 	std::vector<State> stack_;
 	std::vector<uint8_t> bytes_;
 	uint32_t pc_ = 0;

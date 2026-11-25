@@ -33,7 +33,7 @@ void symbol_immediate(Assembler& out, const assembly::Instruction& inst, const F
 	if (src.address.relocation != assembly::Relocation::Address ||
 		(form.encoding != Encoding::Move && form.encoding != Encoding::Alu))
 		fail(inst, "this instruction cannot encode a symbol immediate");
-	const uint8_t prefix = bits == 16 ? 0x66 : 0;
+	const uint8_t prefix = asm_detail::operand_size_prefix(inst, bits);
 	const bool wide = bits == 64;
 	const bool byte_regs = bits == 8 && byte_rex(inst);
 	unsigned bytes = wide ? 4 : bits / 8;
@@ -69,7 +69,7 @@ void integer(Assembler& out, const assembly::Instruction& inst, const Form& form
 			(src.kind != OperandKind::Immediate && src.kind != OperandKind::Symbol)))
 		fail(inst, "this absolute move form requires a 64-bit register and immediate");
 	const unsigned bytes = bits / 8;
-	const uint8_t prefix = bits == 16 ? 0x66 : 0;
+	const uint8_t prefix = asm_detail::operand_size_prefix(inst, bits);
 	const bool byte_regs = bits == 8 && byte_rex(inst);
 	const bool wide = bits == 64;
 	if ((dst.kind != OperandKind::Register && dst.kind != OperandKind::Memory) ||
@@ -271,7 +271,8 @@ void integer_system_binary(Assembler& out, const assembly::Instruction& inst, co
 		const unsigned bits = integer_width(inst, 0);
 		if (bits == 8)
 			fail(inst, "undefined instruction requires a word operand");
-		out.op(bits == 16 ? 0x66 : 0, bits == 64, form.opcode, 2, physical(dst.reg, inst), rm(src, inst));
+		out.op(asm_detail::operand_size_prefix(inst, bits), bits == 64, form.opcode, 2, physical(dst.reg, inst),
+			rm(src, inst));
 		return;
 	}
 	const unsigned bits = form.bits != 0 ? form.bits : src.bits != 0 ? src.bits : dst.bits;
@@ -282,8 +283,8 @@ void integer_system_binary(Assembler& out, const assembly::Instruction& inst, co
 					(src.reg.offset != 0 && (wide || dst.reg.number >= 8))
 										   : src.kind != OperandKind::Memory || (src.bits != 0 && src.bits != bits)))
 		fail(inst, "invalid CRC32 operand widths");
-	if (bits == 16)
-		out.byte(0x66);
+	if (const uint8_t prefix = asm_detail::operand_size_prefix(inst, bits))
+		out.byte(prefix);
 	const uint32_t opcode = form.bits == 0 ? form.opcode + (bits != 8) : form.opcode;
 	out.op(form.prefix, wide, opcode, 3, physical(dst.reg, inst), rm(src, inst), bits == 8 && byte_rex(inst));
 }
@@ -303,10 +304,12 @@ void encode_instruction(Assembler& out, const assembly::Instruction& inst)
 			return;
 		fail(inst, "instruction form is not implemented");
 	}
-	if (inst.code_bits == 32 &&
+	if (inst.code_bits != 64 &&
 		(suffix == 64 ||
-			(form->bits == 64 && (form->encoding == Encoding::Zero || form->encoding == Encoding::ControlMemory))))
-		fail(inst, "64-bit instruction in a 32-bit code sequence");
+			(form->bits == 64 &&
+				(form->encoding == Encoding::Zero || form->encoding == Encoding::ControlMemory ||
+					form->encoding == Encoding::String))))
+		fail(inst, "64-bit instruction in a legacy code sequence");
 	if (form->encoding == Encoding::FarBranch)
 		return encode_far_branch(out, inst, *form, suffix);
 	if (form->encoding == Encoding::Control)
@@ -370,6 +373,24 @@ void encode_instruction(Assembler& out, const assembly::Instruction& inst)
 	{
 		if (!inst.operands.empty())
 			fail(inst, "instruction takes no operands");
+		if (form->encoding == Encoding::String)
+		{
+			const uint8_t prefix = form->bits == 64 ? 0x48 : asm_detail::operand_size_prefix(inst, form->bits);
+			if (prefix != 0)
+				out.byte(prefix);
+		}
+		else
+		{
+			const unsigned opcode = form->opcode;
+			if ((opcode == 0x60 || opcode == 0x61) && inst.code_bits == 64)
+				fail(inst, "all-register stack instructions require a legacy code mode");
+			unsigned bits = form->bits;
+			if (bits == 0 && inst.code16gcc &&
+				(opcode == 0x60 || opcode == 0x61 || opcode == 0x9c || opcode == 0x9d || opcode == 0xc9))
+				bits = 32;
+			if (const uint8_t prefix = asm_detail::operand_size_prefix(inst, bits))
+				out.byte(prefix);
+		}
 		const unsigned bytes = form->opcode > 0xffffff ? 4 : form->opcode > 0xffff ? 3 : form->opcode > 0xff ? 2 : 1;
 		for (unsigned i = bytes; i != 0; --i)
 			out.byte(static_cast<uint8_t>(form->opcode >> ((i - 1) * 8)));
@@ -392,9 +413,9 @@ void check_legacy_operand(const assembly::Instruction& inst, const Operand& oper
 		fail(inst, "register requires 64-bit code mode");
 	if (operand.kind == OperandKind::Memory &&
 		(operand.address.rip ||
-			(operand.address.has_base && (operand.address.base.bits != 32 || operand.address.base.number >= 8)) ||
-			(operand.address.has_index && (operand.address.index.bits != 32 || operand.address.index.number >= 8))))
-		fail(inst, "32-bit code requires a legacy address register");
+			(operand.address.has_base && (operand.address.base.bits > 32 || operand.address.base.number >= 8)) ||
+			(operand.address.has_index && (operand.address.index.bits > 32 || operand.address.index.number >= 8))))
+		fail(inst, "legacy code requires a legacy address register");
 }
 
 } // namespace
@@ -413,10 +434,10 @@ void encode_assembly(Assembler& out, const std::vector<assembly::Instruction>& i
 		const size_t index = &original - instructions.data();
 		assembly::Instruction inst = original;
 		uint8_t segment = inst.segment;
-		bool address32 = false;
+		bool address_override = false;
 		for (auto& operand : inst.operands)
 		{
-			if (inst.code_bits == 32)
+			if (inst.code_bits != 64)
 				check_legacy_operand(inst, operand);
 			if (operand.kind != OperandKind::Memory)
 				continue;
@@ -428,8 +449,8 @@ void encode_assembly(Assembler& out, const std::vector<assembly::Instruction>& i
 					fail(inst, "conflicting assembly segment overrides");
 				segment = operand.address.segment;
 			}
-			address32 |= (operand.address.has_base && operand.address.base.bits == 32) ||
-				(operand.address.has_index && operand.address.index.bits == 32);
+			address_override |= (operand.address.has_base && operand.address.base.bits != inst.code_bits) ||
+				(operand.address.has_index && operand.address.index.bits != inst.code_bits);
 		}
 		if (positions != nullptr)
 			positions->push_back(out.size());
@@ -438,11 +459,11 @@ void encode_assembly(Assembler& out, const std::vector<assembly::Instruction>& i
 			const uint32_t count = (uint32_t(0) - out.size()) & (inst.alignment - 1);
 			if (count <= inst.max_padding)
 			{
-				if (inst.fill < 0)
+				if (inst.fill < 0 && inst.code_bits != 16)
 					out.nops(count);
 				else
 					for (uint32_t i = 0; i < count; ++i)
-						out.byte(inst.fill);
+						out.byte(inst.fill < 0 ? 0x90 : inst.fill);
 			}
 			continue;
 		}
@@ -470,7 +491,7 @@ void encode_assembly(Assembler& out, const std::vector<assembly::Instruction>& i
 					fail(inst, "decorator requires an EVEX instruction form");
 		if (segment != 0)
 			out.byte(segment);
-		if (address32 && inst.code_bits == 64)
+		if (address_override)
 			out.byte(0x67);
 		if (!encode_assembly_branch(out, inst, labels))
 		{

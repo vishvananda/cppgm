@@ -16,6 +16,7 @@ const unsigned kRelaBytes = 24;
 
 const uint16_t kEtRel = 1;
 const uint16_t kEtExec = 2;
+const uint16_t kEm386 = 3;
 const uint16_t kEmX86_64 = 62;
 const uint16_t kEmAArch64 = 183;
 
@@ -80,10 +81,10 @@ inline void put64(std::vector<uint8_t>& out, uint64_t value)
 		out.push_back(static_cast<uint8_t>(value >> (8 * k)));
 }
 
-// ELFCLASS64, ELFDATA2LSB, EV_CURRENT, ELFOSABI_NONE.
-inline void put_elf_ident(std::vector<uint8_t>& out)
+// ELF class, ELFDATA2LSB, EV_CURRENT, ELFOSABI_NONE.
+inline void put_elf_ident(std::vector<uint8_t>& out, uint8_t elf_class = 2)
 {
-	const uint8_t ident[16] = { 0x7f, 'E', 'L', 'F', 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+	const uint8_t ident[16] = { 0x7f, 'E', 'L', 'F', elf_class, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	out.insert(out.end(), ident, ident + 16);
 }
 

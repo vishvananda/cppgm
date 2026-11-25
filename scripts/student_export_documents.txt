@@ -274,6 +274,7 @@ pa39/README.md
 pa4/README.md
 pa4/directives.md
 pa4/macros.md
+pa40/README.md
 pa5/README.md
 pa5/parsing.md
 pa6/README.md

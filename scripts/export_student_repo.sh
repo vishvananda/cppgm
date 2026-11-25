@@ -778,6 +778,7 @@ pa_ref_pairs=(
   pa34:lowir2native
   pa38:cppgm
   pa39:cppgm
+  pa40:cppgm
 )
 
 source_sha=$(git -C "$repo_root" rev-parse HEAD 2>/dev/null || echo unknown)

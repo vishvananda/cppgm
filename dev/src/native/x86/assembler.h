@@ -51,6 +51,7 @@ struct RM
 	uint8_t scale = 1;
 	bool absolute_symbol = false;
 	bool address32 = false;
+	bool address16 = false;
 	bool ip_relative = false;
 	int64_t disp = 0;
 	uint32_t symbol = 0xffffffffu; // image symbol, normally RIP-relative
@@ -183,6 +184,8 @@ public:
 	void jcc_symbol(Cond condition, uint32_t symbol);
 	void call_rm(const RM& target);
 	void jmp_rm(const RM& target);
+	void relative_label(uint32_t label, uint8_t bytes);
+	void relative_symbol(uint32_t symbol, uint8_t bytes);
 	// A 32-bit entry holding label - base (a jump table's, after both bind).
 	void label_offset32(uint32_t label, uint32_t base);
 	void push(Reg reg);
@@ -196,6 +199,7 @@ public:
 	void x87(uint8_t opcode, unsigned digit, const RM& mem);
 
 private:
+	void memory16(unsigned reg_field, const RM& rm);
 	void displacement32(const RM& rm);
 	struct LabelRef
 	{

@@ -29,6 +29,11 @@ public:
 	unsigned fundamental_size(FundamentalType type) const { return FundamentalTypeSize(type, target_); }
 
 	const Type* fundamental(FundamentalType type) const { return fundamentals_[static_cast<unsigned>(type)]; }
+	const Type* size_type() const
+	{
+		return fundamental(
+			target_model::is_i386(target_) ? FundamentalType::UnsignedInt : FundamentalType::UnsignedLongInt);
+	}
 	// Add the C++20-only type before analysis; earlier modes keep their
 	// original allocation order and do not intern an unused char8_t.
 	void enable_char8();

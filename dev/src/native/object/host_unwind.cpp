@@ -114,9 +114,10 @@ void initial_cfi(const CieDescription& description, std::vector<uint8_t>& out)
 	if (description.initial)
 	{
 		out.push_back(DW_CFA_def_cfa);
-		put_uleb(out, kDwarfRsp);
-		put_uleb(out, 8);
-		out.push_back(DW_CFA_offset | kDwarfReturn);
+		const bool i386 = description.address_bytes == 4;
+		put_uleb(out, i386 ? 4 : kDwarfRsp);
+		put_uleb(out, description.address_bytes);
+		out.push_back(DW_CFA_offset | (i386 ? 8 : kDwarfReturn));
 		put_uleb(out, 1);
 	}
 	out.insert(out.end(), description.initial_rules.begin(), description.initial_rules.end());
@@ -185,17 +186,17 @@ uint32_t encode_cie(const CieDescription& description, std::vector<uint8_t>& out
 		out.push_back(static_cast<uint8_t>(augmentation[i]));
 	out.push_back(0);
 	put_uleb(out, 1);
-	put_sleb(out, -8);
+	put_sleb(out, -int(description.address_bytes));
 	out.push_back(static_cast<uint8_t>(description.return_column));
 	uint32_t field = 0;
 	put_uleb(out,
 		1 + (description.lsda_encoding != 0xff ? 1 : 0) +
-			(personality ? 1 + unwind_pointer_bytes(description.personality_encoding) : 0));
+			(personality ? 1 + unwind_pointer_bytes(description.personality_encoding, description.address_bytes) : 0));
 	if (personality)
 	{
 		out.push_back(description.personality_encoding);
 		field = static_cast<uint32_t>(out.size());
-		for (unsigned i = 0; i < unwind_pointer_bytes(description.personality_encoding); ++i)
+		for (unsigned i = 0; i < unwind_pointer_bytes(description.personality_encoding, description.address_bytes); ++i)
 			out.push_back(0);
 	}
 	if (description.lsda_encoding != 0xff)
@@ -216,7 +217,7 @@ void encode_debug_cie(const CieDescription& description, std::vector<uint8_t>& o
 		out.push_back('S');
 	out.push_back(0);
 	put_uleb(out, 1);
-	put_sleb(out, -8);
+	put_sleb(out, -int(description.address_bytes));
 	out.push_back(static_cast<uint8_t>(description.return_column));
 	initial_cfi(description, out);
 	finish_entry(out, start);
@@ -446,12 +447,12 @@ void encode_frame_instructions(const UnwindFacts& facts, bool lsda, std::vector<
 		epilogue(facts.leave_end, facts.ret_end, 0, facts.size > facts.ret_end);
 }
 
-unsigned unwind_pointer_bytes(uint8_t encoding)
+unsigned unwind_pointer_bytes(uint8_t encoding, uint8_t address_bytes)
 {
 	if (encoding == 0xff)
 		return 0;
 	const uint8_t format = encoding & 15;
-	return format == 0 || format == 4 || format == 12 ? 8 : format == 3 || format == 11 ? 4 : 0;
+	return format == 0 ? address_bytes : format == 4 || format == 12 ? 8 : format == 3 || format == 11 ? 4 : 0;
 }
 
 void encode_fde(uint32_t cie, uint32_t code_bytes, bool lsda, const uint8_t* instructions, size_t count,
@@ -473,28 +474,32 @@ void encode_fde(const FdeDescription& description, const uint8_t* instructions, 
 	pc_field = static_cast<uint32_t>(out.size());
 	put32(out, 0);
 	put32(out, description.code_bytes);
-	put_uleb(out, unwind_pointer_bytes(description.lsda_encoding));
+	const unsigned lsda_bytes = unwind_pointer_bytes(description.lsda_encoding, description.address_bytes);
+	put_uleb(out, lsda_bytes);
 	lsda_field = 0;
 	if (description.lsda_encoding != 0xff)
 	{
 		lsda_field = static_cast<uint32_t>(out.size());
-		for (unsigned i = 0; i < unwind_pointer_bytes(description.lsda_encoding); ++i)
+		for (unsigned i = 0; i < lsda_bytes; ++i)
 			out.push_back(0);
 	}
 	out.insert(out.end(), instructions, instructions + count);
 	finish_entry(out, start);
 }
 
-uint32_t encode_debug_fde(uint32_t code_bytes, const uint8_t* instructions, size_t count, std::vector<uint8_t>& out)
+uint32_t encode_debug_fde(
+	uint32_t code_bytes, const uint8_t* instructions, size_t count, std::vector<uint8_t>& out, uint8_t address_bytes)
 {
 	const size_t start = out.size();
 	put32(out, 0);
 	const uint32_t cie_field = static_cast<uint32_t>(out.size());
 	put32(out, 0);
 	put32(out, 0);
-	put32(out, 0);
+	if (address_bytes == 8)
+		put32(out, 0);
 	put32(out, code_bytes);
-	put32(out, 0);
+	if (address_bytes == 8)
+		put32(out, 0);
 	out.insert(out.end(), instructions, instructions + count);
 	finish_entry(out, start);
 	return cie_field;

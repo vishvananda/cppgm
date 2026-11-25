@@ -45,7 +45,7 @@ PreprocessorOptions assembly_preprocessor_options(const PreprocessorOptions& bas
 }
 
 bool compile_native_assembly(const std::string& path, const PreprocessorOptions& base, native::Target target,
-	native::object::ObjectFile& object, std::vector<std::string>* headers, bool include_system_headers)
+	native::object::ObjectFile& object, std::vector<std::string>* headers, bool include_system_headers, bool code16gcc)
 {
 	const std::string name = path == "-" ? "<stdin>" : path;
 	try
@@ -57,7 +57,8 @@ bool compile_native_assembly(const std::string& path, const PreprocessorOptions&
 			assembly::ModuleExpander expander;
 			const auto lines = expander.expand(assembly::module_lines(assembly_source(preprocessor), {}));
 			object.path = path;
-			native::ModuleAssembler assembler(object, target);
+			object.architecture = target_model::describe(target).architecture;
+			native::ModuleAssembler assembler(object, target, code16gcc);
 			assembler.begin(asm_model::Dialect::Att);
 			for (const auto& line : lines)
 				assembler.declare(line);

@@ -196,7 +196,7 @@ const Type* Analyzer::builtin_signature(const char* signature, char floating)
 			type = types_.fundamental(FundamentalType::LongLongInt);
 			break;
 		case 'z':
-			type = types_.fundamental(FundamentalType::UnsignedLongInt);
+			type = types_.size_type();
 			break;
 		case 'f':
 			type = types_.fundamental(FundamentalType::Float);
@@ -383,7 +383,7 @@ ExprFacts* Analyzer::object_size_call(const syntax::CallExpr& expr, Scope* scope
 	if (!constant && template_depth_ == 0)
 		error(expr.arguments[1]->location,
 			"the second argument of __builtin_object_size is no integral constant expression");
-	ExprFacts* facts = new_facts(expr, types_.fundamental(FundamentalType::UnsignedLongInt), ValueCategory::PRValue);
+	ExprFacts* facts = new_facts(expr, types_.size_type(), ValueCategory::PRValue);
 	facts->flags |= kIntrinsic;
 	facts->value = static_cast<uint64_t>(Intrinsic::ObjectSize) | (kind.bits << 8);
 	return facts;
@@ -496,7 +496,7 @@ ExprFacts* Analyzer::gnu_intrinsic(const syntax::CallExpr& expr, GnuBuiltin buil
 	const uint32_t count = expr.arguments.size;
 	const Type* int_type = types_.fundamental(FundamentalType::Int);
 	const Type* void_type = types_.fundamental(FundamentalType::Void);
-	const Type* size_type = types_.fundamental(FundamentalType::UnsignedLongInt);
+	const Type* size_type = types_.size_type();
 	ExprFacts* facts = nullptr;
 	switch (builtin)
 	{
@@ -1685,7 +1685,7 @@ ExprFacts* Analyzer::allocation_builtin(const syntax::CallExpr& expr, bool alloc
 	const Type* signature = selected->type->canonical;
 	uint32_t parameter = 1;
 	const bool sized = !allocate && cxx14_ && signature->param_count > parameter &&
-		signature->params[parameter] == types_.fundamental(FundamentalType::UnsignedLongInt);
+		signature->params[parameter] == types_.size_type();
 	if (sized)
 		++parameter;
 	if (cxx17_ && signature->param_count > parameter && signature->params[parameter]->unqualified == alignment_type())
@@ -1956,7 +1956,7 @@ ExprFacts* Analyzer::atomic_lock_free(
 		substitution_error(expr.location, "wrong number of arguments to an atomic lock-free query");
 		return nullptr;
 	}
-	const Type* size_type = types_.fundamental(FundamentalType::UnsignedLongInt);
+	const Type* size_type = types_.size_type();
 	const syntax::Expr& size_expr = *expr.arguments[0];
 	if (typed_value(size_expr, scope) == nullptr || convert(size_expr, size_type, false) == nullptr)
 		return nullptr;

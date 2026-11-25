@@ -454,6 +454,8 @@ const lowir::JumpThunk* ObjectCompiler::equivalent_entry(lowir::SymbolId symbol)
 
 void ObjectCompiler::function(lowir::SymbolId symbol)
 {
+	if (target_model::is_i386(image_.target))
+		throw BackendError("i386 function code generation is not implemented");
 	// Darwin's C++ TLS wrappers preserve every GPR except RAX and RDI.
 	// The body may call arbitrary initializers, so save these at entry.
 	const uint32_t extra_preserved = image_.target == Target::MacOS && eh_model_ == EhModel::Host &&
@@ -827,6 +829,7 @@ void ObjectCompiler::place_inline_modules()
 void ObjectCompiler::place_globals()
 {
 	std::vector<GlobalAddress> addresses;
+	const uint32_t pointer_relocation = object::x86_absolute_relocation(program_.pointer_type().pointer_bytes());
 	for (size_t i = 0; i < program_.order.size(); ++i)
 	{
 		const lowir::SymbolId s = program_.order[i];
@@ -897,7 +900,7 @@ void ObjectCompiler::place_globals()
 		write_global(program_, global, section.bytes, offset, addresses);
 		for (const GlobalAddress& address : addresses)
 			pending_.push_back(PendingRelocation{
-				index, offset + address.offset, object::R_X86_64_64, address.target, address.addend });
+				index, offset + address.offset, pointer_relocation, address.target, address.addend });
 	}
 }
 
@@ -1485,6 +1488,7 @@ void ObjectCompiler::place_debug()
 void ObjectCompiler::finish(ObjectFile& out)
 {
 	out_ = &out;
+	out.architecture = target_model::describe(image_.target).architecture;
 	out.assembly_text = assembly_text_;
 	emit_remaining();
 	prune_functions();
@@ -1661,8 +1665,9 @@ bool compile_object(lowir::Program& program, object::ObjectFile& out, std::strin
 	EhModel eh_model, int optimization_level, bool position_independent, Target target, bool red_zone,
 	bool function_sections, X86CodeOptions code_options)
 {
-	if (target_model::describe(target).architecture != target_model::Architecture::X86_64 ||
-		target_model::describe(program.target).architecture != target_model::Architecture::X86_64)
+	const auto architecture = target_model::describe(target).architecture;
+	if ((architecture != target_model::Architecture::X86_64 && architecture != target_model::Architecture::I386) ||
+		target_model::describe(program.target).architecture != architecture)
 	{
 		error = "x86 object emission requires an x86 target and layout";
 		return false;

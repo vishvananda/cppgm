@@ -17,6 +17,11 @@ bool parse(const std::string& text, Target& result)
 		result = Target::AArch64Linux;
 		return true;
 	}
+	if (text == spelling(Target::I386Linux) || text == "i686-linux-gnu" || text == "i386-unknown-linux-gnu")
+	{
+		result = Target::I386Linux;
+		return true;
+	}
 	if (text == spelling(Target::Wasm32))
 	{
 		result = Target::Wasm32;

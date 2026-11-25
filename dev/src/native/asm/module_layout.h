@@ -53,6 +53,8 @@ public:
 	bool record_labels(uint32_t section, const Assembler& assembler);
 	void finish();
 	uint64_t position(uint32_t section, uint64_t old) const;
+	assembly::ModuleValue evaluate_fixed(
+		const assembly::ModuleExpression& expression, uint32_t section, uint64_t offset);
 
 private:
 	struct Section

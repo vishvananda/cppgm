@@ -277,10 +277,13 @@ void InlineModulePlacement::append(const InlineAssemblyModule& module, uint32_t 
 				object::AssemblyString{ section_map[span.section], offsets[span.section] + span.offset, span.size });
 }
 
-ModuleAssembler::ModuleAssembler(object::ObjectFile& out, Target target)
+ModuleAssembler::ModuleAssembler(object::ObjectFile& out, Target target, bool code16gcc)
 	: out_(out), target_(target), symbols_(out, target), layout_(out), unwind_(out, target)
 {
 	syntax_.power_alignment = target == Target::MacOS;
+	if (target_model::is_i386(target))
+		syntax_.code_bits = code16gcc ? 16 : 32;
+	syntax_.code16gcc = code16gcc;
 	section(".text", object::SectionKind::Text);
 }
 uint64_t ModuleAssembler::offset() const
@@ -318,7 +321,7 @@ void ModuleAssembler::flush()
 	try
 	{
 		instructions = assembly::parse(
-			code_, syntax_.dialect, uses_, {}, &symbols_, &syntax_, target_ == Target::Linux ? this : nullptr);
+			code_, syntax_.dialect, uses_, {}, &symbols_, &syntax_, target_model::is_darwin(target_) ? nullptr : this);
 	}
 	catch (const assembly::AssemblyError& error)
 	{
@@ -409,7 +412,7 @@ void ModuleAssembler::emit_instructions(std::vector<assembly::Instruction>& inst
 				throw BackendError("a place-relative instruction cannot also encode an unresolved symbol difference");
 			const uint32_t type = object::x86_absolute_relocation(fixup.end, fixup.kind == FixupKind::SignedAddress);
 			data_relocations_.push_back({ fixup.offset, positions[instruction], static_cast<uint64_t>(fixup.addend),
-				section_, fixup.target, fixup.subtrahend, fixup.end, type });
+				section_, fixup.target, fixup.subtrahend, fixup.end, type, lowir::kNoId });
 			continue;
 		}
 		object::Relocation relocation;
@@ -423,9 +426,10 @@ void ModuleAssembler::emit_instructions(std::vector<assembly::Instruction>& inst
 			: fixup.kind == FixupKind::GotTpOff ? object::R_X86_64_GOTTPOFF
 			: fixup.kind == FixupKind::Tlv      ? object::R_MACHO_TLV
 			: fixup.kind == FixupKind::TpOff    ? object::R_X86_64_TPOFF32
+			: fixup.branch && fixup.end == 2    ? object::R_X86_64_PC16
 			: fixup.branch                      ? object::R_X86_64_PLT32
 												: object::R_X86_64_PC32;
-		if (relax_local_jumps_ && fixup.branch && instructions[instruction].mnemonic == "jmp" &&
+		if (relax_local_jumps_ && fixup.branch && fixup.end == 4 && instructions[instruction].mnemonic == "jmp" &&
 			fixup.offset == positions[instruction] + 1 &&
 			instructions[instruction].operands[0].address.relocation == assembly::Relocation::Address)
 			layout_.append(section_, { positions[instruction], static_cast<uint32_t>(section.relocations.size()) });
@@ -437,7 +441,7 @@ void ModuleAssembler::declare(const assembly::ModuleLine& line)
 {
 	assembly::ModuleCursor cursor(line);
 	const std::string name = cursor.word();
-	if (!relax_local_jumps_ && target_ == Target::Linux)
+	if (!relax_local_jumps_ && !target_model::is_darwin(target_))
 	{
 		if (name == ".")
 			relax_local_jumps_ = cursor.take('=');
@@ -506,7 +510,8 @@ void ModuleAssembler::append(const assembly::ModuleLine& line)
 		return;
 	}
 	const bool code_data = out_.sections[section_].kind == object::SectionKind::Text &&
-		(((name == ".p2align" || name == ".balign" || name == ".align") && !layout_.pending(section_)) ||
+		(((name == ".p2align" || name == ".balign" || name == ".align") && !layout_.pending(section_) &&
+			 cursor.numeric()) ||
 			((name == ".byte" || name == ".short" || name == ".word" || name == ".long" || name == ".quad") &&
 				cursor.numeric() && cursor.current() != '(' && cursor.symbol_use() == nullptr));
 	if (name[0] == '.' && !label && !syntax && !code_data)

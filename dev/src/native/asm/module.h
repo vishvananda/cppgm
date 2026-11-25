@@ -13,7 +13,7 @@ class AssemblyEnvironment;
 class ModuleAssembler : private assembly::ExpressionSymbols
 {
 public:
-	ModuleAssembler(object::ObjectFile& out, Target target);
+	ModuleAssembler(object::ObjectFile& out, Target target, bool code16gcc = false);
 	void bind_c_symbols(const lowir::Program& program, const std::vector<uint32_t>& mapping);
 	void begin(asm_model::Dialect dialect);
 	void module_start();
@@ -68,8 +68,10 @@ private:
 		uint32_t negative;
 		unsigned bytes;
 		uint32_t absolute_type;
+		uint32_t expression;
 	};
 	std::vector<DataRelocation> data_relocations_;
+	std::vector<assembly::ModuleExpression> data_expressions_;
 	struct DeferredSymbolValue
 	{
 		uint32_t symbol;

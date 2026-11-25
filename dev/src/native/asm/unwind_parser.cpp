@@ -1,11 +1,43 @@
 #include "native/asm/unwind_rules.h"
 
+#include "asm/module_expression.h"
 #include "asm/registers.h"
 #include "native/object/host_unwind.h"
 
 namespace native {
 namespace {
-uint32_t reg(assembly::ModuleCursor& cursor)
+uint32_t i386_register(const std::string& name, assembly::ModuleCursor& cursor)
+{
+	if (name == "eip")
+		return 8;
+	if (name == "eflags")
+		return 9;
+	asm_model::Register reg;
+	if (!assembly::parse_register(name.data(), name.size(), reg))
+		cursor.fail("unknown i386 CFI register");
+	switch (reg.bank)
+	{
+	case asm_model::RegisterBank::Gpr:
+		if (reg.bits == 32 && reg.number < 8)
+			return reg.number;
+		break;
+	case asm_model::RegisterBank::Segment:
+		return 40 + reg.number;
+	case asm_model::RegisterBank::X87:
+		return 11 + reg.number;
+	case asm_model::RegisterBank::Vector:
+		if (reg.number < 8)
+			return 21 + reg.number;
+		break;
+	case asm_model::RegisterBank::Mmx:
+		return 29 + reg.number;
+	default:
+		break;
+	}
+	cursor.fail("CFI register name is not implemented for i386");
+}
+
+uint32_t reg(assembly::ModuleCursor& cursor, bool i386)
 {
 	if (cursor.numeric())
 	{
@@ -19,15 +51,17 @@ uint32_t reg(assembly::ModuleCursor& cursor)
 	for (char& c : name)
 		if (c >= 'A' && c <= 'Z')
 			c = static_cast<char>(c + ('a' - 'A'));
-	if (name == "rip")
+	if (name == "rip" && !i386)
 		return 16;
 	if (name == "st" && cursor.take('('))
 	{
 		const uint64_t index = cursor.number();
 		if (index >= 8 || !cursor.take(')'))
 			cursor.fail("invalid x87 CFI register");
-		return static_cast<uint32_t>(33 + index);
+		return static_cast<uint32_t>((i386 ? 11 : 33) + index);
 	}
+	if (i386)
+		return i386_register(name, cursor);
 	const char* const special[] = { "eflags", "rflags", "mxcsr", "fcw", "fsw", "fs.base", "gs.base" };
 	const uint32_t numbers[] = { 49, 49, 64, 65, 66, 58, 59 };
 	for (unsigned i = 0; i < 7; ++i)
@@ -84,7 +118,8 @@ void pointer(assembly::ModuleCursor& cursor, AssemblyCfiEvent& event, assembly::
 }
 
 } // namespace
-AssemblyCfiEvent parse_assembly_cfi(const assembly::ModuleLine& line, uint32_t anchor, assembly::SymbolLookup* symbols)
+AssemblyCfiEvent parse_assembly_cfi(
+	const assembly::ModuleLine& line, uint32_t anchor, assembly::SymbolLookup* symbols, bool i386)
 {
 	assembly::ModuleCursor cursor(line);
 	const std::string name = cursor.word();
@@ -143,35 +178,35 @@ AssemblyCfiEvent parse_assembly_cfi(const assembly::ModuleLine& line, uint32_t a
 	else if (name == ".cfi_def_cfa")
 	{
 		event.op = AssemblyCfiOp::DefCfa;
-		event.reg = reg(cursor);
+		event.reg = reg(cursor, i386);
 		comma(cursor);
-		event.value = static_cast<int64_t>(cursor.number());
+		event.value = static_cast<int64_t>(assembly::module_expression(cursor));
 	}
 	else if (name == ".cfi_def_cfa_register")
 	{
 		event.op = AssemblyCfiOp::DefRegister;
-		event.reg = reg(cursor);
+		event.reg = reg(cursor, i386);
 	}
 	else if (name == ".cfi_def_cfa_offset" || name == ".cfi_adjust_cfa_offset")
 	{
 		event.op = name == ".cfi_def_cfa_offset" ? AssemblyCfiOp::DefOffset : AssemblyCfiOp::Adjust;
-		event.value = static_cast<int64_t>(cursor.number());
+		event.value = static_cast<int64_t>(assembly::module_expression(cursor));
 	}
 	else if (name == ".cfi_offset" || name == ".cfi_rel_offset" || name == ".cfi_val_offset")
 	{
 		event.op = name == ".cfi_offset" ? AssemblyCfiOp::Offset
 			: name == ".cfi_rel_offset"  ? AssemblyCfiOp::RelOffset
 										 : AssemblyCfiOp::ValOffset;
-		event.reg = reg(cursor);
+		event.reg = reg(cursor, i386);
 		comma(cursor);
-		event.value = static_cast<int64_t>(cursor.number());
+		event.value = static_cast<int64_t>(assembly::module_expression(cursor));
 	}
 	else if (name == ".cfi_register")
 	{
 		event.op = AssemblyCfiOp::Register;
-		event.reg = reg(cursor);
+		event.reg = reg(cursor, i386);
 		comma(cursor);
-		event.second = reg(cursor);
+		event.second = reg(cursor, i386);
 	}
 	else if (name == ".cfi_restore" || name == ".cfi_undefined" || name == ".cfi_same_value" ||
 		name == ".cfi_return_column")
@@ -180,7 +215,7 @@ AssemblyCfiEvent parse_assembly_cfi(const assembly::ModuleLine& line, uint32_t a
 			: name == ".cfi_undefined"    ? AssemblyCfiOp::Undefined
 			: name == ".cfi_same_value"   ? AssemblyCfiOp::Same
 										  : AssemblyCfiOp::ReturnColumn;
-		event.reg = reg(cursor);
+		event.reg = reg(cursor, i386);
 	}
 	else
 		cursor.fail("CFI directive is not implemented: " + name);

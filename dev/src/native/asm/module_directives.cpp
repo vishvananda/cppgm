@@ -112,16 +112,28 @@ void ModuleAssembler::data(assembly::ModuleCursor& cursor, unsigned bytes)
 {
 	do
 	{
+		cursor.space();
+		if (cursor.current() == '(')
+		{
+			auto expression = assembly::parse_module_expression(cursor, *this);
+			const uint64_t first = offset();
+			reserve(bytes, 0);
+			DataRelocation word = { first, first, 0, section_, lowir::kNoId, lowir::kNoId, bytes, 0,
+				static_cast<uint32_t>(data_expressions_.size()) };
+			data_expressions_.push_back(std::move(expression));
+			data_relocations_.push_back(word);
+			continue;
+		}
 		const assembly::ModuleValue value = assembly::assembly_module_expression(cursor, *this);
 		const uint64_t first = offset();
 		reserve(bytes, 0);
 		if (value.relocatable())
 		{
 			if (value.positive == lowir::kNoId || out_.sections[section_].kind == SectionKind::Bss ||
-				(target_ != Target::Linux && (value.negative != lowir::kNoId || bytes != 8)))
+				(target_model::is_darwin(target_) && (value.negative != lowir::kNoId || bytes != 8)))
 				cursor.fail("module symbol data expression is unavailable for this section or target");
-			data_relocations_.push_back(
-				DataRelocation{ first, first, value.bits, section_, value.positive, value.negative, bytes, 0 });
+			data_relocations_.push_back(DataRelocation{
+				first, first, value.bits, section_, value.positive, value.negative, bytes, 0, lowir::kNoId });
 		}
 		else if (out_.sections[section_].kind == SectionKind::Bss)
 		{
@@ -212,6 +224,29 @@ void ModuleAssembler::finish_data()
 		if (word.positive == 0 || word.negative == 0)
 			word.anchor = layout_.position(word.section, word.anchor);
 		object::Section& section = out_.sections[word.section];
+		if (word.expression != lowir::kNoId)
+		{
+			const auto value = layout_.evaluate_fixed(data_expressions_[word.expression], word.section, word.offset);
+			if (!value.relocatable())
+			{
+				if (section.kind == object::SectionKind::Bss)
+				{
+					if (value.bits != 0)
+						throw BackendError("nonzero module bss initializer");
+				}
+				else
+					for (unsigned i = 0; i < word.bytes; ++i)
+						section.bytes[word.offset + i] = static_cast<uint8_t>(value.bits >> (8 * i));
+				continue;
+			}
+			if (value.positive == lowir::kNoId || section.kind == object::SectionKind::Bss ||
+				(target_model::is_darwin(target_) && (value.negative != lowir::kNoId || word.bytes != 8)))
+				throw BackendError("module symbol data expression is unavailable for this section or target");
+			word.positive = value.positive;
+			word.negative = value.negative;
+			word.addend = value.bits;
+			word.anchor = word.offset;
+		}
 		uint64_t addend = word.addend;
 		uint32_t symbol = word.positive;
 		if (symbol == 0)
@@ -310,7 +345,10 @@ void ModuleAssembler::include_binary(assembly::ModuleCursor& cursor)
 }
 void ModuleAssembler::alignment(assembly::ModuleCursor& cursor, bool power)
 {
-	uint64_t alignment = assembly::assembly_integer_expression(cursor);
+	const auto expression = assembly::assembly_module_expression(cursor, *this);
+	if (expression.relocatable())
+		cursor.fail("module alignment requires an absolute value");
+	uint64_t alignment = expression.bits;
 	if (power)
 	{
 		if (alignment > 20)
@@ -320,7 +358,7 @@ void ModuleAssembler::alignment(assembly::ModuleCursor& cursor, bool power)
 	if (alignment == 0 || alignment > (1u << 20) || (alignment & (alignment - 1)) != 0)
 		cursor.fail("module alignment requires a bounded power of two");
 	const bool text = out_.sections[section_].kind == SectionKind::Text;
-	int16_t fill = text ? -1 : 0;
+	int16_t fill = text ? (syntax_.code_bits == 16 ? 0x90 : -1) : 0;
 	uint64_t maximum = UINT64_MAX;
 	if (cursor.take(','))
 	{
@@ -479,8 +517,11 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 		origin(cursor, true);
 	else if (name == ".p2align" || name == ".balign" || name == ".align")
 		alignment(cursor, name == ".p2align" || (name == ".align" && target_ == Target::MacOS));
-	else if (name == ".code32" || name == ".code64")
-		syntax_.code_bits = name == ".code32" ? 32 : 64;
+	else if (name == ".code16" || name == ".code16gcc" || name == ".code32" || name == ".code64")
+	{
+		syntax_.code_bits = name == ".code64" ? 64 : name == ".code32" ? 32 : 16;
+		syntax_.code16gcc = name == ".code16gcc";
+	}
 	else if (name == ".subsections_via_symbols")
 	{
 	}
@@ -524,7 +565,8 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 		if (section_name.empty())
 			cursor.fail("module section name cannot be empty");
 		const bool attributes = cursor.take(',');
-		const bool inherit = target_ == Target::Linux && !attributes;
+		const bool elf = !target_model::is_darwin(target_);
+		const bool inherit = elf && !attributes;
 		SectionKind kind = inherit ? elf_section_default(section_name) : SectionKind::Data;
 		uint32_t merge_size = 0;
 		bool merge_strings = false;
@@ -556,7 +598,7 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 															: SectionKind::Metadata;
 				const bool merge = flags.find('M') != std::string::npos;
 				merge_strings = flags.find('S') != std::string::npos;
-				if ((merge_strings && !merge) || (merge && target_ != Target::Linux))
+				if ((merge_strings && !merge) || (merge && !elf))
 					cursor.fail("mergeable section flags require ELF M or MS");
 				if (cursor.take(','))
 				{
@@ -565,7 +607,7 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 					const std::string type = cursor.word();
 					if (type == "nobits")
 						kind = SectionKind::Bss;
-					else if (type == "note" && target_ == Target::Linux && !merge)
+					else if (type == "note" && elf && !merge)
 						note = true;
 					else if (type != "progbits")
 						cursor.fail("unsupported module section type");

@@ -299,6 +299,7 @@ struct Invocation
 	bool lowir_passes = true;
 	bool position_independent = false;
 	bool red_zone = true;
+	bool code16gcc = false;
 	native::X86CodeOptions x86_code;
 	bool x86_code_explicit = false;
 	bool asynchronous_unwind_tables = true;
@@ -544,8 +545,9 @@ void configure_x86_code_options(Invocation& invocation)
 {
 	if (!invocation.x86_code_explicit)
 		return;
-	if (target_model::describe(invocation.target).architecture != target_model::Architecture::X86_64)
-		throw InvocationError("x86 machine options require an x86-64 target");
+	if (target_model::describe(invocation.target).architecture != target_model::Architecture::X86_64 &&
+		!target_model::is_i386(invocation.target))
+		throw InvocationError("x86 machine options require an x86 target");
 	if (invocation.x86_code.indirect_branch == native::IndirectBranch::ExternalThunk &&
 		invocation.target != native::Target::Linux)
 		throw InvocationError("external x86 indirect-branch thunks require an ELF target");
@@ -576,11 +578,11 @@ void configure_x86_code_options(Invocation& invocation)
 bool refused_flag(const std::string& arg)
 {
 	static const char* const kRefused[] = { "-fshort-enums", "-fpack-struct", "-funsigned-bitfields",
-		"-fno-signed-bitfields", "-fno-elide-constructors", "-m32", "-mx32", "-m16", "-mlong-double-64",
-		"-mlong-double-128", "-msoft-float", "-mfpmath=387", "-fstack-protector", "-fstack-protector-strong",
-		"-fstack-protector-all", "-fstack-protector-explicit", "-fcf-protection", "-fcf-protection=branch",
-		"-fcf-protection=return", "-fcf-protection=full", "-ftrivial-auto-var-init=zero",
-		"-ftrivial-auto-var-init=pattern", "-fno-integrated-as" };
+		"-fno-signed-bitfields", "-fno-elide-constructors", "-mx32", "-mlong-double-64", "-mlong-double-128",
+		"-msoft-float", "-mfpmath=387", "-fstack-protector", "-fstack-protector-strong", "-fstack-protector-all",
+		"-fstack-protector-explicit", "-fcf-protection", "-fcf-protection=branch", "-fcf-protection=return",
+		"-fcf-protection=full", "-ftrivial-auto-var-init=zero", "-ftrivial-auto-var-init=pattern",
+		"-fno-integrated-as" };
 	for (const char* refused : kRefused)
 	{
 		if (arg == refused)
@@ -821,6 +823,22 @@ void configure_preprocessor(Invocation& invocation, StandardIncludes includes, c
 		invocation.library_paths.push_back(invocation.sysroot + "/lib/wasm32-wasip1");
 }
 
+void configure_x86_target(Invocation& invocation, unsigned mode, bool default_lto)
+{
+	if (mode == 16 || mode == 32)
+	{
+		if (invocation.target != native::Target::Linux && !target_model::is_i386(invocation.target))
+			throw InvocationError("legacy x86 modes require a Linux x86 target");
+		invocation.target = native::Target::I386Linux;
+		invocation.code16gcc = mode == 16;
+	}
+	if (default_lto && target_model::is_aarch64(invocation.target))
+		invocation.whole_source_lto = true;
+	else
+		invocation.wasm_link.fold_functions = default_lto;
+	input_language(invocation);
+}
+
 Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions& base)
 {
 	Invocation invocation;
@@ -831,6 +849,7 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 	StandardIncludes includes = StandardIncludes::All;
 	bool pthread = false;
 	bool default_lto = false;
+	unsigned x86_mode = 0;
 	bool optimize_size = false, popcnt_explicit = false, char_signedness_explicit = false;
 	unsigned pic_level = 0, pie_level = 0;
 	bool assembly_output = false;
@@ -990,6 +1009,8 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 		}
 		else if (arg == "-fsyntax-only")
 			invocation.syntax_only = true;
+		else if (arg == "-m16" || arg == "-m32" || arg == "-m64")
+			x86_mode = arg == "-m16" ? 16 : arg == "-m32" ? 32 : 64;
 		else if (arg == "-o")
 		{
 			if (i + 1 >= args.size())
@@ -1040,11 +1061,7 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 		else
 			invocation.inputs.push_back(source_input(arg));
 	}
-	if (default_lto && target_model::is_aarch64(invocation.target))
-		invocation.whole_source_lto = true;
-	else
-		invocation.wasm_link.fold_functions = default_lto;
-	input_language(invocation);
+	configure_x86_target(invocation, x86_mode, default_lto);
 	if (invocation.inputs.empty())
 		throw InvocationError("no input files");
 	configure_compile_output(invocation, assembly_output);
@@ -1417,7 +1434,7 @@ bool compile_input(const Input& input, const Invocation& invocation, native::EhM
 		const bool side_file = dependencies.mode == MakeDependencies::Mode::SideFile;
 		std::vector<std::string> headers;
 		if (!compile_native_assembly(input.name, invocation.preprocessor, invocation.target, object,
-				side_file ? &headers : nullptr, dependencies.include_system))
+				side_file ? &headers : nullptr, dependencies.include_system, invocation.code16gcc))
 			return false;
 		if (side_file)
 			write_side_dependencies(invocation, input.name, headers);
@@ -2068,6 +2085,8 @@ int run_toolchain(const std::vector<std::string>& args, const PreprocessorOption
 		throw InvocationError("explicit function exports require a Wasm target");
 	if (invocation.preprocess_only)
 		return preprocess_mode(invocation);
+	if (target_model::is_i386(invocation.target) && !invocation.syntax_only && !invocation.compile_only)
+		throw InvocationError("use an ELF i386 linker for this target");
 	if (invocation.syntax_only)
 	{
 		for (const Input& input : invocation.inputs)

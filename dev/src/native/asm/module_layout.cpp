@@ -32,7 +32,9 @@ public:
 		if (plus.first == minus.first && plus.first != object::kUndefinedSection &&
 			plus.first < object::kAbsoluteSection)
 		{
-			value.bits += plus.second - minus.second + layout_.shift(plus.first, minus.second, plus.second);
+			value.bits += plus.second - minus.second;
+			if (!layout_.fixed_)
+				value.bits += layout_.shift(plus.first, minus.second, plus.second);
 			value.positive = value.negative = asm_model::kNoId;
 		}
 	}
@@ -242,7 +244,8 @@ void ModuleLayout::materialize(uint32_t id, const Section& layout)
 	for (const CodeLabelReference& ref : layout.labels)
 	{
 		const int64_t displacement = static_cast<int64_t>(position(id, ref.target) - position(id, ref.base));
-		if (ref.size == 1 && !fits_i8(displacement))
+		if ((ref.size == 1 && !fits_i8(displacement)) ||
+			(ref.size == 2 && displacement != static_cast<int16_t>(displacement)))
 			throw BackendError("short local branch is out of range after module layout");
 		const uint64_t offset = position(id, ref.offset);
 		for (unsigned i = 0; i < ref.size; ++i)
@@ -299,6 +302,13 @@ uint64_t ModuleLayout::position(uint32_t section, uint64_t old) const
 {
 	const auto found = sections_.find(section);
 	return found == sections_.end() ? old : old + found->second.prefix[found->second.boundary(old)];
+}
+
+assembly::ModuleValue ModuleLayout::evaluate_fixed(
+	const assembly::ModuleExpression& expression, uint32_t section, uint64_t offset)
+{
+	Evaluator evaluator(*this, section, offset);
+	return assembly::evaluate_module_expression(expression, evaluator);
 }
 
 } // namespace native

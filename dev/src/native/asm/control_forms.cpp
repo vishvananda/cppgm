@@ -11,14 +11,35 @@ using assembly::OperandKind;
 
 namespace {
 
+unsigned stack_bits(const assembly::Instruction& inst)
+{
+	return inst.code16gcc ? 32 : inst.code_bits;
+}
+
+bool legacy_width(const assembly::Instruction& inst, unsigned bits)
+{
+	return inst.code_bits != 64 && (bits == 16 || bits == 32);
+}
+
+void segment_stack(Assembler& out, const assembly::Instruction& inst, uint8_t prefix, unsigned reg, bool push)
+{
+	if (reg >= 6 || (!push && reg == 1) || (inst.code_bits == 64 && reg < 4))
+		fail(inst, "segment is unavailable in this stack instruction");
+	if (prefix != 0)
+		out.byte(prefix);
+	if (reg >= 4)
+		out.byte(0x0f);
+	out.byte((reg < 4 ? 0x06 + 8 * reg : 0xa0 + 8 * (reg - 4)) + !push);
+}
+
 void return_form(Assembler& out, const assembly::Instruction& inst, unsigned opcode, unsigned suffix)
 {
 	const bool far = opcode == 0xcb;
-	const unsigned bits = suffix != 0 ? suffix : far ? 32 : inst.code_bits;
-	if ((bits != inst.code_bits && !(far && bits == 32) && bits != 16) || (!far && inst.code_bits == 64 && bits == 16))
+	const unsigned bits = suffix != 0 ? suffix : far && inst.code_bits == 64 ? 32 : stack_bits(inst);
+	if (bits != inst.code_bits && !legacy_width(inst, bits) && !(far && (bits == 16 || bits == 32)))
 		fail(inst, "return width is invalid for the current assembly mode");
-	if (bits == 16)
-		out.byte(0x66);
+	if (const uint8_t prefix = asm_detail::operand_size_prefix(inst, bits))
+		out.byte(prefix);
 	else if (far && bits == 64)
 		out.byte(0x48);
 	if (inst.operands.empty())
@@ -65,10 +86,11 @@ void encode_control_form(
 	if (inst.operands.size() != 1)
 		fail(inst, "push/pop expects one operand");
 	const assembly::Operand& operand = inst.operands[0];
-	const unsigned bits = suffix != 0 ? suffix : operand.bits != 0 ? operand.bits : inst.code_bits;
-	if ((bits != 16 && bits != inst.code_bits) || (operand.bits != 0 && operand.bits != bits))
+	const unsigned bits = suffix != 0 ? suffix : operand.bits != 0 ? operand.bits : stack_bits(inst);
+	if ((bits != 16 && bits != inst.code_bits && !legacy_width(inst, bits)) ||
+		(operand.bits != 0 && operand.bits != bits))
 		fail(inst, "push/pop width is invalid for the current assembly mode");
-	const uint8_t prefix = bits == 16 ? 0x66 : 0;
+	const uint8_t prefix = asm_detail::operand_size_prefix(inst, bits);
 	if (operand.kind == OperandKind::Symbol && form.opcode == 0x50 &&
 		operand.address.relocation == assembly::Relocation::Address)
 	{
@@ -80,6 +102,8 @@ void encode_control_form(
 	}
 	else if (operand.kind == OperandKind::Register)
 	{
+		if (operand.reg.bank == asm_model::RegisterBank::Segment)
+			return segment_stack(out, inst, prefix, operand.reg.number, form.opcode == 0x50);
 		if (operand.reg.bank != asm_model::RegisterBank::Gpr)
 			fail(inst, "push/pop requires a general-purpose register");
 		out.op_plus(prefix, false, form.opcode, asm_detail::physical(operand.reg, inst));
@@ -126,12 +150,13 @@ bool encode_system_register_move(Assembler& out, const assembly::Instruction& in
 		if ((!gp && !memory) || (gp && suffix != 0 && suffix != ordinary.reg.bits) ||
 			(write && special.reg.number == 1))
 			fail(inst, "invalid segment-register move");
-		const unsigned prefix = !write && gp && ordinary.reg.bits == 16 ? 0x66 : 0;
+		const unsigned prefix = !write && gp ? asm_detail::operand_size_prefix(inst, ordinary.reg.bits) : 0;
 		out.op(prefix, false, write ? 0x8e : 0x8c, 1, special.reg.number, rm(ordinary, inst));
 		return true;
 	}
+	const unsigned register_bits = inst.code_bits == 64 ? 64 : 32;
 	if (ordinary.kind != OperandKind::Register || ordinary.reg.bank != RegisterBank::Gpr ||
-		ordinary.reg.bits != inst.code_bits || (suffix != 0 && suffix != inst.code_bits))
+		ordinary.reg.bits != register_bits || (suffix != 0 && suffix != register_bits))
 		fail(inst, "control and debug moves require a general register of the current mode's width");
 	const uint32_t opcode = 0x0f20 + (special.reg.bank == RegisterBank::Debug ? 1 : 0) + (write ? 2 : 0);
 	out.op(0, false, opcode, 2, special.reg.number, rm(ordinary, inst));
@@ -222,11 +247,11 @@ void encode_system_form(
 	{
 		if (inst.operands.size() != 1 || inst.operands[0].kind != OperandKind::Memory)
 			fail(inst, "expected one memory operand");
-		const bool short_descriptor = suffix == 16 && inst.code_bits == 32;
-		if (suffix != 0 && suffix != inst.code_bits && !short_descriptor)
+		if (suffix != 0 && suffix != inst.code_bits && !legacy_width(inst, suffix))
 			fail(inst, "descriptor operand width is unavailable in this code mode");
 		const uint32_t opcode = form.opcode >> 8;
-		out.op(short_descriptor ? 0x66 : form.prefix, form.bits == 64, opcode, opcode <= 255 ? 1 : 2, form.opcode & 255,
+		const uint8_t prefix = asm_detail::operand_size_prefix(inst, suffix);
+		out.op(prefix == 0 ? form.prefix : prefix, form.bits == 64, opcode, opcode <= 255 ? 1 : 2, form.opcode & 255,
 			rm(inst.operands[0], inst));
 		return;
 	}
@@ -257,8 +282,8 @@ void encode_system_form(
 		(port.kind != OperandKind::Register || port.reg.bank != asm_model::RegisterBank::Gpr || port.reg.number != 2 ||
 			port.reg.bits != 16 || port.reg.offset != 0))
 		fail(inst, "port I/O requires DX or an unsigned byte port");
-	if (bits == 16)
-		out.byte(0x66);
+	if (const uint8_t prefix = asm_detail::operand_size_prefix(inst, bits))
+		out.byte(prefix);
 	out.byte(form.opcode + (immediate ? 0 : 8) + (bits != 8));
 	if (immediate)
 		out.byte(port.immediate);
@@ -266,21 +291,22 @@ void encode_system_form(
 
 void encode_far_branch(Assembler& out, const assembly::Instruction& inst, const asm_detail::Form& form, unsigned suffix)
 {
-	const unsigned bits = suffix != 0 ? suffix : 32;
+	const unsigned bits = suffix != 0 ? suffix : inst.code_bits == 16 ? 16 : 32;
 	if (inst.prefix != 0 || (bits != 16 && bits != 32 && (bits != 64 || inst.code_bits != 64)))
 		fail(inst, "invalid far branch width or prefix");
 	const bool call = form.opcode == 0x9a;
 	if (inst.operands.size() == 1 && inst.operands[0].kind == OperandKind::Memory)
 	{
-		out.op(bits == 16 ? 0x66 : 0, bits == 64, 0xff, 1, call ? 3 : 5, rm(inst.operands[0], inst));
+		out.op(
+			asm_detail::operand_size_prefix(inst, bits), bits == 64, 0xff, 1, call ? 3 : 5, rm(inst.operands[0], inst));
 		return;
 	}
-	if (inst.code_bits != 32 || inst.operands.size() != 2 || inst.operands[1].kind != OperandKind::Immediate ||
+	if (inst.code_bits == 64 || inst.operands.size() != 2 || inst.operands[1].kind != OperandKind::Immediate ||
 		inst.operands[1].immediate > UINT16_MAX)
-		fail(inst, "far branch requires a memory pointer, or a segment and offset in 32-bit code");
+		fail(inst, "far branch requires a memory pointer, or a segment and offset in legacy code");
 	const auto& address = inst.operands[0];
-	if (bits == 16)
-		out.byte(0x66);
+	if (const uint8_t prefix = asm_detail::operand_size_prefix(inst, bits))
+		out.byte(prefix);
 	out.byte(form.opcode);
 	if (address.kind == OperandKind::Symbol && address.address.relocation == assembly::Relocation::Address)
 		out.symbol_immediate(
@@ -296,56 +322,58 @@ void encode_far_branch(Assembler& out, const assembly::Instruction& inst, const 
 bool encode_assembly_branch(Assembler& out, const assembly::Instruction& inst, const std::vector<uint32_t>& labels)
 {
 	const int condition = asm_detail::branch_condition(inst.mnemonic);
-	const bool call = inst.mnemonic == "call" || inst.mnemonic == "callq" || inst.mnemonic == "calll";
-	const bool jump = inst.mnemonic == "jmp" || inst.mnemonic == "jmpq" || inst.mnemonic == "jmpl";
+	const bool call = inst.mnemonic == "call" || inst.mnemonic == "callq" || inst.mnemonic == "calll" ||
+		inst.mnemonic == "callw";
+	const bool jump = inst.mnemonic == "jmp" || inst.mnemonic == "jmpq" || inst.mnemonic == "jmpl" ||
+		inst.mnemonic == "jmpw";
 	const unsigned loop = inst.mnemonic == "loop"                ? 0xe2
 		: inst.mnemonic == "loope" || inst.mnemonic == "loopz"   ? 0xe1
 		: inst.mnemonic == "loopne" || inst.mnemonic == "loopnz" ? 0xe0
 																 : 0;
 	if (!call && !jump && condition < 0 && loop == 0)
 		return false;
-	if (inst.prefix != 0 || inst.operands.size() != 1 ||
-		((inst.mnemonic == "callq" || inst.mnemonic == "jmpq") && inst.code_bits != 64) ||
-		((inst.mnemonic == "calll" || inst.mnemonic == "jmpl") && inst.code_bits != 32))
+	if (inst.prefix != 0 || inst.operands.size() != 1)
 		fail(inst, "expected one branch target matching the code mode");
 	const assembly::Operand& target = inst.operands[0];
-	if (target.kind == OperandKind::Label)
+	const bool indirect = target.kind == OperandKind::Register || target.kind == OperandKind::Memory;
+	unsigned bits = call ? stack_bits(inst) : inst.code_bits;
+	if ((call && inst.mnemonic.size() == 5) || (jump && inst.mnemonic.size() == 4))
+		bits = inst.mnemonic.back() == 'q' ? 64 : inst.mnemonic.back() == 'l' ? 32 : 16;
+	else if (indirect && target.bits != 0)
+		bits = target.bits;
+	if ((bits != inst.code_bits && !legacy_width(inst, bits)) || (indirect && target.bits != 0 && target.bits != bits))
+		fail(inst, "branch target width does not match the code mode");
+	if (loop != 0)
 	{
-		const uint32_t label = labels[target.label];
-		if (loop != 0)
-			out.branch_short(loop, label);
-		else if (call)
-			out.call_label(label);
-		else if (condition >= 0)
-			out.jcc(static_cast<Cond>(condition), label);
-		else
-			out.jmp(label);
+		if (target.kind != OperandKind::Label)
+			fail(inst, "loop requires a local label within its signed byte displacement");
+		out.branch_short(loop, labels[target.label]);
+		return true;
 	}
-	else if (loop != 0)
-		fail(inst, "loop requires a local label within its signed byte displacement");
+	const uint8_t prefix = asm_detail::operand_size_prefix(inst, bits);
+	if (indirect)
+	{
+		if (condition >= 0)
+			fail(inst, "conditional branch requires a direct label or symbol");
+		out.op(prefix, false, 0xff, 1, call ? 2 : 4, rm(target, inst));
+		return true;
+	}
+	if (prefix != 0)
+		out.byte(prefix);
+	if (condition >= 0)
+		out.byte(0x0f);
+	out.byte(condition >= 0 ? 0x80 + condition : call ? 0xe8 : 0xe9);
+	const uint8_t bytes = bits == 16 ? 2 : 4;
+	if (target.kind == OperandKind::Label)
+		out.relative_label(labels[target.label], bytes);
 	else if (target.kind == OperandKind::Symbol &&
 		(target.address.relocation == assembly::Relocation::Address ||
 			target.address.relocation == assembly::Relocation::Plt))
 	{
 		if (target.address.subtrahend != asm_model::kNoId)
 			fail(inst, "direct branch does not support a symbol difference");
-		if (condition >= 0)
-			out.jcc_symbol(static_cast<Cond>(condition), target.address.symbol.symbol);
-		else if (call)
-			out.call_symbol(target.address.symbol.symbol);
-		else
-			out.jmp_symbol(target.address.symbol.symbol);
-		out.fixups().back().addend += target.address.displacement;
-	}
-	else if (condition >= 0)
-		fail(inst, "conditional branch requires a direct label or symbol");
-	else if ((target.kind == OperandKind::Register || target.kind == OperandKind::Memory) &&
-		(target.bits == 0 || target.bits == inst.code_bits))
-	{
-		if (call)
-			out.call_rm(rm(target, inst));
-		else
-			out.jmp_rm(rm(target, inst));
+		out.relative_symbol(target.address.symbol.symbol, bytes);
+		out.fixups().back().addend = target.address.displacement;
 	}
 	else
 		fail(inst, "invalid direct or indirect branch target");

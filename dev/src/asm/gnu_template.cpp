@@ -5,7 +5,7 @@
 
 namespace assembly {
 
-void gnu_constraints(PacketBuilder& packet, const std::vector<GnuOperand>& operands);
+void gnu_constraints(PacketBuilder& packet, const std::vector<GnuOperand>& operands, bool i386);
 
 namespace {
 
@@ -191,7 +191,7 @@ void pieces(PacketBuilder& packet, const std::string& source, const std::vector<
 } // namespace
 
 PacketBuilder gnu_packet(const std::string& source, const std::vector<GnuOperand>& operands,
-	const std::vector<std::string>& clobbers, bool is_volatile, bool basic)
+	const std::vector<std::string>& clobbers, bool is_volatile, bool basic, bool i386)
 {
 	PacketBuilder packet;
 	packet.definition.dialect = Dialect::Att;
@@ -202,7 +202,7 @@ PacketBuilder gnu_packet(const std::string& source, const std::vector<GnuOperand
 	packet.definition.properties = AP_STACK | AP_RED_ZONE |
 		(is_volatile || basic || !outputs ? AP_SIDE_EFFECT : AP_DUPLICABLE);
 	packet.definition.state_write = AS_CONDITION_FLAGS | AS_X87_STATUS | AS_MXCSR_STATUS;
-	gnu_constraints(packet, operands);
+	gnu_constraints(packet, operands, i386);
 	uint32_t columns = 0;
 	for (uint32_t i = 0; i < packet.operands.size(); ++i)
 	{

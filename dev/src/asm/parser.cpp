@@ -195,8 +195,10 @@ void Parser::x87_index(const std::string& name, asm_model::Register& reg)
 
 void Parser::address_register(const Address& address, const asm_model::Register& reg) const
 {
-	if (reg.bank != asm_model::RegisterBank::Gpr || (reg.bits != 32 && reg.bits != 64) || reg.offset != 0)
-		fail("assembly address requires a 32-bit or 64-bit general register");
+	if (reg.bank != asm_model::RegisterBank::Gpr ||
+		(reg.bits != 32 && reg.bits != 64 && (reg.bits != 16 || state_ == nullptr || state_->code_bits == 64)) ||
+		reg.offset != 0)
+		fail("assembly address requires a general register of a supported address width");
 	if (address.rip || (address.has_base && address.base.bits != reg.bits) ||
 		(address.has_index && address.index.bits != reg.bits))
 		fail("assembly address registers must have the same width and cannot index RIP");
@@ -1029,6 +1031,7 @@ std::vector<Instruction> Parser::run()
 		inst.line = line_;
 		inst.column = column_;
 		inst.code_bits = state_ != nullptr ? state_->code_bits : 64;
+		inst.code16gcc = state_ != nullptr && state_->code16gcc;
 		inst.dialect = dialect_;
 		const size_t definition_first = pos_;
 		inst.mnemonic = word(false);
@@ -1091,7 +1094,7 @@ std::vector<Instruction> Parser::run()
 			continue;
 		}
 		const bool branch = inst.mnemonic[0] == 'j' || inst.mnemonic == "call" || inst.mnemonic == "callq" ||
-			inst.mnemonic == "calll" || inst.mnemonic.compare(0, 4, "loop") == 0;
+			inst.mnemonic == "calll" || inst.mnemonic == "callw" || inst.mnemonic.compare(0, 4, "loop") == 0;
 		const bool far_branch = inst.mnemonic.compare(0, 5, "lcall") == 0 || inst.mnemonic.compare(0, 4, "ljmp") == 0;
 		if (current() != '\n' && current() != ';' && current() != '#' && pos_ != source_.size())
 		{

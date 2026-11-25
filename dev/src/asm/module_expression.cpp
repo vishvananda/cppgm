@@ -308,6 +308,10 @@ uint64_t module_expression(const ModuleLine& line, uint32_t first, ExpressionSym
 {
 	ModuleCursor cursor(line);
 	cursor.advance(first);
+	return module_expression(cursor, symbols);
+}
+uint64_t module_expression(ModuleCursor& cursor, ExpressionSymbols* symbols)
+{
 	const uint64_t result = Expression(cursor, true, symbols).run();
 	cursor.finish();
 	return result;

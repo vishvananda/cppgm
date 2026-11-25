@@ -44,9 +44,12 @@ struct ModuleUnwind::Procedure
 	AssemblyCfiRules rules;
 	uint32_t initial_bytes = 0;
 	bool initial_open = true;
-	Procedure(uint32_t section, uint32_t first, bool simple) : section(section), first(first), rules(simple)
+	Procedure(uint32_t section, uint32_t first, bool simple, bool i386)
+		: section(section), first(first), rules(simple, i386)
 	{
 		description.initial = !simple;
+		description.address_bytes = i386 ? 4 : 8;
+		description.return_column = i386 ? 8 : 16;
 	}
 };
 ModuleUnwind::ModuleUnwind(object::ObjectFile& out, Target target) : out_(out), target_(target)
@@ -71,7 +74,7 @@ void ModuleUnwind::record(const assembly::ModuleLine& line, uint32_t anchor, ass
 	if (events_.size() >= 1000000)
 		throw BackendError(
 			"assembly CFI line " + std::to_string(line.line) + ": " + "CFI directive count exceeds limit");
-	events_.push_back(parse_assembly_cfi(line, anchor, symbols));
+	events_.push_back(parse_assembly_cfi(line, anchor, symbols, target_model::is_i386(target_)));
 }
 void ModuleUnwind::flush(
 	uint32_t section, const std::vector<uint32_t>& lines, const std::vector<uint32_t>& positions, uint32_t end)
@@ -102,7 +105,7 @@ void ModuleUnwind::apply(const AssemblyCfiEvent& event, uint32_t section, uint32
 		if (current_)
 			throw BackendError("assembly CFI line " + std::to_string(event.line) + ": " + "nested CFI procedures");
 		started_ = true;
-		current_.reset(new Procedure(section, position, event.simple));
+		current_.reset(new Procedure(section, position, event.simple, target_model::is_i386(target_)));
 		return;
 	}
 	if (!current_)
@@ -167,7 +170,7 @@ uint32_t ModuleUnwind::section_symbol(uint32_t section)
 void ModuleUnwind::pointer_relocation(
 	uint32_t section, uint32_t offset, uint8_t encoding, const asm_model::SymbolReference& reference, bool personality)
 {
-	const unsigned bytes = unwind_pointer_bytes(encoding);
+	const unsigned bytes = unwind_pointer_bytes(encoding, current_->description.address_bytes);
 	const bool relative = (encoding & 0x70) == 0x10;
 	uint32_t type = relative    ? (bytes == 8 ? object::R_X86_64_PC64 : object::R_X86_64_PC32)
 		: bytes == 8            ? object::R_X86_64_64
@@ -190,6 +193,8 @@ void ModuleUnwind::emit(uint32_t end)
 }
 void ModuleUnwind::emit_frame(Frame& frame, uint32_t end, bool debug)
 {
+	const Procedure& procedure = *current_;
+	const uint8_t address_bytes = procedure.description.address_bytes;
 	if (frame.section == 0)
 	{
 		const char* name = debug ? ".debug_frame" : ".eh_frame";
@@ -202,9 +207,8 @@ void ModuleUnwind::emit_frame(Frame& frame, uint32_t end, bool debug)
 				break;
 			}
 		if (frame.section == 0)
-			frame.section = out_.add_section(name, kind, 8);
+			frame.section = out_.add_section(name, kind, address_bytes);
 	}
-	const Procedure& procedure = *current_;
 	auto& section = out_.sections[frame.section];
 	uint32_t cie = 0;
 	bool found = false;
@@ -242,11 +246,11 @@ void ModuleUnwind::emit_frame(Frame& frame, uint32_t end, bool debug)
 	const uint32_t code_bytes = end - procedure.first;
 	if (debug)
 	{
-		const uint32_t cie_field = encode_debug_fde(code_bytes, instructions, count, section.bytes);
+		const uint32_t cie_field = encode_debug_fde(code_bytes, instructions, count, section.bytes, address_bytes);
 		section.size = section.bytes.size();
 		section.relocations.push_back({ cie_field, object::R_X86_64_32, section_symbol(frame.section), cie });
-		section.relocations.push_back(
-			{ cie_field + 4, object::R_X86_64_64, section_symbol(procedure.section), procedure.first });
+		section.relocations.push_back({ cie_field + 4, object::x86_absolute_relocation(address_bytes),
+			section_symbol(procedure.section), procedure.first });
 		return;
 	}
 	uint32_t pc_field = 0, lsda_field = 0;
@@ -254,6 +258,7 @@ void ModuleUnwind::emit_frame(Frame& frame, uint32_t end, bool debug)
 	description.cie = cie;
 	description.code_bytes = code_bytes;
 	description.lsda_encoding = procedure.description.lsda_encoding;
+	description.address_bytes = address_bytes;
 	encode_fde(description, instructions, count, section.bytes, pc_field, lsda_field);
 	section.size = section.bytes.size();
 	section.relocations.push_back(
