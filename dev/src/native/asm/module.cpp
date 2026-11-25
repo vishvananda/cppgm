@@ -555,6 +555,24 @@ void ModuleAssembler::finish()
 	finish_data();
 	unwind_.finish(layout_);
 }
+void ModuleAssembler::bind_c_symbols(const lowir::Program& program, const std::vector<uint32_t>& mapping)
+{
+	for (lowir::SymbolId id : program.order)
+	{
+		const lowir::Symbol& source = program.symbols[id];
+		const uint32_t index = mapping[id];
+		if (index != 0 && source.metadata.binding == ir_model::SBM_INTERNAL &&
+			source.metadata.linkage == ir_model::LLM_C && lowir::is_function_kind(source.kind))
+		{
+			// Private LowIR function names carry an '@' in the object. GNU
+			// file assembly can reference the C spelling in the same unit.
+			const char* name = out_.symbol_name(index);
+			if (*name == '@' && name[1] != '\0')
+				symbols_.add_name(name + 1, index);
+		}
+	}
+}
+
 void emit_assembly_items(object::ObjectFile& out, const lowir::Program& program, Target target,
 	const std::vector<uint32_t>& mapping, AssemblyEnvironment& environment)
 {
@@ -567,6 +585,8 @@ void emit_assembly_items(object::ObjectFile& out, const lowir::Program& program,
 			for (auto& line : source)
 				remap_assembly_symbols(line.symbols, mapping);
 		ModuleAssembler assembler(out, target);
+		if (target == Target::Linux)
+			assembler.bind_c_symbols(program, mapping);
 		for (const std::vector<assembly::ModuleLine>& source : sources)
 			for (const assembly::ModuleLine& line : source)
 				assembler.declare(line);

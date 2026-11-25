@@ -20,6 +20,7 @@ public:
 	bool register_alias(const std::string& name, asm_model::Register& reg) const override;
 	void define_register_alias(const std::string& name, asm_model::Register reg);
 	uint32_t named(const std::string& name);
+	void add_name(const char* name, uint32_t symbol) { names_.emplace(name, symbol); }
 	uint32_t token(assembly::ModuleCursor& cursor);
 	void define(uint32_t symbol, uint32_t section, uint64_t offset);
 	void bind(uint32_t symbol, object::Binding binding);

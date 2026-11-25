@@ -164,6 +164,10 @@ after binding its placeholders, then emit bytes and fixups directly. Production
 compilation must not invoke an external assembler or depend on an encoding
 library. A compiler memory barrier must not introduce a hardware fence.
 
+In ELF module assembly, an unadorned name can refer to a matching file-local
+C-linkage function. Bind the reference to its existing local symbol and
+keep the definition private to the object.
+
 ### Addressed control flow
 
 Support GNU label addresses (`&&label`) and computed goto

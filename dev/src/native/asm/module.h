@@ -14,6 +14,7 @@ class ModuleAssembler : private assembly::ExpressionSymbols
 {
 public:
 	ModuleAssembler(object::ObjectFile& out, Target target);
+	void bind_c_symbols(const lowir::Program& program, const std::vector<uint32_t>& mapping);
 	void begin(asm_model::Dialect dialect);
 	void module_start();
 	void begin_raw(uint32_t symbol, const std::string& name, bool comdat, bool initial);
