@@ -846,7 +846,8 @@ bool Analyzer::member_offset(ClassEntity* cls, const Entity* member, uint64_t& b
 	if (!type_size(cls->type, size, alignment, location))
 		return false;
 	const auto* variable = static_cast<const VariableEntity*>(member);
-	if (const CAnonymousField* alias = AnonymousFieldOf(variable); alias != nullptr && variable->owner == cls->scope)
+	const CAnonymousField* alias = AnonymousFieldOf(variable);
+	if (alias != nullptr && variable->owner == cls->scope)
 	{
 		if (variable->bit_field)
 			return substitution_error(location, "offsetof of a bit-field");
