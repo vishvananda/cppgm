@@ -4455,3 +4455,53 @@ The initial scalar `nextafter` bit comparisons added about 21% retired
 instructions. Hardware comparisons reduced this to about 1.1%. The
 binary128 path compares encoded magnitudes and signs, avoiding
 software floating-point comparisons.
+
+## WASI remainders and scalar powers
+
+Every runtime workload makes 262,144 calls using a frozen SDK Clang
+client and the same linker and precompiled Wasmtime runner. The
+control links the previous supplement and SDK 34. The candidate
+links the cppgm-built supplement at `3f87934d7`. Every run on
+CPU 74 produces the same checksum of the result bits.
+
+| Workload | Control, millions | Candidate, millions | ABBA | BAAB |
+| --- | ---: | ---: | ---: | ---: |
+| `fmodf`, moderate exponent gaps | 49.171 | 33.190 | −32.50% | −32.50% |
+| `fmodf`, wide exponent gaps | 275.299 | 64.174 | −76.69% | −76.69% |
+| `fmod`, moderate exponent gaps | 49.432 | 32.345 | −34.57% | −34.56% |
+| `fmod`, wide exponent gaps | 275.557 | 55.169 | −79.98% | −79.98% |
+| `powf`, ordinary finite inputs | 34.281 | 34.818 | +1.57% | +1.57% |
+| `pow`, ordinary finite inputs | 60.518 | 61.042 | +0.87% | +0.86% |
+
+The float power path initially used 8.45% more instructions. The
+masked range check and immediate polynomial coefficients lowered
+that to 1.57%. With SDK Clang building the candidate archive, the
+same inputs use 5.32% fewer instructions for `powf` and 2.60% fewer
+for `pow`.
+
+The two frozen native compile workloads produce byte-identical objects
+in all twelve runs. Measurements use CPU 75. Wall time was inconclusive,
+with a 39.67% increase in one C++ block and a 0.65% decrease in the
+other. SQLite's elapsed changes were within the A/A spread.
+
+| Input at `-O2` | A/A instruction spread | ABBA instructions | BAAB instructions |
+| --- | ---: | ---: | ---: |
+| Frozen C++ semantic input | 255,893 | −0.0036% | −0.0042% |
+| SQLite 3.50.4 C amalgamation | 233,984 | −0.0041% | −0.0032% |
+
+A targeted input places fixed-exponent powers on distinct values in a
+single original block. Paired runs produce identical objects within
+each compiler version. The resulting programs agree on exact in-range
+inputs. At 128 calls and above the candidate's instructions roughly
+double when the number of calls doubles. The inserted calls and merge
+blocks still carry a high cost on this workload. Profiling 1,024 sites
+attributes over half of the samples to register allocation, including
+pressure queries, split planning, and live ranges.
+
+| Guarded calls | Control instructions, millions | Candidate instructions, millions |
+| ---: | ---: | ---: |
+| 64 | 8.47 | 30.00 |
+| 128 | 12.69 | 82.00 |
+| 256 | 21.14 | 164.81 |
+| 512 | 37.97 | 330.70 |
+| 1,024 | 71.64 | 667.16 |

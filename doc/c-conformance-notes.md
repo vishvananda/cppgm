@@ -1756,12 +1756,22 @@ the SDK's existing `expl`, `logl`, `log2l`, `log10l`, and `powl`
 entry points.
 [C23 N3096 §§7.12.6, 7.12.7, F.10.4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
 
-The binary128 remainder functions work on the integer significands.
-They retain the three low quotient bits, select the nearest quotient
-with ties to even, and preserve signed zero. The fixed format lets the
-implementation normalize and encode the result without floating
-arithmetic.
-[C23 N3096 §§7.12.10.2–3, F.10.7.2–3](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+The WASI `fmod`, `remainder`, and `remquo` families work on the integer
+significands in all three precisions. They preserve the dividend's sign
+on an exact zero and report `EDOM` for a zero divisor or infinite dividend.
+The remainder and quotient operations choose the nearest quotient with
+ties to even. `remquo` reports its sign and three low bits. The scalar
+division uses groups of bits that fit in the machine word. Binary128
+uses shifts and subtractions to avoid software division.
+[C23 N3096 §§7.12.10.1–3, F.10.7.1–3](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+
+For fixed-exponent `pow` and `powf`, arithmetic is valid when the result
+stays within a proven finite, normal range or a literal has an exact
+special result. A variable base outside the proved range goes through
+libm before arithmetic can raise an error. The WASI scalar functions
+retain the SDK's reductions and report `ERANGE` for signed zero poles
+and computed overflow near the finite range limit.
+[C23 N3096 §§7.12.1, 7.12.7.5](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
 
 The selected WASI SDK advertises `MATH_ERREXCEPT` in `math_errhandling`
 and leaves `FE_INVALID`, `FE_DIVBYZERO`, and `FE_OVERFLOW` undefined.

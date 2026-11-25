@@ -4212,11 +4212,53 @@ glibc and libquadmath. The comparisons cover `nextafter`, `nextup`,
 `nextdown`, and `fdim`. The error-number probe covers the wider-target
 `nexttoward` cases separately.
 
-Hosted math reporting remains open. A direct-call probe shows that
-`-O2` replaces `pow(DBL_MAX, 2.0)` and `pow(-0.0, -1.0)` on volatile
-inputs with multiplication and division. Both calls produce the
-expected infinity class and lose their Linux `ERANGE` updates. The WASI
-SDK also omits the pole error number for the reciprocal case at `-O0`.
-
 [C23 N3096 §§7.12.11.3–6, 7.12.12.1](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf) ·
 [Wasm instruction measurements](../docs/performance/c-frontend-scaling.md#wasi-adjacent-values-and-positive-differences)
+
+### WASI remainders and scalar power errors
+
+`fmod`, `remainder`, and `remquo` report `EDOM` for a zero divisor
+or infinite dividend in all three precisions. They preserve signed zero,
+propagate quiet NaNs, and retain the sign and low three bits of the
+`remquo` quotient. Both archive builds match glibc and libquadmath on
+16,384 operand pairs per precision. The scalar significand division
+processes several quotient bits per step.
+[C23 N3096 §§7.12.10.1–3](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
+
+The PA33 hosted test catches lost `ERANGE` from fixed-exponent powers.
+The optimizer uses multiplication or division when the encoded input
+proves a normal result. Inputs near a pole, overflow or underflow reach
+libm. The restructuring shares the square-root guard pass and visits
+each original block once when inserting its guards. The direct repro
+passes at `-O0`, `-O2`, `-O3`, and `-Oz` on Linux x86-64, AArch64
+under QEMU, and WASI.
+[PA33 hosted fixture](../pa33/tests/host/o2/600-pow-error-number.t.1)
+
+The supplement restores error reporting for negative powers of signed
+zero and overflow at the upper rounding boundary. `powf` keeps the
+range handling on a cold path and uses the pinned SDK coefficients
+as constants. After normalizing NaNs, both archives match SDK 34 on
+65,897 input pairs per precision. All 16 combinations of archive
+builder, client compiler, linker, and optimization level pass, and
+each archive passes the 76 inherited error-number probes.
+[WASI SDK 34 `pow`](https://github.com/WebAssembly/wasi-libc/blob/2e6fb9d8ee0cdf9e431fbcabe8af3115de000a13/libc-top-half/musl/src/math/pow.c) ·
+[WASI SDK 34 `powf`](https://github.com/WebAssembly/wasi-libc/blob/2e6fb9d8ee0cdf9e431fbcabe8af3115de000a13/libc-top-half/musl/src/math/powf.c) ·
+[Compile and runtime instruction measurements](../docs/performance/c-frontend-scaling.md#wasi-remainders-and-scalar-powers)
+
+The replay at `f67c98382` passes 5,931 configurations and uses the
+same 41 generated input hashes across native, WASI and bare Wasm.
+The final `powf` hot-path change at `3f87934d7` passes all 552
+supplemented WASI configurations with the same compiler and inputs.
+The source-only archive at that revision builds the supplement with
+`-Oz -flto` and passes all nine math probes. The source-with-tests
+archive includes the new PA33 fixture. The strict suite passes all
+11,683 tests, and the exported PA33 fixture passes using its
+packaged reference compiler.
+
+Hosted WASI math reporting remains open. The SDK-derived gamma functions
+leave `errno` unchanged for finite overflow. The inherited binary128
+functions also return infinity for inputs with finite binary128 results,
+including `tgammal(200.0L)` and `lgammal(0x1p4000L)`. Special exponent
+queries return their prescribed encodings. Whether they report errors for
+zero, infinities, and NaNs needs an explicit policy for the paired runtime.
+[C23 N3096 §§7.12.6.8, 7.12.6.10, 7.12.8.3–4](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3096.pdf)
