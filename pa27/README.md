@@ -169,6 +169,13 @@ RTTI inherit its visibility where applicable. An explicit attribute on
 a member overrides the class. Preserve effective visibility across
 redeclarations and when instantiating templates and their specializations.
 
+`#pragma GCC visibility push(value)` sets the visibility for subsequent
+namespace-scope declarations until the matching `pop`. A push saves the
+previous setting. An explicit declaration attribute takes precedence.
+The `_Pragma` spelling uses the same stack. On x86-64 ELF, a strong hidden
+reference in position-independent code can use PC-relative addressing
+because the link provides its definition.
+
 `-fvisibility=<value>` sets the default for externally linked definitions.
 Unannotated imports retain default visibility. C++'s
 `-fvisibility-inlines-hidden` hides emitted inline functions, including

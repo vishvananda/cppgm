@@ -436,7 +436,8 @@ private:
 	static bool has_may_alias(const syntax::Attribute* list);
 	static bool has_may_alias(const syntax::Declarator* declarator);
 	void note_may_alias(const Type* type);
-	void symbol_attributes(Entity* entity, const syntax::Attribute* leading, const syntax::Declarator* declarator);
+	void symbol_attributes(Entity* entity, const syntax::Attribute* leading, const syntax::Declarator* declarator,
+		VisibilityPragma visibility);
 	void object_alias_attribute(Entity* entity, const syntax::Attribute& attribute);
 	void startup_attribute(Entity* entity, const syntax::Attribute& attribute);
 	void check_startup_redeclaration(const FunctionEntity* function, const Type* type, uint32_t location);

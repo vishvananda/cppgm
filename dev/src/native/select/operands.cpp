@@ -301,7 +301,7 @@ SymbolAccess host_symbol_access(
 		return SymbolAccess::Direct;
 	if (storage == ir_model::GSM_THREAD_LOCAL)
 		return defined && !position_independent ? SymbolAccess::TlsLocal : SymbolAccess::TlsInitial;
-	if (kernel_model)
+	if (kernel_model || (s.metadata.visibility != ir_model::SV_DEFAULT && program.has_local_elf_visibility(symbol)))
 		return SymbolAccess::Direct;
 	if (defined ? (position_independent && binding != ir_model::SBM_INTERNAL) ||
 				(binding == ir_model::SBM_WEAK && (s.metadata.flags & lowir::SF_REPLACEABLE) != 0)
@@ -317,7 +317,8 @@ Operand FunctionSelector::symbol_operand(uint32_t symbol, int32_t addend) const
 	// Object emission can turn a zero-addend function LEA into a GOT load
 	// without changing instruction width. An offset needs the GOT load
 	// before its separate address adjustment, using the existing MOV path.
-	if (addend != 0 && eh_model_ == EhModel::Host && op.access == SymbolAccess::Direct && !kernel_model_)
+	if (addend != 0 && eh_model_ == EhModel::Host && op.access == SymbolAccess::Direct && !kernel_model_ &&
+		!program_.has_local_elf_visibility(symbol))
 	{
 		const lowir::Symbol& target = program_.symbols[symbol];
 		const bool pending = target.kind == lowir::SymbolKind::Unresolved &&

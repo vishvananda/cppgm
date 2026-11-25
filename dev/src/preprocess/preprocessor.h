@@ -11,6 +11,7 @@
 #include "lex/identifier_table.h"
 #include "lex/source_language.h"
 #include "preprocess/c_float_pragmas.h"
+#include "preprocess/visibility_pragma.h"
 #include "preprocess/expr/controlling_expression.h"
 #include "preprocess/macro/feature_probes.h"
 #include "preprocess/macro/macro_definition.h"
@@ -233,6 +234,11 @@ public:
 		float_pragma_context_ = context;
 		float_pragma_observer_ = observer;
 	}
+	void observe_visibility_pragma(void* context, void (*observer)(void*, VisibilityPragma))
+	{
+		visibility_pragma_context_ = context;
+		visibility_pragma_observer_ = observer;
+	}
 
 	// The location range of the built-in declarations (hosted mode), read
 	// before the primary source file's tokens (empty without them).
@@ -345,6 +351,12 @@ private:
 	void* float_pragma_context_ = nullptr;
 	void (*float_pragma_observer_)(void*, CFloatPragma, CPragmaSetting) = nullptr;
 	void run_language_pragma(uint32_t location);
+	static bool visibility_pragma_name(const PPToken& token);
+	void apply_visibility_pragma(const PPToken* operands, unsigned count);
+	VisibilityPragma visibility_pragma_;
+	std::vector<VisibilityPragma> visibility_pragma_stack_;
+	void* visibility_pragma_context_ = nullptr;
+	void (*visibility_pragma_observer_)(void*, VisibilityPragma) = nullptr;
 	void apply_language_pragma(uint32_t location, const PPToken& name, const PPToken& action, const PPToken& warning);
 	static bool language_pragma_family(const PPToken& token);
 	static uint8_t extension_group(uint8_t edition) { return static_cast<uint8_t>(1u << ((edition - 11) / 3)); }

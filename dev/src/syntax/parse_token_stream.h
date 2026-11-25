@@ -6,6 +6,7 @@
 
 #include "lex/post_tokenizer.h"
 #include "preprocess/c_float_pragmas.h"
+#include "preprocess/visibility_pragma.h"
 #include "support/memory/arena.h"
 #include "support/telemetry.h"
 
@@ -192,6 +193,11 @@ public:
 
 	static void note_c_float_pragma(void* stream, CFloatPragma pragma, CPragmaSetting setting);
 	void apply_c_float_pragmas(CFloatPragmas& state);
+	static void note_visibility_pragma(void* stream, VisibilityPragma visibility);
+	VisibilityPragma visibility_at(uint64_t ordinal) const
+	{
+		return visibility_changes_.empty() ? VisibilityPragma() : observed_visibility_at(ordinal);
+	}
 
 private:
 	struct Replay
@@ -231,6 +237,13 @@ private:
 	const uint32_t* pack_state_;
 	uint32_t last_pack_;
 	std::vector<PackChange> pack_changes_;
+	struct VisibilityChange
+	{
+		uint64_t ordinal;
+		VisibilityPragma visibility;
+	};
+	std::vector<VisibilityChange> visibility_changes_;
+	VisibilityPragma observed_visibility_at(uint64_t ordinal) const;
 	struct FloatPragmaChange
 	{
 		uint64_t ordinal;

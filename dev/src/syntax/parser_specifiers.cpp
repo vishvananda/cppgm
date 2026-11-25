@@ -1099,6 +1099,7 @@ bool Parser::parse_class_or_enum_specifier(ListFrame<DeclSpecifier>& list, Speci
 		specifier.class_specifier->first_token = first_token;
 		specifier.class_specifier->attributes = class_attributes;
 		specifier.class_specifier->pack = tokens_.pack_at(first_token);
+		specifier.class_specifier->pragma_visibility = tokens_.visibility_at(first_token);
 		info.defines_type = true;
 		list.push(specifier);
 		return true;

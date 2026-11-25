@@ -1053,6 +1053,7 @@ void ProgramLowering::set_pending(lowir::SymbolId symbol, const PendingDeclarati
 	}
 	pending_.push_back(pending);
 	pending_index_[symbol] = static_cast<uint32_t>(pending_.size());
+	program_.symbols[symbol].metadata.visibility = pending.metadata.visibility;
 	// A back end selecting code before finish declares the global knows
 	// how the declaration will bind (a host object's GOT access). An
 	// internal function stays direct before its definition arrives too.

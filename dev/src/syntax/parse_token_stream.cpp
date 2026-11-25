@@ -96,6 +96,23 @@ uint32_t ParseTokenStream::pack_at(uint64_t ordinal) const
 	return pack;
 }
 
+void ParseTokenStream::note_visibility_pragma(void* stream, VisibilityPragma visibility)
+{
+	auto& tokens = *static_cast<ParseTokenStream*>(stream);
+	const uint64_t ordinal = tokens.base_ + tokens.window_.size();
+	if (!tokens.visibility_changes_.empty() && tokens.visibility_changes_.back().ordinal == ordinal)
+		tokens.visibility_changes_.back().visibility = visibility;
+	else
+		tokens.visibility_changes_.push_back(VisibilityChange{ ordinal, visibility });
+}
+
+VisibilityPragma ParseTokenStream::observed_visibility_at(uint64_t ordinal) const
+{
+	const auto change = std::upper_bound(visibility_changes_.begin(), visibility_changes_.end(), ordinal,
+		[](uint64_t token, const VisibilityChange& change) { return token < change.ordinal; });
+	return change == visibility_changes_.begin() ? VisibilityPragma() : (change - 1)->visibility;
+}
+
 void ParseTokenStream::note_c_float_pragma(void* stream, CFloatPragma pragma, CPragmaSetting setting)
 {
 	auto& tokens = *static_cast<ParseTokenStream*>(stream);

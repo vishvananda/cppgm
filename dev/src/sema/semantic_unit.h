@@ -236,6 +236,15 @@ struct SemanticGraph
 		symbol_attribute_list.push_back(SymbolAttributes{});
 		return symbol_attribute_list.back();
 	}
+	void default_symbol_visibility(const Entity* entity, ir_model::SymbolVisibility visibility)
+	{
+		SymbolAttributes& attributes = own_symbol_attributes(entity);
+		if (!attributes.has_visibility)
+		{
+			attributes.has_visibility = true;
+			attributes.visibility = visibility;
+		}
+	}
 	PointerMap symbol_attribute_index;
 	std::vector<SymbolAttributes> symbol_attribute_list;
 	// GNU aliases name ABI objects, resolved after all declarations in the unit.

@@ -488,6 +488,20 @@ void Preprocessor::run_pragma(const char* text, uint32_t length, uint32_t locati
 			else if (language_pragma_family(token))
 			{
 				const PPToken name = operand();
+				if (visibility_pragma_name(name))
+				{
+					PPToken operands[5];
+					unsigned count = 0;
+					for (; count < 5; ++count)
+					{
+						operands[count] = operand();
+						if (operands[count].kind == PPTokenKind::EndOfFile ||
+							operands[count].kind == PPTokenKind::NewLine)
+							break;
+					}
+					apply_visibility_pragma(operands, count);
+					return;
+				}
 				const PPToken action = operand();
 				const PPToken warning = operand();
 				apply_language_pragma(location, name, action, warning);

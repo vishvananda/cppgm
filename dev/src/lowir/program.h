@@ -402,6 +402,8 @@ struct Program
 	bool trap_function(SymbolId symbol) const;
 	// ELF C definitions named only by literal assembly text use `used`.
 	bool literal_assembly_root(SymbolId symbol) const;
+	// Whether ELF visibility binds a reference within this link.
+	bool has_local_elf_visibility(SymbolId symbol) const;
 
 	std::unique_ptr<DebugInfo> debug;
 	std::unique_ptr<AssemblyModule> assembly;

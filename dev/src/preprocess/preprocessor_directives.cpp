@@ -735,6 +735,21 @@ void Preprocessor::run_language_pragma(uint32_t location)
 	const PPToken name = source_.next_in_line();
 	if (name.kind == PPTokenKind::NewLine)
 		return;
+	if (visibility_pragma_name(name))
+	{
+		PPToken operands[5];
+		unsigned count = 0;
+		for (; count < 5; ++count)
+		{
+			operands[count] = source_.next_in_line();
+			if (operands[count].kind == PPTokenKind::NewLine || operands[count].kind == PPTokenKind::EndOfFile)
+				break;
+		}
+		if (count == 5)
+			source_.skip_line();
+		apply_visibility_pragma(operands, count);
+		return;
+	}
 	const PPToken action = source_.next_in_line();
 	if (action.kind == PPTokenKind::NewLine)
 	{
@@ -745,6 +760,34 @@ void Preprocessor::run_language_pragma(uint32_t location)
 	apply_language_pragma(location, name, action, warning);
 	if (warning.kind != PPTokenKind::NewLine)
 		source_.skip_line();
+}
+
+bool Preprocessor::visibility_pragma_name(const PPToken& token)
+{
+	return PragmaWord(token, "visibility");
+}
+
+void Preprocessor::apply_visibility_pragma(const PPToken* operands, unsigned count)
+{
+	if (count == 1 && PragmaWord(operands[0], "pop") && !visibility_pragma_stack_.empty())
+	{
+		visibility_pragma_ = visibility_pragma_stack_.back();
+		visibility_pragma_stack_.pop_back();
+	}
+	else if (count == 4 && PragmaWord(operands[0], "push") && IsPunctuatorToken(operands[1], TokenKind::OP_LPAREN) &&
+		operands[2].kind == PPTokenKind::Identifier && IsPunctuatorToken(operands[3], TokenKind::OP_RPAREN))
+	{
+		ir_model::SymbolVisibility value;
+		if (!ir_model::source_visibility(operands[2].spelling, operands[2].length, &value))
+			return;
+		visibility_pragma_stack_.push_back(visibility_pragma_);
+		visibility_pragma_.specified = true;
+		visibility_pragma_.value = value;
+	}
+	else
+		return;
+	if (visibility_pragma_observer_ != nullptr)
+		visibility_pragma_observer_(visibility_pragma_context_, visibility_pragma_);
 }
 
 void Preprocessor::apply_language_pragma(

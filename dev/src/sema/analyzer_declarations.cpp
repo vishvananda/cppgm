@@ -491,7 +491,7 @@ void Analyzer::simple_declaration(const syntax::SimpleDecl& decl, Scope* scope)
 		if (entity != nullptr && entity->kind == EntityKind::Function)
 			effect_attributes(static_cast<FunctionEntity*>(entity), decl.attributes, init.declarator);
 		if (entity != nullptr)
-			symbol_attributes(entity, decl.attributes, init.declarator);
+			symbol_attributes(entity, decl.attributes, init.declarator, decl.pragma_visibility);
 	}
 	auto_deduced_ = saved_auto;
 	access_deferral_ = saved_deferral;
@@ -548,7 +548,8 @@ bool TokenSafeSection(const TokenSpelling& spelling, std::string& name)
 
 } // namespace
 
-void Analyzer::symbol_attributes(Entity* entity, const syntax::Attribute* leading, const syntax::Declarator* declarator)
+void Analyzer::symbol_attributes(
+	Entity* entity, const syntax::Attribute* leading, const syntax::Declarator* declarator, VisibilityPragma visibility)
 {
 	if (target_model::is_wasm(graph_.types.target()))
 		wasm_binding_attributes(entity, leading, declarator);
@@ -630,6 +631,9 @@ void Analyzer::symbol_attributes(Entity* entity, const syntax::Attribute* leadin
 	apply(leading);
 	for (const syntax::Declarator* part = declarator; part != nullptr; part = part->nested)
 		apply(part->attributes);
+	if (visibility.specified && entity->owner->kind == ScopeKind::Namespace &&
+		(entity->kind == EntityKind::Variable || entity->kind == EntityKind::Function))
+		graph_.default_symbol_visibility(entity, visibility.value);
 	// GNU abi_tag: on a function or a variable (not a data member or
 	// typedef, as GCC and Clang reject; a block-scope object's are moot).
 	std::vector<std::string> tags;
@@ -3196,7 +3200,7 @@ void Analyzer::function_definition(const syntax::FunctionDecl& decl, Scope* scop
 	static_cast<FunctionEntity*>(binding->entity)->no_inline =
 		static_cast<FunctionEntity*>(binding->entity)->no_inline || no_inline;
 	effect_attributes(static_cast<FunctionEntity*>(binding->entity), decl.attributes, decl.declarator);
-	symbol_attributes(binding->entity, decl.attributes, decl.declarator);
+	symbol_attributes(binding->entity, decl.attributes, decl.declarator, decl.pragma_visibility);
 	// The function scope sits where the definition does: in its class or
 	// namespace for a qualified definition, and a friend defined in a class
 	// stays in the class's scope for lookup (3.4.1p9).
@@ -3257,7 +3261,7 @@ void Analyzer::special_member(const syntax::SpecialMemberDecl& decl, Scope* scop
 	attribute_alignment(decl.attributes, scope, packed, no_inline);
 	function->no_inline = function->no_inline || no_inline;
 	effect_attributes(function, decl.attributes, decl.declarator);
-	symbol_attributes(function, decl.attributes, decl.declarator);
+	symbol_attributes(function, decl.attributes, decl.declarator, decl.pragma_visibility);
 	if (decl.initializer != nullptr && decl.initializer->kind == syntax::InitializerKind::Default)
 		default_definition(function, !name.qualified(), decl.location);
 	decl.declared = binding;

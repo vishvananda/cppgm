@@ -15,6 +15,7 @@ SyntaxUnit::SyntaxUnit(const PreprocessorOptions& options, const std::string& pa
 		preprocessor_, options.iso_c_before_c99(), options.diagnose_pre_c23_binary_literals());
 	parser_.set_source_positions(preprocessor_);
 	tokens_.observe_pack(preprocessor_.pack_state());
+	preprocessor_.observe_visibility_pragma(&tokens_, ParseTokenStream::note_visibility_pragma);
 	if (options.language == SourceLanguage::C)
 	{
 		post_tokens_.set_c23(options.c_edition >= CEdition::C23);

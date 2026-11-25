@@ -1,5 +1,6 @@
 #pragma once
 
+#include "preprocess/visibility_pragma.h"
 #include "syntax/ast_statements.h"
 
 // Syntax tree declarations and the translation unit (see syntax/ast.h).
@@ -33,6 +34,7 @@ enum class DeclKind : uint8_t
 struct Decl
 {
 	DeclKind kind;
+	VisibilityPragma pragma_visibility;
 	uint32_t location;
 };
 
@@ -294,6 +296,7 @@ struct ClassSpecifier
 	TokenKind key;
 	bool final;
 	bool has_base_clause;
+	VisibilityPragma pragma_visibility;
 	Name* name;
 	Slice<BaseSpecifier> bases;
 	Slice<Decl*> members;

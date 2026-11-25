@@ -20,6 +20,20 @@ bool Program::literal_assembly_root(SymbolId symbol) const
 		metadata.binding != ir_model::SBM_INTERNAL || metadata.object != 0 || (metadata.flags & SF_OBJECT_ROOT) != 0;
 }
 
+bool Program::has_local_elf_visibility(SymbolId id) const
+{
+	const Symbol& symbol = symbols[id];
+	if (symbol.metadata.visibility == ir_model::SV_DEFAULT ||
+		target_model::describe(target).object_format != target_model::ObjectFormat::Elf)
+		return false;
+	// An undefined weak reference can be absent. A GOT slot can hold that
+	// null address even in a shared object far from virtual address zero.
+	const bool weak = symbol.metadata.binding == ir_model::SBM_WEAK ||
+		(symbol.kind == SymbolKind::Unresolved && forward_binding(id) == ir_model::SBM_WEAK);
+	return !weak || symbol.kind == SymbolKind::GlobalDefinition || symbol.kind == SymbolKind::FunctionDefinition ||
+		(symbol.kind == SymbolKind::Unresolved && forward_defined(id));
+}
+
 bool Program::same_entry_abi(SymbolId first, SymbolId second) const
 {
 	if (first >= symbols.size() || second >= symbols.size() || !is_function_kind(symbols[first].kind) ||

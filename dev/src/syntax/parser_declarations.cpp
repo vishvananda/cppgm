@@ -1002,6 +1002,7 @@ Decl* Parser::parse_special_member(DeclContext context, Slice<DeclSpecifier> spe
 Decl* Parser::parse_simple_or_function(DeclContext context)
 {
 	const uint32_t start = location();
+	const uint64_t first_token = tokens_.absolute_position();
 	const bool is_template = pending_template_;
 	SpecifierInfo info;
 	ListFrame<DeclSpecifier> list(specs_);
@@ -1021,6 +1022,8 @@ Decl* Parser::parse_simple_or_function(DeclContext context)
 	Slice<DeclSpecifier> specifiers = list.take(arena_);
 	pending_template_ = is_template && !info.defines_type;
 	Decl* decl = finish_simple_declaration(context, specifiers, info, start, omitted_specifiers);
+	if (decl != nullptr && context == DeclContext::Namespace)
+		decl->pragma_visibility = tokens_.visibility_at(first_token);
 	pending_template_ = false;
 	return decl;
 }

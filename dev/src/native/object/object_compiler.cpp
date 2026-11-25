@@ -1098,7 +1098,8 @@ void ObjectCompiler::add_unwind_relocations()
 bool ObjectCompiler::nonlocal_function(uint32_t image_symbol)
 {
 	return image_symbol < Image::kLocalSymbols && lowir::is_function_kind(program_.symbols[image_symbol].kind) &&
-		(placement_[slot(image_symbol)].section == 0 || !local_function(image_symbol));
+		(placement_[slot(image_symbol)].section == 0 || !local_function(image_symbol)) &&
+		!program_.has_local_elf_visibility(image_symbol);
 }
 
 uint32_t ObjectCompiler::object_symbol(uint32_t image_symbol)

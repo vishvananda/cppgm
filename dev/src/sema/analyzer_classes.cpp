@@ -357,6 +357,8 @@ Entity* Analyzer::class_specifier(const syntax::ClassSpecifier& specifier, Scope
 	declare_in(where, binding);
 	out.declared_binding = binding;
 	class_linkage_attributes(entity, specifier.attributes, false, existed || name->qualified(), name->location);
+	if (!c_source_ && specifier.pragma_visibility.specified && where->kind == ScopeKind::Namespace)
+		graph_.default_symbol_visibility(entity, specifier.pragma_visibility.value);
 	// An outer specialization declares its member class templates. Their
 	// own specializations use the original analyzed member definition via
 	// outside_member_template, with both argument sets bound (14.7.1p1).
