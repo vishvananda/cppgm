@@ -11,6 +11,15 @@ Program::Program() : names(arena)
 
 Program::~Program() = default;
 
+bool Program::literal_assembly_root(SymbolId symbol) const
+{
+	const SymbolMetadata& metadata = symbols[symbol].metadata;
+	// File-local C names used solely as literal x86 ELF assembly text need a
+	// used declaration. A typed assembly operand preserves its own target.
+	return target != target_model::Target::Linux || metadata.linkage != ir_model::LLM_C ||
+		metadata.binding != ir_model::SBM_INTERNAL || metadata.object != 0 || (metadata.flags & SF_OBJECT_ROOT) != 0;
+}
+
 bool Program::same_entry_abi(SymbolId first, SymbolId second) const
 {
 	if (first >= symbols.size() || second >= symbols.size() || !is_function_kind(symbols[first].kind) ||

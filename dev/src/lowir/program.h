@@ -398,6 +398,8 @@ struct Program
 	// Whether `symbol` is the runtime's trap (`object=cppgm_builtin_trap`,
 	// __builtin_trap), which the back end encodes as a trap instruction.
 	bool trap_function(SymbolId symbol) const;
+	// ELF C definitions named only by literal assembly text use `used`.
+	bool literal_assembly_root(SymbolId symbol) const;
 
 	std::unique_ptr<DebugInfo> debug;
 	std::unique_ptr<AssemblyModule> assembly;

@@ -648,9 +648,7 @@ void ObjectCompiler::prune_functions()
 	const bool opaque_assembly = assembly && (!assembly->globals.empty() || !assembly->functions.empty());
 	for (const CodeRange& range : ranges_)
 	{
-		if (!local_function(range.symbol) ||
-			(opaque_assembly &&
-				(image_.target != Target::Linux || program_.symbols[range.symbol].metadata.linkage != ir_model::LLM_C)))
+		if (!local_function(range.symbol) || (opaque_assembly && program_.literal_assembly_root(range.symbol)))
 			reach(range.symbol);
 	}
 	if (assembly)

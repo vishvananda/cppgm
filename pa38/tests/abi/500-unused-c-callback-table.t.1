@@ -15,7 +15,18 @@ static int value(void)
 
 static const struct Ops live_ops = {value};
 
+#if defined(__linux__)
+asm(".text\n");
+#endif
+
+static __attribute__((noinline)) int check_limit(int limit)
+{
+    if (limit)
+        return undefined_callback();
+    return 0;
+}
+
 int main(void)
 {
-    return observe(&live_ops) != 41;
+    return observe(&live_ops) != 41 || check_limit(0);
 }

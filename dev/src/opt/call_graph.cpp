@@ -60,17 +60,20 @@ void mark_data_references(const Program& program, Mark mark, const std::vector<S
 	// Raw bodies are not analyzed for calls or argument/return facts. A typed
 	// symbol input nevertheless observes its target's identity and full ABI.
 	if (program.assembly)
+	{
+		for (const AssemblyGlobal& global : program.assembly->globals)
+			for (const Value value : global.arguments)
+				if (value.kind == ValueKind::Symbol)
+					mark(value.index);
 		for (const AssemblyFunction& function : program.assembly->functions)
 			for (const Value value : function.body->operands)
 				if (value.kind == ValueKind::Symbol)
 					mark(value.index);
-	// Literal module symbols are resolved by the object assembler. Until its
-	// source has been parsed, an ordinary definition can be named by that
-	// external assembly, so preserve its complete identity and ABI.
-	if (program.assembly && (!program.assembly->globals.empty() || !program.assembly->functions.empty()))
-		for (SymbolId symbol : program.order)
-			if (is_definition(program, symbol))
-				mark(symbol);
+		if (!program.assembly->globals.empty() || !program.assembly->functions.empty())
+			for (SymbolId symbol : program.order)
+				if (is_definition(program, symbol) && program.literal_assembly_root(symbol))
+					mark(symbol);
+	}
 	// An explicit alias declaration exposes its target under an independently
 	// bound object name. Keep that body/ABI even if no instruction names it;
 	// this compiler root does not require retaining dead code at final linking.
