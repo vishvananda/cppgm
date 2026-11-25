@@ -825,8 +825,10 @@ bool ProgramLowering::emitted_at_definition(const sema::FunctionEntity* function
 	// compiler lacks); every other definition is emitted.
 	// A template pattern has no emitted body; its specializations are
 	// demanded independently, including templates written with auto parameters.
-	return !function->templated && !function->is_inline &&
-		!(function->internal_linkage && (function->unanalyzed_body || function->always_inline));
+	return !function->templated &&
+		(function->used ||
+			(!function->is_inline &&
+				!(function->internal_linkage && (function->unanalyzed_body || function->always_inline))));
 }
 
 void ProgramLowering::define_function(const sema::FunctionEntity* function, uint32_t location)

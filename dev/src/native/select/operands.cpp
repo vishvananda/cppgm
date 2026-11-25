@@ -266,10 +266,11 @@ SymbolAccess FunctionSelector::symbol_access(uint32_t symbol) const
 	// Course objects and executables address every symbol directly.
 	if (eh_model_ != EhModel::Host)
 		return SymbolAccess::Direct;
-	return host_symbol_access(program_, symbol, position_independent_);
+	return host_symbol_access(program_, symbol, position_independent_, kernel_model_);
 }
 
-SymbolAccess host_symbol_access(const lowir::Program& program, lowir::SymbolId symbol, bool position_independent)
+SymbolAccess host_symbol_access(
+	const lowir::Program& program, lowir::SymbolId symbol, bool position_independent, bool kernel_model)
 {
 	// Host objects (pa27 README 1, 5): imported data and replaceable weak
 	// definitions use the GOT. Position-independent code also reaches
@@ -300,6 +301,8 @@ SymbolAccess host_symbol_access(const lowir::Program& program, lowir::SymbolId s
 		return SymbolAccess::Direct;
 	if (storage == ir_model::GSM_THREAD_LOCAL)
 		return defined && !position_independent ? SymbolAccess::TlsLocal : SymbolAccess::TlsInitial;
+	if (kernel_model)
+		return SymbolAccess::Direct;
 	if (defined ? (position_independent && binding != ir_model::SBM_INTERNAL) ||
 				(binding == ir_model::SBM_WEAK && (s.metadata.flags & lowir::SF_REPLACEABLE) != 0)
 				: binding != ir_model::SBM_INTERNAL)
@@ -314,7 +317,7 @@ Operand FunctionSelector::symbol_operand(uint32_t symbol, int32_t addend) const
 	// Object emission can turn a zero-addend function LEA into a GOT load
 	// without changing instruction width. An offset needs the GOT load
 	// before its separate address adjustment, using the existing MOV path.
-	if (addend != 0 && eh_model_ == EhModel::Host && op.access == SymbolAccess::Direct)
+	if (addend != 0 && eh_model_ == EhModel::Host && op.access == SymbolAccess::Direct && !kernel_model_)
 	{
 		const lowir::Symbol& target = program_.symbols[symbol];
 		const bool pending = target.kind == lowir::SymbolKind::Unresolved &&

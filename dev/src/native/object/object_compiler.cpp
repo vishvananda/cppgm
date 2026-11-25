@@ -644,11 +644,29 @@ void ObjectCompiler::prune_functions()
 		range.dropped = false;
 		work.push_back(range_of[image_symbol]);
 	};
+	const auto* assembly = program_.assembly.get();
+	const bool opaque_assembly = assembly && (!assembly->globals.empty() || !assembly->functions.empty());
 	for (const CodeRange& range : ranges_)
 	{
 		if (!local_function(range.symbol) ||
-			(program_.assembly && (!program_.assembly->globals.empty() || !program_.assembly->functions.empty())))
+			(opaque_assembly &&
+				(image_.target != Target::Linux || program_.symbols[range.symbol].metadata.linkage != ir_model::LLM_C)))
 			reach(range.symbol);
+	}
+	if (assembly)
+	{
+		const auto reach_symbols = [&](const std::vector<lowir::Value>& operands) {
+			for (const auto& operand : operands)
+				if (operand.kind == lowir::ValueKind::Symbol)
+					reach(operand.index);
+		};
+		for (const auto& global : assembly->globals)
+			reach_symbols(global.arguments);
+		for (const auto& function : assembly->functions)
+			reach_symbols(function.body->operands);
+		for (const auto& module : inline_modules_)
+			for (uint32_t id = 1; id < module.site.module->inputs.size(); ++id)
+				reach(module.site.module->inputs[id]);
 	}
 	for (size_t i = 0; i < program_.order.size(); ++i)
 	{
@@ -1333,8 +1351,9 @@ void ObjectCompiler::add_relocations()
 			const uint64_t at = relocation.offset;
 			if (fixup.addend == 0 && fixup.target < Image::kLocalSymbols &&
 				placement_[slot(fixup.target)].section != 0 && !nonlocal_function(fixup.target) &&
-				host_symbol_access(program_, fixup.target, position_independent_) == SymbolAccess::Direct && at >= 3 &&
-				(bytes[at - 3] & 0xf8) == 0x48 && bytes[at - 2] == 0x8b && (bytes[at - 1] & 0xc7) == 0x05)
+				host_symbol_access(program_, fixup.target, position_independent_, kernel_model_) ==
+					SymbolAccess::Direct &&
+				at >= 3 && (bytes[at - 3] & 0xf8) == 0x48 && bytes[at - 2] == 0x8b && (bytes[at - 1] & 0xc7) == 0x05)
 			{
 				bytes[at - 2] = 0x8d;
 				relocation.type = object::R_X86_64_PC32;
@@ -1359,7 +1378,7 @@ void ObjectCompiler::add_relocations()
 		{
 			relocation.type = fixup.branch ? object::R_X86_64_PLT32 : object::R_X86_64_PC32;
 			relocation.addend = static_cast<int64_t>(fixup.addend) - fixup.end;
-			if (!fixup.branch && eh_model_ == EhModel::Host && nonlocal_function(fixup.target))
+			if (!fixup.branch && eh_model_ == EhModel::Host && !kernel_model_ && nonlocal_function(fixup.target))
 			{
 				std::vector<uint8_t>& bytes = out_->sections[range.section].bytes;
 				const uint64_t at = relocation.offset;

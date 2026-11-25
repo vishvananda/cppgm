@@ -166,7 +166,8 @@ library. A compiler memory barrier must not introduce a hardware fence.
 
 In ELF module assembly, an unadorned name can refer to a matching file-local
 C-linkage function. Bind the reference to its existing local symbol and
-keep the definition private to the object.
+keep the definition private to the object. A local definition referred to
+solely by untyped assembly text needs `__attribute__((used))`.
 
 ### Addressed control flow
 

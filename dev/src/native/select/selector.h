@@ -66,7 +66,7 @@ class AssemblyEnvironment;
 // symbol's facts, or from the binding a streaming producer states for a
 // global referenced before it is declared.
 SymbolAccess host_symbol_access(
-	const lowir::Program& program, lowir::SymbolId symbol, bool position_independent = false);
+	const lowir::Program& program, lowir::SymbolId symbol, bool position_independent, bool kernel_model);
 
 class Selector
 {

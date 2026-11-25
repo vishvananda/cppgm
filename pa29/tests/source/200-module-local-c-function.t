@@ -1,6 +1,8 @@
 extern "C" {
-    static int add_from_asm(int value) __attribute__((used));
-    static int add_from_asm(int value) { return value + 5; }
+    static inline int add_from_asm(int value) __attribute__((used));
+    static inline int add_from_asm(int value) { return value + 5; }
+    void link_error();
+    static inline void unused_helper() { link_error(); }
 }
 
 asm(".pushsection .text\n"
