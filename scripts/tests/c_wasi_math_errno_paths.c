@@ -299,6 +299,25 @@ int main(void)
 	CHECK(fdim, (-0.0, +0.0), EILSEQ, result == 0.0 && !signbit(result));
 	CHECK(fdimf, (NAN, 0.0f), EILSEQ, isnan(result));
 
+	CHECK(fmod, (1.0, 0.0), EDOM, isnan(result));
+	CHECK(fmodf, (INFINITY, 1.0f), EDOM, isnan(result));
+	CHECK(fmodl, (1.0L, -0.0L), EDOM, isnan(result));
+	CHECK(fmod, (INFINITY, NAN), EILSEQ, isnan(result));
+	CHECK(fmod, (-2.0, INFINITY), EILSEQ, result == -2.0);
+	CHECK(fmodl, (-6.0L, 2.0L), EILSEQ, result == 0 && signbit(result));
+	CHECK(fmodl, (0x1p9000L, 7.0L), EILSEQ, result == 1.0L);
+	CHECK(fmodf, (4 * FLT_TRUE_MIN, 3 * FLT_TRUE_MIN), EILSEQ, result == FLT_TRUE_MIN);
+	CHECK(remainder, (5.0, 2.0), EILSEQ, result == 1.0);
+	CHECK(remainder, (7.0, 2.0), EILSEQ, result == -1.0);
+	CHECK(remainderf, (1.0f, 0.0f), EDOM, isnan(result));
+	CHECK(remainderl, (0x1p9000L, 7.0L), EILSEQ, result == 1.0L);
+	CHECK(remquo, (-7.0, 2.0, &quotient), EILSEQ, result == 1.0 && quotient % 8 == -4);
+	CHECK(remquof, (7.0f, -2.0f, &quotient), EILSEQ, result == -1.0f && quotient % 8 == -4);
+	CHECK(remquol, (0x1p9000L, 7.0L, &quotient), EILSEQ, result == 1.0L && quotient % 8 == 1);
+	CHECK(remquo, (1.0, 0.0, &quotient), EDOM, isnan(result));
+	CHECK(remquof, (INFINITY, 1.0f, &quotient), EDOM, isnan(result));
+	CHECK(remquol, (1.0L, 0.0L, &quotient), EDOM, isnan(result));
+
 	volatile float large_float = FLT_MAX;
 	errno = EILSEQ;
 	if (fmaf(large_float, 3.0f, -large_float) != INFINITY || errno != ERANGE)
@@ -316,6 +335,14 @@ int main(void)
 		return FAILURE;
 	errno = EILSEQ;
 	if (fdim(large_double, -large_double) != INFINITY || errno != ERANGE)
+		return FAILURE;
+	volatile double finite = 1.0;
+	volatile double zero = 0.0;
+	errno = EILSEQ;
+	if (!isnan(fmod(finite, zero)) || errno != EDOM)
+		return FAILURE;
+	errno = EILSEQ;
+	if (!isnan(remquo(finite, zero, &quotient)) || errno != EDOM)
 		return FAILURE;
 	return 0;
 }
