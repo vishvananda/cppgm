@@ -47,8 +47,23 @@ function @of_llabs(%x : i64) -> i64 [no_inline=yes] {
 }
 function @pow_two(%x : f64) -> f64 [no_inline=yes] {
   block ^entry:
-    %r = binary mul f64 %x, %x
+    %t1 = copy i64 %x
+    %t2 = binary and i64 %t1, 9223372036854775807
+    %t3 = binary sub i64 %t2, 2305843009213693952
+    %t4 = cmp uge i64 %t3, 4607182418800017408
+    branch %t4, ^split_3, ^split_1
+
+  block ^split_1:
+    %t5 = binary mul f64 %x, %x
+    jump ^split_2
+
+  block ^split_2:
+    %r = phi f64 [^split_1: %t5, ^split_3: %t7]
     return f64 %r
+
+  block ^split_3:
+    %t7 = call f64 @pow(%x, 2.0)
+    jump ^split_2
 }
 function @pow_one(%x : f64) -> f64 [no_inline=yes] {
   block ^entry:
@@ -60,8 +75,23 @@ function @pow_zero(%x : f64) -> f64 [no_inline=yes] {
 }
 function @pow_inverse(%x : f64) -> f64 [no_inline=yes] {
   block ^entry:
-    %r = binary div f64 1, %x
+    %t1 = copy i64 %x
+    %t2 = binary and i64 %t1, 9223372036854775807
+    %t3 = binary sub i64 %t2, 2251799813685248
+    %t4 = cmp uge i64 %t3, 9207609438158979072
+    branch %t4, ^split_3, ^split_1
+
+  block ^split_1:
+    %t5 = binary div f64 1, %x
+    jump ^split_2
+
+  block ^split_2:
+    %r = phi f64 [^split_1: %t5, ^split_3: %t7]
     return f64 %r
+
+  block ^split_3:
+    %t7 = call f64 @pow(%x, -1.0)
+    jump ^split_2
 }
 function @pow_half(%x : f64) -> f64 [no_inline=yes] {
   block ^entry:
@@ -80,13 +110,43 @@ function @pow_any(%x : f64, %y : f64) -> f64 [no_inline=yes] {
 }
 function @powf_two(%x : f32) -> f32 [no_inline=yes] {
   block ^entry:
-    %r = binary mul f32 %x, %x
+    %t1 = copy u32 %x
+    %t2 = binary and u32 %t1, 2147483647
+    %t3 = binary sub u32 %t2, 536870912
+    %t4 = cmp uge u32 %t3, 1065353216
+    branch %t4, ^split_3, ^split_1
+
+  block ^split_1:
+    %t5 = binary mul f32 %x, %x
+    jump ^split_2
+
+  block ^split_2:
+    %r = phi f32 [^split_1: %t5, ^split_3: %t7]
     return f32 %r
+
+  block ^split_3:
+    %t7 = call f32 @powf(%x, 2f)
+    jump ^split_2
 }
 function @powf_inverse(%x : f32) -> f32 [no_inline=yes] {
   block ^entry:
-    %r = binary div f32 1f, %x
+    %t1 = copy u32 %x
+    %t2 = binary and u32 %t1, 2147483647
+    %t3 = binary sub u32 %t2, 4194304
+    %t4 = cmp uge u32 %t3, 2118123520
+    branch %t4, ^split_3, ^split_1
+
+  block ^split_1:
+    %t5 = binary div f32 1f, %x
+    jump ^split_2
+
+  block ^split_2:
+    %r = phi f32 [^split_1: %t5, ^split_3: %t7]
     return f32 %r
+
+  block ^split_3:
+    %t7 = call f32 @powf(%x, -1f)
+    jump ^split_2
 }
 function @pow_of_float(%x : f32) -> f32 [no_inline=yes] {
   block ^entry:

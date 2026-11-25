@@ -278,6 +278,90 @@ void SinCos::combine(size_t first, const std::vector<size_t>& later, Value sine,
 
 namespace {
 
+enum class GuardedMath
+{
+	None,
+	Sqrt,
+	Square,
+	Reciprocal
+};
+
+bool power_exponent(const FunctionBody& body, const Instruction& call, double& exponent)
+{
+	Constant value;
+	const TypeKind kind = call.type.kind();
+	if (!literal_constant(body, body.operands[call.extra_first + 1], value) || value.kind != ValueKind::Float ||
+		value.float_kind != kind)
+		return false;
+	if (kind == TypeKind::F64)
+		std::memcpy(&exponent, &value.bits.low, 8);
+	else
+	{
+		float narrow;
+		const uint32_t bits = static_cast<uint32_t>(value.bits.low);
+		std::memcpy(&narrow, &bits, 4);
+		exponent = narrow;
+	}
+	return true;
+}
+
+GuardedMath power_operation(double exponent)
+{
+	if (exponent == 2)
+		return GuardedMath::Square;
+	return exponent == -1 ? GuardedMath::Reciprocal : GuardedMath::None;
+}
+
+struct PowerRange
+{
+	uint64_t mask;
+	uint64_t low;
+	uint64_t high;
+};
+
+PowerRange power_range(TypeKind kind, GuardedMath operation)
+{
+	const bool narrow = kind == TypeKind::F32;
+	const unsigned fraction = narrow ? 23 : 52;
+	const unsigned bias = narrow ? 127 : 1023;
+	const uint64_t mask = narrow ? UINT64_C(0x7fffffff) : UINT64_C(0x7fffffffffffffff);
+	// These input intervals have finite, normal results even at the ends.
+	if (operation == GuardedMath::Square)
+		return { mask, static_cast<uint64_t>((bias + 1) / 2) << fraction,
+			static_cast<uint64_t>(bias + (bias + 1) / 2) << fraction };
+	return { mask, UINT64_C(1) << (fraction - 1), static_cast<uint64_t>(2 * bias - 1) << fraction };
+}
+
+bool power_literal_is_safe(const FunctionBody& body, Value x, TypeKind kind, GuardedMath operation)
+{
+	Constant value;
+	if (!literal_constant(body, x, value) || value.kind != ValueKind::Float || value.float_kind != kind)
+		return false;
+	const PowerRange range = power_range(kind, operation);
+	const uint64_t magnitude = value.bits.low & range.mask;
+	const uint64_t infinity = kind == TypeKind::F32 ? UINT64_C(0x7f800000) : UINT64_C(0x7ff0000000000000);
+	return (magnitude >= range.low && magnitude < range.high) || (magnitude == 0 && operation == GuardedMath::Square) ||
+		magnitude == infinity;
+}
+
+Instruction math_arithmetic(FunctionBody& body, const Instruction& call, GuardedMath operation)
+{
+	const Value x = body.operands[call.extra_first];
+	if (operation == GuardedMath::Sqrt)
+	{
+		Instruction root = make_instruction(Opcode::Unary, call.type);
+		root.sub = static_cast<uint8_t>(UnaryOp::Sqrt);
+		root.ops[0] = x;
+		return root;
+	}
+	Instruction power = make_instruction(Opcode::Binary, call.type);
+	power.ops[1] = x;
+	const bool divide = operation == GuardedMath::Reciprocal;
+	power.sub = static_cast<uint8_t>(divide ? BinaryOp::Div : BinaryOp::Mul);
+	power.ops[0] = divide ? phi_input(body, call.type, integer_value(body, integer_literal(1))) : x;
+	return power;
+}
+
 // `sqrt(x)` differs from the instruction only where it sets `errno`, for a
 // negative `x`. The instruction runs always; the call stays on that path alone,
 // out of the way of the loop around it. An `x` that cannot be negative takes
@@ -288,19 +372,30 @@ namespace {
 const unsigned kSignDepth = 6;
 const unsigned kSignDominators = 8;
 
-class SqrtGuards
+class MathGuards
 {
 public:
-	explicit SqrtGuards(FunctionContext& context) : c_(context), body_(context.body), cfg_(context.cfg) {}
+	explicit MathGuards(FunctionContext& context) : c_(context), body_(context.body), cfg_(context.cfg) {}
 
 	bool run();
 
 private:
-	bool guarded(InstId call) const;
+	struct Site
+	{
+		BlockId block;
+		InstId id;
+		GuardedMath op;
+	};
+
+	GuardedMath operation(InstId call) const;
 	bool never_negative(Value x, Type type, unsigned depth) const;
 	bool not_negative_literal(Value v, Type type) const;
 	bool tested_not_negative(BlockId block, Value x) const;
-	void guard(BlockId block, InstId before, InstId call, BlockId& rest);
+	Value emit(BlockId block, InstId& at, Instruction inst, Type result, uint32_t location);
+	Value power_needs_libm(BlockId block, InstId& at, const Instruction& call, GuardedMath operation);
+	BlockId guard(BlockId block, InstId before, InstId call, GuardedMath operation, std::vector<BlockId>& layout,
+		std::vector<BlockId>& slow_blocks);
+	void insert_guards(const std::vector<Site>& sites);
 
 	FunctionContext& c_;
 	FunctionBody& body_;
@@ -308,7 +403,7 @@ private:
 };
 
 // Whether v is a literal neither negative nor NaN, read as `type`.
-bool SqrtGuards::not_negative_literal(Value v, Type type) const
+bool MathGuards::not_negative_literal(Value v, Type type) const
 {
 	Constant k, ge;
 	return literal_constant(body_, v, k) &&
@@ -318,7 +413,7 @@ bool SqrtGuards::not_negative_literal(Value v, Type type) const
 }
 
 // Whether x < 0 is false for every value x may hold (x may be NaN or -0).
-bool SqrtGuards::never_negative(Value x, Type type, unsigned depth) const
+bool MathGuards::never_negative(Value x, Type type, unsigned depth) const
 {
 	if (x.is_literal())
 		return not_negative_literal(x, type);
@@ -369,7 +464,7 @@ bool SqrtGuards::never_negative(Value x, Type type, unsigned depth) const
 // Whether a block dominating `block`, entered only from a branch, is on the
 // side of a compare of x with a non-negative literal k where x >= k, x > k,
 // !(x < k) or !(x <= k) holds.
-bool SqrtGuards::tested_not_negative(BlockId block, Value x) const
+bool MathGuards::tested_not_negative(BlockId block, Value x) const
 {
 	BlockId d = block;
 	for (unsigned up = 0; up < kSignDominators && d != kNoId; ++up, d = cfg_.idom[d])
@@ -404,80 +499,126 @@ bool SqrtGuards::tested_not_negative(BlockId block, Value x) const
 	return false;
 }
 
-bool SqrtGuards::guarded(InstId id) const
+GuardedMath MathGuards::operation(InstId id) const
 {
 	const Instruction& call = body_.instructions[id];
 	if (call.op != Opcode::Call || (call.flags & IF_SIGNATURE) != 0 || !call.ops[0].is(ValueKind::Symbol) ||
-		call.result == kNoId || call.extra_count != 1 ||
-		c_.program.math_function(call.ops[0].index) != MathFunction::Sqrt)
-		return false;
+		call.result == kNoId || call.extra_count == 0 || call.extra_count > 2)
+		return GuardedMath::None;
+	const MathFunction function = c_.program.math_function(call.ops[0].index);
+	if (function != MathFunction::Sqrt && function != MathFunction::Pow)
+		return GuardedMath::None;
 	const TypeKind kind = call.type.kind();
 	const Value x = body_.operands[call.extra_first];
-	return (kind == TypeKind::F32 || kind == TypeKind::F64) && x.is(ValueKind::Temp) &&
-		body_.temps[x.index].type == call.type;
+	if ((kind != TypeKind::F32 && kind != TypeKind::F64) || !x.is(ValueKind::Temp) ||
+		body_.temps[x.index].type != call.type)
+		return GuardedMath::None;
+	if (function == MathFunction::Sqrt)
+		return call.extra_count == 1 ? GuardedMath::Sqrt : GuardedMath::None;
+	double exponent;
+	return call.extra_count == 2 && power_exponent(body_, call, exponent) ? power_operation(exponent)
+																		  : GuardedMath::None;
 }
 
-// `block` ends at a branch on the sign of the operand, and `rest` holds what
-// followed the call, starting with a phi of the two results under the call's
-// own name.
-void SqrtGuards::guard(BlockId block, InstId before, InstId id, BlockId& rest)
+Value MathGuards::emit(BlockId block, InstId& at, Instruction inst, Type result, uint32_t location)
+{
+	inst.location = location;
+	const InstId id = append_instruction(body_, inst);
+	const TempId temp = result.is_void() ? kNoId : append_temp(body_, result, id);
+	body_.instructions[id].result = temp;
+	insert_after(body_, block, at, id);
+	at = id;
+	return Value::temp(temp);
+}
+
+Value MathGuards::power_needs_libm(BlockId block, InstId& at, const Instruction& call, GuardedMath operation)
+{
+	const TypeKind kind = call.type.kind();
+	const PowerRange range = power_range(kind, operation);
+	const Type word = Type::scalar(kind == TypeKind::F32 ? TypeKind::U32 : TypeKind::I64);
+	Instruction cast = make_instruction(Opcode::Copy, word);
+	cast.ops[0] = body_.operands[call.extra_first];
+	const Value bits = emit(block, at, cast, word, call.location);
+	Instruction mask = make_instruction(Opcode::Binary, word);
+	mask.sub = static_cast<uint8_t>(BinaryOp::And);
+	mask.ops[0] = bits;
+	mask.ops[1] = integer_value(body_, integer_literal(range.mask));
+	const Value magnitude = emit(block, at, mask, word, call.location);
+	// An unsigned subtraction also excludes inputs below the lower bound.
+	Instruction offset = make_instruction(Opcode::Binary, word);
+	offset.sub = static_cast<uint8_t>(BinaryOp::Sub);
+	offset.ops[0] = magnitude;
+	offset.ops[1] = integer_value(body_, integer_literal(range.low));
+	const Value distance = emit(block, at, offset, word, call.location);
+	Instruction bad = make_instruction(Opcode::Compare, word);
+	bad.sub = static_cast<uint8_t>(ComparePredicate::Uge);
+	bad.ops[0] = distance;
+	bad.ops[1] = integer_value(body_, integer_literal(range.high - range.low));
+	return emit(block, at, bad, Type::scalar(TypeKind::I64), call.location);
+}
+
+// Keep the original result name on the join of the arithmetic and libm paths.
+BlockId MathGuards::guard(BlockId block, InstId before, InstId id, GuardedMath operation, std::vector<BlockId>& layout,
+	std::vector<BlockId>& slow_blocks)
 {
 	const Instruction call = body_.instructions[id];
-	const Value x = body_.operands[call.extra_first];
 	const Type type = call.type;
-	rest = append_block(body_, BlockKind::Split);
+	const Type void_type = Type::scalar(TypeKind::Void);
+	const BlockId rest = append_block(body_, BlockKind::Split);
 	const BlockId slow = append_block(body_, BlockKind::Split);
-	// What follows the call moves, and the successors' phis with it.
-	const InstId last = body_.blocks[block].last;
-	const InstId moved = call.next;
-	body_.blocks[rest].first = moved;
-	body_.blocks[rest].last = last;
-	for_each_successor(
-		body_, body_.instructions[last], [&](BlockId& target) { rename_phi_incoming(body_, target, block, rest); });
-	InstId at = before;
-	auto emit = [&](BlockId b, InstId& after, Instruction inst, Type result) {
-		inst.location = call.location;
-		const InstId made = append_instruction(body_, inst);
-		const TempId temp = result.kind() == TypeKind::Void ? kNoId : append_temp(body_, result, made);
-		body_.instructions[made].result = temp;
-		insert_after(body_, b, after, made);
-		after = made;
-		return Value::temp(temp);
-	};
-	// The call leaves `block` with what followed it.
+	const bool square_root = operation == GuardedMath::Sqrt;
+	const BlockId fast_block = square_root ? block : append_block(body_, BlockKind::Split);
+
+	body_.blocks[rest].first = call.next;
+	body_.blocks[rest].last = body_.blocks[block].last;
 	body_.blocks[block].last = before;
 	if (before == kNoId)
 		body_.blocks[block].first = kNoId;
 	else
 		body_.instructions[before].next = kNoId;
-	Instruction root = make_instruction(Opcode::Unary, type);
-	root.sub = static_cast<uint8_t>(UnaryOp::Sqrt);
-	root.ops[0] = x;
-	const Value fast = emit(block, at, root, type);
-	Instruction below = make_instruction(Opcode::Compare, type);
-	below.sub = static_cast<uint8_t>(ComparePredicate::Lt);
-	below.ops[0] = x;
-	below.ops[1] = phi_input(body_, type, integer_value(body_, integer_literal(0)));
-	const Value negative = emit(block, at, below, Type::scalar(TypeKind::I64));
-	Instruction branch = make_instruction(Opcode::Branch, Type::scalar(TypeKind::Void));
+
+	InstId at = before;
+	InstId fast_at = kNoId;
+	const Value fast = emit(
+		fast_block, square_root ? at : fast_at, math_arithmetic(body_, call, operation), type, call.location);
+	Value bad;
+	if (square_root)
+	{
+		Instruction below = make_instruction(Opcode::Compare, type);
+		below.sub = static_cast<uint8_t>(ComparePredicate::Lt);
+		below.ops[0] = body_.operands[call.extra_first];
+		below.ops[1] = phi_input(body_, type, integer_value(body_, integer_literal(0)));
+		bad = emit(block, at, below, Type::scalar(TypeKind::I64), call.location);
+	}
+	else
+		bad = power_needs_libm(block, at, call, operation);
+
+	Instruction branch = make_instruction(Opcode::Branch, void_type);
 	if (target_model::is_aarch64(c_.program.target))
 		branch.sub = static_cast<uint8_t>(BranchPrediction::Unlikely);
-	branch.ops[0] = negative;
+	branch.ops[0] = bad;
 	branch.ops[1] = Value::block(slow);
-	branch.ops[2] = Value::block(rest);
-	emit(block, at, branch, Type::scalar(TypeKind::Void));
-	// The call, under a new name, and its way back.
+	branch.ops[2] = Value::block(square_root ? rest : fast_block);
+	emit(block, at, branch, void_type, call.location);
+
+	Instruction back = make_instruction(Opcode::Jump, void_type);
+	back.ops[0] = Value::block(rest);
 	const TempId result = call.result;
 	const TempId slow_result = append_temp(body_, type, id);
 	body_.instructions[id].next = kNoId;
 	body_.instructions[id].result = slow_result;
-	InstId tail = kNoId;
-	insert_after(body_, slow, tail, id);
-	tail = id;
-	Instruction back = make_instruction(Opcode::Jump, Type::scalar(TypeKind::Void));
-	back.ops[0] = Value::block(rest);
-	emit(slow, tail, back, Type::scalar(TypeKind::Void));
-	const Value pairs[4] = { Value::block(block), fast, Value::block(slow), Value::temp(slow_result) };
+	insert_after(body_, slow, kNoId, id);
+	InstId tail = id;
+	emit(slow, tail, back, void_type, call.location);
+	if (!square_root)
+	{
+		emit(fast_block, fast_at, back, void_type, call.location);
+		layout.push_back(fast_block);
+	}
+	layout.push_back(rest);
+	slow_blocks.push_back(slow);
+
+	const Value pairs[4] = { Value::block(fast_block), fast, Value::block(slow), Value::temp(slow_result) };
 	Instruction phi = make_instruction(Opcode::Phi, type);
 	phi.extra_first = append_operands(body_, pairs, 4);
 	phi.extra_count = 4;
@@ -486,41 +627,68 @@ void SqrtGuards::guard(BlockId block, InstId before, InstId id, BlockId& rest)
 	const InstId merge = append_instruction(body_, phi);
 	body_.temps[result].def = merge;
 	insert_after(body_, rest, kNoId, merge);
-	// In the layout, what follows the call stays where it was and the call
-	// goes last.
-	std::vector<BlockId> layout;
-	layout.reserve(body_.layout.size() + 2);
-	for (BlockId b : body_.layout)
+	return rest;
+}
+
+// Split each original block in one walk and transfer its outgoing phi
+// edges once, even when it contains several library calls.
+void MathGuards::insert_guards(const std::vector<Site>& sites)
+{
+	std::vector<BlockId> layout, slow_blocks;
+	layout.reserve(body_.layout.size() + 2 * sites.size());
+	slow_blocks.reserve(sites.size());
+	size_t next = 0;
+	for (BlockId original : body_.layout)
 	{
-		layout.push_back(b);
-		if (b == block)
-			layout.push_back(rest);
+		layout.push_back(original);
+		BlockId block = original;
+		InstId before = kNoId;
+		InstId i = body_.blocks[block].first;
+		while (next < sites.size() && sites[next].block == original && i != kNoId)
+		{
+			if (i == sites[next].id)
+			{
+				block = guard(block, before, i, sites[next++].op, layout, slow_blocks);
+				before = kNoId;
+				i = body_.blocks[block].first;
+			}
+			else
+			{
+				before = i;
+				i = body_.instructions[i].next;
+			}
+		}
+		if (block != original)
+		{
+			const InstId last = body_.blocks[block].last;
+			for_each_successor(body_, body_.instructions[last],
+				[&](BlockId& target) { rename_phi_incoming(body_, target, original, block); });
+		}
 	}
-	layout.push_back(slow);
+	layout.insert(layout.end(), slow_blocks.begin(), slow_blocks.end());
 	body_.layout.swap(layout);
 }
 
-bool SqrtGuards::run()
+bool MathGuards::run()
 {
 	bool changed = false;
-	// (The blocks of the calls gather past `end`. The CFG is built at the
-	// first call and again after each guard: it stays current.)
-	size_t end = body_.layout.size();
-	for (size_t at = 0; at < end; ++at)
-	{
-		const BlockId block = body_.layout[at];
-		InstId before = kNoId;
-		for (InstId i = body_.blocks[block].first; i != kNoId; before = i, i = body_.instructions[i].next)
-			if (guarded(i))
+	std::vector<Site> sites;
+	for (BlockId block : body_.layout)
+		for (InstId i = body_.blocks[block].first; i != kNoId; i = body_.instructions[i].next)
+		{
+			const GuardedMath op = operation(i);
+			if (op == GuardedMath::None)
+				continue;
+			if (op == GuardedMath::Sqrt)
 			{
 				c_.ensure_cfg();
-				const Value x = body_.operands[body_.instructions[i].extra_first];
-				if (never_negative(x, body_.instructions[i].type, 0) || tested_not_negative(block, x))
+				Instruction& call = body_.instructions[i];
+				const Value x = body_.operands[call.extra_first];
+				if (never_negative(x, call.type, 0) || tested_not_negative(block, x))
 				{
-					// The instruction alone.
-					Instruction& call = body_.instructions[i];
-					call.op = Opcode::Unary;
-					call.sub = static_cast<uint8_t>(UnaryOp::Sqrt);
+					const Instruction root = math_arithmetic(body_, call, op);
+					call.op = root.op;
+					call.sub = root.sub;
 					call.ops[0] = x;
 					call.ops[1] = call.ops[2] = Value::none();
 					call.extra_first = call.extra_count = 0;
@@ -528,17 +696,16 @@ bool SqrtGuards::run()
 					changed = true;
 					continue;
 				}
-				BlockId rest;
-				guard(block, before, i, rest);
-				++end;
-				changed = true;
-				c_.invalidate_cfg();
-				c_.ensure_cfg();
-				break; // (`rest` comes next in the layout)
 			}
-	}
-	if (changed)
+			sites.push_back(Site{ block, i, op });
+		}
+	if (!sites.empty())
+	{
+		insert_guards(sites);
+		c_.invalidate_cfg();
 		c_.invalidate_block_of();
+		changed = true;
+	}
 	return changed;
 }
 
@@ -575,9 +742,8 @@ bool nonnegative(const FunctionBody& body, Value v, unsigned depth)
 
 } // namespace
 
-// fabs is the sign bit cleared, abs a selected negation. pow of a literal
-// exponent 2, 1, 0 or -1 is x * x, x, 1 or 1 / x, as GCC folds it (no errno
-// either). sqrt of a value that cannot be negative is the instruction.
+// Fold simple library calls when arithmetic preserves their error behavior.
+// Power calls with an uncertain range are candidates for guarded arithmetic.
 bool simplify_math_call(FunctionContext& context, BlockId block, InstId& prev, InstId id)
 {
 	FunctionBody& body = context.body;
@@ -642,32 +808,15 @@ bool simplify_math_call(FunctionContext& context, BlockId block, InstId& prev, I
 	}
 	case MathFunction::Pow:
 	{
-		Constant e;
-		if (!literal_constant(body, body.operands[call.extra_first + 1], e) || e.kind != ValueKind::Float ||
-			e.float_kind != kind)
-			return false;
 		double exponent;
-		if (kind == TypeKind::F64)
-			std::memcpy(&exponent, &e.bits.low, 8);
-		else
+		if (!power_exponent(body, call, exponent))
+			return false;
+		const GuardedMath operation = power_operation(exponent);
+		if (operation != GuardedMath::None)
 		{
-			float narrow;
-			const uint32_t raw = static_cast<uint32_t>(e.bits.low);
-			std::memcpy(&narrow, &raw, 4);
-			exponent = narrow;
-		}
-		if (exponent == 2)
-		{
-			last = make_instruction(Opcode::Binary, type);
-			last.sub = static_cast<uint8_t>(BinaryOp::Mul);
-			last.ops[0] = last.ops[1] = x;
-		}
-		else if (exponent == -1)
-		{
-			last = make_instruction(Opcode::Binary, type);
-			last.sub = static_cast<uint8_t>(BinaryOp::Div);
-			last.ops[0] = phi_input(body, type, integer_value(body, integer_literal(1)));
-			last.ops[1] = x;
+			if (!power_literal_is_safe(body, x, kind, operation))
+				return false;
+			last = math_arithmetic(body, call, operation);
 		}
 		else if (exponent == 0)
 			last.ops[0] = phi_input(body, type, integer_value(body, integer_literal(1)));
@@ -697,9 +846,9 @@ bool simplify_math_call(FunctionContext& context, BlockId block, InstId& prev, I
 	return true;
 }
 
-bool guard_sqrt_calls(FunctionContext& context)
+bool guard_library_math_calls(FunctionContext& context)
 {
-	SqrtGuards pass(context);
+	MathGuards pass(context);
 	return pass.run();
 }
 

@@ -361,9 +361,9 @@ bool combine_sin_cos(FunctionContext& context);
 // ends at the last of them). Value simplification calls it
 // (opt/math_calls.cpp).
 bool simplify_math_call(FunctionContext& context, lowir::BlockId block, lowir::InstId& prev, lowir::InstId id);
-// O2+: a `sqrt` of what may be negative becomes the instruction, with the call
-// on the path of a negative operand (opt/math_calls.cpp).
-bool guard_sqrt_calls(FunctionContext& context);
+// O2+: use instructions for safe square roots and fixed powers, retaining
+// the library call where it can report an error (opt/math_calls.cpp).
+bool guard_library_math_calls(FunctionContext& context);
 
 // Fill loops of a run-time value whose bytes repeat call memset for long
 // runs (O2+, after all inlining: opt/loop_passes.cpp).

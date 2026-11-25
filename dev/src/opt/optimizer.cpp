@@ -757,7 +757,7 @@ void finish_function(Program& program, SymbolId symbol, OptimizerStats& stats, c
 	if (changed)
 		RUN_PASS(remove_dead_code);
 	changed = (options.has_gnu_sincos && RUN_PASS(combine_sin_cos)) || changed;
-	changed = (options.level >= 2 && !options.minimize_size && RUN_PASS(guard_sqrt_calls)) || changed;
+	changed = (options.level >= 2 && !options.minimize_size && RUN_PASS(guard_library_math_calls)) || changed;
 	// i128 values as halves once the inliner has sized its callees whole
 	// (a variable shift is a dozen i64 instructions): the halves' slots
 	// promoted and a round over what that exposes.

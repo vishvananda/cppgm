@@ -508,6 +508,10 @@ pass:
   When merging trigonometric calls, preserve the error each call can
   set if a store or another call may change the error number between
   them. Check every path through a control-flow join.
+  For a fixed-exponent `pow` or `powf`, prove that the replacement arithmetic
+  preserves the required error behavior, or leave a library call for inputs
+  that can raise a range or pole error. Evaluate the arithmetic only on a
+  path where it is safe.
 - A write fully replaced through the same address before any possible read
   need not reach memory. Address identity can prove this even when an array
   index is dynamic. Preserve alias reads, volatile and atomic accesses,
