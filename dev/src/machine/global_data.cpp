@@ -1,5 +1,6 @@
 #include "machine/global_data.h"
 
+#include <algorithm>
 #include <cstring>
 #include <unordered_map>
 
@@ -92,7 +93,7 @@ void write_constant(uint8_t* out, Type type, const lowir::Constant& c)
 
 Type item_type(const lowir::Program& program, const lowir::DataItem& item)
 {
-	return item.kind == lowir::DataItemKind::Address ? program.pointer_type() : item.type;
+	return item.has_address() ? program.pointer_type() : item.type;
 }
 
 // Whether a constant stored as `type` has only zero bytes.
@@ -132,11 +133,12 @@ uint64_t global_size(const lowir::Program& program, const lowir::Global& g, uint
 			size += static_cast<uint64_t>(item.amount);
 			continue;
 		}
-		const uint32_t a = item_align(item_type(program, item));
+		const Type type = item_type(program, item);
+		const uint32_t a = std::min<uint64_t>(16, item.placement_alignment(type));
 		typed = true;
 		if (a > align)
 			align = a;
-		size = ((size + a - 1) & ~static_cast<uint64_t>(a - 1)) + lowir::storage_bytes(item_type(program, item));
+		size = ((size + a - 1) & ~static_cast<uint64_t>(a - 1)) + lowir::storage_bytes(type);
 	}
 	if (g.typed)
 	{
@@ -173,9 +175,9 @@ void write_global(const lowir::Program& program, const lowir::Global& g, std::ve
 			continue;
 		}
 		const Type type = item_type(program, item);
-		const uint32_t a = item_align(type);
+		const uint32_t a = std::min<uint64_t>(16, item.placement_alignment(type));
 		at = (at + a - 1) & ~static_cast<uint64_t>(a - 1);
-		if (item.kind == lowir::DataItemKind::Address)
+		if (item.has_address())
 			addresses.push_back(GlobalAddress{ at, item.address, item.amount });
 		else
 			write_constant(out.data() + base + at, type, item.constant);
@@ -195,7 +197,7 @@ bool global_is_zero(const lowir::Program& program, const lowir::Global& g)
 		for (uint32_t i = 0; i < g.item_count; ++i)
 		{
 			const lowir::DataItem& item = program.data_items[g.first_item + i];
-			if (item.kind == lowir::DataItemKind::Address ||
+			if (item.has_address() ||
 				(item.kind == lowir::DataItemKind::Scalar && !constant_is_zero(item.type, item.constant)))
 				return false;
 		}
@@ -212,7 +214,7 @@ bool global_has_addresses(const lowir::Program& program, const lowir::Global& g)
 	if (g.init != lowir::GlobalInit::Data)
 		return false;
 	for (uint32_t i = 0; i < g.item_count; ++i)
-		if (program.data_items[g.first_item + i].kind == lowir::DataItemKind::Address)
+		if (program.data_items[g.first_item + i].has_address())
 			return true;
 	return false;
 }

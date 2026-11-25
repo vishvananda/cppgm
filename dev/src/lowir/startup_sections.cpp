@@ -50,7 +50,7 @@ bool startup_functions(const Program& program, std::vector<StartupFunction>& out
 			for (uint32_t i = 0; i < global.item_count; ++i)
 			{
 				const DataItem& item = program.data_items[global.first_item + i];
-				if (item.kind != DataItemKind::Address)
+				if (!item.has_address())
 				{
 					error = invalid_table;
 					return false;

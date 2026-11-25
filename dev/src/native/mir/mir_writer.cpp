@@ -556,9 +556,14 @@ void MirWriter::global(lowir::SymbolId sym)
 				text_ += "zero ";
 				append_int(text_, item.amount);
 			}
-			else if (item.kind == lowir::DataItemKind::Address)
+			else if (item.has_address())
 			{
 				text_ += "ptr addr ";
+				if (item.kind == lowir::DataItemKind::UnalignedAddress)
+				{
+					text_ += lowir_model::spelling(lowir_model::Keyword::Unaligned);
+					text_ += ' ';
+				}
 				symbol(item.address);
 				if (item.amount != 0)
 				{

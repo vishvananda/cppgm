@@ -435,7 +435,7 @@ void Parser::parse_global_data(Global& global)
 			item.type = parse_type();
 			if (item.type.is_pointer() && accept_word(WordClass::Opcode, static_cast<unsigned>(Opcode::Addr)))
 			{
-				item.kind = DataItemKind::Address;
+				item.kind = accept_keyword(Keyword::Unaligned) ? DataItemKind::UnalignedAddress : DataItemKind::Address;
 				item.address = reference_symbol(expect_name(TokenKind::Global, "address target"));
 				if (at(TokenKind::Plus) || at(TokenKind::Minus))
 				{

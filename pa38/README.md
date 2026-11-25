@@ -357,6 +357,9 @@ The first fixture set covers these parts of the C17 input profile:
   For a nonzero-width field whose explicit alignment exceeds
   `#pragma pack`, Linux caps the position alignment at the pack limit.
   Darwin and Wasm use ordinary packed placement for that field.
+- Preserve the byte offset of an address initializer in a packed record,
+  including an address cast to a pointer-width integer and an address with
+  a nonzero addend. Keep the record's layout when its elements form an array.
 - With `-fms-anonymous-structs` or `-fms-extensions`, a record member
   declaration without a declarator can use a complete named struct or
   union, including through a typedef. Give each declaration its own

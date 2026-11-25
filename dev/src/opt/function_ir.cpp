@@ -1112,7 +1112,7 @@ void find_unwritten_globals(
 			for (uint32_t k = 0; k < g.item_count; ++k)
 			{
 				const DataItem& item = program.data_items[g.first_item + k];
-				if (item.kind == DataItemKind::Address && item.address < symbols && item.address != s)
+				if (item.has_address() && item.address < symbols && item.address != s)
 					unwritten[item.address] = 0;
 			}
 	}
@@ -1295,7 +1295,7 @@ void find_sealed_globals(const Program& program, std::vector<uint8_t>& sealed)
 			for (uint32_t k = 0; k < g.item_count; ++k)
 			{
 				const DataItem& item = program.data_items[g.first_item + k];
-				if (item.kind == DataItemKind::Address && item.address < symbols)
+				if (item.has_address() && item.address < symbols)
 					sealed[item.address] = 0;
 			}
 	}
@@ -1379,9 +1379,9 @@ void find_sealed_globals(const Program& program, std::vector<uint8_t>& sealed)
 		sealed.clear();
 }
 
-static uint64_t data_item_start(uint64_t cursor, uint64_t bytes)
+static uint64_t data_item_start(uint64_t cursor, uint64_t alignment)
 {
-	const uint64_t align = bytes >= 16 ? 16 : bytes == 0 ? 1 : bytes;
+	const uint64_t align = std::min<uint64_t>(16, alignment);
 	return (cursor + align - 1) & ~(align - 1);
 }
 
@@ -1406,9 +1406,8 @@ static uint32_t seek_data_item(const Program& program, const Global& global, uin
 				cursor += static_cast<uint64_t>(item.amount);
 			else
 			{
-				const uint64_t bytes = storage_bytes(
-					item.kind == DataItemKind::Address ? program.pointer_type() : item.type);
-				cursor = data_item_start(cursor, bytes) + bytes;
+				const Type type = item.has_address() ? program.pointer_type() : item.type;
+				cursor = data_item_start(cursor, item.placement_alignment(type)) + storage_bytes(type);
 			}
 		}
 	}
@@ -1445,12 +1444,12 @@ bool read_readonly_address(const Program& program, SymbolId symbol, int64_t offs
 			at += static_cast<uint64_t>(item.amount);
 			continue;
 		}
-		const Type t = item.kind == DataItemKind::Address ? program.pointer_type() : item.type;
+		const Type t = item.has_address() ? program.pointer_type() : item.type;
 		const uint64_t bytes = storage_bytes(t);
-		at = data_item_start(at, bytes);
+		at = data_item_start(at, item.placement_alignment(t));
 		if (want == at)
 		{
-			if (item.kind != DataItemKind::Address || (item.amount != 0 && addend == nullptr) ||
+			if (!item.has_address() || (item.amount != 0 && addend == nullptr) ||
 				item.address >= program.symbols.size())
 				return false;
 			target = item.address;
@@ -1515,9 +1514,9 @@ bool read_readonly_scalar(const Program& program, SymbolId symbol, int64_t offse
 			at = end;
 			continue;
 		}
-		const Type t = item.kind == DataItemKind::Address ? program.pointer_type() : item.type;
+		const Type t = item.has_address() ? program.pointer_type() : item.type;
 		const uint64_t bytes = storage_bytes(t);
-		at = data_item_start(at, bytes);
+		at = data_item_start(at, item.placement_alignment(t));
 		if (want < at + bytes && want + size > at)
 		{
 			if (!item_bytes_known(item) || t.is_pointer())

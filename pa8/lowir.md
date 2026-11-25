@@ -727,8 +727,14 @@ Where each `<data-item>` is one of:
 ```text
 <type> <scalar-literal>
 ptr addr @symbol
+ptr addr unaligned @symbol
 zero <bytes>
 ```
+
+`ptr addr unaligned` places the address of `@symbol` at the current byte
+position. The item occupies the target pointer width and contributes alignment
+one. Use it when a packed aggregate places a pointer relocation between its
+otherwise naturally aligned positions.
 
 Examples:
 

@@ -116,7 +116,7 @@ private:
 	void parameters(const Signature& signature, bool definition = false);
 	void argument_facts(const Instruction& inst, bool& open);
 	void constant(const Constant& c, TypeKind context);
-	void address(SymbolId target, int64_t addend);
+	void address(SymbolId target, int64_t addend, bool unaligned = false);
 	void location(const DebugLocation& location);
 	void global_declaration(const Symbol& symbol);
 	void function_declaration(const Symbol& symbol);
@@ -384,9 +384,11 @@ void Writer::constant(const Constant& c, TypeKind context)
 		append_integer_literal(out_, c.bits, context);
 }
 
-void Writer::address(SymbolId target, int64_t addend)
+void Writer::address(SymbolId target, int64_t addend, bool unaligned)
 {
 	head(Opcode::Addr);
+	if (unaligned)
+		word(spelling(Keyword::Unaligned));
 	symbol(target);
 	if (addend > 0)
 	{
@@ -658,8 +660,8 @@ void Writer::global_definition(const Symbol& symbol)
 		{
 			type(data.type);
 			out_.push_back(' ');
-			if (data.kind == DataItemKind::Address)
-				address(data.address, data.amount);
+			if (data.has_address())
+				address(data.address, data.amount, data.kind == DataItemKind::UnalignedAddress);
 			else
 				constant(data.constant, data.type.kind());
 		}

@@ -47,7 +47,7 @@ void canonicalize_object_aliases(lowir::Program& program)
 			for (uint32_t i = 0; global.init == GlobalInit::Data && i < global.item_count; ++i)
 			{
 				auto& item = program.data_items[global.first_item + i];
-				if (item.kind == DataItemKind::Address && targets[item.address] != kNoId)
+				if (item.has_address() && targets[item.address] != kNoId)
 					item.address = targets[item.address];
 			}
 		}

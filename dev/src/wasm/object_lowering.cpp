@@ -118,7 +118,7 @@ void discard_unused_local_declarations(lowir::Program& program)
 			for (uint32_t j = 0; global.init == GlobalInit::Data && j < global.item_count; ++j)
 			{
 				const DataItem& item = program.data_items[global.first_item + j];
-				if (item.kind == DataItemKind::Address)
+				if (item.has_address())
 					used[item.address] = 1;
 			}
 		}

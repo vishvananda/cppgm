@@ -220,6 +220,12 @@ struct DataItem
 	SymbolId address;
 	// The address addend or the byte count of `zero`.
 	int64_t amount;
+
+	bool has_address() const { return kind == DataItemKind::Address || kind == DataItemKind::UnalignedAddress; }
+	uint64_t placement_alignment(Type storage) const
+	{
+		return kind == DataItemKind::UnalignedAddress || kind == DataItemKind::Zero ? 1 : data_alignment(storage);
+	}
 };
 
 struct Global

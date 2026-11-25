@@ -678,7 +678,7 @@ void ObjectCompiler::prune_functions()
 			for (uint32_t k = 0; k < global.item_count; ++k)
 			{
 				const lowir::DataItem& item = program_.data_items[global.first_item + k];
-				if (item.kind == lowir::DataItemKind::Address)
+				if (item.has_address())
 					reach(item.address);
 			}
 	}

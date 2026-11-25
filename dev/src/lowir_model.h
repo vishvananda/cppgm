@@ -1111,16 +1111,18 @@ enum class Keyword : std::uint8_t
 	ExceptionAbi,     // target header exception_abi=<protocol>
 	Import,           // import @function "module" "field"
 	Export,           // export @function "field"
-	Tail              // call tail void ...
+	Tail,             // call tail void ...
+	Unaligned         // ptr addr unaligned @symbol in structured data
 };
 
-const unsigned kKeywordCount = static_cast<unsigned>(Keyword::Tail) + 1;
+const unsigned kKeywordCount = static_cast<unsigned>(Keyword::Unaligned) + 1;
 
 inline const char* spelling(Keyword keyword)
 {
 	static const char* const kKeywords[kKeywordCount] = { "declare", "global", "function", "alias", "object", "slot",
 		"block", "zero", "as", "debug_type", "debug_scope", "debug_local", "assembly", "equivalent_entry",
-		"assembly_function", "assembly_global", "code_label", "target", "exception_abi", "import", "export", "tail" };
+		"assembly_function", "assembly_global", "code_label", "target", "exception_abi", "import", "export", "tail",
+		"unaligned" };
 	return kKeywords[static_cast<unsigned>(keyword)];
 }
 
@@ -1141,12 +1143,13 @@ enum class GlobalInit : std::uint8_t
 };
 
 // A structured global's data item: `<type> <constant>`, `ptr addr @symbol
-// [+ n]`, `zero <bytes>`.
+// [+ n]`, `ptr addr unaligned @symbol [+ n]`, `zero <bytes>`.
 enum class DataItemKind : std::uint8_t
 {
 	Scalar,
 	Address,
-	Zero
+	Zero,
+	UnalignedAddress
 };
 
 } // namespace lowir_model

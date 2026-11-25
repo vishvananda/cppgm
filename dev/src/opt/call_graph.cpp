@@ -28,7 +28,7 @@ void mark_initializer(const Program& program, const Symbol& symbol, const Mark& 
 		for (uint32_t k = 0; k < global.item_count; ++k)
 		{
 			const DataItem& item = program.data_items[global.first_item + k];
-			if (item.kind == DataItemKind::Address)
+			if (item.has_address())
 				mark(item.address);
 		}
 }

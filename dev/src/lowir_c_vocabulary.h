@@ -414,7 +414,8 @@ enum CppgmDataItemKind
 {
 	CPPGM_DATA_SCALAR = 0,
 	CPPGM_DATA_ADDRESS = 1,
-	CPPGM_DATA_ZERO = 2
+	CPPGM_DATA_ZERO = 2,
+	CPPGM_DATA_UNALIGNED_ADDRESS = 3
 };
 
 enum CppgmSymbolRole

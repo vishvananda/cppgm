@@ -140,12 +140,16 @@ bool CppgmLowir::global(uint32_t id, CppgmType bits, uint32_t binding, uint32_t 
 		const CppgmDataItem& input = items[i];
 		CppgmType item_type = input.type;
 		resolve_record(item_type);
-		if (input.kind > 2 || !valid_type(item_type, program.target) ||
-			(input.kind == 1 && input.symbol >= program.symbols.size()) || (input.kind == 2 && input.amount < 0))
+		if (input.kind > static_cast<uint32_t>(lowir::DataItemKind::UnalignedAddress) ||
+			!valid_type(item_type, program.target))
 			return fail("invalid global data item");
 		lowir::DataItem item = {};
 		item.kind = static_cast<lowir::DataItemKind>(input.kind);
 		item.type = type(item_type);
+		if ((item.has_address() && input.symbol >= program.symbols.size()) ||
+			(item.kind == lowir::DataItemKind::Zero && input.amount < 0) ||
+			(item.kind == lowir::DataItemKind::UnalignedAddress && !item.type.is_pointer()))
+			return fail("invalid global data item");
 		item.constant.kind = item.type.is_float() ? lowir::ValueKind::Float : lowir::ValueKind::Integer;
 		item.constant.float_kind = item.type.is_float() ? item.type.kind() : lowir::TypeKind::Void;
 		item.constant.bits = lowir::Literal{ input.bits.low, input.bits.high };

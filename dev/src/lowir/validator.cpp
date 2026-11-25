@@ -627,7 +627,7 @@ bool Validator::check_links()
 		for (uint32_t i = 0; global.init == GlobalInit::Data && i < global.item_count; ++i)
 		{
 			const DataItem& item = program_.data_items[global.first_item + i];
-			if (item.kind == DataItemKind::Address && item.address >= symbols)
+			if (item.has_address() && item.address >= symbols)
 				return fail("invalid global initializer", symbol.name);
 		}
 	}
@@ -687,7 +687,7 @@ bool Validator::check_target_types()
 		if (global.typed && !valid(global.type))
 			return fail("pointer global and target layout differ");
 	for (const DataItem& item : program_.data_items)
-		if ((item.kind == DataItemKind::Scalar || item.kind == DataItemKind::Address) && !valid(item.type))
+		if ((item.kind == DataItemKind::Scalar || item.has_address()) && !valid(item.type))
 			return fail("pointer data and target layout differ");
 	for (const Function& function : program_.functions)
 	{

@@ -363,7 +363,7 @@ ProgramLowering::StaticOutcome ProgramLowering::static_global(lowir::SymbolId sy
 		{
 			lowir::DataItem item;
 			static_item(type, value, item);
-			if (item.kind == lowir::DataItemKind::Address)
+			if (item.has_address())
 			{
 				global.init = lowir::GlobalInit::Address;
 				global.address = item.address;
@@ -506,9 +506,9 @@ void ProgramLowering::state_storage_type(lowir::Global& global, uint64_t size, u
 	for (uint32_t i = 0; i < global.item_count; ++i)
 	{
 		const lowir::DataItem& item = program_.data_items[global.first_item + i];
-		if (item.kind == lowir::DataItemKind::Scalar || item.kind == lowir::DataItemKind::Address)
-			implied = std::max<uint64_t>(implied,
-				lowir::data_alignment(item.kind == lowir::DataItemKind::Address ? program_.pointer_type() : item.type));
+		if (item.kind == lowir::DataItemKind::Scalar || item.has_address())
+			implied = std::max(
+				implied, item.placement_alignment(item.has_address() ? program_.pointer_type() : item.type));
 	}
 	if (alignment <= (implied != 0 ? implied : object_mode_ ? 16 : 1))
 		return;
@@ -1433,7 +1433,7 @@ bool ProgramLowering::static_tables(
 			size_t found = out.size();
 			for (size_t i = first; i < out.size(); ++i)
 			{
-				if (out[i].offset == table.offset && out[i].item.kind == lowir::DataItemKind::Address)
+				if (out[i].offset == table.offset && out[i].item.has_address())
 					found = i;
 			}
 			if (found == out.size())

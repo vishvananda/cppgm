@@ -285,9 +285,9 @@ uint64_t DataItemBytes(const lowir::DataItem& item, uint64_t& align, uint8_t poi
 	align = 1;
 	if (item.kind == lowir::DataItemKind::Zero)
 		return static_cast<uint64_t>(item.amount);
-	if (item.kind == lowir::DataItemKind::Address || item.type.kind() == lowir::TypeKind::Ptr)
+	if (item.has_address() || item.type.kind() == lowir::TypeKind::Ptr)
 	{
-		align = pointer_bytes;
+		align = item.placement_alignment(lowir::Type::pointer(pointer_bytes));
 		return pointer_bytes;
 	}
 	if (item.type.kind() == lowir::TypeKind::Obj)
@@ -305,17 +305,24 @@ uint64_t DataItemBytes(const lowir::DataItem& item, uint64_t& align, uint8_t poi
 void PreserveStaticOffsets(StaticData& data, uint8_t pointer_bytes)
 {
 	// C++ layout builders state explicit padding. LowIR aligns typed items
-	// naturally, so spell an unaligned scalar's representation as bytes.
+	// naturally by default. Spell unaligned scalars as bytes and retain a
+	// relocation at its exact offset when an address item is unaligned.
 	uint64_t offset = 0;
 	size_t first = data.items.size();
 	for (size_t i = 0; i < data.items.size(); ++i)
 	{
+		lowir::DataItem& item = data.items[i];
 		uint64_t align = 1;
-		const uint64_t size = DataItemBytes(data.items[i], align, pointer_bytes);
-		if (data.items[i].kind == lowir::DataItemKind::Scalar && (offset & (align - 1)) != 0)
+		const uint64_t size = DataItemBytes(item, align, pointer_bytes);
+		if ((offset & (align - 1)) != 0)
 		{
-			first = i;
-			break;
+			if (item.has_address())
+				item.kind = lowir::DataItemKind::UnalignedAddress;
+			else if (item.kind == lowir::DataItemKind::Scalar)
+			{
+				first = i;
+				break;
+			}
 		}
 		offset += size;
 	}
@@ -341,7 +348,11 @@ void PreserveStaticOffsets(StaticData& data, uint8_t pointer_bytes)
 			}
 		}
 		else
+		{
 			items.push_back(item);
+			if (item.has_address() && (offset & (align - 1)) != 0)
+				items.back().kind = lowir::DataItemKind::UnalignedAddress;
+		}
 		offset += size;
 	}
 	data.items.swap(items);
@@ -966,6 +977,7 @@ bool ProgramLowering::constant_global(
 			global.type = item.type;
 		return true;
 	case lowir::DataItemKind::Address:
+	case lowir::DataItemKind::UnalignedAddress:
 		global.init = lowir::GlobalInit::Address;
 		global.address = item.address;
 		global.addend = item.amount;
