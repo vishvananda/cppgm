@@ -1429,7 +1429,8 @@ const Type* Analyzer::complete_array_from_initializer(
 	// from a braced initializer list or a string literal. A list's
 	// elements are counted with brace elision (8.5.1p11) by its typed
 	// initialization (see braced_list); untyped, one per element.
-	if (initializer == nullptr || type->kind != TypeKind::Array || type->has_array_bound() || type->owner != nullptr)
+	if (initializer == nullptr || type->kind != TypeKind::Array || type->has_array_bound() || type->owner != nullptr ||
+		type->runtime_array())
 		return type;
 	const syntax::Expr* expr = initializer->expression;
 	if (initializer->kind == syntax::InitializerKind::Parenthesized)
