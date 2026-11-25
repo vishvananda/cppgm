@@ -394,7 +394,10 @@ jobs:
       - name: Run LLVM C runtime checks
         if: ${{ !cancelled() && steps.candidate.outcome == 'success' && matrix.suite == 'gcc' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
         run: |
-          python3 scripts/run_llvm_c_runtime_ci_suite.py --candidate dev/cppgm +            --gcc gcc-15 --source-root llvm-test-suite --gcc-source-root upstream-sources +            --known-gaps reports/upstream-llvm-c-runtime-known-gaps.json +            --workers 2 --output "$RUNNER_TEMP/cxx11/llvm-c-runtime"
+          python3 scripts/run_llvm_c_runtime_ci_suite.py --candidate dev/cppgm \
+            --gcc gcc-15 --source-root llvm-test-suite --gcc-source-root upstream-sources \
+            --known-gaps reports/upstream-llvm-c-runtime-known-gaps.json \
+            --workers 2 --output "$RUNNER_TEMP/cxx11/llvm-c-runtime"
 
       - name: Publish counts and elapsed-time ratio
         if: always()
