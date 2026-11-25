@@ -65,7 +65,7 @@ bool IntegralOperation(TokenKind op, IntegralKind kind, uint64_t a, uint64_t b, 
 // `count` (of the promoted right operand's type): false when the count is
 // negative or not less than the width, or a signed left shift overflows
 // (5.8p2 as amended by CWG 1457). C90 and C95 use a bitwise signed
-// left shift with truncation to the width of the type (WG14 DR 081).
+// left shift with truncation to the width of the type (WG14 defect report 081).
 bool IntegralShift(
 	TokenKind op, IntegralKind kind, uint64_t a, IntegralKind count_kind, uint64_t count, uint64_t& out, bool legacy_c);
 // A relational or equality operator (5.9, 5.10) on values of one type.

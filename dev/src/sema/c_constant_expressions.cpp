@@ -95,7 +95,7 @@ bool SameCArithmeticValue(const ConstValue& left, const ConstValue& right)
 
 } // namespace
 
-// Check operand forms even in a branch the evaluator skips (C11 DR 489).
+// Check operand forms even in a branch the evaluator skips (WG14 defect report 489).
 // C23 adds named constants to both the integer and arithmetic forms.
 bool Analyzer::c_integer_constant_operands(const syntax::Expr& root, bool arithmetic) const
 {

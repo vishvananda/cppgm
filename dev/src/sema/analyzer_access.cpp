@@ -112,7 +112,7 @@ void Analyzer::declare_in(Scope* scope, Binding* binding)
 	bool tag_only = false;
 	if (c_source_)
 	{
-		// C99 through C17 6.8.5p3 and DR 277 also cover tags and enumerators
+		// C99 through C17 6.8.5p3 and WG14 defect report 277 also cover tags and enumerators
 		// declared in the initializer's scope.
 		if (scope == c_for_initializer_.scope && binding->name != nullptr && !AutomaticObject(*binding, scope))
 		{
