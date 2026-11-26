@@ -4,14 +4,14 @@ All original oracles passed for all three compilers. Seconds are child CPU, one 
 
 | Test | Kind | Compile cppgm | GCC | Clang | Test cppgm | GCC | Clang |
 |---|---|---:|---:|---:|---:|---:|---:|
-| qi_repo_advance.test | RUN | 1.259173 | 3.623517 | 4.253281 | 0.001257 | 0.001232 | 0.001130 |
-| qi_repo_confix.test | RUN | 1.305585 | 4.833087 | 4.672704 | 0.001299 | 0.001335 | 0.001362 |
-| qi_repo_distinct.test | RUN | 0.954277 | 2.516614 | 2.892040 | 0.001433 | 0.001453 | 0.001194 |
-| qi_repo_subrule.test | RUN | 3.090290 | 13.170760 | 13.734880 | 0.001426 | 0.001314 | 0.001331 |
-| qi_repo_keywords.test | RUN | 2.852756 | 11.061225 | 11.021490 | 0.001075 | 0.001036 | 0.001017 |
-| qi_repo_seek.test | RUN | 1.049261 | 3.979023 | 3.443549 | 0.001362 | 0.001307 | 0.001135 |
-| karma_repo_confix.test | RUN | 0.969523 | 3.917543 | 3.444502 | 0.001359 | 0.001325 | 0.001243 |
-| karma_repo_subrule.test | RUN | 1.708791 | 7.821756 | 8.237537 | 0.001071 | 0.000957 | 0.000973 |
+| qi_repo_advance.test | RUN | 1.236430 | 3.581590 | 4.199748 | 0.001364 | 0.001287 | 0.001151 |
+| qi_repo_confix.test | RUN | 1.289212 | 4.798011 | 4.679802 | 0.001226 | 0.001450 | 0.001240 |
+| qi_repo_distinct.test | RUN | 0.928958 | 2.538325 | 2.874419 | 0.001351 | 0.001424 | 0.001172 |
+| qi_repo_subrule.test | RUN | 3.052774 | 12.741009 | 13.511491 | 0.001508 | 0.001500 | 0.001403 |
+| qi_repo_keywords.test | RUN | 2.932892 | 11.725716 | 10.798921 | 0.001053 | 0.001026 | 0.001003 |
+| qi_repo_seek.test | RUN | 1.024391 | 3.887169 | 3.354897 | 0.001244 | 0.001259 | 0.001207 |
+| karma_repo_confix.test | RUN | 0.937040 | 3.885705 | 3.400920 | 0.001454 | 0.001407 | 0.001184 |
+| karma_repo_subrule.test | RUN | 1.535696 | 6.846313 | 8.049409 | 0.001025 | 0.000925 | 0.000874 |
 
 ## Native runtime replay
 
@@ -19,22 +19,22 @@ Child CPU of successful native tests, with process startup included; GDB and exp
 
 | Reference | CPU speedup ↑ | Paired blocks | A/A speedup |
 |---|---:|---|---:|
-| gcc | 1.000× | 1.006×, 0.993× | 1.014× |
-| clang | 0.994× | 0.998×, 0.991× | 0.998× |
+| gcc | 1.001× | 0.999×, 1.002× | 0.982× |
+| clang | 0.988× | 0.994×, 0.983× | 0.983× |
 
-† A/A drift or paired-block spread exceeds 5%; small differences are unresolved. 1375 native tests in the full cohort; 1364 have byte-identical output throughout. [Raw replay evidence in CI artifacts](https://github.com/vishvananda/cppgm/actions/runs/45710374989).
+† A/A drift or paired-block spread exceeds 5%; small differences are unresolved. 1375 native tests in the full cohort; 1364 have byte-identical output throughout. [Raw replay evidence in CI artifacts](https://github.com/vishvananda/cppgm/actions/runs/45739944580).
 
 | Test | Repeats | CPU cppgm | GCC | Clang | Output check |
 |---|---:|---:|---:|---:|---|
-| karma_repo_confix.test | 10 | 0.000844s | 0.000863s | 0.000848s | byte equality observed |
-| karma_repo_subrule.test | 10 | 0.000883s | 0.000852s | 0.000877s | byte equality observed |
-| qi_repo_advance.test | 10 | 0.000830s | 0.000847s | 0.000836s | byte equality observed |
-| qi_repo_confix.test | 10 | 0.000873s | 0.000847s | 0.000854s | byte equality observed |
-| qi_repo_distinct.test | 10 | 0.000815s | 0.000844s | 0.000799s | byte equality observed |
-| qi_repo_keywords.test | 10 | 0.000924s | 0.000898s | 0.000917s | byte equality observed |
-| qi_repo_seek.test | 10 | 0.000823s | 0.000850s | 0.000825s | byte equality observed |
-| qi_repo_subrule.test | 10 | 0.000871s | 0.000849s | 0.000869s | byte equality observed |
+| karma_repo_confix.test | 10 | 0.000825s | 0.000837s | 0.000844s | byte equality observed |
+| karma_repo_subrule.test | 10 | 0.000853s | 0.000855s | 0.000819s | byte equality observed |
+| qi_repo_advance.test | 10 | 0.000826s | 0.000829s | 0.000808s | byte equality observed |
+| qi_repo_confix.test | 10 | 0.000858s | 0.000836s | 0.000846s | byte equality observed |
+| qi_repo_distinct.test | 10 | 0.000792s | 0.000791s | 0.000816s | byte equality observed |
+| qi_repo_keywords.test | 10 | 0.000910s | 0.000893s | 0.000904s | byte equality observed |
+| qi_repo_seek.test | 10 | 0.000834s | 0.000831s | 0.000803s | byte equality observed |
+| qi_repo_subrule.test | 10 | 0.000872s | 0.000869s | 0.000869s | byte equality observed |
 
-[Raw outcomes, commands and timing observations in CI artifacts](https://github.com/vishvananda/cppgm/actions/runs/45710374989).
+[Raw outcomes, commands and timing observations in CI artifacts](https://github.com/vishvananda/cppgm/actions/runs/45739944580).
 
 [Comparison records](../results.json) · [Host and toolchains](../metadata.json)
