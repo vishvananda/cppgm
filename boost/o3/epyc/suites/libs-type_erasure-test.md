@@ -4,66 +4,66 @@ All original oracles passed for all three compilers. Seconds are child CPU, one 
 
 | Test | Kind | Compile cppgm | GCC | Clang | Test cppgm | GCC | Clang |
 |---|---|---:|---:|---:|---:|---:|---:|
-| test_binding.test | RUN | 0.438899 | 1.721236 | 1.401218 | 0.003016 | 0.003268 | 0.003041 |
-| test_increment.test | RUN | 0.427861 | 1.359016 | 1.136074 | 0.002920 | 0.003247 | 0.002902 |
-| test_add.test | RUN | 0.533796 | 2.119335 | 1.666374 | 0.003173 | 0.003461 | 0.002954 |
-| test_add_assign.test | RUN | 0.577133 | 2.351546 | 1.780648 | 0.003629 | 0.003813 | 0.002925 |
-| test_callable.test | RUN | 0.874858 | 4.105970 | 3.911125 | 0.005421 | 0.005408 | 0.005164 |
-| test_reference.test | RUN | 0.421964 | 1.644622 | 1.169112 | 0.003143 | 0.003582 | 0.002947 |
-| test_construct.test | RUN | 1.808635 | 23.411985 | 11.560634 | 0.006752 | 0.006331 | 0.006612 |
-| test_relaxed.test | RUN | 0.398762 | 1.187477 | 1.043156 | 0.003016 | 0.003152 | 0.002720 |
-| test_assign.test | RUN | 4.603831 | 74.935007 | 40.710256 | 0.009075 | 0.006608 | 0.006382 |
-| test_construct_ref.test | RUN | 0.525609 | 2.767195 | 1.729029 | 0.004083 | 0.004243 | 0.004044 |
-| test_construct_cref.test | RUN | 0.582527 | 2.641581 | 2.257707 | 0.004706 | 0.005154 | 0.004653 |
-| test_any_cast.test | RUN | 0.485288 | 2.638570 | 1.708694 | 0.004013 | 0.003794 | 0.003420 |
-| test_binding_of.test | RUN | 0.396568 | 1.073588 | 0.965500 | 0.002886 | 0.003081 | 0.002836 |
-| test_typeid_of.test | RUN | 0.424266 | 1.426132 | 1.152246 | 0.003249 | 0.003439 | 0.003023 |
-| test_nested.test | RUN | 0.462016 | 1.349048 | 1.319499 | 0.003073 | 0.002857 | 0.002641 |
-| test_less.test | RUN | 0.626983 | 2.845870 | 2.056116 | 0.004196 | 0.004330 | 0.004078 |
-| test_equal.test | RUN | 0.549460 | 2.618645 | 1.851102 | 0.003876 | 0.004031 | 0.003538 |
-| test_negate.test | RUN | 0.430221 | 1.073969 | 1.065453 | 0.003120 | 0.003120 | 0.002633 |
-| test_dereference.test | RUN | 0.450606 | 1.367880 | 1.194308 | 0.002722 | 0.003177 | 0.002948 |
-| test_subscript.test | RUN | 0.469430 | 1.495548 | 1.140302 | 0.003343 | 0.003440 | 0.002971 |
-| test_forward_iterator.test | RUN | 0.551352 | 1.824829 | 1.366959 | 0.003573 | 0.003364 | 0.002920 |
-| test_tuple.test | RUN | 0.475906 | 1.851251 | 1.335693 | 0.003299 | 0.003389 | 0.002877 |
-| test_stream.test | RUN | 0.632676 | 2.995955 | 2.115101 | 0.004259 | 0.004465 | 0.003815 |
-| test_deduced.test | RUN | 0.415771 | 0.995530 | 1.013589 | 0.002765 | 0.002982 | 0.002431 |
-| test_same_type.test | RUN | 0.455584 | 1.426883 | 1.170351 | 0.003311 | 0.003233 | 0.003047 |
-| test_member.test | RUN | 0.606083 | 3.023988 | 1.878972 | 0.004853 | 0.004761 | 0.004422 |
-| test_null.test | RUN | 0.418224 | 1.394037 | 1.047104 | 0.003392 | 0.003257 | 0.002774 |
-| test_free.test | RUN | 0.535325 | 2.305991 | 1.561694 | 0.003655 | 0.003798 | 0.003710 |
-| test_is_empty.test | RUN | 0.402439 | 1.087288 | 1.026012 | 0.003288 | 0.003062 | 0.002847 |
-| test_dynamic_any_cast.test | RUN | 0.765347 | 3.491987 | 2.840596 | 0.004813 | 0.004782 | 0.004193 |
-| test_limits.test | RUN | 0.677674 | 2.298121 | 2.077966 | 0.002811 | 0.003607 | 0.002727 |
-| test_param.test | COMPILE | 0.275188 | 0.651715 | 0.667511 | — | — | — |
-| test_is_subconcept.test | COMPILE | 0.269623 | 0.487282 | 0.570647 | — | — | — |
-| test_sfinae.test | COMPILE | 0.269479 | 0.515780 | 0.619148 | — | — | — |
-| test_interface_order.test | COMPILE | 0.266143 | 0.492716 | 0.584160 | — | — | — |
-| test_is_placeholder.test | COMPILE | 0.032034 | 0.051249 | 0.052141 | — | — | — |
-| fail_default_construct.test | COMPILE_FAIL | 0.247366 | 0.466413 | 0.543071 | — | — | — |
-| fail_construct_mismatch.test | COMPILE_FAIL | 0.247470 | 0.502702 | 0.482094 | — | — | — |
-| fail_construct_mismatch_ref.test | COMPILE_FAIL | 0.253722 | 0.497230 | 0.500812 | — | — | — |
-| fail_construct_mismatch_cref.test | COMPILE_FAIL | 0.251750 | 0.493380 | 0.516259 | — | — | — |
-| fail_construct_mismatch_rref.test | COMPILE_FAIL | 0.239795 | 0.485451 | 0.465861 | — | — | — |
-| fail_binding_convert_no_mapping.test | COMPILE_FAIL | 0.238673 | 0.469721 | 0.489690 | — | — | — |
-| fail_increment_discard_const.test | COMPILE_FAIL | 0.244716 | 0.476058 | 0.509959 | — | — | — |
-| fail_not_incrementable.test | COMPILE_FAIL | 0.260767 | 0.471024 | 0.500836 | — | — | — |
-| fail_ref_assign.test | COMPILE_FAIL | 0.249595 | 0.445103 | 0.507322 | — | — | — |
-| fail_cref_assign.test | COMPILE_FAIL | 0.245173 | 0.448436 | 0.532862 | — | — | — |
-| fail_rref_assign.test | COMPILE_FAIL | 0.249215 | 0.469044 | 0.471797 | — | — | — |
-| fail_ref_discard_const.test | COMPILE_FAIL | 0.248853 | 0.474483 | 0.530687 | — | — | — |
-| fail_ref_discard_const_convert.test | COMPILE_FAIL | 0.249961 | 0.482142 | 0.544066 | — | — | — |
-| fail_ref_discard_const_convert_ref.test | COMPILE_FAIL | 0.250568 | 0.503360 | 0.535643 | — | — | — |
-| fail_ref_discard_const_convert_cref.test | COMPILE_FAIL | 0.250616 | 0.502923 | 0.553949 | — | — | — |
-| fail_ref_discard_const_init.test | COMPILE_FAIL | 0.245701 | 0.466107 | 0.517364 | — | — | — |
-| fail_any_cast_discard_const1.test | COMPILE_FAIL | 0.255318 | 0.497363 | 0.503177 | — | — | — |
-| fail_any_cast_discard_const2.test | COMPILE_FAIL | 0.256202 | 0.496518 | 0.548183 | — | — | — |
-| fail_any_cast_discard_const3.test | COMPILE_FAIL | 0.258950 | 0.484984 | 0.541965 | — | — | — |
-| fail_any_cast_discard_const4.test | COMPILE_FAIL | 0.257949 | 0.485823 | 0.517638 | — | — | — |
-| fail_any_cast_discard_const5.test | COMPILE_FAIL | 0.259425 | 0.486073 | 0.542055 | — | — | — |
-| fail_any_cast_discard_const6.test | COMPILE_FAIL | 0.255377 | 0.494019 | 0.545201 | — | — | — |
-| fail_any_cast_pointer_to_ref.test | COMPILE_FAIL | 0.244549 | 0.355269 | 0.503766 | — | — | — |
-| fail_any_cast_pointer_to_val.test | COMPILE_FAIL | 0.240939 | 0.476347 | 0.439028 | — | — | — |
+| test_binding.test | RUN | 0.705560 | 2.827450 | 2.843182 | 0.004106 | 0.003844 | 0.004275 |
+| test_increment.test | RUN | 0.665602 | 2.085195 | 2.476450 | 0.003575 | 0.003800 | 0.004287 |
+| test_add.test | RUN | 0.842521 | 3.364720 | 3.583824 | 0.004156 | 0.004664 | 0.004396 |
+| test_add_assign.test | RUN | 0.922521 | 3.628557 | 3.703055 | 0.003976 | 0.004316 | 0.004469 |
+| test_callable.test | RUN | 1.431144 | 6.082047 | 7.824917 | 0.007637 | 0.007646 | 0.006825 |
+| test_reference.test | RUN | 0.716711 | 2.474917 | 2.606601 | 0.004264 | 0.004475 | 0.004394 |
+| test_construct.test | RUN | 3.087331 | 28.805654 | 22.166179 | 0.009848 | 0.008176 | 0.008339 |
+| test_relaxed.test | RUN | 0.653739 | 1.815945 | 2.329692 | 0.003871 | 0.003773 | 0.003711 |
+| test_assign.test | RUN | 7.424802 | 89.463962 | 71.660160 | 0.014165 | 0.008402 | 0.008766 |
+| test_construct_ref.test | RUN | 0.850275 | 4.314572 | 3.561881 | 0.005536 | 0.004832 | 0.005573 |
+| test_construct_cref.test | RUN | 0.939111 | 4.058221 | 4.494484 | 0.006457 | 0.006552 | 0.006383 |
+| test_any_cast.test | RUN | 0.812744 | 4.239465 | 3.456223 | 0.005154 | 0.004944 | 0.005479 |
+| test_binding_of.test | RUN | 0.656429 | 1.639565 | 2.143508 | 0.003800 | 0.003877 | 0.003903 |
+| test_typeid_of.test | RUN | 0.682436 | 2.400658 | 2.483075 | 0.004325 | 0.004624 | 0.003958 |
+| test_nested.test | RUN | 0.766073 | 2.337869 | 2.835102 | 0.003790 | 0.003841 | 0.003982 |
+| test_less.test | RUN | 0.944840 | 4.573214 | 4.583394 | 0.005490 | 0.005403 | 0.006005 |
+| test_equal.test | RUN | 0.893290 | 4.405980 | 3.743826 | 0.004686 | 0.005425 | 0.005465 |
+| test_negate.test | RUN | 0.678813 | 1.753095 | 2.249777 | 0.003605 | 0.003738 | 0.003872 |
+| test_dereference.test | RUN | 0.699899 | 2.365509 | 2.701648 | 0.004109 | 0.004053 | 0.003547 |
+| test_subscript.test | RUN | 0.728047 | 2.641605 | 2.793200 | 0.004109 | 0.004106 | 0.004095 |
+| test_forward_iterator.test | RUN | 0.874979 | 2.697811 | 3.355559 | 0.003966 | 0.003675 | 0.003606 |
+| test_tuple.test | RUN | 0.756564 | 2.732283 | 2.700854 | 0.004130 | 0.004025 | 0.004496 |
+| test_stream.test | RUN | 0.983915 | 4.363485 | 4.321230 | 0.005598 | 0.005618 | 0.006362 |
+| test_deduced.test | RUN | 0.659956 | 1.645780 | 2.280389 | 0.003489 | 0.003596 | 0.003589 |
+| test_same_type.test | RUN | 0.720407 | 2.215325 | 2.463963 | 0.003891 | 0.004319 | 0.003770 |
+| test_member.test | RUN | 0.950472 | 4.658072 | 4.339648 | 0.006283 | 0.005954 | 0.005931 |
+| test_null.test | RUN | 0.643492 | 2.232843 | 2.433678 | 0.003503 | 0.004226 | 0.004024 |
+| test_free.test | RUN | 0.809907 | 3.704962 | 2.904657 | 0.004721 | 0.004929 | 0.004364 |
+| test_is_empty.test | RUN | 0.656225 | 1.904486 | 2.235769 | 0.003842 | 0.003120 | 0.003252 |
+| test_dynamic_any_cast.test | RUN | 1.183127 | 5.479877 | 6.073029 | 0.005632 | 0.006295 | 0.005411 |
+| test_limits.test | RUN | 1.112175 | 3.743215 | 3.961957 | 0.003873 | 0.003978 | 0.004141 |
+| test_param.test | COMPILE | 0.430566 | 1.011291 | 1.503141 | — | — | — |
+| test_is_subconcept.test | COMPILE | 0.424432 | 0.786511 | 1.340536 | — | — | — |
+| test_sfinae.test | COMPILE | 0.414456 | 0.847194 | 1.165622 | — | — | — |
+| test_interface_order.test | COMPILE | 0.420001 | 0.859017 | 1.238476 | — | — | — |
+| test_is_placeholder.test | COMPILE | 0.050658 | 0.081044 | 0.087872 | — | — | — |
+| fail_default_construct.test | COMPILE_FAIL | 0.408596 | 0.819228 | 1.141278 | — | — | — |
+| fail_construct_mismatch.test | COMPILE_FAIL | 0.416858 | 0.779296 | 1.243283 | — | — | — |
+| fail_construct_mismatch_ref.test | COMPILE_FAIL | 0.404008 | 0.731524 | 1.231832 | — | — | — |
+| fail_construct_mismatch_cref.test | COMPILE_FAIL | 0.404111 | 0.811616 | 1.070442 | — | — | — |
+| fail_construct_mismatch_rref.test | COMPILE_FAIL | 0.406648 | 0.720298 | 1.218939 | — | — | — |
+| fail_binding_convert_no_mapping.test | COMPILE_FAIL | 0.394459 | 0.809659 | 1.199769 | — | — | — |
+| fail_increment_discard_const.test | COMPILE_FAIL | 0.402363 | 0.833840 | 1.126599 | — | — | — |
+| fail_not_incrementable.test | COMPILE_FAIL | 0.419912 | 0.781555 | 1.291641 | — | — | — |
+| fail_ref_assign.test | COMPILE_FAIL | 0.405662 | 0.787631 | 1.181117 | — | — | — |
+| fail_cref_assign.test | COMPILE_FAIL | 0.401046 | 0.792843 | 1.141974 | — | — | — |
+| fail_rref_assign.test | COMPILE_FAIL | 0.400159 | 0.774998 | 1.162128 | — | — | — |
+| fail_ref_discard_const.test | COMPILE_FAIL | 0.397546 | 0.806095 | 1.238334 | — | — | — |
+| fail_ref_discard_const_convert.test | COMPILE_FAIL | 0.405753 | 0.850934 | 1.263284 | — | — | — |
+| fail_ref_discard_const_convert_ref.test | COMPILE_FAIL | 0.409654 | 0.819591 | 1.095914 | — | — | — |
+| fail_ref_discard_const_convert_cref.test | COMPILE_FAIL | 0.408112 | 0.858183 | 1.256496 | — | — | — |
+| fail_ref_discard_const_init.test | COMPILE_FAIL | 0.399574 | 0.831645 | 1.202021 | — | — | — |
+| fail_any_cast_discard_const1.test | COMPILE_FAIL | 0.411141 | 0.778462 | 1.083502 | — | — | — |
+| fail_any_cast_discard_const2.test | COMPILE_FAIL | 0.409327 | 0.830478 | 1.246262 | — | — | — |
+| fail_any_cast_discard_const3.test | COMPILE_FAIL | 0.411397 | 0.847380 | 1.281634 | — | — | — |
+| fail_any_cast_discard_const4.test | COMPILE_FAIL | 0.408656 | 0.770207 | 1.088584 | — | — | — |
+| fail_any_cast_discard_const5.test | COMPILE_FAIL | 0.410610 | 0.840983 | 1.274006 | — | — | — |
+| fail_any_cast_discard_const6.test | COMPILE_FAIL | 0.414823 | 0.852542 | 1.120608 | — | — | — |
+| fail_any_cast_pointer_to_ref.test | COMPILE_FAIL | 0.324239 | 0.775965 | 1.252499 | — | — | — |
+| fail_any_cast_pointer_to_val.test | COMPILE_FAIL | 0.298133 | 0.535697 | 0.979782 | — | — | — |
 
 ## Native runtime replay
 
@@ -71,45 +71,45 @@ Child CPU of successful native tests, with process startup included; GDB and exp
 
 | Reference | CPU speedup ↑ | Paired blocks | A/A speedup |
 |---|---:|---|---:|
-| gcc | 0.974× | 0.961×, 0.987× | 0.987× |
-| clang | 0.992× | 1.005×, 0.979× | 1.023× |
+| gcc | 0.969× | 0.965×, 0.974× | 1.001× |
+| clang | 0.961× | 0.961×, 0.961× | 1.006× |
 
-† A/A drift or paired-block spread exceeds 5%; small differences are unresolved. 1375 native tests in the full cohort; 1362 have byte-identical output throughout. [Raw replay evidence in CI artifacts](https://github.com/vishvananda/cppgm/actions/runs/45790989032).
+† A/A drift or paired-block spread exceeds 5%; small differences are unresolved. 1375 native tests in the full cohort; 1359 have byte-identical output throughout. [Raw replay evidence in CI artifacts](https://github.com/vishvananda/cppgm/actions/runs/45850603565).
 
 | Test | Repeats | CPU cppgm | GCC | Clang | Output check |
 |---|---:|---:|---:|---:|---|
-| test_add.test | 10 | 0.001741s | 0.001623s | 0.001693s | byte equality observed |
-| test_add_assign.test | 10 | 0.001700s | 0.001658s | 0.001692s | byte equality observed |
-| test_any_cast.test | 9 | 0.001929s | 0.001817s | 0.001986s | byte equality observed |
-| test_assign.test | 4 | 0.004830s | 0.004309s | 0.004782s | byte equality observed |
-| test_binding.test | 10 | 0.001607s | 0.001551s | 0.001590s | byte equality observed |
-| test_binding_of.test | 10 | 0.001505s | 0.001457s | 0.001518s | byte equality observed |
-| test_callable.test | 7 | 0.002552s | 0.002452s | 0.002568s | byte equality observed |
-| test_construct.test | 6 | 0.003243s | 0.003164s | 0.003251s | byte equality observed |
-| test_construct_cref.test | 9 | 0.002271s | 0.002144s | 0.002306s | byte equality observed |
-| test_construct_ref.test | 9 | 0.002025s | 0.001917s | 0.002014s | byte equality observed |
-| test_deduced.test | 10 | 0.001504s | 0.001449s | 0.001540s | byte equality observed |
-| test_dereference.test | 10 | 0.001604s | 0.001531s | 0.001623s | byte equality observed |
-| test_dynamic_any_cast.test | 9 | 0.002226s | 0.002158s | 0.002281s | byte equality observed |
-| test_equal.test | 10 | 0.001920s | 0.001801s | 0.001874s | byte equality observed |
-| test_forward_iterator.test | 10 | 0.001613s | 0.001579s | 0.001586s | byte equality observed |
-| test_free.test | 10 | 0.001899s | 0.001797s | 0.001874s | byte equality observed |
-| test_increment.test | 10 | 0.001538s | 0.001505s | 0.001541s | byte equality observed |
-| test_is_empty.test | 10 | 0.001549s | 0.001461s | 0.001523s | byte equality observed |
-| test_less.test | 9 | 0.002037s | 0.001975s | 0.002034s | byte equality observed |
-| test_limits.test | 10 | 0.001676s | 0.001607s | 0.001675s | byte equality observed |
-| test_member.test | 6 | 0.002316s | 0.002237s | 0.002321s | byte equality observed |
-| test_negate.test | 10 | 0.001515s | 0.001436s | 0.001512s | byte equality observed |
-| test_nested.test | 10 | 0.001545s | 0.001476s | 0.001530s | byte equality observed |
-| test_null.test | 10 | 0.001613s | 0.001505s | 0.001615s | byte equality observed |
-| test_reference.test | 8 | 0.001653s | 0.001587s | 0.001628s | byte equality observed |
-| test_relaxed.test | 9 | 0.001546s | 0.001497s | 0.001562s | byte equality observed |
-| test_same_type.test | 10 | 0.001614s | 0.001539s | 0.001598s | byte equality observed |
-| test_stream.test | 8 | 0.002186s | 0.002085s | 0.002148s | byte equality observed |
-| test_subscript.test | 10 | 0.001665s | 0.001578s | 0.001659s | byte equality observed |
-| test_tuple.test | 10 | 0.001641s | 0.001599s | 0.001658s | byte equality observed |
-| test_typeid_of.test | 10 | 0.001661s | 0.001589s | 0.001657s | byte equality observed |
+| test_add.test | 8 | 0.002897s | 0.002837s | 0.002792s | byte equality observed |
+| test_add_assign.test | 8 | 0.002908s | 0.002852s | 0.002837s | byte equality observed |
+| test_any_cast.test | 7 | 0.003363s | 0.003261s | 0.003292s | byte equality observed |
+| test_assign.test | 3 | 0.010351s | 0.008578s | 0.009407s | byte equality observed |
+| test_binding.test | 9 | 0.002698s | 0.002724s | 0.002635s | byte equality observed |
+| test_binding_of.test | 9 | 0.002560s | 0.002512s | 0.002423s | byte equality observed |
+| test_callable.test | 6 | 0.004354s | 0.004277s | 0.004238s | byte equality observed |
+| test_construct.test | 5 | 0.005770s | 0.005678s | 0.005424s | byte equality observed |
+| test_construct_cref.test | 6 | 0.003941s | 0.003907s | 0.003869s | byte equality observed |
+| test_construct_ref.test | 7 | 0.003493s | 0.003505s | 0.003517s | byte equality observed |
+| test_deduced.test | 9 | 0.002539s | 0.002543s | 0.002489s | byte equality observed |
+| test_dereference.test | 8 | 0.002759s | 0.002701s | 0.002685s | byte equality observed |
+| test_dynamic_any_cast.test | 6 | 0.003949s | 0.003833s | 0.003809s | byte equality observed |
+| test_equal.test | 7 | 0.003304s | 0.003292s | 0.003189s | byte equality observed |
+| test_forward_iterator.test | 8 | 0.002763s | 0.002705s | 0.002724s | byte equality observed |
+| test_free.test | 7 | 0.003238s | 0.003229s | 0.003190s | byte equality observed |
+| test_increment.test | 8 | 0.002651s | 0.002632s | 0.002583s | byte equality observed |
+| test_is_empty.test | 8 | 0.002665s | 0.002592s | 0.002480s | byte equality observed |
+| test_less.test | 7 | 0.003601s | 0.003567s | 0.003422s | byte equality observed |
+| test_limits.test | 8 | 0.002857s | 0.002880s | 0.002799s | byte equality observed |
+| test_member.test | 6 | 0.003999s | 0.004044s | 0.003833s | byte equality observed |
+| test_negate.test | 9 | 0.002552s | 0.002480s | 0.002469s | byte equality observed |
+| test_nested.test | 9 | 0.002667s | 0.002617s | 0.002577s | byte equality observed |
+| test_null.test | 8 | 0.002734s | 0.002627s | 0.002640s | byte equality observed |
+| test_reference.test | 8 | 0.002834s | 0.002800s | 0.002779s | byte equality observed |
+| test_relaxed.test | 8 | 0.002625s | 0.002564s | 0.002523s | byte equality observed |
+| test_same_type.test | 8 | 0.002772s | 0.002678s | 0.002703s | byte equality observed |
+| test_stream.test | 6 | 0.003775s | 0.003693s | 0.003756s | byte equality observed |
+| test_subscript.test | 7 | 0.002883s | 0.002817s | 0.002729s | byte equality observed |
+| test_tuple.test | 8 | 0.002868s | 0.002826s | 0.002698s | byte equality observed |
+| test_typeid_of.test | 7 | 0.002897s | 0.002789s | 0.002748s | byte equality observed |
 
-[Raw outcomes, commands and timing observations in CI artifacts](https://github.com/vishvananda/cppgm/actions/runs/45790989032).
+[Raw outcomes, commands and timing observations in CI artifacts](https://github.com/vishvananda/cppgm/actions/runs/45850603565).
 
 [Comparison records](../results.json) · [Host and toolchains](../metadata.json)
