@@ -547,6 +547,16 @@ bool TokenSafeSection(const TokenSpelling& spelling, std::string& name)
 	return !name.empty();
 }
 
+const Entity* CSymbolAttributeTarget(const Entity* entity, bool c_source)
+{
+	// A block-scope C function declaration has its own visible type but
+	// contributes linkage attributes to the function it denotes.
+	if (c_source && entity->kind == EntityKind::Function)
+		if (const FunctionEntity* target = static_cast<const FunctionEntity*>(entity)->denotes)
+			return target;
+	return entity;
+}
+
 } // namespace
 
 void Analyzer::symbol_attributes(
@@ -585,7 +595,7 @@ void Analyzer::symbol_attributes(
 			{
 				if (!attribute->on_class && !(attribute->standard && attribute->on_type) &&
 					(entity->kind == EntityKind::Function || entity->kind == EntityKind::Variable))
-					record_visibility(entity, *attribute);
+					record_visibility(CSymbolAttributeTarget(entity, c_source_), *attribute);
 				continue;
 			}
 			if ((attribute->kind != syntax::AttributeKind::Weak && attribute->kind != syntax::AttributeKind::Section) ||
@@ -607,13 +617,12 @@ void Analyzer::symbol_attributes(
 			const ScopeKind home = entity->owner->kind;
 			const bool static_storage = !variable || home == ScopeKind::Namespace || object->is_static ||
 				object->is_extern || object->is_thread_local;
-			SemanticGraph::SymbolAttributes& own = graph_.own_symbol_attributes(entity);
 			if (attribute->kind == syntax::AttributeKind::Weak)
 			{
 				if (internal || !static_storage ||
 					(variable && home != ScopeKind::Namespace && home != ScopeKind::Class))
 					error(attribute->location, "a weak declaration of an entity without external linkage");
-				own.weak = true;
+				graph_.own_symbol_attributes(CSymbolAttributeTarget(entity, c_source_)).weak = true;
 				continue;
 			}
 			if (!static_storage)
@@ -623,6 +632,7 @@ void Analyzer::symbol_attributes(
 			std::string name;
 			if (!TokenSafeSection(static_cast<const syntax::LiteralExpr*>(attribute->expression)->spelling, name))
 				error(attribute->location, "a section name outside ASCII letters, digits, `_` and `.`");
+			SemanticGraph::SymbolAttributes& own = graph_.own_symbol_attributes(entity);
 			if (own.section != nullptr && name != own.section)
 				error(attribute->location, "a section attribute conflicting with an earlier declaration's");
 			if (own.section == nullptr)
