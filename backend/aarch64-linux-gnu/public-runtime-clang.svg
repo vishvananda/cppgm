@@ -1,5 +1,5 @@
-<svg data-original-label="Public subset vs Clang" data-original-message="1.25×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="Public subset vs Clang; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured d8c559893a923e5683c44df6cb98076271dd6f01; 12 commits behind main: 1.25×*">
-  <title>Public subset vs Clang; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured d8c559893a923e5683c44df6cb98076271dd6f01; 12 commits behind main: 1.25×*</title>
+<svg data-original-label="Public subset vs Clang" data-original-message="1.25×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="Public subset vs Clang; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured dc54668b7b4a2cc926fb1fd6ebcf88a0cb513fb6; 10 commits behind main: 1.25×*">
+  <title>Public subset vs Clang; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured dc54668b7b4a2cc926fb1fd6ebcf88a0cb513fb6; 10 commits behind main: 1.25×*</title>
   <defs><clipPath id="badge"><rect width="120" height="24" rx="4"/></clipPath></defs>
   <g clip-path="url(#badge)">
     <rect width="64" height="24" fill="#555"/>
