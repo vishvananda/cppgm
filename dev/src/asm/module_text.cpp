@@ -5,6 +5,14 @@
 #include <climits>
 
 namespace assembly {
+
+void append_symbol_use(std::string& source, std::vector<SymbolUse>& symbols, asm_model::SymbolReference reference)
+{
+	constexpr char marker[] = "__cppgm_symbol";
+	symbols.push_back(SymbolUse{ static_cast<uint32_t>(source.size()), sizeof(marker) - 1, reference });
+	source += marker;
+}
+
 namespace {
 bool identifier(const std::string& text)
 {
@@ -15,7 +23,8 @@ bool identifier(const std::string& text)
 		{
 			trailing = trailing || seen;
 		}
-		else if (std::isalnum(static_cast<unsigned char>(c)) || c == '_' || c == '.' || c == '$')
+		else if (std::isalnum(static_cast<unsigned char>(c)) || c == '_' || c == '.' || c == '$' || c == '\\' ||
+			c == '@')
 		{
 			if (trailing)
 				return false;
@@ -119,8 +128,8 @@ void append_module_line(ModuleLine& target, const ModuleLine& source)
 	}
 }
 
-std::vector<ModuleLine> module_lines(
-	const std::string& text, const std::vector<SymbolUse>& symbols, const std::vector<LabelUse>& labels)
+std::vector<ModuleLine> module_lines(const std::string& text, const std::vector<SymbolUse>& symbols,
+	const std::vector<LabelUse>& labels, asm_model::Dialect dialect)
 {
 	std::vector<ModuleLine> result;
 	std::string uncommented;
@@ -181,7 +190,8 @@ std::vector<ModuleLine> module_lines(
 			std::fill(uncommented.begin() + i, uncommented.begin() + end + 2, ' ');
 			i = end + 1;
 		}
-		else if (c == '#')
+		else if (dialect == asm_model::Dialect::AArch64 ? c == '/' && i + 1 < text.size() && text[i + 1] == '/'
+														: c == '#')
 		{
 			append(i);
 			while (i < text.size() && text[i] != '\n')

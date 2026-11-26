@@ -297,6 +297,8 @@ void MacroDefinitionParser::assign_function_like_roles()
 			if (i + 1 == body_.size() || body_[i + 1].token.kind != PPTokenKind::Identifier ||
 				body_[i + 1].token.identifier->parameter_slot == 0)
 			{
+				if (assembler_)
+					continue; // For example, an AArch64 immediate prefix.
 				throw PreprocessError(token.begin, "`#` is not followed by a macro parameter");
 			}
 			replacement.role = ReplacementRole::Stringize;

@@ -16,9 +16,10 @@ struct ModuleLine
 };
 
 // Retain source bytes and typed placeholder spans while splitting statements.
-std::vector<ModuleLine> module_lines(
-	const std::string& text, const std::vector<SymbolUse>& symbols, const std::vector<LabelUse>& labels = {});
+std::vector<ModuleLine> module_lines(const std::string& text, const std::vector<SymbolUse>& symbols,
+	const std::vector<LabelUse>& labels = {}, asm_model::Dialect dialect = asm_model::Dialect::Att);
 ModuleLine module_slice(const ModuleLine& line, uint32_t first, uint32_t count);
+void append_symbol_use(std::string& source, std::vector<SymbolUse>& symbols, asm_model::SymbolReference reference);
 void append_module_line(ModuleLine& target, const ModuleLine& source);
 bool module_character(const std::string& source, size_t& position, uint8_t& value);
 

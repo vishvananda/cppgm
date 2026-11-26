@@ -8,7 +8,18 @@ enum Relocation : uint32_t
 {
 	Abs64 = 257,
 	Abs32 = 258,
+	Prel64 = 260,
 	Prel32 = 261,
+	MovwUabsG0 = 263,
+	MovwUabsG0Nc = 264,
+	MovwUabsG1 = 265,
+	MovwUabsG1Nc = 266,
+	MovwUabsG2 = 267,
+	MovwUabsG2Nc = 268,
+	MovwUabsG3 = 269,
+	MovwSabsG0 = 270,
+	MovwSabsG1 = 271,
+	MovwSabsG2 = 272,
 	AdrPrelLo21 = 274,
 	AdrPrelPage21 = 275,
 	AddLo12 = 277,
@@ -32,6 +43,11 @@ enum Relocation : uint32_t
 	DarwinTlvLo12,
 	DarwinPointerToGot
 };
+
+inline unsigned wide_move_chunk(uint32_t relocation)
+{
+	return relocation >= MovwSabsG0 ? relocation - MovwSabsG0 : (relocation - MovwUabsG0) / 2;
+}
 
 bool apply_relocation(uint32_t type, uint8_t* field, uint64_t room, uint64_t value, uint64_t place, std::string& error);
 bool read_input(

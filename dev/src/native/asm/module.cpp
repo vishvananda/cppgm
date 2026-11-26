@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "aarch64/assembler.h"
 #include "lowir/assembly.h"
 #include "asm/module_expand.h"
 #include "native/asm/binding.h"
@@ -117,6 +118,7 @@ std::shared_ptr<const InlineAssemblyModule> build_inline_module(
 	std::vector<assembly::ModuleLine>& lines, asm_model::Dialect dialect, Target target, bool code16gcc)
 {
 	auto result = std::make_shared<InlineAssemblyModule>();
+	result->object.architecture = target_model::describe(target).architecture;
 	InlineInputs inputs(*result);
 	for (auto& line : lines)
 		for (assembly::SymbolUse& use : line.symbols)
@@ -199,7 +201,10 @@ uint32_t InlineModulePlacement::place_section(const object::ObjectFile& source, 
 	destination.align = std::max(destination.align, contents.align);
 	if (destination.kind != object::SectionKind::Bss)
 	{
-		destination.bytes.resize(offset, destination.kind == object::SectionKind::Text ? 0x90 : 0);
+		if (destination.kind == object::SectionKind::Text && out_.architecture == target_model::Architecture::AArch64)
+			aarch64::append_code_padding(destination.bytes, offset - destination.bytes.size());
+		else
+			destination.bytes.resize(offset, destination.kind == object::SectionKind::Text ? 0x90 : 0);
 		destination.bytes.insert(destination.bytes.end(), contents.bytes.begin(), contents.bytes.end());
 	}
 	destination.size = offset + contents.size;
@@ -442,7 +447,7 @@ void ModuleAssembler::declare(const assembly::ModuleLine& line)
 {
 	assembly::ModuleCursor cursor(line);
 	const std::string name = cursor.word();
-	if (!relax_local_jumps_ && !target_model::is_darwin(target_))
+	if (!relax_local_jumps_ && !target_model::is_darwin(target_) && !target_model::is_aarch64(target_))
 	{
 		if (name == ".")
 			relax_local_jumps_ = cursor.take('=');
@@ -456,6 +461,29 @@ void ModuleAssembler::declare(const assembly::ModuleLine& line)
 		cursor.finish();
 	}
 }
+void ModuleAssembler::append_aarch64(const std::string& name, assembly::ModuleCursor& cursor)
+{
+	auto& section = out_.sections[section_];
+	if (section.kind == object::SectionKind::Bss || section.kind == object::SectionKind::TlsBss)
+		cursor.fail("AArch64 instructions require a file-backed section");
+	section.align = std::max<uint64_t>(section.align, 4);
+	do
+	{
+		const uint64_t site = offset();
+		if (layout_.pending(section_))
+			layout_.record_word_instruction(section_, site);
+		else if (site & 3)
+			cursor.fail("AArch64 instruction is not word aligned");
+		const auto instruction = aarch64::assemble_word(name, cursor, *this, symbols_);
+		reserve(4, 0);
+		for (unsigned i = 0; i < 4; ++i)
+			section.bytes[site + i] = static_cast<uint8_t>(instruction.bits >> (8 * i));
+		if (instruction.relocation != 0)
+			section.relocations.push_back({ site, instruction.relocation, instruction.symbol, instruction.addend });
+	} while (name == ".inst" && cursor.take(','));
+	cursor.finish();
+}
+
 void ModuleAssembler::append(const assembly::ModuleLine& line)
 {
 	const std::vector<assembly::SymbolUse> numeric = symbols_.numeric_uses(line);
@@ -497,10 +525,29 @@ void ModuleAssembler::append(const assembly::ModuleLine& line)
 	}
 	if (!label && name.compare(0, 5, ".cfi_") == 0)
 	{
+		if (syntax_.dialect == asm_model::Dialect::AArch64)
+			cursor.fail("AArch64 assembly CFI is unavailable");
 		if (out_.sections[section_].kind != object::SectionKind::Text)
 			cursor.fail("CFI requires a code section");
 		unwind_.record(line, static_cast<uint32_t>(code_lines_.size() + 1), &symbols_);
 		return;
+	}
+	if (syntax_.dialect == asm_model::Dialect::AArch64)
+	{
+		if (label)
+		{
+			cursor.finish();
+			assembly::ModuleCursor definition(line, uses);
+			symbols_.define(symbol(definition), section_, offset());
+			return;
+		}
+		if (name[0] != '.' || name == ".inst")
+		{
+			append_aarch64(name, cursor);
+			return;
+		}
+		if (name == ".intel_syntax" || name == ".att_syntax")
+			cursor.fail("x86 assembly syntax directive on AArch64");
 	}
 	const bool syntax = !label && (name == ".intel_syntax" || name == ".att_syntax");
 	const auto kind = out_.sections[section_].kind;
@@ -510,7 +557,8 @@ void ModuleAssembler::append(const assembly::ModuleLine& line)
 		assembly::parse(line.text, syntax_.dialect, line.symbols, line.labels, &symbols_, &syntax_);
 		return;
 	}
-	const bool code_data = out_.sections[section_].kind == object::SectionKind::Text &&
+	const bool code_data = syntax_.dialect != asm_model::Dialect::AArch64 &&
+		out_.sections[section_].kind == object::SectionKind::Text &&
 		(((name == ".p2align" || name == ".balign" || name == ".align") && !layout_.pending(section_) &&
 			 cursor.numeric()) ||
 			((name == ".byte" || name == ".short" || name == ".word" || name == ".long" || name == ".quad") &&
@@ -559,6 +607,8 @@ void ModuleAssembler::finish()
 	finish_symbols();
 	symbols_.finish();
 	finish_data();
+	if (syntax_.dialect == asm_model::Dialect::AArch64)
+		aarch64::finish_assembly_branches(out_);
 	unwind_.finish(layout_);
 }
 void ModuleAssembler::bind_c_symbols(const lowir::Program& program, const std::vector<uint32_t>& mapping)
@@ -591,7 +641,7 @@ void emit_assembly_items(object::ObjectFile& out, const lowir::Program& program,
 			for (auto& line : source)
 				remap_assembly_symbols(line.symbols, mapping);
 		ModuleAssembler assembler(out, target, code16gcc);
-		if (target == Target::Linux || target_model::is_i386(target))
+		if (target == Target::Linux || target == Target::AArch64Linux || target_model::is_i386(target))
 			assembler.bind_c_symbols(program, mapping);
 		for (const std::vector<assembly::ModuleLine>& source : sources)
 			for (const assembly::ModuleLine& line : source)

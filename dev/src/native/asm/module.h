@@ -26,6 +26,7 @@ public:
 
 private:
 	void flush();
+	void append_aarch64(const std::string& name, assembly::ModuleCursor& cursor);
 	void emit_instructions(std::vector<assembly::Instruction>& instructions);
 	bool directive(const std::string& name, assembly::ModuleCursor& cursor);
 	void section(const std::string& name, object::SectionKind kind, uint32_t merge_size = 0, bool merge_strings = false,

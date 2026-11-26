@@ -8,7 +8,7 @@ bool apply_relocation(uint32_t type, uint8_t* field, uint64_t room, uint64_t val
 {
 	if (type == 0)
 		return true;
-	unsigned bytes = type == Abs64 ? 8 : 4;
+	const unsigned bytes = type == Abs64 || type == Prel64 ? 8 : 4;
 	if (room < bytes)
 	{
 		error = "AArch64 relocation exceeds its section";
@@ -26,10 +26,43 @@ bool apply_relocation(uint32_t type, uint8_t* field, uint64_t room, uint64_t val
 		fits = value <= UINT32_MAX;
 		word = value;
 		break;
+	case Prel64:
+		word = delta;
+		break;
 	case Prel32:
 		fits = delta >= INT32_MIN && delta <= INT32_MAX;
 		word = delta;
 		break;
+	case MovwUabsG0:
+	case MovwUabsG0Nc:
+	case MovwUabsG1:
+	case MovwUabsG1Nc:
+	case MovwUabsG2:
+	case MovwUabsG2Nc:
+	case MovwUabsG3:
+	case MovwSabsG0:
+	case MovwSabsG1:
+	case MovwSabsG2:
+	{
+		const unsigned shift = wide_move_chunk(type) * 16;
+		if (type >= MovwSabsG0)
+		{
+			const int64_t signed_value = static_cast<int64_t>(value);
+			const int64_t limit = int64_t(1) << (shift + 16);
+			fits = signed_value >= -limit && signed_value < limit;
+			if (signed_value < 0)
+			{
+				word &= ~(1u << 30); // MOVN
+				value = ~value;
+			}
+			else
+				word |= 1u << 30; // MOVZ
+		}
+		else if (type != MovwUabsG3 && (type - MovwUabsG0) % 2 == 0)
+			fits = (value >> (shift + 16)) == 0;
+		word = (word & ~(0xffffu << 5)) | (((value >> shift) & 0xffffu) << 5);
+		break;
+	}
 	case Jump26:
 	case Call26:
 		fits = !(delta & 3) && delta >= -(1ll << 27) && delta < (1ll << 27);

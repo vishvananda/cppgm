@@ -4,6 +4,8 @@
 #include "aarch64/error.h"
 #include "lowir/assembly.h"
 #include "native/asm/constraints.h"
+#include "native/asm/environment.h"
+#include "native/asm/inline_module.h"
 
 namespace aarch64 {
 namespace {
@@ -54,7 +56,8 @@ std::string symbol_operand(const lowir::Program& program, const SymbolReference&
 }
 
 void expand(std::string& source, const lowir::Program& program, const lowir::AssemblyTemplate& definition,
-	const native::AssemblyBinding& binding, uint64_t unique, std::vector<lowir::SymbolId>& symbols)
+	const native::AssemblyBinding& binding, uint64_t unique, std::vector<lowir::SymbolId>* symbols,
+	std::vector<assembly::SymbolUse>* uses)
 {
 	const auto& module = *program.assembly;
 	for (uint32_t i = 0; i < definition.piece_count; ++i)
@@ -90,8 +93,13 @@ void expand(std::string& source, const lowir::Program& program, const lowir::Ass
 			source += ".Lcppgm.asm." + std::to_string(unique) + "." + std::to_string(value);
 			break;
 		case AL_SYMBOL:
-			source += symbol_operand(program, binding.symbols[piece.operand]);
-			symbols.push_back(binding.symbols[piece.operand].symbol);
+			if (uses)
+				assembly::append_symbol_use(source, *uses, binding.symbols[piece.operand]);
+			else
+			{
+				source += symbol_operand(program, binding.symbols[piece.operand]);
+				symbols->push_back(binding.symbols[piece.operand].symbol);
+			}
 			break;
 		case AL_IMMEDIATE:
 			if (value == 0 && (piece.bits == 32 || piece.bits == 64))
@@ -125,6 +133,18 @@ void append_assembly_labels(std::string& source, const native::AssemblyBinding& 
 
 } // namespace
 
+void prepare_global_assembly(const lowir::Program& program, const lowir::AssemblyGlobal& entry, uint64_t unique,
+	std::string& source, std::vector<assembly::SymbolUse>& uses)
+{
+	const auto& module = *program.assembly;
+	const auto& definition = module.templates.at(entry.definition);
+	lowir::FunctionBody constants;
+	constants.literals = entry.literals;
+	const auto binding = native::assign_assembly_operands(
+		module, definition, clobber_mask(module, definition), constants, entry.arguments, nullptr);
+	expand(source, program, definition, binding, unique, nullptr, &uses);
+}
+
 void emit_file_assembly(
 	const lowir::Program& program, const std::vector<uint32_t>& symbols, native::object::ObjectFile& object)
 {
@@ -142,7 +162,7 @@ void emit_file_assembly(
 			module, definition, clobber_mask(module, definition), constants, entry.arguments, nullptr);
 		std::string text;
 		std::vector<lowir::SymbolId> referenced;
-		expand(text, program, definition, binding, object.assembly_fragments.size(), referenced);
+		expand(text, program, definition, binding, object.assembly_fragments.size(), &referenced, nullptr);
 		for (auto symbol : referenced)
 			object.assembly_symbols.push_back(symbols.at(symbol));
 		object.assembly_fragments.push_back({ code, section.bytes.size(), std::move(text) });
@@ -238,6 +258,30 @@ void Selector::store_assembly_outputs(const lowir::Instruction& inst, const nati
 	}
 }
 
+static std::shared_ptr<const native::InlineAssemblyModule> assemble_inline(native::AssemblyEnvironment& environment,
+	uint32_t prefix, const std::string& source, const std::vector<assembly::SymbolUse>& uses,
+	target_model::Target target)
+{
+	try
+	{
+		auto expander = environment.snapshot(prefix);
+		auto lines = expander.expand(assembly::module_lines(source, uses, {}, Dialect::AArch64));
+		auto module = native::build_inline_module(lines, Dialect::AArch64, target, false);
+		const auto& text = module->main();
+		if ((text.bytes.size() & 3) != 0 || text.align > 4)
+			throw AArch64Error("inline AArch64 assembly requires word-sized contributions and alignment at most four");
+		if (text.bytes.empty() &&
+			std::any_of(module->object.symbols.begin(), module->object.symbols.end(),
+				[&](const native::object::Symbol& symbol) { return symbol.section == module->text; }))
+			throw AArch64Error("AArch64 inline label requires a code contribution");
+		return module;
+	}
+	catch (const assembly::AssemblyError& error)
+	{
+		throw AArch64Error("inline assembly line " + std::to_string(error.line) + ": " + error.message);
+	}
+}
+
 void Selector::inline_assembly(const lowir::Instruction& inst)
 {
 	const auto& module = *program_.assembly;
@@ -248,12 +292,35 @@ void Selector::inline_assembly(const lowir::Instruction& inst)
 		module, definition, assembly_clobbers(inst), body_, arguments, nullptr);
 	stage_assembly_inputs(inst, binding);
 
-	const uint64_t unique = (uint64_t(symbol_) << 32) | out_.assembly.size();
+	const uint32_t identity = assembly_ ? assembly_identity_ : symbol_;
+	const uint64_t unique = (uint64_t(identity) << 32) | out_.assembly.size();
 	std::string source;
-	expand(source, program_, definition, binding, unique, out_.assembly_symbols);
+	std::vector<assembly::SymbolUse> uses;
+	expand(source, program_, definition, binding, unique, assembly_ ? nullptr : &out_.assembly_symbols,
+		assembly_ ? &uses : nullptr);
 	append_assembly_labels(source, binding, unique);
-	out_.reference(Op::Nop, Fixup::Assembly, static_cast<uint32_t>(out_.assembly.size()));
-	out_.assembly.push_back(std::move(source));
+	const auto index = static_cast<uint32_t>(out_.assembly.size());
+	if (assembly_)
+	{
+		if ((definition.properties & AP_UNWIND) != 0)
+			throw AArch64Error("unwinding AArch64 inline assembly is unsupported");
+		auto assembled = assemble_inline(*assembly_, definition.environment, source, uses, program_.target);
+		const auto words = static_cast<uint32_t>(assembled->main().bytes.size() / 4);
+		if (words || assembled->object.sections.size() > 2 || assembled->object.symbols.size() > 1)
+		{
+			for (uint32_t word = 0; word < words; ++word)
+			{
+				out_.reference(Op::Nop, Fixup::Assembly, index);
+				out_.code.back().addend = word;
+			}
+			out_.assembly.push_back({ {}, std::move(assembled) });
+		}
+	}
+	else
+	{
+		out_.reference(Op::Nop, Fixup::Assembly, index);
+		out_.assembly.push_back({ std::move(source), {} });
+	}
 
 	store_assembly_outputs(inst, binding);
 }

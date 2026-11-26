@@ -17,7 +17,7 @@ struct ObjectFile;
 namespace driver {
 
 PreprocessorOptions assembly_preprocessor_options(const PreprocessorOptions& base);
-std::string assembly_source(Preprocessor& preprocessor);
+std::string assembly_source(Preprocessor& preprocessor, native::Target target);
 bool compile_native_assembly(const std::string& path, const PreprocessorOptions& base, native::Target target,
 	native::object::ObjectFile& object, std::vector<std::string>* headers, bool include_system_headers, bool code16gcc);
 

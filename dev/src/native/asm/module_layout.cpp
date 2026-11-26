@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "aarch64/assembler.h"
 #include "native/backend_error.h"
 #include "native/x86/assembler.h"
 #include "support/internal_error.h"
@@ -111,6 +112,10 @@ bool ModuleLayout::record_labels(uint32_t section, const Assembler& assembler)
 {
 	return assembler.record_label_references(sections_[section].labels);
 }
+void ModuleLayout::record_word_instruction(uint32_t section, uint64_t offset)
+{
+	sections_.at(section).word_instructions.push_back(offset);
+}
 int64_t ModuleLayout::shift(uint32_t section, uint64_t from, uint64_t to)
 {
 	const auto found = sections_.find(section);
@@ -217,6 +222,8 @@ void ModuleLayout::materialize(uint32_t id, const Section& layout)
 					bytes.insert(bytes.end(), section.bytes.begin() + fragment.offset,
 						section.bytes.begin() + fragment.offset + fragment.original_size);
 			}
+			else if (fragment.fill < 0 && out_.architecture == target_model::Architecture::AArch64)
+				aarch64::append_code_padding(bytes, fragment.size);
 			else if (fragment.fill < 0)
 				code.nops(static_cast<uint32_t>(fragment.size));
 			else
@@ -290,6 +297,9 @@ void ModuleLayout::finish()
 		for (const Fragment& fragment : layout.fragments)
 			layout.prefix.push_back(
 				layout.prefix.back() + static_cast<int64_t>(fragment.size) - fragment.original_size);
+		for (uint64_t site : layout.word_instructions)
+			if ((position(entry.first, site) & 3) != 0)
+				throw BackendError("AArch64 instruction is not word aligned after module layout");
 		materialize(entry.first, layout);
 	}
 	fixed_ = true;

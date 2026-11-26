@@ -18,6 +18,7 @@ class NfcCheck;
 struct PPLexerOptions
 {
 	bool c_source = false;
+	bool assembler = false;
 	// ISO C before C11 recognizes only the wide L prefix.
 	bool unicode_literal_prefixes = true;
 	CEdition c_edition = CEdition::C17;
@@ -219,6 +220,7 @@ private:
 	bool dirty_;
 	bool header_names_on_request_;
 	bool c_source_;
+	bool assembler_;
 	bool unicode_literal_prefixes_;
 	CEdition c_edition_;
 	bool line_comments_;

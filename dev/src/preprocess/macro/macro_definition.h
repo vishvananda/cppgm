@@ -137,8 +137,8 @@ protected:
 class MacroDefinitionParser
 {
 public:
-	MacroDefinitionParser(Arena& arena, Identifier* va_args, bool hosted)
-		: arena_(arena), va_args_(va_args), hosted_(hosted)
+	MacroDefinitionParser(Arena& arena, Identifier* va_args, bool hosted, bool assembler)
+		: arena_(arena), va_args_(va_args), hosted_(hosted), assembler_(assembler)
 	{}
 
 	MacroDefinition* parse(DefinitionTokens& tokens, const PPToken& name);
@@ -163,6 +163,7 @@ private:
 	Arena& arena_;
 	Identifier* va_args_;
 	bool hosted_;
+	bool assembler_;
 	std::vector<ReplacementToken> body_;
 	std::vector<Identifier*> parameters_;
 	std::vector<WrittenSpelling> written_;

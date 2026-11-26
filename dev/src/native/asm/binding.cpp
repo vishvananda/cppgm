@@ -49,10 +49,7 @@ void expand_symbol(std::string& source, std::vector<assembly::SymbolUse>& symbol
 		source += '$';
 	if (memory && dialect == Dialect::Intel)
 		source += address_bits == 64 ? "[rip + " : "[";
-	const std::string marker = "__cppgm_symbol";
-	symbols.push_back(
-		assembly::SymbolUse{ static_cast<uint32_t>(source.size()), static_cast<uint32_t>(marker.size()), reference });
-	source += marker;
+	assembly::append_symbol_use(source, symbols, reference);
 	if (memory && dialect == Dialect::Intel)
 		source += ']';
 	else if (memory && address_bits == 64)

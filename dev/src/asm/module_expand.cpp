@@ -29,7 +29,7 @@ private:
 
 bool loop(const std::string& name)
 {
-	return name == ".rept" || name == ".irp" || name == ".irpc";
+	return name == ".rept" || name == ".rep" || name == ".irp" || name == ".irpc";
 }
 std::string head(const ModuleLine& line)
 {
@@ -161,7 +161,16 @@ bool ModuleExpander::range(
 		{
 			bool taken = false, after_else = false;
 			ExpansionConstants constants(constants_);
-			bool enabled = module_condition(name, cursor, line, constants);
+			bool enabled;
+			if (name == ".ifdef" || name == ".ifndef")
+			{
+				const std::string symbol = cursor.word();
+				cursor.finish();
+				enabled = (constants_.lookup(symbol) != nullptr || registers_.lookup(symbol) != nullptr) ==
+					(name == ".ifdef");
+			}
+			else
+				enabled = module_condition(name, cursor, line, constants);
 			size_t begin = i + 1;
 			unsigned nested = 0;
 			bool closed = false;
@@ -246,6 +255,23 @@ bool ModuleExpander::range(
 				}
 				else if (cursor.take('='))
 					assignment(name, cursor, output.back());
+				else if (dialect_ == asm_model::Dialect::AArch64 && name == ".unreq")
+				{
+					registers_.erase(cursor.word());
+					cursor.finish();
+				}
+				else if (dialect_ == asm_model::Dialect::AArch64 && cursor.starts_with(".req", 4) &&
+					cursor.word() == ".req")
+				{
+					const std::string spelling = cursor.word();
+					auto& reg = output.back().register_assignment;
+					if (const auto* prior = registers_.lookup(spelling))
+						reg = *prior;
+					else if (!parse_aarch64_register(spelling.data(), spelling.size(), reg))
+						cursor.fail("unknown AArch64 register in alias: " + spelling);
+					cursor.finish();
+					registers_.set(name, reg);
+				}
 			}
 		}
 	}

@@ -47,6 +47,7 @@ void SourceStack::enter(SourceFile* file, std::string presumed_name, std::size_t
 		inclusion.system_from = inclusion.base;
 	PPLexerOptions options;
 	options.c_source = identifiers_.language() == SourceLanguage::C;
+	options.assembler = assembler_;
 	options.unicode_literal_prefixes = unicode_literal_prefixes_;
 	options.c_edition = c_edition_;
 	options.line_comments = line_comments_ || system;

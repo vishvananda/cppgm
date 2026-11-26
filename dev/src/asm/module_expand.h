@@ -24,6 +24,7 @@ public:
 	explicit ModuleExpander(std::shared_ptr<ExpansionBudget> budget = std::make_shared<ExpansionBudget>())
 		: budget_(std::move(budget))
 	{}
+	explicit ModuleExpander(asm_model::Dialect dialect) : ModuleExpander() { dialect_ = dialect; }
 	std::vector<ModuleLine> expand(const std::vector<ModuleLine>& input);
 
 private:
@@ -58,6 +59,7 @@ private:
 	PersistentMap<uint64_t> constants_;
 	PersistentMap<asm_model::Register> registers_;
 	std::shared_ptr<ExpansionBudget> budget_;
+	asm_model::Dialect dialect_ = asm_model::Dialect::Att;
 };
 
 std::string module_macro_name(std::string name);
@@ -65,8 +67,8 @@ size_t module_block_end(const std::vector<ModuleLine>& input, size_t first, size
 bool module_condition(
 	const std::string& kind, ModuleCursor& cursor, const ModuleLine& line, ExpressionSymbols& symbols);
 
-std::vector<ModuleLine> module_arguments(
-	const ModuleLine& line, uint32_t first, std::vector<uint32_t>* starts = nullptr);
+std::vector<ModuleLine> module_arguments(const ModuleLine& line, uint32_t first,
+	std::vector<uint32_t>* starts = nullptr, asm_model::Dialect dialect = asm_model::Dialect::Att);
 ModuleLine substitute_module(
 	const ModuleLine& line, const std::map<std::string, ModuleLine>& bindings, uint64_t unique, uint64_t iteration);
 

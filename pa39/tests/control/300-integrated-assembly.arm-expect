@@ -1,0 +1,6 @@
+{
+  "source": true,
+  "units": ["300-integrated-assembly.S"],
+  "llvm_interop": true,
+  "commands": [{"exit": 39, "stdout": ""}]
+}

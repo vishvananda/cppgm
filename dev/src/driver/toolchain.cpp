@@ -1465,9 +1465,8 @@ bool compile_input(const Input& input, const Invocation& invocation, native::EhM
 {
 	if (input.kind == Input::Kind::Assembly)
 	{
-		if (target_model::is_aarch64(invocation.target))
-			throw InvocationError(
-				"the integrated module assembler supports x86 assembly; pass an assembled AArch64 object");
+		if (target_model::is_aarch64(invocation.target) && target_model::is_darwin(invocation.target))
+			throw InvocationError("integrated AArch64 Mach-O assembly is unavailable");
 		const MakeDependencies& dependencies = invocation.dependencies;
 		const bool side_file = dependencies.mode == MakeDependencies::Mode::SideFile;
 		std::vector<std::string> headers;
@@ -2012,7 +2011,7 @@ bool preprocess_unit(const Input& source, const Invocation& invocation, std::ost
 					preprocessor.dump_macros(out);
 			}
 			else if (assembly)
-				out << assembly_source(preprocessor) << '\n';
+				out << assembly_source(preprocessor, invocation.target) << '\n';
 			else if (invocation.preprocess_text)
 				preprocess_source(preprocessor, out);
 			else if (!preprocess_tokens(preprocessor, path, options, output))

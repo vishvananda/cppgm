@@ -14,12 +14,13 @@ using namespace lowir;
 
 Selector::Selector(const Program& program, SymbolId symbol, Function& out, int level, bool pic,
 	const std::vector<uint32_t>& leaf_registers, bool minimize_size, bool contract_float, bool fixed_x18,
-	bool general_regs_only)
+	bool general_regs_only, native::AssemblyEnvironment* assembly, uint32_t assembly_identity)
 	: program_(program), symbol_(symbol), body_(*program.functions[program.symbols[symbol].detail].body),
 	  signature_(program.signatures[program.functions[program.symbols[symbol].detail].signature]), out_(out),
 	  level_(level), pic_(pic), minimize_size_(minimize_size), contract_float_(contract_float),
 	  free_x18_(!fixed_x18 && !target_model::is_darwin(program.target)), general_regs_only_(general_regs_only),
-	  leaf_registers_(leaf_registers), named_(target_model::is_darwin(program.target))
+	  assembly_(assembly), assembly_identity_(assembly_identity), leaf_registers_(leaf_registers),
+	  named_(target_model::is_darwin(program.target))
 {}
 
 uint32_t Selector::reserve(uint64_t size, uint32_t alignment)

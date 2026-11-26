@@ -10,12 +10,12 @@ PPLexer::PPLexer(const SourceBuffer& source, const PPLexerOptions& options)
 	: source_(source), reader_(source, !options.token_text, options.crlf_splices, options.spaced_splice_offsets),
 	  cur_(reader_.logical(source.begin_offset())), token_(), token_begin_(0), clean_end_(0), token_end_(0),
 	  base_(options.location_base), dirty_(false), header_names_on_request_(options.header_names_on_request),
-	  c_source_(options.c_source), unicode_literal_prefixes_(options.unicode_literal_prefixes),
-	  c_edition_(options.c_edition), line_comments_(options.line_comments), digraphs_(options.digraphs),
-	  binary_exponents_(options.binary_exponents), digit_separators_(options.digit_separators),
-	  utf8_character_literals_(options.cxx_edition >= 17), cxx20_(options.cxx_edition >= 20),
-	  legacy_comment_bytes_(options.legacy_comment_bytes), lone_quotes_(options.lone_quotes),
-	  gnu_escapes_(options.gnu_escapes), keyword_macros_(options.keyword_macros),
+	  c_source_(options.c_source), assembler_(options.assembler),
+	  unicode_literal_prefixes_(options.unicode_literal_prefixes), c_edition_(options.c_edition),
+	  line_comments_(options.line_comments), digraphs_(options.digraphs), binary_exponents_(options.binary_exponents),
+	  digit_separators_(options.digit_separators), utf8_character_literals_(options.cxx_edition >= 17),
+	  cxx20_(options.cxx_edition >= 20), legacy_comment_bytes_(options.legacy_comment_bytes),
+	  lone_quotes_(options.lone_quotes), gnu_escapes_(options.gnu_escapes), keyword_macros_(options.keyword_macros),
 	  conditional_escapes_(options.conditional_escapes), dollar_identifiers_(options.dollar_identifiers),
 	  context_(options.header_names_on_request ? DirectiveContext::Other : DirectiveContext::LineStart)
 {}
@@ -496,7 +496,7 @@ bool PPLexer::take_identifier_start()
 	if (cur_.code_point == '\\')
 	{
 		UniversalCharacterName ucn;
-		if (!read_universal_character_name(cur_, ucn))
+		if (assembler_ || !read_universal_character_name(cur_, ucn))
 			return false;
 		const SourceChar c = ucn_outside_literal(ucn);
 		if (!IsIdentifierStart(c.code_point))
@@ -515,7 +515,7 @@ bool PPLexer::take_identifier_continue()
 	if (cur_.code_point == '\\')
 	{
 		UniversalCharacterName ucn;
-		if (!read_universal_character_name(cur_, ucn))
+		if (assembler_ || !read_universal_character_name(cur_, ucn))
 			return false;
 		const SourceChar c = ucn_outside_literal(ucn);
 		if (!is_identifier_continue(c.code_point))
@@ -613,7 +613,7 @@ const PPToken& PPLexer::lex_identifier_or_prefixed_literal()
 const PPToken& PPLexer::lex_backslash()
 {
 	UniversalCharacterName ucn;
-	if (!read_universal_character_name(cur_, ucn))
+	if (assembler_ || !read_universal_character_name(cur_, ucn))
 	{
 		take(cur_);
 		return finish(PPTokenKind::NonWhitespaceCharacter);
@@ -662,7 +662,7 @@ void PPLexer::take_c23_identifier_tail(unicode::NfcCheck& check)
 		UniversalCharacterName ucn;
 		if (escaped)
 		{
-			if (!read_universal_character_name(next, ucn))
+			if (assembler_ || !read_universal_character_name(next, ucn))
 				break;
 			next = ucn_outside_literal(ucn);
 		}

@@ -51,6 +51,7 @@ public:
 	bool crosses(uint32_t section, uint64_t from, uint64_t to) const;
 	void append(uint32_t section, Fragment fragment);
 	bool record_labels(uint32_t section, const Assembler& assembler);
+	void record_word_instruction(uint32_t section, uint64_t offset);
 	void finish();
 	uint64_t position(uint32_t section, uint64_t old) const;
 	assembly::ModuleValue evaluate_fixed(
@@ -64,6 +65,7 @@ private:
 		std::vector<int64_t> deltas;
 		std::vector<int64_t> prefix;
 		std::vector<CodeLabelReference> labels;
+		std::vector<uint64_t> word_instructions;
 		size_t boundary(uint64_t offset) const;
 		int64_t subtotal(size_t count) const;
 		void complete(size_t index, uint64_t size);

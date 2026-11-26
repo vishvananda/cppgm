@@ -40,7 +40,7 @@ class Selector
 public:
 	Selector(const lowir::Program& program, lowir::SymbolId symbol, Function& out, int level, bool pic,
 		const std::vector<uint32_t>& leaf_registers, bool minimize_size, bool contract_float, bool fixed_x18,
-		bool general_regs_only = false);
+		bool general_regs_only, native::AssemblyEnvironment* assembly, uint32_t assembly_identity);
 	void run();
 
 private:
@@ -301,6 +301,8 @@ private:
 	bool pic_, minimize_size_, contract_float_, free_x18_, general_regs_only_;
 	bool has_fused_multiply_add_ = false;
 	uint64_t assembly_unavailable_ = 0;
+	native::AssemblyEnvironment* assembly_;
+	uint32_t assembly_identity_;
 	const std::vector<uint32_t>& leaf_registers_;
 	bool dynamic_stack_ = false, stack_pair_ = false;
 	lowir::BlockId fallthrough_ = lowir::kNoId;

@@ -6,6 +6,9 @@
 
 #include "aarch64/selector.h"
 #include "machine/global_data.h"
+#include "native/asm/environment.h"
+#include "native/asm/inline_module.h"
+#include "native/asm/module.h"
 #include "native/object/host_builtins.h"
 #include "machine/wide_helpers.h"
 #include "lowir/startup_sections.h"
@@ -183,8 +186,8 @@ void compile_object(Program& program, obj::ObjectFile& object, int level, bool p
 {
 	if (program.explicit_target && !target_model::is_aarch64(program.target))
 		throw AArch64Error("input and output target profiles differ");
-	if (program.assembly && !object.assembly_text)
-		throw AArch64Error("AArch64 source assembly requires -S and an external assembler");
+	if (program.assembly && !object.assembly_text && target_model::is_darwin(program.target))
+		throw AArch64Error("integrated AArch64 Mach-O assembly is unavailable");
 	if (program.assembly && !program.assembly->functions.empty())
 		throw AArch64Error("unsupported AArch64 naked-function assembly");
 	object.architecture = target_model::Architecture::AArch64;
@@ -197,7 +200,15 @@ void compile_object(Program& program, obj::ObjectFile& object, int level, bool p
 	std::vector<uint32_t> symbols(program.symbols.size(), kNoId);
 	create_symbols(program, canonical, symbols, object, host);
 	std::vector<uint32_t> leaf_registers(level >= 2 ? program.symbols.size() : 0);
-	emit_file_assembly(program, symbols, object);
+	std::unique_ptr<native::AssemblyEnvironment> assembly;
+	std::vector<AssemblyPlacement> placements;
+	if (program.assembly)
+	{
+		if (object.assembly_text)
+			emit_file_assembly(program, symbols, object);
+		else
+			assembly.reset(new native::AssemblyEnvironment(program, prepare_global_assembly));
+	}
 	const uint32_t code = object.add_section(".text", obj::SectionKind::Text, 4);
 	const uint32_t eh = unwind_tables ? object.add_section(".eh_frame", obj::SectionKind::Rodata, 8) : kNoId;
 	const bool darwin = target_model::is_darwin(program.target);
@@ -219,7 +230,7 @@ void compile_object(Program& program, obj::ObjectFile& object, int level, bool p
 			std::any_of(body.instructions.begin(), body.instructions.end(),
 				[](const lowir::Instruction& inst) { return inst.op == Opcode::Asm; });
 		Selector(program, id, function, has_assembly ? std::min(level, 1) : level, pic, leaf_registers, minimize_size,
-			contract_float, fixed_x18, general_regs_only)
+			contract_float, fixed_x18, general_regs_only, assembly.get(), symbols[id])
 			.run();
 		if (level >= 2 && src.metadata.binding == ir_model::SBM_INTERNAL && !function.exceptions && !has_assembly)
 			leaf_registers[id] = untouched_callers(function);
@@ -238,12 +249,12 @@ void compile_object(Program& program, obj::ObjectFile& object, int level, bool p
 			: comdat || has_assembly ? object.add_section(".text", obj::SectionKind::Text, 4)
 									 : code;
 		auto& section = object.sections[sym.section];
-		if (level >= 2 && !darwin && !minimize_size)
+		if (level >= 2 && !darwin && !minimize_size && !has_assembly)
 			place_short_loops(function, section);
 		const uint32_t section_index = sym.section;
 		const uint64_t start = section.bytes.size();
 		sym.value = start;
-		encode(function, symbols, object, section_index, resume);
+		encode(function, symbols, object, section_index, resume, assembly ? &placements : nullptr);
 		for (auto symbol : function.assembly_symbols)
 			object.assembly_symbols.push_back(symbols.at(symbol));
 		object.symbols[symbols[id]].size = section.bytes.size() - start;
@@ -254,7 +265,7 @@ void compile_object(Program& program, obj::ObjectFile& object, int level, bool p
 			entry.value = start + uint64_t(function.labels.at(label.block)) * 4;
 			entry.type = obj::SymbolType::None;
 		}
-		if (!has_assembly && (unwind_tables || function.exceptions))
+		if ((!has_assembly || assembly) && (unwind_tables || function.exceptions))
 		{
 			const auto unwind = comdat ? kNoId : eh;
 			emit_unwind(function, symbols[id], code_symbol, unwind, symbols, object, darwin);
@@ -286,6 +297,8 @@ void compile_object(Program& program, obj::ObjectFile& object, int level, bool p
 			object.add_symbol(entry);
 		}
 	}
+	if (assembly)
+		native::emit_assembly_items(object, program, program.target, symbols, *assembly, false);
 	aliases(program, symbols, object);
 	if (!weak_groups.empty())
 	{
@@ -302,6 +315,12 @@ void compile_object(Program& program, obj::ObjectFile& object, int level, bool p
 					object.sections[index].group = object.groups.size();
 				object.groups.push_back(std::move(group));
 			}
+	}
+	if (!placements.empty())
+	{
+		native::InlineModulePlacement place(object);
+		for (const auto& packet : placements)
+			place.append(*packet.module, packet.section, packet.offset, symbols, {});
 	}
 }
 

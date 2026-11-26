@@ -1,0 +1,5 @@
+{
+  "source": true,
+  "relocation": "R_AARCH64_PREL64",
+  "commands": [{"exit": 0}]
+}

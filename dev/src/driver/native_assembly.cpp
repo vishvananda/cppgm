@@ -9,10 +9,11 @@
 
 namespace driver {
 
-std::string assembly_source(Preprocessor& preprocessor)
+std::string assembly_source(Preprocessor& preprocessor, native::Target target)
 {
 	std::string source;
 	bool comment = false;
+	const bool hash_comment = !target_model::is_aarch64(target);
 	for (;;)
 	{
 		const PPToken& token = preprocessor.next();
@@ -24,7 +25,7 @@ std::string assembly_source(Preprocessor& preprocessor)
 				source.push_back('\n');
 			comment = false;
 		}
-		if (token.punctuator == kHashPunctuator)
+		if (hash_comment && token.punctuator == kHashPunctuator)
 			comment = true;
 		if (comment || token.kind == PPTokenKind::WhitespaceSequence || token.kind == PPTokenKind::NewLine)
 			continue;
@@ -54,12 +55,15 @@ bool compile_native_assembly(const std::string& path, const PreprocessorOptions&
 		Preprocessor preprocessor(options, name, path == "-" ? &std::cin : nullptr);
 		try
 		{
-			assembly::ModuleExpander expander;
-			const auto lines = expander.expand(assembly::module_lines(assembly_source(preprocessor), {}));
+			const auto dialect = target_model::is_aarch64(target) ? asm_model::Dialect::AArch64
+																  : asm_model::Dialect::Att;
+			assembly::ModuleExpander expander(dialect);
+			const auto lines = expander.expand(
+				assembly::module_lines(assembly_source(preprocessor, target), {}, {}, dialect));
 			object.path = path;
 			object.architecture = target_model::describe(target).architecture;
 			native::ModuleAssembler assembler(object, target, code16gcc);
-			assembler.begin(asm_model::Dialect::Att);
+			assembler.begin(dialect);
 			for (const auto& line : lines)
 				assembler.declare(line);
 			for (const auto& line : lines)

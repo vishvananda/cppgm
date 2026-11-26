@@ -13,7 +13,8 @@ void ModuleExpander::define(
 	if (macros_.find(name))
 		cursor.fail("macro is already defined");
 	std::shared_ptr<Macro> macro(new Macro);
-	for (const ModuleLine& part : module_arguments(declaration, cursor.position()))
+	cursor.take(',');
+	for (const ModuleLine& part : module_arguments(declaration, cursor.position(), nullptr, dialect_))
 	{
 		ModuleCursor formal(part);
 		Formal entry;
@@ -49,7 +50,7 @@ void ModuleExpander::invoke(const ModuleLine& invocation, uint32_t first, std::s
 	std::vector<ModuleLine>& output, unsigned depth)
 {
 	std::vector<uint32_t> starts;
-	const std::vector<ModuleLine> arguments = module_arguments(invocation, first, &starts);
+	const std::vector<ModuleLine> arguments = module_arguments(invocation, first, &starts, dialect_);
 	Bindings bindings;
 	size_t next = 0;
 	bool keywords = false;
@@ -120,7 +121,7 @@ bool ModuleExpander::substituted(const std::vector<ModuleLine>& body, const Bind
 	{
 		const ModuleLine result = substitute_module(line, bindings, unique, iteration);
 		account(result.text.size() + 1, line);
-		for (ModuleLine item : module_lines(result.text, result.symbols, result.labels))
+		for (ModuleLine item : module_lines(result.text, result.symbols, result.labels, dialect_))
 		{
 			item.line = line.line;
 			expanded.push_back(std::move(item));
@@ -136,7 +137,8 @@ void ModuleExpander::repeat(const std::string& kind, const ModuleLine& declarati
 	uint64_t count = 0;
 	std::string name;
 	std::vector<ModuleLine> values;
-	if (kind == ".rept")
+	const bool repetition = kind == ".rept" || kind == ".rep";
+	if (repetition)
 	{
 		count = expression(declaration, cursor.position());
 		if (static_cast<int64_t>(count) < 0)
@@ -147,7 +149,7 @@ void ModuleExpander::repeat(const std::string& kind, const ModuleLine& declarati
 		name = cursor.word();
 		if (!cursor.take(','))
 			cursor.fail("iteration requires a parameter and values");
-		values = module_arguments(declaration, cursor.position());
+		values = module_arguments(declaration, cursor.position(), nullptr, dialect_);
 		if (kind == ".irpc")
 		{
 			if (values.size() > 1)
@@ -166,7 +168,7 @@ void ModuleExpander::repeat(const std::string& kind, const ModuleLine& declarati
 	for (uint64_t i = 0; i < count; ++i)
 	{
 		++budget_->work;
-		if (kind == ".rept")
+		if (repetition)
 		{
 			if (range(body, 0, body.size(), output, depth))
 				return;

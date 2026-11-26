@@ -3,6 +3,8 @@
 #include <climits>
 #include <fstream>
 
+#include "aarch64/assembler.h"
+#include "aarch64/link.h"
 #include "asm/module_expression.h"
 #include "native/backend_error.h"
 
@@ -11,13 +13,14 @@ namespace {
 using object::SectionKind;
 const uint64_t kModuleByteLimit = 64u * 1024u * 1024u;
 
-unsigned scalar_data_width(const std::string& name)
+unsigned scalar_data_width(const std::string& name, Target target)
 {
 	if (name == ".quad" || name == ".8byte")
 		return 8;
-	if (name == ".long" || name == ".int" || name == ".4byte")
+	if (name == ".long" || name == ".int" || name == ".4byte" || (name == ".word" && target_model::is_aarch64(target)))
 		return 4;
-	if (name == ".short" || name == ".word" || name == ".value" || name == ".2byte")
+	if (name == ".short" || name == ".word" || name == ".value" || name == ".2byte" ||
+		(name == ".hword" && target_model::is_aarch64(target)))
 		return 2;
 	return name == ".byte" ? 1 : 0;
 }
@@ -201,8 +204,16 @@ void ModuleAssembler::repeat_fill(assembly::ModuleCursor& cursor)
 
 namespace {
 
-uint32_t data_relocation_type(unsigned bytes, bool relative)
+uint32_t data_relocation_type(unsigned bytes, bool relative, Target target)
 {
+	if (target_model::is_aarch64(target))
+	{
+		if (bytes == 4)
+			return relative ? aarch64::Prel32 : aarch64::Abs32;
+		if (bytes == 8)
+			return relative ? aarch64::Prel64 : aarch64::Abs64;
+		throw BackendError("unsupported AArch64 assembly data relocation width");
+	}
 	if (relative)
 		return bytes == 8 ? object::R_X86_64_PC64
 			: bytes == 4  ? object::R_X86_64_PC32
@@ -294,7 +305,7 @@ void ModuleAssembler::finish_data()
 				throw BackendError("module symbol difference has no relocation for its subtrahend");
 			addend += word.offset - minus_value;
 		}
-		const uint32_t type = relative || word.absolute_type == 0 ? data_relocation_type(word.bytes, relative)
+		const uint32_t type = relative || word.absolute_type == 0 ? data_relocation_type(word.bytes, relative, target_)
 																  : word.absolute_type;
 		section.relocations.push_back(object::Relocation{ word.offset, type, symbol, static_cast<int64_t>(addend) });
 	}
@@ -374,7 +385,18 @@ void ModuleAssembler::alignment(assembly::ModuleCursor& cursor, bool power)
 	{
 		const uint64_t bytes = (uint64_t(0) - offset()) & (alignment - 1);
 		if (bytes <= maximum)
-			reserve(bytes, text && fill < 0 ? 0x90 : fill);
+		{
+			if (fill < 0 && target_model::is_aarch64(target_))
+			{
+				auto& section = out_.sections[section_];
+				if (section.size + bytes > kModuleByteLimit)
+					cursor.fail("module section exceeds the byte limit");
+				aarch64::append_code_padding(section.bytes, bytes);
+				section.size = section.bytes.size();
+			}
+			else
+				reserve(bytes, text && fill < 0 ? 0x90 : fill);
+		}
 	}
 }
 void ModuleAssembler::size(assembly::ModuleCursor& cursor)
@@ -494,7 +516,7 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 		type(cursor);
 	else if (name == ".size")
 		size(cursor);
-	else if (const unsigned width = scalar_data_width(name))
+	else if (const unsigned width = scalar_data_width(name, target_))
 		data(cursor, width);
 	else if (name == ".octa")
 		wide_data(cursor);
@@ -516,15 +538,27 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 	else if (name == ".org")
 		origin(cursor, true);
 	else if (name == ".p2align" || name == ".balign" || name == ".align")
-		alignment(cursor, name == ".p2align" || (name == ".align" && target_ == Target::MacOS));
+		alignment(cursor,
+			name == ".p2align" ||
+				(name == ".align" && (target_ == Target::MacOS || target_model::is_aarch64(target_))));
 	else if (name == ".code16" || name == ".code16gcc" || name == ".code32" || name == ".code64")
 	{
+		if (target_model::is_aarch64(target_))
+			cursor.fail("x86 assembly code mode on AArch64");
 		syntax_.code_bits = name == ".code64" ? 64 : name == ".code32" ? 32 : 16;
 		syntax_.code16gcc = name == ".code16gcc";
 	}
 	else if (name == ".subsections_via_symbols")
 	{
 	}
+	else if (name == ".extern")
+	{
+		do
+			cursor.word();
+		while (cursor.take(','));
+	}
+	else if (name == ".unreq" && target_model::is_aarch64(target_))
+		symbols_.remove_register_alias(cursor.word());
 	else if (name == ".set" || name == ".equ")
 	{
 		assembly::ModuleCursor position = cursor;

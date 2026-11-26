@@ -51,7 +51,8 @@ ModuleLine argument(const ModuleLine& line, uint32_t first, uint32_t end)
 	return result;
 }
 }
-std::vector<ModuleLine> module_arguments(const ModuleLine& line, uint32_t first, std::vector<uint32_t>* starts)
+std::vector<ModuleLine> module_arguments(
+	const ModuleLine& line, uint32_t first, std::vector<uint32_t>* starts, asm_model::Dialect dialect)
 {
 	std::vector<ModuleLine> result;
 	auto push = [&](uint32_t begin, uint32_t end) {
@@ -104,9 +105,14 @@ std::vector<ModuleLine> module_arguments(const ModuleLine& line, uint32_t first,
 					++next;
 				while (previous > begin && std::isspace(static_cast<unsigned char>(line.text[previous - 1])))
 					--previous;
-				const char* const continuation = "=:|&^";
+				const char* const continuation = dialect == asm_model::Dialect::AArch64 ? "=:|&^*/" : "=:|&^";
 				if ((next < line.text.size() && std::strchr(continuation, line.text[next]) != nullptr) ||
 					(previous > begin && std::strchr(continuation, line.text[previous - 1]) != nullptr))
+					continue;
+				if (dialect == asm_model::Dialect::AArch64 &&
+					((next + 1 < line.text.size() && (line.text[next] == '+' || line.text[next] == '-') &&
+						 std::isspace(static_cast<unsigned char>(line.text[next + 1]))) ||
+						(previous > begin && (line.text[previous - 1] == '+' || line.text[previous - 1] == '-'))))
 					continue;
 			}
 			const bool present = line.text.substr(begin, i - begin).find_first_not_of(" \t\r") != std::string::npos;

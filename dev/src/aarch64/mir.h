@@ -6,6 +6,19 @@
 #include "machine/exception_layout.h"
 #include "native/object/object_file.h"
 
+namespace native {
+class AssemblyEnvironment;
+struct InlineAssemblyModule;
+}
+
+namespace lowir {
+struct AssemblyGlobal;
+}
+
+namespace assembly {
+struct SymbolUse;
+}
+
 namespace aarch64 {
 
 // The base word identifies the A64 instruction. Registers and immediates
@@ -80,7 +93,12 @@ struct Function
 	bool needs_resume = false;
 	void frame_rule(FrameRule rule, unsigned reg = 0, unsigned offset = 0);
 	std::vector<Instruction> code;
-	std::vector<std::string> assembly;
+	struct AssemblyPacket
+	{
+		std::string listing;
+		std::shared_ptr<const native::InlineAssemblyModule> module;
+	};
+	std::vector<AssemblyPacket> assembly;
 	std::vector<lowir::SymbolId> assembly_symbols;
 	std::vector<uint32_t> labels;
 	uint32_t last_bound = ~0u; // the code size at the latest bind
@@ -89,6 +107,15 @@ struct Function
 	void bind(uint32_t label);
 };
 
+struct AssemblyPlacement
+{
+	std::shared_ptr<const native::InlineAssemblyModule> module;
+	uint32_t section;
+	uint64_t offset;
+};
+
+void prepare_global_assembly(const lowir::Program& program, const lowir::AssemblyGlobal& entry, uint64_t unique,
+	std::string& source, std::vector<assembly::SymbolUse>& uses);
 void emit_file_assembly(
 	const lowir::Program& program, const std::vector<uint32_t>& symbols, native::object::ObjectFile& object);
 void emit_unwind(const Function& function, uint32_t symbol, uint32_t shared_code_symbol, uint32_t shared_section,
@@ -143,6 +170,6 @@ inline unsigned nzcv_satisfying(unsigned condition)
 
 void place_short_loops(const Function& function, native::object::Section& text);
 void encode(const Function& function, const std::vector<uint32_t>& symbols, native::object::ObjectFile& object,
-	uint32_t section, uint32_t resume = lowir::kNoId);
+	uint32_t section, uint32_t resume = lowir::kNoId, std::vector<AssemblyPlacement>* placements = nullptr);
 
 } // namespace aarch64

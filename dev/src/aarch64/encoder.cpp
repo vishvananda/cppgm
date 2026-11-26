@@ -1,6 +1,7 @@
 #include "aarch64/mir.h"
 #include "aarch64/link.h"
 #include "native/object/elf_format.h"
+#include "native/asm/inline_module.h"
 
 #include "aarch64/error.h"
 
@@ -917,7 +918,7 @@ void pack_tables(Function& f)
 // destination's byte distance from the table, which the dispatch loads and
 // adds to the table's address; or halfword pairs (pack_tables).
 void encode(const Function& function, const std::vector<uint32_t>& symbols, native::object::ObjectFile& object,
-	uint32_t section, uint32_t resume)
+	uint32_t section, uint32_t resume, std::vector<AssemblyPlacement>* placements)
 {
 	namespace obj = native::object;
 	obj::Section& text = object.sections[section];
@@ -945,12 +946,15 @@ void encode(const Function& function, const std::vector<uint32_t>& symbols, nati
 			}
 		}
 	std::vector<uint32_t> labels;
-	if (!function.assembly.empty())
+	if (object.assembly_text && !function.assembly.empty())
 	{
 		if (!table_at.empty())
 			throw AArch64Error("AArch64 source assembly with a generated jump table is unsupported");
 		labels.assign(function.labels.size(), kNoLabel);
 	}
+	std::vector<uint64_t> packet_offsets;
+	if (placements)
+		packet_offsets.resize(function.assembly.size(), start);
 	for (uint32_t i = 0; i < n; ++i)
 	{
 		const Instruction& ins = function.code[i];
@@ -970,7 +974,18 @@ void encode(const Function& function, const std::vector<uint32_t>& symbols, nati
 			}
 		}
 		else if (ins.fixup == Fixup::Assembly)
-			object.assembly_fragments.push_back({ section, text.bytes.size(), function.assembly.at(ins.target) });
+		{
+			const auto& packet = function.assembly.at(ins.target);
+			if (packet.module)
+			{
+				if (ins.addend == 0)
+					packet_offsets[ins.target] = text.bytes.size();
+				const auto bytes = packet.module->main().bytes.begin() + uint64_t(ins.addend) * 4;
+				text.bytes.insert(text.bytes.end(), bytes, bytes + 4);
+				continue;
+			}
+			object.assembly_fragments.push_back({ section, text.bytes.size(), packet.listing });
+		}
 		else if (ins.fixup == Fixup::Block && !labels.empty())
 		{
 			uint32_t& target = labels.at(ins.target);
@@ -1012,6 +1027,8 @@ void encode(const Function& function, const std::vector<uint32_t>& symbols, nati
 			text.bytes.push_back(static_cast<uint8_t>(word >> shift));
 	}
 	text.size = text.bytes.size();
+	for (size_t i = 0; i < packet_offsets.size(); ++i)
+		placements->push_back({ function.assembly[i].module, section, packet_offsets[i] });
 }
 
 } // namespace aarch64
