@@ -1,6 +1,6 @@
 # Godot headless benchmarks
 
-Compiler: `4ff958f6fa4b8a4ac69f0cd4eb2a9fdf6d73b156` · CPU: Intel(R) Xeon(R) 6975P-C
+Compiler: `4ff958f6fa4b8a4ac69f0cd4eb2a9fdf6d73b156` · CPU: Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz
 
 Unmodified Godot 4.7.2 (`ed1daf0bf001b61586d9930840f2f1394092c079`), full headless release template, C++17 `-O3`, all default engine modules, 3D and computed GDScript dispatch retained. C files and final linking use GCC for all three builds.
 
@@ -8,21 +8,21 @@ Full-build times below are one clean build per compiler, including SCons and lin
 
 | Compiler | Build CPU seconds | Build wall seconds |
 |---|---:|---:|
-| cppgm | 862.32 | 221.46 |
-| gcc | 3691.46 | 930.88 |
-| clang | 2910.63 | 741.15 |
+| cppgm | 1275.78 | 326.95 |
+| gcc | 5328.17 | 1344.41 |
+| clang | 4483.77 | 1140.62 |
 
 Runtime ratios are **reference time / cppgm time: higher is better**. Work wall time excludes engine startup; process CPU time includes it. Fixed checked GDScript workloads exercise dispatch, arrays, strings, geometry and scene transforms; these are not rendering or game frame-rate measurements. Every checksum must match an independent calculation. Repeated work exceeds the configured pilot duration. Paired ABBA/BAAB blocks include A/A calibration before and after.
 
 | Workload | vs GCC CPU | vs Clang CPU | vs GCC work wall | vs Clang work wall |
 |---|---:|---:|---:|---:|
-| dispatch | 1.100× | 1.026× | 1.103× | 1.028× |
-| arrays | 0.995× | 1.035× | 0.995× | 1.037× |
-| strings | 0.977× | 1.001× | 0.976× | 1.002× |
-| geometry | 1.078× | 0.979× | 1.080× | 0.978× |
-| scene | 1.065× | 1.025× | 1.066× | 1.026× |
+| dispatch | 1.140× | 1.052× | 1.145× | 1.055× |
+| arrays | 1.053× | 1.103× | 1.055× | 1.108× |
+| strings | 0.983× | 1.002× | 0.983× | 1.003× |
+| geometry | 1.075× | 1.053× | 1.077× | 1.056× |
+| scene | 1.081× | 1.027× | 1.084× | 1.029× |
 
-A/A variation above 2%: dispatch gcc cpu after: 1.061×; dispatch gcc measured_wall after: 1.062×; dispatch clang cpu before: 1.095×; dispatch clang measured_wall before: 1.097×; strings gcc cpu after: 0.972×; strings gcc measured_wall after: 0.972×; scene gcc cpu after: 0.958×; scene gcc measured_wall after: 0.957×. Every observation is retained.
+A/A variation above 2%: dispatch gcc cpu before: 1.151×; dispatch gcc measured_wall before: 1.147×; geometry clang measured_wall before: 0.980×; scene gcc cpu after: 0.936×; scene gcc measured_wall after: 0.934×. Every observation is retained.
 
 A GCC pilot sets the repeats for at least 3 s of work per observation. Process CPU time is user plus system time from wait4 resource usage, in microseconds. Address-space layout: randomized (`setarch -R` refused: setarch: failed to set personality to x86_64: Operation not permitted). The badge uses `measured_wall`.
 
@@ -32,11 +32,11 @@ Median `measured_wall` time per pass (one call over 100,000 iterations), in mill
 
 | Workload | cppgm | gcc | clang |
 |---|---:|---:|---:|
-| dispatch | 8.35 | 9.20 | 8.54 |
-| arrays | 2.49 | 2.48 | 2.59 |
-| strings | 40.94 | 39.89 | 41.02 |
-| geometry | 5.86 | 6.34 | 5.74 |
-| scene | 14.00 | 15.07 | 14.43 |
+| dispatch | 11.15 | 13.12 | 11.69 |
+| arrays | 3.47 | 3.66 | 3.88 |
+| strings | 56.67 | 56.06 | 56.78 |
+| geometry | 8.09 | 8.71 | 8.38 |
+| scene | 21.40 | 22.55 | 22.15 |
 
 ## Reference binaries against earlier runs
 
@@ -44,16 +44,16 @@ Each reference binary's `measured_wall` time per pass is compared with the lates
 
 | Workload | Reference | This run (ms) | Earlier run (ms) | Change | Earlier revision | State |
 |---|---|---:|---:|---:|---|---|
-| dispatch | GCC | 9.20 | 9.25 | -0.5% | `61c93cf80` | steady |
-| arrays | GCC | 2.48 | 2.48 | -0.3% | `61c93cf80` | steady |
-| strings | GCC | 39.89 | 40.03 | -0.3% | `61c93cf80` | steady |
-| geometry | GCC | 6.34 | 6.38 | -0.6% | `61c93cf80` | steady |
-| scene | GCC | 15.07 | 14.93 | +1.0% | `61c93cf80` | steady |
-| dispatch | Clang | 8.54 | 8.59 | -0.6% | `61c93cf80` | steady |
-| arrays | Clang | 2.59 | 2.59 | +0.2% | `61c93cf80` | steady |
-| strings | Clang | 41.02 | 41.37 | -0.8% | `61c93cf80` | steady |
-| geometry | Clang | 5.74 | 5.78 | -0.6% | `61c93cf80` | steady |
-| scene | Clang | 14.43 | 14.59 | -1.1% | `61c93cf80` | steady |
+| dispatch | GCC | 13.12 | - | - | - | no earlier run |
+| arrays | GCC | 3.66 | - | - | - | no earlier run |
+| strings | GCC | 56.06 | - | - | - | no earlier run |
+| geometry | GCC | 8.71 | - | - | - | no earlier run |
+| scene | GCC | 22.55 | - | - | - | no earlier run |
+| dispatch | Clang | 11.69 | - | - | - | no earlier run |
+| arrays | Clang | 3.88 | - | - | - | no earlier run |
+| strings | Clang | 56.78 | - | - | - | no earlier run |
+| geometry | Clang | 8.38 | - | - | - | no earlier run |
+| scene | Clang | 22.15 | - | - | - | no earlier run |
 
 ## Toolchains
 
@@ -63,4 +63,4 @@ Each reference binary's `measured_wall` time per pass is compared with the lates
 
 [Results](results.json) · [Provenance and build flags](metadata.json) · [Full-build observations](compile-observations.jsonl) · [Runtime observations](runtime-observations.jsonl)
 
-[Shared comparison tables](standard/summary.md) · [Versioned records](standard/records.json) · [CI run and artifacts](https://github.com/vishvananda/cppgm/actions/runs/45790989032)
+[Shared comparison tables](standard/summary.md) · [Versioned records](standard/records.json) · [CI run and artifacts](https://github.com/vishvananda/cppgm/actions/runs/45850603565)
