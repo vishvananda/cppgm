@@ -58,8 +58,10 @@ from_assembly:
 .globl from_neon
 .type from_neon, %function
 from_neon:
-  ldr x1, =value
-  ld1 { v0.2s }, [x1]
+  p4d .req x1
+  ldr p4d, =value
+  ld1 { v0.2s }, [p4d]
+  .unreq p4d
   movi v1.2s, #1
   add v0.2s, v0.2s, v1.2s
   sub sp, sp, #16

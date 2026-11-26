@@ -44,6 +44,20 @@ Gpr gpr(ModuleCursor& cursor, const assembly::SymbolLookup& symbols)
 	return { reg.number, reg.bits == 64, reg.number == 31 };
 }
 
+bool register_spelling(ModuleCursor& cursor, const char* banks, bool arrangement = false)
+{
+	cursor.space();
+	const char bank = cursor.current();
+	if (bank == '\0' || !std::strchr(banks, bank))
+		return false;
+	uint32_t end = 1;
+	while (cursor.current(end) >= '0' && cursor.current(end) <= '9')
+		++end;
+	const char suffix = cursor.current(end);
+	return end > 1 &&
+		(suffix == '\0' || suffix == ' ' || suffix == '\t' || suffix == ',' || (arrangement && suffix == '.'));
+}
+
 void comma(ModuleCursor& cursor)
 {
 	if (!cursor.take(','))
@@ -382,8 +396,7 @@ AssemblyWord move(ModuleCursor& cursor, assembly::ExpressionSymbols& expressions
 			cursor.fail("AArch64 move immediate requires a general-purpose destination");
 		return { move_immediate(cursor, dest, immediate(cursor, expressions)) };
 	}
-	cursor.space();
-	if (cursor.current() == 'v' && cursor.current(1) >= '0' && cursor.current(1) <= '9')
+	if (register_spelling(cursor, "v", true))
 	{
 		if (dest.stack)
 			cursor.fail("AArch64 SIMD lane extraction requires a general-purpose destination");
@@ -549,11 +562,9 @@ struct TransferRegister
 
 TransferRegister transfer_register(ModuleCursor& cursor, const assembly::SymbolLookup& symbols)
 {
-	cursor.space();
-	const char bank = cursor.current();
-	const char digit = cursor.current(1);
-	if (bank != '\0' && std::strchr("bhsdq", bank) && digit >= '0' && digit <= '9')
+	if (register_spelling(cursor, "bhsdq"))
 	{
+		const char bank = cursor.current();
 		const std::string name = cursor.word();
 		asm_model::Register reg;
 		if (!assembly::parse_aarch64_register(name.data(), name.size(), reg) ||
@@ -836,8 +847,7 @@ bool uses_sve(const std::string& mnemonic, ModuleCursor& cursor)
 		return true;
 	if (mnemonic != "ldr" && mnemonic != "str")
 		return false;
-	cursor.space();
-	return (cursor.current() == 'z' || cursor.current() == 'p') && cursor.current(1) >= '0' && cursor.current(1) <= '9';
+	return register_spelling(cursor, "zp");
 }
 
 bool uses_sme(const std::string& mnemonic, ModuleCursor& cursor)
@@ -1534,8 +1544,7 @@ static bool uses_neon(const std::string& mnemonic, ModuleCursor& cursor)
 	if (mnemonic != "mov" && mnemonic != "add" && mnemonic != "sub" && mnemonic != "and" && mnemonic != "orr" &&
 		mnemonic != "eor" && mnemonic != "rev32")
 		return false;
-	cursor.space();
-	return (cursor.current() == 'v' || cursor.current() == 'd') && cursor.current(1) >= '0' && cursor.current(1) <= '9';
+	return register_spelling(cursor, "vd", true);
 }
 
 AssemblyWord assemble_word(const std::string& mnemonic, ModuleCursor& cursor, assembly::ExpressionSymbols& expressions,
