@@ -4,29 +4,29 @@ All original oracles passed for all three compilers. Seconds are child CPU, one 
 
 | Test | Kind | Compile cppgm | GCC | Clang | Test cppgm | GCC | Clang |
 |---|---|---:|---:|---:|---:|---:|---:|
-| calculator.test | RUN | 0.448635 | 1.190933 | 1.317291 | 0.001882 | 0.001872 | 0.001972 |
-| constrained_ops.test | RUN | 0.512629 | 1.280310 | 1.469250 | 0.002092 | 0.002214 | 0.001889 |
-| cpp-next_bug.test | RUN | 0.519365 | 1.381592 | 1.534944 | 0.001976 | 0.002014 | 0.002108 |
-| deep_copy.test | RUN | 0.447315 | 1.216537 | 1.373210 | 0.001993 | 0.001960 | 0.001912 |
-| display_expr.test | RUN | 0.528800 | 1.507279 | 1.647645 | 0.002212 | 0.002242 | 0.001984 |
-| deduce_domain.test | RUN | 0.427094 | 1.063621 | 1.172524 | 0.002266 | 0.002189 | 0.001780 |
-| env_var.test | RUN | 0.572481 | 2.642488 | 1.946565 | 0.002298 | 0.002472 | 0.002226 |
-| examples.test | RUN | 0.558228 | 1.703981 | 1.820184 | 0.002158 | 0.002057 | 0.001947 |
-| external_transforms.test | RUN | 0.539374 | 1.448451 | 1.615618 | 0.001943 | 0.002066 | 0.002213 |
-| lambda.test | RUN | 0.525011 | 1.486889 | 1.651512 | 0.002097 | 0.002161 | 0.001908 |
-| make_expr.test | RUN | 0.529174 | 2.433129 | 1.741716 | 0.002428 | 0.002617 | 0.002295 |
-| matches.test | RUN | 0.463477 | 1.206627 | 1.413867 | 0.002124 | 0.002030 | 0.002126 |
-| flatten.test | RUN | 0.915141 | 3.601399 | 3.518277 | 0.002174 | 0.002298 | 0.002160 |
-| switch.test | RUN | 0.458075 | 1.209431 | 1.321357 | 0.002527 | 0.002216 | 0.002024 |
-| toy_spirit.test | RUN | 0.513886 | 1.535022 | 1.726370 | 0.001901 | 0.002326 | 0.002124 |
-| toy_spirit2.test | RUN | 0.563906 | 1.631335 | 1.828224 | 0.002172 | 0.002063 | 0.001898 |
-| make.test | RUN | 0.440399 | 1.555499 | 1.320668 | 0.002534 | 0.002476 | 0.002430 |
-| mem_ptr.test | RUN | 0.581413 | 2.575926 | 2.025842 | 0.002581 | 0.002421 | 0.002247 |
-| mpl.test | RUN | 0.513158 | 1.264933 | 1.482833 | 0.002176 | 0.002043 | 0.001955 |
-| noinvoke.test | RUN | 0.443446 | 1.069036 | 1.211251 | 0.002143 | 0.002190 | 0.001981 |
-| pack_expansion.test | RUN | 0.530436 | 1.551347 | 1.616150 | 0.001598 | 0.001596 | 0.002000 |
-| protect.test | RUN | 0.347081 | 1.065813 | 0.996877 | 0.001646 | 0.001630 | 0.001462 |
-| bug2407.test | COMPILE | 0.382558 | 0.788008 | 0.753324 | — | — | — |
+| calculator.test | RUN | 0.447885 | 1.169551 | 1.309614 | 0.002091 | 0.002248 | 0.001940 |
+| constrained_ops.test | RUN | 0.508318 | 1.257367 | 1.463678 | 0.001992 | 0.002219 | 0.001873 |
+| cpp-next_bug.test | RUN | 0.520811 | 1.366824 | 1.517539 | 0.001685 | 0.002131 | 0.001889 |
+| deep_copy.test | RUN | 0.435544 | 1.190711 | 1.362329 | 0.002065 | 0.001964 | 0.001854 |
+| display_expr.test | RUN | 0.524362 | 1.477847 | 1.648065 | 0.002164 | 0.002020 | 0.002008 |
+| deduce_domain.test | RUN | 0.413584 | 1.048934 | 1.183494 | 0.002384 | 0.001975 | 0.001984 |
+| env_var.test | RUN | 0.567852 | 2.597275 | 1.923757 | 0.002529 | 0.002448 | 0.002185 |
+| examples.test | RUN | 0.540838 | 1.669755 | 1.785306 | 0.002302 | 0.002080 | 0.002026 |
+| external_transforms.test | RUN | 0.538243 | 1.434700 | 1.621153 | 0.002363 | 0.002059 | 0.002181 |
+| lambda.test | RUN | 0.515930 | 1.447139 | 1.627497 | 0.002193 | 0.002297 | 0.001952 |
+| make_expr.test | RUN | 0.509555 | 2.438725 | 1.728600 | 0.002471 | 0.002709 | 0.002329 |
+| matches.test | RUN | 0.455274 | 1.189622 | 1.413308 | 0.001990 | 0.002094 | 0.002243 |
+| flatten.test | RUN | 0.900786 | 3.516424 | 3.505670 | 0.002170 | 0.002370 | 0.001912 |
+| switch.test | RUN | 0.457789 | 1.190277 | 1.310850 | 0.002004 | 0.002298 | 0.001968 |
+| toy_spirit.test | RUN | 0.513138 | 1.523371 | 1.709925 | 0.002088 | 0.002168 | 0.001835 |
+| toy_spirit2.test | RUN | 0.539591 | 1.595253 | 1.803655 | 0.002004 | 0.002020 | 0.001917 |
+| make.test | RUN | 0.430079 | 1.531923 | 1.306860 | 0.002373 | 0.002362 | 0.002187 |
+| mem_ptr.test | RUN | 0.568764 | 2.543232 | 1.998077 | 0.002443 | 0.002346 | 0.002139 |
+| mpl.test | RUN | 0.509243 | 1.240240 | 1.460507 | 0.001948 | 0.002713 | 0.001904 |
+| noinvoke.test | RUN | 0.433675 | 1.063558 | 1.200343 | 0.001995 | 0.002012 | 0.002142 |
+| pack_expansion.test | RUN | 0.462917 | 1.574625 | 1.617667 | 0.001810 | 0.002282 | 0.002121 |
+| protect.test | RUN | 0.429880 | 1.077279 | 1.021166 | 0.001647 | 0.001606 | 0.001438 |
+| bug2407.test | COMPILE | 0.403231 | 0.688654 | 0.756152 | — | — | — |
 
 ## Native runtime replay
 
@@ -34,36 +34,36 @@ Child CPU of successful native tests, with process startup included; GDB and exp
 
 | Reference | CPU speedup ↑ | Paired blocks | A/A speedup |
 |---|---:|---|---:|
-| gcc | 0.994× | 0.995×, 0.994× | 0.995× |
-| clang | 0.976× | 0.976×, 0.975× | 1.004× |
+| gcc | 0.995× | 0.993×, 0.997× | 1.006× |
+| clang | 0.976× | 0.974×, 0.978× | 1.000× |
 
-† A/A drift or paired-block spread exceeds 5%; small differences are unresolved. 1375 native tests in the full cohort; 1363 have byte-identical output throughout. [Raw replay evidence in CI artifacts](https://github.com/vishvananda/cppgm/actions/runs/45697047144).
+† A/A drift or paired-block spread exceeds 5%; small differences are unresolved. 1375 native tests in the full cohort; 1364 have byte-identical output throughout. [Raw replay evidence in CI artifacts](https://github.com/vishvananda/cppgm/actions/runs/45710374989).
 
 | Test | Repeats | CPU cppgm | GCC | Clang | Output check |
 |---|---:|---:|---:|---:|---|
-| calculator.test | 10 | 0.001299s | 0.001270s | 0.001254s | byte equality observed |
-| constrained_ops.test | 10 | 0.001269s | 0.001258s | 0.001218s | byte equality observed |
-| cpp-next_bug.test | 10 | 0.001256s | 0.001242s | 0.001224s | byte equality observed |
-| deduce_domain.test | 10 | 0.001264s | 0.001250s | 0.001222s | byte equality observed |
-| deep_copy.test | 10 | 0.001255s | 0.001265s | 0.001227s | byte equality observed |
-| display_expr.test | 10 | 0.001272s | 0.001244s | 0.001212s | byte equality observed |
-| env_var.test | 10 | 0.001359s | 0.001370s | 0.001344s | byte equality observed |
-| examples.test | 10 | 0.001294s | 0.001296s | 0.001269s | byte equality observed |
-| external_transforms.test | 10 | 0.001265s | 0.001266s | 0.001246s | byte equality observed |
-| flatten.test | 10 | 0.001287s | 0.001287s | 0.001268s | byte equality observed |
-| lambda.test | 10 | 0.001236s | 0.001254s | 0.001243s | byte equality observed |
-| make.test | 10 | 0.001311s | 0.001317s | 0.001276s | byte equality observed |
-| make_expr.test | 10 | 0.001397s | 0.001379s | 0.001363s | byte equality observed |
-| matches.test | 10 | 0.001275s | 0.001258s | 0.001230s | byte equality observed |
-| mem_ptr.test | 10 | 0.001359s | 0.001334s | 0.001367s | byte equality observed |
-| mpl.test | 10 | 0.001267s | 0.001227s | 0.001216s | byte equality observed |
-| noinvoke.test | 10 | 0.001241s | 0.001239s | 0.001240s | byte equality observed |
-| pack_expansion.test | 10 | 0.001287s | 0.001264s | 0.001232s | byte equality observed |
-| protect.test | 10 | 0.001261s | 0.001271s | 0.001244s | byte equality observed |
-| switch.test | 10 | 0.001262s | 0.001234s | 0.001216s | byte equality observed |
-| toy_spirit.test | 10 | 0.001236s | 0.001231s | 0.001228s | byte equality observed |
-| toy_spirit2.test | 10 | 0.001236s | 0.001261s | 0.001225s | byte equality observed |
+| calculator.test | 10 | 0.001280s | 0.001242s | 0.001244s | byte equality observed |
+| constrained_ops.test | 10 | 0.001281s | 0.001251s | 0.001187s | byte equality observed |
+| cpp-next_bug.test | 10 | 0.001246s | 0.001224s | 0.001217s | byte equality observed |
+| deduce_domain.test | 10 | 0.001247s | 0.001240s | 0.001198s | byte equality observed |
+| deep_copy.test | 10 | 0.001249s | 0.001284s | 0.001227s | byte equality observed |
+| display_expr.test | 10 | 0.001263s | 0.001285s | 0.001229s | byte equality observed |
+| env_var.test | 10 | 0.001339s | 0.001331s | 0.001307s | byte equality observed |
+| examples.test | 10 | 0.001301s | 0.001283s | 0.001222s | byte equality observed |
+| external_transforms.test | 10 | 0.001261s | 0.001248s | 0.001220s | byte equality observed |
+| flatten.test | 10 | 0.001286s | 0.001271s | 0.001260s | byte equality observed |
+| lambda.test | 10 | 0.001265s | 0.001251s | 0.001268s | byte equality observed |
+| make.test | 10 | 0.001314s | 0.001297s | 0.001302s | byte equality observed |
+| make_expr.test | 10 | 0.001374s | 0.001411s | 0.001361s | byte equality observed |
+| matches.test | 10 | 0.001262s | 0.001232s | 0.001251s | byte equality observed |
+| mem_ptr.test | 10 | 0.001343s | 0.001351s | 0.001302s | byte equality observed |
+| mpl.test | 10 | 0.001239s | 0.001253s | 0.001285s | byte equality observed |
+| noinvoke.test | 10 | 0.001239s | 0.001221s | 0.001209s | byte equality observed |
+| pack_expansion.test | 10 | 0.001260s | 0.001249s | 0.001226s | byte equality observed |
+| protect.test | 10 | 0.001248s | 0.001264s | 0.001294s | byte equality observed |
+| switch.test | 10 | 0.001273s | 0.001231s | 0.001230s | byte equality observed |
+| toy_spirit.test | 10 | 0.001257s | 0.001241s | 0.001208s | byte equality observed |
+| toy_spirit2.test | 10 | 0.001231s | 0.001258s | 0.001220s | byte equality observed |
 
-[Raw outcomes, commands and timing observations in CI artifacts](https://github.com/vishvananda/cppgm/actions/runs/45697047144).
+[Raw outcomes, commands and timing observations in CI artifacts](https://github.com/vishvananda/cppgm/actions/runs/45710374989).
 
 [Comparison records](../results.json) · [Host and toolchains](../metadata.json)
