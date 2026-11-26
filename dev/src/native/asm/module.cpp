@@ -287,6 +287,8 @@ void InlineModulePlacement::append(const InlineAssemblyModule& module, uint32_t 
 			}
 		}
 	}
+	for (uint32_t id : source.assembly_symbols)
+		out_.assembly_symbols.push_back(moved[id]);
 	for (uint32_t id = 1; id < source.sections.size(); ++id)
 	{
 		auto& relocations = out_.sections[section_map[id]].relocations;

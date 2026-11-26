@@ -147,6 +147,16 @@ I386Relocation i386_relocation(uint32_t type)
 	}
 }
 
+template<class Index>
+void mark_referenced_symbols(const ObjectFile& object, std::vector<Index>& marks)
+{
+	for (const Section& section : object.sections)
+		for (const Relocation& relocation : section.relocations)
+			marks[relocation.symbol] = 1;
+	for (uint32_t symbol : object.assembly_symbols)
+		marks[symbol] = 1;
+}
+
 // One encoding: the section order is null, the groups, the object's
 // sections, their relocation tables, .symtab, .strtab, .symtab_shndx (extended
 // numbering only), .shstrtab and .note.GNU-stack.
@@ -160,6 +170,8 @@ public:
 
 private:
 	void number();
+	template<bool PruneUndefined>
+	void number_symbols();
 	void add_groups();
 	void add_contents();
 	void add_relocations();
@@ -231,17 +243,38 @@ void Encoder<Elf32>::number()
 	if (extended_)
 		++next;
 	shstrtab_ = next;
+	if (!Elf32 && object_.architecture == target_model::Architecture::AArch64)
+		number_symbols<true>();
+	else
+		number_symbols<false>();
+}
+
+template<bool Elf32>
+template<bool PruneUndefined>
+void Encoder<Elf32>::number_symbols()
+{
 	// Symbols: the null symbol, the locals, then the others (sh_info).
 	symbol_index_.assign(object_.symbols.size(), 0);
+	if (PruneUndefined)
+	{
+		// Reuse the index table for liveness until each symbol is numbered.
+		mark_referenced_symbols(object_, symbol_index_);
+		for (const Group& group : object_.groups)
+			symbol_index_[group.signature] = 1;
+		symbol_index_[0] = 0;
+	}
+	const auto keep = [&](size_t i) {
+		return !PruneUndefined || object_.symbols[i].section != kUndefinedSection || symbol_index_[i] != 0;
+	};
 	for (size_t i = 1; i < object_.symbols.size(); ++i)
 	{
-		if (object_.symbols[i].binding == Binding::Local)
+		if (object_.symbols[i].binding == Binding::Local && keep(i))
 			symbol_index_[i] = symbol_count_++;
 	}
 	first_global_ = symbol_count_;
 	for (size_t i = 1; i < object_.symbols.size(); ++i)
 	{
-		if (object_.symbols[i].binding != Binding::Local)
+		if (object_.symbols[i].binding != Binding::Local && keep(i))
 			symbol_index_[i] = symbol_count_++;
 	}
 }
@@ -346,6 +379,7 @@ void Encoder<Elf32>::add_symbols()
 	table.entry_size = Elf32 ? 16 : kSymbolBytes;
 	OutputSection indexes = OutputSection();
 	std::vector<uint32_t> order(symbol_count_, 0);
+	// Omitted symbols map to entry zero, which is written separately.
 	for (size_t i = 1; i < object_.symbols.size(); ++i)
 		order[symbol_index_[i]] = static_cast<uint32_t>(i);
 	table.built.reserve(table.entry_size * symbol_count_);
@@ -945,11 +979,7 @@ bool AssemblyWriter::write(std::string& error)
 		// Assembler directives can create undefined symbols even where no
 		// relocation uses them. Emit the declarations that this listing names.
 		named.resize(object_.symbols.size());
-		for (const Section& section : object_.sections)
-			for (const Relocation& relocation : section.relocations)
-				named[relocation.symbol] = 1;
-		for (uint32_t symbol : object_.assembly_symbols)
-			named[symbol] = 1;
+		mark_referenced_symbols(object_, named);
 	}
 	for (uint32_t i = 1; i < object_.symbols.size(); ++i)
 		if ((object_.symbols[i].section == kUndefinedSection && (named.empty() || named[i])) ||

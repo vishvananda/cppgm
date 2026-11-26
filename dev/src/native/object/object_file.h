@@ -195,7 +195,7 @@ struct ObjectFile
 	bool assembly_text = false;
 	std::vector<AssemblyString> assembly_strings;
 	std::vector<AssemblyFragment> assembly_fragments;
-	// Typed symbols named by an assembly fragment; the text writer supplies their ELF attributes.
+	// Symbols explicitly named by assembly that need ELF symbol-table attributes.
 	std::vector<uint32_t> assembly_symbols;
 };
 

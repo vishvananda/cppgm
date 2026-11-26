@@ -452,9 +452,17 @@ void ModuleAssembler::alignment(assembly::ModuleCursor& cursor, bool power)
 		}
 	}
 }
-void ModuleAssembler::size(assembly::ModuleCursor& cursor)
+uint32_t ModuleAssembler::declared_symbol(assembly::ModuleCursor& cursor)
 {
 	const uint32_t id = symbol(cursor);
+	if (target_ == Target::AArch64Linux)
+		out_.assembly_symbols.push_back(id);
+	return id;
+}
+
+void ModuleAssembler::size(assembly::ModuleCursor& cursor)
+{
+	const uint32_t id = declared_symbol(cursor);
 	if (!cursor.take(','))
 		cursor.fail("module size requires an expression");
 	const assembly::ModuleValue bytes = assembly::assembly_module_expression(cursor, *this);
@@ -526,7 +534,7 @@ void ModuleAssembler::assign(uint32_t id, assembly::ModuleCursor& cursor)
 }
 void ModuleAssembler::type(assembly::ModuleCursor& cursor)
 {
-	const uint32_t id = symbol(cursor);
+	const uint32_t id = declared_symbol(cursor);
 	cursor.take(',');
 	cursor.take('@');
 	cursor.take('%');
@@ -555,7 +563,7 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 	{
 		do
 		{
-			const uint32_t id = symbol(cursor);
+			const uint32_t id = declared_symbol(cursor);
 			if (name == ".hidden" || name == ".private_extern")
 				out_.symbols[id].visibility = object::Visibility::Hidden;
 			else

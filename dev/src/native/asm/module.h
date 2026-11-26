@@ -63,6 +63,7 @@ private:
 	void stage(ModuleLayout::Fragment fragment);
 	uint64_t offset() const;
 	uint32_t symbol(assembly::ModuleCursor& cursor) { return symbols_.token(cursor); }
+	uint32_t declared_symbol(assembly::ModuleCursor& cursor);
 	object::ObjectFile& out_;
 	Target target_;
 	ModuleSymbols symbols_;
