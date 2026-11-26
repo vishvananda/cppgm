@@ -1,7 +1,10 @@
 #pragma once
 
+#include "aarch64/assembler.h"
+#include "asm/module_expand.h"
 #include "asm/module_expression.h"
 #include "lowir/program.h"
+#include "native/asm/inline_module.h"
 #include "native/asm/module_layout.h"
 #include "native/asm/module_symbols.h"
 #include "native/asm/module_unwind.h"
@@ -10,7 +13,7 @@ namespace native {
 
 class AssemblyEnvironment;
 
-class ModuleAssembler : private assembly::ExpressionSymbols
+class ModuleAssembler : private assembly::ExpressionSymbols, private assembly::ExpansionLayout
 {
 public:
 	ModuleAssembler(object::ObjectFile& out, Target target, bool code16gcc = false);
@@ -22,10 +25,20 @@ public:
 	void declare(const assembly::ModuleLine& line);
 	void append(const assembly::ModuleLine& line);
 	void append(std::vector<assembly::Instruction>& instructions);
-	void finish();
+	void expand(assembly::ModuleExpander& expander, const std::vector<assembly::ModuleLine>& lines);
+	void finish(std::vector<ModuleSubsection>* inline_subsections = nullptr);
 
 private:
+	class LiveExpressions;
+	void emit_expanded(const assembly::ModuleLine& line) override { append(line); }
+	uint64_t expansion_expression(const assembly::ModuleLine& line, uint32_t first) override;
+	bool expansion_condition(const std::string& kind, const assembly::ModuleLine& line, uint32_t first) override;
+	bool expansion_defined(const std::string& name) const override;
 	void flush();
+	void subsection(uint32_t number);
+	void literal_pool(uint32_t section);
+	uint32_t queue_literal(const aarch64::AssemblyWord& instruction, uint64_t site);
+	void finish_subsections(std::vector<ModuleSubsection>* retained);
 	void append_aarch64(const std::string& name, assembly::ModuleCursor& cursor);
 	void emit_instructions(std::vector<assembly::Instruction>& instructions);
 	bool directive(const std::string& name, assembly::ModuleCursor& cursor);
@@ -56,9 +69,20 @@ private:
 	ModuleLayout layout_;
 	ModuleUnwind unwind_;
 	assembly::Syntax syntax_;
+	aarch64::AssemblyFeatures aarch64_features_;
+	struct Literal
+	{
+		uint32_t symbol;
+		uint32_t value_symbol;
+		int64_t bits;
+		unsigned width;
+	};
+	std::map<uint32_t, std::vector<Literal>> literal_pools_;
 	uint32_t section_ = 0;
 	uint32_t previous_ = 0;
 	std::vector<uint32_t> section_stack_;
+	std::map<std::pair<uint32_t, uint32_t>, uint32_t> subsections_;
+	std::map<uint32_t, uint32_t> subsection_parents_;
 	struct DataRelocation
 	{
 		uint64_t offset;

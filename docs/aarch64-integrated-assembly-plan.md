@@ -42,9 +42,9 @@ translation unit pays the same parsing and allocation costs. [Compiler
 architecture](../spec.md)
 
 The critical layout change is in [Arm inline assembly lowering](../dev/src/aarch64/assembly.cpp).
-It currently inserts a single placeholder instruction and attaches text for
-the external assembler. Use the integrated assembler's actual instruction
-count, alignment and section contributions before finalizing machine block
+The listing path holds the source text at a placeholder instruction. Use the
+integrated assembler's actual instruction count, alignment and section
+contributions before finalizing machine block
 offsets, branch ranges, symbols, relocations, unwind PCs and exception
 call-site ranges. Retain typed labels or anchors through layout and resolve
 their positions once. Exercise a multi-instruction packet, local labels that
@@ -91,14 +91,19 @@ qualify explicit CFI in module and raw-function assembly.
    family, and add minimized regressions as each group closes. Expect to cover
    system registers, barriers, atomics, SIMD, register aliases, architecture
    extensions, and the sections and relocations used by alternatives and
-   exception tables. Lay out numbered subsections in order and place inline
+   exception tables. Let expansion consult assembled label positions for
+   conditions and repetition counts. Keep the layout index incremental so
+   repeated distance queries do not rescan the preceding assembly.
+   Lay out numbered subsections in order and place inline
    replacement instructions outside the compiler's fall-through code. Fix up
    the alternative records only once section and symbol positions are known.
-   Keep the compat vDSO disabled for this qualification
-   so target assembly is entirely AArch64. Build the image and configured
-   modules with cppgm for target compilation and assembly, verify the build
-   commands, then boot in QEMU and check native userspace and the vDSO. Use
-   the pinned configuration to define this milestone's breadth.
+   Start with a small QEMU `virt` build to validate linking, boot, and the
+   native vDSO. Qualify the broader pinned configuration by building the
+   image and configured modules with cppgm for target compilation and
+   assembly. Disable the compat vDSO so target assembly is entirely
+   AArch64. Check from Kbuild's command receipts that every target assembly
+   input was handled by cppgm. Reboot the broader build and exercise a
+   native userspace process, the vDSO and module loading.
    [GNU AArch64 machine directives](https://sourceware.org/binutils/docs/as/AArch64-Directives.html)
 
 5. **Qualify Apple Silicon with the same AArch64 parser and encoder.** Add

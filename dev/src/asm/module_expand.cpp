@@ -70,14 +70,14 @@ size_t module_block_end(const std::vector<ModuleLine>& input, size_t first, size
 	}
 	throw AssemblyError{ "unterminated module expansion block", input[first].line, 1 };
 }
-std::vector<ModuleLine> ModuleExpander::expand(const std::vector<ModuleLine>& input)
+std::vector<ModuleLine> ModuleExpander::expand(const std::vector<ModuleLine>& input, ExpansionLayout* layout)
 {
-	std::vector<ModuleLine> result;
+	Output result{ {}, layout };
 	for (const ModuleLine& line : input)
 		account(line.text.size() + 1, line);
 	if (range(input, 0, input.size(), result, 0))
 		throw AssemblyError{ ".exitm outside macro expansion", 1, 1 };
-	return result;
+	return std::move(result.lines);
 }
 void ModuleExpander::account(uint64_t bytes, const ModuleLine& line)
 {
@@ -86,13 +86,18 @@ void ModuleExpander::account(uint64_t bytes, const ModuleLine& line)
 		throw AssemblyError{ "module expansion exceeds byte budget", line.line, 1 };
 	budget_->bytes += bytes;
 }
-void ModuleExpander::emit(const ModuleLine& line, std::vector<ModuleLine>& output)
+void ModuleExpander::emit(ModuleLine line, Output& output)
 {
 	account(line.text.size() + 1, line);
-	output.push_back(line);
+	if (output.layout)
+		output.layout->emit_expanded(line);
+	else
+		output.lines.push_back(std::move(line));
 }
-uint64_t ModuleExpander::expression(const ModuleLine& line, uint32_t first) const
+uint64_t ModuleExpander::expression(const ModuleLine& line, uint32_t first, const Output& output) const
 {
+	if (output.layout)
+		return output.layout->expansion_expression(line, first);
 	ExpansionConstants constants(constants_);
 	return module_expression(line, first, &constants);
 }
@@ -136,7 +141,7 @@ void ModuleExpander::assignment(const std::string& name, ModuleCursor& cursor, M
 	constants_.set(name, line.assignment);
 }
 bool ModuleExpander::range(
-	const std::vector<ModuleLine>& input, size_t first, size_t last, std::vector<ModuleLine>& output, unsigned depth)
+	const std::vector<ModuleLine>& input, size_t first, size_t last, Output& output, unsigned depth)
 {
 	if (depth > 64)
 		throw AssemblyError{ "module expansion nesting exceeds limit", 1, 1 };
@@ -161,16 +166,21 @@ bool ModuleExpander::range(
 		{
 			bool taken = false, after_else = false;
 			ExpansionConstants constants(constants_);
+			const auto evaluate = [&](const std::string& kind, ModuleCursor& position, const ModuleLine& part) {
+				return output.layout ? output.layout->expansion_condition(kind, part, position.position())
+									 : module_condition(kind, position, part, constants);
+			};
 			bool enabled;
 			if (name == ".ifdef" || name == ".ifndef")
 			{
 				const std::string symbol = cursor.word();
 				cursor.finish();
-				enabled = (constants_.lookup(symbol) != nullptr || registers_.lookup(symbol) != nullptr) ==
-					(name == ".ifdef");
+				const bool defined = constants_.lookup(symbol) != nullptr || registers_.lookup(symbol) != nullptr ||
+					(output.layout && output.layout->expansion_defined(symbol));
+				enabled = defined == (name == ".ifdef");
 			}
 			else
-				enabled = module_condition(name, cursor, line, constants);
+				enabled = evaluate(name, cursor, line);
 			size_t begin = i + 1;
 			unsigned nested = 0;
 			bool closed = false;
@@ -217,7 +227,7 @@ bool ModuleExpander::range(
 						enabled = true;
 					}
 					else
-						enabled = !taken && module_condition(".if", branch, input[j], constants);
+						enabled = !taken && evaluate(".if", branch, input[j]);
 					begin = j + 1;
 				}
 			}
@@ -246,15 +256,15 @@ bool ModuleExpander::range(
 				invoke(line, cursor.position(), macro, output, depth + 1);
 			else
 			{
-				emit(line, output);
+				ModuleLine emitted = line;
 				if (name == ".set" || name == ".equ")
 				{
 					const std::string symbol = cursor.word();
 					if (cursor.take(','))
-						assignment(symbol, cursor, output.back());
+						assignment(symbol, cursor, emitted);
 				}
 				else if (cursor.take('='))
-					assignment(name, cursor, output.back());
+					assignment(name, cursor, emitted);
 				else if (dialect_ == asm_model::Dialect::AArch64 && name == ".unreq")
 				{
 					registers_.erase(cursor.word());
@@ -264,7 +274,7 @@ bool ModuleExpander::range(
 					cursor.word() == ".req")
 				{
 					const std::string spelling = cursor.word();
-					auto& reg = output.back().register_assignment;
+					auto& reg = emitted.register_assignment;
 					if (const auto* prior = registers_.lookup(spelling))
 						reg = *prior;
 					else if (!parse_aarch64_register(spelling.data(), spelling.size(), reg))
@@ -272,6 +282,7 @@ bool ModuleExpander::range(
 					cursor.finish();
 					registers_.set(name, reg);
 				}
+				emit(std::move(emitted), output);
 			}
 		}
 	}

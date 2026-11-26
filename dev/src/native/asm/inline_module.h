@@ -7,7 +7,17 @@
 #include "native/asm/module_symbols.h"
 #include "native/object/object_file.h"
 
+namespace assembly {
+class ModuleExpander;
+}
+
 namespace native {
+
+struct ModuleSubsection
+{
+	uint32_t parent;
+	uint32_t section;
+};
 
 struct InlineAssemblyModule
 {
@@ -20,6 +30,7 @@ struct InlineAssemblyModule
 		uint32_t operand;
 	};
 	std::vector<Exit> exits;
+	std::vector<ModuleSubsection> subsections;
 	uint32_t text = 1;
 
 	const object::Section& main() const { return object.sections[text]; }
@@ -33,8 +44,8 @@ struct InlineModuleLocation
 };
 
 bool inline_has_sections(const std::vector<assembly::ModuleLine>& lines);
-std::shared_ptr<const InlineAssemblyModule> build_inline_module(
-	std::vector<assembly::ModuleLine>& lines, asm_model::Dialect dialect, Target target, bool code16gcc);
+std::shared_ptr<const InlineAssemblyModule> build_inline_module(std::vector<assembly::ModuleLine>& lines,
+	asm_model::Dialect dialect, Target target, bool code16gcc, assembly::ModuleExpander* expander = nullptr);
 std::shared_ptr<const InlineAssemblyModule> build_inline_module(
 	std::vector<assembly::Instruction>& instructions, Target target);
 bool inline_has_symbol_names(const std::vector<assembly::Instruction>& instructions);

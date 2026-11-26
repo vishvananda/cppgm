@@ -17,6 +17,7 @@ public:
 	bool lookup(const std::string& name, asm_model::SymbolReference& reference) override;
 	bool interposable(const std::string& name) const override;
 	bool absolute(uint32_t symbol, uint64_t& value) const override;
+	bool defined(const std::string& name) const;
 	bool register_alias(const std::string& name, asm_model::Register& reg) const override;
 	void define_register_alias(const std::string& name, asm_model::Register reg);
 	void remove_register_alias(const std::string& name) { registers_.erase(name); }
@@ -24,6 +25,7 @@ public:
 	void add_name(const char* name, uint32_t symbol) { names_.emplace(name, symbol); }
 	uint32_t token(assembly::ModuleCursor& cursor);
 	void define(uint32_t symbol, uint32_t section, uint64_t offset);
+	void bind_section_symbol(const char* name, uint32_t section);
 	void bind(uint32_t symbol, object::Binding binding);
 	void type(uint32_t symbol, object::SymbolType type);
 	void define_absolute(uint32_t symbol, uint64_t value);

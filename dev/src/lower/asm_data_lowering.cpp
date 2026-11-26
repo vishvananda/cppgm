@@ -27,6 +27,8 @@ void ProgramLowering::asm_declaration(const syntax::AsmDecl& decl)
 	packet.text = decl.assembly_source;
 	packet.text_size = decl.assembly_size;
 	packet.definition.piece_count = 1;
+	if (target_model::is_aarch64(program_.target))
+		packet.definition.dialect = asm_model::Dialect::AArch64;
 	asm_model::Piece piece;
 	piece.count = decl.assembly_size;
 	packet.pieces.data = &piece;

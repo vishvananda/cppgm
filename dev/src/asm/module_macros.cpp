@@ -46,8 +46,8 @@ void ModuleExpander::define(
 	macro->body.assign(input.begin() + first, input.begin() + last);
 	macros_.set(name, macro);
 }
-void ModuleExpander::invoke(const ModuleLine& invocation, uint32_t first, std::shared_ptr<Macro> macro,
-	std::vector<ModuleLine>& output, unsigned depth)
+void ModuleExpander::invoke(
+	const ModuleLine& invocation, uint32_t first, std::shared_ptr<Macro> macro, Output& output, unsigned depth)
 {
 	std::vector<uint32_t> starts;
 	const std::vector<ModuleLine> arguments = module_arguments(invocation, first, &starts, dialect_);
@@ -114,7 +114,7 @@ void ModuleExpander::invoke(const ModuleLine& invocation, uint32_t first, std::s
 	substituted(macro->body, bindings, budget_->unique++, macro->executions++, output, depth);
 }
 bool ModuleExpander::substituted(const std::vector<ModuleLine>& body, const Bindings& bindings, uint64_t unique,
-	uint64_t iteration, std::vector<ModuleLine>& output, unsigned depth)
+	uint64_t iteration, Output& output, unsigned depth)
 {
 	std::vector<ModuleLine> expanded;
 	for (const ModuleLine& line : body)
@@ -130,7 +130,7 @@ bool ModuleExpander::substituted(const std::vector<ModuleLine>& body, const Bind
 	return range(expanded, 0, expanded.size(), output, depth);
 }
 void ModuleExpander::repeat(const std::string& kind, const ModuleLine& declaration, const std::vector<ModuleLine>& body,
-	std::vector<ModuleLine>& output, unsigned depth)
+	Output& output, unsigned depth)
 {
 	ModuleCursor cursor(declaration);
 	cursor.word();
@@ -140,7 +140,7 @@ void ModuleExpander::repeat(const std::string& kind, const ModuleLine& declarati
 	const bool repetition = kind == ".rept" || kind == ".rep";
 	if (repetition)
 	{
-		count = expression(declaration, cursor.position());
+		count = expression(declaration, cursor.position(), output);
 		if (static_cast<int64_t>(count) < 0)
 			count = 0;
 	}

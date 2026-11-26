@@ -114,8 +114,8 @@ bool inline_has_sections(const std::vector<assembly::ModuleLine>& lines)
 	return false;
 }
 
-std::shared_ptr<const InlineAssemblyModule> build_inline_module(
-	std::vector<assembly::ModuleLine>& lines, asm_model::Dialect dialect, Target target, bool code16gcc)
+std::shared_ptr<const InlineAssemblyModule> build_inline_module(std::vector<assembly::ModuleLine>& lines,
+	asm_model::Dialect dialect, Target target, bool code16gcc, assembly::ModuleExpander* expander)
 {
 	auto result = std::make_shared<InlineAssemblyModule>();
 	result->object.architecture = target_model::describe(target).architecture;
@@ -128,11 +128,16 @@ std::shared_ptr<const InlineAssemblyModule> build_inline_module(
 		exits.remap(line);
 	ModuleAssembler assembler(result->object, target, code16gcc);
 	assembler.begin(dialect);
-	for (const assembly::ModuleLine& line : lines)
-		assembler.declare(line);
-	for (const assembly::ModuleLine& line : lines)
-		assembler.append(line);
-	assembler.finish();
+	if (expander)
+		assembler.expand(*expander, lines);
+	else
+	{
+		for (const assembly::ModuleLine& line : lines)
+			assembler.declare(line);
+		for (const assembly::ModuleLine& line : lines)
+			assembler.append(line);
+	}
+	assembler.finish(&result->subsections);
 	return result;
 }
 
@@ -181,6 +186,23 @@ InlineModulePlacement::InlineModulePlacement(object::ObjectFile& out) : out_(out
 	}
 }
 
+static uint64_t append_section_contents(
+	object::Section& destination, const object::Section& contents, target_model::Architecture architecture)
+{
+	const uint64_t offset = (destination.size + contents.align - 1) & ~(contents.align - 1);
+	destination.align = std::max(destination.align, contents.align);
+	if (destination.kind != object::SectionKind::Bss && destination.kind != object::SectionKind::TlsBss)
+	{
+		if (destination.kind == object::SectionKind::Text && architecture == target_model::Architecture::AArch64)
+			aarch64::append_code_padding(destination.bytes, offset - destination.bytes.size());
+		else
+			destination.bytes.resize(offset, destination.kind == object::SectionKind::Text ? 0x90 : 0);
+		destination.bytes.insert(destination.bytes.end(), contents.bytes.begin(), contents.bytes.end());
+	}
+	destination.size = offset + contents.size;
+	return offset;
+}
+
 uint32_t InlineModulePlacement::place_section(const object::ObjectFile& source, uint32_t section, uint64_t& offset)
 {
 	const object::Section& contents = source.sections[section];
@@ -196,18 +218,7 @@ uint32_t InlineModulePlacement::place_section(const object::ObjectFile& source, 
 		out_.sections[id].merge_strings = contents.merge_strings;
 		out_.sections[id].elf_note = contents.elf_note;
 	}
-	object::Section& destination = out_.sections[id];
-	offset = (destination.size + contents.align - 1) & ~(contents.align - 1);
-	destination.align = std::max(destination.align, contents.align);
-	if (destination.kind != object::SectionKind::Bss)
-	{
-		if (destination.kind == object::SectionKind::Text && out_.architecture == target_model::Architecture::AArch64)
-			aarch64::append_code_padding(destination.bytes, offset - destination.bytes.size());
-		else
-			destination.bytes.resize(offset, destination.kind == object::SectionKind::Text ? 0x90 : 0);
-		destination.bytes.insert(destination.bytes.end(), contents.bytes.begin(), contents.bytes.end());
-	}
-	destination.size = offset + contents.size;
+	offset = append_section_contents(out_.sections[id], contents, out_.architecture);
 	return id;
 }
 
@@ -219,9 +230,18 @@ void InlineModulePlacement::append(const InlineAssemblyModule& module, uint32_t 
 	std::vector<uint64_t> offsets(source.sections.size(), 0);
 	section_map[module.text] = code_section;
 	offsets[module.text] = code_offset;
+	for (const ModuleSubsection& piece : module.subsections)
+		section_map[piece.section] = object::kAbsoluteSection;
 	for (uint32_t id = 1; id < source.sections.size(); ++id)
-		if (id != module.text)
+		if (id != module.text && section_map[id] == 0)
 			section_map[id] = place_section(source, id, offsets[id]);
+	for (const ModuleSubsection& piece : module.subsections)
+	{
+		const uint32_t section = section_map[piece.parent];
+		section_map[piece.section] = section;
+		offsets[piece.section] = append_section_contents(
+			out_.sections[section], source.sections[piece.section], out_.architecture);
+	}
 	std::vector<uint32_t> moved(source.symbols.size(), 0);
 	for (size_t i = 0; i < module.exits.size(); ++i)
 	{
@@ -303,6 +323,7 @@ void ModuleAssembler::section(
 	previous_ = section_;
 	for (uint32_t i = 1; i < out_.sections.size(); ++i)
 		if (name == out_.string(out_.sections[i].name) && out_.sections[i].group == object::kNoGroup &&
+			subsection_parents_.find(i) == subsection_parents_.end() &&
 			(inherit ||
 				(out_.sections[i].kind == kind && out_.sections[i].merge_size == merge_size &&
 					out_.sections[i].merge_strings == merge_strings && out_.sections[i].elf_note == note)))
@@ -315,6 +336,92 @@ void ModuleAssembler::section(
 	out_.sections[section_].merge_strings = merge_strings;
 	out_.sections[section_].elf_note = note;
 }
+void ModuleAssembler::subsection(uint32_t number)
+{
+	const auto parent_entry = subsection_parents_.find(section_);
+	const uint32_t parent = parent_entry == subsection_parents_.end() ? section_ : parent_entry->second;
+	previous_ = section_;
+	section_ = parent;
+	if (number == 0)
+		return;
+	auto entry = subsections_.emplace(std::make_pair(parent, number), 0);
+	if (entry.second)
+	{
+		const object::Section& source = out_.sections[parent];
+		const uint32_t name = source.name;
+		const auto kind = source.kind;
+		// The name already belongs to the string table. Keep the subsection's
+		// staging storage separate from the parent until directives are fixed.
+		object::Section piece;
+		piece.name = name;
+		piece.kind = kind;
+		entry.first->second = out_.sections.size();
+		out_.sections.push_back(std::move(piece));
+		subsection_parents_.emplace(entry.first->second, parent);
+	}
+	section_ = entry.first->second;
+}
+
+void ModuleAssembler::finish_subsections(std::vector<ModuleSubsection>* retained)
+{
+	if (subsections_.empty())
+		return;
+	if (retained)
+	{
+		for (const auto& entry : subsections_)
+		{
+			if (entry.first.second != 1)
+				throw BackendError("AArch64 inline assembly supports subsections zero and one");
+			retained->push_back({ entry.first.first, entry.second });
+		}
+		return;
+	}
+
+	std::vector<uint32_t> section_map(out_.sections.size(), 0);
+	std::vector<uint64_t> offsets(out_.sections.size(), 0);
+	for (const auto& entry : subsections_)
+	{
+		const uint32_t parent = entry.first.first;
+		const uint32_t child = entry.second;
+		object::Section& destination = out_.sections[parent];
+		object::Section& contents = out_.sections[child];
+		const uint64_t offset = append_section_contents(destination, contents, out_.architecture);
+		for (object::Relocation relocation : contents.relocations)
+		{
+			relocation.offset += offset;
+			destination.relocations.push_back(relocation);
+		}
+		offsets[child] = offset;
+	}
+	uint32_t written = 1;
+	for (uint32_t id = 1; id < out_.sections.size(); ++id)
+		if (!subsection_parents_.count(id))
+		{
+			section_map[id] = written;
+			if (id != written)
+				out_.sections[written] = std::move(out_.sections[id]);
+			++written;
+		}
+	out_.sections.resize(written);
+	for (const auto& entry : subsection_parents_)
+		section_map[entry.first] = section_map[entry.second];
+
+	for (object::Symbol& symbol : out_.symbols)
+		if (symbol.section < section_map.size())
+		{
+			symbol.value += offsets[symbol.section];
+			symbol.section = section_map[symbol.section];
+		}
+	for (object::AssemblyString& span : out_.assembly_strings)
+	{
+		span.offset += offsets[span.section];
+		span.section = section_map[span.section];
+	}
+	for (object::Group& group : out_.groups)
+		for (uint32_t& section : group.sections)
+			section = section_map[section];
+}
+
 void ModuleAssembler::flush()
 {
 	if (code_.empty())
@@ -461,6 +568,61 @@ void ModuleAssembler::declare(const assembly::ModuleLine& line)
 		cursor.finish();
 	}
 }
+class ModuleAssembler::LiveExpressions final : public assembly::ExpressionSymbols
+{
+public:
+	explicit LiveExpressions(ModuleAssembler& assembler) : assembler_(assembler) {}
+	assembly::ModuleValue expression_symbol(assembly::ModuleCursor& cursor) override
+	{
+		return assembler_.expression_symbol(cursor);
+	}
+	void fold_difference(assembly::ModuleValue& value) const override
+	{
+		assembler_.layout_.fold_for_expansion(value, assembler_.section_, assembler_.offset());
+	}
+
+private:
+	ModuleAssembler& assembler_;
+};
+
+void ModuleAssembler::expand(assembly::ModuleExpander& expander, const std::vector<assembly::ModuleLine>& lines)
+{
+	layout_.enable_live_expressions();
+	expander.expand(lines, this);
+}
+
+bool ModuleAssembler::expansion_defined(const std::string& name) const
+{
+	return symbols_.defined(name);
+}
+
+uint64_t ModuleAssembler::expansion_expression(const assembly::ModuleLine& line, uint32_t first)
+{
+	const std::vector<assembly::SymbolUse> uses = symbols_.numeric_uses(line);
+	assembly::ModuleCursor cursor(line, uses.empty() ? line.symbols : uses);
+	cursor.advance(first);
+	LiveExpressions expressions(*this);
+	return assembly::module_expression(cursor, &expressions);
+}
+
+bool ModuleAssembler::expansion_condition(const std::string& kind, const assembly::ModuleLine& line, uint32_t first)
+{
+	const auto evaluate = [&](const assembly::ModuleLine& input) {
+		assembly::ModuleCursor cursor(input);
+		cursor.advance(first);
+		LiveExpressions expressions(*this);
+		return assembly::module_condition(kind, cursor, input, expressions);
+	};
+	if (assembly::module_text_condition(kind))
+		return evaluate(line);
+	auto uses = symbols_.numeric_uses(line);
+	if (uses.empty())
+		return evaluate(line);
+	assembly::ModuleLine prepared = line;
+	prepared.symbols = std::move(uses);
+	return evaluate(prepared);
+}
+
 void ModuleAssembler::append_aarch64(const std::string& name, assembly::ModuleCursor& cursor)
 {
 	auto& section = out_.sections[section_];
@@ -474,11 +636,20 @@ void ModuleAssembler::append_aarch64(const std::string& name, assembly::ModuleCu
 			layout_.record_word_instruction(section_, site);
 		else if (site & 3)
 			cursor.fail("AArch64 instruction is not word aligned");
-		const auto instruction = aarch64::assemble_word(name, cursor, *this, symbols_);
+		LiveExpressions live(*this);
+		assembly::ExpressionSymbols& expressions = layout_.live_expressions()
+			? static_cast<assembly::ExpressionSymbols&>(live)
+			: static_cast<assembly::ExpressionSymbols&>(*this);
+		const auto instruction = aarch64::assemble_word(name, cursor, expressions, symbols_, aarch64_features_);
 		reserve(4, 0);
 		for (unsigned i = 0; i < 4; ++i)
 			section.bytes[site + i] = static_cast<uint8_t>(instruction.bits >> (8 * i));
-		if (instruction.relocation != 0)
+		if (instruction.literal_width)
+		{
+			const uint32_t literal = queue_literal(instruction, site);
+			section.relocations.push_back({ site, instruction.relocation, literal, 0 });
+		}
+		else if (instruction.relocation != 0)
 			section.relocations.push_back({ site, instruction.relocation, instruction.symbol, instruction.addend });
 	} while (name == ".inst" && cursor.take(','));
 	cursor.finish();
@@ -598,18 +769,24 @@ void ModuleAssembler::begin(asm_model::Dialect dialect)
 	syntax_.dialect = dialect;
 	syntax_.register_prefix = dialect == asm_model::Dialect::Att;
 }
-void ModuleAssembler::finish()
+void ModuleAssembler::finish(std::vector<ModuleSubsection>* inline_subsections)
 {
 	flush();
-	if (!section_stack_.empty())
+	if (!section_stack_.empty() && (!target_model::is_aarch64(target_) || out_.assembly_text))
 		throw BackendError("unbalanced module section stack");
+	for (const auto& pool : literal_pools_)
+		literal_pool(pool.first);
+	if (target_ == Target::AArch64Linux)
+		for (uint32_t section = 1; section < out_.sections.size(); ++section)
+			symbols_.bind_section_symbol(out_.string(out_.sections[section].name), section);
 	layout_.finish();
 	finish_symbols();
 	symbols_.finish();
 	finish_data();
+	unwind_.finish(layout_);
+	finish_subsections(inline_subsections);
 	if (syntax_.dialect == asm_model::Dialect::AArch64)
 		aarch64::finish_assembly_branches(out_);
-	unwind_.finish(layout_);
 }
 void ModuleAssembler::bind_c_symbols(const lowir::Program& program, const std::vector<uint32_t>& mapping)
 {

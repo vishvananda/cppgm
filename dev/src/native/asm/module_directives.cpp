@@ -111,6 +111,59 @@ void ModuleAssembler::fold_at(assembly::ModuleValue& value, uint32_t section, ui
 	value.bits += plus - minus;
 	value.positive = value.negative = lowir::kNoId;
 }
+uint32_t ModuleAssembler::queue_literal(const aarch64::AssemblyWord& instruction, uint64_t site)
+{
+	if (out_.assembly_text)
+		throw BackendError("AArch64 inline assembly requires an explicit literal load and data label");
+	uint32_t target = instruction.symbol;
+	if (target == 0)
+	{
+		object::Symbol anchor;
+		anchor.section = section_;
+		anchor.value = site;
+		target = out_.add_symbol(anchor);
+	}
+	const uint32_t id = out_.add_symbol(object::Symbol{});
+	literal_pools_[section_].push_back({ id, target, instruction.addend, instruction.literal_width });
+	return id;
+}
+
+void ModuleAssembler::literal_pool(uint32_t section)
+{
+	const auto found = literal_pools_.find(section);
+	if (found == literal_pools_.end() || found->second.empty())
+		return;
+	const uint32_t previous = section_;
+	section_ = section;
+	auto& contents = out_.sections[section_];
+	using Key = std::tuple<unsigned, uint32_t, int64_t>;
+	std::map<Key, uint64_t> positions;
+	for (const auto& literal : found->second)
+	{
+		const auto shared = positions.emplace(Key{ literal.width, literal.value_symbol, literal.bits }, offset());
+		if (shared.second)
+		{
+			contents.align = std::max<uint64_t>(contents.align, literal.width);
+			if (layout_.pending(section_))
+				stage({ offset(), 0, literal.width, UINT64_MAX });
+			else
+				reserve((uint64_t(0) - offset()) & (literal.width - 1), 0);
+			const uint64_t at = offset();
+			shared.first->second = at;
+			reserve(literal.width, 0);
+			if (literal.value_symbol == lowir::kNoId)
+				for (unsigned i = 0; i < literal.width; ++i)
+					contents.bytes[at + i] = static_cast<uint8_t>(uint64_t(literal.bits) >> (8 * i));
+			else
+				contents.relocations.push_back(
+					{ at, literal.width == 4 ? aarch64::Abs32 : aarch64::Abs64, literal.value_symbol, literal.bits });
+		}
+		symbols_.define(literal.symbol, section_, shared.first->second);
+	}
+	found->second.clear();
+	section_ = previous;
+}
+
 void ModuleAssembler::data(assembly::ModuleCursor& cursor, unsigned bytes)
 {
 	do
@@ -537,6 +590,8 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 	}
 	else if (name == ".org")
 		origin(cursor, true);
+	else if ((name == ".ltorg" || name == ".pool") && target_model::is_aarch64(target_))
+		literal_pool(section_);
 	else if (name == ".p2align" || name == ".balign" || name == ".align")
 		alignment(cursor,
 			name == ".p2align" ||
@@ -573,6 +628,15 @@ bool ModuleAssembler::directive(const std::string& name, assembly::ModuleCursor&
 		if (!cursor.take(','))
 			cursor.fail("module alias requires its target");
 		assign(id, cursor);
+	}
+	else if ((name == ".arch" || name == ".arch_extension" || name == ".cpu") && target_model::is_aarch64(target_))
+		aarch64::set_assembly_features(aarch64_features_, name, cursor);
+	else if (name == ".subsection" && target_model::is_aarch64(target_))
+	{
+		const auto number = assembly::assembly_module_expression(cursor, *this);
+		if (number.relocatable() || number.bits > UINT32_MAX)
+			cursor.fail("module subsection requires a nonnegative 32-bit number");
+		subsection(static_cast<uint32_t>(number.bits));
 	}
 	else if (name == ".previous")
 	{

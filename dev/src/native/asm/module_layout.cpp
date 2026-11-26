@@ -106,7 +106,24 @@ bool ModuleLayout::crosses(uint32_t section, uint64_t from, uint64_t to) const
 }
 void ModuleLayout::append(uint32_t section, Fragment fragment)
 {
-	sections_[section].fragments.push_back(std::move(fragment));
+	Section& state = sections_[section];
+	const size_t index = state.fragments.size();
+	state.fragments.push_back(std::move(fragment));
+	if (live_expressions_)
+	{
+		if (state.deltas.empty())
+			state.deltas.push_back(0);
+		const size_t node = index + 1;
+		const size_t first = node & (node - 1);
+		state.deltas.push_back(state.subtotal(index) - state.subtotal(first));
+		state.unresolved.emplace_hint(state.unresolved.end(), index);
+	}
+}
+
+void ModuleLayout::fold_for_expansion(assembly::ModuleValue& value, uint32_t section, uint64_t offset)
+{
+	Evaluator evaluator(*this, section, offset);
+	evaluator.fold_difference(value);
 }
 bool ModuleLayout::record_labels(uint32_t section, const Assembler& assembler)
 {
@@ -278,9 +295,12 @@ void ModuleLayout::finish()
 		for (auto& entry : sections_)
 		{
 			Section& layout = entry.second;
-			layout.deltas.assign(layout.fragments.size() + 1, 0);
-			for (size_t i = 0; i < layout.fragments.size(); ++i)
-				layout.unresolved.emplace_hint(layout.unresolved.end(), i);
+			if (!live_expressions_)
+			{
+				layout.deltas.assign(layout.fragments.size() + 1, 0);
+				for (size_t i = 0; i < layout.fragments.size(); ++i)
+					layout.unresolved.emplace_hint(layout.unresolved.end(), i);
+			}
 		}
 		for (auto& entry : sections_)
 			while (!entry.second.unresolved.empty())

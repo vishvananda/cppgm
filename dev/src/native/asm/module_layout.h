@@ -50,6 +50,9 @@ public:
 	bool pending(uint32_t section) const { return sections_.find(section) != sections_.end(); }
 	bool crosses(uint32_t section, uint64_t from, uint64_t to) const;
 	void append(uint32_t section, Fragment fragment);
+	void enable_live_expressions() { live_expressions_ = true; }
+	bool live_expressions() const { return live_expressions_; }
+	void fold_for_expansion(assembly::ModuleValue& value, uint32_t section, uint64_t offset);
 	bool record_labels(uint32_t section, const Assembler& assembler);
 	void record_word_instruction(uint32_t section, uint64_t offset);
 	void finish();
@@ -82,6 +85,7 @@ private:
 	std::map<uint32_t, Section> sections_;
 	unsigned depth_ = 0;
 	bool fixed_ = false;
+	bool live_expressions_ = false;
 };
 
 } // namespace native

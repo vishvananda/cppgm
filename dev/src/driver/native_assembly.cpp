@@ -58,16 +58,21 @@ bool compile_native_assembly(const std::string& path, const PreprocessorOptions&
 			const auto dialect = target_model::is_aarch64(target) ? asm_model::Dialect::AArch64
 																  : asm_model::Dialect::Att;
 			assembly::ModuleExpander expander(dialect);
-			const auto lines = expander.expand(
-				assembly::module_lines(assembly_source(preprocessor, target), {}, {}, dialect));
+			const auto input = assembly::module_lines(assembly_source(preprocessor, target), {}, {}, dialect);
 			object.path = path;
 			object.architecture = target_model::describe(target).architecture;
 			native::ModuleAssembler assembler(object, target, code16gcc);
 			assembler.begin(dialect);
-			for (const auto& line : lines)
-				assembler.declare(line);
-			for (const auto& line : lines)
-				assembler.append(line);
+			if (dialect == asm_model::Dialect::AArch64)
+				assembler.expand(expander, input);
+			else
+			{
+				const auto lines = expander.expand(input);
+				for (const auto& line : lines)
+					assembler.declare(line);
+				for (const auto& line : lines)
+					assembler.append(line);
+			}
 			assembler.finish();
 			if (headers != nullptr)
 				*headers = preprocessor.dependency_headers(include_system_headers);

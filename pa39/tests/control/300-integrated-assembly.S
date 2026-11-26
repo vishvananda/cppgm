@@ -10,12 +10,23 @@ padding_start:
 .word 0
 padding_end:
 .space padding_end - padding_start
+repeat_begin:
+nop
+repeat_end:
+.rept (repeat_end - repeat_begin) / 4
+  nop
+.endr
+.if (. - repeat_begin) != 8
+  .error "incorrect label distance"
+.endif
 .globl from_assembly
 .type from_assembly, %function
 from_assembly:
   argument .req w0
   hint #34
+  yield
   SAVE_LR(0)
+  prfm pldl1keep, [sp, #(repeat_end - repeat_begin + 4)]
   cbz argument, 1f
   increment argument, STEP
 1:
@@ -44,9 +55,27 @@ from_assembly:
   ret
 .size from_assembly, .-from_assembly
 
+.globl from_neon
+.type from_neon, %function
+from_neon:
+  ldr x1, =value
+  ld1 { v0.2s }, [x1]
+  movi v1.2s, #1
+  add v0.2s, v0.2s, v1.2s
+  sub sp, sp, #16
+  st1 { v0.2s }, [sp]
+  ldar w0, [sp]
+  add sp, sp, #16
+  ret
+.size from_neon, .-from_neon
+.ltorg
+
 .section .rodata
 .balign 4
 .word 255
+.subsection 1
 value:
 .word 11
+.word 0
+.previous
 .word 0xfefefefe

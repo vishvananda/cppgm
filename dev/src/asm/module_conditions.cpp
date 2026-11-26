@@ -56,6 +56,12 @@ bool strings(const std::string& kind, ModuleCursor& cursor)
 	return (a == b) == (kind == ".ifc" || kind == ".ifeqs");
 }
 }
+bool module_text_condition(const std::string& kind)
+{
+	return kind == ".ifb" || kind == ".ifnb" || kind == ".ifc" || kind == ".ifnc" || kind == ".ifeqs" ||
+		kind == ".ifnes";
+}
+
 bool module_condition(const std::string& kind, ModuleCursor& cursor, const ModuleLine& line, ExpressionSymbols& symbols)
 {
 	if (kind == ".ifb" || kind == ".ifnb")
@@ -64,7 +70,7 @@ bool module_condition(const std::string& kind, ModuleCursor& cursor, const Modul
 		cursor.rest();
 		return blank == (kind == ".ifb");
 	}
-	if (kind == ".ifc" || kind == ".ifnc" || kind == ".ifeqs" || kind == ".ifnes")
+	if (module_text_condition(kind))
 	{
 		if ((!line.symbols.empty() || !line.labels.empty()))
 			cursor.fail("typed symbol is not an absolute string expression");

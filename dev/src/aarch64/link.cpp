@@ -70,6 +70,7 @@ bool apply_relocation(uint32_t type, uint8_t* field, uint64_t room, uint64_t val
 		break;
 	case TestBranch14:
 	case CondBranch19:
+	case LdPrelLo19:
 	{
 		const unsigned bits = type == TestBranch14 ? 14 : 19;
 		const int64_t limit = int64_t(1) << (bits + 1);

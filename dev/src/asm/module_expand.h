@@ -9,6 +9,15 @@ namespace assembly {
 
 struct ExpressionSymbols;
 
+class ExpansionLayout
+{
+public:
+	virtual void emit_expanded(const ModuleLine& line) = 0;
+	virtual uint64_t expansion_expression(const ModuleLine& line, uint32_t first) = 0;
+	virtual bool expansion_condition(const std::string& kind, const ModuleLine& line, uint32_t first) = 0;
+	virtual bool expansion_defined(const std::string& name) const = 0;
+};
+
 struct ExpansionBudget
 {
 	uint64_t unique = 0;
@@ -25,9 +34,14 @@ public:
 		: budget_(std::move(budget))
 	{}
 	explicit ModuleExpander(asm_model::Dialect dialect) : ModuleExpander() { dialect_ = dialect; }
-	std::vector<ModuleLine> expand(const std::vector<ModuleLine>& input);
+	std::vector<ModuleLine> expand(const std::vector<ModuleLine>& input, ExpansionLayout* layout = nullptr);
 
 private:
+	struct Output
+	{
+		std::vector<ModuleLine> lines;
+		ExpansionLayout* layout;
+	};
 	struct Formal
 	{
 		std::string name;
@@ -42,19 +56,18 @@ private:
 		uint64_t executions = 0;
 	};
 	using Bindings = std::map<std::string, ModuleLine>;
-	bool range(const std::vector<ModuleLine>& input, size_t first, size_t last, std::vector<ModuleLine>& output,
-		unsigned depth);
+	bool range(const std::vector<ModuleLine>& input, size_t first, size_t last, Output& output, unsigned depth);
 	void define(const ModuleLine& declaration, const std::vector<ModuleLine>& input, size_t first, size_t last);
-	void invoke(const ModuleLine& invocation, uint32_t first, std::shared_ptr<Macro> macro,
-		std::vector<ModuleLine>& output, unsigned depth);
+	void invoke(
+		const ModuleLine& invocation, uint32_t first, std::shared_ptr<Macro> macro, Output& output, unsigned depth);
 	bool substituted(const std::vector<ModuleLine>& body, const Bindings& bindings, uint64_t unique, uint64_t iteration,
-		std::vector<ModuleLine>& output, unsigned depth);
+		Output& output, unsigned depth);
 	void repeat(const std::string& kind, const ModuleLine& declaration, const std::vector<ModuleLine>& body,
-		std::vector<ModuleLine>& output, unsigned depth);
+		Output& output, unsigned depth);
 	void account(uint64_t bytes, const ModuleLine& line);
-	void emit(const ModuleLine& line, std::vector<ModuleLine>& output);
+	void emit(ModuleLine line, Output& output);
 	void assignment(const std::string& name, ModuleCursor& cursor, ModuleLine& line);
-	uint64_t expression(const ModuleLine& line, uint32_t first) const;
+	uint64_t expression(const ModuleLine& line, uint32_t first, const Output& output) const;
 	PersistentMap<std::shared_ptr<Macro>> macros_;
 	PersistentMap<uint64_t> constants_;
 	PersistentMap<asm_model::Register> registers_;
@@ -64,6 +77,7 @@ private:
 
 std::string module_macro_name(std::string name);
 size_t module_block_end(const std::vector<ModuleLine>& input, size_t first, size_t last);
+bool module_text_condition(const std::string& kind);
 bool module_condition(
 	const std::string& kind, ModuleCursor& cursor, const ModuleLine& line, ExpressionSymbols& symbols);
 

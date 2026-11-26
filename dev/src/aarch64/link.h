@@ -20,6 +20,7 @@ enum Relocation : uint32_t
 	MovwSabsG0 = 270,
 	MovwSabsG1 = 271,
 	MovwSabsG2 = 272,
+	LdPrelLo19 = 273,
 	AdrPrelLo21 = 274,
 	AdrPrelPage21 = 275,
 	AddLo12 = 277,

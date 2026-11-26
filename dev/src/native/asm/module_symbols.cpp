@@ -69,6 +69,26 @@ bool ModuleSymbols::interposable(const std::string& name) const
 	return (binding == bindings_.end() ? out_.symbols[found->second].binding : binding->second) !=
 		object::Binding::Local;
 }
+void ModuleSymbols::bind_section_symbol(const char* name, uint32_t section)
+{
+	const auto found = names_.find(name);
+	if (found == names_.end() || bindings_.count(found->second))
+		return;
+	object::Symbol& entry = out_.symbols[found->second];
+	if (entry.section != object::kUndefinedSection)
+		return;
+	entry.section = section;
+	entry.name = 0;
+	entry.binding = object::Binding::Local;
+	entry.type = object::SymbolType::Section;
+}
+
+bool ModuleSymbols::defined(const std::string& name) const
+{
+	const auto found = names_.find(name);
+	return found != names_.end() && out_.symbols[found->second].section != object::kUndefinedSection;
+}
+
 bool ModuleSymbols::absolute(uint32_t symbol, uint64_t& value) const
 {
 	if (symbol >= out_.symbols.size() || out_.symbols[symbol].section != object::kAbsoluteSection)

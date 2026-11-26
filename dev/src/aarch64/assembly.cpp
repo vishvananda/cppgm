@@ -265,8 +265,8 @@ static std::shared_ptr<const native::InlineAssemblyModule> assemble_inline(nativ
 	try
 	{
 		auto expander = environment.snapshot(prefix);
-		auto lines = expander.expand(assembly::module_lines(source, uses, {}, Dialect::AArch64));
-		auto module = native::build_inline_module(lines, Dialect::AArch64, target, false);
+		auto lines = assembly::module_lines(source, uses, {}, Dialect::AArch64);
+		auto module = native::build_inline_module(lines, Dialect::AArch64, target, false, &expander);
 		const auto& text = module->main();
 		if ((text.bytes.size() & 3) != 0 || text.align > 4)
 			throw AArch64Error("inline AArch64 assembly requires word-sized contributions and alignment at most four");
