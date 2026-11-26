@@ -4,20 +4,20 @@ Fixed qualified cohort: **5,614 fixture groups / 5,724 translation units**, at `
 
 This measures object compilation of the common positive source subset, including driver startup. It does not replace the original assignment IR, ABI, diagnostic or runtime oracles. The fixed source selection is independent of timing; any failed compilation fails the run.
 
-Measured compiler: `b3e8ffd61d008c80042a09444d6d607c4b7d7f0c`. Input snapshot: `783dbfcf01360d923ff590d2048a0c1764761cc3`.
+Measured compiler: `49adadaefcc6510c6c725be8d3c780b397e68bc5`. Input snapshot: `783dbfcf01360d923ff590d2048a0c1764761cc3`.
 
 CPU: Intel(R) Xeon(R) 6975P-C. Workers per compiler: 4.
 
 | Compiler | Accepted objects | Compile CPU seconds | Speed vs cppgm ↑ |
 |---|---:|---:|---:|
-| cppgm | 5724 / 5724 | 27.724 | 1.00× |
-| gcc | 5724 / 5724 | 118.680 | 4.28× |
-| clang | 5724 / 5724 | 150.120 | 5.41× |
+| cppgm | 5724 / 5724 | 27.554 | 1.00× |
+| gcc | 5724 / 5724 | 116.324 | 4.22× |
+| clang | 5724 / 5724 | 147.736 | 5.36× |
 
 One complete observation per compiler; sums include compiler subprocesses. Linking, execution and harness time are excluded. This is a compile-throughput observation, with no application-runtime score or claim about small changes.
 
 [Host and compiler identities](metadata.json) · [Measured results](results.json)
 
-[CI run](https://github.com/vishvananda/cppgm/actions/runs/44818861403) · [Shared comparison records](records.json)
+[CI run](https://github.com/vishvananda/cppgm/actions/runs/45739944580) · [Shared comparison records](records.json)
 
-[Raw per-unit observations in CI artifacts](https://github.com/vishvananda/cppgm/actions/runs/44818861403)
+[Raw per-unit observations in CI artifacts](https://github.com/vishvananda/cppgm/actions/runs/45739944580)
