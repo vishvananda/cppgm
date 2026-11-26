@@ -42,11 +42,15 @@ and the [bare Wasm](BUILDING.md#bare-wasm-c23-library-supplement) and
 | [wasm32](pa37/README.md) | Bare WebAssembly (`wasm32-unknown-unknown`) and WASI (`wasm32-wasip1`) |
 | [i386 (experimental)](pa40/README.md) | Linux ELF32, freestanding integer C and x86 real-mode boot code |
 
-Linux 7.3.6 built and booted under QEMU on x86-64 and AArch64 without GCC.
-cppgm built the x86 kernel's 32-bit compatibility vDSO and real-mode boot
-objects. On Arm, cppgm compiled all AArch64 C, including the native vDSO.
-Clang assembled the Arm code and compiled the AArch32 compatibility vDSO.
-The Arm build used `defconfig` with kernel pointer authentication disabled.
+Linux 7.3.6 boots under QEMU with cppgm compiling and assembling every
+target input in a small native AArch64 `virt` configuration. The build uses
+LLD and exercises the native vDSO in userspace. [Integrated assembly](pa39/README.md#integrated-aarch64-linux-assembly)
+
+cppgm also built the x86 kernel's 32-bit compatibility vDSO and real-mode boot
+objects and booted the kernel under QEMU. In the broader Arm `defconfig`
+build, cppgm compiled the AArch64 C, including the native vDSO. Clang
+assembled that configuration's Arm code and built its AArch32 compatibility
+vDSO. That configuration disabled kernel pointer authentication.
 
 ## Correctness
 
