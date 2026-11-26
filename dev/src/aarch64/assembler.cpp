@@ -760,6 +760,132 @@ AssemblyWord load_store_pair(const std::string& mnemonic, ModuleCursor& cursor,
 	return { word };
 }
 
+unsigned sve_register(ModuleCursor& cursor, char bank, bool bytes)
+{
+	const std::string name = assembly::module_macro_name(cursor.word());
+	if (name[0] != bank)
+		cursor.fail("incorrect AArch64 SVE register bank");
+	ModuleCursor reg(name, 1, cursor.line(), cursor.column());
+	const uint32_t number = fit(cursor, reg.number(), bank == 'p' ? 15 : 31);
+	if (bytes && (!reg.take('.') || reg.word() != "b"))
+		cursor.fail("AArch64 predicate requires a byte arrangement");
+	reg.finish();
+	return number;
+}
+
+AssemblyWord vector_length(bool streaming, ModuleCursor& cursor, assembly::ExpressionSymbols& expressions,
+	const assembly::SymbolLookup& symbols)
+{
+	const Gpr dest = gpr(cursor, symbols);
+	if (!dest.wide || dest.stack)
+		cursor.fail("AArch64 vector length requires an x register");
+	comma(cursor);
+	const int64_t count = static_cast<int64_t>(immediate(cursor, expressions));
+	if (count < -32 || count > 31)
+		cursor.fail("AArch64 vector length multiplier is out of range");
+	return { (streaming ? 0x04bf5800u : 0x04bf5000u) | ((static_cast<uint32_t>(count) & 63) << 5) | dest.number };
+}
+
+int64_t vector_address_offset(ModuleCursor& cursor, assembly::ExpressionSymbols& expressions)
+{
+	if (!cursor.take(','))
+		return 0;
+	const int64_t offset = static_cast<int64_t>(immediate(cursor, expressions));
+	comma(cursor);
+	if (assembly::module_macro_name(cursor.word()) != "mul" || assembly::module_macro_name(cursor.word()) != "vl")
+		cursor.fail("expected mul vl in AArch64 vector address");
+	return offset;
+}
+
+AssemblyWord sve_instruction(const std::string& mnemonic, ModuleCursor& cursor,
+	assembly::ExpressionSymbols& expressions, const assembly::SymbolLookup& symbols, bool enabled)
+{
+	if (!enabled)
+		cursor.fail("AArch64 SVE instruction requires the sve extension");
+	if (mnemonic == "rdvl")
+		return vector_length(false, cursor, expressions, symbols);
+	if (mnemonic == "pfalse" || mnemonic == "rdffr" || mnemonic == "wrffr")
+	{
+		const unsigned reg = sve_register(cursor, 'p', true);
+		if (mnemonic == "wrffr")
+			return { 0x25289000u | (reg << 5) };
+		return { (mnemonic == "rdffr" ? 0x2519f000u : 0x2518e400u) | reg };
+	}
+
+	cursor.space();
+	const bool vector = cursor.current() == 'z';
+	const unsigned reg = sve_register(cursor, vector ? 'z' : 'p', false);
+	comma(cursor);
+	if (!cursor.take('['))
+		cursor.fail("expected an AArch64 SVE address");
+	const Gpr base = gpr(cursor, symbols);
+	if (!base.wide || (base.number == 31 && !base.stack))
+		cursor.fail("invalid AArch64 SVE base register");
+	const int64_t offset = vector_address_offset(cursor, expressions);
+	if (offset < -256 || offset > 255 || !cursor.take(']'))
+		cursor.fail("invalid AArch64 SVE address displacement");
+	const uint32_t field = static_cast<uint32_t>(offset) & 511;
+	const uint32_t opcode = mnemonic == "ldr" ? 0x85800000u : 0xe5800000u;
+	return { opcode | (unsigned(vector) << 14) | ((field & 0x1f8u) << 13) | ((field & 7) << 10) | (base.number << 5) |
+		reg };
+}
+
+bool uses_sve(const std::string& mnemonic, ModuleCursor& cursor)
+{
+	if (mnemonic == "rdvl" || mnemonic == "pfalse" || mnemonic == "rdffr" || mnemonic == "wrffr")
+		return true;
+	if (mnemonic != "ldr" && mnemonic != "str")
+		return false;
+	cursor.space();
+	return (cursor.current() == 'z' || cursor.current() == 'p') && cursor.current(1) >= '0' && cursor.current(1) <= '9';
+}
+
+bool uses_sme(const std::string& mnemonic, ModuleCursor& cursor)
+{
+	if (mnemonic == "rdsvl" || mnemonic == "smstart" || mnemonic == "smstop")
+		return true;
+	if (mnemonic != "ldr" && mnemonic != "str")
+		return false;
+	cursor.space();
+	return cursor.starts_with("za[", 3) || cursor.starts_with("za ", 3);
+}
+
+AssemblyWord sme_instruction(const std::string& mnemonic, ModuleCursor& cursor,
+	assembly::ExpressionSymbols& expressions, const assembly::SymbolLookup& symbols, bool enabled)
+{
+	if (!enabled)
+		cursor.fail("AArch64 SME instruction requires the sme extension");
+	if (mnemonic == "rdsvl")
+		return vector_length(true, cursor, expressions, symbols);
+	if (mnemonic == "smstart" || mnemonic == "smstop")
+	{
+		const std::string kind = cursor.end() ? "" : assembly::module_macro_name(cursor.word());
+		if (!kind.empty() && kind != "sm" && kind != "za")
+			cursor.fail("invalid AArch64 SME streaming state");
+		const unsigned state = kind == "sm" ? 2 : kind == "za" ? 4 : 6;
+		return { 0xd503407fu | ((state + (mnemonic == "smstart")) << 8) };
+	}
+
+	if (assembly::module_macro_name(cursor.word()) != "za" || !cursor.take('['))
+		cursor.fail("expected an AArch64 SME array vector");
+	const Gpr index = gpr(cursor, symbols);
+	if (index.wide || index.number < 12 || index.number > 15)
+		cursor.fail("AArch64 SME array vector requires an index in w12-w15");
+	comma(cursor);
+	const uint32_t lane = fit(cursor, immediate(cursor, expressions), 15);
+	if (!cursor.take(']'))
+		cursor.fail("expected a closing AArch64 SME array bracket");
+	comma(cursor);
+	if (!cursor.take('['))
+		cursor.fail("expected an AArch64 SME array address");
+	const Gpr base = gpr(cursor, symbols);
+	const int64_t offset = vector_address_offset(cursor, expressions);
+	if (!base.wide || (base.number == 31 && !base.stack) || offset != lane || !cursor.take(']'))
+		cursor.fail("invalid AArch64 SME array address");
+	const uint32_t op = mnemonic == "ldr" ? 0xe1000000u : 0xe1200000u;
+	return { op | ((index.number - 12) << 13) | (base.number << 5) | lane };
+}
+
 struct AtomicAccess
 {
 	const char* mnemonic;
@@ -833,12 +959,14 @@ struct LseForm
 	unsigned width;
 	bool acquire;
 	bool release;
+	bool unprivileged;
 };
 
 bool lse_form(const std::string& mnemonic, LseForm& form)
 {
 	size_t prefix = 0;
 	unsigned code = 0;
+	bool unprivileged = false;
 	AtomicOperation operation = AtomicOperation::Rmw;
 	if (mnemonic.compare(0, 4, "casp") == 0)
 	{
@@ -849,16 +977,23 @@ bool lse_form(const std::string& mnemonic, LseForm& form)
 	{
 		prefix = 3;
 		operation = mnemonic[0] == 'c' ? AtomicOperation::Compare : AtomicOperation::Swap;
+		if (operation == AtomicOperation::Swap && mnemonic.compare(3, 1, "t") == 0)
+		{
+			++prefix;
+			unprivileged = true;
+		}
 	}
 	else if (mnemonic.compare(0, 2, "ld") == 0 || mnemonic.compare(0, 2, "st") == 0)
 	{
 		static const char* const ops[] = { "add", "clr", "eor", "set", "smax", "smin", "umax", "umin" };
+		unprivileged = mnemonic.compare(0, 3, "ldt") == 0;
+		const size_t start = unprivileged ? 3 : 2;
 		for (; code < sizeof(ops) / sizeof(ops[0]); ++code)
 		{
 			const size_t length = std::strlen(ops[code]);
-			if (mnemonic.compare(2, length, ops[code]) == 0)
+			if (mnemonic.compare(start, length, ops[code]) == 0)
 			{
-				prefix = 2 + length;
+				prefix = start + length;
 				break;
 			}
 		}
@@ -871,6 +1006,11 @@ bool lse_form(const std::string& mnemonic, LseForm& form)
 	prefix += acquire;
 	const bool release = mnemonic.size() > prefix && mnemonic[prefix] == 'l';
 	prefix += release;
+	if (operation == AtomicOperation::Compare && mnemonic.compare(prefix, 1, "t") == 0)
+	{
+		++prefix;
+		unprivileged = true;
+	}
 	unsigned width = 0;
 	if (operation != AtomicOperation::ComparePair && mnemonic.size() > prefix)
 	{
@@ -880,9 +1020,9 @@ bool lse_form(const std::string& mnemonic, LseForm& form)
 			++prefix;
 		}
 	}
-	if (prefix != mnemonic.size() || (operation == AtomicOperation::Store && acquire))
+	if (prefix != mnemonic.size() || (operation == AtomicOperation::Store && acquire) || (unprivileged && width))
 		return false;
-	form = { operation, code, width, acquire, release };
+	form = { operation, code, width, acquire, release, unprivileged };
 	return true;
 }
 
@@ -923,11 +1063,16 @@ AssemblyWord lse_access(const LseForm& form, ModuleCursor& cursor, assembly::Exp
 	const uint32_t regs = (source.number << 16) | (base.number << 5) | dest.number;
 	const uint32_t size = pair ? static_cast<unsigned>(source.wide) : form.width ? form.width - 1 : source.wide ? 3 : 2;
 	if (pair || form.operation == AtomicOperation::Compare)
-		return { (pair ? 0x08207c00u : 0x08a07c00u) | (size << 30) | (unsigned(form.acquire) << 22) |
-			(unsigned(form.release) << 15) | regs };
+	{
+		if (form.unprivileged && !source.wide)
+			cursor.fail("AArch64 unprivileged compare-and-swap requires x registers");
+		const uint32_t base_word = pair ? 0x08207c00u : form.unprivileged ? 0x09807c00u : 0x08a07c00u;
+		return { base_word | (size << 30) | (unsigned(form.acquire) << 22) | (unsigned(form.release) << 15) | regs };
+	}
 	const uint32_t op = form.operation == AtomicOperation::Swap ? 8 : form.code;
-	return { 0x38200000u | (size << 30) | (unsigned(form.acquire) << 23) | (unsigned(form.release) << 22) | (op << 12) |
-		regs };
+	const uint32_t base_word = form.unprivileged ? 0x19200400u | (unsigned(source.wide) << 30)
+												 : 0x38200000u | (size << 30);
+	return { base_word | (unsigned(form.acquire) << 23) | (unsigned(form.release) << 22) | (op << 12) | regs };
 }
 
 AssemblyWord unprivileged_access(const std::string& mnemonic, ModuleCursor& cursor,
@@ -1010,26 +1155,43 @@ const SystemOperation kTranslationOperations[] = {
 	{ "aside1is", 0x041a, true },
 	{ "ipas2e1", 0x2421, true },
 	{ "ipas2e1is", 0x2401, true },
+	{ "ipas2le1", 0x2425, true },
+	{ "ipas2le1is", 0x2405, true },
+	{ "ripas2e1", 0x2422, true },
+	{ "ripas2e1is", 0x2402, true },
+	{ "ripas2le1", 0x2426, true },
+	{ "ripas2le1is", 0x2406, true },
 	{ "rvaae1", 0x0433, true },
 	{ "rvaae1is", 0x0413, true },
 	{ "rvaale1", 0x0437, true },
 	{ "rvaale1is", 0x0417, true },
 	{ "rvae1", 0x0431, true },
 	{ "rvae1is", 0x0411, true },
+	{ "rvae2", 0x2431, true },
+	{ "rvae2is", 0x2411, true },
 	{ "rvale1", 0x0435, true },
 	{ "rvale1is", 0x0415, true },
+	{ "rvale2", 0x2435, true },
+	{ "rvale2is", 0x2415, true },
 	{ "vaae1", 0x043b, true },
 	{ "vaae1is", 0x041b, true },
 	{ "vaale1", 0x043f, true },
 	{ "vaale1is", 0x041f, true },
 	{ "vae1", 0x0439, true },
 	{ "vae1is", 0x0419, true },
+	{ "vae2", 0x2439, true },
+	{ "vae2is", 0x2419, true },
+	{ "vae2os", 0x2409, true },
 	{ "vale1", 0x043d, true },
 	{ "vale1is", 0x041d, true },
+	{ "vale2", 0x243d, true },
+	{ "vale2is", 0x241d, true },
+	{ "vale2os", 0x240d, true },
 	{ "vmalle1", 0x0438, false },
 	{ "vmalle1is", 0x0418, false },
 	{ "vmalls12e1", 0x243e, false },
 	{ "vmalls12e1is", 0x241e, false },
+	{ "vmalls12e1os", 0x240e, false },
 };
 
 const SystemOperation kAddressTranslations[] = {
@@ -1103,6 +1265,8 @@ uint32_t system_register(ModuleCursor& cursor, const std::string& name)
 	};
 	// op0, op1, CRn, CRm and op2 as one instruction field.
 	static const NamedRegister registers[] = {
+		{ "actlr_el1", 0xc081 },
+		{ "aidr_el1", 0xc807 },
 		{ "amair_el1", 0xc518 },
 		{ "clidr_el1", 0xc801 },
 		{ "cntfrq_el0", 0xdf00 },
@@ -1122,8 +1286,10 @@ uint32_t system_register(ModuleCursor& cursor, const std::string& name)
 		{ "cptr_el2", 0xe08a },
 		{ "ctr_el0", 0xd801 },
 		{ "currentel", 0xc212 },
+		{ "dacr32_el2", 0xe180 },
 		{ "daif", 0xda11 },
 		{ "dbgauthstatus_el1", 0x83f6 },
+		{ "dbgvcr32_el2", 0xa038 },
 		{ "dczid_el0", 0xd807 },
 		{ "elr_el1", 0xc201 },
 		{ "elr_el2", 0xe201 },
@@ -1132,6 +1298,7 @@ uint32_t system_register(ModuleCursor& cursor, const std::string& name)
 		{ "far_el1", 0xc300 },
 		{ "far_el2", 0xe300 },
 		{ "fpcr", 0xda20 },
+		{ "fpexc32_el2", 0xe298 },
 		{ "fpsr", 0xda21 },
 		{ "hcr_el2", 0xe088 },
 		{ "hpfar_el2", 0xe304 },
@@ -1141,6 +1308,7 @@ uint32_t system_register(ModuleCursor& cursor, const std::string& name)
 		{ "id_aa64mmfr1_el1", 0xc039 },
 		{ "id_aa64pfr0_el1", 0xc020 },
 		{ "id_aa64pfr1_el1", 0xc021 },
+		{ "ifsr32_el2", 0xe281 },
 		{ "isr_el1", 0xc608 },
 		{ "mair_el1", 0xc510 },
 		{ "mdccint_el1", 0x8010 },
@@ -1156,10 +1324,12 @@ uint32_t system_register(ModuleCursor& cursor, const std::string& name)
 		{ "pmccfiltr_el0", 0xdf7f },
 		{ "pmccntr_el0", 0xdce8 },
 		{ "pmcntenclr_el0", 0xdce2 },
+		{ "pmcntenset_el0", 0xdce1 },
 		{ "pmcr_el0", 0xdce0 },
 		{ "pmevtyper0_el0", 0xdf60 },
 		{ "pmselr_el0", 0xdce5 },
 		{ "pmuserenr_el0", 0xdcf0 },
+		{ "revidr_el1", 0xc006 },
 		{ "sctlr_el1", 0xc080 },
 		{ "sctlr_el2", 0xe080 },
 		{ "sp_el0", 0xc208 },
@@ -1188,17 +1358,33 @@ uint32_t system_register(ModuleCursor& cursor, const std::string& name)
 	for (const auto& reg : registers)
 		if (name == reg.name)
 			return reg.fields;
-	static const char* const debug[] = { "dbgbvr", "dbgbcr", "dbgwvr", "dbgwcr" };
-	for (unsigned i = 0; i < sizeof(debug) / sizeof(debug[0]); ++i)
-		if (name.compare(0, 6, debug[i]) == 0 && name.size() >= 11 && name.compare(name.size() - 4, 4, "_el1") == 0)
-		{
-			const ModuleCursor encoded(name, 6, cursor.line(), cursor.column());
-			ModuleCursor field = encoded;
-			const uint32_t index = fit(cursor, field.number(), 15);
-			if (field.position() != name.size() - 4)
-				cursor.fail("invalid AArch64 debug register number");
-			return 0x8004 + (index << 3) + i;
-		}
+	struct IndexedRegister
+	{
+		const char* prefix;
+		const char* suffix;
+		uint16_t base;
+		unsigned maximum;
+	};
+	static const IndexedRegister indexed[] = {
+		{ "dbgbvr", "_el1", 0x8004, 15 },
+		{ "dbgbcr", "_el1", 0x8005, 15 },
+		{ "dbgwvr", "_el1", 0x8006, 15 },
+		{ "dbgwcr", "_el1", 0x8007, 15 },
+		{ "pmevcntr", "_el0", 0xdf40, 30 },
+		{ "pmevtyper", "_el0", 0xdf60, 30 },
+	};
+	for (const IndexedRegister& family : indexed)
+	{
+		const size_t first = std::strlen(family.prefix);
+		const size_t last = name.size() >= 4 ? name.size() - 4 : 0;
+		if (first >= last || name.compare(0, first, family.prefix) != 0 || name.compare(last, 4, family.suffix) != 0)
+			continue;
+		ModuleCursor fields(name, static_cast<uint32_t>(first), cursor.line(), cursor.column());
+		const uint32_t index = fit(cursor, fields.number(), family.maximum);
+		if (fields.position() != last)
+			cursor.fail("invalid AArch64 indexed system register number");
+		return family.base + (family.maximum == 15 ? index << 3 : index);
+	}
 	if (name.size() > 2 && name[0] == 's' && (name[1] >= '0' && name[1] <= '3') && name[2] == '_')
 	{
 		const ModuleCursor encoded(name, 1, cursor.line(), cursor.column());
@@ -1285,6 +1471,20 @@ static void assembly_extension(AssemblyFeatures& features, ModuleCursor& cursor)
 		features.fp = name[0] != 'n';
 		features.neon &= features.fp;
 	}
+	else if (name == "sve" || name == "nosve")
+	{
+		features.sve = name[0] != 'n';
+		if (features.sve)
+			features.neon = features.fp = true;
+	}
+	else if (name == "sme" || name == "nosme")
+	{
+		features.sme = name[0] != 'n';
+		if (features.sme)
+			features.sve = features.neon = features.fp = true;
+	}
+	else if (name == "lsui" || name == "nolsui")
+		features.lsui = name[0] != 'n';
 	else if (name == "crc" || name == "nocrc")
 		features.crc = name[0] != 'n';
 	else if (name == "crypto" || name == "nocrypto" || name == "aes" || name == "noaes")
@@ -1341,6 +1541,10 @@ static bool uses_neon(const std::string& mnemonic, ModuleCursor& cursor)
 AssemblyWord assemble_word(const std::string& mnemonic, ModuleCursor& cursor, assembly::ExpressionSymbols& expressions,
 	const assembly::SymbolLookup& symbols, const AssemblyFeatures& features)
 {
+	if (uses_sve(mnemonic, cursor))
+		return sve_instruction(mnemonic, cursor, expressions, symbols, features.sve);
+	if (uses_sme(mnemonic, cursor))
+		return sme_instruction(mnemonic, cursor, expressions, symbols, features.sme);
 	if (uses_neon(mnemonic, cursor))
 	{
 		if (!features.neon)
@@ -1491,8 +1695,9 @@ AssemblyWord assemble_word(const std::string& mnemonic, ModuleCursor& cursor, as
 	LseForm form;
 	if (lse_form(mnemonic, form))
 	{
-		if (!features.lse)
-			cursor.fail("AArch64 LSE instruction requires the lse extension");
+		if (form.unprivileged ? !features.lsui : !features.lse)
+			cursor.fail(form.unprivileged ? "AArch64 LSUI instruction requires the lsui extension"
+										  : "AArch64 LSE instruction requires the lse extension");
 		return lse_access(form, cursor, expressions, symbols);
 	}
 	const unsigned narrow = mnemonic.back() == 'b' ? 1 : mnemonic.back() == 'h' ? 2 : 0;

@@ -25,6 +25,9 @@ struct AssemblyFeatures
 	bool lse = false;
 	bool crc = false;
 	bool crypto = false;
+	bool sve = false;
+	bool sme = false;
+	bool lsui = false;
 };
 
 void set_assembly_features(AssemblyFeatures& features, const std::string& directive, assembly::ModuleCursor& cursor);
