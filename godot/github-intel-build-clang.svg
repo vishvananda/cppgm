@@ -1,10 +1,10 @@
-<svg data-original-label="godot build-clang; Intel(R) Xeon(R) 6975P-C; revision bf2f830a479c21887e7ef6e44787b48dac78bf6d" data-original-message="3.38×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="godot build-clang; Intel(R) Xeon(R) 6975P-C; revision bf2f830a479c21887e7ef6e44787b48dac78bf6d; measured bf2f830a479c21887e7ef6e44787b48dac78bf6d; 13 commits behind main: 3.38×*">
-  <title>godot build-clang; Intel(R) Xeon(R) 6975P-C; revision bf2f830a479c21887e7ef6e44787b48dac78bf6d; measured bf2f830a479c21887e7ef6e44787b48dac78bf6d; 13 commits behind main: 3.38×*</title>
+<svg data-original-label="godot build-clang; Intel(R) Xeon(R) 6975P-C; revision dc54668b7b4a2cc926fb1fd6ebcf88a0cb513fb6" data-original-message="3.31×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="godot build-clang; Intel(R) Xeon(R) 6975P-C; revision dc54668b7b4a2cc926fb1fd6ebcf88a0cb513fb6; measured dc54668b7b4a2cc926fb1fd6ebcf88a0cb513fb6; 0 commits behind main: 3.31×">
+  <title>godot build-clang; Intel(R) Xeon(R) 6975P-C; revision dc54668b7b4a2cc926fb1fd6ebcf88a0cb513fb6; measured dc54668b7b4a2cc926fb1fd6ebcf88a0cb513fb6; 0 commits behind main: 3.31×</title>
   <defs><clipPath id="badge"><rect width="120" height="24" rx="4"/></clipPath></defs>
   <g clip-path="url(#badge)">
     <rect width="64" height="24" fill="#555"/>
     <rect x="64" width="56" height="24" fill="#14532d"/>
   </g>
   <text x="32" y="16.5" fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="12" font-weight="700" textLength="52" lengthAdjust="spacingAndGlyphs">CI Intel</text>
-  <text x="92" y="16.5" fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="12" font-weight="700" letter-spacing="1" textLength="44" lengthAdjust="spacingAndGlyphs">3.38×*</text>
+  <text x="92" y="16.5" fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="12" font-weight="700" letter-spacing="1" textLength="39" lengthAdjust="spacingAndGlyphs">3.31×</text>
 </svg>
