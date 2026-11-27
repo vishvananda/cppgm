@@ -285,7 +285,7 @@ const struct
 	{ "__builtin_ia32_ldmxcsr", { GnuBuiltin::Mxcsr, 1, nullptr, 0 } },
 	{ "__builtin_ia32_lfence", { GnuBuiltin::VectorLanewise, static_cast<uint8_t>(VectorLanewiseOp::Fence), "v", 0 } },
 	{ "__builtin_ia32_loaddquqi512_mask",
-		{ GnuBuiltin::VectorLanewise, static_cast<uint8_t>(VectorLanewiseOp::MaskedLoad), "4Bc*4Bx", 0 } },
+		{ GnuBuiltin::VectorLanewise, static_cast<uint8_t>(VectorLanewiseOp::MaskedLoad), "4Bv*4Bx", 0 } },
 	{ "__builtin_ia32_loadhps",
 		{ GnuBuiltin::VectorLanewise, static_cast<uint8_t>(VectorLanewiseOp::LoadHigh), "FFG*", 0 } },
 	{ "__builtin_ia32_loadlps",

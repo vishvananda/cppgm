@@ -45,7 +45,7 @@ BW static bool check_constants(const char* data)
 {
 	const Bytes zero = {};
 	const Bytes none = __builtin_ia32_loaddquqi512_mask(nullptr, zero, 0);
-	const Bytes all = __builtin_ia32_loaddquqi512_mask(data, zero, ~Mask(0));
+	const Bytes all = __builtin_ia32_loaddquqi512_mask(reinterpret_cast<const Bytes*>(data), zero, ~Mask(0));
 	for (unsigned i = 0; i < 64; ++i)
 		if (none[i] != 0 || all[i] != data[i])
 			return false;
