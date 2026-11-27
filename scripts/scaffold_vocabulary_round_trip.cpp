@@ -234,7 +234,8 @@ void check_targets()
 		const auto description = target_model::describe(target);
 		expect(*target_model::spelling(target) != '\0' && *target_model::lowir_spelling(target) != '\0',
 			"target spelling", i);
-		const bool narrow_pointers = target_model::is_wasm(target) || target_model::is_i386(target);
+		const bool narrow_pointers = description.architecture == target_model::Architecture::Wasm32 ||
+			target_model::is_i386(target);
 		expect(description.layout.pointer_bytes == (narrow_pointers ? 4 : 8), "target pointer width", i);
 		const lowir_model::Type pointer = lowir_model::Type::pointer(description.layout.pointer_bytes);
 		expect(lowir_model::storage_bytes(pointer) == description.layout.pointer_bytes, "pointer storage", i);

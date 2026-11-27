@@ -43,6 +43,7 @@ struct Options
 	uint32_t wasm_stack_size = 1024 * 1024;
 	bool general_regs_only = false;
 	bool wasm_atomics = true;
+	bool assembly_text = false;
 	WasmLinkOptions wasm_link;
 	const opt::OptimizerOptions* optimizer = nullptr;
 	// -fno-lowir-passes: the back end takes the program as it is.

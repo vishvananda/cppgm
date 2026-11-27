@@ -42,7 +42,19 @@ bool output_objects(LinkInputs& inputs, const backend::Options& options, bool re
 	try
 	{
 		if (!relocatable)
+		{
+			if (options.target == target_model::Target::Wasm64)
+				throw WasmError("use an external wasm64 linker to link these objects");
 			add_runtime_inputs(inputs, options);
+		}
+		if (options.assembly_text)
+		{
+			if (objects.size() != 1 || !relocatable)
+				throw WasmError("one source input is required for Wasm assembly output");
+			std::string text;
+			write_assembly(objects.front(), text);
+			return write_file(options.output, text.data(), text.size(), error);
+		}
 		for (const Object& object : objects)
 			validate_object(object);
 		Bytes bytes;
@@ -66,7 +78,8 @@ bool output_objects(LinkInputs& inputs, const backend::Options& options, bool re
 bool compile_program(lowir::Program& program, const backend::Options& options, std::string& error)
 {
 	Object object;
-	std::string dump = "machine_ir wasm32 1\n";
+	std::string dump = program.target == target_model::Target::Wasm64 ? "machine_ir wasm64 1\n"
+																	  : "machine_ir wasm32 1\n";
 	if (!compile_object(program, options, object, dump, error))
 		return false;
 	LinkInputs inputs;

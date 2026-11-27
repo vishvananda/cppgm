@@ -86,7 +86,7 @@ void Parser::label(Line& line)
 		functions_[detail].body.location = location_;
 	}
 	else
-		throw WasmError("unsupported Wasm assembly label section: " + section_);
+		data_label(id);
 }
 
 void Parser::function_type(Line& line)
@@ -123,6 +123,20 @@ void Parser::global_type(Line& line)
 	global.typed = true;
 }
 
+void Parser::import_binding(Line& line, bool module)
+{
+	const auto id = symbol(line.word(), Kind::Function);
+	line.expect(",");
+	auto& function = functions_[symbols_[id].detail];
+	auto& explicit_binding = module ? function.explicit_module : function.explicit_name;
+	auto& binding = module ? function.import_module : function.import_name;
+	std::string value = line.token().kind == PPTokenKind::StringLiteral ? line.string() : line.word();
+	if (explicit_binding && binding != value)
+		throw WasmError("conflicting Wasm assembly import bindings");
+	binding = std::move(value);
+	explicit_binding = true;
+}
+
 void Parser::directive(const std::string& name, Line& line)
 {
 	if (name == ".globl" || name == ".global" || name == ".weak" || name == ".hidden")
@@ -140,6 +154,8 @@ void Parser::directive(const std::string& name, Line& line)
 		function_type(line);
 	else if (name == ".globaltype")
 		global_type(line);
+	else if (name == ".import_module" || name == ".import_name")
+		import_binding(line, name == ".import_module");
 	else if (name == ".local")
 	{
 		if (active_ == lowir::kNoId)
@@ -161,11 +177,7 @@ void Parser::directive(const std::string& name, Line& line)
 			line.expect("@");
 		}
 	}
-	else if (name == ".p2align")
-	{
-		if (line.integer() > 31)
-			throw WasmError("overflowing Wasm assembly alignment");
-	}
+
 	else if (name == ".int8" && section_ == ".custom_section.target_features")
 	{
 		do
@@ -181,7 +193,8 @@ void Parser::directive(const std::string& name, Line& line)
 		const auto text = line.string();
 		features_.data.insert(features_.data.end(), text.begin(), text.end());
 	}
-	else if (name == ".int32" && section_.compare(0, 11, ".init_array") == 0)
+	else if ((name == (wide_addresses_ ? ".int64" : ".int32") || name == (wide_addresses_ ? ".quad" : ".long")) &&
+		section_.compare(0, 11, ".init_array") == 0)
 	{
 		uint32_t priority = 65535;
 		if (section_.size() > 11)
@@ -200,7 +213,7 @@ void Parser::directive(const std::string& name, Line& line)
 		}
 		initializers_.push_back({ priority, symbol(line.word(), Kind::Function) });
 	}
-	else
+	else if (!data_directive(name, line))
 		throw WasmError("unsupported Wasm assembly directive: " + name);
 	line.done();
 }
@@ -228,8 +241,8 @@ void Parser::run(Object& object)
 
 } // namespace assembly
 
-void assemble(PPTokenCursor& tokens, Object& object, uint32_t& location)
+void assemble(PPTokenCursor& tokens, Object& object, target_model::Target target, uint32_t& location)
 {
-	assembly::Parser(tokens, location).run(object);
+	assembly::Parser(tokens, location, target == target_model::Target::Wasm64).run(object);
 }
 } // namespace wasm

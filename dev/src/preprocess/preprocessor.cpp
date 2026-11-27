@@ -100,7 +100,7 @@ std::string PredefinedText(const PreprocessorOptions& options, const FeatureMode
 	if (options.strict)
 		text += "#define __STRICT_ANSI__ 1\n";
 	const bool freestanding = options.language == SourceLanguage::C ? options.c_freestanding
-																	: options.target == target_model::Target::Wasm32;
+																	: target_model::is_bare_wasm(options.target);
 	text += freestanding ? "#define __STDC_HOSTED__ 0\n" : "#define __STDC_HOSTED__ 1\n";
 	text += "#define __x86_64__ 1\n#define __linux__ 1\n";
 	text += "#define __CPPGM_AUTHOR__ ";

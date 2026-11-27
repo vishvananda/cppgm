@@ -41,7 +41,7 @@ void Selector::copy_bytes(const Place& destination, const Place& source, uint64_
 	{
 		place_address(destination);
 		place_address(source);
-		out_.emit(Op::I32Const, { bytes });
+		address_constant(bytes);
 		out_.emit(Op::MemoryCopy, { 0, 0 });
 		return;
 	}
@@ -67,7 +67,7 @@ void Selector::zero_bytes(const Place& destination, uint64_t bytes)
 	{
 		place_address(destination);
 		out_.emit(Op::I32Const, { 0 });
-		out_.emit(Op::I32Const, { bytes });
+		address_constant(bytes);
 		out_.emit(Op::MemoryFill, { 0 });
 		return;
 	}

@@ -27,6 +27,11 @@ bool parse(const std::string& text, Target& result)
 		result = Target::Wasm32;
 		return true;
 	}
+	if (text == spelling(Target::Wasm64))
+	{
+		result = Target::Wasm64;
+		return true;
+	}
 	if (text == spelling(Target::Wasi))
 	{
 		result = Target::Wasi;

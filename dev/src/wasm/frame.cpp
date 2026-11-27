@@ -14,7 +14,7 @@ void Selector::prepare_locals()
 	plan_wide_locals();
 	if (boundary_.result.passing == Passing::Indirect)
 	{
-		hidden_result_ = add_local(ValueType::I32);
+		hidden_result_ = add_local(module_.address_type);
 	}
 	for (const AbiValue& parameter : boundary_.parameters)
 	{
@@ -24,7 +24,7 @@ void Selector::prepare_locals()
 			add_local(value_type(parameter.scalar));
 	}
 	if (signature_.boundary.arity == ir_model::CAM_VARIADIC)
-		variadic_parameter_ = add_local(ValueType::I32);
+		variadic_parameter_ = add_local(module_.address_type);
 	out_.parameter_count = static_cast<uint32_t>(out_.locals.size());
 	locals_.resize(body_.temps.size(), kNoId);
 	incoming_.resize(body_.parameter_count, kNoId);
@@ -74,7 +74,8 @@ void Selector::prepare_locals()
 			add_local(ValueType::I64);
 			continue;
 		}
-		locals_[i] = add_local(memory_value(body_.temps[i].type) ? ValueType::I32 : value_type(body_.temps[i].type));
+		locals_[i] = add_local(
+			memory_value(body_.temps[i].type) ? module_.address_type : value_type(body_.temps[i].type));
 	}
 }
 
@@ -83,8 +84,8 @@ void Selector::frame_address(uint32_t offset)
 	out_.emit(Op::LocalGet, { frame_ });
 	if (offset != 0)
 	{
-		out_.emit(Op::I32Const, { offset });
-		out_.emit(Op::I32Add);
+		address_constant(offset);
+		out_.emit(module_.address_op(Op::I32Add, Op::I64Add));
 	}
 }
 
@@ -207,8 +208,8 @@ void Selector::prepare_frame()
 		reserve_objects();
 		return;
 	}
-	saved_stack_ = add_local(ValueType::I32);
-	frame_ = add_local(ValueType::I32);
+	saved_stack_ = add_local(module_.address_type);
+	frame_ = add_local(module_.address_type);
 	// A function that calls nothing and moves the stack pointer nowhere else
 	// keeps its frame below the pointer and leaves the pointer as it found
 	// it: nothing reads the pointer before the function returns.
@@ -216,7 +217,17 @@ void Selector::prepare_frame()
 	out_.emit(Op::GlobalGet, { 0 });
 	out_.relocate(RelocationKind::GlobalIndex, module_.stack_symbol);
 	out_.emit(Op::LocalTee, { saved_stack_ });
-	if (alignment <= 16 && out_.frame_bytes < kOneTestFrame)
+	if (module_.wide_addresses())
+	{
+		address_constant(out_.frame_bytes);
+		out_.emit(Op::I64Sub);
+		if (alignment > 16)
+		{
+			address_constant(-uint64_t(alignment));
+			out_.emit(Op::I64And);
+		}
+	}
+	else if (alignment <= 16 && out_.frame_bytes < kOneTestFrame)
 	{
 		// The room above the stack's low end, as a signed word, holds the
 		// frame or the function traps: one test covers a frame larger than

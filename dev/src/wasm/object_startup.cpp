@@ -41,12 +41,26 @@ void adapt_wasi_entry(Object& object, uint32_t index)
 	compatibility.name = "main";
 	compatibility.type = static_cast<uint32_t>(object.types.size());
 	object.types.push_back(Signature{ { ValueType::I32, ValueType::I32 }, { ValueType::I32 } });
-	compatibility.code.bytes.byte(0); // No locals; the compatibility parameters are ignored.
-	compatibility.code.bytes.byte(0x10);
-	compatibility.code.relocations.push_back(Relocation{ RelocationKind::FunctionIndex, 2, index, 0 });
-	for (unsigned byte = 0; byte < 5; ++byte)
-		compatibility.code.bytes.byte(((entry_function >> (7 * byte)) & 0x7f) | (byte == 4 ? 0 : 0x80));
-	compatibility.code.bytes.byte(0x0b);
+	if (object.assembly_bodies.empty())
+	{
+		compatibility.code.bytes.byte(0); // No locals; the compatibility parameters are ignored.
+		compatibility.code.bytes.byte(0x10);
+		compatibility.code.relocations.push_back(Relocation{ RelocationKind::FunctionIndex, 2, index, 0 });
+		for (unsigned byte = 0; byte < 5; ++byte)
+			compatibility.code.bytes.byte(((entry_function >> (7 * byte)) & 0x7f) | (byte == 4 ? 0 : 0x80));
+		compatibility.code.bytes.byte(0x0b);
+	}
+	else
+	{
+		Function body;
+		body.parameter_count = 2;
+		body.locals = { ValueType::I32, ValueType::I32 };
+		body.emit(Op::Call, { entry_function });
+		body.relocate(RelocationKind::FunctionIndex, index);
+		body.emit(Op::End);
+		object.assembly_bodies.emplace_back();
+		write_assembly_body(body, object, object.assembly_bodies.back());
+	}
 	ObjectSymbol symbol;
 	symbol.name = "main";
 	symbol.index = static_cast<uint32_t>(object.functions.size());

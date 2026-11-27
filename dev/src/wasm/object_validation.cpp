@@ -13,17 +13,20 @@ void validate_chunk(const ObjectChunk& chunk, const Object& object)
 	for (const Relocation& relocation : chunk.relocations)
 	{
 		const unsigned kind = static_cast<unsigned>(relocation.kind);
-		const bool fixed = kind == 2 || kind == 5 || kind == 13 || kind == 26;
-		const uint32_t width = fixed ? 4 : 5;
+		const bool fixed = kind == 2 || kind == 5 || kind == 13 || kind == 16 || kind == 19 || kind == 26;
+		const bool wide = wide_relocation(relocation.kind);
+		if (wide && !object.wide_addresses)
+			throw WasmError("64-bit address relocation requires a Wasm64 object");
+		const uint32_t width = fixed ? (wide ? 8 : 4) : (wide ? 10 : 5);
 		if (relocation.offset > chunk.bytes.data.size() || width > chunk.bytes.data.size() - relocation.offset)
 			throw WasmError("Wasm relocation exceeds its code/data body");
 		if (!fixed)
 		{
 			Cursor value(chunk.bytes.data.data() + relocation.offset, width);
-			if (kind == 1 || kind == 4 || kind == 11 || kind == 12)
-				value.signed_leb();
+			if (kind == 1 || kind == 4 || kind == 11 || kind == 12 || kind == 15 || kind == 18)
+				value.signed_leb(wide ? 64 : 32);
 			else
-				value.u32();
+				value.unsigned_leb(wide ? 64 : 32);
 			value.done();
 		}
 		ranges.push_back({ relocation.offset, relocation.offset + width });
@@ -35,11 +38,11 @@ void validate_chunk(const ObjectChunk& chunk, const Object& object)
 		}
 		if (relocation.index >= object.symbols.size())
 			throw WasmError("invalid Wasm symbol relocation index");
-		const uint8_t expected = kind <= 2 || kind == 12 || kind == 26 ? 0
-			: kind <= 5 || kind == 11                                  ? 1
-			: kind == 7 || kind == 13                                  ? 2
-			: kind == 10                                               ? 4
-																	   : 5;
+		const uint8_t expected = kind <= 2 || kind == 12 || kind == 18 || kind == 19 || kind == 26 ? 0
+			: kind <= 5 || kind == 11 || (kind >= 14 && kind <= 16)                                ? 1
+			: kind == 7 || kind == 13                                                              ? 2
+			: kind == 10                                                                           ? 4
+																								   : 5;
 		const ObjectSymbol& symbol = object.symbols[relocation.index];
 		if ((kind == 7 || kind == 13) && symbol.kind <= 1)
 		{
@@ -66,7 +69,7 @@ void validate_object(const Object& object)
 {
 	const std::set<std::string> supported{ "mutable-globals", "sign-ext", "nontrapping-fptoint", "bulk-memory",
 		"bulk-memory-opt", "extended-const", "multivalue", "reference-types", "call-indirect-overlong", "simd128",
-		"exception-handling", "tail-call", "atomics" };
+		"exception-handling", "tail-call", "atomics", "memory64" };
 	std::set<std::string> feature_names;
 	for (const auto& feature : object.features)
 		if (!feature_names.insert(feature.second).second || (feature.first != '+' && feature.first != '-') ||

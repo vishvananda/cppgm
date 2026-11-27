@@ -52,8 +52,8 @@ bool private_c_data(const Symbol& symbol)
 
 // Marks opaque symbol references outside ordinary optimized bodies.
 template<typename Mark>
-void mark_data_references(
-	const Program& program, Mark mark, const std::vector<SymbolId>& targets, bool follow_all_initializers = true)
+void mark_data_references(const Program& program, Mark mark, const std::vector<SymbolId>& targets,
+	bool follow_all_initializers = true, bool literal_assembly_roots = true)
 {
 	// Code addresses retain their containing function and its ABI. Static
 	// dispatch tables can keep it alive without an ordinary call edge.
@@ -76,7 +76,7 @@ void mark_data_references(
 			for (const Value value : function.body->operands)
 				if (value.kind == ValueKind::Symbol)
 					mark(value.index);
-		if (!program.assembly->globals.empty() || !program.assembly->functions.empty())
+		if (literal_assembly_roots && (!program.assembly->globals.empty() || !program.assembly->functions.empty()))
 			for (SymbolId symbol : program.order)
 				if (is_definition(program, symbol) && program.literal_assembly_root(symbol))
 					mark(symbol);
@@ -321,7 +321,8 @@ bool prune_private_constant_data(Program& program)
 	return kept != old_size;
 }
 
-uint32_t prune_unreachable(Program& program, OptimizerStats& stats, bool include_private_data)
+uint32_t prune_unreachable(
+	Program& program, OptimizerStats& stats, bool include_private_data, bool literal_assembly_roots)
 {
 	std::vector<uint8_t> live(program.symbols.size(), 0);
 	std::vector<SymbolId> work;
@@ -346,7 +347,7 @@ uint32_t prune_unreachable(Program& program, OptimizerStats& stats, bool include
 			(include_private_data && program.symbols[s].kind == SymbolKind::GlobalDefinition &&
 				!private_c_data(program.symbols[s])))
 			mark(s);
-	mark_data_references(program, mark, aliases, !include_private_data);
+	mark_data_references(program, mark, aliases, !include_private_data, literal_assembly_roots);
 	if (include_private_data)
 		for (const auto& alias : program.aliases)
 			if (program.symbols[alias.target].kind == SymbolKind::GlobalDefinition)

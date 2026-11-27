@@ -49,6 +49,7 @@ struct Function
 	// Offsets here identify operands; encoding converts them to byte offsets.
 	std::vector<Relocation> relocations;
 	std::vector<FrameObject> frame_objects;
+	std::string assembly_directives;
 	std::uint32_t parameter_count = 0;
 	std::uint32_t frame_bytes = 0;
 	std::uint32_t location = 0;
@@ -69,6 +70,7 @@ struct Function
 
 ValueType value_type(lowir::Type type);
 std::uint16_t effects(Op op);
+unsigned natural_memory_alignment(Op op);
 void cleanup_locals(Function& function, bool optimize, bool minimize_size);
 
 } // namespace wasm

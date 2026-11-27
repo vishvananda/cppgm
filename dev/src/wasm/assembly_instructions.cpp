@@ -27,6 +27,7 @@ void Parser::instruction(const std::string& name, Line& line)
 
 	uint64_t first = 0, second = 0;
 	uint32_t symbol_id = lowir::kNoId;
+	int64_t addend = 0;
 	RelocationKind relocation = RelocationKind::FunctionIndex;
 	const Immediate form = immediate_form(operation);
 	switch (form)
@@ -44,19 +45,22 @@ void Parser::instruction(const std::string& name, Line& line)
 		}
 		else if (operation == Op::Call || operation == Op::RefFunc)
 			symbol_id = symbol(line.word(), Kind::Function);
-		else
+		else if (!line.empty() ||
+			(operation != Op::MemorySize && operation != Op::MemoryGrow && operation != Op::MemoryFill))
 			first = line.integer();
 		break;
 	case Immediate::Byte:
 		first = line.integer();
 		break;
 	case Immediate::Signed:
-		if (!line.empty() && line.token().kind == PPTokenKind::Identifier)
+		if (!line.empty() && (line.token().kind == PPTokenKind::Identifier || line.at(".")))
 		{
-			if (operation != Op::I32Const)
-				throw WasmError("Wasm data addresses require i32.const");
+			if (operation != (wide_addresses_ ? Op::I64Const : Op::I32Const))
+				throw WasmError("symbolic constant width must match the Wasm address type");
 			symbol_id = symbol(line.word());
-			relocation = RelocationKind::MemoryAddressSigned;
+			relocation = wide_addresses_ ? RelocationKind::MemoryAddressSigned64 : RelocationKind::MemoryAddressSigned;
+			if (line.at("+") || line.at("-"))
+				addend = static_cast<int64_t>(line.integer());
 		}
 		else
 		{
@@ -68,9 +72,31 @@ void Parser::instruction(const std::string& name, Line& line)
 	case Immediate::Indices:
 		if (operation != Op::MemoryCopy)
 			throw WasmError("unsupported indexed Wasm assembly instruction: " + name);
-		first = line.integer();
-		line.expect(",");
-		second = line.integer();
+		if (!line.empty())
+		{
+			first = line.integer();
+			line.expect(",");
+			second = line.integer();
+		}
+		break;
+	case Immediate::Memory:
+		memory_ = true;
+		first = natural_memory_alignment(operation);
+		if (line.token().kind == PPTokenKind::Identifier || line.at("."))
+		{
+			symbol_id = symbol(line.word(), Kind::Data);
+			relocation = wide_addresses_ ? RelocationKind::MemoryAddress64 : RelocationKind::MemoryAddress;
+			if (line.at("+") || line.at("-"))
+				addend = static_cast<int64_t>(line.integer());
+		}
+		else
+			second = line.integer();
+		if (line.accept(":"))
+		{
+			line.expect("p2align");
+			line.expect("=");
+			first = line.integer();
+		}
 		break;
 	case Immediate::Float32:
 	case Immediate::Float64:
@@ -109,12 +135,12 @@ void Parser::instruction(const std::string& name, Line& line)
 	function.location = location_;
 	if (form == Immediate::None)
 		function.emit(operation);
-	else if (form == Immediate::Indices)
+	else if (form == Immediate::Indices || form == Immediate::Memory)
 		function.emit(operation, { first, second });
 	else
 		function.emit(operation, { first });
 	if (symbol_id != lowir::kNoId)
-		function.relocate(relocation, symbol_id);
+		function.relocate(relocation, symbol_id, form == Immediate::Memory ? 1 : 0, addend);
 	if (name == "end_function")
 	{
 		active_ = lowir::kNoId;

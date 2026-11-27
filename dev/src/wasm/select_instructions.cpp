@@ -123,8 +123,8 @@ void Selector::place_address(const Place& place)
 	place_base(place);
 	if (place.offset != 0)
 	{
-		out_.emit(Op::I32Const, { place.offset });
-		out_.emit(Op::I32Add);
+		address_constant(place.offset);
+		out_.emit(module_.address_op(Op::I32Add, Op::I64Add));
 	}
 }
 
@@ -219,19 +219,19 @@ Selector::Access Selector::memory_access(Value address)
 	uint64_t scale = 0, offset = 0;
 	if (!global_element(address, symbol, index, scale, offset))
 		return Access{ memory_address(address), kNoId };
-	value(index, Type::scalar(TypeKind::U32));
+	value(index, address_integer());
 	if ((scale & (scale - 1)) == 0)
 	{
 		if (scale != 1)
 		{
-			out_.emit(Op::I32Const, { static_cast<uint64_t>(__builtin_ctzll(scale)) });
-			out_.emit(Op::I32Shl);
+			address_constant(__builtin_ctzll(scale));
+			out_.emit(module_.address_op(Op::I32Shl, Op::I64Shl));
 		}
 	}
 	else
 	{
-		out_.emit(Op::I32Const, { scale });
-		out_.emit(Op::I32Mul);
+		address_constant(scale);
+		out_.emit(module_.address_op(Op::I32Mul, Op::I64Mul));
 	}
 	return Access{ static_cast<uint32_t>(offset), symbol };
 }
@@ -244,7 +244,8 @@ void Selector::access(Op op, const Access& access)
 		return;
 	}
 	out_.emit(op, { 0, (module_.relocatable ? 0 : module_.addresses[access.symbol]) + uint64_t(access.offset) });
-	out_.relocate(RelocationKind::MemoryAddress, access.symbol, 1, access.offset);
+	out_.relocate(module_.wide_addresses() ? RelocationKind::MemoryAddress64 : RelocationKind::MemoryAddress,
+		access.symbol, 1, access.offset);
 }
 
 void Selector::instruction(const lowir::Instruction& inst)
@@ -256,6 +257,11 @@ void Selector::instruction(const lowir::Instruction& inst)
 	{
 	case Opcode::Asm:
 	{
+		if (module_.source_assembly != nullptr)
+		{
+			inline_assembly(inst);
+			return;
+		}
 		// The optimizer retains this opaque boundary. At runtime an empty
 		// read/write register constraint preserves its captured input bits.
 		const auto& assembly = *program_.assembly;
@@ -341,22 +347,23 @@ void Selector::instruction(const lowir::Instruction& inst)
 		if (inst.ops[1].is(ValueKind::Integer))
 		{
 			// A literal step is one constant: the product wraps as the address does.
-			const auto step = static_cast<int32_t>(
-				static_cast<uint32_t>(body_.literals[inst.ops[1].index].low * bytes));
+			uint64_t step = body_.literals[inst.ops[1].index].low * bytes;
+			if (!module_.wide_addresses())
+				step = static_cast<uint32_t>(step);
 			if (step != 0)
 			{
-				out_.emit(Op::I32Const, { static_cast<uint64_t>(static_cast<int64_t>(step)) });
-				out_.emit(Op::I32Add);
+				address_constant(step);
+				out_.emit(module_.address_op(Op::I32Add, Op::I64Add));
 			}
 			break;
 		}
-		value(inst.ops[1], Type::scalar(TypeKind::U32));
+		value(inst.ops[1], address_integer());
 		if (bytes != 1)
 		{
-			out_.emit(Op::I32Const, { bytes });
-			out_.emit(Op::I32Mul);
+			address_constant(bytes);
+			out_.emit(module_.address_op(Op::I32Mul, Op::I64Mul));
 		}
-		out_.emit(Op::I32Add);
+		out_.emit(module_.address_op(Op::I32Add, Op::I64Add));
 		break;
 	}
 	case Opcode::Unary:
@@ -451,13 +458,10 @@ void Selector::instruction(const lowir::Instruction& inst)
 	{
 		out_.emit(Op::GlobalGet, { 0 });
 		out_.relocate(RelocationKind::GlobalIndex, module_.stack_symbol);
-		const Type size_type = operand_type(inst.ops[0], Type::scalar(TypeKind::I64));
-		value(inst.ops[0], size_type);
-		if (value_type(size_type) == ValueType::I64)
-			out_.emit(Op::I32WrapI64);
-		out_.emit(Op::I32Sub);
-		out_.emit(Op::I32Const, { static_cast<uint64_t>(int64_t(-16)) });
-		out_.emit(Op::I32And);
+		value(inst.ops[0], address_integer());
+		out_.emit(module_.address_op(Op::I32Sub, Op::I64Sub));
+		address_constant(-uint64_t(16));
+		out_.emit(module_.address_op(Op::I32And, Op::I64And));
 		out_.emit(Op::GlobalSet, { 0 });
 		out_.relocate(RelocationKind::GlobalIndex, module_.stack_symbol);
 		out_.emit(Op::GlobalGet, { 0 });
@@ -468,7 +472,7 @@ void Selector::instruction(const lowir::Instruction& inst)
 		out_.emit(Op::MemorySize, { 0 });
 		break;
 	case Opcode::MemoryGrow:
-		value(inst.ops[0], Type::scalar(TypeKind::U32));
+		value(inst.ops[0], address_integer());
 		out_.emit(Op::MemoryGrow, { 0 });
 		break;
 	default:

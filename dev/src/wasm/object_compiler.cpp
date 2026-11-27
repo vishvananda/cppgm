@@ -63,7 +63,7 @@ bool build_object(
 		error = "Wasm compilation requires a matching explicit LowIR target profile";
 		return false;
 	}
-	if (!only_empty_assembly(program))
+	if (options.target != target_model::Target::Wasm64 && !options.assembly_text && !only_empty_assembly(program))
 	{
 		error = "assembly is not supported by this Wasm profile";
 		return false;

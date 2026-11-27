@@ -32,6 +32,16 @@ Type Selector::operand_type(Value operand, Type fallback) const
 	return operand.is(ValueKind::Temp) ? body_.temps[operand.index].type : fallback;
 }
 
+Type Selector::address_integer() const
+{
+	return Type::scalar(module_.wide_addresses() ? TypeKind::I64 : TypeKind::U32);
+}
+
+void Selector::address_constant(uint64_t bits)
+{
+	constant(Literal{ bits, 0 }, address_integer());
+}
+
 void Selector::constant(Literal bits, Type type)
 {
 	switch (value_type(type))
@@ -126,8 +136,11 @@ void Selector::value(Value operand, Type type)
 			address = function ? address + 1 : 0;
 		else if (function)
 			++address;
-		out_.emit(Op::I32Const, { address });
-		out_.relocate(function ? RelocationKind::TableIndex : RelocationKind::MemoryAddressSigned, operand.index);
+		address_constant(address);
+		const auto relocation = module_.wide_addresses()
+			? (function ? RelocationKind::TableIndex64 : RelocationKind::MemoryAddressSigned64)
+			: (function ? RelocationKind::TableIndex : RelocationKind::MemoryAddressSigned);
+		out_.relocate(relocation, operand.index);
 		break;
 	}
 	default:
@@ -208,8 +221,9 @@ Op Selector::memory_op(Type type, bool store) const
 		return store ? Op::I32Store16 : Op::I32Load16S;
 	case TypeKind::I32:
 	case TypeKind::U32:
-	case TypeKind::Ptr:
 		return store ? Op::I32Store : Op::I32Load;
+	case TypeKind::Ptr:
+		return type.pointer_bytes() == 8 ? (store ? Op::I64Store : Op::I64Load) : (store ? Op::I32Store : Op::I32Load);
 	case TypeKind::I64:
 		return store ? Op::I64Store : Op::I64Load;
 	case TypeKind::F32:

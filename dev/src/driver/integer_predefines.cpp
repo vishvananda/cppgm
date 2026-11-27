@@ -104,9 +104,11 @@ void wide_character(std::string& text, const std::string& role, Integer integer,
 std::string integer_predefines(target_model::Target target)
 {
 	const auto layout = target_model::data_layout(target);
-	const bool use_long_long = target_model::is_darwin(target) || layout.long_bytes == 4;
-	const Integer intmax = layout.long_bytes == 4 ? kLongLong : kLong;
-	const Integer uintmax = layout.long_bytes == 4 ? kUnsignedLongLong : kUnsignedLong;
+	const bool wasm = target_model::is_wasm(target);
+	const bool use_long_long = target_model::is_darwin(target) || wasm || layout.long_bytes == 4;
+	const bool intmax_is_long_long = wasm || layout.long_bytes == 4;
+	const Integer intmax = intmax_is_long_long ? kLongLong : kLong;
+	const Integer uintmax = intmax_is_long_long ? kUnsignedLongLong : kUnsignedLong;
 	std::string text;
 	text.reserve(target_model::is_wasm(target) ? 8192 : 4096);
 	fixed_width(text, "8", kSignedChar, kUnsignedChar, target);
@@ -169,6 +171,11 @@ const std::string& target_integer_predefines(target_model::Target target)
 	}
 	if (target_model::is_wasm(target))
 	{
+		if (target == target_model::Target::Wasm64)
+		{
+			static const std::string wasm64 = integer_predefines(target_model::Target::Wasm64);
+			return wasm64;
+		}
 		static const std::string wasm = integer_predefines(target_model::Target::Wasm32);
 		return wasm;
 	}

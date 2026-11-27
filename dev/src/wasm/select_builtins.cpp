@@ -15,7 +15,7 @@ bool Selector::builtin_call(const lowir::Instruction& inst, const lowir::Signatu
 				static_cast<uint32_t>(lowir::storage_bytes(program_.pointer_type())),
 				machine::BuiltinContract::StringLength))
 			throw WasmError("invalid Wasm strlen builtin boundary");
-		const uint32_t begin = add_local(ValueType::I32), cursor = add_local(ValueType::I32);
+		const uint32_t begin = add_local(module_.address_type), cursor = add_local(module_.address_type);
 		value(body_.operands[inst.extra_first], program_.pointer_type());
 		out_.emit(Op::LocalTee, { begin });
 		out_.emit(Op::LocalSet, { cursor });
@@ -26,8 +26,8 @@ bool Selector::builtin_call(const lowir::Instruction& inst, const lowir::Signatu
 		out_.emit(Op::I32Eqz);
 		out_.emit(Op::BrIf, { 1 });
 		out_.emit(Op::LocalGet, { cursor });
-		out_.emit(Op::I32Const, { 1 });
-		out_.emit(Op::I32Add);
+		address_constant(1);
+		out_.emit(module_.address_op(Op::I32Add, Op::I64Add));
 		out_.emit(Op::LocalSet, { cursor });
 		out_.emit(Op::Br, { 0 });
 		out_.emit(Op::End);
@@ -36,7 +36,7 @@ bool Selector::builtin_call(const lowir::Instruction& inst, const lowir::Signatu
 		{
 			out_.emit(Op::LocalGet, { cursor });
 			out_.emit(Op::LocalGet, { begin });
-			out_.emit(Op::I32Sub);
+			out_.emit(module_.address_op(Op::I32Sub, Op::I64Sub));
 			out_.emit(Op::LocalSet, { locals_[inst.result] });
 		}
 		return true;

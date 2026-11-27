@@ -16,6 +16,8 @@ struct Signature
 	bool operator==(const Signature& other) const { return results == other.results && parameters == other.parameters; }
 };
 
+struct SourceAssembly;
+
 struct Module
 {
 	std::vector<Signature> signatures;
@@ -31,12 +33,17 @@ struct Module
 	std::vector<uint8_t> declared_functions;
 	uint32_t memory_count = 1;
 	uint32_t table_count = 1;
+	ValueType address_type = ValueType::I32;
+	bool wide_addresses() const { return address_type == ValueType::I64; }
+	Op address_op(Op narrow, Op wide) const { return wide_addresses() ? wide : narrow; }
 	std::vector<uint32_t> addresses;
 	std::vector<lowir::SymbolId> definitions;
 	uint32_t stack_floor = 0;
 	uint32_t initializer = lowir::kNoId;
 	bool relocatable = false;
 	bool atomics = false;
+	const SourceAssembly* source_assembly = nullptr;
+	uint32_t assembly_global_symbol = lowir::kNoId;
 	uint32_t stack_symbol = lowir::kNoId;
 	uint32_t stack_low_symbol = lowir::kNoId;
 	uint32_t table_symbol = lowir::kNoId;

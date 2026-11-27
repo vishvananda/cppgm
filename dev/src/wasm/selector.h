@@ -55,6 +55,7 @@ private:
 	void constant(lowir::Literal bits, lowir::Type type);
 	void instruction(const lowir::Instruction& inst);
 	void atomic_instruction(const lowir::Instruction& inst);
+	void inline_assembly(const lowir::Instruction& inst);
 	void call(const lowir::Instruction& inst, bool protected_by_group = false);
 	void plan_nonlocal_jumps();
 	bool nonlocal_call(const lowir::Instruction& inst);
@@ -92,6 +93,8 @@ private:
 	void plan_wide_locals();
 	void prepare_frame();
 	void frame_address(uint32_t offset);
+	void address_constant(uint64_t value);
+	lowir::Type address_integer() const;
 	void copy_object(lowir::Value source, lowir::Value destination, uint64_t bytes);
 	void unary(const lowir::Instruction& inst);
 	void binary(const lowir::Instruction& inst);

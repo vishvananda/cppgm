@@ -52,9 +52,16 @@ void append_nonlocal_objects(const Module& module, Object& object, std::vector<u
 	{
 		Function function;
 		make_nonlocal_wrapper(module, function);
-		Bytes encoded;
 		ObjectFunction& destination = object.functions[module.function_indices[id]];
 		validate_function(function, object.types[destination.type], module);
+		if (!object.assembly_bodies.empty())
+		{
+			for (auto& relocation : function.relocations)
+				relocation.index = symbols[relocation.index];
+			write_assembly_body(function, object, object.assembly_bodies[module.function_indices[id]]);
+			continue;
+		}
+		Bytes encoded;
 		encode_function(function, encoded, &destination.code.relocations);
 		Cursor body(encoded);
 		body.u32();

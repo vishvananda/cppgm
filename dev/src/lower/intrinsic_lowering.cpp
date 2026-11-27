@@ -510,7 +510,7 @@ RValue FunctionLowering::gnu_intrinsic(const syntax::CallExpr& expr, sema::Intri
 	case sema::Intrinsic::WasmMemoryGrow:
 	{
 		const bool grow = kind == sema::Intrinsic::WasmMemoryGrow;
-		const lowir::Type size = lowir::Type::scalar(lowir::TypeKind::U32);
+		const lowir::Type size = program_.wasm_page_type();
 		lowir::Instruction inst = lowir::make_instruction(
 			grow ? lowir::Opcode::MemoryGrow : lowir::Opcode::MemorySize, size);
 		if (grow)

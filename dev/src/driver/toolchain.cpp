@@ -122,7 +122,7 @@ void configure_c_environment(PreprocessorOptions& options, target_model::Target 
 			throw InvocationError("a freestanding environment is supported only for C input");
 		return;
 	}
-	const bool bare_wasm = target == target_model::Target::Wasm32;
+	const bool bare_wasm = target_model::is_bare_wasm(target);
 	if (bare_wasm && environment == CEnvironment::Hosted)
 		throw InvocationError("a hosted C environment requires WASI instead of the bare Wasm target");
 	options.c_freestanding = bare_wasm || environment == CEnvironment::Freestanding;
@@ -761,8 +761,8 @@ void configure_compile_output(Invocation& invocation, bool assembly_output)
 	invocation.compile_only = invocation.compile_only || assembly_output;
 	invocation.x86_code.assembly_text = assembly_output && !invocation.emit_lowir;
 	if (invocation.x86_code.assembly_text && invocation.target != native::Target::Linux &&
-		invocation.target != native::Target::AArch64Linux)
-		throw InvocationError("native -S requires an ELF x86-64 or AArch64 target");
+		invocation.target != native::Target::AArch64Linux && !target_model::is_wasm(invocation.target))
+		throw InvocationError("-S requires a Wasm, ELF x86-64 or ELF AArch64 target");
 }
 
 const char* compile_output_suffix(const Invocation& invocation)
@@ -1822,7 +1822,7 @@ bool wasm_assembly(const Input& input, const Invocation& invocation, wasm::LinkI
 		try
 		{
 			wasm::Object object;
-			wasm::assemble(preprocessor, object, location);
+			wasm::assemble(preprocessor, object, invocation.target, location);
 			inputs.objects.push_back(std::move(object));
 			return true;
 		}
@@ -1882,7 +1882,8 @@ bool lower_wasm_source(
 bool add_wasm_object(
 	lowir::Program& program, const backend::Options& options, wasm::LinkInputs& inputs, std::string& error)
 {
-	std::string dump = "machine_ir wasm32 1\n";
+	std::string dump = program.target == target_model::Target::Wasm64 ? "machine_ir wasm64 1\n"
+																	  : "machine_ir wasm32 1\n";
 	wasm::Object object;
 	if (!wasm::compile_object(program, options, object, dump, error))
 		return false;
@@ -1973,6 +1974,7 @@ int wasm_mode(const Invocation& invocation)
 	options.no_standard_libraries = invocation.no_standard_libraries;
 	options.no_startfiles = invocation.no_startfiles;
 	options.wasm_atomics = invocation.preprocessor.atomics_enabled;
+	options.assembly_text = invocation.x86_code.assembly_text;
 	options.wasm_link = invocation.wasm_link;
 	options.wasm_link.fold_functions |= invocation.whole_source_lto;
 	options.wasm_link.compact_relocations = invocation.optimizer.minimize_size;

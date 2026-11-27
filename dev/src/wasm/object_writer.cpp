@@ -5,7 +5,9 @@ namespace wasm {
 bool relocation_addend(RelocationKind kind)
 {
 	return kind == RelocationKind::MemoryAddress || kind == RelocationKind::MemoryAddressSigned ||
-		kind == RelocationKind::MemoryAddressI32 || kind == RelocationKind::MemoryAddressRelative;
+		kind == RelocationKind::MemoryAddressI32 || kind == RelocationKind::MemoryAddressRelative ||
+		kind == RelocationKind::MemoryAddress64 || kind == RelocationKind::MemoryAddressSigned64 ||
+		kind == RelocationKind::MemoryAddressI64;
 }
 
 namespace {
@@ -161,7 +163,7 @@ void write_object(const Object& object, Bytes& output)
 	imports.string("env");
 	imports.string("__linear_memory");
 	imports.byte(2);
-	imports.byte(0);
+	imports.byte(object.wide_addresses ? 4 : 0);
 	imports.unsigned_leb(0);
 	for (const auto& function : object.functions)
 		if (function.imported)
@@ -192,7 +194,7 @@ void write_object(const Object& object, Bytes& output)
 	imports.string("__indirect_function_table");
 	imports.byte(1);
 	imports.byte(0x70);
-	imports.byte(0);
+	imports.byte(object.wide_addresses ? 4 : 0);
 	imports.unsigned_leb(object.functions.size() + 1);
 	output.section(2, imports);
 	Bytes functions;
@@ -232,7 +234,7 @@ void write_object(const Object& object, Bytes& output)
 	Bytes elements;
 	elements.unsigned_leb(1);
 	elements.byte(0);
-	elements.byte(0x41);
+	elements.byte(static_cast<uint8_t>(object.wide_addresses ? Op::I64Const : Op::I32Const));
 	elements.signed_leb(1);
 	elements.byte(0x0b);
 	elements.unsigned_leb(object.functions.size());
@@ -255,7 +257,7 @@ void write_object(const Object& object, Bytes& output)
 	for (const auto& segment : object.data)
 	{
 		data.byte(0);
-		data.byte(0x41);
+		data.byte(static_cast<uint8_t>(object.wide_addresses ? Op::I64Const : Op::I32Const));
 		data.signed_leb(0);
 		data.byte(0x0b);
 		data.unsigned_leb(segment.contents.bytes.data.size());

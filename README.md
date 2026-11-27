@@ -40,6 +40,7 @@ and the [bare Wasm](BUILDING.md#bare-wasm-c23-library-supplement) and
 | x86-64 | Linux (ELF), Intel macOS (Mach-O) |
 | [AArch64](pa39/README.md) | Linux (ELF), Apple Silicon macOS (Mach-O) |
 | [wasm32](pa37/README.md) | Bare WebAssembly (`wasm32-unknown-unknown`) and WASI (`wasm32-wasip1`) |
+| [wasm64 (experimental)](pa37/README.md#experimental-wasm64) | Freestanding C and GNU Wasm assembly with memory64 and table64. Link with an external Wasm linker. |
 | [i386 (experimental)](pa40/README.md) | Linux ELF32, freestanding integer C and x86 real-mode boot code |
 
 Linux 7.3.6 boots under QEMU with cppgm compiling and assembling every

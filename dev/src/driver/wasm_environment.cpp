@@ -43,13 +43,17 @@ void configure_wasm_environment(PreprocessorOptions& options)
 	options.sse_level = 0;
 	std::string text = "#undef __linux__\n#undef __linux\n#undef __gnu_linux__\n#undef __ELF__\n"
 					   "#undef __APPLE__\n#undef __MACH__\n#undef __x86_64__\n#undef __SSE__\n#undef __SSE2__\n"
-					   "#define __wasm__ 1\n#define __wasm32__ 1\n#define __ILP32__ 1\n"
+					   "#define __wasm__ 1\n"
 					   "#define __SIZEOF_FLOAT__ 4\n#define __SIZEOF_DOUBLE__ 8\n#define __SIZEOF_LONG_DOUBLE__ 16\n"
 					   "#define __ATOMIC_RELAXED 0\n#define __ATOMIC_CONSUME 1\n#define __ATOMIC_ACQUIRE 2\n"
 					   "#define __ATOMIC_RELEASE 3\n#define __ATOMIC_ACQ_REL 4\n#define __ATOMIC_SEQ_CST 5\n"
 					   "#define __GCC_CONSTRUCTIVE_SIZE 64\n#define __GCC_DESTRUCTIVE_SIZE 64\n"
 					   "#define __ORDER_LITTLE_ENDIAN__ 1234\n#define __ORDER_BIG_ENDIAN__ 4321\n"
 					   "#define __BYTE_ORDER__ __ORDER_LITTLE_ENDIAN__\n";
+	text += options.target == target_model::Target::Wasm64
+		? "#define __wasm 1\n#define __wasm64 1\n#define __wasm64__ 1\n"
+		  "#define __LP64__ 1\n#define _LP64 1\n#define __SIZEOF_INT128__ 16\n"
+		: "#define __wasm32__ 1\n#define __ILP32__ 1\n";
 	text += target_integer_predefines(options.target);
 	text += kFloatingNumericPredefines;
 	text += kBinary128NumericPredefines;

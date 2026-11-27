@@ -194,10 +194,10 @@ void Selector::indirect_jump(const lowir::Instruction& inst)
 	table.push_back(count);
 	value(inst.ops[0], program_.pointer_type());
 	value(Value::symbol(body_.code_labels.front().symbol), program_.pointer_type());
-	out_.emit(Op::I32Sub);
-	const uint32_t selector = add_local(ValueType::I32);
+	out_.emit(module_.address_op(Op::I32Sub, Op::I64Sub));
+	const uint32_t selector = add_local(module_.address_type);
 	out_.emit(Op::LocalSet, { selector });
-	branch_table(targets, table, selector, false, kNoId);
+	branch_table(targets, table, selector, module_.wide_addresses(), kNoId);
 }
 
 void Selector::branch_table(const std::vector<BlockId>& targets, const std::vector<uint32_t>& table, uint32_t selector,

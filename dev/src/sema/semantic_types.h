@@ -132,7 +132,7 @@ struct Type
 	// Plain char keeps its own identity when -funsigned-char selects its
 	// unsigned representation. Fixed when the type table is constructed.
 	uint8_t plain_char_unsigned : 1;
-	target_model::Target target : 3;
+	target_model::Target target : 4;
 	// Derived once for fundamental types; shares the existing flag byte.
 	uint8_t binary128 : 1;
 	uint8_t c_variably_modified : 1;

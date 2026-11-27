@@ -313,6 +313,10 @@ struct Program
 	bool deferred_constant_probes = false;
 	ExceptionAbi exception_abi = ExceptionAbi::Opaque;
 	Type pointer_type() const { return Type::pointer(target_model::data_layout(target).pointer_bytes); }
+	Type wasm_page_type() const
+	{
+		return Type::scalar(target == target_model::Target::Wasm64 ? TypeKind::I64 : TypeKind::U32);
+	}
 
 	Program(const Program&) = delete;
 	Program& operator=(const Program&) = delete;

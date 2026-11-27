@@ -1094,11 +1094,11 @@ bool Validator::check_instruction(InstId id, const Instruction& inst, BlockId bl
 	case Opcode::MemoryGrow:
 		if (!target_model::is_wasm(program_.target))
 			return fail("memory page operations require a Wasm target");
-		if (inst.type.kind() != TypeKind::U32)
-			return fail("memory page operations require a u32 result");
+		if (inst.type != program_.wasm_page_type())
+			return fail("memory page operation result must match the Wasm memory width");
 		return inst.op == Opcode::MemorySize || inst.ops[0].is(ValueKind::Integer) ||
-			(value_type(inst.ops[0], type) && type.kind() == TypeKind::U32) ||
-			fail("memory_grow requires a u32 page count");
+			(value_type(inst.ops[0], type) && type == inst.type) ||
+			fail("memory_grow page count must match the Wasm memory width");
 	case Opcode::WriteMxcsr:
 		return (inst.type.kind() == TypeKind::U32 &&
 				   (inst.ops[0].is(ValueKind::Integer) ||

@@ -12,6 +12,8 @@ void Parser::emit(Object& object)
 {
 	Module module;
 	module.relocatable = true;
+	module.address_type = wide_addresses_ ? ValueType::I64 : ValueType::I32;
+	object.wide_addresses = wide_addresses_;
 	module.memory_count = memory_ ? 1 : 0;
 	module.table_count = 0;
 	module.global_types.clear();
@@ -28,7 +30,11 @@ void Parser::emit(Object& object)
 		if (source.kind == Kind::Unknown)
 			source.kind = Kind::Data;
 		if (source.kind == Kind::Data && source.defined)
-			throw WasmError("unsupported Wasm assembly data definition: " + identity.name);
+		{
+			identity.index = source.detail;
+			identity.offset = source.offset;
+			identity.size = source.size;
+		}
 	}
 	// Wasm's separate index spaces put imports before definitions. Linking
 	// symbols retain parse-time IDs, so forward references need no text pass.
@@ -51,8 +57,16 @@ void Parser::emit(Object& object)
 			output.type = static_cast<uint32_t>(found - object.types.begin());
 			output.imported = !definitions;
 			output.name = object.symbols[id].name;
+			if (definitions && (function.explicit_module || function.explicit_name))
+				throw WasmError("Wasm assembly import names a defined function: " + output.name);
 			if (output.imported)
-				output.module = "env";
+			{
+				output.module = function.explicit_module ? function.import_module : "env";
+				if (function.explicit_name)
+					output.name = function.import_name;
+				if (function.explicit_module || function.explicit_name)
+					object.symbols[id].flags |= 0x40;
+			}
 			indices[id] = static_cast<uint32_t>(object.functions.size());
 			object.symbols[id].index = indices[id];
 			module.definition_types.push_back(output.type);
@@ -107,7 +121,11 @@ void Parser::emit(Object& object)
 			else if (symbols_[target].kind == Kind::Global)
 				throw WasmError("Wasm global has no linear-memory address");
 			else if (symbols_[target].kind == Kind::Function)
-				relocation.kind = RelocationKind::TableIndex;
+			{
+				if (relocation.addend != 0)
+					throw WasmError("a Wasm function address cannot have an addend");
+				relocation.kind = wide_addresses_ ? RelocationKind::TableIndex64 : RelocationKind::TableIndex;
+			}
 		}
 		validate_function(body, record.signature, module);
 		auto& output = object.functions[indices[record.symbol]].code;
@@ -128,6 +146,20 @@ void Parser::emit(Object& object)
 			throw WasmError("Wasm assembly constructor requires a defined void() function");
 		object.initializers.push_back(initializer);
 	}
+	for (auto& segment : data_)
+		for (auto& relocation : segment.contents.relocations)
+		{
+			const auto kind = symbols_[relocation.index].kind;
+			if (kind == Kind::Global)
+				throw WasmError("Wasm global has no linear-memory address");
+			if (kind == Kind::Function)
+			{
+				if (relocation.addend != 0)
+					throw WasmError("a Wasm function address cannot have an addend");
+				relocation.kind = wide_addresses_ ? RelocationKind::TableIndexI64 : RelocationKind::TableIndexI32;
+			}
+		}
+	object.data = std::move(data_);
 	object.memory_count = module.memory_count;
 	if (!features_.data.empty())
 	{
@@ -152,6 +184,8 @@ void Parser::emit(Object& object)
 			}
 		object.features.push_back({ '+', name });
 	};
+	if (wide_addresses_)
+		feature("memory64");
 	if (bulk_)
 		feature("bulk-memory");
 	if (!globals_.empty())

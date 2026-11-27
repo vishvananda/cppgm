@@ -18,9 +18,7 @@ ValueType value_type(lowir::Type type)
 	case TypeKind::U32:
 		return ValueType::I32;
 	case TypeKind::Ptr:
-		if (type.pointer_bytes() != 4)
-			throw WasmError("Wasm requires a 32-bit pointer layout");
-		return ValueType::I32;
+		return type.pointer_bytes() == 8 ? ValueType::I64 : ValueType::I32;
 	case TypeKind::I64:
 		return ValueType::I64;
 	case TypeKind::F32:
@@ -78,8 +76,13 @@ static void encode_body(const Function& function, Bytes& output, std::vector<Rel
 				Relocation relocation = function.relocations[next_relocation++];
 				relocation.offset = static_cast<uint32_t>(body.data.size());
 				encoded.push_back(relocation);
-				for (unsigned part = 0; part < 5; ++part)
-					body.byte(((value >> (7 * part)) & 0x7f) | (part == 4 ? 0 : 0x80));
+				const unsigned width = wide_relocation(relocation.kind) ? 10 : 5;
+				const bool negative = inst.op == Op::I64Const && static_cast<int64_t>(value) < 0;
+				for (unsigned part = 0; part < width; ++part)
+				{
+					const unsigned bits = part == 9 && negative ? 0x7f : (value >> (7 * part)) & 0x7f;
+					body.byte(bits | (part + 1 == width ? 0 : 0x80));
+				}
 			}
 			else if (form == Immediate::Signed || form == Immediate::BlockType ||
 				(form == Immediate::TryTable && i == 0))

@@ -2,6 +2,39 @@
 
 namespace wasm {
 
+unsigned natural_memory_alignment(Op op)
+{
+	switch (op)
+	{
+	case Op::I32Load8S:
+	case Op::I32Load8U:
+	case Op::I64Load8S:
+	case Op::I64Load8U:
+	case Op::I32Store8:
+	case Op::I64Store8:
+		return 0;
+	case Op::I32Load16S:
+	case Op::I32Load16U:
+	case Op::I64Load16S:
+	case Op::I64Load16U:
+	case Op::I32Store16:
+	case Op::I64Store16:
+		return 1;
+	case Op::I64Load:
+	case Op::I64Store:
+	case Op::F64Load:
+	case Op::F64Store:
+		return 3;
+	default:
+		break;
+	}
+	const auto simd = simd_info(op);
+	if (simd.form != SimdForm::None)
+		return simd.alignment;
+	const auto atomic = atomic_info(op);
+	return atomic.form == AtomicForm::None ? 2 : atomic.alignment;
+}
+
 uint16_t effects(Op op)
 {
 	using namespace machine_model;

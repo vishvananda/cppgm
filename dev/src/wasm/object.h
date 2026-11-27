@@ -102,7 +102,9 @@ struct Object
 	std::vector<ObjectElement> elements;
 	uint32_t table_count = 0;
 	uint32_t memory_count = 0;
+	bool wide_addresses = false;
 	std::vector<ObjectExport> exports;
+	std::vector<std::string> assembly_bodies;
 };
 
 // Input identities are retained once per file, never rediscovered from member
@@ -124,6 +126,8 @@ void make_object(lowir::Program& program, const backend::Options& options, Objec
 void append_object_aliases(const lowir::Program& program, const Module& module, Object& object,
 	std::vector<uint32_t>& symbols, std::vector<uint32_t>& groups);
 void write_object(const Object& object, Bytes& output);
+void write_assembly_body(const Function& function, const Object& object, std::string& output);
+void write_assembly(const Object& object, std::string& output);
 void validate_object(const Object& object);
 void read_object(const std::string& path, Object& object);
 void read_link_inputs(const std::string& path, LinkInputs& inputs, bool once = false);

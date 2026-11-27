@@ -17,15 +17,17 @@ public:
 			throw WasmError("truncated Wasm object");
 		return data_[position_++];
 	}
-	uint32_t u32()
+	uint32_t u32() { return static_cast<uint32_t>(unsigned_leb(32)); }
+	uint64_t unsigned_leb(unsigned bits)
 	{
-		uint32_t value = 0;
-		for (unsigned i = 0; i < 5; ++i)
+		uint64_t value = 0;
+		for (unsigned shift = 0; shift < bits; shift += 7)
 		{
 			const uint8_t part = byte();
-			if (i == 4 && (part & 0xf0) != 0)
+			const unsigned payload = part & 0x7f;
+			if (bits - shift < 7 && payload >= (1u << (bits - shift)))
 				throw WasmError("Wasm object has an overflowing unsigned LEB");
-			value |= uint32_t(part & 0x7f) << (i * 7);
+			value |= uint64_t(payload) << shift;
 			if ((part & 0x80) == 0)
 				return value;
 		}

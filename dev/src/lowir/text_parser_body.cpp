@@ -466,14 +466,15 @@ bool Parser::parse_value_instruction(FunctionBuilder& builder, Opcode keyword, I
 		result = keyword == Opcode::Exception ? inst.type : kI64;
 		return true;
 	case Opcode::ReadMxcsr:
-	case Opcode::MemorySize:
 		inst.op = keyword;
 		inst.type = result = Type::scalar(TypeKind::U32);
 		return true;
+	case Opcode::MemorySize:
 	case Opcode::MemoryGrow:
 		inst.op = keyword;
-		inst.type = result = Type::scalar(TypeKind::U32);
-		inst.ops[0] = parse_value(builder, TypeKind::U32);
+		inst.type = result = program_.wasm_page_type();
+		if (keyword == Opcode::MemoryGrow)
+			inst.ops[0] = parse_value(builder, result.kind());
 		return true;
 	case Opcode::StackSave:
 	case Opcode::FrameAddress:

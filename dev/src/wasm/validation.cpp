@@ -334,7 +334,8 @@ bool Validator::simd(const Instruction& inst)
 		return false;
 	const Immediate immediate = immediate_form(inst.op);
 	if ((immediate == Immediate::Memory || immediate == Immediate::MemoryLane) &&
-		(module_.memory_count != 1 || operand(inst) > info.alignment || operand(inst, 1) > UINT32_MAX))
+		(module_.memory_count != 1 || operand(inst) > info.alignment ||
+			(!module_.wide_addresses() && operand(inst, 1) > UINT32_MAX)))
 		throw WasmError("invalid Wasm SIMD memory alignment");
 	if ((immediate == Immediate::Lane || immediate == Immediate::MemoryLane) &&
 		operand(inst, immediate == Immediate::Lane ? 0 : 2) >= info.lanes)
@@ -410,12 +411,12 @@ bool Validator::simd(const Instruction& inst)
 	switch (info.form)
 	{
 	case SimdForm::Load:
-		pop(ValueType::I32);
+		pop(module_.address_type);
 		break;
 	case SimdForm::Store:
 	case SimdForm::LoadLane:
 		pop(ValueType::V128);
-		pop(ValueType::I32);
+		pop(module_.address_type);
 		break;
 	case SimdForm::Shift:
 		pop(ValueType::I32);
@@ -453,13 +454,14 @@ bool Validator::atomic(const Instruction& inst)
 			throw WasmError("invalid Wasm atomic fence flags");
 		return true;
 	}
-	if (module_.memory_count != 1 || operand(inst) != info.alignment || operand(inst, 1) > UINT32_MAX)
+	if (module_.memory_count != 1 || operand(inst) != info.alignment ||
+		(!module_.wide_addresses() && operand(inst, 1) > UINT32_MAX))
 		throw WasmError("invalid Wasm atomic memory operand or alignment");
 	if (info.form != AtomicForm::Load)
 		pop(info.type);
 	if (info.form == AtomicForm::CmpXchg)
 		pop(info.type);
-	pop(ValueType::I32);
+	pop(module_.address_type);
 	if (info.form != AtomicForm::Store)
 		push(info.type);
 	return true;
@@ -480,8 +482,8 @@ void Validator::instruction(const Instruction& inst)
 		if (module_.memory_count != 1 || operand(inst) != 0)
 			throw WasmError("invalid Wasm memory index");
 		if (inst.op == Op::MemoryGrow)
-			pop(ValueType::I32);
-		push(ValueType::I32);
+			pop(module_.address_type);
+		push(module_.address_type);
 		return;
 	case Op::Unreachable:
 		unreachable();
@@ -646,7 +648,7 @@ void Validator::instruction(const Instruction& inst)
 		if (module_.table_count != 1 || operand(inst) >= module_.signatures.size() || operand(inst, 1) != 0)
 			throw WasmError("invalid Wasm indirect call type/table");
 		const auto& callee = module_.signatures[operand(inst)];
-		pop(ValueType::I32);
+		pop(module_.address_type);
 		call(callee);
 		if (inst.op == Op::ReturnCallIndirect)
 		{
@@ -691,9 +693,9 @@ void Validator::instruction(const Instruction& inst)
 		for (uint32_t i = 0; i < inst.operands.count; ++i)
 			if (operand(inst, i) != 0)
 				throw WasmError("invalid Wasm memory index");
-		pop(ValueType::I32);
-		pop(ValueType::I32);
-		pop(ValueType::I32);
+		pop(module_.address_type);
+		pop(inst.op == Op::MemoryFill ? ValueType::I32 : module_.address_type);
+		pop(module_.address_type);
 		return;
 	default:
 		break;
@@ -707,18 +709,13 @@ void Validator::instruction(const Instruction& inst)
 			: code == 0x2a || code == 0x38 ? ValueType::F32
 			: code == 0x2b || code == 0x39 ? ValueType::F64
 										   : ValueType::I32;
-		const unsigned alignment = code == 0x2c || code == 0x2d || code == 0x30 || code == 0x31 || code == 0x3a ||
-				code == 0x3c
-			? 0
-			: code == 0x2e || code == 0x2f || code == 0x32 || code == 0x33 || code == 0x3b || code == 0x3d ? 1
-			: code == 0x34 || code == 0x35 || code == 0x3e                                                 ? 2
-			: type == ValueType::I64 || type == ValueType::F64                                             ? 3
-																										   : 2;
-		if (module_.memory_count != 1 || operand(inst) > alignment || operand(inst, 1) > UINT32_MAX)
+		const unsigned alignment = natural_memory_alignment(inst.op);
+		if (module_.memory_count != 1 || operand(inst) > alignment ||
+			(!module_.wide_addresses() && operand(inst, 1) > UINT32_MAX))
 			throw WasmError("invalid Wasm memory immediate");
 		if (store)
 			pop(type);
-		pop(ValueType::I32);
+		pop(module_.address_type);
 		if (!store)
 			push(type);
 		return;

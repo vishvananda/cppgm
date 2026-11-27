@@ -1,10 +1,12 @@
 #include "wasm/object.h"
 
 #include "machine/global_data.h"
+#include "opt/call_graph.h"
 #include "opt/optimizer.h"
 #include "wasm/object_cursor.h"
 #include "wasm/exceptions.h"
 #include "wasm/selector.h"
+#include "wasm/source_assembly.h"
 #include "wasm/validation.h"
 #include "wasm/nonlocal_jumps.h"
 
@@ -20,6 +22,8 @@ void set_object_features(Object& object, const Module& module, bool uses_simd, b
 		object.features.push_back({ '+', "simd128" });
 	if (uses_tail_calls)
 		object.features.push_back({ '+', "tail-call" });
+	if (module.wide_addresses())
+		object.features.push_back({ '+', "memory64" });
 	if (module.atomics)
 		object.features.push_back({ '+', "atomics" });
 	if (!module.tag_types.empty())
@@ -42,7 +46,8 @@ void relocate_symbols(std::vector<Relocation>& relocations, const std::vector<ui
 		if (relocation.kind != RelocationKind::TypeIndex)
 		{
 			uses_table = uses_table || relocation.kind == RelocationKind::TableIndex ||
-				relocation.kind == RelocationKind::TableIndexI32 ||
+				relocation.kind == RelocationKind::TableIndexI32 || relocation.kind == RelocationKind::TableIndex64 ||
+				relocation.kind == RelocationKind::TableIndexI64 ||
 				relocation.kind == RelocationKind::TableIndexRelative || relocation.kind == RelocationKind::TableNumber;
 			if (relocation.index >= symbols.size() || symbols[relocation.index] == lowir::kNoId)
 				throw WasmError("Wasm relocation refers to a symbol without an object identity");
@@ -63,10 +68,10 @@ ObjectSymbol imported_symbol(uint8_t kind, uint32_t index, const char* name)
 // Folded constants and address-only function declarations can survive after
 // their uses disappear. Drop the unused declarations; a typed direct call
 // supplies its missing declaration boundary without reparsing source.
-void discard_unused_local_declarations(lowir::Program& program)
+void discard_unused_declarations(lowir::Program& program, bool discard_external)
 {
 	using namespace lowir;
-	bool any = false;
+	bool any = discard_external;
 	for (SymbolId id : program.order)
 	{
 		const Symbol& s = program.symbols[id];
@@ -136,7 +141,7 @@ void discard_unused_local_declarations(lowir::Program& program)
 			if (!used[id])
 				continue;
 		}
-		if (used[id] || s.metadata.binding != ir_model::SBM_INTERNAL ||
+		if (used[id] || (!discard_external && s.metadata.binding != ir_model::SBM_INTERNAL) ||
 			(s.kind != SymbolKind::FunctionDeclaration && s.kind != SymbolKind::GlobalDeclaration))
 			program.order[count++] = id;
 	}
@@ -158,13 +163,94 @@ void bind_object_aliases(const lowir::Program& program, const std::vector<lowir:
 	}
 }
 
+struct CodeFeatures
+{
+	bool simd = false;
+	bool tail_calls = false;
+	bool table = false;
+};
+
+CodeFeatures emit_object_functions(const lowir::Program& program, const backend::Options& options, const Module& module,
+	Object& object, std::string& dump, const std::vector<uint32_t>& groups, std::vector<uint32_t>& symbols)
+{
+	const bool minimize_size = options.optimizer != nullptr && options.optimizer->minimize_size;
+	CodeFeatures features;
+	for (const Signature& type : module.signatures)
+	{
+		for (ValueType value : type.parameters)
+			features.simd = features.simd || value == ValueType::V128;
+		for (ValueType value : type.results)
+			features.simd = features.simd || value == ValueType::V128;
+	}
+	for (lowir::SymbolId id : module.definitions)
+	{
+		ExceptionPlan exceptions;
+		if (module.exception_regions)
+			prepare_exception_plan(program, id, object, symbols, groups[id], exceptions);
+		Function function;
+		Selector(program, module, id, function, &exceptions, minimize_size).run();
+		cleanup_locals(function, options.optimization_level != 0, minimize_size);
+		for (ValueType local : function.locals)
+			features.simd = features.simd || local == ValueType::V128;
+		for (const auto& inst : function.instructions)
+		{
+			features.simd = features.simd || (static_cast<unsigned>(inst.op) >> 8) == 0xfd;
+			features.tail_calls = features.tail_calls || inst.op == Op::ReturnCallIndirect;
+		}
+		ObjectFunction& destination = object.functions[module.function_indices[id]];
+		try
+		{
+			validate_function(function, object.types[destination.type], module);
+		}
+		catch (const WasmError& failure)
+		{
+			throw WasmError(std::string(program.spelling(program.symbols[id].name)) + ": " + failure.what());
+		}
+		if (!options.machine_ir.empty())
+			dump_function(function, program, id, dump);
+		if (options.assembly_text)
+		{
+			relocate_symbols(function.relocations, symbols, features.table);
+			write_assembly_body(function, object, object.assembly_bodies[module.function_indices[id]]);
+			continue;
+		}
+		Bytes encoded;
+		encode_function(function, encoded, &destination.code.relocations);
+		Cursor body(encoded);
+		body.u32();
+		const uint32_t prefix = body.position();
+		destination.code.bytes = body.bytes();
+		for (Relocation& relocation : destination.code.relocations)
+			relocation.offset -= prefix;
+		relocate_symbols(destination.code.relocations, symbols, features.table);
+	}
+	return features;
+}
+
 } // namespace
 
 void make_object(lowir::Program& program, const backend::Options& options, Object& object, std::string& dump)
 {
-	discard_unused_local_declarations(program);
-	bool uses_table = false;
 	Module module;
+	SourceAssembly assembly;
+	if (program.assembly && (options.target == target_model::Target::Wasm64 || options.assembly_text))
+	{
+		prepare_source_assembly(program, assembly, options.assembly_text);
+		module.source_assembly = &assembly;
+		for (const auto& global : assembly.globals)
+		{
+			module.global_types.push_back(global.type);
+			module.mutable_globals.push_back(global.mutable_value);
+		}
+	}
+	if (options.target == target_model::Target::Wasm64 && options.optimization_level != 0)
+	{
+		opt::OptimizerStats reachability;
+		// Wasm file-scope assembly contributes typed globals and aliases, so
+		// it does not keep unrelated internal functions in the object.
+		opt::prune_unreachable(program, reachability, true, false);
+	}
+	discard_unused_declarations(program, options.target == target_model::Target::Wasm64);
 	module.relocatable = true;
 	module.atomics = options.wasm_atomics;
 	prepare_exception_runtime(program, module);
@@ -173,8 +259,11 @@ void make_object(lowir::Program& program, const backend::Options& options, Objec
 		dump_module(program, module, dump);
 	object.table_count = 1;
 	object.memory_count = 1;
+	object.wide_addresses = module.wide_addresses();
 	object.types = module.signatures;
 	object.functions.resize(module.definition_types.size());
+	if (options.assembly_text)
+		object.assembly_bodies.resize(object.functions.size());
 	// Contiguous byte tokens make a function's code labels an indexed
 	// branch table while retaining ordinary relocatable pointer identities.
 	std::vector<std::pair<uint32_t, uint32_t>> code_labels;
@@ -193,7 +282,8 @@ void make_object(lowir::Program& program, const backend::Options& options, Objec
 		for (uint32_t i = 0; i < labels.size(); ++i)
 			code_labels[labels[i].symbol] = { segment, i };
 	}
-	std::vector<uint32_t> symbols(program.symbols.size() + 3 + module.tag_types.size(), lowir::kNoId);
+	module.assembly_global_symbol = static_cast<uint32_t>(program.symbols.size() + 3 + module.tag_types.size());
+	std::vector<uint32_t> symbols(module.assembly_global_symbol + assembly.globals.size(), lowir::kNoId);
 	std::vector<uint32_t> groups(program.symbols.size(), lowir::kNoId);
 	const lowir::NameId stack_low_name = program.names.find("__stack_low", 11);
 	uint32_t stack_low_object = lowir::kNoId;
@@ -245,7 +335,17 @@ void make_object(lowir::Program& program, const backend::Options& options, Objec
 				// In this unshared-memory profile each instance has one guest
 				// thread. Ordinary instance data also supplies its TLS storage.
 				ObjectData data;
-				data.name = source.metadata.section != 0 ? program.spelling(source.metadata.section) : symbol.name;
+				if (source.metadata.section != 0)
+					data.name = program.spelling(source.metadata.section);
+				else if (object.wide_addresses)
+				{
+					const char* prefix = source.metadata.storage == ir_model::GSM_READONLY ? ".rodata."
+						: machine::global_is_zero(program, program.globals[source.detail]) ? ".bss."
+																						   : ".data.";
+					data.name = prefix + symbol.name;
+				}
+				else
+					data.name = symbol.name;
 				uint32_t alignment = 1;
 				symbol.size = machine::global_size(program, program.globals[source.detail], alignment);
 				while ((uint32_t(1) << data.alignment) < alignment)
@@ -254,10 +354,14 @@ void make_object(lowir::Program& program, const backend::Options& options, Objec
 				std::vector<machine::GlobalAddress> fixups;
 				machine::write_global(program, program.globals[source.detail], data.contents.bytes.data, 0, fixups);
 				for (const auto& fixup : fixups)
-					data.contents.relocations.push_back(Relocation{
-						lowir::is_function_kind(program.symbols[fixup.target].kind) ? RelocationKind::TableIndexI32
-																					: RelocationKind::MemoryAddressI32,
-						static_cast<uint32_t>(fixup.offset), fixup.target, fixup.addend });
+				{
+					const bool function = lowir::is_function_kind(program.symbols[fixup.target].kind);
+					const auto kind = object.wide_addresses
+						? (function ? RelocationKind::TableIndexI64 : RelocationKind::MemoryAddressI64)
+						: (function ? RelocationKind::TableIndexI32 : RelocationKind::MemoryAddressI32);
+					data.contents.relocations.push_back(
+						Relocation{ kind, static_cast<uint32_t>(fixup.offset), fixup.target, fixup.addend });
+				}
 				symbol.index = static_cast<uint32_t>(object.data.size());
 				object.data.push_back(std::move(data));
 			}
@@ -314,12 +418,19 @@ void make_object(lowir::Program& program, const backend::Options& options, Objec
 	}
 	symbols[module.stack_symbol] = static_cast<uint32_t>(object.symbols.size());
 	object.symbols.push_back(imported_symbol(2, 0, "__stack_pointer"));
-	object.global_imports.push_back(ObjectGlobal{ "env", "__stack_pointer", ValueType::I32, true });
+	object.global_imports.push_back(ObjectGlobal{ "env", "__stack_pointer", module.address_type, true });
+	for (uint32_t i = 0; i < assembly.globals.size(); ++i)
+	{
+		const auto& global = assembly.globals[i];
+		symbols[module.assembly_global_symbol + i] = static_cast<uint32_t>(object.symbols.size());
+		object.symbols.push_back(imported_symbol(2, i + 1, global.name.c_str()));
+		object.global_imports.push_back(ObjectGlobal{ "env", global.name, global.type, global.mutable_value });
+	}
 	// Source declarations and the frame guard designate the same linker
 	// boundary. Keep one object identity when the source names it too.
 	if (stack_low_object != lowir::kNoId)
 		symbols[module.stack_low_symbol] = stack_low_object;
-	else
+	else if (!module.wide_addresses())
 	{
 		symbols[module.stack_low_symbol] = static_cast<uint32_t>(object.symbols.size());
 		object.symbols.push_back(imported_symbol(1, 0, "__stack_low"));
@@ -343,61 +454,21 @@ void make_object(lowir::Program& program, const backend::Options& options, Objec
 		object.tags.push_back(std::move(tag));
 	}
 	append_nonlocal_objects(module, object, symbols);
-	const bool minimize_size = options.optimizer != nullptr && options.optimizer->minimize_size;
-	bool uses_simd = false;
-	bool uses_tail_calls = false;
-	for (const Signature& type : module.signatures)
-	{
-		for (ValueType value : type.parameters)
-			uses_simd = uses_simd || value == ValueType::V128;
-		for (ValueType value : type.results)
-			uses_simd = uses_simd || value == ValueType::V128;
-	}
-	for (lowir::SymbolId id : module.definitions)
-	{
-		ExceptionPlan exceptions;
-		if (module.exception_regions)
-			prepare_exception_plan(program, id, object, symbols, groups[id], exceptions);
-		Function function;
-		Selector(program, module, id, function, &exceptions, minimize_size).run();
-		cleanup_locals(function, options.optimization_level != 0, minimize_size);
-		for (ValueType local : function.locals)
-			uses_simd = uses_simd || local == ValueType::V128;
-		for (const auto& inst : function.instructions)
-		{
-			uses_simd = uses_simd || (static_cast<unsigned>(inst.op) >> 8) == 0xfd;
-			uses_tail_calls = uses_tail_calls || inst.op == Op::ReturnCallIndirect;
-		}
-		ObjectFunction& destination = object.functions[module.function_indices[id]];
-		try
-		{
-			validate_function(function, object.types[destination.type], module);
-		}
-		catch (const WasmError& failure)
-		{
-			throw WasmError(std::string(program.spelling(program.symbols[id].name)) + ": " + failure.what());
-		}
-		if (!options.machine_ir.empty())
-			dump_function(function, program, id, dump);
-		Bytes encoded;
-		encode_function(function, encoded, &destination.code.relocations);
-		Cursor body(encoded);
-		body.u32();
-		const uint32_t prefix = body.position();
-		destination.code.bytes = body.bytes();
-		for (Relocation& relocation : destination.code.relocations)
-			relocation.offset -= prefix;
-		relocate_symbols(destination.code.relocations, symbols, uses_table);
-	}
+	if (options.assembly_text && options.target == target_model::Target::Wasi)
+		for (lowir::SymbolId id : program.order)
+			if (program.symbols[id].metadata.role == ir_model::SR_ENTRY)
+				adapt_wasi_entry(object, symbols[id]);
+	const auto code_features = emit_object_functions(program, options, module, object, dump, groups, symbols);
+	bool uses_table = code_features.table;
 	for (ObjectData& data : object.data)
 		relocate_symbols(data.contents.relocations, symbols, uses_table);
 	if (uses_table)
 		object.symbols[symbols[module.table_symbol]].flags |= 0x80;
-	if (options.target == target_model::Target::Wasi)
+	if (!options.assembly_text && options.target == target_model::Target::Wasi)
 		for (lowir::SymbolId id : program.order)
 			if (program.symbols[id].metadata.role == ir_model::SR_ENTRY)
 				adapt_wasi_entry(object, symbols[id]);
-	set_object_features(object, module, uses_simd, uses_tail_calls);
+	set_object_features(object, module, code_features.simd, code_features.tail_calls);
 }
 
 } // namespace wasm

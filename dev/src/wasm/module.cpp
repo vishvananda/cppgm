@@ -38,7 +38,7 @@ void function_types(const lowir::Program& program, Module& module)
 		if (boundary.result.passing == Passing::Expand)
 			boundary.result.passing = Passing::Indirect;
 		if (boundary.result.passing == Passing::Indirect)
-			signature.parameters.push_back(ValueType::I32);
+			signature.parameters.push_back(module.address_type);
 		const lowir::Parameter* parameters = program.parameters_of(source);
 		for (uint32_t i = 0; i < source.parameter_count; ++i)
 		{
@@ -50,13 +50,13 @@ void function_types(const lowir::Program& program, Module& module)
 				signature.parameters.push_back(value_type(argument.scalar));
 		}
 		if (source.boundary.arity == ir_model::CAM_VARIADIC)
-			signature.parameters.push_back(ValueType::I32);
+			signature.parameters.push_back(module.address_type);
 		const ValueType result = boundary.result.passing == Passing::Indirect ||
 				boundary.result.passing == Passing::Ignore
 			? ValueType::Void
 			: value_type(boundary.result.scalar);
 		if (source.boundary.this_return)
-			signature.results.push_back(ValueType::I32);
+			signature.results.push_back(module.address_type);
 		else if (result != ValueType::Void)
 			signature.results.push_back(result);
 		module.boundaries.push_back(std::move(boundary));
@@ -92,6 +92,8 @@ void function_types(const lowir::Program& program, Module& module)
 
 void prepare_module(const lowir::Program& program, Module& module)
 {
+	module.address_type = value_type(program.pointer_type());
+	module.global_types[0] = module.address_type;
 	const lowir::SymbolId conflict = machine::object_identities(program, module.object_symbols);
 	if (conflict != lowir::kNoId)
 	{
