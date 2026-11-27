@@ -682,6 +682,14 @@ bool host_stdlib_selected(const std::string& name)
 	return name == "libc++" ? libcxx : name == "libstdc++" && libstdcxx && !libcxx;
 }
 
+std::vector<std::string> host_link_command()
+{
+	std::vector<std::string> command;
+	for (const char* const* arg = cppgm_builtin_host_config::kHostLinkCommand; *arg != nullptr; ++arg)
+		command.emplace_back(*arg);
+	return command;
+}
+
 std::string host_query(const std::string& flag)
 {
 	if (flag == "--version" || flag == "-v")

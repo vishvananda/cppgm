@@ -8,10 +8,9 @@
 // cppgm's compile (-c) and link modes: each C++ source is its own
 // translation unit, compiled through the whole pipeline (preprocessing,
 // parsing, semantic analysis, LowIR lowering, the native back end) into a
-// relocatable object; link mode compiles its source inputs the same way,
-// reads its object inputs (.o, .obj) and the -l libraries found in the -L
-// directories (lib<name>.o, lib<name>.obj), and links them all with the
-// runtime library into a static executable (native/link/linker.h).
+// relocatable object. Native hosted link mode passes its compiled objects
+// and link arguments to the configured host C++ driver. --internal-link
+// uses cppgm's linker and runtime (native/link/linker.h).
 //
 // -E preprocesses each source in hosted mode into the PA4 preproc
 // stream (`preproc <n>`, then `sof`/posttoken/`eof` records per source).
@@ -45,7 +44,7 @@
 // Objects: -c writes a course object for an output named *.obj (the
 // course's EH runtime ABI, PA25's link mode input) and a host object
 // otherwise (host EH tables and runtime names, pa26: linked by the host
-// toolchain); link mode compiles its sources as course objects.
+// toolchain). Hosted link mode compiles sources as host objects.
 namespace driver {
 
 // Runs a preprocess (-E), compile or link invocation; `base` supplies

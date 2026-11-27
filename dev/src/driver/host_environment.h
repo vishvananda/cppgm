@@ -51,6 +51,9 @@ const char* builtin_template_declarations();
 // none, with the host's default library whose headers it found.
 bool host_stdlib_selected(const std::string& name);
 
+// Driver and arguments selected when the hosted headers were discovered.
+std::vector<std::string> host_link_command();
+
 // The direct driver queries (--version, -v, -dumpmachine, -dumpversion,
 // -print-search-dirs): this compiler's version line, then the host
 // toolchain's answers as cppgm was built against them.

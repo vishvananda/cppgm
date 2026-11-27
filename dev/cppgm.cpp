@@ -1,6 +1,7 @@
 // Student-facing scaffold for the PA5+ `cppgm` binary.
 
 #include "driver/host_environment.h"
+#include "driver/host_link.h"
 #include "driver/aarch64_environment.h"
 #include "driver/wasm_environment.h"
 #include "driver/wasm_link_options.h"
@@ -614,6 +615,8 @@ bool consume_toolchain_option(const vector<string>& args, size_t& i)
 		return true;
 	backend::WasmLinkOptions link_options;
 	if (driver::parse_wasm_link_option(args, i, link_options))
+		return true;
+	if (driver::parse_host_link_option(args, i, 0))
 		return true;
 	if (args[i] == "--sysroot" || args[i] == "-resource-dir")
 	{

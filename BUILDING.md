@@ -18,6 +18,10 @@ The tools and the static and shared libraries are written to `dev/`. See
 a specific host compiler, set both `CXX` and `CPPGM_HOST_CXX` to its path
 on each make invocation.
 
+For a native executable, `dev/cppgm -o program main.cpp helper.cpp`
+compiles the sources and links their objects with the configured host C++
+driver. Pass `--internal-link` to use cppgm's linker and course runtime.
+
 ## Bare Wasm C23 library supplement
 
 Build the supplemental headers and runtime archive with cppgm and WASI

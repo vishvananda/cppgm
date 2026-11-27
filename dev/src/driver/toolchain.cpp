@@ -14,6 +14,7 @@
 
 #include "abi/itanium/abi_encoding_error.h"
 #include "driver/host_environment.h"
+#include "driver/host_link.h"
 #include "driver/make_dependencies.h"
 #include "driver/native_assembly.h"
 #include "driver/aarch64_environment.h"
@@ -279,6 +280,7 @@ struct Input
 	Kind kind;
 	std::string name;
 	bool inferred_c;
+	bool course_object;
 };
 
 struct Invocation
@@ -338,6 +340,8 @@ struct Invocation
 	std::string resource_directory;
 	bool no_standard_libraries = false;
 	bool no_startfiles = false;
+	bool pthread = false;
+	HostLinkOptions host_link;
 	uint32_t wasm_stack_size = 0;
 	bool wasm_atomics = true;
 	bool wasm_atomics_explicit = false;
@@ -392,7 +396,8 @@ bool ends_with(const std::string& value, const char* suffix)
 
 bool object_name(const std::string& name)
 {
-	return ends_with(name, ".o") || ends_with(name, ".obj") || ends_with(name, ".a");
+	return ends_with(name, ".o") || ends_with(name, ".obj") || ends_with(name, ".a") || ends_with(name, ".so") ||
+		ends_with(name, ".dylib");
 }
 
 // -O<level> as GCC reads it: -O is -O1, -Os, -Oz and -Og keep their nearest
@@ -719,7 +724,7 @@ Input source_input(const std::string& name)
 		: ends_with(name, ".S")                ? Input::Kind::Assembly
 		: ends_with(name, ".lowir")            ? Input::Kind::LowIR
 											   : Input::Kind::Source;
-	return Input{ kind, name, false };
+	return Input{ kind, name, false, kind == Input::Kind::Object && ends_with(name, ".obj") };
 }
 
 void input_language(Invocation& invocation)
@@ -871,6 +876,29 @@ void configure_x86_target(
 	input_language(invocation);
 }
 
+bool link_for_host(const Invocation& invocation)
+{
+	return !invocation.compile_only && !invocation.preprocess_only && !invocation.syntax_only &&
+		invocation.dependencies.mode != MakeDependencies::Mode::Only && !invocation.host_link.internal &&
+		host_link_available(invocation.target) &&
+		std::none_of(invocation.inputs.begin(), invocation.inputs.end(),
+			[](const Input& input) { return input.kind == Input::Kind::LowIR || input.course_object; });
+}
+
+bool position_option(const std::string& arg, int& pic, unsigned& pie)
+{
+	if (arg == "-fPIC" || arg == "-fpic" || arg == "-fPIE" || arg == "-fpie")
+	{
+		pic = arg == "-fPIC" || arg == "-fPIE" ? 2 : 1;
+		pie = arg == "-fPIE" || arg == "-fpie" ? pic : 0;
+	}
+	else if (arg == "-fno-PIC" || arg == "-fno-pic" || arg == "-fno-PIE" || arg == "-fno-pie")
+		pic = pie = 0;
+	else
+		return false;
+	return true;
+}
+
 Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions& base)
 {
 	Invocation invocation;
@@ -879,11 +907,11 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 	std::string forced_includes;
 	std::string gcc_install_dir;
 	StandardIncludes includes = StandardIncludes::All;
-	bool pthread = false;
 	bool default_lto = false;
 	unsigned x86_mode = 0;
 	bool optimize_size = false, popcnt_explicit = false, char_signedness_explicit = false, inline_explicit = false;
-	unsigned pic_level = 0, pie_level = 0;
+	int pic_level = -1;
+	unsigned pie_level = 0;
 	bool assembly_output = false;
 	const size_t base_defines = invocation.preprocessor.command_line.size();
 	for (size_t i = 0; i < args.size(); ++i)
@@ -899,21 +927,12 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 			invocation.lowir_passes = arg == "-flowir-passes";
 		else if (machine_code_option(arg, invocation))
 			continue;
-		else if (arg == "-fPIC" || arg == "-fpic" || arg == "-fPIE" || arg == "-fpie")
-		{
-			invocation.position_independent = true;
-			pic_level = arg == "-fPIC" || arg == "-fPIE" ? 2 : 1;
-			pie_level = arg == "-fPIE" || arg == "-fpie" ? pic_level : 0;
-		}
-		else if (arg == "-fno-PIC" || arg == "-fno-pic" || arg == "-fno-PIE" || arg == "-fno-pie")
-		{
-			invocation.position_independent = false;
-			pic_level = pie_level = 0;
-		}
+		else if (position_option(arg, pic_level, pie_level))
+			continue;
 		else if (arg == "-ffunction-sections" || arg == "-fno-function-sections")
 			invocation.function_sections = arg == "-ffunction-sections";
 		else if (arg == "-pthread")
-			pthread = true;
+			invocation.pthread = true;
 		else if (parse_wasm_link_option(args, i, invocation.wasm_link))
 			continue;
 		else if (arg == "-matomics" || arg == "-mno-atomics")
@@ -1084,8 +1103,10 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 		else if (option_value(args, i, "-L", value))
 			invocation.library_paths.push_back(value);
 		else if (option_value(args, i, "-l", value))
-			invocation.inputs.push_back(Input{ Input::Kind::Library, value, false });
+			invocation.inputs.push_back(Input{ Input::Kind::Library, value, false, false });
 		else if (parse_dependency_option(args, i, invocation.dependencies))
+			continue;
+		else if (parse_host_link_option(args, i, invocation.inputs.size(), &invocation.host_link))
 			continue;
 		else if (refused_flag(arg))
 			throw InvocationError("unsupported option (it changes the program's meaning): " + arg);
@@ -1100,17 +1121,21 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 	if (invocation.inputs.empty())
 		throw InvocationError("no input files");
 	configure_compile_output(invocation, assembly_output);
-	// GCC's -pthread defines _REENTRANT ahead of every -D and -U wherever
-	// it is written (the host link adds the thread library; link mode's
-	// runtime needs nothing).
-	if (pthread)
+	// GCC's -pthread defines _REENTRANT ahead of every -D and -U.
+	if (invocation.pthread)
 		invocation.preprocessor.command_line.insert(base_defines, "#define _REENTRANT 1\n");
 	invocation.preprocessor.command_line += forced_includes;
 	if (!char_signedness_explicit && invocation.target == native::Target::AArch64Linux)
 		invocation.preprocessor.plain_char_unsigned = true;
 	if (!popcnt_explicit)
 		invocation.preprocessor.popcnt = invocation.preprocessor.sse_level >= 4;
-	configure_mode_macros(invocation, optimize_size, pic_level, pie_level);
+	if (pic_level < 0 && (invocation.host_link.shared || invocation.host_link.pie > 0) && link_for_host(invocation))
+	{
+		pic_level = 2;
+		pie_level = invocation.host_link.shared ? 0 : 2;
+	}
+	invocation.position_independent = pic_level > 0;
+	configure_mode_macros(invocation, optimize_size, std::max(pic_level, 0), pie_level);
 	configure_x86_code_options(invocation);
 	// Preserve named objects and statement boundaries in the debugging level.
 	// Preprocessing still observes GCC's __OPTIMIZE__ for -Og.
@@ -1647,6 +1672,72 @@ std::string find_library(const Invocation& invocation, const std::string& name)
 	throw InvocationError("library not found: -l" + name);
 }
 
+int host_link_mode(const Invocation& invocation)
+{
+	const std::string output = invocation.output.empty() ? "a.out" : invocation.output;
+	check_output(invocation, output);
+	std::vector<std::string> command = host_link_command();
+	// Ordinary Linux -c objects may have absolute relocations. Use a PIE
+	// link when the caller asks for it.
+	if (!target_model::is_darwin(invocation.target) && !invocation.host_link.shared && invocation.host_link.pie == 0)
+		command.emplace_back("-no-pie");
+	if (invocation.pthread)
+		command.emplace_back("-pthread");
+	if (invocation.no_startfiles && invocation.no_standard_libraries)
+		command.emplace_back("-nostdlib");
+	else if (invocation.no_standard_libraries)
+		command.emplace_back("-nodefaultlibs");
+	else if (invocation.no_startfiles)
+		command.emplace_back("-nostartfiles");
+	for (const std::string& directory : invocation.library_paths)
+		command.push_back("-L" + directory);
+	command.emplace_back("-o");
+	command.push_back(output);
+
+	const Input* begin = invocation.inputs.data();
+	const Input* end = begin + invocation.inputs.size();
+	const SourceInputs sources = source_lto_inputs(invocation);
+	const auto& options = invocation.host_link.arguments;
+	size_t option = 0;
+	const auto append_options = [&](size_t before) {
+		while (option < options.size() && options[option].before_input == before)
+			command.push_back(options[option++].value);
+	};
+	HostLinkObjects temporary;
+	for (const Input* next = begin; next != end;)
+	{
+		append_options(next - begin);
+		const Input& input = *next;
+		if (input.kind == Input::Kind::Object || input.kind == Input::Kind::Library)
+		{
+			command.push_back(input.kind == Input::Kind::Library ? "-l" + input.name : input.name);
+			++next;
+			continue;
+		}
+		native::object::ObjectFile object;
+		if (next == sources.begin)
+		{
+			if (option < options.size() && options[option].before_input < static_cast<size_t>(sources.end - begin))
+				throw InvocationError("-flto=full cannot combine sources separated by link flags");
+			if (!compile_native_sources(sources, invocation, native::EhModel::Host, object))
+				return EXIT_FAILURE;
+			next = sources.end;
+		}
+		else
+		{
+			if (!compile_input(input, invocation, native::EhModel::Host, object))
+				return EXIT_FAILURE;
+			++next;
+		}
+		const std::string& path = temporary.add();
+		if (!write_native_output(object, path, invocation))
+			return EXIT_FAILURE;
+		command.push_back(path);
+	}
+	append_options(invocation.inputs.size());
+	return run_host_linker(command);
+}
+
 int link_mode(const Invocation& invocation)
 {
 	const std::string output = invocation.output.empty() ? "a.out" : invocation.output;
@@ -2137,6 +2228,8 @@ int run_toolchain(const std::vector<std::string>& args, const PreprocessorOption
 	}
 	if (wasm_target)
 		return wasm_mode(invocation);
+	if (link_for_host(invocation))
+		return host_link_mode(invocation);
 	return invocation.compile_only ? compile_mode(invocation) : link_mode(invocation);
 }
 
