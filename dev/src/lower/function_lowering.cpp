@@ -85,6 +85,8 @@ void FunctionLowering::begin_unit()
 	local_index_.clear();
 	locals_.clear();
 	labels_.clear();
+	auto_init_flow_.reset();
+	auto_init_current_ = 0;
 }
 
 // ---------------------------------------------------------------- entries
@@ -435,6 +437,8 @@ void FunctionLowering::finish_body()
 				}
 		}
 	}
+	if (auto_init_flow_ != nullptr)
+		place_auto_init_edges();
 }
 
 void FunctionLowering::finish_body_end()

@@ -149,7 +149,12 @@ void FunctionLowering::local_runtime_array(const sema::VariableEntity* variable,
 	// On the supported C targets, zeroed storage gives the prescribed
 	// scalar values and clears padding for C23 default initialization.
 	if (zero_initialize)
-		zero_bytes(address, bytes);
+	{
+		if (lowering_.zero_automatic_variables_ && volatile_auto_init(type))
+			zero_volatile_range(address.value, bytes);
+		else
+			zero_bytes(address, bytes);
+	}
 	Cleanup cleanup = Cleanup();
 	cleanup.storage = mark;
 	cleanup.type = type;

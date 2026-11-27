@@ -454,6 +454,7 @@ struct VariableEntity : Entity
 	// An injected name of a GNU C named anonymous member.
 	bool c_anonymous_field : 1;
 	bool c_scope_cleanup : 1;
+	bool uninitialized : 1;
 	// A GNU local register variable binds only its extended-asm operand.
 	uint8_t asm_gpr : 5; // one-based physical register, zero when absent
 	// The alignment a member's alignment-specifiers request (7.6.2).

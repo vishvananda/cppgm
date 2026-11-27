@@ -65,6 +65,7 @@ enum class CEnvironment : uint8_t
 	Hosted,
 	Freestanding
 };
+bool trivial_auto_var_init_option(const std::string& option, bool& zero);
 bool c_environment_option(const std::string& option, CEnvironment& environment);
 bool ms_anonymous_structs_option(const std::string& option, bool& enabled);
 void configure_c_environment(PreprocessorOptions& options, target_model::Target target, CEnvironment environment);

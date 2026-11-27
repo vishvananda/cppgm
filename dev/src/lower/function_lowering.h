@@ -220,6 +220,7 @@ private:
 	private:
 		FunctionLowering& lowering_;
 		uint32_t saved_;
+		uint32_t auto_init_parent_;
 		bool active_;
 	};
 
@@ -793,8 +794,20 @@ private:
 	void enter_label(lowir::BlockId block);
 	lowir::BlockId goto_label(const Identifier* label);
 	void declaration_statement(const syntax::Decl& decl);
-	void local_variable(const syntax::InitDeclarator& init);
-	void local_object_variable(const sema::VariableEntity* variable, const syntax::InitDeclarator& init);
+	void local_variable(const syntax::InitDeclarator& init, bool bypassed_initializer = false);
+	void local_object_variable(
+		const sema::VariableEntity* variable, const syntax::InitDeclarator& init, bool bypassed_initializer = false);
+	bool auto_init_eligible(const sema::VariableEntity& variable) const;
+	void initialize_automatic(
+		const sema::VariableEntity& variable, lowir::Value storage, bool written, uint32_t location);
+	void emit_auto_init(const sema::Type* type, lowir::Value storage, uint64_t bytes, uint64_t alignment);
+	static bool volatile_auto_init(const sema::Type* type);
+	void zero_volatile_range(lowir::Value address, const RValue& bytes);
+	void close_auto_init_scope(uint32_t parent);
+	void record_auto_init_edge();
+	void place_auto_init_edges();
+	void place_indirect_auto_inits(uint32_t common);
+	uint32_t common_auto_init_scope(uint32_t target, uint32_t source) const;
 	RValue dynamic_stack_allocate(RValue bytes, uint64_t alignment);
 	void local_runtime_array(const sema::VariableEntity* variable, const sema::RuntimeTypeEvaluation* bounds,
 		bool zero_initialize, uint32_t location);
@@ -2322,6 +2335,29 @@ private:
 	PointerMap switch_blocks_;
 	PointerMap label_memo_;
 	PointerMap labels_;
+	struct AutoInitLocal
+	{
+		const sema::Type* type;
+		lowir::Value storage;
+		uint64_t bytes;
+		uint64_t alignment;
+		uint32_t parent;
+		uint32_t last_descendant;
+	};
+	struct AutoInitFlow
+	{
+		struct Edge
+		{
+			lowir::InstId instruction;
+			uint32_t from;
+		};
+		// One-based lexical chain, with zero denoting the empty chain.
+		std::vector<AutoInitLocal> locals;
+		std::vector<uint32_t> labels;
+		std::vector<Edge> edges;
+	};
+	std::unique_ptr<AutoInitFlow> auto_init_flow_;
+	uint32_t auto_init_current_ = 0;
 	std::vector<lowir::Value> scratch_;
 	// The arguments of the calls being lowered, innermost last (see call).
 	std::vector<lowir::Value> arguments_;

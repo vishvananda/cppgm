@@ -43,6 +43,17 @@ strings use UTF-16 code units and the `__WCHAR_*` and `__SIZEOF_WCHAR_T__`
 predefines describe the selected type. `-fno-short-wchar` restores the target
 default. Use the same setting across translation units that share wide types.
 
+`-ftrivial-auto-var-init=zero` hardens automatic storage by initializing
+otherwise uninitialized local variables, including arrays with runtime
+bounds. Clear padding in aggregate storage. Preserve explicit initializers
+and honor GNU `__attribute__((uninitialized))` on an automatic variable.
+A direct `goto` or switch dispatch that skips an uninitialized declaration
+clears its storage when entering the variable's scope. Ordinary fallthrough
+and jumps within the same scope after the declaration preserve the value.
+When a computed goto may bypass a declaration, clear its storage at
+function entry as well as on ordinary execution of the declaration.
+Use `-ftrivial-auto-var-init=uninitialized` to restore the default behavior.
+
 GNU C modes recognize `asm` as the spelling of `__asm__`. In ISO C modes,
 `asm` remains an ordinary identifier.
 

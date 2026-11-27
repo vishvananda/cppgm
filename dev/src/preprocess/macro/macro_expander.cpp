@@ -49,7 +49,7 @@ bool IsReportedAttribute(const char* spelling, uint32_t length, bool gnu)
 		"weak", "packed", "aligned", "section", "visibility", "vector_size", "gnu_inline", "abi_tag", "may_alias",
 		"using_if_exists", "exclude_from_explicit_instantiation", "mode", "returns_nonnull", "malloc", "naked",
 		"ext_vector_type", "cold", "alias", "overloadable", "unavailable", "constructor", "destructor",
-		"transparent_union" };
+		"transparent_union", "uninitialized" };
 	const char* const* reported = gnu ? kGnu : kStandard;
 	const unsigned count = gnu ? sizeof(kGnu) / sizeof(kGnu[0]) : sizeof(kStandard) / sizeof(kStandard[0]);
 	for (unsigned i = 0; i < count; ++i)

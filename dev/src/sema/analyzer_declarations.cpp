@@ -418,9 +418,11 @@ void Analyzer::simple_declaration(const syntax::SimpleDecl& decl, Scope* scope)
 		uint64_t entity_alignment = alignment;
 		bool entity_no_inline = no_inline;
 		bool entity_packed = packed;
+		bool has_attributes = decl.attributes != nullptr;
 		const syntax::Attribute* specifier = declaration_alignment;
 		for (const syntax::Declarator* part = init.declarator; part != nullptr; part = part->nested)
 		{
+			has_attributes = has_attributes || part->attributes != nullptr;
 			if (part->attributes != nullptr && template_depth_ == 0)
 				entity_alignment = std::max(
 					entity_alignment, attribute_alignment(part->attributes, scope, entity_packed, entity_no_inline));
@@ -462,6 +464,10 @@ void Analyzer::simple_declaration(const syntax::SimpleDecl& decl, Scope* scope)
 					c_scope_cleanup(static_cast<VariableEntity*>(entity), *cleanup, scope);
 			if (!c_source_)
 				request_alignment(static_cast<VariableEntity*>(entity), entity_alignment, specifier);
+			if (has_attributes && scope->kind == ScopeKind::Block)
+				static_cast<VariableEntity*>(entity)->uninitialized =
+					DeclarationAttribute(decl.attributes, init.declarator, syntax::AttributeKind::Uninitialized) !=
+					nullptr;
 			overlapping_attribute(static_cast<VariableEntity*>(entity), decl.attributes, init.declarator);
 			// GNU packed on a non-static data member: the member alone is
 			// packed (alignment 1 unless it requests one), as a packed

@@ -220,6 +220,7 @@ struct SourceOutputInvocation
 	unsigned pic_level = 0;
 	unsigned pie_level = 0;
 	bool strict_aliasing = true;
+	bool zero_automatic_variables = false;
 	driver::FloatContract float_contract = driver::FloatContract::Off;
 	ExtensionWarnings extension_warnings = ExtensionWarnings::Disabled;
 	bool warn_system_headers = false;
@@ -383,6 +384,8 @@ SourceOutputInvocation parse_source_output_invocation(const vector<string>& args
 			invocation.rtti = args[i] == "-frtti";
 			continue;
 		}
+		if (driver::trivial_auto_var_init_option(args[i], invocation.zero_automatic_variables))
+			continue;
 		if (args[i] == "-fno-strict-aliasing" || args[i] == "-fstrict-aliasing")
 		{
 			invocation.strict_aliasing = args[i] == "-fstrict-aliasing";
@@ -1234,6 +1237,7 @@ int run_emit_lowir_mode(vector<string> args)
 	SourcePreprocessors preprocessors(invocation);
 	lowir::Program program;
 	lower::ProgramLowering lowering(program);
+	lowering.set_zero_automatic_variables(invocation.zero_automatic_variables);
 	// Definitions are written as they complete and their bodies released,
 	// except when the whole program is validated first.
 	lowir::DefinitionStream definitions;

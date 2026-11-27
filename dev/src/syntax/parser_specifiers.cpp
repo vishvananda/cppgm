@@ -213,7 +213,8 @@ bool Parser::gnu_attribute(const char* spelling, Attribute& attribute, bool& kep
 		{ "noreturn", "__noreturn__", AttributeKind::NoReturn },
 		{ "returns_nonnull", "__returns_nonnull__", AttributeKind::ReturnsNonNull },
 		{ "malloc", "__malloc__", AttributeKind::Malloc }, { "cold", "__cold__", AttributeKind::Cold },
-		{ "naked", "__naked__", AttributeKind::Naked } };
+		{ "naked", "__naked__", AttributeKind::Naked },
+		{ "uninitialized", "__uninitialized__", AttributeKind::Uninitialized } };
 	for (const auto& simple : kSimple)
 	{
 		if (std::strcmp(spelling, simple.spelling) == 0 || std::strcmp(spelling, simple.reserved) == 0)

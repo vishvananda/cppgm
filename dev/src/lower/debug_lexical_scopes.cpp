@@ -3,7 +3,7 @@
 namespace lower {
 
 FunctionLowering::LexicalScope::LexicalScope(FunctionLowering& lowering, bool enter)
-	: lowering_(lowering), saved_(lowering.debug_scope_),
+	: lowering_(lowering), saved_(lowering.debug_scope_), auto_init_parent_(lowering.auto_init_current_),
 	  active_(enter && lowering.debug_ && lowering.program_.debug && lowering.debug_function_ != lowir::kNoId)
 {
 	if (!active_)
@@ -28,6 +28,8 @@ FunctionLowering::LexicalScope::LexicalScope(FunctionLowering& lowering, bool en
 
 FunctionLowering::LexicalScope::~LexicalScope()
 {
+	if (auto_init_parent_ != lowering_.auto_init_current_)
+		lowering_.close_auto_init_scope(auto_init_parent_);
 	if (!active_)
 		return;
 	lowering_.debug_scope_ = saved_;

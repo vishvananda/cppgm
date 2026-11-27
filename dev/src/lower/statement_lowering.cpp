@@ -515,6 +515,13 @@ void FunctionLowering::substatement(const syntax::Stmt& stmt)
 
 void FunctionLowering::enter_label(lowir::BlockId block)
 {
+	if (auto_init_current_ != 0)
+	{
+		auto& labels = auto_init_flow_->labels;
+		if (labels.size() <= block)
+			labels.resize(block + 1);
+		labels[block] = auto_init_current_;
+	}
 	// Control falls through into a label's block from the code before it.
 	if (!terminated_)
 		jump(block);
@@ -604,12 +611,15 @@ void FunctionLowering::unreachable_declaration(const syntax::Decl& decl)
 		else
 			storage_only.initializer = const_cast<syntax::Initializer*>(
 				sema::VariableInitializer(binding->entity, init.initializer));
-		local_variable(storage_only);
+		const bool bypassed_initializer = lowering_.zero_automatic_variables_ && binding != nullptr &&
+			binding->kind == sema::BindingKind::Variable &&
+			sema::VariableInitializer(binding->entity, init.initializer) != nullptr;
+		local_variable(storage_only, bypassed_initializer);
 	}
 	unreachable_storage_ = false;
 }
 
-void FunctionLowering::local_variable(const syntax::InitDeclarator& init)
+void FunctionLowering::local_variable(const syntax::InitDeclarator& init, bool bypassed_initializer)
 {
 	const sema::Binding* binding = init.declared;
 	if (binding == nullptr)
@@ -617,7 +627,7 @@ void FunctionLowering::local_variable(const syntax::InitDeclarator& init)
 	if (binding->kind == sema::BindingKind::Variable)
 	{
 		const auto* variable = static_cast<const sema::VariableEntity*>(binding->entity);
-		local_object_variable(variable, init);
+		local_object_variable(variable, init, bypassed_initializer);
 		if (variable->c_scope_cleanup && !unreachable_storage_ && !terminated_)
 		{
 			Local& local = locals_[local_index_.find(variable)];
@@ -637,7 +647,8 @@ void FunctionLowering::local_variable(const syntax::InitDeclarator& init)
 		evaluate_runtime_bounds(lowering_.graph().runtime_bounds(init.declarator), nullptr, init.declarator->location);
 }
 
-void FunctionLowering::local_object_variable(const sema::VariableEntity* variable, const syntax::InitDeclarator& init)
+void FunctionLowering::local_object_variable(
+	const sema::VariableEntity* variable, const syntax::InitDeclarator& init, bool bypassed_initializer)
 {
 	// A block-scope extern declaration names a variable of the enclosing
 	// namespace (3.5p6), a new one or an earlier one's entity: no frame
@@ -651,7 +662,10 @@ void FunctionLowering::local_object_variable(const sema::VariableEntity* variabl
 		if (variable->type->runtime_array())
 		{
 			if (!unreachable_storage_)
-				local_runtime_array(variable, bounds, init.initializer != nullptr, location);
+				local_runtime_array(variable, bounds,
+					init.initializer != nullptr ||
+						(lowering_.zero_automatic_variables_ && auto_init_eligible(*variable)),
+					location);
 			return;
 		}
 		if (!unreachable_storage_)
@@ -707,6 +721,8 @@ void FunctionLowering::local_object_variable(const sema::VariableEntity* variabl
 	local_index_.set(variable, static_cast<uint32_t>(locals_.size()));
 	locals_.push_back(local);
 	qualify(place, type);
+	if (lowering_.zero_automatic_variables_)
+		initialize_automatic(*variable, place.storage, init.initializer != nullptr || bypassed_initializer, location);
 	// A class object is constructed (and later destroyed) even without an
 	// initializer; unreachable declarations only get their storage. The
 	// objects its declaration made alive end at the depth it leaves.
@@ -1205,6 +1221,8 @@ void FunctionLowering::switch_statement(const syntax::ConditionalLoopStmt& stmt)
 			const lowir::BlockId target = scratch_[i + 1].index;
 			const lowir::BlockId next = new_block(lowir::BlockKind::SwitchDispatch);
 			branch(compare(lowir::ComparePredicate::Eq, selector.type, selector, label), target, next);
+			if (lowering_.zero_automatic_variables_)
+				record_auto_init_edge();
 			place(next);
 		}
 		jump(default_block);
@@ -1219,6 +1237,8 @@ void FunctionLowering::switch_statement(const syntax::ConditionalLoopStmt& stmt)
 		inst.extra_count = static_cast<uint32_t>(scratch_.size());
 		terminate(inst);
 	}
+	if (lowering_.zero_automatic_variables_)
+		record_auto_init_edge();
 	jumps_.push_back(JumpTargets{ end, lowir::kNoId, cleanups_.size(), eh_contexts_.size() });
 	substatement(*stmt.body);
 	jumps_.pop_back();
@@ -1255,6 +1275,8 @@ void FunctionLowering::switch_range_branches(const RValue& selector)
 		const RValue delta = binary(lowir::BinaryOp::Sub, type, selector, constant(first));
 		const lowir::BlockId next = new_block(lowir::BlockKind::SwitchDispatch);
 		branch(compare(lowir::ComparePredicate::Ule, type, delta, constant(count)), label.block, next);
+		if (lowering_.zero_automatic_variables_)
+			record_auto_init_edge();
 		place(next);
 	}
 }
@@ -2168,6 +2190,8 @@ void FunctionLowering::goto_statement(const syntax::GotoStmt& stmt)
 			lowir::Opcode::IndirectJump, lowir::Type::scalar(lowir::TypeKind::Void));
 		jump.ops[0] = target.value;
 		terminate(jump);
+		if (lowering_.zero_automatic_variables_)
+			record_auto_init_edge();
 		return;
 	}
 	// 6.6p2: the objects alive here but not at the label are destroyed,
@@ -2181,6 +2205,8 @@ void FunctionLowering::goto_statement(const syntax::GotoStmt& stmt)
 	if (cleanups_.empty() && eh_contexts_.empty())
 	{
 		jump(goto_label(stmt.label));
+		if (lowering_.zero_automatic_variables_)
+			record_auto_init_edge();
 		return;
 	}
 	scan_body();
@@ -2207,6 +2233,8 @@ void FunctionLowering::goto_statement(const syntax::GotoStmt& stmt)
 		common = floor - 1;
 	destroy_cleanups(common, false, contexts == PointerMap::kMissing ? 0 : contexts);
 	jump(goto_label(stmt.label));
+	if (lowering_.zero_automatic_variables_)
+		record_auto_init_edge();
 }
 
 // ------------------------------------------------------ terminate guard

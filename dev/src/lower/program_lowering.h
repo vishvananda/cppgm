@@ -471,6 +471,7 @@ public:
 	void set_macho_objects(bool on) { macho_objects_ = on; }
 	bool darwin_host_objects() const { return host_objects_ && macho_objects_; }
 	// -fno-strict-aliasing: no access states its type.
+	void set_zero_automatic_variables(bool on) { zero_automatic_variables_ = on; }
 	void set_strict_aliasing(bool on) { strict_aliasing_ = on; }
 	void set_symbol_visibility(ir_model::SymbolVisibility visibility, bool inlines_hidden)
 	{
@@ -2135,6 +2136,7 @@ private:
 	bool optimizing_ = false;
 	bool optimized_c_source_ = false;
 	bool strict_aliasing_ = true;
+	bool zero_automatic_variables_ = false;
 	ir_model::SymbolVisibility default_visibility_ = ir_model::SV_DEFAULT;
 	bool visibility_inlines_hidden_ = false;
 	bool popcnt_ = false;

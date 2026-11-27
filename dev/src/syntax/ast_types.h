@@ -131,6 +131,7 @@ enum class AttributeKind : uint8_t
 	// GNU destructor[(priority)]: run the function at normal termination.
 	Shutdown,
 	TransparentUnion,
+	Uninitialized,
 	Cleanup
 };
 

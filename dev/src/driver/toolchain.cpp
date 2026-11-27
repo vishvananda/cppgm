@@ -92,6 +92,17 @@ static NumberDialect hosted_number_dialect(const PreprocessorOptions& options)
 	return NumberDialect::Gnu;
 }
 
+bool trivial_auto_var_init_option(const std::string& option, bool& zero)
+{
+	if (option == "-ftrivial-auto-var-init=zero")
+		zero = true;
+	else if (option == "-ftrivial-auto-var-init=uninitialized")
+		zero = false;
+	else
+		return false;
+	return true;
+}
+
 bool c_environment_option(const std::string& option, CEnvironment& environment)
 {
 	if (option == "-ffreestanding" || option == "-fno-hosted")
@@ -329,6 +340,7 @@ struct Invocation
 	bool debug_optimization = false;
 	bool stats = false;
 	bool strict_aliasing = true;
+	bool zero_automatic_variables = false;
 	// --stats-functions: the object back end's per-function census
 	// (native/object/function_census.h), after each unit's compilation.
 	bool function_census = false;
@@ -1014,6 +1026,7 @@ Invocation parse(const std::vector<std::string>& args, const PreprocessorOptions
 			invocation.preprocessor.plain_char_unsigned = arg == "-funsigned-char" || arg == "-fno-signed-char";
 		}
 		else if (c_environment_option(arg, invocation.c_environment) ||
+			trivial_auto_var_init_option(arg, invocation.zero_automatic_variables) ||
 			ms_anonymous_structs_option(arg, invocation.preprocessor.ms_anonymous_structs) ||
 			source_lex_option(arg, invocation.preprocessor.source_lex) ||
 			diagnostic_option(arg, invocation.preprocessor.extension_warnings,
@@ -1256,6 +1269,7 @@ bool lower_source(const Input& input, const Invocation& invocation, lower::Progr
 	lowering.set_optimized_c_source(
 		options.language == SourceLanguage::C && invocation.optimizer.level != 0 && invocation.lowir_passes);
 	lowering.set_exceptions(options.modes.exceptions);
+	lowering.set_zero_automatic_variables(invocation.zero_automatic_variables);
 	{
 		syntax::SyntaxUnit unit(options, path);
 		if (!unit.parse())
