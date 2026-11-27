@@ -691,7 +691,8 @@ The first fixture set covers these parts of the C17 input profile:
   volatile-qualified record destinations with ordinary members.
   Diagnose a range under the pedantic policy.
 - GNU C records with empty bodies have size zero. A member of empty record
-  type consumes no bytes in its enclosing record. Diagnose empty record
+  type consumes no bytes in its enclosing record. Assignment evaluates both
+  operands and transfers zero bytes. Diagnose empty record
   declarations under the pedantic policy.
 - Resolve the address of a local static object in its own initializer.
   For GNU C static data, order pointers converted from integer constants

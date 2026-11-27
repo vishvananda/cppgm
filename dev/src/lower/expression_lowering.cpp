@@ -1413,6 +1413,9 @@ RValue FunctionLowering::load_glvalue(const syntax::Expr& expr)
 	if (place.has_known && (!place.is_volatile || place.is_atomic))
 		return place.known;
 	const lowir::Type storage = lowering_.storage_type(facts->type);
+	if (facts->type->kind == sema::TypeKind::Class && lowering_.analyzer_->c_source() &&
+		lowering_.size_of(facts->type, expr.location) == 0)
+		return zero_object_value(storage);
 	if (place.is_atomic && uses_atomic_buffer(storage) && lowering_.analyzer_->c_source())
 		return read_c_atomic_value(facts->type, storage, place, expr.location);
 	if (place.is_volatile && storage.is_object() && lowering_.analyzer_->c_source())
@@ -2038,6 +2041,17 @@ Place FunctionLowering::assignment(const syntax::BinaryExpr& expr)
 	// 5.17p1: the right operand is evaluated before the left's address.
 	const sema::ExprFacts* left_facts = WithoutParentheses(expr.left)->facts;
 	const sema::Type* type = left_facts->type;
+	if (type->kind == sema::TypeKind::Class && lowering_.analyzer_->c_source() &&
+		lowering_.size_of(type, expr.location) == 0)
+	{
+		// LowIR gives the value a scratch span. A GNU C empty record in
+		// memory owns no bytes, including when it overlaps the next field.
+		discard(*expr.right);
+		Place place = glvalue(*expr.left);
+		place.known = zero_object_value(lowering_.storage_type(type));
+		place.has_known = true;
+		return place;
+	}
 	const bool atomic_record = (type->cv & sema::kAtomic) != 0 && type->kind == sema::TypeKind::Class &&
 		lowering_.analyzer_->c_source();
 	if (!atomic_record && (type->cv & sema::kVolatile) != 0 && type->kind == sema::TypeKind::Class &&
