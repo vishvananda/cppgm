@@ -8,10 +8,8 @@
 #include "support/tool_errors.h"
 
 #if (defined(__linux__) || defined(__APPLE__)) && !defined(__wasm__)
-#include <spawn.h>
 #include <sys/wait.h>
 #include <unistd.h>
-extern char** environ;
 #endif
 
 namespace driver {
@@ -57,19 +55,24 @@ bool host_link_available(native::Target target)
 #endif
 }
 
-int run_host_linker(std::vector<std::string>& command)
+int run_host_linker(const std::vector<std::string>& command)
 {
 #if (defined(__linux__) || defined(__APPLE__)) && !defined(__wasm__)
 	std::vector<char*> argv;
 	argv.reserve(command.size() + 1);
-	for (std::string& arg : command)
+	for (const std::string& arg : command)
 		argv.push_back(const_cast<char*>(arg.c_str()));
 	argv.push_back(nullptr);
 
-	pid_t pid;
-	const int error = posix_spawnp(&pid, argv.front(), nullptr, nullptr, argv.data(), environ);
-	if (error != 0)
-		throw InputOutputError("cannot start host link driver " + command.front() + ": " + std::strerror(error));
+	const pid_t pid = fork();
+	if (pid < 0)
+		throw InputOutputError("cannot start host link driver " + command.front() + ": " + std::strerror(errno));
+	if (pid == 0)
+	{
+		execvp(argv.front(), argv.data());
+		std::perror(argv.front());
+		_exit(127);
+	}
 
 	int status;
 	pid_t waited;

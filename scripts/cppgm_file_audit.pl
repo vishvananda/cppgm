@@ -549,8 +549,8 @@ sub check_shortcut_smells {
         }
         if (my $api = process_execution_api_from_line($code_line)) {
             # PA27 uses the configured host driver for the final hosted link.
-            # The sole process call there receives completed native object files.
-            if ($rel ne 'dev/src/driver/host_link.cpp' || $api ne 'posix_spawnp') {
+            # The process handoff receives completed native object files.
+            if ($rel ne 'dev/src/driver/host_link.cpp' || ($api ne 'fork' && $api ne 'execvp')) {
                 add_finding($fatal, 'shortcut-risk', $rel, $i + 1,
                     "compiler implementation calls process API '$api'; fix by moving the behavior into in-process compiler/runtime code or a normal linked library, not by shelling out, spawning helpers, or execing another tool");
             }

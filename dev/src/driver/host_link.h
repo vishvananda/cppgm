@@ -26,7 +26,7 @@ struct HostLinkOptions
 bool parse_host_link_option(
 	const std::vector<std::string>& args, size_t& index, size_t input_count, HostLinkOptions* options = nullptr);
 bool host_link_available(native::Target target);
-int run_host_linker(std::vector<std::string>& command);
+int run_host_linker(const std::vector<std::string>& command);
 
 class HostLinkObjects
 {
