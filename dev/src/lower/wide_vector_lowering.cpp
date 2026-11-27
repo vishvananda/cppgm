@@ -156,7 +156,8 @@ RValue FunctionLowering::wide_lanewise(LanewiseCall& call, const syntax::CallExp
 		return wide_select(call);
 	case VectorLanewiseOp::Compress:
 	case VectorLanewiseOp::CompressStore:
-		return wide_compress(call);
+	case VectorLanewiseOp::MaskedLoad:
+		return wide_masked_copy(call);
 	case VectorLanewiseOp::PermuteIndexFirst:
 	case VectorLanewiseOp::PermuteIndexSecond:
 		result = wide_permute(call);
@@ -300,17 +301,28 @@ RValue FunctionLowering::wide_select(const LanewiseCall& call)
 	return masked_lanes(vector, call.values[1], other, mask);
 }
 
-RValue FunctionLowering::wide_compress(const LanewiseCall& call)
+RValue FunctionLowering::wide_masked_copy(const LanewiseCall& call)
 {
-	// The lanes whose mask bits are set, in order, by a loop over the set
-	// bits: into a copy of the passthrough vector, or to memory.
+	// A masked load copies selected lanes at their original offsets.
+	// Compression packs selected lanes into consecutive offsets.
+	const bool masked_load = call.operation == VectorLanewiseOp::MaskedLoad;
 	const bool to_memory = call.operation == VectorLanewiseOp::CompressStore;
-	const uint32_t source_index = to_memory ? 1 : 0;
-	const sema::Type* vector = call.types[source_index];
+	const uint32_t vector_index = masked_load || to_memory ? 1 : 0;
+	const sema::Type* vector = call.types[vector_index];
 	const uint64_t lanes = vector->unqualified->bound;
+	const uint64_t lane_mask = lanes < 64 ? (uint64_t(1) << lanes) - 1 : ~uint64_t(0);
 	const uint64_t bytes = lowering_.size_of(vector->unqualified->element, 0);
 	const lowir::Type lane = BitsType(bytes);
-	const lowir::Value source = vector_storage(call.values[source_index]);
+	const RValue& given = call.values[2];
+	uint64_t constant_mask = 0;
+	if (masked_load && is_integer_literal(given, constant_mask))
+	{
+		if ((constant_mask & lane_mask) == 0)
+			return call.values[1];
+		if ((constant_mask & lane_mask) == lane_mask)
+			return lanewise_memory(call);
+	}
+	const lowir::Value source = masked_load ? call.values[0].value : vector_storage(call.values[vector_index]);
 	lowir::SlotId slot = lowir::kNoId;
 	lowir::Value target = call.values[0].value;
 	if (!to_memory)
@@ -321,18 +333,20 @@ RValue FunctionLowering::wide_compress(const LanewiseCall& call)
 		store(lowering_.storage_type(vector), call.values[1], copy);
 		target = address_of(copy);
 	}
-	const RValue& given = call.values[2];
 	RValue mask = given.type == kI64 ? given : convert_op(lowir::ConvertOp::ZExt, kI64, given);
 	if (lanes < 64)
-		mask = binary(lowir::BinaryOp::And, kI64, mask, integer(kI64, (uint64_t(1) << lanes) - 1));
+		mask = binary(lowir::BinaryOp::And, kI64, mask, integer(kI64, lane_mask));
 	Place left = Place(), next = Place();
 	left.storage = lowir::Value::slot(generated_slot(lowir::SlotKind::Vector, kI64));
-	next.storage = lowir::Value::slot(generated_slot(lowir::SlotKind::Vector, kI64));
 	store(kI64, mask, left);
-	store(kI64, integer(kI64, 0), next);
-	const lowir::BlockId test = new_block(lowir::BlockKind::VectorCompress);
-	const lowir::BlockId body = new_block(lowir::BlockKind::VectorCompressLane);
-	const lowir::BlockId end = new_block(lowir::BlockKind::VectorCompressEnd);
+	if (!masked_load)
+	{
+		next.storage = lowir::Value::slot(generated_slot(lowir::SlotKind::Vector, kI64));
+		store(kI64, integer(kI64, 0), next);
+	}
+	const lowir::BlockId test = new_block(lowir::BlockKind::VectorMaskedCopy);
+	const lowir::BlockId body = new_block(lowir::BlockKind::VectorMaskedCopyLane);
+	const lowir::BlockId end = new_block(lowir::BlockKind::VectorMaskedCopyEnd);
 	jump(test);
 	place(test);
 	const RValue bits = load(kI64, left);
@@ -344,13 +358,14 @@ RValue FunctionLowering::wide_compress(const LanewiseCall& call)
 		binary(lowir::BinaryOp::Mul, kI64, first, integer(kI64, bytes)))
 					   .value;
 	from.untyped = true;
-	const RValue at = load(kI64, next);
+	const RValue at = masked_load ? first : load(kI64, next);
 	to.storage = index(lowir::Type::scalar(lowir::TypeKind::I8), ir_model::IPK_FIELD, target,
 		binary(lowir::BinaryOp::Mul, kI64, at, integer(kI64, bytes)))
 					 .value;
 	to.untyped = true;
 	store(lane, load(lane, from), to);
-	store(kI64, binary(lowir::BinaryOp::Add, kI64, at, integer(kI64, 1)), next);
+	if (!masked_load)
+		store(kI64, binary(lowir::BinaryOp::Add, kI64, at, integer(kI64, 1)), next);
 	store(kI64, binary(lowir::BinaryOp::And, kI64, bits, binary(lowir::BinaryOp::Sub, kI64, bits, integer(kI64, 1))),
 		left);
 	jump(test);

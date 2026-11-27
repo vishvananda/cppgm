@@ -301,7 +301,9 @@ enum class VectorLanewiseOp : uint8_t
 	ExtractPiece,
 	InsertPiece,
 	Widen,
-	Narrow
+	Narrow,
+	// Read only the selected lanes from memory, merging with the passthrough.
+	MaskedLoad
 };
 
 struct GnuBuiltinEntry

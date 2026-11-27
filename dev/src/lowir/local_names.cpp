@@ -47,7 +47,7 @@ const char* const kBlockStems[] = { "",
 	"destructor_suffix_next", "destructor_return_epilogue", "return_null", "adjust_return",
 	// This implementation's constructs.
 	"complex_nan", "complex_recompute", "complex_by_d", "complex_by_c", "complex_end", "vector_take", "vector_join",
-	"vector_unordered", "vector_compress", "vector_compress_lane", "vector_compress_end",
+	"vector_unordered", "vector_masked_copy", "vector_masked_copy_lane", "vector_masked_copy_end",
 	// The optimizer's.
 	"inline_entry", "inline_cont", "inline_copy", "split", "thread", "loop_preheader", "loop_copy", "loop_exit",
 	"fill_fast", "fill_sized", "fill_same", "wide_loop", "wide_tail", "unrolled", "dead", "unrolled" };

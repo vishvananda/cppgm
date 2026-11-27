@@ -1554,7 +1554,7 @@ private:
 	RValue piecewise_vector(const LanewiseCall& call, const syntax::CallExpr& expr);
 	RValue wide_mask(const LanewiseCall& call, const syntax::CallExpr& expr);
 	RValue wide_select(const LanewiseCall& call);
-	RValue wide_compress(const LanewiseCall& call);
+	RValue wide_masked_copy(const LanewiseCall& call);
 	RValue wide_permute(const LanewiseCall& call);
 	RValue wide_piece_move(const LanewiseCall& call);
 	RValue wide_extend(const LanewiseCall& call, const syntax::CallExpr& expr);

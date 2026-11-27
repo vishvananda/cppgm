@@ -305,6 +305,7 @@ RValue FunctionLowering::lanewise_call(LanewiseCall& call, const syntax::CallExp
 	case VectorLanewiseOp::SelectMask:
 	case VectorLanewiseOp::Compress:
 	case VectorLanewiseOp::CompressStore:
+	case VectorLanewiseOp::MaskedLoad:
 	case VectorLanewiseOp::PermuteIndexFirst:
 	case VectorLanewiseOp::PermuteIndexSecond:
 	case VectorLanewiseOp::ExtractPiece:
@@ -964,6 +965,7 @@ RValue FunctionLowering::lanewise_memory(const LanewiseCall& call)
 		return RValue();
 	}
 	case VectorLanewiseOp::Load:
+	case VectorLanewiseOp::MaskedLoad:
 	{
 		Place place = Place();
 		place.storage = call.values[0].value;

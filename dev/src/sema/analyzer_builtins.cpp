@@ -1492,8 +1492,9 @@ ExprFacts* Analyzer::vector_lanewise_builtin(const syntax::CallExpr& expr, const
 	const VectorLanewiseOp operation = static_cast<VectorLanewiseOp>(builtin->builtin_variant);
 	const bool immediate = builtin->gnu_builtin == GnuBuiltin::VectorImmediate;
 	const bool reads = !immediate &&
-		(operation == VectorLanewiseOp::Load || operation == VectorLanewiseOp::LoadHigh ||
-			operation == VectorLanewiseOp::LoadLow || operation == VectorLanewiseOp::Hint);
+		(operation == VectorLanewiseOp::Load || operation == VectorLanewiseOp::MaskedLoad ||
+			operation == VectorLanewiseOp::LoadHigh || operation == VectorLanewiseOp::LoadLow ||
+			operation == VectorLanewiseOp::Hint);
 	const char* shape = builtin->builtin_shapes;
 	const Type* result = vector_shape(shape, false);
 	for (const syntax::Expr* argument : expr.arguments)
