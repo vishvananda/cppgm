@@ -1,6 +1,6 @@
 # Arm64 backend performance
 
-Measured `4ff958f6fa4b8a4ac69f0cd4eb2a9fdf6d73b156` on Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0). [CI run and raw observations](https://github.com/vishvananda/cppgm/actions/runs/45850603565)
+Measured `fc7c4523cba2e80b1a19ce5f207866232b207872` on Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0). [CI run and raw observations](https://github.com/vishvananda/cppgm/actions/runs/46032707836)
 
 ### Portable public benchmarks on aarch64-linux-gnu
 
@@ -9,8 +9,8 @@ Measured `4ff958f6fa4b8a4ac69f0cd4eb2a9fdf6d73b156` on Arm Neoverse N2 (implemen
 | Prolangs-C++/primes | 1.06× |
 | Stanford/Bubblesort | 1.10× |
 | Stanford/FloatMM | 3.13× |
-| Stanford/Puzzle | 0.86× |
-| Stanford/Treesort | 0.98× |
+| Stanford/Puzzle | 0.87× |
+| Stanford/Treesort | 0.99× |
 
 The badge gives the geometric mean of the per-program CPU speedups.
 
@@ -18,10 +18,10 @@ The badge gives the geometric mean of the per-program CPU speedups.
 
 | Kernel | vs GCC O3 | vs Clang O3 |
 | --- | ---: | ---: |
-| lookup | 1.10× | 0.91× |
+| lookup | 1.13× | 0.91× |
 | calls | 1.04× | 1.08× |
-| memory | 1.02× | 0.98× |
-| vectors | 1.00× | 0.97× |
+| memory | 1.03× | 0.98× |
+| vectors | 1.01× | 0.98× |
 
 # Compiler build and codegen benchmarks
 
@@ -29,7 +29,7 @@ Speed is reference CPU time divided by cppgm CPU time; higher is better.
 
 CPU: Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0).
 
-Measured compiler: 4ff958f6fa4b8a4ac69f0cd4eb2a9fdf6d73b156.
+Measured compiler: fc7c4523cba2e80b1a19ce5f207866232b207872.
 
 GCC: g++-14 (Ubuntu 14.3.0-14ubuntu1) 14.3.0.
 
@@ -39,7 +39,7 @@ Build jobs: 4.
 
 | Measure | vs GCC ↑ | vs Clang ↑ |
 | --- | ---: | ---: |
-| Building cppgm | 5.12× | 4.37× |
+| Building cppgm | 5.16× | 4.62× |
 | Self-built compiler speed | 0.98× | 0.99× |
 
 Building cppgm compares toolchains compiling the same sources. Self-built compiler speed compares fixed native-built and self-built cppgm binaries rebuilding identical inputs in paired ABBA/BAAB blocks. Every rebuild must produce identical objects and compiler binaries.
@@ -48,10 +48,10 @@ Building cppgm compares toolchains compiling the same sources. Self-built compil
 
 | Compiler doing the rebuild | CPU seconds |
 | --- | ---: |
-| GCC | 621.610 |
-| Clang | 530.970 |
-| GCC-built cppgm | 121.490 |
-| Self-built cppgm | 126.000 |
+| GCC | 629.710 |
+| Clang | 563.800 |
+| GCC-built cppgm | 122.110 |
+| Self-built cppgm | 128.420 |
 
 These are the initial bootstrap builds. GCC and Clang are each measured once.
 
@@ -59,8 +59,8 @@ These are the initial bootstrap builds. GCC and Clang are each measured once.
 
 | Block | GCC-built cppgm (s) | Self-built cppgm (s) | Self-built speed ↑ |
 | ---: | ---: | ---: | ---: |
-| 1 | 118.934 | 121.589 | 0.98× |
-| 2 | 117.519 | 120.252 | 0.98× |
+| 1 | 121.527 | 124.065 | 0.98× |
+| 2 | 121.513 | 124.286 | 0.98× |
 
 Each block averages its two observations per compiler. The badge uses the median block ratio; calibration and every observation are retained in the raw results.
 
@@ -70,12 +70,12 @@ GCC-built A/A CPU ratio: 1.003. A/A variation limits conclusions about small dif
 
 | Block | Clang-built cppgm (s) | Self-built cppgm (s) | Self-built speed ↑ |
 | ---: | ---: | ---: | ---: |
-| 1 | 127.079 | 129.615 | 0.98× |
-| 2 | 120.898 | 121.583 | 0.99× |
+| 1 | 123.917 | 125.520 | 0.99× |
+| 2 | 123.376 | 125.024 | 0.99× |
 
 Each block averages its two observations per compiler. The badge uses the median block ratio; calibration and every observation are retained in the raw results.
 
-Clang-built A/A CPU ratio: 0.995. A/A variation limits conclusions about small differences.
+Clang-built A/A CPU ratio: 1.004. A/A variation limits conclusions about small differences.
 
 ## Native Arm application suites
 
@@ -83,11 +83,11 @@ All 81 public programs agree across cppgm, GCC and Clang. The three index-cpp bi
 
 | Suite | Measurement | vs GCC | vs Clang |
 | --- | --- | ---: | ---: |
-| Public programs | compile | 5.42× (77) | 4.79× (77) |
+| Public programs | compile | 5.61× (78) | 5.04× (78) |
 | Public programs | runtime | 1.07× (80) | 1.01× (80) |
-| index-cpp | compile | 8.57× (50) | 7.07× (50) |
-| index-cpp | runtime | 1.00× (50) | 1.02× (50) |
+| index-cpp | compile | 8.53× (50) | 7.22× (50) |
+| index-cpp | runtime | 1.01× (50) | 1.03× (50) |
 
 Counts show how many cases contributed to each speed ratio. The public suite omits timings below 10 ms. Public runtime uses CPU time. Index-cpp runtime uses elapsed time per workload. Both use paired observations.
 
-[Per-case results, toolchain provenance and raw observations](https://github.com/vishvananda/cppgm/actions/runs/45850603565)
+[Per-case results, toolchain provenance and raw observations](https://github.com/vishvananda/cppgm/actions/runs/46032707836)
