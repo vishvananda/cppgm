@@ -56,22 +56,82 @@ void return_form(Assembler& out, const assembly::Instruction& inst, unsigned opc
 void x87_word(Assembler& out, const assembly::Instruction& inst, const asm_detail::Form& form)
 {
 	if (inst.operands.size() != 1)
-		fail(inst, "x87 word store requires one operand");
+		fail(inst, "x87 control or status instruction requires one operand");
 	const auto& dst = inst.operands[0];
 	const bool memory = dst.kind == OperandKind::Memory && (dst.bits == 0 || dst.bits == 16);
 	const bool accumulator = !form.memory_only && dst.kind == OperandKind::Register &&
 		dst.reg.bank == asm_model::RegisterBank::Gpr && dst.reg.number == 0 && dst.bits == 16;
 	if (!memory && !accumulator)
-		fail(inst, "x87 word store requires 16-bit memory or an allowed AX destination");
+		fail(inst, "x87 control or status instruction requires 16-bit memory or an allowed AX destination");
 	if (form.prefix != 0)
 		out.byte(form.prefix);
 	if (memory)
-		out.op(0, false, form.opcode, 1, 7, rm(dst, inst));
+		out.op(0, false, form.opcode >> 8, 1, form.opcode & 255, rm(dst, inst));
 	else
 	{
 		out.byte(0xdf);
 		out.byte(0xe0);
 	}
+}
+
+bool x87_register(const assembly::Operand& operand)
+{
+	return operand.kind == OperandKind::Register && operand.reg.bank == asm_model::RegisterBank::X87;
+}
+
+unsigned x87_memory_width(const assembly::Instruction& inst, const asm_detail::Form& form)
+{
+	const auto& memory = inst.operands[0];
+	if (memory.kind != OperandKind::Memory || (form.bits && memory.bits && memory.bits != form.bits))
+		fail(inst, "invalid x87 memory operand or width");
+	return form.bits ? form.bits : memory.bits;
+}
+
+void x87_stack(Assembler& out, const assembly::Instruction& inst, const asm_detail::Form& form)
+{
+	const auto& operands = inst.operands;
+	if (operands.size() > 1 || (!operands.empty() && !x87_register(operands[0])))
+		fail(inst, "x87 stack instruction requires an ST register");
+	out.byte(form.opcode >> 8);
+	out.byte(form.opcode | (operands.empty() ? 1 : operands[0].reg.number));
+}
+
+void x87_transfer(Assembler& out, const assembly::Instruction& inst, const asm_detail::Form& form)
+{
+	if (inst.operands.size() != 1)
+		fail(inst, "x87 load or store requires one operand");
+	const auto& operand = inst.operands[0];
+	if (!form.memory_only && x87_register(operand))
+		return x87_stack(out, inst, form);
+	const unsigned bits = x87_memory_width(inst, form);
+	if (bits != 32 && bits != 64 && bits != 80)
+		fail(inst, "x87 load or store requires a 32-, 64- or 80-bit memory operand");
+	const bool store = form.opcode == 0xddd8;
+	const unsigned opcode = bits == 32 ? 0xd9 : bits == 64 ? 0xdd : 0xdb;
+	const unsigned digit = bits == 80 ? (store ? 7 : 5) : (store ? 3 : 0);
+	out.op(0, false, opcode, 1, digit, rm(operand, inst));
+}
+
+void x87_binary(Assembler& out, const assembly::Instruction& inst, const asm_detail::Form& form)
+{
+	const auto& operands = inst.operands;
+	if (operands.size() == 1 && operands[0].kind == OperandKind::Memory)
+	{
+		const unsigned bits = x87_memory_width(inst, form);
+		if (bits != 32 && bits != 64)
+			fail(inst, "x87 arithmetic requires 32- or 64-bit memory");
+		out.op(0, false, bits == 32 ? 0xd8 : 0xdc, 1, form.opcode, rm(operands[0], inst));
+		return;
+	}
+	if (form.memory_only || operands.empty() || operands.size() > 2 || !x87_register(operands[0]) ||
+		(operands.size() == 2 && (!x87_register(operands[1]) || (operands[0].reg.number && operands[1].reg.number))))
+		fail(inst, "x87 arithmetic requires a stack operand paired with ST(0)");
+	const unsigned dst = operands.size() == 1 ? 0 : operands[0].reg.number;
+	const unsigned src = operands.back().reg.number;
+	// GNU AT&T uses reversed subtract names for instructions writing ST(i).
+	const unsigned digit = form.opcode + (dst && form.opcode == 4 && inst.dialect == asm_model::Dialect::Intel);
+	out.byte(dst ? 0xdc : 0xd8);
+	out.byte(0xc0 | (digit << 3) | (dst ? dst : src));
 }
 
 } // namespace
@@ -209,6 +269,12 @@ void encode_system_form(
 		return segment_selector(out, inst, form, suffix);
 	if (form.encoding == E::X87Word)
 		return x87_word(out, inst, form);
+	if (form.encoding == E::X87Transfer)
+		return x87_transfer(out, inst, form);
+	if (form.encoding == E::X87Stack)
+		return x87_stack(out, inst, form);
+	if (form.encoding == E::X87Binary)
+		return x87_binary(out, inst, form);
 	if (form.encoding == E::X87StackPop)
 	{
 		const auto& operands = inst.operands;

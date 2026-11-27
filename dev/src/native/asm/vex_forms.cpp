@@ -173,9 +173,17 @@ bool encode_vex_form(Assembler& out, const assembly::Instruction& inst)
 			{
 				if (inst.prefix != 0)
 					fail(inst, "legacy instruction prefix is invalid before VEX");
-				const auto plan = prepare_vector_encoding(inst, forms[i]);
-				emit(out, forms[i], plan.bits, plan.reg, plan.source, plan.other, plan.opcode, plan.has_immediate,
-					plan.control);
+				const VexForm& form = forms[i];
+				const auto plan = prepare_vector_encoding(inst, form);
+				// W selects whether ModRM names the multiplier or the addend.
+				if (form.layout == L::Fma4 && inst.operands[2].kind == OperandKind::Memory)
+				{
+					VexForm multiplier = form;
+					multiplier.w = 0;
+					encode_vex_plan(out, multiplier, plan);
+				}
+				else
+					encode_vex_plan(out, form, plan);
 				return true;
 			}
 		forms = x86_asm_model::vex_fma_forms(count);

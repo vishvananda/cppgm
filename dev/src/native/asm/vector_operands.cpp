@@ -79,6 +79,17 @@ VectorEncodingPlan prepare_vector_encoding(const Instruction& inst, const VexFor
 		else if (has_immediate)
 			control = immediate(operands[3], inst);
 	}
+	else if (form.layout == L::Fma4)
+	{
+		if (operands.size() != 4)
+			fail(inst, "FMA4 requires four operands");
+		reg = vector(dst, bits, inst, register_count);
+		source = vector(src, bits, inst, register_count);
+		const bool memory_multiplier = operands[2].kind == OperandKind::Memory;
+		other = location(operands[memory_multiplier ? 2 : 3], bits, memory_bits, inst, register_count);
+		control = static_cast<uint8_t>(vector(operands[memory_multiplier ? 3 : 2], bits, inst, register_count) << 4);
+		has_immediate = true;
+	}
 	else if (form.layout == L::Shift)
 	{
 		if (operands.size() != 3)
@@ -123,13 +134,16 @@ VectorEncodingPlan prepare_vector_encoding(const Instruction& inst, const VexFor
 		has_immediate = true;
 		control = immediate(operands[2], inst);
 	}
-	else if (form.layout == L::Move || form.layout == L::ScalarMove || form.layout == L::Store)
+	else if (form.layout == L::Move || form.layout == L::ScalarMove || form.layout == L::Load ||
+		form.layout == L::Store)
 	{
 		if (operands.size() != 2)
 			fail(inst, "VEX move requires two operands");
 		const bool store = dst.kind == assembly::OperandKind::Memory;
 		if (form.layout == L::Store && !store)
 			fail(inst, "non-temporal VEX store requires memory");
+		if (form.layout == L::Load && (store || src.kind != OperandKind::Memory))
+			fail(inst, "non-temporal vector load requires a memory source");
 		reg = vector(store ? src : dst, bits, inst, register_count);
 		other = location(store ? dst : src, bits, memory_bits, inst, register_count);
 		if (form.layout == L::ScalarMove && other.is_reg)

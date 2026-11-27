@@ -289,6 +289,39 @@ void integer_system_binary(Assembler& out, const assembly::Instruction& inst, co
 	out.op(form.prefix, wide, opcode, 3, physical(dst.reg, inst), rm(src, inst), bits == 8 && byte_rex(inst));
 }
 
+namespace {
+
+bool string_memory(const assembly::Operand& operand, unsigned index, unsigned bits)
+{
+	const auto& address = operand.address;
+	return operand.kind == OperandKind::Memory && (operand.bits == 0 || operand.bits == bits) && address.has_base &&
+		address.base.bank == RegisterBank::Gpr && address.base.number == index && !address.has_index && !address.rip &&
+		!address.displacement && address.symbol.symbol == asm_model::kNoId && address.local.empty() &&
+		address.label == asm_model::kNoId;
+}
+
+void check_string_operands(const assembly::Instruction& inst, const Form& form)
+{
+	const auto& operands = inst.operands;
+	const unsigned opcode = form.opcode & 0xfe;
+	if (operands.size() != 2 || (opcode != 0xa4 && opcode != 0xaa))
+		fail(inst, "invalid explicit string instruction operands");
+	const auto& dst = operands[0];
+	const auto& src = operands[1];
+	if (!string_memory(dst, 7, form.bits) || dst.address.segment)
+		fail(inst, "string destination must address memory through DI");
+	if (opcode == 0xa4)
+	{
+		if (!string_memory(src, 6, form.bits) || src.address.base.bits != dst.address.base.bits)
+			fail(inst, "string copy source must address memory through the matching SI view");
+	}
+	else if (src.kind != OperandKind::Register || src.reg.bank != RegisterBank::Gpr || src.reg.number != 0 ||
+		src.reg.offset || src.bits != form.bits || inst.segment)
+		fail(inst, "string store requires the matching accumulator source");
+}
+
+} // namespace
+
 void encode_instruction(Assembler& out, const assembly::Instruction& inst)
 {
 	if (!inst.mnemonic.empty() && inst.mnemonic[0] == 'v' &&
@@ -297,7 +330,7 @@ void encode_instruction(Assembler& out, const assembly::Instruction& inst)
 	if (!inst.mnemonic.empty() && inst.mnemonic[0] == 'k' && encode_mask_form(out, inst))
 		return;
 	uint16_t suffix = 0;
-	const Form* form = asm_detail::assembly_form(inst.mnemonic, suffix, static_cast<uint32_t>(inst.operands.size()));
+	const Form* form = asm_detail::assembly_form(inst, suffix);
 	if (form == nullptr)
 	{
 		if (encode_bmi_form(out, inst))
@@ -371,16 +404,18 @@ void encode_instruction(Assembler& out, const assembly::Instruction& inst)
 		out.byte(inst.prefix);
 	if (form->encoding == Encoding::Zero || form->encoding == Encoding::String)
 	{
-		if (!inst.operands.empty())
-			fail(inst, "instruction takes no operands");
 		if (form->encoding == Encoding::String)
 		{
+			if (!inst.operands.empty())
+				check_string_operands(inst, *form);
 			const uint8_t prefix = form->bits == 64 ? 0x48 : asm_detail::operand_size_prefix(inst, form->bits);
 			if (prefix != 0)
 				out.byte(prefix);
 		}
 		else
 		{
+			if (!inst.operands.empty())
+				fail(inst, "instruction takes no operands");
 			const unsigned opcode = form->opcode;
 			if ((opcode == 0x60 || opcode == 0x61) && inst.code_bits == 64)
 				fail(inst, "all-register stack instructions require a legacy code mode");

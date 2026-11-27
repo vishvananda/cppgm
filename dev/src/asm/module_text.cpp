@@ -190,8 +190,8 @@ std::vector<ModuleLine> module_lines(const std::string& text, const std::vector<
 			std::fill(uncommented.begin() + i, uncommented.begin() + end + 2, ' ');
 			i = end + 1;
 		}
-		else if (dialect == asm_model::Dialect::AArch64 ? c == '/' && i + 1 < text.size() && text[i + 1] == '/'
-														: c == '#')
+		else if ((c == '/' && i + 1 < text.size() && text[i + 1] == '/') ||
+			(c == '#' && dialect != asm_model::Dialect::AArch64))
 		{
 			append(i);
 			while (i < text.size() && text[i] != '\n')
