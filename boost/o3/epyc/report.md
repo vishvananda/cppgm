@@ -6,23 +6,23 @@ Compilation counts child CPU of C++ test compilations, including expected reject
 
 | Suite | Declarations | Compile CPU cppgm | GCC | Clang | Test CPU cppgm | GCC | Clang |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| [libs/accumulators/test](suites/libs-accumulators-test.md) | 49 | 69.881s | 3.078× | 3.998× | 3.035s | 1.162× | 1.014× |
-| [libs/asio/test](suites/libs-asio-test.md) | 295 | 189.682s | 5.258× | 6.114× | 0.288s | 1.046× | 1.085× |
-| [libs/container/test](suites/libs-container-test.md) | 89 | 135.717s | 6.093× | 5.127× | 2.425s | 1.028× | 1.070× |
-| [libs/function/test](suites/libs-function-test.md) | 49 | 11.667s | 2.898× | 3.825× | 0.078s | 1.084× | 1.086× |
-| [libs/fusion/test](suites/libs-fusion-test.md) | 221 | 87.442s | 2.641× | 3.652× | 0.389s | 1.057× | 1.034× |
-| [libs/json/test](suites/libs-json-test.md) | 50 | 83.379s | 6.847× | 5.777× | 3.348s | 0.822× | 1.062× |
-| [libs/mp11/test](suites/libs-mp11-test.md) | 234 | 58.711s | 5.316× | 4.191× | 0.386s | 1.072× | 1.132× |
-| [libs/mpl/test](suites/libs-mpl-test.md) | 99 | 21.211s | 2.396× | 3.400× | 0.018s | 1.064× | 1.099× |
-| [libs/optional/test](suites/libs-optional-test.md) | 74 | 13.432s | 2.942× | 3.764× | 0.076s | 1.082× | 1.029× |
-| [libs/proto/test](suites/libs-proto-test.md) | 23 | 19.040s | 2.950× | 3.612× | 0.078s | 1.082× | 1.084× |
-| [libs/qvm/test](suites/libs-qvm-test.md) | 134 | 49.048s | 2.876× | 4.161× | 0.320s | 0.979× | 0.961× |
-| [libs/spirit/repository/test](suites/libs-spirit-repository-test.md) | 8 | 20.288s | 3.639× | 4.334× | 0.016s | 1.074× | 0.980× |
-| [libs/type_erasure/test](suites/libs-type_erasure-test.md) | 60 | 45.766s | 5.097× | 4.917× | 0.156s | 0.966× | 0.968× |
-| [libs/type_traits/test](suites/libs-type_traits-test.md) | 218 | 50.540s | 3.404× | 7.058× | 0.340s | 1.082× | 1.122× |
-| [libs/uuid/test](suites/libs-uuid-test.md) | 80 | 23.165s | 3.660× | 4.178× | 0.182s | 1.053× | 1.039× |
-| [libs/variant2/test](suites/libs-variant2-test.md) | 84 | 53.236s | 3.034× | 5.052× | 0.105s | 1.068× | 1.033× |
-| [libs/xpressive/test](suites/libs-xpressive-test.md) | 51 | 90.469s | 4.889× | 4.801× | 0.183s | 1.146× | 1.022× |
+| [libs/accumulators/test](suites/libs-accumulators-test.md) | 49 | 68.586s | 3.105× | 4.015× | 3.027s | 1.171× | 1.011× |
+| [libs/asio/test](suites/libs-asio-test.md) | 295 | 187.520s | 5.282× | 5.990× | 0.281s | 1.067× | 1.053× |
+| [libs/container/test](suites/libs-container-test.md) | 89 | 133.524s | 6.162× | 5.123× | 2.422s | 1.023× | 1.061× |
+| [libs/function/test](suites/libs-function-test.md) | 49 | 11.618s | 2.873× | 3.808× | 0.080s | 1.027× | 1.040× |
+| [libs/fusion/test](suites/libs-fusion-test.md) | 221 | 86.869s | 2.609× | 3.632× | 0.383s | 1.050× | 1.034× |
+| [libs/json/test](suites/libs-json-test.md) | 50 | 83.467s | 6.750× | 5.688× | 3.238s | 0.876× | 1.165× |
+| [libs/mp11/test](suites/libs-mp11-test.md) | 234 | 58.308s | 5.290× | 4.154× | 0.383s | 1.065× | 1.146× |
+| [libs/mpl/test](suites/libs-mpl-test.md) | 99 | 21.164s | 2.352× | 3.369× | 0.018s | 1.006× | 1.145× |
+| [libs/optional/test](suites/libs-optional-test.md) | 74 | 13.473s | 2.868× | 3.686× | 0.075s | 1.051× | 1.067× |
+| [libs/proto/test](suites/libs-proto-test.md) | 23 | 19.210s | 2.894× | 3.553× | 0.079s | 1.041× | 1.057× |
+| [libs/qvm/test](suites/libs-qvm-test.md) | 134 | 49.240s | 2.844× | 4.117× | 0.322s | 0.962× | 0.930× |
+| [libs/spirit/repository/test](suites/libs-spirit-repository-test.md) | 8 | 19.822s | 3.622× | 4.291× | 0.016s | 1.012× | 0.954× |
+| [libs/type_erasure/test](suites/libs-type_erasure-test.md) | 60 | 45.581s | 5.008× | 4.879× | 0.156s | 0.963× | 0.983× |
+| [libs/type_traits/test](suites/libs-type_traits-test.md) | 218 | 50.542s | 3.355× | 6.952× | 0.345s | 1.051× | 1.079× |
+| [libs/uuid/test](suites/libs-uuid-test.md) | 80 | 23.034s | 3.628× | 4.164× | 0.180s | 1.023× | 1.032× |
+| [libs/variant2/test](suites/libs-variant2-test.md) | 84 | 52.870s | 3.018× | 5.027× | 0.106s | 1.023× | 1.000× |
+| [libs/xpressive/test](suites/libs-xpressive-test.md) | 51 | 90.961s | 4.795× | 4.728× | 0.185s | 1.129× | 1.011× |
 
 Performance uses O3 with assertions enabled; the GDB test remains Og and is correctness-only.
 
@@ -32,11 +32,11 @@ Child CPU of successful native tests, with process startup included; GDB and exp
 
 | Reference | CPU speedup ↑ | Paired blocks | A/A speedup |
 |---|---:|---|---:|
-| gcc | 1.035× | 1.035×, 1.035× | 1.009× |
-| clang | 1.032× | 1.040×, 1.023× | 0.999× |
+| gcc | 1.037× | 1.038×, 1.036× | 0.999× |
+| clang | 1.034× | 1.034×, 1.034× | 1.005× |
 
-† A/A drift or paired-block spread exceeds 5%; small differences are unresolved. 1375 native tests in the full cohort; 1359 have byte-identical output throughout. [Raw replay evidence in CI artifacts](https://github.com/vishvananda/cppgm/actions/runs/45850603565).
+† A/A drift or paired-block spread exceeds 5%; small differences are unresolved. 1375 native tests in the full cohort; 1362 have byte-identical output throughout. [Raw replay evidence in CI artifacts](https://github.com/vishvananda/cppgm/actions/runs/46045514956).
 
 Exact commands, per-test times, native outcomes and toolchain/host identities are retained with the results.
 
-[Shared comparison](standard/summary.md) · [Version-1 records](standard/records.json) · [CI run](https://github.com/vishvananda/cppgm/actions/runs/45850603565)
+[Shared comparison](standard/summary.md) · [Version-1 records](standard/records.json) · [CI run](https://github.com/vishvananda/cppgm/actions/runs/46045514956)
