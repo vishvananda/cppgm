@@ -1,5 +1,5 @@
-<svg data-original-label="self compile speed vs gcc" data-original-message="5.1×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="self compile speed vs gcc; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured 4ff958f6fa4b8a4ac69f0cd4eb2a9fdf6d73b156; 0 commits behind main: 5.1×">
-  <title>self compile speed vs gcc; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured 4ff958f6fa4b8a4ac69f0cd4eb2a9fdf6d73b156; 0 commits behind main: 5.1×</title>
+<svg data-original-label="self compile speed vs gcc" data-original-message="5.1×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="self compile speed vs gcc; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured 4ff958f6fa4b8a4ac69f0cd4eb2a9fdf6d73b156; 2 commits behind main: 5.1×">
+  <title>self compile speed vs gcc; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured 4ff958f6fa4b8a4ac69f0cd4eb2a9fdf6d73b156; 2 commits behind main: 5.1×</title>
   <defs><clipPath id="badge"><rect width="120" height="24" rx="4"/></clipPath></defs>
   <g clip-path="url(#badge)">
     <rect width="64" height="24" fill="#555"/>
