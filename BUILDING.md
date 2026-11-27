@@ -21,6 +21,8 @@ on each make invocation.
 For a native executable, `dev/cppgm -o program main.cpp helper.cpp`
 compiles the sources and links their objects with the configured host C++
 driver. Pass `--internal-link` to use cppgm's linker and course runtime.
+If the configured driver path is missing, cppgm looks for the same executable
+name on `PATH`.
 
 ## Bare Wasm C23 library supplement
 

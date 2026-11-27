@@ -63,6 +63,7 @@ int run_host_linker(const std::vector<std::string>& command)
 	for (const std::string& arg : command)
 		argv.push_back(const_cast<char*>(arg.c_str()));
 	argv.push_back(nullptr);
+	char* slash = std::strrchr(argv.front(), '/');
 
 	const pid_t pid = fork();
 	if (pid < 0)
@@ -70,6 +71,12 @@ int run_host_linker(const std::vector<std::string>& command)
 	if (pid == 0)
 	{
 		execvp(argv.front(), argv.data());
+		// A packaged compiler's build-time driver may be installed elsewhere.
+		if (errno == ENOENT && slash != nullptr && slash[1] != '\0')
+		{
+			argv.front() = slash + 1;
+			execvp(argv.front(), argv.data());
+		}
 		std::perror(argv.front());
 		_exit(127);
 	}
