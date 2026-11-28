@@ -1,5 +1,5 @@
-<svg data-original-label="codegen speed vs clang" data-original-message="1.00×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="codegen speed vs clang; AMD EPYC 9V74 80-Core Processor; measured c37fb6f9de8fa22d3ae66364951928f39bbd5e25; 0 commits behind main: 1.00×">
-  <title>codegen speed vs clang; AMD EPYC 9V74 80-Core Processor; measured c37fb6f9de8fa22d3ae66364951928f39bbd5e25; 0 commits behind main: 1.00×</title>
+<svg data-original-label="codegen speed vs clang" data-original-message="1.00×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="codegen speed vs clang; AMD EPYC 9V74 80-Core Processor; measured c37fb6f9de8fa22d3ae66364951928f39bbd5e25; 5 commits behind main: 1.00×">
+  <title>codegen speed vs clang; AMD EPYC 9V74 80-Core Processor; measured c37fb6f9de8fa22d3ae66364951928f39bbd5e25; 5 commits behind main: 1.00×</title>
   <defs><clipPath id="badge"><rect width="120" height="24" rx="4"/></clipPath></defs>
   <g clip-path="url(#badge)">
     <rect width="64" height="24" fill="#555"/>
