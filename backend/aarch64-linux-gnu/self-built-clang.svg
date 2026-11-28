@@ -1,5 +1,5 @@
-<svg data-original-label="codegen speed vs clang" data-original-message="0.99×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="codegen speed vs clang; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured fc7c4523cba2e80b1a19ce5f207866232b207872; 8 commits behind main: 0.99×">
-  <title>codegen speed vs clang; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured fc7c4523cba2e80b1a19ce5f207866232b207872; 8 commits behind main: 0.99×</title>
+<svg data-original-label="codegen speed vs clang" data-original-message="0.99×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="codegen speed vs clang; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured c37fb6f9de8fa22d3ae66364951928f39bbd5e25; 0 commits behind main: 0.99×">
+  <title>codegen speed vs clang; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured c37fb6f9de8fa22d3ae66364951928f39bbd5e25; 0 commits behind main: 0.99×</title>
   <defs><clipPath id="badge"><rect width="120" height="24" rx="4"/></clipPath></defs>
   <g clip-path="url(#badge)">
     <rect width="64" height="24" fill="#555"/>

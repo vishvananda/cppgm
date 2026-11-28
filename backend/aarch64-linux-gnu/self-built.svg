@@ -1,9 +1,9 @@
-<svg data-original-label="self-built speed vs gcc" data-original-message="0.98×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="self-built speed vs gcc; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured fc7c4523cba2e80b1a19ce5f207866232b207872; 8 commits behind main: 0.98×">
-  <title>self-built speed vs gcc; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured fc7c4523cba2e80b1a19ce5f207866232b207872; 8 commits behind main: 0.98×</title>
+<svg data-original-label="self-built speed vs gcc" data-original-message="0.98×" xmlns="http://www.w3.org/2000/svg" width="120" height="24" viewBox="0 0 120 24" role="img" aria-label="self-built speed vs gcc; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured c37fb6f9de8fa22d3ae66364951928f39bbd5e25; 0 commits behind main: 0.98×">
+  <title>self-built speed vs gcc; Arm Neoverse N2 (implementer 0x41, part 0xd49, r0p0); measured c37fb6f9de8fa22d3ae66364951928f39bbd5e25; 0 commits behind main: 0.98×</title>
   <defs><clipPath id="badge"><rect width="120" height="24" rx="4"/></clipPath></defs>
   <g clip-path="url(#badge)">
     <rect width="64" height="24" fill="#555"/>
-    <rect x="64" width="56" height="24" fill="#336128"/>
+    <rect x="64" width="56" height="24" fill="#2d5e29"/>
   </g>
   <text x="32" y="16.5" fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="12" font-weight="700" textLength="39" lengthAdjust="spacingAndGlyphs">Arm64</text>
   <text x="92" y="16.5" fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="12" font-weight="700" letter-spacing="1" textLength="39" lengthAdjust="spacingAndGlyphs">0.98×</text>
