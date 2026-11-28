@@ -28,7 +28,7 @@ Availability describes the supplied records; measurements from other reports may
 
 | Workload / configuration | Oracle | CPU / environment | Opt | Passed / executed / selected | Excluded | Status | Revision |
 |---|---|---|---|---|---|---|---|
-| [boost/o3](boost.md) | Original B2 compile/link/run and expected-failure actions, including GDB; all three compilers | Intel(R) Xeon(R) 6975P-C / GitHub hosted; Ubuntu 26.04 container | mixed | 1818 / 1818 / 1818 Boost test declarations per compiler | 0 | passed | fc7c4523c |
+| [boost/o3](boost.md) | Original B2 compile/link/run and expected-failure actions, including GDB; all three compilers | Intel(R) Xeon(R) 6975P-C / GitHub hosted; Ubuntu 26.04 container | mixed | 1818 / 1818 / 1818 Boost test declarations per compiler | 0 | passed | cebc59908 |
 
 ## Intel(R) Xeon(R) 6975P-C — GitHub hosted; Ubuntu 26.04 container
 
@@ -36,6 +36,6 @@ Architecture: x86_64; host profile `boost-e7624843ee4807fc`.
 
 | Workload / configuration / test | Opt | Phase / metric | vs GCC | vs Clang | Validation | Case set | Revision |
 |---|---|---|---:|---:|---|---|---|
-| [boost/o3/all-suites](boost.md) | O3 | compile / cpu_seconds | 4.870× | 4.345× | clang: 1817/1817 cppgm, 1817/1817 reference; gcc: 1817/1817 cppgm, 1817/1817 reference | 1817 test declarations; set 56256889 | `fc7c4523c` |
-| [boost/o3/all-suites](boost.md) | O3 | runtime / cpu_seconds | 1.040× | 1.049× | clang: 1375/1375 cppgm, 1375/1375 reference; gcc: 1375/1375 cppgm, 1375/1375 reference | 1375 native test programs; set f805acfd | `fc7c4523c` |
-| [boost/o3/all-suites](boost.md) | mixed | test-execution / cpu_seconds | 1.033× | 1.031× | clang: 1378/1378 cppgm, 1378/1378 reference; gcc: 1378/1378 cppgm, 1378/1378 reference | 1378 native test actions; set 41c66211 | `fc7c4523c` |
+| [boost/o3/all-suites](boost.md) | O3 | compile / cpu_seconds | 4.935× | 4.423× | clang: 1817/1817 cppgm, 1817/1817 reference; gcc: 1817/1817 cppgm, 1817/1817 reference | 1817 test declarations; set 56256889 | `cebc59908` |
+| [boost/o3/all-suites](boost.md) | O3 | runtime / cpu_seconds | 1.039× | 1.056× | clang: 1375/1375 cppgm, 1375/1375 reference; gcc: 1375/1375 cppgm, 1375/1375 reference | 1375 native test programs; set f805acfd | `cebc59908` |
+| [boost/o3/all-suites](boost.md) | mixed | test-execution / cpu_seconds | 1.030× | 1.022× | clang: 1378/1378 cppgm, 1378/1378 reference; gcc: 1378/1378 cppgm, 1378/1378 reference | 1378 native test actions; set 41c66211 | `cebc59908` |
